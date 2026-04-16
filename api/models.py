@@ -183,6 +183,13 @@ def init_tma_db():
         TMASetting.create(key="DEFAULT_MODEL", value="google/gemini-2.0-flash-lite-preview-02-05:free")
         TMASetting.create(key="ADMIN_SECRET", value="1") # Для ?admin=1
         TMASetting.create(key="TTS_VOICE", value="de-DE-KatjaNeural")
+        TMASetting.create(key="TTS_SPEED", value="+0%")
+
+    # Убеждаемся что новые настройки есть (если БД уже была)
+    if TMASetting.select().where(TMASetting.key == "TTS_SPEED").count() == 0:
+        TMASetting.create(key="TTS_SPEED", value="+0%")
+    if TMASetting.select().where(TMASetting.key == "TTS_VOICE").count() == 0:
+        TMASetting.create(key="TTS_VOICE", value="de-DE-KatjaNeural")
 
     # Подключаем lerne_db
     try:

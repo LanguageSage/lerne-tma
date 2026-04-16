@@ -82,6 +82,11 @@ function App() {
   const [isAiWizardOpen, setIsAiWizardOpen] = useState(false);
   const [editorSourceView, setEditorSourceView] = useState('cards');
   const [userPrompts, setUserPrompts] = useState({ translation_prompt: '', context_prompt: '' });
+  const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // 'general' | 'voice' | 'ai' | 'prompts' | 'presets'
+  const [availableModels, setAvailableModels] = useState([]);
+  const [presets, setPresets] = useState([]);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
   
   // Новые состояния для импорта
   const [deckModalMode, setDeckModalMode] = useState('choice'); // 'choice' | 'create' | 'import'
@@ -97,7 +102,10 @@ function App() {
 
   useEffect(() => {
     if (isSettingsOpen) fetchUserPrompts();
-    if (isSettingsOpen && isAdmin) fetchAdminSettings();
+    if (isSettingsOpen && isAdmin) {
+      fetchAdminSettings();
+      fetchPresets();
+    }
   }, [isSettingsOpen, isAdmin]);
 
   // Save settings to localStorage
@@ -390,9 +398,82 @@ function App() {
 
   const saveAdminSettings = async () => {
     try {
-      await axios.post(`${API_BASE}/admin/settings?admin_key=1`, adminSettings);
-      showToast("Настройки ИИ сохранены");
-    } catch (err) { showToast("Ошибка сохранения"); }
+      // Приводим ключи к нижнему регистру для Pydantic
+      const mappedSettings = {};
+      Object.keys(adminSettings).forEach(key => {
+        let mappedKey = key.toLowerCase();
+        // Специальный маппинг для AI_PROVIDER
+        if (mappedKey === 'ai_provider') mappedKey = 'provider';
+        mappedSettings[mappedKey] = adminSettings[key];
+      });
+      
+      const res = await axios.post(`${API_BASE}/admin/settings?admin_key=1`, mappedSettings);
+      if (res.data.status === 'ok') {
+        showToast("Настройки успешно сохранены");
+        fetchAdminSettings();
+      } else {
+        showToast("Ошибка сервера при сохранении");
+      }
+    } catch (err) { 
+      console.error(err);
+      const detail = err.response?.data?.detail;
+      showToast(`Ошибка сохранения: ${detail || err.message}`); 
+    }
+  };
+
+  const fetchModels = async () => {
+    const provider = adminSettings.AI_PROVIDER;
+    if (!provider) return;
+    
+    setIsFetchingModels(true);
+    try {
+      let url = `${API_BASE}/admin/models/${provider}`;
+      if (provider === 'ollama') {
+        url += `?url=${encodeURIComponent(adminSettings.OLLAMA_URL || 'http://localhost:11434')}`;
+      }
+      const res = await axios.get(url);
+      setAvailableModels(res.data);
+      if (res.data.length > 0 && !adminSettings.DEFAULT_MODEL) {
+        setAdminSettings({...adminSettings, DEFAULT_MODEL: res.data[0]});
+      }
+    } catch (err) {
+      showToast("Ошибка загрузки моделей");
+    }
+    setIsFetchingModels(false);
+  };
+
+  const fetchPresets = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/admin/presets`);
+      setPresets(res.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const saveCurrentAsPreset = async () => {
+    if (!newPresetName) {
+      showToast("Введите имя пресета");
+      return;
+    }
+    const newPresets = [...presets, { name: newPresetName, settings: { ...adminSettings } }];
+    try {
+      await axios.post(`${API_BASE}/admin/presets`, newPresets);
+      setPresets(newPresets);
+      setNewPresetName('');
+      showToast("Preset сохранен");
+    } catch (err) { showToast("Ошибка сохранения пресета"); }
+  };
+
+  const applyPreset = (preset) => {
+    setAdminSettings({ ...adminSettings, ...preset.settings });
+    showToast(`Применен пресет: ${preset.name}`);
+  };
+
+  const deletePreset = async (index) => {
+    const newPresets = presets.filter((_, i) => i !== index);
+    try {
+      await axios.post(`${API_BASE}/admin/presets`, newPresets);
+      setPresets(newPresets);
+    } catch (err) { showToast("Ошибка удаления"); }
   };
 
   const createDeck = async () => {
@@ -890,61 +971,176 @@ function App() {
                 <h2>Настройки</h2>
                 <button className="close-btn" onClick={() => setIsSettingsOpen(false)}><X size={24} /></button>
               </div>
+
+              <div className="settings-tabs">
+                <button className={`tab-btn ${activeSettingsTab === 'general' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('general')}>Общие</button>
+                <button className={`tab-btn ${activeSettingsTab === 'voice' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('voice')}>Озвучка</button>
+                <button className={`tab-btn ${activeSettingsTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('ai')}>Провайдеры</button>
+                <button className={`tab-btn ${activeSettingsTab === 'prompts' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('prompts')}>Промпты</button>
+                <button className={`tab-btn ${activeSettingsTab === 'presets' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('presets')}>Пресеты</button>
+              </div>
+
               <div className="settings-content scrollable">
-                 <div className="settings-section">
-                    <h3>Обучение</h3>
-                    <div className="settings-row">
-                      <span>Авто-звук</span>
-                      <label className="switch"><input type="checkbox" checked={autoPlay} onChange={e => setAutoPlay(e.target.checked)} /><span className="slider"></span></label>
-                    </div>
-                    <div className="settings-row">
-                      <span>Авто-показ</span>
-                      <label className="switch"><input type="checkbox" checked={autoShow} onChange={e => setAutoShow(e.target.checked)} /><span className="slider"></span></label>
-                    </div>
-                 </div>
+                <AnimatePresence mode="wait">
+                  {activeSettingsTab === 'general' && (
+                    <motion.div key="general" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
+                      <h3>Обучение</h3>
+                      <div className="settings-row">
+                        <span>Авто-звук</span>
+                        <label className="switch"><input type="checkbox" checked={autoPlay} onChange={e => setAutoPlay(e.target.checked)} /><span className="slider"></span></label>
+                      </div>
+                      <div className="settings-row">
+                        <span>Авто-показ</span>
+                        <label className="switch"><input type="checkbox" checked={autoShow} onChange={e => setAutoShow(e.target.checked)} /><span className="slider"></span></label>
+                      </div>
+                    </motion.div>
+                  )}
 
-                 <div className="settings-section">
-                    <h3>Персональные промпты</h3>
-                    <div className="form-group">
-                      <label>Системный промпт (Перевод и грамматика)</label>
-                      <textarea value={userPrompts.translation_prompt} onChange={e => setUserPrompts({...userPrompts, translation_prompt: e.target.value})} rows={6} />
-                    </div>
-                    <button className="btn-secondary btn-small" onClick={saveUserPrompts}>Сохранить промпты</button>
-                 </div>
-
-                 {isAdmin && (
-                   <div className="settings-section admin-section">
-                      <h3>⚙️ Админ: Настройки ИИ</h3>
+                  {activeSettingsTab === 'voice' && (
+                    <motion.div key="voice" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
+                      <h3>Синтез речи</h3>
                       <div className="form-group">
-                        <label>Провайдер</label>
-                        <select value={adminSettings.AI_PROVIDER} onChange={e => setAdminSettings({...adminSettings, AI_PROVIDER: e.target.value})}>
-                          <option value="ollama">Ollama (Локально)</option>
-                          <option value="openrouter">OpenRouter (Облако)</option>
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label>Endpoint / URL</label>
-                        <input value={adminSettings.OLLAMA_URL} onChange={e => setAdminSettings({...adminSettings, OLLAMA_URL: e.target.value})} />
-                      </div>
-                      <div className="form-group">
-                        <label>API Key</label>
-                        <input type="password" value={adminSettings.API_KEY || adminSettings.OPENROUTER_KEY} onChange={e => setAdminSettings({...adminSettings, API_KEY: e.target.value})} />
-                      </div>
-                      <div className="form-group">
-                        <label>Default Model</label>
-                        <input value={adminSettings.DEFAULT_MODEL} onChange={e => setAdminSettings({...adminSettings, DEFAULT_MODEL: e.target.value})} />
-                      </div>
-                      <div className="form-group">
-                        <label>Голос озвучки (Edge TTS)</label>
+                        <label>Голос (Edge TTS)</label>
                         <select value={adminSettings.TTS_VOICE} onChange={e => setAdminSettings({...adminSettings, TTS_VOICE: e.target.value})}>
                           {VOICE_OPTIONS.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
                       </div>
-                      <button className="btn-secondary btn-small" onClick={saveAdminSettings}>Сохранить конфиг ИИ</button>
-                   </div>
-                 )}
+                      <div className="form-group">
+                        <div className="label-with-value">
+                          <label>Скорость</label>
+                          <span className="value-badge">{adminSettings.TTS_SPEED || "+0%"}</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="-50" 
+                          max="100" 
+                          step="5"
+                          value={parseInt((adminSettings.TTS_SPEED || "+0%").replace('%', ''))} 
+                          onChange={e => {
+                            const val = parseInt(e.target.value);
+                            const speed = val >= 0 ? `+${val}%` : `${val}%`;
+                            setAdminSettings({...adminSettings, TTS_SPEED: speed});
+                          }} 
+                        />
+                        <div className="range-labels">
+                          <span>Медленно</span>
+                          <span>Норм</span>
+                          <span>Быстро</span>
+                        </div>
+                      </div>
+                      <button className="btn btn-primary btn-small" onClick={saveAdminSettings}>Сохранить настройки голоса</button>
+                    </motion.div>
+                  )}
+
+                  {activeSettingsTab === 'ai' && (
+                    <motion.div key="ai" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section admin-section">
+                      <h3>Настройки ИИ</h3>
+                      <div className="form-group">
+                        <label>Провайдер</label>
+                        <select value={adminSettings.AI_PROVIDER} onChange={e => {
+                          setAdminSettings({...adminSettings, AI_PROVIDER: e.target.value, DEFAULT_MODEL: ''});
+                          setAvailableModels([]);
+                        }}>
+                          <option value="ollama">Ollama (Локально)</option>
+                          <option value="openrouter">OpenRouter (Облако)</option>
+                        </select>
+                      </div>
+                      {adminSettings.AI_PROVIDER === 'ollama' ? (
+                        <div className="form-group">
+                          <label>Ollama URL</label>
+                          <input value={adminSettings.OLLAMA_URL} onChange={e => setAdminSettings({...adminSettings, OLLAMA_URL: e.target.value})} placeholder="http://localhost:11434" />
+                        </div>
+                      ) : (
+                        <div className="form-group">
+                          <label>OpenRouter API Key</label>
+                          <input type="password" value={adminSettings.API_KEY || adminSettings.OPENROUTER_KEY} onChange={e => setAdminSettings({...adminSettings, API_KEY: e.target.value})} placeholder="sk-or-..." />
+                        </div>
+                      )}
+                      
+                      <div className="form-group">
+                        <div className="label-with-value">
+                          <label>Модель</label>
+                          <button className="btn-secondary btn-tiny" onClick={fetchModels} disabled={isFetchingModels}>
+                            {isFetchingModels ? '...' : <RefreshCw size={12} />}
+                          </button>
+                        </div>
+                        <div className="model-select-group">
+                          <select 
+                            value={availableModels.includes(adminSettings.DEFAULT_MODEL) ? adminSettings.DEFAULT_MODEL : 'custom'} 
+                            onChange={e => {
+                              if (e.target.value !== 'custom') {
+                                setAdminSettings({...adminSettings, DEFAULT_MODEL: e.target.value});
+                              }
+                            }}
+                          >
+                            <option value="">Выберите модель...</option>
+                            {availableModels.map(m => <option key={m} value={m}>{m}</option>)}
+                            <option value="custom">-- Ввести вручную --</option>
+                          </select>
+                          {( !availableModels.includes(adminSettings.DEFAULT_MODEL) || adminSettings.DEFAULT_MODEL === '' ) && (
+                            <input 
+                              style={{marginTop: '8px'}}
+                              value={adminSettings.DEFAULT_MODEL} 
+                              onChange={e => setAdminSettings({...adminSettings, DEFAULT_MODEL: e.target.value})} 
+                              placeholder="Название модели вручную..." 
+                            />
+                          )}
+                        </div>
+                      </div>
+                      <button className="btn btn-primary btn-small" onClick={saveAdminSettings}>Сохранить конфиг ИИ</button>
+                    </motion.div>
+                  )}
+
+                  {activeSettingsTab === 'prompts' && (
+                    <motion.div key="prompts" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
+                      <h3>Промпты генерации</h3>
+                      <div className="form-group">
+                        <label>Системные инструкции</label>
+                        <p className="field-hint">Определяют стиль перевода и глубину анализа</p>
+                        <textarea 
+                          value={userPrompts.translation_prompt} 
+                          onChange={e => setUserPrompts({...userPrompts, translation_prompt: e.target.value})} 
+                          rows={8} 
+                          placeholder="You are a language teacher..."
+                        />
+                      </div>
+                      <button className="btn btn-primary btn-small" onClick={saveUserPrompts}>Сохранить промпты</button>
+                    </motion.div>
+                  )}
+
+                  {activeSettingsTab === 'presets' && (
+                    <motion.div key="presets" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
+                      <h3>Управление пресетами</h3>
+                      <div className="preset-save-box glass">
+                        <input 
+                          placeholder="Имя нового пресета..." 
+                          value={newPresetName} 
+                          onChange={e => setNewPresetName(e.target.value)} 
+                        />
+                        <button className="btn btn-primary btn-small" onClick={saveCurrentAsPreset}>Сохранить текущие</button>
+                      </div>
+                      
+                      <div className="presets-list scrollable">
+                        {presets.length === 0 ? <p className="hint">Нет сохраненных пресетов</p> : 
+                          presets.map((p, idx) => (
+                            <div key={idx} className="preset-item glass">
+                              <div className="preset-info">
+                                <strong>{p.name}</strong>
+                                <span>{p.settings?.AI_PROVIDER} | {p.settings?.DEFAULT_MODEL?.split('/').pop()}</span>
+                              </div>
+                              <div className="preset-actions">
+                                <button className="apply-btn" onClick={() => applyPreset(p)}>Применить</button>
+                                <button className="delete-btn-minimal" onClick={() => deletePreset(idx)}><Trash2 size={14} /></button>
+                              </div>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           </div>

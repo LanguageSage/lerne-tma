@@ -65,11 +65,13 @@ class DeckCreateRequest(BaseModel):
     name: str
 
 class AIAdminSettingsRequest(BaseModel):
-    provider: str
+    provider: str | None = None
+    ai_provider: str | None = None
     ollama_url: str | None = None
     api_key: str | None = None
     default_model: str | None = None
     tts_voice: str | None = None
+    tts_speed: str | None = None
     admin_secret: str | None = None
 
 class UserPromptRequest(BaseModel):
@@ -78,6 +80,10 @@ class UserPromptRequest(BaseModel):
 
 class AIGenerateRequest(BaseModel):
     phrase: str
+
+class PresetSaveRequest(BaseModel):
+    name: str
+    settings: dict
 
 # --- Эндпоинты ---
 
@@ -168,9 +174,12 @@ async def generate_audio_endpoint(text: str, lang: str = "de"):
         voice_setting = models.TMASetting.get_or_none(models.TMASetting.key == "TTS_VOICE")
         voice = voice_setting.value if voice_setting else None
         
+        speed_setting = models.TMASetting.get_or_none(models.TMASetting.key == "TTS_SPEED")
+        speed = speed_setting.value if speed_setting else "+0%"
+        
         # Сохраняем СРАЗУ в основную папку аудио
         output_dir = MEDIA_DIR / "audio"
-        abs_path = await standalone_gen(text, voice=voice, output_dir=str(output_dir))
+        abs_path = await standalone_gen(text, voice=voice, rate=speed, output_dir=str(output_dir))
         
         if abs_path and os.path.exists(abs_path):
             filename = os.path.basename(abs_path)
@@ -224,12 +233,65 @@ async def get_admin_settings(admin_key: str | None = None):
 async def update_admin_settings(req: AIAdminSettingsRequest, admin_key: str | None = None):
     secret = models.TMASetting.get_or_none(models.TMASetting.key == "ADMIN_SECRET")
     if not secret or admin_key != secret.value: raise HTTPException(status_code=403, detail="Forbidden")
+    
     data = req.dict(exclude_unset=True)
+    logger.info(f"Updating Admin Settings: {data}")
+    
     for k, v in data.items():
         if v is not None:
-            s, _ = models.TMASetting.get_or_create(key=k.upper())
+            # Маппинг ключей для совместимости
+            db_key = k.upper()
+            if db_key == "PROVIDER": db_key = "AI_PROVIDER"
+            if db_key == "AI_PROVIDER_KEY": db_key = "API_KEY"
+            
+            s, _ = models.TMASetting.get_or_create(key=db_key)
             s.value = str(v)
             s.save()
+            logger.info(f"Saved setting: {db_key} = {v}")
+    return {"status": "ok"}
+
+@app.get("/api/admin/models/ollama")
+async def get_ollama_models(url: str = "http://localhost:11434"):
+    import aiohttp
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{url.rstrip('/')}/api/tags", timeout=5) as resp:
+                if resp.status != 200: return []
+                data = await resp.json()
+                return [m["name"] for m in data.get("models", [])]
+    except:
+        return []
+
+@app.get("/api/admin/models/openrouter")
+async def get_openrouter_models():
+    import aiohttp
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://openrouter.ai/api/v1/models", timeout=10) as resp:
+                if resp.status != 200: return ["google/gemini-2.0-flash-lite-preview-02-05:free"]
+                data = await resp.json()
+                # Фильтруем бесплатные модели
+                free_models = [m["id"] for m in data.get("data", []) if m.get("pricing", {}).get("prompt") == "0"]
+                return free_models or ["google/gemini-2.0-flash-lite-preview-02-05:free"]
+    except:
+        return ["google/gemini-2.0-flash-lite-preview-02-05:free"]
+
+@app.get("/api/admin/presets")
+async def get_presets():
+    preset_setting = models.TMASetting.get_or_none(models.TMASetting.key == "AI_PRESETS")
+    if not preset_setting: return []
+    import json
+    try:
+        return json.loads(preset_setting.value)
+    except:
+        return []
+
+@app.post("/api/admin/presets")
+async def save_presets(req: list[PresetSaveRequest]):
+    import json
+    preset_setting, _ = models.TMASetting.get_or_create(key="AI_PRESETS")
+    preset_setting.value = json.dumps([r.dict() for r in req])
+    preset_setting.save()
     return {"status": "ok"}
 
 app.mount("/api/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")

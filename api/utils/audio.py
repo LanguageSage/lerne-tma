@@ -26,7 +26,7 @@ SUPPORTED_VOICES = {
     "en_m_guy": "en-US-GuyNeural"
 }
 
-async def generate_audio(text, voice=None, output_dir=None):
+async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
     """
     Генератор аудио на базе Microsoft Edge TTS.
     Возвращает АБСОЛЮТНЫЙ путь к файлу.
@@ -42,8 +42,8 @@ async def generate_audio(text, voice=None, output_dir=None):
     # Очистка текста от Markdown тегов перед озвучкой
     clean_text = _strip_markdown(text)
     
-    # Генерация уникального имени файла на основе текста и голоса
-    file_data = f"{clean_text}_{voice}"
+    # Генерация уникального имени файла на основе текста, голоса и скорости
+    file_data = f"{clean_text}_{voice}_{rate}"
     file_hash = hashlib.md5(file_data.encode('utf-8')).hexdigest()
     filename = f"edge_audio_{file_hash}.mp3"
     abs_filepath = os.path.join(output_dir, filename)
@@ -52,8 +52,9 @@ async def generate_audio(text, voice=None, output_dir=None):
     if os.path.exists(abs_filepath) and os.path.getsize(abs_filepath) > 0:
         return abs_filepath
 
+    logger.info(f"Generating audio for text: {clean_text[:50]}... | Voice: {voice} | Rate: {rate}")
     try:
-        communicate = edge_tts.Communicate(clean_text, voice)
+        communicate = edge_tts.Communicate(clean_text, voice, rate=rate)
         await communicate.save(abs_filepath)
         
         if os.path.exists(abs_filepath) and os.path.getsize(abs_filepath) > 0:
