@@ -1,0 +1,9 @@
+# Зависимости для Lerne TMA (Standalone)
+fastapi
+uvicorn
+peewee
+edge-tts
+aiohttp
+Pillow
+requests
+python-dotenv

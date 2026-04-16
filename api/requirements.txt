@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+peewee
+pydantic
+python-multipart
+aiofiles
+requests
