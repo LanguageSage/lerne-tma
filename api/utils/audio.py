@@ -4,18 +4,14 @@ import hashlib
 import asyncio
 import edge_tts
 import logging
+import requests
+from pathlib import Path
 
-# Простая настройка логирования в файл
-file_handler = logging.FileHandler('audio_debug.log', encoding='utf-8')
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+# Настройка логирования
 logger = logging.getLogger(__name__)
-logger.addHandler(file_handler)
-logger.setLevel(logging.INFO)
 
-# По умолчанию используется качественный женский голос Катя
 DEFAULT_VOICE = "de-DE-KatjaNeural"
 
-# Доступные голоса для выбора в настройках
 SUPPORTED_VOICES = {
     "de_f_katja": "de-DE-KatjaNeural",
     "de_m_conrad": "de-DE-ConradNeural",
@@ -28,45 +24,71 @@ SUPPORTED_VOICES = {
 
 async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
     """
-    Генератор аудио на базе Microsoft Edge TTS.
-    Возвращает АБСОЛЮТНЫЙ путь к файлу.
+    Генератор аудио. Возвращает либо локальный путь, либо облачную ссылку.
     """
-    # Если голос передан как ключ (например, 'de_f_katja'), резолвим его
     voice = SUPPORTED_VOICES.get(voice, voice) or DEFAULT_VOICE
     
     if not output_dir:
         output_dir = os.path.join(os.getcwd(), "user_files", "pending_audio")
         
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Очистка текста от Markdown тегов перед озвучкой
     clean_text = _strip_markdown(text)
     
-    # Генерация уникального имени файла на основе текста, голоса и скорости
     file_data = f"{clean_text}_{voice}_{rate}"
     file_hash = hashlib.md5(file_data.encode('utf-8')).hexdigest()
     filename = f"edge_audio_{file_hash}.mp3"
     abs_filepath = os.path.join(output_dir, filename)
     
-    # Проверяем кэш (и проверяем, что файл не пустой)
+    # Кэш
     if os.path.exists(abs_filepath) and os.path.getsize(abs_filepath) > 0:
-        return abs_filepath
+        # Если мы в облаке, файл все равно нужно проверить в Storage или загрузить
+        pass
+    else:
+        logger.info(f"Generating audio for text: {clean_text[:50]}...")
+        try:
+            communicate = edge_tts.Communicate(clean_text, voice, rate=rate)
+            await communicate.save(abs_filepath)
+        except Exception as e:
+            logger.error(f"Edge TTS Generation Error: {e}")
+            return None
 
-    logger.info(f"Generating audio for text: {clean_text[:50]}... | Voice: {voice} | Rate: {rate}")
+    # --- Облачная часть (Supabase Storage) ---
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_KEY")
+    
+    if supabase_url and supabase_key and "your_project_url_here" not in supabase_url:
+        cloud_url = _upload_to_supabase(abs_filepath, filename, supabase_url, supabase_key)
+        if cloud_url:
+            return cloud_url
+
+    return abs_filepath
+
+def _upload_to_supabase(file_path, filename, project_url, api_key):
+    """Загрузка файла в Supabase Storage через REST API."""
+    bucket = "tma-audio"
+    # Очищаем URL от лишних слешей
+    project_url = project_url.rstrip('/')
+    upload_url = f"{project_url}/storage/v1/object/{bucket}/{filename}"
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "x-upsert": "true"
+    }
+    
     try:
-        communicate = edge_tts.Communicate(clean_text, voice, rate=rate)
-        await communicate.save(abs_filepath)
-        
-        if os.path.exists(abs_filepath) and os.path.getsize(abs_filepath) > 0:
-            return abs_filepath
+        with open(file_path, "rb") as f:
+            resp = requests.post(upload_url, headers=headers, data=f)
+            
+        if resp.status_code in [200, 201]:
+            # Возвращаем публичную ссылку (бакет должен быть PUBLIC)
+            return f"{project_url}/storage/v1/object/public/{bucket}/{filename}"
         else:
-            logger.error(f"Edge TTS created an empty file for: {clean_text[:30]}")
+            logger.error(f"Supabase Upload Error ({resp.status_code}): {resp.text}")
             return None
     except Exception as e:
-        logger.error(f"Edge TTS Generation Error: {e}")
+        logger.error(f"Supabase Storage Exception: {e}")
         return None
 
 def _strip_markdown(text):
-    """Удаляет базовую разметку для чистого звучания"""
     if not text: return ""
     return text.replace("**", "").replace("__", "").replace("`", "").replace("*", "").replace("_", "").strip()
