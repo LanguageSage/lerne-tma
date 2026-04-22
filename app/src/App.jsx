@@ -1,27 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, ChevronLeft, Volume2, CheckCircle, Info, RefreshCw, Settings, X, Plus, Edit2, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Layers, ChevronLeft, Volume2, CheckCircle, Info, RefreshCw, Settings, X, Plus, Edit2, Trash2, Image as ImageIcon, Copy, Check } from 'lucide-react';
 import './App.css';
 
 // Конфигурация API
 const API_BASE = '/api';
 
-// Получаем User ID из Telegram или URL (для обычных браузеров)
-const getUserId = () => {
-  // 1. Пытаемся взять из Telegram WebApp
-  const tg = window.Telegram?.WebApp;
-  if (tg?.initDataUnsafe?.user?.id) {
-    return tg.initDataUnsafe.user.id;
+const storage = {
+  get: (key) => {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  },
+  set: (key, value) => {
+    try { localStorage.setItem(key, value); } catch (e) {}
   }
-  
-  // 2. Пытаемся взять из URL (?user_id=123)
-  const params = new URLSearchParams(window.location.search);
-  const urlId = params.get('user_id');
-  if (urlId) return parseInt(urlId);
-  
-  // 3. Fallback для разработки
-  return 642478257; 
+};
+
+// Получаем User ID из Telegram, URL или localStorage (Безопасная версия)
+const getUserId = () => {
+  try {
+    // 1. Пытаемся взять из Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if (tg?.initDataUnsafe?.user?.id) {
+      const id = tg.initDataUnsafe.user.id;
+      storage.set('lerne_user_id', id);
+      return id;
+    }
+    
+    // 2. Пытаемся взять из URL (?user_id=123)
+    const params = new URLSearchParams(window.location.search);
+    const urlId = params.get('user_id');
+    if (urlId) {
+      const id = parseInt(urlId);
+      storage.set('lerne_user_id', id);
+      return id;
+    }
+
+    // 3. Пытаемся взять из localStorage
+    const savedId = storage.get('lerne_user_id');
+    if (savedId) return parseInt(savedId);
+    
+    // 4. Генерируем новый случайный ID (для новых веб-пользователей)
+    // Но если мы на localhost - возвращаем ваш старый ID по умолчанию
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 642478257;
+    }
+
+    const newId = Math.floor(100000000 + Math.random() * 900000000);
+    storage.set('lerne_user_id', newId);
+    return newId;
+  } catch (err) {
+    console.error("Critical error in getUserId:", err);
+    return 642478257; 
+  }
 };
 
 const VOICE_OPTIONS = [
@@ -65,11 +96,11 @@ function App() {
   const [toast, setToast] = useState(null);
 
   const [autoPlay, setAutoPlay] = useState(() => {
-    const saved = localStorage.getItem('lerne_autoplay');
+    const saved = storage.get('lerne_autoplay');
     return saved !== null ? saved === 'true' : true;
   });
   const [autoShow, setAutoShow] = useState(() => {
-    const saved = localStorage.getItem('lerne_autoshow');
+    const saved = storage.get('lerne_autoshow');
     return saved !== null ? saved === 'true' : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -110,11 +141,11 @@ function App() {
 
   // Save settings to localStorage
   useEffect(() => {
-    localStorage.setItem('lerne_autoplay', autoPlay);
+    storage.set('lerne_autoplay', autoPlay);
   }, [autoPlay]);
 
   useEffect(() => {
-    localStorage.setItem('lerne_autoshow', autoShow);
+    storage.set('lerne_autoshow', autoShow);
   }, [autoShow]);
 
   // Auto-play when card changes
@@ -604,7 +635,21 @@ function App() {
             <p>Выбирайте колоду и начните обучение</p>
             <div className="commercial-info glass">
               <Info size={16} />
-              <span>Доступно в браузере: <code className="web-link">{window.location.host}/?user_id={USER_ID}</code></span>
+              <div className="web-link-container">
+                <span>Персональная ссылка: </span>
+                <code className="web-link">{window.location.origin}/?user_id={USER_ID}</code>
+                <button 
+                  className="copy-link-btn" 
+                  onClick={() => {
+                    const link = `${window.location.origin}/?user_id=${USER_ID}`;
+                    navigator.clipboard.writeText(link);
+                    showToast("Ссылка скопирована!", "success");
+                  }}
+                  title="Копировать ссылку"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
             </div>
           </div>
 

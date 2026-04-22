@@ -119,48 +119,52 @@ def import_deck(external_deck_id: int, user_id: int):
         return None
 
 def get_next_card(user_id: int, deck_id: int):
-    """Логика выбора следующей карты для изучения (SRS)."""
+    """Логика выбора следующей карты для изучения (SRS). Оптимизировано."""
     try:
         now = datetime.datetime.now()
-        deck_card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == deck_id)]
-        if not deck_card_ids: return None, None
-
-        # 1. Сначала карточки на изучении
-        learning = (TMAProgress.select().where(
-                TMAProgress.user_id == user_id,
-                TMAProgress.card_id << deck_card_ids,
-                TMAProgress.queue.in_(["learning", "relearning"]),
-                TMAProgress.next_review <= now,
-            ).order_by(TMAProgress.next_review).first())
-        if learning:
-            card = TMA_Card.get_or_none(TMA_Card.id == learning.card_id)
-            if card: return card, learning
-                
-        # 2. Затем карточки на повторение (review)
-        due = (TMAProgress.select().where(
-                TMAProgress.user_id == user_id,
-                TMAProgress.card_id << deck_card_ids,
-                TMAProgress.queue == "review",
-                TMAProgress.next_review <= now,
-            ).order_by(fn.Random()).first())
-        if due:
-            card = TMA_Card.get_or_none(TMA_Card.id == due.card_id)
-            if card: return card, due
-
-        # 3. Наконец, новые карточки
-        existing_ids = [p.card_id for p in TMAProgress.select(TMAProgress.card_id).where(TMAProgress.user_id == user_id)]
-        new_card_ids = [cid for cid in deck_card_ids if cid not in existing_ids]
         
-        if not new_card_ids: return None, None
+        # 1. Сначала ищем карточки, которые уже есть в прогрессе (learning или due)
+        progress = (TMAProgress
+                   .select(TMAProgress, TMA_Card)
+                   .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
+                   .where(
+                       TMAProgress.user_id == user_id,
+                       TMA_Card.deck == deck_id,
+                       TMAProgress.next_review <= now
+                   )
+                   .order_by(
+                       TMAProgress.queue.asc(), # 'learning' < 'review'
+                       TMAProgress.next_review.asc()
+                   )
+                   .first())
+        
+        if progress:
+            # Безопасно получаем объект карты
+            card = TMA_Card.get_by_id(progress.card_id)
+            return card, progress
+
+        # 2. Если ничего к повторению нет, ищем НОВУЮ карточку
+        new_card = (TMA_Card
+                   .select()
+                   .where(
+                       TMA_Card.deck == deck_id,
+                       TMA_Card.is_deleted == False,
+                       ~(TMA_Card.id << TMAProgress.select(TMAProgress.card_id).where(TMAProgress.user_id == user_id))
+                   )
+                   .order_by(TMA_Card.id.asc())
+                   .first())
+        
+        if not new_card:
+            return None, None
             
-        target_id = new_card_ids[0]
-        progress, created = TMAProgress.get_or_create(
-            card_id=target_id, 
+        progress = TMAProgress.create(
+            card_id=new_card.id, 
             user_id=user_id, 
-            defaults={"queue": "new", "next_review": now}
+            queue="new", 
+            next_review=now
         )
-        card = TMA_Card.get_or_none(TMA_Card.id == target_id)
-        return card, progress
+        return new_card, progress
+        
     except Exception as e:
         logger.error(f"Error in get_next_card: {e}")
         return None, None

@@ -98,8 +98,8 @@ class TMA_Card(BaseModel):
 
 class TMAProgress(BaseModel):
     id = AutoField()
-    card_id = IntegerField()
-    user_id = BigIntegerField()
+    card_id = IntegerField(index=True)
+    user_id = BigIntegerField(index=True)
     queue = CharField(default='new')
     interval = IntegerField(default=0)      # По умолчанию 0
     ease_factor = FloatField(default=2.5)
@@ -111,10 +111,16 @@ class TMAProgress(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
     updated_at = DateTimeField(null=True)
 
+    class Meta:
+        indexes = (
+            # Оптимизация для выбора следующей карты (get_next_card)
+            (('user_id', 'queue', 'next_review'), False),
+        )
+
 class TMAReviewHistory(BaseModel):
     id = AutoField()
-    card_id = IntegerField()
-    user_id = BigIntegerField()
+    card_id = IntegerField(index=True)
+    user_id = BigIntegerField(index=True)
     rating = IntegerField()
     reviewed_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
 
