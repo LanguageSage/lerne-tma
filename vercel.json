@@ -2,17 +2,28 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/main.py",
+      "src": "api/index.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "app/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/main.py"
+      "dest": "api/index.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "app/$1"
     }
   ],
   "env": {
-    "PYTHONPATH": "."
+    "PYTHON_VERSION": "3.12"
   }
 }
