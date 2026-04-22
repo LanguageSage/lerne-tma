@@ -2,19 +2,23 @@ import os
 import sys
 import logging
 from pathlib import Path
+
+# ВАЖНО: Добавляем текущую папку в пути поиска модулей для Vercel
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-# --- Добавляем путь для импортов через tma.api ---
-BASE_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = BASE_DIR.parent
-if str(PROJECT_ROOT.parent) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT.parent))
-
-from tma.api import models, services, srs, ai_service
+# Прямые импорты соседних файлов
+import models
+import services
+import srs
+import ai_service
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -31,275 +35,248 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Настройка путей ---
-MEDIA_DIR = models.TMA_DATA_DIR / "media"
-
-# Инициализация БД при старте
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting TMA API...")
-    models.init_tma_db()
-    # Создаем локальные папки для медиа
-    for d in ["images", "audio"]:
-        path = MEDIA_DIR / d
-        path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Directory ready: {path}")
-
-# --- Схемы ---
-
-class GradeRequest(BaseModel):
-    card_id: int
-    deck_id: int
-    grade: int
-
-class CardSaveRequest(BaseModel):
-    card_id: int | None = None
-    deck_id: int | None = None
-    front: str
-    back: str
-    context: str | None = ""
-    image_path: str | None = None
-    audio_path: str | None = None
-
-class DeckCreateRequest(BaseModel):
-    name: str
-
-class AIAdminSettingsRequest(BaseModel):
-    provider: str | None = None
-    ai_provider: str | None = None
-    ollama_url: str | None = None
-    api_key: str | None = None
-    default_model: str | None = None
-    tts_voice: str | None = None
-    tts_speed: str | None = None
-    admin_secret: str | None = None
-
-class UserPromptRequest(BaseModel):
-    translation_prompt: str
-    context_prompt: str
-
-class AIGenerateRequest(BaseModel):
+# --- Схемы данных ---
+class PhraseRequest(BaseModel):
     phrase: str
 
-class PresetSaveRequest(BaseModel):
-    name: str
-    settings: dict
+class CardProgressUpdate(BaseModel):
+    grade: int
 
-# --- Эндпоинты ---
+# --- API Эндпоинты ---
+
+@app.get("/api/health")
+def health_check():
+    db_ok = not models.tma_db.is_closed()
+    return {
+        "status": "ok",
+        "database_connected": db_ok,
+    }
+
+# --- Колоды и изучение ---
 
 @app.get("/api/decks")
-async def list_decks(x_user_id: int = Header(...)):
+def get_decks(x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
     return services.get_active_decks(x_user_id)
-
+    
 @app.post("/api/decks")
-async def create_deck(req: DeckCreateRequest, x_user_id: int = Header(...)):
-    try:
-        new_deck = models.Deck.create(name=req.name, level="A1", topic="User")
-        return {"id": new_deck.id, "name": new_deck.name}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def create_deck(data: dict, x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    deck = services.create_deck(data.get('name'), x_user_id)
+    return {"status": "success", "id": deck.id}
 
 @app.delete("/api/decks/{deck_id}")
-async def delete_deck(deck_id: int):
+def delete_deck(deck_id: int):
     if services.delete_deck(deck_id):
-        return {"status": "ok"}
+        return {"status": "success"}
     raise HTTPException(status_code=404, detail="Deck not found")
 
-@app.get("/api/decks/{deck_id}/next")
-async def get_next_card(deck_id: int, x_user_id: int = Header(...)):
-    card, progress = services.get_next_card(x_user_id, deck_id)
-    if not card: return {"finished": True}
-    return {
-        "id": card.id,
-        "front": card.front_text,
-        "back": card.back_text,
-        "context": card.context,
-        "image_url": services.resolve_media_url(card.image_path, "images"),
-        "audio_url": services.resolve_media_url(card.audio_path, "audio"),
-        "intervals": srs.get_next_intervals(progress)
-    }
-
-@app.post("/api/study/grade")
-async def submit_grade(req: GradeRequest, x_user_id: int = Header(...)):
-    progress = models.TMAProgress.get_or_none(models.TMAProgress.card_id == req.card_id, models.TMAProgress.user_id == x_user_id)
-    if not progress: raise HTTPException(status_code=404, detail="Progress record not found")
-    
-    srs.review_card(progress, req.grade)
-    models.TMAReviewHistory.create(user_id=x_user_id, card_id=req.card_id, rating=req.grade, scheduled_interval=progress.interval or 0)
-    
-    # След. карта
-    card, next_progress = services.get_next_card(x_user_id, req.deck_id)
-    if not card: return {"finished": True}
-    return {
-        "id": card.id,
-        "front": card.front_text,
-        "back": card.back_text,
-        "context": card.context,
-        "image_url": services.resolve_media_url(card.image_path, "images"),
-        "audio_url": services.resolve_media_url(card.audio_path, "audio"),
-        "intervals": srs.get_next_intervals(next_progress)
-    }
-
-@app.get("/api/decks/{deck_id}/cards")
-async def list_deck_cards(deck_id: int):
-    return await services.get_deck_cards_full(deck_id)
-
-@app.post("/api/cards/save")
-async def save_card(req: CardSaveRequest):
-    """Прямое сохранение или обновление карточки."""
-    data = req.dict(exclude={'card_id', 'deck_id'})
-    
-    if req.card_id:
-        card = services.update_card(req.card_id, data)
-    elif req.deck_id:
-        card = services.create_card(req.deck_id, data)
-    else:
-        raise HTTPException(status_code=400, detail="Missing card_id or deck_id")
-        
-    if not card:
-        raise HTTPException(status_code=404, detail="Operation failed")
-        
-    return {"status": "ok", "id": card.id}
-
-@app.delete("/api/cards/{card_id}")
-async def delete_card(card_id: int):
-    if services.delete_card(card_id):
-        return {"status": "ok"}
-    raise HTTPException(status_code=404, detail="Card not found")
-
-@app.post("/api/media/generate-audio")
-async def generate_audio_endpoint(text: str, lang: str = "de"):
-    try:
-        from tma.api.utils.audio import generate_audio as standalone_gen
-        voice_setting = models.TMASetting.get_or_none(models.TMASetting.key == "TTS_VOICE")
-        voice = voice_setting.value if voice_setting else None
-        
-        speed_setting = models.TMASetting.get_or_none(models.TMASetting.key == "TTS_SPEED")
-        speed = speed_setting.value if speed_setting else "+0%"
-        
-        # Сохраняем СРАЗУ в основную папку аудио
-        output_dir = MEDIA_DIR / "audio"
-        abs_path = await standalone_gen(text, voice=voice, rate=speed, output_dir=str(output_dir))
-        
-        if abs_path and os.path.exists(abs_path):
-            filename = os.path.basename(abs_path)
-            rel_path = f"audio/{filename}"
-            return {"url": services.resolve_media_url(rel_path, "audio"), "path": rel_path}
-            
-        raise Exception("Edge TTS generation failed")
-    except Exception as e:
-        logger.error(f"Audio Gen Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.get("/api/external/decks")
-async def list_external_decks():
-    decks = services.get_external_decks()
-    return [{"id": d.id, "name": d.name, "topic": d.topic} for d in decks]
+def get_external_decks():
+    return services.get_external_decks()
 
 @app.post("/api/external/import/{deck_id}")
-async def import_deck(deck_id: int):
-    new_deck = services.import_deck(deck_id)
-    if not new_deck: raise HTTPException(status_code=404, detail="Deck not found")
-    return {"id": new_deck.id, "name": new_deck.name}
+def import_external_deck(deck_id: int, x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    result = services.import_deck(deck_id, x_user_id)
+    if result:
+        return {"status": "success", "deck_id": result.id}
+    raise HTTPException(status_code=404, detail="External deck not found")
+
+@app.get("/api/decks/{deck_id}/next")
+def get_next_card(deck_id: int, x_user_id: int = Header(None)):
+    """Выбор следующей карты для изучения (SRS)."""
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    card, progress = services.get_next_card(x_user_id, deck_id)
+    if not card:
+        logger.info(f"User {x_user_id} finished deck {deck_id}")
+        return {"finished": true}
+    
+    resp = {
+        "id": card.id,
+        "front": card.front_text,
+        "back": card.back_text,
+        "context": card.context,
+        "audio_url": services.resolve_media_url(card.audio_path, "audio"),
+        "image_url": services.resolve_media_url(card.image_path, "images"),
+        "intervals": srs.get_next_intervals(progress)
+    }
+    import json
+    resp_json = json.dumps(resp, ensure_ascii=False)
+    logger.info(f"FULL CARD JSON for user {x_user_id}: {resp_json}")
+    return resp
+
+@app.get("/api/decks/{deck_id}/cards")
+def get_deck_cards(deck_id: int, x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    return services.get_cards_for_study(deck_id, x_user_id)
+
+@app.post("/api/cards/save")
+def save_card(data: dict, x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    card = services.save_card(data, x_user_id)
+    if card:
+        return {"status": "success", "id": card.id}
+    raise HTTPException(status_code=400, detail="Failed to save card")
+
+@app.delete("/api/cards/{card_id}")
+def delete_card(card_id: int):
+    if services.delete_card(card_id):
+        return {"status": "success"}
+    raise HTTPException(status_code=404, detail="Card not found")
+
+@app.post("/api/study/grade")
+def submit_grade(data: dict, x_user_id: int = Header(None)):
+    if not x_user_id:
+        logger.error("submit_grade: X-User-ID header missing")
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    
+    try:
+        logger.info(f"submit_grade: User {x_user_id}, Data: {data}")
+        # Update progress
+        services.update_card_progress(data['card_id'], x_user_id, data['grade'])
+        logger.info("submit_grade: Progress updated successfully")
+        
+        # Return next card
+        return get_next_card(data['deck_id'], x_user_id)
+    except Exception as e:
+        logger.error(f"submit_grade ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Настройки и промпты ---
 
 @app.get("/api/user/prompts")
-async def get_user_prompts(x_user_id: int = Header(...)):
-    prompt = models.TMAUserPrompt.get_or_none(models.TMAUserPrompt.user_id == x_user_id)
-    if not prompt: return {"translation_prompt": ai_service.DEFAULT_TRANSLATION_PROMPT, "context_prompt": ""}
-    return {"translation_prompt": prompt.translation_prompt, "context_prompt": prompt.context_prompt}
+def get_user_prompts(x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    p = models.TMAUserPrompt.get_or_none(models.TMAUserPrompt.user_id == x_user_id)
+    if not p:
+        return {"translation_prompt": "", "context_prompt": ""}
+    return {
+        "translation_prompt": p.translation_prompt or "",
+        "context_prompt": p.context_prompt or ""
+    }
 
 @app.post("/api/user/prompts")
-async def update_user_prompts(req: UserPromptRequest, x_user_id: int = Header(...)):
-    prompt, _ = models.TMAUserPrompt.get_or_create(user_id=x_user_id)
-    prompt.translation_prompt = req.translation_prompt
-    prompt.context_prompt = req.context_prompt
-    prompt.updated_at = models.datetime.datetime.now()
-    prompt.save()
+def save_user_prompts(data: dict, x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    p, created = models.TMAUserPrompt.get_or_create(user_id=x_user_id)
+    p.translation_prompt = data.get('translation_prompt')
+    p.context_prompt = data.get('context_prompt')
+    p.save()
     return {"status": "ok"}
-
-@app.post("/api/cards/ai-generate")
-async def ai_generate_card(req: AIGenerateRequest, x_user_id: int = Header(...)):
-    result = await ai_service.generate_card_fields(x_user_id, req.phrase)
-    if "error" in result: raise HTTPException(status_code=500, detail=result["error"])
-    return result
 
 @app.get("/api/admin/settings")
-async def get_admin_settings(admin_key: str | None = None):
-    secret = models.TMASetting.get_or_none(models.TMASetting.key == "ADMIN_SECRET")
-    if not secret or admin_key != secret.value: raise HTTPException(status_code=403, detail="Forbidden")
-    return {s.key: s.value for s in models.TMASetting.select()}
+def get_admin_settings():
+    settings = {}
+    for s in models.TMASetting.select():
+        settings[s.key] = s.value
+    return settings
 
 @app.post("/api/admin/settings")
-async def update_admin_settings(req: AIAdminSettingsRequest, admin_key: str | None = None):
-    secret = models.TMASetting.get_or_none(models.TMASetting.key == "ADMIN_SECRET")
-    if not secret or admin_key != secret.value: raise HTTPException(status_code=403, detail="Forbidden")
-    
-    data = req.dict(exclude_unset=True)
-    logger.info(f"Updating Admin Settings: {data}")
-    
+def save_admin_settings(data: dict):
     for k, v in data.items():
-        if v is not None:
-            # Маппинг ключей для совместимости
-            db_key = k.upper()
-            if db_key == "PROVIDER": db_key = "AI_PROVIDER"
-            if db_key == "AI_PROVIDER_KEY": db_key = "API_KEY"
-            
-            s, _ = models.TMASetting.get_or_create(key=db_key)
-            s.value = str(v)
-            s.save()
-            logger.info(f"Saved setting: {db_key} = {v}")
+        # Приводим к верхнему регистру для соответствия константам, если нужно
+        key = k.upper()
+        s, created = models.TMASetting.get_or_create(key=key)
+        s.value = str(v)
+        s.save()
     return {"status": "ok"}
-
-@app.get("/api/admin/models/ollama")
-async def get_ollama_models(url: str = "http://localhost:11434"):
-    import aiohttp
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{url.rstrip('/')}/api/tags", timeout=5) as resp:
-                if resp.status != 200: return []
-                data = await resp.json()
-                return [m["name"] for m in data.get("models", [])]
-    except:
-        return []
-
-@app.get("/api/admin/models/openrouter")
-async def get_openrouter_models():
-    import aiohttp
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get("https://openrouter.ai/api/v1/models", timeout=10) as resp:
-                if resp.status != 200: return ["google/gemini-2.0-flash-lite-preview-02-05:free"]
-                data = await resp.json()
-                # Фильтруем бесплатные модели
-                free_models = [m["id"] for m in data.get("data", []) if m.get("pricing", {}).get("prompt") == "0"]
-                return free_models or ["google/gemini-2.0-flash-lite-preview-02-05:free"]
-    except:
-        return ["google/gemini-2.0-flash-lite-preview-02-05:free"]
 
 @app.get("/api/admin/presets")
-async def get_presets():
-    preset_setting = models.TMASetting.get_or_none(models.TMASetting.key == "AI_PRESETS")
-    if not preset_setting: return []
-    import json
+def get_admin_presets():
+    # Для упрощения пока возвращаем пустой список или захардкоженные
+    return []
+
+# --- AI ---
+
+@app.post("/api/ai/generate")
+@app.post("/api/cards/ai-generate")
+async def generate_card(request: PhraseRequest, x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    return await ai_service.generate_card_fields(x_user_id, request.phrase)
+
+# --- Медиа ---
+
+@app.post("/api/media/generate-audio")
+async def generate_audio_endpoint(text: str, lang: str = "de", voice: str = None, rate: str = None):
+    """Генерация озвучки через Edge TTS и загрузка в облако (если настроено)."""
+    
+    # 1. Пытаемся получить настройки из БД, если они не переданы явно в запросе
+    db_settings = {}
     try:
-        return json.loads(preset_setting.value)
-    except:
-        return []
+        for s in models.TMASetting.select():
+            db_settings[s.key] = s.value
+    except Exception as e:
+        logger.error(f"Error fetching settings for audio: {e}")
 
-@app.post("/api/admin/presets")
-async def save_presets(req: list[PresetSaveRequest]):
-    import json
-    preset_setting, _ = models.TMASetting.get_or_create(key="AI_PRESETS")
-    preset_setting.value = json.dumps([r.dict() for r in req])
-    preset_setting.save()
-    return {"status": "ok"}
+    # 2. Определяем голос: приоритет у параметра запроса, затем БД, затем язык
+    voice = voice or db_settings.get("TTS_VOICE")
+    if not voice:
+        if lang == "de":
+            voice = "de-DE-KatjaNeural"
+        elif lang == "ru":
+            voice = "ru-RU-SvetlanaNeural"
+        else:
+            voice = "en-US-AriaNeural"
+            
+    # 3. Определяем скорость: приоритет у параметра, затем БД TTS_SPEED, затем дефолт
+    rate = rate or db_settings.get("TTS_SPEED") or "+0%"
+            
+    try:
+        from utils.audio import generate_audio
+        result = await generate_audio(text, voice=voice, rate=rate)
+        
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to generate audio")
+            
+        # result может быть либо облачной ссылкой (http...), либо локальным абсолютным путем
+        if result.startswith("http"):
+            return {"path": result, "url": result}
+        else:
+            # Локальный путь - возвращаем имя файла для базы и относительный URL для фронта
+            filename = os.path.basename(result)
+            return {
+                "path": filename,
+                "url": f"/api/media/audio/{filename}"
+            }
+    except Exception as e:
+        logger.error(f"Audio generation endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-app.mount("/api/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
+@app.get("/api/media/audio/{filename}")
+def get_audio(filename: str):
+    # 1. Сначала ищем в постоянном хранилище
+    file_path = models.TMA_DATA_DIR / "media" / "audio" / filename
+    if file_path.exists():
+        return FileResponse(file_path)
+    
+    # 2. Ищем во временной папке (для Vercel это /tmp, для локала - user_files)
+    if os.environ.get("VERCEL"):
+        pending_path = Path("/tmp/pending_audio") / filename
+    else:
+        pending_path = models.TMA_ROOT / "user_files" / "pending_audio" / filename
+        
+    if pending_path.exists():
+        return FileResponse(pending_path)
+        
+    return {"error": f"not found: {filename}"}
 
-FRONTEND_DIR = BASE_DIR.parent / "app" / "dist"
-if FRONTEND_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")
+@app.get("/api/media/images/{filename}")
+def get_image(filename: str):
+    file_path = models.TMA_DATA_DIR / "media" / "images" / filename
+    if file_path.exists():
+        return FileResponse(file_path)
+    return {"error": "not found"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

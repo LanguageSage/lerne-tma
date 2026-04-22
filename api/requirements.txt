@@ -1,7 +1,10 @@
 fastapi
 uvicorn
 peewee
-pydantic
-python-multipart
-aiofiles
+edge-tts
+aiohttp
+Pillow
 requests
+python-dotenv
+psycopg2-binary
+supabase

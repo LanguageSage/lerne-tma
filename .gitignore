@@ -162,3 +162,5 @@ node_modules/
 user_files/
 api/data/media/
 .DS_Store
+
+.vercel

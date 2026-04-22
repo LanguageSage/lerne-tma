@@ -291,10 +291,11 @@ function App() {
       }, { headers: { 'X-User-ID': USER_ID } });
       
       setCard({ ...c, audio_url: res.data.url, audio_path: res.data.path });
-      showToast("Озвучка добавлена!");
+      showToast("Озвучка добавлена!", "success");
+      playAudio(res.data.url);
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка генерации: ${err.response?.data?.detail || err.message}`);
+      showToast(`Ошибка генерации: ${err.response?.data?.detail || err.message}`, "error");
     }
     setLoading(false);
   };
@@ -318,7 +319,7 @@ function App() {
       };
 
       await axios.post(`${API_BASE}/cards/save`, reqData, { headers: { 'X-User-ID': USER_ID } });
-      showToast("Сохранено");
+      showToast("Сохранено", "success");
       
       if (editorSourceView === 'study') {
         // Локально обновляем текущую карточку, чтобы изменения были видны сразу
@@ -359,7 +360,7 @@ function App() {
         audio_path: res.data.path,
         audio_url: res.data.url // Временное поле для предпросмотра в редакторе
       });
-      showToast("Аудио сгенерировано");
+      showToast("Аудио сгенерировано", "success");
       // Авто-воспроизведение для проверки
       playAudio(res.data.url);
     } catch (err) {
@@ -370,8 +371,6 @@ function App() {
   };
 
   const handleImageUpload = (e) => {
-    // Current placeholder - in a real app, send to /api/media/upload
-    // For now, let's keep it simple as proposed.
     showToast("Загрузка временно недоступна");
   };
 
@@ -385,8 +384,8 @@ function App() {
   const saveUserPrompts = async () => {
     try {
       await axios.post(`${API_BASE}/user/prompts`, userPrompts, { headers: { 'X-User-ID': USER_ID } });
-      showToast("Промпты сохранены");
-    } catch (err) { showToast("Ошибка сохранения"); }
+      showToast("Промпты сохранены", "success");
+    } catch (err) { showToast("Ошибка сохранения", "error"); }
   };
 
   const fetchAdminSettings = async () => {
@@ -409,15 +408,15 @@ function App() {
       
       const res = await axios.post(`${API_BASE}/admin/settings?admin_key=1`, mappedSettings);
       if (res.data.status === 'ok') {
-        showToast("Настройки успешно сохранены");
+        showToast("Настройки сохранены", "success");
         fetchAdminSettings();
       } else {
-        showToast("Ошибка сервера при сохранении");
+        showToast("Ошибка сервера при сохранении", "error");
       }
     } catch (err) { 
       console.error(err);
       const detail = err.response?.data?.detail;
-      showToast(`Ошибка сохранения: ${detail || err.message}`); 
+      showToast(`Ошибка сохранения: ${detail || err.message}`, "error"); 
     }
   };
 
@@ -574,8 +573,8 @@ function App() {
     setLoading(false);
   };
 
-  const showToast = (message) => {
-    setToast(message);
+  const showToast = (message, type = "error") => {
+    setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
@@ -685,70 +684,59 @@ function App() {
               <AnimatePresence>
                 {toast && (
                   <motion.div 
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, y: -20, x: "-50%" }}
+                    animate={{ opacity: 1, y: 0, x: "-50%" }}
                     exit={{ opacity: 0 }}
-                    className="toast glass"
+                    className={`toast glass ${toast.type}`}
                   >
-                    {toast}
+                    {toast.message}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {card ? (
+              {loading && !card ? (
+                <div className="finished-view glass">
+                  <RefreshCw size={48} className="spin" color="#a855f7" />
+                  <h3>Загрузка карточек...</h3>
+                </div>
+              ) : card ? (
                 <div className="study-flow" key={card.id}>
                   <div className={`card-container ${loading ? 'loading-card' : ''}`} onClick={() => !loading && setIsFlipped(!isFlipped)}>
-                    <AnimatePresence mode="wait">
-                      {!isFlipped ? (
-                        <motion.div 
-                          key="front"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="card-inner card-front glass"
-                        >
-                          <div className="card-face">
-                            <div className="card-q">❓</div>
-                            <div className="text-front" dangerouslySetInnerHTML={{ __html: stripMarkdown(card.front) }}></div>
-                            {card.audio_url && (
-                              <button 
-                                className="audio-btn" 
-                                disabled={loading}
-                                onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
-                              >
-                                <Volume2 size={20} />
-                              </button>
-                            )}
-                          </div>
-                        </motion.div>
-                      ) : (
-                        <motion.div 
-                          key="back"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="card-inner card-back glass"
-                        >
-                          <div className="card-face">
-                            <div className="text-front-mini">{stripMarkdown(card.front)}</div>
-                            <div className="text-back" dangerouslySetInnerHTML={{ __html: stripMarkdown(card.back) }}></div>
-                            {card.image_url && <img src={card.image_url} className="card-img" alt="Card" />}
-                            {card.context && <div className="text-context" dangerouslySetInnerHTML={{ __html: stripMarkdown(card.context) }}></div>}
-                            {card.audio_url && (
-                              <button 
-                                className="audio-btn bg-audio-btn" 
-                                disabled={loading}
-                                onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
-                              >
-                                <Volume2 size={24} />
-                              </button>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {!isFlipped ? (
+                      <div className="card-inner card-front glass">
+                        <div className="card-face">
+                          <div className="card-q">❓</div>
+                          <div className="text-front">{stripMarkdown(card.front)}</div>
+                          {card.audio_url && (
+                            <button 
+                              className="audio-btn" 
+                              disabled={loading}
+                              onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
+                            >
+                              <Volume2 size={20} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="card-inner card-back glass">
+                        <div className="card-face">
+                          <div className="text-front-mini">{stripMarkdown(card.front)}</div>
+                          <div className="text-back">{stripMarkdown(card.back)}</div>
+                          {card.image_url && <img src={card.image_url} className="card-img" alt="Card" />}
+                          {card.context && <div className="text-context">{stripMarkdown(card.context)}</div>}
+                          {card.audio_url && (
+                            <button 
+                              className="audio-btn bg-audio-btn" 
+                              disabled={loading}
+                              onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
+                            >
+                              <Volume2 size={24} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {loading && (
                       <div className="card-loading-overlay">
@@ -758,16 +746,12 @@ function App() {
                   </div>
 
                   {isFlipped && (
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: loading ? 0.5 : 1, scale: 1 }}
-                      className="grade-buttons"
-                    >
-                      <button disabled={loading} title="Again" className="btn btn-grade grade-0" onClick={() => submitGrade(0)}>{card.intervals[0]}</button>
-                      <button disabled={loading} title="Hard" className="btn btn-grade grade-1" onClick={() => submitGrade(1)}>{card.intervals[1]}</button>
-                      <button disabled={loading} title="Good" className="btn btn-grade grade-2" onClick={() => submitGrade(2)}>{card.intervals[2]}</button>
-                      <button disabled={loading} title="Easy" className="btn btn-grade grade-3" onClick={() => submitGrade(3)}>{card.intervals[3]}</button>
-                    </motion.div>
+                    <div className="grade-buttons">
+                      <button disabled={loading} title="Again" className="btn btn-grade grade-0" onClick={() => submitGrade(0)}>{card.intervals?.[0] || 'Снова'}</button>
+                      <button disabled={loading} title="Hard" className="btn btn-grade grade-1" onClick={() => submitGrade(1)}>{card.intervals?.[1] || 'Трудно'}</button>
+                      <button disabled={loading} title="Good" className="btn btn-grade grade-2" onClick={() => submitGrade(2)}>{card.intervals?.[2] || 'Хорошо'}</button>
+                      <button disabled={loading} title="Easy" className="btn btn-grade grade-3" onClick={() => submitGrade(3)}>{card.intervals?.[3] || 'Легко'}</button>
+                    </div>
                   )}
                   
                   {!isFlipped && (

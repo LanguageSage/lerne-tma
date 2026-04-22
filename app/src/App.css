@@ -396,19 +396,33 @@ input:checked + .slider:before {
 
 /* Toast Styles */
 .toast {
-  position: absolute;
+  position: fixed; /* Changed to fixed for consistent positioning */
   top: 100px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1000;
-  padding: 10px 20px;
-  border-radius: 12px;
-  background: rgba(239, 68, 68, 0.2);
+  z-index: 3000; /* Higher than settings modal (2000) */
+  padding: 10px 24px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  backdrop-filter: blur(15px);
+  white-space: nowrap;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast.error {
+  background: rgba(239, 68, 68, 0.25);
   border: 1px solid rgba(239, 68, 68, 0.4);
   color: #fca5a5;
-  font-size: 0.9rem;
-  backdrop-filter: blur(10px);
-  white-space: nowrap;
+}
+
+.toast.success {
+  background: rgba(34, 197, 94, 0.25);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
 }
 
 /* Improved Transitions */

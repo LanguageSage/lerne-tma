@@ -59,6 +59,9 @@ try {
     Write-Host "Backend:  http://localhost:8001"
     Write-Host "Frontend: http://localhost:5173"
     Write-Host ""
+    Write-Host "Direct Browser Link (Standalone):" -ForegroundColor Yellow
+    Write-Host "http://localhost:5173/?user_id=642478257" -ForegroundColor Cyan
+    Write-Host ""
 }
 catch {
     Write-Host "[!] ERROR occurred: $($_.Exception.Message)" -ForegroundColor Red

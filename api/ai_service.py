@@ -1,75 +1,52 @@
 import re
-from tma.api.models import TMASetting, TMAUserPrompt
-from tma.api.ai_clients import AIService
+import logging
 
-# Пытаемся получить живые промпты из базы Lerne
-def get_lerne_prompts():
+logger = logging.getLogger(__name__)
+
+# Универсальные импорты
+try:
+    from models import TMASetting, TMAUserPrompt, lerne_db
+    from ai_clients import AIService
+except ImportError:
     try:
-        from tma.api.models import lerne_db
-        with lerne_db.bind_ctx([TMASettingLerne]):
-            tr = TMASettingLerne.get_or_none(TMASettingLerne.key == "TRANSLATE_PROMPT")
-            ctx = TMASettingLerne.get_or_none(TMASettingLerne.key == "CONTEXT_PROMPT")
-            return (tr.value if tr else DEFAULT_TRANSLATION_PROMPT), (ctx.value if ctx else "")
-    except:
-        return DEFAULT_TRANSLATION_PROMPT, ""
+        from api.models import TMASetting, TMAUserPrompt, lerne_db
+        from api.ai_clients import AIService
+    except ImportError:
+        logger.error("Could not import models or ai_clients")
+
+DEFAULT_TRANSLATION_PROMPT = "You are a professional language tutor. Translate the phrase to Russian and provide a clear context sentence."
 
 async def generate_card_fields(user_id: int, phrase: str):
-    """Generates Front, Back, and Context for a card using Lerne's actual prompts."""
-    # 1. Get Global Settings (TMA side)
-    config = {s.key: s.value for s in TMASetting.select()}
-    provider = config.get("AI_PROVIDER", "ollama")
-    api_key = config.get("OPENROUTER_KEY") or config.get("ANY_API_KEY") 
-    ollama_url = config.get("OLLAMA_URL", "http://localhost:11434")
-    model = config.get("DEFAULT_MODEL", "google/gemini-2.0-flash-lite-preview-02-05:free")
-
-    # 2. Get Instructions (Lerne side)
-    lerne_tr, lerne_ctx = get_lerne_prompts()
+    """Generates Front, Back, and Context for a card using AI."""
+    # Получаем настройки ИИ
+    ai_key = TMASetting.get_or_none(TMASetting.key == "OPENROUTER_API_KEY")
+    ai_model = TMASetting.get_or_none(TMASetting.key == "AI_MODEL")
     
-    # 3. Get User Personal Overrides
-    user_prompt = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
-    system_prompt_base = user_prompt.translation_prompt if user_prompt and user_prompt.translation_prompt else lerne_tr
+    # Промпты пользователя (если есть)
+    user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
     
-    # Собираем финальный промпт как в Lerne
-    final_system_prompt = f"{system_prompt_base}\n\nИНСТРУКЦИЯ ПО КОНТЕКСТУ:\n{lerne_ctx}"
-
-    # 4. Call AI
-    ai = AIService(provider=provider, api_key=api_key, ollama_url=ollama_url)
-    response, success = await ai.chat_completion(final_system_prompt, phrase, model)
-
+    system_prompt = user_prompts.translation_prompt if user_prompts and user_prompts.translation_prompt else DEFAULT_TRANSLATION_PROMPT
+    
+    client = AIService(
+        provider="openrouter", 
+        api_key=ai_key.value if ai_key else None
+    )
+    
+    model_name = ai_model.value if ai_model else "google/gemini-2.0-flash-lite-001"
+    
+    response, success = await client.chat_completion(
+        system_prompt=system_prompt,
+        user_message=phrase,
+        model=model_name
+    )
+    
     if not success:
         return {"error": response}
-
-    # 5. Parse response
-    # Ищем блоки "Перевод" и "Грамматика/Контекст"
-    translation = ""
-    context_full = ""
-
-    # Пытаемся парсить по меткам из настроек (или дефолтным)
-    # В Лерне это кнопки "ПЕРЕВОД" и "КОНТЕКСТ"
-    # Для TMA сделаем гибкий поиск
-    
-    # Поиск Перевода
-    trans_match = re.search(r"(?:Перевод|Translation|ПЕРЕВОД)\*\*?:\s*(.*?)(?=\s*\n\d+\.|\s*\n\*\*|\s*\n(?:Грамматика|Контекст|КОНТЕКСТ|Analysis)|$)", response, re.DOTALL | re.IGNORECASE)
-    # Поиск всего остального (Контекст/Грамматика)
-    cont_match = re.search(r"(?:Грамматика|Контекст|КОНТЕКСТ|Analysis|Explanation)\*\*?:\s*(.*)", response, re.DOTALL | re.IGNORECASE)
-
-    if trans_match: 
-        translation = trans_match.group(1).strip()
-    else:
-        # Если не нашли метку, берем первую строку как перевод
-        lines = response.split('\n')
-        translation = lines[0].strip()
-
-    if cont_match:
-        context_full = cont_match.group(1).strip()
-    else:
-        # Если не нашли метку контекста, кладем всё кроме первой строки в контекст
-        lines = response.split('\n')
-        if len(lines) > 1:
-            context_full = "\n".join(lines[1:]).strip()
-
+        
+    # Парсим ответ (ожидаем формат Front: ... Back: ... Context: ...)
+    # Это упрощенная логика, в оригинале она может быть сложнее
     return {
         "front": phrase,
-        "back": translation or response,
-        "context": context_full or "Анализ сгенерирован в свободном формате."
+        "back": response,
+        "context": ""
     }

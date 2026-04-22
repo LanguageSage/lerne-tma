@@ -29,7 +29,10 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
     voice = SUPPORTED_VOICES.get(voice, voice) or DEFAULT_VOICE
     
     if not output_dir:
-        output_dir = os.path.join(os.getcwd(), "user_files", "pending_audio")
+        if os.environ.get("VERCEL"):
+            output_dir = "/tmp/pending_audio"
+        else:
+            output_dir = os.path.join(os.getcwd(), "user_files", "pending_audio")
         
     os.makedirs(output_dir, exist_ok=True)
     clean_text = _strip_markdown(text)
