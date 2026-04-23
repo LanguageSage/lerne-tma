@@ -102,6 +102,7 @@ function App() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [apiError, setApiError] = useState(null);
 
   const [autoPlay, setAutoPlay] = useState(() => {
     const saved = storage.get('lerne_autoplay');
@@ -201,6 +202,33 @@ function App() {
     setLoading(false);
   };
 
+  const handleResetProgress = async (deckId) => {
+    if (!window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) return;
+    setLoading(true);
+    try {
+      await axios.post(`${API_BASE}/decks/${deckId}/reset`, {}, { headers: { 'X-User-ID': USER_ID } });
+      showToast("Прогресс сброшен", "success");
+      fetchDecks(true);
+      if (view === 'study') startStudy(currentDeck);
+    } catch (err) {
+      showToast("Ошибка при сбросе");
+    }
+    setLoading(false);
+  };
+
+  const handleSyncDeck = async (deckId) => {
+    setLoading(true);
+    showToast("Синхронизация...");
+    try {
+      await axios.post(`${API_BASE}/decks/${deckId}/sync`, {}, { headers: { 'X-User-ID': USER_ID } });
+      showToast("Колода обновлена", "success");
+      fetchDecks(true);
+    } catch (err) {
+      showToast("Ошибка при синхронизации");
+    }
+    setLoading(false);
+  };
+
   const startStudy = async (deck) => {
     setCurrentDeck(deck);
     setView('study'); 
@@ -213,11 +241,16 @@ function App() {
 
   const fetchNextCard = async (deckId, isFirst = false, excludeIds = []) => {
     setLoading(true);
+    setApiError(null);
     try {
       const excludeParam = excludeIds.length > 0 ? `?exclude_ids=${excludeIds.join(',')}` : '';
       const res = await axios.get(`${API_BASE}/decks/${deckId}/next${excludeParam}`, { headers: { 'X-User-ID': USER_ID } });
       console.log("Next Card Response:", res.data);
-      if (res.data.finished) {
+      
+      if (res.data.error) {
+        setApiError(res.data.error);
+        setCard(null);
+      } else if (res.data.finished) {
         setCard(null);
       } else {
         const newCard = res.data;
@@ -228,7 +261,7 @@ function App() {
       }
     } catch (err) { 
       console.error("fetchNextCard Error:", err);
-      showToast("Ошибка при получении карты");
+      setApiError(err.response?.data?.detail || err.message);
     }
     setLoading(false);
   };
@@ -799,8 +832,11 @@ function App() {
                     <button className="deck-action-btn" onClick={() => { setCurrentDeck(deck); fetchDeckCards(deck.id); }}>
                       <Layers size={16} /> Карточки
                     </button>
-                    <button className="deck-action-btn" onClick={() => { setCurrentDeck(deck); openEditor(deck.id, null, 'decks'); }}>
-                      <Plus size={16} /> Добавить
+                    <button className="deck-action-btn" onClick={() => handleSyncDeck(deck.id)} title="Синхронизировать с библиотекой">
+                      <RefreshCw size={16} /> Обновить
+                    </button>
+                    <button className="deck-action-btn" onClick={(e) => { e.stopPropagation(); handleResetProgress(deck.id); }} title="Сбросить прогресс обучения">
+                      <RefreshCw size={16} style={{ color: '#ef4444' }} /> Сбросить
                     </button>
                     <button className="deck-action-btn delete-btn-minimal" onClick={(e) => handleDeleteDeck(e, deck.id)} title="Удалить колоду">
                       <Trash2 size={16} />
@@ -809,6 +845,11 @@ function App() {
                 </div>
               ))
             )}
+          </div>
+          
+          <div className="debug-footer glass" style={{marginTop: '20px', padding: '10px', fontSize: '10px', opacity: 0.5}}>
+             DEBUG: UserID={USER_ID} | Decks={decks.length} | 
+             Stats: {decks.map(d => `${d.name}:${d.stats.total}`).join(', ')}
           </div>
         </motion.div>
       </div>
@@ -966,7 +1007,16 @@ function App() {
                   <CheckCircle size={48} color="#22c55e" />
                   <h3>Колода пройдена!</h3>
                   <p>На сегодня больше нет карточек для повторения.</p>
-                  <button className="btn btn-primary" onClick={() => setView('decks')}>Вернуться в меню</button>
+                  {apiError && (
+                    <div className="api-error-box glass" style={{color: '#f87171', padding: '10px', margin: '10px 0', border: '1px solid #ef4444'}}>
+                       Ошибка сервера: {apiError}
+                    </div>
+                  )}
+                  <div className="finished-actions">
+                    <button className="btn btn-primary" onClick={() => setView('decks')}>В меню</button>
+                    <button className="btn btn-secondary" onClick={() => handleSyncDeck(currentDeck.id)}>Обновить данные</button>
+                    <button className="btn btn-secondary" onClick={() => handleResetProgress(currentDeck.id)}>Учить заново</button>
+                  </div>
                 </div>
               )}
             </motion.div>

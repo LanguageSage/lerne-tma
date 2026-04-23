@@ -24,6 +24,9 @@ import ai_service
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Принудительная инициализация базы данных для облака
+models.initialize_database()
+
 app = FastAPI(title="Lerne TMA API")
 
 # CORS
@@ -111,6 +114,22 @@ def import_json_deck(data: dict, x_user_id: str = Header(None)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid X-User-ID")
 
+@app.post("/api/decks/{deck_id}/reset")
+def reset_deck(deck_id: int, x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    if services.reset_deck_progress(x_user_id, deck_id):
+        return {"status": "success"}
+    raise HTTPException(status_code=500, detail="Failed to reset progress")
+
+@app.post("/api/decks/{deck_id}/sync")
+def sync_deck(deck_id: int, x_user_id: int = Header(None)):
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    if services.sync_deck_with_library(x_user_id, deck_id):
+        return {"status": "success"}
+    raise HTTPException(status_code=500, detail="Failed to sync deck")
+
 @app.get("/api/decks/{deck_id}/next")
 def get_next_card(deck_id: int, exclude_ids: str = None, x_user_id: int = Header(None)):
     """Выбор следующей карты для изучения (SRS)."""
@@ -125,9 +144,13 @@ def get_next_card(deck_id: int, exclude_ids: str = None, x_user_id: int = Header
             pass
 
     card, progress = services.get_next_card(x_user_id, deck_id, exclude_ids=parsed_exclude)
+    
+    if isinstance(card, dict) and "error" in card:
+        return card # Возвращаем ошибку для отладки
+        
     if not card:
         logger.info(f"User {x_user_id} finished deck {deck_id}")
-        return {"finished": true}
+        return {"finished": True}
     
     resp = {
         "id": card.id,
@@ -177,7 +200,7 @@ def submit_grade(data: dict, x_user_id: int = Header(None)):
         logger.info("submit_grade: Progress updated successfully")
         
         # Return next card
-        return get_next_card(data['deck_id'], x_user_id)
+        return get_next_card(deck_id=data['deck_id'], x_user_id=x_user_id)
     except Exception as e:
         logger.error(f"submit_grade ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -318,7 +341,7 @@ def get_audio(filename: str):
     if pending_path.exists():
         return FileResponse(pending_path)
         
-    return {"error": f"not found: {filename}"}
+    raise HTTPException(status_code=404, detail=f"Audio file not found: {filename}")
 
 @app.get("/api/media/images/{filename}")
 def get_image(filename: str):

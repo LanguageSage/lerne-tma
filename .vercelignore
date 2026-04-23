@@ -1,13 +1,13 @@
 # Исключаем служебные и локальные файлы из деплоя Vercel
 
 # Скрипты диагностики и батники
-check_db_status.bat
-api/scratch/check_remote_db.py
-api/scratch/test_tts_speed.py
-debug_test.bat
-run_dev.bat
-run_tma.bat
+*.bat
+api/scratch/
+scripts/
+backups/
 run_tma.ps1
+MIGRATION_REPORT.md
+cloud_deployment_plan.md
 
 # Локальные данные
 .env
@@ -21,3 +21,8 @@ debug_output.txt
 # Системные файлы
 .agent/
 .git/
+.gemini/
+*.mp3
+*.img
+*.png
+!app/public/
