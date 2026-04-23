@@ -55,10 +55,16 @@ def health_check():
 # --- Колоды и изучение ---
 
 @app.get("/api/decks")
-def get_decks(x_user_id: int = Header(None)):
+def get_decks(x_user_id: str = Header(None)):
+    logger.info(f"GET /api/decks - X-User-ID: {x_user_id}")
     if not x_user_id:
         raise HTTPException(status_code=400, detail="X-User-ID header missing")
-    return services.get_active_decks(x_user_id)
+    try:
+        user_id = int(x_user_id)
+        return services.get_active_decks(user_id)
+    except ValueError:
+        logger.error(f"Invalid X-User-ID format: {x_user_id}")
+        raise HTTPException(status_code=400, detail=f"Invalid X-User-ID format: {x_user_id}")
     
 @app.post("/api/decks")
 def create_deck(data: dict, x_user_id: int = Header(None)):
@@ -78,20 +84,47 @@ def get_external_decks():
     return services.get_external_decks()
 
 @app.post("/api/external/import/{deck_id}")
-def import_external_deck(deck_id: int, x_user_id: int = Header(None)):
+def import_external_deck(deck_id: int, x_user_id: str = Header(None)):
+    logger.info(f"POST /api/external/import/{deck_id} - X-User-ID: {x_user_id}")
     if not x_user_id:
         raise HTTPException(status_code=400, detail="X-User-ID header missing")
-    result = services.import_deck(deck_id, x_user_id)
-    if result:
-        return {"status": "success", "deck_id": result.id}
-    raise HTTPException(status_code=404, detail="External deck not found")
+    try:
+        user_id = int(x_user_id)
+        result = services.import_deck(deck_id, user_id)
+        if result:
+            return {"status": "success", "deck_id": result.id}
+        raise HTTPException(status_code=404, detail="External deck not found or import failed")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid X-User-ID")
+
+@app.post("/api/decks/import-json")
+def import_json_deck(data: dict, x_user_id: str = Header(None)):
+    logger.info(f"POST /api/decks/import-json - X-User-ID: {x_user_id}")
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    try:
+        user_id = int(x_user_id)
+        result = services.import_deck_from_json(data, user_id)
+        if result:
+            return {"status": "success", "deck_id": result.id}
+        raise HTTPException(status_code=400, detail="Import failed: invalid data or empty deck")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid X-User-ID")
 
 @app.get("/api/decks/{deck_id}/next")
-def get_next_card(deck_id: int, x_user_id: int = Header(None)):
+def get_next_card(deck_id: int, exclude_ids: str = None, x_user_id: int = Header(None)):
     """Выбор следующей карты для изучения (SRS)."""
     if not x_user_id:
         raise HTTPException(status_code=400, detail="X-User-ID header missing")
-    card, progress = services.get_next_card(x_user_id, deck_id)
+    
+    parsed_exclude = []
+    if exclude_ids:
+        try:
+            parsed_exclude = [int(i) for i in exclude_ids.split(',') if i.strip()]
+        except ValueError:
+            pass
+
+    card, progress = services.get_next_card(x_user_id, deck_id, exclude_ids=parsed_exclude)
     if not card:
         logger.info(f"User {x_user_id} finished deck {deck_id}")
         return {"finished": true}
@@ -195,6 +228,21 @@ def get_admin_presets():
     # Для упрощения пока возвращаем пустой список или захардкоженные
     return []
 
+@app.get("/api/admin/community/decks")
+def get_community_decks(x_user_id: int = Header(None)):
+    """Получение колод от пользователей для модерации."""
+    if not x_user_id:
+        raise HTTPException(status_code=400, detail="X-User-ID header missing")
+    return services.get_community_content(x_user_id)
+
+@app.post("/api/admin/community/promote/{deck_id}")
+def promote_deck(deck_id: int):
+    """Одобрение колоды и перенос ее в общую библиотеку."""
+    result = services.promote_to_library(deck_id)
+    if result:
+        return {"status": "success", "new_library_id": result.id}
+    raise HTTPException(status_code=500, detail="Failed to promote deck")
+
 # --- AI ---
 
 @app.post("/api/ai/generate")
@@ -230,6 +278,8 @@ async def generate_audio_endpoint(text: str, lang: str = "de", voice: str = None
             
     # 3. Определяем скорость: приоритет у параметра, затем БД TTS_SPEED, затем дефолт
     rate = rate or db_settings.get("TTS_SPEED") or "+0%"
+    
+    logger.info(f"AUDIO GENERATION: Text='{text[:30]}...', Voice={voice}, Rate={rate}")
             
     try:
         from utils.audio import generate_audio

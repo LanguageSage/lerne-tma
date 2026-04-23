@@ -1,0 +1,23 @@
+# Исключаем служебные и локальные файлы из деплоя Vercel
+
+# Скрипты диагностики и батники
+check_db_status.bat
+api/scratch/check_remote_db.py
+api/scratch/test_tts_speed.py
+debug_test.bat
+run_dev.bat
+run_tma.bat
+run_tma.ps1
+
+# Локальные данные
+.env
+venv/
+__pycache__/
+*.db
+user_files/
+audio_debug.log
+debug_output.txt
+
+# Системные файлы
+.agent/
+.git/

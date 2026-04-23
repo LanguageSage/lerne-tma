@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, ChevronLeft, Volume2, CheckCircle, Info, RefreshCw, Settings, X, Plus, Edit2, Trash2, Image as ImageIcon, Copy, Check } from 'lucide-react';
+import { Layers, ChevronLeft, ChevronRight, Volume2, CheckCircle, Info, RefreshCw, Settings, X, Plus, Edit2, Trash2, Image as ImageIcon, Copy, Check } from 'lucide-react';
 import './App.css';
 
 // Конфигурация API
@@ -22,9 +22,11 @@ const getUserId = () => {
     // 1. Пытаемся взять из Telegram WebApp
     const tg = window.Telegram?.WebApp;
     if (tg?.initDataUnsafe?.user?.id) {
-      const id = tg.initDataUnsafe.user.id;
-      storage.set('lerne_user_id', id);
-      return id;
+      const id = parseInt(tg.initDataUnsafe.user.id);
+      if (!isNaN(id)) {
+        storage.set('lerne_user_id', id);
+        return id;
+      }
     }
     
     // 2. Пытаемся взять из URL (?user_id=123)
@@ -32,16 +34,20 @@ const getUserId = () => {
     const urlId = params.get('user_id');
     if (urlId) {
       const id = parseInt(urlId);
-      storage.set('lerne_user_id', id);
-      return id;
+      if (!isNaN(id)) {
+        storage.set('lerne_user_id', id);
+        return id;
+      }
     }
 
     // 3. Пытаемся взять из localStorage
     const savedId = storage.get('lerne_user_id');
-    if (savedId) return parseInt(savedId);
+    if (savedId) {
+      const id = parseInt(savedId);
+      if (!isNaN(id)) return id;
+    }
     
     // 4. Генерируем новый случайный ID (для новых веб-пользователей)
-    // Но если мы на localhost - возвращаем ваш старый ID по умолчанию
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 642478257;
     }
@@ -92,6 +98,8 @@ function App() {
   const [editingCard, setEditingCard] = useState(null); // For editor view
 
   const [isFlipped, setIsFlipped] = useState(false);
+  const [studyHistory, setStudyHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -122,22 +130,33 @@ function App() {
   // Новые состояния для импорта
   const [deckModalMode, setDeckModalMode] = useState('choice'); // 'choice' | 'create' | 'import'
   const [externalDecks, setExternalDecks] = useState([]);
+  const [communityDecks, setCommunityDecks] = useState([]);
+  const [isImportLoading, setIsImportLoading] = useState(false);
   
   const audioRef = React.useRef(null);
+  const fileInputRef = React.useRef(null);
 
   useEffect(() => {
     fetchDecks();
+    fetchAdminSettings();
+    fetchUserPrompts();
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '1' || USER_ID === 642478257) setIsAdmin(true);
   }, []);
 
   useEffect(() => {
-    if (isSettingsOpen) fetchUserPrompts();
     if (isSettingsOpen && isAdmin) {
-      fetchAdminSettings();
       fetchPresets();
     }
   }, [isSettingsOpen, isAdmin]);
+
+  // Сброс модального окна при открытии
+  useEffect(() => {
+    if (isNewDeckModalOpen) {
+      setDeckModalMode('choice');
+      setIsImportLoading(false);
+    }
+  }, [isNewDeckModalOpen]);
 
   // Save settings to localStorage
   useEffect(() => {
@@ -175,7 +194,10 @@ function App() {
     try {
       const res = await axios.get(`${API_BASE}/decks`, { headers: { 'X-User-ID': USER_ID } });
       setDecks(res.data);
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error("Fetch Decks Error:", err);
+      showToast("Не удалось загрузить колоды. Проверьте соединение.");
+    }
     setLoading(false);
   };
 
@@ -184,19 +206,25 @@ function App() {
     setView('study'); 
     setCard(null); 
     setIsFlipped(false);
-    await fetchNextCard(deck.id);
+    setStudyHistory([]);
+    setHistoryIndex(-1);
+    await fetchNextCard(deck.id, true);
   };
 
-  const fetchNextCard = async (deckId) => {
+  const fetchNextCard = async (deckId, isFirst = false, excludeIds = []) => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/decks/${deckId}/next`, { headers: { 'X-User-ID': USER_ID } });
+      const excludeParam = excludeIds.length > 0 ? `?exclude_ids=${excludeIds.join(',')}` : '';
+      const res = await axios.get(`${API_BASE}/decks/${deckId}/next${excludeParam}`, { headers: { 'X-User-ID': USER_ID } });
       console.log("Next Card Response:", res.data);
       if (res.data.finished) {
         setCard(null);
       } else {
-        setCard(res.data);
-        prefetchMedia(res.data.image_url);
+        const newCard = res.data;
+        setCard(newCard);
+        setStudyHistory(prev => [...prev, newCard]);
+        setHistoryIndex(prev => prev + 1);
+        prefetchMedia(newCard.image_url);
       }
     } catch (err) { 
       console.error("fetchNextCard Error:", err);
@@ -222,18 +250,46 @@ function App() {
       
       console.log("Submit Grade Response (Next Card):", res.data);
       setIsFlipped(false);
-      // The API now returns the next card directly!
+      
       if (res.data.finished) {
         setCard(null);
       } else {
-        setCard(res.data);
-        prefetchMedia(res.data.image_url);
+        const nextCard = res.data;
+        // При оценке мы фактически начинаем новую ветку истории или просто добавляем в конец
+        setStudyHistory(prev => [...prev, nextCard]);
+        setHistoryIndex(prev => prev + 1);
+        setCard(nextCard);
+        prefetchMedia(nextCard.image_url);
       }
     } catch (err) { 
       console.error("SubmitGrade Error:", err);
       showToast("Ошибка при сохранении оценки");
     }
     setLoading(false);
+  };
+
+  const goBack = () => {
+    if (historyIndex > 0) {
+      const prevIndex = historyIndex - 1;
+      setHistoryIndex(prevIndex);
+      setCard(studyHistory[prevIndex]);
+      setIsFlipped(false);
+    }
+  };
+
+  const goNext = () => {
+    if (historyIndex < studyHistory.length - 1) {
+      const nextIndex = historyIndex + 1;
+      setHistoryIndex(nextIndex);
+      setCard(studyHistory[nextIndex]);
+      setIsFlipped(false);
+    } else {
+      // "Skip" logic - fetch next but don't grade
+      // Exclude cards already in history to get a fresh one
+      const excludeIds = studyHistory.map(c => c.id);
+      fetchNextCard(currentDeck.id, false, excludeIds);
+      setIsFlipped(false);
+    }
   };
 
   const playAudio = (url) => {
@@ -307,8 +363,10 @@ function App() {
   const handleQuickAudio = async (c) => {
     if (!c || !c.front) return;
     setLoading(true);
+    const voice = adminSettings.TTS_VOICE || 'de-DE-KatjaNeural';
+    const rate = adminSettings.TTS_SPEED || '+0%';
     try {
-      const res = await axios.post(`${API_BASE}/media/generate-audio?text=${encodeURIComponent(c.front)}&lang=de`);
+      const res = await axios.post(`${API_BASE}/media/generate-audio?text=${encodeURIComponent(c.front)}&lang=de&voice=${voice}&rate=${encodeURIComponent(rate)}`);
       const newAudioPath = res.data.path;
       
       await axios.post(`${API_BASE}/cards/save`, {
@@ -384,8 +442,10 @@ function App() {
   const generateAudio = async () => {
     if (!editingCard.front) return;
     setLoading(true);
+    const voice = adminSettings.TTS_VOICE || 'de-DE-KatjaNeural';
+    const rate = adminSettings.TTS_SPEED || '+0%';
     try {
-      const res = await axios.post(`${API_BASE}/media/generate-audio?text=${encodeURIComponent(editingCard.front)}&lang=de`);
+      const res = await axios.post(`${API_BASE}/media/generate-audio?text=${encodeURIComponent(editingCard.front)}&lang=de&voice=${voice}&rate=${encodeURIComponent(rate)}`);
       setEditingCard({ 
         ...editingCard, 
         audio_path: res.data.path,
@@ -555,22 +615,53 @@ function App() {
   };
 
   const fetchExternalDecks = async () => {
-    setLoading(true);
+    setIsImportLoading(true);
     try {
       const res = await axios.get(`${API_BASE}/external/decks`);
       setExternalDecks(res.data);
-      setDeckModalMode('import');
+      if (isNewDeckModalOpen) {
+        setDeckModalMode('import');
+      }
     } catch (err) {
       showToast("Ошибка загрузки внешних колод");
     }
-    setLoading(false);
+    setIsImportLoading(false);
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const jsonData = JSON.parse(event.target.result);
+        setLoading(true);
+        showToast("Импорт из файла...", "success");
+        
+        await axios.post(`${API_BASE}/decks/import-json`, jsonData, { 
+          headers: { 'X-User-ID': USER_ID } 
+        });
+        
+        setIsNewDeckModalOpen(false);
+        fetchDecks(true);
+        showToast("Колода импортирована!", "success");
+      } catch (err) {
+        console.error("File import error:", err);
+        showToast("Ошибка импорта: неверный формат файла");
+      }
+      setLoading(false);
+      // Сброс инпута
+      e.target.value = '';
+    };
+    reader.readAsText(file);
   };
 
   const importDeck = async (deckId) => {
     setLoading(true);
     showToast("Импорт колоды...");
     try {
-      const res = await axios.post(`${API_BASE}/external/import/${deckId}`);
+      const res = await axios.post(`${API_BASE}/external/import/${deckId}`, {}, { headers: { 'X-User-ID': USER_ID } });
       console.log("Import result:", res.data);
       
       setIsNewDeckModalOpen(false);
@@ -583,6 +674,31 @@ function App() {
     } catch (err) {
       console.error("Import error:", err);
       showToast(`Ошибка импорта: ${err.response?.data?.detail || err.message}`);
+    }
+    setLoading(false);
+  };
+
+  const fetchCommunityDecks = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API_BASE}/admin/community/decks`, { headers: { 'X-User-ID': USER_ID } });
+      setCommunityDecks(res.data);
+      setActiveSettingsTab('community');
+    } catch (err) {
+      showToast("Ошибка загрузки сообщества");
+    }
+    setLoading(false);
+  };
+
+  const promoteDeck = async (deckId) => {
+    if (!window.confirm("Добавить эту пользовательскую колоду в общую библиотеку?")) return;
+    setLoading(true);
+    try {
+      await axios.post(`${API_BASE}/admin/community/promote/${deckId}`);
+      showToast("Колода добавлена в библиотеку!", "success");
+      fetchCommunityDecks();
+    } catch (err) {
+      showToast("Ошибка при вливании колоды");
     }
     setLoading(false);
   };
@@ -654,30 +770,45 @@ function App() {
           </div>
 
           <div className="deck-grid">
-            {decks.map(deck => (
-              <div key={deck.id} className="deck-card glass">
-                <div className="deck-main-action" onClick={() => startStudy(deck)}>
-                  <div className="deck-icon"><Layers size={24} /></div>
-                  <h3>{deck.name}</h3>
-                  <div className="deck-stats">
-                    <span className="stat new">{deck.stats.new}</span>
-                    <span className="stat learning">{deck.stats.learning}</span>
-                    <span className="stat due">{deck.stats.due}</span>
+            {loading && decks.length === 0 ? (
+              <div className="empty-decks-state glass">
+                <RefreshCw size={48} className="spin" color="#a855f7" />
+                <h3>Идет загрузка колод...</h3>
+                <p>Пожалуйста, подождите немного.</p>
+              </div>
+            ) : decks.length === 0 ? (
+              <div className="empty-decks-state glass">
+                <Layers size={48} opacity={0.3} />
+                <h3>У вас пока нет колод</h3>
+                <p>Нажмите "+", чтобы создать свою или импортировать из библиотеки.</p>
+                <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить первую колоду</button>
+              </div>
+            ) : (
+              decks.map(deck => (
+                <div key={deck.id} className="deck-card glass">
+                  <div className="deck-main-action" onClick={() => startStudy(deck)}>
+                    <div className="deck-icon"><Layers size={24} /></div>
+                    <h3>{deck.name}</h3>
+                    <div className="deck-stats">
+                      <span className="stat new">{deck.stats.new}</span>
+                      <span className="stat learning">{deck.stats.learning}</span>
+                      <span className="stat due">{deck.stats.due}</span>
+                    </div>
+                  </div>
+                  <div className="deck-footer-actions">
+                    <button className="deck-action-btn" onClick={() => { setCurrentDeck(deck); fetchDeckCards(deck.id); }}>
+                      <Layers size={16} /> Карточки
+                    </button>
+                    <button className="deck-action-btn" onClick={() => { setCurrentDeck(deck); openEditor(deck.id, null, 'decks'); }}>
+                      <Plus size={16} /> Добавить
+                    </button>
+                    <button className="deck-action-btn delete-btn-minimal" onClick={(e) => handleDeleteDeck(e, deck.id)} title="Удалить колоду">
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
-                <div className="deck-footer-actions">
-                  <button className="deck-action-btn" onClick={() => { setCurrentDeck(deck); fetchDeckCards(deck.id); }}>
-                    <Layers size={16} /> Карточки
-                  </button>
-                  <button className="deck-action-btn" onClick={() => { setCurrentDeck(deck); openEditor(deck.id, null, 'decks'); }}>
-                    <Plus size={16} /> Добавить
-                  </button>
-                  <button className="deck-action-btn delete-btn-minimal" onClick={(e) => handleDeleteDeck(e, deck.id)} title="Удалить колоду">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </motion.div>
       </div>
@@ -802,6 +933,33 @@ function App() {
                   {!isFlipped && (
                     <p className="hint">Нажмите на карточку, чтобы увидеть ответ</p>
                   )}
+
+                  <div className="study-navigation">
+                    <div className="nav-counter nav-counter-current" title="Текущая позиция">
+                      {historyIndex + 1}
+                    </div>
+                    <div className="nav-buttons-group">
+                      <button 
+                        className="nav-arrow-btn" 
+                        onClick={goBack} 
+                        disabled={historyIndex <= 0 || loading}
+                        title="Назад"
+                      >
+                        <ChevronLeft size={28} />
+                      </button>
+                      <button 
+                        className="nav-arrow-btn" 
+                        onClick={goNext} 
+                        disabled={loading}
+                        title="Вперед (пропустить)"
+                      >
+                        <ChevronRight size={28} />
+                      </button>
+                    </div>
+                    <div className="nav-counter nav-counter-total" title="Всего в колоде">
+                      {currentDeck?.stats?.total || 0}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="finished-view glass">
@@ -825,7 +983,7 @@ function App() {
                   {deckModalMode === 'choice' ? 'Добавить колоду' : 
                    deckModalMode === 'create' ? 'Новая колода' : 'Импорт из Lerne'}
                 </h2>
-                <button className="close-btn" onClick={() => { setIsNewDeckModalOpen(false); setDeckModalMode('choice'); }}><X size={24} /></button>
+                <button className="close-btn" onClick={() => { setIsNewDeckModalOpen(false); setDeckModalMode('choice'); setNewDeckName(''); }}><X size={24} /></button>
               </div>
               
               <div className="settings-content">
@@ -834,9 +992,20 @@ function App() {
                     <button className="btn btn-primary btn-full choice-btn" onClick={() => setDeckModalMode('create')}>
                       <Plus size={20} /> Создать пустую
                     </button>
-                    <button className="btn-secondary btn-full choice-btn" onClick={fetchExternalDecks}>
-                      <Layers size={20} /> Импорт из Lerne
+                    <button className="btn-secondary btn-full choice-btn" onClick={fetchExternalDecks} disabled={isImportLoading}>
+                      {isImportLoading ? <RefreshCw size={20} className="spin" /> : <Layers size={20} />} 
+                      {isImportLoading ? ' Загрузка...' : ' Из Библиотеки'}
                     </button>
+                    <button className="btn-secondary btn-full choice-btn" onClick={() => fileInputRef.current?.click()}>
+                      <Plus size={20} style={{ transform: 'rotate(45deg)' }} /> Загрузить JSON
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      style={{ display: 'none' }} 
+                      accept=".json" 
+                      onChange={handleFileUpload} 
+                    />
                   </div>
                 )}
 
@@ -1007,6 +1176,7 @@ function App() {
                 <button className={`tab-btn ${activeSettingsTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('ai')}>Провайдеры</button>
                 <button className={`tab-btn ${activeSettingsTab === 'prompts' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('prompts')}>Промпты</button>
                 <button className={`tab-btn ${activeSettingsTab === 'presets' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('presets')}>Пресеты</button>
+                {isAdmin && <button className={`tab-btn ${activeSettingsTab === 'community' ? 'active' : ''}`} onClick={fetchCommunityDecks}>Сообщество</button>}
               </div>
 
               <div className="settings-content scrollable">
@@ -1021,6 +1191,10 @@ function App() {
                       <div className="settings-row">
                         <span>Авто-показ</span>
                         <label className="switch"><input type="checkbox" checked={autoShow} onChange={e => setAutoShow(e.target.checked)} /><span className="slider"></span></label>
+                      </div>
+                      <div className="settings-debug-info">
+                        <p>User ID: <code>{USER_ID}</code></p>
+                        <p>Platform: <code>{window.Telegram?.WebApp?.platform || 'Web'}</code></p>
                       </div>
                     </motion.div>
                   )}
@@ -1163,6 +1337,30 @@ function App() {
                                 <button className="apply-btn" onClick={() => applyPreset(p)}>Применить</button>
                                 <button className="delete-btn-minimal" onClick={() => deletePreset(idx)}><Trash2 size={14} /></button>
                               </div>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {activeSettingsTab === 'community' && (
+                    <motion.div key="community" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
+                      <h3>Колоды пользователей</h3>
+                      <p className="field-hint">Одобряйте колоды, чтобы добавить их в общую библиотеку Lerne</p>
+                      
+                      <div className="community-list scrollable">
+                        {communityDecks.length === 0 ? <p className="hint">Новых колод пока нет</p> : 
+                          communityDecks.map((d) => (
+                            <div key={d.id} className="community-item glass">
+                              <div className="community-info">
+                                <strong>{d.name}</strong>
+                                <span>Пользователь: {d.user_id} | Карточек: {d.card_count}</span>
+                                {d.topic && <span className="tag">{d.topic}</span>}
+                              </div>
+                              <button className="btn btn-primary btn-small" onClick={() => promoteDeck(d.id)}>
+                                В Библиотеку
+                              </button>
                             </div>
                           ))
                         }

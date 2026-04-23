@@ -3,6 +3,10 @@ import logging
 from pathlib import Path
 from peewee import *
 from playhouse.db_url import connect as db_connect
+from dotenv import load_dotenv
+
+# Загружаем переменные из .env
+load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -17,54 +21,60 @@ TMA_ROOT = Path(__file__).resolve().parent.parent.resolve()
 TMA_DATA_DIR = TMA_ROOT / "api" / "data"
 
 # Определяем среду
-IS_CLOUD = os.environ.get("VERCEL") or os.environ.get("SUPABASE_DB_URL")
+IS_VERCEL = os.environ.get("VERCEL") is not None
+SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL")
+FORCE_LOCAL = os.environ.get("FORCE_LOCAL_DB", "false").lower() == "true"
 
-if IS_CLOUD:
+if IS_VERCEL:
+    # Мы в облаке (Vercel)
     LIBRARY_ROOT = Path("/tmp")
-    TMA_DB_PATH = Path("/tmp/tma_mock.db")
     LERNE_DB_PATH = Path("/tmp/lerne_mock.db")
+    TMA_DB_PATH = LERNE_DB_PATH
 else:
+    # Мы локально (Windows)
     DEFAULT_LIBRARY_ROOT = r"C:\121\Lerne_projekt\Lerne"
     LIBRARY_ROOT = Path(os.environ.get("LERNE_LIBRARY_ROOT", DEFAULT_LIBRARY_ROOT)).resolve()
+    # Локально теперь используем одну и ту же БД для TMA и основного Lerne
     LERNE_DB_PATH = Path(os.environ.get("LERNE_DB_PATH", LIBRARY_ROOT / "db" / "lerne.db")).resolve()
-    TMA_DB_PATH = (TMA_DATA_DIR / "tma.db").resolve()
+    TMA_DB_PATH = LERNE_DB_PATH
 
 def initialize_database():
     """Инициализация реального подключения к БД."""
     global tma_db, lerne_db
     
-    db_url = os.environ.get("SUPABASE_DB_URL")
-    
-    if db_url and "your_database_url_here" not in db_url:
-        logger.info(f"DATABASE: Connecting to Supabase (URL length: {len(db_url)})")
+    # Пытаемся подключиться к облаку, если не форсирован локальный режим
+    if SUPABASE_DB_URL and not FORCE_LOCAL and "your_database_url_here" not in SUPABASE_DB_URL:
+        logger.info(f"DATABASE: Attempting Cloud connection (Supabase)...")
         try:
-            # В облаке мы уже знаем, что psycopg2-binary работает отлично
-            actual_db = db_connect(db_url)
+            actual_db = db_connect(SUPABASE_DB_URL)
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
-            logger.info("DATABASE: Cloud connection initialized.")
+            logger.info("DATABASE: Connected to Cloud Postgres successfully.")
             return True
         except Exception as e:
-            logger.error(f"DATABASE ERROR: {e}")
+            logger.error(f"DATABASE CLOUD ERROR: {e}. Falling back to SQLite.")
     
-    # Fallback на SQLite
-    logger.info(f"DATABASE: Falling back to SQLite ({TMA_DB_PATH})")
-    local_tma = SqliteDatabase(TMA_DB_PATH)
-    tma_db.initialize(local_tma)
-    
-    if not IS_CLOUD:
-        local_lerne = SqliteDatabase(LERNE_DB_PATH)
-        lerne_db.initialize(local_lerne)
-    else:
-        lerne_db.initialize(local_tma)
-    
+    # Fallback на SQLite (Локально)
+    logger.info(f"DATABASE: Using SQLite database ({TMA_DB_PATH})")
+    shared_db = SqliteDatabase(TMA_DB_PATH)
+    tma_db.initialize(shared_db)
+    lerne_db.initialize(shared_db)
     return False
 
-# Инициализация при импорте
-try:
-    initialize_database()
-except Exception as e:
-    logger.error(f"Failed to init DB: {e}")
+def create_all_tables():
+    """Создание всех таблиц в инициализированных базах."""
+    try:
+        # Используем tma_db, так как теперь они общие
+        tma_db.create_tables([
+            TMA_Deck, TMA_Card, TMAProgress, 
+            TMAReviewHistory, TMASetting, TMAUserPrompt,
+            Deck, Card 
+        ])
+        logger.info("DATABASE: All tables ensured.")
+    except Exception as e:
+        logger.warning(f"DATABASE: Note while creating tables: {e}")
+
+# Инициализация при импорте перенесена в конец файла
 
 # --- Модели (TMA) ---
 class BaseModel(Model):
@@ -78,6 +88,7 @@ class TMA_Deck(BaseModel):
     level = CharField(null=True)
     topic = CharField(null=True)
     is_deleted = BooleanField(default=False)
+    created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
     
     class Meta:
         table_name = 'tma_deck'
@@ -91,6 +102,17 @@ class TMA_Card(BaseModel):
     context = TextField(null=True)
     image_path = TextField(null=True)
     audio_path = TextField(null=True)
+    
+    # Доп. поля для совместимости с основной БД
+    tags = TextField(null=True)
+    metadata = TextField(null=True)
+    card_type = CharField(default='translation')
+    difficulty = FloatField(null=True)
+    topics = TextField(null=True)
+    source = CharField(default='tma')
+    
+    created_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
+    updated_at = DateTimeField(constraints=[SQL("DEFAULT CURRENT_TIMESTAMP")])
     is_deleted = BooleanField(default=False)
     
     class Meta:
@@ -158,6 +180,18 @@ class Card(LibraryBaseModel):
     front_text = TextField()
     back_text = TextField()
     context = TextField(null=True)
+    
+    # Поля медиа для импорта
+    audio_path = CharField(null=True)
+    image_path = CharField(null=True)
+    
+    # Доп. поля для полноты данных
+    card_type = CharField(null=True)
+    source = CharField(null=True)
+    tags = TextField(null=True)
+    topics = TextField(null=True)
+    difficulty = FloatField(null=True)
+    
     is_deleted = BooleanField(default=False)
     created_at = DateTimeField(null=True)
     updated_at = DateTimeField(null=True)
@@ -167,3 +201,10 @@ class Card(LibraryBaseModel):
 
 ExternalDeck = Deck
 ExternalCard = Card
+
+# --- Инициализация при импорте ---
+try:
+    initialize_database()
+    create_all_tables()
+except Exception as e:
+    logger.error(f"CRITICAL: Failed to initialize database: {e}")

@@ -1,7 +1,8 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# TMA Diagnostics
+check_db_status.bat
+api/scratch/
+debug_output.txt
+audio_debug.log
 
 # C extensions
 *.so
