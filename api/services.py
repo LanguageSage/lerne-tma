@@ -80,17 +80,18 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None):
         now = datetime.datetime.now()
         exclude_ids = exclude_ids or []
         
-        # 1. Повторение (Due)
-        progress = (TMAProgress
+        # 1. Повторение (Due) — с учётом exclude_ids
+        due_query = (TMAProgress
                     .select()
                     .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
                     .where(
                         TMAProgress.user_id == user_id,
                         TMA_Card.deck_id == deck_id,
                         TMAProgress.next_review <= now
-                    )
-                    .order_by(TMAProgress.queue.asc(), TMAProgress.next_review.asc())
-                    .first())
+                    ))
+        if exclude_ids:
+            due_query = due_query.where(~(TMAProgress.card_id << exclude_ids))
+        progress = due_query.order_by(TMAProgress.queue.asc(), TMAProgress.next_review.asc()).first()
         
         if progress:
             card = TMA_Card.get_by_id(progress.card_id)

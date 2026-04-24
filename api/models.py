@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 tma_db = Proxy()
 lerne_db = Proxy()
 
+# Пути к файлам данных (модульный уровень — используется в main.py)
+TMA_ROOT = Path(__file__).resolve().parent.parent
+TMA_DATA_DIR = TMA_ROOT / "api" / "data"
+
 def initialize_database():
     global tma_db, lerne_db
     SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL")

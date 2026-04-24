@@ -304,24 +304,28 @@ function App() {
   const goBack = () => {
     if (historyIndex > 0) {
       const prevIndex = historyIndex - 1;
-      setHistoryIndex(prevIndex);
-      setCard(studyHistory[prevIndex]);
       setIsFlipped(false);
+      // Небольшая задержка чтобы сброс isFlipped применился до смены карточки
+      setTimeout(() => {
+        setHistoryIndex(prevIndex);
+        setCard(studyHistory[prevIndex]);
+      }, 50);
     }
   };
 
   const goNext = () => {
+    setIsFlipped(false);
     if (historyIndex < studyHistory.length - 1) {
       const nextIndex = historyIndex + 1;
-      setHistoryIndex(nextIndex);
-      setCard(studyHistory[nextIndex]);
-      setIsFlipped(false);
+      setTimeout(() => {
+        setHistoryIndex(nextIndex);
+        setCard(studyHistory[nextIndex]);
+      }, 50);
     } else {
       // "Skip" logic - fetch next but don't grade
       // Exclude cards already in history to get a fresh one
       const excludeIds = studyHistory.map(c => c.id);
-      fetchNextCard(currentDeck.id, false, excludeIds);
-      setIsFlipped(false);
+      setTimeout(() => fetchNextCard(currentDeck.id, false, excludeIds), 50);
     }
   };
 
@@ -855,13 +859,11 @@ function App() {
       </div>
 
       <div className="view-study" style={{ display: view === 'study' ? 'block' : 'none' }}>
-        <AnimatePresence mode="wait">
-          {view === 'study' && (
+        {view === 'study' && (
             <motion.div 
               key="study"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
               className="view"
             >
               <div className="header-compact">
@@ -917,8 +919,17 @@ function App() {
                   <h3>Загрузка карточек...</h3>
                 </div>
               ) : card ? (
-                <div className="study-flow" key={card.id}>
-                  <div className={`card-container ${loading ? 'loading-card' : ''}`} onClick={() => !loading && setIsFlipped(!isFlipped)}>
+                <div className="study-flow">
+                  <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={card.id}
+                    initial={{ opacity: 0, x: 30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -30 }}
+                    transition={{ duration: 0.2 }}
+                    className={`card-container ${loading ? 'loading-card' : ''}`}
+                    onClick={() => !loading && setIsFlipped(!isFlipped)}
+                  >
                     {!isFlipped ? (
                       <div className="card-inner card-front glass">
                         <div className="card-face">
@@ -940,7 +951,14 @@ function App() {
                         <div className="card-face">
                           <div className="text-front-mini">{stripMarkdown(card.front)}</div>
                           <div className="text-back">{stripMarkdown(card.back)}</div>
-                          {card.image_url && <img src={card.image_url} className="card-img" alt="Card" />}
+                          {card.image_url && (
+                            <img 
+                              src={card.image_url} 
+                              className="card-img" 
+                              alt="Card"
+                              onError={(e) => { console.warn('Image load error:', card.image_url); e.target.style.display='none'; }}
+                            />
+                          )}
                           {card.context && <div className="text-context">{stripMarkdown(card.context)}</div>}
                           {card.audio_url && (
                             <button 
@@ -960,7 +978,8 @@ function App() {
                         <RefreshCw size={40} className="spin" />
                       </div>
                     )}
-                  </div>
+                  </motion.div>
+                  </AnimatePresence>
 
                   {isFlipped && (
                     <div className="grade-buttons">
@@ -1020,8 +1039,7 @@ function App() {
                 </div>
               )}
             </motion.div>
-          )}
-        </AnimatePresence>
+        )}
       </div>
 
       <AnimatePresence>

@@ -161,7 +161,11 @@ scratch/
 .agent/
 node_modules/
 user_files/
-api/data/media/
+api/data/media/audio/
+api/data/media/pending_audio/
+api/data/media/pending_images/
+# images tracked explicitly so they deploy to Vercel
+
 .DS_Store
 
 .vercel
