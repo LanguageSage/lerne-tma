@@ -311,12 +311,25 @@ async def generate_audio_endpoint(text: str, lang: str = "de", voice: str = None
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
             
-        # result может быть либо облачной ссылкой (http...), либо локальным абсолютным путем
+        # result может быть либо облачной ссылкой (http...), либо локальным путем
         if result.startswith("http"):
             return {"path": result, "url": result}
         else:
-            # Локальный путь - возвращаем имя файла для базы и относительный URL для фронта
+            # Читаем сгенерированный файл и сохраняем в БД
             filename = os.path.basename(result)
+            with open(result, "rb") as f:
+                content = f.read()
+            
+            models.TMAMedia.get_or_create(
+                filename=filename,
+                folder='audio',
+                defaults={'content': content}
+            )
+            
+            # Удаляем временный файл
+            try: os.remove(result)
+            except: pass
+            
             return {
                 "path": filename,
                 "url": f"/api/media/audio/{filename}"
@@ -327,28 +340,40 @@ async def generate_audio_endpoint(text: str, lang: str = "de", voice: str = None
 
 @app.get("/api/media/audio/{filename}")
 def get_audio(filename: str):
-    # 1. Сначала ищем в постоянном хранилище
-    file_path = models.TMA_DATA_DIR / "media" / "audio" / filename
-    if file_path.exists():
-        return FileResponse(file_path)
+    """Отдает аудио из базы данных."""
+    logger.info(f"MEDIA: Requesting audio: {filename}")
+    media = models.TMAMedia.get_or_none(
+        models.TMAMedia.filename == filename, 
+        models.TMAMedia.folder == 'audio'
+    )
+    if not media:
+        logger.warning(f"MEDIA: Audio not found in DB: {filename}")
+        raise HTTPException(status_code=404, detail="Audio not found in DB")
     
-    # 2. Ищем во временной папке (для Vercel это /tmp, для локала - user_files)
-    if os.environ.get("VERCEL"):
-        pending_path = Path("/tmp/pending_audio") / filename
-    else:
-        pending_path = models.TMA_ROOT / "user_files" / "pending_audio" / filename
-        
-    if pending_path.exists():
-        return FileResponse(pending_path)
-        
-    raise HTTPException(status_code=404, detail=f"Audio file not found: {filename}")
+    logger.info(f"MEDIA: Found audio {filename}, size={len(media.content)}")
+    from fastapi import Response
+    return Response(content=bytes(media.content), media_type="audio/mpeg")
 
 @app.get("/api/media/images/{filename}")
 def get_image(filename: str):
-    file_path = models.TMA_DATA_DIR / "media" / "images" / filename
-    if file_path.exists():
-        return FileResponse(file_path)
-    return {"error": "not found"}
+    """Отдает изображение из базы данных."""
+    logger.info(f"MEDIA: Requesting image: {filename}")
+    media = models.TMAMedia.get_or_none(
+        models.TMAMedia.filename == filename, 
+        models.TMAMedia.folder == 'images'
+    )
+    if not media:
+        logger.warning(f"MEDIA: Image not found in DB: {filename}")
+        raise HTTPException(status_code=404, detail="Image not found in DB")
+    
+    logger.info(f"MEDIA: Found image {filename}, size={len(media.content)}")
+    # Определяем тип контента по расширению
+    ext = filename.split('.')[-1].lower()
+    media_type = f"image/{ext}" if ext != 'jpg' else "image/jpeg"
+    if ext == 'webp': media_type = "image/webp"
+    
+    from fastapi import Response
+    return Response(content=bytes(media.content), media_type=media_type)
 
 if __name__ == "__main__":
     import uvicorn

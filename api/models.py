@@ -43,8 +43,15 @@ def create_all_tables():
         tma_db.create_tables([
             TMA_Deck, TMA_Card, TMAProgress, 
             TMAReviewHistory, TMASetting, TMAUserPrompt,
+            TMAMedia, # Новая таблица для медиа
             Deck, Card 
         ])
+        # Миграция: добавляем image_data если колонки нет (для существующих БД)
+        try:
+            tma_db.execute_sql('ALTER TABLE tma_card ADD COLUMN image_data BYTEA')
+            logger.info("Migration: added image_data column to tma_card")
+        except Exception:
+            pass  # Колонка уже есть
     except: pass
 
 class BaseModel(Model):
@@ -69,6 +76,7 @@ class TMA_Card(BaseModel):
     back_text = TextField()
     context = TextField(null=True)
     image_path = TextField(null=True)
+    image_data = BlobField(null=True)  # Бинарные данные изображения (BYTEA / BLOB)
     audio_path = TextField(null=True)
     tags = TextField(null=True)
     card_type = CharField(default='translation')
@@ -108,6 +116,19 @@ class TMASetting(BaseModel):
     value = TextField()
     class Meta:
         table_name = 'tmasetting'
+
+class TMAMedia(BaseModel):
+    id = AutoField()
+    filename = CharField(index=True)
+    folder = CharField()  # 'images' или 'audio'
+    content = BlobField()
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = 'tmamedia'
+        indexes = (
+            (('filename', 'folder'), True),
+        )
 
 class TMAUserPrompt(BaseModel):
     id = AutoField()

@@ -138,17 +138,34 @@ def import_deck(external_deck_id: int, user_id: int):
         )
         
         ext_cards = list(Card.select().where(Card.deck_id == external_deck_id))
-        existing_fronts = {c.front_text for c in TMA_Card.select(TMA_Card.front_text).where(TMA_Card.deck_id == local_deck.id)}
+        
+        # Индексируем существующие карты по front_text для быстрого поиска
+        local_cards_map = {c.front_text: c for c in TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)}
         
         new_cards = []
         now = datetime.datetime.now()
         for ec in ext_cards:
-            if ec.front_text in existing_fronts: continue
+            if ec.front_text in local_cards_map:
+                # Если карта есть, проверяем, не нужно ли обновить медиа-пути
+                local_card = local_cards_map[ec.front_text]
+                changed = False
+                if ec.image_path and not local_card.image_path:
+                    local_card.image_path = ec.image_path
+                    changed = True
+                if ec.audio_path and not local_card.audio_path:
+                    local_card.audio_path = ec.audio_path
+                    changed = True
+                if changed:
+                    local_card.save()
+                continue
+                
             new_cards.append({
                 'deck_id': local_deck.id,
                 'front_text': ec.front_text,
                 'back_text': ec.back_text,
                 'context': ec.context,
+                'image_path': ec.image_path,
+                'audio_path': ec.audio_path,
                 'created_at': now,
                 'updated_at': now
             })
@@ -196,6 +213,52 @@ def update_card_progress(card_id: int, user_id: int, grade: int):
     except Exception as e:
         logger.error(f"Error updating progress: {e}")
         raise e
+
+def get_cards_for_study(deck_id: int, user_id: int):
+    """Возвращает список всех карточек в колоде с их статусом SRS."""
+    try:
+        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id))
+        progress_map = {p.card_id: p for p in TMAProgress.select().where(TMAProgress.user_id == user_id)}
+        
+        result = []
+        for c in cards:
+            p = progress_map.get(c.id)
+            result.append({
+                "id": c.id,
+                "front": c.front_text,
+                "back": c.back_text,
+                "context": c.context,
+                "audio_url": resolve_media_url(c.audio_path, "audio"),
+                "image_url": resolve_media_url(c.image_path, "images"),
+                "queue": p.queue if p else "new",
+                "interval": p.interval if p else 0,
+                "next_review": p.next_review.isoformat() if p and p.next_review else None
+            })
+        return result
+    except Exception as e:
+        logger.error(f"Error in get_cards_for_study: {e}")
+        return []
+
+def save_card(data, user_id):
+    """Сохраняет или обновляет карточку."""
+    try:
+        card_id = data.get('id')
+        if card_id:
+            card = TMA_Card.get_by_id(card_id)
+        else:
+            card = TMA_Card()
+            
+        card.deck_id = data.get('deck_id')
+        card.front_text = data.get('front_text')
+        card.back_text = data.get('back_text')
+        card.context = data.get('context')
+        card.image_path = data.get('image_path')
+        card.audio_path = data.get('audio_path')
+        card.save()
+        return card
+    except Exception as e:
+        logger.error(f"Error saving card: {e}")
+        return None
 
 def resolve_media_url(path_str: str, media_type: str) -> str | None:
     if not path_str: return None
