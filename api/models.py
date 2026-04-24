@@ -76,12 +76,17 @@ class TMA_Card(BaseModel):
     back_text = TextField()
     context = TextField(null=True)
     image_path = TextField(null=True)
-    image_data = BlobField(null=True)  # Бинарные данные изображения (BYTEA / BLOB)
+    image_data = BlobField(null=True)  # Бинарные данные изображения
     audio_path = TextField(null=True)
     tags = TextField(null=True)
+    metadata = TextField(null=True)
     card_type = CharField(default='translation')
+    difficulty = FloatField(null=True)
+    topics = TextField(null=True)
+    source = TextField(null=True)
     is_deleted = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(null=True)
     class Meta:
         table_name = 'tma_card'
 
@@ -140,6 +145,8 @@ class TMAUserPrompt(BaseModel):
 class Deck(Model):
     id = AutoField()
     name = CharField()
+    level = CharField(null=True)
+    topic = CharField(null=True)
     class Meta:
         database = lerne_db
         table_name = 'deck'
@@ -149,6 +156,9 @@ class Card(Model):
     deck = ForeignKeyField(Deck, backref='cards', column_name='deck_id')
     front_text = TextField()
     back_text = TextField()
+    context = TextField(null=True)
+    image_path = TextField(null=True)
+    audio_path = TextField(null=True)
     class Meta:
         database = lerne_db
         table_name = 'card'

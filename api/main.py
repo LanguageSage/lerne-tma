@@ -375,6 +375,54 @@ def get_image(filename: str):
     from fastapi import Response
     return Response(content=bytes(media.content), media_type=media_type)
 
+@app.get("/api/debug/test-import/{deck_id}")
+def debug_import(deck_id: int, x_user_id: int = Header(None)):
+    if not x_user_id:
+        return {"error": "X-User-ID missing"}
+    
+    logs = []
+    def log(msg):
+        logger.info(f"DEBUG: {msg}")
+        logs.append(msg)
+    
+    log(f"Starting debug import for deck {deck_id}, user {x_user_id}")
+    try:
+        from api import models
+        # Проверка подключения
+        log(f"DB Connection: {models.tma_db.is_closed()}")
+        
+        # 1. Пробуем найти колоду
+        ext_deck = models.Deck.get_or_none(models.Deck.id == deck_id)
+        if not ext_deck:
+            log(f"ERROR: Deck {deck_id} not found in library")
+            return {"logs": logs}
+        log(f"Found library deck: {ext_deck.name}")
+        
+        # 2. Пробуем найти карты через Peewee
+        cards = list(models.Card.select().where(models.Card.deck == deck_id))
+        log(f"Peewee found {len(cards)} cards")
+        
+        # 3. Пробуем найти карты через Raw SQL
+        cursor = models.tma_db.execute_sql(f"SELECT count(*) FROM card WHERE deck_id = {deck_id}")
+        raw_count = cursor.fetchone()[0]
+        log(f"Raw SQL found {raw_count} cards")
+        
+        # 4. Пробуем импортировать
+        result = services.import_deck(deck_id, x_user_id)
+        log(f"Import result: {'Success' if result else 'Failed'}")
+        
+        if result:
+            count_after = models.TMA_Card.select().where(models.TMA_Card.deck_id == result.id).count()
+            log(f"Cards in TMA deck after import: {count_after}")
+            
+        return {"logs": logs, "success": result is not None}
+        
+    except Exception as e:
+        log(f"EXCEPTION: {str(e)}")
+        import traceback
+        log(traceback.format_exc())
+        return {"logs": logs, "error": str(e)}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

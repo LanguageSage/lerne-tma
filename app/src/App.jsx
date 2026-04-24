@@ -704,10 +704,11 @@ function App() {
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
       
-      // Даем серверу время на завершение записи (опционально, но полезно)
-      setTimeout(() => fetchDecks(true), 500);
-      
-      showToast("Колода успешно импортирована!");
+      // Даем серверу время на завершение записи (Supabase может быть медленным)
+      setTimeout(() => {
+        fetchDecks(true);
+        showToast("Колода успешно импортирована!", "success");
+      }, 1500);
     } catch (err) {
       console.error("Import error:", err);
       showToast(`Ошибка импорта: ${err.response?.data?.detail || err.message}`);
@@ -773,6 +774,7 @@ function App() {
           <div className="header">
             <div className="header-title-row">
               <h1>Lerne TMA</h1>
+              <div style={{fontSize: '10px', opacity: 0.5, marginLeft: '10px'}}>ID: {USER_ID}</div>
               <div className="header-actions">
                 <button className="add-deck-btn" onClick={() => setIsNewDeckModalOpen(true)}>
                   <Plus size={20} />

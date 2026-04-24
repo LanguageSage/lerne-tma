@@ -128,44 +128,92 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None):
         logger.error(f"Error in get_next_card: {e}")
         return {"error": str(e)}, None
 
-def import_deck(external_deck_id: int, user_id: int):
+def get_external_decks():
+    """Возвращает список всех колод из общей библиотеки. Оптимизировано для быстрой загрузки."""
     try:
+        # Используем один запрос с группировкой для подсчета карточек
+        counts = {c.deck_id: c.count for c in Card.select(Card.deck_id, fn.COUNT(Card.id).alias('count')).group_by(Card.deck_id)}
+        
+        decks = list(Deck.select().order_by(Deck.name))
+        return [{
+            "id": d.id,
+            "name": d.name,
+            "level": getattr(d, 'level', ''),
+            "topic": getattr(d, 'topic', ''),
+            "cards_count": counts.get(d.id, 0)
+        } for d in decks]
+    except Exception as e:
+        logger.error(f"Error in get_external_decks: {e}")
+        return []
+
+def import_deck(external_deck_id: int, user_id: int):
+    """Импортирует колоду и все её карточки из библиотеки для конкретного пользователя через Raw SQL."""
+    try:
+        logger.info(f"IMPORT START: deck_id={external_deck_id}, user_id={user_id}")
+        
+        # 1. Берем колоду из библиотеки (проверка существования)
         ext_deck = Deck.get_by_id(external_deck_id)
-        local_deck, _ = TMA_Deck.get_or_create(
+        
+        # 2. Создаем или находим локальную колоду у пользователя
+        local_deck, created = TMA_Deck.get_or_create(
             user_id=user_id, 
             name=ext_deck.name,
-            defaults={'level': ext_deck.level, 'topic': ext_deck.topic}
+            defaults={
+                'level': getattr(ext_deck, 'level', ''),
+                'topic': getattr(ext_deck, 'topic', ''),
+                'created_at': datetime.datetime.now()
+            }
         )
         
-        ext_cards = list(Card.select().where(Card.deck_id == external_deck_id))
+        # 3. Копируем карточки через Raw SQL
+        # Используем COALESCE для всех полей, которые могут быть NOT NULL в базе
+        sql = f"""
+            INSERT INTO tma_card (
+                deck_id, front_text, back_text, context, image_path, audio_path, 
+                card_type, is_deleted, source, topics, metadata, tags,
+                created_at, updated_at
+            )
+            SELECT 
+                {local_deck.id}, front_text, back_text, COALESCE(context, ''), 
+                COALESCE(image_path, ''), COALESCE(audio_path, ''), 
+                COALESCE(card_type, 'translation'), COALESCE(is_deleted, false),
+                COALESCE(source, ''), COALESCE(topics, ''), COALESCE(metadata, ''), COALESCE(tags, ''),
+                NOW(), NOW()
+            FROM card
+            WHERE deck_id = {external_deck_id}
+            AND front_text NOT IN (SELECT front_text FROM tma_card WHERE deck_id = {local_deck.id})
+        """
         
-        # Индексируем существующие карты по front_text для быстрого поиска
-        local_cards_map = {c.front_text: c for c in TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)}
+        logger.info(f"IMPORT SQL EXECUTION for deck {external_deck_id}...")
+        tma_db.execute_sql(sql)
         
-        new_cards = []
+        logger.info(f"IMPORT SUCCESS: Deck '{local_deck.name}' (Local ID: {local_deck.id}) updated from Library ID {external_deck_id}")
+        return local_deck
+        
+    except Exception as e:
+        error_msg = f"CRITICAL ERROR in import_deck (Raw SQL): {e}"
+        logger.error(error_msg, exc_info=True)
+        # Пробрасываем ошибку выше, чтобы debug эндпоинт её увидел
+        raise Exception(error_msg)
+
+def import_deck_from_json(data: dict, user_id: int):
+    """Импорт колоды из JSON-объекта (загруженного пользователем)."""
+    try:
+        deck_name = data.get('name', 'Imported Deck')
+        cards = data.get('cards', [])
+        
+        local_deck, _ = TMA_Deck.get_or_create(user_id=user_id, name=deck_name)
+        
         now = datetime.datetime.now()
-        for ec in ext_cards:
-            if ec.front_text in local_cards_map:
-                # Если карта есть, проверяем, не нужно ли обновить медиа-пути
-                local_card = local_cards_map[ec.front_text]
-                changed = False
-                if ec.image_path and not local_card.image_path:
-                    local_card.image_path = ec.image_path
-                    changed = True
-                if ec.audio_path and not local_card.audio_path:
-                    local_card.audio_path = ec.audio_path
-                    changed = True
-                if changed:
-                    local_card.save()
-                continue
-                
+        new_cards = []
+        for c in cards:
             new_cards.append({
                 'deck_id': local_deck.id,
-                'front_text': ec.front_text,
-                'back_text': ec.back_text,
-                'context': ec.context,
-                'image_path': ec.image_path,
-                'audio_path': ec.audio_path,
+                'front_text': c.get('front', ''),
+                'back_text': c.get('back', ''),
+                'context': c.get('context', ''),
+                'image_path': c.get('image_path', ''),
+                'audio_path': c.get('audio_path', ''),
                 'created_at': now,
                 'updated_at': now
             })
@@ -177,8 +225,43 @@ def import_deck(external_deck_id: int, user_id: int):
                     
         return local_deck
     except Exception as e:
-        logger.error(f"Error importing deck: {e}")
+        logger.error(f"Error importing from JSON: {e}")
         return None
+
+def delete_deck(deck_id: int):
+    try:
+        # Сначала удаляем карточки и прогресс (каскадно или вручную)
+        TMA_Card.delete().where(TMA_Card.deck_id == deck_id).execute()
+        TMA_Deck.delete().where(TMA_Deck.id == deck_id).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting deck: {e}")
+        return False
+
+def delete_card(card_id: int):
+    try:
+        TMA_Card.delete().where(TMA_Card.id == card_id).execute()
+        TMAProgress.delete().where(TMAProgress.card_id == card_id).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting card: {e}")
+        return False
+
+def get_community_content(user_id: int):
+    """Возвращает колоды пользователей, которые можно 'влить' в библиотеку (для админа)."""
+    try:
+        # Для простоты возвращаем все колоды, которых нет в Deck
+        lib_names = {d.name for d in Deck.select(Deck.name)}
+        user_decks = TMA_Deck.select().where(~(TMA_Deck.name << list(lib_names)))
+        return [{
+            "id": d.id,
+            "name": d.name,
+            "user_id": d.user_id,
+            "cards_count": TMA_Card.select().where(TMA_Card.deck_id == d.id).count()
+        } for d in user_decks]
+    except Exception as e:
+        logger.error(f"Error fetching community content: {e}")
+        return []
 
 def reset_deck_progress(user_id: int, deck_id: int):
     try:
@@ -242,15 +325,15 @@ def get_cards_for_study(deck_id: int, user_id: int):
 def save_card(data, user_id):
     """Сохраняет или обновляет карточку."""
     try:
-        card_id = data.get('id')
+        card_id = data.get('card_id') or data.get('id')
         if card_id:
             card = TMA_Card.get_by_id(card_id)
         else:
             card = TMA_Card()
             
         card.deck_id = data.get('deck_id')
-        card.front_text = data.get('front_text')
-        card.back_text = data.get('back_text')
+        card.front_text = data.get('front') or data.get('front_text')
+        card.back_text = data.get('back') or data.get('back_text')
         card.context = data.get('context')
         card.image_path = data.get('image_path')
         card.audio_path = data.get('audio_path')
@@ -260,7 +343,35 @@ def save_card(data, user_id):
         logger.error(f"Error saving card: {e}")
         return None
 
+def promote_to_library(deck_id: int):
+    """Переносит пользовательскую колоду в общую библиотеку."""
+    try:
+        tma_deck = TMA_Deck.get_by_id(deck_id)
+        lib_deck, _ = Deck.get_or_create(
+            name=tma_deck.name,
+            defaults={'level': tma_deck.level, 'topic': tma_deck.topic}
+        )
+        
+        tma_cards = TMA_Card.select().where(TMA_Card.deck_id == deck_id)
+        for tc in tma_cards:
+            Card.get_or_create(
+                deck_id=lib_deck.id,
+                front_text=tc.front_text,
+                defaults={
+                    'back_text': tc.back_text,
+                    'context': tc.context,
+                    'image_path': tc.image_path,
+                    'audio_path': tc.audio_path
+                }
+            )
+        return lib_deck
+    except Exception as e:
+        logger.error(f"Error promoting deck: {e}")
+        return None
+
 def resolve_media_url(path_str: str, media_type: str) -> str | None:
     if not path_str: return None
     if path_str.startswith("http"): return path_str
-    return f"/api/media/{media_type}/{os.path.basename(path_str)}"
+    # Извлекаем только имя файла
+    filename = os.path.basename(path_str)
+    return f"/api/media/{media_type}/{filename}"

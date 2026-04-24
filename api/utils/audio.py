@@ -49,10 +49,15 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
     else:
         logger.info(f"Generating audio for text: {clean_text[:50]}...")
         try:
+            # Используем asyncio.run_coroutine_threadsafe если нужно, но здесь мы в асинхронном контексте
             communicate = edge_tts.Communicate(clean_text, voice, rate=rate)
             await communicate.save(abs_filepath)
+            
+            if not os.path.exists(abs_filepath) or os.path.getsize(abs_filepath) == 0:
+                logger.error("Edge TTS generated an empty file or file not found")
+                return None
         except Exception as e:
-            logger.error(f"Edge TTS Generation Error: {e}")
+            logger.error(f"Edge TTS Generation Error: {e}", exc_info=True)
             return None
 
     # --- Облачная часть (Supabase Storage) ---
@@ -60,10 +65,15 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
     supabase_key = os.environ.get("SUPABASE_KEY")
     
     if supabase_url and supabase_key and "your_project_url_here" not in supabase_url:
-        cloud_url = _upload_to_supabase(abs_filepath, filename, supabase_url, supabase_key)
-        if cloud_url:
-            return cloud_url
+        try:
+            cloud_url = _upload_to_supabase(abs_filepath, filename, supabase_url, supabase_key)
+            if cloud_url:
+                logger.info(f"Audio uploaded to cloud: {cloud_url}")
+                return cloud_url
+        except Exception as e:
+            logger.warning(f"Failed to upload to cloud storage, falling back to DB: {e}")
 
+    # Если в облако не залили, возвращаем локальный путь для сохранения в TMAMedia
     return abs_filepath
 
 def _upload_to_supabase(file_path, filename, project_url, api_key):
@@ -94,4 +104,9 @@ def _upload_to_supabase(file_path, filename, project_url, api_key):
 
 def _strip_markdown(text):
     if not text: return ""
-    return text.replace("**", "").replace("__", "").replace("`", "").replace("*", "").replace("_", "").strip()
+    # Убираем разметку и спецсимволы, которые могут сбивать edge-tts
+    res = text.replace("**", "").replace("__", "").replace("`", "").replace("*", "").replace("_", "")
+    res = res.replace("<center>", "").replace("</center>", "").replace("<large>", "").replace("</large>", "")
+    # Убираем "длинные" тире и прочие юникод-символы, которые могут вызвать проблемы
+    res = res.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
+    return res.strip()
