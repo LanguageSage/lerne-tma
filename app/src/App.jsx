@@ -115,6 +115,8 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isNewDeckModalOpen, setIsNewDeckModalOpen] = useState(false);
+  const [deckModalMode, setDeckModalMode] = useState('choice'); // 'choice', 'library', 'json'
+  const [isOpeningDeck, setIsOpeningDeck] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
   
   const [adminSettings, setAdminSettings] = useState({});
@@ -129,7 +131,6 @@ function App() {
   const [newPresetName, setNewPresetName] = useState('');
   
   // Новые состояния для импорта
-  const [deckModalMode, setDeckModalMode] = useState('choice'); // 'choice' | 'create' | 'import'
   const [externalDecks, setExternalDecks] = useState([]);
   const [communityDecks, setCommunityDecks] = useState([]);
   const [isImportLoading, setIsImportLoading] = useState(false);
@@ -230,13 +231,18 @@ function App() {
   };
 
   const startStudy = async (deck) => {
-    setCurrentDeck(deck);
-    setView('study'); 
-    setCard(null); 
-    setIsFlipped(false);
-    setStudyHistory([]);
-    setHistoryIndex(-1);
-    await fetchNextCard(deck.id, true);
+    setIsOpeningDeck(true);
+    try {
+      setCurrentDeck(deck);
+      setView('study'); 
+      setCard(null); 
+      setIsFlipped(false);
+      setStudyHistory([]);
+      setHistoryIndex(-1);
+      await fetchNextCard(deck.id, true);
+    } finally {
+      setIsOpeningDeck(false);
+    }
   };
 
   const fetchNextCard = async (deckId, isFirst = false, excludeIds = []) => {
@@ -356,7 +362,7 @@ function App() {
   };
 
   const fetchDeckCards = async (deckId) => {
-    setLoading(true);
+    setIsOpeningDeck(true);
     try {
       const res = await axios.get(`${API_BASE}/decks/${deckId}/cards`);
       setDeckCards(res.data);
@@ -364,8 +370,9 @@ function App() {
     } catch (err) {
       console.error(err);
       showToast("Ошибка загрузки карточек");
+    } finally {
+      setIsOpeningDeck(false);
     }
-    setLoading(false);
   };
 
   const openEditor = (deckId, cardToEdit = null, source = 'cards') => {
@@ -402,13 +409,28 @@ function App() {
     setLoading(true);
     const voice = adminSettings.TTS_VOICE || 'de-DE-KatjaNeural';
     const rate = adminSettings.TTS_SPEED || '+0%';
+    // Если на фронте русский - озвучиваем бэк (немецкий)
+    const hasRussian = /[а-яА-Я]/.test(c.front);
+    const textToSpeak = hasRussian ? c.back : c.front;
+    
+    if (!textToSpeak) {
+      showToast("Нет текста для озвучки");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await axios.post(`${API_BASE}/media/generate-audio?text=${encodeURIComponent(c.front)}&lang=de&voice=${voice}&rate=${encodeURIComponent(rate)}`);
+      const res = await axios.post(`${API_BASE}/media/generate-audio`, {
+        text: textToSpeak,
+        lang: 'de',
+        voice: voice,
+        rate: rate
+      }, { headers: { 'X-User-ID': USER_ID } });
       const newAudioPath = res.data.path;
       
       await axios.post(`${API_BASE}/cards/save`, {
         card_id: c.id,
-        deck_id: null,
+        deck_id: c.deck_id,
         front: c.front,
         back: c.back,
         context: c.context,
@@ -481,8 +503,23 @@ function App() {
     setLoading(true);
     const voice = adminSettings.TTS_VOICE || 'de-DE-KatjaNeural';
     const rate = adminSettings.TTS_SPEED || '+0%';
+    // Если на фронте русский - озвучиваем бэк
+    const hasRussian = /[а-яА-Я]/.test(editingCard.front);
+    const textToSpeak = hasRussian ? editingCard.back : editingCard.front;
+
+    if (!textToSpeak) {
+      showToast("Заполните текст для озвучки");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await axios.post(`${API_BASE}/media/generate-audio?text=${encodeURIComponent(editingCard.front)}&lang=de&voice=${voice}&rate=${encodeURIComponent(rate)}`);
+      const res = await axios.post(`${API_BASE}/media/generate-audio`, {
+        text: textToSpeak,
+        lang: 'de',
+        voice: voice,
+        rate: rate
+      }, { headers: { 'X-User-ID': USER_ID } });
       setEditingCard({ 
         ...editingCard, 
         audio_path: res.data.path,
@@ -695,25 +732,25 @@ function App() {
   };
 
   const importDeck = async (deckId) => {
-    setLoading(true);
-    showToast("Импорт колоды...");
+    setIsOpeningDeck(true);
     try {
-      const res = await axios.post(`${API_BASE}/external/import/${deckId}`, {}, { headers: { 'X-User-ID': USER_ID } });
-      console.log("Import result:", res.data);
+      await axios.post(`${API_BASE}/external/import/${deckId}`, {}, { headers: { 'X-User-ID': USER_ID } });
       
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
       
-      // Даем серверу время на завершение записи (Supabase может быть медленным)
-      setTimeout(() => {
-        fetchDecks(true);
-        showToast("Колода успешно импортирована!", "success");
-      }, 1500);
+      // Сразу обновляем список, не дожидаясь таймаута
+      await fetchDecks(true);
+      showToast("Колода успешно импортирована!", "success");
+      
+      // На всякий случай обновляем еще раз через секунду, если Supabase тормозит
+      setTimeout(() => fetchDecks(true), 1500);
     } catch (err) {
       console.error("Import error:", err);
       showToast(`Ошибка импорта: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setIsOpeningDeck(false);
     }
-    setLoading(false);
   };
 
   const fetchCommunityDecks = async () => {
@@ -1441,6 +1478,22 @@ function App() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isOpeningDeck && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="loading-overlay-global"
+          >
+            <div className="loading-content">
+              <RefreshCw size={48} className="spin" color="#a855f7" />
+              <p>Загрузка данных...</p>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

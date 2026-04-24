@@ -1118,3 +1118,4 @@ input[type=range]:active::-webkit-slider-thumb {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
  
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } .loading-overlay-global { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); z-index: 10000; display: flex; align-items: center; justify-content: center; color: white; } .loading-content { display: flex; flex-direction: column; align-items: center; gap: 1rem; } .loading-content .spin { animation: spin 1s linear infinite; }

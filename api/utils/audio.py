@@ -26,8 +26,14 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
     """
     Генератор аудио. Возвращает либо локальный путь, либо облачную ссылку.
     """
-    voice = SUPPORTED_VOICES.get(voice, voice) or DEFAULT_VOICE
+    clean_text = _strip_markdown(text)
     
+    if voice:
+        # Если голос из нашего сокращенного списка - мапим его
+        voice = SUPPORTED_VOICES.get(voice, voice)
+    
+    voice = voice or DEFAULT_VOICE
+
     if not output_dir:
         if os.environ.get("VERCEL"):
             output_dir = "/tmp/pending_audio"
@@ -35,7 +41,6 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
             output_dir = os.path.join(os.getcwd(), "user_files", "pending_audio")
         
     os.makedirs(output_dir, exist_ok=True)
-    clean_text = _strip_markdown(text)
     
     file_data = f"{clean_text}_{voice}_{rate}"
     file_hash = hashlib.md5(file_data.encode('utf-8')).hexdigest()
@@ -58,7 +63,7 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
                 return None
         except Exception as e:
             logger.error(f"Edge TTS Generation Error: {e}", exc_info=True)
-            return None
+            raise e
 
     # --- Облачная часть (Supabase Storage) ---
     supabase_url = os.environ.get("SUPABASE_URL")
@@ -104,9 +109,19 @@ def _upload_to_supabase(file_path, filename, project_url, api_key):
 
 def _strip_markdown(text):
     if not text: return ""
-    # Убираем разметку и спецсимволы, которые могут сбивать edge-tts
+    # 1. Убираем разметку
     res = text.replace("**", "").replace("__", "").replace("`", "").replace("*", "").replace("_", "")
     res = res.replace("<center>", "").replace("</center>", "").replace("<large>", "").replace("</large>", "")
-    # Убираем "длинные" тире и прочие юникод-символы, которые могут вызвать проблемы
+    
+    # 2. Убираем специфические символы разметки SRS/Anki, если они есть
+    res = re.sub(r'\{\{.*?\}\}', '', res) # {{c1::...}}
+    res = re.sub(r'\[\[.*?\]\]', '', res)
+    
+    # 3. Нормализация Unicode (удаляем невидимые символы, контрольные коды)
+    import unicodedata
+    res = "".join(ch for ch in res if unicodedata.category(ch)[0] != "C")
+    
+    # 4. Убираем "длинные" тире и прочие юникод-символы, которые могут вызвать проблемы
     res = res.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
+    
     return res.strip()

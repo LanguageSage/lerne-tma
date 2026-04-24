@@ -166,7 +166,8 @@ def import_deck(external_deck_id: int, user_id: int):
         )
         
         # 3. Копируем карточки через Raw SQL
-        # Используем COALESCE для всех полей, которые могут быть NOT NULL в базе
+        # Мы выбираем только те поля, которые реально есть в таблице 'card' (библиотека)
+        # Остальные поля заполняем значениями по умолчанию прямо в запросе
         sql = f"""
             INSERT INTO tma_card (
                 deck_id, front_text, back_text, context, image_path, audio_path, 
@@ -176,9 +177,9 @@ def import_deck(external_deck_id: int, user_id: int):
             SELECT 
                 {local_deck.id}, front_text, back_text, COALESCE(context, ''), 
                 COALESCE(image_path, ''), COALESCE(audio_path, ''), 
-                COALESCE(card_type, 'translation'), COALESCE(is_deleted, false),
-                COALESCE(source, ''), COALESCE(topics, ''), COALESCE(metadata, ''), COALESCE(tags, ''),
-                NOW(), NOW()
+                'translation', false,
+                'library', '[]', '{{}}', '[]',
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             FROM card
             WHERE deck_id = {external_deck_id}
             AND front_text NOT IN (SELECT front_text FROM tma_card WHERE deck_id = {local_deck.id})
@@ -298,21 +299,25 @@ def update_card_progress(card_id: int, user_id: int, grade: int):
         raise e
 
 def get_cards_for_study(deck_id: int, user_id: int):
-    """Возвращает список всех карточек в колоде с их статусом SRS."""
+    """Возвращает список всех карточек в колоде. Оптимизировано для скорости."""
     try:
-        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id))
-        progress_map = {p.card_id: p for p in TMAProgress.select().where(TMAProgress.user_id == user_id)}
+        # Используем .dicts() для более быстрой выборки если не нужны объекты моделей
+        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id).dicts())
+        
+        # Получаем прогресс всех карт одним запросом
+        progress_query = TMAProgress.select().where(TMAProgress.user_id == user_id)
+        progress_map = {p.card_id: p for p in progress_query}
         
         result = []
         for c in cards:
-            p = progress_map.get(c.id)
+            p = progress_map.get(c['id'])
             result.append({
-                "id": c.id,
-                "front": c.front_text,
-                "back": c.back_text,
-                "context": c.context,
-                "audio_url": resolve_media_url(c.audio_path, "audio"),
-                "image_url": resolve_media_url(c.image_path, "images"),
+                "id": c['id'],
+                "front": c['front_text'],
+                "back": c['back_text'],
+                "context": c['context'],
+                "audio_url": resolve_media_url(c['audio_path'], "audio"),
+                "image_url": resolve_media_url(c['image_path'], "images"),
                 "queue": p.queue if p else "new",
                 "interval": p.interval if p else 0,
                 "next_review": p.next_review.isoformat() if p and p.next_review else None
@@ -331,16 +336,30 @@ def save_card(data, user_id):
         else:
             card = TMA_Card()
             
-        card.deck_id = data.get('deck_id')
-        card.front_text = data.get('front') or data.get('front_text')
-        card.back_text = data.get('back') or data.get('back_text')
-        card.context = data.get('context')
-        card.image_path = data.get('image_path')
-        card.audio_path = data.get('audio_path')
+        if data.get('deck_id'):
+            card.deck_id = data.get('deck_id')
+        
+        # Обновляем только если передано, чтобы не затереть существующие данные
+        front = data.get('front') or data.get('front_text')
+        if front is not None:
+            card.front_text = front
+            
+        back = data.get('back') or data.get('back_text')
+        if back is not None:
+            card.back_text = back
+            
+        if 'context' in data:
+            card.context = data.get('context')
+        if 'image_path' in data:
+            card.image_path = data.get('image_path')
+        if 'audio_path' in data:
+            card.audio_path = data.get('audio_path')
+            
         card.save()
         return card
     except Exception as e:
-        logger.error(f"Error saving card: {e}")
+        import traceback
+        logger.error(f"Error saving card: {e}\n{traceback.format_exc()}")
         return None
 
 def promote_to_library(deck_id: int):

@@ -8,7 +8,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -278,9 +278,24 @@ async def generate_card(request: PhraseRequest, x_user_id: int = Header(None)):
 # --- Медиа ---
 
 @app.post("/api/media/generate-audio")
-async def generate_audio_endpoint(text: str, lang: str = "de", voice: str = None, rate: str = None):
-    """Генерация озвучки через Edge TTS и загрузка в облако (если настроено)."""
+async def generate_audio_endpoint(
+    data: dict = Body(None), 
+    text: str = Query(None),
+    lang: str = Query("de"),
+    voice: str = Query(None),
+    rate: str = Query(None),
+    x_user_id: int = Header(None)
+):
+    """Генерация озвучки через Edge TTS и загрузка в облако. Принимает данные как в теле, так и в параметрах."""
+    if data:
+        text = text or data.get('text')
+        lang = lang or data.get('lang', 'de')
+        voice = voice or data.get('voice')
+        rate = rate or data.get('rate')
     
+    if not text:
+        raise HTTPException(status_code=400, detail="Text is required")
+
     # 1. Пытаемся получить настройки из БД, если они не переданы явно в запросе
     db_settings = {}
     try:
@@ -302,11 +317,11 @@ async def generate_audio_endpoint(text: str, lang: str = "de", voice: str = None
     # 3. Определяем скорость: приоритет у параметра, затем БД TTS_SPEED, затем дефолт
     rate = rate or db_settings.get("TTS_SPEED") or "+0%"
     
-    logger.info(f"AUDIO GENERATION: Text='{text[:30]}...', Voice={voice}, Rate={rate}")
+    logger.info(f"AUDIO GENERATION START: Text='{text[:30]}...', Voice={voice}, Rate={rate}")
             
     try:
-        from utils.audio import generate_audio
-        result = await generate_audio(text, voice=voice, rate=rate)
+        from api.utils import audio
+        result = await audio.generate_audio(text, voice=voice, rate=rate)
         
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
@@ -314,9 +329,11 @@ async def generate_audio_endpoint(text: str, lang: str = "de", voice: str = None
         # result может быть либо облачной ссылкой (http...), либо локальным путем
         if result.startswith("http"):
             return {"path": result, "url": result}
-        else:
-            # Читаем сгенерированный файл и сохраняем в БД
+        
+        # Читаем сгенерированный файл и сохраняем в БД (запасной вариант)
+        try:
             filename = os.path.basename(result)
+            logger.info(f"Saving audio to DB fallback: {filename}")
             with open(result, "rb") as f:
                 content = f.read()
             
@@ -334,9 +351,14 @@ async def generate_audio_endpoint(text: str, lang: str = "de", voice: str = None
                 "path": filename,
                 "url": f"/api/media/audio/{filename}"
             }
+        except Exception as db_err:
+            logger.error(f"DATABASE SAVE ERROR for audio: {db_err}")
+            raise HTTPException(status_code=500, detail=f"Database Save Error: {str(db_err)}")
     except Exception as e:
-        logger.error(f"Audio generation endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        err_msg = traceback.format_exc()
+        logger.error(f"TTS generation error: {e}\n{err_msg}")
+        raise HTTPException(status_code=500, detail=f"TTS Error: {str(e)}")
 
 @app.get("/api/media/audio/{filename}")
 def get_audio(filename: str):
@@ -422,6 +444,35 @@ def debug_import(deck_id: int, x_user_id: int = Header(None)):
         import traceback
         log(traceback.format_exc())
         return {"logs": logs, "error": str(e)}
+
+@app.get("/api/debug/test-audio")
+async def debug_audio(text: str = "Test", voice: str = "de-DE-KatjaNeural"):
+    logs = []
+    logs.append(f"Starting debug audio for text: '{text}', voice: '{voice}'")
+    try:
+        from api.utils import audio
+        import os
+        
+        # Пробуем сгенерировать
+        result = await audio.generate_audio(text, voice)
+        logs.append(f"Result path/url: {result}")
+        
+        if result and not result.startswith("http"):
+            exists = os.path.exists(result)
+            size = os.path.getsize(result) if exists else 0
+            logs.append(f"File exists: {exists}, Size: {size}")
+            
+            # Пробуем прочитать
+            with open(result, "rb") as f:
+                data = f.read(100) # читаем кусочек
+            logs.append(f"Read success, first 100 bytes length: {len(data)}")
+            
+        return {"logs": logs, "success": result is not None}
+    except Exception as e:
+        import traceback
+        err = traceback.format_exc()
+        logs.append(f"CRITICAL ERROR: {err}")
+        return {"logs": logs, "success": False, "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
