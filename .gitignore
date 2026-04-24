@@ -169,3 +169,8 @@ api/data/media/pending_images/
 .DS_Store
 
 .vercel
+
+*.mp3
+audio_debug.log
+debug_output.txt
+api/debug_api.txt
