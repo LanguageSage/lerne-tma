@@ -109,10 +109,7 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None):
             
         card = new_query.first()
         
-        # Fallback: если всё пройдено, берем любую первую для режима "учить заново" без сброса
-        if not card and not exclude_ids:
-            card = TMA_Card.select().where(TMA_Card.deck_id == deck_id).first()
-            
+        # Fallback удален, чтобы избежать бесконечного цикла
         if not card:
             return None, None
             
