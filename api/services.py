@@ -1,9 +1,36 @@
 import os
 import datetime
 import logging
+import json
 from models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db
 import srs
 from peewee import fn
+
+logger = logging.getLogger(__name__)
+
+def merge_tags(local_tags_str, remote_tags_str):
+    try:
+        local_tags = json.loads(local_tags_str) if local_tags_str else []
+        if not isinstance(local_tags, list): local_tags = []
+    except: local_tags = []
+    try:
+        remote_tags = json.loads(remote_tags_str) if remote_tags_str else []
+        if not isinstance(remote_tags, list): remote_tags = []
+    except: remote_tags = []
+    
+    merged = list(set(local_tags + remote_tags))
+    return json.dumps(merged)
+
+def add_to_history(history_str, message):
+    try:
+        history = json.loads(history_str) if history_str else []
+        if not isinstance(history, list): history = []
+    except: history = []
+    
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry = f"{timestamp}: {message}"
+    history.insert(0, entry)
+    return json.dumps(history[:10])
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +84,22 @@ def get_active_decks(user_id: int):
                    .where(TMAProgress.user_id == user_id, TMA_Card.deck_id == d.id, TMAProgress.next_review <= now)
                    .count())
             
+            # Check for updates
+            has_updates = False
+            ext_deck = Deck.get_or_none(Deck.name == d.name)
+            if ext_deck:
+                lib_count = Card.select().where(Card.deck_id == ext_deck.id).count()
+                if lib_count > total:
+                    has_updates = True
+                elif ext_deck.updated_at and d.updated_at and ext_deck.updated_at > d.updated_at:
+                    has_updates = True
+
             result.append({
                 "id": d.id,
                 "name": d.name,
                 "level": getattr(d, 'level', ''),
                 "topic": getattr(d, 'topic', ''),
+                "has_updates": has_updates,
                 "stats": {
                     "total": total,
                     "new": max(0, total - tracked),
@@ -143,55 +181,120 @@ def get_external_decks():
         logger.error(f"Error in get_external_decks: {e}")
         return []
 
-def import_deck(external_deck_id: int, user_id: int):
-    """Импортирует колоду и все её карточки из библиотеки для конкретного пользователя через Raw SQL."""
+def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_deck_id: int = None):
+    """Импортирует колоду из библиотеки. Поддерживает режимы: merge, replace, copy."""
     try:
-        logger.info(f"IMPORT START: deck_id={external_deck_id}, user_id={user_id}")
+        logger.info(f"IMPORT START: deck_id={external_deck_id}, user_id={user_id}, mode={mode}")
         
-        # 1. Берем колоду из библиотеки (проверка существования)
         ext_deck = Deck.get_by_id(external_deck_id)
         
-        # 2. Создаем или находим локальную колоду у пользователя
-        local_deck, created = TMA_Deck.get_or_create(
-            user_id=user_id, 
-            name=ext_deck.name,
-            defaults={
-                'level': getattr(ext_deck, 'level', ''),
-                'topic': getattr(ext_deck, 'topic', ''),
-                'created_at': datetime.datetime.now()
-            }
-        )
-        
-        # 3. Копируем карточки через Raw SQL
-        # Мы выбираем только те поля, которые реально есть в таблице 'card' (библиотека)
-        # Остальные поля заполняем значениями по умолчанию прямо в запросе
-        sql = f"""
-            INSERT INTO tma_card (
-                deck_id, front_text, back_text, context, image_path, audio_path, 
-                card_type, is_deleted, source, topics, metadata, tags,
-                created_at, updated_at
+        if mode == 'copy':
+            copy_name = f"{ext_deck.name} (v2)"
+            local_deck, _ = TMA_Deck.get_or_create(
+                user_id=user_id, 
+                name=copy_name,
+                defaults={
+                    'level': getattr(ext_deck, 'level', ''),
+                    'topic': getattr(ext_deck, 'topic', ''),
+                    'created_at': datetime.datetime.now(),
+                    'updated_at': datetime.datetime.now()
+                }
             )
-            SELECT 
-                {local_deck.id}, front_text, back_text, COALESCE(context, ''), 
-                COALESCE(image_path, ''), COALESCE(audio_path, ''), 
-                'translation', false,
-                'library', '[]', '{{}}', '[]',
-                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-            FROM card
-            WHERE deck_id = {external_deck_id}
-            AND front_text NOT IN (SELECT front_text FROM tma_card WHERE deck_id = {local_deck.id})
-        """
-        
-        logger.info(f"IMPORT SQL EXECUTION for deck {external_deck_id}...")
-        tma_db.execute_sql(sql)
-        
-        logger.info(f"IMPORT SUCCESS: Deck '{local_deck.name}' (Local ID: {local_deck.id}) updated from Library ID {external_deck_id}")
-        return local_deck
-        
+            # Insert all cards without checking
+            sql = f"""
+                INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
+                SELECT {local_deck.id}, front_text, back_text, COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', '{{}}', '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported as copy"]'
+                FROM card WHERE deck_id = {external_deck_id}
+            """
+            tma_db.execute_sql(sql)
+            return local_deck
+            
+        elif mode == 'replace':
+            if local_deck_id:
+                local_deck = TMA_Deck.get_by_id(local_deck_id)
+            else:
+                local_deck, _ = TMA_Deck.get_or_create(user_id=user_id, name=ext_deck.name)
+            
+            # Delete old cards
+            card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == local_deck.id)]
+            if card_ids:
+                TMAProgress.delete().where(TMAProgress.card_id << card_ids).execute()
+                TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
+                
+            # Insert all cards
+            sql = f"""
+                INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
+                SELECT {local_deck.id}, front_text, back_text, COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', '{{}}', '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported via replace"]'
+                FROM card WHERE deck_id = {external_deck_id} AND is_deleted = false
+            """
+            tma_db.execute_sql(sql)
+            
+            local_deck.updated_at = datetime.datetime.now()
+            local_deck.save()
+            return local_deck
+            
+        else: # merge
+            if local_deck_id:
+                local_deck = TMA_Deck.get_by_id(local_deck_id)
+            else:
+                local_deck, _ = TMA_Deck.get_or_create(
+                    user_id=user_id, 
+                    name=ext_deck.name,
+                    defaults={
+                        'level': getattr(ext_deck, 'level', ''),
+                        'topic': getattr(ext_deck, 'topic', ''),
+                        'created_at': datetime.datetime.now()
+                    }
+                )
+                
+            # Update existing cards & insert new ones
+            remote_cards = list(Card.select().where(Card.deck_id == external_deck_id))
+            local_cards = {c.front_text: c for c in TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)}
+            
+            new_cards_to_insert = []
+            
+            for rc in remote_cards:
+                if rc.front_text in local_cards:
+                    lc = local_cards[rc.front_text]
+                    # Check if remote is newer
+                    if rc.updated_at and (not lc.updated_at or rc.updated_at > lc.updated_at):
+                        lc.back_text = rc.back_text
+                        lc.context = rc.context
+                        lc.image_path = rc.image_path
+                        lc.audio_path = rc.audio_path
+                        lc.tags = merge_tags(lc.tags, getattr(rc, 'tags', '[]'))
+                        lc.updated_at = datetime.datetime.now()
+                        lc.history = add_to_history(lc.history, "Updated from library")
+                        lc.save()
+                else:
+                    new_cards_to_insert.append({
+                        'deck_id': local_deck.id,
+                        'front_text': rc.front_text,
+                        'back_text': rc.back_text,
+                        'context': rc.context,
+                        'image_path': rc.image_path,
+                        'audio_path': rc.audio_path,
+                        'card_type': 'translation',
+                        'source': 'library',
+                        'tags': getattr(rc, 'tags', '[]'),
+                        'metadata': '{}',
+                        'created_at': datetime.datetime.now(),
+                        'updated_at': datetime.datetime.now(),
+                        'history': add_to_history('[]', "Imported from library")
+                    })
+            
+            if new_cards_to_insert:
+                with tma_db.atomic():
+                    for i in range(0, len(new_cards_to_insert), 100):
+                        TMA_Card.insert_many(new_cards_to_insert[i:i+100]).execute()
+            
+            local_deck.updated_at = datetime.datetime.now()
+            local_deck.save()
+            return local_deck
+            
     except Exception as e:
-        error_msg = f"CRITICAL ERROR in import_deck (Raw SQL): {e}"
+        error_msg = f"CRITICAL ERROR in import_deck: {e}"
         logger.error(error_msg, exc_info=True)
-        # Пробрасываем ошибку выше, чтобы debug эндпоинт её увидел
         raise Exception(error_msg)
 
 def import_deck_from_json(data: dict, user_id: int):
@@ -271,12 +374,12 @@ def reset_deck_progress(user_id: int, deck_id: int):
         logger.error(f"Error resetting progress: {e}")
         return False
 
-def sync_deck_with_library(user_id: int, deck_id: int):
+def sync_deck_with_library(user_id: int, deck_id: int, mode: str = 'merge'):
     try:
         local = TMA_Deck.get_by_id(deck_id)
         ext = Deck.get_or_none(Deck.name == local.name)
         if ext:
-            import_deck(ext.id, user_id)
+            import_deck(ext.id, user_id, mode=mode, local_deck_id=local.id)
             return True
         return False
     except Exception as e:
@@ -352,6 +455,8 @@ def save_card(data, user_id):
         if 'audio_path' in data:
             card.audio_path = data.get('audio_path')
             
+        card.updated_at = datetime.datetime.now()
+        card.history = add_to_history(card.history, "Edited manually")
         card.save()
         return card
     except Exception as e:

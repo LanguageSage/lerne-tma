@@ -52,6 +52,20 @@ def create_all_tables():
             logger.info("Migration: added image_data column to tma_card")
         except Exception:
             pass  # Колонка уже есть
+            
+        # Миграции для истории и обновлений
+        migrations = [
+            ('ALTER TABLE tma_deck ADD COLUMN updated_at TIMESTAMP', tma_db),
+            ('ALTER TABLE tma_card ADD COLUMN history TEXT DEFAULT \'[]\'', tma_db),
+            ('ALTER TABLE deck ADD COLUMN updated_at TIMESTAMP', lerne_db),
+            ('ALTER TABLE card ADD COLUMN updated_at TIMESTAMP', lerne_db),
+            ('ALTER TABLE card ADD COLUMN history TEXT DEFAULT \'[]\'', lerne_db)
+        ]
+        for query, db in migrations:
+            try:
+                db.execute_sql(query)
+            except Exception:
+                pass
     except: pass
 
 class BaseModel(Model):
@@ -66,6 +80,7 @@ class TMA_Deck(BaseModel):
     topic = CharField(null=True)
     is_deleted = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(null=True)
     class Meta:
         table_name = 'tma_deck'
 
@@ -87,6 +102,7 @@ class TMA_Card(BaseModel):
     is_deleted = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
+    history = TextField(default='[]')
     class Meta:
         table_name = 'tma_card'
 
@@ -147,6 +163,7 @@ class Deck(Model):
     name = CharField()
     level = CharField(null=True)
     topic = CharField(null=True)
+    updated_at = DateTimeField(null=True)
     class Meta:
         database = lerne_db
         table_name = 'deck'
@@ -159,6 +176,8 @@ class Card(Model):
     context = TextField(null=True)
     image_path = TextField(null=True)
     audio_path = TextField(null=True)
+    updated_at = DateTimeField(null=True)
+    history = TextField(default='[]')
     class Meta:
         database = lerne_db
         table_name = 'card'
