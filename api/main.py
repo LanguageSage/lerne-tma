@@ -8,9 +8,10 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from api.dependencies.auth import get_user_id
 
 import models
 import services
@@ -22,8 +23,8 @@ from api.routers import decks, cards, study, settings, ai, media
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Принудительная инициализация базы данных для облака
-models.initialize_database()
+# Models initializes the database on import, no need for second call
+# models.initialize_database()
 
 app = FastAPI(title="Lerne TMA API")
 
@@ -43,6 +44,36 @@ app.include_router(study.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
+
+# --- Consolidated Init Endpoint ---
+@app.get("/api/init")
+def get_init_data(user_id: int = Depends(get_user_id)):
+    """Returns all initial data needed by the app in a single request."""
+    decks = services.get_active_decks(user_id)
+    
+    # Get settings
+    settings = {}
+    try:
+        for s in models.TMASetting.select():
+            settings[s.key] = s.value
+    except: pass
+        
+    # Get prompts
+    prompts = {"translation_prompt": "", "context_prompt": ""}
+    try:
+        p = models.TMAUserPrompt.get_or_none(models.TMAUserPrompt.user_id == user_id)
+        if p:
+            prompts = {
+                "translation_prompt": p.translation_prompt or "",
+                "context_prompt": p.context_prompt or ""
+            }
+    except: pass
+        
+    return {
+        "decks": decks,
+        "settings": settings,
+        "prompts": prompts
+    }
 
 # --- Базовые Эндпоинты ---
 @app.get("/api/health")

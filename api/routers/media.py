@@ -1,7 +1,8 @@
 import io
 import os
 import uuid
-from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response, UploadFile, File
+import hashlib
+from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response, UploadFile, File, Request
 import logging
 from PIL import Image, UnidentifiedImageError
 
@@ -144,19 +145,33 @@ async def generate_audio_endpoint(
         raise HTTPException(status_code=500, detail=f"TTS Error: {str(e)}")
 
 @router.get("/audio/{filename}")
-def get_audio(filename: str):
-    logger.info(f"MEDIA: Requesting audio: {filename}")
+def get_audio(filename: str, request: Request):
+    logger.debug(f"MEDIA: Requesting audio: {filename}")
     media = models.TMAMedia.get_or_none(
         models.TMAMedia.filename == filename, 
         models.TMAMedia.folder == 'audio'
     )
     if not media:
         raise HTTPException(status_code=404, detail="Audio not found in DB")
-    return Response(content=bytes(media.content), media_type="audio/mpeg")
+    
+    content = bytes(media.content)
+    etag = hashlib.md5(content).hexdigest()
+    
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304)
+
+    return Response(
+        content=content, 
+        media_type="audio/mpeg",
+        headers={
+            "Cache-Control": "public, max-age=604800",
+            "ETag": etag
+        }
+    )
 
 @router.get("/images/{filename}")
-def get_image(filename: str):
-    logger.info(f"MEDIA: Requesting image: {filename}")
+def get_image(filename: str, request: Request):
+    logger.debug(f"MEDIA: Requesting image: {filename}")
     media = models.TMAMedia.get_or_none(
         models.TMAMedia.filename == filename, 
         models.TMAMedia.folder == 'images'
@@ -168,4 +183,17 @@ def get_image(filename: str):
     media_type = f"image/{ext}" if ext != 'jpg' else "image/jpeg"
     if ext == 'webp': media_type = "image/webp"
     
-    return Response(content=bytes(media.content), media_type=media_type)
+    content = bytes(media.content)
+    etag = hashlib.md5(content).hexdigest()
+    
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304)
+    
+    return Response(
+        content=content, 
+        media_type=media_type,
+        headers={
+            "Cache-Control": "public, max-age=604800",
+            "ETag": etag
+        }
+    )

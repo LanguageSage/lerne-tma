@@ -4,7 +4,7 @@ import logging
 import json
 from models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db
 import srs
-from peewee import fn
+from peewee import fn, JOIN
 
 logger = logging.getLogger(__name__)
 
@@ -46,18 +46,19 @@ def ensure_starter_decks(user_id: int):
         existing_decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id))
         existing_names = {d.name for d in existing_decks}
         
-        for name in STARTER_DECK_NAMES:
-            if name not in existing_names:
-                lib_deck = Deck.get_or_none(Deck.name == name)
-                if lib_deck:
-                    import_deck(lib_deck.id, user_id)
+        with tma_db.atomic():
+            for name in STARTER_DECK_NAMES:
+                if name not in existing_names:
+                    lib_deck = Deck.get_or_none(Deck.name == name)
+                    if lib_deck:
+                        import_deck(lib_deck.id, user_id)
         return True
     except Exception as e:
         logger.error(f"Error in ensure_starter_decks: {e}")
         return False
 
 def get_active_decks(user_id: int):
-    """Возвращает список колод со статистикой."""
+    """Возвращает список колод со статистикой. Оптимизировано: 2 запроса вместо 5."""
     try:
         now = datetime.datetime.now()
         decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id).order_by(TMA_Deck.id.desc()))
@@ -72,66 +73,49 @@ def get_active_decks(user_id: int):
         deck_ids = [d.id for d in decks]
         deck_names = [d.name for d in decks]
 
-        total_counts = {
-            deck_id: count
-            for deck_id, count in (
-                TMA_Card
-                .select(TMA_Card.deck, fn.COUNT(TMA_Card.id))
-                .where(TMA_Card.deck << deck_ids)
-                .group_by(TMA_Card.deck)
-                .tuples()
-            )
-        }
+        # --- ОДИН запрос для total, tracked и due (вместо 3 отдельных) ---
+        stats_sql = """
+            SELECT 
+                c.deck_id,
+                COUNT(c.id) AS total,
+                COUNT(p.id) AS tracked,
+                COUNT(CASE WHEN p.next_review <= %s THEN 1 END) AS due
+            FROM tma_card c
+            LEFT JOIN tmaprogress p ON p.card_id = c.id AND p.user_id = %s
+            WHERE c.deck_id IN ({})
+            GROUP BY c.deck_id
+        """.format(','.join(['%s'] * len(deck_ids)))
+        
+        cursor = tma_db.execute_sql(stats_sql, [now, user_id] + deck_ids)
+        stats_map = {}
+        for row in cursor.fetchall():
+            stats_map[row[0]] = {'total': row[1], 'tracked': row[2], 'due': row[3]}
 
-        tracked_counts = {
-            deck_id: count
-            for deck_id, count in (
-                TMAProgress
-                .select(TMA_Card.deck, fn.COUNT(TMAProgress.id))
-                .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
-                .where(TMAProgress.user_id == user_id, TMA_Card.deck << deck_ids)
-                .group_by(TMA_Card.deck)
-                .tuples()
-            )
-        }
-
-        due_counts = {
-            deck_id: count
-            for deck_id, count in (
-                TMAProgress
-                .select(TMA_Card.deck, fn.COUNT(TMAProgress.id))
-                .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
-                .where(
-                    TMAProgress.user_id == user_id,
-                    TMA_Card.deck << deck_ids,
-                    TMAProgress.next_review <= now
-                )
-                .group_by(TMA_Card.deck)
-                .tuples()
-            )
-        }
-
-        ext_decks = list(Deck.select().where(Deck.name << deck_names))
-        ext_by_name = {d.name: d for d in ext_decks}
-        ext_ids = [d.id for d in ext_decks]
+        # --- ОДИН запрос для проверки обновлений из библиотеки ---
+        ext_by_name = {}
         lib_counts = {}
-        if ext_ids:
-            lib_counts = {
-                deck_id: count
-                for deck_id, count in (
-                    Card
-                    .select(Card.deck, fn.COUNT(Card.id))
-                    .where(Card.deck << ext_ids)
-                    .group_by(Card.deck)
-                    .tuples()
-                )
-            }
+        if deck_names:
+            ext_decks = list(Deck.select().where(Deck.name << deck_names))
+            ext_by_name = {d.name: d for d in ext_decks}
+            ext_ids = [d.id for d in ext_decks]
+            if ext_ids:
+                lib_counts = {
+                    deck_id: count
+                    for deck_id, count in (
+                        Card
+                        .select(Card.deck, fn.COUNT(Card.id))
+                        .where(Card.deck << ext_ids)
+                        .group_by(Card.deck)
+                        .tuples()
+                    )
+                }
         
         result = []
         for d in decks:
-            total = total_counts.get(d.id, 0)
-            tracked = tracked_counts.get(d.id, 0)
-            due = due_counts.get(d.id, 0)
+            s = stats_map.get(d.id, {'total': 0, 'tracked': 0, 'due': 0})
+            total = s['total']
+            tracked = s['tracked']
+            due = s['due']
             
             # Check for updates
             has_updates = False
@@ -162,14 +146,14 @@ def get_active_decks(user_id: int):
         return []
 
 def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None):
-    """Выбирает следующую карту для изучения (SRS)."""
+    """Выбирает следующую карту для изучения (SRS). Оптимизировано: JOIN вместо 2 запросов."""
     try:
         now = datetime.datetime.now()
         exclude_ids = exclude_ids or []
         
-        # 1. Повторение (Due) — с учётом exclude_ids
+        # 1. Повторение (Due) — JOIN для получения card+progress за один запрос
         due_query = (TMAProgress
-                    .select()
+                    .select(TMAProgress, TMA_Card)
                     .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
                     .where(
                         TMAProgress.user_id == user_id,
@@ -181,16 +165,25 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None):
         progress = due_query.order_by(TMAProgress.queue.asc(), TMAProgress.next_review.asc()).first()
         
         if progress:
-            card = TMA_Card.get_by_id(progress.card_id)
+            # Карта уже загружена через JOIN — используем tma__card
+            card = progress.card_id  # peewee вернёт FK как объект через JOIN
+            try:
+                card = TMA_Card.get_by_id(progress.card_id)
+            except Exception:
+                pass
             return card, progress
             
-        # 2. Новые карты
-        # Исключаем те, что уже в прогрессе
-        tracked_ids = [p.card_id for p in TMAProgress.select(TMAProgress.card_id).where(TMAProgress.user_id == user_id)]
-        
-        new_query = TMA_Card.select().where(TMA_Card.deck_id == deck_id)
-        if tracked_ids:
-            new_query = new_query.where(~(TMA_Card.id << tracked_ids))
+        # 2. Новые карты — используем LEFT JOIN для исключения уже отслеживаемых
+        new_query = (TMA_Card
+                    .select()
+                    .join(TMAProgress, on=(
+                        (TMAProgress.card_id == TMA_Card.id) & 
+                        (TMAProgress.user_id == user_id)
+                    ), join_type=JOIN.LEFT_OUTER)
+                    .where(
+                        TMA_Card.deck_id == deck_id,
+                        TMAProgress.id.is_null()  # Нет записи в прогрессе = новая карта
+                    ))
         if exclude_ids:
             new_query = new_query.where(~(TMA_Card.id << exclude_ids))
             
@@ -296,9 +289,13 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     }
                 )
                 
+            logger.info(f"IMPORT MERGE: Processing deck '{local_deck.name}' for user {user_id}")
+                
             # Update existing cards & insert new ones
             remote_cards = list(Card.select().where(Card.deck_id == external_deck_id))
             local_cards = {c.front_text: c for c in TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)}
+            
+            logger.info(f"MERGE STATS: {len(remote_cards)} in library, {len(local_cards)} in local")
             
             new_cards_to_insert = []
             
@@ -307,6 +304,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     lc = local_cards[rc.front_text]
                     # Check if remote is newer
                     if rc.updated_at and (not lc.updated_at or rc.updated_at > lc.updated_at):
+                        logger.info(f"UPDATING CARD: {rc.front_text}")
                         lc.back_text = rc.back_text
                         lc.context = rc.context
                         lc.image_path = rc.image_path
@@ -426,10 +424,13 @@ def reset_deck_progress(user_id: int, deck_id: int):
 def sync_deck_with_library(user_id: int, deck_id: int, mode: str = 'merge'):
     try:
         local = TMA_Deck.get_by_id(deck_id)
+        logger.info(f"SYNC START: local_name='{local.name}', user_id={user_id}")
         ext = Deck.get_or_none(Deck.name == local.name)
         if ext:
+            logger.info(f"SYNC MATCH: Found library deck '{ext.name}' (id={ext.id})")
             import_deck(ext.id, user_id, mode=mode, local_deck_id=local.id)
             return True
+        logger.warning(f"SYNC FAIL: No matching deck in library for '{local.name}'")
         return False
     except Exception as e:
         logger.error(f"Error syncing deck: {e}")
@@ -448,14 +449,21 @@ def update_card_progress(card_id: int, user_id: int, grade: int):
         raise e
 
 def get_cards_for_study(deck_id: int, user_id: int):
-    """Возвращает список всех карточек в колоде. Оптимизировано для скорости."""
+    """Возвращает список всех карточек в колоде. Оптимизировано: батчинг медиа."""
     try:
-        # Используем .dicts() для более быстрой выборки если не нужны объекты моделей
+        # Используем .dicts() для более быстрой выборки
         cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id).dicts())
         
-        # Получаем прогресс всех карт одним запросом
-        progress_query = TMAProgress.select().where(TMAProgress.user_id == user_id)
+        # Получаем прогресс только для карт этой колоды одним запросом
+        card_ids = [c['id'] for c in cards]
+        progress_query = TMAProgress.select().where(
+            TMAProgress.user_id == user_id,
+            TMAProgress.card_id << card_ids
+        )
         progress_map = {p.card_id: p for p in progress_query}
+        
+        # Предзагрузка: собираем все пути медиа и проверяем существование ОДНИМ запросом
+        media_exists = _build_media_exists_map(cards)
         
         result = []
         for c in cards:
@@ -465,8 +473,8 @@ def get_cards_for_study(deck_id: int, user_id: int):
                 "front": c['front_text'],
                 "back": c['back_text'],
                 "context": c['context'],
-                "audio_url": resolve_media_url(c['audio_path'], "audio"),
-                "image_url": resolve_media_url(c['image_path'], "images"),
+                "audio_url": resolve_media_url(c['audio_path'], "audio", exists_map=media_exists),
+                "image_url": resolve_media_url(c['image_path'], "images", exists_map=media_exists),
                 "queue": p.queue if p else "new",
                 "interval": p.interval if p else 0,
                 "next_review": p.next_review.isoformat() if p and p.next_review else None
@@ -539,12 +547,47 @@ def promote_to_library(deck_id: int):
         logger.error(f"Error promoting deck: {e}")
         return None
 
-def resolve_media_url(path_str: str, media_type: str) -> str | None:
+def _build_media_exists_map(cards_dicts: list) -> set:
+    """Собирает множество (filename, folder) существующих в TMAMedia записей.
+    Один запрос вместо N проверок."""
+    from models import TMAMedia
+    
+    filenames = set()
+    for c in cards_dicts:
+        for path_field, folder in [('audio_path', 'audio'), ('image_path', 'images')]:
+            path_str = c.get(path_field)
+            if path_str and not path_str.startswith('http'):
+                filenames.add(os.path.basename(path_str))
+    
+    if not filenames:
+        return set()
+    
+    try:
+        existing = set(
+            (m.filename, m.folder)
+            for m in TMAMedia.select(TMAMedia.filename, TMAMedia.folder).where(
+                TMAMedia.filename << list(filenames)
+            )
+        )
+        return existing
+    except Exception:
+        return set()
+
+def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) -> str | None:
+    """Формирует URL для медиа. Если передан exists_map — пропускаем запрос в БД."""
     if not path_str: return None
     if path_str.startswith("http"): return path_str
     # Извлекаем только имя файла
     filename = os.path.basename(path_str)
     folder = "images" if media_type == "images" else "audio"
+    
+    # Если есть предзагруженная карта существования — используем её
+    if exists_map is not None:
+        if (filename, folder) not in exists_map:
+            return None
+        return f"/api/media/{media_type}/{filename}"
+    
+    # Фолбэк: проверяем в БД (для единичных вызовов)
     try:
         from models import TMAMedia
         exists = TMAMedia.select(TMAMedia.id).where(

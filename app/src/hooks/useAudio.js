@@ -10,6 +10,12 @@ export const useAudio = (autoPlay, showToast) => {
     const cached = cacheRef.current.get(url);
     if (cached) return cached;
 
+    // LRU logic: limit cache to 15 entries to prevent memory leaks
+    if (cacheRef.current.size >= 15) {
+      const firstKey = cacheRef.current.keys().next().value;
+      cacheRef.current.delete(firstKey);
+    }
+
     const audio = new Audio(url);
     audio.preload = 'auto';
     audio.load();

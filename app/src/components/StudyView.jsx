@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X } from 'lucide-react';
 import { stripMarkdown } from '../utils/text';
 
-const OPEN_GALLERY_AFTER_GOOGLE = 'lerne_open_gallery_after_google';
+const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
 export const StudyView = ({
   view,
@@ -29,29 +29,136 @@ export const StudyView = ({
   setIsSettingsOpen
 }) => {
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState('');
   const galleryInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const googleReturnTimerRef = useRef(null);
+
+  const stopCamera = () => {
+    cameraStreamRef.current?.getTracks().forEach(track => track.stop());
+    cameraStreamRef.current = null;
+  };
+
+  const closeCamera = () => {
+    stopCamera();
+    setIsCameraOpen(false);
+    setCameraError('');
+  };
+
+  const openCamera = async () => {
+    setCameraError('');
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    try {
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
+
+      cameraStreamRef.current = stream;
+      setIsImagePickerOpen(false);
+      setIsCameraOpen(true);
+    } catch (err) {
+      console.error('Camera open failed:', err);
+      setCameraError('Камера недоступна. Разрешите доступ или откройте через HTTPS/localhost.');
+      cameraInputRef.current?.click();
+    }
+  };
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !card) return;
+
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, width, height);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      uploadStudyImage(file, card);
+      closeCamera();
+    }, 'image/jpeg', 0.9);
+  };
 
   useEffect(() => {
     if (view !== 'study' || !card) return;
 
-    const openGalleryAfterGoogle = () => {
-      const googleOpenedAt = Number(sessionStorage.getItem(OPEN_GALLERY_AFTER_GOOGLE) || 0);
-      if (!googleOpenedAt || Date.now() - googleOpenedAt < 1200) return;
-      sessionStorage.removeItem(OPEN_GALLERY_AFTER_GOOGLE);
+    const openPickerAfterGoogle = () => {
+      const googleOpenedAt = Number(sessionStorage.getItem(OPEN_PICKER_AFTER_GOOGLE) || 0);
+      if (!googleOpenedAt) return;
+
+      const elapsed = Date.now() - googleOpenedAt;
+      if (elapsed < 1200) {
+        clearTimeout(googleReturnTimerRef.current);
+        googleReturnTimerRef.current = setTimeout(openPickerAfterGoogle, 1200 - elapsed);
+        return;
+      }
+
+      sessionStorage.removeItem(OPEN_PICKER_AFTER_GOOGLE);
       setIsImagePickerOpen(true);
-      setTimeout(() => galleryInputRef.current?.click(), 350);
     };
 
-    openGalleryAfterGoogle();
-    window.addEventListener('focus', openGalleryAfterGoogle);
-    document.addEventListener('visibilitychange', openGalleryAfterGoogle);
+    openPickerAfterGoogle();
+    window.addEventListener('focus', openPickerAfterGoogle);
+    document.addEventListener('visibilitychange', openPickerAfterGoogle);
 
     return () => {
-      window.removeEventListener('focus', openGalleryAfterGoogle);
-      document.removeEventListener('visibilitychange', openGalleryAfterGoogle);
+      clearTimeout(googleReturnTimerRef.current);
+      window.removeEventListener('focus', openPickerAfterGoogle);
+      document.removeEventListener('visibilitychange', openPickerAfterGoogle);
     };
   }, [view, card?.id]);
+
+  useEffect(() => () => stopCamera(), []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const stream = cameraStreamRef.current;
+    if (!isCameraOpen || !video || !stream) return;
+
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+
+    const startVideo = () => {
+      video.play().catch((err) => {
+        console.error('Camera preview play failed:', err);
+        setCameraError('Не удалось запустить предпросмотр камеры. Попробуйте закрыть и открыть фото ещё раз.');
+      });
+    };
+
+    if (video.readyState >= 1) {
+      startVideo();
+    } else {
+      video.onloadedmetadata = startVideo;
+    }
+
+    return () => {
+      video.onloadedmetadata = null;
+      video.srcObject = null;
+    };
+  }, [isCameraOpen]);
 
   const googleImageUrl = `https://www.google.com/search?q=${encodeURIComponent(card?.front || '')}&tbm=isch`;
 
@@ -129,31 +236,34 @@ export const StudyView = ({
                 <div className="image-picker-actions">
                   <button
                     type="button"
-                    className="btn-secondary btn-full"
-                    onClick={() => cameraInputRef.current?.click()}
-                    disabled={loading}
-                  >
-                    <Camera size={18} /> Сфотографировать
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary btn-full"
+                    className="image-picker-tile"
                     onClick={() => galleryInputRef.current?.click()}
                     disabled={loading}
                   >
-                    <Upload size={18} /> Загрузить из галереи
+                    <Upload size={24} />
+                    <span>Галерея</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="image-picker-tile"
+                    onClick={openCamera}
+                    disabled={loading}
+                  >
+                    <Camera size={24} />
+                    <span>Фото</span>
                   </button>
                   <a
                     href={googleImageUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="btn-secondary btn-full"
+                    className="image-picker-tile image-picker-tile-wide"
                     onClick={() => {
-                      sessionStorage.setItem(OPEN_GALLERY_AFTER_GOOGLE, String(Date.now()));
+                      sessionStorage.setItem(OPEN_PICKER_AFTER_GOOGLE, String(Date.now()));
                       setIsImagePickerOpen(false);
                     }}
                   >
-                    <Search size={18} /> Поиск Google
+                    <Search size={24} />
+                    <span>Поиск Google</span>
                   </a>
                 </div>
                 <input
@@ -181,6 +291,40 @@ export const StudyView = ({
                 />
               </motion.div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isCameraOpen && card && (
+            <div className="camera-overlay" onClick={closeCamera}>
+              <div className="camera-capture-dialog" onClick={e => e.stopPropagation()}>
+                <div className="image-picker-header">
+                  <h3>Фото</h3>
+                  <button
+                    type="button"
+                    className="image-picker-close"
+                    onClick={closeCamera}
+                    title="Закрыть"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                {cameraError ? (
+                  <p className="camera-error">{cameraError}</p>
+                ) : (
+                  <video ref={videoRef} className="camera-preview" autoPlay playsInline muted />
+                )}
+                <canvas ref={canvasRef} className="hidden-file-input" />
+                <div className="camera-actions">
+                  <button type="button" className="btn-secondary" onClick={closeCamera}>
+                    Отмена
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={capturePhoto} disabled={loading || !!cameraError}>
+                    <Camera size={18} /> Снять
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </AnimatePresence>
 

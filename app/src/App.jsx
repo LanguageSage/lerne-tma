@@ -76,9 +76,7 @@ function App() {
   const { playAudio, preloadAudio } = useAudio(autoPlay, showToast);
 
   useEffect(() => {
-    fetchDecks();
-    fetchAdminSettings();
-    fetchUserPrompts();
+    fetchInitData();
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '1' || USER_ID === 642478257) setIsAdmin(true);
   }, []);
@@ -128,6 +126,20 @@ function App() {
   }, [card?.id, autoShow, isFlipped, autoPlay]);
 
   // --- API Functions ---
+  const fetchInitData = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/init');
+      setDecks(res.data.decks);
+      setAdminSettings(res.data.settings);
+      setUserPrompts(res.data.prompts);
+    } catch (err) {
+      console.error("Init Data Error:", err);
+      showToast("Ошибка загрузки данных.");
+    }
+    setLoading(false);
+  };
+
   const fetchDecks = async (force = false) => {
     if (!force && decks.length > 0) return;
     setLoading(true);
@@ -136,7 +148,7 @@ function App() {
       setDecks(res.data);
     } catch (err) { 
       console.error("Fetch Decks Error:", err);
-      showToast("Не удалось загрузить колоды. Проверьте соединение.");
+      showToast("Не удалось загрузить колоды.");
     }
     setLoading(false);
   };
@@ -225,7 +237,11 @@ function App() {
   const submitGrade = async (grade) => {
     if (!card || gradingRef.current) return;
     gradingRef.current = true;
+    
+    // Оптимистичное обновление: сразу убираем ответ, показываем загрузку
+    setIsFlipped(false);
     setLoading(true);
+    
     try {
       const gradedCardId = card.id;
       const res = await api.post('/study/grade', {
@@ -233,8 +249,6 @@ function App() {
         deck_id: currentDeck.id,
         grade
       });
-      
-      setIsFlipped(false);
       
       if (res.data.finished) {
         setCard(null);
@@ -257,22 +271,18 @@ function App() {
   const goBack = () => {
     if (historyIndex > 0) {
       const prevIndex = historyIndex - 1;
+      setHistoryIndex(prevIndex);
+      setCard(studyHistory[prevIndex]);
       setIsFlipped(false);
-      setTimeout(() => {
-        setHistoryIndex(prevIndex);
-        setCard(studyHistory[prevIndex]);
-      }, 50);
     }
   };
 
   const goNext = () => {
-    setIsFlipped(false);
     if (historyIndex < studyHistory.length - 1) {
       const nextIndex = historyIndex + 1;
-      setTimeout(() => {
-        setHistoryIndex(nextIndex);
-        setCard(studyHistory[nextIndex]);
-      }, 50);
+      setHistoryIndex(nextIndex);
+      setCard(studyHistory[nextIndex]);
+      setIsFlipped(false);
     } else {
       const excludeIds = studyHistory.map(c => c.id);
       setTimeout(() => fetchNextCard(currentDeck.id, false, excludeIds), 50);

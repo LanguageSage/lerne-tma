@@ -12,6 +12,18 @@ router = APIRouter(
     tags=["study"],
 )
 
+def _card_to_response(card, progress):
+    """Формирует ответ с данными карты. Вынесено для переиспользования."""
+    return {
+        "id": card.id,
+        "front": card.front_text,
+        "back": card.back_text,
+        "context": card.context,
+        "audio_url": services.resolve_media_url(card.audio_path, "audio"),
+        "image_url": services.resolve_media_url(card.image_path, "images"),
+        "intervals": srs.get_next_intervals(progress)
+    }
+
 @router.get("/decks/{deck_id}/next")
 def get_next_card(deck_id: int, exclude_ids: str = None, user_id: int = Depends(get_user_id)):
     """Выбор следующей карты для изучения (SRS)."""
@@ -31,18 +43,8 @@ def get_next_card(deck_id: int, exclude_ids: str = None, user_id: int = Depends(
         logger.info(f"User {user_id} finished deck {deck_id}")
         return {"finished": True}
     
-    resp = {
-        "id": card.id,
-        "front": card.front_text,
-        "back": card.back_text,
-        "context": card.context,
-        "audio_url": services.resolve_media_url(card.audio_path, "audio"),
-        "image_url": services.resolve_media_url(card.image_path, "images"),
-        "intervals": srs.get_next_intervals(progress)
-    }
-    
     logger.info(f"NEXT CARD: user={user_id}, deck={deck_id}, card={card.id}")
-    return resp
+    return _card_to_response(card, progress)
 
 @router.post("/study/grade")
 def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
@@ -50,7 +52,14 @@ def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
         logger.info(f"submit_grade: User {user_id}, Data: {data}")
         services.update_card_progress(data['card_id'], user_id, data['grade'])
         logger.info("submit_grade: Progress updated successfully")
-        return get_next_card(deck_id=data['deck_id'], exclude_ids=None, user_id=user_id)
+        
+        # Сразу получаем следующую карту (без повторного HTTP-вызова)
+        card, progress = services.get_next_card(user_id, data['deck_id'])
+        if isinstance(card, dict) and "error" in card:
+            return card
+        if not card:
+            return {"finished": True}
+        return _card_to_response(card, progress)
 
     try:
         return run_grade()
@@ -68,3 +77,4 @@ def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
                 raise HTTPException(status_code=500, detail=str(retry_error))
         logger.error(f"submit_grade ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+

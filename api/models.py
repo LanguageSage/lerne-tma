@@ -2,7 +2,9 @@ import os
 import logging
 import datetime
 from pathlib import Path
+from urllib.parse import urlparse, parse_qs
 from peewee import *
+from playhouse.pool import PooledPostgresqlDatabase
 from playhouse.db_url import connect as db_connect
 from dotenv import load_dotenv
 
@@ -16,6 +18,22 @@ lerne_db = Proxy()
 TMA_ROOT = Path(__file__).resolve().parent.parent
 TMA_DATA_DIR = TMA_ROOT / "api" / "data"
 
+def _parse_db_url(url: str):
+    """Разбирает DATABASE_URL в параметры для PooledPostgresqlDatabase."""
+    parsed = urlparse(url)
+    params = {
+        'database': parsed.path.lstrip('/'),
+        'user': parsed.username,
+        'password': parsed.password,
+        'host': parsed.hostname,
+        'port': parsed.port or 5432,
+    }
+    # Supabase pooler нуждается в sslmode
+    qs = parse_qs(parsed.query)
+    if 'sslmode' in qs:
+        params['sslmode'] = qs['sslmode'][0]
+    return params
+
 def initialize_database():
     global tma_db, lerne_db
     SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL")
@@ -23,12 +41,29 @@ def initialize_database():
     
     if SUPABASE_DB_URL and not FORCE_LOCAL:
         try:
-            actual_db = db_connect(SUPABASE_DB_URL)
+            # Пул соединений: переиспользуем до 8 подключений, закрываем неактивные через 300с
+            db_params = _parse_db_url(SUPABASE_DB_URL)
+            actual_db = PooledPostgresqlDatabase(
+                autorollback=True,
+                max_connections=8,
+                stale_timeout=300,
+                **db_params,
+            )
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
+            logger.info("DATABASE: Connected via PooledPostgresqlDatabase")
             return True
         except Exception as e:
             logger.error(f"DATABASE CLOUD ERROR: {e}")
+            # Фолбэк на db_url.connect если пул не сработал
+            try:
+                actual_db = db_connect(SUPABASE_DB_URL)
+                tma_db.initialize(actual_db)
+                lerne_db.initialize(actual_db)
+                logger.info("DATABASE: Connected via db_url fallback")
+                return True
+            except Exception as e2:
+                logger.error(f"DATABASE FALLBACK ERROR: {e2}")
     
     TMA_ROOT = Path(__file__).resolve().parent.parent
     TMA_DB_PATH = TMA_ROOT / "api" / "data" / "lerne.db"
