@@ -19,7 +19,7 @@ echo Launching API on port 8001 (Cloud DB)...
 set PYTHON_PATH=%CD%\venv\Scripts\python.exe
 
 :: Мы передаем переменную через /V:ON для надежности в раскрытии переменных
-start "Lerne-API-Cloud" cmd /v:on /k "echo CLOUD API Window && set FORCE_LOCAL_DB=false && echo Current Mode: FORCE_LOCAL_DB=!FORCE_LOCAL_DB! && "%PYTHON_PATH%" -m uvicorn api.main:app --reload --port 8001"
+start "Lerne-API-Cloud" cmd /v:on /k "echo CLOUD API Window && set FORCE_LOCAL_DB=false && echo Current Mode: FORCE_LOCAL_DB=!FORCE_LOCAL_DB! && "%PYTHON_PATH%" -m uvicorn api.main:app --port 8001"
 
 :: 4. Start Frontend
 echo Launching Frontend...

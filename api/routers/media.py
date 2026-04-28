@@ -1,6 +1,9 @@
+import io
 import os
-from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response
+import uuid
+from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response, UploadFile, File
 import logging
+from PIL import Image, UnidentifiedImageError
 
 import models
 from api.dependencies.auth import get_user_id
@@ -11,6 +14,55 @@ router = APIRouter(
     prefix="/media",
     tags=["media"],
 )
+
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+SUPPORTED_IMAGE_FORMATS = {
+    "JPEG": ("jpg", "image/jpeg"),
+    "PNG": ("png", "image/png"),
+    "WEBP": ("webp", "image/webp"),
+    "GIF": ("gif", "image/gif"),
+}
+
+@router.post("/upload-image")
+async def upload_image(
+    file: UploadFile = File(...),
+    user_id: int = Depends(get_user_id)
+):
+    """Upload an image from mobile/desktop web and store it in TMAMedia."""
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Image file is empty")
+    if len(content) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image is too large. Maximum size is 8 MB")
+
+    try:
+        image = Image.open(io.BytesIO(content))
+        image.verify()
+        image_format = image.format
+    except (UnidentifiedImageError, OSError):
+        raise HTTPException(status_code=400, detail="Unsupported image file")
+
+    if image_format not in SUPPORTED_IMAGE_FORMATS:
+        raise HTTPException(status_code=400, detail="Only JPG, PNG, WEBP and GIF images are supported")
+
+    ext, media_type = SUPPORTED_IMAGE_FORMATS[image_format]
+    filename = f"upload_{user_id}_{uuid.uuid4().hex[:12]}.{ext}"
+
+    try:
+        models.TMAMedia.create(
+            filename=filename,
+            folder='images',
+            content=content
+        )
+    except Exception as e:
+        logger.error(f"Image upload save error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save image")
+
+    return {
+        "path": f"images/{filename}",
+        "url": f"/api/media/images/{filename}",
+        "media_type": media_type
+    }
 
 @router.post("/generate-audio")
 async def generate_audio_endpoint(

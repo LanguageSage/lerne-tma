@@ -7,13 +7,29 @@ const storage = {
   }
 };
 
+const FALLBACK_USER_ID = import.meta.env.VITE_TMA_USER_ID_FALLBACK;
+const LOCAL_HOST_PATTERNS = [
+  /^localhost$/i,
+  /^127\./,
+  /^10\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[0-1])\./
+];
+
+const parseUserId = (value) => {
+  const id = parseInt(value);
+  return Number.isNaN(id) ? null : id;
+};
+
+const isLocalHost = (hostname) => LOCAL_HOST_PATTERNS.some(pattern => pattern.test(hostname));
+
 export const getUserId = () => {
   try {
     // 1. Пытаемся взять из Telegram WebApp
     const tg = window.Telegram?.WebApp;
     if (tg?.initDataUnsafe?.user?.id) {
-      const id = parseInt(tg.initDataUnsafe.user.id);
-      if (!isNaN(id)) {
+      const id = parseUserId(tg.initDataUnsafe.user.id);
+      if (id !== null) {
         storage.set('lerne_user_id', id);
         return id;
       }
@@ -23,22 +39,30 @@ export const getUserId = () => {
     const params = new URLSearchParams(window.location.search);
     const urlId = params.get('user_id');
     if (urlId) {
-      const id = parseInt(urlId);
-      if (!isNaN(id)) {
+      const id = parseUserId(urlId);
+      if (id !== null) {
         storage.set('lerne_user_id', id);
         return id;
       }
     }
 
-    // 3. Пытаемся взять из localStorage
+    // 3. Для локальной разработки можно зафиксировать пользователя в app/.env:
+    // VITE_TMA_USER_ID_FALLBACK=7187932783
+    const fallbackId = parseUserId(FALLBACK_USER_ID);
+    if (fallbackId !== null && isLocalHost(window.location.hostname)) {
+      storage.set('lerne_user_id', fallbackId);
+      return fallbackId;
+    }
+
+    // 4. Пытаемся взять из localStorage
     const savedId = storage.get('lerne_user_id');
     if (savedId) {
-      const id = parseInt(savedId);
-      if (!isNaN(id)) return id;
+      const id = parseUserId(savedId);
+      if (id !== null) return id;
     }
     
-    // 4. Генерируем новый случайный ID (для новых веб-пользователей)
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // 5. Генерируем новый случайный ID (для новых веб-пользователей)
+    if (isLocalHost(window.location.hostname)) {
       return 642478257;
     }
 

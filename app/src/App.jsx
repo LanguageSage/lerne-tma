@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import './App.css';
 
@@ -66,13 +66,14 @@ function App() {
   const [externalDecks, setExternalDecks] = useState([]);
   const [communityDecks, setCommunityDecks] = useState([]);
   const [isImportLoading, setIsImportLoading] = useState(false);
+  const gradingRef = useRef(false);
 
   const showToast = React.useCallback((message, type = "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  const { playAudio } = useAudio(autoPlay, showToast);
+  const { playAudio, preloadAudio } = useAudio(autoPlay, showToast);
 
   useEffect(() => {
     fetchDecks();
@@ -104,8 +105,14 @@ function App() {
   }, [autoShow]);
 
   useEffect(() => {
+    if (card?.audio_url) {
+      preloadAudio(card.audio_url);
+    }
+  }, [card?.id, card?.audio_url, preloadAudio]);
+
+  useEffect(() => {
     if (card && card.audio_url && autoPlay) {
-      const timer = setTimeout(() => playAudio(card.audio_url), 300);
+      const timer = setTimeout(() => playAudio(card.audio_url), 150);
       return () => clearTimeout(timer);
     }
   }, [card?.id, autoPlay, playAudio]);
@@ -216,10 +223,13 @@ function App() {
   };
 
   const submitGrade = async (grade) => {
+    if (!card || gradingRef.current) return;
+    gradingRef.current = true;
     setLoading(true);
     try {
+      const gradedCardId = card.id;
       const res = await api.post('/study/grade', {
-        card_id: card.id,
+        card_id: gradedCardId,
         deck_id: currentDeck.id,
         grade
       });
@@ -237,9 +247,11 @@ function App() {
       }
     } catch (err) { 
       console.error("SubmitGrade Error:", err);
-      showToast("Ошибка при сохранении оценки");
+      showToast(`Ошибка при сохранении оценки: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      gradingRef.current = false;
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const goBack = () => {
@@ -434,6 +446,72 @@ function App() {
       showToast(`Ошибка генерации аудио: ${err.response?.data?.detail || err.message}`);
     }
     setLoading(false);
+  };
+
+  const uploadImageFile = async (file) => {
+    if (!file) return;
+    if (!file.type?.startsWith('image/')) {
+      showToast("Выберите файл изображения");
+      return null;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post('/media/upload-image', formData);
+    return res.data;
+  };
+
+  const uploadImage = async (file) => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const uploaded = await uploadImageFile(file);
+      if (uploaded) {
+        setEditingCard({
+          ...editingCard,
+          image_path: uploaded.path,
+          image_url: uploaded.url
+        });
+        showToast("Картинка добавлена", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(`Ошибка загрузки картинки: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const uploadStudyImage = async (file, targetCard) => {
+    if (!file || !targetCard || !currentDeck?.id) return;
+    setLoading(true);
+    try {
+      const uploaded = await uploadImageFile(file);
+      if (uploaded) {
+        await api.post('/cards/save', {
+          card_id: targetCard.id,
+          deck_id: currentDeck.id,
+          front: targetCard.front,
+          back: targetCard.back,
+          context: targetCard.context,
+          image_path: uploaded.path,
+          audio_path: targetCard.audio_path || ''
+        });
+
+        setCard({
+          ...targetCard,
+          image_path: uploaded.path,
+          image_url: uploaded.url
+        });
+        prefetchMedia(uploaded.url);
+        showToast("Картинка добавлена", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(`Ошибка загрузки картинки: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchUserPrompts = async () => {
@@ -718,6 +796,7 @@ function App() {
         setView={setView}
         setCard={setCard}
         openEditor={openEditor}
+        uploadStudyImage={uploadStudyImage}
         handleQuickAudio={handleQuickAudio}
         playAudio={playAudio}
         submitGrade={submitGrade}
@@ -765,6 +844,7 @@ function App() {
         setAiInputPhrase={setAiInputPhrase}
         runAiGenerator={runAiGenerator}
         generateAudio={generateAudio}
+        uploadImage={uploadImage}
         playAudio={playAudio}
         saveCard={saveCard}
         loading={loading}

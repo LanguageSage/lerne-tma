@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
-import json
 
 import services
 import srs
+import models
 from api.dependencies.auth import get_user_id
 
 logger = logging.getLogger(__name__)
@@ -41,20 +41,30 @@ def get_next_card(deck_id: int, exclude_ids: str = None, user_id: int = Depends(
         "intervals": srs.get_next_intervals(progress)
     }
     
-    resp_json = json.dumps(resp, ensure_ascii=False)
-    logger.info(f"FULL CARD JSON for user {user_id}: {resp_json}")
+    logger.info(f"NEXT CARD: user={user_id}, deck={deck_id}, card={card.id}")
     return resp
 
 @router.post("/study/grade")
 def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
-    try:
+    def run_grade():
         logger.info(f"submit_grade: User {user_id}, Data: {data}")
-        # Update progress
         services.update_card_progress(data['card_id'], user_id, data['grade'])
         logger.info("submit_grade: Progress updated successfully")
-        
-        # Return next card
         return get_next_card(deck_id=data['deck_id'], exclude_ids=None, user_id=user_id)
+
+    try:
+        return run_grade()
     except Exception as e:
+        if "connection already closed" in str(e).lower():
+            try:
+                models.tma_db.close()
+            except Exception:
+                pass
+            try:
+                models.tma_db.connect(reuse_if_open=True)
+                return run_grade()
+            except Exception as retry_error:
+                logger.error(f"submit_grade RETRY ERROR: {retry_error}")
+                raise HTTPException(status_code=500, detail=str(retry_error))
         logger.error(f"submit_grade ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))

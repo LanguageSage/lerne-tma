@@ -2,18 +2,32 @@ import { useRef, useCallback } from 'react';
 
 export const useAudio = (autoPlay, showToast) => {
   const audioRef = useRef(null);
+  const cacheRef = useRef(new Map());
+
+  const preloadAudio = useCallback((url) => {
+    if (!url) return;
+
+    const cached = cacheRef.current.get(url);
+    if (cached) return cached;
+
+    const audio = new Audio(url);
+    audio.preload = 'auto';
+    audio.load();
+    cacheRef.current.set(url, audio);
+    return audio;
+  }, []);
 
   const playAudio = useCallback((url) => {
     if (!url) return;
-    
+
     // Stop previous audio
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
 
-    console.log("Playing audio:", url);
-    const audio = new Audio(url);
+    const cached = preloadAudio(url);
+    const audio = cached?.cloneNode ? cached.cloneNode(true) : new Audio(url);
     audioRef.current = audio;
     
     audio.onerror = () => {
@@ -26,7 +40,7 @@ export const useAudio = (autoPlay, showToast) => {
          if (!autoPlay && showToast) showToast("Браузер заблокировал звук");
       }
     });
-  }, [autoPlay, showToast]);
+  }, [autoPlay, preloadAudio, showToast]);
 
-  return { playAudio };
+  return { playAudio, preloadAudio };
 };

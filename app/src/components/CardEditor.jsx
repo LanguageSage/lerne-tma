@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Volume2, RefreshCw } from 'lucide-react';
+import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X } from 'lucide-react';
 
 export const CardEditor = ({
   view,
@@ -14,11 +14,18 @@ export const CardEditor = ({
   setAiInputPhrase,
   runAiGenerator,
   generateAudio,
+  uploadImage,
   playAudio,
   saveCard,
   loading
 }) => {
+  const imageInputRef = useRef(null);
+
   if (view !== 'editor') return null;
+
+  const imageValue = editingCard?.image_path || editingCard?.image_url || '';
+  const imagePreviewUrl = editingCard?.image_url
+    || (imageValue.startsWith('images/') ? `/api/media/${imageValue}` : imageValue);
 
   return (
     <div className="view-editor">
@@ -90,14 +97,47 @@ export const CardEditor = ({
           <div className="form-group">
             <label>Изображение</label>
             <div className="image-edit-tools">
-              <a 
-                href={`https://www.google.com/search?q=${encodeURIComponent(editingCard?.front || '')}&tbm=isch`} 
-                target="_blank" 
-                rel="noreferrer"
-                className="btn-secondary btn-small"
-              >
-                🔍 Поиск в Google
-              </a>
+              {imagePreviewUrl && (
+                <div className="image-preview-box">
+                  <img src={imagePreviewUrl} alt="" />
+                  <button
+                    type="button"
+                    className="image-clear-btn"
+                    onClick={() => setEditingCard({...editingCard, image_path: '', image_url: ''})}
+                    title="Убрать картинку"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+              <div className="image-actions-row">
+                <button
+                  type="button"
+                  className="btn-secondary btn-small"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={loading}
+                >
+                  <Upload size={16} /> Загрузить
+                </button>
+                <a 
+                  href={`https://www.google.com/search?q=${encodeURIComponent(editingCard?.front || '')}&tbm=isch`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="btn-secondary btn-small"
+                >
+                  <Search size={16} /> Google
+                </a>
+              </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden-file-input"
+                onChange={e => {
+                  uploadImage(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+              />
               <input 
                 type="text" 
                 placeholder="URL картинки..." 

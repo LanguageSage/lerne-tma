@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X } from 'lucide-react';
 import { stripMarkdown } from '../utils/text';
+
+const OPEN_GALLERY_AFTER_GOOGLE = 'lerne_open_gallery_after_google';
 
 export const StudyView = ({
   view,
@@ -16,6 +18,7 @@ export const StudyView = ({
   setView,
   setCard,
   openEditor,
+  uploadStudyImage,
   handleQuickAudio,
   playAudio,
   submitGrade,
@@ -25,6 +28,33 @@ export const StudyView = ({
   handleResetProgress,
   setIsSettingsOpen
 }) => {
+  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+  const galleryInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+
+  useEffect(() => {
+    if (view !== 'study' || !card) return;
+
+    const openGalleryAfterGoogle = () => {
+      const googleOpenedAt = Number(sessionStorage.getItem(OPEN_GALLERY_AFTER_GOOGLE) || 0);
+      if (!googleOpenedAt || Date.now() - googleOpenedAt < 1200) return;
+      sessionStorage.removeItem(OPEN_GALLERY_AFTER_GOOGLE);
+      setIsImagePickerOpen(true);
+      setTimeout(() => galleryInputRef.current?.click(), 350);
+    };
+
+    openGalleryAfterGoogle();
+    window.addEventListener('focus', openGalleryAfterGoogle);
+    document.addEventListener('visibilitychange', openGalleryAfterGoogle);
+
+    return () => {
+      window.removeEventListener('focus', openGalleryAfterGoogle);
+      document.removeEventListener('visibilitychange', openGalleryAfterGoogle);
+    };
+  }, [view, card?.id]);
+
+  const googleImageUrl = `https://www.google.com/search?q=${encodeURIComponent(card?.front || '')}&tbm=isch`;
+
   if (view !== 'study') return null;
 
   return (
@@ -43,15 +73,15 @@ export const StudyView = ({
             <h2>{currentDeck?.name}</h2>
           </div>
           <div className="header-actions">
-            <a 
-              href={`https://www.google.com/search?q=${encodeURIComponent(card?.front || '')}&tbm=isch`} 
-              target="_blank" 
-              rel="noreferrer" 
+            <button
+              type="button"
               className="edit-btn-study"
-              title="Найти картинку"
+              onClick={() => setIsImagePickerOpen(true)}
+              disabled={loading || !card}
+              title="Добавить картинку"
             >
               <ImageIcon size={20} />
-            </a>
+            </button>
             <button 
               className="edit-btn-study" 
               onClick={() => handleQuickAudio(card)} 
@@ -68,6 +98,91 @@ export const StudyView = ({
             </button>
           </div>
         </div>
+
+        <AnimatePresence>
+          {isImagePickerOpen && card && (
+            <motion.div
+              className="image-picker-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsImagePickerOpen(false)}
+            >
+              <motion.div
+                className="image-picker-dialog glass"
+                initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 18, scale: 0.98 }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="image-picker-header">
+                  <h3>Картинка</h3>
+                  <button
+                    type="button"
+                    className="image-picker-close"
+                    onClick={() => setIsImagePickerOpen(false)}
+                    title="Закрыть"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="image-picker-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary btn-full"
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={loading}
+                  >
+                    <Camera size={18} /> Сфотографировать
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary btn-full"
+                    onClick={() => galleryInputRef.current?.click()}
+                    disabled={loading}
+                  >
+                    <Upload size={18} /> Загрузить из галереи
+                  </button>
+                  <a
+                    href={googleImageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-secondary btn-full"
+                    onClick={() => {
+                      sessionStorage.setItem(OPEN_GALLERY_AFTER_GOOGLE, String(Date.now()));
+                      setIsImagePickerOpen(false);
+                    }}
+                  >
+                    <Search size={18} /> Поиск Google
+                  </a>
+                </div>
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden-file-input"
+                  onChange={e => {
+                    uploadStudyImage(e.target.files?.[0], card);
+                    e.target.value = '';
+                    setIsImagePickerOpen(false);
+                  }}
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden-file-input"
+                  onChange={e => {
+                    uploadStudyImage(e.target.files?.[0], card);
+                    e.target.value = '';
+                    setIsImagePickerOpen(false);
+                  }}
+                />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {loading && !card ? (
           <div className="finished-view glass">

@@ -90,6 +90,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  touch-action: manipulation;
 }
 
 .btn:active {
@@ -102,9 +103,11 @@ body {
 }
 
 .btn-grade {
-  flex: 1;
+  min-width: 0;
+  min-height: 48px;
   font-size: 0.9rem;
-  padding: 10px 5px;
+  padding: 10px 6px;
+  white-space: nowrap;
 }
 
 .grade-0 { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; }

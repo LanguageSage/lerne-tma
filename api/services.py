@@ -65,30 +65,79 @@ def get_active_decks(user_id: int):
         if not decks:
             ensure_starter_decks(user_id)
             decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id).order_by(TMA_Deck.id.desc()))
+
+        if not decks:
+            return []
+
+        deck_ids = [d.id for d in decks]
+        deck_names = [d.name for d in decks]
+
+        total_counts = {
+            deck_id: count
+            for deck_id, count in (
+                TMA_Card
+                .select(TMA_Card.deck, fn.COUNT(TMA_Card.id))
+                .where(TMA_Card.deck << deck_ids)
+                .group_by(TMA_Card.deck)
+                .tuples()
+            )
+        }
+
+        tracked_counts = {
+            deck_id: count
+            for deck_id, count in (
+                TMAProgress
+                .select(TMA_Card.deck, fn.COUNT(TMAProgress.id))
+                .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
+                .where(TMAProgress.user_id == user_id, TMA_Card.deck << deck_ids)
+                .group_by(TMA_Card.deck)
+                .tuples()
+            )
+        }
+
+        due_counts = {
+            deck_id: count
+            for deck_id, count in (
+                TMAProgress
+                .select(TMA_Card.deck, fn.COUNT(TMAProgress.id))
+                .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
+                .where(
+                    TMAProgress.user_id == user_id,
+                    TMA_Card.deck << deck_ids,
+                    TMAProgress.next_review <= now
+                )
+                .group_by(TMA_Card.deck)
+                .tuples()
+            )
+        }
+
+        ext_decks = list(Deck.select().where(Deck.name << deck_names))
+        ext_by_name = {d.name: d for d in ext_decks}
+        ext_ids = [d.id for d in ext_decks]
+        lib_counts = {}
+        if ext_ids:
+            lib_counts = {
+                deck_id: count
+                for deck_id, count in (
+                    Card
+                    .select(Card.deck, fn.COUNT(Card.id))
+                    .where(Card.deck << ext_ids)
+                    .group_by(Card.deck)
+                    .tuples()
+                )
+            }
         
         result = []
         for d in decks:
-            # Считаем количество карт
-            total = TMA_Card.select().where(TMA_Card.deck_id == d.id).count()
-            
-            # Считаем прогресс (быстрый запрос)
-            # tracked = количество карт колоды, которые есть в TMAProgress для этого юзера
-            tracked = (TMAProgress.select()
-                       .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
-                       .where(TMAProgress.user_id == user_id, TMA_Card.deck_id == d.id)
-                       .count())
-            
-            # Считаем карточки к повторению
-            due = (TMAProgress.select()
-                   .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
-                   .where(TMAProgress.user_id == user_id, TMA_Card.deck_id == d.id, TMAProgress.next_review <= now)
-                   .count())
+            total = total_counts.get(d.id, 0)
+            tracked = tracked_counts.get(d.id, 0)
+            due = due_counts.get(d.id, 0)
             
             # Check for updates
             has_updates = False
-            ext_deck = Deck.get_or_none(Deck.name == d.name)
+            ext_deck = ext_by_name.get(d.name)
             if ext_deck:
-                lib_count = Card.select().where(Card.deck_id == ext_deck.id).count()
+                lib_count = lib_counts.get(ext_deck.id, 0)
                 if lib_count > total:
                     has_updates = True
                 elif ext_deck.updated_at and d.updated_at and ext_deck.updated_at > d.updated_at:
@@ -495,4 +544,15 @@ def resolve_media_url(path_str: str, media_type: str) -> str | None:
     if path_str.startswith("http"): return path_str
     # Извлекаем только имя файла
     filename = os.path.basename(path_str)
+    folder = "images" if media_type == "images" else "audio"
+    try:
+        from models import TMAMedia
+        exists = TMAMedia.select(TMAMedia.id).where(
+            TMAMedia.filename == filename,
+            TMAMedia.folder == folder
+        ).exists()
+        if not exists:
+            return None
+    except Exception:
+        pass
     return f"/api/media/{media_type}/{filename}"
