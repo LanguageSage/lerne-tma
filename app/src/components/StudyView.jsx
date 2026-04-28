@@ -140,6 +140,8 @@ export const StudyView = ({
     video.srcObject = stream;
     video.muted = true;
     video.playsInline = true;
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
 
     const startVideo = () => {
       video.play().catch((err) => {
@@ -312,7 +314,14 @@ export const StudyView = ({
                 {cameraError ? (
                   <p className="camera-error">{cameraError}</p>
                 ) : (
-                  <video ref={videoRef} className="camera-preview" autoPlay playsInline muted />
+                  <video
+                    ref={videoRef}
+                    className="camera-preview"
+                    autoPlay
+                    playsInline
+                    muted
+                    disablePictureInPicture
+                  />
                 )}
                 <canvas ref={canvasRef} className="hidden-file-input" />
                 <div className="camera-actions">
