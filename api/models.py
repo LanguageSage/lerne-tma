@@ -211,6 +211,7 @@ class Card(Model):
     context = TextField(null=True)
     image_path = TextField(null=True)
     audio_path = TextField(null=True)
+    metadata = TextField(null=True)
     updated_at = DateTimeField(null=True)
     history = TextField(default='[]')
     class Meta:

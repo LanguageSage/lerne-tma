@@ -245,7 +245,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             # Insert all cards without checking
             sql = f"""
                 INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                SELECT {local_deck.id}, front_text, back_text, COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', '{{}}', '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported as copy"]'
+                SELECT {local_deck.id}, front_text, back_text, COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported as copy"]'
                 FROM card WHERE deck_id = {external_deck_id}
             """
             tma_db.execute_sql(sql)
@@ -266,7 +266,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             # Insert all cards
             sql = f"""
                 INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                SELECT {local_deck.id}, front_text, back_text, COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', '{{}}', '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported via replace"]'
+                SELECT {local_deck.id}, front_text, back_text, COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported via replace"]'
                 FROM card WHERE deck_id = {external_deck_id} AND is_deleted = false
             """
             tma_db.execute_sql(sql)
@@ -324,7 +324,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                         'card_type': 'translation',
                         'source': 'library',
                         'tags': getattr(rc, 'tags', '[]'),
-                        'metadata': '{}',
+                        'metadata': getattr(rc, 'metadata', '{}'),
                         'created_at': datetime.datetime.now(),
                         'updated_at': datetime.datetime.now(),
                         'history': add_to_history('[]', "Imported from library")
@@ -473,8 +473,8 @@ def get_cards_for_study(deck_id: int, user_id: int):
                 "front": c['front_text'],
                 "back": c['back_text'],
                 "context": c['context'],
-                "audio_url": resolve_media_url(c['audio_path'], "audio", exists_map=media_exists),
-                "image_url": resolve_media_url(c['image_path'], "images", exists_map=media_exists),
+                "audio_url": resolve_media_url(c.get('audio_path'), "audio", exists_map=media_exists),
+                "image_url": resolve_media_url(c.get('image_path'), "images", exists_map=media_exists),
                 "queue": p.queue if p else "new",
                 "interval": p.interval if p else 0,
                 "next_review": p.next_review.isoformat() if p and p.next_review else None
