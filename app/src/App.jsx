@@ -43,6 +43,12 @@ function App() {
     const saved = storage.get('lerne_autoshow');
     return saved !== null ? saved === 'true' : false;
   });
+  const [cardBgFront, setCardBgFront] = useState(() => {
+    return storage.get('lerne_card_bg_front') || 'standard';
+  });
+  const [cardBgBack, setCardBgBack] = useState(() => {
+    return storage.get('lerne_card_bg_back') || 'standard';
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isNewDeckModalOpen, setIsNewDeckModalOpen] = useState(false);
@@ -62,6 +68,7 @@ function App() {
   const [presets, setPresets] = useState([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
+  const [customBackgrounds, setCustomBackgrounds] = useState([]);
   
   const [externalDecks, setExternalDecks] = useState([]);
   const [communityDecks, setCommunityDecks] = useState([]);
@@ -103,6 +110,14 @@ function App() {
   }, [autoShow]);
 
   useEffect(() => {
+    storage.set('lerne_card_bg_front', cardBgFront);
+  }, [cardBgFront]);
+
+  useEffect(() => {
+    storage.set('lerne_card_bg_back', cardBgBack);
+  }, [cardBgBack]);
+
+  useEffect(() => {
     if (card?.audio_url) {
       preloadAudio(card.audio_url);
     }
@@ -133,6 +148,7 @@ function App() {
       setDecks(res.data.decks);
       setAdminSettings(res.data.settings);
       setUserPrompts(res.data.prompts);
+      fetchCustomBackgrounds();
     } catch (err) {
       console.error("Init Data Error:", err);
       showToast("Ошибка загрузки данных.");
@@ -568,6 +584,70 @@ function App() {
     }
   };
 
+  const fetchCustomBackgrounds = async () => {
+    try {
+      const res = await api.get('/media/backgrounds');
+      setCustomBackgrounds(res.data);
+    } catch (err) { console.error("Error fetching backgrounds:", err); }
+  };
+
+  const uploadCustomBackground = async (file) => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post('/media/upload-background', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      showToast("Фон загружен", "success");
+      fetchCustomBackgrounds();
+      return res.data;
+    } catch (err) {
+      console.error(err);
+      showToast(`Ошибка загрузки фона: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const uploadCardVideo = async (file, targetCard) => {
+    if (!file || !targetCard || !currentDeck?.id) return;
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploaded = await api.post('/media/upload-video', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (uploaded.data) {
+        await api.post('/cards/save', {
+          card_id: targetCard.id,
+          deck_id: currentDeck.id,
+          front: targetCard.front,
+          back: targetCard.back,
+          context: targetCard.context,
+          image_path: targetCard.image_path || '',
+          audio_path: targetCard.audio_path || '',
+          video_path: uploaded.data.path
+        });
+
+        setCard({
+          ...targetCard,
+          video_path: uploaded.data.path,
+          video_url: uploaded.data.url
+        });
+        showToast("Видео для карточки добавлено", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(`Ошибка загрузки видео: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchModels = async () => {
     const provider = adminSettings.AI_PROVIDER;
     if (!provider) return;
@@ -807,6 +887,7 @@ function App() {
         setCard={setCard}
         openEditor={openEditor}
         uploadStudyImage={uploadStudyImage}
+        uploadCardVideo={uploadCardVideo}
         handleQuickAudio={handleQuickAudio}
         playAudio={playAudio}
         submitGrade={submitGrade}
@@ -815,6 +896,8 @@ function App() {
         handleSyncDeck={handleSyncDeck}
         handleResetProgress={handleResetProgress}
         setIsSettingsOpen={setIsSettingsOpen}
+        cardBgFront={cardBgFront}
+        cardBgBack={cardBgBack}
       />
 
       <DeckModals
@@ -855,6 +938,7 @@ function App() {
         runAiGenerator={runAiGenerator}
         generateAudio={generateAudio}
         uploadImage={uploadImage}
+        uploadCardVideo={uploadCardVideo}
         playAudio={playAudio}
         saveCard={saveCard}
         loading={loading}
@@ -889,6 +973,12 @@ function App() {
         communityDecks={communityDecks}
         fetchCommunityDecks={fetchCommunityDecks}
         promoteDeck={promoteDeck}
+        cardBgFront={cardBgFront}
+        setCardBgFront={setCardBgFront}
+        cardBgBack={cardBgBack}
+        setCardBgBack={setCardBgBack}
+        customBackgrounds={customBackgrounds}
+        uploadCustomBackground={uploadCustomBackground}
       />
 
       <SyncModal

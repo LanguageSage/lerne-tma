@@ -40,7 +40,11 @@ export const SettingsModal = ({
   deletePreset,
   communityDecks,
   fetchCommunityDecks,
-  promoteDeck
+  promoteDeck,
+  cardBgFront,
+  setCardBgFront,
+  cardBgBack,
+  setCardBgBack
 }) => {
   if (!isSettingsOpen) return null;
 
@@ -55,6 +59,7 @@ export const SettingsModal = ({
 
           <div className="settings-tabs">
             <button className={`tab-btn ${activeSettingsTab === 'general' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('general')}>Общие</button>
+            <button className={`tab-btn ${activeSettingsTab === 'design' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('design')}>Дизайн</button>
             <button className={`tab-btn ${activeSettingsTab === 'voice' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('voice')}>Озвучка</button>
             <button className={`tab-btn ${activeSettingsTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('ai')}>Провайдеры</button>
             <button className={`tab-btn ${activeSettingsTab === 'prompts' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('prompts')}>Промпты</button>
@@ -78,6 +83,79 @@ export const SettingsModal = ({
                   <div className="settings-debug-info">
                     <p>User ID: <code>{userId}</code></p>
                     <p>Platform: <code>{window.Telegram?.WebApp?.platform || 'Web'}</code></p>
+                  </div>
+                </motion.div>
+              )}
+
+              {activeSettingsTab === 'design' && (
+                <motion.div key="design" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
+                  <h3>Внешний вид карточек</h3>
+                  <div className="form-group" style={{ marginBottom: '15px' }}>
+                    <label>Фон (Лицевая сторона)</label>
+                    <select value={cardBgFront} onChange={e => setCardBgFront(e.target.value)}>
+                      <option value="auto">🎲 Случайный фон (Авто)</option>
+                      <option disabled>──────────</option>
+                      <option value="standard">Standard Glass</option>
+                      <option value="mesh">Celestial Mesh</option>
+                      <option value="aurora">Aurora Waves</option>
+                      <option value="holographic">Holographic</option>
+                      <option value="liquid">Liquid Flow 💧</option>
+                      <option disabled>──────────</option>
+                      <option value="video_aquarium">Видео: Аквариум 🐠</option>
+                      <option value="video_space">Видео: Космос 🌌</option>
+                      <option value="video_nature">Видео: Природа 🌿</option>
+                      {customBackgrounds && customBackgrounds.length > 0 && (
+                        <>
+                          <option disabled>── Мои фоны ──</option>
+                          {customBackgrounds.map(bg => (
+                            <option key={bg.filename} value={`custom_${bg.filename}`}>
+                              {bg.filename}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Фон (Обратная сторона)</label>
+                    <select value={cardBgBack} onChange={e => setCardBgBack(e.target.value)}>
+                      <option value="auto">🎲 Случайный фон (Авто)</option>
+                      <option disabled>──────────</option>
+                      <option value="standard">Standard Glass</option>
+                      <option value="mesh">Celestial Mesh</option>
+                      <option value="aurora">Aurora Waves</option>
+                      <option value="holographic">Holographic</option>
+                      <option value="liquid">Liquid Flow 💧</option>
+                      <option disabled>──────────</option>
+                      <option value="video_aquarium">Видео: Аквариум 🐠</option>
+                      <option value="video_space">Видео: Космос 🌌</option>
+                      <option value="video_nature">Видео: Природа 🌿</option>
+                      {customBackgrounds && customBackgrounds.length > 0 && (
+                        <>
+                          <option disabled>── Мои фоны ──</option>
+                          {customBackgrounds.map(bg => (
+                            <option key={bg.filename} value={`custom_${bg.filename}`}>
+                              {bg.filename}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="custom-bg-manager glass" style={{ marginTop: '20px', padding: '15px' }}>
+                    <h4 style={{ margin: '0 0 10px 0' }}>Загрузить свой видео-фон</h4>
+                    <p className="field-hint">Загрузите MP4 видео, которое будет проигрываться за карточкой</p>
+                    <input 
+                      type="file" 
+                      accept="video/mp4" 
+                      onChange={e => {
+                        if (e.target.files?.[0]) {
+                          uploadCustomBackground(e.target.files[0]);
+                        }
+                      }}
+                      className="file-input-minimal"
+                    />
                   </div>
                 </motion.div>
               )}

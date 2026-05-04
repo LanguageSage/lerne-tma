@@ -128,6 +128,7 @@ class TMA_Card(BaseModel):
     image_path = TextField(null=True)
     image_data = BlobField(null=True)  # Бинарные данные изображения
     audio_path = TextField(null=True)
+    video_path = TextField(null=True)
     tags = TextField(null=True)
     metadata = TextField(null=True)
     card_type = CharField(default='translation')
@@ -176,7 +177,7 @@ class TMASetting(BaseModel):
 class TMAMedia(BaseModel):
     id = AutoField()
     filename = CharField(index=True)
-    folder = CharField()  # 'images' или 'audio'
+    folder = CharField()  # 'images', 'audio', 'videos', 'backgrounds'
     content = BlobField()
     created_at = DateTimeField(default=datetime.datetime.now)
 
@@ -211,6 +212,7 @@ class Card(Model):
     context = TextField(null=True)
     image_path = TextField(null=True)
     audio_path = TextField(null=True)
+    video_path = TextField(null=True)
     metadata = TextField(null=True)
     updated_at = DateTimeField(null=True)
     history = TextField(default='[]')

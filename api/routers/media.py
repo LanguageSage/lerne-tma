@@ -197,3 +197,92 @@ def get_image(filename: str, request: Request):
             "ETag": etag
         }
     )
+
+@router.post("/upload-video")
+async def upload_video(
+    file: UploadFile = File(...),
+    user_id: int = Depends(get_user_id)
+):
+    """Upload a video for a card."""
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Video file is empty")
+    
+    # 20MB max for now
+    if len(content) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Video is too large. Maximum size is 20 MB")
+
+    filename = f"vid_{user_id}_{uuid.uuid4().hex[:12]}.mp4"
+    try:
+        models.TMAMedia.create(
+            filename=filename,
+            folder='videos',
+            content=content
+        )
+    except Exception as e:
+        logger.error(f"Video upload error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save video")
+
+    return {
+        "path": f"videos/{filename}",
+        "url": f"/api/media/videos/{filename}"
+    }
+
+@router.post("/upload-background")
+async def upload_background(
+    file: UploadFile = File(...),
+    user_id: int = Depends(get_user_id)
+):
+    """Upload a custom background video."""
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Background file is empty")
+    
+    filename = f"bg_{user_id}_{uuid.uuid4().hex[:12]}.mp4"
+    try:
+        models.TMAMedia.create(
+            filename=filename,
+            folder='backgrounds',
+            content=content
+        )
+    except Exception as e:
+        logger.error(f"Background upload error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save background")
+
+    return {
+        "path": f"backgrounds/{filename}",
+        "url": f"/api/media/backgrounds/{filename}"
+    }
+
+@router.get("/backgrounds")
+def list_backgrounds(user_id: int = Depends(get_user_id)):
+    """List all custom background videos."""
+    query = models.TMAMedia.select(models.TMAMedia.filename).where(models.TMAMedia.folder == 'backgrounds')
+    return [
+        {"filename": m.filename, "url": f"/api/media/backgrounds/{m.filename}"}
+        for m in query
+    ]
+
+@router.get("/videos/{filename}")
+def get_video(filename: str, request: Request):
+    media = models.TMAMedia.get_or_none(
+        models.TMAMedia.filename == filename, 
+        models.TMAMedia.folder == 'videos'
+    )
+    if not media:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    content = bytes(media.content)
+    return Response(content=content, media_type="video/mp4")
+
+@router.get("/backgrounds/{filename}")
+def get_background_video(filename: str, request: Request):
+    media = models.TMAMedia.get_or_none(
+        models.TMAMedia.filename == filename, 
+        models.TMAMedia.folder == 'backgrounds'
+    )
+    if not media:
+        raise HTTPException(status_code=404, detail="Background not found")
+    
+    content = bytes(media.content)
+    return Response(content=content, media_type="video/mp4")

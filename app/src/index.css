@@ -121,3 +121,154 @@ h1, h2, h3 {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* Card Backgrounds */
+.card-inner {
+  position: relative;
+}
+
+.card-face {
+  position: relative;
+  z-index: 10;
+  background: transparent !important; /* Override hardcoded colors to let BG show */
+}
+
+/* Base layer */
+.card-bg-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* 1. Standard (Current fallback) */
+.card-front .bg-standard { background: rgba(30, 41, 59, 0.65); }
+.card-back .bg-standard { background: rgba(15, 23, 42, 0.7); }
+
+/* 2. Celestial Mesh */
+.bg-mesh {
+  background: #0f172a;
+}
+.bg-mesh .blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(45px);
+  opacity: 0.65;
+  mix-blend-mode: screen;
+}
+.card-front .bg-mesh .blob { opacity: 0.5; }
+.card-back .bg-mesh .blob { opacity: 0.8; }
+
+/* 3. Aurora Waves */
+.bg-aurora {
+  background: #09090b;
+}
+.aurora-wave {
+  position: absolute;
+  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  filter: blur(30px);
+  mix-blend-mode: overlay;
+}
+.aurora-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%);
+  z-index: 1;
+}
+
+/* 4. Holographic */
+.bg-holo {
+  background: #1e1e2f;
+  overflow: hidden;
+}
+.holo-gradient {
+  position: absolute;
+  mix-blend-mode: color-dodge;
+  opacity: 0.5;
+}
+.holo-glass-effect {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+  backdrop-filter: blur(2px);
+  z-index: 1;
+}
+
+/* --- New: Liquid Flow --- */
+.bg-liquid {
+  background: #0a1128;
+  overflow: hidden;
+}
+
+.liquid-container {
+  position: absolute;
+  inset: -20%;
+  filter: contrast(130%) brightness(120%);
+}
+
+.liquid-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  mix-blend-mode: screen;
+  opacity: 0.8;
+}
+
+.blob-blue {
+  width: 70%;
+  height: 70%;
+  background: radial-gradient(circle, rgba(0, 198, 255, 0.7), transparent 70%);
+  top: -10%; left: -10%;
+}
+
+.blob-purple {
+  width: 80%;
+  height: 80%;
+  background: radial-gradient(circle, rgba(122, 47, 247, 0.6), transparent 70%);
+  bottom: -20%; right: -20%;
+}
+
+.blob-cyan {
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, rgba(0, 255, 204, 0.5), transparent 70%);
+  top: 30%; left: 30%;
+}
+
+.liquid-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+  z-index: 1;
+}
+
+/* --- Video Backgrounds --- */
+.bg-video {
+  background: #000;
+  overflow: hidden;
+}
+
+.bg-video-element {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translateX(-50%) translateY(-50%);
+  object-fit: cover;
+  opacity: 0.85; /* Make text readable */
+}
+
+.video-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.5) 100%);
+  z-index: 1;
+}

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X } from 'lucide-react';
 import { stripMarkdown } from '../utils/text';
+import { CardBackground } from './common/CardBackground';
 
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
@@ -26,7 +27,9 @@ export const StudyView = ({
   goNext,
   handleSyncDeck,
   handleResetProgress,
-  setIsSettingsOpen
+  setIsSettingsOpen,
+  cardBgFront,
+  cardBgBack
 }) => {
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -163,6 +166,17 @@ export const StudyView = ({
   }, [isCameraOpen]);
 
   const googleImageUrl = `https://www.google.com/search?q=${encodeURIComponent(card?.front || '')}&tbm=isch`;
+
+  const availableStyles = ['standard', 'mesh', 'aurora', 'holographic', 'liquid', 'video_aquarium', 'video_space', 'video_nature'];
+  const getResolvedStyle = (settingStyle, cardId) => {
+    if (settingStyle !== 'auto') return settingStyle;
+    if (!cardId) return 'standard';
+    const sum = cardId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    return availableStyles[sum % availableStyles.length];
+  };
+
+  const resolvedBgFront = getResolvedStyle(cardBgFront, card?.id);
+  const resolvedBgBack = getResolvedStyle(cardBgBack, card?.id);
 
   if (view !== 'study') return null;
 
@@ -356,6 +370,7 @@ export const StudyView = ({
             >
               {!isFlipped ? (
                 <div className="card-inner card-front glass">
+                  <CardBackground styleType={resolvedBgFront} />
                   <div className="card-face">
                     <div className="card-q">❓</div>
                     <div className="text-front">{stripMarkdown(card.front)}</div>
@@ -372,6 +387,7 @@ export const StudyView = ({
                 </div>
               ) : (
                 <div className="card-inner card-back glass">
+                  <CardBackground styleType={resolvedBgBack} />
                   <div className="card-face">
                     <div className="text-front-mini">{stripMarkdown(card.front)}</div>
                     <div className="text-back">{stripMarkdown(card.back)}</div>

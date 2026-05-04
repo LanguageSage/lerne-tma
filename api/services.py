@@ -475,6 +475,7 @@ def get_cards_for_study(deck_id: int, user_id: int):
                 "context": c['context'],
                 "audio_url": resolve_media_url(c.get('audio_path'), "audio", exists_map=media_exists),
                 "image_url": resolve_media_url(c.get('image_path'), "images", exists_map=media_exists),
+                "video_url": resolve_media_url(c.get('video_path'), "videos", exists_map=media_exists),
                 "queue": p.queue if p else "new",
                 "interval": p.interval if p else 0,
                 "next_review": p.next_review.isoformat() if p and p.next_review else None
@@ -511,6 +512,8 @@ def save_card(data, user_id):
             card.image_path = data.get('image_path')
         if 'audio_path' in data:
             card.audio_path = data.get('audio_path')
+        if 'video_path' in data:
+            card.video_path = data.get('video_path')
             
         card.updated_at = datetime.datetime.now()
         card.history = add_to_history(card.history, "Edited manually")
@@ -539,7 +542,8 @@ def promote_to_library(deck_id: int):
                     'back_text': tc.back_text,
                     'context': tc.context,
                     'image_path': tc.image_path,
-                    'audio_path': tc.audio_path
+                    'audio_path': tc.audio_path,
+                    'video_path': tc.video_path
                 }
             )
         return lib_deck
@@ -554,7 +558,7 @@ def _build_media_exists_map(cards_dicts: list) -> set:
     
     filenames = set()
     for c in cards_dicts:
-        for path_field, folder in [('audio_path', 'audio'), ('image_path', 'images')]:
+        for path_field, folder in [('audio_path', 'audio'), ('image_path', 'images'), ('video_path', 'videos')]:
             path_str = c.get(path_field)
             if path_str and not path_str.startswith('http'):
                 filenames.add(os.path.basename(path_str))
@@ -579,7 +583,11 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) ->
     if path_str.startswith("http"): return path_str
     # Извлекаем только имя файла
     filename = os.path.basename(path_str)
-    folder = "images" if media_type == "images" else "audio"
+    
+    folder = "images"
+    if media_type == "audio": folder = "audio"
+    elif media_type == "videos": folder = "videos"
+    elif media_type == "backgrounds": folder = "backgrounds"
     
     # Если есть предзагруженная карта существования — используем её
     if exists_map is not None:
