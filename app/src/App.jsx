@@ -611,7 +611,7 @@ function App() {
     }
   };
 
-  const uploadCardVideo = async (file, targetCard) => {
+  const uploadCardVideo = async (file, targetCard, side = 'back') => {
     if (!file || !targetCard || !currentDeck?.id) return;
     setLoading(true);
     try {
@@ -622,6 +622,9 @@ function App() {
       });
 
       if (uploaded.data) {
+        const fieldName = side === 'front' ? 'video_front_path' : 'video_back_path';
+        const urlName = side === 'front' ? 'video_front_url' : 'video_back_url';
+        
         await api.post('/cards/save', {
           card_id: targetCard.id,
           deck_id: currentDeck.id,
@@ -630,15 +633,16 @@ function App() {
           context: targetCard.context,
           image_path: targetCard.image_path || '',
           audio_path: targetCard.audio_path || '',
-          video_path: uploaded.data.path
+          video_front_path: side === 'front' ? uploaded.data.path : (targetCard.video_front_path || ''),
+          video_back_path: side === 'back' ? uploaded.data.path : (targetCard.video_back_path || '')
         });
 
         setCard({
           ...targetCard,
-          video_path: uploaded.data.path,
-          video_url: uploaded.data.url
+          [fieldName]: uploaded.data.path,
+          [urlName]: uploaded.data.url
         });
-        showToast("Видео для карточки добавлено", "success");
+        showToast(`Видео (${side === 'front' ? 'лицо' : 'оборот'}) добавлено`, "success");
       }
     } catch (err) {
       console.error(err);

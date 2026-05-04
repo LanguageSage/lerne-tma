@@ -13,8 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from api.dependencies.auth import get_user_id
 
-import models
-import services
+from api import models, services
 
 # Импорт роутеров
 from api.routers import decks, cards, study, settings, ai, media
@@ -78,7 +77,11 @@ def get_init_data(user_id: int = Depends(get_user_id)):
 # --- Базовые Эндпоинты ---
 @app.get("/api/health")
 def health_check():
-    db_ok = not models.tma_db.is_closed()
+    try:
+        models.tma_db.connect(reuse_if_open=True)
+        db_ok = True
+    except:
+        db_ok = False
     return {
         "status": "ok",
         "database_connected": db_ok,

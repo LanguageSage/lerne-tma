@@ -21,6 +21,8 @@ def _card_to_response(card, progress):
         "context": card.context,
         "audio_url": services.resolve_media_url(card.audio_path, "audio"),
         "image_url": services.resolve_media_url(card.image_path, "images"),
+        "video_front_url": services.resolve_media_url(card.video_front_path, "videos"),
+        "video_back_url": services.resolve_media_url(card.video_back_path, "videos"),
         "intervals": srs.get_next_intervals(progress)
     }
 

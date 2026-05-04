@@ -77,11 +77,16 @@ export const CardBackground = ({ styleType = 'standard' }) => {
       );
 
     case 'liquid':
+    case 'liquid_sunset':
+    case 'liquid_ocean':
+    case 'liquid_cosmic':
+    case 'liquid_emerald':
+      const flowClass = styleType === 'liquid' ? 'bg-liquid' : `bg-liquid-${styleType.split('_')[1]}`;
       return (
-        <div className="card-bg-layer bg-liquid">
+        <div className={`card-bg-layer ${flowClass}`}>
           <div className="liquid-container">
             <motion.div 
-              className="liquid-blob blob-blue"
+              className={`liquid-blob ${styleType === 'liquid' ? 'blob-blue' : 'blob-1'}`}
               animate={{
                 x: ['-10%', '10%', '-15%', '-10%'],
                 y: ['-10%', '15%', '10%', '-10%'],
@@ -91,7 +96,7 @@ export const CardBackground = ({ styleType = 'standard' }) => {
               transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div 
-              className="liquid-blob blob-purple"
+              className={`liquid-blob ${styleType === 'liquid' ? 'blob-purple' : 'blob-2'}`}
               animate={{
                 x: ['10%', '-15%', '5%', '10%'],
                 y: ['10%', '-10%', '15%', '10%'],
@@ -101,7 +106,7 @@ export const CardBackground = ({ styleType = 'standard' }) => {
               transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div 
-              className="liquid-blob blob-cyan"
+              className={`liquid-blob ${styleType === 'liquid' ? 'blob-cyan' : 'blob-3'}`}
               animate={{
                 x: ['0%', '20%', '-20%', '0%'],
                 y: ['20%', '0%', '-20%', '20%'],
@@ -146,6 +151,17 @@ export const CardBackground = ({ styleType = 'standard' }) => {
 
     case 'standard':
     default:
+      if (styleType.startsWith('custom_')) {
+        const filename = styleType.replace('custom_', '');
+        return (
+          <div className="card-bg-layer bg-video">
+            <video autoPlay loop muted playsInline className="bg-video-element">
+              <source src={`/api/media/backgrounds/${filename}`} type="video/mp4" />
+            </video>
+            <div className="video-overlay" />
+          </div>
+        );
+      }
       return <div className="card-bg-layer bg-standard" />;
   }
 };

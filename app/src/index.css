@@ -240,6 +240,30 @@ h1, h2, h3 {
   top: 30%; left: 30%;
 }
 
+/* Sunset Flow */
+.bg-liquid-sunset { background: #1a0f0f; overflow: hidden; }
+.bg-liquid-sunset .blob-1 { background: radial-gradient(circle, rgba(255, 82, 82, 0.6), transparent 70%); width: 80%; height: 80%; top: -10%; left: -10%; }
+.bg-liquid-sunset .blob-2 { background: radial-gradient(circle, rgba(255, 171, 64, 0.5), transparent 70%); width: 70%; height: 70%; bottom: -10%; right: -10%; }
+.bg-liquid-sunset .blob-3 { background: radial-gradient(circle, rgba(236, 72, 153, 0.4), transparent 70%); width: 60%; height: 60%; top: 30%; left: 30%; }
+
+/* Ocean Flow */
+.bg-liquid-ocean { background: #020617; overflow: hidden; }
+.bg-liquid-ocean .blob-1 { background: radial-gradient(circle, rgba(56, 189, 248, 0.6), transparent 70%); width: 90%; height: 90%; top: -20%; right: -10%; }
+.bg-liquid-ocean .blob-2 { background: radial-gradient(circle, rgba(30, 64, 175, 0.5), transparent 70%); width: 80%; height: 80%; bottom: -10%; left: -10%; }
+.bg-liquid-ocean .blob-3 { background: radial-gradient(circle, rgba(45, 212, 191, 0.4), transparent 70%); width: 70%; height: 70%; top: 20%; left: 20%; }
+
+/* Cosmic Flow */
+.bg-liquid-cosmic { background: #0c0a1f; overflow: hidden; }
+.bg-liquid-cosmic .blob-1 { background: radial-gradient(circle, rgba(168, 85, 247, 0.6), transparent 70%); width: 85%; height: 85%; top: -10%; left: 10%; }
+.bg-liquid-cosmic .blob-2 { background: radial-gradient(circle, rgba(236, 72, 153, 0.5), transparent 70%); width: 75%; height: 75%; bottom: 0%; right: -10%; }
+.bg-liquid-cosmic .blob-3 { background: radial-gradient(circle, rgba(79, 70, 229, 0.4), transparent 70%); width: 65%; height: 65%; top: 40%; left: -10%; }
+
+/* Emerald Flow */
+.bg-liquid-emerald { background: #052e16; overflow: hidden; }
+.bg-liquid-emerald .blob-1 { background: radial-gradient(circle, rgba(34, 197, 94, 0.5), transparent 70%); width: 80%; height: 80%; top: -10%; left: -10%; }
+.bg-liquid-emerald .blob-2 { background: radial-gradient(circle, rgba(20, 184, 166, 0.4), transparent 70%); width: 70%; height: 70%; bottom: -10%; right: -10%; }
+.bg-liquid-emerald .blob-3 { background: radial-gradient(circle, rgba(163, 230, 53, 0.3), transparent 70%); width: 60%; height: 60%; top: 30%; left: 30%; }
+
 .liquid-overlay {
   position: absolute;
   inset: 0;
@@ -271,4 +295,69 @@ h1, h2, h3 {
   inset: 0;
   background: radial-gradient(circle at center, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.5) 100%);
   z-index: 1;
+}
+
+/* --- Media Upload Helpers --- */
+.media-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sub-label {
+  font-size: 0.75rem !important;
+  color: #64748b !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.media-preview-mini {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+  margin-bottom: 5px;
+}
+
+.media-preview-mini video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.media-clear-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  color: white;
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-container-card {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  background: #000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.video-container-card video {
+  width: 100%;
+  display: block;
+  object-fit: contain;
 }

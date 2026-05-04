@@ -167,7 +167,7 @@ export const StudyView = ({
 
   const googleImageUrl = `https://www.google.com/search?q=${encodeURIComponent(card?.front || '')}&tbm=isch`;
 
-  const availableStyles = ['standard', 'mesh', 'aurora', 'holographic', 'liquid', 'video_aquarium', 'video_space', 'video_nature'];
+  const availableStyles = ['standard', 'mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
   const getResolvedStyle = (settingStyle, cardId) => {
     if (settingStyle !== 'auto') return settingStyle;
     if (!cardId) return 'standard';
@@ -373,6 +373,11 @@ export const StudyView = ({
                   <CardBackground styleType={resolvedBgFront} />
                   <div className="card-face">
                     <div className="card-q">❓</div>
+                    {card.video_front_url && (
+                      <div className="video-container-card">
+                        <video src={card.video_front_url} autoPlay loop muted playsInline />
+                      </div>
+                    )}
                     <div className="text-front">{stripMarkdown(card.front)}</div>
                     {card.audio_url && (
                       <button 
@@ -390,6 +395,11 @@ export const StudyView = ({
                   <CardBackground styleType={resolvedBgBack} />
                   <div className="card-face">
                     <div className="text-front-mini">{stripMarkdown(card.front)}</div>
+                    {card.video_back_url && (
+                      <div className="video-container-card">
+                        <video src={card.video_back_url} autoPlay loop muted playsInline />
+                      </div>
+                    )}
                     <div className="text-back">{stripMarkdown(card.back)}</div>
                     {card.image_url && (
                       <img 

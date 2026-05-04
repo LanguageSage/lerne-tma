@@ -41,7 +41,6 @@ def initialize_database():
     
     if SUPABASE_DB_URL and not FORCE_LOCAL:
         try:
-            # Пул соединений: переиспользуем до 8 подключений, закрываем неактивные через 300с
             db_params = _parse_db_url(SUPABASE_DB_URL)
             actual_db = PooledPostgresqlDatabase(
                 autorollback=True,
@@ -55,7 +54,6 @@ def initialize_database():
             return True
         except Exception as e:
             logger.error(f"DATABASE CLOUD ERROR: {e}")
-            # Фолбэк на db_url.connect если пул не сработал
             try:
                 actual_db = db_connect(SUPABASE_DB_URL)
                 tma_db.initialize(actual_db)
@@ -101,7 +99,8 @@ def create_all_tables():
                 db.execute_sql(query)
             except Exception:
                 pass
-    except: pass
+    except Exception as e:
+        logger.error(f"Error in create_all_tables: {e}")
 
 class BaseModel(Model):
     class Meta:
@@ -128,7 +127,8 @@ class TMA_Card(BaseModel):
     image_path = TextField(null=True)
     image_data = BlobField(null=True)  # Бинарные данные изображения
     audio_path = TextField(null=True)
-    video_path = TextField(null=True)
+    video_front_path = TextField(null=True)
+    video_back_path = TextField(null=True)
     tags = TextField(null=True)
     metadata = TextField(null=True)
     card_type = CharField(default='translation')
@@ -210,9 +210,10 @@ class Card(Model):
     front_text = TextField()
     back_text = TextField()
     context = TextField(null=True)
-    image_path = TextField(null=True)
-    audio_path = TextField(null=True)
-    video_path = TextField(null=True)
+    image_path = CharField(null=True)
+    audio_path = CharField(null=True)
+    video_front_path = CharField(null=True)
+    video_back_path = CharField(null=True)
     metadata = TextField(null=True)
     updated_at = DateTimeField(null=True)
     history = TextField(default='[]')
@@ -222,5 +223,5 @@ class Card(Model):
 
 try:
     initialize_database()
-    create_all_tables()
+    # create_all_tables() # Временно отключаем, так как вешает подключение к Supabase Pooler
 except: pass

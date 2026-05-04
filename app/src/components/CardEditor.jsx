@@ -15,11 +15,14 @@ export const CardEditor = ({
   runAiGenerator,
   generateAudio,
   uploadImage,
+  uploadCardVideo,
   playAudio,
   saveCard,
   loading
 }) => {
   const imageInputRef = useRef(null);
+  const videoFrontRef = useRef(null);
+  const videoBackRef = useRef(null);
 
   if (view !== 'editor') return null;
 
@@ -76,6 +79,24 @@ export const CardEditor = ({
                 </button>
               )}
             </div>
+            
+            {/* Видео Лицо */}
+            <div className="media-upload-section" style={{ marginTop: '10px' }}>
+              <label className="sub-label">Видео (Лицо)</label>
+              {editingCard?.video_front_url && (
+                <div className="media-preview-mini">
+                  <video src={editingCard.video_front_url} muted loop autoPlay />
+                  <button className="media-clear-btn" onClick={() => setEditingCard({...editingCard, video_front_path: '', video_front_url: ''})}><X size={12} /></button>
+                </div>
+              )}
+              <button className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} disabled={loading}>
+                {editingCard?.video_front_url ? 'Заменить видео' : 'Добавить видео'}
+              </button>
+              <input ref={videoFrontRef} type="file" accept="video/mp4" className="hidden-file-input" onChange={e => {
+                uploadCardVideo(e.target.files?.[0], editingCard, 'front');
+                e.target.value = '';
+              }} />
+            </div>
           </div>
 
           <div className="form-group">
@@ -84,6 +105,24 @@ export const CardEditor = ({
               value={editingCard?.back || ''} 
               onChange={e => setEditingCard({...editingCard, back: e.target.value})}
             />
+            
+            {/* Видео Оборот */}
+            <div className="media-upload-section" style={{ marginTop: '10px' }}>
+              <label className="sub-label">Видео (Оборот)</label>
+              {editingCard?.video_back_url && (
+                <div className="media-preview-mini">
+                  <video src={editingCard.video_back_url} muted loop autoPlay />
+                  <button className="media-clear-btn" onClick={() => setEditingCard({...editingCard, video_back_path: '', video_back_url: ''})}><X size={12} /></button>
+                </div>
+              )}
+              <button className="btn-secondary btn-tiny" onClick={() => videoBackRef.current?.click()} disabled={loading}>
+                {editingCard?.video_back_url ? 'Заменить видео' : 'Добавить видео'}
+              </button>
+              <input ref={videoBackRef} type="file" accept="video/mp4" className="hidden-file-input" onChange={e => {
+                uploadCardVideo(e.target.files?.[0], editingCard, 'back');
+                e.target.value = '';
+              }} />
+            </div>
           </div>
 
           <div className="form-group">

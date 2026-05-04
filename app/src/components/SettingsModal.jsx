@@ -44,7 +44,9 @@ export const SettingsModal = ({
   cardBgFront,
   setCardBgFront,
   cardBgBack,
-  setCardBgBack
+  setCardBgBack,
+  customBackgrounds,
+  uploadCustomBackground
 }) => {
   if (!isSettingsOpen) return null;
 
@@ -100,6 +102,10 @@ export const SettingsModal = ({
                       <option value="aurora">Aurora Waves</option>
                       <option value="holographic">Holographic</option>
                       <option value="liquid">Liquid Flow 💧</option>
+                      <option value="liquid_sunset">Sunset Flow 🌅</option>
+                      <option value="liquid_ocean">Ocean Flow 🌊</option>
+                      <option value="liquid_cosmic">Cosmic Flow 🌌</option>
+                      <option value="liquid_emerald">Emerald Flow 🌿</option>
                       <option disabled>──────────</option>
                       <option value="video_aquarium">Видео: Аквариум 🐠</option>
                       <option value="video_space">Видео: Космос 🌌</option>
@@ -126,6 +132,10 @@ export const SettingsModal = ({
                       <option value="aurora">Aurora Waves</option>
                       <option value="holographic">Holographic</option>
                       <option value="liquid">Liquid Flow 💧</option>
+                      <option value="liquid_sunset">Sunset Flow 🌅</option>
+                      <option value="liquid_ocean">Ocean Flow 🌊</option>
+                      <option value="liquid_cosmic">Cosmic Flow 🌌</option>
+                      <option value="liquid_emerald">Emerald Flow 🌿</option>
                       <option disabled>──────────</option>
                       <option value="video_aquarium">Видео: Аквариум 🐠</option>
                       <option value="video_space">Видео: Космос 🌌</option>
