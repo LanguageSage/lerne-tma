@@ -413,11 +413,11 @@ input:checked + .slider:before {
   pointer-events: none;
 }
 
-.text-front { font-size: 1.8rem; color: #f8fafc; font-weight: 600; margin: 0; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; }
-.text-back { font-size: 1.55rem; color: #38bdf8; font-weight: 500; margin: 0; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; }
+.text-front { font-size: inherit; color: inherit; font-weight: 600; margin: 0; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; }
+.text-back { font-size: 0.85em; color: inherit; font-weight: 500; margin: 0; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; opacity: 0.9; }
 .text-context { color: #cbd5e1; font-size: 1rem; margin-top: 15px; width: 100%; overflow-wrap: break-word; font-style: italic; white-space: pre-wrap; }
 
-.text-front-mini { font-size: 1.8rem; color: white; margin-bottom: 25px; font-weight: 600; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; overflow-wrap: break-word; white-space: pre-wrap; }
+.text-front-mini { font-size: 0.6em; color: inherit; margin-bottom: 25px; font-weight: 600; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; overflow-wrap: break-word; white-space: pre-wrap; opacity: 0.7; }
 .card-q { font-size: 3rem; opacity: 0.2; position: absolute; bottom: 20px; right: 20px; z-index: -1; }
 
 .audio-btn {

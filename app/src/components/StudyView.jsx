@@ -29,7 +29,10 @@ export const StudyView = ({
   handleResetProgress,
   setIsSettingsOpen,
   cardBgFront,
-  cardBgBack
+  cardBgBack,
+  cardFont,
+  cardTextColor,
+  cardFontSize
 }) => {
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -367,6 +370,7 @@ export const StudyView = ({
               transition={{ duration: 0.2 }}
               className={`card-container ${loading ? 'loading-card' : ''}`}
               onClick={() => !loading && setIsFlipped(!isFlipped)}
+              style={{ fontFamily: cardFont, color: cardTextColor, fontSize: `${cardFontSize}rem` }}
             >
               {!isFlipped ? (
                 <div className="card-inner card-front glass">

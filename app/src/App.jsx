@@ -49,6 +49,15 @@ function App() {
   const [cardBgBack, setCardBgBack] = useState(() => {
     return storage.get('lerne_card_bg_back') || 'standard';
   });
+  const [cardFont, setCardFont] = useState(() => {
+    return storage.get('lerne_card_font') || 'Inter';
+  });
+  const [cardTextColor, setCardTextColor] = useState(() => {
+    return storage.get('lerne_card_text_color') || '#ffffff';
+  });
+  const [cardFontSize, setCardFontSize] = useState(() => {
+    return Number(storage.get('lerne_card_font_size')) || 1.8;
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isNewDeckModalOpen, setIsNewDeckModalOpen] = useState(false);
@@ -116,6 +125,18 @@ function App() {
   useEffect(() => {
     storage.set('lerne_card_bg_back', cardBgBack);
   }, [cardBgBack]);
+
+  useEffect(() => {
+    storage.set('lerne_card_font', cardFont);
+  }, [cardFont]);
+
+  useEffect(() => {
+    storage.set('lerne_card_text_color', cardTextColor);
+  }, [cardTextColor]);
+
+  useEffect(() => {
+    storage.set('lerne_card_font_size', cardFontSize);
+  }, [cardFontSize]);
 
   useEffect(() => {
     if (card?.audio_url) {
@@ -902,6 +923,9 @@ function App() {
         setIsSettingsOpen={setIsSettingsOpen}
         cardBgFront={cardBgFront}
         cardBgBack={cardBgBack}
+        cardFont={cardFont}
+        cardTextColor={cardTextColor}
+        cardFontSize={cardFontSize}
       />
 
       <DeckModals
@@ -981,6 +1005,12 @@ function App() {
         setCardBgFront={setCardBgFront}
         cardBgBack={cardBgBack}
         setCardBgBack={setCardBgBack}
+        cardFont={cardFont}
+        setCardFont={setCardFont}
+        cardTextColor={cardTextColor}
+        setCardTextColor={setCardTextColor}
+        cardFontSize={cardFontSize}
+        setCardFontSize={setCardFontSize}
         customBackgrounds={customBackgrounds}
         uploadCustomBackground={uploadCustomBackground}
       />

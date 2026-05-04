@@ -45,6 +45,12 @@ export const SettingsModal = ({
   setCardBgFront,
   cardBgBack,
   setCardBgBack,
+  cardFont,
+  setCardFont,
+  cardTextColor,
+  setCardTextColor,
+  cardFontSize,
+  setCardFontSize,
   customBackgrounds,
   uploadCustomBackground
 }) => {
@@ -151,6 +157,45 @@ export const SettingsModal = ({
                         </>
                       )}
                     </select>
+                  </div>
+
+                  <div className="custom-bg-manager glass" style={{ marginTop: '20px', padding: '15px' }}>
+                    <h4 style={{ margin: '0 0 10px 0' }}>Типографика и Цвет</h4>
+                    <div className="form-group" style={{ marginBottom: '15px' }}>
+                      <label>Шрифт текста</label>
+                      <select value={cardFont} onChange={e => setCardFont(e.target.value)}>
+                        <option value="Inter">Inter (Стандарт)</option>
+                        <option value="Outfit">Outfit (Современный)</option>
+                        <option value="Montserrat">Montserrat (Акцентный)</option>
+                        <option value="Playfair Display">Playfair (Элегантный)</option>
+                        <option value="Roboto">Roboto (Техничный)</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <div className="label-with-value">
+                        <label>Цвет текста</label>
+                        <input 
+                          type="color" 
+                          value={cardTextColor} 
+                          onChange={e => setCardTextColor(e.target.value)}
+                          style={{ width: '40px', height: '30px', padding: '0', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ marginTop: '10px' }}>
+                      <div className="label-with-value">
+                        <label>Размер шрифта</label>
+                        <span className="value-badge">{cardFontSize}rem</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="3" 
+                        step="0.1"
+                        value={cardFontSize} 
+                        onChange={e => setCardFontSize(Number(e.target.value))} 
+                      />
+                    </div>
                   </div>
 
                   <div className="custom-bg-manager glass" style={{ marginTop: '20px', padding: '15px' }}>
