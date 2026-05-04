@@ -32,7 +32,10 @@ export const StudyView = ({
   cardBgBack,
   cardFont,
   cardTextColor,
-  cardFontSize
+  cardFontSize,
+  contextFont,
+  contextTextColor,
+  contextFontSize
 }) => {
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -413,7 +416,14 @@ export const StudyView = ({
                         onError={(e) => { console.warn('Image load error:', card.image_url); e.target.style.display='none'; }}
                       />
                     )}
-                    {card.context && <div className="text-context">{stripMarkdown(card.context)}</div>}
+                    {card.context && (
+                      <div 
+                        className="text-context" 
+                        style={{ fontFamily: contextFont, color: contextTextColor, fontSize: `${contextFontSize}rem` }}
+                      >
+                        {stripMarkdown(card.context)}
+                      </div>
+                    )}
                     {card.audio_url && (
                       <button 
                         className="audio-btn bg-audio-btn" 

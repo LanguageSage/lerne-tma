@@ -58,6 +58,15 @@ function App() {
   const [cardFontSize, setCardFontSize] = useState(() => {
     return Number(storage.get('lerne_card_font_size')) || 1.8;
   });
+  const [contextFont, setContextFont] = useState(() => {
+    return storage.get('lerne_context_font') || 'Inter';
+  });
+  const [contextTextColor, setContextTextColor] = useState(() => {
+    return storage.get('lerne_context_text_color') || '#cbd5e1';
+  });
+  const [contextFontSize, setContextFontSize] = useState(() => {
+    return Number(storage.get('lerne_context_font_size')) || 1.0;
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isNewDeckModalOpen, setIsNewDeckModalOpen] = useState(false);
@@ -137,6 +146,18 @@ function App() {
   useEffect(() => {
     storage.set('lerne_card_font_size', cardFontSize);
   }, [cardFontSize]);
+
+  useEffect(() => {
+    storage.set('lerne_context_font', contextFont);
+  }, [contextFont]);
+
+  useEffect(() => {
+    storage.set('lerne_context_text_color', contextTextColor);
+  }, [contextTextColor]);
+
+  useEffect(() => {
+    storage.set('lerne_context_font_size', contextFontSize);
+  }, [contextFontSize]);
 
   useEffect(() => {
     if (card?.audio_url) {
@@ -926,6 +947,9 @@ function App() {
         cardFont={cardFont}
         cardTextColor={cardTextColor}
         cardFontSize={cardFontSize}
+        contextFont={contextFont}
+        contextTextColor={contextTextColor}
+        contextFontSize={contextFontSize}
       />
 
       <DeckModals
@@ -1011,6 +1035,12 @@ function App() {
         setCardTextColor={setCardTextColor}
         cardFontSize={cardFontSize}
         setCardFontSize={setCardFontSize}
+        contextFont={contextFont}
+        setContextFont={setContextFont}
+        contextTextColor={contextTextColor}
+        setContextTextColor={setContextTextColor}
+        contextFontSize={contextFontSize}
+        setContextFontSize={setContextFontSize}
         customBackgrounds={customBackgrounds}
         uploadCustomBackground={uploadCustomBackground}
       />

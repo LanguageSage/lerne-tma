@@ -51,6 +51,12 @@ export const SettingsModal = ({
   setCardTextColor,
   cardFontSize,
   setCardFontSize,
+  contextFont,
+  setContextFont,
+  contextTextColor,
+  setContextTextColor,
+  contextFontSize,
+  setContextFontSize,
   customBackgrounds,
   uploadCustomBackground
 }) => {
@@ -160,9 +166,9 @@ export const SettingsModal = ({
                   </div>
 
                   <div className="custom-bg-manager glass" style={{ marginTop: '20px', padding: '15px' }}>
-                    <h4 style={{ margin: '0 0 10px 0' }}>Типографика и Цвет</h4>
+                    <h4 style={{ margin: '0 0 10px 0' }}>Основной текст (фраза, перевод)</h4>
                     <div className="form-group" style={{ marginBottom: '15px' }}>
-                      <label>Шрифт текста</label>
+                      <label>Шрифт</label>
                       <select value={cardFont} onChange={e => setCardFont(e.target.value)}>
                         <option value="Inter">Inter (Стандарт)</option>
                         <option value="Outfit">Outfit (Современный)</option>
@@ -173,7 +179,7 @@ export const SettingsModal = ({
                     </div>
                     <div className="form-group">
                       <div className="label-with-value">
-                        <label>Цвет текста</label>
+                        <label>Цвет</label>
                         <input 
                           type="color" 
                           value={cardTextColor} 
@@ -184,7 +190,7 @@ export const SettingsModal = ({
                     </div>
                     <div className="form-group" style={{ marginTop: '10px' }}>
                       <div className="label-with-value">
-                        <label>Размер шрифта</label>
+                        <label>Размер</label>
                         <span className="value-badge">{cardFontSize}rem</span>
                       </div>
                       <input 
@@ -194,6 +200,45 @@ export const SettingsModal = ({
                         step="0.1"
                         value={cardFontSize} 
                         onChange={e => setCardFontSize(Number(e.target.value))} 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="custom-bg-manager glass" style={{ marginTop: '15px', padding: '15px' }}>
+                    <h4 style={{ margin: '0 0 10px 0' }}>Контекст (примеры)</h4>
+                    <div className="form-group" style={{ marginBottom: '15px' }}>
+                      <label>Шрифт</label>
+                      <select value={contextFont} onChange={e => setContextFont(e.target.value)}>
+                        <option value="Inter">Inter (Стандарт)</option>
+                        <option value="Outfit">Outfit (Современный)</option>
+                        <option value="Montserrat">Montserrat (Акцентный)</option>
+                        <option value="Playfair Display">Playfair (Элегантный)</option>
+                        <option value="Roboto">Roboto (Техничный)</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <div className="label-with-value">
+                        <label>Цвет</label>
+                        <input 
+                          type="color" 
+                          value={contextTextColor} 
+                          onChange={e => setContextTextColor(e.target.value)}
+                          style={{ width: '40px', height: '30px', padding: '0', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ marginTop: '10px' }}>
+                      <div className="label-with-value">
+                        <label>Размер</label>
+                        <span className="value-badge">{contextFontSize}rem</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0.8" 
+                        max="2" 
+                        step="0.05"
+                        value={contextFontSize} 
+                        onChange={e => setContextFontSize(Number(e.target.value))} 
                       />
                     </div>
                   </div>
