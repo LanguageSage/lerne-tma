@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2 } from 'lucide-react';
+import { HelpButton } from './TutorialOverlay';
 
 export const DeckGrid = ({
   view,
@@ -17,7 +18,8 @@ export const DeckGrid = ({
   handleResetProgress,
   handleDeleteDeck,
   showToast,
-  openSyncModal
+  openSyncModal,
+  startTutorial
 }) => {
   if (view !== 'decks') return null;
 
@@ -33,10 +35,11 @@ export const DeckGrid = ({
             <h1>Lerne TMA</h1>
             <div style={{fontSize: '10px', opacity: 0.5, marginLeft: '10px'}}>ID: {userId}</div>
             <div className="header-actions">
-              <button className="add-deck-btn" onClick={() => setIsNewDeckModalOpen(true)}>
+              <HelpButton onClick={() => startTutorial('decks')} />
+              <button id="tut-add-deck" className="add-deck-btn" onClick={() => setIsNewDeckModalOpen(true)}>
                 <Plus size={20} />
               </button>
-              <button className="settings-btn" onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }}>
+              <button id="tut-main-settings" className="settings-btn" onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }}>
                 <Settings size={20} />
               </button>
             </div>
@@ -62,7 +65,7 @@ export const DeckGrid = ({
           </div>
         </div>
 
-        <div className="deck-grid">
+        <div id="tut-deck-list" className="deck-grid">
           {loading && decks.length === 0 ? (
             <div className="empty-decks-state glass">
               <RefreshCw size={48} className="spin" color="#a855f7" />

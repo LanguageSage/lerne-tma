@@ -17,14 +17,62 @@ import { CardEditor } from './components/CardEditor';
 import { DeckModals } from './components/DeckModals';
 import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
+import { TutorialOverlay } from './components/TutorialOverlay';
+
+const TUTORIAL_STEPS = {
+  decks: [
+    { targetId: 'tut-deck-list', title: 'Твои колоды 📚', content: 'Здесь отображаются все твои наборы карточек. Нажми на колоду, чтобы начать обучение.' },
+    { targetId: 'tut-add-deck', title: 'Добавить новое ➕', content: 'Хочешь создать свою колоду или импортировать готовую из библиотеки? Тебе сюда!' },
+    { targetId: 'tut-main-settings', title: 'Настройки ⚙️', content: 'Здесь можно настроить внешний вид карточек, голос озвучки и параметры ИИ.' }
+  ],
+  settings: [
+    { targetId: 'tut-settings-tabs', title: 'Разделы настроек 📑', content: 'Здесь ты можешь переключаться между категориями: от выбора голоса озвучки до тонкой настройки моделей искусственного интеллекта.' },
+    { targetId: 'tut-settings-general', title: 'Автоматизация ⚡️', content: 'Включи "Авто-звук", чтобы слышать слово сразу, и "Авто-показ", если хочешь, чтобы ответ открывался сам через пару секунд. Это очень экономит время!' },
+    { targetId: 'tut-settings-design', title: 'Темы и Дизайн 🎨', content: 'Сделай обучение красивым! Выбирай из готовых премиум-тем или настрой шрифты, цвета и тени под свой вкус.' },
+    { targetId: 'tut-settings-tabs', title: 'Промпты ИИ 🤖', content: 'Во вкладке "Промпты" можно изменить инструкции для ИИ, чтобы он переводил или объяснял слова именно в том стиле, который тебе нужен.' }
+  ],
+  study: [
+    { targetId: 'tut-study-card', title: 'Лицевая сторона 🎴', content: 'Перед тобой — «лицо» карточки. Посмотри на слово или фразу и попробуй перевести или ответить на вопрос.' },
+    { targetId: 'tut-study-audio', title: 'Слушай и запоминай 🔊', content: 'Нажми на динамик на самой карточке, чтобы услышать правильное произношение.' },
+    { targetId: 'tut-study-add-image', title: 'Визуальные образы 🖼', content: 'Добавь картинку, чтобы создать яркую ассоциацию! Можно загрузить свою или найти в Google прямо здесь.' },
+    { targetId: 'tut-study-gen-audio', title: 'Магия нейросетей ✨', content: 'Если у карточки нет звука, нажми сюда. ИИ мгновенно озвучит текст идеальным голосом носителя.' },
+    { targetId: 'tut-study-edit-card', title: 'Редактирование ✏️', content: 'Заметил ошибку или хочешь добавить свой пример? Нажми "карандаш", чтобы изменить карточку.' },
+    { targetId: 'tut-study-card', title: 'Как увидеть ответ? 🔄', content: 'Просто нажми на карточку. Она перевернется и покажет тебе ответ.' }
+  ],
+  study_back: [
+    { targetId: 'tut-study-answer', title: 'Обратная сторона ✨', content: 'Здесь ты видишь ответ, примеры и картинку. Это окончательно закрепит слово в памяти.' },
+    { targetId: 'tut-study-grades', title: 'Оцени свои знания ✅', content: 'Выбери честную оценку: от "Снова", если забыл, до "Легко", если слово далось без усилий. Это самое важное для обучения!' },
+    { targetId: 'tut-study-grades', title: 'Умные повторения 🧠', content: 'На основе твоей оценки ИИ рассчитает момент, когда ты начнешь забывать это слово, и покажет его именно тогда.' }
+  ]
+};
 
 const USER_ID = getUserId();
 const SETTINGS_VERSION = 'v3';
 
 const DESIGN_PRESETS = [
   {
+    id: 'lerne_2026',
+    name: 'Lerne 2026 ✨',
+    settings: {
+      cardBgFront: 'liquid_morning',
+      cardBgBack: 'liquid_morning',
+      cardFont: 'Comfortaa',
+      cardTextColor: '#ffff00',
+      cardFontSize: 1.8,
+      contextFont: 'Inter',
+      contextTextColor: '#30172e',
+      contextFontSize: 1.35,
+      cardTextShadow: 'glow',
+      contextTextShadow: 'outline',
+      cardFontWeight: '700',
+      cardFontStyle: 'normal',
+      contextFontWeight: '400',
+      contextFontStyle: 'normal'
+    }
+  },
+  {
     id: 'premium',
-    name: 'Премиум ✨',
+    name: 'Премиум 💎',
     settings: {
       cardBgFront: 'liquid',
       cardBgBack: 'liquid_cosmic',
@@ -32,10 +80,14 @@ const DESIGN_PRESETS = [
       cardTextColor: '#ffffff',
       cardFontSize: 1.8,
       contextFont: 'Inter',
-      contextTextColor: '#ffffff',
-      contextFontSize: 1.1,
-      cardTextShadow: 'shadow',
-      contextTextShadow: 'shadow'
+      contextTextColor: '#cbd5e1',
+      contextFontSize: 1.35,
+      cardTextShadow: 'glow',
+      contextTextShadow: 'none',
+      cardFontWeight: '700',
+      cardFontStyle: 'normal',
+      contextFontWeight: '400',
+      contextFontStyle: 'normal'
     }
   },
   {
@@ -142,10 +194,10 @@ function App() {
     return storage.get('lerne_card_bg_back') || 'liquid_morning';
   });
   const [cardFont, setCardFont] = useState(() => {
-    return storage.get('lerne_card_font') || 'Inter';
+    return storage.get('lerne_card_font') || 'Comfortaa';
   });
   const [cardTextColor, setCardTextColor] = useState(() => {
-    return storage.get('lerne_card_text_color') || '#5d0e0e';
+    return storage.get('lerne_card_text_color') || '#ffff00';
   });
   const [cardFontSize, setCardFontSize] = useState(() => {
     const saved = storage.get('lerne_card_font_size');
@@ -162,7 +214,7 @@ function App() {
     return saved !== null ? Number(saved) : 1.35;
   });
   const [cardTextShadow, setCardTextShadow] = useState(() => {
-    return storage.get('lerne_card_text_shadow') || 'glass';
+    return storage.get('lerne_card_text_shadow') || 'glow';
   });
   const [contextTextShadow, setContextTextShadow] = useState(() => {
     return storage.get('lerne_context_text_shadow') || 'outline';
@@ -200,6 +252,8 @@ function App() {
   const [newPresetName, setNewPresetName] = useState('');
   const [customBackgrounds, setCustomBackgrounds] = useState([]);
   
+  const [activeTutorial, setActiveTutorial] = useState(null);
+  
   const [externalDecks, setExternalDecks] = useState([]);
   const [communityDecks, setCommunityDecks] = useState([]);
   const [isImportLoading, setIsImportLoading] = useState(false);
@@ -217,16 +271,15 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '1' || USER_ID === 642478257) setIsAdmin(true);
     
-    // Migration to v3 (Morning Sea as default for all who has old/standard)
+    // Migration to v4 (Comfortaa + Yellow + Glow + Liquid Morning)
     const currentVersion = storage.get('lerne_settings_version');
-    if (currentVersion !== SETTINGS_VERSION) {
-      const isOldOrAuto = (val) => !val || val === 'auto' || val === 'standard';
-      
-      if (isOldOrAuto(storage.get('lerne_card_bg_front'))) {
-        const morningSea = DESIGN_PRESETS.find(p => p.id === 'morning_sea').settings;
-        applyDesignPreset({ settings: morningSea });
+    if (currentVersion !== '4') {
+      console.log("Migrating settings to v4...");
+      const defaultSettings = DESIGN_PRESETS.find(p => p.id === 'lerne_2026')?.settings;
+      if (defaultSettings) {
+        applyDesignPreset({ name: 'Lerne 2026', settings: defaultSettings });
       }
-      storage.set('lerne_settings_version', SETTINGS_VERSION);
+      storage.set('lerne_settings_version', '4');
     }
   }, []);
 
@@ -329,6 +382,44 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [card?.id, autoShow, isFlipped, autoPlay]);
+
+  useEffect(() => {
+    let context = view;
+    if (isSettingsOpen) context = 'settings';
+    
+    // Специальная логика для обучения (лицо / оборот)
+    if (context === 'study' && card) {
+      if (isFlipped) {
+        context = 'study_back';
+      }
+      // Если карточка не перевернута, оставляем context = 'study'
+    }
+
+    if (context === 'decks' || context === 'settings' || context === 'study' || context === 'study_back') {
+      const seen = storage.get(`lerne_tut_seen_${context}`);
+      if (!seen) {
+        // Небольшая задержка, чтобы UI успел отрисоваться
+        const timer = setTimeout(() => setActiveTutorial(context), 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [view, isSettingsOpen, !!card, isFlipped]);
+
+  const finishTutorial = (context) => {
+    console.log("Finishing tutorial for:", context);
+    storage.set(`lerne_tut_seen_${context}`, 'true');
+    setActiveTutorial(null);
+  };
+
+  const startTutorial = (context) => {
+    console.log("Starting tutorial for:", context);
+    // window.alert("Запуск туториала для: " + context); // Раскомментируй если хочешь проверить вызов
+    storage.remove(`lerne_tut_seen_${context}`);
+    setActiveTutorial(null);
+    setTimeout(() => {
+      setActiveTutorial(context);
+    }, 100);
+  };
 
   // --- API Functions ---
   const fetchInitData = async () => {
@@ -930,6 +1021,14 @@ function App() {
     showToast(`Применен пресет: ${preset.name}`, "success");
   };
 
+  const resetDesign = () => {
+    const defaultSettings = DESIGN_PRESETS.find(p => p.id === 'lerne_2026')?.settings;
+    if (defaultSettings) {
+      applyDesignPreset({ name: 'Lerne 2026', settings: defaultSettings });
+      showToast("Дизайн сброшен к стандарту", "success");
+    }
+  };
+
   const handleDeleteDeck = (e, deckId) => {
     e.stopPropagation();
     if (!window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) return;
@@ -1084,6 +1183,7 @@ function App() {
         handleDeleteDeck={handleDeleteDeck}
         showToast={showToast}
         openSyncModal={openSyncModal}
+        startTutorial={startTutorial}
       />
 
       <StudyView
@@ -1109,6 +1209,7 @@ function App() {
         handleSyncDeck={handleSyncDeck}
         handleResetProgress={handleResetProgress}
         setIsSettingsOpen={setIsSettingsOpen}
+        startTutorial={startTutorial}
         cardBgFront={cardBgFront}
         cardBgBack={cardBgBack}
         cardFont={cardFont}
@@ -1238,6 +1339,8 @@ function App() {
         uploadCustomBackground={uploadCustomBackground}
         designPresets={DESIGN_PRESETS}
         applyDesignPreset={applyDesignPreset}
+        resetDesign={resetDesign}
+        startTutorial={startTutorial}
       />
 
       <SyncModal
@@ -1246,6 +1349,14 @@ function App() {
         deck={deckToSync}
         onSync={(mode) => handleSyncDeck(deckToSync.id, mode)}
         loading={loading}
+      />
+
+      <TutorialOverlay 
+        isOpen={!!activeTutorial}
+        steps={TUTORIAL_STEPS[activeTutorial] || []}
+        onFinish={() => finishTutorial(activeTutorial)}
+        onSkip={() => finishTutorial(activeTutorial)}
+        isFlipped={isFlipped}
       />
 
       <Toast toast={toast} />

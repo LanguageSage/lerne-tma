@@ -4,6 +4,7 @@ import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Setting
 import { stripMarkdown } from '../utils/text';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
+import { HelpButton } from './TutorialOverlay';
 
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
@@ -29,6 +30,7 @@ export const StudyView = ({
   handleSyncDeck,
   handleResetProgress,
   setIsSettingsOpen,
+  startTutorial,
   cardBgFront,
   cardBgBack,
   cardFont,
@@ -209,7 +211,9 @@ export const StudyView = ({
             <h2>{currentDeck?.name}</h2>
           </div>
           <div className="header-actions">
+            <HelpButton onClick={() => startTutorial(isFlipped ? 'study_back' : 'study')} />
             <button
+              id="tut-study-add-image"
               type="button"
               className="edit-btn-study"
               onClick={() => setIsImagePickerOpen(true)}
@@ -219,6 +223,7 @@ export const StudyView = ({
               <ImageIcon size={20} />
             </button>
             <button 
+              id="tut-study-gen-audio"
               className="edit-btn-study" 
               onClick={() => handleQuickAudio(card)} 
               disabled={loading}
@@ -226,7 +231,7 @@ export const StudyView = ({
             >
               <Volume2 size={20} />
             </button>
-            <button className="edit-btn-study" onClick={() => openEditor(currentDeck?.id, card, 'study')} title="Редактировать">
+            <button id="tut-study-edit-card" className="edit-btn-study" onClick={() => openEditor(currentDeck?.id, card, 'study')} title="Редактировать">
               <Edit2 size={20} />
             </button>
             <button className="settings-btn" onClick={() => setIsSettingsOpen(true)}>
@@ -373,6 +378,7 @@ export const StudyView = ({
           <div className="study-flow">
             <AnimatePresence mode="wait" initial={false}>
             <motion.div
+              id="tut-study-card"
               key={card.id}
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
@@ -399,9 +405,10 @@ export const StudyView = ({
                         <video src={card.video_front_url} autoPlay loop muted playsInline />
                       </div>
                     )}
-                    <div className="text-front">{stripMarkdown(card.front)}</div>
+                    <div className="text-front" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.front)}</div>
                     {card.audio_url && (
                       <button 
+                        id="tut-study-audio"
                         className="audio-btn" 
                         disabled={loading}
                         onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
@@ -415,13 +422,13 @@ export const StudyView = ({
                 <div className="card-inner card-back glass">
                   <CardBackground styleType={resolvedBgBack} />
                   <div className="card-face">
-                    <div className="text-front-mini">{stripMarkdown(card.front)}</div>
+                    <div className="text-front-mini" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.front)}</div>
                     {card.video_back_url && (
                       <div className="video-container-card">
                         <video src={card.video_back_url} autoPlay loop muted playsInline />
                       </div>
                     )}
-                    <div className="text-back">{stripMarkdown(card.back)}</div>
+                    <div id="tut-study-answer" className="text-back" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.back)}</div>
                     {card.image_url && (
                       <img 
                         src={card.image_url} 
@@ -447,6 +454,7 @@ export const StudyView = ({
                     )}
                     {card.audio_url && (
                       <button 
+                        id="tut-study-audio-back"
                         className="audio-btn bg-audio-btn" 
                         disabled={loading}
                         onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
@@ -467,11 +475,23 @@ export const StudyView = ({
             </AnimatePresence>
 
             {isFlipped && (
-              <div className="grade-buttons">
-                <button disabled={loading} title="Again" className="btn btn-grade grade-0" onClick={() => submitGrade(0)}>{card.intervals?.[0] || 'Снова'}</button>
-                <button disabled={loading} title="Hard" className="btn btn-grade grade-1" onClick={() => submitGrade(1)}>{card.intervals?.[1] || 'Трудно'}</button>
-                <button disabled={loading} title="Good" className="btn btn-grade grade-2" onClick={() => submitGrade(2)}>{card.intervals?.[2] || 'Хорошо'}</button>
-                <button disabled={loading} title="Easy" className="btn btn-grade grade-3" onClick={() => submitGrade(3)}>{card.intervals?.[3] || 'Легко'}</button>
+              <div id="tut-study-grades" className="grade-buttons grade-buttons-floating">
+                <button disabled={loading} className="btn-grade grade-0" onClick={() => submitGrade(0)}>
+                  <span className="grade-label">Снова</span>
+                  <span className="grade-val">{card.intervals?.[0] || '1м'}</span>
+                </button>
+                <button disabled={loading} className="btn-grade grade-1" onClick={() => submitGrade(1)}>
+                  <span className="grade-label">Трудно</span>
+                  <span className="grade-val">{card.intervals?.[1] || '1д'}</span>
+                </button>
+                <button disabled={loading} className="btn-grade grade-2" onClick={() => submitGrade(2)}>
+                  <span className="grade-label">Хорошо</span>
+                  <span className="grade-val">{card.intervals?.[2] || '4д'}</span>
+                </button>
+                <button disabled={loading} className="btn-grade grade-3" onClick={() => submitGrade(3)}>
+                  <span className="grade-label">Легко</span>
+                  <span className="grade-val">{card.intervals?.[3] || '7д'}</span>
+                </button>
               </div>
             )}
             

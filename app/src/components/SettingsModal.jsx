@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, RefreshCw, Trash2, Copy, Sparkles } from 'lucide-react';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
+import { HelpButton } from './TutorialOverlay';
 
 const VOICE_OPTIONS = [
   { value: "de-DE-KatjaNeural", label: "Германия: Катя (Жен)" },
@@ -74,7 +75,9 @@ export const SettingsModal = ({
   contextFontWeight,
   setContextFontWeight,
   contextFontStyle,
-  setContextFontStyle
+  setContextFontStyle,
+  startTutorial,
+  resetDesign
 }) => {
   if (!isSettingsOpen) return null;
 
@@ -131,10 +134,13 @@ export const SettingsModal = ({
         <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="settings-modal wide-modal" onClick={e => e.stopPropagation()}>
           <div className="settings-header">
             <h2>Настройки</h2>
-            <button className="close-btn" onClick={() => setIsSettingsOpen(false)}><X size={24} /></button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <HelpButton onClick={() => startTutorial('settings')} />
+              <button className="close-btn" onClick={() => setIsSettingsOpen(false)}><X size={24} /></button>
+            </div>
           </div>
 
-          <div className="settings-tabs">
+          <div id="tut-settings-tabs" className="settings-tabs">
             <button className={`tab-btn ${activeSettingsTab === 'general' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('general')}>Общие</button>
             <button className={`tab-btn ${activeSettingsTab === 'design' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('design')}>Дизайн</button>
             <button className={`tab-btn ${activeSettingsTab === 'voice' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('voice')}>Озвучка</button>
@@ -147,7 +153,7 @@ export const SettingsModal = ({
           <div className="settings-content scrollable">
             <AnimatePresence mode="wait">
               {activeSettingsTab === 'general' && (
-                <motion.div key="general" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
+                <motion.div id="tut-settings-general" key="general" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
                   <h3>Обучение</h3>
                   <div className="settings-row">
                     <span>Авто-звук</span>
@@ -165,7 +171,7 @@ export const SettingsModal = ({
               )}
 
               {activeSettingsTab === 'design' && (
-                <motion.div key="design" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
+                <motion.div id="tut-settings-design" key="design" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
                   <h3>Внешний вид карточек</h3>
 
                   <div className="custom-bg-manager glass" style={{ marginBottom: '20px', padding: '15px' }}>
@@ -186,21 +192,30 @@ export const SettingsModal = ({
                         </button>
                       ))}
                     </div>
-                    <button 
-                      className="btn-secondary btn-small" 
-                      style={{ marginTop: '10px', width: '100%', fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)' }}
-                      onClick={() => {
-                        const config = {
-                          cardBgFront, cardBgBack, cardFont, cardTextColor, cardFontSize,
-                          contextFont, contextTextColor, contextFontSize, cardTextShadow, contextTextShadow,
-                          cardFontWeight, cardFontStyle, contextFontWeight, contextFontStyle
-                        };
-                        navigator.clipboard.writeText(JSON.stringify(config, null, 2));
-                        alert('Конфигурация темы скопирована в буфер обмена! Вставьте её сюда в чат.');
-                      }}
-                    >
-                      📋 Скопировать мой конфиг темы
-                    </button>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                      <button 
+                        className="btn-secondary btn-small" 
+                        style={{ flex: 1, fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)' }}
+                        onClick={() => {
+                          const config = {
+                            cardBgFront, cardBgBack, cardFont, cardTextColor, cardFontSize,
+                            contextFont, contextTextColor, contextFontSize, cardTextShadow, contextTextShadow,
+                            cardFontWeight, cardFontStyle, contextFontWeight, contextFontStyle
+                          };
+                          navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+                          alert('Конфигурация темы скопирована в буфер обмена! Вставьте её сюда в чат.');
+                        }}
+                      >
+                        📋 Конфиг
+                      </button>
+                      <button 
+                        className="btn-secondary btn-small"
+                        style={{ flex: 1, fontSize: '0.8rem', color: '#fca5a5', borderColor: 'rgba(239,68,68,0.2)' }}
+                        onClick={resetDesign}
+                      >
+                        Сброс 🔄
+                      </button>
+                    </div>
                   </div>
                   <div className="form-group" style={{ marginBottom: '15px' }}>
                     <label>Фон (Лицевая сторона)</label>

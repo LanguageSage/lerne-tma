@@ -141,23 +141,73 @@
 }
 
 .deck-card {
-  padding: 1.2rem;
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-direction: column;
+  padding: 0;
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  box-sizing: border-box;
+}
+
+.deck-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 100%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 50%, rgba(168, 85, 247, 0.08) 100%);
+  z-index: 0;
+  pointer-events: none;
 }
 
 .deck-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  transform: translateY(-2px);
+  transform: translateY(-5px) scale(1.02);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(168, 85, 247, 0.6);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), 0 0 20px rgba(168, 85, 247, 0.3), inset 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
 .deck-icon {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.25));
   padding: 12px;
   border-radius: 14px;
-  color: #a855f7;
+  color: #d8b4fe;
+  position: relative;
+  z-index: 1;
+  transition: all 0.4s ease;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  flex-shrink: 0;
+}
+
+.deck-card:hover .deck-icon {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.5));
+  transform: scale(1.08) rotate(5deg);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+  color: #fff;
+  border-color: rgba(168, 85, 247, 0.6);
+}
+
+.deck-card h3 {
+  flex: 1;
+  font-size: 1.1rem;
+  color: white;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-stats {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .deck-card h3 {
@@ -415,7 +465,7 @@ input:checked + .slider:before {
 
 .text-front { font-size: inherit; color: inherit; font-weight: 600; margin: 0; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; }
 .text-back { font-size: inherit; color: inherit; font-weight: 500; margin: 0; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; opacity: 0.9; }
-.text-context { color: inherit; font-size: inherit; margin-top: 15px; width: 100%; overflow-wrap: break-word; font-style: italic; white-space: pre-wrap; }
+.text-context { color: inherit; font-size: inherit; margin-top: 15px; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; }
 
 .text-front-mini { font-size: inherit; color: inherit; margin-bottom: 25px; font-weight: 600; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; overflow-wrap: break-word; white-space: pre-wrap; opacity: 0.7; }
 .card-q { font-size: 3rem; opacity: 0.2; position: absolute; bottom: 20px; right: 20px; z-index: -1; }
@@ -541,48 +591,73 @@ input:checked + .slider:before {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-.deck-card {
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-}
-
 .deck-main-action {
-  padding: 1.2rem;
+  padding: 1rem;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.8rem;
   width: 100%;
   cursor: pointer;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+}
+
+@media (max-width: 400px) {
+  .deck-main-action {
+    padding: 0.8rem;
+    gap: 0.6rem;
+  }
 }
 
 .deck-footer-actions {
   display: flex;
   width: 100%;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
 }
 
 .deck-action-btn {
   flex: 1;
-  padding: 12px 6px;
+  padding: 12px 2px;
   background: transparent;
   border: none;
-  color: #94a3b8;
-  font-size: 0.75rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 0.7rem;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  transition: all 0.2s;
+  transition: all 0.3s;
   min-width: 0;
+  box-sizing: border-box;
+}
+
+.deck-action-btn:last-child {
+  border-right: none;
 }
 
 .deck-action-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(168, 85, 247, 0.2);
   color: white;
+  transform: translateY(-2px);
+}
+
+.deck-action-btn.has-update-btn {
+  color: #fca5a5;
+  animation: pulse-soft 2s infinite;
+}
+
+@keyframes pulse-soft {
+  0% { color: #fca5a5; }
+  50% { color: #ef4444; text-shadow: 0 0 8px rgba(239,68,68,0.5); }
+  100% { color: #fca5a5; }
 }
 
 /* Card List */
@@ -1323,3 +1398,87 @@ input[type=range]:active::-webkit-slider-thumb {
   background: rgba(34, 197, 94, 0.15) !important;
   color: #4ade80 !important;
 }
+
+/* Floating Grade Buttons */
+.grade-buttons-floating {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: none; /* Пропускаем клики сквозь контейнер */
+  background: none;
+  border: none;
+  box-shadow: none;
+  animation: slideUp 0.3s ease-out;
+}
+
+.grade-buttons-floating .btn-grade {
+  pointer-events: auto;
+  flex: 1;
+  max-width: 80px;
+  height: 58px !important;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin: 0 !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.grade-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.9;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: -2px;
+}
+
+.grade-val {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Specific Tints for Grades */
+.grade-buttons-floating .grade-0 { color: #ff5f5f !important; background: rgba(239, 68, 68, 0.2) !important; border-color: rgba(239, 68, 68, 0.3) !important; }
+.grade-buttons-floating .grade-1 { color: #ffb83d !important; background: rgba(245, 158, 11, 0.2) !important; border-color: rgba(245, 158, 11, 0.3) !important; }
+.grade-buttons-floating .grade-2 { color: #00ff88 !important; background: rgba(16, 185, 129, 0.2) !important; border-color: rgba(16, 185, 129, 0.3) !important; }
+.grade-buttons-floating .grade-3 { color: #4dabff !important; background: rgba(59, 130, 246, 0.2) !important; border-color: rgba(59, 130, 246, 0.3) !important; }
+
+/* Active/Hover State */
+.grade-buttons-floating .btn-grade:active,
+.grade-buttons-floating .btn-grade:hover {
+  transform: translateY(-4px) scale(1.05);
+  background: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.grade-buttons-floating .btn-grade:hover .grade-label,
+.grade-buttons-floating .btn-grade:active .grade-label {
+  opacity: 1;
+}
+
+.grade-buttons-floating .btn-grade:hover {
+  transform: translateY(-2px);
+}
+
+/* Ensure card content doesn't get hidden under the floating bar */
+.study-flow {
+  padding-bottom: 120px;
+}
+
