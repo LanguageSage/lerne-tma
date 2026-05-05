@@ -81,6 +81,7 @@ export const CardBackground = ({ styleType = 'standard' }) => {
     case 'liquid_ocean':
     case 'liquid_cosmic':
     case 'liquid_emerald':
+    case 'liquid_morning':
       const flowClass = styleType === 'liquid' ? 'bg-liquid' : `bg-liquid-${styleType.split('_')[1]}`;
       return (
         <div className={`card-bg-layer ${flowClass}`}>

@@ -19,6 +19,78 @@ import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
 
 const USER_ID = getUserId();
+const SETTINGS_VERSION = 'v2';
+
+const DESIGN_PRESETS = [
+  {
+    id: 'premium',
+    name: 'Премиум ✨',
+    settings: {
+      cardBgFront: 'liquid',
+      cardBgBack: 'liquid_cosmic',
+      cardFont: 'Outfit',
+      cardTextColor: '#ffffff',
+      cardFontSize: 1.8,
+      contextFont: 'Inter',
+      contextTextColor: '#ffffff',
+      contextFontSize: 1.1,
+      cardTextShadow: 'shadow',
+      contextTextShadow: 'shadow'
+    }
+  },
+  {
+    id: 'aurora',
+    name: 'Сияние 🌌',
+    settings: {
+      cardBgFront: 'aurora',
+      cardBgBack: 'aurora',
+      cardFont: 'Outfit',
+      cardTextColor: '#ffffff',
+      cardFontSize: 1.8,
+      contextFont: 'Inter',
+      contextTextColor: '#ffffff',
+      contextFontSize: 1.1,
+      cardTextShadow: 'glow',
+      contextTextShadow: 'shadow'
+    }
+  },
+  {
+    id: 'morning_sea',
+    name: 'Утреннее море 🌊',
+    settings: {
+      cardBgFront: 'liquid_morning',
+      cardBgBack: 'liquid_morning',
+      cardFont: 'Inter',
+      cardTextColor: '#5d0e0e',
+      cardFontSize: 1.8,
+      cardFontWeight: '700',
+      cardFontStyle: 'normal',
+      contextFont: 'Inter',
+      contextTextColor: '#30172e',
+      contextFontSize: 1.35,
+      contextFontWeight: '400',
+      contextFontStyle: 'normal',
+      cardTextShadow: 'glass',
+      contextTextShadow: 'outline'
+    }
+  },
+  {
+    id: 'deep_ocean',
+    name: 'Океан 🌊',
+    settings: {
+      cardBgFront: 'liquid_ocean',
+      cardBgBack: 'liquid_ocean',
+      cardFont: 'Playfair Display',
+      cardTextColor: '#ffffff',
+      cardFontSize: 1.8,
+      contextFont: 'Inter',
+      contextTextColor: '#94a3b8',
+      contextFontSize: 1.1,
+      cardTextShadow: 'shadow',
+      contextTextShadow: 'none'
+    }
+  }
+];
 
 function App() {
   const [view, setView] = useState('decks'); // 'decks' | 'study' | 'cards' | 'editor'
@@ -44,28 +116,48 @@ function App() {
     return saved !== null ? saved === 'true' : false;
   });
   const [cardBgFront, setCardBgFront] = useState(() => {
-    return storage.get('lerne_card_bg_front') || 'standard';
+    return storage.get('lerne_card_bg_front') || 'auto';
   });
   const [cardBgBack, setCardBgBack] = useState(() => {
-    return storage.get('lerne_card_bg_back') || 'standard';
+    return storage.get('lerne_card_bg_back') || 'auto';
   });
   const [cardFont, setCardFont] = useState(() => {
-    return storage.get('lerne_card_font') || 'Inter';
+    return storage.get('lerne_card_font') || 'Outfit';
   });
   const [cardTextColor, setCardTextColor] = useState(() => {
     return storage.get('lerne_card_text_color') || '#ffffff';
   });
   const [cardFontSize, setCardFontSize] = useState(() => {
-    return Number(storage.get('lerne_card_font_size')) || 1.8;
+    const saved = storage.get('lerne_card_font_size');
+    return saved !== null ? Number(saved) : 1.8;
   });
   const [contextFont, setContextFont] = useState(() => {
     return storage.get('lerne_context_font') || 'Inter';
   });
   const [contextTextColor, setContextTextColor] = useState(() => {
-    return storage.get('lerne_context_text_color') || '#cbd5e1';
+    return storage.get('lerne_context_text_color') || '#ffffff';
   });
   const [contextFontSize, setContextFontSize] = useState(() => {
-    return Number(storage.get('lerne_context_font_size')) || 1.0;
+    const saved = storage.get('lerne_context_font_size');
+    return saved !== null ? Number(saved) : 1.1;
+  });
+  const [cardTextShadow, setCardTextShadow] = useState(() => {
+    return storage.get('lerne_card_text_shadow') || 'shadow';
+  });
+  const [contextTextShadow, setContextTextShadow] = useState(() => {
+    return storage.get('lerne_context_text_shadow') || 'shadow';
+  });
+  const [cardFontWeight, setCardFontWeight] = useState(() => {
+    return storage.get('lerne_card_font_weight') || '600';
+  });
+  const [cardFontStyle, setCardFontStyle] = useState(() => {
+    return storage.get('lerne_card_font_style') || 'normal';
+  });
+  const [contextFontWeight, setContextFontWeight] = useState(() => {
+    return storage.get('lerne_context_font_weight') || '400';
+  });
+  const [contextFontStyle, setContextFontStyle] = useState(() => {
+    return storage.get('lerne_context_font_style') || 'italic';
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -104,6 +196,18 @@ function App() {
     fetchInitData();
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '1' || USER_ID === 642478257) setIsAdmin(true);
+    
+    // Migration to v2 (Beautiful defaults)
+    const currentVersion = storage.get('lerne_settings_version');
+    if (currentVersion !== SETTINGS_VERSION) {
+      if (storage.get('lerne_card_bg_front') === 'standard' || !storage.get('lerne_card_bg_front')) {
+        setCardBgFront('auto');
+      }
+      if (storage.get('lerne_card_bg_back') === 'standard' || !storage.get('lerne_card_bg_back')) {
+        setCardBgBack('auto');
+      }
+      storage.set('lerne_settings_version', SETTINGS_VERSION);
+    }
   }, []);
 
   useEffect(() => {
@@ -158,6 +262,30 @@ function App() {
   useEffect(() => {
     storage.set('lerne_context_font_size', contextFontSize);
   }, [contextFontSize]);
+
+  useEffect(() => {
+    storage.set('lerne_card_text_shadow', cardTextShadow);
+  }, [cardTextShadow]);
+
+  useEffect(() => {
+    storage.set('lerne_context_text_shadow', contextTextShadow);
+  }, [contextTextShadow]);
+
+  useEffect(() => {
+    storage.set('lerne_card_font_weight', cardFontWeight);
+  }, [cardFontWeight]);
+
+  useEffect(() => {
+    storage.set('lerne_card_font_style', cardFontStyle);
+  }, [cardFontStyle]);
+
+  useEffect(() => {
+    storage.set('lerne_context_font_weight', contextFontWeight);
+  }, [contextFontWeight]);
+
+  useEffect(() => {
+    storage.set('lerne_context_font_style', contextFontStyle);
+  }, [contextFontStyle]);
 
   useEffect(() => {
     if (card?.audio_url) {
@@ -763,6 +891,25 @@ function App() {
     setLoading(false);
   };
 
+  const applyDesignPreset = (preset) => {
+    const s = preset.settings;
+    if (s.cardBgFront) setCardBgFront(s.cardBgFront);
+    if (s.cardBgBack) setCardBgBack(s.cardBgBack);
+    if (s.cardFont) setCardFont(s.cardFont);
+    if (s.cardTextColor) setCardTextColor(s.cardTextColor);
+    if (s.cardFontSize) setCardFontSize(s.cardFontSize);
+    if (s.contextFont) setContextFont(s.contextFont);
+    if (s.contextTextColor) setContextTextColor(s.contextTextColor);
+    if (s.contextFontSize) setContextFontSize(s.contextFontSize);
+    if (s.cardTextShadow) setCardTextShadow(s.cardTextShadow);
+    if (s.contextTextShadow) setContextTextShadow(s.contextTextShadow);
+    if (s.cardFontWeight) setCardFontWeight(s.cardFontWeight);
+    if (s.cardFontStyle) setCardFontStyle(s.cardFontStyle);
+    if (s.contextFontWeight) setContextFontWeight(s.contextFontWeight);
+    if (s.contextFontStyle) setContextFontStyle(s.contextFontStyle);
+    showToast(`Применен пресет: ${preset.name}`, "success");
+  };
+
   const handleDeleteDeck = (e, deckId) => {
     e.stopPropagation();
     if (!window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) return;
@@ -950,6 +1097,12 @@ function App() {
         contextFont={contextFont}
         contextTextColor={contextTextColor}
         contextFontSize={contextFontSize}
+        cardTextShadow={cardTextShadow}
+        contextTextShadow={contextTextShadow}
+        cardFontWeight={cardFontWeight}
+        cardFontStyle={cardFontStyle}
+        contextFontWeight={contextFontWeight}
+        contextFontStyle={contextFontStyle}
       />
 
       <DeckModals
@@ -994,6 +1147,14 @@ function App() {
         playAudio={playAudio}
         saveCard={saveCard}
         loading={loading}
+        cardFont={cardFont}
+        cardTextColor={cardTextColor}
+        cardFontWeight={cardFontWeight}
+        cardFontStyle={cardFontStyle}
+        contextFont={contextFont}
+        contextTextColor={contextTextColor}
+        contextFontWeight={contextFontWeight}
+        contextFontStyle={contextFontStyle}
       />
 
       <SettingsModal
@@ -1041,8 +1202,22 @@ function App() {
         setContextTextColor={setContextTextColor}
         contextFontSize={contextFontSize}
         setContextFontSize={setContextFontSize}
+        cardTextShadow={cardTextShadow}
+        setCardTextShadow={setCardTextShadow}
+        contextTextShadow={contextTextShadow}
+        setContextTextShadow={setContextTextShadow}
+        cardFontWeight={cardFontWeight}
+        setCardFontWeight={setCardFontWeight}
+        cardFontStyle={cardFontStyle}
+        setCardFontStyle={setCardFontStyle}
+        contextFontWeight={contextFontWeight}
+        setContextFontWeight={setContextFontWeight}
+        contextFontStyle={contextFontStyle}
+        setContextFontStyle={setContextFontStyle}
         customBackgrounds={customBackgrounds}
         uploadCustomBackground={uploadCustomBackground}
+        designPresets={DESIGN_PRESETS}
+        applyDesignPreset={applyDesignPreset}
       />
 
       <SyncModal

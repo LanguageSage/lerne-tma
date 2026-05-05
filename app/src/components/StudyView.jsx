@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X } from 'lucide-react';
 import { stripMarkdown } from '../utils/text';
 import { CardBackground } from './common/CardBackground';
+import { getTextShadow, getContextShadow } from '../utils/style';
 
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
@@ -35,7 +36,13 @@ export const StudyView = ({
   cardFontSize,
   contextFont,
   contextTextColor,
-  contextFontSize
+  contextFontSize,
+  cardTextShadow,
+  contextTextShadow,
+  cardFontWeight,
+  cardFontStyle,
+  contextFontWeight,
+  contextFontStyle
 }) => {
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -173,7 +180,7 @@ export const StudyView = ({
 
   const googleImageUrl = `https://www.google.com/search?q=${encodeURIComponent(card?.front || '')}&tbm=isch`;
 
-  const availableStyles = ['standard', 'mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
+  const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
   const getResolvedStyle = (settingStyle, cardId) => {
     if (settingStyle !== 'auto') return settingStyle;
     if (!cardId) return 'standard';
@@ -373,7 +380,14 @@ export const StudyView = ({
               transition={{ duration: 0.2 }}
               className={`card-container ${loading ? 'loading-card' : ''}`}
               onClick={() => !loading && setIsFlipped(!isFlipped)}
-              style={{ fontFamily: cardFont, color: cardTextColor, fontSize: `${cardFontSize}rem` }}
+              style={{ 
+                fontFamily: cardFont, 
+                color: cardTextColor, 
+                fontSize: `${cardFontSize}rem`,
+                fontWeight: cardFontWeight,
+                fontStyle: cardFontStyle,
+                textShadow: getTextShadow(cardTextShadow, cardTextColor)
+              }}
             >
               {!isFlipped ? (
                 <div className="card-inner card-front glass">
@@ -419,7 +433,14 @@ export const StudyView = ({
                     {card.context && (
                       <div 
                         className="text-context" 
-                        style={{ fontFamily: contextFont, color: contextTextColor, fontSize: `${contextFontSize}rem` }}
+                        style={{ 
+                          fontFamily: contextFont, 
+                          color: contextTextColor, 
+                          fontSize: `${contextFontSize}rem`,
+                          fontWeight: contextFontWeight,
+                          fontStyle: contextFontStyle,
+                          textShadow: getContextShadow(contextTextShadow, contextTextColor)
+                        }}
                       >
                         {stripMarkdown(card.context)}
                       </div>

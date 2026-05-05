@@ -18,7 +18,15 @@ export const CardEditor = ({
   uploadCardVideo,
   playAudio,
   saveCard,
-  loading
+  loading,
+  cardFont,
+  cardTextColor,
+  cardFontWeight,
+  cardFontStyle,
+  contextFont,
+  contextTextColor,
+  contextFontWeight,
+  contextFontStyle
 }) => {
   const imageInputRef = useRef(null);
   const videoFrontRef = useRef(null);
@@ -61,6 +69,14 @@ export const CardEditor = ({
             <textarea 
               value={editingCard?.front || ''} 
               onChange={e => setEditingCard({...editingCard, front: e.target.value})}
+              style={{ 
+                fontFamily: cardFont, 
+                fontWeight: cardFontWeight, 
+                fontStyle: cardFontStyle,
+                fontSize: '1.2rem',
+                color: cardTextColor,
+                background: 'rgba(255,255,255,0.03)'
+              }}
             />
             <div className="editor-audio-actions">
               <button 
@@ -104,6 +120,14 @@ export const CardEditor = ({
             <textarea 
               value={editingCard?.back || ''} 
               onChange={e => setEditingCard({...editingCard, back: e.target.value})}
+              style={{ 
+                fontFamily: cardFont, 
+                fontWeight: cardFontWeight, 
+                fontStyle: cardFontStyle,
+                fontSize: '1.2rem',
+                color: cardTextColor,
+                background: 'rgba(255,255,255,0.03)'
+              }}
             />
             
             {/* Видео Оборот */}
@@ -130,6 +154,14 @@ export const CardEditor = ({
             <textarea 
               value={editingCard?.context || ''} 
               onChange={e => setEditingCard({...editingCard, context: e.target.value})}
+              style={{ 
+                fontFamily: contextFont, 
+                fontWeight: contextFontWeight, 
+                fontStyle: contextFontStyle,
+                fontSize: '1rem',
+                color: contextTextColor,
+                background: 'rgba(255,255,255,0.03)'
+              }}
             />
           </div>
 
