@@ -19,7 +19,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
 
 const USER_ID = getUserId();
-const SETTINGS_VERSION = 'v2';
+const SETTINGS_VERSION = 'v3';
 
 const DESIGN_PRESETS = [
   {
@@ -75,6 +75,26 @@ const DESIGN_PRESETS = [
     }
   },
   {
+    id: 'cyberpunk',
+    name: 'Киберпанк 🤖',
+    settings: {
+      cardBgFront: "holographic",
+      cardBgBack: "holographic",
+      cardFont: "Roboto",
+      cardTextColor: "#00ffff",
+      cardFontSize: 1.9,
+      contextFont: "Roboto",
+      contextTextColor: "#57d6ce",
+      contextFontSize: 1.2,
+      cardTextShadow: "glow",
+      contextTextShadow: "glow",
+      cardFontWeight: "600",
+      cardFontStyle: "normal",
+      contextFontWeight: "400",
+      contextFontStyle: "italic"
+    }
+  },
+  {
     id: 'deep_ocean',
     name: 'Океан 🌊',
     settings: {
@@ -116,16 +136,16 @@ function App() {
     return saved !== null ? saved === 'true' : false;
   });
   const [cardBgFront, setCardBgFront] = useState(() => {
-    return storage.get('lerne_card_bg_front') || 'auto';
+    return storage.get('lerne_card_bg_front') || 'liquid_morning';
   });
   const [cardBgBack, setCardBgBack] = useState(() => {
-    return storage.get('lerne_card_bg_back') || 'auto';
+    return storage.get('lerne_card_bg_back') || 'liquid_morning';
   });
   const [cardFont, setCardFont] = useState(() => {
-    return storage.get('lerne_card_font') || 'Outfit';
+    return storage.get('lerne_card_font') || 'Inter';
   });
   const [cardTextColor, setCardTextColor] = useState(() => {
-    return storage.get('lerne_card_text_color') || '#ffffff';
+    return storage.get('lerne_card_text_color') || '#5d0e0e';
   });
   const [cardFontSize, setCardFontSize] = useState(() => {
     const saved = storage.get('lerne_card_font_size');
@@ -135,20 +155,20 @@ function App() {
     return storage.get('lerne_context_font') || 'Inter';
   });
   const [contextTextColor, setContextTextColor] = useState(() => {
-    return storage.get('lerne_context_text_color') || '#ffffff';
+    return storage.get('lerne_context_text_color') || '#30172e';
   });
   const [contextFontSize, setContextFontSize] = useState(() => {
     const saved = storage.get('lerne_context_font_size');
-    return saved !== null ? Number(saved) : 1.1;
+    return saved !== null ? Number(saved) : 1.35;
   });
   const [cardTextShadow, setCardTextShadow] = useState(() => {
-    return storage.get('lerne_card_text_shadow') || 'shadow';
+    return storage.get('lerne_card_text_shadow') || 'glass';
   });
   const [contextTextShadow, setContextTextShadow] = useState(() => {
-    return storage.get('lerne_context_text_shadow') || 'shadow';
+    return storage.get('lerne_context_text_shadow') || 'outline';
   });
   const [cardFontWeight, setCardFontWeight] = useState(() => {
-    return storage.get('lerne_card_font_weight') || '600';
+    return storage.get('lerne_card_font_weight') || '700';
   });
   const [cardFontStyle, setCardFontStyle] = useState(() => {
     return storage.get('lerne_card_font_style') || 'normal';
@@ -157,7 +177,7 @@ function App() {
     return storage.get('lerne_context_font_weight') || '400';
   });
   const [contextFontStyle, setContextFontStyle] = useState(() => {
-    return storage.get('lerne_context_font_style') || 'italic';
+    return storage.get('lerne_context_font_style') || 'normal';
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -197,14 +217,14 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '1' || USER_ID === 642478257) setIsAdmin(true);
     
-    // Migration to v2 (Beautiful defaults)
+    // Migration to v3 (Morning Sea as default for all who has old/standard)
     const currentVersion = storage.get('lerne_settings_version');
     if (currentVersion !== SETTINGS_VERSION) {
-      if (storage.get('lerne_card_bg_front') === 'standard' || !storage.get('lerne_card_bg_front')) {
-        setCardBgFront('auto');
-      }
-      if (storage.get('lerne_card_bg_back') === 'standard' || !storage.get('lerne_card_bg_back')) {
-        setCardBgBack('auto');
+      const isOldOrAuto = (val) => !val || val === 'auto' || val === 'standard';
+      
+      if (isOldOrAuto(storage.get('lerne_card_bg_front'))) {
+        const morningSea = DESIGN_PRESETS.find(p => p.id === 'morning_sea').settings;
+        applyDesignPreset({ settings: morningSea });
       }
       storage.set('lerne_settings_version', SETTINGS_VERSION);
     }

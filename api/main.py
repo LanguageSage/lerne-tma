@@ -3,8 +3,11 @@ import sys
 import logging
 from pathlib import Path
 
-# ВАЖНО: Добавляем текущую папку в пути поиска модулей для Vercel
+# ВАЖНО: Добавляем корень проекта в пути поиска модулей
 current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.append(project_root)
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
@@ -16,7 +19,7 @@ from api.dependencies.auth import get_user_id
 from api import models, services
 
 # Импорт роутеров
-from api.routers import decks, cards, study, settings, ai, media
+from api.routers import decks, cards, study, settings, ai, media, bot
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +46,7 @@ app.include_router(study.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
+app.include_router(bot.router, prefix="/api")
 
 # --- Consolidated Init Endpoint ---
 @app.get("/api/init")
@@ -160,4 +164,4 @@ async def debug_audio(text: str = "Test", voice: str = "de-DE-KatjaNeural"):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
