@@ -371,6 +371,29 @@ h1, h2, h3 {
 .textarea-with-action textarea {
   width: 100%;
   padding-right: 50px !important;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.add-card-btn-compact {
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-card-btn-compact:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.4);
+  transform: scale(1.05);
 }
 
 .action-icon-btn {
@@ -414,4 +437,133 @@ h1, h2, h3 {
 .ai-magic-btn:hover {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2)) !important;
   border-color: rgba(168, 85, 247, 0.5) !important;
+}
+
+/* Creator View */
+.view-creator .creator-form {
+  padding: 20px;
+  margin-top: 15px;
+}
+
+.ai-quick-actions {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0 20px;
+}
+
+.btn-ai-generate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 0, 0.1), rgba(255, 100, 0, 0.1));
+  border: 1px solid rgba(255, 255, 0, 0.3);
+  border-radius: 12px;
+  color: #ffff00;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(255, 255, 0, 0.05);
+  font-size: 0.95rem;
+}
+
+.btn-ai-generate:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 0, 0.2), rgba(255, 100, 0, 0.2));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 255, 0, 0.15);
+  border-color: rgba(255, 255, 0, 0.5);
+}
+
+.btn-ai-generate:active {
+  transform: scale(0.95);
+}
+
+.btn-ai-generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.btn-ai-generate .spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.creator-actions {
+  margin-top: 25px;
+}
+
+/* Add Card Button in List */
+.add-card-btn {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  color: #c084fc;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  font-size: 1.6rem;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  line-height: 1;
+  padding-bottom: 2px; /* Center the + vertically */
+}
+
+.add-card-btn:hover {
+  background: rgba(168, 85, 247, 0.3);
+  transform: scale(1.1);
+  color: white;
+  border-color: rgba(168, 85, 247, 0.6);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+}
+
+.add-card-btn:active {
+  transform: scale(0.9);
+}
+
+.header-title {
+  flex: 1;
+  text-align: center;
+  font-size: 1.1rem !important;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.fab-add-card {
+  position: fixed;
+  bottom: 30px;
+  right: 25px;
+  width: 60px;
+  height: 60px;
+  border-radius: 30px;
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(168, 85, 247, 0.4), 0 0 15px rgba(99, 102, 241, 0.2);
+  z-index: 1000;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fab-add-card:hover {
+  transform: scale(1.1) rotate(90deg);
+  box-shadow: 0 15px 35px rgba(168, 85, 247, 0.5);
+}
+
+.fab-add-card:active {
+  transform: scale(0.9);
 }

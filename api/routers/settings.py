@@ -40,12 +40,24 @@ def get_admin_settings():
 
 @router.post("/admin/settings")
 def save_admin_settings(data: dict):
-    for k, v in data.items():
-        key = k.upper()
-        s, created = models.TMASetting.get_or_create(key=key)
-        s.value = str(v)
-        s.save()
-    return {"status": "ok"}
+    import datetime
+    try:
+        now = datetime.datetime.now()
+        for k, v in data.items():
+            key = k.upper()
+            # Убеждаемся, что передаем начальные значения для новых записей
+            s, created = models.TMASetting.get_or_create(
+                key=key, 
+                defaults={'value': str(v), 'updated_at': now}
+            )
+            if not created:
+                s.value = str(v)
+                s.updated_at = now
+                s.save()
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error saving settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/admin/presets")
 def get_admin_presets():

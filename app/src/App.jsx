@@ -14,6 +14,7 @@ import { DeckGrid } from './components/DeckGrid';
 import { StudyView } from './components/StudyView';
 import { CardList } from './components/CardList';
 import { CardEditor } from './components/CardEditor';
+import { CardCreator } from './components/CardCreator';
 import { DeckModals } from './components/DeckModals';
 import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
@@ -436,8 +437,9 @@ function App() {
     setLoading(false);
   };
 
-  const saveCard = async () => {
-    if (!editingCard.front || !editingCard.back) {
+  const saveCard = async (manualCardData = null) => {
+    const data = manualCardData || editingCard;
+    if (!data || !data.front || !data.back) {
       showToast("Заполните текст и перевод");
       return;
     }
@@ -445,34 +447,40 @@ function App() {
     setLoading(true);
     try {
       const reqData = {
-        card_id: editingCard.id || null,
-        deck_id: editingCard.deck_id || currentDeck?.id || null,
-        front: editingCard.front,
-        back: editingCard.back,
-        context: editingCard.context,
-        image_path: editingCard.image_path,
-        audio_path: editingCard.audio_path
+        card_id: data.id || null,
+        deck_id: data.deck_id || currentDeck?.id || null,
+        front: data.front,
+        back: data.back,
+        context: data.context || '',
+        image_path: data.image_path || '',
+        audio_path: data.audio_path || ''
       };
 
       await api.post('/cards/save', reqData);
       showToast("Сохранено", "success");
       
+      if (view === 'creator') {
+        fetchDeckCards(currentDeck.id);
+        setView('cards');
+        return;
+      }
+
       if (editorSourceView === 'study') {
-        if (card && card.id === editingCard.id) {
-          const resolvedAudio = editingCard.audio_path?.includes('/') 
-            ? `/api/media/${editingCard.audio_path}` 
+        if (card && card.id === data.id) {
+          const resolvedAudio = data.audio_path?.includes('/') 
+            ? `/api/media/${data.audio_path}` 
             : card.audio_url;
             
           setCard({ 
             ...card, 
-            ...editingCard,
-            image_url: editingCard.image_path?.includes('/') ? `/api/media/images/${editingCard.image_path.split('/').pop()}` : card.image_url,
+            ...data,
+            image_url: data.image_path?.includes('/') ? `/api/media/images/${data.image_path.split('/').pop()}` : card.image_url,
             audio_url: resolvedAudio
           });
         }
         setView('study');
       } else if (editorSourceView === 'cards') {
-        fetchDeckCards(editingCard.deck_id || currentDeck?.id);
+        fetchDeckCards(data.deck_id || currentDeck?.id);
         setView('cards');
       } else {
         fetchDecks(true);
@@ -481,8 +489,9 @@ function App() {
     } catch (err) {
       console.error(err);
       showToast("Ошибка сохранения");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const generateAudio = async () => {
@@ -609,14 +618,8 @@ function App() {
 
   const saveAdminSettings = async () => {
     try {
-      const mappedSettings = {};
-      Object.keys(adminSettings).forEach(key => {
-        let mappedKey = key.toLowerCase();
-        if (mappedKey === 'ai_provider') mappedKey = 'provider';
-        mappedSettings[mappedKey] = adminSettings[key];
-      });
-      
-      const res = await api.post('/admin/settings?admin_key=1', mappedSettings);
+      // Отправляем настройки как есть, без лишнего маппинга
+      const res = await api.post('/admin/settings?admin_key=1', adminSettings);
       if (res.data.status === 'ok') {
         showToast("Настройки сохранены", "success");
         fetchAdminSettings();
@@ -894,7 +897,15 @@ function App() {
     setLoading(false);
   };
 
-  const runAiGenerator = async (overridePhrase = null) => {
+  const openCreator = (deckId) => {
+    const deck = decks.find(d => d.id === deckId);
+    if (deck) {
+      setCurrentDeck(deck);
+      setView('creator');
+    }
+  };
+
+  const runAiGenerator = async (overridePhrase = null, returnResult = false) => {
     const phrase = overridePhrase || aiInputPhrase;
     if (!phrase) return;
     
@@ -904,21 +915,30 @@ function App() {
       
       if (res.data.error) {
         showToast(`Ошибка ИИ: ${res.data.error}`);
-      } else {
-        setEditingCard({
-          ...editingCard,
-          front: res.data.front || editingCard.front,
-          back: res.data.back || editingCard.back,
-          context: res.data.context || editingCard.context
-        });
-        setIsAiWizardOpen(false);
-        showToast("Готово! Проверьте поля.", "success");
+        setLoading(false);
+        return null;
       }
+      
+      if (returnResult) {
+        setLoading(false);
+        return res.data;
+      }
+
+      setEditingCard({
+        ...editingCard,
+        front: res.data.front || editingCard.front,
+        back: res.data.back || editingCard.back,
+        context: res.data.context || editingCard.context
+      });
+      setIsAiWizardOpen(false);
+      showToast("Готово! Проверьте поля.", "success");
+      
     } catch (err) { 
       console.error(err); 
       showToast(`Ошибка ИИ: ${err.response?.data?.detail || err.message}`); 
     }
     setLoading(false);
+    return null;
   };
 
   return (
@@ -955,6 +975,7 @@ function App() {
         setView={setView}
         setCard={setCard}
         openEditor={openEditor}
+        openCreator={openCreator}
         uploadStudyImage={uploadStudyImage}
         uploadCardVideo={uploadCardVideo}
         handleQuickAudio={handleQuickAudio}
@@ -1004,7 +1025,21 @@ function App() {
         deckCards={deckCards}
         setView={setView}
         openEditor={openEditor}
+        openCreator={openCreator}
         handleDeleteCard={handleDeleteCard}
+      />
+
+      <CardCreator
+        view={view}
+        setView={setView}
+        currentDeck={currentDeck}
+        runAiGenerator={runAiGenerator}
+        saveCard={saveCard}
+        loading={loading}
+        cardFont={cardFont}
+        cardTextColor={cardTextColor}
+        cardFontWeight={cardFontWeight}
+        cardFontStyle={cardFontStyle}
       />
 
       <CardEditor

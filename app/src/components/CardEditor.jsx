@@ -43,27 +43,10 @@ export const CardEditor = ({
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
         <div className="header-compact">
           <button className="back-btn" onClick={() => setView(editorSourceView)}><ChevronLeft size={24} /></button>
-          <h2>{editingCard?.id ? 'Правка карточки' : 'Новая карточка'}</h2>
+          <h2>Правка карточки</h2>
         </div>
         
         <div className="editor-form glass">
-          {!isAiWizardOpen ? (
-            <button className="btn-secondary btn-full ai-magic-btn" onClick={() => setIsAiWizardOpen(true)}>
-              ✨ AI Мастер карточек
-            </button>
-          ) : (
-            <div className="ai-wizard-panel glass">
-              <label>Введите фразу для генерации</label>
-              <textarea autoFocus placeholder="Например: Ich habe am Wochenende viel gearbeitet" value={aiInputPhrase} onChange={e => setAiInputPhrase(e.target.value)} />
-              <div className="ai-wizard-actions">
-                <button className="btn btn-primary" onClick={runAiGenerator} disabled={loading}>
-                  {loading ? "Думаю..." : "Сгенерировать"}
-                </button>
-                <button className="btn-secondary" onClick={() => setIsAiWizardOpen(false)}>Отмена</button>
-              </div>
-            </div>
-          )}
-          
           <div className="form-group">
             <label>Текст (Front)</label>
             <div className="textarea-with-action">

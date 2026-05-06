@@ -122,11 +122,10 @@ class AIService:
                     async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                         if resp.status == 200:
                             data = await resp.json()
-                            # Filter models that support generation
                             return [m["name"].split("/")[-1] for m in data.get("models", []) 
                                     if "generateContent" in m.get("supportedGenerationMethods", [])]
             except: pass
-            return ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
+            return ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-3.1-pro-preview", "gemini-3-flash-preview"]
 
         if self.provider == "openrouter":
             url = "https://openrouter.ai/api/v1/models"
@@ -135,12 +134,16 @@ class AIService:
                     async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                         if resp.status == 200:
                             data = await resp.json()
-                            # Return free models or popular ones
                             all_models = [m["id"] for m in data.get("data", [])]
                             free_models = [m for m in all_models if ":free" in m]
                             return free_models if free_models else all_models[:10]
             except: pass
-            return ["google/gemini-2.0-flash-lite-001", "google/gemini-2.0-pro-exp-02-05:free"]
+            return [
+                "google/gemini-2.5-flash", 
+                "google/gemini-2.5-pro",
+                "google/gemini-flash-latest", 
+                "google/gemini-2.0-pro-exp-02-05:free"
+            ]
 
         if self.provider == "ollama":
             url = f"{self.ollama_url}/api/tags"

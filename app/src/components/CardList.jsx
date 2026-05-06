@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Trash2 } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus } from 'lucide-react';
 
 export const CardList = ({
   view,
@@ -8,6 +8,7 @@ export const CardList = ({
   deckCards,
   setView,
   openEditor,
+  openCreator,
   handleDeleteCard
 }) => {
   if (view !== 'cards') return null;
@@ -17,8 +18,8 @@ export const CardList = ({
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
         <div className="header-compact">
           <button className="back-btn" onClick={() => setView('decks')}><ChevronLeft size={24} /></button>
-          <h2>{currentDeck?.name}</h2>
-          <button className="add-card-btn" onClick={() => openEditor(currentDeck?.id, null, 'cards')}>+</button>
+          <h2 className="header-title">{currentDeck?.name}</h2>
+          <div style={{ width: 40 }}></div> {/* Spacer to keep title centered */}
         </div>
         <div className="card-list">
           {deckCards.map(c => (
@@ -34,6 +35,11 @@ export const CardList = ({
             </div>
           ))}
         </div>
+        
+        {/* Floating Action Button for adding cards */}
+        <button className="fab-add-card" onClick={() => openCreator(currentDeck?.id)}>
+          <Plus size={28} />
+        </button>
       </motion.div>
     </div>
   );

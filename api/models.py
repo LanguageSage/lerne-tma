@@ -189,7 +189,7 @@ class TMASetting(BaseModel):
     id = AutoField()
     key = CharField(unique=True)
     value = TextField()
-    updated_at = DateTimeField(null=True)
+    updated_at = DateTimeField(default=datetime.datetime.now, null=True)
     class Meta:
         table_name = 'tmasetting'
 

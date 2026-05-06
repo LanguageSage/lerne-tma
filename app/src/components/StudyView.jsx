@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X, Plus } from 'lucide-react';
 import { stripMarkdown } from '../utils/text';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
@@ -21,6 +21,7 @@ export const StudyView = ({
   setView,
   setCard,
   openEditor,
+  openCreator,
   uploadStudyImage,
   handleQuickAudio,
   playAudio,
@@ -211,6 +212,9 @@ export const StudyView = ({
             <h2>{currentDeck?.name}</h2>
           </div>
           <div className="header-actions">
+            <button className="add-card-btn-compact" onClick={() => openCreator(currentDeck?.id)} title="Добавить карточку">
+              <Plus size={22} />
+            </button>
             <HelpButton onClick={() => startTutorial(isFlipped ? 'study_back' : 'study')} />
             <button
               id="tut-study-add-image"
