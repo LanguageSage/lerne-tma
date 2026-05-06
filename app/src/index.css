@@ -361,3 +361,57 @@ h1, h2, h3 {
   display: block;
   object-fit: contain;
 }
+
+/* AI Wizard & Quick Actions */
+.textarea-with-action {
+  position: relative;
+  width: 100%;
+}
+
+.textarea-with-action textarea {
+  width: 100%;
+  padding-right: 50px !important;
+}
+
+.action-icon-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #a855f7;
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+
+.action-icon-btn:hover {
+  background: rgba(99, 102, 241, 0.4);
+  transform: scale(1.1);
+  color: white;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+}
+
+.action-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ai-magic-btn {
+  margin-bottom: 15px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1)) !important;
+  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  color: #c084fc !important;
+}
+
+.ai-magic-btn:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2)) !important;
+  border-color: rgba(168, 85, 247, 0.5) !important;
+}

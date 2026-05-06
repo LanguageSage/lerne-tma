@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
 
-import services
+from api import services
 import srs
 import models
 from api.dependencies.auth import get_user_id

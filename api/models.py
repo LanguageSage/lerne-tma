@@ -90,9 +90,24 @@ def create_all_tables():
         migrations = [
             ('ALTER TABLE tma_deck ADD COLUMN updated_at TIMESTAMP', tma_db),
             ('ALTER TABLE tma_card ADD COLUMN history TEXT DEFAULT \'[]\'', tma_db),
-            ('ALTER TABLE deck ADD COLUMN updated_at TIMESTAMP', lerne_db),
             ('ALTER TABLE card ADD COLUMN updated_at TIMESTAMP', lerne_db),
-            ('ALTER TABLE card ADD COLUMN history TEXT DEFAULT \'[]\'', lerne_db)
+            ('ALTER TABLE card ADD COLUMN history TEXT DEFAULT \'[]\'', lerne_db),
+            ('ALTER TABLE card ADD COLUMN tags TEXT DEFAULT \'[]\'', lerne_db),
+            ('ALTER TABLE card ADD COLUMN topics TEXT DEFAULT \'[]\'', lerne_db),
+            ('ALTER TABLE card ADD COLUMN source TEXT', lerne_db),
+            ('ALTER TABLE card ADD COLUMN card_type TEXT DEFAULT \'translation\'', lerne_db),
+            ('ALTER TABLE card ADD COLUMN is_deleted BOOLEAN DEFAULT false', lerne_db),
+            ('ALTER TABLE card ADD COLUMN created_at TIMESTAMP', lerne_db),
+            ('ALTER TABLE deck ADD COLUMN is_deleted BOOLEAN DEFAULT false', lerne_db),
+            ('ALTER TABLE deck ADD COLUMN created_at TIMESTAMP', lerne_db),
+            ('ALTER TABLE tmauserprompt ADD COLUMN context_prompt TEXT', tma_db),
+            ('ALTER TABLE deck ADD COLUMN cloud_id INTEGER', lerne_db),
+            ('ALTER TABLE card ADD COLUMN cloud_id INTEGER', lerne_db),
+            ('ALTER TABLE card ADD COLUMN difficulty REAL', lerne_db),
+            ('ALTER TABLE tmaprogress ADD COLUMN created_at TIMESTAMP', tma_db),
+            ('ALTER TABLE tmaprogress ADD COLUMN updated_at TIMESTAMP', tma_db),
+            ('ALTER TABLE tmareviewhistory ADD COLUMN reviewed_at TIMESTAMP', tma_db),
+            ('ALTER TABLE tmasetting ADD COLUMN updated_at TIMESTAMP', tma_db)
         ]
         for query, db in migrations:
             try:
@@ -154,6 +169,8 @@ class TMAProgress(BaseModel):
     step_index = IntegerField(default=0, null=True)
     next_review = DateTimeField(null=True)
     last_reviewed = DateTimeField(null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(null=True)
     class Meta:
         table_name = 'tmaprogress'
 
@@ -163,6 +180,7 @@ class TMAReviewHistory(BaseModel):
     user_id = BigIntegerField(index=True)
     rating = IntegerField()
     review_time = DateTimeField(default=datetime.datetime.now)
+    reviewed_at = DateTimeField(null=True) # Cloud compatibility
     scheduled_interval = IntegerField(default=0)
     class Meta:
         table_name = 'tmareviewhistory'
@@ -171,6 +189,7 @@ class TMASetting(BaseModel):
     id = AutoField()
     key = CharField(unique=True)
     value = TextField()
+    updated_at = DateTimeField(null=True)
     class Meta:
         table_name = 'tmasetting'
 
@@ -191,6 +210,7 @@ class TMAUserPrompt(BaseModel):
     id = AutoField()
     user_id = BigIntegerField(unique=True)
     translation_prompt = TextField(null=True)
+    context_prompt = TextField(null=True)
     class Meta:
         table_name = 'tmauserprompt'
 
@@ -199,6 +219,9 @@ class Deck(Model):
     name = CharField()
     level = CharField(null=True)
     topic = CharField(null=True)
+    is_deleted = BooleanField(default=False)
+    cloud_id = IntegerField(null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     class Meta:
         database = lerne_db
@@ -214,7 +237,15 @@ class Card(Model):
     audio_path = CharField(null=True)
     video_front_path = CharField(null=True)
     video_back_path = CharField(null=True)
+    tags = TextField(null=True)
+    topics = TextField(null=True)
+    source = TextField(null=True)
+    card_type = CharField(default='translation')
+    difficulty = FloatField(null=True)
     metadata = TextField(null=True)
+    is_deleted = BooleanField(default=False)
+    cloud_id = IntegerField(null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     history = TextField(default='[]')
     class Meta:

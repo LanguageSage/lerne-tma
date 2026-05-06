@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X } from 'lucide-react';
+import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X, Sparkles } from 'lucide-react';
 
 export const CardEditor = ({
   view,
@@ -66,18 +66,29 @@ export const CardEditor = ({
           
           <div className="form-group">
             <label>Текст (Front)</label>
-            <textarea 
-              value={editingCard?.front || ''} 
-              onChange={e => setEditingCard({...editingCard, front: e.target.value})}
-              style={{ 
-                fontFamily: cardFont, 
-                fontWeight: cardFontWeight, 
-                fontStyle: cardFontStyle,
-                fontSize: '1.2rem',
-                color: cardTextColor,
-                background: 'rgba(255,255,255,0.03)'
-              }}
-            />
+            <div className="textarea-with-action">
+              <textarea 
+                value={editingCard?.front || ''} 
+                onChange={e => setEditingCard({...editingCard, front: e.target.value})}
+                style={{ 
+                  fontFamily: cardFont, 
+                  fontWeight: cardFontWeight, 
+                  fontStyle: cardFontStyle,
+                  fontSize: '1.2rem',
+                  color: cardTextColor,
+                  background: 'rgba(255,255,255,0.03)'
+                }}
+                placeholder="Слово или фраза..."
+              />
+              <button 
+                className="action-icon-btn ai-quick-gen" 
+                onClick={() => runAiGenerator(editingCard?.front)}
+                disabled={loading || !editingCard?.front}
+                title="Сгенерировать перевод и контекст через AI"
+              >
+                <Sparkles size={20} />
+              </button>
+            </div>
             <div className="editor-audio-actions">
               <button 
                 className="btn-secondary btn-small" 

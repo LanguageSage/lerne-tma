@@ -18,151 +18,12 @@ import { DeckModals } from './components/DeckModals';
 import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
+import { TUTORIAL_STEPS, DESIGN_PRESETS } from './constants/appConstants';
+import { useSettingsStore } from './store/useSettingsStore';
 
-const TUTORIAL_STEPS = {
-  decks: [
-    { targetId: 'tut-deck-list', title: 'Твои колоды 📚', content: 'Здесь отображаются все твои наборы карточек. Нажми на колоду, чтобы начать обучение.' },
-    { targetId: 'tut-add-deck', title: 'Добавить новое ➕', content: 'Хочешь создать свою колоду или импортировать готовую из библиотеки? Тебе сюда!' },
-    { targetId: 'tut-main-settings', title: 'Настройки ⚙️', content: 'Здесь можно настроить внешний вид карточек, голос озвучки и параметры ИИ.' }
-  ],
-  settings: [
-    { targetId: 'tut-settings-tabs', title: 'Разделы настроек 📑', content: 'Здесь ты можешь переключаться между категориями: от выбора голоса озвучки до тонкой настройки моделей искусственного интеллекта.' },
-    { targetId: 'tut-settings-general', title: 'Автоматизация ⚡️', content: 'Включи "Авто-звук", чтобы слышать слово сразу, и "Авто-показ", если хочешь, чтобы ответ открывался сам через пару секунд. Это очень экономит время!' },
-    { targetId: 'tut-settings-design', title: 'Темы и Дизайн 🎨', content: 'Сделай обучение красивым! Выбирай из готовых премиум-тем или настрой шрифты, цвета и тени под свой вкус.' },
-    { targetId: 'tut-settings-tabs', title: 'Промпты ИИ 🤖', content: 'Во вкладке "Промпты" можно изменить инструкции для ИИ, чтобы он переводил или объяснял слова именно в том стиле, который тебе нужен.' }
-  ],
-  study: [
-    { targetId: 'tut-study-card', title: 'Лицевая сторона 🎴', content: 'Перед тобой — «лицо» карточки. Посмотри на слово или фразу и попробуй перевести или ответить на вопрос.' },
-    { targetId: 'tut-study-audio', title: 'Слушай и запоминай 🔊', content: 'Нажми на динамик на самой карточке, чтобы услышать правильное произношение.' },
-    { targetId: 'tut-study-add-image', title: 'Визуальные образы 🖼', content: 'Добавь картинку, чтобы создать яркую ассоциацию! Можно загрузить свою или найти в Google прямо здесь.' },
-    { targetId: 'tut-study-gen-audio', title: 'Магия нейросетей ✨', content: 'Если у карточки нет звука, нажми сюда. ИИ мгновенно озвучит текст идеальным голосом носителя.' },
-    { targetId: 'tut-study-edit-card', title: 'Редактирование ✏️', content: 'Заметил ошибку или хочешь добавить свой пример? Нажми "карандаш", чтобы изменить карточку.' },
-    { targetId: 'tut-study-card', title: 'Как увидеть ответ? 🔄', content: 'Просто нажми на карточку. Она перевернется и покажет тебе ответ.' }
-  ],
-  study_back: [
-    { targetId: 'tut-study-answer', title: 'Обратная сторона ✨', content: 'Здесь ты видишь ответ, примеры и картинку. Это окончательно закрепит слово в памяти.' },
-    { targetId: 'tut-study-grades', title: 'Оцени свои знания ✅', content: 'Выбери честную оценку: от "Снова", если забыл, до "Легко", если слово далось без усилий. Это самое важное для обучения!' },
-    { targetId: 'tut-study-grades', title: 'Умные повторения 🧠', content: 'На основе твоей оценки ИИ рассчитает момент, когда ты начнешь забывать это слово, и покажет его именно тогда.' }
-  ]
-};
 
 const USER_ID = getUserId();
 const SETTINGS_VERSION = 'v3';
-
-const DESIGN_PRESETS = [
-  {
-    id: 'lerne_2026',
-    name: 'Lerne 2026 ✨',
-    settings: {
-      cardBgFront: 'liquid_morning',
-      cardBgBack: 'liquid_morning',
-      cardFont: 'Comfortaa',
-      cardTextColor: '#ffff00',
-      cardFontSize: 1.8,
-      contextFont: 'Inter',
-      contextTextColor: '#30172e',
-      contextFontSize: 1.35,
-      cardTextShadow: 'glow',
-      contextTextShadow: 'outline',
-      cardFontWeight: '700',
-      cardFontStyle: 'normal',
-      contextFontWeight: '400',
-      contextFontStyle: 'normal'
-    }
-  },
-  {
-    id: 'premium',
-    name: 'Премиум 💎',
-    settings: {
-      cardBgFront: 'liquid',
-      cardBgBack: 'liquid_cosmic',
-      cardFont: 'Outfit',
-      cardTextColor: '#ffffff',
-      cardFontSize: 1.8,
-      contextFont: 'Inter',
-      contextTextColor: '#cbd5e1',
-      contextFontSize: 1.35,
-      cardTextShadow: 'glow',
-      contextTextShadow: 'none',
-      cardFontWeight: '700',
-      cardFontStyle: 'normal',
-      contextFontWeight: '400',
-      contextFontStyle: 'normal'
-    }
-  },
-  {
-    id: 'aurora',
-    name: 'Сияние 🌌',
-    settings: {
-      cardBgFront: 'aurora',
-      cardBgBack: 'aurora',
-      cardFont: 'Outfit',
-      cardTextColor: '#ffffff',
-      cardFontSize: 1.8,
-      contextFont: 'Inter',
-      contextTextColor: '#ffffff',
-      contextFontSize: 1.1,
-      cardTextShadow: 'glow',
-      contextTextShadow: 'shadow'
-    }
-  },
-  {
-    id: 'morning_sea',
-    name: 'Утреннее море 🌊',
-    settings: {
-      cardBgFront: 'liquid_morning',
-      cardBgBack: 'liquid_morning',
-      cardFont: 'Inter',
-      cardTextColor: '#5d0e0e',
-      cardFontSize: 1.8,
-      cardFontWeight: '700',
-      cardFontStyle: 'normal',
-      contextFont: 'Inter',
-      contextTextColor: '#30172e',
-      contextFontSize: 1.35,
-      contextFontWeight: '400',
-      contextFontStyle: 'normal',
-      cardTextShadow: 'glass',
-      contextTextShadow: 'outline'
-    }
-  },
-  {
-    id: 'cyberpunk',
-    name: 'Киберпанк 🤖',
-    settings: {
-      cardBgFront: "holographic",
-      cardBgBack: "holographic",
-      cardFont: "Roboto",
-      cardTextColor: "#00ffff",
-      cardFontSize: 1.9,
-      contextFont: "Roboto",
-      contextTextColor: "#57d6ce",
-      contextFontSize: 1.2,
-      cardTextShadow: "glow",
-      contextTextShadow: "glow",
-      cardFontWeight: "600",
-      cardFontStyle: "normal",
-      contextFontWeight: "400",
-      contextFontStyle: "italic"
-    }
-  },
-  {
-    id: 'deep_ocean',
-    name: 'Океан 🌊',
-    settings: {
-      cardBgFront: 'liquid_ocean',
-      cardBgBack: 'liquid_ocean',
-      cardFont: 'Playfair Display',
-      cardTextColor: '#ffffff',
-      cardFontSize: 1.8,
-      contextFont: 'Inter',
-      contextTextColor: '#94a3b8',
-      contextFontSize: 1.1,
-      cardTextShadow: 'shadow',
-      contextTextShadow: 'none'
-    }
-  }
-];
 
 function App() {
   const [view, setView] = useState('decks'); // 'decks' | 'study' | 'cards' | 'editor'
@@ -179,58 +40,28 @@ function App() {
   const [toast, setToast] = useState(null);
   const [apiError, setApiError] = useState(null);
 
-  const [autoPlay, setAutoPlay] = useState(() => {
-    const saved = storage.get('lerne_autoplay');
-    return saved !== null ? saved === 'true' : true;
-  });
-  const [autoShow, setAutoShow] = useState(() => {
-    const saved = storage.get('lerne_autoshow');
-    return saved !== null ? saved === 'true' : false;
-  });
-  const [cardBgFront, setCardBgFront] = useState(() => {
-    return storage.get('lerne_card_bg_front') || 'liquid_morning';
-  });
-  const [cardBgBack, setCardBgBack] = useState(() => {
-    return storage.get('lerne_card_bg_back') || 'liquid_morning';
-  });
-  const [cardFont, setCardFont] = useState(() => {
-    return storage.get('lerne_card_font') || 'Comfortaa';
-  });
-  const [cardTextColor, setCardTextColor] = useState(() => {
-    return storage.get('lerne_card_text_color') || '#ffff00';
-  });
-  const [cardFontSize, setCardFontSize] = useState(() => {
-    const saved = storage.get('lerne_card_font_size');
-    return saved !== null ? Number(saved) : 1.8;
-  });
-  const [contextFont, setContextFont] = useState(() => {
-    return storage.get('lerne_context_font') || 'Inter';
-  });
-  const [contextTextColor, setContextTextColor] = useState(() => {
-    return storage.get('lerne_context_text_color') || '#30172e';
-  });
-  const [contextFontSize, setContextFontSize] = useState(() => {
-    const saved = storage.get('lerne_context_font_size');
-    return saved !== null ? Number(saved) : 1.35;
-  });
-  const [cardTextShadow, setCardTextShadow] = useState(() => {
-    return storage.get('lerne_card_text_shadow') || 'glow';
-  });
-  const [contextTextShadow, setContextTextShadow] = useState(() => {
-    return storage.get('lerne_context_text_shadow') || 'outline';
-  });
-  const [cardFontWeight, setCardFontWeight] = useState(() => {
-    return storage.get('lerne_card_font_weight') || '700';
-  });
-  const [cardFontStyle, setCardFontStyle] = useState(() => {
-    return storage.get('lerne_card_font_style') || 'normal';
-  });
-  const [contextFontWeight, setContextFontWeight] = useState(() => {
-    return storage.get('lerne_context_font_weight') || '400';
-  });
-  const [contextFontStyle, setContextFontStyle] = useState(() => {
-    return storage.get('lerne_context_font_style') || 'normal';
-  });
+  const {
+    autoPlay, setAutoPlay,
+    autoShow, setAutoShow,
+    cardBgFront, setCardBgFront,
+    cardBgBack, setCardBgBack,
+    cardFont, setCardFont,
+    cardTextColor, setCardTextColor,
+    cardFontSize, setCardFontSize,
+    contextFont, setContextFont,
+    contextTextColor, setContextTextColor,
+    contextFontSize, setContextFontSize,
+    cardTextShadow, setCardTextShadow,
+    contextTextShadow, setContextTextShadow,
+    cardFontWeight, setCardFontWeight,
+    cardFontStyle, setCardFontStyle,
+    contextFontWeight, setContextFontWeight,
+    contextFontStyle, setContextFontStyle,
+    adminSettings, setAdminSettings,
+    userPrompts, setUserPrompts,
+    applyDesignPreset,
+  } = useSettingsStore();
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isNewDeckModalOpen, setIsNewDeckModalOpen] = useState(false);
@@ -240,11 +71,9 @@ function App() {
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [deckToSync, setDeckToSync] = useState(null);
   
-  const [adminSettings, setAdminSettings] = useState({});
   const [aiInputPhrase, setAiInputPhrase] = useState('');
   const [isAiWizardOpen, setIsAiWizardOpen] = useState(false);
   const [editorSourceView, setEditorSourceView] = useState('cards');
-  const [userPrompts, setUserPrompts] = useState({ translation_prompt: '', context_prompt: '' });
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [availableModels, setAvailableModels] = useState([]);
   const [presets, setPresets] = useState([]);
@@ -295,70 +124,6 @@ function App() {
       setIsImportLoading(false);
     }
   }, [isNewDeckModalOpen]);
-
-  useEffect(() => {
-    storage.set('lerne_autoplay', autoPlay);
-  }, [autoPlay]);
-
-  useEffect(() => {
-    storage.set('lerne_autoshow', autoShow);
-  }, [autoShow]);
-
-  useEffect(() => {
-    storage.set('lerne_card_bg_front', cardBgFront);
-  }, [cardBgFront]);
-
-  useEffect(() => {
-    storage.set('lerne_card_bg_back', cardBgBack);
-  }, [cardBgBack]);
-
-  useEffect(() => {
-    storage.set('lerne_card_font', cardFont);
-  }, [cardFont]);
-
-  useEffect(() => {
-    storage.set('lerne_card_text_color', cardTextColor);
-  }, [cardTextColor]);
-
-  useEffect(() => {
-    storage.set('lerne_card_font_size', cardFontSize);
-  }, [cardFontSize]);
-
-  useEffect(() => {
-    storage.set('lerne_context_font', contextFont);
-  }, [contextFont]);
-
-  useEffect(() => {
-    storage.set('lerne_context_text_color', contextTextColor);
-  }, [contextTextColor]);
-
-  useEffect(() => {
-    storage.set('lerne_context_font_size', contextFontSize);
-  }, [contextFontSize]);
-
-  useEffect(() => {
-    storage.set('lerne_card_text_shadow', cardTextShadow);
-  }, [cardTextShadow]);
-
-  useEffect(() => {
-    storage.set('lerne_context_text_shadow', contextTextShadow);
-  }, [contextTextShadow]);
-
-  useEffect(() => {
-    storage.set('lerne_card_font_weight', cardFontWeight);
-  }, [cardFontWeight]);
-
-  useEffect(() => {
-    storage.set('lerne_card_font_style', cardFontStyle);
-  }, [cardFontStyle]);
-
-  useEffect(() => {
-    storage.set('lerne_context_font_weight', contextFontWeight);
-  }, [contextFontWeight]);
-
-  useEffect(() => {
-    storage.set('lerne_context_font_style', contextFontStyle);
-  }, [contextFontStyle]);
 
   useEffect(() => {
     if (card?.audio_url) {
@@ -1002,25 +767,6 @@ function App() {
     setLoading(false);
   };
 
-  const applyDesignPreset = (preset) => {
-    const s = preset.settings;
-    if (s.cardBgFront) setCardBgFront(s.cardBgFront);
-    if (s.cardBgBack) setCardBgBack(s.cardBgBack);
-    if (s.cardFont) setCardFont(s.cardFont);
-    if (s.cardTextColor) setCardTextColor(s.cardTextColor);
-    if (s.cardFontSize) setCardFontSize(s.cardFontSize);
-    if (s.contextFont) setContextFont(s.contextFont);
-    if (s.contextTextColor) setContextTextColor(s.contextTextColor);
-    if (s.contextFontSize) setContextFontSize(s.contextFontSize);
-    if (s.cardTextShadow) setCardTextShadow(s.cardTextShadow);
-    if (s.contextTextShadow) setContextTextShadow(s.contextTextShadow);
-    if (s.cardFontWeight) setCardFontWeight(s.cardFontWeight);
-    if (s.cardFontStyle) setCardFontStyle(s.cardFontStyle);
-    if (s.contextFontWeight) setContextFontWeight(s.contextFontWeight);
-    if (s.contextFontStyle) setContextFontStyle(s.contextFontStyle);
-    showToast(`Применен пресет: ${preset.name}`, "success");
-  };
-
   const resetDesign = () => {
     const defaultSettings = DESIGN_PRESETS.find(p => p.id === 'lerne_2026')?.settings;
     if (defaultSettings) {
@@ -1148,20 +894,30 @@ function App() {
     setLoading(false);
   };
 
-  const runAiGenerator = async () => {
-    if (!aiInputPhrase) return;
+  const runAiGenerator = async (overridePhrase = null) => {
+    const phrase = overridePhrase || aiInputPhrase;
+    if (!phrase) return;
+    
     setLoading(true);
     try {
-      const res = await api.post('/cards/ai-generate', { phrase: aiInputPhrase });
-      setEditingCard({
-        ...editingCard,
-        front: res.data.front,
-        back: res.data.back,
-        context: res.data.context
-      });
-      setIsAiWizardOpen(false);
-      showToast("Готово! Проверьте поля.");
-    } catch (err) { console.error(err); showToast("Ошибка ИИ"); }
+      const res = await api.post('/cards/ai-generate', { phrase });
+      
+      if (res.data.error) {
+        showToast(`Ошибка ИИ: ${res.data.error}`);
+      } else {
+        setEditingCard({
+          ...editingCard,
+          front: res.data.front || editingCard.front,
+          back: res.data.back || editingCard.back,
+          context: res.data.context || editingCard.context
+        });
+        setIsAiWizardOpen(false);
+        showToast("Готово! Проверьте поля.", "success");
+      }
+    } catch (err) { 
+      console.error(err); 
+      showToast(`Ошибка ИИ: ${err.response?.data?.detail || err.message}`); 
+    }
     setLoading(false);
   };
 
@@ -1284,19 +1040,11 @@ function App() {
         activeSettingsTab={activeSettingsTab}
         setActiveSettingsTab={setActiveSettingsTab}
         isAdmin={isAdmin}
-        autoPlay={autoPlay}
-        setAutoPlay={setAutoPlay}
-        autoShow={autoShow}
-        setAutoShow={setAutoShow}
         userId={USER_ID}
-        adminSettings={adminSettings}
-        setAdminSettings={setAdminSettings}
         saveAdminSettings={saveAdminSettings}
         availableModels={availableModels}
         fetchModels={fetchModels}
         isFetchingModels={isFetchingModels}
-        userPrompts={userPrompts}
-        setUserPrompts={setUserPrompts}
         saveUserPrompts={saveUserPrompts}
         newPresetName={newPresetName}
         setNewPresetName={setNewPresetName}
@@ -1307,39 +1055,8 @@ function App() {
         communityDecks={communityDecks}
         fetchCommunityDecks={fetchCommunityDecks}
         promoteDeck={promoteDeck}
-        cardBgFront={cardBgFront}
-        setCardBgFront={setCardBgFront}
-        cardBgBack={cardBgBack}
-        setCardBgBack={setCardBgBack}
-        cardFont={cardFont}
-        setCardFont={setCardFont}
-        cardTextColor={cardTextColor}
-        setCardTextColor={setCardTextColor}
-        cardFontSize={cardFontSize}
-        setCardFontSize={setCardFontSize}
-        contextFont={contextFont}
-        setContextFont={setContextFont}
-        contextTextColor={contextTextColor}
-        setContextTextColor={setContextTextColor}
-        contextFontSize={contextFontSize}
-        setContextFontSize={setContextFontSize}
-        cardTextShadow={cardTextShadow}
-        setCardTextShadow={setCardTextShadow}
-        contextTextShadow={contextTextShadow}
-        setContextTextShadow={setContextTextShadow}
-        cardFontWeight={cardFontWeight}
-        setCardFontWeight={setCardFontWeight}
-        cardFontStyle={cardFontStyle}
-        setCardFontStyle={setCardFontStyle}
-        contextFontWeight={contextFontWeight}
-        setContextFontWeight={setContextFontWeight}
-        contextFontStyle={contextFontStyle}
-        setContextFontStyle={setContextFontStyle}
         customBackgrounds={customBackgrounds}
         uploadCustomBackground={uploadCustomBackground}
-        designPresets={DESIGN_PRESETS}
-        applyDesignPreset={applyDesignPreset}
-        resetDesign={resetDesign}
         startTutorial={startTutorial}
       />
 

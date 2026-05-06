@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
 
-import services
+from api import services
 from api.dependencies.auth import get_user_id
 
 logger = logging.getLogger(__name__)

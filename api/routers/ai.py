@@ -14,6 +14,11 @@ router = APIRouter(
 class PhraseRequest(BaseModel):
     phrase: str
 
+@router.get("/admin/models/{provider}")
+async def list_models(provider: str, url: str = None):
+    """Lists available models for a given provider."""
+    return await ai_service.get_provider_models(provider, url)
+
 @router.post("/ai/generate")
 @router.post("/cards/ai-generate")
 async def generate_card(request: PhraseRequest, user_id: int = Depends(get_user_id)):
