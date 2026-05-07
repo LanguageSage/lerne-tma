@@ -61,7 +61,7 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
         // Short delay to let the browser update the layout
         setTimeout(() => {
           const rect = element.getBoundingClientRect();
-          const padding = 10;
+          const padding = targetStep.padding !== undefined ? targetStep.padding : 20; // Default increased from 10 to 20
           
           let r = Math.max(rect.width, rect.height) / 2 + padding;
           // Cap radius to avoid it being too large on big elements

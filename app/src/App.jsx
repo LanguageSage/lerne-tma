@@ -1087,6 +1087,7 @@ export default function App() {
 
       <CardCreator
         view={view}
+        editorSourceView={editorSourceView}
         setView={setView}
         currentDeck={currentDeck}
         runAiGenerator={runAiGenerator}

@@ -6,6 +6,7 @@ import { getTextShadow, getContextShadow } from '../utils/style';
 
 export const CardCreator = ({
   view,
+  editorSourceView,
   setView,
   currentDeck,
   runAiGenerator,
@@ -39,6 +40,16 @@ export const CardCreator = ({
     image_url: '',
     deck_id: currentDeck?.id
   });
+
+  const handleBack = () => {
+    if (editorSourceView === 'study') {
+      setView('study');
+    } else if (editorSourceView === 'cards') {
+      setView('cards');
+    } else {
+      setView('decks');
+    }
+  };
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -180,7 +191,7 @@ export const CardCreator = ({
     <div className="view-creator">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="view">
         <div className="header-compact">
-          <button className="back-btn" onClick={() => setView('cards')}><ChevronLeft size={24} /></button>
+          <button className="back-btn" onClick={handleBack}><ChevronLeft size={24} /></button>
           <h2>Новая карточка</h2>
           <div className="header-actions">
             <button
