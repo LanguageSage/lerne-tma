@@ -163,7 +163,7 @@ export default function App() {
       // Если карточка не перевернута, оставляем context = 'study'
     }
 
-    if (context === 'decks' || context === 'settings' || context === 'study' || context === 'study_back') {
+    if (context === 'decks' || context === 'settings' || context === 'study' || context === 'study_back' || context === 'cards' || context === 'creator') {
       const seen = storage.get(`lerne_tut_seen_${context}`);
       if (!seen) {
         // Небольшая задержка, чтобы UI успел отрисоваться
@@ -603,6 +603,27 @@ export default function App() {
           image_url: uploaded.url
         });
         prefetchMedia(uploaded.url);
+        showToast("Картинка добавлена", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(`Ошибка загрузки картинки: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const uploadCreatorImage = async (file, currentData, setter) => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const uploaded = await uploadImageFile(file);
+      if (uploaded) {
+        setter({
+          ...currentData,
+          image_path: uploaded.path,
+          image_url: uploaded.url
+        });
         showToast("Картинка добавлена", "success");
       }
     } catch (err) {
@@ -1070,6 +1091,7 @@ export default function App() {
         currentDeck={currentDeck}
         runAiGenerator={runAiGenerator}
         generateAudioInternal={generateAudioInternal}
+        uploadCreatorImage={uploadCreatorImage}
         playAudio={playAudio}
         saveCard={saveCard}
         loading={loading}

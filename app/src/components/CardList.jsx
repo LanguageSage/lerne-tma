@@ -21,7 +21,7 @@ export const CardList = ({
           <h2 className="header-title">{currentDeck?.name}</h2>
           <div style={{ width: 40 }}></div> {/* Spacer to keep title centered */}
         </div>
-        <div className="card-list">
+        <div id="tut-card-list-content" className="card-list">
           {deckCards.map(c => (
             <div key={c.id} className="card-item glass" onClick={() => openEditor(currentDeck.id, c, 'cards')}>
               <div className="card-item-text">
@@ -37,7 +37,7 @@ export const CardList = ({
         </div>
         
         {/* Floating Action Button for adding cards */}
-        <button className="fab-add-card" onClick={() => openCreator(currentDeck?.id)}>
+        <button id="tut-fab-add" className="fab-add-card" onClick={() => openCreator(currentDeck?.id)}>
           <Plus size={28} />
         </button>
       </motion.div>

@@ -46,20 +46,37 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
 
     const updateCoords = () => {
       const targetStep = steps[currentStep];
+      
+      if (targetStep.isWelcome) {
+        setCoords({ x: window.innerWidth / 2, y: window.innerHeight / 2, r: 0, isWelcome: true });
+        return;
+      }
+
       const element = document.getElementById(targetStep.targetId);
 
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const rect = element.getBoundingClientRect();
-        const padding = 10;
-        const r = Math.max(rect.width, rect.height) / 2 + padding;
-        setCoords({
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-          r: r
-        });
+        // Use instant scroll to avoid coordinate race conditions during smooth animation
+        element.scrollIntoView({ behavior: 'auto', block: 'center' });
+        
+        // Short delay to let the browser update the layout
+        setTimeout(() => {
+          const rect = element.getBoundingClientRect();
+          const padding = 10;
+          
+          let r = Math.max(rect.width, rect.height) / 2 + padding;
+          // Cap radius to avoid it being too large on big elements
+          r = Math.min(r, Math.min(window.innerWidth, window.innerHeight) * 0.3);
+          if (r < 30) r = 40;
+          
+          setCoords({
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+            r: r,
+            isWelcome: false
+          });
+        }, 50);
       } else {
-        setCoords({ x: window.innerWidth / 2, y: window.innerHeight / 2, r: 0 });
+        setCoords({ x: window.innerWidth / 2, y: window.innerHeight / 2, r: 0, isWelcome: false });
       }
     };
 
@@ -76,24 +93,40 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
   }
 
   // Smart Tooltip positioning
-  const margin = 20;
-  const tooltipHeight = 200; 
+  const margin = 16;
+  const tooltipHeight = 240; 
   
-  let finalTop = 'auto';
-  let finalBottom = 'auto';
+  let finalTop = undefined;
+  let finalBottom = undefined;
+  let finalY = 0;
   
-  const spaceBelow = window.innerHeight - (coords.y + coords.r);
-  const spaceAbove = coords.y - coords.r;
-
-  if (spaceBelow > tooltipHeight + margin) {
-    finalTop = coords.y + coords.r + margin;
-  } else if (spaceAbove > tooltipHeight + margin) {
-    finalBottom = window.innerHeight - (coords.y - coords.r) + margin;
+  if (coords.isWelcome) {
+    finalTop = '50%';
+    finalY = '-50%';
   } else {
-    if (coords.y > window.innerHeight / 2) {
-      finalTop = margin + 60; 
+    const spaceBelow = window.innerHeight - (coords.y + coords.r);
+    const spaceAbove = coords.y - coords.r;
+
+    if (spaceBelow > tooltipHeight + margin * 2) {
+      // Position below the element
+      finalTop = Math.max(margin + 60, coords.y + coords.r + margin);
+      // Ensure it doesn't exceed window height
+      if (finalTop + tooltipHeight > window.innerHeight) {
+        finalTop = window.innerHeight - tooltipHeight - margin;
+      }
+    } else if (spaceAbove > tooltipHeight + margin * 2) {
+      // Position above the element
+      finalBottom = Math.max(margin, window.innerHeight - (coords.y - coords.r) + margin);
+      if (finalBottom + tooltipHeight > window.innerHeight) {
+        finalBottom = window.innerHeight - tooltipHeight - margin;
+      }
     } else {
-      finalBottom = margin;
+      // Fallback: position in middle of available vertical space
+      if (coords.y > window.innerHeight / 2) {
+        finalTop = margin + 70;
+      } else {
+        finalBottom = margin + 40;
+      }
     }
   }
 
@@ -105,34 +138,36 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
         className="tutorial-spotlight"
         initial={false}
         animate={{ 
-          background: `radial-gradient(circle at ${coords.x}px ${coords.y}px, transparent ${Math.min(coords.r, window.innerHeight * 0.4)}px, rgba(0, 0, 0, 0.8) ${Math.min(coords.r, window.innerHeight * 0.4) + 2}px)` 
+          background: coords.isWelcome 
+            ? 'rgba(0, 0, 0, 0.85)' 
+            : `radial-gradient(circle at ${coords.x}px ${coords.y}px, transparent ${Math.min(coords.r, window.innerHeight * 0.4)}px, rgba(0, 0, 0, 0.8) ${Math.min(coords.r, window.innerHeight * 0.4) + 2}px)` 
         }}
-        transition={{ type: 'spring', damping: 25, stiffness: 120 }}
+        transition={{ type: 'spring', damping: 30, stiffness: 200 }}
       />
 
       <AnimatePresence mode="wait">
         <motion.div
           key={currentStep}
-          className="tutorial-tooltip"
-          initial={{ opacity: 0, scale: 0.9, x: '-50%' }}
+          className={`tutorial-tooltip ${coords.isWelcome ? 'welcome' : ''}`}
+          initial={{ opacity: 0, scale: 0.9, x: '-50%', y: finalY }}
           animate={{ 
             opacity: 1, 
             top: finalTop,
             bottom: finalBottom,
             left: finalLeft,
-            scale: 1 
+            scale: 1,
+            y: finalY
           }}
           exit={{ opacity: 0, scale: 0.9 }}
           style={{ 
-            position: 'absolute',
-            transform: 'translateX(-50%)'
+            position: 'absolute'
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-            <h3 style={{ margin: 0 }}>{step.title}</h3>
-            <button className="tutorial-skip" style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }} onClick={onSkip}><X size={16} /></button>
+            <h3 style={{ margin: 0, fontSize: coords.isWelcome ? '1.3rem' : '1.1rem' }}>{step.title}</h3>
+            <button className="tutorial-skip" style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }} onClick={onSkip}><X size={18} /></button>
           </div>
-          <p>{step.content}</p>
+          <p style={{ whiteSpace: 'pre-line' }}>{step.content}</p>
           
           {isLocked && (
             <div style={{ color: '#fbbf24', fontSize: '0.85rem', marginTop: '8px', fontWeight: 'bold' }}>

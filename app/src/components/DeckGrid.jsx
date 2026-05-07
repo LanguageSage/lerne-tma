@@ -80,7 +80,7 @@ export const DeckGrid = ({
               <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить первую колоду</button>
             </div>
           ) : (
-            decks.map(deck => (
+            decks.map((deck, index) => (
               <div key={deck.id} className="deck-card glass">
                 <div className="deck-main-action" onClick={() => startStudy(deck)}>
                   <div className="deck-icon"><Layers size={24} /></div>
@@ -92,7 +92,11 @@ export const DeckGrid = ({
                   </div>
                 </div>
                 <div className="deck-footer-actions">
-                  <button className="deck-action-btn" onClick={() => { setCurrentDeck(deck); fetchDeckCards(deck.id); }}>
+                  <button 
+                    id={index === 0 ? 'tut-deck-cards-btn' : undefined}
+                    className="deck-action-btn" 
+                    onClick={() => { setCurrentDeck(deck); fetchDeckCards(deck.id); }}
+                  >
                     <Layers size={16} /> Карточки
                   </button>
                   <button 
