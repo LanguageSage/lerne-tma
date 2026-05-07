@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X, Sparkles } from 'lucide-react';
+import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X, Sparkles, Settings } from 'lucide-react';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
 
@@ -15,6 +15,7 @@ export const CardEditor = ({
   aiInputPhrase,
   setAiInputPhrase,
   runAiGenerator,
+  stopAiGeneration,
   generateAudio,
   generateAudioInternal,
   uploadImage,
@@ -22,6 +23,7 @@ export const CardEditor = ({
   playAudio,
   saveCard,
   loading,
+  setIsSettingsOpen,
   cardFont,
   cardTextColor,
   cardFontWeight,
@@ -97,6 +99,15 @@ export const CardEditor = ({
         <div className="header-compact">
           <button className="back-btn" onClick={() => setView(editorSourceView)}><ChevronLeft size={24} /></button>
           <h2>Правка карточки</h2>
+          <div className="header-actions">
+            <button 
+              className="edit-btn-study" 
+              onClick={() => setIsSettingsOpen(true)}
+              title="Настройки"
+            >
+              <Settings size={20} />
+            </button>
+          </div>
         </div>
         
         <div className="editor-form glass">
@@ -149,12 +160,21 @@ export const CardEditor = ({
 
           <div className="ai-quick-actions">
             <button 
-              className="btn-ai-generate" 
-              onClick={handleAiGenerate}
-              disabled={loading || !editingCard?.front}
+              className={`btn-ai-generate ${loading ? 'loading' : ''}`} 
+              onClick={loading ? stopAiGeneration : handleAiGenerate}
+              disabled={!loading && !editingCard?.front}
             >
-              {loading ? <RefreshCw className="spin" size={18} /> : <Sparkles size={18} />}
-              <span>Сгенерировать ответ</span>
+              {loading ? (
+                <>
+                  <RefreshCw className="spin" size={18} />
+                  <span>Стоп генерация</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={18} />
+                  <span>Сгенерировать ответ</span>
+                </>
+              )}
             </button>
           </div>
 

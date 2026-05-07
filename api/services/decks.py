@@ -35,6 +35,21 @@ def ensure_starter_decks(user_id: int):
         return False
 
 
+def create_deck(name: str, user_id: int):
+    """Создает новую пользовательскую колоду."""
+    try:
+        deck = TMA_Deck.create(
+            user_id=user_id,
+            name=name,
+            created_at=datetime.datetime.now(),
+            updated_at=datetime.datetime.now()
+        )
+        return deck
+    except Exception as e:
+        logger.error(f"Error in create_deck: {e}")
+        raise e
+
+
 def get_active_decks(user_id: int):
     """Возвращает список колод со статистикой. Оптимизировано: 2 запроса вместо 5."""
     try:

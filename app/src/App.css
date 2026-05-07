@@ -1422,8 +1422,9 @@ input[type=range]:active::-webkit-slider-thumb {
   pointer-events: auto;
   flex: 1;
   max-width: 80px;
-  height: 58px !important;
-  border-radius: 20px;
+  height: 48px !important;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1455,10 +1456,10 @@ input[type=range]:active::-webkit-slider-thumb {
 }
 
 /* Specific Tints for Grades */
-.grade-buttons-floating .grade-0 { color: #ff5f5f !important; background: rgba(239, 68, 68, 0.2) !important; border-color: rgba(239, 68, 68, 0.3) !important; }
-.grade-buttons-floating .grade-1 { color: #ffb83d !important; background: rgba(245, 158, 11, 0.2) !important; border-color: rgba(245, 158, 11, 0.3) !important; }
-.grade-buttons-floating .grade-2 { color: #00ff88 !important; background: rgba(16, 185, 129, 0.2) !important; border-color: rgba(16, 185, 129, 0.3) !important; }
-.grade-buttons-floating .grade-3 { color: #4dabff !important; background: rgba(59, 130, 246, 0.2) !important; border-color: rgba(59, 130, 246, 0.3) !important; }
+.grade-buttons-floating .grade-0 { color: #fff !important; background: rgba(239, 68, 68, 0.4) !important; border-color: rgba(239, 68, 68, 0.5) !important; }
+.grade-buttons-floating .grade-1 { color: #fff !important; background: rgba(245, 158, 11, 0.4) !important; border-color: rgba(245, 158, 11, 0.5) !important; }
+.grade-buttons-floating .grade-2 { color: #fff !important; background: rgba(16, 185, 129, 0.4) !important; border-color: rgba(16, 185, 129, 0.5) !important; }
+.grade-buttons-floating .grade-3 { color: #fff !important; background: rgba(59, 130, 246, 0.4) !important; border-color: rgba(59, 130, 246, 0.5) !important; }
 
 /* Active/Hover State */
 .grade-buttons-floating .btn-grade:active,

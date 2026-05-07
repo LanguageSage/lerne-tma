@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Sparkles, RefreshCw, Volume2, Image as ImageIcon, Camera, Upload, X, Search } from 'lucide-react';
+import { ChevronLeft, Sparkles, RefreshCw, Volume2, Image as ImageIcon, Camera, Upload, X, Search, Settings } from 'lucide-react';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
 
@@ -10,10 +10,12 @@ export const CardCreator = ({
   setView,
   currentDeck,
   runAiGenerator,
+  stopAiGeneration,
   generateAudioInternal,
   playAudio,
   saveCard,
   loading,
+  setIsSettingsOpen,
   cardFont,
   cardTextColor,
   cardFontWeight,
@@ -204,6 +206,13 @@ export const CardCreator = ({
             </button>
             <button 
               className="edit-btn-study" 
+              onClick={() => setIsSettingsOpen(true)}
+              title="Настройки"
+            >
+              <Settings size={20} />
+            </button>
+            <button 
+              className="edit-btn-study" 
               onClick={() => generateAudioInternal(newCardData, setNewCardData)}
               disabled={loading || !newCardData.front}
               title="Озвучить"
@@ -271,13 +280,22 @@ export const CardCreator = ({
           <div className="ai-quick-actions" style={{ gap: '10px' }}>
             <button 
               id="tut-creator-ai"
-              className="btn-ai-generate" 
-              onClick={handleAiGenerate}
-              disabled={loading || !newCardData.front}
+              className={`btn-ai-generate ${loading ? 'loading' : ''}`} 
+              onClick={loading ? stopAiGeneration : handleAiGenerate}
+              disabled={!loading && !newCardData.front}
               style={{ flex: 1 }}
             >
-              {loading ? <RefreshCw className="spin" size={18} /> : <Sparkles size={18} />}
-              <span>Генерировать</span>
+              {loading ? (
+                <>
+                  <RefreshCw className="spin" size={18} />
+                  <span>Стоп генерация</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={18} />
+                  <span>Генерировать</span>
+                </>
+              )}
             </button>
             <button 
               className="btn btn-primary" 

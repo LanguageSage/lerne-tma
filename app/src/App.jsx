@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import axios from 'axios';
 import { AnimatePresence } from 'framer-motion';
 import './App.css';
 
@@ -88,6 +89,7 @@ export default function App() {
   const [communityDecks, setCommunityDecks] = useState([]);
   const [isImportLoading, setIsImportLoading] = useState(false);
   const gradingRef = useRef(false);
+  const abortControllerRef = useRef(null);
 
   const showToast = React.useCallback((message, type = "error") => {
     setToast({ message, type });
@@ -129,27 +131,27 @@ export default function App() {
   }, [isNewDeckModalOpen]);
 
   useEffect(() => {
-    if (card?.audio_url) {
+    if (view === 'study' && card?.audio_url) {
       preloadAudio(card.audio_url);
     }
-  }, [card?.id, card?.audio_url, preloadAudio]);
+  }, [view, card?.id, card?.audio_url, preloadAudio]);
 
   useEffect(() => {
-    if (card && card.audio_url && autoPlay) {
+    if (view === 'study' && card && card.audio_url && autoPlay) {
       const timer = setTimeout(() => playAudio(card.audio_url), 150);
       return () => clearTimeout(timer);
     }
-  }, [card?.id, autoPlay, playAudio]);
+  }, [view, card?.id, autoPlay, playAudio]);
 
   useEffect(() => {
-    if (card && autoShow && !isFlipped) {
+    if (view === 'study' && card && autoShow && !isFlipped) {
       const delay = card.audio_url && autoPlay ? 3000 : 2000;
       const timer = setTimeout(() => {
         setIsFlipped(true);
       }, delay);
       return () => clearTimeout(timer);
     }
-  }, [card?.id, autoShow, isFlipped, autoPlay]);
+  }, [view, card?.id, autoShow, isFlipped, autoPlay]);
 
   useEffect(() => {
     let context = view;
@@ -749,6 +751,8 @@ export default function App() {
       let url = `/admin/models/${provider}`;
       if (provider === 'ollama') {
         url += `?url=${encodeURIComponent(adminSettings.OLLAMA_URL || 'http://localhost:11434')}`;
+      } else if (provider === 'groq') {
+        url += `?api_key=${encodeURIComponent(adminSettings.GROQ_API_KEY || '')}`;
       }
       const res = await api.get(url);
       setAvailableModels(res.data);
@@ -759,6 +763,37 @@ export default function App() {
       showToast("Ошибка загрузки моделей");
     }
     setIsFetchingModels(false);
+  };
+
+  const testAiConnection = async () => {
+    const provider = adminSettings.AI_PROVIDER;
+    if (provider === 'default') {
+      showToast("Для общего ключа проверка не требуется");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const reqData = {
+        provider,
+        model: adminSettings.DEFAULT_MODEL || (provider === 'groq' ? 'llama3-70b-8192' : 'gemini-1.5-flash'),
+        api_key: provider === 'google' ? adminSettings.GOOGLE_API_KEY : 
+                 provider === 'groq' ? adminSettings.GROQ_API_KEY : adminSettings.OPENROUTER_API_KEY,
+        ollama_url: adminSettings.OLLAMA_URL
+      };
+
+      const res = await api.post('/admin/test-ai', reqData);
+      if (res.data.status === 'success') {
+        showToast("Соединение успешно!", "success");
+      } else {
+        showToast(`Ошибка: ${res.data.message}`, "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Ошибка соединения с сервером", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchPresets = async () => {
@@ -778,13 +813,13 @@ export default function App() {
       await api.post('/admin/presets', newPresets);
       setPresets(newPresets);
       setNewPresetName('');
-      showToast("Preset сохранен");
+      showToast("Preset сохранен", "success");
     } catch (err) { console.error(err); showToast("Ошибка сохранения пресета"); }
   };
 
   const applyPreset = (preset) => {
     setAdminSettings({ ...adminSettings, ...preset.settings });
-    showToast(`Применен пресет: ${preset.name}`);
+    showToast(`Применен пресет: ${preset.name}`, "success");
   };
 
   const deletePreset = async (index) => {
@@ -804,7 +839,7 @@ export default function App() {
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
       fetchDecks(true);
-      showToast("Колода создана");
+      showToast("Колода создана", "success");
     } catch (err) { console.error(err); showToast("Ошибка создания"); }
     setLoading(false);
   };
@@ -824,7 +859,7 @@ export default function App() {
     setLoading(true);
     api.delete(`/decks/${deckId}`)
       .then(() => {
-        showToast("Колода удалена");
+        showToast("Колода удалена", "success");
         fetchDecks(true);
       })
       .catch(err => {
@@ -841,7 +876,7 @@ export default function App() {
     setLoading(true);
     api.delete(`/cards/${cardId}`)
       .then(() => {
-        showToast("Карточка удалена");
+        showToast("Карточка удалена", "success");
         fetchDeckCards(currentDeck.id);
       })
       .catch(err => {
@@ -953,44 +988,99 @@ export default function App() {
     }
   };
 
+  const stopAiGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setLoading(false);
+      showToast("Генерация остановлена", "info");
+    }
+  };
+
   const runAiGenerator = async (overridePhrase = null, returnResult = false) => {
     const phrase = overridePhrase || aiInputPhrase;
     if (!phrase) return;
 
-    setLoading(true);
-    try {
-      const res = await api.post('/cards/ai-generate', { phrase });
+    // Очищаем предыдущий контроллер если есть
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
 
-      if (res.data.error) {
-        showToast(`Ошибка ИИ: ${res.data.error}`);
-        setLoading(false);
-        return null;
+    setLoading(true);
+    const maxRetries = 3;
+    let attempt = 0;
+
+    let lastError = null;
+
+    while (attempt < maxRetries) {
+      attempt++;
+      if (attempt > 1) {
+        const reasonStr = lastError ? ` (${lastError})` : "";
+        showToast(`Попытка ${attempt}${reasonStr}...`, "info");
       }
 
-      if (returnResult) {
+      try {
+        const res = await api.post('/cards/ai-generate', 
+          { phrase }, 
+          { signal: abortControllerRef.current.signal }
+        );
+
+        if (res.data.error) {
+          lastError = res.data.error;
+          // Если это лимит квот или таймаут, пробуем еще раз
+          if (res.data.error.includes("Quota") || res.data.error.includes("Timeout") || res.data.error.includes("Connection")) {
+            if (attempt < maxRetries) {
+              await new Promise(r => setTimeout(r, 1500));
+              continue;
+            }
+          }
+          showToast(`Ошибка ИИ: ${res.data.error}`);
+          setLoading(false);
+          abortControllerRef.current = null;
+          return null;
+        }
+
+        abortControllerRef.current = null;
+        if (returnResult) {
+          setLoading(false);
+          return res.data;
+        }
+
+        setEditingCard({
+          ...editingCard,
+          front: res.data.front || editingCard.front,
+          back: res.data.back || editingCard.back,
+          context: res.data.context || editingCard.context
+        });
+        setIsAiWizardOpen(false);
+        showToast("Готово! Проверьте поля.", "success");
         setLoading(false);
         return res.data;
-      }
 
-      setEditingCard({
-        ...editingCard,
-        front: res.data.front || editingCard.front,
-        back: res.data.back || editingCard.back,
-        context: res.data.context || editingCard.context
-      });
-      setIsAiWizardOpen(false);
-      showToast("Готово! Проверьте поля.", "success");
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.name === 'AbortError' || axios.isCancel(err)) {
+          console.log("AI Generation aborted by user");
+          return null;
+        }
+        
+        lastError = err.message || "Network Error";
+        console.error(`AI Generation Error (Attempt ${attempt}):`, err);
+        
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 1500));
+          continue;
+        }
 
-    } catch (err) {
-      console.error("AI Generation Error:", err);
-      const detail = err.response?.data?.detail || err.message;
-      if (err.message === 'Network Error') {
-        showToast("Ошибка сети: проверьте, запущен ли сервер API (порт 8001)");
-      } else {
-        showToast(`Ошибка ИИ: ${detail}`);
+        const detail = err.response?.data?.detail || err.message;
+        if (err.message === 'Network Error') {
+          showToast("Ошибка сети: проверьте соединение");
+        } else {
+          showToast(`Ошибка ИИ: ${detail}`);
+        }
       }
     }
+
     setLoading(false);
+    abortControllerRef.current = null;
     return null;
   };
 
@@ -1054,9 +1144,6 @@ export default function App() {
         cardFontStyle={cardFontStyle}
         contextFontWeight={contextFontWeight}
         contextFontStyle={contextFontStyle}
-        cardFontSize={cardFontSize}
-        cardTextShadow={cardTextShadow}
-        contextTextShadow={contextTextShadow}
       />
 
       <DeckModals
@@ -1091,11 +1178,13 @@ export default function App() {
         setView={setView}
         currentDeck={currentDeck}
         runAiGenerator={runAiGenerator}
+        stopAiGeneration={stopAiGeneration}
         generateAudioInternal={generateAudioInternal}
         uploadCreatorImage={uploadCreatorImage}
         playAudio={playAudio}
         saveCard={saveCard}
         loading={loading}
+        setIsSettingsOpen={setIsSettingsOpen}
         cardFont={cardFont}
         cardTextColor={cardTextColor}
         cardFontWeight={cardFontWeight}
@@ -1123,6 +1212,7 @@ export default function App() {
         aiInputPhrase={aiInputPhrase}
         setAiInputPhrase={setAiInputPhrase}
         runAiGenerator={runAiGenerator}
+        stopAiGeneration={stopAiGeneration}
         generateAudio={generateAudio}
         generateAudioInternal={generateAudioInternal}
         uploadImage={uploadImage}
@@ -1130,6 +1220,7 @@ export default function App() {
         playAudio={playAudio}
         saveCard={saveCard}
         loading={loading}
+        setIsSettingsOpen={setIsSettingsOpen}
         cardFont={cardFont}
         cardTextColor={cardTextColor}
         cardFontWeight={cardFontWeight}

@@ -62,7 +62,13 @@ async def generate_card_fields(user_id: int, phrase: str):
     if provider == "default":
         provider = "google"
     
-    key_name = "GOOGLE_API_KEY" if provider == "google" else "OPENROUTER_API_KEY"
+    if provider == "google":
+        key_name = "GOOGLE_API_KEY"
+    elif provider == "groq":
+        key_name = "GROQ_API_KEY"
+    else:
+        key_name = "OPENROUTER_API_KEY"
+    
     ai_key_record = TMASetting.get_or_none(TMASetting.key == key_name)
     
     # Сначала ищем в настройках БД, потом в переменных окружения
@@ -102,16 +108,19 @@ async def generate_card_fields(user_id: int, phrase: str):
         api_key=ai_key
     )
     
-    # По умолчанию используем gemini-2.5-flash как наиболее стабильный
+    # По умолчанию используем gemini-2.5-flash-lite как наиболее стабильный
     if provider == "openrouter":
-        default_model = "google/gemini-2.5-flash"
+        default_model = "google/gemini-2.0-flash-lite-preview-02-05:free"
         # Если модель не содержит слеша, добавляем префикс провайдера по умолчанию
         if ai_model and "/" not in ai_model:
             model_name = f"google/{ai_model}"
         else:
             model_name = ai_model if ai_model else default_model
+    elif provider == "groq":
+        default_model = "llama3-70b-8192"
+        model_name = ai_model if ai_model else default_model
     else:
-        default_model = "gemini-2.5-flash"
+        default_model = "gemini-2.5-flash-lite"
         model_name = ai_model if ai_model else default_model
     
     response, success = await client.chat_completion(
@@ -186,7 +195,13 @@ async def generate_card_fields(user_id: int, phrase: str):
 
 async def get_provider_models(provider: str, ollama_url: str = None):
     """Fetches models from the specified provider dynamically."""
-    key_name = "GOOGLE_API_KEY" if provider == "google" else "OPENROUTER_API_KEY"
+    if provider == "google":
+        key_name = "GOOGLE_API_KEY"
+    elif provider == "groq":
+        key_name = "GROQ_API_KEY"
+    else:
+        key_name = "OPENROUTER_API_KEY"
+        
     ai_key = TMASetting.get_or_none(TMASetting.key == key_name)
     
     client = AIService(

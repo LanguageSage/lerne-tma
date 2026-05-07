@@ -104,16 +104,33 @@ body {
 
 .btn-grade {
   min-width: 0;
-  min-height: 48px;
-  font-size: 0.9rem;
-  padding: 10px 6px;
+  min-height: 38px;
+  font-size: 0.85rem;
+  padding: 6px 4px;
   white-space: nowrap;
 }
 
-.grade-0 { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; }
-.grade-1 { background: rgba(249, 115, 22, 0.2); border: 1px solid #f97316; color: #fdba74; }
-.grade-2 { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #86efac; }
-.grade-3 { background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd; }
+.grade-0 { background: rgba(239, 68, 68, 0.4); border: 1px solid #ef4444; color: #fff; }
+.grade-1 { background: rgba(249, 115, 22, 0.4); border: 1px solid #f97316; color: #fff; }
+.grade-2 { background: rgba(34, 197, 94, 0.4); border: 1px solid #22c55e; color: #fff; }
+.grade-3 { background: rgba(59, 130, 246, 0.4); border: 1px solid #3b82f6; color: #fff; }
+
+.section-header-with-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.section-header-with-btn h3 {
+  margin: 0;
+}
+
+.btn-tiny {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
 
 h1, h2, h3 {
   margin: 0;
@@ -472,6 +489,18 @@ h1, h2, h3 {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(255, 255, 0, 0.15);
   border-color: rgba(255, 255, 0, 0.5);
+}
+
+.btn-ai-generate.loading {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(249, 115, 22, 0.1));
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.btn-ai-generate.loading:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(249, 115, 22, 0.2));
+  border-color: rgba(239, 68, 68, 0.5);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.15);
 }
 
 .btn-ai-generate:active {

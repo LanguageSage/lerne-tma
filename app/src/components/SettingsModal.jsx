@@ -37,7 +37,8 @@ export const SettingsModal = ({
   customBackgrounds,
   uploadCustomBackground,
   startTutorial,
-  showToast
+  showToast,
+  testAiConnection
 }) => {
   if (!isSettingsOpen) return null;
 
@@ -100,6 +101,7 @@ export const SettingsModal = ({
                   fetchModels={fetchModels} 
                   isFetchingModels={isFetchingModels} 
                   saveAdminSettings={saveAdminSettings} 
+                  testAiConnection={testAiConnection}
                 />
               )}
               {activeSettingsTab === 'prompts' && <PromptsTab saveUserPrompts={saveUserPrompts} />}
