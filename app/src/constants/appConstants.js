@@ -30,20 +30,20 @@ export const DESIGN_PRESETS = [
     id: 'lerne_2026',
     name: 'Lerne 2026 ✨',
     settings: {
-      cardBgFront: 'liquid_morning',
-      cardBgBack: 'liquid_morning',
-      cardFont: 'Comfortaa',
-      cardTextColor: '#ffff00',
+      cardBgFront: "liquid_morning",
+      cardBgBack: "liquid_morning",
+      cardFont: "Comfortaa",
+      cardTextColor: "#ffff00",
       cardFontSize: 1.8,
-      contextFont: 'Inter',
-      contextTextColor: '#30172e',
+      contextFont: "Inter",
+      contextTextColor: "#080c03",
       contextFontSize: 1.35,
-      cardTextShadow: 'glow',
-      contextTextShadow: 'outline',
-      cardFontWeight: '700',
-      cardFontStyle: 'normal',
-      contextFontWeight: '400',
-      contextFontStyle: 'normal'
+      cardTextShadow: "glow",
+      contextTextShadow: "outline",
+      cardFontWeight: "700",
+      cardFontStyle: "normal",
+      contextFontWeight: "400",
+      contextFontStyle: "normal"
     }
   },
   {

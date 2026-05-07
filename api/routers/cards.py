@@ -13,10 +13,15 @@ router = APIRouter(
 
 @router.post("/save")
 def save_card(data: dict, user_id: int = Depends(get_user_id)):
-    card = services.save_card(data, user_id)
-    if card:
-        return {"status": "success", "id": card.id}
-    raise HTTPException(status_code=400, detail="Failed to save card")
+    try:
+        card = services.save_card(data, user_id)
+        if card:
+            # Сразу возвращаем полные данные для StudyView
+            return services.format_card_for_study(card, user_id)
+        raise HTTPException(status_code=400, detail="Could not save card. Check logs.")
+    except Exception as e:
+        logger.error(f"Router save_card error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/{card_id}")
 def delete_card(card_id: int):
@@ -24,3 +29,4 @@ def delete_card(card_id: int):
     if services.delete_card(card_id):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Card not found")
+

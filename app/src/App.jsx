@@ -24,9 +24,9 @@ import { useSettingsStore } from './store/useSettingsStore';
 
 
 const USER_ID = getUserId();
-const SETTINGS_VERSION = 'v3';
+const SETTINGS_VERSION = 'v6';
 
-function App() {
+export default function App() {
   const [view, setView] = useState('decks'); // 'decks' | 'study' | 'cards' | 'editor'
   const [decks, setDecks] = useState([]);
   const [currentDeck, setCurrentDeck] = useState(null);
@@ -66,12 +66,12 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isNewDeckModalOpen, setIsNewDeckModalOpen] = useState(false);
-  const [deckModalMode, setDeckModalMode] = useState('choice'); 
+  const [deckModalMode, setDeckModalMode] = useState('choice');
   const [isOpeningDeck, setIsOpeningDeck] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [deckToSync, setDeckToSync] = useState(null);
-  
+
   const [aiInputPhrase, setAiInputPhrase] = useState('');
   const [isAiWizardOpen, setIsAiWizardOpen] = useState(false);
   const [editorSourceView, setEditorSourceView] = useState('cards');
@@ -81,9 +81,9 @@ function App() {
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const [customBackgrounds, setCustomBackgrounds] = useState([]);
-  
+
   const [activeTutorial, setActiveTutorial] = useState(null);
-  
+
   const [externalDecks, setExternalDecks] = useState([]);
   const [communityDecks, setCommunityDecks] = useState([]);
   const [isImportLoading, setIsImportLoading] = useState(false);
@@ -100,17 +100,19 @@ function App() {
     fetchInitData();
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '1' || USER_ID === 642478257) setIsAdmin(true);
-    
-    // Migration to v4 (Comfortaa + Yellow + Glow + Liquid Morning)
+
+    // Migration to v6 (Updated Lerne 2026)
     const currentVersion = storage.get('lerne_settings_version');
-    if (currentVersion !== '4') {
-      console.log("Migrating settings to v4...");
+    if (currentVersion !== '6') {
+      console.log("Migrating settings to v6 (Updated Lerne 2026)...");
       const defaultSettings = DESIGN_PRESETS.find(p => p.id === 'lerne_2026')?.settings;
       if (defaultSettings) {
         applyDesignPreset({ name: 'Lerne 2026', settings: defaultSettings });
       }
-      storage.set('lerne_settings_version', '4');
+      storage.set('lerne_settings_version', '6');
     }
+
+
   }, []);
 
   useEffect(() => {
@@ -152,7 +154,7 @@ function App() {
   useEffect(() => {
     let context = view;
     if (isSettingsOpen) context = 'settings';
-    
+
     // Специальная логика для обучения (лицо / оборот)
     if (context === 'study' && card) {
       if (isFlipped) {
@@ -209,7 +211,7 @@ function App() {
     try {
       const res = await api.get('/decks');
       setDecks(res.data);
-    } catch (err) { 
+    } catch (err) {
       console.error("Fetch Decks Error:", err);
       showToast("Не удалось загрузить колоды.");
     }
@@ -254,8 +256,8 @@ function App() {
     setIsOpeningDeck(true);
     try {
       setCurrentDeck(deck);
-      setView('study'); 
-      setCard(null); 
+      setView('study');
+      setCard(null);
       setIsFlipped(false);
       setStudyHistory([]);
       setHistoryIndex(-1);
@@ -277,7 +279,7 @@ function App() {
     try {
       const excludeParam = excludeIds.length > 0 ? `?exclude_ids=${excludeIds.join(',')}` : '';
       const res = await api.get(`/decks/${deckId}/next${excludeParam}`);
-      
+
       if (res.data.error) {
         setApiError(res.data.error);
         setCard(null);
@@ -290,7 +292,7 @@ function App() {
         setHistoryIndex(prev => prev + 1);
         prefetchMedia(newCard.image_url);
       }
-    } catch (err) { 
+    } catch (err) {
       console.error("fetchNextCard Error:", err);
       setApiError(err.response?.data?.detail || err.message);
     }
@@ -300,11 +302,11 @@ function App() {
   const submitGrade = async (grade) => {
     if (!card || gradingRef.current) return;
     gradingRef.current = true;
-    
+
     // Оптимистичное обновление: сразу убираем ответ, показываем загрузку
     setIsFlipped(false);
     setLoading(true);
-    
+
     try {
       const gradedCardId = card.id;
       const res = await api.post('/study/grade', {
@@ -312,7 +314,7 @@ function App() {
         deck_id: currentDeck.id,
         grade
       });
-      
+
       if (res.data.finished) {
         setCard(null);
       } else {
@@ -322,7 +324,7 @@ function App() {
         setCard(nextCard);
         prefetchMedia(nextCard.image_url);
       }
-    } catch (err) { 
+    } catch (err) {
       console.error("SubmitGrade Error:", err);
       showToast(`Ошибка при сохранении оценки: ${err.response?.data?.detail || err.message}`);
     } finally {
@@ -401,7 +403,7 @@ function App() {
     const rate = adminSettings.TTS_SPEED || '+0%';
     const hasRussian = /[а-яА-Я]/.test(c.front);
     const textToSpeak = hasRussian ? c.back : c.front;
-    
+
     if (!textToSpeak) {
       showToast("Нет текста для озвучки");
       setLoading(false);
@@ -416,7 +418,7 @@ function App() {
         rate: rate
       });
       const newAudioPath = res.data.path;
-      
+
       await api.post('/cards/save', {
         card_id: c.id,
         deck_id: c.deck_id,
@@ -426,7 +428,7 @@ function App() {
         image_path: c.image_url || c.image_path || '',
         audio_path: newAudioPath
       });
-      
+
       setCard({ ...c, audio_url: res.data.url, audio_path: res.data.path });
       showToast("Озвучка добавлена!", "success");
       playAudio(res.data.url);
@@ -438,7 +440,9 @@ function App() {
   };
 
   const saveCard = async (manualCardData = null) => {
-    const data = manualCardData || editingCard;
+    // If called directly from onClick, manualCardData might be an event object
+    const isEvent = manualCardData && typeof manualCardData === 'object' && 'preventDefault' in manualCardData;
+    const data = (manualCardData && !isEvent) ? manualCardData : editingCard;
     if (!data || !data.front || !data.back) {
       showToast("Заполните текст и перевод");
       return;
@@ -456,27 +460,29 @@ function App() {
         audio_path: data.audio_path || ''
       };
 
-      await api.post('/cards/save', reqData);
+      const res = await api.post('/cards/save', reqData);
+      const fullCard = res.data;
       showToast("Сохранено", "success");
-      
+
       if (view === 'creator') {
-        fetchDeckCards(currentDeck.id);
-        setView('cards');
+        setCard(fullCard);
+        setIsFlipped(false);
+        
+        if (editorSourceView === 'study') {
+           setStudyHistory(prev => [...prev, fullCard]);
+           setHistoryIndex(prev => prev + 1);
+        } else {
+           setStudyHistory([fullCard]);
+           setHistoryIndex(0);
+        }
+        
+        setView('study');
         return;
       }
 
       if (editorSourceView === 'study') {
         if (card && card.id === data.id) {
-          const resolvedAudio = data.audio_path?.includes('/') 
-            ? `/api/media/${data.audio_path}` 
-            : card.audio_url;
-            
-          setCard({ 
-            ...card, 
-            ...data,
-            image_url: data.image_path?.includes('/') ? `/api/media/images/${data.image_path.split('/').pop()}` : card.image_url,
-            audio_url: resolvedAudio
-          });
+          setCard(fullCard);
         }
         setView('study');
       } else if (editorSourceView === 'cards') {
@@ -488,19 +494,22 @@ function App() {
       }
     } catch (err) {
       console.error(err);
-      showToast("Ошибка сохранения");
+      const detail = err.response?.data?.detail || err.message;
+      showToast(`Ошибка сохранения: ${detail}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const generateAudio = async () => {
-    if (!editingCard.front) return;
+  const generateAudioInternal = async (targetData = null, setter = null) => {
+    const data = targetData || editingCard;
+    if (!data || !data.front) return;
+
     setLoading(true);
     const voice = adminSettings.TTS_VOICE || 'de-DE-KatjaNeural';
     const rate = adminSettings.TTS_SPEED || '+0%';
-    const hasRussian = /[а-яА-Я]/.test(editingCard.front);
-    const textToSpeak = hasRussian ? editingCard.back : editingCard.front;
+    const hasRussian = /[а-яА-Я]/.test(data.front);
+    const textToSpeak = hasRussian ? data.back : data.front;
 
     if (!textToSpeak) {
       showToast("Заполните текст для озвучки");
@@ -515,11 +524,18 @@ function App() {
         voice: voice,
         rate: rate
       });
-      setEditingCard({ 
-        ...editingCard, 
+
+      const update = {
         audio_path: res.data.path,
-        audio_url: res.data.url 
-      });
+        audio_url: res.data.url
+      };
+
+      if (setter) {
+        setter(prev => ({ ...prev, ...update }));
+      } else {
+        setEditingCard({ ...editingCard, ...update });
+      }
+
       showToast("Аудио сгенерировано", "success");
       playAudio(res.data.url);
     } catch (err) {
@@ -528,6 +544,8 @@ function App() {
     }
     setLoading(false);
   };
+
+  const generateAudio = () => generateAudioInternal();
 
   const uploadImageFile = async (file) => {
     if (!file) return;
@@ -626,10 +644,10 @@ function App() {
       } else {
         showToast("Ошибка сервера при сохранении", "error");
       }
-    } catch (err) { 
+    } catch (err) {
       console.error(err);
       const detail = err.response?.data?.detail;
-      showToast(`Ошибка сохранения: ${detail || err.message}`, "error"); 
+      showToast(`Ошибка сохранения: ${detail || err.message}`, "error");
     }
   };
 
@@ -673,7 +691,7 @@ function App() {
       if (uploaded.data) {
         const fieldName = side === 'front' ? 'video_front_path' : 'video_back_path';
         const urlName = side === 'front' ? 'video_front_url' : 'video_back_url';
-        
+
         await api.post('/cards/save', {
           card_id: targetCard.id,
           deck_id: currentDeck.id,
@@ -704,7 +722,7 @@ function App() {
   const fetchModels = async () => {
     const provider = adminSettings.AI_PROVIDER;
     if (!provider) return;
-    
+
     setIsFetchingModels(true);
     try {
       let url = `/admin/models/${provider}`;
@@ -714,7 +732,7 @@ function App() {
       const res = await api.get(url);
       setAvailableModels(res.data);
       if (res.data.length > 0 && !adminSettings.DEFAULT_MODEL) {
-        setAdminSettings({...adminSettings, DEFAULT_MODEL: res.data[0]});
+        setAdminSettings({ ...adminSettings, DEFAULT_MODEL: res.data[0] });
       }
     } catch (err) {
       showToast("Ошибка загрузки моделей");
@@ -781,7 +799,7 @@ function App() {
   const handleDeleteDeck = (e, deckId) => {
     e.stopPropagation();
     if (!window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) return;
-    
+
     setLoading(true);
     api.delete(`/decks/${deckId}`)
       .then(() => {
@@ -836,9 +854,9 @@ function App() {
         const jsonData = JSON.parse(event.target.result);
         setLoading(true);
         showToast("Импорт из файла...", "success");
-        
+
         await api.post('/decks/import-json', jsonData);
-        
+
         setIsNewDeckModalOpen(false);
         fetchDecks(true);
         showToast("Колода импортирована!", "success");
@@ -856,13 +874,13 @@ function App() {
     setIsOpeningDeck(true);
     try {
       await api.post(`/decks/external/import/${deckId}`);
-      
+
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
-      
+
       await fetchDecks(true);
       showToast("Колода успешно импортирована!", "success");
-      
+
       setTimeout(() => fetchDecks(true), 1500);
     } catch (err) {
       console.error("Import error:", err);
@@ -897,10 +915,19 @@ function App() {
     setLoading(false);
   };
 
-  const openCreator = (deckId) => {
+  const openCreator = (deckId, source = 'cards') => {
     const deck = decks.find(d => d.id === deckId);
     if (deck) {
       setCurrentDeck(deck);
+      setEditorSourceView(source);
+      setEditingCard({
+        deck_id: deckId,
+        front: '',
+        back: '',
+        context: '',
+        image_path: '',
+        audio_path: ''
+      });
       setView('creator');
     }
   };
@@ -908,17 +935,17 @@ function App() {
   const runAiGenerator = async (overridePhrase = null, returnResult = false) => {
     const phrase = overridePhrase || aiInputPhrase;
     if (!phrase) return;
-    
+
     setLoading(true);
     try {
       const res = await api.post('/cards/ai-generate', { phrase });
-      
+
       if (res.data.error) {
         showToast(`Ошибка ИИ: ${res.data.error}`);
         setLoading(false);
         return null;
       }
-      
+
       if (returnResult) {
         setLoading(false);
         return res.data;
@@ -932,10 +959,15 @@ function App() {
       });
       setIsAiWizardOpen(false);
       showToast("Готово! Проверьте поля.", "success");
-      
-    } catch (err) { 
-      console.error(err); 
-      showToast(`Ошибка ИИ: ${err.response?.data?.detail || err.message}`); 
+
+    } catch (err) {
+      console.error("AI Generation Error:", err);
+      const detail = err.response?.data?.detail || err.message;
+      if (err.message === 'Network Error') {
+        showToast("Ошибка сети: проверьте, запущен ли сервер API (порт 8001)");
+      } else {
+        showToast(`Ошибка ИИ: ${detail}`);
+      }
     }
     setLoading(false);
     return null;
@@ -1034,12 +1066,21 @@ function App() {
         setView={setView}
         currentDeck={currentDeck}
         runAiGenerator={runAiGenerator}
+        generateAudioInternal={generateAudioInternal}
+        playAudio={playAudio}
         saveCard={saveCard}
         loading={loading}
         cardFont={cardFont}
         cardTextColor={cardTextColor}
         cardFontWeight={cardFontWeight}
         cardFontStyle={cardFontStyle}
+        cardBgFront={cardBgFront}
+        cardBgBack={cardBgBack}
+        contextFont={contextFont}
+        contextTextColor={contextTextColor}
+        contextFontSize={contextFontSize}
+        contextFontWeight={contextFontWeight}
+        contextFontStyle={contextFontStyle}
       />
 
       <CardEditor
@@ -1054,6 +1095,7 @@ function App() {
         setAiInputPhrase={setAiInputPhrase}
         runAiGenerator={runAiGenerator}
         generateAudio={generateAudio}
+        generateAudioInternal={generateAudioInternal}
         uploadImage={uploadImage}
         uploadCardVideo={uploadCardVideo}
         playAudio={playAudio}
@@ -1063,8 +1105,11 @@ function App() {
         cardTextColor={cardTextColor}
         cardFontWeight={cardFontWeight}
         cardFontStyle={cardFontStyle}
+        cardBgFront={cardBgFront}
+        cardBgBack={cardBgBack}
         contextFont={contextFont}
         contextTextColor={contextTextColor}
+        contextFontSize={contextFontSize}
         contextFontWeight={contextFontWeight}
         contextFontStyle={contextFontStyle}
       />
@@ -1093,6 +1138,7 @@ function App() {
         customBackgrounds={customBackgrounds}
         uploadCustomBackground={uploadCustomBackground}
         startTutorial={startTutorial}
+        showToast={showToast}
       />
 
       <SyncModal
@@ -1103,7 +1149,7 @@ function App() {
         loading={loading}
       />
 
-      <TutorialOverlay 
+      <TutorialOverlay
         isOpen={!!activeTutorial}
         steps={TUTORIAL_STEPS[activeTutorial] || []}
         onFinish={() => finishTutorial(activeTutorial)}
@@ -1117,4 +1163,3 @@ function App() {
   );
 }
 
-export default App;

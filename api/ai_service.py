@@ -28,20 +28,22 @@ except ImportError:
             async def get_models(self): return []
 
 DEFAULT_PROMPTS = {
-    "de": """Проанализируй предложение "{phrase}", переведи каждое слово и объясни грамматику. не используй таблицы. пиши максимально кратко, ни слова лишнего. дай 3 примера используй теже глаголы что и в предложении. напиши перевод ключевых слов.
+    "de": """Проанализируй предложение "{phrase}". Краткий разбор слов и грамматики, затем 3 примера на нем. с переводом на рус. Очень коротко и ясно, без лишних слов.
 Return ONLY a JSON object in this format:
 {
-  "front": "the original phrase",
-  "back": "the translation",
-  "context": "context sentence and analysis"
-}""",
-    "ru": """Переведи фразу "{phrase}" на немецкий. Проанализируй только перевод на немецкий. изучается немецкий на уровне Б1, переведи каждое слово и объясни грамматику. не используй таблицы. пиши максимально кратко, ни слова лишнего. дай 3 примера на немецким с переводом на русскмй, используй теже глаголы что и в предложении.
+  "front": "{phrase}",
+  "back": "перевод фразы",
+  "context": "Разбор...\\n\\nПримеры:\\n1. нем. - рус.\\n2. нем. - рус.\\n3. нем. - рус."
+}
+END_JSON""",
+    "ru": """Переведи "{phrase}" на немецкий. Анализ только немецкого разбор слов и грамматики, 3 примера на нем. с переводом на рус. Очень коротко и ясно, без лишних слов.
 Return ONLY a JSON object in this format:
 {
   "front": "German translation",
-  "back": "Russian phrase",
-  "context": "context sentence and analysis"
-}"""
+  "back": "{phrase}",
+  "context": "Разбор...\\n\\nПримеры:\\n1. нем. - рус.\\n2. нем. - рус.\\n3. нем. - рус."
+}
+END_JSON"""
 }
 
 def detect_language(text: str) -> str:
@@ -56,22 +58,32 @@ async def generate_card_fields(user_id: int, phrase: str):
     
     # Получаем настройки ИИ
     ai_provider = TMASetting.get_or_none(TMASetting.key == "AI_PROVIDER")
-    provider = ai_provider.value if ai_provider else "openrouter"
+    provider = ai_provider.value if ai_provider else "google" 
+    if provider == "default":
+        provider = "google"
     
     key_name = "GOOGLE_API_KEY" if provider == "google" else "OPENROUTER_API_KEY"
     ai_key_record = TMASetting.get_or_none(TMASetting.key == key_name)
+    
+    # Сначала ищем в настройках БД, потом в переменных окружения
     ai_key = ai_key_record.value if ai_key_record else None
+    if not ai_key:
+        import os
+        ai_key = os.environ.get(key_name)
     
     if not ai_key and provider != "ollama":
-        return {"error": f"API ключ для {provider} не настроен. Перейдите в Настройки -> AI."}
+        return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
-    ai_model_record = TMASetting.get_or_none(TMASetting.key == "AI_MODEL")
+    # Промпты пользователя (если есть)
+    ai_model_record = TMASetting.get_or_none(TMASetting.key == "DEFAULT_MODEL")
+    if not ai_model_record:
+        ai_model_record = TMASetting.get_or_none(TMASetting.key == "AI_MODEL")
     ai_model = ai_model_record.value if ai_model_record else None
     
     # Промпты пользователя (если есть)
     user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
     
-    base_prompt = DEFAULT_PROMPTS[lang]
+    base_prompt = DEFAULT_PROMPTS.get(lang, DEFAULT_PROMPTS["de"])
     if user_prompts:
         # Если у пользователя есть кастомный промпт, используем его, иначе дефолт
         system_prompt = user_prompts.translation_prompt or base_prompt
@@ -90,9 +102,17 @@ async def generate_card_fields(user_id: int, phrase: str):
         api_key=ai_key
     )
     
-    # Default models fallback (Gemini 2.5 is the new standard in 2026)
-    default_model = "google/gemini-2.5-flash" if provider == "openrouter" else "gemini-2.5-flash"
-    model_name = ai_model if ai_model else default_model
+    # По умолчанию используем gemini-1.5-flash как наиболее стабильный
+    if provider == "openrouter":
+        default_model = "google/gemini-flash-1.5"
+        # Если модель не содержит слеша, добавляем префикс провайдера по умолчанию
+        if ai_model and "/" not in ai_model:
+            model_name = f"google/{ai_model}"
+        else:
+            model_name = ai_model if ai_model else default_model
+    else:
+        default_model = "gemini-1.5-flash"
+        model_name = ai_model if ai_model else default_model
     
     response, success = await client.chat_completion(
         system_prompt=system_prompt,
@@ -105,10 +125,50 @@ async def generate_card_fields(user_id: int, phrase: str):
     
     # Пытаемся извлечь JSON
     try:
-        # Ищем JSON в ответе (на случай если ИИ добавил лишний текст)
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
-        if json_match:
-            data = json.loads(json_match.group(0))
+        # Убираем маркер END_JSON если он есть
+        clean_response = response.replace("END_JSON", "").strip()
+        
+        # Убираем markdown блоки
+        if "```" in clean_response:
+            # Ищем содержимое между ```json и ``` или просто ```
+            match = re.search(r'```(?:json)?\s*(.*?)\s*```', clean_response, re.DOTALL | re.IGNORECASE)
+            if match:
+                clean_response = match.group(1).strip()
+            else:
+                # Если не нашли закрывающих, просто убираем начало
+                clean_response = re.sub(r'^```(?:json)?\n?', '', clean_response, flags=re.IGNORECASE).strip()
+        
+        # Ищем JSON объект (первая { и последняя })
+        first_brace = clean_response.find('{')
+        last_brace = clean_response.rfind('}')
+        
+        if first_brace != -1:
+            if last_brace != -1 and last_brace > first_brace:
+                json_str = clean_response[first_brace:last_brace+1]
+            else:
+                json_str = clean_response[first_brace:]
+            
+            # Если JSON кажется оборванным, пробуем закрыть скобки
+            open_count = json_str.count('{')
+            close_count = json_str.count('}')
+            if open_count > close_count:
+                json_str += '}' * (open_count - close_count)
+            
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError:
+                # Если всё еще не парсится, пробуем почистить от лишних запятых перед }
+                json_str = re.sub(r',\s*\}', '}', json_str)
+                try:
+                    data = json.loads(json_str)
+                except:
+                    # Последний шанс: вырезаем только нужные поля регулярками
+                    data = {
+                        "front": (re.search(r'"front":\s*"(.*?)"', json_str) or re.search(r'"front":\s*"(.*)', json_str)).group(1) if '"front"' in json_str else phrase,
+                        "back": (re.search(r'"back":\s*"(.*?)"', json_str) or re.search(r'"back":\s*"(.*)', json_str)).group(1) if '"back"' in json_str else "",
+                        "context": (re.search(r'"context":\s*"(.*?)"', json_str) or re.search(r'"context":\s*"(.*)', json_str)).group(1) if '"context"' in json_str else ""
+                    }
+                    
             return {
                 "front": data.get("front", phrase),
                 "back": data.get("back", ""),

@@ -11,6 +11,7 @@ import { AITab } from './settings/AITab';
 import { PromptsTab } from './settings/PromptsTab';
 import { PresetsTab } from './settings/PresetsTab';
 import { CommunityTab } from './settings/CommunityTab';
+import { FeedbackTab } from './settings/FeedbackTab';
 
 export const SettingsModal = ({
   isSettingsOpen,
@@ -35,7 +36,8 @@ export const SettingsModal = ({
   promoteDeck,
   customBackgrounds,
   uploadCustomBackground,
-  startTutorial
+  startTutorial,
+  showToast
 }) => {
   if (!isSettingsOpen) return null;
 
@@ -79,6 +81,7 @@ export const SettingsModal = ({
                 Сообщество
               </button>
             )}
+            <button className={`tab-btn ${activeSettingsTab === 'feedback' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('feedback')}>Отзыв</button>
           </div>
 
           <div className="settings-content scrollable">
@@ -116,6 +119,7 @@ export const SettingsModal = ({
                   promoteDeck={promoteDeck} 
                 />
               )}
+              {activeSettingsTab === 'feedback' && <FeedbackTab showToast={showToast} />}
             </AnimatePresence>
           </div>
         </motion.div>

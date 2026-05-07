@@ -212,7 +212,7 @@ export const StudyView = ({
             <h2>{currentDeck?.name}</h2>
           </div>
           <div className="header-actions">
-            <button className="add-card-btn-compact" onClick={() => openCreator(currentDeck?.id)} title="Добавить карточку">
+            <button className="add-card-btn-compact" onClick={() => openCreator(currentDeck?.id, 'study')} title="Добавить карточку">
               <Plus size={22} />
             </button>
             <HelpButton onClick={() => startTutorial(isFlipped ? 'study_back' : 'study')} />

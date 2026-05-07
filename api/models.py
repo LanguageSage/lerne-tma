@@ -77,6 +77,7 @@ def create_all_tables():
             TMA_Deck, TMA_Card, TMAProgress, 
             TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, # Новая таблица для медиа
+            TMAFeedback, # Таблица для отзывов
             Deck, Card 
         ])
         # Миграция: добавляем image_data если колонки нет (для существующих БД)
@@ -95,6 +96,9 @@ def create_all_tables():
             ('ALTER TABLE card ADD COLUMN tags TEXT DEFAULT \'[]\'', lerne_db),
             ('ALTER TABLE card ADD COLUMN topics TEXT DEFAULT \'[]\'', lerne_db),
             ('ALTER TABLE card ADD COLUMN source TEXT', lerne_db),
+            ('ALTER TABLE tma_card ADD COLUMN tags TEXT DEFAULT \'[]\'', tma_db),
+            ('ALTER TABLE tma_card ADD COLUMN topics TEXT DEFAULT \'[]\'', tma_db),
+            ('ALTER TABLE tma_card ADD COLUMN source TEXT', tma_db),
             ('ALTER TABLE card ADD COLUMN card_type TEXT DEFAULT \'translation\'', lerne_db),
             ('ALTER TABLE card ADD COLUMN is_deleted BOOLEAN DEFAULT false', lerne_db),
             ('ALTER TABLE card ADD COLUMN created_at TIMESTAMP', lerne_db),
@@ -213,6 +217,15 @@ class TMAUserPrompt(BaseModel):
     context_prompt = TextField(null=True)
     class Meta:
         table_name = 'tmauserprompt'
+
+class TMAFeedback(BaseModel):
+    id = AutoField()
+    user_id = BigIntegerField(index=True)
+    rating = IntegerField(null=True)
+    message = TextField()
+    created_at = DateTimeField(default=datetime.datetime.now)
+    class Meta:
+        table_name = 'tma_feedback'
 
 class Deck(Model):
     id = AutoField()

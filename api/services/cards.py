@@ -14,44 +14,60 @@ from .utils import add_to_history
 
 def save_card(data, user_id):
     """Сохраняет или обновляет карточку."""
-    try:
-        card_id = data.get('card_id') or data.get('id')
-        if card_id:
+    logger.info(f"Saving card for user {user_id}. Data: {data}")
+    
+    raw_card_id = data.get('card_id') or data.get('id')
+    card_id = int(raw_card_id) if raw_card_id else None
+    
+    if card_id:
+        try:
             card = TMA_Card.get_by_id(card_id)
-        else:
+        except TMA_Card.DoesNotExist:
+            logger.warning(f"Card {card_id} not found, creating new.")
             card = TMA_Card()
-            
-        if data.get('deck_id'):
-            card.deck_id = data.get('deck_id')
+    else:
+        card = TMA_Card()
         
-        # Обновляем только если передано, чтобы не затереть существующие данные
-        front = data.get('front') or data.get('front_text')
-        if front is not None:
-            card.front_text = front
-            
-        back = data.get('back') or data.get('back_text')
-        if back is not None:
-            card.back_text = back
-            
-        if 'context' in data:
-            card.context = data.get('context')
-        if 'image_path' in data:
-            card.image_path = data.get('image_path')
-        if 'audio_path' in data:
-            card.audio_path = data.get('audio_path')
-        if 'video_front_path' in data:
-            card.video_front_path = data.get('video_front_path')
-        if 'video_back_path' in data:
-            card.video_back_path = data.get('video_back_path')
-            
-        card.updated_at = datetime.datetime.now()
-        card.history = add_to_history(card.history, "Edited manually")
-        card.save()
-        return card
-    except Exception as e:
-        import traceback
-        logger.error(f"Error saving card: {e}\n{traceback.format_exc()}")
-        return None
+    raw_deck_id = data.get('deck_id')
+    deck_id = int(raw_deck_id) if raw_deck_id else None
+    
+    if deck_id:
+        card.deck_id = deck_id
+    elif not card.id:
+        raise ValueError("Missing deck_id for new card")
+    
+    # Обновляем только если передано
+    front = data.get('front') or data.get('front_text')
+    if front is not None:
+        card.front_text = front
+        
+    back = data.get('back') or data.get('back_text')
+    if back is not None:
+        card.back_text = back
+        
+    if 'context' in data:
+        card.context = data.get('context')
+    if 'image_path' in data:
+        card.image_path = data.get('image_path')
+    if 'audio_path' in data:
+        card.audio_path = data.get('audio_path')
+    if 'video_front_path' in data:
+        card.video_front_path = data.get('video_front_path')
+    if 'video_back_path' in data:
+        card.video_back_path = data.get('video_back_path')
+        
+    # Ensure source is not null if required by DB
+    if 'source' in data:
+        card.source = data.get('source')
+    elif not card.source:
+        card.source = 'user'
+        
+    card.updated_at = datetime.datetime.now()
+    card.history = add_to_history(card.history, "Edited manually")
+    
+    card.save()
+    logger.info(f"Card {card.id} saved successfully")
+    return card
 
 
 def delete_card(card_id: int):
@@ -164,3 +180,22 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None):
         return {"error": str(e)}, None
 
 
+def format_card_for_study(card: TMA_Card, user_id: int):
+    """Форматирует карту для StudyView (с URL и интервалами)."""
+    progress, _ = TMAProgress.get_or_create(
+        card_id=card.id,
+        user_id=user_id,
+        defaults={"queue": "new", "next_review": datetime.datetime.now()}
+    )
+    
+    return {
+        "id": card.id,
+        "front": card.front_text,
+        "back": card.back_text,
+        "context": card.context,
+        "audio_url": resolve_media_url(card.audio_path, "audio"),
+        "image_url": resolve_media_url(card.image_path, "images"),
+        "video_front_url": resolve_media_url(card.video_front_path, "videos"),
+        "video_back_url": resolve_media_url(card.video_back_path, "videos"),
+        "intervals": srs.get_next_intervals(progress)
+    }

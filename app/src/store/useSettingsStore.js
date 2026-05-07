@@ -8,7 +8,7 @@ const getInitialDesignState = () => ({
   cardTextColor: storage.get('lerne_card_text_color') || '#ffff00',
   cardFontSize: storage.get('lerne_card_font_size') !== null ? Number(storage.get('lerne_card_font_size')) : 1.8,
   contextFont: storage.get('lerne_context_font') || 'Inter',
-  contextTextColor: storage.get('lerne_context_text_color') || '#30172e',
+  contextTextColor: storage.get('lerne_context_text_color') || '#080c03',
   contextFontSize: storage.get('lerne_context_font_size') !== null ? Number(storage.get('lerne_context_font_size')) : 1.35,
   cardTextShadow: storage.get('lerne_card_text_shadow') || 'glow',
   contextTextShadow: storage.get('lerne_context_text_shadow') || 'outline',

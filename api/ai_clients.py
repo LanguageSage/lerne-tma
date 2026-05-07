@@ -1,5 +1,9 @@
 import aiohttp
 import asyncio
+import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AIService:
     """Service to handle AI requests across providers (TMA version)."""
@@ -20,11 +24,9 @@ class AIService:
 
     async def _google_chat(self, system_prompt, user_message, model):
         """Direct call to Google Gemini API."""
-        # Use provided model or default to gemini-1.5-flash
         model_name = model if "gemini" in model else "gemini-1.5-flash"
+        logger.info(f"AI: Requesting Google Gemini ({model_name})...")
         
-        # OpenRouter uses model names like 'google/gemini-2.0-flash-lite-001'
-        # If we are calling Google directly, we need to extract the actual model part
         if "/" in model_name:
             model_name = model_name.split("/")[-1]
 
@@ -41,27 +43,43 @@ class AIService:
             ],
             "generationConfig": {
                 "temperature": 0.7,
-                "topK": 40,
-                "topP": 0.95,
-                "maxOutputTokens": 1024,
+                "maxOutputTokens": 2048,
             }
         }
         
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=60)) as resp:
-                    data = await resp.json()
-                    if resp.status != 200:
-                        error_msg = data.get("error", {}).get("message", "Unknown Google API error")
-                        return f"❌ Google API Error: {error_msg}", False
-                    
-                    try:
-                        content = data["candidates"][0]["content"]["parts"][0]["text"]
-                        return content, True
-                    except (KeyError, IndexError):
-                        return "❌ Google API Error: Unexpected response format", False
-        except Exception as e:
-            return f"❌ Google connection error: {str(e)}", False
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                        data = await resp.json()
+                        if resp.status == 429:
+                            wait_time = (attempt + 1) * 5
+                            if "error" in data and "message" in data["error"]:
+                                # Пробуем извлечь время ожидания из сообщения
+                                match = re.search(r"retry in ([\d.]+)s", data["error"]["message"])
+                                if match:
+                                    wait_time = float(match.group(1)) + 1
+                            
+                            logger.warning(f"Google Quota Exceeded. Attempt {attempt+1}/{max_retries}. Waiting {wait_time}s...")
+                            await asyncio.sleep(wait_time)
+                            continue
+
+                        if resp.status != 200:
+                            error_msg = data.get("error", {}).get("message", "Unknown Google API error")
+                            return f"❌ Google API Error: {error_msg}", False
+                        
+                        try:
+                            content = data["candidates"][0]["content"]["parts"][0]["text"]
+                            return content, True
+                        except (KeyError, IndexError):
+                            return "❌ Google API Error: Unexpected response format", False
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    return f"❌ Google connection error: {str(e)}", False
+                await asyncio.sleep(2)
+        
+        return "❌ Google API Error: Max retries exceeded", False
 
     async def _ollama_chat(self, system_prompt, user_message, model):
         # Remove 'ollama/' prefix if present
@@ -88,6 +106,7 @@ class AIService:
             return f"❌ Ollama connection error: {str(e)}", False
 
     async def _openrouter_chat(self, system_prompt, user_message, model):
+        logger.info(f"AI: Requesting OpenRouter ({model})...")
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -125,7 +144,7 @@ class AIService:
                             return [m["name"].split("/")[-1] for m in data.get("models", []) 
                                     if "generateContent" in m.get("supportedGenerationMethods", [])]
             except: pass
-            return ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-3.1-pro-preview", "gemini-3-flash-preview"]
+            return ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"]
 
         if self.provider == "openrouter":
             url = "https://openrouter.ai/api/v1/models"
@@ -135,13 +154,14 @@ class AIService:
                         if resp.status == 200:
                             data = await resp.json()
                             all_models = [m["id"] for m in data.get("data", [])]
-                            free_models = [m for m in all_models if ":free" in m]
-                            return free_models if free_models else all_models[:10]
+                            # Приоритезируем Gemini и бесплатные модели
+                            fav_models = [m for m in all_models if "gemini" in m.lower() or ":free" in m.lower()]
+                            return fav_models if fav_models else all_models[:15]
             except: pass
             return [
-                "google/gemini-2.5-flash", 
-                "google/gemini-2.5-pro",
-                "google/gemini-flash-latest", 
+                "google/gemini-flash-1.5", 
+                "google/gemini-flash-1.5-8b",
+                "google/gemini-2.0-flash-exp:free",
                 "google/gemini-2.0-pro-exp-02-05:free"
             ]
 

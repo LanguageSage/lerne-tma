@@ -14,6 +14,7 @@ export const CardEditor = ({
   setAiInputPhrase,
   runAiGenerator,
   generateAudio,
+  generateAudioInternal,
   uploadImage,
   uploadCardVideo,
   playAudio,
@@ -23,14 +24,36 @@ export const CardEditor = ({
   cardTextColor,
   cardFontWeight,
   cardFontStyle,
+  cardBgFront,
+  cardBgBack,
   contextFont,
   contextTextColor,
+  contextFontSize,
   contextFontWeight,
   contextFontStyle
 }) => {
   const imageInputRef = useRef(null);
   const videoFrontRef = useRef(null);
   const videoBackRef = useRef(null);
+
+  const handleAiGenerate = async () => {
+    if (!editingCard?.front) return;
+    const result = await runAiGenerator(editingCard.front, true);
+    if (result) {
+      const updated = {
+        ...editingCard,
+        front: result.front || editingCard.front,
+        back: result.back || editingCard.back,
+        context: result.context || editingCard.context
+      };
+      setEditingCard(updated);
+      
+      // Auto-generate audio after AI generation
+      setTimeout(() => {
+        generateAudioInternal(updated, setEditingCard);
+      }, 500);
+    }
+  };
 
   if (view !== 'editor') return null;
 
@@ -59,18 +82,12 @@ export const CardEditor = ({
                   fontStyle: cardFontStyle,
                   fontSize: '1.2rem',
                   color: cardTextColor,
-                  background: 'rgba(255,255,255,0.03)'
+                  background: cardBgFront || 'rgba(255,255,255,0.03)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
                 }}
                 placeholder="Слово или фраза..."
               />
-              <button 
-                className="action-icon-btn ai-quick-gen" 
-                onClick={() => runAiGenerator(editingCard?.front)}
-                disabled={loading || !editingCard?.front}
-                title="Сгенерировать перевод и контекст через AI"
-              >
-                <Sparkles size={20} />
-              </button>
             </div>
             <div className="editor-audio-actions">
               <button 
@@ -89,24 +106,34 @@ export const CardEditor = ({
                 </button>
               )}
             </div>
-            
-            {/* Видео Лицо */}
-            <div className="media-upload-section" style={{ marginTop: '10px' }}>
-              <label className="sub-label">Видео (Лицо)</label>
-              {editingCard?.video_front_url && (
-                <div className="media-preview-mini">
-                  <video src={editingCard.video_front_url} muted loop autoPlay />
-                  <button className="media-clear-btn" onClick={() => setEditingCard({...editingCard, video_front_path: '', video_front_url: ''})}><X size={12} /></button>
-                </div>
-              )}
-              <button className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} disabled={loading}>
-                {editingCard?.video_front_url ? 'Заменить видео' : 'Добавить видео'}
-              </button>
-              <input ref={videoFrontRef} type="file" accept="video/mp4" className="hidden-file-input" onChange={e => {
-                uploadCardVideo(e.target.files?.[0], editingCard, 'front');
-                e.target.value = '';
-              }} />
-            </div>
+          </div>
+
+          <div className="ai-quick-actions">
+            <button 
+              className="btn-ai-generate" 
+              onClick={handleAiGenerate}
+              disabled={loading || !editingCard?.front}
+            >
+              {loading ? <RefreshCw className="spin" size={18} /> : <Sparkles size={18} />}
+              <span>Сгенерировать ответ</span>
+            </button>
+          </div>
+
+          <div className="form-group">
+            <label>Видео (Лицо)</label>
+            {editingCard?.video_front_url && (
+              <div className="media-preview-mini">
+                <video src={editingCard.video_front_url} muted loop autoPlay />
+                <button className="media-clear-btn" onClick={() => setEditingCard({...editingCard, video_front_path: '', video_front_url: ''})}><X size={12} /></button>
+              </div>
+            )}
+            <button className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} disabled={loading}>
+              {editingCard?.video_front_url ? 'Заменить видео' : 'Добавить видео'}
+            </button>
+            <input ref={videoFrontRef} type="file" accept="video/mp4" className="hidden-file-input" onChange={e => {
+              uploadCardVideo(e.target.files?.[0], editingCard, 'front');
+              e.target.value = '';
+            }} />
           </div>
 
           <div className="form-group">
@@ -120,8 +147,11 @@ export const CardEditor = ({
                 fontStyle: cardFontStyle,
                 fontSize: '1.2rem',
                 color: cardTextColor,
-                background: 'rgba(255,255,255,0.03)'
+                background: cardBgBack || 'rgba(255,255,255,0.03)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
               }}
+              placeholder="Перевод..."
             />
             
             {/* Видео Оборот */}
@@ -144,18 +174,22 @@ export const CardEditor = ({
           </div>
 
           <div className="form-group">
-            <label>Контекст</label>
+            <label>Контекст / Анализ</label>
             <textarea 
+              className="context-textarea"
               value={editingCard?.context || ''} 
               onChange={e => setEditingCard({...editingCard, context: e.target.value})}
               style={{ 
                 fontFamily: contextFont, 
-                fontWeight: contextFontWeight, 
-                fontStyle: contextFontStyle,
-                fontSize: '1rem',
+                fontSize: `${contextFontSize}rem`,
                 color: contextTextColor,
-                background: 'rgba(255,255,255,0.03)'
+                fontWeight: contextFontWeight,
+                fontStyle: contextFontStyle,
+                background: cardBgBack || 'rgba(255,255,255,0.03)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
               }}
+              placeholder="Примеры, грамматика..."
             />
           </div>
 
@@ -212,7 +246,7 @@ export const CardEditor = ({
             </div>
           </div>
 
-          <button className="btn btn-primary btn-full" onClick={saveCard} disabled={loading}>
+          <button className="btn btn-primary btn-full" onClick={() => saveCard()} disabled={loading}>
             {loading ? <RefreshCw className="spin" /> : 'Сохранить'}
           </button>
         </div>
