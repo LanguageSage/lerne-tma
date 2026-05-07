@@ -102,16 +102,16 @@ async def generate_card_fields(user_id: int, phrase: str):
         api_key=ai_key
     )
     
-    # По умолчанию используем gemini-1.5-flash как наиболее стабильный
+    # По умолчанию используем gemini-2.5-flash как наиболее стабильный
     if provider == "openrouter":
-        default_model = "google/gemini-flash-1.5"
+        default_model = "google/gemini-2.5-flash"
         # Если модель не содержит слеша, добавляем префикс провайдера по умолчанию
         if ai_model and "/" not in ai_model:
             model_name = f"google/{ai_model}"
         else:
             model_name = ai_model if ai_model else default_model
     else:
-        default_model = "gemini-1.5-flash"
+        default_model = "gemini-2.5-flash"
         model_name = ai_model if ai_model else default_model
     
     response, success = await client.chat_completion(

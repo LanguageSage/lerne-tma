@@ -1033,6 +1033,9 @@ export default function App() {
         cardFontStyle={cardFontStyle}
         contextFontWeight={contextFontWeight}
         contextFontStyle={contextFontStyle}
+        cardFontSize={cardFontSize}
+        cardTextShadow={cardTextShadow}
+        contextTextShadow={contextTextShadow}
       />
 
       <DeckModals
@@ -1081,6 +1084,9 @@ export default function App() {
         contextFontSize={contextFontSize}
         contextFontWeight={contextFontWeight}
         contextFontStyle={contextFontStyle}
+        cardFontSize={cardFontSize}
+        cardTextShadow={cardTextShadow}
+        contextTextShadow={contextTextShadow}
       />
 
       <CardEditor
@@ -1112,6 +1118,9 @@ export default function App() {
         contextFontSize={contextFontSize}
         contextFontWeight={contextFontWeight}
         contextFontStyle={contextFontStyle}
+        cardFontSize={cardFontSize}
+        cardTextShadow={cardTextShadow}
+        contextTextShadow={contextTextShadow}
       />
 
       <SettingsModal

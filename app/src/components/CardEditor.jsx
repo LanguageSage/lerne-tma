@@ -1,6 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X, Sparkles } from 'lucide-react';
+import { CardBackground } from './common/CardBackground';
+import { getTextShadow, getContextShadow } from '../utils/style';
 
 export const CardEditor = ({
   view,
@@ -30,11 +32,28 @@ export const CardEditor = ({
   contextTextColor,
   contextFontSize,
   contextFontWeight,
-  contextFontStyle
+  contextFontStyle,
+  cardFontSize,
+  cardTextShadow,
+  contextTextShadow,
 }) => {
   const imageInputRef = useRef(null);
   const videoFrontRef = useRef(null);
   const videoBackRef = useRef(null);
+  const frontRef = useRef(null);
+  const backRef = useRef(null);
+  const contextRef = useRef(null);
+
+  const autoResize = (ref) => {
+    if (ref.current) {
+      ref.current.style.height = 'auto';
+      ref.current.style.height = `${ref.current.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => { autoResize(frontRef); }, [editingCard?.front]);
+  useEffect(() => { autoResize(backRef); }, [editingCard?.back]);
+  useEffect(() => { autoResize(contextRef); }, [editingCard?.context]);
 
   const handleAiGenerate = async () => {
     if (!editingCard?.front) return;
@@ -57,6 +76,17 @@ export const CardEditor = ({
 
   if (view !== 'editor') return null;
 
+  const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
+  const getResolvedStyle = (settingStyle, cardId) => {
+    if (settingStyle !== 'auto') return settingStyle;
+    if (!cardId) return 'standard';
+    const sum = cardId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    return availableStyles[sum % availableStyles.length];
+  };
+
+  const resolvedBgFront = getResolvedStyle(cardBgFront, editingCard?.id || 0);
+  const resolvedBgBack = getResolvedStyle(cardBgBack, editingCard?.id || 0);
+
   const imageValue = editingCard?.image_path || editingCard?.image_url || '';
   const imagePreviewUrl = editingCard?.image_url
     || (imageValue.startsWith('images/') ? `/api/media/${imageValue}` : imageValue);
@@ -72,19 +102,28 @@ export const CardEditor = ({
         <div className="editor-form glass">
           <div className="form-group">
             <label>Текст (Front)</label>
-            <div className="textarea-with-action">
+            <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
+              <CardBackground styleType={resolvedBgFront} />
               <textarea 
+                ref={frontRef}
                 value={editingCard?.front || ''} 
                 onChange={e => setEditingCard({...editingCard, front: e.target.value})}
                 style={{ 
                   fontFamily: cardFont, 
                   fontWeight: cardFontWeight, 
                   fontStyle: cardFontStyle,
-                  fontSize: '1.2rem',
+                  fontSize: `${cardFontSize}rem`,
                   color: cardTextColor,
-                  background: cardBgFront || 'rgba(255,255,255,0.03)',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
+                  textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                  background: 'transparent',
+                  position: 'relative',
+                  zIndex: 2,
+                  minHeight: '100px',
+                  border: 'none',
+                  resize: 'none',
+                  overflow: 'hidden',
+                  width: '100%',
+                  display: 'block'
                 }}
                 placeholder="Слово или фраза..."
               />
@@ -138,21 +177,32 @@ export const CardEditor = ({
 
           <div className="form-group">
             <label>Перевод (Back)</label>
-            <textarea 
-              value={editingCard?.back || ''} 
-              onChange={e => setEditingCard({...editingCard, back: e.target.value})}
-              style={{ 
-                fontFamily: cardFont, 
-                fontWeight: cardFontWeight, 
-                fontStyle: cardFontStyle,
-                fontSize: '1.2rem',
-                color: cardTextColor,
-                background: cardBgBack || 'rgba(255,255,255,0.03)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
-              }}
-              placeholder="Перевод..."
-            />
+            <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
+              <CardBackground styleType={resolvedBgBack} />
+              <textarea 
+                ref={backRef}
+                value={editingCard?.back || ''} 
+                onChange={e => setEditingCard({...editingCard, back: e.target.value})}
+                style={{ 
+                  fontFamily: cardFont, 
+                  fontWeight: cardFontWeight, 
+                  fontStyle: cardFontStyle,
+                  fontSize: `${cardFontSize}rem`,
+                  color: cardTextColor,
+                  textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                  background: 'transparent',
+                  position: 'relative',
+                  zIndex: 2,
+                  minHeight: '80px',
+                  border: 'none',
+                  resize: 'none',
+                  overflow: 'hidden',
+                  width: '100%',
+                  display: 'block'
+                }}
+                placeholder="Перевод..."
+              />
+            </div>
             
             {/* Видео Оборот */}
             <div className="media-upload-section" style={{ marginTop: '10px' }}>
@@ -175,22 +225,33 @@ export const CardEditor = ({
 
           <div className="form-group">
             <label>Контекст / Анализ</label>
-            <textarea 
-              className="context-textarea"
-              value={editingCard?.context || ''} 
-              onChange={e => setEditingCard({...editingCard, context: e.target.value})}
-              style={{ 
-                fontFamily: contextFont, 
-                fontSize: `${contextFontSize}rem`,
-                color: contextTextColor,
-                fontWeight: contextFontWeight,
-                fontStyle: contextFontStyle,
-                background: cardBgBack || 'rgba(255,255,255,0.03)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
-              }}
-              placeholder="Примеры, грамматика..."
-            />
+            <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
+              <CardBackground styleType={resolvedBgBack} />
+              <textarea 
+                ref={contextRef}
+                className="context-textarea"
+                value={editingCard?.context || ''} 
+                onChange={e => setEditingCard({...editingCard, context: e.target.value})}
+                style={{ 
+                  fontFamily: contextFont, 
+                  fontSize: `${contextFontSize}rem`,
+                  color: contextTextColor,
+                  fontWeight: contextFontWeight,
+                  fontStyle: contextFontStyle,
+                  textShadow: getContextShadow(contextTextShadow, contextTextColor),
+                  background: 'transparent',
+                  position: 'relative',
+                  zIndex: 2,
+                  minHeight: '120px',
+                  border: 'none',
+                  resize: 'none',
+                  overflow: 'hidden',
+                  width: '100%',
+                  display: 'block'
+                }}
+                placeholder="Примеры, грамматика..."
+              />
+            </div>
           </div>
 
           <div className="form-group">

@@ -24,7 +24,7 @@ class AIService:
 
     async def _google_chat(self, system_prompt, user_message, model):
         """Direct call to Google Gemini API."""
-        model_name = model if "gemini" in model else "gemini-1.5-flash"
+        model_name = model if "gemini" in model else "gemini-2.5-flash"
         logger.info(f"AI: Requesting Google Gemini ({model_name})...")
         
         if "/" in model_name:
@@ -144,7 +144,7 @@ class AIService:
                             return [m["name"].split("/")[-1] for m in data.get("models", []) 
                                     if "generateContent" in m.get("supportedGenerationMethods", [])]
             except: pass
-            return ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"]
+            return ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]
 
         if self.provider == "openrouter":
             url = "https://openrouter.ai/api/v1/models"
@@ -159,8 +159,8 @@ class AIService:
                             return fav_models if fav_models else all_models[:15]
             except: pass
             return [
-                "google/gemini-flash-1.5", 
-                "google/gemini-flash-1.5-8b",
+                "google/gemini-2.5-flash", 
+                "google/gemini-2.5-flash-8b",
                 "google/gemini-2.0-flash-exp:free",
                 "google/gemini-2.0-pro-exp-02-05:free"
             ]
