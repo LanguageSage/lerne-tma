@@ -2,6 +2,8 @@ import aiohttp
 import asyncio
 import re
 import logging
+import random
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,7 @@ class AIService:
         self.groq_url = "https://api.groq.com/openai/v1"
 
     async def chat_completion(self, system_prompt, user_message, model):
-        """Route to correct provider."""
+        """Route to correct provider with unified retry logic."""
         if self.provider == "google" or "gemini" in model.lower():
             return await self._google_chat(system_prompt, user_message, model)
         elif self.provider == "groq" or model.startswith("groq/"):
@@ -25,155 +27,127 @@ class AIService:
         else:
             return await self._openrouter_chat(system_prompt, user_message, model)
 
+    async def _make_request(self, url, method="POST", headers=None, json_data=None, timeout=60, provider_name="AI"):
+        """Unified request handler with exponential backoff for 429 and 5xx errors."""
+        max_retries = 4
+        base_delay = 2  # Начальная задержка 2 секунды
+        
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+            for attempt in range(max_retries):
+                try:
+                    start_time = time.time()
+                    async with session.request(method, url, headers=headers, json=json_data) as resp:
+                        duration = time.time() - start_time
+                        
+                        if resp.status == 200:
+                            data = await resp.json()
+                            logger.info(f"{provider_name}: Success in {duration:.2f}s")
+                            return data, True
+                        
+                        # Обработка ошибок
+                        error_data = {}
+                        try:
+                            error_data = await resp.json()
+                        except:
+                            error_text = await resp.text()
+                            error_data = {"error": {"message": error_text}}
+                            
+                        error_msg = error_data.get("error", {}).get("message", "Unknown error")
+                        
+                        # 429 (Rate Limit) или 5xx (Server Error / 503 Service Unavailable)
+                        if resp.status == 429 or resp.status >= 500:
+                            wait_time = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                            
+                            # Специфичная логика для Google (они иногда пишут сколько ждать)
+                            if resp.status == 429 and "retry in" in str(error_msg).lower():
+                                match = re.search(r"retry in ([\d.]+)s", str(error_msg))
+                                if match: wait_time = float(match.group(1)) + 1
+                            
+                            logger.warning(f"{provider_name} Error {resp.status} (Attempt {attempt+1}/{max_retries}). Retrying in {wait_time:.1f}s... Msg: {error_msg}")
+                            
+                            if attempt < max_retries - 1:
+                                await asyncio.sleep(wait_time)
+                                continue
+                            return f"{provider_name} Error {resp.status}: {error_msg}", False
+                        
+                        # Другие ошибки (400, 401, 404 и т.д.) - не ретраим
+                        logger.error(f"{provider_name} Fatal Error {resp.status}: {error_msg}")
+                        return f"{provider_name} Error {resp.status}: {error_msg}", False
+                        
+                except asyncio.TimeoutError:
+                    logger.warning(f"{provider_name} Timeout (Attempt {attempt+1}/{max_retries})")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(base_delay * (attempt + 1))
+                        continue
+                    return f"{provider_name} Timeout: Request took too long", False
+                except Exception as e:
+                    logger.error(f"{provider_name} Connection Error (Attempt {attempt+1}): {str(e)}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(base_delay)
+                        continue
+                    return f"{provider_name} Connection Error: {str(e)}", False
+                    
+        return "Unknown error occurred", False
+
     async def _google_chat(self, system_prompt, user_message, model):
         """Direct call to Google Gemini API."""
-        # gemini-2.5-flash is now a valid model in 2026
-        model_name = model if "gemini" in model else "gemini-2.5-flash"
-        logger.info(f"AI: Requesting Google Gemini ({model_name})...")
-        
+        model_name = model if "gemini" in model else "gemini-2.0-flash"
         if "/" in model_name:
             model_name = model_name.split("/")[-1]
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
-        
         payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {"text": f"System: {system_prompt}\n\nUser: {user_message}"}
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.7,
-                "maxOutputTokens": 2048,
-            }
+            "contents": [{"role": "user", "parts": [{"text": f"System: {system_prompt}\n\nUser: {user_message}"}]}],
+            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048}
         }
         
-        max_retries = 3
-        timeout = aiohttp.ClientTimeout(total=45)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            for attempt in range(max_retries):
-                try:
-                    async with session.post(url, json=payload) as resp:
-                        data = await resp.json()
-                        if resp.status == 429:
-                            wait_time = (attempt + 1) * 3
-                            if "error" in data and "message" in data["error"]:
-                                match = re.search(r"retry in ([\d.]+)s", data["error"]["message"])
-                                if match: wait_time = float(match.group(1)) + 0.5
-                            logger.warning(f"Google Quota Exceeded. Attempt {attempt+1}/{max_retries}. Waiting {wait_time}s...")
-                            if attempt < max_retries - 1:
-                                await asyncio.sleep(wait_time)
-                                continue
-                            return f"Quota Exceeded (Limit reached). Please try again in a few minutes.", False
-                        
-                        if resp.status != 200:
-                            error_msg = data.get("error", {}).get("message", "Unknown Google API error")
-                            logger.error(f"Google API Error ({resp.status}): {error_msg}")
-                            if resp.status >= 500 and attempt < max_retries - 1:
-                                await asyncio.sleep(1)
-                                continue
-                            return f"Server Error ({resp.status}): {error_msg}", False
-                        
-                        try:
-                            content = data["candidates"][0]["content"]["parts"][0]["text"]
-                            return content, True
-                        except (KeyError, IndexError):
-                            return "Parsing Error: Unexpected response format from Google", False
-                except asyncio.TimeoutError:
-                    logger.warning(f"Google Timeout (Attempt {attempt+1}/{max_retries})")
-                    if attempt < max_retries - 1: continue
-                    return "Timeout Error: Google API did not respond in time", False
-                except Exception as e:
-                    logger.error(f"Google connection error (Attempt {attempt+1}): {str(e)}")
-                    if attempt == max_retries - 1:
-                        return f"Connection Error: {str(e)}", False
-                    await asyncio.sleep(1)
-        return "Max Retries Error: All attempts failed", False
+        data, success = await self._make_request(url, json_data=payload, provider_name="Google")
+        if not success: return data, False
+        
+        try:
+            content = data["candidates"][0]["content"]["parts"][0]["text"]
+            return content, True
+        except (KeyError, IndexError):
+            return "Parsing Error: Unexpected response format from Google", False
+
     async def _ollama_chat(self, system_prompt, user_message, model):
-        # Remove 'ollama/' prefix if present
         model_name = model.split("/", 1)[1] if "/" in model else model
         url = f"{self.ollama_url}/api/chat"
-        
         payload = {
             "model": model_name,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
+            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}],
             "stream": False
         }
         
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=120)) as resp:
-                    data = await resp.json()
-                    if resp.status != 200:
-                        return f"❌ Ollama Error: {data.get('error', 'Unknown')}", False
-                    return data["message"]["content"], True
-        except Exception as e:
-            return f"❌ Ollama connection error: {str(e)}", False
+        data, success = await self._make_request(url, json_data=payload, timeout=120, provider_name="Ollama")
+        if not success: return data, False
+        return data["message"]["content"], True
 
     async def _groq_chat(self, system_prompt, user_message, model):
-        """Request to Groq Cloud API."""
         model_name = model.split("/", 1)[1] if "/" in model else model
-        logger.info(f"AI: Requesting Groq ({model_name})...")
-        
         url = f"{self.groq_url}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         payload = {
             "model": model_name,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
+            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}],
             "temperature": 0.7
         }
         
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=60)) as resp:
-                    data = await resp.json()
-                    if resp.status != 200:
-                        error_msg = data.get("error", {}).get("message", "Unknown Groq error")
-                        logger.error(f"Groq API Error ({resp.status}): {error_msg}")
-                        return f"❌ Groq Error: {error_msg}", False
-                    return data["choices"][0]["message"]["content"], True
-        except Exception as e:
-            logger.error(f"Groq connection error: {str(e)}")
-            return f"❌ Groq connection error: {str(e)}", False
+        data, success = await self._make_request(url, headers=headers, json_data=payload, provider_name="Groq")
+        if not success: return data, False
+        return data["choices"][0]["message"]["content"], True
 
     async def _openrouter_chat(self, system_prompt, user_message, model):
-        logger.info(f"AI: Requesting OpenRouter ({model})...")
         url = "https://openrouter.ai/api/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-            "X-Title": "Lerne TMA"
-        }
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json", "X-Title": "Lerne TMA"}
         payload = {
             "model": model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ]
+            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}]
         }
         
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=120)) as resp:
-                    data = await resp.json()
-                    if resp.status != 200:
-                        error_msg = data.get("error", {}).get("message", "Unknown error")
-                        return f"❌ OpenRouter Error: {error_msg}", False
-                    return data["choices"][0]["message"]["content"], True
-        except Exception as e:
-            return f"❌ OpenRouter connection error: {str(e)}", False
+        data, success = await self._make_request(url, headers=headers, json_data=payload, timeout=120, provider_name="OpenRouter")
+        if not success: return data, False
+        return data["choices"][0]["message"]["content"], True
 
     async def get_models(self):
         """Fetch available models from the provider."""

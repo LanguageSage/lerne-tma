@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X, Plus } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X, Plus, MoreHorizontal, Heart, Menu, Settings2, RefreshCcw, Repeat } from 'lucide-react';
 import { stripMarkdown } from '../utils/text';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
@@ -45,7 +45,8 @@ export const StudyView = ({
   cardFontWeight,
   cardFontStyle,
   contextFontWeight,
-  contextFontStyle
+  contextFontStyle,
+  openCardActions
 }) => {
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -403,30 +404,77 @@ export const StudyView = ({
                 <div className="card-inner card-front glass">
                   <CardBackground styleType={resolvedBgFront} />
                   <div className="card-face">
-                    <div className="card-q">❓</div>
+                    {card.audio_url && (
+                      <button 
+                        id="tut-study-audio"
+                        className="audio-btn-corner" 
+                        disabled={loading}
+                        onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
+                        style={{
+                          position: 'absolute',
+                          bottom: '20px',
+                          right: '20px',
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          padding: '12px',
+                          borderRadius: '50%',
+                          color: 'white',
+                          zIndex: 10,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <Volume2 size={24} />
+                      </button>
+                    )}
                     {card.video_front_url && (
                       <div className="video-container-card">
                         <video src={card.video_front_url} autoPlay loop muted playsInline />
                       </div>
                     )}
                     <div className="text-front" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.front)}</div>
-                    {card.audio_url && (
-                      <button 
-                        id="tut-study-audio"
-                        className="audio-btn" 
-                        disabled={loading}
-                        onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
-                      >
-                        <Volume2 size={20} />
-                      </button>
-                    )}
+                    <div className="flip-indicator-center" style={{ marginTop: '20px', opacity: 0.3, pointerEvents: 'none' }}>
+                      <Repeat size={44} />
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="card-inner card-back glass">
                   <CardBackground styleType={resolvedBgBack} />
                   <div className="card-face">
-                    <div className="text-front-mini" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.front)}</div>
+                    <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
+                      <div className="text-front-mini" style={{ marginBottom: 0 }}>{stripMarkdown(card.front)}</div>
+                      {card.audio_url && (
+                        <button 
+                          id="tut-study-audio-back"
+                          className="audio-btn" 
+                          disabled={loading}
+                          onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
+                          style={{ 
+                            position: 'absolute', 
+                            bottom: '-24px', 
+                            right: '5px', 
+                            margin: 0,
+                            padding: '10px',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            color: '#fff',
+                            backdropFilter: 'blur(10px)',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 20,
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                          }}
+                        >
+                          <Volume2 size={26} />
+                        </button>
+                      )}
+                    </div>
+
                     {card.video_back_url && (
                       <div className="video-container-card">
                         <video src={card.video_back_url} autoPlay loop muted playsInline />
@@ -455,16 +503,6 @@ export const StudyView = ({
                       >
                         {stripMarkdown(card.context)}
                       </div>
-                    )}
-                    {card.audio_url && (
-                      <button 
-                        id="tut-study-audio-back"
-                        className="audio-btn bg-audio-btn" 
-                        disabled={loading}
-                        onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
-                      >
-                        <Volume2 size={24} />
-                      </button>
                     )}
                   </div>
                 </div>
@@ -499,9 +537,45 @@ export const StudyView = ({
               </div>
             )}
             
-            {!isFlipped && (
-              <p className="hint">Нажмите на карточку, чтобы увидеть ответ</p>
-            )}
+            <div className="card-actions-row-study" style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'flex-start', 
+              width: '100%', 
+              maxWidth: '350px',
+              marginTop: '6px',
+              position: 'relative'
+            }}>
+              <button 
+                className="btn-card-action-trigger"
+                onClick={(e) => { e.stopPropagation(); openCardActions(card); }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '10px',
+                  color: '#cbd5e1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  width: '42px',
+                  height: '42px'
+                }}
+                title="Действия с карточкой"
+              >
+                <Settings2 size={22} />
+              </button>
+              
+              {card.want_to_learn && (
+                 <div style={{ marginLeft: 'auto', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                   <Heart size={18} fill="#ef4444" />
+                   <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>В списке на изучение</span>
+                 </div>
+              )}
+            </div>
+
 
             <div className="study-navigation">
               <div className="nav-counter nav-counter-current" title="Текущая позиция">

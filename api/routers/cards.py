@@ -30,3 +30,10 @@ def delete_card(card_id: int):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Card not found")
 
+@router.post("/{card_id}/toggle-learn")
+def toggle_learn(card_id: int, user_id: int = Depends(get_user_id)):
+    card = services.toggle_want_to_learn(card_id, user_id)
+    if card:
+        return services.format_card_for_study(card, user_id)
+    raise HTTPException(status_code=404, detail="Card not found")
+

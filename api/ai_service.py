@@ -1,6 +1,7 @@
 import re
 import json
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -108,10 +109,9 @@ async def generate_card_fields(user_id: int, phrase: str):
         api_key=ai_key
     )
     
-    # По умолчанию используем gemini-2.5-flash-lite как наиболее стабильный
+    # По умолчанию используем gemini-2.0-flash как наиболее стабильный
     if provider == "openrouter":
-        default_model = "google/gemini-2.0-flash-lite-preview-02-05:free"
-        # Если модель не содержит слеша, добавляем префикс провайдера по умолчанию
+        default_model = "google/gemini-2.0-flash-lite:free"
         if ai_model and "/" not in ai_model:
             model_name = f"google/{ai_model}"
         else:
@@ -120,8 +120,12 @@ async def generate_card_fields(user_id: int, phrase: str):
         default_model = "llama3-70b-8192"
         model_name = ai_model if ai_model else default_model
     else:
-        default_model = "gemini-2.5-flash-lite"
+        # Для Google используем 2.0 Flash как стандарт
+        default_model = "gemini-2.0-flash"
         model_name = ai_model if ai_model else default_model
+    
+    logger.info(f"AI: Generating card fields using {provider}/{model_name}...")
+    start_time = time.time()
     
     response, success = await client.chat_completion(
         system_prompt=system_prompt,
@@ -129,8 +133,22 @@ async def generate_card_fields(user_id: int, phrase: str):
         model=model_name
     )
     
+    # Fallback если основная модель (возможно, опечатка или нестабильна) упала
+    if not success and model_name != default_model:
+        logger.warning(f"AI: Primary model {model_name} failed. Falling back to {default_model}...")
+        response, success = await client.chat_completion(
+            system_prompt=system_prompt,
+            user_message=phrase,
+            model=default_model
+        )
+    
     if not success:
+        duration = time.time() - start_time
+        logger.error(f"AI: Generation failed after {duration:.2f}s: {response}")
         return {"error": response}
+    
+    duration = time.time() - start_time
+    logger.info(f"AI: Generation successful in {duration:.2f}s")
     
     # Пытаемся извлечь JSON
     try:

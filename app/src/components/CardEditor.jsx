@@ -127,7 +127,8 @@ export const CardEditor = ({
             <button 
               className="edit-btn-study" 
               onClick={() => generateAudioInternal(editingCard, setEditingCard)}
-              disabled={loading || !editingCard?.front}
+              disabled={loading}
+
               title="Озвучить"
             >
               <Volume2 size={20} />
@@ -195,7 +196,7 @@ export const CardEditor = ({
             <button 
               className={`btn-ai-generate ${loading ? 'loading' : ''}`} 
               onClick={loading ? stopAiGeneration : handleAiGenerate}
-              disabled={!loading && !editingCard?.front}
+              disabled={loading}
               style={{ flex: 1 }}
             >
               {loading ? (
@@ -213,7 +214,8 @@ export const CardEditor = ({
             <button 
               className="btn btn-primary" 
               onClick={() => saveCard()} 
-              disabled={loading || !editingCard?.front}
+              disabled={loading}
+
               style={{ padding: '12px 20px' }}
             >
               {loading ? <RefreshCw className="spin" size={18} /> : 'Сохранить'}

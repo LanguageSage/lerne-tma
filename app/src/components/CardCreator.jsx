@@ -228,7 +228,8 @@ export const CardCreator = ({
             <button 
               className="edit-btn-study" 
               onClick={() => generateAudioInternal(newCardData, setNewCardData)}
-              disabled={loading || !newCardData.front}
+              disabled={loading}
+
               title="Озвучить"
             >
               <Volume2 size={20} />
@@ -298,7 +299,7 @@ export const CardCreator = ({
               id="tut-creator-ai"
               className={`btn-ai-generate ${loading ? 'loading' : ''}`} 
               onClick={loading ? stopAiGeneration : handleAiGenerate}
-              disabled={!loading && !newCardData.front}
+              disabled={loading}
               style={{ flex: 1 }}
             >
               {loading ? (
@@ -316,7 +317,7 @@ export const CardCreator = ({
             <button 
               className="btn btn-primary" 
               onClick={handleSave} 
-              disabled={loading || !newCardData.front}
+              disabled={loading}
               style={{ padding: '12px 20px' }}
             >
               {loading ? <RefreshCw className="spin" size={18} /> : 'Сохранить'}

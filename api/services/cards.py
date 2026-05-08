@@ -36,14 +36,12 @@ def save_card(data, user_id):
     elif not card.id:
         raise ValueError("Missing deck_id for new card")
     
-    # Обновляем только если передано
-    front = data.get('front') or data.get('front_text')
-    if front is not None:
-        card.front_text = front
+    # Обновляем только если передано (используем get с проверкой наличия ключа, чтобы позволить пустые строки)
+    if 'front' in data or 'front_text' in data:
+        card.front_text = data.get('front') if 'front' in data else data.get('front_text')
         
-    back = data.get('back') or data.get('back_text')
-    if back is not None:
-        card.back_text = back
+    if 'back' in data or 'back_text' in data:
+        card.back_text = data.get('back') if 'back' in data else data.get('back_text')
         
     if 'context' in data:
         card.context = data.get('context')
@@ -56,11 +54,19 @@ def save_card(data, user_id):
     if 'video_back_path' in data:
         card.video_back_path = data.get('video_back_path')
         
-    # Ensure source is not null if required by DB
     if 'source' in data:
         card.source = data.get('source')
     elif not card.source:
         card.source = 'user'
+        
+    if 'want_to_learn' in data:
+        card.want_to_learn = bool(data.get('want_to_learn'))
+        
+    # Гарантируем, что обязательные поля не None
+    if card.front_text is None: card.front_text = ""
+    if card.back_text is None: card.back_text = ""
+    if card.context is None: card.context = ""
+    if card.source is None: card.source = "user"
         
     card.updated_at = datetime.datetime.now()
     card.history = add_to_history(card.history, "Edited manually")
@@ -78,6 +84,17 @@ def delete_card(card_id: int):
     except Exception as e:
         logger.error(f"Error deleting card: {e}")
         return False
+
+
+def toggle_want_to_learn(card_id: int, user_id: int):
+    try:
+        card = TMA_Card.get_by_id(card_id)
+        card.want_to_learn = not card.want_to_learn
+        card.save()
+        return card
+    except Exception as e:
+        logger.error(f"Error toggling want_to_learn: {e}")
+        return None
 
 
 def get_cards_for_study(deck_id: int, user_id: int):
@@ -109,9 +126,14 @@ def get_cards_for_study(deck_id: int, user_id: int):
                 "image_url": resolve_media_url(c.get('image_path'), "images", exists_map=media_exists),
                 "video_front_url": resolve_media_url(c.get('video_front_path'), "videos", exists_map=media_exists),
                 "video_back_url": resolve_media_url(c.get('video_back_path'), "videos", exists_map=media_exists),
+                "image_path": c.get('image_path'),
+                "audio_path": c.get('audio_path'),
+                "video_front_path": c.get('video_front_path'),
+                "video_back_path": c.get('video_back_path'),
                 "queue": p.queue if p else "new",
                 "interval": p.interval if p else 0,
-                "next_review": p.next_review.isoformat() if p and p.next_review else None
+                "next_review": p.next_review.isoformat() if p and p.next_review else None,
+                "want_to_learn": bool(c.get('want_to_learn'))
             })
         return result
     except Exception as e:
@@ -197,5 +219,10 @@ def format_card_for_study(card: TMA_Card, user_id: int):
         "image_url": resolve_media_url(card.image_path, "images"),
         "video_front_url": resolve_media_url(card.video_front_path, "videos"),
         "video_back_url": resolve_media_url(card.video_back_path, "videos"),
-        "intervals": srs.get_next_intervals(progress)
+        "image_path": card.image_path,
+        "audio_path": card.audio_path,
+        "video_front_path": card.video_front_path,
+        "video_back_path": card.video_back_path,
+        "intervals": srs.get_next_intervals(progress),
+        "want_to_learn": bool(card.want_to_learn)
     }

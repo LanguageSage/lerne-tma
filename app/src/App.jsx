@@ -16,6 +16,7 @@ import { StudyView } from './components/StudyView';
 import { CardList } from './components/CardList';
 import { CardEditor } from './components/CardEditor';
 import { CardCreator } from './components/CardCreator';
+import { CardActionModal } from './components/CardActionModal';
 import { DeckModals } from './components/DeckModals';
 import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
@@ -88,6 +89,8 @@ export default function App() {
   const [externalDecks, setExternalDecks] = useState([]);
   const [communityDecks, setCommunityDecks] = useState([]);
   const [isImportLoading, setIsImportLoading] = useState(false);
+  const [isCardActionModalOpen, setIsCardActionModalOpen] = useState(false);
+  const [actionCard, setActionCard] = useState(null);
   const gradingRef = useRef(false);
   const abortControllerRef = useRef(null);
 
@@ -455,10 +458,7 @@ export default function App() {
     // If called directly from onClick, manualCardData might be an event object
     const isEvent = manualCardData && typeof manualCardData === 'object' && 'preventDefault' in manualCardData;
     const data = (manualCardData && !isEvent) ? manualCardData : editingCard;
-    if (!data || !data.front || !data.back) {
-      showToast("Заполните текст и перевод");
-      return;
-    }
+    // Удаляем валидацию обязательных полей по просьбе пользователя
 
     setLoading(true);
     try {
@@ -1094,6 +1094,75 @@ export default function App() {
     return null;
   };
 
+  const handleToggleLearn = async (targetCard) => {
+    try {
+      const res = await api.post(`/cards/${targetCard.id}/toggle-learn`);
+      const updatedCard = res.data;
+      if (card && card.id === targetCard.id) {
+        setCard(prev => ({ ...prev, want_to_learn: updatedCard.want_to_learn }));
+      }
+      // Also update in study history if needed
+      setStudyHistory(prev => prev.map(c => c.id === targetCard.id ? { ...c, want_to_learn: updatedCard.want_to_learn } : c));
+      showToast(updatedCard.want_to_learn ? "Добавлено в 'Хочу выучить'" : "Удалено из 'Хочу выучить'", "success");
+    } catch (err) {
+      showToast("Ошибка при изменении статуса");
+    }
+  };
+
+  const handleMoveCard = async (targetCard, targetDeckId) => {
+    setLoading(true);
+    try {
+      await api.post('/cards/save', {
+        card_id: targetCard.id,
+        deck_id: targetDeckId,
+        front: targetCard.front || '',
+        back: targetCard.back || '',
+        context: targetCard.context || '',
+        image_path: targetCard.image_path || '',
+        audio_path: targetCard.audio_path || '',
+        video_front_path: targetCard.video_front_path || '',
+        video_back_path: targetCard.video_back_path || '',
+        want_to_learn: !!targetCard.want_to_learn
+      });
+      showToast("Карточка перемещена", "success");
+      // If moving current card in study, go to next
+      if (card && card.id === targetCard.id) {
+        goNext();
+      }
+      fetchDecks(true);
+    } catch (err) {
+      showToast("Ошибка при перемещении");
+    }
+    setLoading(false);
+  };
+
+  const handleCopyCard = async (targetCard, targetDeckId) => {
+    setLoading(true);
+    try {
+      await api.post('/cards/save', {
+        deck_id: targetDeckId,
+        front: targetCard.front || '',
+        back: targetCard.back || '',
+        context: targetCard.context || '',
+        image_path: targetCard.image_path || '',
+        audio_path: targetCard.audio_path || '',
+        video_front_path: targetCard.video_front_path || '',
+        video_back_path: targetCard.video_back_path || '',
+        want_to_learn: !!targetCard.want_to_learn
+      });
+      showToast("Карточка скопирована", "success");
+      fetchDecks(true);
+    } catch (err) {
+      showToast("Ошибка при копировании");
+    }
+    setLoading(false);
+  };
+
+  const openCardActions = (targetCard) => {
+    setActionCard(targetCard);
+    setIsCardActionModalOpen(true);
+  };
+
   return (
     <div className="app-container">
       <DeckGrid
@@ -1154,6 +1223,8 @@ export default function App() {
         cardFontStyle={cardFontStyle}
         contextFontWeight={contextFontWeight}
         contextFontStyle={contextFontStyle}
+        openCardActions={openCardActions}
+        decks={decks}
       />
 
       <DeckModals
@@ -1288,6 +1359,18 @@ export default function App() {
         onFinish={() => finishTutorial(activeTutorial)}
         onSkip={() => finishTutorial(activeTutorial)}
         isFlipped={isFlipped}
+      />
+
+      <CardActionModal
+        isOpen={isCardActionModalOpen}
+        onClose={() => setIsCardActionModalOpen(false)}
+        card={actionCard}
+        decks={decks}
+        onMove={handleMoveCard}
+        onCopy={handleCopyCard}
+        onDelete={(c) => handleDeleteCard({ stopPropagation: () => {} }, c.id)}
+        onToggleLearn={handleToggleLearn}
+        loading={loading}
       />
 
       <Toast toast={toast} />

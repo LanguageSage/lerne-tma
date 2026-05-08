@@ -180,7 +180,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             # Insert all cards without checking
             sql = f"""
                 INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                SELECT {local_deck.id}, front_text, back_text, COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported as copy"]'
+                SELECT {local_deck.id}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported as copy"]'
                 FROM card WHERE deck_id = {external_deck_id}
             """
             tma_db.execute_sql(sql)
@@ -201,7 +201,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             # Insert all cards
             sql = f"""
                 INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                SELECT {local_deck.id}, front_text, back_text, COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported via replace"]'
+                SELECT {local_deck.id}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported via replace"]'
                 FROM card WHERE deck_id = {external_deck_id} AND is_deleted = false
             """
             tma_db.execute_sql(sql)
@@ -251,11 +251,11 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                 else:
                     new_cards_to_insert.append({
                         'deck_id': local_deck.id,
-                        'front_text': rc.front_text,
-                        'back_text': rc.back_text,
-                        'context': rc.context,
-                        'image_path': rc.image_path,
-                        'audio_path': rc.audio_path,
+                        'front_text': rc.front_text or '',
+                        'back_text': rc.back_text or '',
+                        'context': rc.context or '',
+                        'image_path': rc.image_path or '',
+                        'audio_path': rc.audio_path or '',
                         'card_type': 'translation',
                         'source': 'library',
                         'tags': getattr(rc, 'tags', '[]'),
