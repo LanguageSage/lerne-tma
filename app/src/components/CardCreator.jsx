@@ -138,9 +138,23 @@ export const CardCreator = ({
     }
   };
 
-  useEffect(() => { autoResize(frontRef); }, [newCardData.front]);
-  useEffect(() => { autoResize(backRef); }, [newCardData.back]);
-  useEffect(() => { autoResize(contextRef); }, [newCardData.context]);
+  useEffect(() => {
+    const handleResize = () => {
+      autoResize(frontRef);
+      autoResize(backRef);
+      autoResize(contextRef);
+    };
+    window.addEventListener('resize', handleResize);
+    const timer = setTimeout(handleResize, 100);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
+  }, [view]);
+
+  useEffect(() => { autoResize(frontRef); }, [newCardData.front, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
+  useEffect(() => { autoResize(backRef); }, [newCardData.back, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
+  useEffect(() => { autoResize(contextRef); }, [newCardData.context, contextFontSize, contextFont, contextFontWeight, contextFontStyle]);
 
   React.useEffect(() => {
     if (view === 'creator') {
@@ -246,7 +260,9 @@ export const CardCreator = ({
                   resize: 'none',
                   overflow: 'hidden',
                   width: '100%',
-                  display: 'block'
+                  display: 'block',
+                  boxSizing: 'border-box',
+                  padding: '12px'
                 }}
                 placeholder="Слово или фраза (Front)..."
               />
@@ -329,7 +345,9 @@ export const CardCreator = ({
                   resize: 'none',
                   overflow: 'hidden',
                   width: '100%',
-                  display: 'block'
+                  display: 'block',
+                  boxSizing: 'border-box',
+                  padding: '12px'
                 }}
                 placeholder="Перевод..."
               />
@@ -359,7 +377,9 @@ export const CardCreator = ({
                   resize: 'none',
                   overflow: 'hidden',
                   width: '100%',
-                  display: 'block'
+                  display: 'block',
+                  boxSizing: 'border-box',
+                  padding: '12px'
                 }}
                 placeholder="Примеры, грамматика..."
               />

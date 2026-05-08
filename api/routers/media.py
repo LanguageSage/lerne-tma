@@ -8,6 +8,7 @@ from PIL import Image, UnidentifiedImageError
 
 import models
 from api.dependencies.auth import get_user_id
+from api.utils.image import optimize_image # Импортируем наш оптимизатор
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ router = APIRouter(
     tags=["media"],
 )
 
-MAX_IMAGE_BYTES = 8 * 1024 * 1024
+MAX_IMAGE_BYTES = 10 * 1024 * 1024 # Увеличим лимит, так как мы всё равно сожмем
 SUPPORTED_IMAGE_FORMATS = {
     "JPEG": ("jpg", "image/jpeg"),
     "PNG": ("png", "image/png"),
@@ -29,16 +30,14 @@ async def upload_image(
     file: UploadFile = File(...),
     user_id: int = Depends(get_user_id)
 ):
-    """Upload an image from mobile/desktop web and store it in TMAMedia."""
+    """Upload an image, optimize it to WebP and store it in TMAMedia."""
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Image file is empty")
-    if len(content) > MAX_IMAGE_BYTES:
-        raise HTTPException(status_code=413, detail="Image is too large. Maximum size is 8 MB")
-
+    
+    # Мы всё равно проверяем формат перед сжатием
     try:
         image = Image.open(io.BytesIO(content))
-        image.verify()
         image_format = image.format
     except (UnidentifiedImageError, OSError):
         raise HTTPException(status_code=400, detail="Unsupported image file")
@@ -46,14 +45,16 @@ async def upload_image(
     if image_format not in SUPPORTED_IMAGE_FORMATS:
         raise HTTPException(status_code=400, detail="Only JPG, PNG, WEBP and GIF images are supported")
 
-    ext, media_type = SUPPORTED_IMAGE_FORMATS[image_format]
-    filename = f"upload_{user_id}_{uuid.uuid4().hex[:12]}.{ext}"
+    # --- ОПТИМИЗАЦИЯ ---
+    # Вызываем наш оптимизатор. Он вернет сжатые байты и новый MIME-тип (image/webp)
+    optimized_content, media_type = optimize_image(content)
+    filename = f"upload_{user_id}_{uuid.uuid4().hex[:12]}.webp" # Всегда .webp
 
     try:
         models.TMAMedia.create(
             filename=filename,
             folder='images',
-            content=content
+            content=optimized_content
         )
     except Exception as e:
         logger.error(f"Image upload save error: {e}")
@@ -62,7 +63,9 @@ async def upload_image(
     return {
         "path": f"images/{filename}",
         "url": f"/api/media/images/{filename}",
-        "media_type": media_type
+        "media_type": media_type,
+        "original_size": len(content),
+        "optimized_size": len(optimized_content)
     }
 
 @router.post("/generate-audio")

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HelpCircle, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import './TutorialOverlay.css';
 
 export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) => {
@@ -202,7 +202,7 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
 };
 
 export const HelpButton = ({ onClick, title = "Помощь" }) => (
-  <button id="tut-help-button" className="help-btn-circle" onClick={(e) => { e.stopPropagation(); onClick(); }} title={title}>
-    <HelpCircle size={20} />
+  <button id="tut-help-button" className="help-btn-normal" onClick={(e) => { e.stopPropagation(); onClick(); }} title={title}>
+    <span className="help-icon-text">?</span>
   </button>
 );

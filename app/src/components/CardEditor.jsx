@@ -44,13 +44,29 @@ export const CardEditor = ({
   const autoResize = (ref) => {
     if (ref.current) {
       ref.current.style.height = 'auto';
-      ref.current.style.height = `${ref.current.scrollHeight}px`;
+      const newHeight = ref.current.scrollHeight;
+      ref.current.style.height = `${newHeight}px`;
     }
   };
 
-  useEffect(() => { autoResize(frontRef); }, [editingCard?.front]);
-  useEffect(() => { autoResize(backRef); }, [editingCard?.back]);
-  useEffect(() => { autoResize(contextRef); }, [editingCard?.context]);
+  useEffect(() => {
+    const handleResize = () => {
+      autoResize(frontRef);
+      autoResize(backRef);
+      autoResize(contextRef);
+    };
+    window.addEventListener('resize', handleResize);
+    // Initial resize after a short delay to ensure DOM is settled
+    const timer = setTimeout(handleResize, 100);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
+  }, [view]);
+
+  useEffect(() => { autoResize(frontRef); }, [editingCard?.front, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
+  useEffect(() => { autoResize(backRef); }, [editingCard?.back, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
+  useEffect(() => { autoResize(contextRef); }, [editingCard?.context, contextFontSize, contextFont, contextFontWeight, contextFontStyle]);
 
   const handleAiGenerate = async () => {
     if (!editingCard?.front) return;
@@ -142,7 +158,9 @@ export const CardEditor = ({
                   resize: 'none',
                   overflow: 'hidden',
                   width: '100%',
-                  display: 'block'
+                  display: 'block',
+                  boxSizing: 'border-box',
+                  padding: '12px'
                 }}
                 placeholder="Слово или фраза (Front)..."
               />
@@ -224,7 +242,9 @@ export const CardEditor = ({
                   resize: 'none',
                   overflow: 'hidden',
                   width: '100%',
-                  display: 'block'
+                  display: 'block',
+                  boxSizing: 'border-box',
+                  padding: '12px'
                 }}
                 placeholder="Перевод..."
               />
@@ -254,7 +274,9 @@ export const CardEditor = ({
                   resize: 'none',
                   overflow: 'hidden',
                   width: '100%',
-                  display: 'block'
+                  display: 'block',
+                  boxSizing: 'border-box',
+                  padding: '12px'
                 }}
                 placeholder="Примеры, грамматика..."
               />
