@@ -202,7 +202,7 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
 };
 
 export const HelpButton = ({ onClick, title = "Помощь" }) => (
-  <button className="help-btn-circle" onClick={(e) => { e.stopPropagation(); onClick(); }} title={title}>
+  <button id="tut-help-button" className="help-btn-circle" onClick={(e) => { e.stopPropagation(); onClick(); }} title={title}>
     <HelpCircle size={20} />
   </button>
 );

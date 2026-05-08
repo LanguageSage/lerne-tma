@@ -114,7 +114,14 @@ export default function App() {
       storage.set('lerne_settings_version', '6');
     }
 
-
+    // Приветствие при первом входе (две слайда: суть и справка)
+    const welcomed = storage.get('lerne_welcome_seen');
+    if (!welcomed) {
+      setTimeout(() => {
+        setActiveTutorial('welcome');
+        storage.set('lerne_welcome_seen', 'true');
+      }, 1500);
+    }
   }, []);
 
   useEffect(() => {
@@ -165,6 +172,8 @@ export default function App() {
       // Если карточка не перевернута, оставляем context = 'study'
     }
 
+    // Авто-запуск туториала отключен по просьбе пользователя
+    /*
     if (context === 'decks' || context === 'settings' || context === 'study' || context === 'study_back' || context === 'cards' || context === 'creator') {
       const seen = storage.get(`lerne_tut_seen_${context}`);
       if (!seen) {
@@ -173,6 +182,7 @@ export default function App() {
         return () => clearTimeout(timer);
       }
     }
+    */
   }, [view, isSettingsOpen, !!card, isFlipped]);
 
   const finishTutorial = (context) => {

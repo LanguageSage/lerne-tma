@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X, Sparkles, Settings } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X, Sparkles, Settings, ImageIcon } from 'lucide-react';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
 
@@ -10,13 +10,8 @@ export const CardEditor = ({
   setView,
   editingCard,
   setEditingCard,
-  isAiWizardOpen,
-  setIsAiWizardOpen,
-  aiInputPhrase,
-  setAiInputPhrase,
   runAiGenerator,
   stopAiGeneration,
-  generateAudio,
   generateAudioInternal,
   uploadImage,
   uploadCardVideo,
@@ -39,12 +34,12 @@ export const CardEditor = ({
   cardTextShadow,
   contextTextShadow,
 }) => {
-  const imageInputRef = useRef(null);
-  const videoFrontRef = useRef(null);
-  const videoBackRef = useRef(null);
   const frontRef = useRef(null);
   const backRef = useRef(null);
   const contextRef = useRef(null);
+  const galleryInputRef = useRef(null);
+  const videoFrontRef = useRef(null);
+  const videoBackRef = useRef(null);
 
   const autoResize = (ref) => {
     if (ref.current) {
@@ -89,17 +84,23 @@ export const CardEditor = ({
   const resolvedBgFront = getResolvedStyle(cardBgFront, editingCard?.id || 0);
   const resolvedBgBack = getResolvedStyle(cardBgBack, editingCard?.id || 0);
 
-  const imageValue = editingCard?.image_path || editingCard?.image_url || '';
-  const imagePreviewUrl = editingCard?.image_url
-    || (imageValue.startsWith('images/') ? `/api/media/${imageValue}` : imageValue);
+  const imagePreviewUrl = editingCard?.image_url || (editingCard?.image_path?.startsWith('images/') ? `/api/media/${editingCard.image_path}` : editingCard?.image_path);
 
   return (
     <div className="view-editor">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="view">
         <div className="header-compact">
           <button className="back-btn" onClick={() => setView(editorSourceView)}><ChevronLeft size={24} /></button>
           <h2>Правка карточки</h2>
           <div className="header-actions">
+            <button
+              type="button"
+              className="edit-btn-study"
+              onClick={() => galleryInputRef.current?.click()}
+              title="Добавить картинку"
+            >
+              <ImageIcon size={20} />
+            </button>
             <button 
               className="edit-btn-study" 
               onClick={() => setIsSettingsOpen(true)}
@@ -107,12 +108,19 @@ export const CardEditor = ({
             >
               <Settings size={20} />
             </button>
+            <button 
+              className="edit-btn-study" 
+              onClick={() => generateAudioInternal(editingCard, setEditingCard)}
+              disabled={loading || !editingCard?.front}
+              title="Озвучить"
+            >
+              <Volume2 size={20} />
+            </button>
           </div>
         </div>
-        
-        <div className="editor-form glass">
+
+        <div className="creator-form glass">
           <div className="form-group">
-            <label>Текст (Front)</label>
             <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
               <CardBackground styleType={resolvedBgFront} />
               <textarea 
@@ -123,8 +131,8 @@ export const CardEditor = ({
                   fontFamily: cardFont, 
                   fontWeight: cardFontWeight, 
                   fontStyle: cardFontStyle,
-                  fontSize: `${cardFontSize}rem`,
                   color: cardTextColor,
+                  fontSize: `${cardFontSize}rem`,
                   textShadow: getTextShadow(cardTextShadow, cardTextColor),
                   background: 'transparent',
                   position: 'relative',
@@ -136,33 +144,41 @@ export const CardEditor = ({
                   width: '100%',
                   display: 'block'
                 }}
-                placeholder="Слово или фраза..."
+                placeholder="Слово или фраза (Front)..."
               />
-            </div>
-            <div className="editor-audio-actions">
-              <button 
-                className="btn-secondary btn-small" 
-                onClick={generateAudio}
-                disabled={loading || !editingCard?.front}
-              >
-                <Volume2 size={16} /> Озвучить
-              </button>
+              
+              {imagePreviewUrl && (
+                <div className="image-preview-box" style={{ margin: '10px', position: 'relative', zIndex: 3 }}>
+                  <img src={imagePreviewUrl} alt="" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+                  <button
+                    type="button"
+                    className="image-clear-btn"
+                    onClick={() => setEditingCard({...editingCard, image_path: '', image_url: ''})}
+                    title="Убрать картинку"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+
               {(editingCard?.audio_path || editingCard?.audio_url) && (
                 <button 
                   className="btn-secondary btn-small play-preview-btn" 
+                  style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 4 }}
                   onClick={() => playAudio(editingCard.audio_url || `/api/media/${editingCard.audio_path}`)}
                 >
-                  <RefreshCw size={14} /> Прослушать
+                  <RefreshCw size={14} />
                 </button>
               )}
             </div>
           </div>
-
-          <div className="ai-quick-actions">
+  
+          <div className="ai-quick-actions" style={{ gap: '10px' }}>
             <button 
               className={`btn-ai-generate ${loading ? 'loading' : ''}`} 
               onClick={loading ? stopAiGeneration : handleAiGenerate}
               disabled={!loading && !editingCard?.front}
+              style={{ flex: 1 }}
             >
               {loading ? (
                 <>
@@ -172,31 +188,21 @@ export const CardEditor = ({
               ) : (
                 <>
                   <Sparkles size={18} />
-                  <span>Сгенерировать ответ</span>
+                  <span>Генерировать</span>
                 </>
               )}
             </button>
-          </div>
-
-          <div className="form-group">
-            <label>Видео (Лицо)</label>
-            {editingCard?.video_front_url && (
-              <div className="media-preview-mini">
-                <video src={editingCard.video_front_url} muted loop autoPlay />
-                <button className="media-clear-btn" onClick={() => setEditingCard({...editingCard, video_front_path: '', video_front_url: ''})}><X size={12} /></button>
-              </div>
-            )}
-            <button className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} disabled={loading}>
-              {editingCard?.video_front_url ? 'Заменить видео' : 'Добавить видео'}
+            <button 
+              className="btn btn-primary" 
+              onClick={() => saveCard()} 
+              disabled={loading || !editingCard?.front}
+              style={{ padding: '12px 20px' }}
+            >
+              {loading ? <RefreshCw className="spin" size={18} /> : 'Сохранить'}
             </button>
-            <input ref={videoFrontRef} type="file" accept="video/mp4" className="hidden-file-input" onChange={e => {
-              uploadCardVideo(e.target.files?.[0], editingCard, 'front');
-              e.target.value = '';
-            }} />
           </div>
 
           <div className="form-group">
-            <label>Перевод (Back)</label>
             <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
               <CardBackground styleType={resolvedBgBack} />
               <textarea 
@@ -207,8 +213,8 @@ export const CardEditor = ({
                   fontFamily: cardFont, 
                   fontWeight: cardFontWeight, 
                   fontStyle: cardFontStyle,
-                  fontSize: `${cardFontSize}rem`,
                   color: cardTextColor,
+                  fontSize: `${cardFontSize}rem`,
                   textShadow: getTextShadow(cardTextShadow, cardTextColor),
                   background: 'transparent',
                   position: 'relative',
@@ -223,28 +229,9 @@ export const CardEditor = ({
                 placeholder="Перевод..."
               />
             </div>
-            
-            {/* Видео Оборот */}
-            <div className="media-upload-section" style={{ marginTop: '10px' }}>
-              <label className="sub-label">Видео (Оборот)</label>
-              {editingCard?.video_back_url && (
-                <div className="media-preview-mini">
-                  <video src={editingCard.video_back_url} muted loop autoPlay />
-                  <button className="media-clear-btn" onClick={() => setEditingCard({...editingCard, video_back_path: '', video_back_url: ''})}><X size={12} /></button>
-                </div>
-              )}
-              <button className="btn-secondary btn-tiny" onClick={() => videoBackRef.current?.click()} disabled={loading}>
-                {editingCard?.video_back_url ? 'Заменить видео' : 'Добавить видео'}
-              </button>
-              <input ref={videoBackRef} type="file" accept="video/mp4" className="hidden-file-input" onChange={e => {
-                uploadCardVideo(e.target.files?.[0], editingCard, 'back');
-                e.target.value = '';
-              }} />
-            </div>
           </div>
 
           <div className="form-group">
-            <label>Контекст / Анализ</label>
             <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
               <CardBackground styleType={resolvedBgBack} />
               <textarea 
@@ -274,63 +261,48 @@ export const CardEditor = ({
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Изображение</label>
-            <div className="image-edit-tools">
-              {imagePreviewUrl && (
-                <div className="image-preview-box">
-                  <img src={imagePreviewUrl} alt="" />
-                  <button
-                    type="button"
-                    className="image-clear-btn"
-                    onClick={() => setEditingCard({...editingCard, image_path: '', image_url: ''})}
-                    title="Убрать картинку"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
-              <div className="image-actions-row">
-                <button
-                  type="button"
-                  className="btn-secondary btn-small"
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={loading}
-                >
-                  <Upload size={16} /> Загрузить
+          {/* Видео секции */}
+          <div className="media-edit-group" style={{ display: 'flex', gap: '10px' }}>
+             <div className="form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '5px' }}>Видео (Лицо)</label>
+                {editingCard?.video_front_url && (
+                  <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
+                    <video src={editingCard.video_front_url} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', color: 'white' }} onClick={() => setEditingCard({...editingCard, video_front_path: '', video_front_url: ''})}><X size={10} /></button>
+                  </div>
+                )}
+                <button className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
+                  {editingCard?.video_front_url ? 'Заменить' : '+ Видео'}
                 </button>
-                <a 
-                  href={`https://www.google.com/search?q=${encodeURIComponent(editingCard?.front || '')}&tbm=isch`} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="btn-secondary btn-small"
-                >
-                  <Search size={16} /> Google
-                </a>
-              </div>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden-file-input"
-                onChange={e => {
-                  uploadImage(e.target.files?.[0]);
-                  e.target.value = '';
-                }}
-              />
-              <input 
-                type="text" 
-                placeholder="URL картинки..." 
-                value={editingCard?.image_path || ''}
-                onChange={e => setEditingCard({...editingCard, image_path: e.target.value})}
-              />
-            </div>
+                <input ref={videoFrontRef} type="file" accept="video/mp4" className="hidden-file-input" style={{ display: 'none' }} onChange={e => uploadCardVideo(e.target.files?.[0], editingCard, 'front')} />
+             </div>
+             <div className="form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '5px' }}>Видео (Оборот)</label>
+                {editingCard?.video_back_url && (
+                  <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
+                    <video src={editingCard.video_back_url} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', color: 'white' }} onClick={() => setEditingCard({...editingCard, video_back_path: '', video_back_url: ''})}><X size={10} /></button>
+                  </div>
+                )}
+                <button className="btn-secondary btn-tiny" onClick={() => videoBackRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
+                  {editingCard?.video_back_url ? 'Заменить' : '+ Видео'}
+                </button>
+                <input ref={videoBackRef} type="file" accept="video/mp4" className="hidden-file-input" style={{ display: 'none' }} onChange={e => uploadCardVideo(e.target.files?.[0], editingCard, 'back')} />
+             </div>
           </div>
-
-          <button className="btn btn-primary btn-full" onClick={() => saveCard()} disabled={loading}>
-            {loading ? <RefreshCw className="spin" /> : 'Сохранить'}
-          </button>
         </div>
+        
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden-file-input"
+          style={{ display: 'none' }}
+          onChange={e => {
+            uploadImage(e.target.files?.[0]);
+            e.target.value = '';
+          }}
+        />
       </motion.div>
     </div>
   );

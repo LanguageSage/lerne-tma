@@ -53,8 +53,9 @@ def initialize_database():
             logger.info("DATABASE: Connected via PooledPostgresqlDatabase")
             return True
         except Exception as e:
-            logger.error(f"DATABASE CLOUD ERROR: {e}")
+            logger.error(f"DATABASE CLOUD ERROR (Pooled): {e}")
             try:
+                # Вторая попытка через простой коннект, если пулер не сработал
                 actual_db = db_connect(SUPABASE_DB_URL)
                 tma_db.initialize(actual_db)
                 lerne_db.initialize(actual_db)
@@ -62,9 +63,13 @@ def initialize_database():
                 return True
             except Exception as e2:
                 logger.error(f"DATABASE FALLBACK ERROR: {e2}")
+                # Если мы в облаке (на Vercel) и база не подключилась - это критично
+                if not FORCE_LOCAL:
+                    raise e2
     
     TMA_ROOT = Path(__file__).resolve().parent.parent
-    TMA_DB_PATH = TMA_ROOT / "api" / "data" / "lerne.db"
+    # Путь к основной базе данных в родительском проекте Lerne
+    TMA_DB_PATH = Path(r"C:\121\Lerne_projekt\Lerne\db\lerne.db")
     os.makedirs(TMA_DB_PATH.parent, exist_ok=True)
     shared_db = SqliteDatabase(TMA_DB_PATH)
     tma_db.initialize(shared_db)

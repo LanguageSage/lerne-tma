@@ -75,7 +75,10 @@ export const DeckModals = ({
                   externalDecks.map(d => (
                     <div key={d.id} className="import-item glass" onClick={() => importDeck(d.id)}>
                        <div className="import-item-info">
-                          <strong>{d.name}</strong>
+                          <div className="import-item-header">
+                            {d.level && <span className="import-level">{d.level}</span>}
+                            <strong>{d.name}</strong>
+                          </div>
                           <span>{d.topic}</span>
                        </div>
                        <Plus size={16} />

@@ -197,9 +197,23 @@
   color: white;
   text-align: left;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.2;
+  word-break: break-word;
+  padding: 4px 0;
+}
+
+.deck-level {
+  font-size: 0.65rem;
+  font-weight: 800;
+  background: rgba(168, 85, 247, 0.3);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  flex-shrink: 0;
 }
 
 .deck-stats {
@@ -232,6 +246,7 @@
 .stat.new { background: #3b82f6; color: white; }
 .stat.learning { background: #f97316; color: white; }
 .stat.due { background: #22c55e; color: white; }
+.stat.total { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #94a3b8; }
 
 /* Study Flow */
 .header-compact {
@@ -786,17 +801,25 @@ input:checked + .slider:before {
   gap: 16px;
 }
 
-.image-picker-header {
+.import-item-info {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.image-picker-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
+.import-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.import-level {
+  font-size: 0.6rem;
+  background: rgba(168, 85, 247, 0.3);
   color: white;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 700;
 }
 
 .image-picker-close {

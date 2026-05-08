@@ -84,11 +84,15 @@ export const DeckGrid = ({
               <div key={deck.id} className="deck-card glass">
                 <div className="deck-main-action" onClick={() => startStudy(deck)}>
                   <div className="deck-icon"><Layers size={24} /></div>
-                  <h3>{deck.name}</h3>
+                  <h3>
+                    {deck.level && <span className="deck-level">{deck.level}</span>}
+                    {deck.name}
+                  </h3>
                   <div className="deck-stats">
-                    <span className="stat new">{deck.stats.new}</span>
-                    <span className="stat learning">{deck.stats.learning}</span>
-                    <span className="stat due">{deck.stats.due}</span>
+                    <span className="stat total" title="Всего карточек">{deck.stats.total}</span>
+                    <span className="stat new" title="Новые">{deck.stats.new}</span>
+                    <span className="stat learning" title="В изучении">{deck.stats.learning}</span>
+                    <span className="stat due" title="К повторению">{deck.stats.due}</span>
                   </div>
                 </div>
                 <div className="deck-footer-actions">
