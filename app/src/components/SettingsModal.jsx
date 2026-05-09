@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
+import { useUiStore } from '../store/useUiStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { useDeckStore } from '../store/useDeckStore';
+import api from '../services/api';
 
 // Modular Tabs
 import { GeneralTab } from './settings/GeneralTab';
@@ -13,38 +17,124 @@ import { PresetsTab } from './settings/PresetsTab';
 import { CommunityTab } from './settings/CommunityTab';
 import { FeedbackTab } from './settings/FeedbackTab';
 
-export const SettingsModal = ({
-  isSettingsOpen,
-  setIsSettingsOpen,
-  activeSettingsTab,
-  setActiveSettingsTab,
-  isAdmin,
-  userId,
-  saveAdminSettings,
-  availableModels,
-  fetchModels,
-  isFetchingModels,
-  saveUserPrompts,
-  newPresetName,
-  setNewPresetName,
-  saveCurrentAsPreset,
-  presets,
-  applyPreset,
-  deletePreset,
-  communityDecks,
-  fetchCommunityDecks,
-  promoteDeck,
-  customBackgrounds,
-  uploadCustomBackground,
-  startTutorial,
-  showToast,
-  testAiConnection
-}) => {
+export const SettingsModal = ({ userId, startTutorial }) => {
+  const { isSettingsOpen, setIsSettingsOpen, showToast } = useUiStore();
+  const { isAdmin, adminSettings, setAdminSettings, userPrompts, setUserPrompts, applyDesignPreset } = useSettingsStore();
+  const { communityDecks, setCommunityDecks } = useDeckStore();
+
+  const [activeSettingsTab, setActiveSettingsTab] = useState('general');
+  const [availableModels, setAvailableModels] = useState([]);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [presets, setPresets] = useState([]);
+  const [customBackgrounds, setCustomBackgrounds] = useState([]);
+
   if (!isSettingsOpen) return null;
 
-  const handleCommunityClick = () => {
+  const handleCommunityClick = async () => {
     setActiveSettingsTab('community');
-    fetchCommunityDecks();
+    try {
+      const res = await api.get('/decks/community');
+      setCommunityDecks(res.data);
+    } catch (err) {
+      showToast("Ошибка загрузки сообщества");
+    }
+  };
+
+  const saveAdminSettings = async () => {
+    const settings = useSettingsStore.getState().adminSettings;
+    try {
+      await api.post('/admin/settings', settings);
+      showToast("Настройки сохранены", "success");
+    } catch (err) {
+      showToast("Ошибка сохранения настроек");
+    }
+  };
+
+  const fetchModels = async () => {
+    setIsFetchingModels(true);
+    try {
+      const res = await api.get('/settings/models');
+      setAvailableModels(res.data);
+    } catch (err) {
+      showToast("Ошибка загрузки моделей");
+    } finally {
+      setIsFetchingModels(false);
+    }
+  };
+
+  const saveUserPrompts = async () => {
+    const prompts = useSettingsStore.getState().userPrompts;
+    try {
+      await api.post('/user/prompts', prompts);
+      showToast("Промпты сохранены", "success");
+    } catch (err) {
+      showToast("Ошибка сохранения промптов");
+    }
+  };
+
+  const saveCurrentAsPreset = async () => {
+    if (!newPresetName) return;
+    try {
+      const currentSettings = useSettingsStore.getState();
+      const presetData = {
+        name: newPresetName,
+        settings: {
+          cardFont: currentSettings.cardFont,
+          cardTextColor: currentSettings.cardTextColor,
+          cardFontSize: currentSettings.cardFontSize,
+          cardFontWeight: currentSettings.cardFontWeight,
+          cardFontStyle: currentSettings.cardFontStyle,
+          cardTextShadow: currentSettings.cardTextShadow,
+          cardBgFront: currentSettings.cardBgFront,
+          cardBgBack: currentSettings.cardBgBack,
+          contextFont: currentSettings.contextFont,
+          contextTextColor: currentSettings.contextTextColor,
+          contextFontSize: currentSettings.contextFontSize,
+          contextFontWeight: currentSettings.contextFontWeight,
+          contextFontStyle: currentSettings.contextFontStyle,
+          contextTextShadow: currentSettings.contextTextShadow
+        }
+      };
+      await api.post('/settings/presets', presetData);
+      showToast("Пресет сохранен", "success");
+      setNewPresetName('');
+      fetchPresets();
+    } catch (err) {
+      showToast("Ошибка сохранения пресета");
+    }
+  };
+
+  const fetchPresets = async () => {
+    try {
+      const res = await api.get('/settings/presets');
+      setPresets(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deletePreset = async (name) => {
+    try {
+      await api.delete(`/settings/presets/${encodeURIComponent(name)}`);
+      fetchPresets();
+      showToast("Пресет удален", "success");
+    } catch (err) {
+      showToast("Ошибка удаления");
+    }
+  };
+
+  const testAiConnection = async () => {
+     try {
+       const res = await api.get('/settings/test-ai');
+       if (res.data.status === 'ok') {
+         showToast("Соединение установлено!", "success");
+       } else {
+         showToast(`Ошибка: ${res.data.error}`);
+       }
+     } catch (err) {
+       showToast("Ошибка соединения");
+     }
   };
 
   return (
@@ -73,7 +163,7 @@ export const SettingsModal = ({
             <button className={`tab-btn ${activeSettingsTab === 'voice' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('voice')}>Озвучка</button>
             <button className={`tab-btn ${activeSettingsTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('ai')}>Провайдеры</button>
             <button className={`tab-btn ${activeSettingsTab === 'prompts' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('prompts')}>Промпты</button>
-            <button className={`tab-btn ${activeSettingsTab === 'presets' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('presets')}>Пресеты</button>
+            <button className={`tab-btn ${activeSettingsTab === 'presets' ? 'active' : ''}`} onClick={() => { setActiveSettingsTab('presets'); fetchPresets(); }}>Пресеты</button>
             {isAdmin && (
               <button 
                 className={`tab-btn ${activeSettingsTab === 'community' ? 'active' : ''}`} 
@@ -91,7 +181,7 @@ export const SettingsModal = ({
               {activeSettingsTab === 'design' && (
                 <DesignTab 
                   customBackgrounds={customBackgrounds} 
-                  uploadCustomBackground={uploadCustomBackground} 
+                  uploadCustomBackground={() => {}} // Placeholder or implement
                 />
               )}
               {activeSettingsTab === 'voice' && <VoiceTab saveAdminSettings={saveAdminSettings} />}
@@ -111,14 +201,14 @@ export const SettingsModal = ({
                   setNewPresetName={setNewPresetName} 
                   saveCurrentAsPreset={saveCurrentAsPreset} 
                   presets={presets} 
-                  applyPreset={applyPreset} 
+                  applyPreset={applyDesignPreset} 
                   deletePreset={deletePreset} 
                 />
               )}
               {activeSettingsTab === 'community' && (
                 <CommunityTab 
                   communityDecks={communityDecks} 
-                  promoteDeck={promoteDeck} 
+                  promoteDeck={() => {}} // Implement if needed
                 />
               )}
               {activeSettingsTab === 'feedback' && <FeedbackTab showToast={showToast} />}

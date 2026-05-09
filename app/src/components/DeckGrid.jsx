@@ -2,25 +2,14 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2 } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
+import { useUiStore } from '../store/useUiStore';
+import { useDeckStore } from '../store/useDeckStore';
+import { useSessionStore } from '../store/useSessionStore';
 
-export const DeckGrid = ({
-  view,
-  decks,
-  loading,
-  userId,
-  setIsNewDeckModalOpen,
-  setIsSettingsOpen,
-  fetchDecks,
-  startStudy,
-  setCurrentDeck,
-  fetchDeckCards,
-  handleSyncDeck,
-  handleResetProgress,
-  handleDeleteDeck,
-  showToast,
-  openSyncModal,
-  startTutorial
-}) => {
+export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy }) => {
+  const { view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, showToast } = useUiStore();
+  const { decks, setCurrentDeck, fetchDeckCards, handleSyncDeck, handleResetProgress, handleDeleteDeck } = useDeckStore();
+  
   if (view !== 'decks') return null;
 
   return (
@@ -98,7 +87,7 @@ export const DeckGrid = ({
                   <button 
                     id={index === 0 ? 'tut-deck-cards-btn' : undefined}
                     className="deck-action-btn" 
-                    onClick={() => { setCurrentDeck(deck); fetchDeckCards(deck.id); }}
+                    onClick={() => { setCurrentDeck(deck); fetchDeckCards(deck.id); useUiStore.getState().setView('cards'); }}
                   >
                     <Layers size={16} /> Карточки
                   </button>
@@ -109,10 +98,10 @@ export const DeckGrid = ({
                   >
                     <RefreshCw size={16} /> {deck.has_updates ? '❗️ Обновить' : 'Обновить'}
                   </button>
-                  <button className="deck-action-btn" onClick={(e) => { e.stopPropagation(); handleResetProgress(deck.id); }} title="Сбросить прогресс обучения">
+                  <button className="deck-action-btn" onClick={(e) => { e.stopPropagation(); if(window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) handleResetProgress(deck.id); }} title="Сбросить прогресс обучения">
                     <RefreshCw size={16} style={{ color: '#ef4444' }} /> Сбросить
                   </button>
-                  <button className="deck-action-btn delete-btn-minimal" onClick={(e) => handleDeleteDeck(e, deck.id)} title="Удалить колоду">
+                  <button className="deck-action-btn delete-btn-minimal" onClick={(e) => { e.stopPropagation(); if(window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) handleDeleteDeck(deck.id); }} title="Удалить колоду">
                     <Trash2 size={16} />
                   </button>
                 </div>

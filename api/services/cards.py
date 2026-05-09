@@ -62,6 +62,21 @@ def save_card(data, user_id):
     if 'want_to_learn' in data:
         card.want_to_learn = bool(data.get('want_to_learn'))
         
+    # Check for duplicates (same front and back in the same deck)
+    check_front = card.front_text or ""
+    check_back = card.back_text or ""
+    if check_front and check_back and card.deck_id:
+        existing_query = TMA_Card.select().where(
+            TMA_Card.deck_id == card.deck_id,
+            TMA_Card.front_text == check_front,
+            TMA_Card.back_text == check_back
+        )
+        if card.id:
+            existing_query = existing_query.where(TMA_Card.id != card.id)
+            
+        if existing_query.exists():
+            raise ValueError("Такая карточка уже есть в этой колоде")
+        
     # Гарантируем, что обязательные поля не None
     if card.front_text is None: card.front_text = ""
     if card.back_text is None: card.back_text = ""

@@ -2,9 +2,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { TypographyPreview } from './TypographyPreview';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useUiStore } from '../../store/useUiStore';
 import { DESIGN_PRESETS } from '../../constants/appConstants';
+import api from '../../services/api';
 
-export const DesignTab = ({ customBackgrounds, uploadCustomBackground }) => {
+export const DesignTab = () => {
   const {
     cardBgFront, setCardBgFront,
     cardBgBack, setCardBgBack,
@@ -23,8 +25,29 @@ export const DesignTab = ({ customBackgrounds, uploadCustomBackground }) => {
     applyDesignPreset,
     saveUserDesign,
     applyUserDesign,
-    userDesign
+    userDesign,
+    customBackgrounds,
+    setCustomBackgrounds
   } = useSettingsStore();
+
+  const { showToast } = useUiStore();
+
+  const uploadCustomBackground = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'backgrounds');
+      await api.post('/media/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      showToast("Фон загружен", "success");
+      // Refresh backgrounds
+      const res = await api.get('/media/backgrounds');
+      setCustomBackgrounds(res.data);
+    } catch (err) {
+      showToast("Ошибка загрузки фона");
+    }
+  };
 
   return (
     <motion.div id="tut-settings-design" key="design" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">

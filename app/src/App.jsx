@@ -1,12 +1,9 @@
-import React, { useRef, useState, useEffect } from 'react';
-import axios from 'axios';
-import { AnimatePresence } from 'framer-motion';
+import React, { useEffect } from 'react';
 import './App.css';
 
 // Utils & Services
 import { getUserId, storage } from './utils/auth';
 import api from './services/api';
-import { useAudio } from './hooks/useAudio';
 
 // Components
 import { Toast } from './components/common/Toast';
@@ -22,102 +19,54 @@ import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { TUTORIAL_STEPS, DESIGN_PRESETS } from './constants/appConstants';
-import { useSettingsStore } from './store/useSettingsStore';
 
+// Stores
+import { useUiStore } from './store/useUiStore';
+import { useDeckStore } from './store/useDeckStore';
+import { useSessionStore } from './store/useSessionStore';
+import { useSettingsStore } from './store/useSettingsStore';
+import { useCardActions } from './hooks/useCardActions';
 
 const USER_ID = getUserId();
-const SETTINGS_VERSION = 'v6';
+const SETTINGS_VERSION = '6';
 
 export default function App() {
-  const [view, setView] = useState('decks'); // 'decks' | 'study' | 'cards' | 'editor'
-  const [decks, setDecks] = useState([]);
-  const [currentDeck, setCurrentDeck] = useState(null);
-  const [card, setCard] = useState(null);
-  const [deckCards, setDeckCards] = useState([]);
-  const [editingCard, setEditingCard] = useState(null);
+  const { 
+    view, setView, isOpeningDeck, setIsOpeningDeck, showToast, 
+    activeTutorial, setActiveTutorial, toast, isCardActionModalOpen, 
+    setIsCardActionModalOpen, actionCard 
+  } = useUiStore();
+  
+  const { 
+    setDecks, fetchDecks, currentDeck, setCurrentDeck, 
+    deckToSync, setSyncModalOpen, syncModalOpen, handleSyncDeck 
+  } = useDeckStore();
 
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [studyHistory, setStudyHistory] = useState([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [apiError, setApiError] = useState(null);
+  const { isFlipped } = useSessionStore();
+  const { fetchNextCard, handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn } = useCardActions();
 
   const {
-    autoPlay, setAutoPlay,
-    autoShow, setAutoShow,
-    cardBgFront, setCardBgFront,
-    cardBgBack, setCardBgBack,
-    cardFont, setCardFont,
-    cardTextColor, setCardTextColor,
-    cardFontSize, setCardFontSize,
-    contextFont, setContextFont,
-    contextTextColor, setContextTextColor,
-    contextFontSize, setContextFontSize,
-    cardTextShadow, setCardTextShadow,
-    contextTextShadow, setContextTextShadow,
-    cardFontWeight, setCardFontWeight,
-    cardFontStyle, setCardFontStyle,
-    contextFontWeight, setContextFontWeight,
-    contextFontStyle, setContextFontStyle,
-    adminSettings, setAdminSettings,
-    userPrompts, setUserPrompts,
-    applyDesignPreset,
+    setAdminSettings, setUserPrompts, applyDesignPreset, isAdmin
   } = useSettingsStore();
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isNewDeckModalOpen, setIsNewDeckModalOpen] = useState(false);
-  const [deckModalMode, setDeckModalMode] = useState('choice');
-  const [isOpeningDeck, setIsOpeningDeck] = useState(false);
-  const [newDeckName, setNewDeckName] = useState('');
-  const [syncModalOpen, setSyncModalOpen] = useState(false);
-  const [deckToSync, setDeckToSync] = useState(null);
-
-  const [aiInputPhrase, setAiInputPhrase] = useState('');
-  const [isAiWizardOpen, setIsAiWizardOpen] = useState(false);
-  const [editorSourceView, setEditorSourceView] = useState('cards');
-  const [activeSettingsTab, setActiveSettingsTab] = useState('general');
-  const [availableModels, setAvailableModels] = useState([]);
-  const [presets, setPresets] = useState([]);
-  const [isFetchingModels, setIsFetchingModels] = useState(false);
-  const [newPresetName, setNewPresetName] = useState('');
-  const [customBackgrounds, setCustomBackgrounds] = useState([]);
-
-  const [activeTutorial, setActiveTutorial] = useState(null);
-
-  const [externalDecks, setExternalDecks] = useState([]);
-  const [communityDecks, setCommunityDecks] = useState([]);
-  const [isImportLoading, setIsImportLoading] = useState(false);
-  const [isCardActionModalOpen, setIsCardActionModalOpen] = useState(false);
-  const [actionCard, setActionCard] = useState(null);
-  const gradingRef = useRef(false);
-  const abortControllerRef = useRef(null);
-
-  const showToast = React.useCallback((message, type = "error") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-
-  const { playAudio, preloadAudio } = useAudio(autoPlay, showToast);
-
+  // Initialization
   useEffect(() => {
     fetchInitData();
     const params = new URLSearchParams(window.location.search);
-    if (params.get('admin') === '1' || USER_ID === 642478257) setIsAdmin(true);
+    if (params.get('admin') === '1' || USER_ID === 642478257) {
+      useSettingsStore.setState({ isAdmin: true });
+    }
 
-    // Migration to v6 (Updated Lerne 2026)
     const currentVersion = storage.get('lerne_settings_version');
-    if (currentVersion !== '6') {
-      console.log("Migrating settings to v6 (Updated Lerne 2026)...");
+    if (currentVersion !== SETTINGS_VERSION) {
+      console.log(`Migrating settings to v${SETTINGS_VERSION}...`);
       const defaultSettings = DESIGN_PRESETS.find(p => p.id === 'lerne_2026')?.settings;
       if (defaultSettings) {
         applyDesignPreset({ name: 'Lerne 2026', settings: defaultSettings });
       }
-      storage.set('lerne_settings_version', '6');
+      storage.set('lerne_settings_version', SETTINGS_VERSION);
     }
 
-    // Приветствие при первом входе (две слайда: суть и справка)
     const welcomed = storage.get('lerne_welcome_seen');
     if (!welcomed) {
       setTimeout(() => {
@@ -127,144 +76,19 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (isSettingsOpen && isAdmin) {
-      fetchPresets();
-    }
-  }, [isSettingsOpen, isAdmin]);
-
-  useEffect(() => {
-    if (isNewDeckModalOpen) {
-      setDeckModalMode('choice');
-      setIsImportLoading(false);
-    }
-  }, [isNewDeckModalOpen]);
-
-  useEffect(() => {
-    if (view === 'study' && card?.audio_url) {
-      preloadAudio(card.audio_url);
-    }
-  }, [view, card?.id, card?.audio_url, preloadAudio]);
-
-  useEffect(() => {
-    if (view === 'study' && card && card.audio_url && autoPlay) {
-      const timer = setTimeout(() => playAudio(card.audio_url), 150);
-      return () => clearTimeout(timer);
-    }
-  }, [view, card?.id, autoPlay, playAudio]);
-
-  useEffect(() => {
-    if (view === 'study' && card && autoShow && !isFlipped) {
-      const delay = card.audio_url && autoPlay ? 3000 : 2000;
-      const timer = setTimeout(() => {
-        setIsFlipped(true);
-      }, delay);
-      return () => clearTimeout(timer);
-    }
-  }, [view, card?.id, autoShow, isFlipped, autoPlay]);
-
-  useEffect(() => {
-    let context = view;
-    if (isSettingsOpen) context = 'settings';
-
-    // Специальная логика для обучения (лицо / оборот)
-    if (context === 'study' && card) {
-      if (isFlipped) {
-        context = 'study_back';
-      }
-      // Если карточка не перевернута, оставляем context = 'study'
-    }
-
-    // Авто-запуск туториала отключен по просьбе пользователя
-    /*
-    if (context === 'decks' || context === 'settings' || context === 'study' || context === 'study_back' || context === 'cards' || context === 'creator') {
-      const seen = storage.get(`lerne_tut_seen_${context}`);
-      if (!seen) {
-        // Небольшая задержка, чтобы UI успел отрисоваться
-        const timer = setTimeout(() => setActiveTutorial(context), 500);
-        return () => clearTimeout(timer);
-      }
-    }
-    */
-  }, [view, isSettingsOpen, !!card, isFlipped]);
-
-  const finishTutorial = (context) => {
-    console.log("Finishing tutorial for:", context);
-    storage.set(`lerne_tut_seen_${context}`, 'true');
-    setActiveTutorial(null);
-  };
-
-  const startTutorial = (context) => {
-    console.log("Starting tutorial for:", context);
-    // window.alert("Запуск туториала для: " + context); // Раскомментируй если хочешь проверить вызов
-    storage.remove(`lerne_tut_seen_${context}`);
-    setActiveTutorial(null);
-    setTimeout(() => {
-      setActiveTutorial(context);
-    }, 100);
-  };
-
-  // --- API Functions ---
   const fetchInitData = async () => {
-    setLoading(true);
+    useUiStore.setState({ loading: true });
     try {
       const res = await api.get('/init');
       setDecks(res.data.decks);
       setAdminSettings(res.data.settings);
       setUserPrompts(res.data.prompts);
-      fetchCustomBackgrounds();
+      // Fetch backgrounds should be called by the settings store or component
     } catch (err) {
       console.error("Init Data Error:", err);
       showToast("Ошибка загрузки данных.");
     }
-    setLoading(false);
-  };
-
-  const fetchDecks = async (force = false) => {
-    if (!force && decks.length > 0) return;
-    setLoading(true);
-    try {
-      const res = await api.get('/decks');
-      setDecks(res.data);
-    } catch (err) {
-      console.error("Fetch Decks Error:", err);
-      showToast("Не удалось загрузить колоды.");
-    }
-    setLoading(false);
-  };
-
-  const handleResetProgress = async (deckId) => {
-    if (!window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) return;
-    setLoading(true);
-    try {
-      await api.post(`/decks/${deckId}/reset`);
-      showToast("Прогресс сброшен", "success");
-      fetchDecks(true);
-      if (view === 'study') startStudy(currentDeck);
-    } catch (err) {
-      showToast("Ошибка при сбросе");
-    }
-    setLoading(false);
-  };
-
-  const openSyncModal = (deck) => {
-    setDeckToSync(deck);
-    setSyncModalOpen(true);
-  };
-
-  const handleSyncDeck = async (deckId, mode = 'merge') => {
-    setLoading(true);
-    showToast("Синхронизация...");
-    try {
-      await api.post(`/decks/${deckId}/sync`, { mode });
-      showToast("Колода обновлена", "success");
-      setSyncModalOpen(false);
-      setDeckToSync(null);
-      fetchDecks(true);
-    } catch (err) {
-      showToast("Ошибка при синхронизации");
-    }
-    setLoading(false);
+    useUiStore.setState({ loading: false });
   };
 
   const startStudy = async (deck) => {
@@ -272,1084 +96,55 @@ export default function App() {
     try {
       setCurrentDeck(deck);
       setView('study');
-      setCard(null);
-      setIsFlipped(false);
-      setStudyHistory([]);
-      setHistoryIndex(-1);
+      useSessionStore.getState().resetSession();
       await fetchNextCard(deck.id, true);
     } finally {
       setIsOpeningDeck(false);
     }
   };
 
-  const prefetchMedia = (url) => {
-    if (!url) return;
-    const img = new Image();
-    img.src = url;
+  const finishTutorial = (context) => {
+    storage.set(`lerne_tut_seen_${context}`, 'true');
+    setActiveTutorial(null);
   };
 
-  const fetchNextCard = async (deckId, isFirst = false, excludeIds = []) => {
-    setLoading(true);
-    setApiError(null);
-    try {
-      const excludeParam = excludeIds.length > 0 ? `?exclude_ids=${excludeIds.join(',')}` : '';
-      const res = await api.get(`/decks/${deckId}/next${excludeParam}`);
-
-      if (res.data.error) {
-        setApiError(res.data.error);
-        setCard(null);
-      } else if (res.data.finished) {
-        setCard(null);
-      } else {
-        const newCard = res.data;
-        setCard(newCard);
-        setStudyHistory(prev => [...prev, newCard]);
-        setHistoryIndex(prev => prev + 1);
-        prefetchMedia(newCard.image_url);
-      }
-    } catch (err) {
-      console.error("fetchNextCard Error:", err);
-      setApiError(err.response?.data?.detail || err.message);
-    }
-    setLoading(false);
-  };
-
-  const submitGrade = async (grade) => {
-    if (!card || gradingRef.current) return;
-    gradingRef.current = true;
-
-    // Оптимистичное обновление: сразу убираем ответ, показываем загрузку
-    setIsFlipped(false);
-    setLoading(true);
-
-    try {
-      const gradedCardId = card.id;
-      const res = await api.post('/study/grade', {
-        card_id: gradedCardId,
-        deck_id: currentDeck.id,
-        grade
-      });
-
-      if (res.data.finished) {
-        setCard(null);
-      } else {
-        const nextCard = res.data;
-        setStudyHistory(prev => [...prev, nextCard]);
-        setHistoryIndex(prev => prev + 1);
-        setCard(nextCard);
-        prefetchMedia(nextCard.image_url);
-      }
-    } catch (err) {
-      console.error("SubmitGrade Error:", err);
-      showToast(`Ошибка при сохранении оценки: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      gradingRef.current = false;
-      setLoading(false);
-    }
-  };
-
-  const goBack = () => {
-    if (historyIndex > 0) {
-      const prevIndex = historyIndex - 1;
-      setHistoryIndex(prevIndex);
-      setCard(studyHistory[prevIndex]);
-      setIsFlipped(false);
-    }
-  };
-
-  const goNext = () => {
-    if (historyIndex < studyHistory.length - 1) {
-      const nextIndex = historyIndex + 1;
-      setHistoryIndex(nextIndex);
-      setCard(studyHistory[nextIndex]);
-      setIsFlipped(false);
-    } else {
-      const excludeIds = studyHistory.map(c => c.id);
-      setTimeout(() => fetchNextCard(currentDeck.id, false, excludeIds), 50);
-    }
-  };
-
-  const fetchDeckCards = async (deckId) => {
-    setIsOpeningDeck(true);
-    try {
-      const res = await api.get(`/decks/${deckId}/cards`);
-      setDeckCards(res.data);
-      setView('cards');
-    } catch (err) {
-      console.error(err);
-      showToast("Ошибка загрузки карточек");
-    } finally {
-      setIsOpeningDeck(false);
-    }
-  };
-
-  const openEditor = (deckId, cardToEdit = null, source = 'cards') => {
-    const cleanMedia = (p) => {
-      if (!p) return '';
-      if (p.startsWith('/api/media/')) {
-        const parts = p.split('/');
-        return parts.slice(3).join('/');
-      }
-      return p;
-    };
-
-    if (cardToEdit) {
-      setEditingCard({
-        id: cardToEdit.id,
-        front: cardToEdit.front || '',
-        back: cardToEdit.back || '',
-        context: cardToEdit.context || '',
-        image_path: cleanMedia(cardToEdit.image_path || cardToEdit.image_url),
-        audio_path: cleanMedia(cardToEdit.audio_path || cardToEdit.audio_url),
-        deck_id: deckId
-      });
-    } else {
-      setEditingCard({ front: '', back: '', context: '', deck_id: deckId });
-    }
-    setEditorSourceView(source);
-    setIsAiWizardOpen(false);
-    setView('editor');
-  };
-
-  const handleQuickAudio = async (c) => {
-    if (!c || !c.front) return;
-    setLoading(true);
-    const voice = adminSettings.TTS_VOICE || 'de-DE-KatjaNeural';
-    const rate = adminSettings.TTS_SPEED || '+0%';
-    const hasRussian = /[а-яА-Я]/.test(c.front);
-    const textToSpeak = hasRussian ? c.back : c.front;
-
-    if (!textToSpeak) {
-      showToast("Нет текста для озвучки");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await api.post('/media/generate-audio', {
-        text: textToSpeak,
-        lang: 'de',
-        voice: voice,
-        rate: rate
-      });
-      const newAudioPath = res.data.path;
-
-      await api.post('/cards/save', {
-        card_id: c.id,
-        deck_id: c.deck_id,
-        front: c.front,
-        back: c.back,
-        context: c.context,
-        image_path: c.image_url || c.image_path || '',
-        audio_path: newAudioPath
-      });
-
-      setCard({ ...c, audio_url: res.data.url, audio_path: res.data.path });
-      showToast("Озвучка добавлена!", "success");
-      playAudio(res.data.url);
-    } catch (err) {
-      console.error(err);
-      showToast(`Ошибка генерации: ${err.response?.data?.detail || err.message}`, "error");
-    }
-    setLoading(false);
-  };
-
-  const saveCard = async (manualCardData = null) => {
-    // If called directly from onClick, manualCardData might be an event object
-    const isEvent = manualCardData && typeof manualCardData === 'object' && 'preventDefault' in manualCardData;
-    const data = (manualCardData && !isEvent) ? manualCardData : editingCard;
-    // Удаляем валидацию обязательных полей по просьбе пользователя
-
-    setLoading(true);
-    try {
-      const reqData = {
-        card_id: data.id || null,
-        deck_id: data.deck_id || currentDeck?.id || null,
-        front: data.front,
-        back: data.back,
-        context: data.context || '',
-        image_path: data.image_path || '',
-        audio_path: data.audio_path || ''
-      };
-
-      const res = await api.post('/cards/save', reqData);
-      const fullCard = res.data;
-      showToast("Сохранено", "success");
-
-      if (view === 'creator') {
-        setCard(fullCard);
-        setIsFlipped(false);
-        
-        if (editorSourceView === 'study') {
-           setStudyHistory(prev => [...prev, fullCard]);
-           setHistoryIndex(prev => prev + 1);
-        } else {
-           setStudyHistory([fullCard]);
-           setHistoryIndex(0);
-        }
-        
-        setView('study');
-        return;
-      }
-
-      if (editorSourceView === 'study') {
-        if (card && card.id === data.id) {
-          setCard(fullCard);
-        }
-        setView('study');
-      } else if (editorSourceView === 'cards') {
-        fetchDeckCards(data.deck_id || currentDeck?.id);
-        setView('cards');
-      } else {
-        fetchDecks(true);
-        setView('decks');
-      }
-    } catch (err) {
-      console.error(err);
-      const detail = err.response?.data?.detail || err.message;
-      showToast(`Ошибка сохранения: ${detail}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateAudioInternal = async (targetData = null, setter = null) => {
-    const data = targetData || editingCard;
-    if (!data || !data.front) return;
-
-    setLoading(true);
-    const voice = adminSettings.TTS_VOICE || 'de-DE-KatjaNeural';
-    const rate = adminSettings.TTS_SPEED || '+0%';
-    const hasRussian = /[а-яА-Я]/.test(data.front);
-    const textToSpeak = hasRussian ? data.back : data.front;
-
-    if (!textToSpeak) {
-      showToast("Заполните текст для озвучки");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await api.post('/media/generate-audio', {
-        text: textToSpeak,
-        lang: 'de',
-        voice: voice,
-        rate: rate
-      });
-
-      const update = {
-        audio_path: res.data.path,
-        audio_url: res.data.url
-      };
-
-      if (setter) {
-        setter(prev => ({ ...prev, ...update }));
-      } else {
-        setEditingCard({ ...editingCard, ...update });
-      }
-
-      showToast("Аудио сгенерировано", "success");
-      playAudio(res.data.url);
-    } catch (err) {
-      console.error(err);
-      showToast(`Ошибка генерации аудио: ${err.response?.data?.detail || err.message}`);
-    }
-    setLoading(false);
-  };
-
-  const generateAudio = () => generateAudioInternal();
-
-  const uploadImageFile = async (file) => {
-    if (!file) return;
-    if (!file.type?.startsWith('image/')) {
-      showToast("Выберите файл изображения");
-      return null;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await api.post('/media/upload-image', formData);
-    return res.data;
-  };
-
-  const uploadImage = async (file) => {
-    if (!file) return;
-    setLoading(true);
-    try {
-      const uploaded = await uploadImageFile(file);
-      if (uploaded) {
-        setEditingCard({
-          ...editingCard,
-          image_path: uploaded.path,
-          image_url: uploaded.url
-        });
-        showToast("Картинка добавлена", "success");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast(`Ошибка загрузки картинки: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const uploadStudyImage = async (file, targetCard) => {
-    if (!file || !targetCard || !currentDeck?.id) return;
-    setLoading(true);
-    try {
-      const uploaded = await uploadImageFile(file);
-      if (uploaded) {
-        await api.post('/cards/save', {
-          card_id: targetCard.id,
-          deck_id: currentDeck.id,
-          front: targetCard.front,
-          back: targetCard.back,
-          context: targetCard.context,
-          image_path: uploaded.path,
-          audio_path: targetCard.audio_path || ''
-        });
-
-        setCard({
-          ...targetCard,
-          image_path: uploaded.path,
-          image_url: uploaded.url
-        });
-        prefetchMedia(uploaded.url);
-        showToast("Картинка добавлена", "success");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast(`Ошибка загрузки картинки: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const uploadCreatorImage = async (file, currentData, setter) => {
-    if (!file) return;
-    setLoading(true);
-    try {
-      const uploaded = await uploadImageFile(file);
-      if (uploaded) {
-        setter({
-          ...currentData,
-          image_path: uploaded.path,
-          image_url: uploaded.url
-        });
-        showToast("Картинка добавлена", "success");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast(`Ошибка загрузки картинки: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUserPrompts = async () => {
-    try {
-      const res = await api.get('/user/prompts');
-      setUserPrompts(res.data);
-    } catch (err) { console.error(err); }
-  };
-
-  const saveUserPrompts = async () => {
-    try {
-      await api.post('/user/prompts', userPrompts);
-      showToast("Промпты сохранены", "success");
-    } catch (err) { console.error(err); showToast("Ошибка сохранения", "error"); }
-  };
-
-  const fetchAdminSettings = async () => {
-    try {
-      const res = await api.get('/admin/settings?admin_key=1');
-      setAdminSettings(res.data);
-    } catch (err) { console.error(err); }
-  };
-
-  const saveAdminSettings = async () => {
-    try {
-      // Отправляем настройки как есть, без лишнего маппинга
-      const res = await api.post('/admin/settings?admin_key=1', adminSettings);
-      if (res.data.status === 'ok') {
-        showToast("Настройки сохранены", "success");
-        fetchAdminSettings();
-      } else {
-        showToast("Ошибка сервера при сохранении", "error");
-      }
-    } catch (err) {
-      console.error(err);
-      const detail = err.response?.data?.detail;
-      showToast(`Ошибка сохранения: ${detail || err.message}`, "error");
-    }
-  };
-
-  const fetchCustomBackgrounds = async () => {
-    try {
-      const res = await api.get('/media/backgrounds');
-      setCustomBackgrounds(res.data);
-    } catch (err) { console.error("Error fetching backgrounds:", err); }
-  };
-
-  const uploadCustomBackground = async (file) => {
-    if (!file) return;
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await api.post('/media/upload-background', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      showToast("Фон загружен", "success");
-      fetchCustomBackgrounds();
-      return res.data;
-    } catch (err) {
-      console.error(err);
-      showToast(`Ошибка загрузки фона: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const uploadCardVideo = async (file, targetCard, side = 'back') => {
-    if (!file || !targetCard || !currentDeck?.id) return;
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploaded = await api.post('/media/upload-video', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      if (uploaded.data) {
-        const fieldName = side === 'front' ? 'video_front_path' : 'video_back_path';
-        const urlName = side === 'front' ? 'video_front_url' : 'video_back_url';
-
-        await api.post('/cards/save', {
-          card_id: targetCard.id,
-          deck_id: currentDeck.id,
-          front: targetCard.front,
-          back: targetCard.back,
-          context: targetCard.context,
-          image_path: targetCard.image_path || '',
-          audio_path: targetCard.audio_path || '',
-          video_front_path: side === 'front' ? uploaded.data.path : (targetCard.video_front_path || ''),
-          video_back_path: side === 'back' ? uploaded.data.path : (targetCard.video_back_path || '')
-        });
-
-        setCard({
-          ...targetCard,
-          [fieldName]: uploaded.data.path,
-          [urlName]: uploaded.data.url
-        });
-        showToast(`Видео (${side === 'front' ? 'лицо' : 'оборот'}) добавлено`, "success");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast(`Ошибка загрузки видео: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchModels = async () => {
-    const provider = adminSettings.AI_PROVIDER;
-    if (!provider) return;
-
-    setIsFetchingModels(true);
-    try {
-      let url = `/admin/models/${provider}`;
-      if (provider === 'ollama') {
-        url += `?url=${encodeURIComponent(adminSettings.OLLAMA_URL || 'http://localhost:11434')}`;
-      } else if (provider === 'groq') {
-        url += `?api_key=${encodeURIComponent(adminSettings.GROQ_API_KEY || '')}`;
-      }
-      const res = await api.get(url);
-      setAvailableModels(res.data);
-      if (res.data.length > 0 && !adminSettings.DEFAULT_MODEL) {
-        setAdminSettings({ ...adminSettings, DEFAULT_MODEL: res.data[0] });
-      }
-    } catch (err) {
-      showToast("Ошибка загрузки моделей");
-    }
-    setIsFetchingModels(false);
-  };
-
-  const testAiConnection = async () => {
-    const provider = adminSettings.AI_PROVIDER;
-    if (provider === 'default') {
-      showToast("Для общего ключа проверка не требуется");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const reqData = {
-        provider,
-        model: adminSettings.DEFAULT_MODEL || (provider === 'groq' ? 'llama3-70b-8192' : 'gemini-1.5-flash'),
-        api_key: provider === 'google' ? adminSettings.GOOGLE_API_KEY : 
-                 provider === 'groq' ? adminSettings.GROQ_API_KEY : adminSettings.OPENROUTER_API_KEY,
-        ollama_url: adminSettings.OLLAMA_URL
-      };
-
-      const res = await api.post('/admin/test-ai', reqData);
-      if (res.data.status === 'success') {
-        showToast("Соединение успешно!", "success");
-      } else {
-        showToast(`Ошибка: ${res.data.message}`, "error");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast("Ошибка соединения с сервером", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPresets = async () => {
-    try {
-      const res = await api.get('/admin/presets');
-      setPresets(res.data);
-    } catch (err) { console.error(err); }
-  };
-
-  const saveCurrentAsPreset = async () => {
-    if (!newPresetName) {
-      showToast("Введите имя пресета");
-      return;
-    }
-    const newPresets = [...presets, { name: newPresetName, settings: { ...adminSettings } }];
-    try {
-      await api.post('/admin/presets', newPresets);
-      setPresets(newPresets);
-      setNewPresetName('');
-      showToast("Preset сохранен", "success");
-    } catch (err) { console.error(err); showToast("Ошибка сохранения пресета"); }
-  };
-
-  const applyPreset = (preset) => {
-    setAdminSettings({ ...adminSettings, ...preset.settings });
-    showToast(`Применен пресет: ${preset.name}`, "success");
-  };
-
-  const deletePreset = async (index) => {
-    const newPresets = presets.filter((_, i) => i !== index);
-    try {
-      await api.post('/admin/presets', newPresets);
-      setPresets(newPresets);
-    } catch (err) { console.error(err); showToast("Ошибка удаления"); }
-  };
-
-  const createDeck = async () => {
-    if (!newDeckName) return;
-    setLoading(true);
-    try {
-      await api.post('/decks', { name: newDeckName });
-      setNewDeckName('');
-      setIsNewDeckModalOpen(false);
-      setDeckModalMode('choice');
-      fetchDecks(true);
-      showToast("Колода создана", "success");
-    } catch (err) { console.error(err); showToast("Ошибка создания"); }
-    setLoading(false);
-  };
-
-  const resetDesign = () => {
-    const defaultSettings = DESIGN_PRESETS.find(p => p.id === 'lerne_2026')?.settings;
-    if (defaultSettings) {
-      applyDesignPreset({ name: 'Lerne 2026', settings: defaultSettings });
-      showToast("Дизайн сброшен к стандарту", "success");
-    }
-  };
-
-  const handleDeleteDeck = (e, deckId) => {
-    e.stopPropagation();
-    if (!window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) return;
-
-    setLoading(true);
-    api.delete(`/decks/${deckId}`)
-      .then(() => {
-        showToast("Колода удалена", "success");
-        fetchDecks(true);
-      })
-      .catch(err => {
-        console.error(err);
-        showToast("Ошибка при удалении");
-      })
-      .finally(() => setLoading(false));
-  };
-
-  const handleDeleteCard = (e, cardId) => {
-    e.stopPropagation();
-    if (!window.confirm("Удалить эту карточку?")) return;
-
-    setLoading(true);
-    api.delete(`/cards/${cardId}`)
-      .then(() => {
-        showToast("Карточка удалена", "success");
-        fetchDeckCards(currentDeck.id);
-      })
-      .catch(err => {
-        console.error(err);
-        showToast("Ошибка при удалении");
-      })
-      .finally(() => setLoading(false));
-  };
-
-  const fetchExternalDecks = async () => {
-    setIsImportLoading(true);
-    try {
-      const res = await api.get('/decks/external');
-      setExternalDecks(res.data);
-      if (isNewDeckModalOpen) {
-        setDeckModalMode('import');
-      }
-    } catch (err) {
-      showToast("Ошибка загрузки внешних колод");
-    }
-    setIsImportLoading(false);
-  };
-
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const jsonData = JSON.parse(event.target.result);
-        setLoading(true);
-        showToast("Импорт из файла...", "success");
-
-        await api.post('/decks/import-json', jsonData);
-
-        setIsNewDeckModalOpen(false);
-        fetchDecks(true);
-        showToast("Колода импортирована!", "success");
-      } catch (err) {
-        console.error("File import error:", err);
-        showToast("Ошибка импорта: неверный формат файла");
-      }
-      setLoading(false);
-      e.target.value = '';
-    };
-    reader.readAsText(file);
-  };
-
-  const importDeck = async (deckId) => {
-    setIsOpeningDeck(true);
-    try {
-      await api.post(`/decks/external/import/${deckId}`);
-
-      setIsNewDeckModalOpen(false);
-      setDeckModalMode('choice');
-
-      await fetchDecks(true);
-      showToast("Колода успешно импортирована!", "success");
-
-      setTimeout(() => fetchDecks(true), 1500);
-    } catch (err) {
-      console.error("Import error:", err);
-      showToast(`Ошибка импорта: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      setIsOpeningDeck(false);
-    }
-  };
-
-  const fetchCommunityDecks = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/admin/community/decks');
-      setCommunityDecks(res.data);
-      setActiveSettingsTab('community');
-    } catch (err) {
-      showToast("Ошибка загрузки сообщества");
-    }
-    setLoading(false);
-  };
-
-  const promoteDeck = async (deckId) => {
-    if (!window.confirm("Добавить эту пользовательскую колоду в общую библиотеку?")) return;
-    setLoading(true);
-    try {
-      await api.post(`/admin/community/promote/${deckId}`);
-      showToast("Колода добавлена в библиотеку!", "success");
-      fetchCommunityDecks();
-    } catch (err) {
-      showToast("Ошибка при вливании колоды");
-    }
-    setLoading(false);
-  };
-
-  const openCreator = (deckId, source = 'cards') => {
-    const deck = decks.find(d => d.id === deckId);
-    if (deck) {
-      setCurrentDeck(deck);
-      setEditorSourceView(source);
-      setEditingCard({
-        deck_id: deckId,
-        front: '',
-        back: '',
-        context: '',
-        image_path: '',
-        audio_path: ''
-      });
-      setView('creator');
-    }
-  };
-
-  const stopAiGeneration = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-      setLoading(false);
-      showToast("Генерация остановлена", "info");
-    }
-  };
-
-  const runAiGenerator = async (overridePhrase = null, returnResult = false) => {
-    const phrase = overridePhrase || aiInputPhrase;
-    if (!phrase) return;
-
-    // Очищаем предыдущий контроллер если есть
-    if (abortControllerRef.current) abortControllerRef.current.abort();
-    abortControllerRef.current = new AbortController();
-
-    setLoading(true);
-    const maxRetries = 3;
-    let attempt = 0;
-
-    let lastError = null;
-
-    while (attempt < maxRetries) {
-      attempt++;
-      if (attempt > 1) {
-        const reasonStr = lastError ? ` (${lastError})` : "";
-        showToast(`Попытка ${attempt}${reasonStr}...`, "info");
-      }
-
-      try {
-        const res = await api.post('/cards/ai-generate', 
-          { phrase }, 
-          { signal: abortControllerRef.current.signal }
-        );
-
-        if (res.data.error) {
-          lastError = res.data.error;
-          // Если это лимит квот или таймаут, пробуем еще раз
-          if (res.data.error.includes("Quota") || res.data.error.includes("Timeout") || res.data.error.includes("Connection")) {
-            if (attempt < maxRetries) {
-              await new Promise(r => setTimeout(r, 1500));
-              continue;
-            }
-          }
-          showToast(`Ошибка ИИ: ${res.data.error}`);
-          setLoading(false);
-          abortControllerRef.current = null;
-          return null;
-        }
-
-        abortControllerRef.current = null;
-        if (returnResult) {
-          setLoading(false);
-          return res.data;
-        }
-
-        setEditingCard({
-          ...editingCard,
-          front: res.data.front || editingCard.front,
-          back: res.data.back || editingCard.back,
-          context: res.data.context || editingCard.context
-        });
-        setIsAiWizardOpen(false);
-        showToast("Готово! Проверьте поля.", "success");
-        setLoading(false);
-        return res.data;
-
-      } catch (err) {
-        if (err.name === 'CanceledError' || err.name === 'AbortError' || axios.isCancel(err)) {
-          console.log("AI Generation aborted by user");
-          return null;
-        }
-        
-        lastError = err.message || "Network Error";
-        console.error(`AI Generation Error (Attempt ${attempt}):`, err);
-        
-        if (attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, 1500));
-          continue;
-        }
-
-        const detail = err.response?.data?.detail || err.message;
-        if (err.message === 'Network Error') {
-          showToast("Ошибка сети: проверьте соединение");
-        } else {
-          showToast(`Ошибка ИИ: ${detail}`);
-        }
-      }
-    }
-
-    setLoading(false);
-    abortControllerRef.current = null;
-    return null;
-  };
-
-  const handleToggleLearn = async (targetCard) => {
-    try {
-      const res = await api.post(`/cards/${targetCard.id}/toggle-learn`);
-      const updatedCard = res.data;
-      if (card && card.id === targetCard.id) {
-        setCard(prev => ({ ...prev, want_to_learn: updatedCard.want_to_learn }));
-      }
-      // Also update in study history if needed
-      setStudyHistory(prev => prev.map(c => c.id === targetCard.id ? { ...c, want_to_learn: updatedCard.want_to_learn } : c));
-      showToast(updatedCard.want_to_learn ? "Добавлено в 'Хочу выучить'" : "Удалено из 'Хочу выучить'", "success");
-    } catch (err) {
-      showToast("Ошибка при изменении статуса");
-    }
-  };
-
-  const handleMoveCard = async (targetCard, targetDeckId) => {
-    setLoading(true);
-    try {
-      await api.post('/cards/save', {
-        card_id: targetCard.id,
-        deck_id: targetDeckId,
-        front: targetCard.front || '',
-        back: targetCard.back || '',
-        context: targetCard.context || '',
-        image_path: targetCard.image_path || '',
-        audio_path: targetCard.audio_path || '',
-        video_front_path: targetCard.video_front_path || '',
-        video_back_path: targetCard.video_back_path || '',
-        want_to_learn: !!targetCard.want_to_learn
-      });
-      showToast("Карточка перемещена", "success");
-      // If moving current card in study, go to next
-      if (card && card.id === targetCard.id) {
-        goNext();
-      }
-      fetchDecks(true);
-    } catch (err) {
-      showToast("Ошибка при перемещении");
-    }
-    setLoading(false);
-  };
-
-  const handleCopyCard = async (targetCard, targetDeckId) => {
-    setLoading(true);
-    try {
-      await api.post('/cards/save', {
-        deck_id: targetDeckId,
-        front: targetCard.front || '',
-        back: targetCard.back || '',
-        context: targetCard.context || '',
-        image_path: targetCard.image_path || '',
-        audio_path: targetCard.audio_path || '',
-        video_front_path: targetCard.video_front_path || '',
-        video_back_path: targetCard.video_back_path || '',
-        want_to_learn: !!targetCard.want_to_learn
-      });
-      showToast("Карточка скопирована", "success");
-      fetchDecks(true);
-    } catch (err) {
-      showToast("Ошибка при копировании");
-    }
-    setLoading(false);
-  };
-
-  const openCardActions = (targetCard) => {
-    setActionCard(targetCard);
-    setIsCardActionModalOpen(true);
+  const startTutorial = (context) => {
+    storage.remove(`lerne_tut_seen_${context}`);
+    setActiveTutorial(null);
+    setTimeout(() => {
+      setActiveTutorial(context);
+    }, 100);
   };
 
   return (
     <div className="app-container">
       <DeckGrid
-        view={view}
-        decks={decks}
-        loading={loading}
         userId={USER_ID}
-        setIsNewDeckModalOpen={setIsNewDeckModalOpen}
-        setIsSettingsOpen={setIsSettingsOpen}
-        fetchDecks={fetchDecks}
         startStudy={startStudy}
-        setCurrentDeck={setCurrentDeck}
-        fetchDeckCards={fetchDeckCards}
-        handleSyncDeck={handleSyncDeck}
-        handleResetProgress={handleResetProgress}
-        handleDeleteDeck={handleDeleteDeck}
-        showToast={showToast}
-        openSyncModal={openSyncModal}
         startTutorial={startTutorial}
       />
 
       <StudyView
-        view={view}
-        currentDeck={currentDeck}
-        card={card}
-        loading={loading}
-        isFlipped={isFlipped}
-        setIsFlipped={setIsFlipped}
-        studyHistory={studyHistory}
-        historyIndex={historyIndex}
-        apiError={apiError}
-        setView={setView}
-        setCard={setCard}
-        openEditor={openEditor}
-        openCreator={openCreator}
-        uploadStudyImage={uploadStudyImage}
-        uploadCardVideo={uploadCardVideo}
-        handleQuickAudio={handleQuickAudio}
-        playAudio={playAudio}
-        submitGrade={submitGrade}
-        goBack={goBack}
-        goNext={goNext}
-        handleSyncDeck={handleSyncDeck}
-        handleResetProgress={handleResetProgress}
-        setIsSettingsOpen={setIsSettingsOpen}
         startTutorial={startTutorial}
-        cardBgFront={cardBgFront}
-        cardBgBack={cardBgBack}
-        cardFont={cardFont}
-        cardTextColor={cardTextColor}
-        cardFontSize={cardFontSize}
-        contextFont={contextFont}
-        contextTextColor={contextTextColor}
-        contextFontSize={contextFontSize}
-        cardTextShadow={cardTextShadow}
-        contextTextShadow={contextTextShadow}
-        cardFontWeight={cardFontWeight}
-        cardFontStyle={cardFontStyle}
-        contextFontWeight={contextFontWeight}
-        contextFontStyle={contextFontStyle}
-        openCardActions={openCardActions}
-        decks={decks}
       />
 
-      <DeckModals
-        isNewDeckModalOpen={isNewDeckModalOpen}
-        setIsNewDeckModalOpen={setIsNewDeckModalOpen}
-        deckModalMode={deckModalMode}
-        setDeckModalMode={setDeckModalMode}
-        newDeckName={newDeckName}
-        setNewDeckName={setNewDeckName}
-        createDeck={createDeck}
-        loading={loading}
-        fetchExternalDecks={fetchExternalDecks}
-        isImportLoading={isImportLoading}
-        handleFileUpload={handleFileUpload}
-        externalDecks={externalDecks}
-        importDeck={importDeck}
-      />
+      <DeckModals />
 
       <CardList
-        view={view}
-        currentDeck={currentDeck}
-        deckCards={deckCards}
-        setView={setView}
-        openEditor={openEditor}
-        openCreator={openCreator}
-        handleDeleteCard={handleDeleteCard}
-        setIsSettingsOpen={setIsSettingsOpen}
         startTutorial={startTutorial}
       />
 
       <CardCreator
-        view={view}
-        editorSourceView={editorSourceView}
-        setView={setView}
-        currentDeck={currentDeck}
-        runAiGenerator={runAiGenerator}
-        stopAiGeneration={stopAiGeneration}
-        generateAudioInternal={generateAudioInternal}
-        uploadCreatorImage={uploadCreatorImage}
-        playAudio={playAudio}
-        saveCard={saveCard}
-        loading={loading}
-        setIsSettingsOpen={setIsSettingsOpen}
-        openCreator={openCreator}
         startTutorial={startTutorial}
-        cardFont={cardFont}
-        cardTextColor={cardTextColor}
-        cardFontWeight={cardFontWeight}
-        cardFontStyle={cardFontStyle}
-        cardBgFront={cardBgFront}
-        cardBgBack={cardBgBack}
-        contextFont={contextFont}
-        contextTextColor={contextTextColor}
-        contextFontSize={contextFontSize}
-        contextFontWeight={contextFontWeight}
-        contextFontStyle={contextFontStyle}
-        cardFontSize={cardFontSize}
-        cardTextShadow={cardTextShadow}
-        contextTextShadow={contextTextShadow}
       />
 
       <CardEditor
-        view={view}
-        editorSourceView={editorSourceView}
-        setView={setView}
-        editingCard={editingCard}
-        setEditingCard={setEditingCard}
-        isAiWizardOpen={isAiWizardOpen}
-        setIsAiWizardOpen={setIsAiWizardOpen}
-        aiInputPhrase={aiInputPhrase}
-        setAiInputPhrase={setAiInputPhrase}
-        runAiGenerator={runAiGenerator}
-        stopAiGeneration={stopAiGeneration}
-        generateAudio={generateAudio}
-        generateAudioInternal={generateAudioInternal}
-        uploadImage={uploadImage}
-        uploadCardVideo={uploadCardVideo}
-        playAudio={playAudio}
-        saveCard={saveCard}
-        loading={loading}
-        setIsSettingsOpen={setIsSettingsOpen}
-        openCreator={openCreator}
         startTutorial={startTutorial}
-        currentDeck={currentDeck}
-        cardFont={cardFont}
-        cardTextColor={cardTextColor}
-        cardFontWeight={cardFontWeight}
-        cardFontStyle={cardFontStyle}
-        cardBgFront={cardBgFront}
-        cardBgBack={cardBgBack}
-        contextFont={contextFont}
-        contextTextColor={contextTextColor}
-        contextFontSize={contextFontSize}
-        contextFontWeight={contextFontWeight}
-        contextFontStyle={contextFontStyle}
-        cardFontSize={cardFontSize}
-        cardTextShadow={cardTextShadow}
-        contextTextShadow={contextTextShadow}
       />
 
       <SettingsModal
-        isSettingsOpen={isSettingsOpen}
-        setIsSettingsOpen={setIsSettingsOpen}
-        activeSettingsTab={activeSettingsTab}
-        setActiveSettingsTab={setActiveSettingsTab}
-        isAdmin={isAdmin}
         userId={USER_ID}
-        saveAdminSettings={saveAdminSettings}
-        availableModels={availableModels}
-        fetchModels={fetchModels}
-        isFetchingModels={isFetchingModels}
-        saveUserPrompts={saveUserPrompts}
-        newPresetName={newPresetName}
-        setNewPresetName={setNewPresetName}
-        saveCurrentAsPreset={saveCurrentAsPreset}
-        presets={presets}
-        applyPreset={applyPreset}
-        deletePreset={deletePreset}
-        communityDecks={communityDecks}
-        fetchCommunityDecks={fetchCommunityDecks}
-        promoteDeck={promoteDeck}
-        customBackgrounds={customBackgrounds}
-        uploadCustomBackground={uploadCustomBackground}
         startTutorial={startTutorial}
-        showToast={showToast}
       />
 
       <SyncModal
@@ -1357,7 +152,7 @@ export default function App() {
         onClose={() => setSyncModalOpen(false)}
         deck={deckToSync}
         onSync={(mode) => handleSyncDeck(deckToSync.id, mode)}
-        loading={loading}
+        loading={useUiStore.getState().loading}
       />
 
       <TutorialOverlay
@@ -1372,12 +167,12 @@ export default function App() {
         isOpen={isCardActionModalOpen}
         onClose={() => setIsCardActionModalOpen(false)}
         card={actionCard}
-        decks={decks}
+        decks={useDeckStore.getState().decks}
         onMove={handleMoveCard}
         onCopy={handleCopyCard}
-        onDelete={(c) => handleDeleteCard({ stopPropagation: () => {} }, c.id)}
+        onDelete={(c) => handleDeleteCard(c.id)}
         onToggleLearn={handleToggleLearn}
-        loading={loading}
+        loading={useUiStore.getState().loading}
       />
 
       <Toast toast={toast} />
@@ -1385,4 +180,3 @@ export default function App() {
     </div>
   );
 }
-

@@ -22,6 +22,7 @@ const getInitialDesignState = () => ({
 const getInitialStudyState = () => ({
   autoPlay: storage.get('lerne_autoplay') !== null ? storage.get('lerne_autoplay') === 'true' : true,
   autoShow: storage.get('lerne_autoshow') !== null ? storage.get('lerne_autoshow') === 'true' : false,
+  isAdmin: false,
 });
 
 export const useSettingsStore = create((set, get) => ({
@@ -122,4 +123,7 @@ export const useSettingsStore = create((set, get) => ({
   updateUserPrompt: (key, value) => set((state) => ({ 
     userPrompts: { ...state.userPrompts, [key]: value } 
   })),
+
+  customBackgrounds: [],
+  setCustomBackgrounds: (bgs) => set({ customBackgrounds: bgs }),
 }));

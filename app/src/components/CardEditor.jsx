@@ -1,76 +1,27 @@
-import React, { useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X, Sparkles, Settings, ImageIcon, Edit2, Plus } from 'lucide-react';
-import { CardBackground } from './common/CardBackground';
-import { getTextShadow, getContextShadow } from '../utils/style';
+import React, { useRef } from 'react';
+import { motion } from 'framer-motion';
+import { ChevronLeft, Plus, Settings, X } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
+import { CardForm } from './common/CardForm';
+import { useUiStore } from '../store/useUiStore';
+import { useDeckStore } from '../store/useDeckStore';
+import { useSessionStore } from '../store/useSessionStore';
+import { useCardActions } from '../hooks/useCardActions';
+import { useAudio } from '../hooks/useAudio';
+import { useMediaUpload } from '../hooks/useMediaUpload';
 
-export const CardEditor = ({
-  view,
-  editorSourceView,
-  setView,
-  editingCard,
-  setEditingCard,
-  runAiGenerator,
-  stopAiGeneration,
-  generateAudioInternal,
-  uploadImage,
-  uploadCardVideo,
-  playAudio,
-  saveCard,
-  loading,
-  setIsSettingsOpen,
-  openCreator,
-  startTutorial,
-  currentDeck,
-  cardFont,
-  cardTextColor,
-  cardFontWeight,
-  cardFontStyle,
-  cardBgFront,
-  cardBgBack,
-  contextFont,
-  contextTextColor,
-  contextFontSize,
-  contextFontWeight,
-  contextFontStyle,
-  cardFontSize,
-  cardTextShadow,
-  contextTextShadow,
-}) => {
-  const frontRef = useRef(null);
-  const backRef = useRef(null);
-  const contextRef = useRef(null);
-  const galleryInputRef = useRef(null);
+export const CardEditor = ({ startTutorial }) => {
+  const { view, setView, setIsSettingsOpen, editorSourceView } = useUiStore();
+  const { currentDeck } = useDeckStore();
+  const { editingCard, setEditingCard } = useSessionStore();
+  const { runAiGenerator, saveCard, generateAudioInternal } = useCardActions();
+  const { uploadCardVideo } = useMediaUpload();
+  const { playAudio } = useAudio();
+
   const videoFrontRef = useRef(null);
   const videoBackRef = useRef(null);
 
-  const autoResize = (ref) => {
-    if (ref.current) {
-      ref.current.style.height = 'auto';
-      const newHeight = ref.current.scrollHeight;
-      ref.current.style.height = `${newHeight}px`;
-    }
-  };
-
-  useEffect(() => {
-    const handleResize = () => {
-      autoResize(frontRef);
-      autoResize(backRef);
-      autoResize(contextRef);
-    };
-    window.addEventListener('resize', handleResize);
-    // Initial resize after a short delay to ensure DOM is settled
-    const timer = setTimeout(handleResize, 100);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      clearTimeout(timer);
-    };
-  }, [view]);
-
-  useEffect(() => { autoResize(frontRef); }, [editingCard?.front, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
-  useEffect(() => { autoResize(backRef); }, [editingCard?.back, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
-  useEffect(() => { autoResize(contextRef); }, [editingCard?.context, contextFontSize, contextFont, contextFontWeight, contextFontStyle]);
+  if (view !== 'editor') return null;
 
   const handleAiGenerate = async () => {
     if (!editingCard?.front) return;
@@ -83,28 +34,15 @@ export const CardEditor = ({
         context: result.context || editingCard.context
       };
       setEditingCard(updated);
-      
-      // Auto-generate audio after AI generation
       setTimeout(() => {
         generateAudioInternal(updated, setEditingCard);
       }, 500);
     }
   };
 
-  if (view !== 'editor') return null;
-
-  const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
-  const getResolvedStyle = (settingStyle, cardId) => {
-    if (settingStyle !== 'auto') return settingStyle;
-    if (!cardId) return 'standard';
-    const sum = cardId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-    return availableStyles[sum % availableStyles.length];
+  const handleSave = () => {
+    saveCard(null, 'editor');
   };
-
-  const resolvedBgFront = getResolvedStyle(cardBgFront, editingCard?.id || 0);
-  const resolvedBgBack = getResolvedStyle(cardBgBack, editingCard?.id || 0);
-
-  const imagePreviewUrl = editingCard?.image_url || (editingCard?.image_path?.startsWith('images/') ? `/api/media/${editingCard.image_path}` : editingCard?.image_path);
 
   return (
     <div className="view-editor">
@@ -113,42 +51,10 @@ export const CardEditor = ({
           <button className="back-btn" onClick={() => setView(editorSourceView)}><ChevronLeft size={24} /></button>
           <h2>Правка карточки</h2>
           <div className="header-actions">
-            <button 
-              className="header-action-btn" 
-              onClick={() => openCreator(currentDeck?.id, 'editor')} 
-              title="Добавить карточку"
-            >
+            <button className="header-action-btn" disabled={true} title="Добавить карточку">
               <Plus size={22} />
             </button>
-
             <HelpButton onClick={() => startTutorial('editor')} />
-
-            <button
-              type="button"
-              className="header-action-btn"
-              onClick={() => galleryInputRef.current?.click()}
-              title="Добавить картинку"
-            >
-              <ImageIcon size={22} />
-            </button>
-
-            <button 
-              className="header-action-btn" 
-              onClick={() => generateAudioInternal(editingCard, setEditingCard)}
-              disabled={loading}
-              title="Озвучить"
-            >
-              <Volume2 size={22} />
-            </button>
-
-            <button 
-              className="header-action-btn" 
-              disabled={true} 
-              title="Редактировать"
-            >
-              <Edit2 size={22} />
-            </button>
-
             <button 
               className="header-action-btn settings-btn" 
               onClick={() => setIsSettingsOpen(true)}
@@ -159,156 +65,17 @@ export const CardEditor = ({
           </div>
         </div>
 
-        <div className="creator-form glass">
-          <div className="form-group">
-            <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
-              <CardBackground styleType={resolvedBgFront} />
-              <textarea 
-                ref={frontRef}
-                value={editingCard?.front || ''} 
-                onChange={e => setEditingCard({...editingCard, front: e.target.value})}
-                style={{ 
-                  fontFamily: cardFont, 
-                  fontWeight: cardFontWeight, 
-                  fontStyle: cardFontStyle,
-                  color: cardTextColor,
-                  fontSize: `${cardFontSize}rem`,
-                  textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                  background: 'transparent',
-                  position: 'relative',
-                  zIndex: 2,
-                  minHeight: '100px',
-                  border: 'none',
-                  resize: 'none',
-                  overflow: 'hidden',
-                  width: '100%',
-                  display: 'block',
-                  boxSizing: 'border-box',
-                  padding: '12px'
-                }}
-                placeholder="Слово или фраза (Front)..."
-              />
-              
-              {imagePreviewUrl && (
-                <div className="image-preview-box" style={{ margin: '10px', position: 'relative', zIndex: 3 }}>
-                  <img src={imagePreviewUrl} alt="" style={{ maxWidth: '100%', borderRadius: '8px' }} />
-                  <button
-                    type="button"
-                    className="image-clear-btn"
-                    onClick={() => setEditingCard({...editingCard, image_path: '', image_url: ''})}
-                    title="Убрать картинку"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
+        <CardForm
+          cardData={editingCard}
+          setCardData={setEditingCard}
+          onSave={handleSave}
+          onAiGenerate={handleAiGenerate}
+          onGenerateAudio={generateAudioInternal}
+          playAudio={playAudio}
+          isCreator={false}
+        />
 
-              {(editingCard?.audio_path || editingCard?.audio_url) && (
-                <button 
-                  className="btn-secondary btn-small play-preview-btn" 
-                  style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 4 }}
-                  onClick={() => playAudio(editingCard.audio_url || `/api/media/${editingCard.audio_path}`)}
-                >
-                  <RefreshCw size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-  
-          <div className="ai-quick-actions" style={{ gap: '10px' }}>
-            <button 
-              className={`btn-ai-generate ${loading ? 'loading' : ''}`} 
-              onClick={loading ? stopAiGeneration : handleAiGenerate}
-              disabled={loading}
-              style={{ flex: 1 }}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="spin" size={18} />
-                  <span>Стоп генерация</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles size={18} />
-                  <span>Генерировать</span>
-                </>
-              )}
-            </button>
-            <button 
-              className="btn btn-primary" 
-              onClick={() => saveCard()} 
-              disabled={loading}
-
-              style={{ padding: '12px 20px' }}
-            >
-              {loading ? <RefreshCw className="spin" size={18} /> : 'Сохранить'}
-            </button>
-          </div>
-
-          <div className="form-group">
-            <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
-              <CardBackground styleType={resolvedBgBack} />
-              <textarea 
-                ref={backRef}
-                value={editingCard?.back || ''} 
-                onChange={e => setEditingCard({...editingCard, back: e.target.value})}
-                style={{ 
-                  fontFamily: cardFont, 
-                  fontWeight: cardFontWeight, 
-                  fontStyle: cardFontStyle,
-                  color: cardTextColor,
-                  fontSize: `${cardFontSize}rem`,
-                  textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                  background: 'transparent',
-                  position: 'relative',
-                  zIndex: 2,
-                  minHeight: '80px',
-                  border: 'none',
-                  resize: 'none',
-                  overflow: 'hidden',
-                  width: '100%',
-                  display: 'block',
-                  boxSizing: 'border-box',
-                  padding: '12px'
-                }}
-                placeholder="Перевод..."
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
-              <CardBackground styleType={resolvedBgBack} />
-              <textarea 
-                ref={contextRef}
-                className="context-textarea"
-                value={editingCard?.context || ''} 
-                onChange={e => setEditingCard({...editingCard, context: e.target.value})}
-                style={{ 
-                  fontFamily: contextFont, 
-                  fontSize: `${contextFontSize}rem`,
-                  color: contextTextColor,
-                  fontWeight: contextFontWeight,
-                  fontStyle: contextFontStyle,
-                  textShadow: getContextShadow(contextTextShadow, contextTextColor),
-                  background: 'transparent',
-                  position: 'relative',
-                  zIndex: 2,
-                  minHeight: '120px',
-                  border: 'none',
-                  resize: 'none',
-                  overflow: 'hidden',
-                  width: '100%',
-                  display: 'block',
-                  boxSizing: 'border-box',
-                  padding: '12px'
-                }}
-                placeholder="Примеры, грамматика..."
-              />
-            </div>
-          </div>
-
-          {/* Видео секции */}
+        <div className="creator-form glass" style={{ marginTop: '10px' }}>
           <div className="media-edit-group" style={{ display: 'flex', gap: '10px' }}>
              <div className="form-group" style={{ flex: 1 }}>
                 <label style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '5px' }}>Видео (Лицо)</label>
@@ -321,7 +88,7 @@ export const CardEditor = ({
                 <button className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
                   {editingCard?.video_front_url ? 'Заменить' : '+ Видео'}
                 </button>
-                <input ref={videoFrontRef} type="file" accept="video/mp4" className="hidden-file-input" style={{ display: 'none' }} onChange={e => uploadCardVideo(e.target.files?.[0], editingCard, 'front')} />
+                <input ref={videoFrontRef} type="file" accept="video/mp4" className="hidden-file-input" style={{ display: 'none' }} onChange={e => uploadCardVideo(e.target.files?.[0], editingCard, 'front', true)} />
              </div>
              <div className="form-group" style={{ flex: 1 }}>
                 <label style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '5px' }}>Видео (Оборот)</label>
@@ -334,22 +101,10 @@ export const CardEditor = ({
                 <button className="btn-secondary btn-tiny" onClick={() => videoBackRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
                   {editingCard?.video_back_url ? 'Заменить' : '+ Видео'}
                 </button>
-                <input ref={videoBackRef} type="file" accept="video/mp4" className="hidden-file-input" style={{ display: 'none' }} onChange={e => uploadCardVideo(e.target.files?.[0], editingCard, 'back')} />
+                <input ref={videoBackRef} type="file" accept="video/mp4" className="hidden-file-input" style={{ display: 'none' }} onChange={e => uploadCardVideo(e.target.files?.[0], editingCard, 'back', true)} />
              </div>
           </div>
         </div>
-        
-        <input
-          ref={galleryInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden-file-input"
-          style={{ display: 'none' }}
-          onChange={e => {
-            uploadImage(e.target.files?.[0]);
-            e.target.value = '';
-          }}
-        />
       </motion.div>
     </div>
   );

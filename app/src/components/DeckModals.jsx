@@ -1,25 +1,76 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Layers, RefreshCw } from 'lucide-react';
+import { useUiStore } from '../store/useUiStore';
+import { useDeckStore } from '../store/useDeckStore';
 
-export const DeckModals = ({
-  isNewDeckModalOpen,
-  setIsNewDeckModalOpen,
-  deckModalMode,
-  setDeckModalMode,
-  newDeckName,
-  setNewDeckName,
-  createDeck,
-  loading,
-  fetchExternalDecks,
-  isImportLoading,
-  handleFileUpload,
-  externalDecks,
-  importDeck
-}) => {
+export const DeckModals = () => {
+  const { isNewDeckModalOpen, setIsNewDeckModalOpen, loading, setLoading, showToast } = useUiStore();
+  const { externalDecks, createDeck, fetchExternalDecks, importDeck, handleFileUpload } = useDeckStore();
+
+  const [deckModalMode, setDeckModalMode] = useState('choice');
+  const [newDeckName, setNewDeckName] = useState('');
+  const [isImportLoading, setIsImportLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   if (!isNewDeckModalOpen) return null;
+
+  const handleCreate = async () => {
+    if (!newDeckName.trim()) return;
+    setLoading(true);
+    try {
+      await createDeck(newDeckName);
+      setIsNewDeckModalOpen(false);
+      setDeckModalMode('choice');
+      setNewDeckName('');
+      showToast('Колода создана', 'success');
+    } catch (err) {
+      showToast('Ошибка при создании колоды');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFetchExternal = async () => {
+    setIsImportLoading(true);
+    try {
+      await fetchExternalDecks();
+      setDeckModalMode('import');
+    } catch (err) {
+      showToast('Ошибка при загрузке колод');
+    } finally {
+      setIsImportLoading(false);
+    }
+  };
+
+  const handleImport = async (id) => {
+    setLoading(true);
+    try {
+      await importDeck(id);
+      setIsNewDeckModalOpen(false);
+      setDeckModalMode('choice');
+      showToast('Колода импортирована', 'success');
+    } catch (err) {
+      showToast('Ошибка импорта');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onFileChange = async (e) => {
+    setLoading(true);
+    try {
+      await handleFileUpload(e, () => {
+        setIsNewDeckModalOpen(false);
+        setDeckModalMode('choice');
+        showToast('JSON импортирован', 'success');
+      });
+    } catch (err) {
+      showToast('Ошибка загрузки JSON');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -39,7 +90,7 @@ export const DeckModals = ({
                 <button className="btn btn-primary btn-full choice-btn" onClick={() => setDeckModalMode('create')}>
                   <Plus size={20} /> Создать пустую
                 </button>
-                <button className="btn-secondary btn-full choice-btn" onClick={fetchExternalDecks} disabled={isImportLoading}>
+                <button className="btn-secondary btn-full choice-btn" onClick={handleFetchExternal} disabled={isImportLoading}>
                   {isImportLoading ? <RefreshCw size={20} className="spin" /> : <Layers size={20} />} 
                   {isImportLoading ? ' Загрузка...' : ' Из Библиотеки'}
                 </button>
@@ -51,7 +102,7 @@ export const DeckModals = ({
                   ref={fileInputRef} 
                   style={{ display: 'none' }} 
                   accept=".json" 
-                  onChange={handleFileUpload} 
+                  onChange={onFileChange} 
                 />
               </div>
             )}
@@ -60,10 +111,10 @@ export const DeckModals = ({
               <>
                 <div className="form-group">
                   <label>Название колоды</label>
-                  <input autoFocus placeholder="Введите название..." value={newDeckName} onChange={e => setNewDeckName(e.target.value)} onKeyDown={e => e.key === 'Enter' && createDeck()} />
+                  <input autoFocus placeholder="Введите название..." value={newDeckName} onChange={e => setNewDeckName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
                 </div>
                 <div className="modal-footer-actions">
-                  <button className="btn btn-primary btn-full" onClick={createDeck} disabled={loading}>Создать</button>
+                  <button className="btn btn-primary btn-full" onClick={handleCreate} disabled={loading}>Создать</button>
                   <button className="btn-secondary btn-full" onClick={() => setDeckModalMode('choice')}>Назад</button>
                 </div>
               </>
@@ -73,7 +124,7 @@ export const DeckModals = ({
               <div className="import-list scrollable">
                 {externalDecks.length === 0 ? <p>Колоды не найдены</p> : 
                   externalDecks.map(d => (
-                    <div key={d.id} className="import-item glass" onClick={() => importDeck(d.id)}>
+                    <div key={d.id} className="import-item glass" onClick={() => handleImport(d.id)}>
                        <div className="import-item-info">
                           <div className="import-item-header">
                             {d.level && <span className="import-level">{d.level}</span>}

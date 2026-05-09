@@ -1,62 +1,93 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X, Plus, MoreHorizontal, Heart, Menu, Settings2, RefreshCcw, Repeat } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X, Plus, Settings2, Heart, Repeat } from 'lucide-react';
 import { stripMarkdown } from '../utils/text';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
 import { HelpButton } from './TutorialOverlay';
+import { useUiStore } from '../store/useUiStore';
+import { useDeckStore } from '../store/useDeckStore';
+import { useSessionStore } from '../store/useSessionStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { useCardActions } from '../hooks/useCardActions';
+import { useMediaUpload } from '../hooks/useMediaUpload';
+import { useAudio } from '../hooks/useAudio';
 
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
-export const StudyView = ({
-  view,
-  currentDeck,
-  card,
-  loading,
-  isFlipped,
-  setIsFlipped,
-  studyHistory,
-  historyIndex,
-  apiError,
-  setView,
-  setCard,
-  openEditor,
-  openCreator,
-  uploadStudyImage,
-  handleQuickAudio,
-  playAudio,
-  submitGrade,
-  goBack,
-  goNext,
-  handleSyncDeck,
-  handleResetProgress,
-  setIsSettingsOpen,
-  startTutorial,
-  cardBgFront,
-  cardBgBack,
-  cardFont,
-  cardTextColor,
-  cardFontSize,
-  contextFont,
-  contextTextColor,
-  contextFontSize,
-  cardTextShadow,
-  contextTextShadow,
-  cardFontWeight,
-  cardFontStyle,
-  contextFontWeight,
-  contextFontStyle,
-  openCardActions
-}) => {
+export const StudyView = ({ startTutorial }) => {
+  const { view, setView, loading, setIsSettingsOpen, setEditorSourceView, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
+  const { currentDeck, handleSyncDeck, handleResetProgress } = useDeckStore();
+  const { card, setCard, isFlipped, setIsFlipped, studyHistory, historyIndex, apiError, setEditingCard } = useSessionStore();
+  const { submitGrade, goBack, goNext, handleQuickAudio } = useCardActions();
+  const { uploadStudyImage, uploadCardVideo } = useMediaUpload();
+  
+  const { 
+    cardFont, cardTextColor, cardFontWeight, cardFontStyle, cardFontSize, cardTextShadow,
+    cardBgFront, cardBgBack,
+    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow,
+    autoPlay
+  } = useSettingsStore();
+
+  const { playAudio } = useAudio(autoPlay, showToast);
+
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  
   const galleryInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const cameraStreamRef = useRef(null);
   const googleReturnTimerRef = useRef(null);
+
+  const openEditor = (deckId, cardToEdit = null, source = 'cards') => {
+    const cleanMedia = (p) => {
+      if (!p) return '';
+      if (p.startsWith('/api/media/')) {
+        const parts = p.split('/');
+        return parts.slice(3).join('/');
+      }
+      return p;
+    };
+
+    if (cardToEdit) {
+      setEditingCard({
+        id: cardToEdit.id,
+        front: cardToEdit.front || '',
+        back: cardToEdit.back || '',
+        context: cardToEdit.context || '',
+        image_path: cleanMedia(cardToEdit.image_path || cardToEdit.image_url),
+        audio_path: cleanMedia(cardToEdit.audio_path || cardToEdit.audio_url),
+        video_front_url: cardToEdit.video_front_url || '',
+        video_back_url: cardToEdit.video_back_url || '',
+        deck_id: deckId
+      });
+    } else {
+      setEditingCard({ front: '', back: '', context: '', deck_id: deckId });
+    }
+    setEditorSourceView(source);
+    setView('editor');
+  };
+
+  const openCreator = (deckId, source = 'cards') => {
+    setEditorSourceView(source);
+    setEditingCard({
+      deck_id: deckId,
+      front: '',
+      back: '',
+      context: '',
+      image_path: '',
+      audio_path: ''
+    });
+    setView('creator');
+  };
+
+  const openCardActions = (targetCard) => {
+    setActionCard(targetCard);
+    setIsCardActionModalOpen(true);
+  };
 
   const stopCamera = () => {
     cameraStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -120,6 +151,15 @@ export const StudyView = ({
       closeCamera();
     }, 'image/jpeg', 0.9);
   };
+
+  useEffect(() => {
+    if (view === 'study' && card?.audio_url && autoPlay && !loading) {
+      const timer = setTimeout(() => {
+        playAudio(card.audio_url);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [card?.id, historyIndex, autoPlay, view, loading]);
 
   useEffect(() => {
     if (view !== 'study' || !card) return;
@@ -238,7 +278,7 @@ export const StudyView = ({
             <button 
               id="tut-study-gen-audio"
               className="header-action-btn" 
-              onClick={() => handleQuickAudio(card)} 
+              onClick={() => handleQuickAudio(card, playAudio)} 
               disabled={loading || !card}
               title="Добавить озвучку"
             >
@@ -404,7 +444,7 @@ export const StudyView = ({
             <AnimatePresence mode="wait" initial={false}>
             <motion.div
               id="tut-study-card"
-              key={card.id}
+              key={card ? `${card.id}-${historyIndex}` : 'no-card'}
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -30 }}
@@ -595,7 +635,6 @@ export const StudyView = ({
                  </div>
               )}
             </div>
-
 
             <div className="study-navigation">
               <div className="nav-counter nav-counter-current" title="Текущая позиция">
