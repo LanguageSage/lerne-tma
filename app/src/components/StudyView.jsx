@@ -213,33 +213,53 @@ export const StudyView = ({
             <h2>{currentDeck?.name}</h2>
           </div>
           <div className="header-actions">
-            <button id="tut-study-add-card" className="add-card-btn-compact" onClick={() => openCreator(currentDeck?.id, 'study')} title="Добавить карточку">
+            <button 
+              id="tut-study-add-card" 
+              className="header-action-btn" 
+              onClick={() => openCreator(currentDeck?.id, 'study')} 
+              title="Добавить карточку"
+            >
               <Plus size={22} />
             </button>
+            
             <HelpButton onClick={() => startTutorial(isFlipped ? 'study_back' : 'study')} />
+            
             <button
               id="tut-study-add-image"
               type="button"
-              className="edit-btn-study"
+              className="header-action-btn"
               onClick={() => setIsImagePickerOpen(true)}
               disabled={loading || !card}
               title="Добавить картинку"
             >
-              <ImageIcon size={20} />
+              <ImageIcon size={22} />
             </button>
+            
             <button 
               id="tut-study-gen-audio"
-              className="edit-btn-study" 
+              className="header-action-btn" 
               onClick={() => handleQuickAudio(card)} 
-              disabled={loading}
+              disabled={loading || !card}
               title="Добавить озвучку"
             >
-              <Volume2 size={20} />
+              <Volume2 size={22} />
             </button>
-            <button id="tut-study-edit-card" className="edit-btn-study" onClick={() => openEditor(currentDeck?.id, card, 'study')} title="Редактировать">
-              <Edit2 size={20} />
+            
+            <button 
+              id="tut-study-edit-card" 
+              className="header-action-btn" 
+              onClick={() => openEditor(currentDeck?.id, card, 'study')} 
+              disabled={!card}
+              title="Редактировать"
+            >
+              <Edit2 size={22} />
             </button>
-            <button className="settings-btn" onClick={() => setIsSettingsOpen(true)}>
+            
+            <button 
+              className="header-action-btn settings-btn" 
+              onClick={() => setIsSettingsOpen(true)}
+              title="Настройки"
+            >
               <Settings size={22} />
             </button>
           </div>

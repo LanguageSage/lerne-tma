@@ -85,7 +85,6 @@ export const DeckGrid = ({
                 <div className="deck-main-action" onClick={() => startStudy(deck)}>
                   <div className="deck-icon"><Layers size={24} /></div>
                   <h3>
-                    {deck.level && <span className="deck-level">{deck.level}</span>}
                     {deck.name}
                   </h3>
                   <div className="deck-stats">

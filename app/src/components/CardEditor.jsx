@@ -1,8 +1,9 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X, Sparkles, Settings, ImageIcon } from 'lucide-react';
+import { ChevronLeft, Volume2, RefreshCw, Search, Upload, X, Sparkles, Settings, ImageIcon, Edit2, Plus } from 'lucide-react';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
+import { HelpButton } from './TutorialOverlay';
 
 export const CardEditor = ({
   view,
@@ -19,6 +20,9 @@ export const CardEditor = ({
   saveCard,
   loading,
   setIsSettingsOpen,
+  openCreator,
+  startTutorial,
+  currentDeck,
   cardFont,
   cardTextColor,
   cardFontWeight,
@@ -109,29 +113,48 @@ export const CardEditor = ({
           <button className="back-btn" onClick={() => setView(editorSourceView)}><ChevronLeft size={24} /></button>
           <h2>Правка карточки</h2>
           <div className="header-actions">
+            <button 
+              className="header-action-btn" 
+              onClick={() => openCreator(currentDeck?.id, 'editor')} 
+              title="Добавить карточку"
+            >
+              <Plus size={22} />
+            </button>
+
+            <HelpButton onClick={() => startTutorial('editor')} />
+
             <button
               type="button"
-              className="edit-btn-study"
+              className="header-action-btn"
               onClick={() => galleryInputRef.current?.click()}
               title="Добавить картинку"
             >
-              <ImageIcon size={20} />
+              <ImageIcon size={22} />
             </button>
+
             <button 
-              className="edit-btn-study" 
+              className="header-action-btn" 
+              onClick={() => generateAudioInternal(editingCard, setEditingCard)}
+              disabled={loading}
+              title="Озвучить"
+            >
+              <Volume2 size={22} />
+            </button>
+
+            <button 
+              className="header-action-btn" 
+              disabled={true} 
+              title="Редактировать"
+            >
+              <Edit2 size={22} />
+            </button>
+
+            <button 
+              className="header-action-btn settings-btn" 
               onClick={() => setIsSettingsOpen(true)}
               title="Настройки"
             >
-              <Settings size={20} />
-            </button>
-            <button 
-              className="edit-btn-study" 
-              onClick={() => generateAudioInternal(editingCard, setEditingCard)}
-              disabled={loading}
-
-              title="Озвучить"
-            >
-              <Volume2 size={20} />
+              <Settings size={22} />
             </button>
           </div>
         </div>

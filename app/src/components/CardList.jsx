@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus, ImageIcon, Volume2, Edit2, Settings } from 'lucide-react';
+import { HelpButton } from './TutorialOverlay';
 
 export const CardList = ({
   view,
@@ -9,7 +10,9 @@ export const CardList = ({
   setView,
   openEditor,
   openCreator,
-  handleDeleteCard
+  handleDeleteCard,
+  setIsSettingsOpen,
+  startTutorial
 }) => {
   if (view !== 'cards') return null;
 
@@ -19,7 +22,49 @@ export const CardList = ({
         <div className="header-compact">
           <button className="back-btn" onClick={() => setView('decks')}><ChevronLeft size={24} /></button>
           <h2 className="header-title">{currentDeck?.name}</h2>
-          <div style={{ width: 40 }}></div> {/* Spacer to keep title centered */}
+          <div className="header-actions">
+            <button 
+              className="header-action-btn" 
+              onClick={() => openCreator(currentDeck?.id, 'cards')} 
+              title="Добавить карточку"
+            >
+              <Plus size={22} />
+            </button>
+
+            <HelpButton onClick={() => startTutorial('cards')} />
+
+            <button
+              className="header-action-btn"
+              disabled={true}
+              title="Добавить картинку"
+            >
+              <ImageIcon size={22} />
+            </button>
+
+            <button 
+              className="header-action-btn" 
+              disabled={true}
+              title="Озвучить"
+            >
+              <Volume2 size={22} />
+            </button>
+
+            <button 
+              className="header-action-btn" 
+              disabled={true}
+              title="Редактировать"
+            >
+              <Edit2 size={22} />
+            </button>
+
+            <button 
+              className="header-action-btn settings-btn" 
+              onClick={() => setIsSettingsOpen(true)}
+              title="Настройки"
+            >
+              <Settings size={22} />
+            </button>
+          </div>
         </div>
         <div id="tut-card-list-content" className="card-list">
           {deckCards.map(c => (

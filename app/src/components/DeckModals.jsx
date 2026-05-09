@@ -79,7 +79,10 @@ export const DeckModals = ({
                             {d.level && <span className="import-level">{d.level}</span>}
                             <strong>{d.name}</strong>
                           </div>
-                          <span>{d.topic}</span>
+                          <div className="import-item-footer">
+                            <span>{d.topic}</span>
+                            {d.cards_count !== undefined && <span className="import-card-count">{d.cards_count} карт</span>}
+                          </div>
                        </div>
                        <Plus size={16} />
                     </div>

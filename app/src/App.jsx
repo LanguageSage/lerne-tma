@@ -1251,6 +1251,8 @@ export default function App() {
         openEditor={openEditor}
         openCreator={openCreator}
         handleDeleteCard={handleDeleteCard}
+        setIsSettingsOpen={setIsSettingsOpen}
+        startTutorial={startTutorial}
       />
 
       <CardCreator
@@ -1266,6 +1268,8 @@ export default function App() {
         saveCard={saveCard}
         loading={loading}
         setIsSettingsOpen={setIsSettingsOpen}
+        openCreator={openCreator}
+        startTutorial={startTutorial}
         cardFont={cardFont}
         cardTextColor={cardTextColor}
         cardFontWeight={cardFontWeight}
@@ -1302,6 +1306,9 @@ export default function App() {
         saveCard={saveCard}
         loading={loading}
         setIsSettingsOpen={setIsSettingsOpen}
+        openCreator={openCreator}
+        startTutorial={startTutorial}
+        currentDeck={currentDeck}
         cardFont={cardFont}
         cardTextColor={cardTextColor}
         cardFontWeight={cardFontWeight}
