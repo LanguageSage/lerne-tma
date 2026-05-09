@@ -5,6 +5,7 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { cleanMedia } from '../utils/media';
 
 export const useCardActions = () => {
   const gradingRef = useRef(false);
@@ -102,17 +103,20 @@ export const useCardActions = () => {
       });
       const newAudioPath = res.data.path;
 
+      // КОРРЕКТНО: используем image_path и если его нет - чистим image_url
+      const finalImagePath = c.image_path || cleanMedia(c.image_url);
+
       await api.post('/cards/save', {
         card_id: c.id,
         deck_id: c.deck_id,
         front: c.front,
         back: c.back,
         context: c.context,
-        image_path: c.image_url || c.image_path || '',
+        image_path: finalImagePath,
         audio_path: newAudioPath
       });
 
-      const updatedCard = { ...c, audio_url: res.data.url, audio_path: res.data.path };
+      const updatedCard = { ...c, audio_url: res.data.url, audio_path: res.data.path, image_path: finalImagePath };
       const session = useSessionStore.getState();
       session.setCard(updatedCard);
       
@@ -195,43 +199,39 @@ export const useCardActions = () => {
         front: data.front,
         back: data.back,
         context: data.context || '',
-        image_path: data.image_path || '',
-        audio_path: data.audio_path || ''
+        image_path: data.image_path || cleanMedia(data.image_url),
+        audio_path: data.audio_path || cleanMedia(data.audio_url),
+        video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
+        video_back_path: data.video_back_path || cleanMedia(data.video_back_url)
       };
 
       const res = await api.post('/cards/save', reqData);
       const fullCard = res.data;
       showToast("Сохранено", "success");
 
-      if (viewState === 'creator') {
+      // Всегда обновляем список колод, чтобы счетчики были актуальны
+      fetchDecks(true);
+
+      if (ui.editorSourceView === 'study') {
         session.setCard(fullCard);
         session.setIsFlipped(false);
         
-        if (ui.editorSourceView === 'study') {
-           session.addToHistory(fullCard);
+        // Если это была новая карточка (creator), добавляем в историю
+        if (viewState === 'creator') {
+          session.addToHistory(fullCard);
         } else {
-           session.setStudyHistory([fullCard]);
-           session.setHistoryIndex(0);
-        }
-        
-        setView('study');
-        return;
-      }
-
-      if (ui.editorSourceView === 'study') {
-        if (session.card && session.card.id === data.id) {
-          session.setCard(fullCard);
-          // Also update in history
-          const newHistory = [...session.studyHistory];
-          if (session.historyIndex >= 0) newHistory[session.historyIndex] = fullCard;
-          session.setStudyHistory(newHistory);
+          // Если редактировали текущую карточку
+          if (session.card && session.card.id === data.id) {
+            const newHistory = [...session.studyHistory];
+            if (session.historyIndex >= 0) newHistory[session.historyIndex] = fullCard;
+            session.setStudyHistory(newHistory);
+          }
         }
         setView('study');
       } else if (ui.editorSourceView === 'cards') {
         fetchDeckCards(data.deck_id || currentDeck?.id);
         setView('cards');
       } else {
-        fetchDecks(true);
         setView('decks');
       }
     } catch (err) {
@@ -251,6 +251,7 @@ export const useCardActions = () => {
       showToast("Карточка удалена", "success");
       const { currentDeck } = useDeckStore.getState();
       if (currentDeck) fetchDeckCards(currentDeck.id);
+      fetchDecks(true);
     } catch (err) {
       console.error(err);
       showToast("Ошибка при удалении");
@@ -283,10 +284,10 @@ export const useCardActions = () => {
         front: targetCard.front || '',
         back: targetCard.back || '',
         context: targetCard.context || '',
-        image_path: targetCard.image_path || '',
-        audio_path: targetCard.audio_path || '',
-        video_front_path: targetCard.video_front_path || '',
-        video_back_path: targetCard.video_back_path || '',
+        image_path: targetCard.image_path || cleanMedia(targetCard.image_url),
+        audio_path: targetCard.audio_path || cleanMedia(targetCard.audio_url),
+        video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
+        video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url),
         want_to_learn: !!targetCard.want_to_learn
       });
       showToast("Карточка перемещена", "success");
@@ -309,10 +310,10 @@ export const useCardActions = () => {
         front: targetCard.front || '',
         back: targetCard.back || '',
         context: targetCard.context || '',
-        image_path: targetCard.image_path || '',
-        audio_path: targetCard.audio_path || '',
-        video_front_path: targetCard.video_front_path || '',
-        video_back_path: targetCard.video_back_path || '',
+        image_path: targetCard.image_path || cleanMedia(targetCard.image_url),
+        audio_path: targetCard.audio_path || cleanMedia(targetCard.audio_url),
+        video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
+        video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url),
         want_to_learn: !!targetCard.want_to_learn
       });
       showToast("Карточка скопирована", "success");

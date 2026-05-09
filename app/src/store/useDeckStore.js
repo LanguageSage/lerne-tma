@@ -76,7 +76,7 @@ export const useDeckStore = create((set, get) => ({
 
   createDeck: async (name) => {
     try {
-      await api.post('/decks/create', { name });
+      await api.post('/decks', { name });
       const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {
@@ -97,7 +97,7 @@ export const useDeckStore = create((set, get) => ({
 
   importDeck: async (deckId) => {
     try {
-      await api.post('/decks/import', { deck_id: deckId });
+      await api.post(`/decks/external/import/${deckId}`);
       const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {

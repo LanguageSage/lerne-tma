@@ -11,17 +11,20 @@ logger = logging.getLogger(__name__)
 
 from .utils import merge_tags, add_to_history
 
-def ensure_starter_decks(user_id: int):
+STARTER_DECK_NAMES = [
+    "А1.1 базовые слова",
+    "Базовые слова и фразы",
+    "Обиходная лексика и предметы",
+    "Смешанная лексика с картинками",
+    "Диалоги и сложные предложения A1",
+    "Большая смешанная колода: быт и лексика"
+]
+
+def ensure_starter_decks(user_id: int, existing_names: set = None):
     try:
-        # Список обязательных колод
-        STARTER_DECK_NAMES = [
-            "Для картинок", "херен2", "письма 1", "херен", 
-            "13.03.26", "мои для обихода", "последнее перед б1", 
-            "новая тестовая колода", "14.03.26"
-        ]
-        
-        existing_decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id))
-        existing_names = {d.name for d in existing_decks}
+        if existing_names is None:
+            existing_decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id))
+            existing_names = {d.name for d in existing_decks}
         
         with tma_db.atomic():
             for name in STARTER_DECK_NAMES:

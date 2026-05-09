@@ -6,6 +6,7 @@ import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useCardActions } from '../hooks/useCardActions';
+import { cleanMedia } from '../utils/media';
 
 export const CardList = ({ startTutorial }) => {
   const { view, setView, setIsSettingsOpen, setEditorSourceView } = useUiStore();
@@ -16,14 +17,6 @@ export const CardList = ({ startTutorial }) => {
   if (view !== 'cards') return null;
 
   const openEditor = (deckId, cardToEdit = null, source = 'cards') => {
-    const cleanMedia = (p) => {
-      if (!p) return '';
-      if (p.startsWith('/api/media/')) {
-        const parts = p.split('/');
-        return parts.slice(3).join('/');
-      }
-      return p;
-    };
 
     if (cardToEdit) {
       setEditingCard({
@@ -31,10 +24,14 @@ export const CardList = ({ startTutorial }) => {
         front: cardToEdit.front || '',
         back: cardToEdit.back || '',
         context: cardToEdit.context || '',
-        image_path: cleanMedia(cardToEdit.image_path || cardToEdit.image_url),
-        audio_path: cleanMedia(cardToEdit.audio_path || cardToEdit.audio_url),
-        video_front_url: cardToEdit.video_front_url || '',
-        video_back_url: cardToEdit.video_back_url || '',
+        image_path: cleanMedia(cardToEdit.image_path),
+        image_url: cardToEdit.image_url || (cardToEdit.image_path ? `/api/media/${cardToEdit.image_path}` : ''),
+        audio_path: cleanMedia(cardToEdit.audio_path),
+        audio_url: cardToEdit.audio_url || (cardToEdit.audio_path ? `/api/media/${cardToEdit.audio_path}` : ''),
+        video_front_path: cleanMedia(cardToEdit.video_front_path),
+        video_front_url: cardToEdit.video_front_url || (cardToEdit.video_front_path ? `/api/media/${cardToEdit.video_front_path}` : ''),
+        video_back_path: cleanMedia(cardToEdit.video_back_path),
+        video_back_url: cardToEdit.video_back_url || (cardToEdit.video_back_path ? `/api/media/${cardToEdit.video_back_path}` : ''),
         deck_id: deckId
       });
     } else {

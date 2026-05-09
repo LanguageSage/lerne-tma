@@ -6,6 +6,7 @@ import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
+import { cleanMedia } from '../../utils/media';
 
 export const CardForm = ({
   cardData,
@@ -23,7 +24,7 @@ export const CardForm = ({
   } = useSettingsStore();
 
   const { loading } = useUiStore();
-  const { uploadCreatorImage } = useMediaUpload();
+  const { uploadCreatorImage, uploadVideo } = useMediaUpload();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -37,6 +38,8 @@ export const CardForm = ({
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const cameraStreamRef = useRef(null);
+  const videoFrontRef = useRef(null);
+  const videoBackRef = useRef(null);
 
   const stopCamera = () => {
     cameraStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -144,7 +147,7 @@ export const CardForm = ({
   return (
     <div className="creator-form glass" style={{ marginTop: '20px' }}>
       
-      {/* TOOLBAR FOR MEDIA (if needed inside form, else parent provides it. Adding here for convenience) */}
+      {/* TOOLBAR FOR MEDIA */}
       <div className="form-toolbar" style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'flex-end' }}>
         <button
           type="button"
@@ -196,16 +199,19 @@ export const CardForm = ({
             placeholder="Слово или фраза (Front)..."
           />
           
-          {cardData.image_url && (
+          {(cardData.image_url || cardData.image_path) && (
             <div className="image-preview-box" style={{ margin: '10px', position: 'relative', zIndex: 3 }}>
-              <img src={cardData.image_url} alt="" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+              <img src={cardData.image_url || `/api/media/${cardData.image_path}`} alt="" style={{ maxWidth: '100%', borderRadius: '8px' }} />
               <button
                 type="button"
                 className="image-clear-btn"
-                onClick={() => setCardData({...cardData, image_path: '', image_url: ''})}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCardData({...cardData, image_path: '', image_url: ''});
+                }}
                 title="Убрать картинку"
               >
-                <X size={16} />
+                <X size={20} />
               </button>
             </div>
           )}
@@ -250,6 +256,53 @@ export const CardForm = ({
         >
           {loading ? <RefreshCw className="spin" size={18} /> : 'Сохранить'}
         </button>
+      </div>
+
+      <div className="media-edit-group" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+         <div className="form-group" style={{ flex: 1 }}>
+            <label className="sub-label">Видео (Лицо)</label>
+            {(cardData.video_front_url || cardData.video_front_path) && (
+              <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
+                <video src={cardData.video_front_url || `/api/media/${cardData.video_front_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <button 
+                  className="image-clear-btn" 
+                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCardData({...cardData, video_front_path: '', video_front_url: ''});
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+            <button className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
+              <Upload size={14} /> Выбрать
+            </button>
+            <input ref={videoFrontRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], cardData, setCardData, 'front')} />
+         </div>
+         <div className="form-group" style={{ flex: 1 }}>
+            <label className="sub-label">Видео (Оборот)</label>
+            {(cardData.video_back_url || cardData.video_back_path) && (
+              <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
+                <video src={cardData.video_back_url || `/api/media/${cardData.video_back_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <button 
+                  className="image-clear-btn" 
+                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCardData({...cardData, video_back_path: '', video_back_url: ''});
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+            <button className="btn-secondary btn-tiny" onClick={() => videoBackRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
+              <Upload size={14} /> Выбрать
+            </button>
+            <input ref={videoBackRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], cardData, setCardData, 'back')} />
+         </div>
       </div>
 
       <div className="form-group">

@@ -172,11 +172,41 @@ export const useMediaUpload = () => {
     }
   };
 
+  const uploadVideo = async (file, currentData, setter, side = 'back') => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post('/media/upload-video', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (res.data) {
+        const fieldName = side === 'front' ? 'video_front_path' : 'video_back_path';
+        const urlName = side === 'front' ? 'video_front_url' : 'video_back_url';
+        
+        setter({
+          ...currentData,
+          [fieldName]: res.data.path,
+          [urlName]: res.data.url
+        });
+        showToast(`Видео (${side === 'front' ? 'лицо' : 'оборот'}) добавлено`, "success");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(`Ошибка загрузки видео: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     uploadImage,
     uploadStudyImage,
     uploadCreatorImage,
     uploadCardVideo,
+    uploadVideo,
     uploadCustomBackground
   };
 };
