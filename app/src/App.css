@@ -22,6 +22,12 @@
   align-items: center;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .header-actions {
   display: flex;
   gap: 8px;
@@ -1762,4 +1768,58 @@ input[type=range]:active::-webkit-slider-thumb {
 }
 .textarea-context-preview {
   min-height: 120px;
+}
+
+/* Profile Tab */
+.profile-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: left;
+}
+
+.tab-description {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.link-telegram-section {
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: 16px;
+  background: rgba(0, 136, 204, 0.05);
+  border: 1px solid rgba(0, 136, 204, 0.2);
+}
+
+.link-telegram-section h4 {
+  margin: 0 0 8px 0;
+  color: #0088cc;
+}
+
+.btn-telegram {
+  background: #0088cc;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-telegram:hover {
+  background: #0077b3;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 136, 204, 0.3);
 }

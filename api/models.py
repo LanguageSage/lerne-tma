@@ -83,6 +83,7 @@ def create_all_tables():
             TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, # Новая таблица для медиа
             TMAFeedback, # Таблица для отзывов
+            TMAUser, # Таблица пользователей
             Deck, Card 
         ])
         # Миграция: добавляем image_data если колонки нет (для существующих БД)
@@ -224,6 +225,18 @@ class TMAUserPrompt(BaseModel):
     context_prompt = TextField(null=True)
     class Meta:
         table_name = 'tmauserprompt'
+
+class TMAUser(BaseModel):
+    user_id = BigIntegerField(primary_key=True)
+    first_name = CharField(null=True)
+    last_name = CharField(null=True)
+    username = CharField(null=True)
+    photo_url = TextField(null=True)
+    is_guest = BooleanField(default=False)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(null=True)
+    class Meta:
+        table_name = 'tma_user'
 
 class TMAFeedback(BaseModel):
     id = AutoField()

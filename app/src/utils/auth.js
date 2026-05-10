@@ -28,13 +28,32 @@ const isLocalHost = (hostname) => LOCAL_HOST_PATTERNS.some(pattern => pattern.te
 
 export const getUserId = () => {
   try {
+    const profile = getUserProfile();
+    return profile.user_id;
+  } catch (err) {
+    console.error("Critical error in getUserId:", err);
+    return 642478257; 
+  }
+};
+
+export const getUserProfile = () => {
+  try {
     // 1. Пытаемся взять из Telegram WebApp
     const tg = window.Telegram?.WebApp;
     if (tg?.initDataUnsafe?.user?.id) {
-      const id = parseUserId(tg.initDataUnsafe.user.id);
-      if (id !== null) {
-        storage.set('lerne_user_id', id);
-        return id;
+      const u = tg.initDataUnsafe.user;
+      const profile = {
+        user_id: parseUserId(u.id),
+        first_name: u.first_name,
+        last_name: u.last_name,
+        username: u.username,
+        photo_url: u.photo_url,
+        is_guest: false
+      };
+      if (profile.user_id !== null) {
+        storage.set('lerne_user_id', profile.user_id);
+        storage.set('lerne_user_profile', JSON.stringify(profile));
+        return profile;
       }
     }
     
@@ -44,37 +63,53 @@ export const getUserId = () => {
     if (urlId) {
       const id = parseUserId(urlId);
       if (id !== null) {
+        const profile = { user_id: id, is_guest: true };
         storage.set('lerne_user_id', id);
-        return id;
+        storage.set('lerne_user_profile', JSON.stringify(profile));
+        return profile;
       }
     }
 
-    // 3. Для локальной разработки можно зафиксировать пользователя в app/.env:
-    // VITE_TMA_USER_ID_FALLBACK=7187932783
+    // 3. Для локальной разработки
     const fallbackId = parseUserId(FALLBACK_USER_ID);
     if (fallbackId !== null && isLocalHost(window.location.hostname)) {
+      const profile = { user_id: fallbackId, is_guest: true, first_name: 'Dev Admin' };
       storage.set('lerne_user_id', fallbackId);
-      return fallbackId;
+      storage.set('lerne_user_profile', JSON.stringify(profile));
+      return profile;
     }
 
     // 4. Пытаемся взять из localStorage
+    const savedProfile = storage.get('lerne_user_profile');
+    if (savedProfile) {
+      try {
+        return JSON.parse(savedProfile);
+      } catch (e) {}
+    }
+
     const savedId = storage.get('lerne_user_id');
     if (savedId) {
       const id = parseUserId(savedId);
-      if (id !== null) return id;
+      if (id !== null) return { user_id: id, is_guest: true };
     }
     
     // 5. Генерируем новый случайный ID (для новых веб-пользователей)
-    if (isLocalHost(window.location.hostname)) {
-      return 642478257;
+    const hostname = window.location.hostname;
+    if (isLocalHost(hostname)) {
+      const profile = { user_id: 642478257, is_guest: true, first_name: 'Local User' };
+      storage.set('lerne_user_id', 642478257);
+      storage.set('lerne_user_profile', JSON.stringify(profile));
+      return profile;
     }
 
     const newId = Math.floor(100000000 + Math.random() * 900000000);
+    const profile = { user_id: newId, is_guest: true };
     storage.set('lerne_user_id', newId);
-    return newId;
+    storage.set('lerne_user_profile', JSON.stringify(profile));
+    return profile;
   } catch (err) {
-    console.error("Critical error in getUserId:", err);
-    return 642478257; 
+    console.error("Error in getUserProfile:", err);
+    return { user_id: 642478257, is_guest: true };
   }
 };
 

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 # --- CONFIG ---
 TOKEN = os.getenv("BOT_TOKEN")
 # Извлекаем имя канала (убираем @ если есть для ссылки)
-RAW_CHANNEL = os.getenv("REQUIRED_CHANNEL", "Lerndeutch").replace("@", "")
+RAW_CHANNEL = os.getenv("REQUIRED_CHANNEL", "LerneDeutsch287").replace("@", "")
 CHANNEL_ID = f"@{RAW_CHANNEL}"
 TMA_URL = os.getenv("TMA_LINK", "https://tma-amber.vercel.app/")
 
@@ -30,6 +30,21 @@ async def check_user_sub(context, user_id: int):
 
 async def start_handler(update: Update, context):
     user = update.effective_user
+    # Проверяем наличие аргументов в команде /start (например, /start link_12345)
+    args = context.args
+    
+    if args and args[0].startswith("link_"):
+        # Это запрос на авторизацию браузерной сессии
+        text = (
+            f"🔗 **Вход в аккаунт подтвержден!**\n\n"
+            f"Привет, {user.first_name}! Мы нашли твой Telegram-профиль.\n\n"
+            f"Чтобы войти в это приложение в браузере, нажми на ссылку ниже:\n"
+            f"👉 {TMA_URL}/?user_id={user.id}\n\n"
+            "⚠️ *Внимание:* Не пересылай эту ссылку другим, она дает доступ к твоему прогрессу."
+        )
+        await update.message.reply_text(text, parse_mode="Markdown")
+        return
+
     is_subscribed = await check_user_sub(context, user.id)
     
     if is_subscribed:

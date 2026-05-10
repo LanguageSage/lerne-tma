@@ -40,4 +40,7 @@ export const useUiStore = create((set) => ({
 
   editorSourceView: 'cards', // 'cards' | 'study' | 'decks'
   setEditorSourceView: (source) => set({ editorSourceView: source }),
+
+  userProfile: null,
+  setUserProfile: (profile) => set({ userProfile: profile }),
 }));

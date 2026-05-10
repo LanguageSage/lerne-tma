@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2 } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
+import { UserProfileBadge } from './common/UserBadge';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -21,8 +22,10 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy }) =
       >
         <div className="header">
           <div className="header-title-row">
-            <h1>Lerne TMA</h1>
-            <div style={{fontSize: '10px', opacity: 0.5, marginLeft: '10px'}}>ID: {userId}</div>
+            <div className="header-left">
+              <UserProfileBadge />
+              <h1>Lerne TMA</h1>
+            </div>
             <div className="header-actions">
               <HelpButton onClick={() => startTutorial('decks')} />
               <button id="tut-add-deck" className="add-deck-btn" onClick={() => setIsNewDeckModalOpen(true)}>

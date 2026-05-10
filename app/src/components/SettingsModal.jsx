@@ -16,6 +16,7 @@ import { PromptsTab } from './settings/PromptsTab';
 import { PresetsTab } from './settings/PresetsTab';
 import { CommunityTab } from './settings/CommunityTab';
 import { FeedbackTab } from './settings/FeedbackTab';
+import { ProfileTab } from './settings/ProfileTab';
 
 export const SettingsModal = ({ userId, startTutorial }) => {
   const { isSettingsOpen, setIsSettingsOpen, showToast } = useUiStore();
@@ -158,6 +159,7 @@ export const SettingsModal = ({ userId, startTutorial }) => {
           </div>
 
           <div id="tut-settings-tabs" className="settings-tabs">
+            <button className={`tab-btn ${activeSettingsTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('profile')}>Профиль</button>
             <button className={`tab-btn ${activeSettingsTab === 'general' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('general')}>Общие</button>
             <button className={`tab-btn ${activeSettingsTab === 'design' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('design')}>Дизайн</button>
             <button className={`tab-btn ${activeSettingsTab === 'voice' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('voice')}>Озвучка</button>
@@ -177,6 +179,7 @@ export const SettingsModal = ({ userId, startTutorial }) => {
 
           <div className="settings-content scrollable">
             <AnimatePresence mode="wait">
+              {activeSettingsTab === 'profile' && <ProfileTab />}
               {activeSettingsTab === 'general' && <GeneralTab userId={userId} />}
               {activeSettingsTab === 'design' && (
                 <DesignTab 

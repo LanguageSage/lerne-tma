@@ -1,0 +1,123 @@
+.user-badge-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.user-badge-container:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.avatar-wrapper {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #6e8efb, #a777e3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+}
+
+.guest-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Guest Banner */
+.guest-banner {
+  width: 100%;
+  background: linear-gradient(90deg, rgba(255, 152, 0, 0.2), rgba(255, 87, 34, 0.2));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 152, 0, 0.3);
+  padding: 8px 16px;
+  animation: slideDown 0.5s ease-out;
+}
+
+.guest-banner-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guest-banner-content p {
+  margin: 0;
+  font-size: 13px;
+  color: #ffd180;
+  flex: 1;
+}
+
+.banner-btn {
+  background: #ff9800;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.banner-btn:hover {
+  background: #f57c00;
+  transform: translateY(-1px);
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+  .guest-banner-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+  .user-name {
+    display: none; /* Hide name on small screens to save space */
+  }
+  .user-badge-container {
+    padding: 4px;
+  }
+}

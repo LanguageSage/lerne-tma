@@ -2,12 +2,13 @@ import React, { useEffect } from 'react';
 import './App.css';
 
 // Utils & Services
-import { getUserId, storage } from './utils/auth';
+import { getUserId, getUserProfile, storage } from './utils/auth';
 import api from './services/api';
 
 // Components
 import { Toast } from './components/common/Toast';
 import { GlobalLoader } from './components/common/Loader';
+import { GuestBanner } from './components/common/UserBadge';
 import { DeckGrid } from './components/DeckGrid';
 import { StudyView } from './components/StudyView';
 import { CardList } from './components/CardList';
@@ -49,8 +50,14 @@ export default function App() {
     setAdminSettings, setUserPrompts, applyDesignPreset, isAdmin
   } = useSettingsStore();
 
+  const { setUserProfile } = useUiStore();
+
   // Initialization
   useEffect(() => {
+    const profile = getUserProfile();
+    setUserProfile(profile);
+    syncProfile(profile);
+    
     fetchInitData();
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '1' || USER_ID === 642478257) {
@@ -91,6 +98,20 @@ export default function App() {
     useUiStore.setState({ loading: false });
   };
 
+  const syncProfile = async (profile) => {
+    try {
+      await api.post('/auth/sync', {
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        username: profile.username,
+        photo_url: profile.photo_url,
+        is_guest: profile.is_guest
+      });
+    } catch (err) {
+      console.error("Profile sync error:", err);
+    }
+  };
+
   const startStudy = async (deck) => {
     setIsOpeningDeck(true);
     try {
@@ -118,6 +139,7 @@ export default function App() {
 
   return (
     <div className="app-container">
+      <GuestBanner />
       <DeckGrid
         userId={USER_ID}
         startStudy={startStudy}
