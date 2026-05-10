@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 import { cleanMedia } from '../../utils/media';
+import { MediaPicker } from './MediaPicker';
 
 export const CardForm = ({
   cardData,
@@ -27,84 +28,12 @@ export const CardForm = ({
   const { uploadCreatorImage, uploadVideo } = useMediaUpload();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState('');
   
   const frontRef = useRef(null);
   const backRef = useRef(null);
   const contextRef = useRef(null);
-  const galleryInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const cameraStreamRef = useRef(null);
   const videoFrontRef = useRef(null);
   const videoBackRef = useRef(null);
-
-  const stopCamera = () => {
-    cameraStreamRef.current?.getTracks().forEach(track => track.stop());
-    cameraStreamRef.current = null;
-  };
-
-  const closeCamera = () => {
-    stopCamera();
-    setIsCameraOpen(false);
-    setCameraError('');
-  };
-
-  const openCamera = async () => {
-    setCameraError('');
-    if (!navigator.mediaDevices?.getUserMedia) {
-      cameraInputRef.current?.click();
-      return;
-    }
-    try {
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          audio: false
-        });
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
-      }
-      cameraStreamRef.current = stream;
-      setIsImagePickerOpen(false);
-      setIsCameraOpen(true);
-    } catch (err) {
-      console.error('Camera open failed:', err);
-      setCameraError('Камера недоступна.');
-      cameraInputRef.current?.click();
-    }
-  };
-
-  const capturePhoto = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, width, height);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
-      uploadCreatorImage(file, cardData, setCardData);
-      closeCamera();
-    }, 'image/jpeg', 0.9);
-  };
-
-  useEffect(() => {
-    if (isCameraOpen && videoRef.current && cameraStreamRef.current) {
-      videoRef.current.srcObject = cameraStreamRef.current;
-      videoRef.current.play().catch(console.error);
-    }
-  }, [isCameraOpen]);
 
   const autoResize = (ref) => {
     if (ref.current) {
@@ -148,22 +77,20 @@ export const CardForm = ({
     <div className="creator-form glass" style={{ marginTop: '20px' }}>
       
       {/* TOOLBAR FOR MEDIA */}
-      <div className="form-toolbar" style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'flex-end' }}>
+      <div className="form-toolbar form-toolbar-custom">
         <button
           type="button"
-          className="header-action-btn"
+          className="form-toolbar-btn"
           onClick={() => setIsImagePickerOpen(true)}
           title="Добавить картинку"
-          style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer', color: 'white' }}
         >
           <ImageIcon size={22} />
         </button>
         <button 
-          className="header-action-btn" 
+          className="form-toolbar-btn" 
           onClick={() => onGenerateAudio(cardData, setCardData)}
           disabled={loading}
           title="Озвучить"
-          style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer', color: 'white' }}
         >
           <Volume2 size={22} />
         </button>
@@ -174,6 +101,7 @@ export const CardForm = ({
           <CardBackground styleType={resolvedBgFront} />
           <textarea 
             ref={frontRef}
+            className="textarea-preview textarea-front-preview"
             autoFocus={isCreator}
             value={cardData.front || ''} 
             onChange={e => setCardData({...cardData, front: e.target.value})}
@@ -183,18 +111,7 @@ export const CardForm = ({
               fontStyle: cardFontStyle,
               color: cardTextColor,
               fontSize: `${cardFontSize}rem`,
-              textShadow: getTextShadow(cardTextShadow, cardTextColor),
-              background: 'transparent',
-              position: 'relative',
-              zIndex: 2,
-              minHeight: '100px',
-              border: 'none',
-              resize: 'none',
-              overflow: 'hidden',
-              width: '100%',
-              display: 'block',
-              boxSizing: 'border-box',
-              padding: '12px'
+              textShadow: getTextShadow(cardTextShadow, cardTextColor)
             }}
             placeholder="Слово или фраза (Front)..."
           />
@@ -310,6 +227,7 @@ export const CardForm = ({
           <CardBackground styleType={resolvedBgBack} />
           <textarea 
             ref={backRef}
+            className="textarea-preview textarea-back-preview"
             value={cardData.back || ''} 
             onChange={e => setCardData({...cardData, back: e.target.value})}
             style={{ 
@@ -318,18 +236,7 @@ export const CardForm = ({
               fontStyle: cardFontStyle,
               color: cardTextColor,
               fontSize: `${cardFontSize}rem`,
-              textShadow: getTextShadow(cardTextShadow, cardTextColor),
-              background: 'transparent',
-              position: 'relative',
-              zIndex: 2,
-              minHeight: '80px',
-              border: 'none',
-              resize: 'none',
-              overflow: 'hidden',
-              width: '100%',
-              display: 'block',
-              boxSizing: 'border-box',
-              padding: '12px'
+              textShadow: getTextShadow(cardTextShadow, cardTextColor)
             }}
             placeholder="Перевод..."
           />
@@ -341,7 +248,7 @@ export const CardForm = ({
           <CardBackground styleType={resolvedBgBack} />
           <textarea 
             ref={contextRef}
-            className="context-textarea"
+            className="context-textarea textarea-preview textarea-context-preview"
             value={cardData.context || ''} 
             onChange={e => setCardData({...cardData, context: e.target.value})}
             style={{ 
@@ -350,18 +257,7 @@ export const CardForm = ({
               color: contextTextColor,
               fontWeight: contextFontWeight,
               fontStyle: contextFontStyle,
-              textShadow: getContextShadow(contextTextShadow, contextTextColor),
-              background: 'transparent',
-              position: 'relative',
-              zIndex: 2,
-              minHeight: '120px',
-              border: 'none',
-              resize: 'none',
-              overflow: 'hidden',
-              width: '100%',
-              display: 'block',
-              boxSizing: 'border-box',
-              padding: '12px'
+              textShadow: getContextShadow(contextTextShadow, contextTextColor)
             }}
             placeholder="Примеры, грамматика..."
           />
@@ -369,130 +265,13 @@ export const CardForm = ({
       </div>
 
       {/* MODALS FOR CAMERA / IMAGE PICKER */}
-      <AnimatePresence>
-        {isImagePickerOpen && (
-          <motion.div
-            className="image-picker-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsImagePickerOpen(false)}
-          >
-            <motion.div
-              className="image-picker-dialog glass"
-              initial={{ opacity: 0, y: 18, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 18, scale: 0.98 }}
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="image-picker-header">
-                <h3>Картинка</h3>
-                <button
-                  type="button"
-                  className="image-picker-close"
-                  onClick={() => setIsImagePickerOpen(false)}
-                  title="Закрыть"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="image-picker-actions">
-                <button
-                  type="button"
-                  className="image-picker-tile"
-                  onClick={() => galleryInputRef.current?.click()}
-                  disabled={loading}
-                >
-                  <Upload size={24} />
-                  <span>Галерея</span>
-                </button>
-                <button
-                  type="button"
-                  className="image-picker-tile"
-                  onClick={openCamera}
-                  disabled={loading}
-                >
-                  <Camera size={24} />
-                  <span>Фото</span>
-                </button>
-                <a
-                  href={`https://www.google.com/search?q=${encodeURIComponent(cardData?.front || '')}&tbm=isch`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="image-picker-tile image-picker-tile-wide"
-                  onClick={() => setIsImagePickerOpen(false)}
-                >
-                  <Search size={24} />
-                  <span>Поиск Google</span>
-                </a>
-              </div>
-              <input
-                ref={galleryInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden-file-input"
-                onChange={e => {
-                  uploadCreatorImage(e.target.files?.[0], cardData, setCardData);
-                  e.target.value = '';
-                  setIsImagePickerOpen(false);
-                }}
-              />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden-file-input"
-                onChange={e => {
-                  uploadCreatorImage(e.target.files?.[0], cardData, setCardData);
-                  e.target.value = '';
-                  setIsImagePickerOpen(false);
-                }}
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isCameraOpen && (
-          <div className="camera-overlay" onClick={closeCamera}>
-            <div className="camera-capture-dialog" onClick={e => e.stopPropagation()}>
-              <div className="image-picker-header">
-                <h3>Фото</h3>
-                <button
-                  type="button"
-                  className="image-picker-close"
-                  onClick={closeCamera}
-                  title="Закрыть"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              {cameraError ? (
-                <p className="camera-error">{cameraError}</p>
-              ) : (
-                <video
-                  ref={videoRef}
-                  className="camera-preview"
-                  autoPlay
-                  playsInline
-                  muted
-                />
-              )}
-              <canvas ref={canvasRef} style={{ display: 'none' }} />
-              <div className="camera-actions">
-                <button type="button" className="btn-secondary" onClick={closeCamera}>
-                  Отмена
-                </button>
-                <button type="button" className="btn btn-primary" onClick={capturePhoto} disabled={loading || !!cameraError}>
-                  <Camera size={18} /> Снять
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </AnimatePresence>
+      <MediaPicker 
+        isOpen={isImagePickerOpen}
+        onClose={() => setIsImagePickerOpen(false)}
+        onImageUpload={(file) => uploadCreatorImage(file, cardData, setCardData)}
+        searchQuery={cardData?.front || ''}
+        loading={loading}
+      />
     </div>
   );
 };

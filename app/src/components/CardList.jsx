@@ -6,53 +6,16 @@ import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useCardActions } from '../hooks/useCardActions';
-import { cleanMedia } from '../utils/media';
+import { useCardNavigation } from '../hooks/useCardNavigation';
 
 export const CardList = ({ startTutorial }) => {
   const { view, setView, setIsSettingsOpen, setEditorSourceView } = useUiStore();
   const { currentDeck, deckCards } = useDeckStore();
   const { setEditingCard } = useSessionStore();
   const { handleDeleteCard } = useCardActions();
+  const { openEditor, openCreator } = useCardNavigation();
 
   if (view !== 'cards') return null;
-
-  const openEditor = (deckId, cardToEdit = null, source = 'cards') => {
-
-    if (cardToEdit) {
-      setEditingCard({
-        id: cardToEdit.id,
-        front: cardToEdit.front || '',
-        back: cardToEdit.back || '',
-        context: cardToEdit.context || '',
-        image_path: cleanMedia(cardToEdit.image_path),
-        image_url: cardToEdit.image_url || (cardToEdit.image_path ? `/api/media/${cardToEdit.image_path}` : ''),
-        audio_path: cleanMedia(cardToEdit.audio_path),
-        audio_url: cardToEdit.audio_url || (cardToEdit.audio_path ? `/api/media/${cardToEdit.audio_path}` : ''),
-        video_front_path: cleanMedia(cardToEdit.video_front_path),
-        video_front_url: cardToEdit.video_front_url || (cardToEdit.video_front_path ? `/api/media/${cardToEdit.video_front_path}` : ''),
-        video_back_path: cleanMedia(cardToEdit.video_back_path),
-        video_back_url: cardToEdit.video_back_url || (cardToEdit.video_back_path ? `/api/media/${cardToEdit.video_back_path}` : ''),
-        deck_id: deckId
-      });
-    } else {
-      setEditingCard({ front: '', back: '', context: '', deck_id: deckId });
-    }
-    setEditorSourceView(source);
-    setView('editor');
-  };
-
-  const openCreator = (deckId, source = 'cards') => {
-    setEditorSourceView(source);
-    setEditingCard({
-      deck_id: deckId,
-      front: '',
-      back: '',
-      context: '',
-      image_path: '',
-      audio_path: ''
-    });
-    setView('creator');
-  };
 
   return (
     <div className="view-cards">

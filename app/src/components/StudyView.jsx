@@ -12,15 +12,18 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useCardActions } from '../hooks/useCardActions';
 import { useMediaUpload } from '../hooks/useMediaUpload';
 import { useAudio } from '../hooks/useAudio';
+import { useCardNavigation } from '../hooks/useCardNavigation';
 import { cleanMedia } from '../utils/media';
+import { MediaPicker } from './common/MediaPicker';
 
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
 export const StudyView = ({ startTutorial }) => {
   const { view, setView, loading, setIsSettingsOpen, setEditorSourceView, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress } = useDeckStore();
-  const { card, setCard, isFlipped, setIsFlipped, studyHistory, historyIndex, apiError, setEditingCard } = useSessionStore();
-  const { submitGrade, goBack, goNext, handleQuickAudio } = useCardActions();
+  const { card, setCard, isFlipped, setIsFlipped, studyHistory, historyIndex, apiError, setEditingCard, setIsLearningMore } = useSessionStore();
+  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard } = useCardActions();
+  const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage, uploadCardVideo } = useMediaUpload();
   
   const { 
@@ -33,120 +36,11 @@ export const StudyView = ({ startTutorial }) => {
   const { playAudio } = useAudio(autoPlay, showToast);
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState('');
-  
-  const galleryInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const cameraStreamRef = useRef(null);
   const googleReturnTimerRef = useRef(null);
-
-  const openEditor = (deckId, cardToEdit = null, source = 'cards') => {
-
-    if (cardToEdit) {
-      setEditingCard({
-        id: cardToEdit.id,
-        front: cardToEdit.front || '',
-        back: cardToEdit.back || '',
-        context: cardToEdit.context || '',
-        image_path: cleanMedia(cardToEdit.image_path),
-        image_url: cardToEdit.image_url || (cardToEdit.image_path ? `/api/media/${cardToEdit.image_path}` : ''),
-        audio_path: cleanMedia(cardToEdit.audio_path),
-        audio_url: cardToEdit.audio_url || (cardToEdit.audio_path ? `/api/media/${cardToEdit.audio_path}` : ''),
-        video_front_path: cleanMedia(cardToEdit.video_front_path),
-        video_front_url: cardToEdit.video_front_url || (cardToEdit.video_front_path ? `/api/media/${cardToEdit.video_front_path}` : ''),
-        video_back_path: cleanMedia(cardToEdit.video_back_path),
-        video_back_url: cardToEdit.video_back_url || (cardToEdit.video_back_path ? `/api/media/${cardToEdit.video_back_path}` : ''),
-        deck_id: deckId
-      });
-    } else {
-      setEditingCard({ front: '', back: '', context: '', deck_id: deckId });
-    }
-    setEditorSourceView(source);
-    setView('editor');
-  };
-
-  const openCreator = (deckId, source = 'cards') => {
-    setEditorSourceView(source);
-    setEditingCard({
-      deck_id: deckId,
-      front: '',
-      back: '',
-      context: '',
-      image_path: '',
-      audio_path: ''
-    });
-    setView('creator');
-  };
 
   const openCardActions = (targetCard) => {
     setActionCard(targetCard);
     setIsCardActionModalOpen(true);
-  };
-
-  const stopCamera = () => {
-    cameraStreamRef.current?.getTracks().forEach(track => track.stop());
-    cameraStreamRef.current = null;
-  };
-
-  const closeCamera = () => {
-    stopCamera();
-    setIsCameraOpen(false);
-    setCameraError('');
-  };
-
-  const openCamera = async () => {
-    setCameraError('');
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      cameraInputRef.current?.click();
-      return;
-    }
-
-    try {
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          audio: false
-        });
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
-      }
-
-      cameraStreamRef.current = stream;
-      setIsImagePickerOpen(false);
-      setIsCameraOpen(true);
-    } catch (err) {
-      console.error('Camera open failed:', err);
-      setCameraError('Камера недоступна. Разрешите доступ или откройте через HTTPS/localhost.');
-      cameraInputRef.current?.click();
-    }
-  };
-
-  const capturePhoto = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || !card) return;
-
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
-    canvas.width = width;
-    canvas.height = height;
-
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, width, height);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
-      uploadStudyImage(file, card);
-      closeCamera();
-    }, 'image/jpeg', 0.9);
   };
 
   useEffect(() => {
@@ -187,38 +81,6 @@ export const StudyView = ({ startTutorial }) => {
     };
   }, [view, card?.id]);
 
-  useEffect(() => () => stopCamera(), []);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    const stream = cameraStreamRef.current;
-    if (!isCameraOpen || !video || !stream) return;
-
-    video.srcObject = stream;
-    video.muted = true;
-    video.playsInline = true;
-    video.setAttribute('playsinline', 'true');
-    video.setAttribute('webkit-playsinline', 'true');
-
-    const startVideo = () => {
-      video.play().catch((err) => {
-        console.error('Camera preview play failed:', err);
-        setCameraError('Не удалось запустить предпросмотр камеры. Попробуйте закрыть и открыть фото ещё раз.');
-      });
-    };
-
-    if (video.readyState >= 1) {
-      startVideo();
-    } else {
-      video.onloadedmetadata = startVideo;
-    }
-
-    return () => {
-      video.onloadedmetadata = null;
-      video.srcObject = null;
-    };
-  }, [isCameraOpen]);
-
   const googleImageUrl = `https://www.google.com/search?q=${encodeURIComponent(card?.front || '')}&tbm=isch`;
 
   const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
@@ -231,6 +93,11 @@ export const StudyView = ({ startTutorial }) => {
 
   const resolvedBgFront = getResolvedStyle(cardBgFront, card?.id);
   const resolvedBgBack = getResolvedStyle(cardBgBack, card?.id);
+
+  const handleLearnMore = async () => {
+    setIsLearningMore(true);
+    await fetchNextCard(currentDeck?.id);
+  };
 
   if (view !== 'study') return null;
 
@@ -302,134 +169,15 @@ export const StudyView = ({ startTutorial }) => {
           </div>
         </div>
 
-        <AnimatePresence>
-          {isImagePickerOpen && card && (
-            <motion.div
-              className="image-picker-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsImagePickerOpen(false)}
-            >
-              <motion.div
-                className="image-picker-dialog glass"
-                initial={{ opacity: 0, y: 18, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 18, scale: 0.98 }}
-                onClick={e => e.stopPropagation()}
-              >
-                <div className="image-picker-header">
-                  <h3>Картинка</h3>
-                  <button
-                    type="button"
-                    className="image-picker-close"
-                    onClick={() => setIsImagePickerOpen(false)}
-                    title="Закрыть"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                <div className="image-picker-actions">
-                  <button
-                    type="button"
-                    className="image-picker-tile"
-                    onClick={() => galleryInputRef.current?.click()}
-                    disabled={loading}
-                  >
-                    <Upload size={24} />
-                    <span>Галерея</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="image-picker-tile"
-                    onClick={openCamera}
-                    disabled={loading}
-                  >
-                    <Camera size={24} />
-                    <span>Фото</span>
-                  </button>
-                  <a
-                    href={googleImageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="image-picker-tile image-picker-tile-wide"
-                    onClick={() => {
-                      sessionStorage.setItem(OPEN_PICKER_AFTER_GOOGLE, String(Date.now()));
-                      setIsImagePickerOpen(false);
-                    }}
-                  >
-                    <Search size={24} />
-                    <span>Поиск Google</span>
-                  </a>
-                </div>
-                <input
-                  ref={galleryInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden-file-input"
-                  onChange={e => {
-                    uploadStudyImage(e.target.files?.[0], card);
-                    e.target.value = '';
-                    setIsImagePickerOpen(false);
-                  }}
-                />
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden-file-input"
-                  onChange={e => {
-                    uploadStudyImage(e.target.files?.[0], card);
-                    e.target.value = '';
-                    setIsImagePickerOpen(false);
-                  }}
-                />
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {isCameraOpen && card && (
-            <div className="camera-overlay" onClick={closeCamera}>
-              <div className="camera-capture-dialog" onClick={e => e.stopPropagation()}>
-                <div className="image-picker-header">
-                  <h3>Фото</h3>
-                  <button
-                    type="button"
-                    className="image-picker-close"
-                    onClick={closeCamera}
-                    title="Закрыть"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                {cameraError ? (
-                  <p className="camera-error">{cameraError}</p>
-                ) : (
-                  <video
-                    ref={videoRef}
-                    className="camera-preview"
-                    autoPlay
-                    playsInline
-                    muted
-                    disablePictureInPicture
-                  />
-                )}
-                <canvas ref={canvasRef} className="hidden-file-input" />
-                <div className="camera-actions">
-                  <button type="button" className="btn-secondary" onClick={closeCamera}>
-                    Отмена
-                  </button>
-                  <button type="button" className="btn btn-primary" onClick={capturePhoto} disabled={loading || !!cameraError}>
-                    <Camera size={18} /> Снять
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </AnimatePresence>
+        {card && (
+          <MediaPicker 
+            isOpen={isImagePickerOpen}
+            onClose={() => setIsImagePickerOpen(false)}
+            onImageUpload={(file) => uploadStudyImage(file, card)}
+            searchQuery={card?.front || ''}
+            loading={loading}
+          />
+        )}
 
         {loading && !card ? (
           <div className="finished-view glass">
@@ -467,21 +215,6 @@ export const StudyView = ({ startTutorial }) => {
                         className="audio-btn-corner" 
                         disabled={loading}
                         onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
-                        style={{
-                          position: 'absolute',
-                          bottom: '20px',
-                          right: '20px',
-                          background: 'rgba(255, 255, 255, 0.1)',
-                          border: '1px solid rgba(255, 255, 255, 0.2)',
-                          padding: '12px',
-                          borderRadius: '50%',
-                          color: 'white',
-                          zIndex: 10,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
                       >
                         <Volume2 size={24} />
                       </button>
@@ -492,7 +225,7 @@ export const StudyView = ({ startTutorial }) => {
                       </div>
                     )}
                     <div className="text-front" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.front)}</div>
-                    <div className="flip-indicator-center" style={{ marginTop: '20px', opacity: 0.3, pointerEvents: 'none' }}>
+                    <div className="flip-indicator-center">
                       <Repeat size={44} />
                     </div>
                   </div>
@@ -506,26 +239,9 @@ export const StudyView = ({ startTutorial }) => {
                       {card.audio_url && (
                         <button 
                           id="tut-study-audio-back"
-                          className="audio-btn" 
+                          className="audio-btn-back-corner" 
                           disabled={loading}
                           onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
-                          style={{ 
-                            position: 'absolute', 
-                            bottom: '-24px', 
-                            right: '5px', 
-                            margin: 0,
-                            padding: '10px',
-                            background: 'rgba(255, 255, 255, 0.08)',
-                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                            color: '#fff',
-                            backdropFilter: 'blur(10px)',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 20,
-                            boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
-                          }}
                         >
                           <Volume2 size={26} />
                         </button>
@@ -594,32 +310,10 @@ export const StudyView = ({ startTutorial }) => {
               </div>
             )}
             
-            <div className="card-actions-row-study" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'flex-start', 
-              width: '100%', 
-              maxWidth: '350px',
-              marginTop: '6px',
-              position: 'relative'
-            }}>
+            <div className="card-actions-row-study">
               <button 
                 className="btn-card-action-trigger"
                 onClick={(e) => { e.stopPropagation(); openCardActions(card); }}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '12px',
-                  padding: '10px',
-                  color: '#cbd5e1',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  width: '42px',
-                  height: '42px'
-                }}
                 title="Действия с карточкой"
               >
                 <Settings2 size={22} />
@@ -672,6 +366,7 @@ export const StudyView = ({ startTutorial }) => {
             )}
             <div className="finished-actions">
               <button className="btn btn-primary" onClick={() => setView('decks')}>В меню</button>
+              <button className="btn btn-secondary" onClick={handleLearnMore}>Учить еще</button>
               <button className="btn btn-secondary" onClick={() => handleSyncDeck(currentDeck.id)}>Обновить данные</button>
               <button className="btn btn-secondary" onClick={() => handleResetProgress(currentDeck.id)}>Учить заново</button>
             </div>

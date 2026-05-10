@@ -31,3 +31,12 @@ export const getContextShadow = (effect, color) => {
       return 'none';
   }
 };
+
+export const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
+
+export const getResolvedStyle = (settingStyle, cardId) => {
+  if (settingStyle !== 'auto') return settingStyle;
+  if (!cardId) return 'standard';
+  const sum = cardId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+  return availableStyles[sum % availableStyles.length];
+};

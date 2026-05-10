@@ -27,7 +27,7 @@ def _card_to_response(card, progress):
     }
 
 @router.get("/decks/{deck_id}/next")
-def get_next_card(deck_id: int, exclude_ids: str = None, user_id: int = Depends(get_user_id)):
+def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = False, user_id: int = Depends(get_user_id)):
     """Выбор следующей карты для изучения (SRS)."""
     parsed_exclude = []
     if exclude_ids:
@@ -36,7 +36,7 @@ def get_next_card(deck_id: int, exclude_ids: str = None, user_id: int = Depends(
         except ValueError:
             pass
 
-    card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude)
+    card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude, learn_more=learn_more)
     
     if isinstance(card, dict) and "error" in card:
         return card # Возвращаем ошибку для отладки
@@ -55,8 +55,9 @@ def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
         services.update_card_progress(data['card_id'], user_id, data['grade'])
         logger.info("submit_grade: Progress updated successfully")
         
+        learn_more = data.get('learn_more', False)
         # Сразу получаем следующую карту (без повторного HTTP-вызова)
-        card, progress = services.get_next_card(user_id, data['deck_id'])
+        card, progress = services.get_next_card(user_id, data['deck_id'], learn_more=learn_more)
         if isinstance(card, dict) and "error" in card:
             return card
         if not card:

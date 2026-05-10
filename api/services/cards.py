@@ -112,6 +112,43 @@ def toggle_want_to_learn(card_id: int, user_id: int):
         return None
 
 
+def _build_card_dict(c, p=None, media_exists=None, include_intervals=False):
+    is_dict = isinstance(c, dict)
+    get_val = lambda k_dict, k_obj: c.get(k_dict) if is_dict else getattr(c, k_obj, None)
+    
+    audio_path = get_val('audio_path', 'audio_path')
+    image_path = get_val('image_path', 'image_path')
+    video_front = get_val('video_front_path', 'video_front_path')
+    video_back = get_val('video_back_path', 'video_back_path')
+
+    result = {
+        "id": get_val('id', 'id'),
+        "front": get_val('front_text', 'front_text'),
+        "back": get_val('back_text', 'back_text'),
+        "context": get_val('context', 'context'),
+        "audio_url": resolve_media_url(audio_path, "audio", exists_map=media_exists),
+        "image_url": resolve_media_url(image_path, "images", exists_map=media_exists),
+        "video_front_url": resolve_media_url(video_front, "videos", exists_map=media_exists),
+        "video_back_url": resolve_media_url(video_back, "videos", exists_map=media_exists),
+        "image_path": audio_path if False else image_path, # keep variables used
+        "audio_path": audio_path,
+        "video_front_path": video_front,
+        "video_back_path": video_back,
+        "want_to_learn": bool(get_val('want_to_learn', 'want_to_learn'))
+    }
+
+    if include_intervals:
+        result["intervals"] = srs.get_next_intervals(p) if p else []
+    else:
+        result["queue"] = getattr(p, 'queue', 'new') if p else "new"
+        result["interval"] = getattr(p, 'interval', 0) if p else 0
+        
+        nr = getattr(p, 'next_review', None) if p else None
+        result["next_review"] = nr.isoformat() if nr else None
+        
+    return result
+
+
 def get_cards_for_study(deck_id: int, user_id: int):
     """Возвращает список всех карточек в колоде. Оптимизировано: батчинг медиа."""
     try:
@@ -132,31 +169,14 @@ def get_cards_for_study(deck_id: int, user_id: int):
         result = []
         for c in cards:
             p = progress_map.get(c['id'])
-            result.append({
-                "id": c['id'],
-                "front": c['front_text'],
-                "back": c['back_text'],
-                "context": c['context'],
-                "audio_url": resolve_media_url(c.get('audio_path'), "audio", exists_map=media_exists),
-                "image_url": resolve_media_url(c.get('image_path'), "images", exists_map=media_exists),
-                "video_front_url": resolve_media_url(c.get('video_front_path'), "videos", exists_map=media_exists),
-                "video_back_url": resolve_media_url(c.get('video_back_path'), "videos", exists_map=media_exists),
-                "image_path": c.get('image_path'),
-                "audio_path": c.get('audio_path'),
-                "video_front_path": c.get('video_front_path'),
-                "video_back_path": c.get('video_back_path'),
-                "queue": p.queue if p else "new",
-                "interval": p.interval if p else 0,
-                "next_review": p.next_review.isoformat() if p and p.next_review else None,
-                "want_to_learn": bool(c.get('want_to_learn'))
-            })
+            result.append(_build_card_dict(c, p=p, media_exists=media_exists))
         return result
     except Exception as e:
         logger.error(f"Error in get_cards_for_study: {e}")
         return []
 
 
-def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None):
+def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_more: bool = False):
     """Выбирает следующую карту для изучения (SRS). Оптимизировано: JOIN вместо 2 запросов."""
     try:
         now = datetime.datetime.now()
@@ -168,9 +188,11 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None):
                     .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
                     .where(
                         TMAProgress.user_id == user_id,
-                        TMA_Card.deck_id == deck_id,
-                        TMAProgress.next_review <= now
+                        TMA_Card.deck_id == deck_id
                     ))
+        if not learn_more:
+            due_query = due_query.where(TMAProgress.next_review <= now)
+            
         if exclude_ids:
             due_query = due_query.where(~(TMAProgress.card_id << exclude_ids))
         progress = due_query.order_by(TMAProgress.queue.asc(), TMAProgress.next_review.asc()).first()
@@ -225,19 +247,4 @@ def format_card_for_study(card: TMA_Card, user_id: int):
         defaults={"queue": "new", "next_review": datetime.datetime.now()}
     )
     
-    return {
-        "id": card.id,
-        "front": card.front_text,
-        "back": card.back_text,
-        "context": card.context,
-        "audio_url": resolve_media_url(card.audio_path, "audio"),
-        "image_url": resolve_media_url(card.image_path, "images"),
-        "video_front_url": resolve_media_url(card.video_front_path, "videos"),
-        "video_back_url": resolve_media_url(card.video_back_path, "videos"),
-        "image_path": card.image_path,
-        "audio_path": card.audio_path,
-        "video_front_path": card.video_front_path,
-        "video_back_path": card.video_back_path,
-        "intervals": srs.get_next_intervals(progress),
-        "want_to_learn": bool(card.want_to_learn)
-    }
+    return _build_card_dict(card, p=progress, include_intervals=True)
