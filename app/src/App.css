@@ -1816,6 +1816,7 @@ input[type=range]:active::-webkit-slider-thumb {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  text-decoration: none;
 }
 
 .btn-telegram:hover {

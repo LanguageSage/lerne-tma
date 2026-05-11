@@ -59,12 +59,24 @@ export const getUserProfile = () => {
     
     // 2. Пытаемся взять из URL (?user_id=123)
     const params = new URLSearchParams(window.location.search);
-    const urlId = params.get('user_id');
-    if (urlId) {
-      const id = parseUserId(urlId);
-      if (id !== null) {
-        const profile = { user_id: id, is_guest: true };
-        storage.set('lerne_user_id', id);
+    const urlIdStr = params.get('user_id');
+    if (urlIdStr) {
+      const urlId = parseUserId(urlIdStr);
+      if (urlId !== null) {
+        // Проверяем, нет ли уже в сторадже полноценного профиля для этого ID
+        const savedProfile = storage.get('lerne_user_profile');
+        if (savedProfile) {
+          try {
+            const p = JSON.parse(savedProfile);
+            if (p.user_id === urlId && !p.is_guest) {
+              return p; // Оставляем как есть, если это уже не гость
+            }
+          } catch (e) {}
+        }
+        
+        // Если ID новый или в сторадже был гость - создаем временный профиль
+        const profile = { user_id: urlId, is_guest: true };
+        storage.set('lerne_user_id', urlId);
         storage.set('lerne_user_profile', JSON.stringify(profile));
         return profile;
       }

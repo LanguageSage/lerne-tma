@@ -1,5 +1,6 @@
 import React from 'react';
 import { useUiStore } from '../../store/useUiStore';
+import api from '../../services/api';
 import './UserBadge.css';
 
 export const UserProfileBadge = () => {
@@ -32,30 +33,80 @@ export const UserProfileBadge = () => {
       </div>
       <div className="user-info">
         <span className="user-name">{first_name || (is_guest ? 'Гость' : 'Пользователь')}</span>
-        {is_guest && <span className="guest-label">Guest Mode</span>}
+        {(is_guest && !first_name) && <span className="guest-label">Guest Mode</span>}
       </div>
     </div>
   );
 };
 
 export const GuestBanner = () => {
-  const { userProfile } = useUiStore();
+  const { userProfile, setUserProfile } = useUiStore();
+  const [isPolling, setIsPolling] = React.useState(false);
   
   if (!userProfile?.is_guest) return null;
 
-  const handleOpenTelegram = () => {
-    const guestId = userProfile?.user_id;
-    window.open(`https://t.me/LerneDeutsch287_bot?start=link_${guestId}`, "_blank");
+  const botLink = `https://t.me/LerneDeutsch287_bot?start=link_${userProfile?.user_id}`;
+  
+  const startPolling = async () => {
+    if (isPolling) return;
+    
+    try {
+      // Create session on backend
+      await api.post(`/auth/session?guest_id=${userProfile.user_id}`);
+      setIsPolling(true);
+      
+      const interval = setInterval(async () => {
+        try {
+          const res = await api.get(`/auth/session/${userProfile.user_id}`);
+          if (res.data.status === 'completed') {
+            clearInterval(interval);
+            setIsPolling(false);
+            
+            // Update profile
+            const newProfile = res.data.user;
+            setUserProfile(newProfile);
+            localStorage.setItem('lerne_user_id', newProfile.user_id);
+            localStorage.setItem('lerne_user_profile', JSON.stringify(newProfile));
+            
+            // Reload page to fetch decks and settings for the real user
+            setTimeout(() => {
+              window.location.reload();
+            }, 500);
+          }
+        } catch (e) {
+          console.error("Polling error:", e);
+        }
+      }, 2000);
+      
+      // Cleanup after 2 minutes
+      setTimeout(() => {
+        clearInterval(interval);
+        setIsPolling(false);
+      }, 120000);
+      
+    } catch (e) {
+      console.error("Failed to start session:", e);
+    }
   };
 
   return (
     <div className="guest-banner">
       <div className="guest-banner-content">
-        <span className="icon">⚠️</span>
-        <p>Вы вошли как гость. Чтобы сохранить прогресс навсегда, откройте приложение в Telegram.</p>
-        <button onClick={handleOpenTelegram} className="banner-btn">
-          Открыть в Telegram
-        </button>
+        <span className="icon">{isPolling ? "⌛" : "⚠️"}</span>
+        <p>
+          {isPolling 
+            ? "Ожидание подтверждения в Telegram... Пожалуйста, нажмите кнопку 'Старт' в боте."
+            : "Вы вошли как гость. Чтобы сохранить прогресс навсегда, откройте приложение в Telegram."}
+        </p>
+        <a 
+          href={botLink} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className={`banner-btn ${isPolling ? 'polling' : ''}`}
+          onClick={startPolling}
+        >
+          {isPolling ? "Открыто в Telegram" : "Открыть в Telegram"}
+        </a>
       </div>
     </div>
   );

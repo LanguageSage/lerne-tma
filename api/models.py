@@ -118,7 +118,8 @@ def create_all_tables():
             ('ALTER TABLE tmaprogress ADD COLUMN updated_at TIMESTAMP', tma_db),
             ('ALTER TABLE tma_card ADD COLUMN want_to_learn BOOLEAN DEFAULT false', tma_db),
             ('ALTER TABLE tmareviewhistory ADD COLUMN reviewed_at TIMESTAMP', tma_db),
-            ('ALTER TABLE tmasetting ADD COLUMN updated_at TIMESTAMP', tma_db)
+            ('ALTER TABLE tmasetting ADD COLUMN updated_at TIMESTAMP', tma_db),
+            ('ALTER TABLE tma_user ADD COLUMN phone TEXT', tma_db)
         ]
         for query, db in migrations:
             try:
@@ -232,6 +233,7 @@ class TMAUser(BaseModel):
     last_name = CharField(null=True)
     username = CharField(null=True)
     photo_url = TextField(null=True)
+    phone = CharField(null=True)
     is_guest = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
@@ -246,6 +248,14 @@ class TMAFeedback(BaseModel):
     created_at = DateTimeField(default=datetime.datetime.now)
     class Meta:
         table_name = 'tma_feedback'
+
+class TMALinkedSession(BaseModel):
+    guest_id = BigIntegerField(primary_key=True)
+    telegram_id = BigIntegerField(null=True, index=True)
+    is_confirmed = BooleanField(default=False)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    class Meta:
+        table_name = 'tma_linked_session'
 
 class Deck(Model):
     id = AutoField()

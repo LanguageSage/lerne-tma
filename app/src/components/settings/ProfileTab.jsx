@@ -8,6 +8,7 @@ export const ProfileTab = () => {
   const { userProfile, setUserProfile, showToast } = useUiStore();
   const [name, setName] = useState(userProfile?.first_name || '');
   const [email, setEmail] = useState(userProfile?.email || '');
+  const [phone, setPhone] = useState(userProfile?.phone || '');
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
@@ -16,11 +17,12 @@ export const ProfileTab = () => {
       const res = await api.post('/auth/sync', {
         first_name: name,
         email: email,
+        phone: phone,
         is_guest: userProfile?.is_guest
       });
       
       if (res.data.status === 'ok') {
-        const updatedProfile = { ...userProfile, first_name: name, email: email };
+        const updatedProfile = { ...userProfile, first_name: name, email: email, phone: phone };
         setUserProfile(updatedProfile);
         localStorage.setItem('lerne_user_profile', JSON.stringify(updatedProfile));
         showToast("Профиль обновлен!", "success");
@@ -32,9 +34,39 @@ export const ProfileTab = () => {
     }
   };
 
-  const handleLinkTelegram = () => {
-    const guestId = userProfile?.user_id;
-    window.open(`https://t.me/LerneDeutsch287_bot?start=link_${guestId}`, "_blank");
+  const [isPolling, setIsPolling] = useState(false);
+  const botLink = `https://t.me/LerneDeutsch287_bot?start=link_${userProfile?.user_id}`;
+  
+  const startPolling = async () => {
+    if (isPolling) return;
+    
+    try {
+      await api.post(`/auth/session?guest_id=${userProfile.user_id}`);
+      setIsPolling(true);
+      
+      const interval = setInterval(async () => {
+        try {
+          const res = await api.get(`/auth/session/${userProfile.user_id}`);
+          if (res.data.status === 'completed') {
+            clearInterval(interval);
+            setIsPolling(false);
+            setUserProfile(res.data.user);
+            localStorage.setItem('lerne_user_id', res.data.user_id);
+            localStorage.setItem('lerne_user_profile', JSON.stringify(res.data.user));
+            showToast("Аккаунт успешно привязан!", "success");
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 800);
+          }
+        } catch (e) {}
+      }, 2000);
+      
+      setTimeout(() => {
+        clearInterval(interval);
+        setIsPolling(false);
+      }, 120000);
+    } catch (e) {}
   };
 
   return (
@@ -45,9 +77,9 @@ export const ProfileTab = () => {
     >
       <h3>Ваш профиль</h3>
       <p className="tab-description">
-        {userProfile?.is_guest 
-          ? "Вы используете гостевой режим. Укажите имя и почту, или привяжите Telegram для сохранения прогресса." 
-          : "Ваш аккаунт привязан к Telegram."}
+        {userProfile?.is_guest && !userProfile?.first_name 
+          ? (isPolling ? "Ожидание подтверждения в Telegram..." : "Вы используете гостевой режим. Привяжите Telegram для сохранения прогресса.")
+          : "Ваш профиль настроен."}
       </p>
 
       <div className="profile-form">
@@ -71,6 +103,27 @@ export const ProfileTab = () => {
           />
         </div>
 
+        <div className="form-group">
+          <label>📱 Телефон</label>
+          <input 
+            type="text" 
+            value={phone} 
+            onChange={(e) => setPhone(e.target.value)} 
+            placeholder="+7 (900) 000-00-00"
+          />
+        </div>
+
+        {!userProfile?.is_guest && userProfile?.username && (
+          <div className="form-group">
+            <label><Send size={14} /> Telegram</label>
+            <div className="telegram-contact-display">
+              <a href={`https://t.me/${userProfile.username}`} target="_blank" rel="noopener noreferrer">
+                @{userProfile.username}
+              </a>
+            </div>
+          </div>
+        )}
+
         <button 
           className="btn btn-primary" 
           onClick={handleSave} 
@@ -83,9 +136,15 @@ export const ProfileTab = () => {
           <div className="link-telegram-section glass">
             <h4>Синхронизация</h4>
             <p>Чтобы ваш прогресс был доступен на всех устройствах, используйте нашего бота.</p>
-            <button className="btn btn-telegram" onClick={handleLinkTelegram}>
-              <Send size={16} /> Открыть в Telegram
-            </button>
+            <a 
+              href={botLink} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className={`btn btn-telegram ${isPolling ? 'polling' : ''}`}
+              onClick={startPolling}
+            >
+              <Send size={16} /> {isPolling ? "Ожидание..." : "Привязать Telegram"}
+            </a>
           </div>
         )}
       </div>

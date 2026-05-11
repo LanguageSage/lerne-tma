@@ -98,15 +98,30 @@ export default function App() {
     useUiStore.setState({ loading: false });
   };
 
-  const syncProfile = async (profile) => {
+  const syncProfile = async (currentProfile) => {
     try {
-      await api.post('/auth/sync', {
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        username: profile.username,
-        photo_url: profile.photo_url,
-        is_guest: profile.is_guest
+      const res = await api.post('/auth/sync', {
+        first_name: currentProfile.first_name,
+        last_name: currentProfile.last_name,
+        username: currentProfile.username,
+        photo_url: currentProfile.photo_url,
+        is_guest: currentProfile.is_guest
       });
+      
+      if (res.data.status === 'ok' && res.data.user) {
+        const newProfile = res.data.user;
+        
+        // Если пользователь БЫЛ гостем, а СТАЛ полноценным пользователем -> переподгружаем данные
+        if (currentProfile.is_guest && !newProfile.is_guest) {
+          console.log("User promoted from Guest to Real User. Re-fetching data...");
+          setUserProfile(newProfile);
+          storage.set('lerne_user_profile', JSON.stringify(newProfile));
+          fetchInitData(); // Подгружаем реальные колоды и настройки
+        } else {
+          setUserProfile(newProfile);
+          storage.set('lerne_user_profile', JSON.stringify(newProfile));
+        }
+      }
     } catch (err) {
       console.error("Profile sync error:", err);
     }
