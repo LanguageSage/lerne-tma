@@ -71,7 +71,7 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
     
     if supabase_url and supabase_key and "your_project_url_here" not in supabase_url:
         try:
-            cloud_url = _upload_to_supabase(abs_filepath, filename, supabase_url, supabase_key)
+            cloud_url = await _upload_to_supabase(abs_filepath, filename, supabase_url, supabase_key)
             if cloud_url:
                 logger.info(f"Audio uploaded to cloud: {cloud_url}")
                 return cloud_url
@@ -81,8 +81,9 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
     # Если в облако не залили, возвращаем локальный путь для сохранения в TMAMedia
     return abs_filepath
 
-def _upload_to_supabase(file_path, filename, project_url, api_key):
-    """Загрузка файла в Supabase Storage через REST API."""
+async def _upload_to_supabase(file_path, filename, project_url, api_key):
+    """Загрузка файла в Supabase Storage через REST API (async)."""
+    import aiohttp
     bucket = "tma-audio"
     # Очищаем URL от лишних слешей
     project_url = project_url.rstrip('/')
@@ -95,14 +96,17 @@ def _upload_to_supabase(file_path, filename, project_url, api_key):
     
     try:
         with open(file_path, "rb") as f:
-            resp = requests.post(upload_url, headers=headers, data=f)
+            data = f.read()
             
-        if resp.status_code in [200, 201]:
-            # Возвращаем публичную ссылку (бакет должен быть PUBLIC)
-            return f"{project_url}/storage/v1/object/public/{bucket}/{filename}"
-        else:
-            logger.error(f"Supabase Upload Error ({resp.status_code}): {resp.text}")
-            return None
+        async with aiohttp.ClientSession() as session:
+            async with session.post(upload_url, headers=headers, data=data) as resp:
+                if resp.status in [200, 201]:
+                    # Возвращаем публичную ссылку (бакет должен быть PUBLIC)
+                    return f"{project_url}/storage/v1/object/public/{bucket}/{filename}"
+                else:
+                    error_text = await resp.text()
+                    logger.error(f"Supabase Upload Error ({resp.status}): {error_text}")
+                    return None
     except Exception as e:
         logger.error(f"Supabase Storage Exception: {e}")
         return None

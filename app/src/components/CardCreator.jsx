@@ -8,6 +8,7 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useCardActions } from '../hooks/useCardActions';
 import { useAudio } from '../hooks/useAudio';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 export const CardCreator = ({ startTutorial }) => {
   const { view, setView, setIsSettingsOpen, editorSourceView } = useUiStore();
@@ -15,6 +16,7 @@ export const CardCreator = ({ startTutorial }) => {
   const { card, setCard } = useSessionStore();
   const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
   const { playAudio } = useAudio();
+  const { autoPlay } = useSettingsStore();
 
   const [newCardData, setNewCardData] = useState({
     front: '',
@@ -63,7 +65,7 @@ export const CardCreator = ({ startTutorial }) => {
       setNewCardData(updated);
       
       setTimeout(() => {
-        generateAudioInternal(updated, setNewCardData);
+        generateAudioInternal(updated, setNewCardData, autoPlay ? playAudio : null);
       }, 500);
     }
   };

@@ -8,6 +8,7 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useCardActions } from '../hooks/useCardActions';
 import { useAudio } from '../hooks/useAudio';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { useMediaUpload } from '../hooks/useMediaUpload';
 
 export const CardEditor = ({ startTutorial }) => {
@@ -17,6 +18,7 @@ export const CardEditor = ({ startTutorial }) => {
   const { runAiGenerator, saveCard, generateAudioInternal } = useCardActions();
   const { uploadCardVideo } = useMediaUpload();
   const { playAudio } = useAudio();
+  const { autoPlay } = useSettingsStore();
 
   const videoFrontRef = useRef(null);
   const videoBackRef = useRef(null);
@@ -35,7 +37,7 @@ export const CardEditor = ({ startTutorial }) => {
       };
       setEditingCard(updated);
       setTimeout(() => {
-        generateAudioInternal(updated, setEditingCard);
+        generateAudioInternal(updated, setEditingCard, autoPlay ? playAudio : null);
       }, 500);
     }
   };

@@ -88,7 +88,7 @@ export const CardForm = ({
         </button>
         <button 
           className="form-toolbar-btn" 
-          onClick={() => onGenerateAudio(cardData, setCardData)}
+          onClick={() => onGenerateAudio(cardData, setCardData, playAudio)}
           disabled={loading}
           title="Озвучить"
         >
@@ -139,7 +139,7 @@ export const CardForm = ({
               style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 4 }}
               onClick={() => playAudio(cardData.audio_url || `/api/media/${cardData.audio_path}`)}
             >
-              <RefreshCw size={14} />
+              <Volume2 size={16} />
             </button>
           )}
         </div>

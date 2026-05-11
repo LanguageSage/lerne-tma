@@ -7,20 +7,18 @@ logger = logging.getLogger(__name__)
 
 # Универсальные импорты
 try:
-    import models
-    from models import TMASetting, TMAUserPrompt, lerne_db
-    import ai_clients
-    from ai_clients import AIService
+    from api.models import TMASetting, TMAUserPrompt, lerne_db
+    from api.ai_clients import AIService
 except ImportError:
     try:
-        from api import models
-        from api.models import TMASetting, TMAUserPrompt, lerne_db
-        from api import ai_clients
-        from api.ai_clients import AIService
+        from models import TMASetting, TMAUserPrompt, lerne_db
+        from ai_clients import AIService
     except ImportError as e:
         logger.error(f"Critical Import Error in ai_service: {e}")
-        # Создаем заглушки, чтобы не падало с NameError, но работало с ошибкой
         class TMASetting:
+            @staticmethod
+            def get_or_none(*args, **kwargs): return None
+        class TMAUserPrompt:
             @staticmethod
             def get_or_none(*args, **kwargs): return None
         class AIService:
@@ -57,72 +55,96 @@ async def generate_card_fields(user_id: int, phrase: str):
     """Generates Front, Back, and Context for a card using AI."""
     lang = detect_language(phrase)
     
-    # Получаем настройки ИИ
-    ai_provider = TMASetting.get_or_none(TMASetting.key == "AI_PROVIDER")
-    provider = ai_provider.value if ai_provider else "google" 
-    if provider == "default":
-        provider = "google"
+def get_ai_config():
+    import os
+    provider_rec = TMASetting.get_or_none(TMASetting.key == "AI_PROVIDER")
+    provider = provider_rec.value if provider_rec and provider_rec.value != "default" else "google"
     
-    if provider == "google":
-        key_name = "GOOGLE_API_KEY"
-    elif provider == "groq":
-        key_name = "GROQ_API_KEY"
+    key_map = {"google": "GOOGLE_API_KEY", "groq": "GROQ_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
+    key_name = key_map.get(provider, "")
+    
+    ai_key = None
+    if key_name:
+        key_rec = TMASetting.get_or_none(TMASetting.key == key_name)
+        ai_key = key_rec.value if key_rec else os.environ.get(key_name)
+        
+    model_rec = TMASetting.get_or_none(TMASetting.key == "DEFAULT_MODEL")
+    if not model_rec:
+        model_rec = TMASetting.get_or_none(TMASetting.key == "AI_MODEL")
+    model = model_rec.value if model_rec else None
+    
+    return provider, ai_key, model
+
+def extract_json_from_text(text: str, default_front: str) -> dict:
+    clean_text = text.replace("END_JSON", "").strip()
+    
+    if "```" in clean_text:
+        match = re.search(r'```(?:json)?\s*(.*?)\s*```', clean_text, re.DOTALL | re.IGNORECASE)
+        clean_text = match.group(1).strip() if match else re.sub(r'^```(?:json)?\n?', '', clean_text, flags=re.IGNORECASE).strip()
+            
+    first_brace = clean_text.find('{')
+    last_brace = clean_text.rfind('}')
+    
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        json_str = clean_text[first_brace:last_brace+1]
+    elif first_brace != -1:
+        json_str = clean_text[first_brace:]
     else:
-        key_name = "OPENROUTER_API_KEY"
+        json_str = clean_text
+        
+    try:
+        data = json.loads(json_str)
+        return {
+            "front": data.get("front", default_front),
+            "back": data.get("back", ""),
+            "context": data.get("context", "")
+        }
+    except json.JSONDecodeError:
+        pass
+        
+    # Fallback to regex
+    front = default_front
+    back = context = ""
+    m_front = re.search(r'"front"\s*:\s*"(.*?)"', text, re.DOTALL)
+    if m_front: front = m_front.group(1).replace('\\"', '"')
+    m_back = re.search(r'"back"\s*:\s*"(.*?)"', text, re.DOTALL)
+    if m_back: back = m_back.group(1).replace('\\"', '"').replace('\\n', '\n')
+    m_context = re.search(r'"context"\s*:\s*"(.*?)"', text, re.DOTALL)
+    if m_context: context = m_context.group(1).replace('\\"', '"').replace('\\n', '\n')
     
-    ai_key_record = TMASetting.get_or_none(TMASetting.key == key_name)
+    if not back and not context:
+        return {"front": default_front, "back": text, "context": ""}
+        
+    return {"front": front, "back": back, "context": context}
+
+async def generate_card_fields(user_id: int, phrase: str):
+    """Generates Front, Back, and Context for a card using AI."""
+    lang = detect_language(phrase)
     
-    # Сначала ищем в настройках БД, потом в переменных окружения
-    ai_key = ai_key_record.value if ai_key_record else None
-    if not ai_key:
-        import os
-        ai_key = os.environ.get(key_name)
+    provider, ai_key, ai_model = get_ai_config()
     
     if not ai_key and provider != "ollama":
         return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
-    # Промпты пользователя (если есть)
-    ai_model_record = TMASetting.get_or_none(TMASetting.key == "DEFAULT_MODEL")
-    if not ai_model_record:
-        ai_model_record = TMASetting.get_or_none(TMASetting.key == "AI_MODEL")
-    ai_model = ai_model_record.value if ai_model_record else None
-    
-    # Промпты пользователя (если есть)
     user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
-    
     base_prompt = DEFAULT_PROMPTS.get(lang, DEFAULT_PROMPTS["de"])
-    if user_prompts:
-        # Если у пользователя есть кастомный промпт, используем его, иначе дефолт
-        system_prompt = user_prompts.translation_prompt or base_prompt
-    else:
-        system_prompt = base_prompt
+    system_prompt = user_prompts.translation_prompt or base_prompt if user_prompts else base_prompt
         
-    # Подставляем фразу в промпт (если там есть плейсхолдер)
     system_prompt = system_prompt.replace("{phrase}", phrase)
-    
-    # Добавляем инструкцию про JSON, если её нет (для кастомных промптов)
     if "JSON" not in system_prompt.upper():
         system_prompt += "\nReturn ONLY a JSON object with 'front', 'back', and 'context' keys."
 
-    client = AIService(
-        provider=provider, 
-        api_key=ai_key
-    )
+    client = AIService(provider=provider, api_key=ai_key)
     
-    # По умолчанию используем gemini-2.0-flash как наиболее стабильный
     if provider == "openrouter":
         default_model = "google/gemini-2.0-flash-lite:free"
-        if ai_model and "/" not in ai_model:
-            model_name = f"google/{ai_model}"
-        else:
-            model_name = ai_model if ai_model else default_model
+        model_name = f"google/{ai_model}" if ai_model and "/" not in ai_model else (ai_model or default_model)
     elif provider == "groq":
         default_model = "llama3-70b-8192"
-        model_name = ai_model if ai_model else default_model
+        model_name = ai_model or default_model
     else:
-        # Для Google используем 2.0 Flash как стандарт
         default_model = "gemini-2.0-flash"
-        model_name = ai_model if ai_model else default_model
+        model_name = ai_model or default_model
     
     logger.info(f"AI: Generating card fields using {provider}/{model_name}...")
     start_time = time.time()
@@ -133,7 +155,6 @@ async def generate_card_fields(user_id: int, phrase: str):
         model=model_name
     )
     
-    # Fallback если основная модель (возможно, опечатка или нестабильна) упала
     if not success and model_name != default_model:
         logger.warning(f"AI: Primary model {model_name} failed. Falling back to {default_model}...")
         response, success = await client.chat_completion(
@@ -142,89 +163,22 @@ async def generate_card_fields(user_id: int, phrase: str):
             model=default_model
         )
     
+    duration = time.time() - start_time
     if not success:
-        duration = time.time() - start_time
         logger.error(f"AI: Generation failed after {duration:.2f}s: {response}")
         return {"error": response}
     
-    duration = time.time() - start_time
     logger.info(f"AI: Generation successful in {duration:.2f}s")
     
-    # Пытаемся извлечь JSON
-    try:
-        # Убираем маркер END_JSON если он есть
-        clean_response = response.replace("END_JSON", "").strip()
-        
-        # Убираем markdown блоки
-        if "```" in clean_response:
-            # Ищем содержимое между ```json и ``` или просто ```
-            match = re.search(r'```(?:json)?\s*(.*?)\s*```', clean_response, re.DOTALL | re.IGNORECASE)
-            if match:
-                clean_response = match.group(1).strip()
-            else:
-                # Если не нашли закрывающих, просто убираем начало
-                clean_response = re.sub(r'^```(?:json)?\n?', '', clean_response, flags=re.IGNORECASE).strip()
-        
-        # Ищем JSON объект (первая { и последняя })
-        first_brace = clean_response.find('{')
-        last_brace = clean_response.rfind('}')
-        
-        if first_brace != -1:
-            if last_brace != -1 and last_brace > first_brace:
-                json_str = clean_response[first_brace:last_brace+1]
-            else:
-                json_str = clean_response[first_brace:]
-            
-            # Если JSON кажется оборванным, пробуем закрыть скобки
-            open_count = json_str.count('{')
-            close_count = json_str.count('}')
-            if open_count > close_count:
-                json_str += '}' * (open_count - close_count)
-            
-            try:
-                data = json.loads(json_str)
-            except json.JSONDecodeError:
-                # Если всё еще не парсится, пробуем почистить от лишних запятых перед }
-                json_str = re.sub(r',\s*\}', '}', json_str)
-                try:
-                    data = json.loads(json_str)
-                except:
-                    # Последний шанс: вырезаем только нужные поля регулярками
-                    data = {
-                        "front": (re.search(r'"front":\s*"(.*?)"', json_str) or re.search(r'"front":\s*"(.*)', json_str)).group(1) if '"front"' in json_str else phrase,
-                        "back": (re.search(r'"back":\s*"(.*?)"', json_str) or re.search(r'"back":\s*"(.*)', json_str)).group(1) if '"back"' in json_str else "",
-                        "context": (re.search(r'"context":\s*"(.*?)"', json_str) or re.search(r'"context":\s*"(.*)', json_str)).group(1) if '"context"' in json_str else ""
-                    }
-                    
-            return {
-                "front": data.get("front", phrase),
-                "back": data.get("back", ""),
-                "context": data.get("context", "")
-            }
-    except Exception as e:
-        logger.error(f"Failed to parse AI JSON: {e}. Raw response: {response}")
-
-    # Fallback если JSON не удался
-    return {
-        "front": phrase,
-        "back": response,
-        "context": ""
-    }
+    return extract_json_from_text(response, phrase)
 
 async def get_provider_models(provider: str, ollama_url: str = None):
     """Fetches models from the specified provider dynamically."""
-    if provider == "google":
-        key_name = "GOOGLE_API_KEY"
-    elif provider == "groq":
-        key_name = "GROQ_API_KEY"
-    else:
-        key_name = "OPENROUTER_API_KEY"
-        
-    ai_key = TMASetting.get_or_none(TMASetting.key == key_name)
+    _, ai_key, _ = get_ai_config()
     
     client = AIService(
         provider=provider, 
-        api_key=ai_key.value if ai_key else None,
+        api_key=ai_key,
         ollama_url=ollama_url or "http://localhost:11434"
     )
     

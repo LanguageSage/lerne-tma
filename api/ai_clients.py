@@ -18,13 +18,26 @@ class AIService:
 
     async def chat_completion(self, system_prompt, user_message, model):
         """Route to correct provider with unified retry logic."""
-        if self.provider == "google" or "gemini" in model.lower():
+        # Priority 1: Explicit provider
+        if self.provider == "google":
             return await self._google_chat(system_prompt, user_message, model)
-        elif self.provider == "groq" or model.startswith("groq/"):
+        elif self.provider == "groq":
             return await self._groq_chat(system_prompt, user_message, model)
-        elif self.provider == "ollama" or model.startswith("ollama/"):
+        elif self.provider == "ollama":
             return await self._ollama_chat(system_prompt, user_message, model)
+        elif self.provider == "openrouter":
+            return await self._openrouter_chat(system_prompt, user_message, model)
+            
+        # Priority 2: Fallback based on model name hints (only if provider is default/unknown)
+        model_lower = model.lower()
+        if model_lower.startswith("ollama/") or self.provider == "ollama":
+            return await self._ollama_chat(system_prompt, user_message, model)
+        elif model_lower.startswith("groq/"):
+            return await self._groq_chat(system_prompt, user_message, model)
+        elif "gemini" in model_lower and "/" not in model: # Direct google only if no slash (OpenRouter uses slash)
+            return await self._google_chat(system_prompt, user_message, model)
         else:
+            # Default to OpenRouter for everything else
             return await self._openrouter_chat(system_prompt, user_message, model)
 
     async def _make_request(self, url, method="POST", headers=None, json_data=None, timeout=60, provider_name="AI"):
@@ -91,9 +104,13 @@ class AIService:
 
     async def _google_chat(self, system_prompt, user_message, model):
         """Direct call to Google Gemini API."""
-        model_name = model if "gemini" in model else "gemini-2.0-flash"
+        model_name = model if "gemini" in model.lower() else "gemini-2.0-flash"
         if "/" in model_name:
             model_name = model_name.split("/")[-1]
+        
+        # Strip OpenRouter suffixes like :free or :beta
+        if ":" in model_name:
+            model_name = model_name.split(":")[0]
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
         payload = {
@@ -153,28 +170,18 @@ class AIService:
         """Fetch available models from the provider."""
         if self.provider == "google":
             url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            return [m["name"].split("/")[-1] for m in data.get("models", []) 
-                                    if "generateContent" in m.get("supportedGenerationMethods", [])]
-            except: pass
+            data, success = await self._make_request(url, method="GET", timeout=10, provider_name="Google_Models")
+            if success:
+                return [m["name"].split("/")[-1] for m in data.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
             return ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]
 
         if self.provider == "openrouter":
             url = "https://openrouter.ai/api/v1/models"
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            all_models = [m["id"] for m in data.get("data", [])]
-                            # Приоритезируем Gemini и бесплатные модели
-                            fav_models = [m for m in all_models if "gemini" in m.lower() or ":free" in m.lower()]
-                            return fav_models if fav_models else all_models[:15]
-            except: pass
+            data, success = await self._make_request(url, method="GET", timeout=10, provider_name="OpenRouter_Models")
+            if success:
+                all_models = [m["id"] for m in data.get("data", [])]
+                fav_models = [m for m in all_models if "gemini" in m.lower() or ":free" in m.lower()]
+                return fav_models if fav_models else all_models[:15]
             return [
                 "google/gemini-2.5-flash-lite",
                 "google/gemini-2.5-flash", 
@@ -185,25 +192,17 @@ class AIService:
 
         if self.provider == "ollama":
             url = f"{self.ollama_url}/api/tags"
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            return [m["name"] for m in data.get("models", [])]
-            except: pass
+            data, success = await self._make_request(url, method="GET", timeout=5, provider_name="Ollama_Models")
+            if success:
+                return [m["name"] for m in data.get("models", [])]
             return ["llama3", "mistral"]
 
         if self.provider == "groq":
             url = f"{self.groq_url}/models"
             headers = {"Authorization": f"Bearer {self.api_key}"}
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            return [m["id"] for m in data.get("data", [])]
-            except: pass
+            data, success = await self._make_request(url, method="GET", headers=headers, timeout=10, provider_name="Groq_Models")
+            if success:
+                return [m["id"] for m in data.get("data", [])]
             return ["llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768", "gemma-7b-it"]
             
         return []

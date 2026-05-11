@@ -24,8 +24,6 @@ export const SettingsModal = ({ userId, startTutorial }) => {
   const { communityDecks, setCommunityDecks } = useDeckStore();
 
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
-  const [availableModels, setAvailableModels] = useState([]);
-  const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const [presets, setPresets] = useState([]);
   const [customBackgrounds, setCustomBackgrounds] = useState([]);
@@ -39,38 +37,6 @@ export const SettingsModal = ({ userId, startTutorial }) => {
       setCommunityDecks(res.data);
     } catch (err) {
       showToast("Ошибка загрузки сообщества");
-    }
-  };
-
-  const saveAdminSettings = async () => {
-    const settings = useSettingsStore.getState().adminSettings;
-    try {
-      await api.post('/admin/settings', settings);
-      showToast("Настройки сохранены", "success");
-    } catch (err) {
-      showToast("Ошибка сохранения настроек");
-    }
-  };
-
-  const fetchModels = async () => {
-    setIsFetchingModels(true);
-    try {
-      const res = await api.get('/settings/models');
-      setAvailableModels(res.data);
-    } catch (err) {
-      showToast("Ошибка загрузки моделей");
-    } finally {
-      setIsFetchingModels(false);
-    }
-  };
-
-  const saveUserPrompts = async () => {
-    const prompts = useSettingsStore.getState().userPrompts;
-    try {
-      await api.post('/user/prompts', prompts);
-      showToast("Промпты сохранены", "success");
-    } catch (err) {
-      showToast("Ошибка сохранения промптов");
     }
   };
 
@@ -125,19 +91,6 @@ export const SettingsModal = ({ userId, startTutorial }) => {
     }
   };
 
-  const testAiConnection = async () => {
-     try {
-       const res = await api.get('/settings/test-ai');
-       if (res.data.status === 'ok') {
-         showToast("Соединение установлено!", "success");
-       } else {
-         showToast(`Ошибка: ${res.data.error}`);
-       }
-     } catch (err) {
-       showToast("Ошибка соединения");
-     }
-  };
-
   return (
     <AnimatePresence>
       <div className="settings-overlay" onClick={() => setIsSettingsOpen(false)}>
@@ -187,17 +140,9 @@ export const SettingsModal = ({ userId, startTutorial }) => {
                   uploadCustomBackground={() => {}} // Placeholder or implement
                 />
               )}
-              {activeSettingsTab === 'voice' && <VoiceTab saveAdminSettings={saveAdminSettings} />}
-              {activeSettingsTab === 'ai' && (
-                <AITab 
-                  availableModels={availableModels} 
-                  fetchModels={fetchModels} 
-                  isFetchingModels={isFetchingModels} 
-                  saveAdminSettings={saveAdminSettings} 
-                  testAiConnection={testAiConnection}
-                />
-              )}
-              {activeSettingsTab === 'prompts' && <PromptsTab saveUserPrompts={saveUserPrompts} />}
+              {activeSettingsTab === 'voice' && <VoiceTab />}
+              {activeSettingsTab === 'ai' && <AITab />}
+              {activeSettingsTab === 'prompts' && <PromptsTab />}
               {activeSettingsTab === 'presets' && (
                 <PresetsTab 
                   newPresetName={newPresetName} 

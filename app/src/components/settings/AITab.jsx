@@ -1,12 +1,52 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useUiStore } from '../../store/useUiStore';
+import api from '../../services/api';
 
-export const AITab = ({ availableModels, fetchModels, isFetchingModels, saveAdminSettings, testAiConnection }) => {
+export const AITab = () => {
   const { adminSettings, updateAdminSetting } = useSettingsStore();
+  const { showToast } = useUiStore();
+  const [availableModels, setAvailableModels] = useState([]);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
 
-  React.useEffect(() => {
+  const fetchModels = async () => {
+    setIsFetchingModels(true);
+    try {
+      const res = await api.get('/settings/models');
+      setAvailableModels(res.data);
+    } catch (err) {
+      showToast("Ошибка загрузки моделей");
+    } finally {
+      setIsFetchingModels(false);
+    }
+  };
+
+  const saveAdminSettings = async () => {
+    const settings = useSettingsStore.getState().adminSettings;
+    try {
+      await api.post('/admin/settings', settings);
+      showToast("Настройки сохранены", "success");
+    } catch (err) {
+      showToast("Ошибка сохранения настроек");
+    }
+  };
+
+  const testAiConnection = async () => {
+     try {
+       const res = await api.get('/settings/test-ai');
+       if (res.data.status === 'ok') {
+         showToast("Соединение установлено!", "success");
+       } else {
+         showToast(`Ошибка: ${res.data.error}`);
+       }
+     } catch (err) {
+       showToast("Ошибка соединения");
+     }
+  };
+
+  useEffect(() => {
     if (adminSettings.AI_PROVIDER && adminSettings.AI_PROVIDER !== 'default') {
       fetchModels();
     }

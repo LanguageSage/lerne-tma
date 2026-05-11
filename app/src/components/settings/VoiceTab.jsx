@@ -1,10 +1,23 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useUiStore } from '../../store/useUiStore';
+import api from '../../services/api';
 import { VOICE_OPTIONS } from '../../constants/settingsConstants';
 
-export const VoiceTab = ({ saveAdminSettings }) => {
+export const VoiceTab = () => {
   const { adminSettings, updateAdminSetting } = useSettingsStore();
+  const { showToast } = useUiStore();
+
+  const saveAdminSettings = async () => {
+    const settings = useSettingsStore.getState().adminSettings;
+    try {
+      await api.post('/admin/settings', settings);
+      showToast("Настройки сохранены", "success");
+    } catch (err) {
+      showToast("Ошибка сохранения настроек");
+    }
+  };
 
   return (
     <motion.div key="voice" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
