@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2 } from 'lucide-react';
+import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2, Share2 } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { UserProfileBadge } from './common/UserBadge';
 import { useUiStore } from '../store/useUiStore';
@@ -75,7 +75,20 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy }) =
             decks.map((deck, index) => (
               <div key={deck.id} className="deck-card glass">
                 <div className="deck-main-action" onClick={() => startStudy(deck)}>
-                  <div className="deck-icon"><Layers size={24} /></div>
+                  <div 
+                    className="deck-icon" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      setCurrentDeck(deck); 
+                      fetchDeckCards(deck.id); 
+                      useUiStore.getState().setView('cards'); 
+                    }}
+                    title="Список карточек"
+                    style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '10px' }}
+                  >
+                    <Layers size={24} />
+                    <span style={{ fontSize: '0.65rem', fontWeight: 600, opacity: 0.8 }}>Карточки</span>
+                  </div>
                   <h3>
                     {deck.name}
                   </h3>
@@ -88,11 +101,19 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy }) =
                 </div>
                 <div className="deck-footer-actions">
                   <button 
-                    id={index === 0 ? 'tut-deck-cards-btn' : undefined}
                     className="deck-action-btn" 
-                    onClick={() => { setCurrentDeck(deck); fetchDeckCards(deck.id); useUiStore.getState().setView('cards'); }}
+                    onClick={async (e) => { 
+                      e.stopPropagation(); 
+                      try {
+                        const success = await useDeckStore.getState().handleShareDeck(deck.id);
+                        if (success) showToast('Ссылка на колоду скопирована!', 'success');
+                      } catch (err) {
+                        showToast('Ошибка при создании ссылки', 'error');
+                      }
+                    }}
+                    title="Поделиться колодой"
                   >
-                    <Layers size={16} /> Карточки
+                    <Share2 size={16} /> Поделиться
                   </button>
                   <button 
                     className={`deck-action-btn ${deck.has_updates ? 'has-update-btn' : ''}`} 

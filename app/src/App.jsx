@@ -18,6 +18,7 @@ import { CardActionModal } from './components/CardActionModal';
 import { DeckModals } from './components/DeckModals';
 import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
+import { ImportModal } from './components/ImportModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { TUTORIAL_STEPS, DESIGN_PRESETS } from './constants/appConstants';
 
@@ -44,21 +45,29 @@ export default function App() {
   } = useDeckStore();
 
   const { isFlipped } = useSessionStore();
-  const { fetchNextCard, handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn } = useCardActions();
+  const { fetchNextCard, handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
 
   const {
     setAdminSettings, setUserPrompts, applyDesignPreset, isAdmin
   } = useSettingsStore();
 
   const { setUserProfile } = useUiStore();
+  const [importShareId, setImportShareId] = React.useState(null);
 
   // Initialization
   useEffect(() => {
     const profile = getUserProfile();
     setUserProfile(profile);
     syncProfile(profile);
-    
     fetchInitData();
+    
+    // Check for sharing parameters
+    const tg = window.Telegram?.WebApp;
+    const startParam = tg?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('tgWebAppStartParam');
+    if (startParam && (startParam.startsWith('c_') || startParam.startsWith('d_'))) {
+      setImportShareId(startParam);
+    }
+    
     const params = new URLSearchParams(window.location.search);
     if (params.get('admin') === '1' || USER_ID === 642478257) {
       useSettingsStore.setState({ isAdmin: true });
@@ -192,6 +201,12 @@ export default function App() {
         loading={useUiStore.getState().loading}
       />
 
+      <ImportModal 
+        shareId={importShareId} 
+        onClose={() => setImportShareId(null)}
+        onImportSuccess={() => setImportShareId(null)}
+      />
+
       <TutorialOverlay
         isOpen={!!activeTutorial}
         steps={TUTORIAL_STEPS[activeTutorial] || []}
@@ -209,6 +224,7 @@ export default function App() {
         onCopy={handleCopyCard}
         onDelete={(c) => handleDeleteCard(c.id)}
         onToggleLearn={handleToggleLearn}
+        onShare={handleShareCard}
         loading={useUiStore.getState().loading}
       />
 

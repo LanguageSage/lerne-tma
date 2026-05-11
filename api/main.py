@@ -19,7 +19,7 @@ from api.dependencies.auth import get_user_id
 from api import models, services
 
 # Импорт роутеров
-from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth
+from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, share
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -49,6 +49,7 @@ app.include_router(media.router, prefix="/api")
 app.include_router(bot.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
+app.include_router(share.router, prefix="/api")
 
 # --- Consolidated Init Endpoint ---
 @app.get("/api/init")

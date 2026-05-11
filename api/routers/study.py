@@ -14,6 +14,14 @@ router = APIRouter(
 
 def _card_to_response(card, progress):
     """Формирует ответ с данными карты. Вынесено для переиспользования."""
+    creator_name = None
+    creator_avatar = None
+    if getattr(card, 'creator_id', None):
+        creator = models.TMAUser.get_or_none(models.TMAUser.user_id == card.creator_id)
+        if creator:
+            creator_name = creator.username or creator.first_name
+            creator_avatar = creator.photo_url
+
     return {
         "id": card.id,
         "front": card.front_text,
@@ -23,7 +31,9 @@ def _card_to_response(card, progress):
         "image_url": services.resolve_media_url(card.image_path, "images"),
         "video_front_url": services.resolve_media_url(card.video_front_path, "videos"),
         "video_back_url": services.resolve_media_url(card.video_back_path, "videos"),
-        "intervals": srs.get_next_intervals(progress)
+        "intervals": srs.get_next_intervals(progress),
+        "creator_name": creator_name,
+        "creator_avatar": creator_avatar,
     }
 
 @router.get("/decks/{deck_id}/next")

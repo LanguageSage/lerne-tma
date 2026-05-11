@@ -123,5 +123,37 @@ export const useDeckStore = create((set, get) => ({
       console.error('Upload JSON Error:', err);
       throw err;
     }
+  },
+
+  handleShareDeck: async (deckId) => {
+    try {
+      const res = await api.post(`/share/generate/deck/${deckId}`);
+      if (res.data.status === 'ok') {
+        const shareId = res.data.share_id;
+        const link = `https://t.me/LerneDeutsch287_bot/Lerne?startapp=${shareId}`;
+        
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: 'Колода Lerne',
+              text: 'Посмотри эту колоду в Lerne!',
+              url: link,
+            });
+            return true;
+          } catch (shareErr) {
+            if (shareErr.name === 'AbortError') return false;
+            await navigator.clipboard.writeText(link);
+            return true;
+          }
+        } else {
+          await navigator.clipboard.writeText(link);
+          return true;
+        }
+      }
+      return false;
+    } catch (err) {
+      console.error('Share Deck Error:', err);
+      throw err;
+    }
   }
 }));

@@ -713,6 +713,8 @@ input:checked + .slider:before {
 .front-min { font-weight: 600; color: #f8fafc; }
 .back-min { font-size: 0.85rem; color: #94a3b8; }
 .card-item-edit { color: #818cf8; opacity: 0.5; }
+.card-item-share { color: #38bdf8; opacity: 0.5; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+.card-item-share:hover, .card-item-edit:hover { opacity: 1; }
 
 /* Editor Form */
 .editor-form {

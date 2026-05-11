@@ -8,6 +8,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 import { cleanMedia } from '../../utils/media';
 import { MediaPicker } from './MediaPicker';
+import { useDeckStore } from '../../store/useDeckStore';
 
 export const CardForm = ({
   cardData,
@@ -25,6 +26,7 @@ export const CardForm = ({
   } = useSettingsStore();
 
   const { loading } = useUiStore();
+  const { decks } = useDeckStore();
   const { uploadCreatorImage, uploadVideo } = useMediaUpload();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
@@ -76,6 +78,23 @@ export const CardForm = ({
   return (
     <div className="creator-form glass" style={{ marginTop: '20px' }}>
       
+      {isCreator && (
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label className="sub-label">Выберите колоду</label>
+          <select 
+            className="form-input" 
+            value={cardData.deck_id || ''} 
+            onChange={(e) => setCardData({...cardData, deck_id: parseInt(e.target.value)})}
+            style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+          >
+            <option value="" disabled>-- Выберите колоду --</option>
+            {decks.map(d => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* TOOLBAR FOR MEDIA */}
       <div className="form-toolbar form-toolbar-custom">
         <button

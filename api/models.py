@@ -119,7 +119,10 @@ def create_all_tables():
             ('ALTER TABLE tma_card ADD COLUMN want_to_learn BOOLEAN DEFAULT false', tma_db),
             ('ALTER TABLE tmareviewhistory ADD COLUMN reviewed_at TIMESTAMP', tma_db),
             ('ALTER TABLE tmasetting ADD COLUMN updated_at TIMESTAMP', tma_db),
-            ('ALTER TABLE tma_user ADD COLUMN phone TEXT', tma_db)
+            ('ALTER TABLE tma_user ADD COLUMN phone TEXT', tma_db),
+            ('ALTER TABLE tma_deck ADD COLUMN share_id TEXT', tma_db),
+            ('ALTER TABLE tma_card ADD COLUMN share_id TEXT', tma_db),
+            ('ALTER TABLE tma_card ADD COLUMN creator_id BIGINT', tma_db)
         ]
         for query, db in migrations:
             try:
@@ -142,6 +145,7 @@ class TMA_Deck(BaseModel):
     is_deleted = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
+    share_id = CharField(null=True, unique=True)
     class Meta:
         table_name = 'tma_deck'
 
@@ -167,6 +171,8 @@ class TMA_Card(BaseModel):
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     history = TextField(default='[]')
+    creator_id = BigIntegerField(null=True, index=True)
+    share_id = CharField(null=True, unique=True)
     class Meta:
         table_name = 'tma_card'
 

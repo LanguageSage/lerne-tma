@@ -149,11 +149,45 @@ export const useCardEditor = () => {
     setLoading(false);
   };
 
+  const handleShareCard = async (targetCard) => {
+    setLoading(true);
+    try {
+      const res = await api.post(`/share/generate/card/${targetCard.id}`);
+      if (res.data.status === 'ok') {
+        const shareId = res.data.share_id;
+        const link = `https://t.me/LerneDeutsch287_bot/Lerne?startapp=${shareId}`;
+        
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: 'Карточка Lerne',
+              text: `Посмотри эту карточку: ${targetCard.front}`,
+              url: link,
+            });
+          } catch (shareErr) {
+            if (shareErr.name !== 'AbortError') {
+              await navigator.clipboard.writeText(link);
+              showToast("Ссылка скопирована в буфер", "success");
+            }
+          }
+        } else {
+          await navigator.clipboard.writeText(link);
+          showToast("Ссылка на карточку скопирована!", "success");
+        }
+      }
+    } catch (err) {
+      showToast("Ошибка при создании ссылки", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     saveCard,
     handleDeleteCard,
     handleToggleLearn,
     handleMoveCard,
-    handleCopyCard
+    handleCopyCard,
+    handleShareCard
   };
 };

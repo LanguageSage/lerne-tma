@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X, Plus, Settings2, Heart, Repeat } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Volume2, CheckCircle, Edit2, Settings, Image as ImageIcon, RefreshCw, Search, Upload, X, Plus, Settings2, Heart, Repeat, Share2 } from 'lucide-react';
 import { stripMarkdown } from '../utils/text';
 import { CardBackground } from './common/CardBackground';
 import { getTextShadow, getContextShadow } from '../utils/style';
@@ -22,7 +22,7 @@ export const StudyView = ({ startTutorial }) => {
   const { view, setView, loading, setIsSettingsOpen, setEditorSourceView, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress } = useDeckStore();
   const { card, setCard, isFlipped, setIsFlipped, studyHistory, historyIndex, apiError, setEditingCard, setIsLearningMore } = useSessionStore();
-  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard } = useCardActions();
+  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleShareCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage, uploadCardVideo } = useMediaUpload();
   
@@ -209,6 +209,18 @@ export const StudyView = ({ startTutorial }) => {
                 <div className="card-inner card-front glass">
                   <CardBackground styleType={resolvedBgFront} />
                   <div className="card-face">
+                    {card.creator_name && (
+                      <div className="creator-badge-corner" style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px 10px', borderRadius: '20px', zIndex: 10 }}>
+                        {card.creator_avatar ? (
+                          <img src={card.creator_avatar} alt="avatar" style={{ width: 20, height: 20, borderRadius: '50%' }} />
+                        ) : (
+                          <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>
+                            {card.creator_name.charAt(0)}
+                          </div>
+                        )}
+                        <span style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 500 }}>{card.creator_name}</span>
+                      </div>
+                    )}
                     {card.audio_url && (
                       <button 
                         id="tut-study-audio"
@@ -234,6 +246,18 @@ export const StudyView = ({ startTutorial }) => {
                 <div className="card-inner card-back glass">
                   <CardBackground styleType={resolvedBgBack} />
                   <div className="card-face">
+                    {card.creator_name && (
+                      <div className="creator-badge-corner" style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px 10px', borderRadius: '20px', zIndex: 10 }}>
+                        {card.creator_avatar ? (
+                          <img src={card.creator_avatar} alt="avatar" style={{ width: 20, height: 20, borderRadius: '50%' }} />
+                        ) : (
+                          <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>
+                            {card.creator_name.charAt(0)}
+                          </div>
+                        )}
+                        <span style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 500 }}>{card.creator_name}</span>
+                      </div>
+                    )}
                     <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
                       <div className="text-front-mini" style={{ marginBottom: 0 }}>{stripMarkdown(card.front)}</div>
                       {card.audio_url && (
@@ -311,6 +335,15 @@ export const StudyView = ({ startTutorial }) => {
             )}
             
             <div className="card-actions-row-study">
+              <button 
+                className="btn-card-action-trigger"
+                onClick={(e) => { e.stopPropagation(); handleShareCard(card); }}
+                title="Поделиться карточкой"
+                style={{ marginRight: '10px' }}
+              >
+                <Share2 size={22} />
+              </button>
+
               <button 
                 className="btn-card-action-trigger"
                 onClick={(e) => { e.stopPropagation(); openCardActions(card); }}

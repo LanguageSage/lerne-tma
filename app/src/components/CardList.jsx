@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus, ImageIcon, Volume2, Edit2, Settings } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus, ImageIcon, Volume2, Edit2, Settings, Share2 } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
@@ -12,7 +12,7 @@ export const CardList = ({ startTutorial }) => {
   const { view, setView, setIsSettingsOpen, setEditorSourceView } = useUiStore();
   const { currentDeck, deckCards } = useDeckStore();
   const { setEditingCard } = useSessionStore();
-  const { handleDeleteCard } = useCardActions();
+  const { handleDeleteCard, handleShareCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
 
   if (view !== 'cards') return null;
@@ -75,6 +75,9 @@ export const CardList = ({ startTutorial }) => {
                 <div className="back-min">{c.back}</div>
               </div>
               <div className="card-item-actions">
+                <div className="card-item-share" onClick={(e) => { e.stopPropagation(); handleShareCard(c); }} title="Поделиться">
+                  <Share2 size={16} />
+                </div>
                 <div className="card-item-edit" onClick={(e) => { e.stopPropagation(); openEditor(currentDeck.id, c, 'cards'); }}>✎</div>
                 <div className="card-item-delete" onClick={(e) => { e.stopPropagation(); handleDeleteCard(c.id); }}><Trash2 size={16} /></div>
               </div>

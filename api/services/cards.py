@@ -112,7 +112,7 @@ def toggle_want_to_learn(card_id: int, user_id: int):
         return None
 
 
-def _build_card_dict(c, p=None, media_exists=None, include_intervals=False):
+def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, creator=None):
     is_dict = isinstance(c, dict)
     get_val = lambda k_dict, k_obj: c.get(k_dict) if is_dict else getattr(c, k_obj, None)
     
@@ -120,6 +120,12 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False):
     image_path = get_val('image_path', 'image_path')
     video_front = get_val('video_front_path', 'video_front_path')
     video_back = get_val('video_back_path', 'video_back_path')
+
+    creator_name = None
+    creator_avatar = None
+    if creator:
+        creator_name = creator.username or creator.first_name
+        creator_avatar = creator.photo_url
 
     result = {
         "id": get_val('id', 'id'),
@@ -134,7 +140,9 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False):
         "audio_path": audio_path,
         "video_front_path": video_front,
         "video_back_path": video_back,
-        "want_to_learn": bool(get_val('want_to_learn', 'want_to_learn'))
+        "want_to_learn": bool(get_val('want_to_learn', 'want_to_learn')),
+        "creator_name": creator_name,
+        "creator_avatar": creator_avatar
     }
 
     if include_intervals:
@@ -166,10 +174,18 @@ def get_cards_for_study(deck_id: int, user_id: int):
         # Предзагрузка: собираем все пути медиа и проверяем существование ОДНИМ запросом
         media_exists = _build_media_exists_map(cards)
         
+        creator_ids = list(set([c.get('creator_id') for c in cards if c.get('creator_id')]))
+        creators = {}
+        if creator_ids:
+            from ..models import TMAUser
+            for u in TMAUser.select().where(TMAUser.user_id << creator_ids):
+                creators[u.user_id] = u
+        
         result = []
         for c in cards:
             p = progress_map.get(c['id'])
-            result.append(_build_card_dict(c, p=p, media_exists=media_exists))
+            creator = creators.get(c.get('creator_id'))
+            result.append(_build_card_dict(c, p=p, media_exists=media_exists, creator=creator))
         return result
     except Exception as e:
         logger.error(f"Error in get_cards_for_study: {e}")

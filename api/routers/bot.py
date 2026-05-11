@@ -97,6 +97,31 @@ async def start_handler(update: Update, context):
         await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
         return
 
+    if args and (args[0].startswith("c_") or args[0].startswith("d_")):
+        share_id = args[0]
+        text = (
+            f"💌 **Вам отправили материал для изучения!**\n\n"
+            f"Привет, {user.first_name}!\n"
+            f"Чтобы посмотреть и добавить карточку или колоду себе, открой приложение 👇"
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚀 Открыть Lerne TMA", web_app=WebAppInfo(url=TMA_URL))]
+            # We don't append ?startapp= here because WebAppInfo url doesn't natively support it in the same way as direct links, 
+            # actually direct deep links like t.me/Bot/App?startapp=... are usually clicked directly by the user.
+            # But just in case they clicked a standard t.me/Bot?start=c_123, we can pass it as a query param or they will just open the app.
+            # Wait, standard WebAppInfo url CANNOT take query params easily without breaking Telegram validation sometimes, 
+            # but we can pass it in the URL if it's our own domain. Let's pass it via URL param for fallback.
+        ])
+        # Actually, if they use t.me/bot/app?startapp=c_123, it goes straight to the app. 
+        # If they use t.me/bot?start=c_123, they get this message. We should embed the share_id in the WebApp URL.
+        custom_url = f"{TMA_URL}?tgWebAppStartParam={share_id}"
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚀 Открыть и добавить", web_app=WebAppInfo(url=custom_url))]
+        ])
+        await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
+        return
+
+
     is_subscribed = await check_user_sub(context, user.id)
     
     if is_subscribed:
