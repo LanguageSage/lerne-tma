@@ -1,31 +1,13 @@
-import React, { useRef, useState } from 'react';
-import { Sparkles, RefreshCw, Upload, X, Image as ImageIcon, Volume2 } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Camera, Upload, X, Search } from 'lucide-react';
+import { CardBackground } from './CardBackground';
+import { getTextShadow, getContextShadow } from '../../utils/style';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { useUiStore } from '../../store/useUiStore';
+import { useMediaUpload } from '../../hooks/useMediaUpload';
 import { MediaPicker } from './MediaPicker';
 import { useDeckStore } from '../../store/useDeckStore';
-import { CardBackground } from './CardBackground';
-import { useSettingsStore } from '../../store/useSettingsStore';
-import api from '../../services/api';
-
-const styles = `
-.textarea-preview {
-  all: unset !important;
-  display: block !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-  padding: 4px !important;
-  margin: 0 !important;
-  text-align: center !important;
-  word-wrap: break-word !important;
-  white-space: pre-wrap !important;
-  color: inherit !important;
-  font-family: inherit !important;
-  cursor: text;
-}
-`;
 
 export const CardForm = ({
   cardData,
@@ -34,85 +16,66 @@ export const CardForm = ({
   onAiGenerate,
   onGenerateAudio,
   playAudio,
-  loading,
   isCreator = false
 }) => {
+  const { 
+    cardFont, cardTextColor, cardFontWeight, cardFontStyle, cardFontSize, cardTextShadow,
+    cardBgFront, cardBgBack,
+    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow
+  } = useSettingsStore();
+
+  const { loading } = useUiStore();
+  const { uploadCreatorImage, uploadVideo } = useMediaUpload();
   const { decks = [] } = useDeckStore();
+
+  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+  
   const frontRef = useRef(null);
   const backRef = useRef(null);
   const contextRef = useRef(null);
   const videoFrontRef = useRef(null);
   const videoBackRef = useRef(null);
-  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
 
-  // Граб настройки со стора с защитой
-  const settings = useSettingsStore();
-  const { 
-    cardFont = 'inherit', cardFontSize = 2, cardTextColor = '#fff', cardFontWeight = '400', cardFontStyle = 'normal', cardTextShadow = 'none',
-    contextFont = 'inherit', contextFontSize = 1, contextTextColor = '#ccc', contextFontWeight = '400', contextFontStyle = 'normal', contextTextShadow = 'none',
-    bgFront = 'default', bgBack = 'default', bgFrontType = 'preset', bgBackType = 'preset',
-    getTextShadow = () => 'none', getContextShadow = () => 'none'
-  } = settings || {};
+  const autoResize = (ref) => {
+    if (ref.current) {
+      ref.current.style.height = 'auto';
+      ref.current.style.height = `${ref.current.scrollHeight}px`;
+    }
+  };
 
-  // Auto-resize textareas on mount/data change
-  React.useEffect(() => {
-    const adjustHeight = (ref) => {
-      if (ref.current) {
-        ref.current.style.height = 'auto';
-        ref.current.style.height = ref.current.scrollHeight + 'px';
-      }
+  useEffect(() => {
+    const handleResize = () => {
+      autoResize(frontRef);
+      autoResize(backRef);
+      autoResize(contextRef);
     };
-    adjustHeight(frontRef);
-    adjustHeight(backRef);
-    adjustHeight(contextRef);
-  }, [cardData.id, cardData.front, cardData.back, cardData.context]);
+    window.addEventListener('resize', handleResize);
+    const timer = setTimeout(handleResize, 100);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
+  }, []);
 
-  if (!cardData) return <div className="p-4 text-center">Загрузка данных...</div>;
+  useEffect(() => { autoResize(frontRef); }, [cardData?.front, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
+  useEffect(() => { autoResize(backRef); }, [cardData?.back, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
+  useEffect(() => { autoResize(contextRef); }, [cardData?.context, contextFontSize, contextFont, contextFontWeight, contextFontStyle]);
 
-  const resolvedBgFront = bgFrontType === 'preset' ? bgFront : (cardData.bg_front || bgFront);
-  const resolvedBgBack = bgBackType === 'preset' ? bgBack : (cardData.bg_back || bgBack);
-
-  // Media upload helpers
-  const uploadVideo = async (file, side) => {
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const res = await api.post('/media/upload-video', formData);
-      if (res.data.path) {
-        if (side === 'front') {
-          setCardData({...cardData, video_front_path: res.data.path, video_front_url: res.data.url});
-        } else {
-          setCardData({...cardData, video_back_path: res.data.path, video_back_url: res.data.url});
-        }
-      }
-    } catch (err) {
-      console.error("Video upload error:", err);
-    }
+  const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
+  const getResolvedStyle = (settingStyle, cardId) => {
+    if (settingStyle !== 'auto') return settingStyle;
+    if (!cardId) return 'standard';
+    const sum = cardId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    return availableStyles[sum % availableStyles.length];
   };
 
-  const uploadCreatorImage = async (file) => {
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const res = await api.post('/media/upload-image', formData);
-      if (res.data.path) {
-        setCardData({
-          ...cardData, 
-          image_path: res.data.path, 
-          image_url: res.data.url
-        });
-        setIsImagePickerOpen(false);
-      }
-    } catch (err) {
-      console.error("Image upload error:", err);
-    }
-  };
+  const resolvedBgFront = getResolvedStyle(cardBgFront, cardData?.id || 0);
+  const resolvedBgBack = getResolvedStyle(cardBgBack, cardData?.id || 0);
+
+  if (!cardData) return null;
 
   return (
-    <div className="creator-form glass" style={{ marginTop: '10px', padding: '12px' }}>
-      <style>{styles}</style>
+    <div className="creator-form glass" style={{ marginTop: '20px' }}>
       
       {isCreator && (
         <div className="form-group" style={{ marginBottom: '8px' }}>
@@ -140,84 +103,102 @@ export const CardForm = ({
         </div>
       )}
 
-      <div className="form-toolbar form-toolbar-custom" style={{ marginBottom: '4px', justifyContent: 'flex-end', gap: '8px' }}>
+      {/* TOOLBAR FOR MEDIA */}
+      <div className="form-toolbar form-toolbar-custom">
         <button
           type="button"
           className="form-toolbar-btn"
           onClick={() => setIsImagePickerOpen(true)}
-          style={{ width: '36px', height: '36px', padding: 0 }}
+          title="Добавить картинку"
         >
-          <ImageIcon size={18} />
+          <ImageIcon size={22} />
         </button>
         <button 
           type="button"
           className="form-toolbar-btn" 
           onClick={() => onGenerateAudio(cardData, setCardData, playAudio)}
           disabled={loading}
-          style={{ width: '36px', height: '36px', padding: 0 }}
+          title="Озвучить"
         >
-          <Volume2 size={18} />
+          <Volume2 size={22} />
         </button>
       </div>
 
-      <div className="form-group" style={{ marginBottom: '0' }}>
-        <div id="card-preview-front" className="card-container" style={{ height: 'auto', minHeight: '120px', aspectRatio: 'unset' }}>
-          <div id="tut-creator-front" className="card-inner card-front glass" style={{ transform: 'none', height: 'auto' }}>
-            <div className="card-face" style={{ position: 'relative', backfaceVisibility: 'visible', padding: '20px' }}>
-              <CardBackground styleType={resolvedBgFront} />
-              
-              {cardData.video_front_url && (
-                <div className="video-container-card">
-                   <video src={cardData.video_front_url} autoPlay loop muted playsInline />
-                </div>
-              )}
-
-              <textarea 
-                ref={frontRef}
-                className="text-front textarea-preview"
-                autoFocus={isCreator}
-                value={cardData.front || ''} 
-                onChange={(e) => {
-                  setCardData({...cardData, front: e.target.value});
-                  e.target.style.height = 'auto';
-                  e.target.style.height = e.target.scrollHeight + 'px';
+      <div className="form-group">
+        <div id="tut-creator-front" className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
+          <CardBackground styleType={resolvedBgFront} />
+          <textarea 
+            ref={frontRef}
+            className="textarea-preview textarea-front-preview"
+            autoFocus={isCreator}
+            value={cardData.front || ''} 
+            onChange={(e) => {
+              setCardData({...cardData, front: e.target.value});
+            }}
+            onInput={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            style={{ 
+              fontFamily: cardFont, 
+              fontWeight: cardFontWeight, 
+              fontStyle: cardFontStyle,
+              color: cardTextColor,
+              fontSize: `${cardFontSize}rem`,
+              textShadow: getTextShadow(cardTextShadow, cardTextColor),
+              overflow: 'hidden',
+              height: 'auto',
+              minHeight: '100px'
+            }}
+            placeholder="Слово или фраза (Front)..."
+          />
+          
+          {(cardData.image_url || cardData.image_path) && (
+            <div className="image-preview-box" style={{ margin: '10px', position: 'relative', zIndex: 3 }}>
+              <img src={cardData.image_url || `/api/media/${cardData.image_path}`} alt="" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+              <button
+                type="button"
+                className="image-clear-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCardData({...cardData, image_path: '', image_url: ''});
                 }}
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = e.target.scrollHeight + 'px';
-                }}
-                placeholder="Текст на лицевой стороне"
-                style={{ 
-                  fontFamily: cardFont, 
-                  fontWeight: cardFontWeight, 
-                  fontStyle: cardFontStyle,
-                  color: cardTextColor,
-                  fontSize: `${cardFontSize}rem`,
-                  textShadow: getTextShadow(cardTextShadow, cardTextColor)
-                }}
-              />
+                title="Убрать картинку"
+              >
+                <X size={20} />
+              </button>
             </div>
-          </div>
+          )}
+
+          {(cardData.audio_path || cardData.audio_url) && (
+            <button 
+              type="button"
+              className="audio-btn-corner" 
+              onClick={(e) => { e.stopPropagation(); playAudio(cardData.audio_url || `/api/media/${cardData.audio_path}`); }}
+            >
+              <Volume2 size={24} />
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="ai-quick-actions" style={{ gap: '8px', marginTop: '4px', marginBottom: '8px' }}>
+      <div className="ai-quick-actions" style={{ gap: '10px' }}>
         <button 
           type="button"
           id="tut-creator-ai"
           className={`btn-ai-generate ${loading ? 'loading' : ''}`} 
           onClick={onAiGenerate}
           disabled={loading || !cardData.front}
-          style={{ flex: 2, padding: '10px' }}
+          style={{ flex: 1 }}
         >
           {loading ? (
             <>
-              <RefreshCw className="spin" size={16} />
-              <span>Жду...</span>
+              <RefreshCw className="spin" size={18} />
+              <span>Генерация...</span>
             </>
           ) : (
             <>
-              <Sparkles size={16} />
+              <Sparkles size={18} />
               <span>Генерировать</span>
             </>
           )}
@@ -227,148 +208,128 @@ export const CardForm = ({
           className="btn btn-primary" 
           onClick={onSave} 
           disabled={loading}
-          style={{ flex: 1, padding: '10px' }}
+          style={{ padding: '12px 20px' }}
         >
-          {loading ? <RefreshCw className="spin" size={16} /> : 'Сохранить'}
+          {loading ? <RefreshCw className="spin" size={18} /> : 'Сохранить'}
         </button>
       </div>
 
-      <div className="media-edit-group" style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+      <div className="media-edit-group" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
          <div className="form-group" style={{ flex: 1 }}>
-            <label className="sub-label" style={{ fontSize: '0.7rem' }}>ВИДЕО (ЛИЦО)</label>
+            <label className="sub-label">Видео (Лицо)</label>
             {(cardData.video_front_url || cardData.video_front_path) && (
-              <div className="media-preview-mini" style={{ position: 'relative', height: '40px', borderRadius: '6px' }}>
+              <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
                 <video src={cardData.video_front_url || `/api/media/${cardData.video_front_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 <button 
                   type="button"
                   className="image-clear-btn" 
-                  style={{ top: '2px', right: '2px', width: '24px', height: '24px' }} 
+                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }} 
                   onClick={(e) => {
                     e.stopPropagation();
                     setCardData({...cardData, video_front_path: '', video_front_url: ''});
                   }}
                 >
-                  <X size={12} />
+                  <X size={16} />
                 </button>
               </div>
             )}
-            <button type="button" className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} style={{ width: '100%', marginTop: '4px', padding: '6px' }}>
-              <Upload size={12} /> Выбрать
+            <button type="button" className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
+              <Upload size={14} /> Выбрать
             </button>
-            <input ref={videoFrontRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], 'front')} />
+            <input ref={videoFrontRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], cardData, setCardData, 'front')} />
          </div>
          <div className="form-group" style={{ flex: 1 }}>
-            <label className="sub-label" style={{ fontSize: '0.7rem' }}>ВИДЕО (ОБОРОТ)</label>
+            <label className="sub-label">Видео (Оборот)</label>
             {(cardData.video_back_url || cardData.video_back_path) && (
-              <div className="media-preview-mini" style={{ position: 'relative', height: '40px', borderRadius: '6px' }}>
+              <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
                 <video src={cardData.video_back_url || `/api/media/${cardData.video_back_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 <button 
                   type="button"
                   className="image-clear-btn" 
-                  style={{ top: '2px', right: '2px', width: '24px', height: '24px' }} 
+                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }} 
                   onClick={(e) => {
                     e.stopPropagation();
                     setCardData({...cardData, video_back_path: '', video_back_url: ''});
                   }}
                 >
-                  <X size={12} />
+                  <X size={16} />
                 </button>
               </div>
             )}
-            <button type="button" className="btn-secondary btn-tiny" onClick={() => videoBackRef.current?.click()} style={{ width: '100%', marginTop: '4px', padding: '6px' }}>
-              <Upload size={12} /> Выбрать
+            <button type="button" className="btn-secondary btn-tiny" onClick={() => videoBackRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
+              <Upload size={14} /> Выбрать
             </button>
-            <input ref={videoBackRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], 'back')} />
+            <input ref={videoBackRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], cardData, setCardData, 'back')} />
          </div>
       </div>
 
-      <div className="form-group" style={{ marginBottom: '0' }}>
-        <div id="card-preview-back" className="card-container" style={{ height: 'auto', minHeight: '120px', aspectRatio: 'unset' }}>
-          <div className="card-inner card-back glass" style={{ transform: 'none', height: 'auto' }}>
-            <div className="card-face" style={{ position: 'relative', backfaceVisibility: 'visible', padding: '20px' }}>
-              <CardBackground styleType={resolvedBgBack} />
-              <div className="card-face" style={{ padding: 0 }}>
-                {cardData.video_back_url && (
-                  <div className="video-container-card">
-                    <video src={cardData.video_back_url} autoPlay loop muted playsInline />
-                  </div>
-                )}
-                
-                <textarea 
-                  ref={backRef}
-                  className="text-back textarea-preview"
-                  value={cardData.back || ''} 
-                  onChange={(e) => {
-                    setCardData({...cardData, back: e.target.value});
-                    e.target.style.height = 'auto';
-                    e.target.style.height = e.target.scrollHeight + 'px';
-                  }}
-                  onInput={(e) => {
-                    e.target.style.height = 'auto';
-                    e.target.style.height = e.target.scrollHeight + 'px';
-                  }}
-                  placeholder="Перевод"
-                  style={{ 
-                    fontFamily: cardFont, 
-                    fontWeight: cardFontWeight, 
-                    fontStyle: cardFontStyle,
-                    color: cardTextColor,
-                    fontSize: `${cardFontSize}rem`,
-                    textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                    minHeight: '40px'
-                  }}
-                />
+      <div className="form-group">
+        <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
+          <CardBackground styleType={resolvedBgBack} />
+          
+          <textarea 
+            ref={backRef}
+            className="textarea-preview textarea-back-preview"
+            value={cardData.back || ''} 
+            onChange={(e) => {
+              setCardData({...cardData, back: e.target.value});
+            }}
+            onInput={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            style={{ 
+              fontFamily: cardFont, 
+              fontWeight: cardFontWeight, 
+              fontStyle: cardFontStyle,
+              color: cardTextColor,
+              fontSize: `${cardFontSize}rem`,
+              textShadow: getTextShadow(cardTextShadow, cardTextColor),
+              overflow: 'hidden',
+              height: 'auto',
+              minHeight: '100px'
+            }}
+            placeholder="Перевод..."
+          />
+          
+          {(cardData.context || isCreator) && (
+             <>
+               <div style={{ width: '90%', height: '4px', background: 'rgba(255,255,255,0.7)', margin: '20px auto', borderRadius: '2px', position: 'relative', zIndex: 10, display: 'block' }}></div>
+               <textarea 
+                 ref={contextRef}
+                 className="context-textarea textarea-preview textarea-context-preview"
+                 value={cardData.context || ''} 
+                 onChange={(e) => {
+                   setCardData({...cardData, context: e.target.value});
+                 }}
+                 onInput={(e) => {
+                   e.target.style.height = 'auto';
+                   e.target.style.height = `${e.target.scrollHeight}px`;
+                 }}
+                 style={{ 
+                   fontFamily: contextFont, 
+                   fontSize: `${contextFontSize}rem`,
+                   color: contextTextColor,
+                   fontWeight: contextFontWeight,
+                   fontStyle: contextFontStyle,
+                   textShadow: getContextShadow(contextTextShadow, contextTextColor),
+                   overflow: 'hidden',
+                   height: 'auto',
+                   minHeight: '100px'
+                 }}
+                 placeholder="Примеры, грамматика..."
+               />
+             </>
+          )}
 
-                {cardData.context && (
-                  <>
-                    <div style={{ width: '100%', height: '2px', background: 'rgba(255,255,255,0.3)', margin: '12px auto' }}></div>
-                    <textarea 
-                      ref={contextRef}
-                      className="text-context textarea-preview"
-                      value={cardData.context || ''} 
-                      onChange={(e) => {
-                        setCardData({...cardData, context: e.target.value});
-                        e.target.style.height = 'auto';
-                        e.target.style.height = e.target.scrollHeight + 'px';
-                      }}
-                      onInput={(e) => {
-                        e.target.style.height = 'auto';
-                        e.target.style.height = e.target.scrollHeight + 'px';
-                      }}
-                      placeholder="Контекст/Пример"
-                      style={{ 
-                        fontFamily: contextFont, 
-                        fontSize: `${contextFontSize}rem`,
-                        color: contextTextColor,
-                        fontWeight: contextFontWeight,
-                        fontStyle: contextFontStyle,
-                        textShadow: getContextShadow(contextTextShadow, contextTextColor),
-                        opacity: 0.8,
-                        minHeight: '30px'
-                      }}
-                    />
-                  </>
-                )}
-
-                {(cardData.audio_path || cardData.audio_url) && (
-                  <button 
-                    type="button"
-                    className="audio-btn-back-corner" 
-                    onClick={(e) => { e.stopPropagation(); playAudio(cardData.audio_url || `/api/media/${cardData.audio_path}`); }}
-                  >
-                    <Volume2 size={24} />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
+      {/* MODALS FOR CAMERA / IMAGE PICKER */}
       <MediaPicker 
         isOpen={isImagePickerOpen}
         onClose={() => setIsImagePickerOpen(false)}
-        onImageUpload={uploadCreatorImage}
+        onImageUpload={(file) => uploadCreatorImage(file, cardData, setCardData)}
         searchQuery={cardData?.front || ''}
         loading={loading}
       />

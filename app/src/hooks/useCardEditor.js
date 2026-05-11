@@ -177,12 +177,12 @@ export const useCardEditor = () => {
         const canvas = await html2canvas(element, {
           useCORS: true,
           allowTaint: true,
-          scale: 1, // Reduced for speed and size
+          scale: 2, // Increased for better resolution
           backgroundColor: null,
           logging: false,
           imageTimeout: 5000
         });
-        screenshot = canvas.toDataURL('image/jpeg', 0.7);
+        screenshot = canvas.toDataURL('image/jpeg', 0.85);
         console.log("Screenshot captured, length:", screenshot.length);
       }
     } catch (err) {

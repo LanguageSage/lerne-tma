@@ -195,7 +195,7 @@ def view_shared_item(share_id: str):
     else:
         description += " | Новая карточка для изучения"
 
-    preview_url = f"https://tma-amber.vercel.app/preview/{share_id}.jpg?v=13"
+    preview_url = f"https://tma-amber.vercel.app/api/preview/{share_id}.jpg?v=14"
     bot_url = f"https://t.me/LerneDeutsch287_bot?start={share_id}"
 
     html = f"""
@@ -325,15 +325,18 @@ def get_share_preview_image(share_id: str):
 
     try:
         import os, urllib.request
-        FONT_PATH = "/tmp/Montserrat-Bold.ttf"
+        FONT_PATH = "api/fonts/NotoSans-Bold.ttf"
+        
         if not os.path.exists(FONT_PATH):
-            try:
-                urllib.request.urlretrieve(
-                    "https://github.com/googlefonts/montserrat/raw/main/fonts/ttf/Montserrat-Bold.ttf",
-                    FONT_PATH
-                )
-            except:
-                FONT_PATH = None
+            FONT_PATH = "/tmp/Montserrat-Bold.ttf"
+            if not os.path.exists(FONT_PATH):
+                try:
+                    urllib.request.urlretrieve(
+                        "https://github.com/googlefonts/montserrat/raw/main/fonts/ttf/Montserrat-Bold.ttf",
+                        FONT_PATH
+                    )
+                except:
+                    FONT_PATH = None
         
         if not FONT_PATH or not os.path.exists(FONT_PATH):
              font_large = ImageFont.load_default()
@@ -431,9 +434,10 @@ def get_share_preview_image(share_id: str):
     draw_text_centered("Lerne TMA — Учите языки эффективно", height - 50, font_small, (99, 102, 241))
 
     buf = io.BytesIO()
-    img.save(buf, format='PNG')
+    img = img.convert('RGB')
+    img.save(buf, format='JPEG', quality=85)
     buf.seek(0)
-    return Response(content=buf.getvalue(), media_type="image/png")
+    return Response(content=buf.getvalue(), media_type="image/jpeg")
 
 
 
