@@ -208,19 +208,7 @@ export const StudyView = ({ startTutorial }) => {
               {!isFlipped ? (
                 <div className="card-inner card-front glass">
                   <CardBackground styleType={resolvedBgFront} />
-                  <div className="card-face">
-                    {card.creator_name && (
-                      <div className="creator-badge-corner" style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px 10px', borderRadius: '20px', zIndex: 10 }}>
-                        {card.creator_avatar ? (
-                          <img src={card.creator_avatar} alt="avatar" style={{ width: 20, height: 20, borderRadius: '50%' }} />
-                        ) : (
-                          <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>
-                            {card.creator_name.charAt(0)}
-                          </div>
-                        )}
-                        <span style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 500 }}>{card.creator_name}</span>
-                      </div>
-                    )}
+                    <div className="card-face">
                     {card.audio_url && (
                       <button 
                         id="tut-study-audio"
@@ -246,18 +234,6 @@ export const StudyView = ({ startTutorial }) => {
                 <div className="card-inner card-back glass">
                   <CardBackground styleType={resolvedBgBack} />
                   <div className="card-face">
-                    {card.creator_name && (
-                      <div className="creator-badge-corner" style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px 10px', borderRadius: '20px', zIndex: 10 }}>
-                        {card.creator_avatar ? (
-                          <img src={card.creator_avatar} alt="avatar" style={{ width: 20, height: 20, borderRadius: '50%' }} />
-                        ) : (
-                          <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>
-                            {card.creator_name.charAt(0)}
-                          </div>
-                        )}
-                        <span style={{ fontSize: '0.75rem', color: '#fff', fontWeight: 500 }}>{card.creator_name}</span>
-                      </div>
-                    )}
                     <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
                       <div className="text-front-mini" style={{ marginBottom: 0 }}>{stripMarkdown(card.front)}</div>
                       {card.audio_url && (
@@ -299,6 +275,19 @@ export const StudyView = ({ startTutorial }) => {
                         }}
                       >
                         {stripMarkdown(card.context)}
+                      </div>
+                    )}
+                    
+                    {card.creator_name && (
+                      <div className="creator-badge-corner" style={{ position: 'absolute', bottom: '10px', right: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px 10px', borderRadius: '20px', zIndex: 10, opacity: 0.8 }}>
+                        {card.creator_avatar ? (
+                          <img src={card.creator_avatar} alt="avatar" style={{ width: 18, height: 18, borderRadius: '50%' }} />
+                        ) : (
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px' }}>
+                            {card.creator_name.charAt(0)}
+                          </div>
+                        )}
+                        <span style={{ fontSize: '0.65rem', color: '#fff', fontWeight: 500 }}>{card.creator_name}</span>
                       </div>
                     )}
                   </div>

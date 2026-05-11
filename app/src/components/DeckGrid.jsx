@@ -1,13 +1,108 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2, Share2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2, Share2, Inbox, Download, X, BookOpen, ChevronRight } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { UserProfileBadge } from './common/UserBadge';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
+import api from '../services/api';
 
-export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy }) => {
+// Compact share banner shown above the deck list when a share link is opened
+const ShareBanner = ({ shareId, onSuccess, onClose }) => {
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const { showToast, userProfile } = useUiStore();
+  const { fetchDecks } = useDeckStore();
+
+  useEffect(() => {
+    if (!shareId) return;
+    api.get(`/share/info/${shareId}`)
+      .then(r => setInfo(r.data))
+      .catch(() => setInfo(null))
+      .finally(() => setLoading(false));
+  }, [shareId]);
+
+  const handleImport = async () => {
+    setImporting(true);
+    try {
+      const res = await api.post('/share/import', { share_id: shareId });
+      if (res.data.status === 'ok') {
+        const msg = res.data.type === 'deck'
+          ? `✅ Колода «${res.data.deck_name}» добавлена!`
+          : '✅ Карточка добавлена во Входящие!';
+        showToast(msg, 'success');
+        await fetchDecks(userProfile?.user_id);
+        onSuccess();
+      }
+    } catch {
+      showToast('Ошибка при добавлении', 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  if (!shareId) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="share-banner glass"
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -16 }}
+        transition={{ duration: 0.3 }}
+      >
+        {loading ? (
+          <div className="share-banner-inner">
+            <RefreshCw size={16} className="spin" color="#818cf8" />
+            <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Загрузка...</span>
+          </div>
+        ) : !info ? (
+          <div className="share-banner-inner">
+            <span style={{ color: '#fca5a5', fontSize: '0.85rem' }}>⚠️ Ссылка недействительна</span>
+            <button className="share-banner-close" onClick={onClose}><X size={16} /></button>
+          </div>
+        ) : (
+          <div className="share-banner-inner">
+            {/* Left: icon + text */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+              <div className="share-banner-icon">
+                <BookOpen size={16} color="#a5b4fc" />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: 1 }}>
+                  {info.creator_name ? `от ${info.creator_name}` : 'Вам поделились'}
+                </div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {info.type === 'deck' ? `📚 ${info.name}` : `🃏 ${info.front_text}`}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: action buttons */}
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button
+                className="share-banner-btn share-banner-btn-primary"
+                onClick={handleImport}
+                disabled={importing}
+              >
+                {importing
+                  ? <RefreshCw size={13} className="spin" />
+                  : <><Download size={13} /> <span>Добавить</span></>
+                }
+              </button>
+              <button className="share-banner-close" onClick={onClose}><X size={15} /></button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, importShareId, onImportSuccess, onImportClose }) => {
   const { view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, showToast } = useUiStore();
   const { decks, setCurrentDeck, fetchDeckCards, handleSyncDeck, handleResetProgress, handleDeleteDeck } = useDeckStore();
   
@@ -57,6 +152,15 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy }) =
           </div>
         </div>
 
+        {/* Share banner — shown when opened via share link */}
+        {importShareId && (
+          <ShareBanner
+            shareId={importShareId}
+            onSuccess={onImportSuccess}
+            onClose={onImportClose}
+          />
+        )}
+
         <div id="tut-deck-list" className="deck-grid">
           {loading && decks.length === 0 ? (
             <div className="empty-decks-state glass">
@@ -73,7 +177,10 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy }) =
             </div>
           ) : (
             decks.map((deck, index) => (
-              <div key={deck.id} className="deck-card glass">
+              <div 
+                key={deck.id} 
+                className={`deck-card glass ${deck.is_inbox ? 'deck-card-inbox' : ''}`}
+              >
                 <div className="deck-main-action" onClick={() => startStudy(deck)}>
                   <div 
                     className="deck-icon" 
@@ -86,11 +193,16 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy }) =
                     title="Список карточек"
                     style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '10px' }}
                   >
-                    <Layers size={24} />
+                    {deck.is_inbox ? <Inbox size={24} /> : <Layers size={24} />}
                     <span style={{ fontSize: '0.65rem', fontWeight: 600, opacity: 0.8 }}>Карточки</span>
                   </div>
                   <h3>
                     {deck.name}
+                    {deck.is_inbox && deck.stats.total > 0 && (
+                      <span style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
+                        новые
+                      </span>
+                    )}
                   </h3>
                   <div className="deck-stats">
                     <span className="stat total" title="Всего карточек">{deck.stats.total}</span>
@@ -100,43 +212,56 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy }) =
                   </div>
                 </div>
                 <div className="deck-footer-actions">
-                  <button 
-                    className="deck-action-btn" 
-                    onClick={async (e) => { 
-                      e.stopPropagation(); 
-                      try {
-                        const success = await useDeckStore.getState().handleShareDeck(deck.id);
-                        if (success) showToast('Ссылка на колоду скопирована!', 'success');
-                      } catch (err) {
-                        showToast('Ошибка при создании ссылки', 'error');
-                      }
-                    }}
-                    title="Поделиться колодой"
-                  >
-                    <Share2 size={16} /> Поделиться
-                  </button>
-                  <button 
-                    className={`deck-action-btn ${deck.has_updates ? 'has-update-btn' : ''}`} 
-                    onClick={(e) => { e.stopPropagation(); openSyncModal ? openSyncModal(deck) : handleSyncDeck(deck.id); }} 
-                    title="Синхронизировать с библиотекой"
-                  >
-                    <RefreshCw size={16} /> {deck.has_updates ? '❗️ Обновить' : 'Обновить'}
-                  </button>
+                  {!deck.is_inbox && (
+                    <button 
+                      className="deck-action-btn" 
+                      onClick={async (e) => { 
+                        e.stopPropagation(); 
+                        try {
+                          const result = await useDeckStore.getState().handleShareDeck(deck.id);
+                          if (result.success) {
+                            if (result.type === 'copy') showToast('Ссылка скопирована!', 'success');
+                            else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
+                          }
+                        } catch (err) {
+                          showToast('Ошибка при создании ссылки', 'error');
+                        }
+                      }}
+                      title="Поделиться колодой"
+                    >
+                      <Share2 size={16} /> Поделиться
+                    </button>
+                  )}
+                  {!deck.is_inbox && (
+                    <button 
+                      className={`deck-action-btn ${deck.has_updates ? 'has-update-btn' : ''}`} 
+                      onClick={(e) => { e.stopPropagation(); openSyncModal ? openSyncModal(deck) : handleSyncDeck(deck.id); }} 
+                      title="Синхронизировать с библиотекой"
+                    >
+                      <RefreshCw size={16} /> {deck.has_updates ? '❗️ Обновить' : 'Обновить'}
+                    </button>
+                  )}
+                  {deck.is_inbox && (
+                    <button 
+                      className="deck-action-btn" 
+                      style={{ flex: 2, color: '#94a3b8', fontSize: '0.7rem', cursor: 'default' }}
+                      disabled
+                    >
+                      📥 Переместите карточки в нужные колоды
+                    </button>
+                  )}
                   <button className="deck-action-btn" onClick={(e) => { e.stopPropagation(); if(window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) handleResetProgress(deck.id); }} title="Сбросить прогресс обучения">
                     <RefreshCw size={16} style={{ color: '#ef4444' }} /> Сбросить
                   </button>
-                  <button className="deck-action-btn delete-btn-minimal" onClick={(e) => { e.stopPropagation(); if(window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) handleDeleteDeck(deck.id); }} title="Удалить колоду">
-                    <Trash2 size={16} />
-                  </button>
+                  {!deck.is_inbox && (
+                    <button className="deck-action-btn delete-btn-minimal" onClick={(e) => { e.stopPropagation(); if(window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) handleDeleteDeck(deck.id); }} title="Удалить колоду">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))
           )}
-        </div>
-        
-        <div className="debug-footer glass" style={{marginTop: '20px', padding: '10px', fontSize: '10px', opacity: 0.5}}>
-            DEBUG: UserID={userId} | Decks={decks.length} | 
-            Stats: {decks.map(d => `${d.name}:${d.stats.total}`).join(', ')}
         </div>
       </motion.div>
     </div>

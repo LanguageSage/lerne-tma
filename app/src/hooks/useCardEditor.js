@@ -150,36 +150,87 @@ export const useCardEditor = () => {
   };
 
   const handleShareCard = async (targetCard) => {
-    setLoading(true);
+    // 1. Telegram Desktop Fix: На десктопе лучше не показывать лоадер сразу,
+    // чтобы не блокировать "user activation" для открытия ссылки.
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) setLoading(true);
+
+    let screenshot = null;
     try {
-      const res = await api.post(`/share/generate/card/${targetCard.id}`);
+      // Пытаемся сделать скриншот текущего вида карточки
+      const html2canvas = (await import('html2canvas')).default;
+      const { isFlipped } = useSessionStore.getState();
+      const { view } = useUiStore.getState();
+      
+      let elementId = 'tut-study-card';
+      if (view === 'creator' || view === 'editor') {
+        elementId = isFlipped ? 'card-preview-back' : 'card-preview-front';
+      }
+      
+      let element = document.getElementById(elementId);
+      if (!element) {
+        // Fallback search
+        element = document.querySelector('.card-container');
+      }
+
+      if (element) {
+        const canvas = await html2canvas(element, {
+          useCORS: true,
+          allowTaint: true,
+          scale: 1, // Reduced for speed and size
+          backgroundColor: null,
+          logging: false,
+          imageTimeout: 5000
+        });
+        screenshot = canvas.toDataURL('image/jpeg', 0.7);
+        console.log("Screenshot captured, length:", screenshot.length);
+      }
+    } catch (err) {
+      console.error("Screenshot error:", err);
+    }
+
+    try {
+      const res = await api.post(`/share/generate/card/${targetCard.id}`, { screenshot });
       if (res.data.status === 'ok') {
         const shareId = res.data.share_id;
-        const link = `https://t.me/LerneDeutsch287_bot/Lerne?startapp=${shareId}`;
+        const link = `https://tma-amber.vercel.app/api/share/v/${shareId}`;
+        const text = `Посмотри эту карточку: ${targetCard.front}`;
         
         if (navigator.share) {
           try {
             await navigator.share({
               title: 'Карточка Lerne',
-              text: `Посмотри эту карточку: ${targetCard.front}`,
+              text: text,
               url: link,
             });
+            if (isMobile) setLoading(false);
+            return { success: true, type: 'share' };
           } catch (shareErr) {
-            if (shareErr.name !== 'AbortError') {
-              await navigator.clipboard.writeText(link);
-              showToast("Ссылка скопирована в буфер", "success");
+            if (shareErr.name === 'AbortError') {
+               if (isMobile) setLoading(false);
+               return { success: false };
             }
           }
-        } else {
-          await navigator.clipboard.writeText(link);
-          showToast("Ссылка на карточку скопирована!", "success");
         }
+
+        const tg = window.Telegram?.WebApp;
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+        
+        if (tg && tg.openTelegramLink) {
+          tg.openTelegramLink(shareUrl);
+        } else {
+          window.open(shareUrl, '_blank');
+        }
+        
+        if (isMobile) setLoading(false);
+        return { success: true, type: 'telegram' };
       }
     } catch (err) {
       showToast("Ошибка при создании ссылки", "error");
     } finally {
       setLoading(false);
     }
+    return { success: false };
   };
 
   return {

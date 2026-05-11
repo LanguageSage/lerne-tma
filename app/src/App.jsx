@@ -56,14 +56,21 @@ export default function App() {
 
   // Initialization
   useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      console.log("Telegram WebApp Ready");
+    }
+
     const profile = getUserProfile();
     setUserProfile(profile);
     syncProfile(profile);
     fetchInitData();
     
     // Check for sharing parameters
-    const tg = window.Telegram?.WebApp;
     const startParam = tg?.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('tgWebAppStartParam');
+    console.log("Start parameter detected:", startParam);
+
     if (startParam && (startParam.startsWith('c_') || startParam.startsWith('d_'))) {
       setImportShareId(startParam);
     }
@@ -168,6 +175,9 @@ export default function App() {
         userId={USER_ID}
         startStudy={startStudy}
         startTutorial={startTutorial}
+        importShareId={importShareId}
+        onImportSuccess={() => setImportShareId(null)}
+        onImportClose={() => setImportShareId(null)}
       />
 
       <StudyView

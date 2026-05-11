@@ -13,7 +13,8 @@ TOKEN = os.getenv("BOT_TOKEN")
 # Извлекаем имя канала (убираем @ если есть для ссылки)
 RAW_CHANNEL = os.getenv("REQUIRED_CHANNEL", "LerneDeutsch287").replace("@", "")
 CHANNEL_ID = f"@{RAW_CHANNEL}"
-TMA_URL = os.getenv("TMA_LINK", "https://tma-amber.vercel.app/")
+# Всегда используем продакшн URL для ссылок в боте, локальная переменная TMA_LINK для разработки
+TMA_URL = "https://tma-amber.vercel.app"
 
 # Инициализация приложения PTB (без запуска polling)
 ptb_app = Application.builder().token(TOKEN).build() if TOKEN else None
@@ -99,24 +100,17 @@ async def start_handler(update: Update, context):
 
     if args and (args[0].startswith("c_") or args[0].startswith("d_")):
         share_id = args[0]
+        item_type = "колоду" if share_id.startswith("d_") else "карточку"
         text = (
-            f"💌 **Вам отправили материал для изучения!**\n\n"
+            f"💌 **Вам отправили {item_type} для изучения!**\n\n"
             f"Привет, {user.first_name}!\n"
-            f"Чтобы посмотреть и добавить карточку или колоду себе, открой приложение 👇"
+            f"Нажми кнопку ниже, чтобы открыть Lerne и добавить {item_type} себе 👇"
         )
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚀 Открыть Lerne TMA", web_app=WebAppInfo(url=TMA_URL))]
-            # We don't append ?startapp= here because WebAppInfo url doesn't natively support it in the same way as direct links, 
-            # actually direct deep links like t.me/Bot/App?startapp=... are usually clicked directly by the user.
-            # But just in case they clicked a standard t.me/Bot?start=c_123, we can pass it as a query param or they will just open the app.
-            # Wait, standard WebAppInfo url CANNOT take query params easily without breaking Telegram validation sometimes, 
-            # but we can pass it in the URL if it's our own domain. Let's pass it via URL param for fallback.
-        ])
-        # Actually, if they use t.me/bot/app?startapp=c_123, it goes straight to the app. 
-        # If they use t.me/bot?start=c_123, they get this message. We should embed the share_id in the WebApp URL.
+        # Параметр передаём через URL нашего приложения — наиболее надёжный способ
         custom_url = f"{TMA_URL}?tgWebAppStartParam={share_id}"
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚀 Открыть и добавить", web_app=WebAppInfo(url=custom_url))]
+            [InlineKeyboardButton("🚀 Открыть и добавить", web_app=WebAppInfo(url=custom_url))],
+            [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}?tgWebAppStartParam={share_id}")]
         ])
         await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
         return

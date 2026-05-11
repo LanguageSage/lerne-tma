@@ -53,17 +53,47 @@ def create_deck(name: str, user_id: int):
         raise e
 
 
+def ensure_inbox_deck(user_id: int) -> TMA_Deck:
+    """Возвращает (или создаёт) специальную колоду «Входящие» для пользователя."""
+    inbox = TMA_Deck.get_or_none(
+        (TMA_Deck.user_id == user_id) & (TMA_Deck.is_inbox == True)
+    )
+    if not inbox:
+        inbox = TMA_Deck.create(
+            user_id=user_id,
+            name="📥 Входящие",
+            is_inbox=True,
+            created_at=datetime.datetime.now(),
+            updated_at=datetime.datetime.now()
+        )
+        logger.info(f"Created Inbox deck for user {user_id} (id={inbox.id})")
+    return inbox
+
+
+
 def get_active_decks(user_id: int):
     """Возвращает список колод со статистикой. Оптимизировано: 2 запроса вместо 5."""
     try:
         now = datetime.datetime.now()
-        decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id).order_by(TMA_Deck.id.desc()))
         
-        if not decks:
+        # 1. Сначала проверяем/создаем Входящие (всегда должны быть)
+        ensure_inbox_deck(user_id)
+        
+        # 2. Получаем все активные колоды
+        decks = list(TMA_Deck.select().where(
+            (TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)
+        ).order_by(TMA_Deck.is_inbox.desc(), TMA_Deck.id.desc()))
+        
+        # 3. Если кроме Входящих ничего нет, пробуем добавить стартовые
+        if len(decks) <= 1: # Только Входящие или пусто
             ensure_starter_decks(user_id)
-            decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id).order_by(TMA_Deck.id.desc()))
+            # Перезагружаем
+            decks = list(TMA_Deck.select().where(
+                (TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)
+            ).order_by(TMA_Deck.is_inbox.desc(), TMA_Deck.id.desc()))
 
         if not decks:
+            logger.warning(f"No decks found for user {user_id} even after ensure_inbox")
             return []
 
         deck_ids = [d.id for d in decks]
@@ -128,6 +158,7 @@ def get_active_decks(user_id: int):
                 "name": d.name,
                 "level": getattr(d, 'level', ''),
                 "topic": getattr(d, 'topic', ''),
+                "is_inbox": getattr(d, 'is_inbox', False),
                 "has_updates": has_updates,
                 "stats": {
                     "total": total,

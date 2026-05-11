@@ -122,7 +122,8 @@ def create_all_tables():
             ('ALTER TABLE tma_user ADD COLUMN phone TEXT', tma_db),
             ('ALTER TABLE tma_deck ADD COLUMN share_id TEXT', tma_db),
             ('ALTER TABLE tma_card ADD COLUMN share_id TEXT', tma_db),
-            ('ALTER TABLE tma_card ADD COLUMN creator_id BIGINT', tma_db)
+            ('ALTER TABLE tma_card ADD COLUMN creator_id BIGINT', tma_db),
+            ('ALTER TABLE tma_deck ADD COLUMN is_inbox BOOLEAN DEFAULT false', tma_db),
         ]
         for query, db in migrations:
             try:
@@ -143,6 +144,7 @@ class TMA_Deck(BaseModel):
     level = CharField(null=True)
     topic = CharField(null=True)
     is_deleted = BooleanField(default=False)
+    is_inbox = BooleanField(default=False)  # Special "Inbox" deck for shared items
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     share_id = CharField(null=True, unique=True)

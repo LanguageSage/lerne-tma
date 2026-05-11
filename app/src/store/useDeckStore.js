@@ -130,27 +130,39 @@ export const useDeckStore = create((set, get) => ({
       const res = await api.post(`/share/generate/deck/${deckId}`);
       if (res.data.status === 'ok') {
         const shareId = res.data.share_id;
-        const link = `https://t.me/LerneDeutsch287_bot/Lerne?startapp=${shareId}`;
+        // Используем веб-ссылку для красивого превью (OpenGraph)
+        const link = `https://tma-amber.vercel.app/api/share/v/${shareId}`;
+        const text = 'Посмотри эту колоду в Lerne!';
         
+        // 1. Пробуем системное меню Share (Web Share API)
         if (navigator.share) {
           try {
             await navigator.share({
               title: 'Колода Lerne',
-              text: 'Посмотри эту колоду в Lerne!',
+              text: text,
               url: link,
             });
-            return true;
+            return { success: true, type: 'share' };
           } catch (shareErr) {
-            if (shareErr.name === 'AbortError') return false;
-            await navigator.clipboard.writeText(link);
-            return true;
+            // Если пользователь просто закрыл меню, ничего не делаем
+            if (shareErr.name === 'AbortError') return { success: false };
+            // В случае ошибки (например, запрет в iframe) переходим к другим способам
           }
-        } else {
-          await navigator.clipboard.writeText(link);
-          return true;
         }
+
+        // 2. Пробуем нативный Share внутри Telegram
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+          const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+          tg.openTelegramLink(shareUrl);
+          return { success: true, type: 'telegram' };
+        }
+
+        // 3. Фолбэк на буфер обмена
+        await navigator.clipboard.writeText(link);
+        return { success: true, type: 'copy' };
       }
-      return false;
+      return { success: false };
     } catch (err) {
       console.error('Share Deck Error:', err);
       throw err;

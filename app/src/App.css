@@ -117,6 +117,83 @@
   gap: 1rem;
 }
 
+/* Compact share banner */
+.share-banner {
+  border-radius: 16px;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.08);
+  padding: 10px 14px;
+  margin-bottom: 2px;
+}
+
+.share-banner-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.share-banner-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(79,70,229,0.3));
+  border: 1px solid rgba(99,102,241,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.share-banner-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.share-banner-btn-primary {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
+}
+
+.share-banner-btn-primary:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.35);
+  color: white;
+}
+
+.share-banner-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.share-banner-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.share-banner-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+
 .empty-decks-state {
   display: flex;
   flex-direction: column;
@@ -176,6 +253,28 @@
   border-color: rgba(168, 85, 247, 0.6);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), 0 0 20px rgba(168, 85, 247, 0.3), inset 0 0 15px rgba(255, 255, 255, 0.1);
 }
+
+/* Inbox deck — special indigo accent */
+.deck-card-inbox {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.deck-card-inbox::before {
+  background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(255,255,255,0) 50%, rgba(99, 102, 241, 0.06) 100%);
+}
+
+.deck-card-inbox .deck-icon {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(79, 70, 229, 0.3));
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
+}
+
+.deck-card-inbox:hover {
+  border-color: rgba(99, 102, 241, 0.7);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.3), inset 0 0 15px rgba(255, 255, 255, 0.05);
+}
+
 
 .deck-icon {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.25));
@@ -1196,6 +1295,11 @@ input:checked + .slider:before {
   margin-top: 2px;
 }
 
+.creator-form {
+  margin-top: 10px;
+  padding: 12px;
+}
+
 .import-card-count {
   font-size: 0.7rem;
   color: #a855f7;
@@ -1751,26 +1855,20 @@ input[type=range]:active::-webkit-slider-thumb {
 }
 
 .textarea-preview {
-  background: transparent;
+  background: transparent !important;
   position: relative;
   z-index: 2;
-  border: none;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
   resize: none;
   overflow: hidden;
   width: 100%;
   display: block;
   box-sizing: border-box;
-  padding: 12px;
+  padding: 8px;
 }
-.textarea-front-preview {
-  min-height: 100px;
-}
-.textarea-back-preview {
-  min-height: 80px;
-}
-.textarea-context-preview {
-  min-height: 120px;
-}
+
 
 /* Profile Tab */
 .profile-tab {
@@ -1826,3 +1924,30 @@ input[type=range]:active::-webkit-slider-thumb {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(0, 136, 204, 0.3);
 }
+.creator-form {
+  padding: 12px !important;
+}
+
+.creator-form .form-group {
+  margin-bottom: 8px !important;
+}
+
+/* Force colors for select and options */
+select.form-input, 
+select.form-input option {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+}
+
+.textarea-preview {
+  background: none !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
