@@ -36,6 +36,20 @@ def _card_to_response(card, progress):
         "creator_avatar": creator_avatar,
     }
 
+@router.get("/study/card/{card_id}")
+def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
+    """Возвращает конкретную карту для изучения."""
+    card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+        
+    progress, _ = models.TMAProgress.get_or_create(
+        card_id=card.id,
+        user_id=user_id,
+        defaults={"queue": "new", "next_review": models.datetime.datetime.now()}
+    )
+    return _card_to_response(card, progress)
+
 @router.get("/decks/{deck_id}/next")
 def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = False, user_id: int = Depends(get_user_id)):
     """Выбор следующей карты для изучения (SRS)."""

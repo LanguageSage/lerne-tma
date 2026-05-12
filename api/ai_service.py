@@ -149,28 +149,32 @@ async def generate_card_fields(user_id: int, phrase: str):
     logger.info(f"AI: Generating card fields using {provider}/{model_name}...")
     start_time = time.time()
     
-    response, success = await client.chat_completion(
-        system_prompt=system_prompt,
-        user_message=phrase,
-        model=model_name
-    )
-    
-    if not success and model_name != default_model:
-        logger.warning(f"AI: Primary model {model_name} failed. Falling back to {default_model}...")
+    try:
         response, success = await client.chat_completion(
             system_prompt=system_prompt,
             user_message=phrase,
-            model=default_model
+            model=model_name
         )
-    
-    duration = time.time() - start_time
-    if not success:
-        logger.error(f"AI: Generation failed after {duration:.2f}s: {response}")
-        return {"error": response}
-    
-    logger.info(f"AI: Generation successful in {duration:.2f}s")
-    
-    return extract_json_from_text(response, phrase)
+        
+        if not success and model_name != default_model:
+            logger.warning(f"AI: Primary model {model_name} failed. Falling back to {default_model}...")
+            response, success = await client.chat_completion(
+                system_prompt=system_prompt,
+                user_message=phrase,
+                model=default_model
+            )
+        
+        duration = time.time() - start_time
+        if not success:
+            logger.error(f"AI: Generation failed after {duration:.2f}s: {response}")
+            return {"error": response}
+        
+        logger.info(f"AI: Generation successful in {duration:.2f}s")
+        return extract_json_from_text(response, phrase)
+        
+    except Exception as e:
+        logger.error(f"CRITICAL AI ERROR: {e}", exc_info=True)
+        return {"error": f"Internal Server Error: {str(e)}"}
 
 async def get_provider_models(provider: str, ollama_url: str = None):
     """Fetches models from the specified provider dynamically."""

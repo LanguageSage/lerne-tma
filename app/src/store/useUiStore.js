@@ -10,7 +10,7 @@ export const useUiStore = create((set) => ({
   toast: null,
   showToast: (message, type = 'error') => {
     set({ toast: { message, type } });
-    setTimeout(() => set({ toast: null }), 3000);
+    setTimeout(() => set({ toast: null }), 6000);
   },
   
   // Modals state

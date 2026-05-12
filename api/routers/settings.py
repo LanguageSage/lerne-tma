@@ -59,6 +59,41 @@ def save_admin_settings(data: dict):
         logger.error(f"Error saving settings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/settings/models")
+async def list_models(user_id: int = Depends(get_user_id)):
+    """Unified endpoint for model listing, used by AITab."""
+    import ai_service
+    # Получаем текущего провайдера из настроек
+    provider_rec = models.TMASetting.get_or_none(models.TMASetting.key == "AI_PROVIDER")
+    provider = provider_rec.value if provider_rec and provider_rec.value != "default" else "google"
+    
+    # Получаем URL для Ollama если нужно
+    url_rec = models.TMASetting.get_or_none(models.TMASetting.key == "OLLAMA_URL")
+    url = url_rec.value if url_rec else None
+    
+    return await ai_service.get_provider_models(provider, url)
+
+@router.get("/settings/test-ai")
+async def test_ai_connection(user_id: int = Depends(get_user_id)):
+    """Unified test endpoint for AITab."""
+    import ai_service
+    import ai_clients
+    provider, ai_key, model = ai_service.get_ai_config()
+    
+    # Use default model for test if not set
+    if not model:
+        model = "gemini-1.5-flash" if provider == "google" else "llama3-8b-8192"
+        
+    client = ai_clients.AIService(provider=provider, api_key=ai_key)
+    response, success = await client.chat_completion(
+        system_prompt="Return 'OK'.",
+        user_message="Test.",
+        model=model
+    )
+    if success:
+        return {"status": "ok"}
+    return {"status": "error", "error": response}
+
 @router.get("/admin/presets")
 def get_admin_presets():
     return []

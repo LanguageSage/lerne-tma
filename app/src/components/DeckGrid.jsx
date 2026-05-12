@@ -161,6 +161,17 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
           />
         )}
 
+        {/* Duplicate cards banner */}
+        {useDeckStore.getState().duplicateCards.length > 0 && (
+          <div className="duplicate-banner glass" onClick={() => showToast("Скоро: Управление дубликатами. Пока вы можете найти их в списках колод.", "info")}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Copy size={16} />
+              <span>У вас есть дубликаты ({Math.floor(useDeckStore.getState().duplicateCards.length / 2)} пар)</span>
+            </div>
+            <button className="btn-clean">Посмотреть</button>
+          </div>
+        )}
+
         <div id="tut-deck-list" className="deck-grid">
           {loading && decks.length === 0 ? (
             <div className="empty-decks-state glass">
@@ -181,20 +192,13 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
                 key={deck.id} 
                 className={`deck-card glass ${deck.is_inbox ? 'deck-card-inbox' : ''}`}
               >
-                <div className="deck-main-action" onClick={() => startStudy(deck)}>
-                  <div 
-                    className="deck-icon" 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      setCurrentDeck(deck); 
-                      fetchDeckCards(deck.id); 
-                      useUiStore.getState().setView('cards'); 
-                    }}
-                    title="Список карточек"
-                    style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '10px' }}
-                  >
+                <div className="deck-main-action" onClick={() => {
+                  setCurrentDeck(deck);
+                  fetchDeckCards(deck.id);
+                  useUiStore.getState().setView('cards');
+                }}>
+                  <div className="deck-icon">
                     {deck.is_inbox ? <Inbox size={24} /> : <Layers size={24} />}
-                    <span style={{ fontSize: '0.65rem', fontWeight: 600, opacity: 0.8 }}>Карточки</span>
                   </div>
                   <h3>
                     {deck.name}

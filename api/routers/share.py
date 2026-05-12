@@ -107,85 +107,117 @@ def import_shared_item(
     
     share_id = payload.get("share_id")
     if not share_id:
+        logger.error("POST /share/import: share_id is missing in payload")
         raise HTTPException(status_code=400, detail="share_id is required")
 
-    if share_id.startswith("d_"):
-        source_deck = TMA_Deck.get_or_none(TMA_Deck.share_id == share_id)
-        if not source_deck:
-            raise HTTPException(status_code=404, detail="Shared deck not found")
-        
-        # Создаем новую колоду для пользователя (не во Входящие)
-        new_deck = TMA_Deck.create(
-            user_id=user_id,
-            name=source_deck.name,
-            level=source_deck.level,
-            topic=source_deck.topic,
-            created_at=datetime.datetime.now(),
-            updated_at=datetime.datetime.now()
-        )
-        
-        # Копируем все карточки колоды в новую колоду
-        source_cards = TMA_Card.select().where(
-            (TMA_Card.deck == source_deck) & (TMA_Card.is_deleted == False)
-        )
-        creator_id = source_deck.user_id
-        count = 0
-        for card in source_cards:
-            TMA_Card.create(
-                deck=new_deck,
-                front_text=card.front_text,
-                back_text=card.back_text,
-                context=card.context,
-                image_path=card.image_path,
-                image_data=card.image_data,
-                audio_path=card.audio_path,
-                tags=card.tags,
-                metadata=card.metadata,
-                card_type=card.card_type,
-                difficulty=card.difficulty,
-                topics=card.topics,
-                source=f"shared_deck:{source_deck.share_id}",
-                creator_id=card.creator_id or creator_id
-            )
-            count += 1
+    logger.info(f"IMPORT: User {user_id} is importing item {share_id}")
+
+    try:
+        if share_id.startswith("d_"):
+            source_deck = TMA_Deck.get_or_none(TMA_Deck.share_id == share_id)
+            if not source_deck:
+                logger.warning(f"IMPORT FAIL: Shared deck {share_id} not found")
+                raise HTTPException(status_code=404, detail="Shared deck not found")
             
-        return {"status": "ok", "type": "deck", "cards_added": count, "new_deck_id": new_deck.id, "deck_name": new_deck.name}
-        
-    elif share_id.startswith("c_"):
-        # Карточки кладём во «Входящие»
-        inbox = ensure_inbox_deck(user_id)
-        
-        source_card = TMA_Card.get_or_none(TMA_Card.share_id == share_id)
-        if not source_card:
-            raise HTTPException(status_code=404, detail="Shared card not found")
-        
-        new_card = TMA_Card.create(
-            deck=inbox,
-            front_text=source_card.front_text,
-            back_text=source_card.back_text,
-            context=source_card.context,
-            image_path=source_card.image_path,
-            image_data=source_card.image_data,
-            audio_path=source_card.audio_path,
-            tags=source_card.tags,
-            metadata=source_card.metadata,
-            card_type=source_card.card_type,
-            difficulty=source_card.difficulty,
-            topics=source_card.topics,
-            source=f"shared_card:{source_card.share_id}",
-            creator_id=source_card.creator_id or source_card.deck.user_id
-        )
-        
-        return {"status": "ok", "type": "card", "new_id": new_card.id, "inbox_id": inbox.id}
-    else:
-        raise HTTPException(status_code=400, detail="Invalid share link format")
+            # Создаем новую колоду для пользователя (не во Входящие)
+            new_deck = TMA_Deck.create(
+                user_id=user_id,
+                name=source_deck.name,
+                level=source_deck.level,
+                topic=source_deck.topic,
+                created_at=datetime.datetime.now(),
+                updated_at=datetime.datetime.now()
+            )
+            
+            # Копируем все карточки колоды в новую колоду
+            source_cards = TMA_Card.select().where(
+                (TMA_Card.deck == source_deck) & (TMA_Card.is_deleted == False)
+            )
+            creator_id = source_deck.user_id
+            count = 0
+            for card in source_cards:
+                TMA_Card.create(
+                    deck=new_deck,
+                    front_text=card.front_text,
+                    back_text=card.back_text,
+                    context=card.context,
+                    image_path=card.image_path,
+                    image_data=card.image_data,
+                    audio_path=card.audio_path,
+                    tags=card.tags,
+                    metadata=card.metadata,
+                    card_type=card.card_type,
+                    difficulty=card.difficulty,
+                    topics=card.topics,
+                    source=f"shared_deck:{source_deck.share_id}",
+                    creator_id=card.creator_id or creator_id,
+                    created_at=datetime.datetime.now(),
+                    updated_at=datetime.datetime.now()
+                )
+                count += 1
+                
+            logger.info(f"IMPORT SUCCESS: Imported deck '{source_deck.name}' ({count} cards) for user {user_id}")
+            return {"status": "ok", "type": "deck", "cards_added": count, "new_deck_id": new_deck.id, "deck_name": new_deck.name}
+            
+        elif share_id.startswith("c_"):
+            # Карточки кладём во «Входящие»
+            inbox = ensure_inbox_deck(user_id)
+            
+            source_card = TMA_Card.get_or_none(TMA_Card.share_id == share_id)
+            if not source_card:
+                logger.warning(f"IMPORT FAIL: Shared card {share_id} not found")
+                raise HTTPException(status_code=404, detail="Shared card not found")
+            
+            # Safely determine creator_id
+            try:
+                # Attempt to access deck.user_id, might trigger lazy load
+                source_creator = source_card.creator_id or (source_card.deck.user_id if source_card.deck else None)
+            except Exception as e:
+                logger.warning(f"IMPORT: Could not determine creator_id for card {share_id}: {e}")
+                source_creator = None
+
+            new_card = TMA_Card.create(
+                deck=inbox,
+                front_text=source_card.front_text,
+                back_text=source_card.back_text,
+                context=source_card.context,
+                image_path=source_card.image_path,
+                image_data=source_card.image_data,
+                audio_path=source_card.audio_path,
+                tags=source_card.tags,
+                metadata=source_card.metadata,
+                card_type=source_card.card_type,
+                difficulty=source_card.difficulty,
+                topics=source_card.topics,
+                source=f"shared_card:{source_card.share_id}",
+                creator_id=source_creator,
+                created_at=datetime.datetime.now(),
+                updated_at=datetime.datetime.now()
+            )
+            
+            logger.info(f"IMPORT SUCCESS: Imported card '{source_card.front_text[:20]}...' into Inbox for user {user_id}")
+            return {"status": "ok", "type": "card", "new_id": new_card.id, "inbox_id": inbox.id}
+        else:
+            logger.error(f"IMPORT FAIL: Invalid share_id format: {share_id}")
+            raise HTTPException(status_code=400, detail="Invalid share link format")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        logger.error(f"IMPORT CRITICAL ERROR for user {user_id}, share_id {share_id}:\n{error_detail}")
+        raise HTTPException(status_code=500, detail=f"Internal error during import: {str(e)}")
+
 
 from fastapi.responses import HTMLResponse, Response
 import io
 from PIL import Image, ImageDraw, ImageFont
 
+from fastapi import APIRouter, Depends, HTTPException, Body, Request
+
 @router.get("/share/v/{share_id}", response_class=HTMLResponse)
-def view_shared_item(share_id: str):
+def view_shared_item(share_id: str, request: Request):
     """Returns a page with OpenGraph tags for beautiful link preview in Telegram/Socials."""
     info = get_share_info(share_id)
     title = info.get("name") or info.get("front_text") or "Lerne TMA"
@@ -195,8 +227,15 @@ def view_shared_item(share_id: str):
     else:
         description += " | Новая карточка для изучения"
 
-    preview_url = f"https://tma-amber.vercel.app/api/preview/{share_id}.jpg?v=14"
-    bot_url = f"https://t.me/LerneDeutsch287_bot?start={share_id}"
+    # Detect current domain for dynamic previews
+    host = request.headers.get("host", "tma-amber.vercel.app")
+    scheme = request.headers.get("x-forwarded-proto", "https")
+    domain = f"{scheme}://{host}"
+    
+    preview_url = f"{domain}/api/preview/{share_id}.jpg?v=18"
+    bot_url = f"tg://resolve?domain=LerneDeutsch287_bot&start={share_id}"
+
+    logger.info(f"PREVIEW: Serving HTML for {share_id} on {domain}. Preview URL: {preview_url}")
 
     html = f"""
     <!DOCTYPE html>
@@ -285,6 +324,7 @@ def view_shared_item(share_id: str):
 @router.get("/share/v/{share_id}/preview_v12.jpg")
 def get_share_preview_image(share_id: str):
     """Returns a stored screenshot or generates a beautiful premium preview image."""
+    logger.info(f"PREVIEW_IMAGE: Request for {share_id}")
     from api.models import TMAMedia
     filename = f"preview_{share_id}.png"
     media = TMAMedia.get_or_none(TMAMedia.filename == filename, TMAMedia.folder == 'previews')

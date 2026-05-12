@@ -193,7 +193,7 @@ export const useCardEditor = () => {
       const res = await api.post(`/share/generate/card/${targetCard.id}`, { screenshot });
       if (res.data.status === 'ok') {
         const shareId = res.data.share_id;
-        const link = `https://tma-amber.vercel.app/api/share/v/${shareId}`;
+        const link = `${window.location.origin}/api/share/v/${shareId}`;
         const text = `Посмотри эту карточку: ${targetCard.front}`;
         
         if (navigator.share) {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus, ImageIcon, Volume2, Edit2, Settings, Share2 } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus, ImageIcon, Volume2, Edit2, Settings, Share2, Play } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
@@ -8,7 +8,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useCardActions } from '../hooks/useCardActions';
 import { useCardNavigation } from '../hooks/useCardNavigation';
 
-export const CardList = ({ startTutorial }) => {
+export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const { view, setView, setIsSettingsOpen, setEditorSourceView } = useUiStore();
   const { currentDeck, deckCards } = useDeckStore();
   const { setEditingCard } = useSessionStore();
@@ -44,18 +44,11 @@ export const CardList = ({ startTutorial }) => {
 
             <button 
               className="header-action-btn" 
-              disabled={true}
-              title="Озвучить"
+              onClick={() => startStudy(currentDeck)}
+              title="Начать изучение"
+              style={{ color: '#10b981' }}
             >
-              <Volume2 size={22} />
-            </button>
-
-            <button 
-              className="header-action-btn" 
-              disabled={true}
-              title="Редактировать"
-            >
-              <Edit2 size={22} />
+              <Play size={22} fill="currentColor" />
             </button>
 
             <button 
@@ -67,9 +60,19 @@ export const CardList = ({ startTutorial }) => {
             </button>
           </div>
         </div>
+
+        {/* Prominent Study Button */}
+        {deckCards.length > 0 && (
+          <div className="study-action-bar">
+            <button className="btn-study-main" onClick={() => startStudy(currentDeck)}>
+              <Play size={20} fill="currentColor" />
+              <span>Начать изучение</span>
+            </button>
+          </div>
+        )}
         <div id="tut-card-list-content" className="card-list">
           {deckCards.map(c => (
-            <div key={c.id} className="card-item glass" onClick={() => openEditor(currentDeck.id, c, 'cards')}>
+            <div key={c.id} className="card-item glass" onClick={() => startStudyCard(currentDeck, c.id)}>
               <div className="card-item-text">
                 <div className="front-min">{c.front}</div>
                 <div className="back-min">{c.back}</div>
@@ -78,7 +81,9 @@ export const CardList = ({ startTutorial }) => {
                 <div className="card-item-share" onClick={(e) => { e.stopPropagation(); handleShareCard(c); }} title="Поделиться">
                   <Share2 size={16} />
                 </div>
-                <div className="card-item-edit" onClick={(e) => { e.stopPropagation(); openEditor(currentDeck.id, c, 'cards'); }}>✎</div>
+                <div className="card-item-edit" style={{ background: 'rgba(255,255,255,0.1)', padding: '6px', borderRadius: '8px' }} onClick={(e) => { e.stopPropagation(); openEditor(currentDeck.id, c, 'cards'); }}>
+                  <Edit2 size={16} />
+                </div>
                 <div className="card-item-delete" onClick={(e) => { e.stopPropagation(); handleDeleteCard(c.id); }}><Trash2 size={16} /></div>
               </div>
             </div>

@@ -36,4 +36,8 @@ def toggle_learn(card_id: int, user_id: int = Depends(get_user_id)):
     if card:
         return services.format_card_for_study(card, user_id)
     raise HTTPException(status_code=404, detail="Card not found")
+    
+@router.get("/duplicates")
+def get_duplicates(user_id: int = Depends(get_user_id)):
+    return services.get_duplicate_cards(user_id)
 

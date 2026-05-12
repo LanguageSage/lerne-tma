@@ -264,3 +264,40 @@ def format_card_for_study(card: TMA_Card, user_id: int):
     )
     
     return _build_card_dict(card, p=progress, include_intervals=True)
+
+
+def get_duplicate_cards(user_id: int):
+    """Находит карточки с одинаковым front_text у пользователя."""
+    try:
+        # 1. Находим тексты, которые встречаются больше одного раза
+        duplicate_texts_query = (TMA_Card
+                                .select(TMA_Card.front_text)
+                                .join(TMA_Deck)
+                                .where(TMA_Deck.user_id == user_id, TMA_Card.is_deleted == False)
+                                .group_by(TMA_Card.front_text)
+                                .having(fn.COUNT(TMA_Card.id) > 1))
+        
+        text_list = [c.front_text for c in duplicate_texts_query]
+        if not text_list:
+            return []
+            
+        # 2. Получаем все карточки с этими текстами
+        all_duplicates = (TMA_Card
+                         .select(TMA_Card, TMA_Deck.name.alias('deck_name'))
+                         .join(TMA_Deck)
+                         .where(TMA_Deck.user_id == user_id, TMA_Card.front_text << text_list, TMA_Card.is_deleted == False)
+                         .order_by(TMA_Card.front_text))
+        
+        result = []
+        for c in all_duplicates:
+            result.append({
+                "id": c.id,
+                "front": c.front_text,
+                "back": c.back_text,
+                "deck_id": c.deck_id,
+                "deck_name": c.deck_name
+            })
+        return result
+    except Exception as e:
+        logger.error(f"Error in get_duplicate_cards: {e}")
+        return []

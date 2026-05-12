@@ -219,6 +219,12 @@ export const StudyView = ({ startTutorial }) => {
                         <Volume2 size={24} />
                       </button>
                     )}
+                    {useDeckStore.getState().duplicateCards.some(d => d.front === card.front && d.id !== card.id) && (
+                      <div className="duplicate-label" style={{ position: 'absolute', top: '55px', right: '12px' }}>
+                        <Copy size={12} />
+                        <span>Есть дубликат</span>
+                      </div>
+                    )}
                     {card.video_front_url && (
                       <div className="video-container-card">
                         <video src={card.video_front_url} autoPlay loop muted playsInline />

@@ -7,6 +7,7 @@ export const useDeckStore = create((set, get) => ({
   externalDecks: [],
   communityDecks: [],
   deckCards: [],
+  duplicateCards: [],
   syncModalOpen: false,
   deckToSync: null,
   
@@ -15,8 +16,18 @@ export const useDeckStore = create((set, get) => ({
   setExternalDecks: (decks) => set({ externalDecks: decks }),
   setCommunityDecks: (decks) => set({ communityDecks: decks }),
   setDeckCards: (cards) => set({ deckCards: cards }),
+  setDuplicateCards: (cards) => set({ duplicateCards: cards }),
   setSyncModalOpen: (isOpen) => set({ syncModalOpen: isOpen }),
   setDeckToSync: (deck) => set({ deckToSync: deck }),
+
+  fetchDuplicates: async () => {
+    try {
+      const res = await api.get('/cards/duplicates');
+      set({ duplicateCards: res.data });
+    } catch (err) {
+      console.error('Fetch Duplicates Error:', err);
+    }
+  },
 
   fetchDecks: async (force = false) => {
     const { decks } = get();
@@ -131,7 +142,7 @@ export const useDeckStore = create((set, get) => ({
       if (res.data.status === 'ok') {
         const shareId = res.data.share_id;
         // Используем веб-ссылку для красивого превью (OpenGraph)
-        const link = `https://tma-amber.vercel.app/api/share/v/${shareId}`;
+        const link = `${window.location.origin}/api/share/v/${shareId}`;
         const text = 'Посмотри эту колоду в Lerne!';
         
         // 1. Пробуем системное меню Share (Web Share API)
