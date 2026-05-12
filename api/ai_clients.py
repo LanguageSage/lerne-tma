@@ -42,7 +42,7 @@ class AIService:
 
     async def _make_request(self, url, method="POST", headers=None, json_data=None, timeout=60, provider_name="AI"):
         """Unified request handler with exponential backoff for 429 and 5xx errors."""
-        max_retries = 4
+        max_retries = 2
         base_delay = 2  # Начальная задержка 2 секунды
         
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:

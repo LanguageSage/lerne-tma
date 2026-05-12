@@ -129,7 +129,7 @@ export const useAiActions = () => {
     abortControllerRef.current = new AbortController();
 
     setLoading(true);
-    const maxRetries = 3;
+    const maxRetries = 2;
     let attempt = 0;
     let lastError = null;
 

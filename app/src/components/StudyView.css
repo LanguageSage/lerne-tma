@@ -253,8 +253,8 @@
 }
 
 /* Floating Grade Buttons */
-.grade-buttons-floating {
-  position: fixed;
+.grade-buttons.grade-buttons-floating {
+  position: fixed !important;
   bottom: 0;
   left: 0;
   right: 0;

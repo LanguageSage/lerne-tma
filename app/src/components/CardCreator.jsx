@@ -100,6 +100,7 @@ export const CardCreator = ({ startTutorial }) => {
           setCardData={setNewCardData}
           onSave={handleSave}
           onAiGenerate={handleAiGenerate}
+          onStopGeneration={stopAiGeneration}
           onGenerateAudio={generateAudioInternal}
           playAudio={playAudio}
           isCreator={true}

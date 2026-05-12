@@ -54,82 +54,8 @@ input:checked + .slider:before {
   flex-shrink: 0;
 }
 
-.study-flow {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  align-items: center;
-}
-
-.card-container.loading-card {
-  pointer-events: none;
-  filter: blur(2px) rgba(255, 255, 255, 0.05);
-}
-
-.card-loading-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 100;
-  color: #a855f7;
-  pointer-events: none;
-}
-
+/* Card Elements */
 .text-front { font-size: inherit; color: inherit; font-weight: 600; margin: 0; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; }
-.text-back { font-size: inherit; color: inherit; font-weight: 500; margin: 0; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; opacity: 0.9; }
-.text-context { color: inherit; font-size: inherit; margin-top: 15px; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; }
-
-.text-front-mini { font-size: inherit; color: inherit; margin-bottom: 25px; font-weight: 600; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; overflow-wrap: break-word; white-space: pre-wrap; opacity: 0.7; }
-.card-q { font-size: 3rem; opacity: 0.2; position: absolute; bottom: 20px; right: 20px; z-index: -1; }
-
-.audio-btn {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  padding: 10px;
-  border-radius: 50%;
-  color: #38bdf8;
-  margin-top: 20px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.audio-btn:hover { background: rgba(56, 189, 248, 0.3); transform: scale(1.1); }
-
-.bg-audio-btn {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  margin-top: 0;
-  background: rgba(248, 250, 252, 0.1);
-  border-color: rgba(248, 250, 252, 0.2);
-  color: #e2e8f0;
-}
-
-.card-img {
-  width: 100%;
-  max-width: 100%;
-  border-radius: 12px;
-  margin: 15px 0;
-  object-fit: contain;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-}
-
-.grade-buttons {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  width: 100%;
-  gap: 8px;
-  position: relative;
-  z-index: 20;
-  touch-action: manipulation;
-}
-
-@media (max-width: 420px) {
-  .grade-buttons {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
 .hint {
   color: #64748b;

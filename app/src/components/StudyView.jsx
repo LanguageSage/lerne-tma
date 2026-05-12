@@ -103,10 +103,32 @@ export const StudyView = ({ startTutorial }) => {
 
   return (
     <div className="view-study">
+      {/* Floating Buttons Moved to the TOP of the DOM for absolute isolation */}
+      {isFlipped && (
+        <div id="tut-study-grades" className="grade-buttons grade-buttons-floating">
+          <button disabled={loading} className="btn-grade grade-0" onClick={() => submitGrade(0)}>
+            <span className="grade-label">Снова</span>
+            <span className="grade-val">{card.intervals?.[0] || '1м'}</span>
+          </button>
+          <button disabled={loading} className="btn-grade grade-1" onClick={() => submitGrade(1)}>
+            <span className="grade-label">Трудно</span>
+            <span className="grade-val">{card.intervals?.[1] || '1д'}</span>
+          </button>
+          <button disabled={loading} className="btn-grade grade-2" onClick={() => submitGrade(2)}>
+            <span className="grade-label">Хорошо</span>
+            <span className="grade-val">{card.intervals?.[2] || '4д'}</span>
+          </button>
+          <button disabled={loading} className="btn-grade grade-3" onClick={() => submitGrade(3)}>
+            <span className="grade-label">Легко</span>
+            <span className="grade-val">{card.intervals?.[3] || '7д'}</span>
+          </button>
+        </div>
+      )}
+
       <motion.div 
         key="study"
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         className="view"
       >
         <div className="header-compact">
@@ -190,9 +212,9 @@ export const StudyView = ({ startTutorial }) => {
             <motion.div
               id="tut-study-card"
               key={card ? `${card.id}-${historyIndex}` : 'no-card'}
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -30 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className={`card-container ${loading ? 'loading-card' : ''}`}
               onClick={() => !loading && setIsFlipped(!isFlipped)}
@@ -221,7 +243,7 @@ export const StudyView = ({ startTutorial }) => {
                     )}
                     {useDeckStore.getState().duplicateCards.some(d => d.front === card.front && d.id !== card.id) && (
                       <div className="duplicate-label" style={{ position: 'absolute', top: '55px', right: '12px' }}>
-                        <Copy size={12} />
+                        <Repeat size={12} />
                         <span>Есть дубликат</span>
                       </div>
                     )}
@@ -308,27 +330,6 @@ export const StudyView = ({ startTutorial }) => {
             </motion.div>
             </AnimatePresence>
 
-            {isFlipped && (
-              <div id="tut-study-grades" className="grade-buttons grade-buttons-floating">
-                <button disabled={loading} className="btn-grade grade-0" onClick={() => submitGrade(0)}>
-                  <span className="grade-label">Снова</span>
-                  <span className="grade-val">{card.intervals?.[0] || '1м'}</span>
-                </button>
-                <button disabled={loading} className="btn-grade grade-1" onClick={() => submitGrade(1)}>
-                  <span className="grade-label">Трудно</span>
-                  <span className="grade-val">{card.intervals?.[1] || '1д'}</span>
-                </button>
-                <button disabled={loading} className="btn-grade grade-2" onClick={() => submitGrade(2)}>
-                  <span className="grade-label">Хорошо</span>
-                  <span className="grade-val">{card.intervals?.[2] || '4д'}</span>
-                </button>
-                <button disabled={loading} className="btn-grade grade-3" onClick={() => submitGrade(3)}>
-                  <span className="grade-label">Легко</span>
-                  <span className="grade-val">{card.intervals?.[3] || '7д'}</span>
-                </button>
-              </div>
-            )}
-            
             <div className="card-actions-row-study">
               <button 
                 className="btn-card-action-trigger"

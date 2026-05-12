@@ -15,7 +15,7 @@ export const CardEditor = ({ startTutorial }) => {
   const { view, setView, setIsSettingsOpen, editorSourceView } = useUiStore();
   const { currentDeck } = useDeckStore();
   const { editingCard, setEditingCard } = useSessionStore();
-  const { runAiGenerator, saveCard, generateAudioInternal } = useCardActions();
+  const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
   const { uploadCardVideo } = useMediaUpload();
   const { playAudio } = useAudio();
   const { autoPlay } = useSettingsStore();
@@ -72,6 +72,7 @@ export const CardEditor = ({ startTutorial }) => {
           setCardData={setEditingCard}
           onSave={handleSave}
           onAiGenerate={handleAiGenerate}
+          onStopGeneration={stopAiGeneration}
           onGenerateAudio={generateAudioInternal}
           playAudio={playAudio}
           isCreator={false}

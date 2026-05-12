@@ -14,6 +14,7 @@ export const CardForm = ({
   setCardData,
   onSave,
   onAiGenerate,
+  onStopGeneration,
   onGenerateAudio,
   playAudio,
   isCreator = false
@@ -183,26 +184,29 @@ export const CardForm = ({
       </div>
 
       <div className="ai-quick-actions" style={{ gap: '10px' }}>
-        <button 
-          type="button"
-          id="tut-creator-ai"
-          className={`btn-ai-generate ${loading ? 'loading' : ''}`} 
-          onClick={onAiGenerate}
-          disabled={loading || !cardData.front}
-          style={{ flex: 1 }}
-        >
-          {loading ? (
-            <>
-              <RefreshCw className="spin" size={18} />
-              <span>Генерация...</span>
-            </>
-          ) : (
-            <>
-              <Sparkles size={18} />
-              <span>Генерировать</span>
-            </>
-          )}
-        </button>
+        {loading ? (
+          <button 
+            type="button"
+            className="btn-ai-generate loading" 
+            onClick={onStopGeneration}
+            style={{ flex: 1, background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}
+          >
+            <X size={18} />
+            <span>Отменить</span>
+          </button>
+        ) : (
+          <button 
+            type="button"
+            id="tut-creator-ai"
+            className="btn-ai-generate" 
+            onClick={onAiGenerate}
+            disabled={!cardData.front}
+            style={{ flex: 1 }}
+          >
+            <Sparkles size={18} />
+            <span>Генерировать</span>
+          </button>
+        )}
         <button 
           type="button"
           className="btn btn-primary" 
