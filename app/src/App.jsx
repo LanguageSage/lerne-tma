@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import './App.css';
 
 // Utils & Services
-import { getUserId, getUserProfile, storage } from './utils/auth';
+import { getUserId, storage } from './utils/auth';
 import api from './services/api';
 
 // Components
@@ -18,202 +18,37 @@ import { CardActionModal } from './components/CardActionModal';
 import { DeckModals } from './components/DeckModals';
 import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
-import { ImportModal } from './components/ImportModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
-import { TUTORIAL_STEPS, DESIGN_PRESETS } from './constants/appConstants';
+import { TUTORIAL_STEPS } from './constants/appConstants';
 
-// Stores
+// Stores & Hooks
 import { useUiStore } from './store/useUiStore';
 import { useDeckStore } from './store/useDeckStore';
 import { useSessionStore } from './store/useSessionStore';
-import { useSettingsStore } from './store/useSettingsStore';
 import { useCardActions } from './hooks/useCardActions';
+import { useAutoImport } from './hooks/useAutoImport';
+import { useAppInitialization } from './hooks/useAppInitialization';
 
 const USER_ID = getUserId();
-const SETTINGS_VERSION = '6';
 
 export default function App() {
   const { 
-    view, setView, isOpeningDeck, setIsOpeningDeck, showToast, 
+    view, setView, isOpeningDeck, setIsOpeningDeck, 
     activeTutorial, setActiveTutorial, toast, isCardActionModalOpen, 
-    setIsCardActionModalOpen, actionCard 
+    setIsCardActionModalOpen, actionCard, loading 
   } = useUiStore();
   
   const { 
-    setDecks, fetchDecks, currentDeck, setCurrentDeck, 
+    decks, currentDeck, setCurrentDeck, 
     deckToSync, setSyncModalOpen, syncModalOpen, handleSyncDeck 
   } = useDeckStore();
 
   const { isFlipped } = useSessionStore();
   const { fetchNextCard, handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
 
-  const {
-    setAdminSettings, setUserPrompts, applyDesignPreset, isAdmin
-  } = useSettingsStore();
-
-  const { userProfile, setUserProfile } = useUiStore();
-  const [importShareId, setImportShareId] = React.useState(null);
-  const [importingAuto, setImportingAuto] = React.useState(false);
-
-  // Auto-import logic
-  useEffect(() => {
-    const processAutoImport = async () => {
-      if (!importShareId || importingAuto) return;
-      
-      // Wait for profile to be synced (even if guest)
-      if (!userProfile) return;
-
-      setImportingAuto(true);
-      console.log("Starting auto-import for:", importShareId);
-      
-      showToast("⌛ Обработка ссылки...", "info");
-      
-      try {
-        const res = await api.post('/share/import', { share_id: importShareId });
-        if (res.data.status === 'ok') {
-          const msg = res.data.type === 'deck'
-            ? `✅ Колода «${res.data.deck_name}» добавлена!`
-            : '✅ Карточка добавлена во Входящие!';
-          
-          showToast(msg, 'success');
-          // Clear share ID immediately to prevent loops
-          setImportShareId(null);
-          // Refresh data
-          await fetchDecks(userProfile.user_id);
-        }
-      } catch (err) {
-        console.error("Auto-import error:", err);
-        const errorMsg = err.response?.data?.detail || "Ошибка при добавлении.";
-        showToast(`❌ ${errorMsg}`, "error");
-        setImportShareId(null);
-      } finally {
-        setImportingAuto(false);
-      }
-    };
-
-    processAutoImport();
-  }, [importShareId, userProfile]);
-
-  const lastProcessedParam = React.useRef(null);
-
-  const checkStartParam = () => {
-    const tg = window.Telegram?.WebApp;
-    // Try to get from initDataUnsafe (start_param for bots, start_param for direct app links)
-    const startParam = tg?.initDataUnsafe?.start_param || 
-                      new URLSearchParams(window.location.search).get('tgWebAppStartParam') ||
-                      new URLSearchParams(window.location.hash.replace('#', '?')).get('tgWebAppStartParam');
-    
-    if (startParam && (startParam.startsWith('c_') || startParam.startsWith('d_'))) {
-      if (startParam !== lastProcessedParam.current) {
-        console.log("New share parameter detected:", startParam);
-        lastProcessedParam.current = startParam;
-        setImportShareId(startParam);
-      }
-    }
-  };
-
-  // Initialization
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      console.log("Telegram WebApp Ready");
-    }
-
-    const profile = getUserProfile();
-    setUserProfile(profile);
-    syncProfile(profile);
-    fetchInitData();
-    
-    // Check start param on mount
-    checkStartParam();
-    
-    // Listen for visibility changes (when user returns from Bot to already opened App)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log("App became visible, re-checking parameters...");
-        // Small delay to ensure Telegram has updated the initData
-        setTimeout(checkStartParam, 500);
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('admin') === '1' || USER_ID === 642478257) {
-      useSettingsStore.setState({ isAdmin: true });
-    }
-
-    const currentVersion = storage.get('lerne_settings_version');
-    if (currentVersion !== SETTINGS_VERSION) {
-      console.log(`Migrating settings to v${SETTINGS_VERSION}...`);
-      const defaultSettings = DESIGN_PRESETS.find(p => p.id === 'lerne_2026')?.settings;
-      if (defaultSettings) {
-        applyDesignPreset({ name: 'Lerne 2026', settings: defaultSettings });
-      }
-      storage.set('lerne_settings_version', SETTINGS_VERSION);
-    }
-
-    const welcomed = storage.get('lerne_welcome_seen');
-    if (!welcomed) {
-      setTimeout(() => {
-        setActiveTutorial('welcome');
-        storage.set('lerne_welcome_seen', 'true');
-      }, 1500);
-    }
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
-
-
-  const fetchInitData = async () => {
-    const { setDecks, fetchDuplicates } = useDeckStore.getState();
-    useUiStore.setState({ loading: true });
-    try {
-      const res = await api.get('/init');
-      setDecks(res.data.decks);
-      setAdminSettings(res.data.settings);
-      setUserPrompts(res.data.prompts);
-      // Check for duplicates on load
-      fetchDuplicates();
-    } catch (err) {
-      console.error("Init Data Error:", err);
-      showToast("Ошибка загрузки данных.");
-    }
-    useUiStore.setState({ loading: false });
-  };
-
-
-  const syncProfile = async (currentProfile) => {
-    try {
-      const res = await api.post('/auth/sync', {
-        first_name: currentProfile.first_name,
-        last_name: currentProfile.last_name,
-        username: currentProfile.username,
-        photo_url: currentProfile.photo_url,
-        is_guest: currentProfile.is_guest
-      });
-      
-      if (res.data.status === 'ok' && res.data.user) {
-        const newProfile = res.data.user;
-        
-        // Если пользователь БЫЛ гостем, а СТАЛ полноценным пользователем -> переподгружаем данные
-        if (currentProfile.is_guest && !newProfile.is_guest) {
-          console.log("User promoted from Guest to Real User. Re-fetching data...");
-          setUserProfile(newProfile);
-          storage.set('lerne_user_profile', JSON.stringify(newProfile));
-          fetchInitData(); // Подгружаем реальные колоды и настройки
-        } else {
-          setUserProfile(newProfile);
-          storage.set('lerne_user_profile', JSON.stringify(newProfile));
-        }
-      }
-    } catch (err) {
-      console.error("Profile sync error:", err);
-    }
-  };
+  // Custom hooks for initialization and import logic
+  const { importShareId, checkStartParam } = useAutoImport();
+  useAppInitialization(checkStartParam);
 
   const startStudy = async (deck) => {
     setIsOpeningDeck(true);
@@ -234,13 +69,12 @@ export default function App() {
       setView('study');
       useSessionStore.getState().resetSession();
       
-      // Fetch study-formatted card
       const res = await api.get(`/study/card/${cardId}`);
       useSessionStore.getState().setCard(res.data);
       useSessionStore.getState().addToHistory(res.data);
     } catch (err) {
       console.error("startStudyCard Error:", err);
-      showToast("Ошибка при запуске обучения для этой карточки");
+      useUiStore.getState().showToast("Ошибка при запуске обучения для этой карточки");
       setView('cards');
     } finally {
       setIsOpeningDeck(false);
@@ -260,53 +94,55 @@ export default function App() {
     }, 100);
   };
 
+  // View Router
+  const renderView = () => {
+    switch (view) {
+      case 'decks':
+        return (
+          <DeckGrid
+            userId={USER_ID}
+            startStudy={startStudy}
+            startTutorial={startTutorial}
+            importShareId={importShareId}
+            onImportSuccess={() => {}}
+            onImportClose={() => {}}
+          />
+        );
+      case 'study':
+        return <StudyView startTutorial={startTutorial} />;
+      case 'cards':
+        return (
+          <CardList
+            startTutorial={startTutorial}
+            startStudy={startStudy}
+            startStudyCard={startStudyCard}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="app-container">
       <GuestBanner />
-      <DeckGrid
-        userId={USER_ID}
-        startStudy={startStudy}
-        startTutorial={startTutorial}
-        importShareId={null} // Disable ShareBanner in DeckGrid
-        onImportSuccess={() => {}}
-        onImportClose={() => {}}
-      />
+      
+      {/* Active View */}
+      {renderView()}
 
-      <StudyView
-        startTutorial={startTutorial}
-      />
-
+      {/* Overlays and Modals */}
+      <CardCreator startTutorial={startTutorial} />
+      <CardEditor startTutorial={startTutorial} />
       <DeckModals />
-
-      <CardList
-        startTutorial={startTutorial}
-        startStudy={startStudy}
-        startStudyCard={startStudyCard}
-      />
-
-      <CardCreator
-        startTutorial={startTutorial}
-      />
-
-      <CardEditor
-        startTutorial={startTutorial}
-      />
-
-      <SettingsModal
-        userId={USER_ID}
-        startTutorial={startTutorial}
-      />
-
+      <SettingsModal userId={USER_ID} startTutorial={startTutorial} />
+      
       <SyncModal
         isOpen={syncModalOpen}
         onClose={() => setSyncModalOpen(false)}
         deck={deckToSync}
-        onSync={(mode) => handleSyncDeck(deckToSync.id, mode)}
-        loading={useUiStore.getState().loading}
+        onSync={(mode) => handleSyncDeck(deckToSync?.id, mode)}
+        loading={loading}
       />
-
-      {/* ImportModal is now bypassed for auto-import */}
-
 
       <TutorialOverlay
         isOpen={!!activeTutorial}
@@ -320,13 +156,13 @@ export default function App() {
         isOpen={isCardActionModalOpen}
         onClose={() => setIsCardActionModalOpen(false)}
         card={actionCard}
-        decks={useDeckStore.getState().decks}
+        decks={decks}
         onMove={handleMoveCard}
         onCopy={handleCopyCard}
         onDelete={(c) => handleDeleteCard(c.id)}
         onToggleLearn={handleToggleLearn}
         onShare={handleShareCard}
-        loading={useUiStore.getState().loading}
+        loading={loading}
       />
 
       <Toast toast={toast} />
@@ -334,3 +170,4 @@ export default function App() {
     </div>
   );
 }
+

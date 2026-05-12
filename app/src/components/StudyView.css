@@ -1,0 +1,344 @@
+/* Study Flow */
+.header-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.header-study-info {
+  flex: 1;
+  text-align: left;
+  min-width: 0;
+}
+
+.header-study-info h2 {
+  font-size: 1.2rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.settings-btn, .header-action-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: #a855f7;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-btn {
+  color: white;
+}
+
+.settings-btn:hover, .header-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.header-action-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+  filter: grayscale(1);
+}
+
+.settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.settings-modal {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.settings-modal h2 {
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+  text-align: left;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  padding: 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: white;
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.settings-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-label span {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.settings-label small {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.settings-debug-info {
+  margin-top: 20px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: #64748b;
+  text-align: left;
+}
+
+.settings-debug-info p {
+  margin: 4px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.settings-debug-info code {
+  color: #818cf8;
+}
+
+/* Study Navigation Arrows */
+.study-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.2rem;
+  padding: 0.5rem 1rem;
+  width: 100%;
+  max-width: 350px;
+}
+
+.nav-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav-arrow-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a855f7;
+  padding: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.nav-arrow-btn:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.4);
+  transform: scale(1.1);
+  color: #c084fc;
+}
+
+.nav-arrow-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.nav-arrow-btn:disabled {
+  opacity: 0.15;
+  cursor: not-allowed;
+  color: #64748b;
+  box-shadow: none;
+}
+
+.nav-counter {
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  backdrop-filter: blur(5px);
+}
+
+.nav-counter-current {
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.nav-counter-total {
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+ 
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } .loading-overlay-global { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); z-index: 10000; display: flex; align-items: center; justify-content: center; color: white; } .loading-content { display: flex; flex-direction: column; align-items: center; gap: 1rem; } .loading-content .spin { animation: spin 1s linear infinite; }
+
+.has-update-btn {
+  color: #22c55e !important; /* Green */
+  background: rgba(34, 197, 94, 0.05) !important;
+  font-weight: 800 !important;
+  border-left: 1px solid rgba(34, 197, 94, 0.2);
+  border-right: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.has-update-btn:hover {
+  background: rgba(34, 197, 94, 0.15) !important;
+  color: #4ade80 !important;
+}
+
+/* Floating Grade Buttons */
+.grade-buttons-floating {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: none; /* Пропускаем клики сквозь контейнер */
+  background: none;
+  border: none;
+  box-shadow: none;
+  animation: slideUp 0.3s ease-out;
+}
+
+.grade-buttons-floating .btn-grade {
+  pointer-events: auto;
+  flex: 1;
+  max-width: 80px;
+  height: 48px !important;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin: 0 !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.grade-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.9;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: -2px;
+}
+
+.grade-val {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Specific Tints for Grades */
+.grade-buttons-floating .grade-0 { color: #fff !important; background: rgba(239, 68, 68, 0.4) !important; border-color: rgba(239, 68, 68, 0.5) !important; }
+.grade-buttons-floating .grade-1 { color: #fff !important; background: rgba(245, 158, 11, 0.4) !important; border-color: rgba(245, 158, 11, 0.5) !important; }
+.grade-buttons-floating .grade-2 { color: #fff !important; background: rgba(16, 185, 129, 0.4) !important; border-color: rgba(16, 185, 129, 0.5) !important; }
+.grade-buttons-floating .grade-3 { color: #fff !important; background: rgba(59, 130, 246, 0.4) !important; border-color: rgba(59, 130, 246, 0.5) !important; }
+
+/* Active/Hover State */
+.grade-buttons-floating .btn-grade:active,
+.grade-buttons-floating .btn-grade:hover {
+  transform: translateY(-4px) scale(1.05);
+  background: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.grade-buttons-floating .btn-grade:hover .grade-label,
+.grade-buttons-floating .btn-grade:active .grade-label {
+  opacity: 1;
+}
+
+.grade-buttons-floating .btn-grade:hover {
+  transform: translateY(-2px);
+}
+
+/* Ensure card content doesn't get hidden under the floating bar */
+.study-flow {
+  padding-bottom: 120px;
+}
+
+.btn-card-action-trigger:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+

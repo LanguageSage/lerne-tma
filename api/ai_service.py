@@ -5,26 +5,8 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Универсальные импорты
-try:
-    from api.models import TMASetting, TMAUserPrompt, lerne_db
-    from api.ai_clients import AIService
-except ImportError:
-    try:
-        from models import TMASetting, TMAUserPrompt, lerne_db
-        from ai_clients import AIService
-    except ImportError as e:
-        logger.error(f"Critical Import Error in ai_service: {e}")
-        class TMASetting:
-            @staticmethod
-            def get_or_none(*args, **kwargs): return None
-        class TMAUserPrompt:
-            @staticmethod
-            def get_or_none(*args, **kwargs): return None
-        class AIService:
-            def __init__(self, *args, **kwargs): pass
-            async def chat_completion(self, *args, **kwargs): return "Import Error", False
-            async def get_models(self): return []
+from api.models import TMASetting, TMAUserPrompt, lerne_db
+from api.ai_clients import AIService
 
 DEFAULT_PROMPTS = {
     "de": """Проанализируй предложение "{phrase}". объясни слова с переводом на русский и грамматику, затем 3 примера. Очень коротко и ясно.
@@ -51,10 +33,7 @@ def detect_language(text: str) -> str:
         return "ru"
     return "de"
 
-async def generate_card_fields(user_id: int, phrase: str):
-    """Generates Front, Back, and Context for a card using AI."""
-    lang = detect_language(phrase)
-    
+
 def get_ai_config():
     import os
     provider_rec = TMASetting.get_or_none(TMASetting.key == "AI_PROVIDER")

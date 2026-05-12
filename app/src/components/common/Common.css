@@ -1,0 +1,114 @@
+/* Toast Styles */
+.toast {
+  position: fixed; /* Changed to fixed for consistent positioning */
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3000; /* Higher than settings modal (2000) */
+  padding: 10px 24px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  backdrop-filter: blur(15px);
+  white-space: nowrap;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast.error {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.toast.success {
+  background: rgba(34, 197, 94, 0.25);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+/* Improved Transitions */
+.view-study {
+  position: relative;
+  min-height: 400px;
+}
+
+.study-flow {
+  width: 100%;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.deck-main-action {
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+}
+
+@media (max-width: 400px) {
+  .deck-main-action {
+    padding: 0.8rem;
+    gap: 0.6rem;
+  }
+}
+
+.deck-footer-actions {
+  display: flex;
+  width: 100%;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+}
+
+.deck-action-btn {
+  flex: 1;
+  padding: 12px 2px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.3s;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.deck-action-btn:last-child {
+  border-right: none;
+}
+
+.deck-action-btn:hover {
+  background: rgba(168, 85, 247, 0.2);
+  color: white;
+  transform: translateY(-2px);
+}
+
+.deck-action-btn.has-update-btn {
+  color: #fca5a5;
+  animation: pulse-soft 2s infinite;
+}
+
+@keyframes pulse-soft {
+  0% { color: #fca5a5; }
+  50% { color: #ef4444; text-shadow: 0 0 8px rgba(239,68,68,0.5); }
+  100% { color: #fca5a5; }
+}
+
