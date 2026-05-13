@@ -7,6 +7,7 @@ import logging
 from PIL import Image, UnidentifiedImageError
 
 import models
+from api import models # Ensure we use the api.models package
 from api.dependencies.auth import get_user_id
 from api.utils.image import optimize_image # Импортируем наш оптимизатор
 

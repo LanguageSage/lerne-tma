@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def _build_media_exists_map(cards_dicts: list) -> set:
     """Собирает множество (filename, folder) существующих в TMAMedia записей.
     Один запрос вместо N проверок."""
-    from models import TMAMedia
+    from ..models import TMAMedia
     
     filenames = set()
     for c in cards_dicts:
@@ -39,7 +39,7 @@ def _build_media_exists_map(cards_dicts: list) -> set:
 def _check_media_exists(filename: str, folder: str) -> bool:
     """Кэшированная проверка существования медиа в БД."""
     try:
-        from models import TMAMedia
+        from ..models import TMAMedia
         return TMAMedia.select(TMAMedia.id).where(
             TMAMedia.filename == filename,
             TMAMedia.folder == folder

@@ -33,7 +33,7 @@ export const StudyView = ({ startTutorial }) => {
     autoPlay
   } = useSettingsStore();
 
-  const { playAudio } = useAudio(autoPlay, showToast);
+  const { playAudio, isAudioLoading } = useAudio(autoPlay, showToast);
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const googleReturnTimerRef = useRef(null);
@@ -168,7 +168,7 @@ export const StudyView = ({ startTutorial }) => {
               disabled={loading || !card}
               title="Добавить озвучку"
             >
-              <Volume2 size={22} />
+              {isAudioLoading ? <RefreshCw size={22} className="spin" /> : <Volume2 size={22} />}
             </button>
             
             <button 
@@ -238,7 +238,7 @@ export const StudyView = ({ startTutorial }) => {
                         disabled={loading}
                         onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
                       >
-                        <Volume2 size={24} />
+                        {isAudioLoading ? <RefreshCw size={24} className="spin" /> : <Volume2 size={24} />}
                       </button>
                     )}
                     {useDeckStore.getState().duplicateCards.some(d => d.front === card.front && d.id !== card.id) && (
@@ -271,7 +271,7 @@ export const StudyView = ({ startTutorial }) => {
                           disabled={loading}
                           onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
                         >
-                          <Volume2 size={26} />
+                          {isAudioLoading ? <RefreshCw size={26} className="spin" /> : <Volume2 size={26} />}
                         </button>
                       )}
                     </div>

@@ -233,7 +233,8 @@ def view_shared_item(share_id: str, request: Request):
     domain = f"{scheme}://{host}"
     
     preview_url = f"{domain}/api/preview/{share_id}.jpg?v=18"
-    bot_url = f"tg://resolve?domain=LerneDeutsch287_bot&start={share_id}"
+    # Direct Mini App Link (startapp) - standard format for Menu Button apps
+    app_url = f"https://t.me/LerneDeutsch287_bot?startapp={share_id}"
 
     logger.info(f"PREVIEW: Serving HTML for {share_id} on {domain}. Preview URL: {preview_url}")
 
@@ -309,8 +310,20 @@ def view_shared_item(share_id: str, request: Request):
             <img src="{preview_url}" class="preview-card" alt="Card Preview">
             <h1>{title}</h1>
             <p>{description}</p>
-            <a href="{bot_url}" class="btn">Изучить в Telegram</a>
+            <a href="{app_url}" class="btn">Изучить в Telegram</a>
         </div>
+
+        <script>
+            // Auto-redirect to Telegram app after a short delay if in a browser
+            // but not inside the Telegram WebApp itself
+            setTimeout(() => {{
+                const isTelegram = /Telegram/i.test(navigator.userAgent);
+                if (isTelegram || window.innerWidth < 1024) {{
+                    console.log("Attempting auto-redirect to:", "{app_url}");
+                    window.location.href = "{app_url}";
+                }}
+            }}, 1000);
+        </script>
     </body>
     </html>
     """
