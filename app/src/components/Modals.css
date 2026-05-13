@@ -55,7 +55,15 @@ input:checked + .slider:before {
 }
 
 /* Card Elements */
-.text-front { font-size: inherit; color: inherit; font-weight: 600; margin: 0; width: 100%; overflow-wrap: break-word; white-space: pre-wrap; }
+.text-front, .text-back, .text-context { 
+  font-size: inherit; 
+  color: inherit; 
+  font-weight: 600; 
+  margin: 0; 
+  width: 100%; 
+  overflow-wrap: break-word; 
+  white-space: pre-wrap; 
+}
 
 .hint {
   color: #64748b;

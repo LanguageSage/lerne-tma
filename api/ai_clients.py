@@ -40,7 +40,7 @@ class AIService:
             # Default to OpenRouter for everything else
             return await self._openrouter_chat(system_prompt, user_message, model)
 
-    async def _make_request(self, url, method="POST", headers=None, json_data=None, timeout=60, provider_name="AI"):
+    async def _make_request(self, url, method="POST", headers=None, json_data=None, timeout=30, provider_name="AI"):
         """Unified request handler with exponential backoff for 429 and 5xx errors."""
         max_retries = 2
         base_delay = 2  # Начальная задержка 2 секунды
@@ -136,7 +136,7 @@ class AIService:
             "stream": False
         }
         
-        data, success = await self._make_request(url, json_data=payload, timeout=120, provider_name="Ollama")
+        data, success = await self._make_request(url, json_data=payload, timeout=45, provider_name="Ollama")
         if not success: return data, False
         return data["message"]["content"], True
 
@@ -162,7 +162,7 @@ class AIService:
             "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}]
         }
         
-        data, success = await self._make_request(url, headers=headers, json_data=payload, timeout=120, provider_name="OpenRouter")
+        data, success = await self._make_request(url, headers=headers, json_data=payload, timeout=45, provider_name="OpenRouter")
         if not success: return data, False
         return data["choices"][0]["message"]["content"], True
 
