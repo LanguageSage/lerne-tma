@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Settings2, Heart, Repeat, Share2 } from 'lucide-react';
-import { stripMarkdown } from '../utils/text';
-import { CardBackground } from './common/CardBackground';
-import { getTextShadow, getContextShadow } from '../utils/style';
+import { motion } from 'framer-motion';
+import { RefreshCw, Settings2, Heart, Share2 } from 'lucide-react';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -19,23 +16,20 @@ import { StudyHeader } from './study/StudyHeader';
 import { StudyNavigation } from './study/StudyNavigation';
 import { GradeButtons } from './study/GradeButtons';
 import { StudyFinished } from './study/StudyFinished';
+import { StudyCard } from './study/StudyCard';
 
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
 export const StudyView = ({ startTutorial }) => {
-  const { view, setView, loading, setIsSettingsOpen, setEditorSourceView, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
-  const { currentDeck, handleSyncDeck, handleResetProgress } = useDeckStore();
-  const { card, setCard, isFlipped, setIsFlipped, studyHistory, historyIndex, apiError, setEditingCard, setIsLearningMore } = useSessionStore();
+  const { view, setView, loading, setIsSettingsOpen, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
+  const { currentDeck, handleSyncDeck, handleResetProgress, duplicateCards } = useDeckStore();
+  const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore } = useSessionStore();
   const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleShareCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
-  const { uploadStudyImage, uploadCardVideo } = useMediaUpload();
+  const { uploadStudyImage } = useMediaUpload();
 
-  const {
-    cardFont, cardTextColor, cardFontWeight, cardFontStyle, cardFontSize, cardTextShadow,
-    cardBgFront, cardBgBack,
-    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow,
-    autoPlay
-  } = useSettingsStore();
+  const settings = useSettingsStore();
+  const { autoPlay, cardBgFront, cardBgBack } = settings;
 
   const { playAudio, isAudioLoading } = useAudio(autoPlay, showToast);
 
@@ -156,127 +150,19 @@ export const StudyView = ({ startTutorial }) => {
           </div>
         ) : card ? (
           <div className="study-flow">
-            <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              id="tut-study-card"
-              key={card ? `${card.id}-${historyIndex}` : 'no-card'}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className={`card-container ${loading ? 'loading-card' : ''}`}
-              onClick={() => !loading && setIsFlipped(!isFlipped)}
-              style={{
-                fontFamily: cardFont,
-                color: cardTextColor,
-                fontSize: `${cardFontSize}rem`,
-                fontWeight: cardFontWeight,
-                fontStyle: cardFontStyle,
-                textShadow: getTextShadow(cardTextShadow, cardTextColor)
-              }}
-            >
-              {!isFlipped ? (
-                <div className="card-inner card-front glass">
-                  <CardBackground styleType={resolvedBgFront} />
-                    <div className="card-face">
-                    {card.audio_url && (
-                      <button
-                        id="tut-study-audio"
-                        className="audio-btn-corner"
-                        disabled={loading}
-                        onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
-                      >
-                        {isAudioLoading ? <RefreshCw size={24} className="spin" /> : <span>🔊</span>}
-                      </button>
-                    )}
-                    {useDeckStore.getState().duplicateCards.some(d => d.front === card.front && d.id !== card.id) && (
-                      <div className="duplicate-label" style={{ position: 'absolute', top: '55px', right: '12px' }}>
-                        <Repeat size={12} />
-                        <span>Есть дубликат</span>
-                      </div>
-                    )}
-                    {card.video_front_url && (
-                      <div className="video-container-card">
-                        <video src={card.video_front_url} autoPlay loop muted playsInline />
-                      </div>
-                    )}
-                    <div className="text-front" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.front)}</div>
-                    <div className="flip-indicator-center">
-                      <Repeat size={44} />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="card-inner card-back glass">
-                  <CardBackground styleType={resolvedBgBack} />
-                  <div className="card-face">
-                    <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
-                      <div className="text-front-mini" style={{ marginBottom: 0 }}>{stripMarkdown(card.front)}</div>
-                      {card.audio_url && (
-                        <button
-                          id="tut-study-audio-back"
-                          className="audio-btn-back-corner"
-                          disabled={loading}
-                          onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
-                        >
-                          {isAudioLoading ? <RefreshCw size={26} className="spin" /> : <span>🔊</span>}
-                        </button>
-                      )}
-                    </div>
-
-                    {card.video_back_url && (
-                      <div className="video-container-card">
-                        <video src={card.video_back_url} autoPlay loop muted playsInline />
-                      </div>
-                    )}
-                    <div id="tut-study-answer" className="text-back" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.back)}</div>
-                    {card.image_url && (
-                      <img
-                        src={card.image_url}
-                        className="card-img"
-                        alt="Card"
-                        onError={(e) => { console.warn('Image load error:', card.image_url); e.target.style.display='none'; }}
-                      />
-                    )}
-                    {card.context && (
-                      <div
-                        className="text-context"
-                        style={{
-                          fontFamily: contextFont,
-                          color: contextTextColor,
-                          fontSize: `${contextFontSize}rem`,
-                          fontWeight: contextFontWeight,
-                          fontStyle: contextFontStyle,
-                          textShadow: getContextShadow(contextTextShadow, contextTextColor)
-                        }}
-                      >
-                        {stripMarkdown(card.context)}
-                      </div>
-                    )}
-
-                    {card.creator_name && (
-                      <div className="creator-badge-corner" style={{ position: 'absolute', bottom: '10px', right: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px 10px', borderRadius: '20px', zIndex: 10, opacity: 0.8 }}>
-                        {card.creator_avatar ? (
-                          <img src={card.creator_avatar} alt="avatar" style={{ width: 18, height: 18, borderRadius: '50%' }} />
-                        ) : (
-                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px' }}>
-                            {card.creator_name.charAt(0)}
-                          </div>
-                        )}
-                        <span style={{ fontSize: '0.65rem', color: '#fff', fontWeight: 500 }}>{card.creator_name}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {loading && (
-                <div className="card-loading-overlay">
-                  <RefreshCw size={40} className="spin" />
-                </div>
-              )}
-            </motion.div>
-            </AnimatePresence>
+            <StudyCard
+              card={card}
+              isFlipped={isFlipped}
+              onFlip={setIsFlipped}
+              loading={loading}
+              historyIndex={historyIndex}
+              playAudio={playAudio}
+              isAudioLoading={isAudioLoading}
+              isDuplicate={duplicateCards.some(d => d.front === card.front && d.id !== card.id)}
+              styles={settings}
+              resolvedBgFront={resolvedBgFront}
+              resolvedBgBack={resolvedBgBack}
+            />
 
             <div className="card-actions-row-study">
               <button
