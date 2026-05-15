@@ -79,59 +79,17 @@ def initialize_database():
     return False
 
 def create_all_tables():
+    """Создает все таблицы и запускает накопленные миграции."""
+    from api.migrations import run_migrations
     try:
         tma_db.create_tables([
-            TMA_Deck, TMA_Card, TMAProgress, 
+            TMA_Deck, TMA_Card, TMAProgress,
             TMAReviewHistory, TMASetting, TMAUserPrompt,
-            TMAMedia, # Новая таблица для медиа
-            TMAFeedback, # Таблица для отзывов
-            TMAUser, # Таблица пользователей
-            Deck, Card 
-        ])
-        # Миграция: добавляем image_data если колонки нет (для существующих БД)
-        try:
-            tma_db.execute_sql('ALTER TABLE tma_card ADD COLUMN image_data BYTEA')
-            logger.info("Migration: added image_data column to tma_card")
-        except Exception:
-            pass  # Колонка уже есть
-            
-        # Миграции для истории и обновлений
-        migrations = [
-            ('ALTER TABLE tma_deck ADD COLUMN updated_at TIMESTAMP', tma_db),
-            ('ALTER TABLE tma_card ADD COLUMN history TEXT DEFAULT \'[]\'', tma_db),
-            ('ALTER TABLE card ADD COLUMN updated_at TIMESTAMP', lerne_db),
-            ('ALTER TABLE card ADD COLUMN history TEXT DEFAULT \'[]\'', lerne_db),
-            ('ALTER TABLE card ADD COLUMN tags TEXT DEFAULT \'[]\'', lerne_db),
-            ('ALTER TABLE card ADD COLUMN topics TEXT DEFAULT \'[]\'', lerne_db),
-            ('ALTER TABLE card ADD COLUMN source TEXT', lerne_db),
-            ('ALTER TABLE tma_card ADD COLUMN tags TEXT DEFAULT \'[]\'', tma_db),
-            ('ALTER TABLE tma_card ADD COLUMN topics TEXT DEFAULT \'[]\'', tma_db),
-            ('ALTER TABLE tma_card ADD COLUMN source TEXT', tma_db),
-            ('ALTER TABLE card ADD COLUMN card_type TEXT DEFAULT \'translation\'', lerne_db),
-            ('ALTER TABLE card ADD COLUMN is_deleted BOOLEAN DEFAULT false', lerne_db),
-            ('ALTER TABLE card ADD COLUMN created_at TIMESTAMP', lerne_db),
-            ('ALTER TABLE deck ADD COLUMN is_deleted BOOLEAN DEFAULT false', lerne_db),
-            ('ALTER TABLE deck ADD COLUMN created_at TIMESTAMP', lerne_db),
-            ('ALTER TABLE tmauserprompt ADD COLUMN context_prompt TEXT', tma_db),
-            ('ALTER TABLE deck ADD COLUMN cloud_id INTEGER', lerne_db),
-            ('ALTER TABLE card ADD COLUMN cloud_id INTEGER', lerne_db),
-            ('ALTER TABLE card ADD COLUMN difficulty REAL', lerne_db),
-            ('ALTER TABLE tmaprogress ADD COLUMN created_at TIMESTAMP', tma_db),
-            ('ALTER TABLE tmaprogress ADD COLUMN updated_at TIMESTAMP', tma_db),
-            ('ALTER TABLE tma_card ADD COLUMN want_to_learn BOOLEAN DEFAULT false', tma_db),
-            ('ALTER TABLE tmareviewhistory ADD COLUMN reviewed_at TIMESTAMP', tma_db),
-            ('ALTER TABLE tmasetting ADD COLUMN updated_at TIMESTAMP', tma_db),
-            ('ALTER TABLE tma_user ADD COLUMN phone TEXT', tma_db),
-            ('ALTER TABLE tma_deck ADD COLUMN share_id TEXT', tma_db),
-            ('ALTER TABLE tma_card ADD COLUMN share_id TEXT', tma_db),
-            ('ALTER TABLE tma_card ADD COLUMN creator_id BIGINT', tma_db),
-            ('ALTER TABLE tma_deck ADD COLUMN is_inbox BOOLEAN DEFAULT false', tma_db),
-        ]
-        for query, db in migrations:
-            try:
-                db.execute_sql(query)
-            except Exception:
-                pass
+            TMAMedia, TMAFeedback, TMAUser,
+            TMALinkedSession, Deck, Card
+        ], safe=True)  # safe=True — не падает если таблица уже есть
+        logger.info("DATABASE: All tables created/verified.")
+        run_migrations(tma_db, lerne_db)
     except Exception as e:
         logger.error(f"Error in create_all_tables: {e}")
 
@@ -307,5 +265,6 @@ class Card(Model):
 
 try:
     initialize_database()
-    # create_all_tables() # Временно отключаем, так как вешает подключение к Supabase Pooler
-except: pass
+    create_all_tables()
+except Exception as e:
+    logger.error(f"CRITICAL: Database initialization failed: {e}")
