@@ -135,14 +135,6 @@ async def generate_card_fields(user_id: int, phrase: str):
             model=model_name
         )
         
-        if not success and model_name != default_model:
-            logger.warning(f"AI: Primary model {model_name} failed. Falling back to {default_model}...")
-            response, success = await client.chat_completion(
-                system_prompt=system_prompt,
-                user_message=phrase,
-                model=default_model
-            )
-        
         duration = time.time() - start_time
         if not success:
             logger.error(f"AI: Generation failed after {duration:.2f}s: {response}")

@@ -161,17 +161,6 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
           />
         )}
 
-        {/* Duplicate cards banner */}
-        {useDeckStore.getState().duplicateCards.length > 0 && (
-          <div className="duplicate-banner glass" onClick={() => showToast("Скоро: Управление дубликатами. Пока вы можете найти их в списках колод.", "info")}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Copy size={16} />
-              <span>У вас есть дубликаты ({Math.floor(useDeckStore.getState().duplicateCards.length / 2)} пар)</span>
-            </div>
-            <button className="btn-clean">Посмотреть</button>
-          </div>
-        )}
-
         <div id="tut-deck-list" className="deck-grid">
           {loading && decks.length === 0 ? (
             <div className="empty-decks-state glass">
@@ -280,7 +269,37 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
               </div>
             ))
           )}
+
+          {/* Special item for duplicates, at the very bottom */}
+          {useDeckStore.getState().duplicateCards.length > 0 && (
+            <div 
+              className="deck-card glass" 
+              style={{ 
+                border: '1px dashed rgba(168,85,247,0.4)',
+                background: 'rgba(168,85,247,0.05)'
+              }}
+              onClick={() => useUiStore.getState().setView('duplicates')}
+            >
+              <div className="deck-main-action">
+                <div className="deck-icon" style={{ background: 'rgba(168,85,247,0.2)', color: '#c084fc' }}>
+                  <Copy size={24} />
+                </div>
+                <h3 style={{ color: '#c084fc' }}>Управление дубликатами</h3>
+                <div className="deck-stats">
+                  <span className="stat total" style={{ color: '#c084fc' }}>
+                    {useDeckStore.getState().duplicateCards.length} карточек
+                  </span>
+                </div>
+              </div>
+              <div className="deck-footer-actions" style={{ justifyContent: 'center', padding: '8px 12px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                  Найдены повторяющиеся карточки в разных колодах
+                </span>
+              </div>
+            </div>
+          )}
         </div>
+
       </motion.div>
     </div>
   );

@@ -301,3 +301,48 @@ def get_duplicate_cards(user_id: int):
     except Exception as e:
         logger.error(f"Error in get_duplicate_cards: {e}")
         return []
+
+def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
+    """Выбирает следующую карточку-дубликат для изучения."""
+    try:
+        exclude_ids = exclude_ids or []
+        
+        # 1. Находим тексты дубликатов
+        duplicate_texts_query = (TMA_Card
+                                .select(TMA_Card.front_text)
+                                .join(TMA_Deck)
+                                .where(TMA_Deck.user_id == user_id, TMA_Card.is_deleted == False)
+                                .group_by(TMA_Card.front_text)
+                                .having(fn.COUNT(TMA_Card.id) > 1))
+        
+        text_list = [c.front_text for c in duplicate_texts_query]
+        if not text_list:
+            return None, None
+            
+        # 2. Получаем карточку из этого списка, которой нет в exclude_ids
+        query = (TMA_Card
+                .select(TMA_Card, TMA_Deck)
+                .join(TMA_Deck)
+                .where(
+                    TMA_Deck.user_id == user_id, 
+                    TMA_Card.front_text << text_list, 
+                    TMA_Card.is_deleted == False
+                ))
+        
+        if exclude_ids:
+            query = query.where(~(TMA_Card.id << exclude_ids))
+            
+        card = query.first()
+        if not card:
+            return None, None
+            
+        progress, _ = TMAProgress.get_or_create(
+            card_id=card.id,
+            user_id=user_id,
+            defaults={"queue": "new", "next_review": datetime.datetime.now()}
+        )
+        return card, progress
+    except Exception as e:
+        logger.error(f"Error in get_next_duplicate_card: {e}")
+        return None, None
+

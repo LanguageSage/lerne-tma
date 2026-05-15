@@ -11,6 +11,8 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const [error, setError] = useState(null);
   const [shareInfo, setShareInfo] = useState(null);
   
+  const [conflict, setConflict] = useState(null);
+  
   const { fetchDecks } = useDeckStore();
   const { showToast } = useUiStore();
 
@@ -30,18 +32,26 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
     fetchInfo();
   }, [shareId]);
 
-  const handleImport = async () => {
+  const handleImport = async (resolution = null) => {
     setImporting(true);
     setError(null);
     try {
-      const res = await api.post('/share/import', { share_id: shareId });
+      const res = await api.post('/share/import', { share_id: shareId, resolution });
+      
+      if (res.data.status === 'conflict') {
+        setConflict(res.data);
+        return;
+      }
+
       if (res.data.status === 'ok') {
         const msg = res.data.type === 'deck'
-          ? `✅ ${res.data.cards_added} карточек добавлено во Входящие!`
+          ? (res.data.merged ? `✅ Колода объединена!` : `✅ ${res.data.cards_added} карточек добавлено!`)
           : '✅ Карточка добавлена во Входящие!';
         showToast(msg);
         await fetchDecks(useUiStore.getState().userProfile?.user_id);
         onImportSuccess();
+      } else if (res.data.status === 'skipped' || res.data.status === 'cancelled') {
+        onClose();
       }
     } catch (err) {
       setError("Произошла ошибка при добавлении.");
@@ -127,39 +137,89 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                   )}
                 </div>
 
-                {/* Inbox info */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  background: 'rgba(99,102,241,0.08)', padding: '12px 16px',
-                  borderRadius: 14, border: '1px solid rgba(99,102,241,0.2)',
-                  width: '100%', boxSizing: 'border-box'
-                }}>
-                  <Inbox size={18} color="#818cf8" style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'left' }}>
-                    {isCard
-                      ? 'Карточка попадёт в колоду «📥 Входящие»'
-                      : 'Все карточки колоды попадут в «📥 Входящие»'}
-                    <br />
-                    <span style={{ color: '#64748b', fontSize: '0.75rem' }}>Потом можно переместить в любую колоду</span>
-                  </span>
-                </div>
+                {conflict ? (
+                  <div style={{
+                    background: 'rgba(234,179,8,0.1)', padding: '16px',
+                    borderRadius: 14, border: '1px solid rgba(234,179,8,0.2)',
+                    width: '100%', boxSizing: 'border-box', textAlign: 'left'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#facc15', marginBottom: 8 }}>
+                      <AlertCircle size={20} />
+                      <strong style={{ fontSize: '0.9rem' }}>Обнаружен дубликат</strong>
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: '#e2e8f0', margin: 0 }}>
+                      {isCard 
+                        ? `Такая карточка уже есть в колоде «${conflict.existing_deck_name}». Что сделать?`
+                        : `Колода с названием «${conflict.name}» уже существует. Что сделать?`
+                      }
+                    </p>
+                  </div>
+                ) : (
+                  /* Inbox info */
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: 'rgba(99,102,241,0.08)', padding: '12px 16px',
+                    borderRadius: 14, border: '1px solid rgba(99,102,241,0.2)',
+                    width: '100%', boxSizing: 'border-box'
+                  }}>
+                    <Inbox size={18} color="#818cf8" style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'left' }}>
+                      {isCard
+                        ? 'Карточка попадёт в колоду «📥 Входящие»'
+                        : 'Все карточки колоды попадут в «📥 Входящие»'}
+                      <br />
+                      <span style={{ color: '#64748b', fontSize: '0.75rem' }}>Потом можно переместить в любую колоду</span>
+                    </span>
+                  </div>
+                )}
 
                 {error && <p style={{ color: '#fca5a5', fontSize: '0.85rem' }}>{error}</p>}
               </div>
             )}
           </div>
 
-          <div className="modal-footer">
-            <button className="btn btn-secondary" onClick={onClose} disabled={importing}>Отмена</button>
-            <button
-              className="btn btn-primary"
-              onClick={handleImport}
-              disabled={loading || importing || !shareInfo}
-              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-            >
-              <Download size={18} />
-              {importing ? 'Сохранение...' : 'Добавить во Входящие'}
-            </button>
+          <div className="modal-footer" style={{ flexDirection: conflict ? 'column' : 'row', gap: conflict ? 10 : 0 }}>
+            {conflict ? (
+              <>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ width: '100%' }} 
+                  onClick={() => handleImport(isCard ? 'skip' : 'cancel')}
+                  disabled={importing}
+                >
+                  {isCard ? 'Пропустить (не добавлять)' : 'Отмена'}
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ width: '100%' }} 
+                  onClick={() => handleImport(isCard ? 'replace' : 'replace')}
+                  disabled={importing}
+                >
+                  {isCard ? 'Заменить (удалить старую)' : 'Заменить всё'}
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)' }} 
+                  onClick={() => handleImport(isCard ? 'add' : 'merge')}
+                  disabled={importing}
+                >
+                  {isCard ? 'Оставить обе (добавить копию)' : 'Объединить (добавить только новые)'}
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn btn-secondary" onClick={onClose} disabled={importing}>Отмена</button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleImport()}
+                  disabled={loading || importing || !shareInfo}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                >
+                  <Download size={18} />
+                  {importing ? 'Сохранение...' : 'Добавить во Входящие'}
+                </button>
+              </>
+            )}
           </div>
         </motion.div>
       </motion.div>

@@ -84,7 +84,8 @@ def import_shared_item(payload: dict = Body(...), user_id: int = Depends(get_use
 
     logger.info(f"IMPORT: User {user_id} is importing item {share_id}")
     try:
-        result = SharingService.import_item(share_id, user_id)
+        resolution = payload.get("resolution")
+        result = SharingService.import_item(share_id, user_id, resolution=resolution)
         logger.info(f"IMPORT SUCCESS: {share_id} for user {user_id}")
         return result
     except HTTPException:

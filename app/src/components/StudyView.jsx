@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, Settings2, Heart, Share2 } from 'lucide-react';
+import { RefreshCw, Settings2, Heart, Share2, Trash2 } from 'lucide-react';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -22,9 +22,9 @@ const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
 export const StudyView = ({ startTutorial }) => {
   const { view, setView, loading, setIsSettingsOpen, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
-  const { currentDeck, handleSyncDeck, handleResetProgress, duplicateCards } = useDeckStore();
+  const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards } = useDeckStore();
   const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore } = useSessionStore();
-  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleShareCard } = useCardActions();
+  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleShareCard, handleDeleteCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
 
@@ -39,6 +39,19 @@ export const StudyView = ({ startTutorial }) => {
   const openCardActions = (targetCard) => {
     setActionCard(targetCard);
     setIsCardActionModalOpen(true);
+  };
+
+  const onDeleteDuplicate = async (e) => {
+    e.stopPropagation();
+    if (window.confirm('Удалить этот дубликат?')) {
+      try {
+        await handleDeleteCard(card.id);
+        fetchDuplicates(); // Update the list in background
+        goNext(); // Move to next card
+      } catch (err) {
+        showToast('Ошибка при удалении');
+      }
+    }
   };
 
   useEffect(() => {
@@ -124,7 +137,14 @@ export const StudyView = ({ startTutorial }) => {
           loading={loading}
           isFlipped={isFlipped}
           isAudioLoading={isAudioLoading}
-          onBack={() => { setView('decks'); setCard(null); }}
+          onBack={() => { 
+            if (currentDeck?.id === 'duplicates') {
+              setView('duplicates');
+            } else {
+              setView('decks');
+            }
+            setCard(null); 
+          }}
           onOpenCreator={() => openCreator(currentDeck?.id, 'study')}
           onStartTutorial={() => startTutorial(isFlipped ? 'study_back' : 'study')}
           onOpenImagePicker={() => setIsImagePickerOpen(true)}
@@ -158,7 +178,6 @@ export const StudyView = ({ startTutorial }) => {
               historyIndex={historyIndex}
               playAudio={playAudio}
               isAudioLoading={isAudioLoading}
-              isDuplicate={duplicateCards.some(d => d.front === card.front && d.id !== card.id)}
               styles={settings}
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
@@ -174,6 +193,17 @@ export const StudyView = ({ startTutorial }) => {
                 <Share2 size={22} />
               </button>
 
+              {currentDeck?.id === 'duplicates' && (
+                <button
+                  className="btn-card-action-trigger"
+                  onClick={onDeleteDuplicate}
+                  title="Удалить дубликат"
+                  style={{ marginRight: '10px', color: '#ef4444' }}
+                >
+                  <Trash2 size={22} />
+                </button>
+              )}
+
               <button
                 className="btn-card-action-trigger"
                 onClick={(e) => { e.stopPropagation(); openCardActions(card); }}
@@ -181,6 +211,12 @@ export const StudyView = ({ startTutorial }) => {
               >
                 <Settings2 size={22} />
               </button>
+
+              {!isFlipped && card.deck_name && (
+                <div className="deck-badge-subcard" style={{ marginLeft: '12px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(129, 140, 248, 0.15)', border: '1px solid rgba(129, 140, 248, 0.3)', padding: '4px 12px', borderRadius: '20px' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 600 }}>{card.deck_name}</span>
+                </div>
+              )}
 
               {card.want_to_learn && (
                  <div style={{ marginLeft: 'auto', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -192,7 +228,7 @@ export const StudyView = ({ startTutorial }) => {
 
             <StudyNavigation
               historyIndex={historyIndex}
-              totalCards={currentDeck?.stats?.total}
+              totalCards={currentDeck?.id === 'duplicates' ? duplicateCards.length : currentDeck?.stats?.total}
               loading={loading}
               onBack={goBack}
               onNext={goNext}

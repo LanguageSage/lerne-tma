@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Repeat } from 'lucide-react';
+import { RefreshCw, Repeat, Volume2, Layers } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
@@ -13,7 +13,6 @@ export const StudyCard = ({
   historyIndex,
   playAudio,
   isAudioLoading,
-  isDuplicate,
   styles,
   resolvedBgFront,
   resolvedBgBack
@@ -43,6 +42,7 @@ export const StudyCard = ({
     textShadow: getContextShadow(contextTextShadow, contextTextColor)
   };
 
+
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
@@ -67,15 +67,10 @@ export const StudyCard = ({
                   disabled={loading}
                   onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
                 >
-                  {isAudioLoading ? <RefreshCw size={24} className="spin" /> : <span>🔊</span>}
+                  {isAudioLoading ? <RefreshCw size={24} className="spin" /> : <Volume2 size={24} />}
                 </button>
               )}
-              {isDuplicate && (
-                <div className="duplicate-label" style={{ position: 'absolute', top: '55px', right: '12px' }}>
-                  <Repeat size={12} />
-                  <span>Есть дубликат</span>
-                </div>
-              )}
+
               {card.video_front_url && (
                 <div className="video-container-card">
                   <video src={card.video_front_url} autoPlay loop muted playsInline />
@@ -100,7 +95,7 @@ export const StudyCard = ({
                     disabled={loading}
                     onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
                   >
-                    {isAudioLoading ? <RefreshCw size={26} className="spin" /> : <span>🔊</span>}
+                    {isAudioLoading ? <RefreshCw size={24} className="spin" /> : <Volume2 size={24} />}
                   </button>
                 )}
               </div>

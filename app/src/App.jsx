@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import './App.css';
 
 // Utils & Services
@@ -18,6 +18,7 @@ import { CardActionModal } from './components/CardActionModal';
 import { DeckModals } from './components/DeckModals';
 import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
+import { DuplicateManager } from './components/DuplicateManager';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
@@ -49,6 +50,14 @@ export default function App() {
   // Custom hooks for initialization and import logic
   const { importShareId, checkStartParam } = useAutoImport();
   useAppInitialization(checkStartParam);
+  
+  // Scroll to top on view change
+  useEffect(() => {
+    const root = document.getElementById('root');
+    if (root) {
+      root.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [view]);
 
   const startStudy = async (deck) => {
     setIsOpeningDeck(true);
@@ -118,6 +127,8 @@ export default function App() {
             startStudyCard={startStudyCard}
           />
         );
+      case 'duplicates':
+        return <DuplicateManager />;
       default:
         return null;
     }

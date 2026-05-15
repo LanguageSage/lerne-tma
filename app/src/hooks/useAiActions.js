@@ -147,7 +147,7 @@ export const useAiActions = () => {
 
         if (res.data.error) {
           lastError = res.data.error;
-          if (res.data.error.includes("Quota") || res.data.error.includes("Timeout") || res.data.error.includes("Connection")) {
+          if (res.data.error.includes("Timeout") || res.data.error.includes("Connection")) {
             if (attempt < maxRetries) {
               await new Promise(r => setTimeout(r, 1500));
               continue;

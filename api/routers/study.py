@@ -34,6 +34,8 @@ def _card_to_response(card, progress):
         "intervals": srs.get_next_intervals(progress),
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
+        "deck_id": card.deck_id,
+        "deck_name": card.deck.name if card.deck else None
     }
 
 @router.get("/study/card/{card_id}")
@@ -104,4 +106,28 @@ def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
                 raise HTTPException(status_code=500, detail=str(retry_error))
         logger.error(f"submit_grade ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/study/duplicates/next")
+def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depends(get_user_id)):
+    """Выбор следующего дубликата для изучения."""
+    parsed_exclude = []
+    if exclude_ids:
+        try:
+            parsed_exclude = [int(i) for i in exclude_ids.split(',') if i.strip()]
+        except ValueError: pass
+    
+    card, progress = services.get_next_duplicate_card(user_id, exclude_ids=parsed_exclude)
+    if not card:
+        return {"finished": True}
+    return _card_to_response(card, progress)
+
+@router.post("/study/duplicates/grade")
+def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
+    """Сохранение оценки для дубликата и переход к следующему."""
+    services.update_card_progress(data['card_id'], user_id, data['grade'])
+    card, progress = services.get_next_duplicate_card(user_id)
+    if not card:
+        return {"finished": True}
+    return _card_to_response(card, progress)
+
 

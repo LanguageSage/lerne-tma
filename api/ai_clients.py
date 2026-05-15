@@ -76,8 +76,14 @@ class AIService:
                                 match = re.search(r"retry in ([\d.]+)s", str(error_msg))
                                 if match: wait_time = float(match.group(1)) + 1
                             
-                            logger.warning(f"{provider_name} Error {resp.status} (Attempt {attempt+1}/{max_retries}). Retrying in {wait_time:.1f}s... Msg: {error_msg}")
+                            logger.warning(f"{provider_name} Error {resp.status} (Attempt {attempt+1}/{max_retries}). Requested wait: {wait_time:.1f}s. Msg: {error_msg}")
                             
+                            # Если сервер просит ждать слишком долго (>5 секунд), не блокируем worker/соединение.
+                            # Сразу возвращаем ошибку, чтобы включился механизм фолбэка на другие модели.
+                            if wait_time > 5:
+                                logger.warning(f"{provider_name}: Wait time {wait_time:.1f}s is too long. Skipping retry to allow immediate model fallback.")
+                                return f"{provider_name} Error {resp.status}: {error_msg}", False
+
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(wait_time)
                                 continue

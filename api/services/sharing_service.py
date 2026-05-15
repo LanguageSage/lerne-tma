@@ -177,31 +177,65 @@ class SharingService:
         draw_text_centered("Lerne TMA — Учите языки эффективно", height - 50, font_small, (99, 102, 241))
 
     @staticmethod
-    def import_item(share_id, user_id):
-        from api.services.decks import ensure_inbox_deck
+    def import_item(share_id, user_id, resolution=None):
+        from api.services.decks import ensure_inbox_deck, import_deck
         
         if share_id.startswith("d_"):
             source_deck = TMA_Deck.get_or_none(TMA_Deck.share_id == share_id)
             if not source_deck:
                 raise HTTPException(status_code=404, detail="Shared deck not found")
             
-            new_deck = TMA_Deck.create(
-                user_id=user_id,
-                name=source_deck.name,
-                level=source_deck.level,
-                topic=source_deck.topic,
-                created_at=datetime.datetime.now(),
-                updated_at=datetime.datetime.now()
-            )
+            # Check if deck with same name exists for this user
+            existing_deck = TMA_Deck.get_or_none(TMA_Deck.user_id == user_id, TMA_Deck.name == source_deck.name, TMA_Deck.is_deleted == False)
+            if existing_deck and not resolution:
+                return {
+                    "status": "conflict",
+                    "type": "deck",
+                    "existing_id": existing_deck.id,
+                    "name": source_deck.name
+                }
+            
+            # Resolution handling
+            if resolution == 'cancel':
+                return {"status": "cancelled"}
+            
+            target_deck = None
+            if resolution == 'replace' and existing_deck:
+                # Delete existing cards (soft delete or hard?)
+                TMA_Card.update(is_deleted=True).where(TMA_Card.deck == existing_deck).execute()
+                target_deck = existing_deck
+            elif resolution == 'merge' and existing_deck:
+                target_deck = existing_deck
+            else:
+                # Create new deck
+                target_deck = TMA_Deck.create(
+                    user_id=user_id,
+                    name=source_deck.name,
+                    level=source_deck.level,
+                    topic=source_deck.topic,
+                    created_at=datetime.datetime.now(),
+                    updated_at=datetime.datetime.now()
+                )
             
             source_cards = TMA_Card.select().where(
                 (TMA_Card.deck == source_deck) & (TMA_Card.is_deleted == False)
             )
+            
             creator_id = source_deck.user_id
             count = 0
             for card in source_cards:
+                # If merging, check if card exists
+                if resolution == 'merge' and target_deck:
+                    exists = TMA_Card.select().where(
+                        TMA_Card.deck == target_deck,
+                        TMA_Card.front_text == card.front_text,
+                        TMA_Card.back_text == card.back_text,
+                        TMA_Card.is_deleted == False
+                    ).exists()
+                    if exists: continue
+
                 TMA_Card.create(
-                    deck=new_deck,
+                    deck=target_deck,
                     front_text=card.front_text,
                     back_text=card.back_text,
                     context=card.context,
@@ -219,7 +253,15 @@ class SharingService:
                     updated_at=datetime.datetime.now()
                 )
                 count += 1
-            return {"status": "ok", "type": "deck", "cards_added": count, "new_deck_id": new_deck.id, "deck_name": new_deck.name}
+            
+            return {
+                "status": "ok", 
+                "type": "deck", 
+                "cards_added": count, 
+                "new_deck_id": target_deck.id, 
+                "deck_name": target_deck.name,
+                "merged": resolution == 'merge'
+            }
             
         elif share_id.startswith("c_"):
             inbox = ensure_inbox_deck(user_id)
@@ -227,6 +269,34 @@ class SharingService:
             if not source_card:
                 raise HTTPException(status_code=404, detail="Shared card not found")
             
+            # Check if card exists anywhere? The user said "if the card is not in inbox? let there be a window with choice"
+            # So I should check all decks of the user.
+            existing_card = (TMA_Card
+                            .select(TMA_Card, TMA_Deck)
+                            .join(TMA_Deck)
+                            .where(
+                                TMA_Deck.user_id == user_id,
+                                TMA_Card.front_text == source_card.front_text,
+                                TMA_Card.back_text == source_card.back_text,
+                                TMA_Card.is_deleted == False
+                            ).first())
+            
+            if existing_card and not resolution:
+                return {
+                    "status": "conflict",
+                    "type": "card",
+                    "existing_id": existing_card.id,
+                    "existing_deck_name": existing_card.deck.name if existing_card.deck else "Unknown",
+                    "front": source_card.front_text
+                }
+            
+            if resolution == 'skip':
+                return {"status": "skipped"}
+            
+            if resolution == 'replace' and existing_card:
+                existing_card.is_deleted = True
+                existing_card.save()
+
             source_creator = source_card.creator_id or (source_card.deck.user_id if source_card.deck else None)
 
             new_card = TMA_Card.create(

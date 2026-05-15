@@ -23,7 +23,8 @@ export const useStudySession = () => {
       const learnMoreParam = session.isLearningMore ? 'learn_more=true' : '';
       const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
       const queryString = params ? `?${params}` : '';
-      const res = await api.get(`/decks/${deckId}/next${queryString}`);
+      const endpoint = deckId === 'duplicates' ? `/study/duplicates/next${queryString}` : `/decks/${deckId}/next${queryString}`;
+      const res = await api.get(endpoint);
 
       if (res.data.error) {
         session.setApiError(res.data.error);
@@ -54,7 +55,8 @@ export const useStudySession = () => {
 
     try {
       const gradedCardId = session.card.id;
-      const res = await api.post('/study/grade', {
+      const endpoint = currentDeck.id === 'duplicates' ? '/study/duplicates/grade' : '/study/grade';
+      const res = await api.post(endpoint, {
         card_id: gradedCardId,
         deck_id: currentDeck.id,
         grade,
