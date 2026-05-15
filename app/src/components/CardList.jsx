@@ -83,10 +83,12 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                 <div className="card-item-share" onClick={(e) => { e.stopPropagation(); handleShareCard(c); }} title="Поделиться">
                   <Share2 size={16} />
                 </div>
-                <div className="card-item-edit" style={{ background: 'rgba(255,255,255,0.1)', padding: '6px', borderRadius: '8px' }} onClick={(e) => { e.stopPropagation(); openEditor(currentDeck.id, c, 'cards'); }}>
+                <div className="card-item-edit" onClick={(e) => { e.stopPropagation(); openEditor(currentDeck.id, c, 'cards'); }} title="Редактировать">
                   <Edit2 size={16} />
                 </div>
-                <div className="card-item-delete" onClick={(e) => { e.stopPropagation(); handleDeleteCard(c.id); }}><Trash2 size={16} /></div>
+                <div className="card-item-delete" onClick={(e) => { e.stopPropagation(); handleDeleteCard(c.id); }} title="Удалить">
+                  <Trash2 size={16} />
+                </div>
               </div>
             </div>
           ))}

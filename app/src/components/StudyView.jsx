@@ -104,8 +104,8 @@ export const StudyView = ({ startTutorial }) => {
 
   return (
     <div className="view-study">
-      {/* Floating Buttons Moved to the TOP of the DOM for absolute isolation */}
-      {isFlipped && (
+      {/* Floating Buttons: Always visible when card is present */}
+      {card && (
         <div id="tut-study-grades" className="grade-buttons grade-buttons-floating">
           <button disabled={loading} className="btn-grade grade-0" onClick={() => submitGrade(0)}>
             <span className="grade-label">Снова</span>
