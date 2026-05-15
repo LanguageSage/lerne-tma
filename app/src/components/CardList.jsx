@@ -7,6 +7,7 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useCardActions } from '../hooks/useCardActions';
 import { useCardNavigation } from '../hooks/useCardNavigation';
+import { UserProfileBadge } from './common/UserBadge';
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const { view, setView, setIsSettingsOpen, setEditorSourceView } = useUiStore();
@@ -24,6 +25,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           <button className="back-btn" onClick={() => setView('decks')}><ChevronLeft size={24} /></button>
           <h2 className="header-title">{currentDeck?.name}</h2>
           <div className="header-actions">
+            <UserProfileBadge />
             <button 
               className="header-action-btn" 
               onClick={() => openCreator(currentDeck?.id, 'cards')} 

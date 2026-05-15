@@ -283,7 +283,7 @@ def get_duplicate_cards(user_id: int):
             
         # 2. Получаем все карточки с этими текстами
         all_duplicates = (TMA_Card
-                         .select(TMA_Card, TMA_Deck.name.alias('deck_name'))
+                         .select(TMA_Card, TMA_Deck)
                          .join(TMA_Deck)
                          .where(TMA_Deck.user_id == user_id, TMA_Card.front_text << text_list, TMA_Card.is_deleted == False)
                          .order_by(TMA_Card.front_text))
@@ -295,7 +295,7 @@ def get_duplicate_cards(user_id: int):
                 "front": c.front_text,
                 "back": c.back_text,
                 "deck_id": c.deck_id,
-                "deck_name": c.deck_name
+                "deck_name": c.deck.name if c.deck else "Без колоды"
             })
         return result
     except Exception as e:

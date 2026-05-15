@@ -15,6 +15,7 @@ import { useAudio } from '../hooks/useAudio';
 import { useCardNavigation } from '../hooks/useCardNavigation';
 import { cleanMedia } from '../utils/media';
 import { MediaPicker } from './common/MediaPicker';
+import { UserProfileBadge } from './common/UserBadge';
 
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
@@ -139,6 +140,7 @@ export const StudyView = ({ startTutorial }) => {
             <h2>{currentDeck?.name}</h2>
           </div>
           <div className="header-actions">
+            <UserProfileBadge />
             <button 
               id="tut-study-add-card" 
               className="header-action-btn" 
@@ -397,7 +399,21 @@ export const StudyView = ({ startTutorial }) => {
               <button className="btn btn-primary" onClick={() => setView('decks')}>В меню</button>
               <button className="btn btn-secondary" onClick={handleLearnMore}>Учить еще</button>
               <button className="btn btn-secondary" onClick={() => handleSyncDeck(currentDeck.id)}>Обновить данные</button>
-              <button className="btn btn-secondary" onClick={() => handleResetProgress(currentDeck.id)}>Учить заново</button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={async () => {
+                  if (window.confirm('Вы уверены, что хотите сбросить прогресс этой колоды? Все ваши успехи будут обнулены.')) {
+                    try {
+                      await handleResetProgress(currentDeck.id);
+                      showToast('Прогресс успешно сброшен', 'success');
+                    } catch (err) {
+                      showToast('Ошибка при сбросе прогресса');
+                    }
+                  }
+                }}
+              >
+                Сбросить прогресс
+              </button>
             </div>
           </div>
         )}

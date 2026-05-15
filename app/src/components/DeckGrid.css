@@ -187,8 +187,16 @@
   align-items: flex-start;
   gap: 8px;
   line-height: 1.2;
-  word-break: break-word;
+  overflow-wrap: anywhere;
+  word-break: normal;
   padding: 4px 0;
+}
+
+@media (max-width: 400px) {
+  .deck-card h3 {
+    width: calc(100% - 60px);
+    flex: none;
+  }
 }
 
 .deck-level {
@@ -210,16 +218,13 @@
   justify-content: flex-end;
 }
 
-.deck-card h3 {
-  flex: 1;
-  font-size: 1.1rem;
-  color: white;
-  text-align: left;
-}
-
-.deck-stats {
-  display: flex;
-  gap: 6px;
+@media (max-width: 400px) {
+  .deck-stats {
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: 2px;
+    padding-left: 46px; /* Align with title text after icon */
+  }
 }
 
 .stat {

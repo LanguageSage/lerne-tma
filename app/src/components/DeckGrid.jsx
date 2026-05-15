@@ -254,8 +254,22 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
                       📥 Переместите карточки в нужные колоды
                     </button>
                   )}
-                  <button className="deck-action-btn" onClick={(e) => { e.stopPropagation(); if(window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) handleResetProgress(deck.id); }} title="Сбросить прогресс обучения">
-                    <RefreshCw size={16} style={{ color: '#ef4444' }} /> Сбросить
+                  <button 
+                    className="deck-action-btn" 
+                    onClick={async (e) => { 
+                      e.stopPropagation(); 
+                      if(window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) {
+                        try {
+                          await handleResetProgress(deck.id);
+                          showToast("Прогресс успешно сброшен", "success");
+                        } catch (err) {
+                          showToast("Ошибка при сбросе прогресса");
+                        }
+                      }
+                    }} 
+                    title="Сбросить прогресс обучения"
+                  >
+                    <RefreshCw size={16} style={{ color: '#ef4444' }} /> Сбросить прогресс
                   </button>
                   {!deck.is_inbox && (
                     <button className="deck-action-btn delete-btn-minimal" onClick={(e) => { e.stopPropagation(); if(window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) handleDeleteDeck(deck.id); }} title="Удалить колоду">

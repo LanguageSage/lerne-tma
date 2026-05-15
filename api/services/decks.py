@@ -99,23 +99,32 @@ def get_active_decks(user_id: int):
         deck_ids = [d.id for d in decks]
         deck_names = [d.name for d in decks]
 
-        # --- ОДИН запрос для total, tracked и due (вместо 3 отдельных) ---
-        stats_sql = """
-            SELECT 
-                c.deck_id,
-                COUNT(c.id) AS total,
-                COUNT(p.id) AS tracked,
-                COUNT(CASE WHEN p.next_review <= %s THEN 1 END) AS due
-            FROM tma_card c
-            LEFT JOIN tmaprogress p ON p.card_id = c.id AND p.user_id = %s
-            WHERE c.deck_id IN ({})
-            GROUP BY c.deck_id
-        """.format(','.join(['%s'] * len(deck_ids)))
+        from peewee import Case
         
-        cursor = tma_db.execute_sql(stats_sql, [now, user_id] + deck_ids)
+        # --- Кросс-платформенный запрос статистики через Peewee ---
+        due_case = Case(None, [(TMAProgress.next_review <= now, 1)], None)
+        stats_query = (TMA_Card
+                      .select(
+                          TMA_Card.deck_id.alias('deck_id'),
+                          fn.COUNT(TMA_Card.id).alias('total'),
+                          fn.COUNT(TMAProgress.id).alias('tracked'),
+                          fn.COUNT(due_case).alias('due')
+                      )
+                      .join(TMAProgress, JOIN.LEFT_OUTER, on=(
+                          (TMAProgress.card_id == TMA_Card.id) & (TMAProgress.user_id == user_id)
+                      ))
+                      .where(TMA_Card.deck_id << deck_ids)
+                      .group_by(TMA_Card.deck_id))
+        
+        # logger.info(f"Stats query SQL: {stats_query.sql()}")
+        
         stats_map = {}
-        for row in cursor.fetchall():
-            stats_map[row[0]] = {'total': row[1], 'tracked': row[2], 'due': row[3]}
+        for row in stats_query.dicts():
+            stats_map[row['deck_id']] = {
+                'total': row['total'], 
+                'tracked': row['tracked'], 
+                'due': int(row['due'] or 0)
+            }
 
         # --- ОДИН запрос для проверки обновлений из библиотеки ---
         ext_by_name = {}

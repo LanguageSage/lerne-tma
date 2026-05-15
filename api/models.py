@@ -37,7 +37,8 @@ def _parse_db_url(url: str):
 def initialize_database():
     global tma_db, lerne_db
     SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL")
-    FORCE_LOCAL = os.environ.get("FORCE_LOCAL_DB", "false").lower() == "true"
+    FORCE_LOCAL = os.environ.get("FORCE_LOCAL_DB", "false").lower().strip() == "true"
+    print(f"--- Database Mode: {'LOCAL (SQLite)' if FORCE_LOCAL else 'CLOUD (Postgres)'} (FORCE_LOCAL_DB={os.environ.get('FORCE_LOCAL_DB')}) ---")
     
     if SUPABASE_DB_URL and not FORCE_LOCAL:
         try:

@@ -13,7 +13,7 @@ if not exist venv (
 echo Launching API on port 8001...
 :: Using a more robust path for python
 set PYTHON_PATH=%CD%\venv\Scripts\python.exe
-start "Lerne-API" cmd /k "echo API Window && set FORCE_LOCAL_DB=true && "%PYTHON_PATH%" -m uvicorn api.main:app --port 8001"
+start "Lerne-API" cmd /k "echo API Window && set FORCE_LOCAL_DB=true&& "%PYTHON_PATH%" -m uvicorn api.main:app --port 8001"
 
 :: 3. Start Frontend
 echo Launching Frontend...

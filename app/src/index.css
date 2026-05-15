@@ -34,6 +34,12 @@ body {
   min-height: 100vh;
 }
 
+@media (max-width: 360px) {
+  #root {
+    padding: 0.7rem;
+  }
+}
+
 /* Glassmorphism Classes */
 .glass {
   background: rgba(255, 255, 255, 0.05);
