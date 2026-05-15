@@ -123,7 +123,9 @@ export const StudyView = ({ startTutorial }) => {
 
   return (
     <div className="view-study">
-      <GradeButtons card={card} loading={loading} onGrade={submitGrade} />
+      {currentDeck?.id !== 'duplicates' && (
+        <GradeButtons card={card} loading={loading} onGrade={submitGrade} />
+      )}
 
       <motion.div
         key="study"
@@ -227,7 +229,7 @@ export const StudyView = ({ startTutorial }) => {
             </div>
 
             <StudyNavigation
-              historyIndex={historyIndex}
+              historyIndex={currentDeck?.id === 'duplicates' ? duplicateCards.findIndex(c => c.id === card?.id) : historyIndex}
               totalCards={currentDeck?.id === 'duplicates' ? duplicateCards.length : currentDeck?.stats?.total}
               loading={loading}
               onBack={goBack}

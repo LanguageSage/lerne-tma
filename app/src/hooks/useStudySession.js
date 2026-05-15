@@ -19,22 +19,44 @@ export const useStudySession = () => {
     const session = useSessionStore.getState();
     session.setApiError(null);
     try {
-      const excludeParam = excludeIds.length > 0 ? `exclude_ids=${excludeIds.join(',')}` : '';
-      const learnMoreParam = session.isLearningMore ? 'learn_more=true' : '';
-      const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
-      const queryString = params ? `?${params}` : '';
-      const endpoint = deckId === 'duplicates' ? `/study/duplicates/next${queryString}` : `/decks/${deckId}/next${queryString}`;
-      const res = await api.get(endpoint);
+      if (deckId === 'duplicates') {
+        const { duplicateCards } = useDeckStore.getState();
+        const currentCard = session.card;
+        let nextDuplicateCard = null;
 
-      if (res.data.error) {
-        session.setApiError(res.data.error);
-        session.setCard(null);
-      } else if (res.data.finished) {
-        session.setCard(null);
+        if (isFirst || !currentCard) {
+          nextDuplicateCard = duplicateCards[0];
+        } else {
+          const historyIds = session.studyHistory.map(c => c.id);
+          nextDuplicateCard = duplicateCards.find(c => !historyIds.includes(c.id));
+        }
+
+        if (!nextDuplicateCard) {
+          session.setCard(null);
+        } else {
+          const res = await api.get(`/study/card/${nextDuplicateCard.id}`);
+          const newCard = res.data;
+          session.addToHistory(newCard);
+          prefetchMedia(newCard.image_url);
+        }
       } else {
-        const newCard = res.data;
-        session.addToHistory(newCard);
-        prefetchMedia(newCard.image_url);
+        const excludeParam = excludeIds.length > 0 ? `exclude_ids=${excludeIds.join(',')}` : '';
+        const learnMoreParam = session.isLearningMore ? 'learn_more=true' : '';
+        const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
+        const queryString = params ? `?${params}` : '';
+        const endpoint = `/decks/${deckId}/next${queryString}`;
+        const res = await api.get(endpoint);
+
+        if (res.data.error) {
+          session.setApiError(res.data.error);
+          session.setCard(null);
+        } else if (res.data.finished) {
+          session.setCard(null);
+        } else {
+          const newCard = res.data;
+          session.addToHistory(newCard);
+          prefetchMedia(newCard.image_url);
+        }
       }
     } catch (err) {
       console.error("fetchNextCard Error:", err);
@@ -79,8 +101,31 @@ export const useStudySession = () => {
     }
   };
 
-  const goBack = () => {
-    useSessionStore.getState().goBack();
+  const goBack = async () => {
+    const session = useSessionStore.getState();
+    const { currentDeck, duplicateCards } = useDeckStore.getState();
+
+    if (session.historyIndex > 0) {
+      session.goBack();
+    } else if (currentDeck?.id === 'duplicates' && session.card) {
+      const currentIndex = duplicateCards.findIndex(c => c.id === session.card.id);
+      if (currentIndex > 0) {
+        setLoading(true);
+        try {
+          const prevDuplicateCard = duplicateCards[currentIndex - 1];
+          const res = await api.get(`/study/card/${prevDuplicateCard.id}`);
+          const prevCard = res.data;
+          const newHistory = [prevCard, ...session.studyHistory];
+          session.setStudyHistory(newHistory);
+          session.moveToHistory(0);
+          prefetchMedia(prevCard.image_url);
+        } catch (err) {
+          console.error("goBack Error:", err);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
   };
 
   const goNext = async () => {

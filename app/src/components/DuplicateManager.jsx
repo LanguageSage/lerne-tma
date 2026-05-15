@@ -19,7 +19,7 @@ export const DuplicateManager = () => {
     setView('decks');
   };
 
-  const onStudy = async () => {
+  const onShow = async () => {
     setIsOpeningDeck(true);
     try {
       setCurrentDeck({ id: 'duplicates', name: 'Дубликаты' });
@@ -35,7 +35,7 @@ export const DuplicateManager = () => {
     // Open specific card for viewing (using startStudyCard logic from App.jsx but simplified)
     setIsOpeningDeck(true);
     try {
-      setCurrentDeck({ id: card.deck_id, name: card.deck_name });
+      setCurrentDeck({ id: 'duplicates', name: 'Дубликаты' });
       setView('study');
       useSessionStore.getState().resetSession();
       
@@ -86,11 +86,11 @@ export const DuplicateManager = () => {
           </div>
           <button 
             className="btn btn-primary btn-tiny" 
-            onClick={onStudy}
+            onClick={onShow}
             disabled={duplicateCards.length === 0}
             style={{ padding: '6px 12px' }}
           >
-            <BookOpen size={16} /> Учить
+            <BookOpen size={16} /> Показать
           </button>
         </div>
 
