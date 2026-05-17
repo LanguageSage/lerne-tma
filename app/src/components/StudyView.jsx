@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, Settings2, Heart, Share2, Trash2 } from 'lucide-react';
+import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -23,7 +24,7 @@ const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
 export const StudyView = ({ startTutorial }) => {
   const { view, setView, loading, setIsSettingsOpen, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
-  const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards } = useDeckStore();
+  const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
   const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore, autoplayState } = useSessionStore();
   const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleShareCard, handleDeleteCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
@@ -34,10 +35,12 @@ export const StudyView = ({ startTutorial }) => {
 
   const { playAudio, stopAudio, isAudioLoading } = useAudio(autoPlay, showToast);
   const autoplay = useAutoplay({ card, playAudio, stopAudio, showToast });
-  const isAutoplayActive = autoplayState === 'playing';
+  const isAutoplayActive = autoplayState === 'playing' || autoplayState === 'paused';
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const googleReturnTimerRef = useRef(null);
+  const previousAutoplayStateRef = useRef(autoplayState);
+  const suppressLegacyAutoplayCardRef = useRef(null);
 
   const openCardActions = (targetCard) => {
     setActionCard(targetCard);
@@ -58,7 +61,22 @@ export const StudyView = ({ startTutorial }) => {
   };
 
   useEffect(() => {
-    if (view === 'study' && card?.audio_url && autoPlay && !loading && !isAutoplayActive) {
+    const wasAutoplayActive = previousAutoplayStateRef.current === 'playing' || previousAutoplayStateRef.current === 'paused';
+    if (wasAutoplayActive && autoplayState === 'stopped') {
+      suppressLegacyAutoplayCardRef.current = card?.id ?? null;
+    }
+    previousAutoplayStateRef.current = autoplayState;
+  }, [autoplayState, card?.id]);
+
+  useEffect(() => {
+    if (suppressLegacyAutoplayCardRef.current && suppressLegacyAutoplayCardRef.current !== card?.id) {
+      suppressLegacyAutoplayCardRef.current = null;
+    }
+  }, [card?.id]);
+
+  useEffect(() => {
+    const isSuppressedAfterAutoplay = suppressLegacyAutoplayCardRef.current === card?.id;
+    if (view === 'study' && card?.audio_url && autoPlay && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay) {
       const timer = setTimeout(() => {
         playAudio(card.audio_url);
       }, 300);
@@ -112,13 +130,73 @@ export const StudyView = ({ startTutorial }) => {
   };
 
   const handleAutoplayAwareBack = async () => {
-    if (isAutoplayActive) autoplay.cancelCurrent();
+    if (isAutoplayActive) {
+      autoplay.cancelCurrent();
+      const currentIndex = deckCards.findIndex(c => c.id === card?.id);
+      if (currentIndex > 0) {
+        setCard(deckCards[currentIndex - 1]);
+      }
+      return;
+    }
     await goBack();
   };
 
   const handleAutoplayAwareNext = async () => {
-    if (isAutoplayActive) autoplay.cancelCurrent();
+    if (isAutoplayActive) {
+      autoplay.cancelCurrent();
+      const currentIndex = deckCards.findIndex(c => c.id === card?.id);
+      if (currentIndex < deckCards.length - 1) {
+        setCard(deckCards[currentIndex + 1]);
+      } else if (settings.autoplayLoop && deckCards.length > 0) {
+        setCard(deckCards[0]);
+      }
+      return;
+    }
     await goNext();
+  };
+
+  const formatRate = (value) => `${value >= 0 ? '+' : ''}${value}%`;
+
+  const updateCurrentCardAudio = (cardId, patch) => {
+    const session = useSessionStore.getState();
+    session.setCard((current) => (
+      current?.id === cardId ? { ...current, ...patch } : current
+    ));
+    session.setStudyHistory(session.studyHistory.map((item) => (
+      item?.id === cardId ? { ...item, ...patch } : item
+    )));
+  };
+
+  const handlePlayBackAudio = async (targetCard) => {
+    if (!targetCard?.back) return;
+
+    if (targetCard.audio_back_url) {
+      playAudio(targetCard.audio_back_url);
+      return;
+    }
+
+    try {
+      const generated = await api.post('/media/generate-audio', {
+        text: targetCard.back,
+        lang: 'ru',
+        rate: formatRate(settings.ttsSpeedRu)
+      });
+      const saved = await api.post('/cards/save', {
+        card_id: targetCard.id,
+        deck_id: targetCard.deck_id || currentDeck?.id,
+        audio_back_path: generated.data.path,
+        silent: true
+      });
+      const patch = {
+        audio_back_path: saved.data.audio_back_path || generated.data.path,
+        audio_back_url: saved.data.audio_back_url || generated.data.url
+      };
+      updateCurrentCardAudio(targetCard.id, patch);
+      playAudio(patch.audio_back_url);
+    } catch (err) {
+      console.error('Back audio generation failed:', err);
+      showToast(`Не удалось сгенерировать перевод: ${err.response?.data?.detail || err.message}`);
+    }
   };
 
   const handleResetProgressConfirmed = async () => {
@@ -195,6 +273,7 @@ export const StudyView = ({ startTutorial }) => {
               playAudio={playAudio}
               isAudioLoading={isAudioLoading}
               isAutoplayActive={isAutoplayActive}
+              onPlayBackAudio={handlePlayBackAudio}
               styles={settings}
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
@@ -244,8 +323,8 @@ export const StudyView = ({ startTutorial }) => {
             </div>
 
             <StudyNavigation
-              historyIndex={currentDeck?.id === 'duplicates' ? duplicateCards.findIndex(c => c.id === card?.id) : historyIndex}
-              totalCards={currentDeck?.id === 'duplicates' ? duplicateCards.length : currentDeck?.stats?.total}
+              historyIndex={currentDeck?.id === 'duplicates' ? duplicateCards.findIndex(c => c.id === card?.id) : (isAutoplayActive ? deckCards.findIndex(c => c.id === card?.id) : historyIndex)}
+              totalCards={currentDeck?.id === 'duplicates' ? duplicateCards.length : (isAutoplayActive ? deckCards.length : currentDeck?.stats?.total)}
               loading={loading}
               onBack={handleAutoplayAwareBack}
               onNext={handleAutoplayAwareNext}
@@ -254,6 +333,8 @@ export const StudyView = ({ startTutorial }) => {
               autoplaySettings={settings}
               onAutoplayStart={autoplay.start}
               onAutoplayStop={autoplay.stop}
+              onAutoplayPause={autoplay.pause}
+              onAutoplayResume={autoplay.resume}
             />
           </div>
         ) : (

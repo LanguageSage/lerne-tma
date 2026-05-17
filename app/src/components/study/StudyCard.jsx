@@ -14,6 +14,7 @@ export const StudyCard = ({
   playAudio,
   isAudioLoading,
   isAutoplayActive,
+  onPlayBackAudio,
   styles,
   resolvedBgFront,
   resolvedBgBack
@@ -109,7 +110,20 @@ export const StudyCard = ({
                   <video src={card.video_back_url} autoPlay loop muted playsInline />
                 </div>
               )}
-              <div id="tut-study-answer" className="text-back" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.back)}</div>
+              <div className="back-answer-block">
+                <button
+                  className="audio-btn-translation"
+                  disabled={loading || isAudioLoading}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPlayBackAudio?.(card);
+                  }}
+                  title="Озвучить перевод"
+                >
+                  {isAudioLoading ? <RefreshCw size={22} className="spin" /> : <Volume2 size={22} />}
+                </button>
+                <div id="tut-study-answer" className="text-back" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.back)}</div>
+              </div>
               {card.image_url && (
                 <img
                   src={card.image_url}

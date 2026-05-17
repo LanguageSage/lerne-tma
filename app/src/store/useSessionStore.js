@@ -9,10 +9,11 @@ export const useSessionStore = create((set, get) => ({
   editingCard: null,
   editorSourceView: 'cards', // 'cards' | 'study'
   isLearningMore: false,
-  autoplayState: 'stopped',
+  autoplayState: 'stopped', // 'stopped' | 'playing' | 'paused'
 
   setIsLearningMore: (val) => set({ isLearningMore: val }),
   setAutoplayState: (autoplayState) => set({ autoplayState }),
+  pauseAutoplay: () => set({ autoplayState: 'paused' }),
   stopAutoplay: () => set({ autoplayState: 'stopped' }),
 
   setCard: (updater) => set((state) => ({ 

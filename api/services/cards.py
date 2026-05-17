@@ -167,7 +167,7 @@ def get_cards_for_study(deck_id: int, user_id: int):
     """Возвращает список всех карточек в колоде. Оптимизировано: батчинг медиа."""
     try:
         # Используем .dicts() для более быстрой выборки
-        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id).dicts())
+        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False).order_by(TMA_Card.id.asc()).dicts())
         
         if not cards:
             return []

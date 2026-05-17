@@ -16,6 +16,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
   const runRef = useRef(0);
   const timerRef = useRef(null);
   const cardRef = useRef(card);
+  const autoplayCardsRef = useRef([]);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
@@ -72,12 +73,13 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
     const text = getCardText(targetCard, side);
     const lang = isBack ? 'ru' : 'de';
     const rate = formatRate(isBack ? settings.ttsSpeedRu : settings.ttsSpeed);
+    const forceGenerate = isBack ? settings.autoplayForceBackAudio : settings.autoplayForceFrontAudio;
     const hasWrongBackAudio = isBack && (
       (targetCard.audio_back_url && targetCard.audio_url && targetCard.audio_back_url === targetCard.audio_url) ||
       (targetCard.audio_back_path && targetCard.audio_path && targetCard.audio_back_path === targetCard.audio_path)
     );
 
-    if (targetCard[urlKey] && !hasWrongBackAudio) return targetCard[urlKey];
+    if (targetCard[urlKey] && !hasWrongBackAudio && !forceGenerate) return targetCard[urlKey];
     if (!text?.trim()) return null;
 
     setStatus(isBack ? 'Генерируем перевод' : 'Генерируем фразу');
@@ -122,20 +124,38 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
     if (!currentDeck) return [];
     if (currentDeck.id === 'duplicates') return deckStore.duplicateCards;
 
-    if (!deckStore.deckCards.length) {
-      await deckStore.fetchDeckCards(currentDeck.id);
-      return useDeckStore.getState().deckCards;
-    }
-    return deckStore.deckCards;
+    await deckStore.fetchDeckCards(currentDeck.id);
+    return useDeckStore.getState().deckCards;
   }, []);
+
+  const prepareAutoplayCards = useCallback(async () => {
+    const cards = await getAutoplayCards();
+    autoplayCardsRef.current = cards;
+    return cards;
+  }, [getAutoplayCards]);
 
   const moveToNextCard = useCallback(async (currentCard, runId) => {
     const settings = useSettingsStore.getState();
-    const cards = await getAutoplayCards();
+    let cards = autoplayCardsRef.current.length
+      ? autoplayCardsRef.current
+      : await prepareAutoplayCards();
     if (!isCurrentRun(runId) || !cards.length) return false;
 
-    const currentIndex = cards.findIndex((item) => item.id === currentCard.id);
-    const nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+    let currentIndex = cards.findIndex((item) => item.id === currentCard.id);
+    let nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+
+    if (nextIndex >= cards.length && useDeckStore.getState().currentDeck?.id !== 'duplicates') {
+      const refreshedCards = await getAutoplayCards();
+      if (!isCurrentRun(runId)) return false;
+
+      const refreshedIndex = refreshedCards.findIndex((item) => item.id === currentCard.id);
+      if (refreshedIndex >= 0 && refreshedIndex + 1 < refreshedCards.length) {
+        cards = refreshedCards;
+        autoplayCardsRef.current = refreshedCards;
+        currentIndex = refreshedIndex;
+        nextIndex = currentIndex + 1;
+      }
+    }
 
     if (nextIndex >= cards.length) {
       if (!settings.autoplayLoop) {
@@ -150,7 +170,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
 
     useSessionStore.getState().setCard(cards[nextIndex]);
     return true;
-  }, [getAutoplayCards, isCurrentRun, stopAudio]);
+  }, [getAutoplayCards, isCurrentRun, prepareAutoplayCards, stopAudio]);
 
   const runCardCycle = useCallback(async (runId) => {
     const targetCard = cardRef.current;
@@ -204,16 +224,39 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
   const start = useCallback(() => {
     if (!cardRef.current) return;
     useSessionStore.getState().setAutoplayState('playing');
-    restart();
-  }, [restart]);
+    prepareAutoplayCards().then((cards) => {
+      if (useSessionStore.getState().autoplayState === 'playing' && cards?.length) {
+        if (cardRef.current?.id === cards[0].id) {
+          restart();
+        } else {
+          useSessionStore.getState().setCard(cards[0]);
+        }
+      }
+    });
+  }, [prepareAutoplayCards, restart]);
 
   const stop = useCallback(() => {
     runRef.current += 1;
+    autoplayCardsRef.current = [];
     clearTimer();
     stopAudio();
     setStatus('');
     useSessionStore.getState().stopAutoplay();
   }, [clearTimer, stopAudio]);
+
+  const pause = useCallback(() => {
+    runRef.current += 1;
+    clearTimer();
+    stopAudio();
+    setStatus('Пауза');
+    useSessionStore.getState().pauseAutoplay();
+  }, [clearTimer, stopAudio]);
+
+  const resume = useCallback(() => {
+    if (!cardRef.current) return;
+    useSessionStore.getState().setAutoplayState('playing');
+    restart();
+  }, [restart]);
 
   const cancelCurrent = useCallback(() => {
     runRef.current += 1;
@@ -231,9 +274,10 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
 
   useEffect(() => () => {
     runRef.current += 1;
+    autoplayCardsRef.current = [];
     clearTimer();
     stopAudio();
   }, [clearTimer, stopAudio]);
 
-  return { start, stop, restart, cancelCurrent, status };
+  return { start, stop, pause, resume, restart, cancelCurrent, status };
 };

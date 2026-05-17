@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, Play, Square } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pause, Play, RotateCw, Square } from 'lucide-react';
 
 const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
 const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => -50 + index * 5);
@@ -14,9 +14,13 @@ export const StudyNavigation = ({
   autoplayStatus,
   autoplaySettings,
   onAutoplayStart,
-  onAutoplayStop
+  onAutoplayStop,
+  onAutoplayPause,
+  onAutoplayResume
 }) => {
   const isPlaying = autoplayState === 'playing';
+  const isPaused = autoplayState === 'paused';
+  const isAutoplayOpen = isPlaying || isPaused;
 
   return (
     <div className="study-navigation-panel">
@@ -48,18 +52,28 @@ export const StudyNavigation = ({
       </div>
 
       <button
-        className={`autoplay-main-btn ${isPlaying ? 'is-playing' : ''}`}
-        onClick={isPlaying ? onAutoplayStop : onAutoplayStart}
+        className={`autoplay-main-btn ${isAutoplayOpen ? 'is-playing' : ''}`}
+        onClick={isAutoplayOpen ? onAutoplayStop : onAutoplayStart}
         disabled={loading}
-        title={isPlaying ? 'Остановить авто-режим' : 'Запустить авто-режим'}
+        title={isAutoplayOpen ? 'Остановить авто-режим' : 'Запустить авто-режим'}
       >
-        {isPlaying ? <Square size={18} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-        <span>{isPlaying ? 'Стоп' : 'Авто'}</span>
+        {isAutoplayOpen ? <Square size={18} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+        <span>{isAutoplayOpen ? 'Стоп' : 'Авто'}</span>
       </button>
 
-      {isPlaying && (
+      {isAutoplayOpen && (
         <div className="autoplay-controls">
-          <div className="autoplay-status">{autoplayStatus || 'Авто-режим активен'}</div>
+          <div className="autoplay-status">{autoplayStatus || (isPaused ? 'Пауза' : 'Авто-режим активен')}</div>
+
+          <button
+            className={`autoplay-pause-btn ${isPaused ? 'is-paused' : ''}`}
+            type="button"
+            onClick={isPaused ? onAutoplayResume : onAutoplayPause}
+            title={isPaused ? 'Продолжить авто-режим' : 'Поставить авто-режим на паузу'}
+          >
+            {isPaused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
+            <span>{isPaused ? 'Продолжить' : 'Пауза'}</span>
+          </button>
 
           <div className="autoplay-control-grid">
             <label className="autoplay-field">
@@ -124,6 +138,24 @@ export const StudyNavigation = ({
               onChange={(e) => autoplaySettings.setAutoplayLoop(e.target.checked)}
             />
             <span>Повторять колоду</span>
+          </label>
+
+          <label className="autoplay-loop">
+            <input
+              type="checkbox"
+              checked={autoplaySettings.autoplayForceFrontAudio}
+              onChange={(e) => autoplaySettings.setAutoplayForceFrontAudio(e.target.checked)}
+            />
+            <span><RotateCw size={14} /> Генерировать фразу заново</span>
+          </label>
+
+          <label className="autoplay-loop">
+            <input
+              type="checkbox"
+              checked={autoplaySettings.autoplayForceBackAudio}
+              onChange={(e) => autoplaySettings.setAutoplayForceBackAudio(e.target.checked)}
+            />
+            <span><RotateCw size={14} /> Генерировать перевод заново</span>
           </label>
         </div>
       )}

@@ -27,6 +27,8 @@ const getInitialStudyState = () => ({
   ttsSpeed: storage.get('lerne_tts_speed') !== null ? Number(storage.get('lerne_tts_speed')) : 0,
   ttsSpeedRu: storage.get('lerne_tts_speed_ru') !== null ? Number(storage.get('lerne_tts_speed_ru')) : 0,
   autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : false,
+  autoplayForceFrontAudio: storage.get('lerne_autoplay_force_front_audio') !== null ? storage.get('lerne_autoplay_force_front_audio') === 'true' : false,
+  autoplayForceBackAudio: storage.get('lerne_autoplay_force_back_audio') !== null ? storage.get('lerne_autoplay_force_back_audio') === 'true' : false,
   isAdmin: false,
 });
 
@@ -60,6 +62,14 @@ export const useSettingsStore = create((set, get) => ({
   setAutoplayLoop: (value) => {
     storage.set('lerne_autoplay_loop', value);
     set({ autoplayLoop: value });
+  },
+  setAutoplayForceFrontAudio: (value) => {
+    storage.set('lerne_autoplay_force_front_audio', value);
+    set({ autoplayForceFrontAudio: value });
+  },
+  setAutoplayForceBackAudio: (value) => {
+    storage.set('lerne_autoplay_force_back_audio', value);
+    set({ autoplayForceBackAudio: value });
   },
 
   // --- Design Settings ---
