@@ -26,7 +26,9 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None):
     """
     Генератор аудио. Возвращает либо локальный путь, либо облачную ссылку.
     """
-    clean_text = _strip_markdown(text)
+    clean_text = _prepare_tts_text(text)
+    if not clean_text:
+        raise ValueError("Text is empty after cleanup")
     
     if voice:
         # Если голос из нашего сокращенного списка - мапим его
@@ -129,3 +131,14 @@ def _strip_markdown(text):
     res = res.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
     
     return res.strip()
+
+
+def _prepare_tts_text(text, max_chars=900):
+    res = _strip_markdown(text)
+    res = re.sub(r'https?://\S+', '', res)
+    res = re.sub(r'\s+', ' ', res).strip()
+    if len(res) <= max_chars:
+        return res
+
+    trimmed = res[:max_chars].rsplit(' ', 1)[0].strip()
+    return trimmed or res[:max_chars].strip()

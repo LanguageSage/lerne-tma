@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import uuid
 import hashlib
 from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response, UploadFile, File, Request
@@ -25,6 +26,28 @@ SUPPORTED_IMAGE_FORMATS = {
     "WEBP": ("webp", "image/webp"),
     "GIF": ("gif", "image/gif"),
 }
+
+LANG_DEFAULT_VOICES = {
+    "de": "de-DE-KatjaNeural",
+    "ru": "ru-RU-SvetlanaNeural",
+    "en": "en-US-AriaNeural",
+}
+
+RATE_RE = re.compile(r"^[+-]\d{1,3}%$")
+
+
+def _normalize_tts_rate(value: str | None) -> str | None:
+    if value is None:
+        return None
+    rate_value = str(value).strip()
+    if not RATE_RE.match(rate_value):
+        return None
+    numeric = max(-100, min(100, int(rate_value[:-1])))
+    return f"{numeric:+d}%"
+
+
+def _clean_param(value, default=None):
+    return value if isinstance(value, str) and value.strip() else default
 
 @router.post("/upload-image")
 async def upload_image(
@@ -80,10 +103,15 @@ async def generate_audio_endpoint(
 ):
     """Генерация озвучки через Edge TTS и загрузка в облако."""
     if data:
-        text = text or data.get('text')
-        lang = lang or data.get('lang', 'de')
-        voice = voice or data.get('voice')
-        rate = rate or data.get('rate')
+        text = data.get('text') if data.get('text') is not None else text
+        lang = data.get('lang') if data.get('lang') is not None else lang
+        voice = data.get('voice') if data.get('voice') is not None else voice
+        rate = data.get('rate') if data.get('rate') is not None else rate
+
+    text = _clean_param(text)
+    lang = _clean_param(lang, "de")
+    voice = _clean_param(voice)
+    rate = _clean_param(rate)
     
     if not text:
         raise HTTPException(status_code=400, detail="Text is required")
@@ -96,18 +124,16 @@ async def generate_audio_endpoint(
     except Exception as e:
         logger.error(f"Error fetching settings for audio: {e}")
 
-    # 2. Определяем голос
-    voice = voice or db_settings.get("TTS_VOICE")
+    # 2. Определяем голос. Глобальная настройка TTS_VOICE относится к немецкой
+    # озвучке; для русского перевода используем русский голос по умолчанию.
     if not voice:
         if lang == "de":
-            voice = "de-DE-KatjaNeural"
-        elif lang == "ru":
-            voice = "ru-RU-SvetlanaNeural"
+            voice = db_settings.get("TTS_VOICE") or LANG_DEFAULT_VOICES["de"]
         else:
-            voice = "en-US-AriaNeural"
+            voice = LANG_DEFAULT_VOICES.get(lang, LANG_DEFAULT_VOICES["en"])
             
     # 3. Определяем скорость
-    rate = rate or db_settings.get("TTS_SPEED") or "+0%"
+    rate = _normalize_tts_rate(rate) or _normalize_tts_rate(db_settings.get("TTS_SPEED")) or "+0%"
     
     logger.info(f"AUDIO GENERATION START: Text='{text[:30]}...', Voice={voice}, Rate={rate}")
             

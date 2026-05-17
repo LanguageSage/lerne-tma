@@ -16,7 +16,13 @@ def _build_media_exists_map(cards_dicts: list) -> set:
     
     filenames = set()
     for c in cards_dicts:
-        for path_field, folder in [('audio_path', 'audio'), ('image_path', 'images'), ('video_front_path', 'videos'), ('video_back_path', 'videos')]:
+        for path_field, folder in [
+            ('audio_path', 'audio'),
+            ('audio_back_path', 'audio'),
+            ('image_path', 'images'),
+            ('video_front_path', 'videos'),
+            ('video_back_path', 'videos')
+        ]:
             path_str = c.get(path_field)
             if path_str and not path_str.startswith('http'):
                 filenames.add(os.path.basename(path_str))

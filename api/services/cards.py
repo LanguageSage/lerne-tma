@@ -49,6 +49,8 @@ def save_card(data, user_id):
         card.image_path = data.get('image_path')
     if 'audio_path' in data:
         card.audio_path = data.get('audio_path')
+    if 'audio_back_path' in data:
+        card.audio_back_path = data.get('audio_back_path')
     if 'video_front_path' in data:
         card.video_front_path = data.get('video_front_path')
     if 'video_back_path' in data:
@@ -84,7 +86,8 @@ def save_card(data, user_id):
     if card.source is None: card.source = "user"
         
     card.updated_at = datetime.datetime.now()
-    card.history = add_to_history(card.history, "Edited manually")
+    if not data.get('silent'):
+        card.history = add_to_history(card.history, "Edited manually")
     
     card.save()
     logger.info(f"Card {card.id} saved successfully")
@@ -117,6 +120,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
     get_val = lambda k_dict, k_obj: c.get(k_dict) if is_dict else getattr(c, k_obj, None)
     
     audio_path = get_val('audio_path', 'audio_path')
+    audio_back_path = get_val('audio_back_path', 'audio_back_path')
     image_path = get_val('image_path', 'image_path')
     video_front = get_val('video_front_path', 'video_front_path')
     video_back = get_val('video_back_path', 'video_back_path')
@@ -133,11 +137,13 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "back": get_val('back_text', 'back_text'),
         "context": get_val('context', 'context'),
         "audio_url": resolve_media_url(audio_path, "audio", exists_map=media_exists),
+        "audio_back_url": resolve_media_url(audio_back_path, "audio", exists_map=media_exists),
         "image_url": resolve_media_url(image_path, "images", exists_map=media_exists),
         "video_front_url": resolve_media_url(video_front, "videos", exists_map=media_exists),
         "video_back_url": resolve_media_url(video_back, "videos", exists_map=media_exists),
         "image_path": audio_path if False else image_path, # keep variables used
         "audio_path": audio_path,
+        "audio_back_path": audio_back_path,
         "video_front_path": video_front,
         "video_back_path": video_back,
         "want_to_learn": bool(get_val('want_to_learn', 'want_to_learn')),

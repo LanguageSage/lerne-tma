@@ -13,6 +13,7 @@ export const StudyCard = ({
   historyIndex,
   playAudio,
   isAudioLoading,
+  isAutoplayActive,
   styles,
   resolvedBgFront,
   resolvedBgBack
@@ -64,8 +65,8 @@ export const StudyCard = ({
                 <button
                   id="tut-study-audio"
                   className="audio-btn-corner"
-                  disabled={loading}
-                  onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
+                  disabled={loading || isAutoplayActive}
+                  onClick={(e) => { e.stopPropagation(); if (!isAutoplayActive) playAudio(card.audio_url); }}
                 >
                   {isAudioLoading ? <RefreshCw size={24} className="spin" /> : <Volume2 size={24} />}
                 </button>
@@ -88,12 +89,15 @@ export const StudyCard = ({
             <div className="card-face">
               <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
                 <div className="text-front-mini" style={{ marginBottom: 0 }}>{stripMarkdown(card.front)}</div>
-                {card.audio_url && (
+                {(card.audio_back_url || card.audio_url) && (
                   <button
                     id="tut-study-audio-back"
                     className="audio-btn-back-corner"
-                    disabled={loading}
-                    onClick={(e) => { e.stopPropagation(); playAudio(card.audio_url); }}
+                    disabled={loading || isAutoplayActive}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isAutoplayActive) playAudio(card.audio_back_url || card.audio_url);
+                    }}
                   >
                     {isAudioLoading ? <RefreshCw size={24} className="spin" /> : <Volume2 size={24} />}
                   </button>

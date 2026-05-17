@@ -8,6 +8,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useCardActions } from '../hooks/useCardActions';
 import { useMediaUpload } from '../hooks/useMediaUpload';
 import { useAudio } from '../hooks/useAudio';
+import { useAutoplay } from '../hooks/useAutoplay';
 import { useCardNavigation } from '../hooks/useCardNavigation';
 import { MediaPicker } from './common/MediaPicker';
 
@@ -23,7 +24,7 @@ const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 export const StudyView = ({ startTutorial }) => {
   const { view, setView, loading, setIsSettingsOpen, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards } = useDeckStore();
-  const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore } = useSessionStore();
+  const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore, autoplayState } = useSessionStore();
   const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleShareCard, handleDeleteCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
@@ -31,7 +32,9 @@ export const StudyView = ({ startTutorial }) => {
   const settings = useSettingsStore();
   const { autoPlay, cardBgFront, cardBgBack } = settings;
 
-  const { playAudio, isAudioLoading } = useAudio(autoPlay, showToast);
+  const { playAudio, stopAudio, isAudioLoading } = useAudio(autoPlay, showToast);
+  const autoplay = useAutoplay({ card, playAudio, stopAudio, showToast });
+  const isAutoplayActive = autoplayState === 'playing';
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const googleReturnTimerRef = useRef(null);
@@ -55,13 +58,13 @@ export const StudyView = ({ startTutorial }) => {
   };
 
   useEffect(() => {
-    if (view === 'study' && card?.audio_url && autoPlay && !loading) {
+    if (view === 'study' && card?.audio_url && autoPlay && !loading && !isAutoplayActive) {
       const timer = setTimeout(() => {
         playAudio(card.audio_url);
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [card?.id, historyIndex, autoPlay, view, loading]);
+  }, [card?.id, card?.audio_url, historyIndex, autoPlay, view, loading, isAutoplayActive, playAudio]);
 
   useEffect(() => {
     if (view !== 'study' || !card) return;
@@ -108,6 +111,16 @@ export const StudyView = ({ startTutorial }) => {
     await fetchNextCard(currentDeck?.id);
   };
 
+  const handleAutoplayAwareBack = async () => {
+    if (isAutoplayActive) autoplay.cancelCurrent();
+    await goBack();
+  };
+
+  const handleAutoplayAwareNext = async () => {
+    if (isAutoplayActive) autoplay.cancelCurrent();
+    await goNext();
+  };
+
   const handleResetProgressConfirmed = async () => {
     if (window.confirm('Вы уверены, что хотите сбросить прогресс этой колоды? Все ваши успехи будут обнулены.')) {
       try {
@@ -123,7 +136,7 @@ export const StudyView = ({ startTutorial }) => {
 
   return (
     <div className="view-study">
-      {currentDeck?.id !== 'duplicates' && (
+      {currentDeck?.id !== 'duplicates' && !isAutoplayActive && (
         <GradeButtons card={card} loading={loading} onGrade={submitGrade} />
       )}
 
@@ -140,6 +153,7 @@ export const StudyView = ({ startTutorial }) => {
           isFlipped={isFlipped}
           isAudioLoading={isAudioLoading}
           onBack={() => { 
+            autoplay.stop();
             if (currentDeck?.id === 'duplicates') {
               setView('duplicates');
             } else {
@@ -180,6 +194,7 @@ export const StudyView = ({ startTutorial }) => {
               historyIndex={historyIndex}
               playAudio={playAudio}
               isAudioLoading={isAudioLoading}
+              isAutoplayActive={isAutoplayActive}
               styles={settings}
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
@@ -232,8 +247,13 @@ export const StudyView = ({ startTutorial }) => {
               historyIndex={currentDeck?.id === 'duplicates' ? duplicateCards.findIndex(c => c.id === card?.id) : historyIndex}
               totalCards={currentDeck?.id === 'duplicates' ? duplicateCards.length : currentDeck?.stats?.total}
               loading={loading}
-              onBack={goBack}
-              onNext={goNext}
+              onBack={handleAutoplayAwareBack}
+              onNext={handleAutoplayAwareNext}
+              autoplayState={autoplayState}
+              autoplayStatus={autoplay.status}
+              autoplaySettings={settings}
+              onAutoplayStart={autoplay.start}
+              onAutoplayStop={autoplay.stop}
             />
           </div>
         ) : (

@@ -9,8 +9,11 @@ export const useSessionStore = create((set, get) => ({
   editingCard: null,
   editorSourceView: 'cards', // 'cards' | 'study'
   isLearningMore: false,
+  autoplayState: 'stopped',
 
   setIsLearningMore: (val) => set({ isLearningMore: val }),
+  setAutoplayState: (autoplayState) => set({ autoplayState }),
+  stopAutoplay: () => set({ autoplayState: 'stopped' }),
 
   setCard: (updater) => set((state) => ({ 
     card: typeof updater === 'function' ? updater(state.card) : (updater ? { ...updater } : null) 
@@ -59,7 +62,8 @@ export const useSessionStore = create((set, get) => ({
       historyIndex: -1,
       isFlipped: false,
       apiError: null,
-      isLearningMore: false
+      isLearningMore: false,
+      autoplayState: 'stopped'
     });
   }
 }));

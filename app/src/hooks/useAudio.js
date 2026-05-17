@@ -1,7 +1,8 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 
 export const useAudio = (autoPlay, showToast) => {
   const audioRef = useRef(null);
+  const playAudioRef = useRef(null);
   const cacheRef = useRef(new Map());
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const retryCountRef = useRef({});
@@ -25,14 +26,22 @@ export const useAudio = (autoPlay, showToast) => {
     return audio;
   }, []);
 
-  const playAudio = useCallback((url) => {
-    if (!url) return;
-
-    // Stop previous audio
+  const stopAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      audioRef.current.oncanplaythrough = null;
       audioRef.current = null;
     }
+    setIsAudioLoading(false);
+  }, []);
+
+  const playAudio = useCallback((url, onEndedCallback) => {
+    if (!url) return Promise.resolve(false);
+
+    // Stop previous audio
+    stopAudio();
 
     setIsAudioLoading(true);
 
@@ -52,23 +61,36 @@ export const useAudio = (autoPlay, showToast) => {
       if (retries < 1) {
         retryCountRef.current[url] = retries + 1;
         console.warn(`Audio load failed, retrying once for: ${url}`);
-        setTimeout(() => playAudio(url), 1000);
+        setTimeout(() => playAudioRef.current?.(url, onEndedCallback), 1000);
       } else {
         if (showToast) showToast("Ошибка аудио: файл не найден или поврежден");
+        if (onEndedCallback) onEndedCallback(false);
       }
     };
 
-    audio.play().then(() => {
+    audio.onended = () => {
+      setIsAudioLoading(false);
+      if (onEndedCallback) onEndedCallback(true);
+    };
+
+    return audio.play().then(() => {
       // If played successfully, clear retry count for this URL
       retryCountRef.current[url] = 0;
+      return true;
     }).catch(err => {
       setIsAudioLoading(false);
       console.error("Audio play failed:", err);
       if (err.name === "NotSupportedError" || err.name === "NotAllowedError") {
          if (!autoPlay && showToast) showToast("Браузер заблокировал звук");
       }
+      if (onEndedCallback) onEndedCallback(false);
+      return false;
     });
-  }, [autoPlay, preloadAudio, showToast]);
+  }, [autoPlay, preloadAudio, showToast, stopAudio]);
 
-  return { playAudio, preloadAudio, isAudioLoading };
+  useEffect(() => {
+    playAudioRef.current = playAudio;
+  }, [playAudio]);
+
+  return { playAudio, preloadAudio, stopAudio, isAudioLoading };
 };

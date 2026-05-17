@@ -22,6 +22,11 @@ const getInitialDesignState = () => ({
 const getInitialStudyState = () => ({
   autoPlay: storage.get('lerne_autoplay') !== null ? storage.get('lerne_autoplay') === 'true' : true,
   autoShow: storage.get('lerne_autoshow') !== null ? storage.get('lerne_autoshow') === 'true' : false,
+  autoplayFrontPause: storage.get('lerne_autoplay_front_pause') !== null ? Number(storage.get('lerne_autoplay_front_pause')) : 4,
+  autoplayBackPause: storage.get('lerne_autoplay_back_pause') !== null ? Number(storage.get('lerne_autoplay_back_pause')) : 2,
+  ttsSpeed: storage.get('lerne_tts_speed') !== null ? Number(storage.get('lerne_tts_speed')) : 0,
+  ttsSpeedRu: storage.get('lerne_tts_speed_ru') !== null ? Number(storage.get('lerne_tts_speed_ru')) : 0,
+  autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : false,
   isAdmin: false,
 });
 
@@ -35,6 +40,26 @@ export const useSettingsStore = create((set, get) => ({
   setAutoShow: (value) => {
     storage.set('lerne_autoshow', value);
     set({ autoShow: value });
+  },
+  setAutoplayFrontPause: (value) => {
+    storage.set('lerne_autoplay_front_pause', value);
+    set({ autoplayFrontPause: Number(value) });
+  },
+  setAutoplayBackPause: (value) => {
+    storage.set('lerne_autoplay_back_pause', value);
+    set({ autoplayBackPause: Number(value) });
+  },
+  setTtsSpeed: (value) => {
+    storage.set('lerne_tts_speed', value);
+    set({ ttsSpeed: Number(value) });
+  },
+  setTtsSpeedRu: (value) => {
+    storage.set('lerne_tts_speed_ru', value);
+    set({ ttsSpeedRu: Number(value) });
+  },
+  setAutoplayLoop: (value) => {
+    storage.set('lerne_autoplay_loop', value);
+    set({ autoplayLoop: value });
   },
 
   // --- Design Settings ---

@@ -120,6 +120,7 @@ class TMA_Card(BaseModel):
     image_path = TextField(null=True)
     image_data = BlobField(null=True)  # Бинарные данные изображения
     audio_path = TextField(null=True)
+    audio_back_path = TextField(null=True)
     video_front_path = TextField(null=True)
     video_back_path = TextField(null=True)
     tags = TextField(null=True)
@@ -246,6 +247,7 @@ class Card(Model):
     context = TextField(null=True)
     image_path = CharField(null=True)
     audio_path = CharField(null=True)
+    audio_back_path = CharField(null=True)
     video_front_path = CharField(null=True)
     video_back_path = CharField(null=True)
     tags = TextField(null=True)
