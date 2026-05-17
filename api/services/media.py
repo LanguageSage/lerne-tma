@@ -25,17 +25,19 @@ def _build_media_exists_map(cards_dicts: list) -> set:
         return set()
     
     try:
-        existing = set(
-            (m.filename, m.folder)
-            for m in TMAMedia.select(TMAMedia.filename, TMAMedia.folder).where(
-                TMAMedia.filename << list(filenames)
-            )
-        )
+        existing = set()
+        filenames_list = list(filenames)
+        for i in range(0, len(filenames_list), 500):
+            chunk = filenames_list[i:i+500]
+            for m in TMAMedia.select(TMAMedia.filename, TMAMedia.folder).where(TMAMedia.filename << chunk):
+                existing.add((m.filename, m.folder))
         return existing
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error in _build_media_exists_map: {e}")
         return set()
 
 
+@lru_cache(maxsize=2000)
 def _check_media_exists(filename: str, folder: str) -> bool:
     """Кэшированная проверка существования медиа в БД."""
     try:

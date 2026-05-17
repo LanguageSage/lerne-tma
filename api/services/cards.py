@@ -163,12 +163,13 @@ def get_cards_for_study(deck_id: int, user_id: int):
         # Используем .dicts() для более быстрой выборки
         cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id).dicts())
         
-        # Получаем прогресс только для карт этой колоды одним запросом
-        card_ids = [c['id'] for c in cards]
-        progress_query = TMAProgress.select().where(
-            TMAProgress.user_id == user_id,
-            TMAProgress.card_id << card_ids
-        )
+        if not cards:
+            return []
+
+        # Получаем прогресс через JOIN с TMA_Card по deck_id, избегая передачи тысяч параметров
+        progress_query = (TMAProgress.select()
+                          .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
+                          .where(TMAProgress.user_id == user_id, TMA_Card.deck_id == deck_id))
         progress_map = {p.card_id: p for p in progress_query}
         
         # Предзагрузка: собираем все пути медиа и проверяем существование ОДНИМ запросом
@@ -215,24 +216,21 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
         
         if progress:
             # Карта уже загружена через JOIN — используем tma__card
-            card = progress.card_id  # peewee вернёт FK как объект через JOIN
-            try:
+            card = getattr(progress, 'tma_card', None) or getattr(progress, 'card', None)
+            if not card:
                 card = TMA_Card.get_by_id(progress.card_id)
-            except Exception:
-                pass
             return card, progress
             
-        # 2. Новые карты — используем LEFT JOIN для исключения уже отслеживаемых
-        new_query = (TMA_Card
-                    .select()
-                    .join(TMAProgress, on=(
-                        (TMAProgress.card_id == TMA_Card.id) & 
-                        (TMAProgress.user_id == user_id)
-                    ), join_type=JOIN.LEFT_OUTER)
-                    .where(
-                        TMA_Card.deck_id == deck_id,
-                        TMAProgress.id.is_null()  # Нет записи в прогрессе = новая карта
-                    ))
+        # 2. Новые карты — используем NOT EXISTS для мгновенного исключения уже отслеживаемых
+        subquery = TMAProgress.select(TMAProgress.card_id).where(
+            TMAProgress.card_id == TMA_Card.id,
+            TMAProgress.user_id == user_id
+        )
+        new_query = (TMA_Card.select()
+                     .where(
+                         TMA_Card.deck_id == deck_id,
+                         ~fn.EXISTS(subquery)
+                     ))
         if exclude_ids:
             new_query = new_query.where(~(TMA_Card.id << exclude_ids))
             
