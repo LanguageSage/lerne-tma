@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Trash2, Edit2, Share2, Copy, Inbox, Layers, BookOpen } from 'lucide-react';
 import api from '../services/api';
@@ -11,9 +11,18 @@ import { stripMarkdown } from '../utils/text';
 
 export const DuplicateManager = () => {
   const { setView, setActionCard, setIsCardActionModalOpen, showToast, setIsOpeningDeck } = useUiStore();
-  const { duplicateCards, fetchDuplicates, setCurrentDeck } = useDeckStore();
+  const { duplicateCards, fetchDuplicates, setCurrentDeck, lastDuplicateCardId, setLastDuplicateCardId } = useDeckStore();
   const { openEditor } = useCardNavigation();
   const { handleDeleteCard, handleShareCard, fetchNextCard } = useCardActions();
+
+  useEffect(() => {
+    if (lastDuplicateCardId) {
+      const el = document.getElementById(`duplicate-card-${lastDuplicateCardId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'auto', block: 'center' });
+      }
+    }
+  }, [lastDuplicateCardId]);
 
   const handleBack = () => {
     setView('decks');
@@ -35,6 +44,7 @@ export const DuplicateManager = () => {
     // Open specific card for viewing (using startStudyCard logic from App.jsx but simplified)
     setIsOpeningDeck(true);
     try {
+      setLastDuplicateCardId(card.id);
       setCurrentDeck({ id: 'duplicates', name: 'Дубликаты' });
       setView('study');
       useSessionStore.getState().resetSession();
@@ -110,7 +120,7 @@ export const DuplicateManager = () => {
 
               <div className="cards-stack" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {cards.map(card => (
-                  <div key={card.id} className="duplicate-item glass" 
+                  <div key={card.id} id={`duplicate-card-${card.id}`} className="duplicate-item glass" 
                     onClick={() => onViewCard(card)}
                     style={{
                       padding: 12,

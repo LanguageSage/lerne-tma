@@ -8,6 +8,7 @@ export const useDeckStore = create((set, get) => ({
   communityDecks: [],
   deckCards: [],
   duplicateCards: [],
+  lastDuplicateCardId: null,
   syncModalOpen: false,
   deckToSync: null,
   
@@ -17,6 +18,7 @@ export const useDeckStore = create((set, get) => ({
   setCommunityDecks: (decks) => set({ communityDecks: decks }),
   setDeckCards: (cards) => set({ deckCards: cards }),
   setDuplicateCards: (cards) => set({ duplicateCards: cards }),
+  setLastDuplicateCardId: (id) => set({ lastDuplicateCardId: id }),
   setSyncModalOpen: (isOpen) => set({ syncModalOpen: isOpen }),
   setDeckToSync: (deck) => set({ deckToSync: deck }),
 

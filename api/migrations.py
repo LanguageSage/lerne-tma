@@ -4,6 +4,7 @@ Migrations module: все SQL-миграции для существующих �
 Каждая миграция выполняется с обработкой ошибок, чтобы не падать если колонка уже есть.
 """
 import logging
+from peewee import SqliteDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,8 @@ MIGRATIONS = [
     ('ALTER TABLE deck ADD COLUMN is_deleted BOOLEAN DEFAULT false', 'lerne'),
     ('ALTER TABLE deck ADD COLUMN created_at TIMESTAMP', 'lerne'),
     ('ALTER TABLE deck ADD COLUMN cloud_id INTEGER', 'lerne'),
+    ('ALTER TABLE deck ADD COLUMN share_id TEXT', 'lerne'),
+    ('ALTER TABLE deck ADD COLUMN is_inbox BOOLEAN DEFAULT false', 'lerne'),
 
     # --- Card ---
     ('ALTER TABLE tma_card ADD COLUMN history TEXT DEFAULT \'[]\'', 'tma'),
@@ -40,6 +43,10 @@ MIGRATIONS = [
     ('ALTER TABLE card ADD COLUMN created_at TIMESTAMP', 'lerne'),
     ('ALTER TABLE card ADD COLUMN cloud_id INTEGER', 'lerne'),
     ('ALTER TABLE card ADD COLUMN difficulty REAL', 'lerne'),
+    ('ALTER TABLE card ADD COLUMN want_to_learn BOOLEAN DEFAULT false', 'lerne'),
+    ('ALTER TABLE card ADD COLUMN share_id TEXT', 'lerne'),
+    ('ALTER TABLE card ADD COLUMN creator_id BIGINT', 'lerne'),
+    ('ALTER TABLE card ADD COLUMN image_data BYTEA', 'lerne'),
 
     # --- Progress & Review ---
     ('ALTER TABLE tmaprogress ADD COLUMN created_at TIMESTAMP', 'tma'),
@@ -71,3 +78,27 @@ def run_migrations(tma_db, lerne_db):
             skipped += 1  # Колонка/таблица уже существует — нормально
 
     logger.info(f"Migrations: {success} applied, {skipped} skipped (already exist).")
+
+    if isinstance(tma_db.obj, SqliteDatabase):
+        try:
+            # Обновляем триггеры для tma_deck и tma_card, чтобы они поддерживали все новые колонки
+            tma_db.execute_sql("DROP TRIGGER IF EXISTS tma_deck_insert")
+            tma_db.execute_sql("""
+                CREATE TRIGGER tma_deck_insert INSTEAD OF INSERT ON tma_deck
+                BEGIN
+                    INSERT INTO deck (id, name, level, topic, is_deleted, created_at, updated_at, user_id, cloud_id, share_id, is_inbox)
+                    VALUES (NEW.id, NEW.name, NEW.level, NEW.topic, NEW.is_deleted, NEW.created_at, NEW.updated_at, NEW.user_id, NEW.cloud_id, NEW.share_id, NEW.is_inbox);
+                END;
+            """)
+            
+            tma_db.execute_sql("DROP TRIGGER IF EXISTS tma_card_insert")
+            tma_db.execute_sql("""
+                CREATE TRIGGER tma_card_insert INSTEAD OF INSERT ON tma_card
+                BEGIN
+                    INSERT INTO card (id, deck_id, card_type, difficulty, front_text, back_text, context, audio_path, image_path, tags, topics, metadata, created_at, updated_at, history, is_deleted, cloud_id, source, video_front_path, video_back_path, image_data, audio_back_path, want_to_learn, creator_id, share_id)
+                    VALUES (NEW.id, NEW.deck_id, NEW.card_type, NEW.difficulty, NEW.front_text, NEW.back_text, NEW.context, NEW.audio_path, NEW.image_path, NEW.tags, NEW.topics, NEW.metadata, NEW.created_at, NEW.updated_at, NEW.history, NEW.is_deleted, NEW.cloud_id, NEW.source, NEW.video_front_path, NEW.video_back_path, NEW.image_data, NEW.audio_back_path, NEW.want_to_learn, NEW.creator_id, NEW.share_id);
+                END;
+            """)
+            logger.info("SQLite INSTEAD OF INSERT triggers updated successfully.")
+        except Exception as e:
+            logger.error(f"Error updating SQLite triggers: {e}")

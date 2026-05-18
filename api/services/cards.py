@@ -58,6 +58,11 @@ def save_card(data, user_id):
         
     if 'source' in data:
         card.source = data.get('source')
+    if 'video_back_path' in data:
+        card.video_back_path = data.get('video_back_path')
+        
+    if 'source' in data:
+        card.source = data.get('source')
     elif not card.source:
         card.source = 'user'
         
@@ -67,7 +72,7 @@ def save_card(data, user_id):
     # Check for duplicates (same front and back in the same deck)
     check_front = card.front_text or ""
     check_back = card.back_text or ""
-    if check_front and check_back and card.deck_id:
+    if check_front and check_back and card.deck_id and not data.get('allow_duplicate'):
         existing_query = TMA_Card.select().where(
             TMA_Card.deck_id == card.deck_id,
             TMA_Card.front_text == check_front,
@@ -298,6 +303,13 @@ def get_duplicate_cards(user_id: int):
                 "id": c.id,
                 "front": c.front_text,
                 "back": c.back_text,
+                "context": c.context,
+                "image_path": c.image_path,
+                "audio_path": c.audio_path,
+                "audio_back_path": c.audio_back_path,
+                "video_front_path": c.video_front_path,
+                "video_back_path": c.video_back_path,
+                "want_to_learn": bool(c.want_to_learn),
                 "deck_id": c.deck_id,
                 "deck_name": c.deck.name if c.deck else "Без колоды"
             })
@@ -305,6 +317,7 @@ def get_duplicate_cards(user_id: int):
     except Exception as e:
         logger.error(f"Error in get_duplicate_cards: {e}")
         return []
+
 
 def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
     """Выбирает следующую карточку-дубликат для изучения."""

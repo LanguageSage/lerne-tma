@@ -27,8 +27,12 @@ export const useStudySession = () => {
         if (isFirst || !currentCard) {
           nextDuplicateCard = duplicateCards[0];
         } else {
-          const historyIds = session.studyHistory.map(c => c.id);
-          nextDuplicateCard = duplicateCards.find(c => !historyIds.includes(c.id));
+          const currentIndex = duplicateCards.findIndex(c => c.id === currentCard.id);
+          if (currentIndex >= 0 && currentIndex < duplicateCards.length - 1) {
+            nextDuplicateCard = duplicateCards[currentIndex + 1];
+          } else {
+            nextDuplicateCard = null;
+          }
         }
 
         if (!nextDuplicateCard) {

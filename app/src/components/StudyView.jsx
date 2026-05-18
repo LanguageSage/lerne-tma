@@ -132,9 +132,10 @@ export const StudyView = ({ startTutorial }) => {
   const handleAutoplayAwareBack = async () => {
     if (isAutoplayActive) {
       autoplay.cancelCurrent();
-      const currentIndex = deckCards.findIndex(c => c.id === card?.id);
+      const cards = currentDeck?.id === 'duplicates' ? duplicateCards : deckCards;
+      const currentIndex = cards.findIndex(c => c.id === card?.id);
       if (currentIndex > 0) {
-        setCard(deckCards[currentIndex - 1]);
+        setCard(cards[currentIndex - 1]);
       }
       return;
     }
@@ -144,11 +145,12 @@ export const StudyView = ({ startTutorial }) => {
   const handleAutoplayAwareNext = async () => {
     if (isAutoplayActive) {
       autoplay.cancelCurrent();
-      const currentIndex = deckCards.findIndex(c => c.id === card?.id);
-      if (currentIndex < deckCards.length - 1) {
-        setCard(deckCards[currentIndex + 1]);
-      } else if (settings.autoplayLoop && deckCards.length > 0) {
-        setCard(deckCards[0]);
+      const cards = currentDeck?.id === 'duplicates' ? duplicateCards : deckCards;
+      const currentIndex = cards.findIndex(c => c.id === card?.id);
+      if (currentIndex < cards.length - 1) {
+        setCard(cards[currentIndex + 1]);
+      } else if (settings.autoplayLoop && cards.length > 0) {
+        setCard(cards[0]);
       }
       return;
     }
@@ -234,6 +236,7 @@ export const StudyView = ({ startTutorial }) => {
           onBack={() => { 
             autoplay.stop();
             if (currentDeck?.id === 'duplicates') {
+              useDeckStore.getState().setLastDuplicateCardId(card?.id);
               setView('duplicates');
             } else {
               setView('decks');

@@ -27,7 +27,8 @@ export const useCardEditor = () => {
         image_path: data.image_path || cleanMedia(data.image_url),
         audio_path: data.audio_path || cleanMedia(data.audio_url),
         video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
-        video_back_path: data.video_back_path || cleanMedia(data.video_back_url)
+        video_back_path: data.video_back_path || cleanMedia(data.video_back_url),
+        allow_duplicate: ui.editorSourceView === 'duplicates'
       };
 
       const res = await api.post('/cards/save', reqData);
@@ -56,6 +57,10 @@ export const useCardEditor = () => {
       } else if (ui.editorSourceView === 'cards') {
         fetchDeckCards(data.deck_id || currentDeck?.id);
         setView('cards');
+      } else if (ui.editorSourceView === 'duplicates') {
+        const { fetchDuplicates } = useDeckStore.getState();
+        await fetchDuplicates();
+        setView('duplicates');
       } else {
         setView('decks');
       }

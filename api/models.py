@@ -82,12 +82,27 @@ def create_all_tables():
     """Создает все таблицы и запускает накопленные миграции."""
     from api.migrations import run_migrations
     try:
-        tma_db.create_tables([
-            TMA_Deck, TMA_Card, TMAProgress,
-            TMAReviewHistory, TMASetting, TMAUserPrompt,
-            TMAMedia, TMAFeedback, TMAUser,
-            TMALinkedSession, Deck, Card
-        ], safe=True)  # safe=True — не падает если таблица уже есть
+        models_to_create = [
+            TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
+            TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, Deck, Card
+        ]
+        
+        # Если это SQLite, проверим, являются ли tma_deck и tma_card представлениями (VIEW)
+        if isinstance(tma_db.obj, SqliteDatabase):
+            try:
+                cursor = tma_db.execute_sql("SELECT name, type FROM sqlite_master WHERE name IN ('tma_deck', 'tma_card')")
+                existing = {row[0]: row[1] for row in cursor.fetchall()}
+                if existing.get('tma_deck') != 'view':
+                    models_to_create.append(TMA_Deck)
+                if existing.get('tma_card') != 'view':
+                    models_to_create.append(TMA_Card)
+            except Exception as e:
+                logger.error(f"Error checking views in sqlite_master: {e}")
+                models_to_create.extend([TMA_Deck, TMA_Card])
+        else:
+            models_to_create.extend([TMA_Deck, TMA_Card])
+
+        tma_db.create_tables(models_to_create, safe=True)
         logger.info("DATABASE: All tables created/verified.")
         run_migrations(tma_db, lerne_db)
     except Exception as e:
