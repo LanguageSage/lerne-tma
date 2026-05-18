@@ -29,7 +29,10 @@ def save_card(data, user_id):
         card = TMA_Card()
         
     raw_deck_id = data.get('deck_id')
-    deck_id = int(raw_deck_id) if raw_deck_id else None
+    try:
+        deck_id = int(raw_deck_id) if (raw_deck_id and raw_deck_id != 'duplicates') else None
+    except (ValueError, TypeError):
+        deck_id = None
     
     if deck_id:
         card.deck_id = deck_id
@@ -69,20 +72,7 @@ def save_card(data, user_id):
     if 'want_to_learn' in data:
         card.want_to_learn = bool(data.get('want_to_learn'))
         
-    # Check for duplicates (same front and back in the same deck)
-    check_front = card.front_text or ""
-    check_back = card.back_text or ""
-    if check_front and check_back and card.deck_id and not data.get('allow_duplicate'):
-        existing_query = TMA_Card.select().where(
-            TMA_Card.deck_id == card.deck_id,
-            TMA_Card.front_text == check_front,
-            TMA_Card.back_text == check_back
-        )
-        if card.id:
-            existing_query = existing_query.where(TMA_Card.id != card.id)
-            
-        if existing_query.exists():
-            raise ValueError("Такая карточка уже есть в этой колоде")
+    # Проверка на дубликаты удалена по запросу пользователя
         
     # Гарантируем, что обязательные поля не None
     if card.front_text is None: card.front_text = ""
@@ -101,8 +91,8 @@ def save_card(data, user_id):
 
 def delete_card(card_id: int):
     try:
-        TMA_Card.delete().where(TMA_Card.id == card_id).execute()
-        TMAProgress.delete().where(TMAProgress.card_id == card_id).execute()
+        # Мягкое удаление: помечаем карточку как is_deleted = True
+        TMA_Card.update(is_deleted=True, updated_at=datetime.datetime.now()).where(TMA_Card.id == card_id).execute()
         return True
     except Exception as e:
         logger.error(f"Error deleting card: {e}")
@@ -138,6 +128,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
 
     result = {
         "id": get_val('id', 'id'),
+        "deck_id": get_val('deck_id', 'deck_id'),
         "front": get_val('front_text', 'front_text'),
         "back": get_val('back_text', 'back_text'),
         "context": get_val('context', 'context'),

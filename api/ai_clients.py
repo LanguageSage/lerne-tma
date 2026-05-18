@@ -175,11 +175,26 @@ class AIService:
     async def get_models(self):
         """Fetch available models from the provider."""
         if self.provider == "google":
+            standard_models = [
+                "gemini-3-flash",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
+                "gemini-2.5-pro",
+                "gemini-2.0-flash",
+                "gemini-1.5-flash",
+                "gemini-1.5-pro",
+                "gemini-flash-latest"
+            ]
             url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
             data, success = await self._make_request(url, method="GET", timeout=10, provider_name="Google_Models")
             if success:
-                return [m["name"].split("/")[-1] for m in data.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
-            return ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]
+                fetched = [m["name"].split("/")[-1] for m in data.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
+                combined = standard_models.copy()
+                for m in fetched:
+                    if m not in combined:
+                        combined.append(m)
+                return combined
+            return standard_models
 
         if self.provider == "openrouter":
             url = "https://openrouter.ai/api/v1/models"

@@ -63,19 +63,25 @@ export const getUserProfile = () => {
     if (urlIdStr) {
       const urlId = parseUserId(urlIdStr);
       if (urlId !== null) {
+        const accountParam = params.get('account');
+        
         // Проверяем, нет ли уже в сторадже полноценного профиля для этого ID
         const savedProfile = storage.get('lerne_user_profile');
         if (savedProfile) {
           try {
             const p = JSON.parse(savedProfile);
             if (p.user_id === urlId && !p.is_guest) {
-              return p; // Оставляем как есть, если это уже не гость
+              return p;
             }
           } catch (e) {}
         }
         
-        // Если ID новый или в сторадже был гость - создаем временный профиль
-        const profile = { user_id: urlId, is_guest: true };
+        const profile = { 
+          user_id: urlId, 
+          first_name: accountParam || 'Пользователь', 
+          username: accountParam || null,
+          is_guest: !accountParam 
+        };
         storage.set('lerne_user_id', urlId);
         storage.set('lerne_user_profile', JSON.stringify(profile));
         return profile;

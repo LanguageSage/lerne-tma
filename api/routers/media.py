@@ -183,14 +183,7 @@ async def generate_audio_endpoint(
         logger.error(f"TTS generation error: {e}\n{err_msg}")
         raise HTTPException(status_code=500, detail=f"TTS Error: {str(e)}")
 
-@router.get("/silent-audio")
-def get_silent_audio():
-    """Возвращает валидный 1-секундный тихий WAV файл для удержания фоновой сессии ОС."""
-    wav_data = (
-        b"RIFF(\x00\x00\x00WAVEfmt \x12\x00\x00\x00\x01\x00\x01\x00\x44\xac\x00\x00"
-        b"\x88\x58\x01\x00\x02\x00\x10\x00data\x02\x00\x00\x00\x00\x00"
-    )
-    return Response(content=wav_data, media_type="audio/wav")
+
 
 @router.get("/audio/{filename}")
 def get_audio(filename: str, request: Request):

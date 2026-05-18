@@ -19,7 +19,7 @@ from api.dependencies.auth import get_user_id
 from api import models, services
 
 # Импорт роутеров
-from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, share, debug
+from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, share, debug, trash
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +39,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Управление жизненным циклом соединений с базой данных (Peewee Connection Pool)
+@app.middleware("http")
+async def db_session_middleware(request, call_next):
+    # Убеждаемся, что перед началом запроса соединения закрыты/сброшены, если они остались в сталом состоянии от прошлых потоков/сна
+    try:
+        if not models.tma_db.is_closed():
+            models.tma_db.close()
+        if not models.lerne_db.is_closed():
+            models.lerne_db.close()
+        models.tma_db.connect(reuse_if_open=True)
+        models.lerne_db.connect(reuse_if_open=True)
+    except Exception as e:
+        logger.error(f"Error resetting DB connections before request: {e}")
+        try:
+            models.initialize_database()
+            models.tma_db.connect(reuse_if_open=True)
+            models.lerne_db.connect(reuse_if_open=True)
+        except Exception as e2:
+            logger.error(f"CRITICAL: DB reconnect failed: {e2}")
+
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        try:
+            if not models.tma_db.is_closed():
+                models.tma_db.close()
+            if not models.lerne_db.is_closed():
+                models.lerne_db.close()
+        except Exception as e:
+            logger.error(f"Error closing DB connections in middleware: {e}")
+
 # Подключение роутеров
 app.include_router(decks.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
@@ -51,6 +83,7 @@ app.include_router(feedback.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(share.router, prefix="/api")
 app.include_router(debug.router, prefix="/api")
+app.include_router(trash.router, prefix="/api")
 
 # --- Consolidated Init Endpoint ---
 @app.get("/api/init")

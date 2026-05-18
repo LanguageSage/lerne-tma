@@ -18,9 +18,13 @@ export const useCardEditor = () => {
 
     setLoading(true);
     try {
+      let finalDeckId = data.deck_id;
+      if (finalDeckId === 'duplicates' || !finalDeckId) {
+        finalDeckId = currentDeck?.id !== 'duplicates' ? currentDeck?.id : null;
+      }
       const reqData = {
         card_id: data.id || null,
-        deck_id: data.deck_id || currentDeck?.id || null,
+        deck_id: finalDeckId || null,
         front: data.front,
         back: data.back,
         context: data.context || '',
@@ -28,7 +32,7 @@ export const useCardEditor = () => {
         audio_path: data.audio_path || cleanMedia(data.audio_url),
         video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
         video_back_path: data.video_back_path || cleanMedia(data.video_back_url),
-        allow_duplicate: ui.editorSourceView === 'duplicates'
+        allow_duplicate: true
       };
 
       const res = await api.post('/cards/save', reqData);
@@ -42,6 +46,11 @@ export const useCardEditor = () => {
         session.setCard(fullCard);
         session.setIsFlipped(false);
         
+        if (currentDeck?.id === 'duplicates') {
+          const { fetchDuplicates } = useDeckStore.getState();
+          await fetchDuplicates();
+        }
+
         // Если это была новая карточка (creator), добавляем в историю
         if (viewState === 'creator') {
           session.addToHistory(fullCard);
@@ -73,8 +82,8 @@ export const useCardEditor = () => {
     }
   };
 
-  const handleDeleteCard = async (cardId) => {
-    if (!window.confirm("Удалить эту карточку?")) return;
+  const handleDeleteCard = async (cardId, skipConfirm = false) => {
+    if (!skipConfirm && !window.confirm("Удалить эту карточку?")) return;
     setLoading(true);
     try {
       await api.delete(`/cards/${cardId}`);

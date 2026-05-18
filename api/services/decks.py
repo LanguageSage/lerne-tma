@@ -358,9 +358,10 @@ def import_deck_from_json(data: dict, user_id: int):
 
 def delete_deck(deck_id: int):
     try:
-        # Сначала удаляем карточки и прогресс (каскадно или вручную)
-        TMA_Card.delete().where(TMA_Card.deck_id == deck_id).execute()
-        TMA_Deck.delete().where(TMA_Deck.id == deck_id).execute()
+        # Мягкое удаление: помечаем колоду и её карточки как is_deleted = True
+        now = datetime.datetime.now()
+        TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id == deck_id).execute()
+        TMA_Deck.update(is_deleted=True, updated_at=now).where(TMA_Deck.id == deck_id).execute()
         return True
     except Exception as e:
         logger.error(f"Error deleting deck: {e}")

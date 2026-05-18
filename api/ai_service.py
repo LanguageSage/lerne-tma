@@ -98,37 +98,37 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
 
 async def generate_card_fields(user_id: int, phrase: str):
     """Generates Front, Back, and Context for a card using AI."""
-    lang = detect_language(phrase)
-    
-    provider, ai_key, ai_model = get_ai_config()
-    
-    if not ai_key and provider != "ollama":
-        return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
-
-    user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
-    base_prompt = DEFAULT_PROMPTS.get(lang, DEFAULT_PROMPTS["de"])
-    system_prompt = user_prompts.translation_prompt or base_prompt if user_prompts else base_prompt
-        
-    system_prompt = system_prompt.replace("{phrase}", phrase)
-    if "JSON" not in system_prompt.upper():
-        system_prompt += "\nReturn ONLY a JSON object with 'front', 'back', and 'context' keys."
-
-    client = AIService(provider=provider, api_key=ai_key)
-    
-    if provider == "openrouter":
-        default_model = "google/gemini-2.0-flash-lite:free"
-        model_name = f"google/{ai_model}" if ai_model and "/" not in ai_model else (ai_model or default_model)
-    elif provider == "groq":
-        default_model = "llama3-70b-8192"
-        model_name = ai_model or default_model
-    else:
-        default_model = "gemini-2.0-flash"
-        model_name = ai_model or default_model
-    
-    logger.info(f"AI: Generating card fields using {provider}/{model_name}...")
     start_time = time.time()
-    
     try:
+        lang = detect_language(phrase)
+        
+        provider, ai_key, ai_model = get_ai_config()
+        
+        if not ai_key and provider != "ollama":
+            return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
+
+        user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
+        base_prompt = DEFAULT_PROMPTS.get(lang, DEFAULT_PROMPTS["de"])
+        system_prompt = user_prompts.translation_prompt or base_prompt if user_prompts else base_prompt
+            
+        system_prompt = system_prompt.replace("{phrase}", phrase)
+        if "JSON" not in system_prompt.upper():
+            system_prompt += "\nReturn ONLY a JSON object with 'front', 'back', and 'context' keys."
+
+        client = AIService(provider=provider, api_key=ai_key)
+        
+        if provider == "openrouter":
+            default_model = "google/gemini-2.0-flash-lite:free"
+            model_name = f"google/{ai_model}" if ai_model and "/" not in ai_model else (ai_model or default_model)
+        elif provider == "groq":
+            default_model = "llama3-70b-8192"
+            model_name = ai_model or default_model
+        else:
+            default_model = "gemini-2.0-flash"
+            model_name = ai_model or default_model
+        
+        logger.info(f"AI: Generating card fields using {provider}/{model_name}...")
+        
         response, success = await client.chat_completion(
             system_prompt=system_prompt,
             user_message=phrase,
@@ -144,8 +144,9 @@ async def generate_card_fields(user_id: int, phrase: str):
         return extract_json_from_text(response, phrase)
         
     except Exception as e:
-        logger.error(f"CRITICAL AI ERROR: {e}", exc_info=True)
-        return {"error": f"Internal Server Error: {str(e)}"}
+        duration = time.time() - start_time
+        logger.error(f"CRITICAL AI ERROR after {duration:.2f}s: {e}", exc_info=True)
+        return {"error": f"Внутренняя ошибка сервера (БД/ИИ): {str(e)}"}
 
 async def get_provider_models(provider: str, ollama_url: str = None):
     """Fetches models from the specified provider dynamically."""

@@ -17,10 +17,13 @@ export const DuplicateManager = () => {
 
   useEffect(() => {
     if (lastDuplicateCardId) {
-      const el = document.getElementById(`duplicate-card-${lastDuplicateCardId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'auto', block: 'center' });
-      }
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`duplicate-card-${lastDuplicateCardId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
     }
   }, [lastDuplicateCardId]);
 
@@ -62,7 +65,7 @@ export const DuplicateManager = () => {
   const onDelete = async (e, cardId) => {
     e.stopPropagation();
     if (window.confirm('Вы уверены, что хотите удалить этот дубликат?')) {
-      await handleDeleteCard(cardId);
+      await handleDeleteCard(cardId, true);
       fetchDuplicates();
     }
   };

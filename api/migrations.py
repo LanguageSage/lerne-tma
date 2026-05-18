@@ -99,6 +99,63 @@ def run_migrations(tma_db, lerne_db):
                     VALUES (NEW.id, NEW.deck_id, NEW.card_type, NEW.difficulty, NEW.front_text, NEW.back_text, NEW.context, NEW.audio_path, NEW.image_path, NEW.tags, NEW.topics, NEW.metadata, NEW.created_at, NEW.updated_at, NEW.history, NEW.is_deleted, NEW.cloud_id, NEW.source, NEW.video_front_path, NEW.video_back_path, NEW.image_data, NEW.audio_back_path, NEW.want_to_learn, NEW.creator_id, NEW.share_id);
                 END;
             """)
-            logger.info("SQLite INSTEAD OF INSERT triggers updated successfully.")
+
+            # --- UPDATE triggers ---
+            tma_db.execute_sql("DROP TRIGGER IF EXISTS tma_deck_update")
+            tma_db.execute_sql("""
+                CREATE TRIGGER tma_deck_update INSTEAD OF UPDATE ON tma_deck
+                BEGIN
+                    UPDATE deck SET 
+                        name = NEW.name, level = NEW.level, topic = NEW.topic, 
+                        is_deleted = NEW.is_deleted, updated_at = NEW.updated_at, 
+                        user_id = NEW.user_id, cloud_id = NEW.cloud_id, 
+                        share_id = NEW.share_id, is_inbox = NEW.is_inbox
+                    WHERE id = OLD.id;
+                END;
+            """)
+
+            tma_db.execute_sql("DROP TRIGGER IF EXISTS tma_card_update")
+            tma_db.execute_sql("""
+                CREATE TRIGGER tma_card_update INSTEAD OF UPDATE ON tma_card
+                BEGIN
+                    UPDATE card SET 
+                        deck_id = NEW.deck_id, card_type = NEW.card_type, difficulty = NEW.difficulty, 
+                        front_text = NEW.front_text, back_text = NEW.back_text, context = NEW.context, 
+                        audio_path = NEW.audio_path, image_path = NEW.image_path, tags = NEW.tags, 
+                        topics = NEW.topics, metadata = NEW.metadata, updated_at = NEW.updated_at, 
+                        history = NEW.history, is_deleted = NEW.is_deleted, cloud_id = NEW.cloud_id, 
+                        source = NEW.source, video_front_path = NEW.video_front_path, 
+                        video_back_path = NEW.video_back_path, image_data = NEW.image_data, 
+                        audio_back_path = NEW.audio_back_path, want_to_learn = NEW.want_to_learn, 
+                        creator_id = NEW.creator_id, share_id = NEW.share_id
+                    WHERE id = OLD.id;
+                END;
+            """)
+
+            # --- DELETE triggers ---
+            tma_db.execute_sql("DROP TRIGGER IF EXISTS tma_deck_delete")
+            tma_db.execute_sql("""
+                CREATE TRIGGER tma_deck_delete INSTEAD OF DELETE ON tma_deck
+                BEGIN
+                    DELETE FROM deck WHERE id = OLD.id;
+                END;
+            """)
+
+            tma_db.execute_sql("DROP TRIGGER IF EXISTS tma_card_delete")
+            tma_db.execute_sql("""
+                CREATE TRIGGER tma_card_delete INSTEAD OF DELETE ON tma_card
+                BEGIN
+                    DELETE FROM card WHERE id = OLD.id;
+                END;
+            """)
+
+            # Восстановление случайно удаленной колоды "Моя колода 1" (ID 118)
+            try:
+                tma_db.execute_sql("UPDATE deck SET is_deleted = 0, name = 'Моя колода 1', user_id = 642478257 WHERE id = 118")
+                logger.info("Restored deck ID 118 (Моя колода 1) for user 642478257 successfully.")
+            except Exception as e_rest:
+                logger.error(f"Error restoring deck 118: {e_rest}")
+
+            logger.info("SQLite INSTEAD OF INSERT/UPDATE/DELETE triggers updated successfully.")
         except Exception as e:
             logger.error(f"Error updating SQLite triggers: {e}")

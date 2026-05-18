@@ -19,6 +19,7 @@ import { DeckModals } from './components/DeckModals';
 import { SettingsModal } from './components/SettingsModal';
 import { SyncModal } from './components/SyncModal';
 import { DuplicateManager } from './components/DuplicateManager';
+import { TrashManager } from './components/TrashManager';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
@@ -48,11 +49,14 @@ export default function App() {
   const { fetchNextCard, handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
 
   // Custom hooks for initialization and import logic
-  const { importShareId, checkStartParam } = useAutoImport();
+  const { importShareId, setImportShareId, checkStartParam } = useAutoImport();
   useAppInitialization(checkStartParam);
   
   // Scroll to top on view change
   useEffect(() => {
+    if (view === 'duplicates' && useDeckStore.getState().lastDuplicateCardId) {
+      return; // Let DuplicateManager handle the scroll
+    }
     const root = document.getElementById('root');
     if (root) {
       root.scrollTo({ top: 0, behavior: 'instant' });
@@ -113,8 +117,8 @@ export default function App() {
             startStudy={startStudy}
             startTutorial={startTutorial}
             importShareId={importShareId}
-            onImportSuccess={() => {}}
-            onImportClose={() => {}}
+            onImportSuccess={() => setImportShareId(null)}
+            onImportClose={() => setImportShareId(null)}
           />
         );
       case 'study':
@@ -129,6 +133,8 @@ export default function App() {
         );
       case 'duplicates':
         return <DuplicateManager />;
+      case 'trash':
+        return <TrashManager />;
       default:
         return null;
     }
@@ -170,7 +176,7 @@ export default function App() {
         decks={decks}
         onMove={handleMoveCard}
         onCopy={handleCopyCard}
-        onDelete={(c) => handleDeleteCard(c.id)}
+        onDelete={(c) => handleDeleteCard(c.id, true)}
         onToggleLearn={handleToggleLearn}
         onShare={handleShareCard}
         loading={loading}

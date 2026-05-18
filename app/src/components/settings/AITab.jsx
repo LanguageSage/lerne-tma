@@ -14,7 +14,12 @@ export const AITab = () => {
   const fetchModels = async () => {
     setIsFetchingModels(true);
     try {
-      const res = await api.get('/settings/models');
+      const res = await api.get('/settings/models', {
+        params: {
+          provider: adminSettings.AI_PROVIDER,
+          url: adminSettings.OLLAMA_URL
+        }
+      });
       setAvailableModels(res.data);
     } catch (err) {
       showToast("Ошибка загрузки моделей");
@@ -136,8 +141,11 @@ export const AITab = () => {
             <select 
               value={availableModels.includes(adminSettings.DEFAULT_MODEL) ? adminSettings.DEFAULT_MODEL : 'custom'} 
               onChange={e => {
-                if (e.target.value !== 'custom') {
-                  updateAdminSetting('DEFAULT_MODEL', e.target.value);
+                const val = e.target.value;
+                if (val === 'custom') {
+                  updateAdminSetting('DEFAULT_MODEL', '');
+                } else {
+                  updateAdminSetting('DEFAULT_MODEL', val);
                 }
               }}
             >

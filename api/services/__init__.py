@@ -3,3 +3,4 @@ from .cards import *
 from .study import *
 from .media import *
 from .utils import *
+from . import trash

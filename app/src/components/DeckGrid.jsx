@@ -103,10 +103,13 @@ const ShareBanner = ({ shareId, onSuccess, onClose }) => {
 };
 
 export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, importShareId, onImportSuccess, onImportClose }) => {
-  const { view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, showToast } = useUiStore();
+  const { view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, showToast, userProfile } = useUiStore();
   const { decks, setCurrentDeck, fetchDeckCards, handleSyncDeck, handleResetProgress, handleDeleteDeck } = useDeckStore();
   
   if (view !== 'decks') return null;
+
+  const accountParam = userProfile?.username ? `&account=${userProfile.username}` : (userProfile?.first_name ? `&account=${encodeURIComponent(userProfile.first_name)}` : '');
+  const personalLink = `${window.location.origin}/?user_id=${userId}${accountParam}`;
 
   return (
     <div className="view-decks">
@@ -136,12 +139,11 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
             <Info size={16} />
             <div className="web-link-container">
               <span>Персональная ссылка: </span>
-              <code className="web-link">{window.location.origin}/?user_id={userId}</code>
+              <code className="web-link">{personalLink}</code>
               <button 
                 className="copy-link-btn" 
                 onClick={() => {
-                  const link = `${window.location.origin}/?user_id=${userId}`;
-                  navigator.clipboard.writeText(link);
+                  navigator.clipboard.writeText(personalLink);
                   showToast("Ссылка скопирована!", "success");
                 }}
                 title="Копировать ссылку"
@@ -298,6 +300,36 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
               </div>
             </div>
           )}
+
+          {/* Special item for Trash, below duplicates */}
+          <div 
+            className="deck-card glass" 
+            style={{ 
+              border: '1px dashed rgba(239,68,68,0.4)',
+              background: 'rgba(239,68,68,0.05)'
+            }}
+            onClick={() => {
+              useDeckStore.getState().fetchTrash();
+              useUiStore.getState().setView('trash');
+            }}
+          >
+            <div className="deck-main-action">
+              <div className="deck-icon" style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
+                <Trash2 size={24} />
+              </div>
+              <h3 style={{ color: '#f87171' }}>Корзина</h3>
+              <div className="deck-stats">
+                <span className="stat total" style={{ color: '#fca5a5', fontSize: '0.8rem', fontWeight: 500 }}>
+                  Хранилище
+                </span>
+              </div>
+            </div>
+            <div className="deck-footer-actions" style={{ justifyContent: 'center', padding: '8px 12px' }}>
+              <span style={{ fontSize: '0.7rem', color: '#94a3b8', textAlign: 'center' }}>
+                Удаленные колоды и карточки (возможность восстановления)
+              </span>
+            </div>
+          </div>
         </div>
 
       </motion.div>

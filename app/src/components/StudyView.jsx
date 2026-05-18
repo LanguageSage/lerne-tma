@@ -41,6 +41,7 @@ export const StudyView = ({ startTutorial }) => {
   const googleReturnTimerRef = useRef(null);
   const previousAutoplayStateRef = useRef(autoplayState);
   const suppressLegacyAutoplayCardRef = useRef(null);
+  const lastAutoplayedCardRef = useRef(null);
 
   const openCardActions = (targetCard) => {
     setActionCard(targetCard);
@@ -51,7 +52,7 @@ export const StudyView = ({ startTutorial }) => {
     e.stopPropagation();
     if (window.confirm('Удалить этот дубликат?')) {
       try {
-        await handleDeleteCard(card.id);
+        await handleDeleteCard(card.id, true);
         fetchDuplicates(); // Update the list in background
         goNext(); // Move to next card
       } catch (err) {
@@ -76,7 +77,9 @@ export const StudyView = ({ startTutorial }) => {
 
   useEffect(() => {
     const isSuppressedAfterAutoplay = suppressLegacyAutoplayCardRef.current === card?.id;
-    if (view === 'study' && card?.audio_url && autoPlay && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay) {
+    const currentCardKey = `${card?.id}-${historyIndex}`;
+    if (view === 'study' && card?.audio_url && autoPlay && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay && lastAutoplayedCardRef.current !== currentCardKey) {
+      lastAutoplayedCardRef.current = currentCardKey;
       const timer = setTimeout(() => {
         playAudio(card.audio_url);
       }, 300);
@@ -247,7 +250,7 @@ export const StudyView = ({ startTutorial }) => {
           onStartTutorial={() => startTutorial(isFlipped ? 'study_back' : 'study')}
           onOpenImagePicker={() => setIsImagePickerOpen(true)}
           onQuickAudio={() => handleQuickAudio(card, playAudio)}
-          onOpenEditor={() => openEditor(currentDeck?.id, card, 'study')}
+          onOpenEditor={() => openEditor(currentDeck?.id === 'duplicates' ? card.deck_id : currentDeck?.id, card, 'study')}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
 
