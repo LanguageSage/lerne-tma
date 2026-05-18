@@ -33,8 +33,8 @@ export const StudyView = ({ startTutorial }) => {
   const settings = useSettingsStore();
   const { autoPlay, cardBgFront, cardBgBack } = settings;
 
-  const { playAudio, stopAudio, isAudioLoading } = useAudio(autoPlay, showToast);
-  const autoplay = useAutoplay({ card, playAudio, stopAudio, showToast });
+  const { playAudio, stopAudio, isAudioLoading, startBackgroundLock, stopBackgroundLock } = useAudio(autoPlay, showToast);
+  const autoplay = useAutoplay({ card, playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock });
   const isAutoplayActive = autoplayState === 'playing' || autoplayState === 'paused';
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
@@ -179,7 +179,8 @@ export const StudyView = ({ startTutorial }) => {
       const generated = await api.post('/media/generate-audio', {
         text: targetCard.back,
         lang: 'ru',
-        rate: formatRate(settings.ttsSpeedRu)
+        rate: formatRate(settings.ttsSpeedRu),
+        voice: settings.adminSettings?.TTS_VOICE_RU
       });
       const saved = await api.post('/cards/save', {
         card_id: targetCard.id,

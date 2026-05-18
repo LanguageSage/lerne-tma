@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { stripMarkdown } from '../utils/text';
 
 const formatRate = (value) => `${value >= 0 ? '+' : ''}${value}%`;
 const getCardText = (targetCard, side) => {
@@ -12,15 +13,21 @@ const getCardText = (targetCard, side) => {
     : (targetCard.front ?? targetCard.front_text ?? '');
 };
 
-export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
+export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock }) => {
   const runRef = useRef(0);
   const timerRef = useRef(null);
   const cardRef = useRef(card);
   const autoplayCardsRef = useRef([]);
+  const cardRepeatCountRef = useRef(1);
+  const currentCardIdRef = useRef(card?.id);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
     cardRef.current = card;
+    if (card?.id !== currentCardIdRef.current) {
+      currentCardIdRef.current = card?.id;
+      cardRepeatCountRef.current = 1;
+    }
   }, [card]);
 
   const clearTimer = useCallback(() => {
@@ -73,6 +80,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
     const text = getCardText(targetCard, side);
     const lang = isBack ? 'ru' : 'de';
     const rate = formatRate(isBack ? settings.ttsSpeedRu : settings.ttsSpeed);
+    const voice = isBack ? settings.adminSettings?.TTS_VOICE_RU : settings.adminSettings?.TTS_VOICE;
     const forceGenerate = isBack ? settings.autoplayForceBackAudio : settings.autoplayForceFrontAudio;
     const hasWrongBackAudio = isBack && (
       (targetCard.audio_back_url && targetCard.audio_url && targetCard.audio_back_url === targetCard.audio_url) ||
@@ -85,7 +93,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
     setStatus(isBack ? 'Генерируем перевод' : 'Генерируем фразу');
     let generated;
     try {
-      generated = await api.post('/media/generate-audio', { text, lang, rate });
+      generated = await api.post('/media/generate-audio', { text, lang, rate, voice });
     } catch (err) {
       console.error('Audio generation failed:', err);
       showToast?.(`Не удалось сгенерировать ${isBack ? 'перевод' : 'фразу'}: ${err.response?.data?.detail || err.message}`);
@@ -181,27 +189,53 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
 
     try {
       session.setIsFlipped(false);
-      setStatus('Озвучиваем фразу');
+      const totalRepeats = settings.autoplayCardRepeat || 1;
+      const repeatPrefix = totalRepeats > 1 ? `[Повтор ${cardRepeatCountRef.current}/${totalRepeats}] ` : '';
+
+      setStatus(`${repeatPrefix}Озвучиваем фразу`);
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: stripMarkdown(targetCard.front || ''),
+          artist: 'Lerne TMA (Фраза)',
+          album: useDeckStore.getState().currentDeck?.name || 'Режим изучения'
+        });
+      }
       const frontUrl = await ensureAudio(targetCard, 'front', runId);
       if (frontUrl) await waitForAudio(frontUrl, runId);
       if (!isCurrentRun(runId)) return;
 
-      setStatus(`Пауза ${settings.autoplayFrontPause}с`);
+      setStatus(`${repeatPrefix}Пауза ${settings.autoplayFrontPause}с`);
       const afterFrontPause = await wait(settings.autoplayFrontPause, runId);
       if (!afterFrontPause) return;
 
       session.setIsFlipped(true);
-      setStatus('Озвучиваем перевод');
+      setStatus(`${repeatPrefix}Озвучиваем перевод`);
       const latestCard = useSessionStore.getState().card || targetCard;
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: stripMarkdown(latestCard.back || ''),
+          artist: 'Lerne TMA (Перевод)',
+          album: useDeckStore.getState().currentDeck?.name || 'Режим изучения'
+        });
+      }
       const backUrl = await ensureAudio(latestCard, 'back', runId);
       if (backUrl) await waitForAudio(backUrl, runId);
       if (!isCurrentRun(runId)) return;
 
-      setStatus(`Пауза ${settings.autoplayBackPause}с`);
+      setStatus(`${repeatPrefix}Пауза ${settings.autoplayBackPause}с`);
       const afterBackPause = await wait(settings.autoplayBackPause, runId);
       if (!afterBackPause) return;
 
-      await moveToNextCard(latestCard, runId);
+      if (cardRepeatCountRef.current < totalRepeats) {
+        cardRepeatCountRef.current += 1;
+        clearTimer();
+        stopAudio();
+        const nextRunId = runRef.current + 1;
+        runRef.current = nextRunId;
+        runCardCycle(nextRunId);
+      } else {
+        await moveToNextCard(latestCard, runId);
+      }
     } catch (err) {
       console.error('Autoplay error:', err);
       if (isCurrentRun(runId)) {
@@ -211,7 +245,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
         setStatus('');
       }
     }
-  }, [ensureAudio, isCurrentRun, moveToNextCard, showToast, stopAudio, wait, waitForAudio]);
+  }, [clearTimer, ensureAudio, isCurrentRun, moveToNextCard, showToast, stopAudio, wait, waitForAudio]);
 
   const restart = useCallback(() => {
     clearTimer();
@@ -224,39 +258,40 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
   const start = useCallback(() => {
     if (!cardRef.current) return;
     useSessionStore.getState().setAutoplayState('playing');
-    prepareAutoplayCards().then((cards) => {
-      if (useSessionStore.getState().autoplayState === 'playing' && cards?.length) {
-        if (cardRef.current?.id === cards[0].id) {
-          restart();
-        } else {
-          useSessionStore.getState().setCard(cards[0]);
-        }
+    startBackgroundLock?.();
+    prepareAutoplayCards().then(() => {
+      if (useSessionStore.getState().autoplayState === 'playing') {
+        cardRepeatCountRef.current = 1;
+        restart();
       }
     });
-  }, [prepareAutoplayCards, restart]);
+  }, [prepareAutoplayCards, restart, startBackgroundLock]);
 
   const stop = useCallback(() => {
     runRef.current += 1;
     autoplayCardsRef.current = [];
     clearTimer();
     stopAudio();
+    stopBackgroundLock?.();
     setStatus('');
     useSessionStore.getState().stopAutoplay();
-  }, [clearTimer, stopAudio]);
+  }, [clearTimer, stopAudio, stopBackgroundLock]);
 
   const pause = useCallback(() => {
     runRef.current += 1;
     clearTimer();
     stopAudio();
+    stopBackgroundLock?.();
     setStatus('Пауза');
     useSessionStore.getState().pauseAutoplay();
-  }, [clearTimer, stopAudio]);
+  }, [clearTimer, stopAudio, stopBackgroundLock]);
 
   const resume = useCallback(() => {
     if (!cardRef.current) return;
     useSessionStore.getState().setAutoplayState('playing');
+    startBackgroundLock?.();
     restart();
-  }, [restart]);
+  }, [restart, startBackgroundLock]);
 
   const cancelCurrent = useCallback(() => {
     runRef.current += 1;
@@ -277,7 +312,8 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast }) => {
     autoplayCardsRef.current = [];
     clearTimer();
     stopAudio();
-  }, [clearTimer, stopAudio]);
+    stopBackgroundLock?.();
+  }, [clearTimer, stopAudio, stopBackgroundLock]);
 
   return { start, stop, pause, resume, restart, cancelCurrent, status };
 };

@@ -497,8 +497,8 @@
 
 .audio-btn-translation {
   position: absolute;
-  top: -6px;
-  right: 0;
+  bottom: -20px;
+  right: -5px;
   z-index: 12;
   width: 42px;
   height: 42px;
@@ -511,10 +511,13 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  transition: all 0.2s;
 }
 
 .audio-btn-translation:hover:not(:disabled) {
   background: rgba(14, 165, 233, 0.22);
+  transform: scale(1.1);
 }
 
 .audio-btn-translation:disabled {

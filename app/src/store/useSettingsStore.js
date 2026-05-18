@@ -24,6 +24,7 @@ const getInitialStudyState = () => ({
   autoShow: storage.get('lerne_autoshow') !== null ? storage.get('lerne_autoshow') === 'true' : false,
   autoplayFrontPause: storage.get('lerne_autoplay_front_pause') !== null ? Number(storage.get('lerne_autoplay_front_pause')) : 4,
   autoplayBackPause: storage.get('lerne_autoplay_back_pause') !== null ? Number(storage.get('lerne_autoplay_back_pause')) : 2,
+  autoplayCardRepeat: storage.get('lerne_autoplay_card_repeat') !== null ? Number(storage.get('lerne_autoplay_card_repeat')) : 1,
   ttsSpeed: storage.get('lerne_tts_speed') !== null ? Number(storage.get('lerne_tts_speed')) : 0,
   ttsSpeedRu: storage.get('lerne_tts_speed_ru') !== null ? Number(storage.get('lerne_tts_speed_ru')) : 0,
   autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : false,
@@ -50,6 +51,10 @@ export const useSettingsStore = create((set, get) => ({
   setAutoplayBackPause: (value) => {
     storage.set('lerne_autoplay_back_pause', value);
     set({ autoplayBackPause: Number(value) });
+  },
+  setAutoplayCardRepeat: (value) => {
+    storage.set('lerne_autoplay_card_repeat', value);
+    set({ autoplayCardRepeat: Number(value) });
   },
   setTtsSpeed: (value) => {
     storage.set('lerne_tts_speed', value);

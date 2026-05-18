@@ -100,6 +100,18 @@ export const StudyNavigation = ({
               </select>
             </label>
 
+            <label className="autoplay-field" style={{ gridColumn: 'span 2' }}>
+              <span>Повторов подряд</span>
+              <select
+                value={autoplaySettings.autoplayCardRepeat}
+                onChange={(e) => autoplaySettings.setAutoplayCardRepeat(e.target.value)}
+              >
+                {PAUSE_OPTIONS.map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+
             <label className="autoplay-slider">
               <span>DE {autoplaySettings.ttsSpeed > 0 ? '+' : ''}{autoplaySettings.ttsSpeed}%</span>
               <input

@@ -21,39 +21,81 @@ export const VoiceTab = () => {
 
   return (
     <motion.div key="voice" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
-      <h3>Синтез речи</h3>
-      <div className="form-group">
-        <label>Голос (Edge TTS)</label>
-        <select value={adminSettings.TTS_VOICE || ''} onChange={e => updateAdminSetting('TTS_VOICE', e.target.value)}>
-          {VOICE_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <div className="label-with-value">
-          <label>Скорость</label>
-          <span className="value-badge">{adminSettings.TTS_SPEED || "+0%"}</span>
+      <h3>Синтез речи (Edge TTS)</h3>
+
+      <div style={{ marginTop: '15px', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+        <h4 style={{ marginBottom: '15px', color: '#38bdf8', fontSize: '1rem', borderBottom: '1px solid rgba(56, 189, 248, 0.2)', paddingBottom: '8px' }}>Для фразы (Немецкий)</h4>
+        <div className="form-group">
+          <label>Голос</label>
+          <select value={adminSettings.TTS_VOICE || ''} onChange={e => updateAdminSetting('TTS_VOICE', e.target.value)}>
+            {VOICE_OPTIONS.filter(opt => opt.value.startsWith('de')).map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
-        <input 
-          type="range" 
-          min="-50" 
-          max="100" 
-          step="5"
-          value={parseInt((adminSettings.TTS_SPEED || "+0%").replace('%', ''))} 
-          onChange={e => {
-            const val = parseInt(e.target.value);
-            const speed = val >= 0 ? `+${val}%` : `${val}%`;
-            updateAdminSetting('TTS_SPEED', speed);
-          }} 
-        />
-        <div className="range-labels">
-          <span>Медленно</span>
-          <span>Норм</span>
-          <span>Быстро</span>
+        <div className="form-group">
+          <div className="label-with-value">
+            <label>Скорость</label>
+            <span className="value-badge">{adminSettings.TTS_SPEED || "+0%"}</span>
+          </div>
+          <input 
+            type="range" 
+            min="-50" 
+            max="100" 
+            step="5"
+            value={parseInt((adminSettings.TTS_SPEED || "+0%").replace('%', ''))} 
+            onChange={e => {
+              const val = parseInt(e.target.value);
+              const speed = val >= 0 ? `+${val}%` : `${val}%`;
+              updateAdminSetting('TTS_SPEED', speed);
+              useSettingsStore.getState().setTtsSpeed(val);
+            }} 
+          />
+          <div className="range-labels">
+            <span>Медленно</span>
+            <span>Норм</span>
+            <span>Быстро</span>
+          </div>
         </div>
       </div>
-      <button className="btn btn-primary btn-small" onClick={saveAdminSettings}>Сохранить настройки голоса</button>
+
+      <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+        <h4 style={{ marginBottom: '15px', color: '#38bdf8', fontSize: '1rem', borderBottom: '1px solid rgba(56, 189, 248, 0.2)', paddingBottom: '8px' }}>Для перевода (Русский)</h4>
+        <div className="form-group">
+          <label>Голос</label>
+          <select value={adminSettings.TTS_VOICE_RU || ''} onChange={e => updateAdminSetting('TTS_VOICE_RU', e.target.value)}>
+            {VOICE_OPTIONS.filter(opt => opt.value.startsWith('ru')).map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <div className="label-with-value">
+            <label>Скорость</label>
+            <span className="value-badge">{adminSettings.TTS_SPEED_RU || "+0%"}</span>
+          </div>
+          <input 
+            type="range" 
+            min="-50" 
+            max="100" 
+            step="5"
+            value={parseInt((adminSettings.TTS_SPEED_RU || "+0%").replace('%', ''))} 
+            onChange={e => {
+              const val = parseInt(e.target.value);
+              const speed = val >= 0 ? `+${val}%` : `${val}%`;
+              updateAdminSetting('TTS_SPEED_RU', speed);
+              useSettingsStore.getState().setTtsSpeedRu(val);
+            }} 
+          />
+          <div className="range-labels">
+            <span>Медленно</span>
+            <span>Норм</span>
+            <span>Быстро</span>
+          </div>
+        </div>
+      </div>
+
+      <button className="btn btn-primary btn-small" style={{ marginTop: '20px' }} onClick={saveAdminSettings}>Сохранить настройки голоса</button>
     </motion.div>
   );
 };
