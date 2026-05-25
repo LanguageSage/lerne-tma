@@ -424,6 +424,25 @@ def reset_deck_progress(user_id: int, deck_id: int):
         return False
 
 
+def rename_deck(deck_id: int, new_name: str, user_id: int):
+    """Переименовывает пользовательскую колоду."""
+    try:
+        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        if not deck:
+            return None
+        if deck.is_inbox:
+            raise ValueError("Cannot rename the Inbox deck")
+        deck.name = new_name
+        deck.updated_at = datetime.datetime.now()
+        deck.save()
+        return deck
+    except Exception as e:
+        logger.error(f"Error renaming deck {deck_id}: {e}")
+        raise e
+
+
+
+
 def get_community_content(user_id: int):
     """Возвращает колоды пользователей, которые можно 'влить' в библиотеку (для админа)."""
     try:

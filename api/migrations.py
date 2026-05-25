@@ -8,66 +8,66 @@ from peewee import SqliteDatabase
 
 logger = logging.getLogger(__name__)
 
-# Список миграций: (SQL-запрос, имя_базы_данных)
+# Список миграций с уникальными ID: (id, SQL-запрос, имя_базы_данных)
 # 'tma' — основная база (tma_db), 'lerne' — библиотека (lerne_db)
 MIGRATIONS = [
     # --- Deck ---
-    ('ALTER TABLE tma_deck ADD COLUMN updated_at TIMESTAMP', 'tma'),
-    ('ALTER TABLE tma_deck ADD COLUMN share_id TEXT', 'tma'),
-    ('ALTER TABLE tma_deck ADD COLUMN is_inbox BOOLEAN DEFAULT false', 'tma'),
-    ('ALTER TABLE deck ADD COLUMN updated_at TIMESTAMP', 'lerne'),
-    ('ALTER TABLE deck ADD COLUMN is_deleted BOOLEAN DEFAULT false', 'lerne'),
-    ('ALTER TABLE deck ADD COLUMN created_at TIMESTAMP', 'lerne'),
-    ('ALTER TABLE deck ADD COLUMN cloud_id INTEGER', 'lerne'),
-    ('ALTER TABLE deck ADD COLUMN share_id TEXT', 'lerne'),
-    ('ALTER TABLE deck ADD COLUMN is_inbox BOOLEAN DEFAULT false', 'lerne'),
+    (1, 'ALTER TABLE tma_deck ADD COLUMN updated_at TIMESTAMP', 'tma'),
+    (2, 'ALTER TABLE tma_deck ADD COLUMN share_id TEXT', 'tma'),
+    (3, 'ALTER TABLE tma_deck ADD COLUMN is_inbox BOOLEAN DEFAULT false', 'tma'),
+    (4, 'ALTER TABLE deck ADD COLUMN updated_at TIMESTAMP', 'lerne'),
+    (5, 'ALTER TABLE deck ADD COLUMN is_deleted BOOLEAN DEFAULT false', 'lerne'),
+    (6, 'ALTER TABLE deck ADD COLUMN created_at TIMESTAMP', 'lerne'),
+    (7, 'ALTER TABLE deck ADD COLUMN cloud_id INTEGER', 'lerne'),
+    (8, 'ALTER TABLE deck ADD COLUMN share_id TEXT', 'lerne'),
+    (9, 'ALTER TABLE deck ADD COLUMN is_inbox BOOLEAN DEFAULT false', 'lerne'),
 
     # --- Card ---
-    ('ALTER TABLE tma_card ADD COLUMN history TEXT DEFAULT \'[]\'', 'tma'),
-    ('ALTER TABLE tma_card ADD COLUMN tags TEXT DEFAULT \'[]\'', 'tma'),
-    ('ALTER TABLE tma_card ADD COLUMN topics TEXT DEFAULT \'[]\'', 'tma'),
-    ('ALTER TABLE tma_card ADD COLUMN source TEXT', 'tma'),
-    ('ALTER TABLE tma_card ADD COLUMN want_to_learn BOOLEAN DEFAULT false', 'tma'),
-    ('ALTER TABLE tma_card ADD COLUMN share_id TEXT', 'tma'),
-    ('ALTER TABLE tma_card ADD COLUMN creator_id BIGINT', 'tma'),
-    ('ALTER TABLE tma_card ADD COLUMN image_data BYTEA', 'tma'),
-    ('ALTER TABLE tma_card ADD COLUMN audio_back_path TEXT', 'tma'),
-    ('ALTER TABLE card ADD COLUMN updated_at TIMESTAMP', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN history TEXT DEFAULT \'[]\'', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN tags TEXT DEFAULT \'[]\'', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN topics TEXT DEFAULT \'[]\'', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN source TEXT', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN audio_back_path TEXT', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN card_type TEXT DEFAULT \'translation\'', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN is_deleted BOOLEAN DEFAULT false', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN created_at TIMESTAMP', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN cloud_id INTEGER', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN difficulty REAL', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN want_to_learn BOOLEAN DEFAULT false', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN share_id TEXT', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN creator_id BIGINT', 'lerne'),
-    ('ALTER TABLE card ADD COLUMN image_data BYTEA', 'lerne'),
+    (10, 'ALTER TABLE tma_card ADD COLUMN history TEXT DEFAULT \'[]\'', 'tma'),
+    (11, 'ALTER TABLE tma_card ADD COLUMN tags TEXT DEFAULT \'[]\'', 'tma'),
+    (12, 'ALTER TABLE tma_card ADD COLUMN topics TEXT DEFAULT \'[]\'', 'tma'),
+    (13, 'ALTER TABLE tma_card ADD COLUMN source TEXT', 'tma'),
+    (14, 'ALTER TABLE tma_card ADD COLUMN want_to_learn BOOLEAN DEFAULT false', 'tma'),
+    (15, 'ALTER TABLE tma_card ADD COLUMN share_id TEXT', 'tma'),
+    (16, 'ALTER TABLE tma_card ADD COLUMN creator_id BIGINT', 'tma'),
+    (17, 'ALTER TABLE tma_card ADD COLUMN image_data BYTEA', 'tma'),
+    (18, 'ALTER TABLE tma_card ADD COLUMN audio_back_path TEXT', 'tma'),
+    (19, 'ALTER TABLE card ADD COLUMN updated_at TIMESTAMP', 'lerne'),
+    (20, 'ALTER TABLE card ADD COLUMN history TEXT DEFAULT \'[]\'', 'lerne'),
+    (21, 'ALTER TABLE card ADD COLUMN tags TEXT DEFAULT \'[]\'', 'lerne'),
+    (22, 'ALTER TABLE card ADD COLUMN topics TEXT DEFAULT \'[]\'', 'lerne'),
+    (23, 'ALTER TABLE card ADD COLUMN source TEXT', 'lerne'),
+    (24, 'ALTER TABLE card ADD COLUMN audio_back_path TEXT', 'lerne'),
+    (25, 'ALTER TABLE card ADD COLUMN card_type TEXT DEFAULT \'translation\'', 'lerne'),
+    (26, 'ALTER TABLE card ADD COLUMN is_deleted BOOLEAN DEFAULT false', 'lerne'),
+    (27, 'ALTER TABLE card ADD COLUMN created_at TIMESTAMP', 'lerne'),
+    (28, 'ALTER TABLE card ADD COLUMN cloud_id INTEGER', 'lerne'),
+    (29, 'ALTER TABLE card ADD COLUMN difficulty REAL', 'lerne'),
+    (30, 'ALTER TABLE card ADD COLUMN want_to_learn BOOLEAN DEFAULT false', 'lerne'),
+    (31, 'ALTER TABLE card ADD COLUMN share_id TEXT', 'lerne'),
+    (32, 'ALTER TABLE card ADD COLUMN creator_id BIGINT', 'lerne'),
+    (33, 'ALTER TABLE card ADD COLUMN image_data BYTEA', 'lerne'),
 
     # --- Progress & Review ---
-    ('ALTER TABLE tmaprogress ADD COLUMN created_at TIMESTAMP', 'tma'),
-    ('ALTER TABLE tmaprogress ADD COLUMN updated_at TIMESTAMP', 'tma'),
-    ('ALTER TABLE tmareviewhistory ADD COLUMN reviewed_at TIMESTAMP', 'tma'),
+    (34, 'ALTER TABLE tmaprogress ADD COLUMN created_at TIMESTAMP', 'tma'),
+    (35, 'ALTER TABLE tmaprogress ADD COLUMN updated_at TIMESTAMP', 'tma'),
+    (36, 'ALTER TABLE tmareviewhistory ADD COLUMN reviewed_at TIMESTAMP', 'tma'),
 
     # --- Settings & Prompts ---
-    ('ALTER TABLE tmasetting ADD COLUMN updated_at TIMESTAMP', 'tma'),
-    ('ALTER TABLE tmauserprompt ADD COLUMN context_prompt TEXT', 'tma'),
+    (37, 'ALTER TABLE tmasetting ADD COLUMN updated_at TIMESTAMP', 'tma'),
+    (38, 'ALTER TABLE tmauserprompt ADD COLUMN context_prompt TEXT', 'tma'),
 
     # --- User ---
-    ('ALTER TABLE tma_user ADD COLUMN phone TEXT', 'tma'),
+    (39, 'ALTER TABLE tma_user ADD COLUMN phone TEXT', 'tma'),
 ]
 
 
-def run_migrations(tma_db, lerne_db):
-    """Выполняет все накопленные миграции. Безопасно — ошибки игнорируются (колонка уже есть)."""
+def run_migrations_fallback(tma_db, lerne_db):
+    """Резервный метод на случай проблем с таблицей истории миграций."""
     db_map = {'tma': tma_db, 'lerne': lerne_db}
     success = 0
     skipped = 0
-    for query, db_key in MIGRATIONS:
+    for mig_id, query, db_key in MIGRATIONS:
         db = db_map.get(db_key)
         if not db:
             continue
@@ -75,9 +75,85 @@ def run_migrations(tma_db, lerne_db):
             db.execute_sql(query)
             success += 1
         except Exception:
-            skipped += 1  # Колонка/таблица уже существует — нормально
+            skipped += 1
+    logger.info(f"Fallback Migrations: {success} applied, {skipped} skipped.")
 
-    logger.info(f"Migrations: {success} applied, {skipped} skipped (already exist).")
+
+def run_migrations(tma_db, lerne_db):
+    """Выполняет все накопленные миграции. Оптимизировано: проверяет историю миграций."""
+    db_map = {'tma': tma_db, 'lerne': lerne_db}
+
+    # 1. Создаем таблицу истории миграций, если её еще нет (в tma_db)
+    try:
+        tma_db.execute_sql("""
+            CREATE TABLE IF NOT EXISTS tma_migration_history (
+                migration_id INT PRIMARY KEY,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    except Exception as e:
+        logger.error(f"Failed to create migration history table: {e}")
+        # В случае ошибки создаем резервный запуск без истории
+        return run_migrations_fallback(tma_db, lerne_db)
+
+    # 2. Получаем список уже примененных миграций
+    try:
+        cursor = tma_db.execute_sql("SELECT migration_id FROM tma_migration_history")
+        applied_ids = {row[0] for row in cursor.fetchall()}
+    except Exception as e:
+        logger.error(f"Failed to fetch applied migrations: {e}")
+        applied_ids = set()
+
+    success = 0
+    skipped = 0
+    new_applied = []
+
+    for mig_id, query, db_key in MIGRATIONS:
+        if mig_id in applied_ids:
+            skipped += 1
+            continue
+
+        db = db_map.get(db_key)
+        if not db:
+            continue
+
+        try:
+            db.execute_sql(query)
+            success += 1
+            new_applied.append(mig_id)
+        except Exception as e:
+            err_msg = str(e).lower()
+            # Если миграция падает, потому что колонка/таблица уже есть, или это view в SQLite —
+            # мы считаем её выполненной и записываем в историю, чтобы больше не пытаться.
+            is_already_exists = (
+                "already exists" in err_msg or 
+                "duplicate column" in err_msg or 
+                "duplicate key" in err_msg or
+                "is_deleted" in err_msg or
+                "duplicate" in err_msg or
+                "cannot add a column to a view" in err_msg or
+                "no such column" in err_msg or
+                "view" in err_msg
+            )
+            if is_already_exists:
+                skipped += 1
+                new_applied.append(mig_id)
+            else:
+                logger.warning(f"Migration {mig_id} failed (continuing): {query}. Error: {e}")
+                # Мы всё равно помечаем её как примененную, чтобы не зависать на ней при каждом старте.
+                # Если разработчику нужно переприменить её, он может удалить строку из tma_migration_history.
+                new_applied.append(mig_id)
+
+    # 3. Записываем вновь примененные миграции в историю
+    if new_applied:
+        try:
+            with tma_db.atomic():
+                for mig_id in new_applied:
+                    tma_db.execute_sql(f"INSERT INTO tma_migration_history (migration_id) VALUES ({mig_id})")
+        except Exception as e:
+            logger.error(f"Failed to record applied migrations: {e}")
+
+    logger.info(f"Migrations: {success} newly applied, {skipped} skipped/already applied.")
 
     if isinstance(tma_db.obj, SqliteDatabase):
         try:

@@ -145,6 +145,21 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
+  renameDeck: async (deckId, newName) => {
+    try {
+      await api.post(`/decks/${deckId}/rename`, { name: newName });
+      const { fetchDecks, currentDeck } = get();
+      await fetchDecks(true);
+      if (currentDeck && currentDeck.id === deckId) {
+        set({ currentDeck: { ...currentDeck, name: newName } });
+      }
+    } catch (err) {
+      console.error('Rename Deck Error:', err);
+      throw err;
+    }
+  },
+
+
   fetchExternalDecks: async () => {
     try {
       const res = await api.get('/decks/external');

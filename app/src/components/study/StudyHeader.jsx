@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, Volume2, Edit2, Settings, Image as ImageIcon, RefreshCw, Plus } from 'lucide-react';
+import { ChevronLeft, Volume2, Edit2, Settings, RefreshCw, Plus } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { UserProfileBadge } from '../common/UserBadge';
 
@@ -12,7 +12,6 @@ export const StudyHeader = ({
   onBack,
   onOpenCreator,
   onStartTutorial,
-  onOpenImagePicker,
   onQuickAudio,
   onOpenEditor,
   onOpenSettings,
@@ -37,16 +36,7 @@ export const StudyHeader = ({
 
       <HelpButton onClick={onStartTutorial} />
 
-      <button
-        id="tut-study-add-image"
-        type="button"
-        className="header-action-btn"
-        onClick={onOpenImagePicker}
-        disabled={loading || !card}
-        title="Добавить картинку"
-      >
-        <ImageIcon size={22} />
-      </button>
+
 
       <button
         id="tut-study-gen-audio"

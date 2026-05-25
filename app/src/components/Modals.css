@@ -595,12 +595,53 @@ input:checked + .slider:before {
 }
 
 /* Settings Tabs */
+.settings-tabs-container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
 .settings-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding-bottom: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE/Edge */
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-tabs::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.settings-tabs-fade {
+  position: absolute;
+  top: 0;
+  bottom: 12px;
+  width: 32px;
+  pointer-events: none;
+  z-index: 5;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.settings-tabs-fade.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.settings-tabs-fade-left {
+  left: 0;
+  background: linear-gradient(to right, rgba(30, 41, 59, 0.95), transparent);
+}
+
+.settings-tabs-fade-right {
+  right: 0;
+  background: linear-gradient(to left, rgba(30, 41, 59, 0.95), transparent);
 }
 
 .tab-btn {
@@ -613,6 +654,8 @@ input:checked + .slider:before {
   cursor: pointer;
   border-radius: 8px;
   transition: all 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tab-btn:hover {

@@ -10,7 +10,7 @@ import { useCardNavigation } from '../hooks/useCardNavigation';
 import { UserProfileBadge } from './common/UserBadge';
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
-  const { view, setView, setIsSettingsOpen, setEditorSourceView } = useUiStore();
+  const { view, setView, setIsSettingsOpen, setEditorSourceView, setIsRenameModalOpen, setDeckToRename } = useUiStore();
   const { currentDeck, deckCards } = useDeckStore();
   const { setEditingCard } = useSessionStore();
   const { handleDeleteCard, handleShareCard } = useCardActions();
@@ -23,7 +23,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
         <div className="header-compact">
           <button className="back-btn" onClick={() => setView('decks')}><ChevronLeft size={24} /></button>
-          <h2 className="header-title">{currentDeck?.name}</h2>
+
           <div className="header-actions">
             <UserProfileBadge />
             <button 
@@ -60,6 +60,49 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             >
               <Settings size={22} />
             </button>
+          </div>
+        </div>
+
+        {/* Deck Title Header */}
+        <div style={{ padding: '0 15px', marginTop: '15px', marginBottom: '10px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
+            <h1 style={{ 
+              fontSize: '1.4rem', 
+              fontWeight: 800, 
+              margin: 0,
+              background: 'linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textAlign: 'center',
+              lineHeight: 1.3,
+              overflowWrap: 'anywhere'
+            }}>
+              {currentDeck?.name}
+            </h1>
+            {currentDeck && !currentDeck.is_inbox && (
+              <button 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setDeckToRename(currentDeck); 
+                  setIsRenameModalOpen(true); 
+                }}
+                style={{ 
+                  background: 'transparent', 
+                  border: 'none', 
+                  color: '#a0ad0e', 
+                  cursor: 'pointer', 
+                  display: 'inline-flex', 
+                  padding: '4px',
+                  flexShrink: 0,
+                  transition: 'color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.color = '#c4d320'}
+                onMouseOut={(e) => e.currentTarget.style.color = '#a0ad0e'}
+                title="Переименовать колоду"
+              >
+                <Edit2 size={24} />
+              </button>
+            )}
           </div>
         </div>
 

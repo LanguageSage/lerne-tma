@@ -174,3 +174,4 @@ api/data/media/pending_images/
 audio_debug.log
 debug_output.txt
 api/debug_api.txt
+__pycache__/

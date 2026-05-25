@@ -201,55 +201,73 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
         now = datetime.datetime.now()
         exclude_ids = exclude_ids or []
         
-        # 1. Повторение (Due) — JOIN для получения card+progress за один запрос
-        due_query = (TMAProgress
-                    .select(TMAProgress, TMA_Card)
-                    .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
-                    .where(
-                        TMAProgress.user_id == user_id,
-                        TMA_Card.deck_id == deck_id
-                    ))
-        if not learn_more:
-            due_query = due_query.where(TMAProgress.next_review <= now)
+        # Функция для поиска новой карты
+        def get_new_card():
+            subquery = TMAProgress.select(TMAProgress.card_id).where(
+                TMAProgress.card_id == TMA_Card.id,
+                TMAProgress.user_id == user_id
+            )
+            new_query = (TMA_Card.select()
+                         .where(
+                             TMA_Card.deck_id == deck_id,
+                             ~fn.EXISTS(subquery)
+                         ))
+            if exclude_ids:
+                new_query = new_query.where(~(TMA_Card.id << exclude_ids))
+            return new_query.first()
+
+        # Функция для поиска карты на повторение (или раннее повторение при learn_more)
+        def get_due_card():
+            due_query = (TMAProgress
+                        .select(TMAProgress, TMA_Card)
+                        .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
+                        .where(
+                            TMAProgress.user_id == user_id,
+                            TMA_Card.deck_id == deck_id
+                        ))
+            if not learn_more:
+                due_query = due_query.where(TMAProgress.next_review <= now)
+                
+            if exclude_ids:
+                due_query = due_query.where(~(TMAProgress.card_id << exclude_ids))
             
-        if exclude_ids:
-            due_query = due_query.where(~(TMAProgress.card_id << exclude_ids))
-        progress = due_query.order_by(TMAProgress.queue.asc(), TMAProgress.next_review.asc()).first()
-        
-        if progress:
-            # Карта уже загружена через JOIN — используем tma__card
-            card = getattr(progress, 'tma_card', None) or getattr(progress, 'card', None)
-            if not card:
-                card = TMA_Card.get_by_id(progress.card_id)
-            return card, progress
+            p = due_query.order_by(TMAProgress.queue.asc(), TMAProgress.next_review.asc()).first()
+            if p:
+                c = getattr(p, 'tma_card', None) or getattr(p, 'card', None)
+                if not c:
+                    c = TMA_Card.get_by_id(p.card_id)
+                return c, p
+            return None, None
+
+        # Если включен режим learn_more, новые карты приоритетнее,
+        # так как повторять старые раньше времени нужно только когда нет новых.
+        if learn_more:
+            card = get_new_card()
+            if card:
+                progress, _ = TMAProgress.get_or_create(
+                    card_id=card.id,
+                    user_id=user_id,
+                    defaults={"queue": "new", "next_review": now}
+                )
+                return card, progress
             
-        # 2. Новые карты — используем NOT EXISTS для мгновенного исключения уже отслеживаемых
-        subquery = TMAProgress.select(TMAProgress.card_id).where(
-            TMAProgress.card_id == TMA_Card.id,
-            TMAProgress.user_id == user_id
-        )
-        new_query = (TMA_Card.select()
-                     .where(
-                         TMA_Card.deck_id == deck_id,
-                         ~fn.EXISTS(subquery)
-                     ))
-        if exclude_ids:
-            new_query = new_query.where(~(TMA_Card.id << exclude_ids))
-            
-        card = new_query.first()
-        
-        # Fallback удален, чтобы избежать бесконечного цикла
-        if not card:
+            return get_due_card()
+        else:
+            card, progress = get_due_card()
+            if card:
+                return card, progress
+                
+            card = get_new_card()
+            if card:
+                progress, _ = TMAProgress.get_or_create(
+                    card_id=card.id,
+                    user_id=user_id,
+                    defaults={"queue": "new", "next_review": now}
+                )
+                return card, progress
+                
             return None, None
             
-        # Создаем запись прогресса
-        progress, _ = TMAProgress.get_or_create(
-            card_id=card.id,
-            user_id=user_id,
-            defaults={"queue": "new", "next_review": now}
-        )
-        return card, progress
-        
     except Exception as e:
         logger.error(f"Error in get_next_card: {e}")
         return {"error": str(e)}, None

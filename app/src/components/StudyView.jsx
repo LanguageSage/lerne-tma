@@ -210,6 +210,8 @@ export const StudyView = ({ startTutorial }) => {
       try {
         await handleResetProgress(currentDeck.id);
         showToast('Прогресс успешно сброшен', 'success');
+        useSessionStore.getState().resetSession();
+        await fetchNextCard(currentDeck.id);
       } catch (err) {
         showToast('Ошибка при сбросе прогресса');
       }
@@ -248,7 +250,6 @@ export const StudyView = ({ startTutorial }) => {
           }}
           onOpenCreator={() => openCreator(currentDeck?.id, 'study')}
           onStartTutorial={() => startTutorial(isFlipped ? 'study_back' : 'study')}
-          onOpenImagePicker={() => setIsImagePickerOpen(true)}
           onQuickAudio={() => handleQuickAudio(card, playAudio)}
           onOpenEditor={() => openEditor(currentDeck?.id === 'duplicates' ? card.deck_id : currentDeck?.id, card, 'study')}
           onOpenSettings={() => setIsSettingsOpen(true)}

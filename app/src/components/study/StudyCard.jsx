@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Repeat, Volume2, Layers } from 'lucide-react';
+import { RefreshCw, Eye, Volume2, Layers } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
@@ -79,8 +79,9 @@ export const StudyCard = ({
                 </div>
               )}
               <div className="text-front" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.front)}</div>
-              <div className="flip-indicator-center">
-                <Repeat size={44} />
+              <div className="flip-hint-badge">
+                <Eye size={16} />
+                <span>Перевернуть карточку</span>
               </div>
             </div>
           </div>

@@ -17,6 +17,7 @@ import { CardCreator } from './components/CardCreator';
 import { CardActionModal } from './components/CardActionModal';
 import { DeckModals } from './components/DeckModals';
 import { SettingsModal } from './components/SettingsModal';
+import { RenameDeckModal } from './components/RenameDeckModal';
 import { SyncModal } from './components/SyncModal';
 import { DuplicateManager } from './components/DuplicateManager';
 import { TrashManager } from './components/TrashManager';
@@ -151,6 +152,7 @@ export default function App() {
       <CardCreator startTutorial={startTutorial} />
       <CardEditor startTutorial={startTutorial} />
       <DeckModals />
+      <RenameDeckModal />
       <SettingsModal userId={USER_ID} startTutorial={startTutorial} />
       
       <SyncModal

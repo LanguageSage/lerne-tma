@@ -20,8 +20,14 @@ export const useUiStore = create((set) => ({
   isNewDeckModalOpen: false,
   setIsNewDeckModalOpen: (isOpen) => set({ isNewDeckModalOpen: isOpen }),
   
+  isRenameModalOpen: false,
+  setIsRenameModalOpen: (isOpen) => set({ isRenameModalOpen: isOpen }),
+  deckToRename: null,
+  setDeckToRename: (deck) => set({ deckToRename: deck }),
+
   deckModalMode: 'choice',
   setDeckModalMode: (mode) => set({ deckModalMode: mode }),
+
   
   syncModalOpen: false,
   setSyncModalOpen: (isOpen) => set({ syncModalOpen: isOpen }),

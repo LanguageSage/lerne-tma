@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2, Share2, Inbox, Download, X, BookOpen, ChevronRight } from 'lucide-react';
+import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2, Share2, Inbox, Download, X, BookOpen, ChevronRight, Edit2 } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { UserProfileBadge } from './common/UserBadge';
 import { useUiStore } from '../store/useUiStore';
@@ -103,7 +103,7 @@ const ShareBanner = ({ shareId, onSuccess, onClose }) => {
 };
 
 export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, importShareId, onImportSuccess, onImportClose }) => {
-  const { view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, showToast, userProfile } = useUiStore();
+  const { view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, showToast, userProfile, setIsRenameModalOpen, setDeckToRename } = useUiStore();
   const { decks, setCurrentDeck, fetchDeckCards, handleSyncDeck, handleResetProgress, handleDeleteDeck } = useDeckStore();
   
   if (view !== 'decks') return null;
@@ -193,6 +193,33 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
                   </div>
                   <h3>
                     {deck.name}
+                    {!deck.is_inbox && (
+                      <button
+                        className="rename-deck-inline-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeckToRename(deck);
+                          setIsRenameModalOpen(true);
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#a0ad0e',
+                          cursor: 'pointer',
+                          marginLeft: '6px',
+                          display: 'inline-flex',
+                          padding: '4px',
+                          verticalAlign: 'middle',
+                          transition: 'color 0.2s',
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.color = '#c4d320'}
+                        onMouseOut={(e) => e.currentTarget.style.color = '#a0ad0e'}
+                        title="Переименовать колоду"
+                      >
+                        <Edit2 size={24} />
+                      </button>
+
+                    )}
                     {deck.is_inbox && deck.stats.total > 0 && (
                       <span style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
                         новые

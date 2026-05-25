@@ -28,6 +28,24 @@ def delete_deck(deck_id: int):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Deck not found")
 
+@router.post("/{deck_id}/rename")
+def rename_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+    name = data.get('name')
+    if not name or not name.strip():
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+    
+    try:
+        updated_deck = services.rename_deck(deck_id, name.strip(), user_id)
+        if updated_deck:
+            return {"status": "success", "name": updated_deck.name}
+        raise HTTPException(status_code=404, detail="Deck not found or access denied")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @router.post("/import-json")
 def import_json_deck(data: dict, user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/decks/import-json - X-User-ID: {user_id}")
