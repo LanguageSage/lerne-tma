@@ -80,8 +80,8 @@ export const StudyView = ({ startTutorial }) => {
   useEffect(() => {
     const isSuppressedAfterAutoplay = suppressLegacyAutoplayCardRef.current === card?.id;
     const currentCardKey = `${card?.id}-${historyIndex}`;
-    const isCurrentPuzzleMode = studyMode === 'puzzle' || (studyMode === 'random' && activeRandomMode === 'puzzle');
-    if (view === 'study' && card?.audio_url && autoPlay && !isCurrentPuzzleMode && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay && lastAutoplayedCardRef.current !== currentCardKey) {
+    const isAutoplayDisabledMode = studyMode === 'puzzle' || studyMode === 'cloze' || (studyMode === 'random' && (activeRandomMode === 'puzzle' || activeRandomMode === 'cloze'));
+    if (view === 'study' && card?.audio_url && autoPlay && !isAutoplayDisabledMode && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay && lastAutoplayedCardRef.current !== currentCardKey) {
       lastAutoplayedCardRef.current = currentCardKey;
       const timer = setTimeout(() => {
         playAudio(card.audio_url);
@@ -246,7 +246,7 @@ export const StudyView = ({ startTutorial }) => {
 
   return (
     <div className="view-study">
-      {currentDeck?.id !== 'duplicates' && !isAutoplayActive && isFlipped && (
+      {currentDeck?.id !== 'duplicates' && !isAutoplayActive && (
         <GradeButtons card={card} loading={loading} onGrade={submitGrade} />
       )}
 
