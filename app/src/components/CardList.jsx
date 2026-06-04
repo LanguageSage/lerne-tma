@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus, ImageIcon, Volume2, Edit2, Settings, Share2, Play } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus, ImageIcon, Volume2, Edit2, Settings, Share2, Play, RefreshCw } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
@@ -10,11 +10,24 @@ import { useCardNavigation } from '../hooks/useCardNavigation';
 import { UserProfileBadge } from './common/UserBadge';
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
-  const { view, setView, setIsSettingsOpen, setEditorSourceView, setIsRenameModalOpen, setDeckToRename } = useUiStore();
-  const { currentDeck, deckCards } = useDeckStore();
+  const { view, setView, setIsSettingsOpen, setEditorSourceView, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, setLastSelectedCardId } = useUiStore();
+  const { currentDeck, deckCards, cardsLoading } = useDeckStore();
   const { setEditingCard } = useSessionStore();
   const { handleDeleteCard, handleShareCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
+
+  React.useEffect(() => {
+    if (lastSelectedCardId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`card-item-${lastSelectedCardId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        setLastSelectedCardId(null);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [lastSelectedCardId, setLastSelectedCardId]);
 
   if (view !== 'cards') return null;
 
@@ -107,7 +120,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
         </div>
 
         {/* Prominent Study Button */}
-        {deckCards.length > 0 && (
+        {!cardsLoading && deckCards.length > 0 && (
           <div className="study-action-bar">
             <button className="btn-study-main" onClick={() => startStudy(currentDeck)}>
               <Play size={20} fill="currentColor" />
@@ -116,25 +129,60 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           </div>
         )}
         <div id="tut-card-list-content" className="card-list">
-          {deckCards.map(c => (
-            <div key={c.id} className="card-item glass" onClick={() => startStudyCard(currentDeck, c.id)}>
-              <div className="card-item-text">
-                <div className="front-min">{c.front}</div>
-                <div className="back-min">{c.back}</div>
+          {cardsLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+              <div className="cards-loading-state glass">
+                <RefreshCw size={32} className="spin" color="#a855f7" />
+                <h3>Загрузка карточек...</h3>
+                <p>Получаем список карточек из базы данных</p>
               </div>
-              <div className="card-item-actions">
-                <div className="card-item-share" onClick={(e) => { e.stopPropagation(); handleShareCard(c); }} title="Поделиться">
-                  <Share2 size={16} />
+              {[1, 2, 3].map(idx => (
+                <div key={idx} className="card-item glass card-skeleton" style={{ opacity: 0.6 }}>
+                  <div className="card-item-text" style={{ flex: 1 }}>
+                    <div className="skeleton-line" style={{ width: '65%', height: '14px', marginBottom: '8px' }} />
+                    <div className="skeleton-line" style={{ width: '45%', height: '10px' }} />
+                  </div>
+                  <div className="card-item-actions">
+                    <div className="skeleton-action" />
+                    <div className="skeleton-action" />
+                    <div className="skeleton-action" />
+                  </div>
                 </div>
-                <div className="card-item-edit" onClick={(e) => { e.stopPropagation(); openEditor(currentDeck.id, c, 'cards'); }} title="Редактировать">
-                  <Edit2 size={16} />
-                </div>
-                <div className="card-item-delete" onClick={(e) => { e.stopPropagation(); handleDeleteCard(c.id); }} title="Удалить">
-                  <Trash2 size={16} />
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
+          ) : deckCards.length === 0 ? (
+            <div className="empty-cards-state glass">
+              <h3>В этой колоде пока нет карточек</h3>
+              <p>Нажмите на "+" в правом верхнем углу или на кнопку ниже, чтобы создать свою первую карточку.</p>
+              <button 
+                className="btn btn-primary" 
+                style={{ marginTop: '10px' }} 
+                onClick={() => openCreator(currentDeck?.id)}
+              >
+                Создать карточку
+              </button>
+            </div>
+          ) : (
+            deckCards.map(c => (
+              <div key={c.id} id={`card-item-${c.id}`} className="card-item glass" onClick={() => startStudyCard(currentDeck, c.id)}>
+                <div className="card-item-text">
+                  <div className="front-min">{c.front}</div>
+                  <div className="back-min">{c.back}</div>
+                </div>
+                <div className="card-item-actions">
+                  <div className="card-item-share" onClick={(e) => { e.stopPropagation(); handleShareCard(c); }} title="Поделиться">
+                    <Share2 size={16} />
+                  </div>
+                  <div className="card-item-edit" onClick={(e) => { e.stopPropagation(); openEditor(currentDeck.id, c, 'cards'); }} title="Редактировать">
+                    <Edit2 size={16} />
+                  </div>
+                  <div className="card-item-delete" onClick={(e) => { e.stopPropagation(); handleDeleteCard(c.id); }} title="Удалить">
+                    <Trash2 size={16} />
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
         
         {/* Floating Action Button for adding cards */}

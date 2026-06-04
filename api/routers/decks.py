@@ -18,8 +18,21 @@ def get_decks(user_id: int = Depends(get_user_id)):
     
 @router.post("")
 def create_deck(data: dict, user_id: int = Depends(get_user_id)):
-    deck = services.create_deck(data.get('name'), user_id)
+    deck = services.create_deck(data.get('name'), user_id, data.get('folder_id'))
     return {"status": "success", "id": deck.id}
+
+@router.post("/{deck_id}/move")
+def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+    folder_id = data.get('folder_id')
+    try:
+        updated = services.move_deck_to_folder(deck_id, folder_id, user_id)
+        if updated:
+            return {"status": "success"}
+        raise HTTPException(status_code=404, detail="Deck not found or access denied")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{deck_id}")
 def delete_deck(deck_id: int):
@@ -81,6 +94,10 @@ def sync_deck(deck_id: int, request: SyncRequest = None, user_id: int = Depends(
 def get_external_decks():
     return services.get_external_decks()
 
+@router.get("/external/categories")
+def get_library_categories():
+    return services.get_library_categories()
+
 @router.post("/external/import/{deck_id}")
 def import_external_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/decks/external/import/{deck_id} - X-User-ID: {user_id}")
@@ -88,3 +105,16 @@ def import_external_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     if result:
         return {"status": "success", "deck_id": result.id}
     raise HTTPException(status_code=404, detail="External deck not found or import failed")
+
+
+@router.post("/external/{deck_id}/toggle-default")
+def toggle_default_deck(deck_id: int, user_id: int = Depends(get_user_id)):
+    logger.info(f"POST /api/decks/external/{deck_id}/toggle-default - X-User-ID: {user_id}")
+    ADMIN_USER_ID = 642478257
+    if user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Only admins can toggle default decks")
+    try:
+        is_default = services.toggle_default_deck(deck_id)
+        return {"status": "success", "is_default": is_default}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

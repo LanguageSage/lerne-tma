@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Lerne</string>
+    <string name="title_activity_main">Lerne</string>
+    <string name="package_name">com.lerne.app</string>
+    <string name="custom_url_scheme">com.lerne.app</string>
+</resources>

@@ -10,11 +10,13 @@ export const useSessionStore = create((set, get) => ({
   editorSourceView: 'cards', // 'cards' | 'study'
   isLearningMore: false,
   autoplayState: 'stopped', // 'stopped' | 'playing' | 'paused'
+  favoritesQueue: [],
 
   setIsLearningMore: (val) => set({ isLearningMore: val }),
   setAutoplayState: (autoplayState) => set({ autoplayState }),
   pauseAutoplay: () => set({ autoplayState: 'paused' }),
   stopAutoplay: () => set({ autoplayState: 'stopped' }),
+  setFavoritesQueue: (favoritesQueue) => set({ favoritesQueue }),
 
   setCard: (updater) => set((state) => ({ 
     card: typeof updater === 'function' ? updater(state.card) : (updater ? { ...updater } : null) 
@@ -64,7 +66,8 @@ export const useSessionStore = create((set, get) => ({
       isFlipped: false,
       apiError: null,
       isLearningMore: false,
-      autoplayState: 'stopped'
+      autoplayState: 'stopped',
+      favoritesQueue: []
     });
   }
 }));

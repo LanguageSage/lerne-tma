@@ -224,9 +224,10 @@
   align-items: center;
   justify-content: flex-start;
   width: 100%;
-  max-width: 350px;
+  max-width: 380px;
   margin-top: 6px;
   position: relative;
+  gap: 8px;
 }
 
 .btn-card-action-trigger {

@@ -47,6 +47,12 @@ export const useUiStore = create((set) => ({
   editorSourceView: 'cards', // 'cards' | 'study' | 'decks'
   setEditorSourceView: (source) => set({ editorSourceView: source }),
 
+  lastSelectedCardId: null,
+  setLastSelectedCardId: (id) => set({ lastSelectedCardId: id }),
+
   userProfile: null,
   setUserProfile: (profile) => set({ userProfile: profile }),
+  
+  activeFolderId: null,
+  setActiveFolderId: (id) => set({ activeFolderId: id }),
 }));

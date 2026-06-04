@@ -192,6 +192,12 @@
   padding: 4px 0;
 }
 
+.deck-title-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 400px) {
   .deck-card h3 {
     width: calc(100% - 60px);
@@ -238,4 +244,23 @@
 .stat.learning { background: #f97316; color: white; }
 .stat.due { background: #22c55e; color: white; }
 .stat.total { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #94a3b8; }
+
+/* User Folders & Breadcrumbs Styling */
+.folder-breadcrumbs span:hover {
+  text-decoration: underline;
+}
+
+.folder-card {
+  border-color: rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.03);
+}
+
+.folder-card::before {
+  background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(255,255,255,0) 50%, rgba(99, 102, 241, 0.03) 100%);
+}
+
+.folder-card:hover {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.2), inset 0 0 15px rgba(255, 255, 255, 0.05);
+}
 

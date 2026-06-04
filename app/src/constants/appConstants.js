@@ -57,7 +57,7 @@ export const DESIGN_PRESETS = [
       cardTextColor: "#ffff00",
       cardFontSize: 1.8,
       contextFont: "Inter",
-      contextTextColor: "#080c03",
+      contextTextColor: "#00ffff",
       contextFontSize: 1.35,
       cardTextShadow: "glow",
       contextTextShadow: "outline",

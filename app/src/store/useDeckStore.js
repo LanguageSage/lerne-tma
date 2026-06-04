@@ -3,22 +3,30 @@ import api from '../services/api';
 
 export const useDeckStore = create((set, get) => ({
   decks: [],
+  folders: [],
+  libraryCategories: [],
   currentDeck: null,
   externalDecks: [],
   communityDecks: [],
   deckCards: [],
   duplicateCards: [],
+  favoriteCards: [],
   lastDuplicateCardId: null,
   syncModalOpen: false,
   deckToSync: null,
   trashItems: { decks: [], cards: [] },
+  cardsLoading: false,
+
   
   setDecks: (decks) => set({ decks }),
+  setFolders: (folders) => set({ folders }),
+  setLibraryCategories: (categories) => set({ libraryCategories: categories }),
   setCurrentDeck: (deck) => set({ currentDeck: deck }),
   setExternalDecks: (decks) => set({ externalDecks: decks }),
   setCommunityDecks: (decks) => set({ communityDecks: decks }),
   setDeckCards: (cards) => set({ deckCards: cards }),
   setDuplicateCards: (cards) => set({ duplicateCards: cards }),
+  setFavoriteCards: (cards) => set({ favoriteCards: cards }),
   setLastDuplicateCardId: (id) => set({ lastDuplicateCardId: id }),
   setSyncModalOpen: (isOpen) => set({ syncModalOpen: isOpen }),
   setDeckToSync: (deck) => set({ deckToSync: deck }),
@@ -78,6 +86,15 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
+  fetchFavorites: async () => {
+    try {
+      const res = await api.get('/cards/favorites');
+      set({ favoriteCards: res.data });
+    } catch (err) {
+      console.error('Fetch Favorites Error:', err);
+    }
+  },
+
   fetchDecks: async (force = false) => {
     const { decks } = get();
     if (!force && decks.length > 0) return;
@@ -85,6 +102,9 @@ export const useDeckStore = create((set, get) => ({
     try {
       const res = await api.get('/decks');
       set({ decks: res.data });
+      if (force) {
+        get().fetchFolders();
+      }
     } catch (err) {
       console.error('Fetch Decks Error:', err);
       throw err;
@@ -92,12 +112,15 @@ export const useDeckStore = create((set, get) => ({
   },
 
   fetchDeckCards: async (deckId) => {
+    set({ cardsLoading: true });
     try {
       const res = await api.get(`/decks/${deckId}/cards`);
       set({ deckCards: res.data });
     } catch (err) {
       console.error('Fetch Deck Cards Error:', err);
       throw err;
+    } finally {
+      set({ cardsLoading: false });
     }
   },
 
@@ -134,9 +157,9 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
-  createDeck: async (name) => {
+  createDeck: async (name, folderId = null) => {
     try {
-      await api.post('/decks', { name });
+      await api.post('/decks', { name, folder_id: folderId });
       const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {
@@ -177,6 +200,22 @@ export const useDeckStore = create((set, get) => ({
       await fetchDecks(true);
     } catch (err) {
       console.error('Import Deck Error:', err);
+      throw err;
+    }
+  },
+
+  toggleDefaultDeck: async (deckId) => {
+    try {
+      const res = await api.post(`/decks/external/${deckId}/toggle-default`);
+      if (res.data.status === 'success') {
+        const { externalDecks } = get();
+        const updated = externalDecks.map(d =>
+          d.id === deckId ? { ...d, is_default: res.data.is_default } : d
+        );
+        set({ externalDecks: updated });
+      }
+    } catch (err) {
+      console.error('Toggle Default Deck Error:', err);
       throw err;
     }
   },
@@ -241,6 +280,91 @@ export const useDeckStore = create((set, get) => ({
     } catch (err) {
       console.error('Share Deck Error:', err);
       throw err;
+    }
+  },
+
+  fetchFolders: async () => {
+    try {
+      const res = await api.get('/folders');
+      set({ folders: res.data });
+    } catch (err) {
+      console.error('Fetch Folders Error:', err);
+    }
+  },
+
+  createFolder: async (name, parentId = null, color = null) => {
+    try {
+      await api.post('/folders', { name, parent_id: parentId, color });
+      const { fetchFolders } = get();
+      await fetchFolders();
+    } catch (err) {
+      console.error('Create Folder Error:', err);
+      throw err;
+    }
+  },
+
+  renameFolder: async (folderId, newName) => {
+    try {
+      await api.post(`/folders/${folderId}/rename`, { name: newName });
+      const { fetchFolders } = get();
+      await fetchFolders();
+    } catch (err) {
+      console.error('Rename Folder Error:', err);
+      throw err;
+    }
+  },
+
+  changeFolderColor: async (folderId, color) => {
+    try {
+      await api.post(`/folders/${folderId}/color`, { color });
+      const { fetchFolders } = get();
+      await fetchFolders();
+    } catch (err) {
+      console.error('Change Folder Color Error:', err);
+      throw err;
+    }
+  },
+
+  moveFolder: async (folderId, parentId) => {
+    try {
+      await api.post(`/folders/${folderId}/move`, { parent_id: parentId });
+      const { fetchFolders } = get();
+      await fetchFolders();
+    } catch (err) {
+      console.error('Move Folder Error:', err);
+      throw err;
+    }
+  },
+
+  deleteFolder: async (folderId) => {
+    try {
+      await api.delete(`/folders/${folderId}`);
+      const { fetchFolders, fetchDecks } = get();
+      await fetchFolders();
+      await fetchDecks(true);
+    } catch (err) {
+      console.error('Delete Folder Error:', err);
+      throw err;
+    }
+  },
+
+  moveDeckToFolder: async (deckId, folderId) => {
+    try {
+      await api.post(`/decks/${deckId}/move`, { folder_id: folderId });
+      const { fetchDecks } = get();
+      await fetchDecks(true);
+    } catch (err) {
+      console.error('Move Deck to Folder Error:', err);
+      throw err;
+    }
+  },
+
+  fetchLibraryCategories: async () => {
+    try {
+      const res = await api.get('/decks/external/categories');
+      set({ libraryCategories: res.data });
+    } catch (err) {
+      console.error('Fetch Library Categories Error:', err);
     }
   }
 }));

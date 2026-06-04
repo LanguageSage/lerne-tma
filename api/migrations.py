@@ -59,6 +59,13 @@ MIGRATIONS = [
 
     # --- User ---
     (39, 'ALTER TABLE tma_user ADD COLUMN phone TEXT', 'tma'),
+
+    # --- Folders & Catalogs (v2) ---
+    (40, 'ALTER TABLE deck ADD COLUMN folder_id INTEGER', 'lerne'),
+    (41, 'ALTER TABLE deck ADD COLUMN category_id INTEGER', 'lerne'),
+    (42, 'ALTER TABLE tma_deck ADD COLUMN folder_id INTEGER', 'tma'),
+    (43, 'ALTER TABLE deck ADD COLUMN is_default BOOLEAN DEFAULT false', 'lerne'),
+    (44, "UPDATE deck SET is_default = true WHERE name IN ('\u2b50 [A1] Basis-Wortschatz / \u0411\u0430\u0437\u043e\u0432\u044b\u0439 \u0441\u043b\u043e\u0432\u0430\u0440\u043d\u044b\u0439 \u0437\u0430\u043f\u0430\u0441', '\u2b50 [A2] Alltagsdeutsch & Kommunikation', '\u2b50 [A2] Vorschl\u00e4ge machen / \u041f\u0440\u0435\u0434\u043b\u043e\u0436\u0435\u043d\u0438\u044f \u0438 \u0438\u0434\u0435\u0438', '\u2b50 [B1] Pl\u00e4ne und Bitten / \u041f\u043b\u0430\u043d\u044b \u0438 \u043f\u0440\u043e\u0441\u044c\u0431\u044b', '\u2b50 [B1] H\u00f6ren: Alltagsdialoge / \u0410\u0443\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435: \u0434\u0438\u0430\u043b\u043e\u0433\u0438')", 'lerne'),
 ]
 
 
@@ -157,13 +164,19 @@ def run_migrations(tma_db, lerne_db):
 
     if isinstance(tma_db.obj, SqliteDatabase):
         try:
+            # Пересоздаем представления, чтобы они подхватили новые колонки
+            tma_db.execute_sql("DROP VIEW IF EXISTS tma_deck")
+            tma_db.execute_sql("CREATE VIEW tma_deck AS SELECT * FROM deck")
+            tma_db.execute_sql("DROP VIEW IF EXISTS tma_card")
+            tma_db.execute_sql("CREATE VIEW tma_card AS SELECT * FROM card")
+
             # Обновляем триггеры для tma_deck и tma_card, чтобы они поддерживали все новые колонки
             tma_db.execute_sql("DROP TRIGGER IF EXISTS tma_deck_insert")
             tma_db.execute_sql("""
                 CREATE TRIGGER tma_deck_insert INSTEAD OF INSERT ON tma_deck
                 BEGIN
-                    INSERT INTO deck (id, name, level, topic, is_deleted, created_at, updated_at, user_id, cloud_id, share_id, is_inbox)
-                    VALUES (NEW.id, NEW.name, NEW.level, NEW.topic, NEW.is_deleted, NEW.created_at, NEW.updated_at, NEW.user_id, NEW.cloud_id, NEW.share_id, NEW.is_inbox);
+                    INSERT INTO deck (id, name, level, topic, is_deleted, created_at, updated_at, user_id, cloud_id, share_id, is_inbox, folder_id, category_id)
+                    VALUES (NEW.id, NEW.name, NEW.level, NEW.topic, NEW.is_deleted, NEW.created_at, NEW.updated_at, NEW.user_id, NEW.cloud_id, NEW.share_id, NEW.is_inbox, NEW.folder_id, NEW.category_id);
                 END;
             """)
             
@@ -185,7 +198,8 @@ def run_migrations(tma_db, lerne_db):
                         name = NEW.name, level = NEW.level, topic = NEW.topic, 
                         is_deleted = NEW.is_deleted, updated_at = NEW.updated_at, 
                         user_id = NEW.user_id, cloud_id = NEW.cloud_id, 
-                        share_id = NEW.share_id, is_inbox = NEW.is_inbox
+                        share_id = NEW.share_id, is_inbox = NEW.is_inbox,
+                        folder_id = NEW.folder_id, category_id = NEW.category_id
                     WHERE id = OLD.id;
                 END;
             """)

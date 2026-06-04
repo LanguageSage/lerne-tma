@@ -8,7 +8,7 @@ const getInitialDesignState = () => ({
   cardTextColor: storage.get('lerne_card_text_color') || '#ffff00',
   cardFontSize: storage.get('lerne_card_font_size') !== null ? Number(storage.get('lerne_card_font_size')) : 1.8,
   contextFont: storage.get('lerne_context_font') || 'Inter',
-  contextTextColor: storage.get('lerne_context_text_color') || '#080c03',
+  contextTextColor: storage.get('lerne_context_text_color') || '#00ffff',
   contextFontSize: storage.get('lerne_context_font_size') !== null ? Number(storage.get('lerne_context_font_size')) : 1.35,
   cardTextShadow: storage.get('lerne_card_text_shadow') || 'glow',
   contextTextShadow: storage.get('lerne_context_text_shadow') || 'outline',
@@ -30,12 +30,29 @@ const getInitialStudyState = () => ({
   autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : false,
   autoplayForceFrontAudio: storage.get('lerne_autoplay_force_front_audio') !== null ? storage.get('lerne_autoplay_force_front_audio') === 'true' : false,
   autoplayForceBackAudio: storage.get('lerne_autoplay_force_back_audio') !== null ? storage.get('lerne_autoplay_force_back_audio') === 'true' : false,
+  studyMode: storage.get('lerne_study_mode') || 'classic',
+  speechMatchThreshold: storage.get('lerne_speech_match_threshold') !== null ? Number(storage.get('lerne_speech_match_threshold')) : 75,
+  randomEnabledModes: storage.get('lerne_random_enabled_modes')
+    ? JSON.parse(storage.get('lerne_random_enabled_modes'))
+    : ['classic', 'reverse', 'cloze', 'puzzle', 'speak', 'turbo'],
   isAdmin: false,
 });
 
 export const useSettingsStore = create((set, get) => ({
   // --- Study Settings ---
   ...getInitialStudyState(),
+  setSpeechMatchThreshold: (value) => {
+    storage.set('lerne_speech_match_threshold', value);
+    set({ speechMatchThreshold: Number(value) });
+  },
+  setStudyMode: (value) => {
+    storage.set('lerne_study_mode', value);
+    set({ studyMode: value });
+  },
+  setRandomEnabledModes: (modes) => {
+    storage.set('lerne_random_enabled_modes', JSON.stringify(modes));
+    set({ randomEnabledModes: modes });
+  },
   setAutoPlay: (value) => {
     storage.set('lerne_autoplay', value);
     set({ autoPlay: value });
@@ -146,9 +163,39 @@ export const useSettingsStore = create((set, get) => ({
   },
 
   resetDesign: () => {
-    // We'll import DESIGN_PRESETS here or just hardcode the ID. 
-    // Since we want to move fast, we'll assume the component passes the default preset or the store knows it.
-    // Actually, let's just make it a generic applier.
+    const defaultSettings = {
+      cardBgFront: 'liquid_morning',
+      cardBgBack: 'liquid_morning',
+      cardFont: 'Comfortaa',
+      cardTextColor: '#ffff00',
+      cardFontSize: 1.8,
+      contextFont: 'Inter',
+      contextTextColor: '#00ffff',
+      contextFontSize: 1.35,
+      cardTextShadow: 'glow',
+      contextTextShadow: 'outline',
+      cardFontWeight: '700',
+      cardFontStyle: 'normal',
+      contextFontWeight: '400',
+      contextFontStyle: 'normal'
+    };
+    
+    set(defaultSettings);
+    
+    storage.set('lerne_card_bg_front', 'liquid_morning');
+    storage.set('lerne_card_bg_back', 'liquid_morning');
+    storage.set('lerne_card_font', 'Comfortaa');
+    storage.set('lerne_card_text_color', '#ffff00');
+    storage.set('lerne_card_font_size', 1.8);
+    storage.set('lerne_context_font', 'Inter');
+    storage.set('lerne_context_text_color', '#00ffff');
+    storage.set('lerne_context_font_size', 1.35);
+    storage.set('lerne_card_text_shadow', 'glow');
+    storage.set('lerne_context_text_shadow', 'outline');
+    storage.set('lerne_card_font_weight', '700');
+    storage.set('lerne_card_font_style', 'normal');
+    storage.set('lerne_context_font_weight', '400');
+    storage.set('lerne_context_font_style', 'normal');
   },
 
   // --- Admin/API Settings (Fetched from Backend) ---

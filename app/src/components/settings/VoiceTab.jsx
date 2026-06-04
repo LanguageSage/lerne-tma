@@ -6,7 +6,7 @@ import api from '../../services/api';
 import { VOICE_OPTIONS } from '../../constants/settingsConstants';
 
 export const VoiceTab = () => {
-  const { adminSettings, updateAdminSetting } = useSettingsStore();
+  const { adminSettings, updateAdminSetting, speechMatchThreshold, setSpeechMatchThreshold } = useSettingsStore();
   const { showToast } = useUiStore();
 
   const saveAdminSettings = async () => {
@@ -91,6 +91,30 @@ export const VoiceTab = () => {
             <span>Медленно</span>
             <span>Норм</span>
             <span>Быстро</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Speech Recognition Settings */}
+      <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+        <h4 style={{ marginBottom: '15px', color: '#a855f7', fontSize: '1rem', borderBottom: '1px solid rgba(168, 85, 247, 0.2)', paddingBottom: '8px' }}>Распознавание речи</h4>
+        <div className="form-group">
+          <div className="label-with-value">
+            <label>Точность совпадения произношения</label>
+            <span className="value-badge" style={{ background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' }}>{speechMatchThreshold}%</span>
+          </div>
+          <input 
+            type="range" 
+            min="50" 
+            max="100" 
+            step="5"
+            value={speechMatchThreshold} 
+            onChange={e => setSpeechMatchThreshold(Number(e.target.value))} 
+          />
+          <div className="range-labels">
+            <span>Свободно (50%)</span>
+            <span>Нормально (75%)</span>
+            <span>Строго (100%)</span>
           </div>
         </div>
       </div>

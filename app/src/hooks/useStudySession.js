@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 export const useStudySession = () => {
   const gradingRef = useRef(false);
@@ -19,7 +20,35 @@ export const useStudySession = () => {
     const session = useSessionStore.getState();
     session.setApiError(null);
     try {
-      if (deckId === 'duplicates') {
+      const { studyMode } = useSettingsStore.getState();
+      if (deckId === 'favorites' || studyMode === 'turbo') {
+        const { favoriteCards, deckCards } = useDeckStore.getState();
+        const sourceCards = deckId === 'favorites' ? favoriteCards : deckCards;
+        const currentCard = session.card;
+        let nextCardInfo = null;
+
+        if (isFirst || !currentCard || session.favoritesQueue.length === 0) {
+          session.setFavoritesQueue([...sourceCards]);
+          nextCardInfo = sourceCards[0];
+        } else {
+          const queue = session.favoritesQueue;
+          const currentIndex = queue.findIndex(c => c.id === currentCard.id);
+          if (currentIndex >= 0 && currentIndex < queue.length - 1) {
+            nextCardInfo = queue[currentIndex + 1];
+          } else {
+            nextCardInfo = null;
+          }
+        }
+
+        if (!nextCardInfo) {
+          session.setCard(null);
+        } else {
+          const res = await api.get(`/study/card/${nextCardInfo.id}`);
+          const newCard = res.data;
+          session.addToHistory(newCard);
+          prefetchMedia(newCard.image_url);
+        }
+      } else if (deckId === 'duplicates') {
         const { duplicateCards } = useDeckStore.getState();
         const currentCard = session.card;
         let nextDuplicateCard = null;
@@ -81,20 +110,57 @@ export const useStudySession = () => {
 
     try {
       const gradedCardId = session.card.id;
-      const endpoint = currentDeck.id === 'duplicates' ? '/study/duplicates/grade' : '/study/grade';
-      const res = await api.post(endpoint, {
-        card_id: gradedCardId,
-        deck_id: currentDeck.id,
-        grade,
-        learn_more: session.isLearningMore
-      });
 
-      if (res.data.finished) {
-        session.setCard(null);
+      const { studyMode } = useSettingsStore.getState();
+
+      if (currentDeck.id === 'favorites' || studyMode === 'turbo') {
+        // Ударный режим: сохраняем прогресс на сервере
+        await api.post('/study/grade', {
+          card_id: gradedCardId,
+          deck_id: session.card.deck_id,
+          grade
+        });
+
+        // Обновляем локальную очередь в сессии
+        const queue = [...session.favoritesQueue];
+        if (queue.length > 0 && queue[0].id === gradedCardId) {
+          if (grade >= 2) {
+            // Выучено: удаляем из очереди сессии
+            queue.shift();
+          } else {
+            // Ошибка: переносим в конец очереди
+            const first = queue.shift();
+            queue.push(first);
+          }
+          session.setFavoritesQueue(queue);
+        }
+
+        if (queue.length === 0) {
+          session.setCard(null);
+        } else {
+          // Получаем следующую карточку из очереди
+          const nextCardInfo = queue[0];
+          const res = await api.get(`/study/card/${nextCardInfo.id}`);
+          const nextCard = res.data;
+          session.addToHistory(nextCard);
+          prefetchMedia(nextCard.image_url);
+        }
       } else {
-        const nextCard = res.data;
-        session.addToHistory(nextCard);
-        prefetchMedia(nextCard.image_url);
+        const endpoint = currentDeck.id === 'duplicates' ? '/study/duplicates/grade' : '/study/grade';
+        const res = await api.post(endpoint, {
+          card_id: gradedCardId,
+          deck_id: currentDeck.id,
+          grade,
+          learn_more: session.isLearningMore
+        });
+
+        if (res.data.finished) {
+          session.setCard(null);
+        } else {
+          const nextCard = res.data;
+          session.addToHistory(nextCard);
+          prefetchMedia(nextCard.image_url);
+        }
       }
     } catch (err) {
       console.error("SubmitGrade Error:", err);

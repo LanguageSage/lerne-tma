@@ -5,6 +5,8 @@ import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { DESIGN_PRESETS } from '../constants/appConstants';
+import { isOfflineMode } from '../services/localDb';
+import { syncService } from '../services/syncService';
 
 const SETTINGS_VERSION = '6';
 
@@ -19,10 +21,24 @@ export const useAppInitialization = (checkStartParam) => {
       console.log("Telegram WebApp Ready");
     }
 
-    const profile = getUserProfile();
-    setUserProfile(profile);
-    syncProfile(profile);
-    fetchInitData();
+    const init = async () => {
+      const profile = getUserProfile();
+      setUserProfile(profile);
+      
+      // Выполняем авто-синхронизацию при наличии сети перед загрузкой данных
+      if (isOfflineMode() && navigator.onLine) {
+        try {
+          await syncService.sync();
+        } catch (e) {
+          console.error("Startup sync failed:", e);
+        }
+      }
+      
+      syncProfile(profile);
+      await fetchInitData();
+    };
+    
+    init();
     
     // Check start param on mount
     checkStartParam();
@@ -67,14 +83,18 @@ export const useAppInitialization = (checkStartParam) => {
   }, []);
 
   const fetchInitData = async () => {
-    const { setDecks, fetchDuplicates } = useDeckStore.getState();
+    const { setDecks, setFolders, fetchDuplicates, fetchFavorites } = useDeckStore.getState();
     useUiStore.setState({ loading: true });
     try {
       const res = await api.get('/init');
       setDecks(res.data.decks);
+      if (res.data.folders) {
+        setFolders(res.data.folders);
+      }
       setAdminSettings(res.data.settings);
       setUserPrompts(res.data.prompts);
       fetchDuplicates();
+      fetchFavorites();
     } catch (err) {
       console.error("Init Data Error:", err);
       showToast("Ошибка загрузки данных.");

@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Mail, Send } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
 import api from '../../services/api';
+import { isOfflineMode } from '../../services/localDb';
+import { syncService } from '../../services/syncService';
 
 export const ProfileTab = () => {
   const { userProfile, setUserProfile, showToast } = useUiStore();
@@ -147,7 +150,31 @@ export const ProfileTab = () => {
             </a>
           </div>
         )}
+
+        {isOfflineMode() && (
+          <div className="link-telegram-section glass" style={{ marginTop: '15px' }}>
+            <h4>Локальная база данных</h4>
+            <p>Данные сохраняются на вашем устройстве. Синхронизируйте их с сервером при наличии сети.</p>
+            <button 
+              className="btn btn-primary"
+              onClick={async () => {
+                showToast("Синхронизация...");
+                const res = await syncService.sync();
+                if (res.success) {
+                  showToast("Синхронизация успешно завершена!", "success");
+                  const { fetchDecks } = useDeckStore.getState();
+                  fetchDecks(true);
+                } else {
+                  showToast(`Сбой синхронизации: ${res.reason || 'нет сети'}`);
+                }
+              }}
+            >
+              Синхронизировать сейчас
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );
 };
+

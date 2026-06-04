@@ -84,7 +84,8 @@ def create_all_tables():
     try:
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
-            TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, Deck, Card
+            TMAMedia, TMAFeedback, TMAUser, TMALinkedSession,
+            LibraryCategory, Deck, Card, TMA_Folder
         ]
         
         # Если это SQLite, проверим, являются ли tma_deck и tma_card представлениями (VIEW)
@@ -112,6 +113,18 @@ class BaseModel(Model):
     class Meta:
         database = tma_db
 
+class TMA_Folder(BaseModel):
+    id = AutoField()
+    user_id = BigIntegerField(index=True)
+    name = CharField()
+    parent = ForeignKeyField('self', backref='subfolders', null=True, column_name='parent_id', on_delete='CASCADE')
+    color = CharField(null=True)
+    is_deleted = BooleanField(default=False)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(null=True)
+    class Meta:
+        table_name = 'tma_folder'
+
 class TMA_Deck(BaseModel):
     id = AutoField()
     user_id = BigIntegerField(index=True)
@@ -120,6 +133,7 @@ class TMA_Deck(BaseModel):
     topic = CharField(null=True)
     is_deleted = BooleanField(default=False)
     is_inbox = BooleanField(default=False)  # Special "Inbox" deck for shared items
+    folder = ForeignKeyField(TMA_Folder, backref='decks', null=True, column_name='folder_id', on_delete='SET NULL')
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     share_id = CharField(null=True, unique=True)
@@ -241,6 +255,17 @@ class TMALinkedSession(BaseModel):
     class Meta:
         table_name = 'tma_linked_session'
 
+class LibraryCategory(Model):
+    id = AutoField()
+    name = CharField()
+    parent = ForeignKeyField('self', backref='subcategories', null=True, column_name='parent_id', on_delete='CASCADE')
+    icon = CharField(null=True)
+    description = TextField(null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    class Meta:
+        database = lerne_db
+        table_name = 'library_category'
+
 class Deck(Model):
     id = AutoField()
     name = CharField()
@@ -248,6 +273,8 @@ class Deck(Model):
     topic = CharField(null=True)
     is_deleted = BooleanField(default=False)
     cloud_id = IntegerField(null=True)
+    category = ForeignKeyField(LibraryCategory, backref='decks', null=True, column_name='category_id', on_delete='SET NULL')
+    is_default = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     class Meta:

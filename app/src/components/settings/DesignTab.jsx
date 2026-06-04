@@ -6,6 +6,19 @@ import { useUiStore } from '../../store/useUiStore';
 import { DESIGN_PRESETS } from '../../constants/appConstants';
 import api from '../../services/api';
 
+const PRESET_COLORS = [
+  '#ffffff', // White
+  '#080c03', // Default Dark
+  '#ffff00', // Yellow
+  '#ef4444', // Red
+  '#00e676', // Green
+  '#3b82f6', // Blue
+  '#00ffff', // Cyan
+  '#ff9800', // Orange
+  '#ec4899', // Pink
+  '#a855f7', // Purple
+];
+
 export const DesignTab = () => {
   const {
     cardBgFront, setCardBgFront,
@@ -25,6 +38,7 @@ export const DesignTab = () => {
     applyDesignPreset,
     saveUserDesign,
     applyUserDesign,
+    resetDesign,
     userDesign,
     customBackgrounds,
     setCustomBackgrounds
@@ -71,10 +85,10 @@ export const DesignTab = () => {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
           <button 
             className="btn-secondary btn-small" 
-            style={{ flex: 1, fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)' }}
+            style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)' }}
             onClick={() => {
               const config = {
                 cardBgFront, cardBgBack, cardFont, cardTextColor, cardFontSize,
@@ -82,23 +96,39 @@ export const DesignTab = () => {
                 cardFontWeight, cardFontStyle, contextFontWeight, contextFontStyle
               };
               navigator.clipboard.writeText(JSON.stringify(config, null, 2));
-              alert('Конфигурация темы скопирована в буфер обмена!');
+              showToast('Конфигурация темы скопирована!', 'success');
             }}
           >
             📋 Копировать
           </button>
           <button 
             className="btn-secondary btn-small"
-            style={{ flex: 1, fontSize: '0.8rem', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.2)' }}
-            onClick={saveUserDesign}
+            style={{ fontSize: '0.8rem', color: '#f3f4f6', borderColor: 'rgba(255,255,255,0.1)' }}
+            onClick={() => {
+              resetDesign();
+              showToast('Дизайн сброшен по умолчанию', 'success');
+            }}
+          >
+            🧹 Сбросить
+          </button>
+          <button 
+            className="btn-secondary btn-small"
+            style={{ fontSize: '0.8rem', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.2)' }}
+            onClick={() => {
+              saveUserDesign();
+              showToast('Мой пресет сохранен!', 'success');
+            }}
           >
             Сохранить мой ✨
           </button>
           {userDesign && (
             <button 
               className="btn-secondary btn-small"
-              style={{ flex: 1, fontSize: '0.8rem', color: '#34d399', borderColor: 'rgba(52,211,153,0.2)' }}
-              onClick={applyUserDesign}
+              style={{ fontSize: '0.8rem', color: '#34d399', borderColor: 'rgba(52,211,153,0.2)' }}
+              onClick={() => {
+                applyUserDesign();
+                showToast('Мой пресет применен!', 'success');
+              }}
             >
               Мой пресет 👤
             </button>
@@ -229,6 +259,37 @@ export const DesignTab = () => {
                 <option value="glass">Стекло 🧊</option>
               </select>
             </div>
+            <div style={{ 
+              display: 'flex', 
+              gap: '6px', 
+              flexWrap: 'wrap', 
+              marginTop: '10px',
+              padding: '6px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.05)'
+            }}>
+              {PRESET_COLORS.map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setCardTextColor(color)}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    border: cardTextColor.toLowerCase() === color.toLowerCase() ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    boxShadow: cardTextColor.toLowerCase() === color.toLowerCase() ? '0 0 8px rgba(167,139,250,0.6)' : 'none',
+                    transform: cardTextColor.toLowerCase() === color.toLowerCase() ? 'scale(1.18)' : 'scale(1)',
+                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  title={color === '#ffffff' ? 'Белый' : color}
+                />
+              ))}
+            </div>
           </div>
         </div>
         <div className="form-group" style={{ marginTop: '10px' }}>
@@ -302,6 +363,37 @@ export const DesignTab = () => {
                 <option value="neon">Неон 🌈</option>
                 <option value="outline">Контур ✏️</option>
               </select>
+            </div>
+            <div style={{ 
+              display: 'flex', 
+              gap: '6px', 
+              flexWrap: 'wrap', 
+              marginTop: '10px',
+              padding: '6px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.05)'
+            }}>
+              {PRESET_COLORS.map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setContextTextColor(color)}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    border: contextTextColor.toLowerCase() === color.toLowerCase() ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    boxShadow: contextTextColor.toLowerCase() === color.toLowerCase() ? '0 0 8px rgba(167,139,250,0.6)' : 'none',
+                    transform: contextTextColor.toLowerCase() === color.toLowerCase() ? 'scale(1.18)' : 'scale(1)',
+                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  title={color === '#ffffff' ? 'Белый' : color}
+                />
+              ))}
             </div>
           </div>
         </div>

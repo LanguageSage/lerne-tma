@@ -19,7 +19,7 @@ from api.dependencies.auth import get_user_id
 from api import models, services
 
 # Импорт роутеров
-from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, share, debug, trash
+from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, share, debug, trash, sync, folders
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -84,12 +84,15 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(share.router, prefix="/api")
 app.include_router(debug.router, prefix="/api")
 app.include_router(trash.router, prefix="/api")
+app.include_router(sync.router, prefix="/api")
+app.include_router(folders.router, prefix="/api")
 
 # --- Consolidated Init Endpoint ---
 @app.get("/api/init")
 def get_init_data(user_id: int = Depends(get_user_id)):
     """Returns all initial data needed by the app in a single request."""
     decks = services.get_active_decks(user_id)
+    folders = services.get_active_folders(user_id)
     
     # Get settings
     settings = {}
@@ -111,6 +114,7 @@ def get_init_data(user_id: int = Depends(get_user_id)):
         
     return {
         "decks": decks,
+        "folders": folders,
         "settings": settings,
         "prompts": prompts
     }

@@ -93,8 +93,8 @@ export const CardActionModal = ({
                     <Heart size={20} fill={card.want_to_learn ? "#ef4444" : "none"} />
                   </div>
                   <div className="action-menu-text">
-                    <strong>{card.want_to_learn ? 'Убрать из изучения' : 'Хочу выучить'}</strong>
-                    <span>Добавить в список приоритетных карточек</span>
+                    <strong>{card.want_to_learn ? 'Убрать из Ударного режима' : 'В Ударный режим'}</strong>
+                    <span>Добавить в список приоритетных карточек тренировки</span>
                   </div>
                 </button>
                 

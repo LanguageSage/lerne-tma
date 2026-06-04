@@ -2,7 +2,7 @@ import os
 import datetime
 import logging
 import json
-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia
+from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia, TMA_Folder
 from .. import srs
 from peewee import fn, JOIN
 from functools import lru_cache
@@ -12,12 +12,11 @@ logger = logging.getLogger(__name__)
 from .utils import merge_tags, add_to_history
 
 STARTER_DECK_NAMES = [
-    "А1.1 базовые слова",
-    "Базовые слова и фразы",
-    "Обиходная лексика и предметы",
-    "Смешанная лексика с картинками",
-    "Диалоги и сложные предложения A1",
-    "Большая смешанная колода: быт и лексика"
+    "⭐ [A1] Basis-Wortschatz / Базовый словарный запас",
+    "⭐ [A2] Alltagsdeutsch & Kommunikation",
+    "⭐ [A2] Vorschläge machen / Предложения и идеи",
+    "⭐ [B1] Pläne und Bitten / Планы и просьбы",
+    "⭐ [B1] Hören: Alltagsdialoge / Аудирование: диалоги"
 ]
 
 def ensure_starter_decks(user_id: int, existing_names: set = None):
@@ -26,24 +25,26 @@ def ensure_starter_decks(user_id: int, existing_names: set = None):
             existing_decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id))
             existing_names = {d.name for d in existing_decks}
         
+        # Get default decks from library (where is_default == True and is_deleted == False)
+        default_decks = list(Deck.select().where((Deck.is_default == True) & (Deck.is_deleted == False)))
+        
         with tma_db.atomic():
-            for name in STARTER_DECK_NAMES:
-                if name not in existing_names:
-                    lib_deck = Deck.get_or_none(Deck.name == name)
-                    if lib_deck:
-                        import_deck(lib_deck.id, user_id)
+            for lib_deck in default_decks:
+                if lib_deck.name not in existing_names:
+                    import_deck(lib_deck.id, user_id)
         return True
     except Exception as e:
         logger.error(f"Error in ensure_starter_decks: {e}")
         return False
 
 
-def create_deck(name: str, user_id: int):
+def create_deck(name: str, user_id: int, folder_id: int = None):
     """Создает новую пользовательскую колоду."""
     try:
         deck = TMA_Deck.create(
             user_id=user_id,
             name=name,
+            folder_id=folder_id,
             created_at=datetime.datetime.now(),
             updated_at=datetime.datetime.now()
         )
@@ -67,6 +68,11 @@ def ensure_inbox_deck(user_id: int) -> TMA_Deck:
             updated_at=datetime.datetime.now()
         )
         logger.info(f"Created Inbox deck for user {user_id} (id={inbox.id})")
+    elif inbox.is_deleted:
+        inbox.is_deleted = False
+        inbox.updated_at = datetime.datetime.now()
+        inbox.save()
+        logger.info(f"Restored soft-deleted Inbox deck for user {user_id} (id={inbox.id})")
     return inbox
 
 
@@ -79,21 +85,16 @@ def get_active_decks(user_id: int):
         # 1. Сначала проверяем/создаем Входящие (всегда должны быть)
         ensure_inbox_deck(user_id)
         
-        # 2. Получаем все активные колоды
+        # 2. Убеждаемся, что все дефолтные колоды импортированы
+        ensure_starter_decks(user_id)
+        
+        # 3. Получаем все активные колоды
         decks = list(TMA_Deck.select().where(
             (TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)
         ).order_by(TMA_Deck.is_inbox.desc(), TMA_Deck.id.desc()))
-        
-        # 3. Если кроме Входящих ничего нет, пробуем добавить стартовые
-        if len(decks) <= 1: # Только Входящие или пусто
-            ensure_starter_decks(user_id)
-            # Перезагружаем
-            decks = list(TMA_Deck.select().where(
-                (TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)
-            ).order_by(TMA_Deck.is_inbox.desc(), TMA_Deck.id.desc()))
 
         if not decks:
-            logger.warning(f"No decks found for user {user_id} even after ensure_inbox")
+            logger.warning(f"No decks found for user {user_id} even after ensure_inbox and ensure_starter_decks")
             return []
 
         deck_ids = [d.id for d in decks]
@@ -168,6 +169,7 @@ def get_active_decks(user_id: int):
                 "level": getattr(d, 'level', ''),
                 "topic": getattr(d, 'topic', ''),
                 "is_inbox": getattr(d, 'is_inbox', False),
+                "folder_id": getattr(d, 'folder_id', None),
                 "has_updates": has_updates,
                 "stats": {
                     "total": total,
@@ -194,10 +196,42 @@ def get_external_decks():
             "name": d.name,
             "level": getattr(d, 'level', ''),
             "topic": getattr(d, 'topic', ''),
+            "category_id": getattr(d, 'category_id', None),
+            "is_default": getattr(d, 'is_default', False),
             "cards_count": counts.get(d.id, 0)
         } for d in decks]
     except Exception as e:
         logger.error(f"Error in get_external_decks: {e}")
+        return []
+
+
+def toggle_default_deck(deck_id: int) -> bool:
+    """Переключает статус 'is_default' для колоды в библиотеке."""
+    try:
+        deck = Deck.get_by_id(deck_id)
+        deck.is_default = not deck.is_default
+        deck.updated_at = datetime.datetime.now()
+        deck.save()
+        logger.info(f"Toggled default status for library deck '{deck.name}' (id={deck.id}) to {deck.is_default}")
+        return deck.is_default
+    except Exception as e:
+        logger.error(f"Error toggling default status for deck {deck_id}: {e}")
+        raise e
+
+def get_library_categories():
+    """Возвращает список категорий библиотеки."""
+    try:
+        from ..models import LibraryCategory
+        categories = list(LibraryCategory.select().order_by(LibraryCategory.id.asc()))
+        return [{
+            "id": c.id,
+            "name": c.name,
+            "parent_id": getattr(c, 'parent_id', None),
+            "icon": c.icon,
+            "description": c.description
+        } for c in categories]
+    except Exception as e:
+        logger.error(f"Error in get_library_categories: {e}")
         return []
 
 
@@ -263,7 +297,8 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     defaults={
                         'level': getattr(ext_deck, 'level', ''),
                         'topic': getattr(ext_deck, 'topic', ''),
-                        'created_at': datetime.datetime.now()
+                        'created_at': datetime.datetime.now(),
+                        'updated_at': datetime.datetime.now()
                     }
                 )
                 
@@ -423,6 +458,26 @@ def reset_deck_progress(user_id: int, deck_id: int):
         logger.error(f"Error resetting progress: {e}")
         return False
 
+
+def move_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
+    """Перемещает колоду в указанную папку (или в корень, если folder_id=None)."""
+    try:
+        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        if not deck:
+            return None
+        # Verify folder belongs to user
+        if folder_id is not None:
+            folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
+            if not folder:
+                raise ValueError("Target folder not found or access denied")
+        
+        deck.folder_id = folder_id
+        deck.updated_at = datetime.datetime.now()
+        deck.save()
+        return deck
+    except Exception as e:
+        logger.error(f"Error moving deck {deck_id} to folder {folder_id}: {e}")
+        raise e
 
 def rename_deck(deck_id: int, new_name: str, user_id: int):
     """Переименовывает пользовательскую колоду."""

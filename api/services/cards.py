@@ -284,6 +284,30 @@ def format_card_for_study(card: TMA_Card, user_id: int):
     return _build_card_dict(card, p=progress, include_intervals=True)
 
 
+def get_favorite_cards(user_id: int):
+    """Возвращает карточки с want_to_learn = True у пользователя."""
+    try:
+        cards = list(TMA_Card
+                     .select()
+                     .join(TMA_Deck)
+                     .where(TMA_Deck.user_id == user_id, TMA_Card.want_to_learn == True, TMA_Card.is_deleted == False)
+                     .dicts())
+        
+        if not cards:
+            return []
+            
+        media_exists = _build_media_exists_map(cards)
+        
+        result = []
+        for c in cards:
+            result.append(_build_card_dict(c, media_exists=media_exists))
+        return result
+    except Exception as e:
+        logger.error(f"Error in get_favorite_cards: {e}")
+        return []
+
+
+
 def get_duplicate_cards(user_id: int):
     """Находит карточки с одинаковым front_text у пользователя."""
     try:

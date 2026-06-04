@@ -109,6 +109,8 @@ export const useCardEditor = () => {
       }
       session.setStudyHistory(session.studyHistory.map(c => c.id === targetCard.id ? { ...c, want_to_learn: updatedCard.want_to_learn } : c));
       showToast(updatedCard.want_to_learn ? "Добавлено в 'Хочу выучить'" : "Удалено из 'Хочу выучить'", "success");
+      // Обновляем список избранных карточек
+      useDeckStore.getState().fetchFavorites();
     } catch (err) {
       showToast("Ошибка при изменении статуса");
     }

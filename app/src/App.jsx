@@ -58,6 +58,9 @@ export default function App() {
     if (view === 'duplicates' && useDeckStore.getState().lastDuplicateCardId) {
       return; // Let DuplicateManager handle the scroll
     }
+    if (view === 'cards' && useUiStore.getState().lastSelectedCardId) {
+      return; // Let CardList handle the scroll
+    }
     const root = document.getElementById('root');
     if (root) {
       root.scrollTo({ top: 0, behavior: 'instant' });

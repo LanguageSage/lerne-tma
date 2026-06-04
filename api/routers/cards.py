@@ -41,3 +41,8 @@ def toggle_learn(card_id: int, user_id: int = Depends(get_user_id)):
 def get_duplicates(user_id: int = Depends(get_user_id)):
     return services.get_duplicate_cards(user_id)
 
+@router.get("/favorites")
+def get_favorites(user_id: int = Depends(get_user_id)):
+    return services.get_favorite_cards(user_id)
+
+

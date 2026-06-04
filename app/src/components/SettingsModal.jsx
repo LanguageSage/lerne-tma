@@ -14,44 +14,9 @@ import { PromptsTab } from './settings/PromptsTab';
 import { ProfileTab } from './settings/ProfileTab';
 
 export const SettingsModal = ({ userId, startTutorial }) => {
-  const { isSettingsOpen, setIsSettingsOpen, showToast } = useUiStore();
-  const { isAdmin, adminSettings, setAdminSettings, userPrompts, setUserPrompts } = useSettingsStore();
-
+  const { isSettingsOpen, setIsSettingsOpen } = useUiStore();
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
-  const [customBackgrounds, setCustomBackgrounds] = useState([]);
-
-  const tabsRef = useRef(null);
-  const [showLeftFade, setShowLeftFade] = useState(false);
-  const [showRightFade, setShowRightFade] = useState(false);
-
-  const updateFadeIndicators = () => {
-    if (tabsRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
-      setShowLeftFade(scrollLeft > 5);
-      setShowRightFade(scrollLeft < scrollWidth - clientWidth - 5);
-    }
-  };
-
-  useEffect(() => {
-    if (!isSettingsOpen) return;
-
-    // Initial check after rendering
-    const timer = setTimeout(updateFadeIndicators, 100);
-
-    const tabsEl = tabsRef.current;
-    if (tabsEl) {
-      tabsEl.addEventListener('scroll', updateFadeIndicators);
-    }
-    window.addEventListener('resize', updateFadeIndicators);
-
-    return () => {
-      clearTimeout(timer);
-      if (tabsEl) {
-        tabsEl.removeEventListener('scroll', updateFadeIndicators);
-      }
-      window.removeEventListener('resize', updateFadeIndicators);
-    };
-  }, [isSettingsOpen, activeSettingsTab]);
+  const [customBackgrounds] = useState([]);
 
   if (!isSettingsOpen) return null;
 
@@ -75,17 +40,21 @@ export const SettingsModal = ({ userId, startTutorial }) => {
             </div>
           </div>
 
-          <div className="settings-tabs-container">
-            <div className={`settings-tabs-fade settings-tabs-fade-left ${showLeftFade ? 'visible' : ''}`}></div>
-            <div id="tut-settings-tabs" className="settings-tabs" ref={tabsRef}>
-              <button className={`tab-btn ${activeSettingsTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('profile')}>Профиль</button>
-              <button className={`tab-btn ${activeSettingsTab === 'general' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('general')}>Общие</button>
-              <button className={`tab-btn ${activeSettingsTab === 'design' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('design')}>Дизайн</button>
-              <button className={`tab-btn ${activeSettingsTab === 'voice' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('voice')}>Озвучка</button>
-              <button className={`tab-btn ${activeSettingsTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('ai')}>Провайдеры</button>
-              <button className={`tab-btn ${activeSettingsTab === 'prompts' ? 'active' : ''}`} onClick={() => setActiveSettingsTab('prompts')}>Промпты</button>
-            </div>
-            <div className={`settings-tabs-fade settings-tabs-fade-right ${showRightFade ? 'visible' : ''}`}></div>
+          <div className="settings-dropdown-container">
+            <label htmlFor="settings-tab-select" className="settings-dropdown-label">Раздел настроек:</label>
+            <select
+              id="settings-tab-select"
+              className="settings-dropdown-select glass"
+              value={activeSettingsTab}
+              onChange={(e) => setActiveSettingsTab(e.target.value)}
+            >
+              <option value="profile">👤 Профиль пользователя</option>
+              <option value="general">⚙️ Общие настройки</option>
+              <option value="design">🎨 Оформление и дизайн</option>
+              <option value="voice">🗣 Озвучка и голос</option>
+              <option value="ai">🤖 Провайдеры ИИ</option>
+              <option value="prompts">📝 Промпты для карточек</option>
+            </select>
           </div>
 
           <div className="settings-content scrollable">
