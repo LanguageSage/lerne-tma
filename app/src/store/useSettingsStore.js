@@ -32,9 +32,9 @@ const getInitialStudyState = () => ({
   autoplayForceBackAudio: storage.get('lerne_autoplay_force_back_audio') !== null ? storage.get('lerne_autoplay_force_back_audio') === 'true' : false,
   studyMode: storage.get('lerne_study_mode') || 'classic',
   speechMatchThreshold: storage.get('lerne_speech_match_threshold') !== null ? Number(storage.get('lerne_speech_match_threshold')) : 75,
-  randomEnabledModes: storage.get('lerne_random_enabled_modes')
+  randomEnabledModes: (storage.get('lerne_random_enabled_modes')
     ? JSON.parse(storage.get('lerne_random_enabled_modes'))
-    : ['classic', 'reverse', 'cloze', 'puzzle', 'speak', 'turbo'],
+    : ['classic', 'reverse', 'cloze', 'puzzle', 'speak']).filter(m => m !== 'turbo'),
   isAdmin: false,
 });
 

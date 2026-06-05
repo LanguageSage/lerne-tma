@@ -39,6 +39,8 @@ export const StudyCard = ({
   const [speechSuccess, setSpeechSuccess] = useState(false);
   const [activeDragId, setActiveDragId] = useState(null);
   const [hoverIndex, setHoverIndex] = useState(null);
+  const [dragStartPos, setDragStartPos] = useState(null);
+  const [dragCurrentPos, setDragCurrentPos] = useState(null);
   const cachedRectsRef = useRef([]);
   
   const recognitionRef = useRef(null);
@@ -54,6 +56,8 @@ export const StudyCard = ({
     setSpeechSuccess(false);
     setActiveDragId(null);
     setHoverIndex(null);
+    setDragStartPos(null);
+    setDragCurrentPos(null);
 
     if (recognitionRef.current) {
       try {
@@ -473,96 +477,132 @@ export const StudyCard = ({
                     {selectedPuzzles.length === 0 ? (
                       <span className="puzzle-placeholder">Нажимайте слова ниже, чтобы собрать фразу</span>
                     ) : (
-                      selectedPuzzles.map((w, idx) => {
-                        const showIndicator = hoverIndex === idx && activeDragId !== null && activeDragId !== w.id;
-                        return (
-                          <React.Fragment key={w.id}>
-                            {showIndicator && (
-                              <motion.div 
-                                layoutId="drop-indicator"
-                                className="puzzle-drop-indicator"
-                              />
-                            )}
-                            <motion.span 
-                              data-id={w.id}
-                              layout
-                              drag={!isFlipped}
-                              dragSnapToOrigin={true}
-                              dragElastic={0}
-                              dragMomentum={false}
-                              onDragStart={() => {
-                                setActiveDragId(w.id);
-                                // Cache rects of all chips on drag start
-                                const chips = document.querySelectorAll('.puzzle-slot-chip');
-                                cachedRectsRef.current = Array.from(chips).map((el, i) => ({
-                                  index: i,
-                                  id: el.getAttribute('data-id'),
-                                  rect: el.getBoundingClientRect()
-                                }));
-                              }}
-                              onDrag={(event, info) => {
-                                const px = info.point.x;
-                                const py = info.point.y;
-                                
-                                let closestIdx = null;
-                                let minDistance = Infinity;
-                                
-                                cachedRectsRef.current.forEach(({ index, id, rect }) => {
-                                  if (id === w.id) return; // skip self
-                                  
-                                  const cx = rect.left + rect.width / 2;
-                                  const cy = rect.top + rect.height / 2;
-                                  
-                                  const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
-                                  if (dist < minDistance) {
-                                    minDistance = dist;
-                                    closestIdx = index;
+                      <>
+                        {selectedPuzzles.map((w, idx) => {
+                          const showIndicator = hoverIndex === idx && activeDragId !== null && activeDragId !== w.id;
+                          return (
+                            <React.Fragment key={w.id}>
+                              {showIndicator && (
+                                <motion.div 
+                                  layoutId="drop-indicator"
+                                  className="puzzle-drop-indicator"
+                                />
+                              )}
+                              <motion.span 
+                                data-id={w.id}
+                                layout
+                                drag={!isFlipped}
+                                dragSnapToOrigin={true}
+                                dragElastic={0}
+                                dragMomentum={false}
+                                onDragStart={(event, info) => {
+                                  setActiveDragId(w.id);
+                                  // Cache rects of all chips on drag start
+                                  const chips = document.querySelectorAll('.puzzle-slot-chip');
+                                  cachedRectsRef.current = Array.from(chips).map((el, i) => ({
+                                    index: i,
+                                    id: el.getAttribute('data-id'),
+                                    rect: el.getBoundingClientRect()
+                                  }));
+
+                                  const currentChip = Array.from(chips).find(el => el.getAttribute('data-id') === String(w.id));
+                                  const cardEl = document.getElementById('tut-study-card');
+                                  if (currentChip && cardEl) {
+                                    const rect = currentChip.getBoundingClientRect();
+                                    const cardRect = cardEl.getBoundingClientRect();
+                                    setDragStartPos({
+                                      x: rect.left + rect.width / 2 - cardRect.left,
+                                      y: rect.top + rect.height / 2 - cardRect.top
+                                    });
+                                    setDragCurrentPos({
+                                      x: info.point.x - cardRect.left,
+                                      y: info.point.y - cardRect.top
+                                    });
                                   }
-                                });
-                                
-                                // Forgiving distance threshold: if finger is within 120px of a chip
-                                if (minDistance < 120) {
-                                  setHoverIndex(closestIdx);
-                                } else {
+                                }}
+                                onDrag={(event, info) => {
+                                  const px = info.point.x;
+                                  const py = info.point.y;
+                                  
+                                  const cardEl = document.getElementById('tut-study-card');
+                                  if (cardEl) {
+                                    const cardRect = cardEl.getBoundingClientRect();
+                                    setDragCurrentPos({
+                                      x: px - cardRect.left,
+                                      y: py - cardRect.top
+                                    });
+                                  }
+                                  
+                                  let closestIdx = null;
+                                  let minDistance = Infinity;
+                                  let isRightOfCenter = false;
+                                  
+                                  cachedRectsRef.current.forEach(({ index, id, rect }) => {
+                                    if (id === w.id) return; // skip self
+                                    
+                                    const cx = rect.left + rect.width / 2;
+                                    const cy = rect.top + rect.height / 2;
+                                    
+                                    const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+                                    if (dist < minDistance) {
+                                      minDistance = dist;
+                                      closestIdx = index;
+                                      isRightOfCenter = px > cx;
+                                    }
+                                  });
+                                  
+                                  // Forgiving distance threshold: if finger is within 120px of a chip
+                                  if (minDistance < 120 && closestIdx !== null) {
+                                    setHoverIndex(isRightOfCenter ? closestIdx + 1 : closestIdx);
+                                  } else {
+                                    setHoverIndex(null);
+                                  }
+                                }}
+                                onDragEnd={() => {
+                                  if (hoverIndex !== null && hoverIndex !== idx) {
+                                    const updated = Array.from(selectedPuzzles);
+                                    const [removed] = updated.splice(idx, 1);
+                                    const insertIdx = idx < hoverIndex ? hoverIndex - 1 : hoverIndex;
+                                    updated.splice(insertIdx, 0, removed);
+                                    setSelectedPuzzles(updated);
+                                  }
+                                  setActiveDragId(null);
                                   setHoverIndex(null);
-                                }
-                              }}
-                              onDragEnd={() => {
-                                if (hoverIndex !== null && hoverIndex !== idx) {
-                                  // Reorder the array
-                                  const updated = Array.from(selectedPuzzles);
-                                  const [removed] = updated.splice(idx, 1);
-                                  updated.splice(hoverIndex, 0, removed);
-                                  setSelectedPuzzles(updated);
-                                }
-                                setActiveDragId(null);
-                                setHoverIndex(null);
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemovePuzzleWord(w, idx, e);
-                              }}
-                              className={`puzzle-slot-chip ${activeDragId === w.id ? 'dragging' : ''} ${hoverIndex === idx && activeDragId !== w.id ? 'drag-hover' : ''}`}
-                              data-index={idx}
-                              style={{
-                                fontFamily: cardFont,
-                                color: cardTextColor,
-                                fontSize: `${cardFontSize}rem`,
-                                fontWeight: cardFontWeight,
-                                fontStyle: cardFontStyle,
-                                textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                cursor: 'grab',
-                                userSelect: 'none',
-                                touchAction: 'none'
-                              }}
-                            >
-                              {w.text}
-                            </motion.span>
-                          </React.Fragment>
-                        );
-                      })
+                                  setDragStartPos(null);
+                                  setDragCurrentPos(null);
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemovePuzzleWord(w, idx, e);
+                                }}
+                                className={`puzzle-slot-chip ${activeDragId === w.id ? 'dragging' : ''} ${hoverIndex === idx && activeDragId !== w.id ? 'drag-hover' : ''}`}
+                                data-index={idx}
+                                style={{
+                                  fontFamily: cardFont,
+                                  color: cardTextColor,
+                                  fontSize: `${cardFontSize}rem`,
+                                  fontWeight: cardFontWeight,
+                                  fontStyle: cardFontStyle,
+                                  textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  cursor: 'grab',
+                                  userSelect: 'none',
+                                  touchAction: 'none'
+                                }}
+                              >
+                                {w.text}
+                              </motion.span>
+                            </React.Fragment>
+                          );
+                        })}
+                        {hoverIndex === selectedPuzzles.length && activeDragId !== null && (
+                          <motion.div 
+                            layoutId="drop-indicator"
+                            className="puzzle-drop-indicator"
+                          />
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -729,6 +769,49 @@ export const StudyCard = ({
           <div className="card-loading-overlay">
             <RefreshCw size={40} className="spin" />
           </div>
+        )}
+
+        {dragStartPos && dragCurrentPos && (
+          <svg
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none',
+              zIndex: 9999
+            }}
+          >
+            <defs>
+              <filter id="arrow-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+              <marker
+                id="arrow"
+                viewBox="0 0 10 10"
+                refX="6"
+                refY="5"
+                markerWidth="8"
+                markerHeight="8"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#c084fc" />
+              </marker>
+            </defs>
+            <line
+              x1={dragStartPos.x}
+              y1={dragStartPos.y}
+              x2={dragCurrentPos.x}
+              y2={dragCurrentPos.y}
+              stroke="#c084fc"
+              strokeWidth="4"
+              strokeDasharray="6 6"
+              filter="url(#arrow-glow)"
+              markerEnd="url(#arrow)"
+            />
+          </svg>
         )}
       </motion.div>
     </AnimatePresence>

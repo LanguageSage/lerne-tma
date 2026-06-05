@@ -336,8 +336,7 @@ export const StudyView = ({ startTutorial }) => {
                     { key: 'reverse', label: '🔄 Перевод' },
                     { key: 'cloze', label: '📝 Выбор слова' },
                     { key: 'puzzle', label: '🧩 Конструктор' },
-                    { key: 'speak', label: '🗣 Произношение' },
-                    { key: 'turbo', label: '🔥 Ударный' }
+                    { key: 'speak', label: '🗣 Произношение' }
                   ].map(({ key, label }) => {
                     const isChecked = (settings.randomEnabledModes || []).includes(key);
                     return (
