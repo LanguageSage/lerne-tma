@@ -35,11 +35,10 @@ def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{deck_id}")
-def delete_deck(deck_id: int):
-    # Note: Currently delete_deck doesn't check user_id. We might want to add it later.
-    if services.delete_deck(deck_id):
+def delete_deck(deck_id: int, user_id: int = Depends(get_user_id)):
+    if services.delete_deck(deck_id, user_id):
         return {"status": "success"}
-    raise HTTPException(status_code=404, detail="Deck not found")
+    raise HTTPException(status_code=404, detail="Deck not found or access denied")
 
 @router.post("/{deck_id}/rename")
 def rename_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):

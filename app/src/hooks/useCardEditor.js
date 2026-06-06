@@ -97,8 +97,9 @@ export const useCardEditor = () => {
 
       session.removeCardFromSession(cardId);
       
-      if (ui.view === 'study' && !session.card && currentDeck) {
-        const historyIds = session.studyHistory.map(c => c && c.id);
+      const freshSession = useSessionStore.getState();
+      if (ui.view === 'study' && !freshSession.card && currentDeck) {
+        const historyIds = freshSession.studyHistory.map(c => c && c.id);
         await fetchNextCard(currentDeck.id, false, historyIds);
       }
 
@@ -152,8 +153,9 @@ export const useCardEditor = () => {
       
       session.removeCardFromSession(targetCard.id);
       
-      if (ui.view === 'study' && !session.card && currentDeck) {
-        const historyIds = session.studyHistory.map(c => c && c.id);
+      const freshSession = useSessionStore.getState();
+      if (ui.view === 'study' && !freshSession.card && currentDeck) {
+        const historyIds = freshSession.studyHistory.map(c => c && c.id);
         await fetchNextCard(currentDeck.id, false, historyIds);
       }
       

@@ -1,23 +1,26 @@
 import logging
 import os
 import traceback
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Depends, HTTPException
 from api import models, services
+from api.dependencies.auth import get_user_id
+
+ADMIN_USER_ID = 642478257
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 logger = logging.getLogger(__name__)
 
 @router.get("/test-import/{deck_id}")
-def debug_import(deck_id: int, x_user_id: int = Header(None)):
-    if not x_user_id:
-        return {"error": "X-User-ID missing"}
+def debug_import(deck_id: int, user_id: int = Depends(get_user_id)):
+    if user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Access denied")
     
     logs = []
     def log(msg):
         logger.info(f"DEBUG: {msg}")
         logs.append(msg)
     
-    log(f"Starting debug import for deck {deck_id}, user {x_user_id}")
+    log(f"Starting debug import for deck {deck_id}, user {user_id}")
     try:
         log(f"DB Connection: {models.tma_db.is_closed()}")
         
@@ -34,7 +37,7 @@ def debug_import(deck_id: int, x_user_id: int = Header(None)):
         raw_count = cursor.fetchone()[0]
         log(f"Raw SQL found {raw_count} cards")
         
-        result = services.import_deck(deck_id, x_user_id)
+        result = services.import_deck(deck_id, user_id)
         log(f"Import result: {'Success' if result else 'Failed'}")
         
         if result:
@@ -49,7 +52,9 @@ def debug_import(deck_id: int, x_user_id: int = Header(None)):
         return {"logs": logs, "error": str(e)}
 
 @router.get("/test-audio")
-async def debug_audio(text: str = "Test", voice: str = "de-DE-KatjaNeural"):
+async def debug_audio(text: str = "Test", voice: str = "de-DE-KatjaNeural", user_id: int = Depends(get_user_id)):
+    if user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Access denied")
     logs = []
     logs.append(f"Starting debug audio for text: '{text}', voice: '{voice}'")
     try:

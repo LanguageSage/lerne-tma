@@ -19,6 +19,8 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
         item = TMA_Deck.get_or_none((TMA_Deck.id == item_id) & (TMA_Deck.user_id == user_id))
     elif type == "card":
         item = TMA_Card.get_or_none((TMA_Card.id == item_id) & (TMA_Card.is_deleted == False))
+        if item and item.deck and item.deck.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
     else:
         raise HTTPException(status_code=400, detail="Invalid item type")
         

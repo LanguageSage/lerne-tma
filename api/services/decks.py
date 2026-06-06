@@ -407,12 +407,17 @@ def import_deck_from_json(data: dict, user_id: int):
         return None
 
 
-def delete_deck(deck_id: int):
+def delete_deck(deck_id: int, user_id: int):
     try:
         # Мягкое удаление: помечаем колоду и её карточки как is_deleted = True
         now = datetime.datetime.now()
+        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        if not deck:
+            return False
         TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id == deck_id).execute()
-        TMA_Deck.update(is_deleted=True, updated_at=now).where(TMA_Deck.id == deck_id).execute()
+        deck.is_deleted = True
+        deck.updated_at = now
+        deck.save()
         return True
     except Exception as e:
         logger.error(f"Error deleting deck: {e}", exc_info=True)

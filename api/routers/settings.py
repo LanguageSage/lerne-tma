@@ -7,6 +7,8 @@ from api.dependencies.auth import get_user_id
 
 logger = logging.getLogger(__name__)
 
+ADMIN_USER_ID = 642478257
+
 router = APIRouter(
     tags=["settings"],
 )
@@ -93,14 +95,18 @@ def deactivate_user_prompts(user_id: int = Depends(get_user_id)):
 
 # Admin Settings
 @router.get("/admin/settings")
-def get_admin_settings():
+def get_admin_settings(user_id: int = Depends(get_user_id)):
+    if user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Only admins can access settings")
     settings = {}
     for s in models.TMASetting.select():
         settings[s.key] = s.value
     return settings
 
 @router.post("/admin/settings")
-def save_admin_settings(data: dict):
+def save_admin_settings(data: dict, user_id: int = Depends(get_user_id)):
+    if user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Only admins can access settings")
     import datetime
     try:
         now = datetime.datetime.now()
@@ -162,10 +168,14 @@ def get_admin_presets():
 # Community Moderation
 @router.get("/admin/community/decks")
 def get_community_decks(user_id: int = Depends(get_user_id)):
+    if user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Only admins can view community decks")
     return services.get_community_content(user_id)
 
 @router.post("/admin/community/promote/{deck_id}")
-def promote_deck(deck_id: int):
+def promote_deck(deck_id: int, user_id: int = Depends(get_user_id)):
+    if user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Only admins can promote decks")
     result = services.promote_to_library(deck_id)
     if result:
         return {"status": "success", "new_library_id": result.id}

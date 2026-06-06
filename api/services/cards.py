@@ -97,10 +97,19 @@ def save_card(data, user_id):
     return card
 
 
-def delete_card(card_id: int):
+def delete_card(card_id: int, user_id: int):
     try:
         # Мягкое удаление: помечаем карточку как is_deleted = True
-        TMA_Card.update(is_deleted=True, updated_at=datetime.datetime.now()).where(TMA_Card.id == card_id).execute()
+        card = TMA_Card.get_or_none(TMA_Card.id == card_id)
+        if not card:
+            return False
+            
+        if card.deck and card.deck.user_id != user_id:
+            return False
+            
+        card.is_deleted = True
+        card.updated_at = datetime.datetime.now()
+        card.save()
         return True
     except Exception as e:
         logger.error(f"Error deleting card: {e}", exc_info=True)

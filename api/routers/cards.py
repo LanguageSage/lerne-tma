@@ -25,11 +25,10 @@ async def save_card(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/{card_id}")
-def delete_card(card_id: int):
-    # Note: user_id check is missing here currently.
-    if services.delete_card(card_id):
+def delete_card(card_id: int, user_id: int = Depends(get_user_id)):
+    if services.delete_card(card_id, user_id):
         return {"status": "success"}
-    raise HTTPException(status_code=404, detail="Card not found")
+    raise HTTPException(status_code=404, detail="Card not found or access denied")
 
 @router.post("/{card_id}/toggle-learn")
 async def toggle_learn(card_id: int, user_id: int = Depends(get_user_id)):
