@@ -23,6 +23,9 @@ class SyncDeckItem(BaseModel):
     level: Optional[str] = None
     topic: Optional[str] = None
     is_deleted: bool = False
+    is_pinned: bool = False
+    position: int = 0
+    folder_id: Optional[int] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -95,6 +98,9 @@ def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
                         topic=d.topic,
                         is_deleted=d.is_deleted,
                         is_inbox=False,
+                        is_pinned=d.is_pinned,
+                        position=d.position,
+                        folder_id=d.folder_id,
                         created_at=parse_iso_datetime(d.created_at),
                         updated_at=client_updated_at
                     )
@@ -110,6 +116,9 @@ def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
                             deck.level = d.level
                             deck.topic = d.topic
                             deck.is_deleted = d.is_deleted
+                            deck.is_pinned = d.is_pinned
+                            deck.position = d.position
+                            deck.folder_id = d.folder_id
                             deck.updated_at = client_updated_at
                             deck.save()
 
@@ -256,6 +265,9 @@ def pull_changes(since: Optional[str] = None, user_id: int = Depends(get_user_id
                 "topic": d.topic or "",
                 "is_deleted": bool(d.is_deleted),
                 "is_inbox": bool(d.is_inbox),
+                "is_pinned": bool(d.is_pinned),
+                "position": int(d.position or 0),
+                "folder_id": d.folder_id,
                 "created_at": d.created_at.isoformat() if d.created_at else None,
                 "updated_at": d.updated_at.isoformat() if d.updated_at else None
             })

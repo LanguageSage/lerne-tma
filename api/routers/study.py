@@ -12,7 +12,7 @@ router = APIRouter(
     tags=["study"],
 )
 
-def _card_to_response(card, progress):
+async def _card_to_response(card, progress, user_id: int):
     """Формирует ответ с данными карты. Вынесено для переиспользования."""
     creator_name = None
     creator_avatar = None
@@ -21,6 +21,9 @@ def _card_to_response(card, progress):
         if creator:
             creator_name = creator.username or creator.first_name
             creator_avatar = creator.photo_url
+
+    # Убеждаемся, что озвучка существует и корректна
+    await services.ensure_card_audio(card, user_id)
 
     return {
         "id": card.id,
@@ -42,7 +45,7 @@ def _card_to_response(card, progress):
     }
 
 @router.get("/study/card/{card_id}")
-def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
+async def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
     """Возвращает конкретную карту для изучения."""
     card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
     if not card:
@@ -53,10 +56,10 @@ def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
         user_id=user_id,
         defaults={"queue": "new", "next_review": models.datetime.datetime.now()}
     )
-    return _card_to_response(card, progress)
+    return await _card_to_response(card, progress, user_id)
 
 @router.get("/decks/{deck_id}/next")
-def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = False, user_id: int = Depends(get_user_id)):
+async def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = False, user_id: int = Depends(get_user_id)):
     """Выбор следующей карты для изучения (SRS)."""
     parsed_exclude = []
     if exclude_ids:
@@ -75,11 +78,11 @@ def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = Fals
         return {"finished": True}
     
     logger.info(f"NEXT CARD: user={user_id}, deck={deck_id}, card={card.id}")
-    return _card_to_response(card, progress)
+    return await _card_to_response(card, progress, user_id)
 
 @router.post("/study/grade")
-def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
-    def run_grade():
+async def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
+    async def run_grade():
         logger.info(f"submit_grade: User {user_id}, Data: {data}")
         services.update_card_progress(data['card_id'], user_id, data['grade'])
         logger.info("submit_grade: Progress updated successfully")
@@ -91,10 +94,10 @@ def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
             return card
         if not card:
             return {"finished": True}
-        return _card_to_response(card, progress)
+        return await _card_to_response(card, progress, user_id)
 
     try:
-        return run_grade()
+        return await run_grade()
     except Exception as e:
         if "connection already closed" in str(e).lower():
             try:
@@ -103,7 +106,7 @@ def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
                 pass
             try:
                 models.tma_db.connect(reuse_if_open=True)
-                return run_grade()
+                return await run_grade()
             except Exception as retry_error:
                 logger.error(f"submit_grade RETRY ERROR: {retry_error}")
                 raise HTTPException(status_code=500, detail=str(retry_error))
@@ -111,7 +114,7 @@ def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/study/duplicates/next")
-def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depends(get_user_id)):
+async def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depends(get_user_id)):
     """Выбор следующего дубликата для изучения."""
     parsed_exclude = []
     if exclude_ids:
@@ -122,15 +125,13 @@ def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depends(get_
     card, progress = services.get_next_duplicate_card(user_id, exclude_ids=parsed_exclude)
     if not card:
         return {"finished": True}
-    return _card_to_response(card, progress)
+    return await _card_to_response(card, progress, user_id)
 
 @router.post("/study/duplicates/grade")
-def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
+async def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
     """Сохранение оценки для дубликата и переход к следующему."""
     services.update_card_progress(data['card_id'], user_id, data['grade'])
     card, progress = services.get_next_duplicate_card(user_id)
     if not card:
         return {"finished": True}
-    return _card_to_response(card, progress)
-
-
+    return await _card_to_response(card, progress, user_id)

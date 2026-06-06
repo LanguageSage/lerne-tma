@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, Volume2, Edit2, Settings, RefreshCw, Plus } from 'lucide-react';
+import { ChevronLeft, Volume2, Edit2, Settings, RefreshCw, Plus, Sparkles } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { UserProfileBadge } from '../common/UserBadge';
 
@@ -45,7 +45,15 @@ export const StudyHeader = ({
         disabled={loading || !card}
         title="Добавить озвучку"
       >
-        {isAudioLoading ? <RefreshCw size={22} className="spin" /> : <Volume2 size={22} />}
+        {isAudioLoading ? (
+          card?.audio_is_generating ? (
+            <Sparkles size={22} className="sparkles-spin" style={{ color: '#a855f7' }} />
+          ) : (
+            <RefreshCw size={22} className="spin" />
+          )
+        ) : (
+          <Volume2 size={22} />
+        )}
       </button>
 
       <button

@@ -2,7 +2,7 @@ import os
 import datetime
 import logging
 import json
-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia, TMA_Folder
+from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia, TMA_Folder, TMAUser
 from .. import srs
 from peewee import fn, JOIN
 from functools import lru_cache
@@ -21,6 +21,10 @@ STARTER_DECK_NAMES = [
 
 def ensure_starter_decks(user_id: int, existing_names: set = None):
     try:
+        user = TMAUser.get_or_none(TMAUser.user_id == user_id)
+        if user and user.default_decks_initialized:
+            return True
+            
         if existing_names is None:
             existing_decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id))
             existing_names = {d.name for d in existing_decks}
@@ -32,6 +36,9 @@ def ensure_starter_decks(user_id: int, existing_names: set = None):
             for lib_deck in default_decks:
                 if lib_deck.name not in existing_names:
                     import_deck(lib_deck.id, user_id)
+            if user:
+                user.default_decks_initialized = True
+                user.save()
         return True
     except Exception as e:
         logger.error(f"Error in ensure_starter_decks: {e}")
@@ -91,7 +98,7 @@ def get_active_decks(user_id: int):
         # 3. Получаем все активные колоды
         decks = list(TMA_Deck.select().where(
             (TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)
-        ).order_by(TMA_Deck.is_inbox.desc(), TMA_Deck.id.desc()))
+        ).order_by(TMA_Deck.is_pinned.desc(), TMA_Deck.is_inbox.desc(), TMA_Deck.position.asc(), TMA_Deck.id.desc()))
 
         if not decks:
             logger.warning(f"No decks found for user {user_id} even after ensure_inbox and ensure_starter_decks")
@@ -169,6 +176,8 @@ def get_active_decks(user_id: int):
                 "level": getattr(d, 'level', ''),
                 "topic": getattr(d, 'topic', ''),
                 "is_inbox": getattr(d, 'is_inbox', False),
+                "is_pinned": getattr(d, 'is_pinned', False),
+                "position": getattr(d, 'position', 0),
                 "folder_id": getattr(d, 'folder_id', None),
                 "has_updates": has_updates,
                 "stats": {

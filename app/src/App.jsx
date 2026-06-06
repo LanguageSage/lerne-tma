@@ -49,6 +49,115 @@ export default function App() {
   const { isFlipped } = useSessionStore();
   const { fetchNextCard, handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
 
+  const activeFolderId = useUiStore(state => state.activeFolderId);
+  const setActiveFolderId = useUiStore(state => state.setActiveFolderId);
+  const isSettingsOpen = useUiStore(state => state.isSettingsOpen);
+  const isNewDeckModalOpen = useUiStore(state => state.isNewDeckModalOpen);
+  const isRenameModalOpen = useUiStore(state => state.isRenameModalOpen);
+
+  // Sync state with history and Telegram BackButton
+  const isPopStateRef = React.useRef(false);
+  const lastModalOpenRef = React.useRef(false);
+
+  const anyModalOpen = isSettingsOpen || isNewDeckModalOpen || isRenameModalOpen || isCardActionModalOpen || syncModalOpen;
+
+  // 1. Setup popstate listener and Telegram back button onClick callback on mount
+  useEffect(() => {
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.enableClosingConfirmation();
+    }
+    
+    // Replace initial state with root decks view
+    window.history.replaceState({ view: 'decks', folderId: null }, '');
+
+    const handlePopState = (event) => {
+      const state = event.state;
+      if (state) {
+        isPopStateRef.current = true;
+        
+        // If a modal was open, close it and prevent changing the view
+        const uiState = useUiStore.getState();
+        const deckState = useDeckStore.getState();
+        const wasModalOpen = uiState.isSettingsOpen || uiState.isNewDeckModalOpen || uiState.isRenameModalOpen || uiState.isCardActionModalOpen || deckState.syncModalOpen;
+        
+        if (wasModalOpen) {
+          uiState.setIsSettingsOpen(false);
+          uiState.setIsNewDeckModalOpen(false);
+          uiState.setIsRenameModalOpen(false);
+          uiState.setIsCardActionModalOpen(false);
+          deckState.setSyncModalOpen(false);
+          lastModalOpenRef.current = false;
+        } else {
+          // No modal was open -> change view/folder
+          setView(state.view);
+          setActiveFolderId(state.folderId);
+        }
+        
+        setTimeout(() => {
+          isPopStateRef.current = false;
+        }, 50);
+      } else {
+        // Popped past root in browser
+        const confirmExit = window.confirm("Вы действительно хотите выйти из приложения?");
+        if (confirmExit) {
+          if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.close();
+          } else {
+            window.close();
+          }
+        } else {
+          // Push state back so they don't exit next time
+          window.history.pushState({ view: 'decks', folderId: null }, '');
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    const handleTgBackClick = () => {
+      window.history.back();
+    };
+    
+    if (window.Telegram?.WebApp?.BackButton) {
+      window.Telegram.WebApp.BackButton.onClick(handleTgBackClick);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (window.Telegram?.WebApp?.BackButton) {
+        window.Telegram.WebApp.BackButton.offClick(handleTgBackClick);
+      }
+    };
+  }, [setView, setActiveFolderId]);
+
+  // 2. Push history state on view/folder/modal transitions and sync Telegram BackButton visibility
+  useEffect(() => {
+    if (isPopStateRef.current) return;
+
+    if (anyModalOpen && !lastModalOpenRef.current) {
+      // Modal opened -> push state
+      window.history.pushState({ view, folderId: activeFolderId, modalOpen: true }, '');
+    } else if (!anyModalOpen && lastModalOpenRef.current) {
+      // Modal closed -> remove state
+      window.history.back();
+    } else {
+      // View or folder changed -> push state
+      window.history.pushState({ view, folderId: activeFolderId }, '');
+    }
+    lastModalOpenRef.current = anyModalOpen;
+
+    // Sync Telegram BackButton visibility
+    const isRoot = view === 'decks' && activeFolderId === null;
+    const tg = window.Telegram?.WebApp;
+    if (tg?.BackButton) {
+      if (isRoot) {
+        tg.BackButton.hide();
+      } else {
+        tg.BackButton.show();
+      }
+    }
+  }, [view, activeFolderId, anyModalOpen]);
+
   // Custom hooks for initialization and import logic
   const { importShareId, setImportShareId, checkStartParam } = useAutoImport();
   useAppInitialization(checkStartParam);

@@ -658,4 +658,285 @@ h1, h2, h3 {
   transform: scale(0.96);
 }
 
+.btn-back-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  align-self: stretch;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.btn-back-main:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.btn-back-main:active {
+  transform: scale(0.95);
+}
+
+/* Pinned Decks Styling */
+.deck-card.deck-pinned {
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(99, 102, 241, 0.06));
+  box-shadow: 0 0 18px rgba(168, 85, 247, 0.18), 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Draggable Card Padding Adjustment */
+.deck-card-draggable .deck-main-action {
+  padding-left: 72px;
+}
+
+/* Drag Handle Styling */
+.deck-drag-handle {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: grab;
+  color: #fdba74;
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: none;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.deck-drag-handle:hover {
+  color: #ffedd5;
+  background: rgba(249, 115, 22, 0.3);
+  border-color: rgba(249, 115, 22, 0.6);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.4);
+}
+
+.deck-drag-handle:active {
+  cursor: grabbing;
+  color: #ff9800;
+  background: rgba(249, 115, 22, 0.45);
+  border-color: rgba(249, 115, 22, 0.8);
+  transform: translateY(-50%) scale(0.92);
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.6);
+}
+
+/* Pin Button Styling */
+.pin-deck-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  margin-left: auto;
+  display: inline-flex;
+  padding: 6px;
+  border-radius: 8px;
+  vertical-align: middle;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pin-deck-btn:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pin-deck-btn.pinned {
+  color: #a855f7;
+  transform: rotate(45deg);
+}
+
+.pin-deck-btn.pinned svg {
+  fill: #a855f7;
+}
+
+/* Dropdown Menu Styling */
+.deck-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 12px;
+  right: auto;
+  z-index: 1000;
+  min-width: 200px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(168, 85, 247, 0.05);
+  padding: 6px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transform-origin: bottom left;
+  animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: #cbd5e1;
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.dropdown-item.text-red {
+  color: #f87171;
+}
+
+.dropdown-item.text-red:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+}
+
+.dropdown-item svg {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.dropdown-item:hover svg {
+  transform: scale(1.05);
+}
+
+/* Menu Toggle Button Styling */
+.menu-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px !important;
+  padding: 8px 14px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
+  font-size: 0.8rem !important;
+  color: #94a3b8 !important;
+  cursor: pointer;
+  transition: all 0.2s ease !important;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.menu-toggle-btn:hover,
+.menu-toggle-btn.active {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: white !important;
+}
+
+/* Sub-menu styling for folder moving */
+.dropdown-sub-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  margin: 2px 4px 4px 18px;
+  border-left: 2px solid rgba(168, 85, 247, 0.4);
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.dropdown-sub-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.dropdown-sub-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.dropdown-sub-item.current {
+  color: #a855f7;
+  font-weight: 600;
+}
+
+/* Update Indicator Dot */
+.menu-update-indicator {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  border: 2px solid #16213e;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+.text-amber {
+  color: #f59e0b;
+}
+
+.spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+/* Sparkles Generation Animation */
+.sparkles-spin {
+  animation: sparklesSpin 1.5s linear infinite, sparklesPulse 1s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.6));
+}
+
+@keyframes sparklesSpin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes sparklesPulse {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
 

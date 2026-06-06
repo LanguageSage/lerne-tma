@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2, Share2, Inbox, Download, X, BookOpen, ChevronRight, Edit2, Folder, FolderOpen, Flame } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
+import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2, Share2, Inbox, Download, X, BookOpen, ChevronRight, Edit2, Folder, FolderOpen, Flame, Pin, MoreHorizontal, ChevronsUpDown } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { UserProfileBadge } from './common/UserBadge';
 import { useUiStore } from '../store/useUiStore';
@@ -102,9 +102,289 @@ const ShareBanner = ({ shareId, onSuccess, onClose }) => {
   );
 };
 
+const DeckCardItem = ({
+  deck,
+  setCurrentDeck,
+  setDeckCards,
+  fetchDeckCards,
+  showToast,
+  openSyncModal,
+  handleSyncDeck,
+  handleResetProgress,
+  handleDeleteDeck,
+  setDeckToRename,
+  setIsRenameModalOpen,
+  togglePinDeck,
+  folders
+}) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const dragControls = useDragControls();
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      setIsMoveMenuOpen(false);
+    }
+  }, [isMenuOpen]);
+
+  const onMainAction = () => {
+    setCurrentDeck(deck);
+    setDeckCards([]);
+    fetchDeckCards(deck.id);
+    useUiStore.getState().setView('cards');
+  };
+
+  const handleShare = async (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    try {
+      const result = await useDeckStore.getState().handleShareDeck(deck.id);
+      if (result.success) {
+        if (result.type === 'copy') showToast('Ссылка скопирована!', 'success');
+        else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
+      }
+    } catch (err) {
+      showToast('Ошибка при создании ссылки', 'error');
+    }
+  };
+
+  const handleSync = (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    if (openSyncModal) {
+      openSyncModal(deck);
+    } else {
+      handleSyncDeck(deck.id);
+    }
+  };
+
+  const handleRename = (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    setDeckToRename(deck);
+    setIsRenameModalOpen(true);
+  };
+
+  const handleReset = async (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    if (window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) {
+      try {
+        await handleResetProgress(deck.id);
+        showToast("Прогресс успешно сброшен", "success");
+      } catch (err) {
+        showToast("Ошибка при сбросе прогресса");
+      }
+    }
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    if (window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) {
+      handleDeleteDeck(deck.id);
+    }
+  };
+
+  const handlePin = async (e) => {
+    e.stopPropagation();
+    try {
+      await togglePinDeck(deck.id);
+      showToast(deck.is_pinned ? 'Колода откреплена' : 'Колода закреплена', 'success');
+    } catch (err) {
+      showToast('Ошибка при закреплении колоды', 'error');
+    }
+  };
+
+  const handleMoveToFolder = async (e, folderId) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    setIsMoveMenuOpen(false);
+    try {
+      await useDeckStore.getState().moveDeckToFolder(deck.id, folderId);
+      showToast("Колода перемещена", "success");
+    } catch (err) {
+      showToast("Ошибка при перемещении колоды", "error");
+    }
+  };
+
+  return (
+    <Reorder.Item
+      value={deck}
+      dragListener={false}
+      dragControls={dragControls}
+      className={`deck-card glass ${deck.is_pinned ? 'deck-pinned' : ''} ${deck.is_inbox ? 'deck-card-inbox' : ''} ${!deck.is_inbox ? 'deck-card-draggable' : ''}`}
+      style={{ position: 'relative' }}
+    >
+      {/* Drag handle: only show for non-inbox decks */}
+      {!deck.is_inbox && (
+        <div
+          className="deck-drag-handle"
+          onPointerDown={(e) => dragControls.start(e)}
+          style={{ touchAction: 'none' }}
+          title="Перетащить колоду"
+        >
+          <ChevronsUpDown size={24} />
+        </div>
+      )}
+
+      <div className="deck-main-action" onClick={onMainAction}>
+        <div className="deck-icon">
+          {deck.is_inbox ? <Inbox size={24} /> : <Layers size={24} />}
+        </div>
+        
+        <h3>
+          <span className="deck-title-text">{deck.name}</span>
+          
+          {deck.is_inbox && deck.stats.total > 0 && (
+            <span style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
+              новые
+            </span>
+          )}
+
+          {!deck.is_inbox && (
+            <button
+              className={`pin-deck-btn ${deck.is_pinned ? 'pinned' : ''}`}
+              onClick={handlePin}
+              title={deck.is_pinned ? "Открепить колоду" : "Закрепить колоду"}
+            >
+              <Pin size={16} />
+            </button>
+          )}
+        </h3>
+
+        <div className="deck-stats">
+          <span className="stat total" title="Всего карточек">{deck.stats.total}</span>
+          <span className="stat new" title="Новые">{deck.stats.new}</span>
+          <span className="stat learning" title="В изучении">{deck.stats.learning}</span>
+          <span className="stat due" title="К повторению">{deck.stats.due}</span>
+        </div>
+      </div>
+
+      <div className="deck-footer-actions" style={{ justifyContent: 'flex-start', padding: '8px 12px', position: 'relative' }}>
+        {deck.is_inbox && (
+          <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+              📥 Входящие карточки
+            </span>
+          </div>
+        )}
+
+        <button 
+          className={`menu-toggle-btn ${isMenuOpen ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMenuOpen(!isMenuOpen);
+          }}
+          title="Опции колоды"
+        >
+          <MoreHorizontal size={16} />
+          <span>Опции</span>
+          {deck.has_updates && !deck.is_inbox && (
+            <span className="menu-update-indicator" />
+          )}
+        </button>
+
+        {isMenuOpen && (
+          <div className="deck-dropdown-menu glass" ref={menuRef} onClick={(e) => e.stopPropagation()}>
+            <button className="dropdown-item" onClick={onMainAction}>
+              <span>📖 Список карточек</span>
+            </button>
+            
+            {!deck.is_inbox && (
+              <button className="dropdown-item" onClick={handleShare}>
+                <span>🔗 Поделиться</span>
+              </button>
+            )}
+
+            {!deck.is_inbox && (
+              <button className="dropdown-item" onClick={handleSync}>
+                <span>🔄 {deck.has_updates ? '❗️ Обновить' : 'Обновить'}</span>
+              </button>
+            )}
+
+            {!deck.is_inbox && (
+              <button className="dropdown-item" onClick={handleRename}>
+                <span>✍️ Переименовать</span>
+              </button>
+            )}
+
+            {!deck.is_inbox && (
+              <>
+                <button 
+                  className={`dropdown-item ${isMoveMenuOpen ? 'active' : ''}`} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMoveMenuOpen(!isMoveMenuOpen);
+                  }}
+                >
+                  <span>📁 Переместить в папку</span>
+                  <ChevronRight 
+                    size={14} 
+                    style={{ 
+                      marginLeft: 'auto', 
+                      transform: isMoveMenuOpen ? 'rotate(90deg)' : 'none',
+                      transition: 'transform 0.2s' 
+                    }} 
+                  />
+                </button>
+                {isMoveMenuOpen && (
+                  <div className="dropdown-sub-menu">
+                    <button 
+                      className={`dropdown-sub-item ${deck.folder_id === null ? 'current' : ''}`}
+                      onClick={(e) => handleMoveToFolder(e, null)}
+                    >
+                      <span>Без папки (Главная)</span>
+                    </button>
+                    {(folders || []).map(f => (
+                      <button 
+                        key={f.id}
+                        className={`dropdown-sub-item ${deck.folder_id === f.id ? 'current' : ''}`}
+                        onClick={(e) => handleMoveToFolder(e, f.id)}
+                      >
+                        <span>{f.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            <button className="dropdown-item text-red" onClick={handleReset}>
+              <span>🧹 Сбросить прогресс</span>
+            </button>
+
+            {!deck.is_inbox && (
+              <button className="dropdown-item text-red" onClick={handleDelete}>
+                <span>❌ Удалить</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </Reorder.Item>
+  );
+};
+
 export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, importShareId, onImportSuccess, onImportClose }) => {
   const { view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, showToast, userProfile, setIsRenameModalOpen, setDeckToRename, activeFolderId, setActiveFolderId } = useUiStore();
-  const { decks, folders, setCurrentDeck, fetchDeckCards, handleSyncDeck, handleResetProgress, handleDeleteDeck, setDeckCards } = useDeckStore();
+  const { decks, folders, setCurrentDeck, fetchDeckCards, handleSyncDeck, handleResetProgress, handleDeleteDeck, setDeckCards, togglePinDeck, reorderDecks } = useDeckStore();
   
   if (view !== 'decks') return null;
 
@@ -311,125 +591,35 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
               })}
 
               {/* 2. Render Decks */}
-              {currentDecks.map((deck, index) => (
-                <div 
-                  key={deck.id} 
-                  className={`deck-card glass ${deck.is_inbox ? 'deck-card-inbox' : ''}`}
-                >
-                  <div className="deck-main-action" onClick={() => {
-                    setCurrentDeck(deck);
-                    setDeckCards([]);
-                    fetchDeckCards(deck.id);
-                    useUiStore.getState().setView('cards');
-                  }}>
-                    <div className="deck-icon">
-                      {deck.is_inbox ? <Inbox size={24} /> : <Layers size={24} />}
-                    </div>
-                    <h3>
-                      <span className="deck-title-text">{deck.name}</span>
-                      {!deck.is_inbox && (
-                        <button
-                          className="rename-deck-inline-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeckToRename(deck);
-                            setIsRenameModalOpen(true);
-                          }}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#a0ad0e',
-                            cursor: 'pointer',
-                            marginLeft: '6px',
-                            display: 'inline-flex',
-                            padding: '4px',
-                            verticalAlign: 'middle',
-                            transition: 'color 0.2s',
-                          }}
-                          onMouseOver={(e) => e.currentTarget.style.color = '#c4d320'}
-                          onMouseOut={(e) => e.currentTarget.style.color = '#a0ad0e'}
-                          title="Переименовать колоду"
-                        >
-                          <Edit2 size={24} />
-                        </button>
-                      )}
-                      {deck.is_inbox && deck.stats.total > 0 && (
-                        <span style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
-                          новые
-                        </span>
-                      )}
-                    </h3>
-                    <div className="deck-stats">
-                      <span className="stat total" title="Всего карточек">{deck.stats.total}</span>
-                      <span className="stat new" title="Новые">{deck.stats.new}</span>
-                      <span className="stat learning" title="В изучении">{deck.stats.learning}</span>
-                      <span className="stat due" title="К повторению">{deck.stats.due}</span>
-                    </div>
-                  </div>
-                  <div className="deck-footer-actions">
-                    {!deck.is_inbox && (
-                      <button 
-                        className="deck-action-btn" 
-                        onClick={async (e) => { 
-                          e.stopPropagation(); 
-                          try {
-                            const result = await useDeckStore.getState().handleShareDeck(deck.id);
-                            if (result.success) {
-                              if (result.type === 'copy') showToast('Ссылка скопирована!', 'success');
-                              else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
-                            }
-                          } catch (err) {
-                            showToast('Ошибка при создании ссылки', 'error');
-                          }
-                        }}
-                        title="Поделиться колодой"
-                      >
-                        <Share2 size={16} /> Поделиться
-                      </button>
-                    )}
-                    {!deck.is_inbox && (
-                      <button 
-                        className={`deck-action-btn ${deck.has_updates ? 'has-update-btn' : ''}`} 
-                        onClick={(e) => { e.stopPropagation(); openSyncModal ? openSyncModal(deck) : handleSyncDeck(deck.id); }} 
-                        title="Синхронизировать с библиотекой"
-                      >
-                        <RefreshCw size={16} /> {deck.has_updates ? '❗️ Обновить' : 'Обновить'}
-                      </button>
-                    )}
-                    {deck.is_inbox && (
-                      <button 
-                        className="deck-action-btn" 
-                        style={{ flex: 2, color: '#94a3b8', fontSize: '0.7rem', cursor: 'default' }}
-                        disabled
-                      >
-                        📥 Переместите карточки в нужные колоды
-                      </button>
-                    )}
-                    <button 
-                      className="deck-action-btn" 
-                      onClick={async (e) => { 
-                        e.stopPropagation(); 
-                        if(window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) {
-                          try {
-                            await handleResetProgress(deck.id);
-                            showToast("Прогресс успешно сброшен", "success");
-                          } catch (err) {
-                            showToast("Ошибка при сбросе прогресса");
-                          }
-                        }
-                      }} 
-                      title="Сбросить прогресс обучения"
-                    >
-                      <RefreshCw size={16} style={{ color: '#ef4444' }} /> Сбросить прогресс
-                    </button>
-                    {!deck.is_inbox && (
-                      <button className="deck-action-btn delete-btn-minimal" onClick={(e) => { e.stopPropagation(); if(window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) handleDeleteDeck(deck.id); }} title="Удалить колоду">
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+              <Reorder.Group
+                as="div"
+                axis="y"
+                values={currentDecks}
+                onReorder={(newOrder) => {
+                  const orderedIds = newOrder.map(d => d.id);
+                  reorderDecks(orderedIds);
+                }}
+                style={{ display: 'contents' }}
+              >
+                {currentDecks.map((deck) => (
+                  <DeckCardItem
+                    key={deck.id}
+                    deck={deck}
+                    setCurrentDeck={setCurrentDeck}
+                    setDeckCards={setDeckCards}
+                    fetchDeckCards={fetchDeckCards}
+                    showToast={showToast}
+                    openSyncModal={openSyncModal}
+                    handleSyncDeck={handleSyncDeck}
+                    handleResetProgress={handleResetProgress}
+                    handleDeleteDeck={handleDeleteDeck}
+                    setDeckToRename={setDeckToRename}
+                    setIsRenameModalOpen={setIsRenameModalOpen}
+                    togglePinDeck={togglePinDeck}
+                    folders={folders}
+                  />
+                ))}
+              </Reorder.Group>
             </>
           )}
 

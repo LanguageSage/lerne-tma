@@ -107,9 +107,24 @@ async def generate_card_fields(user_id: int, phrase: str):
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
-        user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
+        from api.models import TMACustomPrompt
+        custom_prompt = TMACustomPrompt.get_or_none((TMACustomPrompt.user_id == user_id) & (TMACustomPrompt.is_active == True))
+        
         base_prompt = DEFAULT_PROMPTS.get(lang, DEFAULT_PROMPTS["de"])
-        system_prompt = user_prompts.translation_prompt or base_prompt if user_prompts else base_prompt
+        if custom_prompt:
+            if lang == "ru":
+                system_prompt = custom_prompt.context_prompt or DEFAULT_PROMPTS["ru"]
+            else:
+                system_prompt = custom_prompt.translation_prompt or DEFAULT_PROMPTS["de"]
+        else:
+            user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
+            if user_prompts:
+                if lang == "ru":
+                    system_prompt = user_prompts.context_prompt or DEFAULT_PROMPTS["ru"]
+                else:
+                    system_prompt = user_prompts.translation_prompt or DEFAULT_PROMPTS["de"]
+            else:
+                system_prompt = base_prompt
             
         system_prompt = system_prompt.replace("{phrase}", phrase)
         if "JSON" not in system_prompt.upper():

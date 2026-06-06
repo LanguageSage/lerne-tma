@@ -66,6 +66,11 @@ MIGRATIONS = [
     (42, 'ALTER TABLE tma_deck ADD COLUMN folder_id INTEGER', 'tma'),
     (43, 'ALTER TABLE deck ADD COLUMN is_default BOOLEAN DEFAULT false', 'lerne'),
     (44, "UPDATE deck SET is_default = true WHERE name IN ('\u2b50 [A1] Basis-Wortschatz / \u0411\u0430\u0437\u043e\u0432\u044b\u0439 \u0441\u043b\u043e\u0432\u0430\u0440\u043d\u044b\u0439 \u0437\u0430\u043f\u0430\u0441', '\u2b50 [A2] Alltagsdeutsch & Kommunikation', '\u2b50 [A2] Vorschl\u00e4ge machen / \u041f\u0440\u0435\u0434\u043b\u043e\u0436\u0435\u043d\u0438\u044f \u0438 \u0438\u0434\u0435\u0438', '\u2b50 [B1] Pl\u00e4ne und Bitten / \u041f\u043b\u0430\u043d\u044b \u0438 \u043f\u0440\u043e\u0441\u044c\u0431\u044b', '\u2b50 [B1] H\u00f6ren: Alltagsdialoge / \u0410\u0443\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435: \u0434\u0438\u0430\u043b\u043e\u0433\u0438')", 'lerne'),
+    (45, 'ALTER TABLE tma_user ADD COLUMN default_decks_initialized BOOLEAN DEFAULT false', 'tma'),
+    (46, 'ALTER TABLE deck ADD COLUMN is_pinned BOOLEAN DEFAULT false', 'lerne'),
+    (47, 'ALTER TABLE tma_deck ADD COLUMN is_pinned BOOLEAN DEFAULT false', 'tma'),
+    (48, 'ALTER TABLE deck ADD COLUMN position INTEGER DEFAULT 0', 'lerne'),
+    (49, 'ALTER TABLE tma_deck ADD COLUMN position INTEGER DEFAULT 0', 'tma'),
 ]
 
 
@@ -175,8 +180,8 @@ def run_migrations(tma_db, lerne_db):
             tma_db.execute_sql("""
                 CREATE TRIGGER tma_deck_insert INSTEAD OF INSERT ON tma_deck
                 BEGIN
-                    INSERT INTO deck (id, name, level, topic, is_deleted, created_at, updated_at, user_id, cloud_id, share_id, is_inbox, folder_id, category_id)
-                    VALUES (NEW.id, NEW.name, NEW.level, NEW.topic, NEW.is_deleted, NEW.created_at, NEW.updated_at, NEW.user_id, NEW.cloud_id, NEW.share_id, NEW.is_inbox, NEW.folder_id, NEW.category_id);
+                    INSERT INTO deck (id, name, level, topic, is_deleted, created_at, updated_at, user_id, cloud_id, share_id, is_inbox, folder_id, category_id, is_pinned, position)
+                    VALUES (NEW.id, NEW.name, NEW.level, NEW.topic, NEW.is_deleted, NEW.created_at, NEW.updated_at, NEW.user_id, NEW.cloud_id, NEW.share_id, NEW.is_inbox, NEW.folder_id, NEW.category_id, NEW.is_pinned, NEW.position);
                 END;
             """)
             
@@ -199,7 +204,8 @@ def run_migrations(tma_db, lerne_db):
                         is_deleted = NEW.is_deleted, updated_at = NEW.updated_at, 
                         user_id = NEW.user_id, cloud_id = NEW.cloud_id, 
                         share_id = NEW.share_id, is_inbox = NEW.is_inbox,
-                        folder_id = NEW.folder_id, category_id = NEW.category_id
+                        folder_id = NEW.folder_id, category_id = NEW.category_id,
+                        is_pinned = NEW.is_pinned, position = NEW.position
                     WHERE id = OLD.id;
                 END;
             """)

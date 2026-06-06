@@ -80,8 +80,8 @@ export const StudyView = ({ startTutorial }) => {
   useEffect(() => {
     const isSuppressedAfterAutoplay = suppressLegacyAutoplayCardRef.current === card?.id;
     const currentCardKey = `${card?.id}-${historyIndex}`;
-    const isAutoplayDisabledMode = studyMode === 'puzzle' || studyMode === 'cloze' || (studyMode === 'random' && (activeRandomMode === 'puzzle' || activeRandomMode === 'cloze'));
-    if (view === 'study' && card?.audio_url && autoPlay && !isAutoplayDisabledMode && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay && lastAutoplayedCardRef.current !== currentCardKey) {
+    const isAutoplayEnabledMode = studyMode === 'classic' || (studyMode === 'random' && activeRandomMode === 'classic');
+    if (view === 'study' && card?.audio_url && autoPlay && isAutoplayEnabledMode && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay && lastAutoplayedCardRef.current !== currentCardKey) {
       lastAutoplayedCardRef.current = currentCardKey;
       const timer = setTimeout(() => {
         playAudio(card.audio_url);

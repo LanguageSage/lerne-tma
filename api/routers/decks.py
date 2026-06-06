@@ -118,3 +118,37 @@ def toggle_default_deck(deck_id: int, user_id: int = Depends(get_user_id)):
         return {"status": "success", "is_default": is_default}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{deck_id}/pin")
+def toggle_pin_deck(deck_id: int, user_id: int = Depends(get_user_id)):
+    from api import models
+    import datetime
+    try:
+        deck = models.TMA_Deck.get_or_none((models.TMA_Deck.id == deck_id) & (models.TMA_Deck.user_id == user_id))
+        if not deck:
+            raise HTTPException(status_code=404, detail="Deck not found or access denied")
+        deck.is_pinned = not deck.is_pinned
+        deck.updated_at = datetime.datetime.now()
+        deck.save()
+        return {"status": "success", "is_pinned": deck.is_pinned}
+    except Exception as e:
+        logger.error(f"Error toggling pin: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reorder")
+def reorder_decks(data: dict, user_id: int = Depends(get_user_id)):
+    from api import models
+    deck_ids = data.get('deck_ids', [])
+    try:
+        with models.tma_db.atomic():
+            for idx, deck_id in enumerate(deck_ids):
+                models.TMA_Deck.update(position=idx).where(
+                    (models.TMA_Deck.id == deck_id) & (models.TMA_Deck.user_id == user_id)
+                ).execute()
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error reordering decks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

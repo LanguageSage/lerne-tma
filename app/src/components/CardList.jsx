@@ -122,6 +122,9 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
         {/* Prominent Study Button */}
         {!cardsLoading && deckCards.length > 0 && (
           <div className="study-action-bar">
+            <button className="btn-back-main" onClick={() => setView('decks')} title="Назад к колодам">
+              <ChevronLeft size={24} />
+            </button>
             <button className="btn-study-main" onClick={() => startStudy(currentDeck)}>
               <Play size={20} fill="currentColor" />
               <span>Начать изучение</span>

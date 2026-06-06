@@ -29,6 +29,9 @@ export const syncService = {
           level: d.level || null,
           topic: d.topic || null,
           is_deleted: !!d.is_deleted,
+          is_pinned: !!d.is_pinned,
+          position: d.position || 0,
+          folder_id: d.folder_id || null,
           created_at: d.created_at,
           updated_at: d.updated_at
         })),
@@ -148,6 +151,9 @@ export const syncService = {
               topic: d.topic,
               is_deleted: d.is_deleted ? 1 : 0,
               is_inbox: d.is_inbox ? 1 : 0,
+              is_pinned: d.is_pinned ? 1 : 0,
+              position: d.position || 0,
+              folder_id: d.folder_id || null,
               created_at: d.created_at,
               updated_at: d.updated_at,
               is_dirty: 0

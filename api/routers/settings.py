@@ -11,23 +11,84 @@ router = APIRouter(
     tags=["settings"],
 )
 
-# User Settings (Prompts)
+# User Settings (Custom Prompts Manager)
+import ai_service
+
 @router.get("/user/prompts")
 def get_user_prompts(user_id: int = Depends(get_user_id)):
-    p = models.TMAUserPrompt.get_or_none(models.TMAUserPrompt.user_id == user_id)
-    if not p:
-        return {"translation_prompt": "", "context_prompt": ""}
+    custom_prompts = []
+    active_prompt_id = None
+    try:
+        for p in models.TMACustomPrompt.select().where(models.TMACustomPrompt.user_id == user_id).order_by(models.TMACustomPrompt.id.asc()):
+            if p.is_active:
+                active_prompt_id = p.id
+            custom_prompts.append({
+                "id": p.id,
+                "name": p.name,
+                "translation_prompt": p.translation_prompt or "",
+                "context_prompt": p.context_prompt or "",
+                "is_active": p.is_active
+            })
+    except Exception as e:
+        logger.error(f"Error fetching custom prompts: {e}")
+        
     return {
-        "translation_prompt": p.translation_prompt or "",
-        "context_prompt": p.context_prompt or ""
+        "custom_prompts": custom_prompts,
+        "active_prompt_id": active_prompt_id,
+        "defaults": {
+            "de": ai_service.DEFAULT_PROMPTS["de"],
+            "ru": ai_service.DEFAULT_PROMPTS["ru"]
+        }
     }
 
 @router.post("/user/prompts")
-def save_user_prompts(data: dict, user_id: int = Depends(get_user_id)):
-    p, created = models.TMAUserPrompt.get_or_create(user_id=user_id)
-    p.translation_prompt = data.get('translation_prompt')
-    p.context_prompt = data.get('context_prompt')
-    p.save()
+def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
+    prompt_id = data.get('id')
+    name = data.get('name', 'Мой промпт')
+    translation_prompt = data.get('translation_prompt', '')
+    context_prompt = data.get('context_prompt', '')
+    
+    if prompt_id:
+        p = models.TMACustomPrompt.get_or_none((models.TMACustomPrompt.id == prompt_id) & (models.TMACustomPrompt.user_id == user_id))
+        if not p:
+            raise HTTPException(status_code=404, detail="Prompt not found")
+        p.name = name
+        p.translation_prompt = translation_prompt
+        p.context_prompt = context_prompt
+        p.save()
+    else:
+        p = models.TMACustomPrompt.create(
+            user_id=user_id,
+            name=name,
+            translation_prompt=translation_prompt,
+            context_prompt=context_prompt,
+            is_active=False
+        )
+    return {"status": "ok", "id": p.id}
+
+@router.delete("/user/prompts/{prompt_id}")
+def delete_user_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
+    p = models.TMACustomPrompt.get_or_none((models.TMACustomPrompt.id == prompt_id) & (models.TMACustomPrompt.user_id == user_id))
+    if not p:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    p.delete_instance()
+    return {"status": "ok"}
+
+@router.post("/user/prompts/{prompt_id}/activate")
+def activate_user_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
+    # Deactivate all
+    models.TMACustomPrompt.update(is_active=False).where(models.TMACustomPrompt.user_id == user_id).execute()
+    # Activate selected
+    updated = models.TMACustomPrompt.update(is_active=True).where(
+        (models.TMACustomPrompt.id == prompt_id) & (models.TMACustomPrompt.user_id == user_id)
+    ).execute()
+    if not updated:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    return {"status": "ok"}
+
+@router.post("/user/prompts/deactivate")
+def deactivate_user_prompts(user_id: int = Depends(get_user_id)):
+    models.TMACustomPrompt.update(is_active=False).where(models.TMACustomPrompt.user_id == user_id).execute()
     return {"status": "ok"}
 
 # Admin Settings

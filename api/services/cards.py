@@ -71,9 +71,17 @@ def save_card(data, user_id):
         
     if 'want_to_learn' in data:
         card.want_to_learn = bool(data.get('want_to_learn'))
-        
-    # Проверка на дубликаты удалена по запросу пользователя
-        
+
+    # Проверяем, не перепутаны ли стороны (если на лицевой кириллица, меняем местами)
+    import re
+    if card.front_text and re.search(r'[а-яА-ЯёЁ]', card.front_text):
+        logger.info("Swapping front and back for saved card because front contains Cyrillic.")
+        front = card.front_text
+        back = card.back_text
+        card.front_text = back
+        card.back_text = front
+        card.audio_path = None
+
     # Гарантируем, что обязательные поля не None
     if card.front_text is None: card.front_text = ""
     if card.back_text is None: card.back_text = ""

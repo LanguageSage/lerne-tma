@@ -171,8 +171,16 @@ export const offlineApi = {
         .filter(d => !d.is_deleted && !d.hard_deleted_locally)
         .toArray();
 
-      // Sort with inbox first, then desc
-      decks.sort((a, b) => b.is_inbox - a.is_inbox || b.id - a.id);
+      // Sort with inbox first, then position, then desc
+      decks.sort((a, b) => {
+        const aInbox = a.is_inbox ? 1 : 0;
+        const bInbox = b.is_inbox ? 1 : 0;
+        if (aInbox !== bInbox) return bInbox - aInbox;
+        const aPos = a.position ?? 0;
+        const bPos = b.position ?? 0;
+        if (aPos !== bPos) return aPos - bPos;
+        return b.id - a.id;
+      });
 
       const result = [];
       for (const d of decks) {
@@ -201,13 +209,15 @@ export const offlineApi = {
           }
         });
 
-        result.append = result.push({
+        result.push({
           id: d.id,
           name: d.name,
           level: d.level || '',
           topic: d.topic || '',
           is_inbox: !!d.is_inbox,
           has_updates: false,
+          position: d.position || 0,
+          folder_id: d.folder_id || null,
           stats: {
             total: cards.length,
             new: Math.max(0, cards.length - tracked),
@@ -217,6 +227,21 @@ export const offlineApi = {
         });
       }
       return { data: result };
+    }
+
+    // 1.5 POST /decks/reorder
+    if (method === 'post' && url === '/decks/reorder') {
+      const { deck_ids } = data;
+      if (deck_ids && deck_ids.length > 0) {
+        for (let idx = 0; idx < deck_ids.length; idx++) {
+          const deckId = deck_ids[idx];
+          const deck = await db.decks.get(deckId);
+          if (deck && deck.user_id === userId) {
+            await db.decks.update(deckId, { position: idx, is_dirty: 1 });
+          }
+        }
+      }
+      return { data: { status: "success" } };
     }
 
     // 2. POST /decks (Create Deck)

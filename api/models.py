@@ -85,7 +85,7 @@ def create_all_tables():
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, TMAFeedback, TMAUser, TMALinkedSession,
-            LibraryCategory, Deck, Card, TMA_Folder
+            LibraryCategory, Deck, Card, TMA_Folder, TMACustomPrompt
         ]
         
         # Если это SQLite, проверим, являются ли tma_deck и tma_card представлениями (VIEW)
@@ -133,6 +133,8 @@ class TMA_Deck(BaseModel):
     topic = CharField(null=True)
     is_deleted = BooleanField(default=False)
     is_inbox = BooleanField(default=False)  # Special "Inbox" deck for shared items
+    is_pinned = BooleanField(default=False)
+    position = IntegerField(default=0)
     folder = ForeignKeyField(TMA_Folder, backref='decks', null=True, column_name='folder_id', on_delete='SET NULL')
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
@@ -225,6 +227,17 @@ class TMAUserPrompt(BaseModel):
     class Meta:
         table_name = 'tmauserprompt'
 
+class TMACustomPrompt(BaseModel):
+    id = AutoField()
+    user_id = BigIntegerField(index=True)
+    name = CharField()
+    translation_prompt = TextField()
+    context_prompt = TextField()
+    is_active = BooleanField(default=False)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    class Meta:
+        table_name = 'tma_custom_prompt'
+
 class TMAUser(BaseModel):
     user_id = BigIntegerField(primary_key=True)
     first_name = CharField(null=True)
@@ -233,6 +246,7 @@ class TMAUser(BaseModel):
     photo_url = TextField(null=True)
     phone = CharField(null=True)
     is_guest = BooleanField(default=False)
+    default_decks_initialized = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     class Meta:
@@ -275,6 +289,8 @@ class Deck(Model):
     cloud_id = IntegerField(null=True)
     category = ForeignKeyField(LibraryCategory, backref='decks', null=True, column_name='category_id', on_delete='SET NULL')
     is_default = BooleanField(default=False)
+    is_pinned = BooleanField(default=False)
+    position = IntegerField(default=0)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     class Meta:

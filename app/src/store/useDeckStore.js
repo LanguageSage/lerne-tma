@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import api from '../services/api';
 
+let reorderTimeout = null;
+
 export const useDeckStore = create((set, get) => ({
   decks: [],
   folders: [],
@@ -357,6 +359,83 @@ export const useDeckStore = create((set, get) => ({
       console.error('Move Deck to Folder Error:', err);
       throw err;
     }
+  },
+
+  togglePinDeck: async (deckId) => {
+    const { decks } = get();
+    // Optimistic update
+    const updated = decks.map(d =>
+      d.id === deckId ? { ...d, is_pinned: !d.is_pinned } : d
+    );
+    const sorted = [...updated].sort((a, b) => {
+      const aPinned = a.is_pinned ? 1 : 0;
+      const bPinned = b.is_pinned ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
+      const aInbox = a.is_inbox ? 1 : 0;
+      const bInbox = b.is_inbox ? 1 : 0;
+      if (aInbox !== bInbox) return bInbox - aInbox;
+      const aPos = a.position ?? 0;
+      const bPos = b.position ?? 0;
+      if (aPos !== bPos) return aPos - bPos;
+      return b.id - a.id;
+    });
+    set({ decks: sorted });
+
+    try {
+      const res = await api.post(`/decks/${deckId}/pin`);
+      if (res.data.status === 'success') {
+        const serverDecks = await api.get('/decks');
+        set({ decks: serverDecks.data });
+      }
+    } catch (err) {
+      console.error('Toggle Pin Deck Error:', err);
+      const serverDecks = await api.get('/decks');
+      set({ decks: serverDecks.data });
+      throw err;
+    }
+  },
+
+  reorderDecks: async (orderedIds) => {
+    const { decks } = get();
+    // Optimistic update positions
+    const updated = decks.map(d => {
+      const idx = orderedIds.indexOf(d.id);
+      if (idx !== -1) {
+        return { ...d, position: idx };
+      }
+      return d;
+    });
+    const sorted = [...updated].sort((a, b) => {
+      const aPinned = a.is_pinned ? 1 : 0;
+      const bPinned = b.is_pinned ? 1 : 0;
+      if (aPinned !== bPinned) return bPinned - aPinned;
+      const aInbox = a.is_inbox ? 1 : 0;
+      const bInbox = b.is_inbox ? 1 : 0;
+      if (aInbox !== bInbox) return bInbox - aInbox;
+      const aPos = a.position ?? 0;
+      const bPos = b.position ?? 0;
+      if (aPos !== bPos) return aPos - bPos;
+      return b.id - a.id;
+    });
+    set({ decks: sorted });
+
+    if (reorderTimeout) {
+      clearTimeout(reorderTimeout);
+    }
+
+    reorderTimeout = setTimeout(async () => {
+      try {
+        await api.post('/decks/reorder', { deck_ids: orderedIds });
+      } catch (err) {
+        console.error('Reorder Decks Error:', err);
+        try {
+          const serverDecks = await api.get('/decks');
+          set({ decks: serverDecks.data });
+        } catch (fetchErr) {
+          console.error('Fetch decks failed after reorder error:', fetchErr);
+        }
+      }
+    }, 400);
   },
 
   fetchLibraryCategories: async () => {

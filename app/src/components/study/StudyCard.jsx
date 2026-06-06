@@ -388,7 +388,15 @@ export const StudyCard = ({
                   disabled={loading || isAutoplayActive}
                   onClick={(e) => { e.stopPropagation(); if (!isAutoplayActive) playAudio(card.audio_url); }}
                 >
-                  {isAudioLoading ? <RefreshCw size={24} className="spin" /> : <Volume2 size={24} />}
+                  {isAudioLoading ? (
+                    card.audio_is_generating ? (
+                      <Sparkles size={24} className="sparkles-spin" style={{ color: '#a855f7' }} />
+                    ) : (
+                      <RefreshCw size={24} className="spin" />
+                    )
+                  ) : (
+                    <Volume2 size={24} />
+                  )}
                 </button>
               )}
 
@@ -703,7 +711,15 @@ export const StudyCard = ({
                       if (!isAutoplayActive) playAudio(studyMode === 'reverse' ? card.audio_back_url : (card.audio_back_url || card.audio_url));
                     }}
                   >
-                    {isAudioLoading ? <RefreshCw size={24} className="spin" /> : <Volume2 size={24} />}
+                    {isAudioLoading ? (
+                      card.audio_is_generating ? (
+                        <Sparkles size={24} className="sparkles-spin" style={{ color: '#a855f7' }} />
+                      ) : (
+                        <RefreshCw size={24} className="spin" />
+                      )
+                    ) : (
+                      <Volume2 size={24} />
+                    )}
                   </button>
                 )}
               </div>
@@ -728,7 +744,15 @@ export const StudyCard = ({
                   }}
                   title="Озвучить"
                 >
-                  {isAudioLoading ? <RefreshCw size={22} className="spin" /> : <Volume2 size={22} />}
+                  {isAudioLoading ? (
+                    card.audio_is_generating ? (
+                      <Sparkles size={22} className="sparkles-spin" style={{ color: '#a855f7' }} />
+                    ) : (
+                      <RefreshCw size={22} className="spin" />
+                    )
+                  ) : (
+                    <Volume2 size={22} />
+                  )}
                 </button>
                 <div id="tut-study-answer" className="text-back" style={{ fontStyle: cardFontStyle }}>
                   {stripMarkdown(studyMode === 'reverse' ? card.front : card.back)}
