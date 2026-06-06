@@ -2,11 +2,48 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Move, Copy, Trash2, Heart } from 'lucide-react';
 
+const getSortedFolderAndDeckTree = (foldersList, decksList, expandedFolders) => {
+  const result = [];
+  const traverse = (folderId, depth, isParentVisible) => {
+    if (!isParentVisible) return;
+
+    // 1. Process child folders first
+    const childFolders = foldersList.filter(f => f.parent_id === folderId);
+    for (const folder of childFolders) {
+      const isExpanded = !!expandedFolders[folder.id];
+      result.push({
+        type: 'folder',
+        id: folder.id,
+        name: folder.name,
+        depth: depth,
+        isExpanded: isExpanded
+      });
+      traverse(folder.id, depth + 1, isExpanded);
+    }
+
+    // 2. Process child decks
+    const childDecks = decksList.filter(d => d.folder_id === folderId);
+    for (const deck of childDecks) {
+      result.push({
+        type: 'deck',
+        id: deck.id,
+        name: deck.name,
+        totalCards: deck.stats?.total || 0,
+        depth: depth
+      });
+    }
+  };
+
+  traverse(null, 0, true);
+  return result;
+};
+
 export const CardActionModal = ({
   isOpen,
   onClose,
   card,
   decks,
+  folders,
   onMove,
   onCopy,
   onDelete,
@@ -15,10 +52,21 @@ export const CardActionModal = ({
   loading
 }) => {
   const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy'
+  const [expandedFolders, setExpandedFolders] = React.useState({});
 
-  // Reset mode when modal opens
+  const toggleFolder = (folderId) => {
+    setExpandedFolders(prev => ({
+      ...prev,
+      [folderId]: !prev[folderId]
+    }));
+  };
+
+  // Reset mode and expanded folders when modal opens
   React.useEffect(() => {
-    if (isOpen) setMode('main');
+    if (isOpen) {
+      setMode('main');
+      setExpandedFolders({});
+    }
   }, [isOpen]);
 
   if (!isOpen || !card) return null;
@@ -85,19 +133,7 @@ export const CardActionModal = ({
           <div className="settings-content">
             {mode === 'main' && (
               <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button 
-                  className="action-menu-item" 
-                  onClick={() => onToggleLearn(card)}
-                >
-                  <div className="action-menu-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
-                    <Heart size={20} fill={card.want_to_learn ? "#ef4444" : "none"} />
-                  </div>
-                  <div className="action-menu-text">
-                    <strong>{card.want_to_learn ? 'Убрать из Ударного режима' : 'В Ударный режим'}</strong>
-                    <span>Добавить в список приоритетных карточек тренировки</span>
-                  </div>
-                </button>
-                
+
                 <button 
                   className="action-menu-item" 
                   onClick={() => setMode('move')}
@@ -159,19 +195,62 @@ export const CardActionModal = ({
                 <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '15px' }}>
                   {mode === 'move' ? 'Выберите колоду для переноса:' : 'Выберите колоду для копирования:'}
                 </p>
-                {decks.map(d => (
-                  <button 
-                    key={d.id} 
-                    className="deck-select-item"
-                    onClick={() => mode === 'move' ? handleMoveClick(d.id) : handleCopyClick(d.id)}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                      <strong style={{ fontSize: '1rem', color: 'white' }}>{d.name}</strong>
-                      <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>{d.stats?.total || 0} карт</span>
-                    </div>
-                    {mode === 'move' ? <Move size={16} style={{ opacity: 0.3 }} /> : <Copy size={16} style={{ opacity: 0.3 }} />}
-                  </button>
-                ))}
+                {getSortedFolderAndDeckTree(folders || [], decks || [], expandedFolders).map((item, index) => {
+                  if (item.type === 'folder') {
+                    return (
+                      <div 
+                        key={`folder-${item.id}-${index}`}
+                        onClick={() => toggleFolder(item.id)}
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '8px', 
+                          padding: '10px 12px',
+                          paddingLeft: `${12 + item.depth * 16}px`,
+                          color: '#ffd043',
+                          fontSize: '0.9rem',
+                          fontWeight: 600,
+                          opacity: 0.85,
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                          cursor: 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <span style={{ 
+                          color: '#ffd043', 
+                          fontSize: '0.7rem', 
+                          marginRight: '4px',
+                          display: 'inline-block',
+                          transform: item.isExpanded ? 'rotate(90deg)' : 'none',
+                          transition: 'transform 0.15s ease'
+                        }}>
+                          ▶
+                        </span>
+                        <span>{item.name}</span>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <button 
+                        key={`deck-${item.id}-${index}`} 
+                        className="deck-select-item"
+                        onClick={() => mode === 'move' ? handleMoveClick(item.id) : handleCopyClick(item.id)}
+                        style={{
+                          paddingLeft: `${12 + item.depth * 16}px`
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                          <strong style={{ fontSize: '0.95rem', color: 'white' }}>
+                            {item.name}
+                          </strong>
+                          <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>{item.totalCards} карт</span>
+                        </div>
+                        {mode === 'move' ? <Move size={14} style={{ opacity: 0.3 }} /> : <Copy size={14} style={{ opacity: 0.3 }} />}
+                      </button>
+                    );
+                  }
+                })}
                 <button className="btn-secondary btn-full mt-2" onClick={() => setMode('main')} style={{ height: '50px', marginTop: '15px' }}>Назад</button>
               </div>
             )}

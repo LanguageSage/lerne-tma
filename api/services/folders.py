@@ -7,6 +7,9 @@ logger = logging.getLogger(__name__)
 def get_active_folders(user_id: int):
     """Возвращает все активные (не удаленные) папки пользователя."""
     try:
+        from .decks import ensure_inbox_deck
+        ensure_inbox_deck(user_id)
+
         folders = list(TMA_Folder.select().where(
             (TMA_Folder.user_id == user_id) & (TMA_Folder.is_deleted == False)
         ).order_by(TMA_Folder.id.asc()))
@@ -18,8 +21,24 @@ def get_active_folders(user_id: int):
             "color": f.color
         } for f in folders]
     except Exception as e:
-        logger.error(f"Error in get_active_folders: {e}")
-        return []
+        logger.error(f"Error in get_active_folders: {e}", exc_info=True)
+        raise e
+
+def ensure_inbox_folder(user_id: int) -> TMA_Folder:
+    """Возвращает (или создаёт) специальную папку «Входящие» для пользователя."""
+    inbox_folder = TMA_Folder.get_or_none(
+        (TMA_Folder.user_id == user_id) & (TMA_Folder.name == "📥 Входящие") & (TMA_Folder.is_deleted == False)
+    )
+    if not inbox_folder:
+        inbox_folder = TMA_Folder.create(
+            user_id=user_id,
+            name="📥 Входящие",
+            color="#ffd043",
+            created_at=datetime.datetime.now(),
+            updated_at=datetime.datetime.now()
+        )
+        logger.info(f"Created Inbox folder for user {user_id} (id={inbox_folder.id})")
+    return inbox_folder
 
 def create_folder(name: str, user_id: int, parent_id: int = None, color: str = None):
     """Создает новую папку для пользователя."""
@@ -49,6 +68,8 @@ def rename_folder(folder_id: int, name: str, user_id: int):
         folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
         if not folder:
             return None
+        if folder.name == "📥 Входящие":
+            raise ValueError("Нельзя переименовать папку Входящие")
         folder.name = name
         folder.updated_at = datetime.datetime.now()
         folder.save()
@@ -110,6 +131,8 @@ def delete_folder(folder_id: int, user_id: int):
         folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
         if not folder:
             return False
+        if folder.name == "📥 Входящие":
+            raise ValueError("Нельзя удалить папку Входящие")
             
         # Переносим колоды на уровень выше (parent_id текущей папки)
         TMA_Deck.update(folder_id=folder.parent_id, updated_at=datetime.datetime.now()).where(
@@ -126,5 +149,5 @@ def delete_folder(folder_id: int, user_id: int):
         folder.save()
         return True
     except Exception as e:
-        logger.error(f"Error deleting folder {folder_id}: {e}")
-        return False
+        logger.error(f"Error deleting folder {folder_id}: {e}", exc_info=True)
+        raise e

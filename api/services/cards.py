@@ -103,8 +103,8 @@ def delete_card(card_id: int):
         TMA_Card.update(is_deleted=True, updated_at=datetime.datetime.now()).where(TMA_Card.id == card_id).execute()
         return True
     except Exception as e:
-        logger.error(f"Error deleting card: {e}")
-        return False
+        logger.error(f"Error deleting card: {e}", exc_info=True)
+        raise e
 
 
 def toggle_want_to_learn(card_id: int, user_id: int):
@@ -114,8 +114,8 @@ def toggle_want_to_learn(card_id: int, user_id: int):
         card.save()
         return card
     except Exception as e:
-        logger.error(f"Error toggling want_to_learn: {e}")
-        return None
+        logger.error(f"Error toggling want_to_learn: {e}", exc_info=True)
+        raise e
 
 
 def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, creator=None):
@@ -199,8 +199,8 @@ def get_cards_for_study(deck_id: int, user_id: int):
             result.append(_build_card_dict(c, p=p, media_exists=media_exists, creator=creator))
         return result
     except Exception as e:
-        logger.error(f"Error in get_cards_for_study: {e}")
-        return []
+        logger.error(f"Error in get_cards_for_study: {e}", exc_info=True)
+        raise e
 
 
 def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_more: bool = False):
@@ -311,8 +311,8 @@ def get_favorite_cards(user_id: int):
             result.append(_build_card_dict(c, media_exists=media_exists))
         return result
     except Exception as e:
-        logger.error(f"Error in get_favorite_cards: {e}")
-        return []
+        logger.error(f"Error in get_favorite_cards: {e}", exc_info=True)
+        raise e
 
 
 
@@ -356,8 +356,8 @@ def get_duplicate_cards(user_id: int):
             })
         return result
     except Exception as e:
-        logger.error(f"Error in get_duplicate_cards: {e}")
-        return []
+        logger.error(f"Error in get_duplicate_cards: {e}", exc_info=True)
+        raise e
 
 
 def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
@@ -401,6 +401,5 @@ def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
         )
         return card, progress
     except Exception as e:
-        logger.error(f"Error in get_next_duplicate_card: {e}")
-        return None, None
-
+        logger.error(f"Error in get_next_duplicate_card: {e}", exc_info=True)
+        raise e

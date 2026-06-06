@@ -207,12 +207,15 @@ class SharingService:
             elif resolution == 'merge' and existing_deck:
                 target_deck = existing_deck
             else:
-                # Create new deck
+                # Create new deck inside Inbox folder
+                from api.services.folders import ensure_inbox_folder
+                inbox_folder = ensure_inbox_folder(user_id)
                 target_deck = TMA_Deck.create(
                     user_id=user_id,
                     name=source_deck.name,
                     level=source_deck.level,
                     topic=source_deck.topic,
+                    folder_id=inbox_folder.id,
                     created_at=datetime.datetime.now(),
                     updated_at=datetime.datetime.now()
                 )

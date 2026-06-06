@@ -62,24 +62,31 @@ def create_deck(name: str, user_id: int, folder_id: int = None):
 
 
 def ensure_inbox_deck(user_id: int) -> TMA_Deck:
-    """Возвращает (или создаёт) специальную колоду «Входящие» для пользователя."""
+    """Возвращает (или создаёт) специальную колоду «Входящие» для пользователя внутри папки Входящие."""
+    from .folders import ensure_inbox_folder
+    inbox_folder = ensure_inbox_folder(user_id)
+    
     inbox = TMA_Deck.get_or_none(
         (TMA_Deck.user_id == user_id) & (TMA_Deck.is_inbox == True)
     )
     if not inbox:
         inbox = TMA_Deck.create(
             user_id=user_id,
-            name="📥 Входящие",
+            name="📥 Входящие карточки",
             is_inbox=True,
+            folder_id=inbox_folder.id,
             created_at=datetime.datetime.now(),
             updated_at=datetime.datetime.now()
         )
-        logger.info(f"Created Inbox deck for user {user_id} (id={inbox.id})")
-    elif inbox.is_deleted:
-        inbox.is_deleted = False
-        inbox.updated_at = datetime.datetime.now()
-        inbox.save()
-        logger.info(f"Restored soft-deleted Inbox deck for user {user_id} (id={inbox.id})")
+        logger.info(f"Created Inbox deck for user {user_id} (id={inbox.id}) inside folder {inbox_folder.id}")
+    else:
+        if inbox.folder_id != inbox_folder.id or inbox.name != "📥 Входящие карточки" or inbox.is_deleted:
+            inbox.folder_id = inbox_folder.id
+            inbox.name = "📥 Входящие карточки"
+            inbox.is_deleted = False
+            inbox.updated_at = datetime.datetime.now()
+            inbox.save()
+            logger.info(f"Updated/Restored Inbox deck for user {user_id} (id={inbox.id}) inside folder {inbox_folder.id}")
     return inbox
 
 
@@ -189,8 +196,8 @@ def get_active_decks(user_id: int):
             })
         return result
     except Exception as e:
-        logger.error(f"Error in get_active_decks: {e}")
-        return []
+        logger.error(f"Error in get_active_decks: {e}", exc_info=True)
+        raise e
 
 
 def get_external_decks():
@@ -210,8 +217,8 @@ def get_external_decks():
             "cards_count": counts.get(d.id, 0)
         } for d in decks]
     except Exception as e:
-        logger.error(f"Error in get_external_decks: {e}")
-        return []
+        logger.error(f"Error in get_external_decks: {e}", exc_info=True)
+        raise e
 
 
 def toggle_default_deck(deck_id: int) -> bool:
@@ -240,8 +247,8 @@ def get_library_categories():
             "description": c.description
         } for c in categories]
     except Exception as e:
-        logger.error(f"Error in get_library_categories: {e}")
-        return []
+        logger.error(f"Error in get_library_categories: {e}", exc_info=True)
+        raise e
 
 
 def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_deck_id: int = None):
@@ -408,8 +415,8 @@ def delete_deck(deck_id: int):
         TMA_Deck.update(is_deleted=True, updated_at=now).where(TMA_Deck.id == deck_id).execute()
         return True
     except Exception as e:
-        logger.error(f"Error deleting deck: {e}")
-        return False
+        logger.error(f"Error deleting deck: {e}", exc_info=True)
+        raise e
 
 
 def sync_deck_with_library(user_id: int, deck_id: int, mode: str = 'merge'):
@@ -464,8 +471,8 @@ def reset_deck_progress(user_id: int, deck_id: int):
             TMAProgress.delete().where(TMAProgress.user_id == user_id, TMAProgress.card_id << card_ids).execute()
         return True
     except Exception as e:
-        logger.error(f"Error resetting progress: {e}")
-        return False
+        logger.error(f"Error resetting progress: {e}", exc_info=True)
+        raise e
 
 
 def move_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
@@ -520,7 +527,7 @@ def get_community_content(user_id: int):
             "cards_count": TMA_Card.select().where(TMA_Card.deck_id == d.id).count()
         } for d in user_decks]
     except Exception as e:
-        logger.error(f"Error fetching community content: {e}")
-        return []
+        logger.error(f"Error fetching community content: {e}", exc_info=True)
+        raise e
 
 

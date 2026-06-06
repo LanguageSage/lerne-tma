@@ -56,7 +56,6 @@ export const StudyView = ({ startTutorial }) => {
       try {
         await handleDeleteCard(card.id, true);
         fetchDuplicates(); // Update the list in background
-        goNext(); // Move to next card
       } catch (err) {
         showToast('Ошибка при удалении');
       }

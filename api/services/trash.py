@@ -53,8 +53,8 @@ def get_trash_items(user_id: int):
             "cards": cards_data
         }
     except Exception as e:
-        logger.error(f"Error in get_trash_items: {e}")
-        return {"decks": [], "cards": []}
+        logger.error(f"Error in get_trash_items: {e}", exc_info=True)
+        raise e
 
 def restore_deck(deck_id: int, user_id: int):
     """Восстанавливает колоду и все её карточки."""
@@ -74,8 +74,8 @@ def restore_deck(deck_id: int, user_id: int):
         logger.info(f"Restored deck {deck.id} for user {user_id}")
         return True
     except Exception as e:
-        logger.error(f"Error restoring deck: {e}")
-        return False
+        logger.error(f"Error restoring deck: {e}", exc_info=True)
+        raise e
 
 def restore_card(card_id: int, user_id: int):
     """Восстанавливает отдельную карточку."""
@@ -103,8 +103,8 @@ def restore_card(card_id: int, user_id: int):
         logger.info(f"Restored card {card.id} for user {user_id}")
         return True
     except Exception as e:
-        logger.error(f"Error restoring card: {e}")
-        return False
+        logger.error(f"Error restoring card: {e}", exc_info=True)
+        raise e
 
 def clear_trash(user_id: int):
     """Окончательно удаляет все элементы в корзине (HARD DELETE)."""
@@ -141,5 +141,5 @@ def clear_trash(user_id: int):
         logger.info(f"Cleared trash for user {user_id}: {len(card_ids)} cards, {len(deck_ids)} decks removed.")
         return True
     except Exception as e:
-        logger.error(f"Error clearing trash: {e}")
-        return False
+        logger.error(f"Error clearing trash: {e}", exc_info=True)
+        raise e

@@ -42,7 +42,7 @@ export default function App() {
   } = useUiStore();
   
   const { 
-    decks, currentDeck, setCurrentDeck, 
+    decks, folders, currentDeck, setCurrentDeck, 
     deckToSync, setSyncModalOpen, syncModalOpen, handleSyncDeck 
   } = useDeckStore();
 
@@ -288,6 +288,7 @@ export default function App() {
         onClose={() => setIsCardActionModalOpen(false)}
         card={actionCard}
         decks={decks}
+        folders={folders}
         onMove={handleMoveCard}
         onCopy={handleCopyCard}
         onDelete={(c) => handleDeleteCard(c.id, true)}

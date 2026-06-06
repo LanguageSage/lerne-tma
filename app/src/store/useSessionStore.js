@@ -58,6 +58,33 @@ export const useSessionStore = create((set, get) => ({
     get().moveToHistory(historyIndex - 1);
   },
 
+  removeCardFromSession: (cardId) => {
+    const { studyHistory, favoritesQueue, card, historyIndex } = get();
+    const newHistory = studyHistory.filter(c => c && c.id !== cardId);
+    const newFavQueue = favoritesQueue.filter(c => c && c.id !== cardId);
+    
+    let nextIndex = historyIndex;
+    let nextCard = card;
+    
+    if (card && card.id === cardId) {
+      if (historyIndex < newHistory.length) {
+        nextCard = newHistory[historyIndex];
+      } else {
+        nextCard = null;
+        nextIndex = newHistory.length - 1;
+      }
+    } else {
+      nextIndex = newHistory.findIndex(c => c && c.id === card?.id);
+    }
+    
+    set({
+      studyHistory: newHistory,
+      favoritesQueue: newFavQueue,
+      card: nextCard,
+      historyIndex: nextIndex
+    });
+  },
+
   resetSession: () => {
     set({
       card: null,
@@ -70,4 +97,5 @@ export const useSessionStore = create((set, get) => ({
       favoritesQueue: []
     });
   }
-}));
+}
+));

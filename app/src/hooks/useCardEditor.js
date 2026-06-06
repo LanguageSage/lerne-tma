@@ -3,10 +3,12 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
 import { cleanMedia } from '../utils/media';
+import { useStudySession } from './useStudySession';
 
 export const useCardEditor = () => {
   const { fetchDecks, fetchDeckCards } = useDeckStore();
   const { setLoading, showToast, setView } = useUiStore();
+  const { fetchNextCard } = useStudySession();
 
   const saveCard = async (manualCardData = null, viewState = 'editor') => {
     const session = useSessionStore.getState();
@@ -88,7 +90,18 @@ export const useCardEditor = () => {
     try {
       await api.delete(`/cards/${cardId}`);
       showToast("Карточка удалена", "success");
+      
+      const session = useSessionStore.getState();
+      const ui = useUiStore.getState();
       const { currentDeck } = useDeckStore.getState();
+
+      session.removeCardFromSession(cardId);
+      
+      if (ui.view === 'study' && !session.card && currentDeck) {
+        const historyIds = session.studyHistory.map(c => c && c.id);
+        await fetchNextCard(currentDeck.id, false, historyIds);
+      }
+
       if (currentDeck) fetchDeckCards(currentDeck.id);
       fetchDecks(true);
     } catch (err) {
@@ -132,10 +145,19 @@ export const useCardEditor = () => {
         want_to_learn: !!targetCard.want_to_learn
       });
       showToast("Карточка перемещена", "success");
+      
       const session = useSessionStore.getState();
-      if (session.card && session.card.id === targetCard.id && goNextFn) {
-        goNextFn();
+      const ui = useUiStore.getState();
+      const { currentDeck } = useDeckStore.getState();
+      
+      session.removeCardFromSession(targetCard.id);
+      
+      if (ui.view === 'study' && !session.card && currentDeck) {
+        const historyIds = session.studyHistory.map(c => c && c.id);
+        await fetchNextCard(currentDeck.id, false, historyIds);
       }
+      
+      if (currentDeck) fetchDeckCards(currentDeck.id);
       fetchDecks(true);
     } catch (err) {
       showToast(`Ошибка при перемещении: ${err.response?.data?.detail || err.message}`);

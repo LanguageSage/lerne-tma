@@ -8,6 +8,26 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import api from '../services/api';
 
+const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds = []) => {
+  const result = [];
+  const traverse = (parentId, depth) => {
+    const children = foldersList.filter(f => f.parent_id === parentId);
+    for (const child of children) {
+      if (child.id === excludeId || excludeDescendantIds.includes(child.id)) {
+        continue;
+      }
+      result.push({
+        ...child,
+        depth: depth,
+        displayName: `${'\u00A0'.repeat(depth * 3)}${child.name}`
+      });
+      traverse(child.id, depth + 1);
+    }
+  };
+  traverse(null, 0);
+  return result;
+};
+
 // Compact share banner shown above the deck list when a share link is opened
 const ShareBanner = ({ shareId, onSuccess, onClose }) => {
   const [info, setInfo] = useState(null);
@@ -115,7 +135,8 @@ const DeckCardItem = ({
   setDeckToRename,
   setIsRenameModalOpen,
   togglePinDeck,
-  folders
+  folders,
+  activeFolderColor
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
@@ -224,13 +245,22 @@ const DeckCardItem = ({
     }
   };
 
+  const deckStyle = { position: 'relative' };
+  if (activeFolderColor) {
+    deckStyle['--folder-color'] = activeFolderColor;
+    deckStyle['--folder-color-border'] = `${activeFolderColor}5a`; // ~35% opacity
+    deckStyle['--folder-color-hover'] = activeFolderColor;
+    deckStyle['--folder-color-shadow'] = `${activeFolderColor}4d`; // ~30% opacity
+    deckStyle['--folder-color-bg-tint'] = `${activeFolderColor}14`; // ~8% opacity
+  }
+
   return (
     <Reorder.Item
       value={deck}
       dragListener={false}
       dragControls={dragControls}
       className={`deck-card glass ${deck.is_pinned ? 'deck-pinned' : ''} ${deck.is_inbox ? 'deck-card-inbox' : ''} ${!deck.is_inbox ? 'deck-card-draggable' : ''}`}
-      style={{ position: 'relative' }}
+      style={deckStyle}
     >
       {/* Drag handle: only show for non-inbox decks */}
       {!deck.is_inbox && (
@@ -352,11 +382,12 @@ const DeckCardItem = ({
                     >
                       <span>Без папки (Главная)</span>
                     </button>
-                    {(folders || []).map(f => (
+                    {getSortedFolderTree(folders || []).map(f => (
                       <button 
                         key={f.id}
                         className={`dropdown-sub-item ${deck.folder_id === f.id ? 'current' : ''}`}
                         onClick={(e) => handleMoveToFolder(e, f.id)}
+                        style={{ paddingLeft: `${12 + f.depth * 14}px` }}
                       >
                         <span>{f.name}</span>
                       </button>
@@ -382,6 +413,224 @@ const DeckCardItem = ({
   );
 };
 
+const FolderCardItem = ({
+  folder,
+  setActiveFolderId,
+  decks,
+  folders,
+  showToast
+}) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      setIsMoveMenuOpen(false);
+    }
+  }, [isMenuOpen]);
+
+  const childDecks = decks.filter(d => d.folder_id === folder.id);
+  const totalDecksCount = childDecks.length;
+  const folderColor = folder.color || '#ffd043';
+
+  const handleShare = async (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    
+    if (childDecks.length === 0) {
+      showToast("В папке нет колод для отправки", "info");
+      return;
+    }
+
+    try {
+      if (childDecks.length === 1) {
+        const deck = childDecks[0];
+        const result = await useDeckStore.getState().handleShareDeck(deck.id);
+        if (result.success) {
+          if (result.type === 'copy') showToast('Ссылка скопирована!', 'success');
+          else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
+        }
+      } else {
+        showToast("Генерируем ссылки для колод...", "info");
+        const links = [];
+        for (const deck of childDecks) {
+          const res = await api.post(`/share/generate/deck/${deck.id}`);
+          if (res.data.status === 'ok') {
+            links.push({ name: deck.name, url: `${window.location.origin}/api/share/v/${res.data.share_id}` });
+          }
+        }
+        
+        if (links.length > 0) {
+          const text = `📁 Папка «${folder.name}»:\n` + links.map(l => `📚 ${l.name}: ${l.url}`).join('\n');
+          await navigator.clipboard.writeText(text);
+          showToast("Ссылки на все колоды скопированы!", "success");
+        } else {
+          showToast("Не удалось создать ссылки", "error");
+        }
+      }
+    } catch (err) {
+      showToast("Ошибка при создании ссылок", "error");
+    }
+  };
+
+  const handleRename = (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    const newName = window.prompt("Введите новое название папки:", folder.name);
+    if (newName && newName.trim()) {
+      useDeckStore.getState().renameFolder(folder.id, newName.trim());
+      showToast("Папка переименована", "success");
+    }
+  };
+
+  const handleMove = async (e, parentId) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    setIsMoveMenuOpen(false);
+    try {
+      await useDeckStore.getState().moveFolder(folder.id, parentId);
+      showToast("Папка перемещена", "success");
+    } catch (err) {
+      showToast("Ошибка при перемещении папки", "error");
+    }
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    if (window.confirm("Удалить эту папку? Все колоды и папки внутри неё переместятся на уровень выше.")) {
+      useDeckStore.getState().deleteFolder(folder.id);
+      showToast("Папка удалена", "success");
+    }
+  };
+
+  const getDescendantIds = (fid, allFolders) => {
+    const ids = [];
+    const findChildren = (id) => {
+      const children = allFolders.filter(f => f.parent_id === id);
+      for (const child of children) {
+        ids.push(child.id);
+        findChildren(child.id);
+      }
+    };
+    findChildren(fid);
+    return ids;
+  };
+
+  const descendants = getDescendantIds(folder.id, folders || []);
+  const validFolders = (folders || []).filter(f => f.id !== folder.id && !descendants.includes(f.id));
+
+  return (
+    <div 
+      className="deck-card glass folder-card"
+      style={{ 
+        borderLeft: `4px solid ${folderColor}`,
+        '--folder-accent': folderColor,
+        '--folder-accent-border': `${folderColor}40`,
+        '--folder-accent-hover': folderColor,
+        '--folder-accent-shadow': `${folderColor}33`,
+        '--folder-accent-bg': `${folderColor}0c`
+      }}
+    >
+      <div className="deck-main-action" onClick={() => setActiveFolderId(folder.id)}>
+        <div className="deck-icon" style={{ background: `${folderColor}1a`, color: folderColor }}>
+          <Folder size={24} />
+        </div>
+        <h3>
+          <span className="deck-title-text">{folder.name}</span>
+        </h3>
+        <div className="deck-stats">
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 12 }}>
+            {totalDecksCount} {totalDecksCount === 1 ? 'колода' : (totalDecksCount >= 2 && totalDecksCount <= 4 ? 'колоды' : 'колод')}
+          </span>
+        </div>
+      </div>
+      {folder.name !== "📥 Входящие" && (
+        <div className="deck-footer-actions" style={{ justifyContent: 'flex-start', padding: '8px 12px', position: 'relative' }}>
+          <button 
+            className={`menu-toggle-btn ${isMenuOpen ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen(!isMenuOpen);
+            }}
+            title="Опции папки"
+          >
+            <MoreHorizontal size={16} />
+            <span>Опции</span>
+          </button>
+
+          {isMenuOpen && (
+            <div className="deck-dropdown-menu glass" ref={menuRef} onClick={(e) => e.stopPropagation()}>
+              <button className="dropdown-item" onClick={handleShare}>
+                <span>🔗 Поделиться</span>
+              </button>
+              <button className="dropdown-item" onClick={handleRename}>
+                <span>✍️ Переименовать</span>
+              </button>
+              <button 
+                className={`dropdown-item ${isMoveMenuOpen ? 'active' : ''}`} 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMoveMenuOpen(!isMoveMenuOpen);
+                }}
+              >
+                <span>📁 Переместить</span>
+                <ChevronRight 
+                  size={14} 
+                  style={{ 
+                    marginLeft: 'auto', 
+                    transform: isMoveMenuOpen ? 'rotate(90deg)' : 'none',
+                    transition: 'transform 0.2s' 
+                  }} 
+                />
+              </button>
+              {isMoveMenuOpen && (
+                <div className="dropdown-sub-menu">
+                  <button 
+                    className={`dropdown-sub-item ${folder.parent_id === null ? 'current' : ''}`}
+                    onClick={(e) => handleMove(e, null)}
+                  >
+                    <span>Без папки (Главная)</span>
+                  </button>
+                  {getSortedFolderTree(folders || [], folder.id, descendants).map(f => (
+                    <button 
+                      key={f.id}
+                      className={`dropdown-sub-item ${folder.parent_id === f.id ? 'current' : ''}`}
+                      onClick={(e) => handleMove(e, f.id)}
+                      style={{ paddingLeft: `${12 + f.depth * 14}px` }}
+                    >
+                      <span>{f.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button className="dropdown-item text-red" onClick={handleDelete}>
+                <span>❌ Удалить</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, importShareId, onImportSuccess, onImportClose }) => {
   const { view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, showToast, userProfile, setIsRenameModalOpen, setDeckToRename, activeFolderId, setActiveFolderId } = useUiStore();
   const { decks, folders, setCurrentDeck, fetchDeckCards, handleSyncDeck, handleResetProgress, handleDeleteDeck, setDeckCards, togglePinDeck, reorderDecks } = useDeckStore();
@@ -404,10 +653,9 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
   };
 
   const currentFolders = folders ? folders.filter(f => f.parent_id === activeFolderId) : [];
+  const activeFolder = folders?.find(f => f.id === activeFolderId);
+  const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
   const currentDecks = decks ? decks.filter(d => {
-    if (d.is_inbox) {
-      return activeFolderId === null;
-    }
     return d.folder_id === activeFolderId;
   }) : [];
 
@@ -470,34 +718,36 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
           <div className="folder-breadcrumbs glass" style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '10px 14px',
-            borderRadius: '12px',
-            marginBottom: '16px',
-            fontSize: '0.85rem',
+            gap: '10px',
+            padding: '12px 18px',
+            borderRadius: '14px',
+            marginBottom: '20px',
+            fontSize: '1.15rem',
             background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
+            border: `1px solid ${activeFolderColor}40`,
+            boxShadow: `0 4px 20px ${activeFolderColor}15`,
             flexWrap: 'wrap'
           }}>
+            <FolderOpen size={22} style={{ color: activeFolderColor, marginRight: '4px', flexShrink: 0 }} />
             <span 
               onClick={() => setActiveFolderId(null)}
-              style={{ cursor: 'pointer', color: '#818cf8', fontWeight: 600 }}
+              style={{ cursor: 'pointer', color: activeFolderColor, fontWeight: 600 }}
             >
               Главная
             </span>
             {getBreadcrumbs().map((b, i, arr) => (
               <React.Fragment key={b.id}>
-                <ChevronRight size={12} color="#64748b" style={{ flexShrink: 0 }} />
+                <ChevronRight size={14} style={{ color: `${activeFolderColor}99`, flexShrink: 0 }} />
                 <span 
                   onClick={() => i < arr.length - 1 && setActiveFolderId(b.id)}
                   style={{ 
                     cursor: i < arr.length - 1 ? 'pointer' : 'default', 
-                    color: i < arr.length - 1 ? '#818cf8' : '#cbd5e1',
+                    color: i < arr.length - 1 ? activeFolderColor : '#ffffff',
                     fontWeight: i === arr.length - 1 ? 700 : 600,
                     textOverflow: 'ellipsis',
                     overflow: 'hidden',
                     whiteSpace: 'nowrap',
-                    maxWidth: '120px'
+                    maxWidth: '180px'
                   }}
                 >
                   {b.name}
@@ -533,62 +783,16 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
           ) : (
             <>
               {/* 1. Render Folders */}
-              {currentFolders.map(folder => {
-                const childDecks = decks.filter(d => d.folder_id === folder.id);
-                const totalDecksCount = childDecks.length;
-                const folderColor = folder.color || '#818cf8';
-                return (
-                  <div 
-                    key={`folder-${folder.id}`} 
-                    className="deck-card glass folder-card"
-                    style={{ 
-                      borderLeft: `4px solid ${folderColor}`
-                    }}
-                  >
-                    <div className="deck-main-action" onClick={() => setActiveFolderId(folder.id)}>
-                      <div className="deck-icon" style={{ background: 'rgba(129, 140, 248, 0.1)', color: folderColor }}>
-                        <Folder size={24} />
-                      </div>
-                      <h3>
-                        <span className="deck-title-text">{folder.name}</span>
-                      </h3>
-                      <div className="deck-stats">
-                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 12 }}>
-                          {totalDecksCount} {totalDecksCount === 1 ? 'колода' : (totalDecksCount >= 2 && totalDecksCount <= 4 ? 'колоды' : 'колод')}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="deck-footer-actions" style={{ justifyContent: 'space-between' }}>
-                      <button 
-                        className="deck-action-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const newName = window.prompt("Введите новое название папки:", folder.name);
-                          if (newName && newName.trim()) {
-                            useDeckStore.getState().renameFolder(folder.id, newName.trim());
-                            showToast("Папка переименована", "success");
-                          }
-                        }}
-                      >
-                        <Edit2 size={13} /> Имя
-                      </button>
-                      <button 
-                        className="deck-action-btn delete-btn-minimal" 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          if (window.confirm("Удалить эту папку? Все колоды и папки внутри неё переместятся на уровень выше.")) {
-                            useDeckStore.getState().deleteFolder(folder.id);
-                            showToast("Папка удалена", "success");
-                          } 
-                        }}
-                        title="Удалить папку"
-                      >
-                        <Trash2 size={13} /> Удалить
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {currentFolders.map(folder => (
+                <FolderCardItem
+                  key={`folder-${folder.id}`}
+                  folder={folder}
+                  setActiveFolderId={setActiveFolderId}
+                  decks={decks}
+                  folders={folders}
+                  showToast={showToast}
+                />
+              ))}
 
               {/* 2. Render Decks */}
               <Reorder.Group
@@ -617,6 +821,7 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
                     setIsRenameModalOpen={setIsRenameModalOpen}
                     togglePinDeck={togglePinDeck}
                     folders={folders}
+                    activeFolderColor={activeFolderColor}
                   />
                 ))}
               </Reorder.Group>
