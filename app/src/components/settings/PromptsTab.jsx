@@ -1,8 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Edit2, Check, Plus, ArrowLeft } from 'lucide-react';
+import { Trash2, Edit2, Check, Plus, ArrowLeft, Lightbulb } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import api from '../../services/api';
+
+const getCleanInstruction = (text) => {
+  if (!text) return "";
+  
+  // Remove JSON instructions
+  const index = text.toUpperCase().indexOf("RETURN ONLY A JSON");
+  let clean = index !== -1 ? text.substring(0, index).trim() : text.trim();
+  
+  // Remove prefix possibilities
+  const prefixes = [
+    'Переведи "{phrase}" на немецкий. Проанализируй перевод:',
+    'Переведи "{phrase}" на немецкий. Проанализируй перевод',
+    'Переведи на немецкий. Проанализируй перевод:',
+    'Проанализируй немецкое предложение или слово "{phrase}".',
+    'Проанализируй немецкое предложение или слово "{phrase}"',
+    'Проанализируй немецкое предложение или слово.',
+    'Переведи {phrase} на немецкий. Проанализируй перевод:',
+    'Проанализируй немецкое предложение или слово {phrase}.'
+  ];
+  
+  for (const prefix of prefixes) {
+    if (clean.toLowerCase().startsWith(prefix.toLowerCase())) {
+      clean = clean.substring(prefix.length).trim();
+      break;
+    }
+  }
+  
+  return clean;
+};
 
 export const PromptsTab = () => {
   const { showToast } = useUiStore();
@@ -69,8 +98,8 @@ export const PromptsTab = () => {
       await api.post('/user/prompts', {
         id: editingPrompt.id,
         name: editingPrompt.name,
-        translation_prompt: editingPrompt.translation_prompt,
-        context_prompt: editingPrompt.context_prompt
+        translation_prompt: editingPrompt.instruction,
+        context_prompt: editingPrompt.instruction
       });
       showToast(editingPrompt.id ? "Промпт обновлен" : "Промпт создан", "success");
       setEditingPrompt(null);
@@ -83,21 +112,18 @@ export const PromptsTab = () => {
   const handleCreateNew = () => {
     // Determine active prompt texts to pre-load
     let activeTranslation = defaults.de;
-    let activeContext = defaults.ru;
     
     if (activePromptId !== null) {
       const active = promptsList.find(p => p.id === activePromptId);
       if (active) {
         activeTranslation = active.translation_prompt;
-        activeContext = active.context_prompt;
       }
     }
     
     setEditingPrompt({
       id: null,
       name: "Мой промпт",
-      translation_prompt: activeTranslation,
-      context_prompt: activeContext
+      instruction: getCleanInstruction(activeTranslation)
     });
   };
 
@@ -105,8 +131,7 @@ export const PromptsTab = () => {
     setEditingPrompt({
       id: prompt.id,
       name: prompt.name,
-      translation_prompt: prompt.translation_prompt,
-      context_prompt: prompt.context_prompt
+      instruction: getCleanInstruction(prompt.translation_prompt || prompt.context_prompt)
     });
   };
 
@@ -120,6 +145,23 @@ export const PromptsTab = () => {
           <h3 style={{ margin: 0 }}>{editingPrompt.id ? "Редактирование" : "Создание промпта"}</h3>
         </div>
         
+        <div style={{
+          background: 'rgba(56, 189, 248, 0.08)',
+          border: '1px solid rgba(56, 189, 248, 0.2)',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          marginBottom: '20px',
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'flex-start'
+        }}>
+          <Lightbulb size={20} style={{ color: '#38bdf8', flexShrink: 0, marginTop: '2px' }} />
+          <div style={{ fontSize: '0.85rem', lineHeight: '1.4', color: '#e2e8f0' }}>
+            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Простые инструкции</strong>
+            Пишите обычным языком, что именно должен сделать искусственный интеллект (какие правила грамматики объяснить, сколько примеров привести и т.д.)
+          </div>
+        </div>
+        
         <div className="form-group">
           <label>Название шаблона</label>
           <input 
@@ -131,24 +173,13 @@ export const PromptsTab = () => {
         </div>
 
         <div className="form-group">
-          <label>Промпт для немецкого слова/фразы (Германия ➡️ Россия)</label>
-          <p className="field-hint">Определяет анализ немецких слов, грамматики и примеры</p>
+          <label>Инструкции для анализа и примеров</label>
+          <p className="field-hint">Определяет правила разбора слов, грамматики и количество примеров в карточке</p>
           <textarea 
-            value={editingPrompt.translation_prompt} 
-            onChange={e => setEditingPrompt({ ...editingPrompt, translation_prompt: e.target.value })} 
-            rows={8} 
-            placeholder="Инструкции для немецкого..."
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Промпт для русского слова/фразы (Россия ➡️ Германия)</label>
-          <p className="field-hint">Определяет перевод на немецкий и последующий анализ</p>
-          <textarea 
-            value={editingPrompt.context_prompt} 
-            onChange={e => setEditingPrompt({ ...editingPrompt, context_prompt: e.target.value })} 
-            rows={8} 
-            placeholder="Инструкции для перевода русского..."
+            value={editingPrompt.instruction} 
+            onChange={e => setEditingPrompt({ ...editingPrompt, instruction: e.target.value })} 
+            rows={10} 
+            placeholder="Например: объясни слова с переводом на русский и грамматику, затем дай 3 примера. Очень коротко и ясно..."
           />
         </div>
 

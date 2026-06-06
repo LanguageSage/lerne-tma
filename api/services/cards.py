@@ -218,6 +218,7 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
             new_query = (TMA_Card.select()
                          .where(
                              TMA_Card.deck_id == deck_id,
+                             TMA_Card.is_deleted == False,
                              ~fn.EXISTS(subquery)
                          ))
             if exclude_ids:
@@ -231,7 +232,8 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                         .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
                         .where(
                             TMAProgress.user_id == user_id,
-                            TMA_Card.deck_id == deck_id
+                            TMA_Card.deck_id == deck_id,
+                            TMA_Card.is_deleted == False
                         ))
             if not learn_more:
                 due_query = due_query.where(TMAProgress.next_review <= now)

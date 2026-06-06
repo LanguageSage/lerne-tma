@@ -18,7 +18,7 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
     if type == "deck":
         item = TMA_Deck.get_or_none((TMA_Deck.id == item_id) & (TMA_Deck.user_id == user_id))
     elif type == "card":
-        item = TMA_Card.get_or_none(TMA_Card.id == item_id)
+        item = TMA_Card.get_or_none((TMA_Card.id == item_id) & (TMA_Card.is_deleted == False))
     else:
         raise HTTPException(status_code=400, detail="Invalid item type")
         
@@ -57,7 +57,7 @@ def get_share_info(share_id: str):
             "creator_avatar": creator.photo_url if creator else None
         }
     elif share_id.startswith("c_"):
-        card = TMA_Card.get_or_none(TMA_Card.share_id == share_id)
+        card = TMA_Card.get_or_none((TMA_Card.share_id == share_id) & (TMA_Card.is_deleted == False))
         if not card:
             raise HTTPException(status_code=404, detail="Shared card not found")
             

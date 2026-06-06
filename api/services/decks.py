@@ -128,7 +128,7 @@ def get_active_decks(user_id: int):
                       .join(TMAProgress, JOIN.LEFT_OUTER, on=(
                           (TMAProgress.card_id == TMA_Card.id) & (TMAProgress.user_id == user_id)
                       ))
-                      .where(TMA_Card.deck_id << deck_ids)
+                      .where((TMA_Card.deck_id << deck_ids) & (TMA_Card.is_deleted == False))
                       .group_by(TMA_Card.deck_id))
         
         # logger.info(f"Stats query SQL: {stats_query.sql()}")
@@ -519,12 +519,12 @@ def get_community_content(user_id: int):
     try:
         # Для простоты возвращаем все колоды, которых нет в Deck
         lib_names = {d.name for d in Deck.select(Deck.name)}
-        user_decks = TMA_Deck.select().where(~(TMA_Deck.name << list(lib_names)))
+        user_decks = TMA_Deck.select().where(~(TMA_Deck.name << list(lib_names)) & (TMA_Deck.is_deleted == False))
         return [{
             "id": d.id,
             "name": d.name,
             "user_id": d.user_id,
-            "cards_count": TMA_Card.select().where(TMA_Card.deck_id == d.id).count()
+            "cards_count": TMA_Card.select().where(TMA_Card.deck_id == d.id, TMA_Card.is_deleted == False).count()
         } for d in user_decks]
     except Exception as e:
         logger.error(f"Error fetching community content: {e}", exc_info=True)

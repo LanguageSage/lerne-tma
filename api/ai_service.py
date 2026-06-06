@@ -9,23 +9,39 @@ from api.models import TMASetting, TMAUserPrompt, lerne_db
 from api.ai_clients import AIService
 
 DEFAULT_PROMPTS = {
-    "de": """Проанализируй немецкое предложение или слово"{phrase}". объясни слова с переводом на русский и грамматику, затем 3 примера. Очень коротко и ясно. изучаемый язык немецкий , родной русский
-Return ONLY a JSON object in this format:
-{
-  "front": "{phrase}",
-  "back": "перевод фразы",
-  "context": "слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. нем. - рус.\\n2. нем. - рус.\\n3. нем. - рус."
+    "de": """Проанализируй немецкое предложение или слово "{phrase}". Объясни отдельные слова с переводом на русский и грамматику, затем дай 3 примера. Очень коротко и ясно. Изучаемый язык — немецкий, родной — русский.""",
+    "ru": """Переведи "{phrase}" на немецкий. Проанализируй перевод: объясни отдельные слова с переводом на русский и грамматику, затем дай 3 примера. Очень коротко и ясно. Изучаемый язык — немецкий, родной — русский."""
 }
-END_JSON""",
-    "ru": """Переведи "{phrase}" на немецкий. Проанализируй перевод: объясни слова с переводом на русский и грамматику, затем 3 примера. Очень коротко и ясно.изучаемый язык немецкий , родной русский
-Return ONLY a JSON object in this format:
-{
-  "front": "German translation",
-  "back": "{phrase}",
-  "context": "слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. нем. - рус.\\n2. нем. - рус.\\n3. нем. - рус."
-}
-END_JSON"""
-}
+
+def get_clean_instruction(text: str) -> str:
+    if not text:
+        return ""
+    
+    clean = text.strip()
+    
+    # Remove JSON instructions
+    json_index = clean.upper().find("RETURN ONLY A JSON")
+    if json_index != -1:
+        clean = clean[:json_index].strip()
+        
+    # Remove prefix possibilities
+    prefixes = [
+        'Переведи "{phrase}" на немецкий. Проанализируй перевод:',
+        'Переведи "{phrase}" на немецкий. Проанализируй перевод',
+        'Переведи на немецкий. Проанализируй перевод:',
+        'Проанализируй немецкое предложение или слово "{phrase}".',
+        'Проанализируй немецкое предложение или слово "{phrase}"',
+        'Проанализируй немецкое предложение или слово.',
+        'Переведи {phrase} на немецкий. Проанализируй перевод:',
+        'Проанализируй немецкое предложение или слово {phrase}.'
+    ]
+    
+    for prefix in prefixes:
+        if clean.lower().startswith(prefix.lower()):
+            clean = clean[len(prefix):].strip()
+            break
+            
+    return clean
 
 def detect_language(text: str) -> str:
     """Heuristic to detect if text is Russian or German/Other."""
@@ -112,23 +128,35 @@ async def generate_card_fields(user_id: int, phrase: str):
         
         base_prompt = DEFAULT_PROMPTS.get(lang, DEFAULT_PROMPTS["de"])
         if custom_prompt:
-            if lang == "ru":
-                system_prompt = custom_prompt.context_prompt or DEFAULT_PROMPTS["ru"]
-            else:
-                system_prompt = custom_prompt.translation_prompt or DEFAULT_PROMPTS["de"]
+            raw_prompt = custom_prompt.translation_prompt or custom_prompt.context_prompt or base_prompt
         else:
             user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
             if user_prompts:
-                if lang == "ru":
-                    system_prompt = user_prompts.context_prompt or DEFAULT_PROMPTS["ru"]
-                else:
-                    system_prompt = user_prompts.translation_prompt or DEFAULT_PROMPTS["de"]
+                raw_prompt = user_prompts.translation_prompt or user_prompts.context_prompt or base_prompt
             else:
-                system_prompt = base_prompt
-            
+                raw_prompt = base_prompt
+
+        if "JSON" in raw_prompt.upper():
+            # Legacy custom prompts with JSON formatting instructions
+            system_prompt = raw_prompt
+        else:
+            # Simple clean prompt text
+            clean_instruction = get_clean_instruction(raw_prompt)
+            if not clean_instruction:
+                clean_instruction = get_clean_instruction(base_prompt)
+
+            # Construct final prompt with correct prefix
+            if lang == "ru":
+                system_prompt = f'Переведи "{{phrase}}" на немецкий. Проанализируй перевод: {clean_instruction}'
+            else:
+                system_prompt = f'Проанализируй немецкое предложение или слово "{{phrase}}". {clean_instruction}'
+
         system_prompt = system_prompt.replace("{phrase}", phrase)
-        if "JSON" not in system_prompt.upper():
-            system_prompt += "\nReturn ONLY a JSON object with 'front', 'back', and 'context' keys."
+        if "JSON" not in raw_prompt.upper():
+            if lang == "ru":
+                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"перевод фразы на немецкий\",\n  \"back\": \"{phrase}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. нем. - рус.\\n2. нем. - рус.\\n3. нем. - рус.\"\n}}\nEND_JSON"
+            else:
+                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{phrase}\",\n  \"back\": \"перевод фразы на русский\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. нем. - рус.\\n2. нем. - рус.\\n3. нем. - рус.\"\n}}\nEND_JSON"
 
         client = AIService(provider=provider, api_key=ai_key)
         

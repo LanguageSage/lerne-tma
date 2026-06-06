@@ -2,12 +2,16 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 
 let isLockActive = false;
 let wakeLock = null;
+let silentAudio = null;
 
 if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && isLockActive) {
       if ('wakeLock' in navigator && (!wakeLock || wakeLock.released)) {
         navigator.wakeLock.request('screen').then(lock => { wakeLock = lock; }).catch(() => {});
+      }
+      if (silentAudio && silentAudio.paused) {
+        silentAudio.play().catch(() => {});
       }
     }
   });
@@ -29,6 +33,13 @@ export const startBackgroundAudioLock = () => {
         album: 'Режим изучения'
       });
     }
+
+    if (!silentAudio) {
+      silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      silentAudio.loop = true;
+      silentAudio.playsInline = true;
+    }
+    silentAudio.play().catch(err => console.warn('Silent audio play failed:', err));
   } catch (err) {
     console.warn('Background audio lock init failed:', err);
   }
@@ -39,6 +50,12 @@ export const stopBackgroundAudioLock = () => {
   if (wakeLock) {
     wakeLock.release().catch(() => {});
     wakeLock = null;
+  }
+  if (silentAudio) {
+    try {
+      silentAudio.pause();
+    } catch (e) {}
+    silentAudio = null;
   }
 };
 
