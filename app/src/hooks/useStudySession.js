@@ -121,6 +121,19 @@ export const useStudySession = () => {
           grade
         });
 
+        // Если карточка успешно пройдена (оценка 2 или 3), убираем её из ударного режима на сервере с подтверждения пользователя
+        if (currentDeck.id === 'favorites' && grade >= 2) {
+          if (window.confirm("Убрать эту карточку из Ударного режима?")) {
+            try {
+              await api.post(`/cards/${gradedCardId}/toggle-learn`);
+              // Также обновим список избранных в фоновом режиме
+              useDeckStore.getState().fetchFavorites();
+            } catch (err) {
+              console.error("Error removing card from favorites on grade:", err);
+            }
+          }
+        }
+
         // Обновляем локальную очередь в сессии
         const queue = [...session.favoritesQueue];
         if (queue.length > 0 && queue[0].id === gradedCardId) {

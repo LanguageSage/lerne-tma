@@ -37,6 +37,10 @@ export const useCardEditor = () => {
         allow_duplicate: true
       };
 
+      if (currentDeck?.id === 'favorites' && viewState === 'creator') {
+        reqData.want_to_learn = true;
+      }
+
       const res = await api.post('/cards/save', reqData);
       const fullCard = res.data;
       showToast("Сохранено", "success");

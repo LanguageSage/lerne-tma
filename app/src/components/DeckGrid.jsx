@@ -839,11 +839,7 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
               }}
               onClick={() => {
                 const favoritesDeck = { id: 'favorites', name: 'Ударный режим 🔥' };
-                setCurrentDeck(favoritesDeck);
-                setDeckCards([]);
-                useSessionStore.getState().resetSession();
-                fetchDeckCards('favorites');
-                useUiStore.getState().setView('study');
+                startStudy(favoritesDeck);
               }}
             >
               <div className="deck-main-action">

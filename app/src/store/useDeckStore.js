@@ -116,8 +116,13 @@ export const useDeckStore = create((set, get) => ({
   fetchDeckCards: async (deckId) => {
     set({ cardsLoading: true });
     try {
-      const res = await api.get(`/decks/${deckId}/cards`);
-      set({ deckCards: res.data });
+      if (deckId === 'favorites') {
+        const res = await api.get('/cards/favorites');
+        set({ deckCards: res.data });
+      } else {
+        const res = await api.get(`/decks/${deckId}/cards`);
+        set({ deckCards: res.data });
+      }
     } catch (err) {
       console.error('Fetch Deck Cards Error:', err);
       throw err;

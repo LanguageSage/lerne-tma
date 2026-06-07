@@ -45,7 +45,7 @@ export const CardCreator = ({ startTutorial }) => {
         front: '',
         back: '',
         context: '',
-        deck_id: currentDeck?.id
+        deck_id: currentDeck?.id === 'favorites' ? '' : currentDeck?.id
       });
     }
   }, [view, currentDeck?.id]);

@@ -294,10 +294,9 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
 
 def format_card_for_study(card: TMA_Card, user_id: int):
     """Форматирует карту для StudyView (с URL и интервалами)."""
-    progress, _ = TMAProgress.get_or_create(
-        card_id=card.id,
-        user_id=user_id,
-        defaults={"queue": "new", "next_review": datetime.datetime.now()}
+    progress = TMAProgress.get_or_none(
+        TMAProgress.card_id == card.id,
+        TMAProgress.user_id == user_id
     )
     
     return _build_card_dict(card, p=progress, include_intervals=True)
