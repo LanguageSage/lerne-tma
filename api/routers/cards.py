@@ -47,3 +47,21 @@ def get_favorites(user_id: int = Depends(get_user_id)):
     return services.get_favorite_cards(user_id)
 
 
+@router.post("/reorder")
+def reorder_cards(data: dict, user_id: int = Depends(get_user_id)):
+    from api import models
+    card_ids = data.get('card_ids', [])
+    try:
+        user_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id)
+        with models.tma_db.atomic():
+            for idx, card_id in enumerate(card_ids):
+                models.TMA_Card.update(position=idx).where(
+                    (models.TMA_Card.id == card_id) & (models.TMA_Card.deck_id << user_decks)
+                ).execute()
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error reordering cards: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+

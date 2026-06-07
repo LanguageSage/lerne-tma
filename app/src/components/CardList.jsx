@@ -1,7 +1,8 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, Reorder } from 'framer-motion';
 import { ChevronLeft, Trash2, Plus, ImageIcon, Volume2, Edit2, Settings, Share2, Play, RefreshCw } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
+import { CardActionButton } from './CardActionModal';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -165,26 +166,67 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                 Создать карточку
               </button>
             </div>
+          ) : currentDeck?.id === 'favorites' ? (
+            <div className="card-list">
+              {deckCards.map(c => (
+                <div key={c.id} id={`card-item-${c.id}`} className="card-item glass" onClick={() => startStudyCard(currentDeck, c.id)}>
+                  <div className="card-item-text">
+                    <div className="front-min">{c.front}</div>
+                    <div className="back-min">{c.back}</div>
+                  </div>
+                  <div className="card-item-actions">
+                    <CardActionButton 
+                      card={c} 
+                      size={16} 
+                      className="card-item-actions-trigger" 
+                      stopDrag={false} 
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
-            deckCards.map(c => (
-              <div key={c.id} id={`card-item-${c.id}`} className="card-item glass" onClick={() => startStudyCard(currentDeck, c.id)}>
-                <div className="card-item-text">
-                  <div className="front-min">{c.front}</div>
-                  <div className="back-min">{c.back}</div>
-                </div>
-                <div className="card-item-actions">
-                  <div className="card-item-share" onClick={(e) => { e.stopPropagation(); handleShareCard(c); }} title="Поделиться">
-                    <Share2 size={16} />
+            <Reorder.Group
+              as="div"
+              axis="y"
+              values={deckCards}
+              onReorder={(newOrder) => {
+                const orderedIds = newOrder.map(c => c.id);
+                useDeckStore.getState().reorderCards(orderedIds);
+              }}
+              className="card-list"
+              id="tut-card-list-content"
+            >
+              {deckCards.map(c => (
+                <Reorder.Item
+                  key={c.id}
+                  value={c}
+                  as="div"
+                  id={`card-item-${c.id}`}
+                  className="card-item glass card-item-draggable"
+                  onClick={() => startStudyCard(currentDeck, c.id)}
+                  whileDrag={{
+                    scale: 1.02,
+                    boxShadow: "0 8px 30px rgba(0, 0, 0, 0.3)",
+                    backgroundColor: "rgba(255, 255, 255, 0.08)",
+                    cursor: "grabbing"
+                  }}
+                >
+                  <div className="card-item-text">
+                    <div className="front-min">{c.front}</div>
+                    <div className="back-min">{c.back}</div>
                   </div>
-                  <div className="card-item-edit" onClick={(e) => { e.stopPropagation(); openEditor(currentDeck.id, c, 'cards'); }} title="Редактировать">
-                    <Edit2 size={16} />
+                  <div className="card-item-actions">
+                    <CardActionButton 
+                      card={c} 
+                      size={16} 
+                      className="card-item-actions-trigger" 
+                      stopDrag={true} 
+                    />
                   </div>
-                  <div className="card-item-delete" onClick={(e) => { e.stopPropagation(); handleDeleteCard(c.id); }} title="Удалить">
-                    <Trash2 size={16} />
-                  </div>
-                </div>
-              </div>
-            ))
+                </Reorder.Item>
+              ))}
+            </Reorder.Group>
           )}
         </div>
         

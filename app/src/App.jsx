@@ -31,6 +31,7 @@ import { useSessionStore } from './store/useSessionStore';
 import { useCardActions } from './hooks/useCardActions';
 import { useAutoImport } from './hooks/useAutoImport';
 import { useAppInitialization } from './hooks/useAppInitialization';
+import { useCardNavigation } from './hooks/useCardNavigation';
 
 const USER_ID = getUserId();
 
@@ -48,6 +49,7 @@ export default function App() {
 
   const { isFlipped } = useSessionStore();
   const { fetchNextCard, handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
+  const { openEditor } = useCardNavigation();
 
   const activeFolderId = useUiStore(state => state.activeFolderId);
   const setActiveFolderId = useUiStore(state => state.setActiveFolderId);
@@ -294,6 +296,7 @@ export default function App() {
         onDelete={(c) => handleDeleteCard(c.id, true)}
         onToggleLearn={handleToggleLearn}
         onShare={handleShareCard}
+        onEdit={(c) => openEditor(c.deck_id || currentDeck?.id, c, view)}
         loading={loading}
       />
 

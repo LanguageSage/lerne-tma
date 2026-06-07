@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import api from '../services/api';
 
 let reorderTimeout = null;
+let cardReorderTimeout = null;
 
 export const useDeckStore = create((set, get) => ({
   decks: [],
@@ -438,6 +439,38 @@ export const useDeckStore = create((set, get) => ({
           set({ decks: serverDecks.data });
         } catch (fetchErr) {
           console.error('Fetch decks failed after reorder error:', fetchErr);
+        }
+      }
+    }, 400);
+  },
+
+  reorderCards: async (orderedIds) => {
+    const { deckCards } = get();
+    // Optimistic update positions
+    const updated = [...deckCards].sort((a, b) => {
+      const aIdx = orderedIds.indexOf(a.id);
+      const bIdx = orderedIds.indexOf(b.id);
+      return aIdx - bIdx;
+    });
+    set({ deckCards: updated });
+
+    if (cardReorderTimeout) {
+      clearTimeout(cardReorderTimeout);
+    }
+
+    cardReorderTimeout = setTimeout(async () => {
+      try {
+        await api.post('/cards/reorder', { card_ids: orderedIds });
+      } catch (err) {
+        console.error('Reorder Cards Error:', err);
+        const { currentDeck } = get();
+        if (currentDeck) {
+          try {
+            const res = await api.get(`/decks/${currentDeck.id}/cards`);
+            set({ deckCards: res.data });
+          } catch (fetchErr) {
+            console.error('Fetch cards failed after reorder error:', fetchErr);
+          }
         }
       }
     }, 400);

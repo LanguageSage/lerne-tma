@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Move, Copy, Trash2, Heart } from 'lucide-react';
+import { X, Move, Copy, Trash2, Heart, Edit2, Settings2 } from 'lucide-react';
+import { useUiStore } from '../store/useUiStore';
 
 const getSortedFolderAndDeckTree = (foldersList, decksList, expandedFolders) => {
   const result = [];
@@ -49,6 +50,7 @@ export const CardActionModal = ({
   onDelete,
   onToggleLearn,
   onShare,
+  onEdit,
   loading
 }) => {
   const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy'
@@ -173,6 +175,21 @@ export const CardActionModal = ({
                   </div>
                 </button>
                 
+                {onEdit && (
+                  <button 
+                    className="action-menu-item" 
+                    onClick={() => { onEdit(card); onClose(); }}
+                  >
+                    <div className="action-menu-icon" style={{ background: 'rgba(234, 179, 8, 0.1)', color: '#eab308' }}>
+                      <Edit2 size={20} />
+                    </div>
+                    <div className="action-menu-text">
+                      <strong>Редактировать</strong>
+                      <span>Изменить содержимое карточки</span>
+                    </div>
+                  </button>
+                )}
+                
                 <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.05)', margin: '10px 0' }} />
 
                 <button 
@@ -258,5 +275,26 @@ export const CardActionModal = ({
         </motion.div>
       </div>
     </AnimatePresence>
+  );
+};
+
+export const CardActionButton = ({ card, size = 16, className = "", stopDrag = false }) => {
+  const { setActionCard, setIsCardActionModalOpen } = useUiStore();
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    setActionCard(card);
+    setIsCardActionModalOpen(true);
+  };
+
+  return (
+    <div
+      className={className}
+      onPointerDown={stopDrag ? (e) => e.stopPropagation() : undefined}
+      onClick={handleClick}
+      title="Действия с карточкой"
+    >
+      <Settings2 size={size} />
+    </div>
   );
 };

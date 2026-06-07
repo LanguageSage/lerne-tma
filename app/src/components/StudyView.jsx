@@ -8,6 +8,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useCardActions } from '../hooks/useCardActions';
 import { useMediaUpload } from '../hooks/useMediaUpload';
+import { CardActionButton } from './CardActionModal';
 import { useAudio } from '../hooks/useAudio';
 import { useAutoplay } from '../hooks/useAutoplay';
 import { useCardNavigation } from '../hooks/useCardNavigation';
@@ -383,14 +384,12 @@ export const StudyView = ({ startTutorial }) => {
             />
 
             <div className="card-actions-row-study">
-              <button
-                className="btn-card-action-trigger"
-                onClick={(e) => { e.stopPropagation(); handleShareCard(card); }}
-                title="Поделиться карточкой"
-                style={{ marginRight: '10px' }}
-              >
-                <Share2 size={22} />
-              </button>
+              <CardActionButton 
+                card={card} 
+                size={22} 
+                className="btn-card-action-trigger" 
+                stopDrag={false}
+              />
 
               {currentDeck?.id === 'duplicates' && (
                 <button
@@ -402,14 +401,6 @@ export const StudyView = ({ startTutorial }) => {
                   <Trash2 size={22} />
                 </button>
               )}
-
-              <button
-                className="btn-card-action-trigger"
-                onClick={(e) => { e.stopPropagation(); openCardActions(card); }}
-                title="Действия с карточкой"
-              >
-                <Settings2 size={22} />
-              </button>
 
               <button
                 className={`btn-card-action-trigger btn-favorite-toggle-direct ${card.want_to_learn ? 'active' : ''}`}

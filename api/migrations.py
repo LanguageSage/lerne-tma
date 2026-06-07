@@ -71,6 +71,8 @@ MIGRATIONS = [
     (47, 'ALTER TABLE tma_deck ADD COLUMN is_pinned BOOLEAN DEFAULT false', 'tma'),
     (48, 'ALTER TABLE deck ADD COLUMN position INTEGER DEFAULT 0', 'lerne'),
     (49, 'ALTER TABLE tma_deck ADD COLUMN position INTEGER DEFAULT 0', 'tma'),
+    (50, 'ALTER TABLE card ADD COLUMN position INTEGER DEFAULT 0', 'lerne'),
+    (51, 'ALTER TABLE tma_card ADD COLUMN position INTEGER DEFAULT 0', 'tma'),
 ]
 
 
@@ -189,8 +191,8 @@ def run_migrations(tma_db, lerne_db):
             tma_db.execute_sql("""
                 CREATE TRIGGER tma_card_insert INSTEAD OF INSERT ON tma_card
                 BEGIN
-                    INSERT INTO card (id, deck_id, card_type, difficulty, front_text, back_text, context, audio_path, image_path, tags, topics, metadata, created_at, updated_at, history, is_deleted, cloud_id, source, video_front_path, video_back_path, image_data, audio_back_path, want_to_learn, creator_id, share_id)
-                    VALUES (NEW.id, NEW.deck_id, NEW.card_type, NEW.difficulty, NEW.front_text, NEW.back_text, NEW.context, NEW.audio_path, NEW.image_path, NEW.tags, NEW.topics, NEW.metadata, NEW.created_at, NEW.updated_at, NEW.history, NEW.is_deleted, NEW.cloud_id, NEW.source, NEW.video_front_path, NEW.video_back_path, NEW.image_data, NEW.audio_back_path, NEW.want_to_learn, NEW.creator_id, NEW.share_id);
+                    INSERT INTO card (id, deck_id, card_type, difficulty, front_text, back_text, context, audio_path, image_path, tags, topics, metadata, created_at, updated_at, history, is_deleted, cloud_id, source, video_front_path, video_back_path, image_data, audio_back_path, want_to_learn, creator_id, share_id, position)
+                    VALUES (NEW.id, NEW.deck_id, NEW.card_type, NEW.difficulty, NEW.front_text, NEW.back_text, NEW.context, NEW.audio_path, NEW.image_path, NEW.tags, NEW.topics, NEW.metadata, NEW.created_at, NEW.updated_at, NEW.history, NEW.is_deleted, NEW.cloud_id, NEW.source, NEW.video_front_path, NEW.video_back_path, NEW.image_data, NEW.audio_back_path, NEW.want_to_learn, NEW.creator_id, NEW.share_id, NEW.position);
                 END;
             """)
 
@@ -223,7 +225,7 @@ def run_migrations(tma_db, lerne_db):
                         source = NEW.source, video_front_path = NEW.video_front_path, 
                         video_back_path = NEW.video_back_path, image_data = NEW.image_data, 
                         audio_back_path = NEW.audio_back_path, want_to_learn = NEW.want_to_learn, 
-                        creator_id = NEW.creator_id, share_id = NEW.share_id
+                        creator_id = NEW.creator_id, share_id = NEW.share_id, position = NEW.position
                     WHERE id = OLD.id;
                 END;
             """)
