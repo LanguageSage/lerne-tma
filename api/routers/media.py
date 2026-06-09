@@ -185,6 +185,36 @@ async def generate_audio_endpoint(
 
 
 
+@router.post("/upload-audio")
+async def upload_audio_file(
+    file: UploadFile = File(...),
+    user_id: int = Depends(get_user_id)
+):
+    """Upload an audio file for a deck or card."""
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Audio file is empty")
+    
+    # 20MB max
+    if len(content) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Audio is too large. Maximum size is 20 MB")
+
+    filename = f"aud_{user_id}_{uuid.uuid4().hex[:12]}.mp3"
+    try:
+        models.TMAMedia.create(
+            filename=filename,
+            folder='audio',
+            content=content
+        )
+    except Exception as e:
+        logger.error(f"Audio upload error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save audio")
+
+    return {
+        "path": f"audio/{filename}",
+        "url": f"/api/media/audio/{filename}"
+    }
+
 @router.get("/audio/{filename}")
 def get_audio(filename: str, request: Request):
     logger.debug(f"MEDIA: Requesting audio: {filename}")

@@ -25,6 +25,41 @@ async def _card_to_response(card, progress, user_id: int):
     # Убеждаемся, что озвучка существует и корректна
     await services.ensure_card_audio(card, user_id)
 
+    # Fetch deck explicitly to bypass any Peewee relationship caching issues
+    deck = None
+    if card.deck_id:
+        try:
+            deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == card.deck_id)
+        except Exception:
+            pass
+
+    import json
+    deck_metadata = {"resources": []}
+    if deck and getattr(deck, 'metadata', None):
+        try:
+            deck_metadata = json.loads(deck.metadata)
+        except Exception: pass
+    
+    resolved_resources = []
+    for res in deck_metadata.get('resources', []):
+        res_type = res.get('type')
+        path = res.get('path')
+        url = res.get('url')
+        if path:
+            if res_type == 'image':
+                url = services.resolve_media_url(path, 'images')
+            elif res_type == 'audio':
+                url = services.resolve_media_url(path, 'audio')
+            elif res_type == 'video':
+                url = services.resolve_media_url(path, 'videos')
+        resolved_resources.append({
+            "type": res_type,
+            "path": path,
+            "url": url,
+            "title": res.get('title')
+        })
+    deck_metadata['resources'] = resolved_resources
+
     return {
         "id": card.id,
         "front": card.front_text,
@@ -41,7 +76,8 @@ async def _card_to_response(card, progress, user_id: int):
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
         "deck_id": card.deck_id,
-        "deck_name": card.deck.name if card.deck else None
+        "deck_name": deck.name if deck else None,
+        "deck_metadata": deck_metadata
     }
 
 @router.get("/study/card/{card_id}")

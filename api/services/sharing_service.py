@@ -203,6 +203,9 @@ class SharingService:
             if resolution == 'replace' and existing_deck:
                 # Delete existing cards (soft delete or hard?)
                 TMA_Card.update(is_deleted=True).where(TMA_Card.deck == existing_deck).execute()
+                # Copy metadata
+                existing_deck.metadata = source_deck.metadata
+                existing_deck.save()
                 target_deck = existing_deck
             elif resolution == 'merge' and existing_deck:
                 target_deck = existing_deck
@@ -216,6 +219,7 @@ class SharingService:
                     level=source_deck.level,
                     topic=source_deck.topic,
                     folder_id=inbox_folder.id,
+                    metadata=source_deck.metadata, # Copy deck metadata (resources)
                     created_at=datetime.datetime.now(),
                     updated_at=datetime.datetime.now()
                 )

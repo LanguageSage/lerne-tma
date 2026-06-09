@@ -7,11 +7,15 @@ const axiosInstance = axios.create({
   baseURL: '/api',
 });
 
-// Добавляем X-User-ID ко всем запросам автоматически
+// Добавляем X-User-ID ко всем запросам автоматически и отключаем кэширование GET-запросов
 axiosInstance.interceptors.request.use((config) => {
   const userId = getUserId();
   if (userId) {
     config.headers['X-User-ID'] = userId;
+  }
+  if (config.method && config.method.toLowerCase() === 'get') {
+    const separator = config.url.includes('?') ? '&' : '?';
+    config.url = `${config.url}${separator}_t=${Date.now()}`;
   }
   return config;
 });

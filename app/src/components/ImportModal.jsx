@@ -10,20 +10,24 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState(null);
   const [shareInfo, setShareInfo] = useState(null);
-  
   const [conflict, setConflict] = useState(null);
   
   const { fetchDecks } = useDeckStore();
   const { showToast } = useUiStore();
 
   useEffect(() => {
+    console.log("ImportModal mounted with shareId:", shareId);
     if (!shareId) return;
     const fetchInfo = async () => {
       setLoading(true);
+      setError(null);
       try {
+        console.log("Fetching share info for:", shareId);
         const res = await api.get(`/share/info/${shareId}`);
+        console.log("Share info response:", res.data);
         setShareInfo(res.data);
       } catch (err) {
+        console.error("Error fetching share info:", err);
         setError("Не удалось загрузить информацию. Возможно, ссылка недействительна.");
       } finally {
         setLoading(false);
@@ -33,28 +37,32 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   }, [shareId]);
 
   const handleImport = async (resolution = null) => {
+    console.log("handleImport called with resolution:", resolution);
     setImporting(true);
     setError(null);
     try {
       const res = await api.post('/share/import', { share_id: shareId, resolution });
+      console.log("Import response:", res.data);
       
       if (res.data.status === 'conflict') {
+        console.log("Import conflict detected:", res.data);
         setConflict(res.data);
         return;
       }
 
       if (res.data.status === 'ok') {
         const msg = res.data.type === 'deck'
-          ? (res.data.merged ? `✅ Колода объединена!` : `✅ ${res.data.cards_added} карточек добавлено!`)
-          : '✅ Карточка добавлена во Входящие!';
-        showToast(msg);
+          ? (res.data.merged ? `Колода успешно объединена!` : `Колода добавлена! Карточек: ${res.data.cards_added}`)
+          : 'Карточка успешно добавлена во Входящие!';
+        showToast(msg, 'success');
         await fetchDecks(useUiStore.getState().userProfile?.user_id);
         onImportSuccess();
       } else if (res.data.status === 'skipped' || res.data.status === 'cancelled') {
         onClose();
       }
     } catch (err) {
-      setError("Произошла ошибка при добавлении.");
+      console.error("Error during import:", err);
+      setError("Произошла ошибка при импорте.");
     } finally {
       setImporting(false);
     }
@@ -67,31 +75,44 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   return (
     <AnimatePresence>
       <motion.div
-        className="modal-overlay"
+        className="settings-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="modal-content"
+          className="settings-modal"
           style={{ maxWidth: 380 }}
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          onClick={e => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
-          <button className="modal-close" onClick={onClose}><X size={24} /></button>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'white' }}>
+              {conflict ? 'Разрешение конфликта' : (isCard ? 'Импорт карточки' : 'Импорт колоды')}
+            </h2>
+            <button className="close-btn" onClick={onClose}>
+              <X size={20} />
+            </button>
+          </div>
 
-          <div className="modal-body" style={{ textAlign: 'center', padding: '30px 20px' }}>
+          <div style={{ textAlign: 'center', padding: '10px 0' }}>
             {loading ? (
               <div style={{ padding: '20px', color: '#94a3b8' }}>Загрузка...</div>
-            ) : error && !shareInfo ? (
+            ) : error ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#fca5a5' }}>
                 <AlertCircle size={40} />
-                <p>{error}</p>
+                <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.4 }}>{error}</p>
               </div>
-            ) : shareInfo && (
+            ) : !shareInfo ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#fca5a5' }}>
+                <AlertCircle size={40} />
+                <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.4 }}>Не удалось получить информацию по вашей ссылке</p>
+              </div>
+            ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
                 {/* Icon */}
                 <div style={{
@@ -117,7 +138,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                         </div>
                     }
                     <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                      от <strong style={{ color: 'white' }}>{shareInfo.creator_name}</strong>
+                      От: <strong style={{ color: 'white' }}>{shareInfo.creator_name}</strong>
                     </span>
                   </div>
                 )}
@@ -125,14 +146,14 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                 {/* Title */}
                 <div>
                   <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: 6 }}>
-                    Вам отправили {isCard ? 'карточку' : 'колоду'}:
+                    Название {isCard ? 'карточки' : 'колоды'}:
                   </p>
                   <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'white', margin: 0 }}>
                     {isCard ? shareInfo.front_text : shareInfo.name}
                   </h3>
                   {!isCard && shareInfo.level && (
                     <p style={{ color: '#64748b', fontSize: '0.8rem', marginTop: 4 }}>
-                      {shareInfo.level} · {shareInfo.topic}
+                      {shareInfo.level} • {shareInfo.topic}
                     </p>
                   )}
                 </div>
@@ -149,8 +170,8 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                     </div>
                     <p style={{ fontSize: '0.85rem', color: '#e2e8f0', margin: 0 }}>
                       {isCard 
-                        ? `Такая карточка уже есть в колоде «${conflict.existing_deck_name}». Что сделать?`
-                        : `Колода с названием «${conflict.name}» уже существует. Что сделать?`
+                        ? `Карточка уже существует в колоде <${conflict.existing_deck_name}>. Что сделать?`
+                        : `Колода с названием <${conflict.name}> уже существует. Что сделать?`
                       }
                     </p>
                   </div>
@@ -165,60 +186,114 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                     <Inbox size={18} color="#818cf8" style={{ flexShrink: 0 }} />
                     <span style={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'left' }}>
                       {isCard
-                        ? 'Карточка попадёт в колоду «📥 Входящие»'
-                        : 'Все карточки колоды попадут в «📥 Входящие»'}
+                        ? 'Карточка попадет во «📥 Входящие»'
+                        : 'Колода попадет во «📥 Входящие»'}
                       <br />
-                      <span style={{ color: '#64748b', fontSize: '0.75rem' }}>Потом можно переместить в любую колоду</span>
+                      <span style={{ color: '#64748b', fontSize: '0.75rem' }}>Потом можно переместить в любую папку</span>
                     </span>
                   </div>
                 )}
-
-                {error && <p style={{ color: '#fca5a5', fontSize: '0.85rem' }}>{error}</p>}
               </div>
             )}
           </div>
 
-          <div className="modal-footer" style={{ flexDirection: conflict ? 'column' : 'row', gap: conflict ? 10 : 0 }}>
-            {conflict ? (
-              <>
-                <button 
-                  className="btn btn-primary" 
-                  style={{ width: '100%' }} 
-                  onClick={() => handleImport(isCard ? 'skip' : 'cancel')}
-                  disabled={importing}
-                >
-                  {isCard ? 'Пропустить (не добавлять)' : 'Отмена'}
-                </button>
+          <div style={{ width: '100%', marginTop: 20 }}>
+            {error || !shareInfo ? (
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                 <button 
                   className="btn btn-secondary" 
-                  style={{ width: '100%' }} 
-                  onClick={() => handleImport(isCard ? 'replace' : 'replace')}
-                  disabled={importing}
+                  onClick={onClose}
+                  style={{ width: '100%', padding: '12px' }}
                 >
-                  {isCard ? 'Заменить (удалить старую)' : 'Заменить всё'}
+                  Закрыть
                 </button>
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)' }} 
-                  onClick={() => handleImport(isCard ? 'add' : 'merge')}
-                  disabled={importing}
-                >
-                  {isCard ? 'Оставить обе (добавить копию)' : 'Объединить (добавить только новые)'}
-                </button>
-              </>
+              </div>
+            ) : conflict ? (
+              <div className="choice-grid" style={{ width: '100%' }}>
+                {isCard ? (
+                  <>
+                    <button 
+                      className="btn btn-secondary choice-btn" 
+                      onClick={() => handleImport('replace')}
+                      disabled={importing}
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', width: '100%', padding: '14px 18px' }}
+                    >
+                      🔄 Заменить (удалить старую)
+                    </button>
+                    <button 
+                      className="btn btn-secondary choice-btn" 
+                      onClick={() => handleImport('add')}
+                      disabled={importing}
+                      style={{ width: '100%', padding: '14px 18px' }}
+                    >
+                      ➕ Оставить обе (добавить копию)
+                    </button>
+                    <button 
+                      className="btn btn-primary choice-btn" 
+                      onClick={() => handleImport('skip')}
+                      disabled={importing}
+                      style={{ width: '100%', padding: '14px 18px' }}
+                    >
+                      ❌ Пропустить (не добавлять)
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      className="btn btn-secondary choice-btn" 
+                      onClick={() => handleImport('replace')}
+                      disabled={importing}
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', width: '100%', padding: '14px 18px' }}
+                    >
+                      🔄 Заменить (удалить старые карточки)
+                    </button>
+                    <button 
+                      className="btn btn-secondary choice-btn" 
+                      onClick={() => handleImport('merge')}
+                      disabled={importing}
+                      style={{ width: '100%', padding: '14px 18px' }}
+                    >
+                      🔀 Объединить (добавить только новые)
+                    </button>
+                    <button 
+                      className="btn btn-secondary choice-btn" 
+                      onClick={() => handleImport('copy')}
+                      disabled={importing}
+                      style={{ width: '100%', padding: '14px 18px' }}
+                    >
+                      📂 Создать новую колоду-копию
+                    </button>
+                    <button 
+                      className="btn btn-primary choice-btn" 
+                      onClick={() => handleImport('cancel')}
+                      disabled={importing}
+                      style={{ width: '100%', padding: '14px 18px', background: 'rgba(255, 255, 255, 0.05)', color: 'white', borderColor: 'rgba(255, 255, 255, 0.1)' }}
+                    >
+                      ❌ Отмена
+                    </button>
+                  </>
+                )}
+              </div>
             ) : (
-              <>
-                <button className="btn btn-secondary" onClick={onClose} disabled={importing}>Отмена</button>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', width: '100%' }}>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={onClose} 
+                  disabled={importing}
+                  style={{ flex: 1, padding: '12px' }}
+                >
+                  Отмена
+                </button>
                 <button
                   className="btn btn-primary"
                   onClick={() => handleImport()}
                   disabled={loading || importing || !shareInfo}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: 1, padding: '12px' }}
                 >
                   <Download size={18} />
-                  {importing ? 'Сохранение...' : 'Добавить во Входящие'}
+                  {importing ? 'Сохранение...' : 'Импортировать'}
                 </button>
-              </>
+              </div>
             )}
           </div>
         </motion.div>

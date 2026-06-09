@@ -1,6 +1,217 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { RefreshCw, Settings2, Heart, Share2, Trash2, Folder } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { RefreshCw, Settings2, Heart, Share2, Trash2, Folder, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
+
+const StudyDeckAudioPlayer = React.memo(({ url, title }) => {
+  const audioRef = React.useRef(null);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [currentTime, setCurrentTime] = React.useState(0);
+  const [duration, setDuration] = React.useState(0);
+  const [playbackRate, setPlaybackRate] = React.useState(1);
+  const [isExpanded, setIsExpanded] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    if (audioRef.current) {
+      audioRef.current.load();
+      audioRef.current.playbackRate = playbackRate;
+    }
+  }, [url]);
+
+  const togglePlay = (e) => {
+    e.stopPropagation();
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(err => console.error(err));
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleSeek = (e) => {
+    const time = Number(e.target.value);
+    setCurrentTime(time);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+    }
+  };
+
+  const changeSpeed = (e) => {
+    e.stopPropagation();
+    const rates = [1, 1.25, 1.5, 0.75];
+    const nextIdx = (rates.indexOf(playbackRate) + 1) % rates.length;
+    const nextRate = rates[nextIdx];
+    setPlaybackRate(nextRate);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = nextRate;
+    }
+  };
+
+  const formatTime = (time) => {
+    if (isNaN(time)) return '0:00';
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  return (
+    <div className="glass" style={{
+      margin: '0 15px 12px 15px',
+      borderRadius: '14px',
+      border: '1px solid rgba(56, 189, 248, 0.3)',
+      background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
+      overflow: 'hidden',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      boxShadow: '0 6px 20px rgba(56, 189, 248, 0.15)'
+    }}>
+      <audio 
+        ref={audioRef} 
+        src={url} 
+        onPlay={() => setIsPlaying(true)} 
+        onPause={() => setIsPlaying(false)}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={() => setIsPlaying(false)}
+      />
+      
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 14px',
+          cursor: 'pointer',
+          userSelect: 'none'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+          <Music size={16} className={isPlaying ? "pulse-animation" : ""} style={{ color: '#38bdf8', flexShrink: 0 }} />
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {title || 'Аудио колоды'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {!isExpanded && (
+            <button
+              onClick={togglePlay}
+              style={{
+                background: 'rgba(56, 189, 248, 0.15)',
+                border: 'none',
+                color: '#38bdf8',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              {isPlaying ? <Pause size={12} fill="currentColor" /> : <PlayIcon size={12} fill="currentColor" style={{ marginLeft: '1px' }} />}
+            </button>
+          )}
+          {isExpanded ? <ChevronUp size={16} color="#94a3b8" /> : <ChevronDown size={16} color="#94a3b8" />}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{
+              padding: '0 14px 12px 14px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              marginTop: '4px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
+                <button 
+                  onClick={togglePlay}
+                  style={{
+                    background: 'linear-gradient(135deg, #38bdf8, #6366f1)',
+                    border: 'none',
+                    color: 'white',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                >
+                  {isPlaying ? <Pause size={14} fill="currentColor" /> : <PlayIcon size={14} fill="currentColor" style={{ marginLeft: '1px' }} />}
+                </button>
+
+                <input 
+                  type="range"
+                  min={0}
+                  max={duration || 100}
+                  value={currentTime}
+                  onChange={handleSeek}
+                  style={{
+                    flex: 1,
+                    height: '4px',
+                    borderRadius: '4px',
+                    background: 'rgba(255,255,255,0.1)',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    WebkitAppearance: 'none'
+                  }}
+                />
+
+                <span style={{ fontSize: '0.7rem', color: '#94a3b8', minWidth: '60px', textAlign: 'right', fontFamily: 'monospace' }}>
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+
+                <button
+                  onClick={changeSpeed}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '6px',
+                    padding: '2px 6px',
+                    fontSize: '0.7rem',
+                    color: '#38bdf8',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    minWidth: '36px',
+                    textAlign: 'center'
+                  }}
+                >
+                  {playbackRate}x
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+});
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
@@ -299,6 +510,15 @@ export const StudyView = ({ startTutorial }) => {
           </div>
         ) : card ? (
           <div className="study-flow">
+            {/* Deck general audio material player */}
+            {(() => {
+              const deckAudio = card?.deck_metadata?.resources?.find(r => r.type === 'audio');
+              if (deckAudio) {
+                return <StudyDeckAudioPlayer url={deckAudio.url} title={deckAudio.title} />;
+              }
+              return null;
+            })()}
+
             {/* Study Mode Selector Dropdown */}
             <div className="study-mode-dropdown-container">
               <span className="study-mode-dropdown-label">Режим:</span>
@@ -467,14 +687,18 @@ export const StudyView = ({ startTutorial }) => {
                   ? duplicateCards.findIndex(c => c.id === card?.id) 
                   : currentDeck?.id === 'favorites'
                   ? favoriteCards.length - favoritesQueue.length
-                  : (isAutoplayActive ? deckCards.findIndex(c => c.id === card?.id) : historyIndex)
+                  : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => c.id === card?.id) !== -1)
+                  ? deckCards.findIndex(c => c.id === card?.id)
+                  : historyIndex
               }
               totalCards={
                 currentDeck?.id === 'duplicates' 
                   ? duplicateCards.length 
                   : currentDeck?.id === 'favorites'
                   ? favoriteCards.length
-                  : (isAutoplayActive ? deckCards.length : currentDeck?.stats?.total)
+                  : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => c.id === card?.id) !== -1)
+                  ? deckCards.length
+                  : (currentDeck?.stats?.total || 0)
               }
               loading={loading}
               onBack={handleAutoplayAwareBack}

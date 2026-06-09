@@ -201,12 +201,66 @@ export const useMediaUpload = () => {
     }
   };
 
+  const uploadDeckResource = async (file, type, deckId) => {
+    if (!file || !deckId) return null;
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      let res;
+      if (type === 'image') {
+        res = await api.post('/media/upload-image', formData);
+      } else if (type === 'audio') {
+        res = await api.post('/media/upload-audio', formData);
+      } else if (type === 'video') {
+        res = await api.post('/media/upload-video', formData);
+      }
+
+      if (res && res.data) {
+        const store = useDeckStore.getState();
+        const currentDeck = store.currentDeck;
+        
+        let metadata = { resources: [] };
+        if (currentDeck && currentDeck.metadata) {
+          metadata = typeof currentDeck.metadata === 'string' 
+            ? JSON.parse(currentDeck.metadata) 
+            : currentDeck.metadata;
+        }
+        if (!metadata.resources) {
+          metadata.resources = [];
+        }
+
+        const newResource = {
+          type,
+          path: res.data.path,
+          title: file.name || (type === 'image' ? 'Картинка' : type === 'audio' ? 'Аудио' : 'Видео')
+        };
+
+        const updatedResources = [...metadata.resources, newResource];
+        const newMetadata = { ...metadata, resources: updatedResources };
+
+        const updatedMeta = await store.updateDeckMetadata(deckId, newMetadata);
+        showToast("Файл добавлен в ресурсы колоды", "success");
+        return updatedMeta;
+      }
+      return null;
+    } catch (err) {
+      console.error(err);
+      showToast(`Ошибка загрузки: ${err.response?.data?.detail || err.message}`);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     uploadImage,
     uploadStudyImage,
     uploadCreatorImage,
     uploadCardVideo,
     uploadVideo,
-    uploadCustomBackground
+    uploadCustomBackground,
+    uploadDeckResource
   };
 };

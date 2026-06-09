@@ -10,6 +10,7 @@ from functools import lru_cache
 logger = logging.getLogger(__name__)
 
 from .utils import merge_tags, add_to_history
+from .media import resolve_media_url
 
 STARTER_DECK_NAMES = [
     "⭐ [A1] Basis-Wortschatz / Базовый словарный запас",
@@ -177,6 +178,35 @@ def get_active_decks(user_id: int):
                 elif ext_deck.updated_at and d.updated_at and ext_deck.updated_at > d.updated_at:
                     has_updates = True
 
+            # Parse and resolve metadata resources
+            raw_metadata = getattr(d, 'metadata', None)
+            parsed_metadata = {"resources": []}
+            if raw_metadata:
+                try:
+                    parsed_metadata = json.loads(raw_metadata)
+                except Exception:
+                    pass
+            
+            resolved_resources = []
+            for res in parsed_metadata.get('resources', []):
+                res_type = res.get('type')
+                path = res.get('path')
+                url = res.get('url')
+                if path:
+                    if res_type == 'image':
+                        url = resolve_media_url(path, 'images')
+                    elif res_type == 'audio':
+                        url = resolve_media_url(path, 'audio')
+                    elif res_type == 'video':
+                        url = resolve_media_url(path, 'videos')
+                resolved_resources.append({
+                    "type": res_type,
+                    "path": path,
+                    "url": url,
+                    "title": res.get('title')
+                })
+            parsed_metadata['resources'] = resolved_resources
+
             result.append({
                 "id": d.id,
                 "name": d.name,
@@ -187,6 +217,7 @@ def get_active_decks(user_id: int):
                 "position": getattr(d, 'position', 0),
                 "folder_id": getattr(d, 'folder_id', None),
                 "has_updates": has_updates,
+                "metadata": parsed_metadata,
                 "stats": {
                     "total": total,
                     "new": max(0, total - tracked),
@@ -500,6 +531,53 @@ def move_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
         logger.error(f"Error moving deck {deck_id} to folder {folder_id}: {e}")
         raise e
 
+def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
+    """Копирует колоду в указанную папку (или в корень, если folder_id=None) вместе со всеми её активными карточками."""
+    try:
+        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        if not deck:
+            return None
+        # Verify folder belongs to user
+        if folder_id is not None:
+            folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
+            if not folder:
+                raise ValueError("Target folder not found or access denied")
+        
+        new_deck = TMA_Deck.create(
+            user_id=user_id,
+            name=f"{deck.name} (Копия)",
+            folder_id=folder_id,
+            is_inbox=False,
+            is_pinned=False,
+            created_at=datetime.datetime.now(),
+            updated_at=datetime.datetime.now()
+        )
+        
+        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False))
+        
+        with tma_db.atomic():
+            for card in cards:
+                TMA_Card.create(
+                    deck_id=new_deck.id,
+                    front_text=card.front_text,
+                    back_text=card.back_text,
+                    context=card.context,
+                    image_path=card.image_path,
+                    audio_path=card.audio_path,
+                    audio_back_path=card.audio_back_path,
+                    video_front_path=card.video_front_path,
+                    video_back_path=card.video_back_path,
+                    source=card.source,
+                    position=card.position,
+                    want_to_learn=card.want_to_learn,
+                    created_at=datetime.datetime.now(),
+                    updated_at=datetime.datetime.now()
+                )
+        return new_deck
+    except Exception as e:
+        logger.error(f"Error copying deck {deck_id} to folder {folder_id}: {e}")
+        raise e
+
 def rename_deck(deck_id: int, new_name: str, user_id: int):
     """Переименовывает пользовательскую колоду."""
     try:
@@ -534,5 +612,19 @@ def get_community_content(user_id: int):
     except Exception as e:
         logger.error(f"Error fetching community content: {e}", exc_info=True)
         raise e
+
+def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
+    try:
+        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        if not deck:
+            return None
+        deck.metadata = json.dumps(metadata_dict)
+        deck.updated_at = datetime.datetime.now()
+        deck.save()
+        return deck
+    except Exception as e:
+        logger.error(f"Error updating deck metadata {deck_id}: {e}")
+        raise e
+
 
 

@@ -128,11 +128,17 @@ async def generate_card_fields(user_id: int, phrase: str):
         
         base_prompt = DEFAULT_PROMPTS.get(lang, DEFAULT_PROMPTS["de"])
         if custom_prompt:
-            raw_prompt = custom_prompt.translation_prompt or custom_prompt.context_prompt or base_prompt
+            if lang == "ru":
+                raw_prompt = custom_prompt.context_prompt or base_prompt
+            else:
+                raw_prompt = custom_prompt.translation_prompt or base_prompt
         else:
             user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
             if user_prompts:
-                raw_prompt = user_prompts.translation_prompt or user_prompts.context_prompt or base_prompt
+                if lang == "ru":
+                    raw_prompt = user_prompts.context_prompt or base_prompt
+                else:
+                    raw_prompt = user_prompts.translation_prompt or base_prompt
             else:
                 raw_prompt = base_prompt
 

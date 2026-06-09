@@ -73,22 +73,47 @@ export const useStudySession = () => {
           prefetchMedia(newCard.image_url);
         }
       } else {
-        const excludeParam = excludeIds.length > 0 ? `exclude_ids=${excludeIds.join(',')}` : '';
-        const learnMoreParam = session.isLearningMore ? 'learn_more=true' : '';
-        const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
-        const queryString = params ? `?${params}` : '';
-        const endpoint = `/decks/${deckId}/next${queryString}`;
-        const res = await api.get(endpoint);
+        const { deckCards } = useDeckStore.getState();
+        const currentCard = session.card;
+        let nextCardInfo = null;
 
-        if (res.data.error) {
-          session.setApiError(res.data.error);
-          session.setCard(null);
-        } else if (res.data.finished) {
-          session.setCard(null);
-        } else {
+        // If not the first load, try to navigate sequentially in deckCards list
+        if (!isFirst && currentCard && deckCards && deckCards.length > 0) {
+          const currentIndex = deckCards.findIndex(c => c.id === currentCard.id);
+          if (currentIndex >= 0) {
+            if (currentIndex < deckCards.length - 1) {
+              nextCardInfo = deckCards[currentIndex + 1];
+            } else {
+              // Loop back to the beginning
+              nextCardInfo = deckCards[0];
+            }
+          }
+        }
+
+        if (nextCardInfo) {
+          const res = await api.get(`/study/card/${nextCardInfo.id}`);
           const newCard = res.data;
           session.addToHistory(newCard);
           prefetchMedia(newCard.image_url);
+        } else {
+          // Fallback to SRS when starting the session (isFirst) or if deck list is not loaded/empty
+          const excludeParam = excludeIds.length > 0 ? `exclude_ids=${excludeIds.join(',')}` : '';
+          const learnMoreParam = session.isLearningMore ? 'learn_more=true' : '';
+          const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
+          const queryString = params ? `?${params}` : '';
+          const endpoint = `/decks/${deckId}/next${queryString}`;
+          const res = await api.get(endpoint);
+
+          if (res.data.error) {
+            session.setApiError(res.data.error);
+            session.setCard(null);
+          } else if (res.data.finished) {
+            session.setCard(null);
+          } else {
+            const newCard = res.data;
+            session.addToHistory(newCard);
+            prefetchMedia(newCard.image_url);
+          }
         }
       }
     } catch (err) {
@@ -186,17 +211,47 @@ export const useStudySession = () => {
 
   const goBack = async () => {
     const session = useSessionStore.getState();
-    const { currentDeck, duplicateCards } = useDeckStore.getState();
+    const { currentDeck, duplicateCards, deckCards } = useDeckStore.getState();
 
     if (session.historyIndex > 0) {
       session.goBack();
     } else if (currentDeck?.id === 'duplicates' && session.card) {
       const currentIndex = duplicateCards.findIndex(c => c.id === session.card.id);
+      let prevDuplicateCard = null;
       if (currentIndex > 0) {
+        prevDuplicateCard = duplicateCards[currentIndex - 1];
+      } else if (duplicateCards.length > 0) {
+        prevDuplicateCard = duplicateCards[duplicateCards.length - 1]; // Loop to the end
+      }
+
+      if (prevDuplicateCard) {
         setLoading(true);
         try {
-          const prevDuplicateCard = duplicateCards[currentIndex - 1];
           const res = await api.get(`/study/card/${prevDuplicateCard.id}`);
+          const prevCard = res.data;
+          const newHistory = [prevCard, ...session.studyHistory];
+          session.setStudyHistory(newHistory);
+          session.moveToHistory(0);
+          prefetchMedia(prevCard.image_url);
+        } catch (err) {
+          console.error("goBack Error:", err);
+        } finally {
+          setLoading(false);
+        }
+      }
+    } else if (currentDeck && session.card && deckCards && deckCards.length > 0) {
+      const currentIndex = deckCards.findIndex(c => c.id === session.card.id);
+      let prevCardInfo = null;
+      if (currentIndex > 0) {
+        prevCardInfo = deckCards[currentIndex - 1];
+      } else {
+        prevCardInfo = deckCards[deckCards.length - 1]; // Loop to the end
+      }
+
+      if (prevCardInfo) {
+        setLoading(true);
+        try {
+          const res = await api.get(`/study/card/${prevCardInfo.id}`);
           const prevCard = res.data;
           const newHistory = [prevCard, ...session.studyHistory];
           session.setStudyHistory(newHistory);

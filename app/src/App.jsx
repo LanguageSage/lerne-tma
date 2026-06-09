@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { motion } from 'framer-motion';
 import './App.css';
 
 // Utils & Services
@@ -172,9 +173,9 @@ export default function App() {
     if (view === 'cards' && useUiStore.getState().lastSelectedCardId) {
       return; // Let CardList handle the scroll
     }
-    const root = document.getElementById('root');
-    if (root) {
-      root.scrollTo({ top: 0, behavior: 'instant' });
+    const container = document.getElementById('app-container');
+    if (container) {
+      container.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [view]);
 
@@ -184,6 +185,11 @@ export default function App() {
       setCurrentDeck(deck);
       setView('study');
       useSessionStore.getState().resetSession();
+      if (deck.id === 'duplicates') {
+        await useDeckStore.getState().fetchDuplicates();
+      } else {
+        await useDeckStore.getState().fetchDeckCards(deck.id);
+      }
       await fetchNextCard(deck.id, true);
     } finally {
       setIsOpeningDeck(false);
@@ -196,6 +202,11 @@ export default function App() {
       setCurrentDeck(deck);
       setView('study');
       useSessionStore.getState().resetSession();
+      if (deck.id === 'duplicates') {
+        await useDeckStore.getState().fetchDuplicates();
+      } else {
+        await useDeckStore.getState().fetchDeckCards(deck.id);
+      }
       
       const res = await api.get(`/study/card/${cardId}`);
       useSessionStore.getState().setCard(res.data);
@@ -256,7 +267,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-container">
+    <motion.div id="app-container" className="app-container" layoutScroll>
       <GuestBanner />
       
       {/* Active View */}
@@ -302,7 +313,7 @@ export default function App() {
 
       <Toast toast={toast} />
       <GlobalLoader isVisible={isOpeningDeck} />
-    </div>
+    </motion.div>
   );
 }
 

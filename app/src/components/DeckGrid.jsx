@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
-import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2, Share2, Inbox, Download, X, BookOpen, ChevronRight, Edit2, Folder, FolderOpen, Flame, Pin, MoreHorizontal, ChevronsUpDown } from 'lucide-react';
+import { Layers, Plus, Settings, RefreshCw, Info, Copy, Trash2, Share2, Inbox, Download, X, BookOpen, ChevronRight, Edit2, Folder, FolderOpen, Flame, Pin, MoreHorizontal, GripVertical } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { UserProfileBadge } from './common/UserBadge';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import api from '../services/api';
+import { ImportModal } from './ImportModal';
+
 
 const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds = []) => {
   const result = [];
@@ -28,99 +30,7 @@ const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds
   return result;
 };
 
-// Compact share banner shown above the deck list when a share link is opened
-const ShareBanner = ({ shareId, onSuccess, onClose }) => {
-  const [info, setInfo] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [importing, setImporting] = useState(false);
-  const { showToast, userProfile } = useUiStore();
-  const { fetchDecks } = useDeckStore();
 
-  useEffect(() => {
-    if (!shareId) return;
-    api.get(`/share/info/${shareId}`)
-      .then(r => setInfo(r.data))
-      .catch(() => setInfo(null))
-      .finally(() => setLoading(false));
-  }, [shareId]);
-
-  const handleImport = async () => {
-    setImporting(true);
-    try {
-      const res = await api.post('/share/import', { share_id: shareId });
-      if (res.data.status === 'ok') {
-        const msg = res.data.type === 'deck'
-          ? `✅ Колода «${res.data.deck_name}» добавлена!`
-          : '✅ Карточка добавлена во Входящие!';
-        showToast(msg, 'success');
-        await fetchDecks(userProfile?.user_id);
-        onSuccess();
-      }
-    } catch {
-      showToast('Ошибка при добавлении', 'error');
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  if (!shareId) return null;
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        className="share-banner glass"
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -16 }}
-        transition={{ duration: 0.3 }}
-      >
-        {loading ? (
-          <div className="share-banner-inner">
-            <RefreshCw size={16} className="spin" color="#818cf8" />
-            <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Загрузка...</span>
-          </div>
-        ) : !info ? (
-          <div className="share-banner-inner">
-            <span style={{ color: '#fca5a5', fontSize: '0.85rem' }}>⚠️ Ссылка недействительна</span>
-            <button className="share-banner-close" onClick={onClose}><X size={16} /></button>
-          </div>
-        ) : (
-          <div className="share-banner-inner">
-            {/* Left: icon + text */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-              <div className="share-banner-icon">
-                <BookOpen size={16} color="#a5b4fc" />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: 1 }}>
-                  {info.creator_name ? `от ${info.creator_name}` : 'Вам поделились'}
-                </div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {info.type === 'deck' ? `📚 ${info.name}` : `🃏 ${info.front_text}`}
-                </div>
-              </div>
-            </div>
-
-            {/* Right: action buttons */}
-            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              <button
-                className="share-banner-btn share-banner-btn-primary"
-                onClick={handleImport}
-                disabled={importing}
-              >
-                {importing
-                  ? <RefreshCw size={13} className="spin" />
-                  : <><Download size={13} /> <span>Добавить</span></>
-                }
-              </button>
-              <button className="share-banner-close" onClick={onClose}><X size={15} /></button>
-            </div>
-          </div>
-        )}
-      </motion.div>
-    </AnimatePresence>
-  );
-};
 
 const DeckCardItem = ({
   deck,
@@ -140,6 +50,7 @@ const DeckCardItem = ({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
+  const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const dragControls = useDragControls();
 
@@ -161,8 +72,21 @@ const DeckCardItem = ({
   useEffect(() => {
     if (!isMenuOpen) {
       setIsMoveMenuOpen(false);
+      setIsCopyMenuOpen(false);
     }
   }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (isMoveMenuOpen) {
+      setIsCopyMenuOpen(false);
+    }
+  }, [isMoveMenuOpen]);
+
+  useEffect(() => {
+    if (isCopyMenuOpen) {
+      setIsMoveMenuOpen(false);
+    }
+  }, [isCopyMenuOpen]);
 
   const onMainAction = () => {
     setCurrentDeck(deck);
@@ -245,6 +169,18 @@ const DeckCardItem = ({
     }
   };
 
+  const handleCopyToFolder = async (e, folderId) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    setIsCopyMenuOpen(false);
+    try {
+      await useDeckStore.getState().copyDeckToFolder(deck.id, folderId);
+      showToast("Колода скопирована", "success");
+    } catch (err) {
+      showToast("Ошибка при копировании колоды", "error");
+    }
+  };
+
   const deckStyle = { position: 'relative' };
   if (activeFolderColor) {
     deckStyle['--folder-color'] = activeFolderColor;
@@ -270,7 +206,7 @@ const DeckCardItem = ({
           style={{ touchAction: 'none' }}
           title="Перетащить колоду"
         >
-          <ChevronsUpDown size={24} />
+          <GripVertical size={24} />
         </div>
       )}
 
@@ -333,10 +269,7 @@ const DeckCardItem = ({
 
         {isMenuOpen && (
           <div className="deck-dropdown-menu glass" ref={menuRef} onClick={(e) => e.stopPropagation()}>
-            <button className="dropdown-item" onClick={onMainAction}>
-              <span>📖 Список карточек</span>
-            </button>
-            
+
             {!deck.is_inbox && (
               <button className="dropdown-item" onClick={handleShare}>
                 <span>🔗 Поделиться</span>
@@ -364,7 +297,7 @@ const DeckCardItem = ({
                     setIsMoveMenuOpen(!isMoveMenuOpen);
                   }}
                 >
-                  <span>📁 Переместить в папку</span>
+                  <span>📁 Переместить в</span>
                   <ChevronRight 
                     size={14} 
                     style={{ 
@@ -387,6 +320,44 @@ const DeckCardItem = ({
                         key={f.id}
                         className={`dropdown-sub-item ${deck.folder_id === f.id ? 'current' : ''}`}
                         onClick={(e) => handleMoveToFolder(e, f.id)}
+                        style={{ paddingLeft: `${12 + f.depth * 14}px` }}
+                      >
+                        <span>{f.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <button 
+                  className={`dropdown-item ${isCopyMenuOpen ? 'active' : ''}`} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCopyMenuOpen(!isCopyMenuOpen);
+                  }}
+                >
+                  <span>📋 Копировать в</span>
+                  <ChevronRight 
+                    size={14} 
+                    style={{ 
+                      marginLeft: 'auto', 
+                      transform: isCopyMenuOpen ? 'rotate(90deg)' : 'none',
+                      transition: 'transform 0.2s' 
+                    }} 
+                  />
+                </button>
+                {isCopyMenuOpen && (
+                  <div className="dropdown-sub-menu">
+                    <button 
+                      className="dropdown-sub-item"
+                      onClick={(e) => handleCopyToFolder(e, null)}
+                    >
+                      <span>Без папки (Главная)</span>
+                    </button>
+                    {getSortedFolderTree(folders || []).map(f => (
+                      <button 
+                        key={f.id}
+                        className="dropdown-sub-item"
+                        onClick={(e) => handleCopyToFolder(e, f.id)}
                         style={{ paddingLeft: `${12 + f.depth * 14}px` }}
                       >
                         <span>{f.name}</span>
@@ -590,7 +561,7 @@ const FolderCardItem = ({
                   setIsMoveMenuOpen(!isMoveMenuOpen);
                 }}
               >
-                <span>📁 Переместить</span>
+                <span>📁 Переместить в</span>
                 <ChevronRight 
                   size={14} 
                   style={{ 
@@ -704,11 +675,11 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
           </div>
         </div>
 
-        {/* Share banner — shown when opened via share link */}
+        {/* Import shared item modal — shown when opened via share link */}
         {importShareId && (
-          <ShareBanner
+          <ImportModal
             shareId={importShareId}
-            onSuccess={onImportSuccess}
+            onImportSuccess={onImportSuccess}
             onClose={onImportClose}
           />
         )}

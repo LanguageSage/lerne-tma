@@ -54,7 +54,7 @@ export const useCardEditor = () => {
         
         if (currentDeck?.id === 'duplicates') {
           const { fetchDuplicates } = useDeckStore.getState();
-          await fetchDuplicates();
+          fetchDuplicates();
         }
 
         // Если это была новая карточка (creator), добавляем в историю
@@ -70,11 +70,11 @@ export const useCardEditor = () => {
         }
         setView('study');
       } else if (ui.editorSourceView === 'cards') {
-        fetchDeckCards(data.deck_id || currentDeck?.id);
+        await fetchDeckCards(data.deck_id || currentDeck?.id);
         setView('cards');
       } else if (ui.editorSourceView === 'duplicates') {
         const { fetchDuplicates } = useDeckStore.getState();
-        await fetchDuplicates();
+        fetchDuplicates();
         setView('duplicates');
       } else {
         setView('decks');

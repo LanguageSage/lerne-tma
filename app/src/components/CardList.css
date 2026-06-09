@@ -9,9 +9,46 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 14px 18px;
   text-align: left;
-  gap: 12px;
+  gap: 14px;
+  background: rgba(30, 41, 59, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 3px;
+  background: linear-gradient(to bottom, #a855f7, #6366f1);
+  border-radius: 0 4px 4px 0;
+  opacity: 0.5;
+  transition: all 0.25s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.card-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(168, 85, 247, 0.35);
+  box-shadow: 0 8px 20px rgba(168, 85, 247, 0.12), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.card-item:hover::before {
+  height: 85%;
+  top: 7.5%;
+  opacity: 1;
+  background: linear-gradient(to bottom, #c084fc, #818cf8);
 }
 
 .card-item-draggable {
@@ -24,16 +61,59 @@
   cursor: grabbing;
 }
 
-@media (max-width: 400px) {
-  .card-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
+.card-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.22);
+  cursor: grab;
+  width: 44px;
+  align-self: stretch;
+  margin: -14px 0 -14px -18px;
+  border-radius: 16px 0 0 16px;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: none;
+  z-index: 1;
 }
 
-.front-min { font-weight: 600; color: #f8fafc; }
-.back-min { font-size: 0.85rem; color: #94a3b8; }
+.card-drag-handle:hover {
+  color: #c084fc;
+  background: rgba(168, 85, 247, 0.12);
+  border-right-color: rgba(168, 85, 247, 0.25);
+}
+
+.card-drag-handle:active {
+  cursor: grabbing;
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.2);
+  border-right-color: rgba(168, 85, 247, 0.4);
+}
+
+.card-item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.front-min {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.4;
+  word-break: break-word;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.back-min {
+  font-size: 1.05rem; /* same size as front-min */
+  font-weight: 400;
+  color: #a1a1aa; /* elegant slightly muted color */
+  line-height: 1.4;
+  word-break: break-word;
+}
 
 .card-item-actions {
   display: flex;
@@ -48,16 +128,18 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #94a3b8;
-  transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 }
 
 .card-item-actions-trigger:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  transform: scale(1.1);
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.35);
+  transform: scale(1.08);
 }
 
 /* Card List Loader & Empty States */

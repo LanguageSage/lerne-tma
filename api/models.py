@@ -139,6 +139,7 @@ class TMA_Deck(BaseModel):
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     share_id = CharField(null=True, unique=True)
+    metadata = TextField(default='{"resources": []}')
     class Meta:
         table_name = 'tma_deck'
 
@@ -294,6 +295,7 @@ class Deck(Model):
     position = IntegerField(default=0)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
+    metadata = TextField(default='{"resources": []}')
     class Meta:
         database = lerne_db
         table_name = 'deck'

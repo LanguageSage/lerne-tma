@@ -34,6 +34,19 @@ def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/{deck_id}/copy")
+def copy_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+    folder_id = data.get('folder_id')
+    try:
+        copied = services.copy_deck_to_folder(deck_id, folder_id, user_id)
+        if copied:
+            return {"status": "success", "id": copied.id}
+        raise HTTPException(status_code=404, detail="Deck not found or access denied")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.delete("/{deck_id}")
 def delete_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     if services.delete_deck(deck_id, user_id):
@@ -150,4 +163,42 @@ def reorder_decks(data: dict, user_id: int = Depends(get_user_id)):
     except Exception as e:
         logger.error(f"Error reordering decks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{deck_id}/metadata")
+def update_deck_metadata(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+    try:
+        updated_deck = services.update_deck_metadata(deck_id, data, user_id)
+        if updated_deck:
+            import json
+            raw_meta = updated_deck.metadata
+            parsed_meta = {"resources": []}
+            if raw_meta:
+                try:
+                    parsed_meta = json.loads(raw_meta)
+                except Exception: pass
+            
+            resolved_resources = []
+            for res in parsed_meta.get('resources', []):
+                res_type = res.get('type')
+                path = res.get('path')
+                url = res.get('url')
+                if path:
+                    if res_type == 'image':
+                        url = services.resolve_media_url(path, 'images')
+                    elif res_type == 'audio':
+                        url = services.resolve_media_url(path, 'audio')
+                    elif res_type == 'video':
+                        url = services.resolve_media_url(path, 'videos')
+                resolved_resources.append({
+                    "type": res_type,
+                    "path": path,
+                    "url": url,
+                    "title": res.get('title')
+                })
+            parsed_meta['resources'] = resolved_resources
+            return {"status": "success", "metadata": parsed_meta}
+        raise HTTPException(status_code=404, detail="Deck not found or access denied")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 

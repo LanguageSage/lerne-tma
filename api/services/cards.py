@@ -87,6 +87,17 @@ def save_card(data, user_id):
     if card.back_text is None: card.back_text = ""
     if card.context is None: card.context = ""
     if card.source is None: card.source = "user"
+
+    # При создании новой карточки выставляем позицию в конец колоды
+    if not card.id:
+        if deck_id:
+            max_pos = TMA_Card.select(fn.Max(TMA_Card.position)).where(
+                TMA_Card.deck == deck_id,
+                TMA_Card.is_deleted == False
+            ).scalar()
+            card.position = (max_pos or 0) + 1
+        else:
+            card.position = 0
         
     card.updated_at = datetime.datetime.now()
     if not data.get('silent'):
@@ -299,7 +310,47 @@ def format_card_for_study(card: TMA_Card, user_id: int):
         TMAProgress.user_id == user_id
     )
     
-    return _build_card_dict(card, p=progress, include_intervals=True)
+    res = _build_card_dict(card, p=progress, include_intervals=True)
+    
+    # Fetch deck explicitly to bypass any Peewee relationship caching issues on updated/saved objects
+    deck = None
+    if card.deck_id:
+        try:
+            deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
+        except Exception:
+            pass
+
+    res["deck_name"] = deck.name if deck else None
+    
+    import json
+    deck_metadata = {"resources": []}
+    if deck and getattr(deck, 'metadata', None):
+        try:
+            deck_metadata = json.loads(deck.metadata)
+        except Exception: pass
+    
+    resolved_resources = []
+    for r in deck_metadata.get('resources', []):
+        res_type = r.get('type')
+        path = r.get('path')
+        url = r.get('url')
+        if path:
+            if res_type == 'image':
+                url = resolve_media_url(path, 'images')
+            elif res_type == 'audio':
+                url = resolve_media_url(path, 'audio')
+            elif res_type == 'video':
+                url = resolve_media_url(path, 'videos')
+        resolved_resources.append({
+            "type": res_type,
+            "path": path,
+            "url": url,
+            "title": r.get('title')
+        })
+    deck_metadata['resources'] = resolved_resources
+    
+    res["deck_metadata"] = deck_metadata
+    return res
 
 
 def get_favorite_cards(user_id: int):

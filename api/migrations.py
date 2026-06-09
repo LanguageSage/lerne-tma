@@ -73,6 +73,8 @@ MIGRATIONS = [
     (49, 'ALTER TABLE tma_deck ADD COLUMN position INTEGER DEFAULT 0', 'tma'),
     (50, 'ALTER TABLE card ADD COLUMN position INTEGER DEFAULT 0', 'lerne'),
     (51, 'ALTER TABLE tma_card ADD COLUMN position INTEGER DEFAULT 0', 'tma'),
+    (52, 'ALTER TABLE tma_deck ADD COLUMN metadata TEXT DEFAULT \'{"resources": []}\'', 'tma'),
+    (53, 'ALTER TABLE deck ADD COLUMN metadata TEXT DEFAULT \'{"resources": []}\'', 'lerne'),
 ]
 
 
@@ -182,8 +184,8 @@ def run_migrations(tma_db, lerne_db):
             tma_db.execute_sql("""
                 CREATE TRIGGER tma_deck_insert INSTEAD OF INSERT ON tma_deck
                 BEGIN
-                    INSERT INTO deck (id, name, level, topic, is_deleted, created_at, updated_at, user_id, cloud_id, share_id, is_inbox, folder_id, category_id, is_pinned, position)
-                    VALUES (NEW.id, NEW.name, NEW.level, NEW.topic, NEW.is_deleted, NEW.created_at, NEW.updated_at, NEW.user_id, NEW.cloud_id, NEW.share_id, NEW.is_inbox, NEW.folder_id, NEW.category_id, NEW.is_pinned, NEW.position);
+                    INSERT INTO deck (id, name, level, topic, is_deleted, created_at, updated_at, user_id, cloud_id, share_id, is_inbox, folder_id, category_id, is_pinned, position, metadata)
+                    VALUES (NEW.id, NEW.name, NEW.level, NEW.topic, NEW.is_deleted, NEW.created_at, NEW.updated_at, NEW.user_id, NEW.cloud_id, NEW.share_id, NEW.is_inbox, NEW.folder_id, NEW.category_id, NEW.is_pinned, NEW.position, NEW.metadata);
                 END;
             """)
             
@@ -207,7 +209,8 @@ def run_migrations(tma_db, lerne_db):
                         user_id = NEW.user_id, cloud_id = NEW.cloud_id, 
                         share_id = NEW.share_id, is_inbox = NEW.is_inbox,
                         folder_id = NEW.folder_id, category_id = NEW.category_id,
-                        is_pinned = NEW.is_pinned, position = NEW.position
+                        is_pinned = NEW.is_pinned, position = NEW.position,
+                        metadata = NEW.metadata
                     WHERE id = OLD.id;
                 END;
             """)

@@ -189,6 +189,21 @@ export const useDeckStore = create((set, get) => ({
       throw err;
     }
   },
+  
+  updateDeckMetadata: async (deckId, metadata) => {
+    try {
+      const res = await api.post(`/decks/${deckId}/metadata`, metadata);
+      const { fetchDecks, currentDeck } = get();
+      await fetchDecks(true);
+      if (currentDeck && currentDeck.id === deckId) {
+        set({ currentDeck: { ...currentDeck, metadata: res.data.metadata } });
+      }
+      return res.data.metadata;
+    } catch (err) {
+      console.error('Update Deck Metadata Error:', err);
+      throw err;
+    }
+  },
 
 
   fetchExternalDecks: async () => {
@@ -363,6 +378,17 @@ export const useDeckStore = create((set, get) => ({
       await fetchDecks(true);
     } catch (err) {
       console.error('Move Deck to Folder Error:', err);
+      throw err;
+    }
+  },
+
+  copyDeckToFolder: async (deckId, folderId) => {
+    try {
+      await api.post(`/decks/${deckId}/copy`, { folder_id: folderId });
+      const { fetchDecks } = get();
+      await fetchDecks(true);
+    } catch (err) {
+      console.error('Copy Deck to Folder Error:', err);
       throw err;
     }
   },

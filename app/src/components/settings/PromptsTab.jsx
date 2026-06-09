@@ -98,8 +98,8 @@ export const PromptsTab = () => {
       await api.post('/user/prompts', {
         id: editingPrompt.id,
         name: editingPrompt.name,
-        translation_prompt: editingPrompt.instruction,
-        context_prompt: editingPrompt.instruction
+        translation_prompt: editingPrompt.translation_prompt,
+        context_prompt: editingPrompt.context_prompt
       });
       showToast(editingPrompt.id ? "Промпт обновлен" : "Промпт создан", "success");
       setEditingPrompt(null);
@@ -112,18 +112,21 @@ export const PromptsTab = () => {
   const handleCreateNew = () => {
     // Determine active prompt texts to pre-load
     let activeTranslation = defaults.de;
+    let activeContext = defaults.ru;
     
     if (activePromptId !== null) {
       const active = promptsList.find(p => p.id === activePromptId);
       if (active) {
         activeTranslation = active.translation_prompt;
+        activeContext = active.context_prompt;
       }
     }
     
     setEditingPrompt({
       id: null,
       name: "Мой промпт",
-      instruction: getCleanInstruction(activeTranslation)
+      translation_prompt: getCleanInstruction(activeTranslation),
+      context_prompt: getCleanInstruction(activeContext)
     });
   };
 
@@ -131,7 +134,8 @@ export const PromptsTab = () => {
     setEditingPrompt({
       id: prompt.id,
       name: prompt.name,
-      instruction: getCleanInstruction(prompt.translation_prompt || prompt.context_prompt)
+      translation_prompt: getCleanInstruction(prompt.translation_prompt),
+      context_prompt: getCleanInstruction(prompt.context_prompt)
     });
   };
 
@@ -157,8 +161,8 @@ export const PromptsTab = () => {
         }}>
           <Lightbulb size={20} style={{ color: '#38bdf8', flexShrink: 0, marginTop: '2px' }} />
           <div style={{ fontSize: '0.85rem', lineHeight: '1.4', color: '#e2e8f0' }}>
-            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Простые инструкции</strong>
-            Пишите обычным языком, что именно должен сделать искусственный интеллект (какие правила грамматики объяснить, сколько примеров привести и т.д.)
+            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Инструкции для ИИ</strong>
+            Задайте правила разбора слов, грамматики и примеры использования. Настройки разделены по языку ввода.
           </div>
         </div>
         
@@ -173,17 +177,28 @@ export const PromptsTab = () => {
         </div>
 
         <div className="form-group">
-          <label>Инструкции для анализа и примеров</label>
-          <p className="field-hint">Определяет правила разбора слов, грамматики и количество примеров в карточке</p>
+          <label>Инструкции для разбора немецкого (при вводе на немецком)</label>
+          <p className="field-hint">Определяет правила разбора слов, грамматики и количество примеров в карточке при разборе немецкого слова</p>
           <textarea 
-            value={editingPrompt.instruction} 
-            onChange={e => setEditingPrompt({ ...editingPrompt, instruction: e.target.value })} 
-            rows={10} 
-            placeholder="Например: объясни слова с переводом на русский и грамматику, затем дай 3 примера. Очень коротко и ясно..."
+            value={editingPrompt.translation_prompt} 
+            onChange={e => setEditingPrompt({ ...editingPrompt, translation_prompt: e.target.value })} 
+            rows={5} 
+            placeholder="Например: объясни отдельные слова с переводом на русский и грамматику, затем дай 3 примера. Очень коротко и ясно..."
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+        <div className="form-group" style={{ marginTop: '15px' }}>
+          <label>Инструкции для перевода с русского (при вводе на русском)</label>
+          <p className="field-hint">Определяет правила перевода слов, разбора грамматики и создания примеров при переводе русского слова</p>
+          <textarea 
+            value={editingPrompt.context_prompt} 
+            onChange={e => setEditingPrompt({ ...editingPrompt, context_prompt: e.target.value })} 
+            rows={5} 
+            placeholder="Например: переведи фразу на немецкий, объясни отдельные слова с переводом на русский и грамматику, затем дай 3 примера..."
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
           <button className="btn btn-primary btn-small" style={{ flex: 1 }} onClick={handleSavePrompt}>Сохранить</button>
           <button className="btn btn-secondary btn-small" style={{ flex: 1 }} onClick={() => setEditingPrompt(null)}>Отмена</button>
         </div>

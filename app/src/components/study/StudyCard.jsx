@@ -29,6 +29,12 @@ export const StudyCard = ({
     speechMatchThreshold = 75
   } = styles;
 
+  const deckResources = card.deck_metadata?.resources || [];
+  const deckImage = deckResources.find(r => r.type === 'image');
+  const deckVideo = deckResources.find(r => r.type === 'video');
+
+  const imageUrl = card.image_url || deckImage?.url;
+
   // Interactive Cloze & Puzzle & Speech states
   const [wrongSelected, setWrongSelected] = useState([]);
   const [correctSelected, setCorrectSelected] = useState(null);
@@ -406,6 +412,21 @@ export const StudyCard = ({
                 </div>
               )}
 
+              {imageUrl && !card.video_front_url && (
+                <div className="video-container-card" style={{ maxHeight: '160px', overflow: 'hidden', marginBottom: '15px' }}>
+                  <img
+                    src={imageUrl}
+                    alt="Context"
+                    style={{
+                      width: '100%',
+                      height: '160px',
+                      objectFit: 'cover'
+                    }}
+                    onError={(e) => { e.target.parentNode.style.display = 'none'; }}
+                  />
+                </div>
+              )}
+
               {/* Conditionally render front based on studyMode */}
               {studyMode === 'classic' && (
                 <>
@@ -724,9 +745,9 @@ export const StudyCard = ({
                 )}
               </div>
 
-              {card.video_back_url && (
+              {(card.video_back_url || deckVideo?.url) && (
                 <div className="video-container-card">
-                  <video src={card.video_back_url} autoPlay loop muted playsInline />
+                  <video src={card.video_back_url || deckVideo?.url} autoPlay loop muted playsInline />
                 </div>
               )}
               
@@ -759,12 +780,12 @@ export const StudyCard = ({
                 </div>
               </div>
               
-              {card.image_url && (
+              {imageUrl && (
                 <img
-                  src={card.image_url}
+                  src={imageUrl}
                   className="card-img"
                   alt="Card"
-                  onError={(e) => { console.warn('Image load error:', card.image_url); e.target.style.display = 'none'; }}
+                  onError={(e) => { console.warn('Image load error:', imageUrl); e.target.style.display = 'none'; }}
                 />
               )}
               {card.context && (
