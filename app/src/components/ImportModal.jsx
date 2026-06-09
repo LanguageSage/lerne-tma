@@ -92,7 +92,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'white' }}>
-              {conflict ? 'Разрешение конфликта' : (isCard ? 'Импорт карточки' : 'Импорт колоды')}
+              {conflict ? 'Разрешение конфликта' : (isCard ? 'Добавить карточку' : 'Добавить колоду')}
             </h2>
             <button className="close-btn" onClick={onClose}>
               <X size={20} />
@@ -145,14 +145,14 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
 
                 {/* Title */}
                 <div>
-                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: 6 }}>
-                    Название {isCard ? 'карточки' : 'колоды'}:
+                  <p style={{ color: '#818cf8', fontSize: '1.05rem', fontWeight: 600, marginBottom: 6 }}>
+                    Вам отправили {isCard ? 'карточку' : 'колоду'}:
                   </p>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'white', margin: 0 }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'white', margin: 0 }}>
                     {isCard ? shareInfo.front_text : shareInfo.name}
                   </h3>
                   {!isCard && shareInfo.level && (
-                    <p style={{ color: '#64748b', fontSize: '0.8rem', marginTop: 4 }}>
+                    <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: 4 }}>
                       {shareInfo.level} • {shareInfo.topic}
                     </p>
                   )}
@@ -178,18 +178,20 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                 ) : (
                   /* Inbox info */
                   <div style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    background: 'rgba(99,102,241,0.08)', padding: '12px 16px',
-                    borderRadius: 14, border: '1px solid rgba(99,102,241,0.2)',
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    background: 'rgba(99,102,241,0.08)', padding: '16px 20px',
+                    borderRadius: 16, border: '1px solid rgba(99,102,241,0.2)',
                     width: '100%', boxSizing: 'border-box'
                   }}>
-                    <Inbox size={18} color="#818cf8" style={{ flexShrink: 0 }} />
-                    <span style={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'left' }}>
+                    <Inbox size={24} color="#818cf8" style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: '1.05rem', color: '#e2e8f0', textAlign: 'left', lineHeight: 1.4 }}>
                       {isCard
                         ? 'Карточка попадет во «📥 Входящие»'
                         : 'Колода попадет во «📥 Входящие»'}
                       <br />
-                      <span style={{ color: '#64748b', fontSize: '0.75rem' }}>Потом можно переместить в любую папку</span>
+                      <span style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: 4, display: 'inline-block' }}>
+                        Потом можно переместить в любую папку
+                      </span>
                     </span>
                   </div>
                 )}
@@ -291,7 +293,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: 1, padding: '12px' }}
                 >
                   <Download size={18} />
-                  {importing ? 'Сохранение...' : 'Импортировать'}
+                  {importing ? 'Сохранение...' : 'Добавить'}
                 </button>
               </div>
             )}

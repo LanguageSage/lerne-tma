@@ -71,7 +71,7 @@ def get_share_html(title, description, preview_url, app_url):
             <img src="{preview_url}" class="preview-card" alt="Card Preview">
             <h1>{title}</h1>
             <p>{description}</p>
-            <a href="{app_url}" class="btn">Изучить в Telegram</a>
+            <a href="{app_url}" class="btn">Открыть Лерне Тма</a>
         </div>
 
         <script>

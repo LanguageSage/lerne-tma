@@ -206,7 +206,7 @@ const DeckCardItem = ({
           style={{ touchAction: 'none' }}
           title="Перетащить колоду"
         >
-          <GripVertical size={24} />
+          <GripVertical size={16} />
         </div>
       )}
 
@@ -394,6 +394,7 @@ const FolderCardItem = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const dragControls = useDragControls();
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -508,8 +509,11 @@ const FolderCardItem = ({
   const validFolders = (folders || []).filter(f => f.id !== folder.id && !descendants.includes(f.id));
 
   return (
-    <div 
-      className="deck-card glass folder-card"
+    <Reorder.Item
+      value={folder}
+      dragListener={false}
+      dragControls={dragControls}
+      className={`deck-card glass folder-card ${folder.name !== "📥 Входящие" ? "deck-card-draggable" : ""}`}
       style={{ 
         borderLeft: `4px solid ${folderColor}`,
         '--folder-accent': folderColor,
@@ -519,6 +523,16 @@ const FolderCardItem = ({
         '--folder-accent-bg': `${folderColor}0c`
       }}
     >
+      {folder.name !== "📥 Входящие" && (
+        <div
+          className="deck-drag-handle"
+          onPointerDown={(e) => dragControls.start(e)}
+          style={{ touchAction: 'none' }}
+          title="Перетащить папку"
+        >
+          <GripVertical size={16} />
+        </div>
+      )}
       <div className="deck-main-action" onClick={() => setActiveFolderId(folder.id)}>
         <div className="deck-icon" style={{ background: `${folderColor}1a`, color: folderColor }}>
           <Folder size={24} />
@@ -598,7 +612,7 @@ const FolderCardItem = ({
           )}
         </div>
       )}
-    </div>
+    </Reorder.Item>
   );
 };
 
@@ -754,16 +768,27 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
           ) : (
             <>
               {/* 1. Render Folders */}
-              {currentFolders.map(folder => (
-                <FolderCardItem
-                  key={`folder-${folder.id}`}
-                  folder={folder}
-                  setActiveFolderId={setActiveFolderId}
-                  decks={decks}
-                  folders={folders}
-                  showToast={showToast}
-                />
-              ))}
+              <Reorder.Group
+                as="div"
+                axis="y"
+                values={currentFolders}
+                onReorder={(newOrder) => {
+                  const orderedIds = newOrder.map(f => f.id);
+                  useDeckStore.getState().reorderFolders(orderedIds);
+                }}
+                style={{ display: 'contents' }}
+              >
+                {currentFolders.map(folder => (
+                  <FolderCardItem
+                    key={`folder-${folder.id}`}
+                    folder={folder}
+                    setActiveFolderId={setActiveFolderId}
+                    decks={decks}
+                    folders={folders}
+                    showToast={showToast}
+                  />
+                ))}
+              </Reorder.Group>
 
               {/* 2. Render Decks */}
               <Reorder.Group
@@ -800,7 +825,7 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
           )}
 
           {/* Special item for Turbo Practice (Favorites) */}
-          {useDeckStore.getState().favoriteCards.length > 0 && (
+          {activeFolderId === null && useDeckStore.getState().favoriteCards.length > 0 && (
             <div 
               className="deck-card glass favorite-turbo-card" 
               style={{ 
@@ -833,7 +858,7 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
           )}
 
           {/* Special item for duplicates, at the very bottom */}
-          {useDeckStore.getState().duplicateCards.length > 0 && (
+          {activeFolderId === null && useDeckStore.getState().duplicateCards.length > 0 && (
             <div 
               className="deck-card glass" 
               style={{ 
@@ -862,34 +887,36 @@ export const DeckGrid = ({ startTutorial, userId, openSyncModal, startStudy, imp
           )}
 
           {/* Special item for Trash, below duplicates */}
-          <div 
-            className="deck-card glass" 
-            style={{ 
-              border: '1px dashed rgba(239,68,68,0.4)',
-              background: 'rgba(239,68,68,0.05)'
-            }}
-            onClick={() => {
-              useDeckStore.getState().fetchTrash();
-              useUiStore.getState().setView('trash');
-            }}
-          >
-            <div className="deck-main-action">
-              <div className="deck-icon" style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
-                <Trash2 size={24} />
+          {activeFolderId === null && (
+            <div 
+              className="deck-card glass" 
+              style={{ 
+                border: '1px dashed rgba(239,68,68,0.4)',
+                background: 'rgba(239,68,68,0.05)'
+              }}
+              onClick={() => {
+                useDeckStore.getState().fetchTrash();
+                useUiStore.getState().setView('trash');
+              }}
+            >
+              <div className="deck-main-action">
+                <div className="deck-icon" style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
+                  <Trash2 size={24} />
+                </div>
+                <h3 style={{ color: '#f87171' }}>Корзина</h3>
+                <div className="deck-stats">
+                  <span className="stat total" style={{ color: '#fca5a5', fontSize: '0.8rem', fontWeight: 500 }}>
+                    Хранилище
+                  </span>
+                </div>
               </div>
-              <h3 style={{ color: '#f87171' }}>Корзина</h3>
-              <div className="deck-stats">
-                <span className="stat total" style={{ color: '#fca5a5', fontSize: '0.8rem', fontWeight: 500 }}>
-                  Хранилище
+              <div className="deck-footer-actions" style={{ justifyContent: 'center', padding: '8px 12px' }}>
+                <span style={{ fontSize: '0.7rem', color: '#94a3b8', textAlign: 'center' }}>
+                  Удаленные колоды и карточки (возможность восстановления)
                 </span>
               </div>
             </div>
-            <div className="deck-footer-actions" style={{ justifyContent: 'center', padding: '8px 12px' }}>
-              <span style={{ fontSize: '0.7rem', color: '#94a3b8', textAlign: 'center' }}>
-                Удаленные колоды и карточки (возможность восстановления)
-              </span>
-            </div>
-          </div>
+          )}
         </div>
 
       </motion.div>
