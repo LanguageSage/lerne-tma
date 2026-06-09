@@ -246,6 +246,90 @@
 .stat.due { background: #22c55e; color: white; }
 .stat.total { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #94a3b8; }
 
+/* Labeled statistics grid for regular decks */
+.deck-main-action-with-stats {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.75rem !important;
+}
+
+.deck-info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
+}
+
+.deck-stats-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.deck-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  text-align: center;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.deck-card:hover .deck-stat-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.deck-stat-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 2px;
+}
+
+.deck-stat-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: #94a3b8;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+.deck-stat-value.total {
+  color: #e2e8f0;
+}
+.deck-stat-value.new {
+  color: #60a5fa;
+}
+.deck-stat-value.learning {
+  color: #fb923c;
+}
+.deck-stat-value.due {
+  color: #4ade80;
+}
+
+@media (max-width: 380px) {
+  .deck-stats-container {
+    gap: 4px;
+  }
+  .deck-stat-item {
+    padding: 4px 2px;
+  }
+  .deck-stat-value {
+    font-size: 0.85rem;
+  }
+  .deck-stat-label {
+    font-size: 0.6rem;
+  }
+}
+
 /* User Folders & Breadcrumbs Styling */
 .folder-breadcrumbs span:hover {
   text-decoration: underline;

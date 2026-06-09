@@ -118,12 +118,15 @@ def get_active_decks(user_id: int):
         from peewee import Case
         
         # --- Кросс-платформенный запрос статистики через Peewee ---
-        due_case = Case(None, [(TMAProgress.next_review <= now, 1)], None)
+        tracked_case = Case(None, [(TMAProgress.queue != 'new', 1)], None)
+        learning_case = Case(None, [((TMAProgress.queue << ['learning', 'relearning']) & (TMAProgress.next_review <= now), 1)], None)
+        due_case = Case(None, [((TMAProgress.queue == 'review') & (TMAProgress.next_review <= now), 1)], None)
         stats_query = (TMA_Card
                       .select(
                           TMA_Card.deck_id.alias('deck_id'),
                           fn.COUNT(TMA_Card.id).alias('total'),
-                          fn.COUNT(TMAProgress.id).alias('tracked'),
+                          fn.COUNT(tracked_case).alias('tracked'),
+                          fn.COUNT(learning_case).alias('learning'),
                           fn.COUNT(due_case).alias('due')
                       )
                       .join(TMAProgress, JOIN.LEFT_OUTER, on=(
@@ -139,6 +142,7 @@ def get_active_decks(user_id: int):
             stats_map[row['deck_id']] = {
                 'total': row['total'], 
                 'tracked': row['tracked'], 
+                'learning': int(row['learning'] or 0),
                 'due': int(row['due'] or 0)
             }
 
@@ -163,9 +167,10 @@ def get_active_decks(user_id: int):
         
         result = []
         for d in decks:
-            s = stats_map.get(d.id, {'total': 0, 'tracked': 0, 'due': 0})
+            s = stats_map.get(d.id, {'total': 0, 'tracked': 0, 'learning': 0, 'due': 0})
             total = s['total']
             tracked = s['tracked']
+            learning = s['learning']
             due = s['due']
             
             # Check for updates
@@ -221,7 +226,7 @@ def get_active_decks(user_id: int):
                 "stats": {
                     "total": total,
                     "new": max(0, total - tracked),
-                    "learning": 0,
+                    "learning": learning,
                     "due": due
                 }
             })

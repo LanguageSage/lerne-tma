@@ -196,7 +196,7 @@ const DraggableCardItem = React.memo(({ c, currentDeck, startStudyCard }) => {
         style={{ touchAction: 'none' }}
         title="Перетащить карточку"
       >
-        <GripVertical size={16} />
+        <GripVertical size={22} />
       </div>
       <div className="card-item-text">
         <div className="front-min">{c.front}</div>

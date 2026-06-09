@@ -206,40 +206,54 @@ const DeckCardItem = ({
           style={{ touchAction: 'none' }}
           title="Перетащить колоду"
         >
-          <GripVertical size={16} />
+          <GripVertical size={22} />
         </div>
       )}
 
-      <div className="deck-main-action" onClick={onMainAction}>
-        <div className="deck-icon">
-          {deck.is_inbox ? <Inbox size={24} /> : <Layers size={24} />}
-        </div>
-        
-        <h3>
-          <span className="deck-title-text">{deck.name}</span>
+      <div className="deck-main-action deck-main-action-with-stats" onClick={onMainAction}>
+        <div className="deck-info-row">
+          <div className="deck-icon">
+            {deck.is_inbox ? <Inbox size={24} /> : <Layers size={24} />}
+          </div>
           
-          {deck.is_inbox && deck.stats.total > 0 && (
-            <span style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
-              новые
-            </span>
-          )}
+          <h3>
+            <span className="deck-title-text">{deck.name}</span>
+            
+            {deck.is_inbox && deck.stats.total > 0 && (
+              <span style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
+                новые
+              </span>
+            )}
 
-          {!deck.is_inbox && (
-            <button
-              className={`pin-deck-btn ${deck.is_pinned ? 'pinned' : ''}`}
-              onClick={handlePin}
-              title={deck.is_pinned ? "Открепить колоду" : "Закрепить колоду"}
-            >
-              <Pin size={16} />
-            </button>
-          )}
-        </h3>
+            {!deck.is_inbox && (
+              <button
+                className={`pin-deck-btn ${deck.is_pinned ? 'pinned' : ''}`}
+                onClick={handlePin}
+                title={deck.is_pinned ? "Открепить колоду" : "Закрепить колоду"}
+              >
+                <Pin size={16} />
+              </button>
+            )}
+          </h3>
+        </div>
 
-        <div className="deck-stats">
-          <span className="stat total" title="Всего карточек">{deck.stats.total}</span>
-          <span className="stat new" title="Новые">{deck.stats.new}</span>
-          <span className="stat learning" title="В изучении">{deck.stats.learning}</span>
-          <span className="stat due" title="К повторению">{deck.stats.due}</span>
+        <div className="deck-stats-container">
+          <div className="deck-stat-item">
+            <span className="deck-stat-value total">{deck.stats.total}</span>
+            <span className="deck-stat-label">всего</span>
+          </div>
+          <div className="deck-stat-item">
+            <span className="deck-stat-value new">{deck.stats.new}</span>
+            <span className="deck-stat-label">новые</span>
+          </div>
+          <div className="deck-stat-item">
+            <span className="deck-stat-value learning">{deck.stats.learning}</span>
+            <span className="deck-stat-label">изучаю</span>
+          </div>
+          <div className="deck-stat-item">
+            <span className="deck-stat-value due">{deck.stats.due}</span>
+            <span className="deck-stat-label">повторить</span>
+          </div>
         </div>
       </div>
 
@@ -258,6 +272,7 @@ const DeckCardItem = ({
             e.stopPropagation();
             setIsMenuOpen(!isMenuOpen);
           }}
+          style={{ marginLeft: 'auto' }}
           title="Опции колоды"
         >
           <MoreHorizontal size={16} />
@@ -530,7 +545,7 @@ const FolderCardItem = ({
           style={{ touchAction: 'none' }}
           title="Перетащить папку"
         >
-          <GripVertical size={16} />
+          <GripVertical size={22} />
         </div>
       )}
       <div className="deck-main-action" onClick={() => setActiveFolderId(folder.id)}>
@@ -554,6 +569,7 @@ const FolderCardItem = ({
               e.stopPropagation();
               setIsMenuOpen(!isMenuOpen);
             }}
+            style={{ marginLeft: 'auto' }}
             title="Опции папки"
           >
             <MoreHorizontal size={16} />

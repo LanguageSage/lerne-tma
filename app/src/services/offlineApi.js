@@ -198,13 +198,19 @@ export const offlineApi = {
         const now = new Date();
         let due = 0;
         let tracked = 0;
+        let learning = 0;
 
         cards.forEach(c => {
           const p = progressMap[c.id];
-          if (p) {
+          if (p && p.queue !== 'new') {
             tracked++;
-            if (p.next_review && new Date(p.next_review) <= now) {
-              due++;
+            const nextReviewDate = p.next_review ? new Date(p.next_review) : null;
+            if (nextReviewDate && nextReviewDate <= now) {
+              if (p.queue === 'learning' || p.queue === 'relearning') {
+                learning++;
+              } else if (p.queue === 'review') {
+                due++;
+              }
             }
           }
         });
@@ -221,7 +227,7 @@ export const offlineApi = {
           stats: {
             total: cards.length,
             new: Math.max(0, cards.length - tracked),
-            learning: 0,
+            learning: learning,
             due: due
           }
         });
