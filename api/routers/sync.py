@@ -58,7 +58,17 @@ class SyncProgressItem(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
+class SyncFolderItem(BaseModel):
+    id: int
+    name: str
+    is_deleted: bool = False
+    is_pinned: bool = False
+    position: int = 0
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
 class PushRequest(BaseModel):
+    folders: List[SyncFolderItem] = []
     decks: List[SyncDeckItem] = []
     cards: List[SyncCardItem] = []
     progress: List[SyncProgressItem] = []
@@ -70,7 +80,8 @@ def parse_iso_datetime(iso_str: Optional[str]) -> datetime.datetime:
     if iso_str.endswith('Z'):
         iso_str = iso_str[:-1] + '+00:00'
     try:
-        return datetime.datetime.fromisoformat(iso_str)
+        dt = datetime.datetime.fromisoformat(iso_str)
+        return dt.replace(tzinfo=None)
     except Exception:
         return datetime.datetime.now()
 
@@ -81,13 +92,44 @@ def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
     """Receives offline changes from client, inserts/updates them, and maps negative temp IDs to real IDs."""
     logger.info(f"Sync Push: starting for user {user_id} with {len(request.decks)} decks, {len(request.cards)} cards, {len(request.progress)} progress items")
     
+    folder_id_map = {}
     deck_id_map = {}
     card_id_map = {}
 
     try:
         with models.tma_db.atomic():
+            # 0. Process Folders
+            for f in request.folders:
+                client_updated_at = parse_iso_datetime(f.updated_at)
+                if f.id < 0:
+                    new_folder = models.TMA_Folder.create(
+                        user_id=user_id,
+                        name=f.name,
+                        is_deleted=f.is_deleted,
+                        is_pinned=f.is_pinned,
+                        position=f.position,
+                        created_at=parse_iso_datetime(f.created_at),
+                        updated_at=client_updated_at
+                    )
+                    folder_id_map[str(f.id)] = new_folder.id
+                    logger.info(f"Sync: Mapped folder temp ID {f.id} to new real ID {new_folder.id}")
+                else:
+                    folder = models.TMA_Folder.get_or_none((models.TMA_Folder.id == f.id) & (models.TMA_Folder.user_id == user_id))
+                    if folder:
+                        if not folder.updated_at or client_updated_at > folder.updated_at:
+                            folder.name = f.name
+                            folder.is_deleted = f.is_deleted
+                            folder.is_pinned = f.is_pinned
+                            folder.position = f.position
+                            folder.updated_at = client_updated_at
+                            folder.save()
+
             # 1. Process Decks
             for d in request.decks:
+                resolved_folder_id = d.folder_id
+                if resolved_folder_id and resolved_folder_id < 0:
+                    resolved_folder_id = folder_id_map.get(str(resolved_folder_id))
+                    
                 client_updated_at = parse_iso_datetime(d.updated_at)
                 if d.id < 0:
                     # New deck created offline
@@ -100,7 +142,7 @@ def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
                         is_inbox=False,
                         is_pinned=d.is_pinned,
                         position=d.position,
-                        folder_id=d.folder_id,
+                        folder_id=resolved_folder_id,
                         created_at=parse_iso_datetime(d.created_at),
                         updated_at=client_updated_at
                     )
@@ -118,7 +160,7 @@ def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
                             deck.is_deleted = d.is_deleted
                             deck.is_pinned = d.is_pinned
                             deck.position = d.position
-                            deck.folder_id = d.folder_id
+                            deck.folder_id = resolved_folder_id
                             deck.updated_at = client_updated_at
                             deck.save()
 
@@ -219,6 +261,7 @@ def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
         return {
             "status": "success",
             "mappings": {
+                "folders": folder_id_map,
                 "decks": deck_id_map,
                 "cards": card_id_map
             }
@@ -236,6 +279,12 @@ def pull_changes(since: Optional[str] = None, user_id: int = Depends(get_user_id
     since_dt = parse_iso_datetime(since) if since else datetime.datetime.min
 
     try:
+        # 0. Pull Folders
+        folders = models.TMA_Folder.select().where(
+            (models.TMA_Folder.user_id == user_id) &
+            (models.TMA_Folder.updated_at > since_dt)
+        )
+
         # 1. Pull Decks
         decks = models.TMA_Deck.select().where(
             (models.TMA_Deck.user_id == user_id) &
@@ -256,6 +305,18 @@ def pull_changes(since: Optional[str] = None, user_id: int = Depends(get_user_id
         )
 
         # Format responses
+        folders_data = []
+        for f in folders:
+            folders_data.append({
+                "id": f.id,
+                "name": f.name,
+                "is_deleted": bool(f.is_deleted),
+                "is_pinned": bool(f.is_pinned),
+                "position": int(f.position or 0),
+                "created_at": f.created_at.isoformat() if f.created_at else None,
+                "updated_at": f.updated_at.isoformat() if f.updated_at else None
+            })
+
         decks_data = []
         for d in decks:
             decks_data.append({
@@ -309,6 +370,7 @@ def pull_changes(since: Optional[str] = None, user_id: int = Depends(get_user_id
 
         return {
             "status": "success",
+            "folders": folders_data,
             "decks": decks_data,
             "cards": cards_data,
             "progress": progress_data,

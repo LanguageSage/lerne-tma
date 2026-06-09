@@ -206,7 +206,10 @@ const DeckCardItem = ({
           style={{ touchAction: 'none' }}
           title="Перетащить колоду"
         >
-          <GripVertical size={22} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <GripVertical size={16} />
+            <GripVertical size={16} />
+          </div>
         </div>
       )}
 
@@ -545,7 +548,10 @@ const FolderCardItem = ({
           style={{ touchAction: 'none' }}
           title="Перетащить папку"
         >
-          <GripVertical size={22} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <GripVertical size={16} />
+            <GripVertical size={16} />
+          </div>
         </div>
       )}
       <div className="deck-main-action" onClick={() => setActiveFolderId(folder.id)}>

@@ -104,7 +104,7 @@ def get_init_data(user_id: int = Depends(get_user_id)):
     try:
         for s in models.TMASetting.select():
             settings[s.key] = s.value
-    except: pass
+    except Exception: pass
         
     # Get prompts
     prompts = {"translation_prompt": "", "context_prompt": ""}
@@ -115,7 +115,7 @@ def get_init_data(user_id: int = Depends(get_user_id)):
                 "translation_prompt": p.translation_prompt or "",
                 "context_prompt": p.context_prompt or ""
             }
-    except: pass
+    except Exception: pass
         
     return {
         "decks": decks,
@@ -130,7 +130,7 @@ def health_check():
     try:
         models.tma_db.connect(reuse_if_open=True)
         db_ok = True
-    except:
+    except Exception:
         db_ok = False
     return {
         "status": "ok",

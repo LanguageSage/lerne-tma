@@ -98,7 +98,7 @@ class SharingService:
                             "https://github.com/googlefonts/montserrat/raw/main/fonts/ttf/Montserrat-Bold.ttf",
                             FONT_PATH
                         )
-                    except:
+                    except Exception:
                         FONT_PATH = None
             
             if not FONT_PATH or not os.path.exists(FONT_PATH):
@@ -139,11 +139,11 @@ class SharingService:
             if not text: return
             try:
                 text_width = draw.textlength(text, font=font)
-            except:
+            except Exception:
                 try:
                     bbox = draw.textbbox((0, 0), text, font=font)
                     text_width = bbox[2] - bbox[0]
-                except:
+                except Exception:
                     text_width = len(text) * 20
             draw.text(((width - text_width) / 2, y), text, fill=fill, font=font)
 

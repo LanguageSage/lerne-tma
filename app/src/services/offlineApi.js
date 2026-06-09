@@ -152,14 +152,102 @@ export const offlineApi = {
 
     // 0. GET /init (Offline Initialization)
     if (method === 'get' && url === '/init') {
+      const foldersRes = await this.handle('get', '/folders');
       const decksRes = await this.handle('get', '/decks');
       return {
         data: {
+          folders: foldersRes.data,
           decks: decksRes.data,
           settings: {},
           prompts: { translation_prompt: "", context_prompt: "" }
         }
       };
+    }
+
+    // 0.5 GET /folders
+    if (method === 'get' && url === '/folders') {
+      const folders = await db.folders
+        .where('user_id')
+        .equals(userId)
+        .filter(f => !f.is_deleted && !f.hard_deleted_locally)
+        .toArray();
+
+      folders.sort((a, b) => {
+        const aPos = a.position ?? 0;
+        const bPos = b.position ?? 0;
+        if (aPos !== bPos) return aPos - bPos;
+        return b.id - a.id;
+      });
+
+      return { data: folders };
+    }
+
+    // 0.6 POST /folders (Create Folder)
+    if (method === 'post' && url === '/folders') {
+      const tempId = getNextTempId();
+      const newFolder = {
+        id: tempId,
+        user_id: userId,
+        name: data.name,
+        is_deleted: 0,
+        position: 0,
+        created_at: nowStr,
+        updated_at: nowStr,
+        is_dirty: 1
+      };
+      await db.folders.add(newFolder);
+      return { data: { status: "success", id: tempId } };
+    }
+
+    // 0.7 PUT /folders/{id} (Update Folder)
+    if (method === 'put' && url.match(/^\/folders\/(-?\d+)$/)) {
+      const folderId = parseInt(url.match(/^\/folders\/(-?\d+)$/)[1], 10);
+      const folder = await db.folders.get(folderId);
+      if (!folder || folder.user_id !== userId) throw new Error("Folder not found");
+      
+      await db.folders.update(folderId, {
+        name: data.name,
+        updated_at: nowStr,
+        is_dirty: 1
+      });
+      return { data: { status: "success", name: data.name } };
+    }
+
+    // 0.8 DELETE /folders/{id}
+    if (method === 'delete' && url.match(/^\/folders\/(-?\d+)$/)) {
+      const folderId = parseInt(url.match(/^\/folders\/(-?\d+)$/)[1], 10);
+      const folder = await db.folders.get(folderId);
+      if (folder) {
+        await db.folders.update(folderId, {
+          is_deleted: 1,
+          updated_at: nowStr,
+          is_dirty: 1
+        });
+        
+        // Remove folder from decks
+        const decks = await db.decks.where('user_id').equals(userId).toArray();
+        for (const d of decks) {
+            if (d.folder_id === folderId) {
+                await db.decks.update(d.id, { folder_id: null, is_dirty: 1, updated_at: nowStr });
+            }
+        }
+      }
+      return { data: { status: "success" } };
+    }
+
+    // 0.9 POST /folders/reorder
+    if (method === 'post' && url === '/folders/reorder') {
+      const { folder_ids } = data;
+      if (folder_ids && folder_ids.length > 0) {
+        for (let idx = 0; idx < folder_ids.length; idx++) {
+          const folderId = folder_ids[idx];
+          const folder = await db.folders.get(folderId);
+          if (folder && folder.user_id === userId) {
+            await db.folders.update(folderId, { position: idx, is_dirty: 1 });
+          }
+        }
+      }
+      return { data: { status: "success" } };
     }
 
     // 1. GET /decks
@@ -257,6 +345,7 @@ export const offlineApi = {
         id: tempId,
         user_id: userId,
         name: data.name,
+        folder_id: data.folder_id || null,
         is_deleted: 0,
         is_inbox: 0,
         created_at: nowStr,
@@ -279,6 +368,7 @@ export const offlineApi = {
       }
       await db.decks.update(deckId, {
         name: data.name,
+        folder_id: data.folder_id !== undefined ? data.folder_id : deck.folder_id,
         updated_at: nowStr,
         is_dirty: 1
       });

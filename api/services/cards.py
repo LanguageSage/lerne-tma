@@ -61,11 +61,6 @@ def save_card(data, user_id):
         
     if 'source' in data:
         card.source = data.get('source')
-    if 'video_back_path' in data:
-        card.video_back_path = data.get('video_back_path')
-        
-    if 'source' in data:
-        card.source = data.get('source')
     elif not card.source:
         card.source = 'user'
         

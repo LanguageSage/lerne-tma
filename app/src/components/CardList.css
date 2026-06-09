@@ -66,6 +66,7 @@
   align-items: center;
   justify-content: center;
   color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.04); /* Distinct color for drag handle */
   cursor: grab;
   width: 44px;
   align-self: stretch;

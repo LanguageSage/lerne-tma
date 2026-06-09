@@ -61,7 +61,7 @@ class AIService:
                         error_data = {}
                         try:
                             error_data = await resp.json()
-                        except:
+                        except Exception:
                             error_text = await resp.text()
                             error_data = {"error": {"message": error_text}}
                             

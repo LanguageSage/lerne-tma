@@ -10,6 +10,13 @@ db.version(1).stores({
   progress: '[card_id+user_id], user_id, card_id, next_review, is_dirty'
 });
 
+db.version(2).stores({
+  folders: 'id, user_id, name, is_deleted, is_dirty',
+  decks: 'id, user_id, folder_id, name, is_deleted, is_dirty',
+  cards: 'id, deck_id, front_text, is_deleted, is_dirty',
+  progress: '[card_id+user_id], user_id, card_id, next_review, is_dirty'
+});
+
 // Helper to generate temporary negative IDs
 export const getNextTempId = () => {
   const current = parseInt(localStorage.getItem('lerne_temp_id_counter') || '-1', 10);

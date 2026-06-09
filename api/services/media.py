@@ -24,7 +24,6 @@ def _build_media_exists_map(cards_dicts: list) -> set:
             ('video_back_path', 'videos')
         ]:
             path_str = c.get(path_field)
-            path_str = c.get(path_field)
             if path_str and not path_str.startswith('http'):
                 filenames.add(os.path.basename(path_str))
     
@@ -171,7 +170,7 @@ async def ensure_card_audio(card, user_id: int):
             card.save()
             
             try: os.remove(result)
-            except: pass
+            except Exception: pass
             
             logger.info(f"Generated local audio for card {card.id} and saved to TMAMedia: {filename}")
     except Exception as e:

@@ -49,6 +49,63 @@ def _normalize_tts_rate(value: str | None) -> str | None:
 def _clean_param(value, default=None):
     return value if isinstance(value, str) and value.strip() else default
 
+
+def get_range_response(request: Request, content: bytes, media_type: str) -> Response:
+    """Helper to handle HTTP 206 Partial Content for media streaming."""
+    file_size = len(content)
+    range_header = request.headers.get("range")
+    
+    etag = hashlib.md5(content).hexdigest()
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304)
+
+    if not range_header:
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Cache-Control": "public, max-age=604800",
+                "ETag": etag,
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(file_size),
+            }
+        )
+
+    try:
+        # Expected format: bytes=0-1024 or bytes=1024-
+        byte_range = range_header.replace("bytes=", "").split("-")
+        start = int(byte_range[0]) if byte_range[0] else 0
+        end = int(byte_range[1]) if len(byte_range) > 1 and byte_range[1] else file_size - 1
+        
+        if start >= file_size or end >= file_size:
+            return Response(status_code=416, headers={"Content-Range": f"bytes */{file_size}"})
+            
+        chunk = content[start:end+1]
+        
+        return Response(
+            content=chunk,
+            status_code=206,
+            media_type=media_type,
+            headers={
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(len(chunk)),
+                "Cache-Control": "public, max-age=604800",
+                "ETag": etag,
+            }
+        )
+    except Exception:
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Cache-Control": "public, max-age=604800",
+                "ETag": etag,
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(file_size),
+            }
+        )
+
 @router.post("/upload-image")
 async def upload_image(
     file: UploadFile = File(...),
@@ -168,7 +225,7 @@ async def generate_audio_endpoint(
             )
             
             try: os.remove(result)
-            except: pass
+            except Exception: pass
             
             return {
                 "path": filename,
@@ -226,19 +283,7 @@ def get_audio(filename: str, request: Request):
         raise HTTPException(status_code=404, detail="Audio not found in DB")
     
     content = bytes(media.content)
-    etag = hashlib.md5(content).hexdigest()
-    
-    if request.headers.get("if-none-match") == etag:
-        return Response(status_code=304)
-
-    return Response(
-        content=content, 
-        media_type="audio/mpeg",
-        headers={
-            "Cache-Control": "public, max-age=604800",
-            "ETag": etag
-        }
-    )
+    return get_range_response(request, content, "audio/mpeg")
 
 @router.get("/images/{filename}")
 def get_image(filename: str, request: Request):
@@ -255,19 +300,7 @@ def get_image(filename: str, request: Request):
     if ext == 'webp': media_type = "image/webp"
     
     content = bytes(media.content)
-    etag = hashlib.md5(content).hexdigest()
-    
-    if request.headers.get("if-none-match") == etag:
-        return Response(status_code=304)
-    
-    return Response(
-        content=content, 
-        media_type=media_type,
-        headers={
-            "Cache-Control": "public, max-age=604800",
-            "ETag": etag
-        }
-    )
+    return get_range_response(request, content, media_type)
 
 @router.post("/upload-video")
 async def upload_video(
@@ -344,7 +377,7 @@ def get_video(filename: str, request: Request):
         raise HTTPException(status_code=404, detail="Video not found")
     
     content = bytes(media.content)
-    return Response(content=content, media_type="video/mp4")
+    return get_range_response(request, content, "video/mp4")
 
 @router.get("/backgrounds/{filename}")
 def get_background_video(filename: str, request: Request):
@@ -356,4 +389,4 @@ def get_background_video(filename: str, request: Request):
         raise HTTPException(status_code=404, detail="Background not found")
     
     content = bytes(media.content)
-    return Response(content=content, media_type="video/mp4")
+    return get_range_response(request, content, "video/mp4")

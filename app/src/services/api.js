@@ -3,8 +3,10 @@ import { getUserId } from '../utils/auth';
 import { isOfflineMode } from './localDb';
 import { offlineApi } from './offlineApi';
 
+const baseURL = import.meta.env.VITE_API_URL || '/api';
+
 const axiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: baseURL,
 });
 
 // Добавляем X-User-ID ко всем запросам автоматически и отключаем кэширование GET-запросов
@@ -28,6 +30,7 @@ const api = new Proxy(axiosInstance, {
         // Проверяем, относится ли эндпоинт к локальным данным
         const isOfflineEndpoint = 
           url.startsWith('/decks') || 
+          url.startsWith('/folders') ||
           url.startsWith('/cards') || 
           url.startsWith('/study') || 
           url.startsWith('/trash') ||
