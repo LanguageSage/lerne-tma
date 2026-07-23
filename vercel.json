@@ -21,7 +21,8 @@
       "dest": "api/main.py"
     },
     {
-      "handle": "filesystem"
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|json|ttf|woff|woff2|mp3))",
+      "dest": "app/$1"
     },
     {
       "src": "/(.*)",
