@@ -16,6 +16,7 @@ class UserSyncSchema(BaseModel):
     photo_url: Optional[str] = None
     phone: Optional[str] = None
     is_guest: bool = False
+    guest_id: Optional[int] = None
 
 @router.post("/auth/sync")
 def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
@@ -24,6 +25,11 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
     """
     try:
         user, created = TMAUser.get_or_create(user_id=user_id)
+        
+        # Merge guest data if guest_id was provided and differs from user_id
+        if data.guest_id and data.guest_id != user_id:
+            from api import services
+            services.merge_guest_data(data.guest_id, user_id)
         
         # Update info if provided in request (usually from Telegram WebApp)
         if data.first_name: user.first_name = data.first_name
@@ -100,6 +106,8 @@ def check_session(guest_id: int):
         return {"status": "not_found"}
     
     if session.is_confirmed and session.telegram_id:
+        from api import services
+        services.merge_guest_data(guest_id, session.telegram_id)
         # Fetch full user profile for the frontend
         user = TMAUser.get_or_none(TMAUser.user_id == session.telegram_id)
         return {

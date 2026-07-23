@@ -168,11 +168,12 @@ def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
             for c in request.cards:
                 # Resolve deck ID
                 resolved_deck_id = c.deck_id
-                if resolved_deck_id < 0:
+                if not resolved_deck_id or resolved_deck_id < 0:
                     resolved_deck_id = deck_id_map.get(str(resolved_deck_id))
                     if not resolved_deck_id:
-                        logger.error(f"Sync Card: Failed to resolve deck temp ID {c.deck_id} for card {c.id}")
-                        continue
+                        from api.services.decks import ensure_inbox_deck
+                        inbox = ensure_inbox_deck(user_id)
+                        resolved_deck_id = inbox.id
                 
                 client_updated_at = parse_iso_datetime(c.updated_at)
                 if c.id < 0:
@@ -215,6 +216,26 @@ def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
                                 card.is_deleted = c.is_deleted
                                 card.updated_at = client_updated_at
                                 card.save()
+                    else:
+                        # Card with positive ID not found on server -> create it on server
+                        new_card = models.TMA_Card.create(
+                            deck_id=resolved_deck_id,
+                            front_text=c.front_text,
+                            back_text=c.back_text,
+                            context=c.context,
+                            image_path=c.image_path,
+                            audio_path=c.audio_path,
+                            audio_back_path=c.audio_back_path,
+                            video_front_path=c.video_front_path,
+                            video_back_path=c.video_back_path,
+                            want_to_learn=c.want_to_learn,
+                            is_deleted=c.is_deleted,
+                            source='user',
+                            created_at=parse_iso_datetime(c.created_at),
+                            updated_at=client_updated_at
+                        )
+                        card_id_map[str(c.id)] = new_card.id
+                        logger.info(f"Sync: Re-created missing card ID {c.id} on server as new ID {new_card.id}")
 
             # 3. Process Card Progress
             for p in request.progress:

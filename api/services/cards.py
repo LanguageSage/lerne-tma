@@ -37,7 +37,9 @@ def save_card(data, user_id):
     if deck_id:
         card.deck_id = deck_id
     elif not card.id:
-        raise ValueError("Missing deck_id for new card")
+        from .decks import ensure_inbox_deck
+        inbox = ensure_inbox_deck(user_id)
+        card.deck_id = inbox.id
     
     # Обновляем только если передано (используем get с проверкой наличия ключа, чтобы позволить пустые строки)
     if 'front' in data or 'front_text' in data:
@@ -67,10 +69,10 @@ def save_card(data, user_id):
     if 'want_to_learn' in data:
         card.want_to_learn = bool(data.get('want_to_learn'))
 
-    # Проверяем, не перепутаны ли стороны (если на лицевой кириллица, меняем местами)
+    # Проверяем, не перепутаны ли стороны (меняем только если на лицевой кириллица, а на обороте непустая латиница)
     import re
-    if card.front_text and re.search(r'[а-яА-ЯёЁ]', card.front_text):
-        logger.info("Swapping front and back for saved card because front contains Cyrillic.")
+    if card.front_text and card.back_text and re.search(r'[а-яА-ЯёЁ]', card.front_text) and not re.search(r'[а-яА-ЯёЁ]', card.back_text) and re.search(r'[a-zA-ZäöüßÄÖÜ]', card.back_text):
+        logger.info("Swapping front and back for saved card because front contains Cyrillic and back contains Latin.")
         front = card.front_text
         back = card.back_text
         card.front_text = back

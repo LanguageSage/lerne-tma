@@ -50,6 +50,14 @@ def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
     translation_prompt = data.get('translation_prompt', '')
     context_prompt = data.get('context_prompt', '')
     
+    # Fallback for single prompt input
+    single_prompt = data.get('prompt')
+    if single_prompt:
+        if not translation_prompt:
+            translation_prompt = single_prompt
+        if not context_prompt:
+            context_prompt = single_prompt
+    
     if prompt_id:
         p = models.TMACustomPrompt.get_or_none((models.TMACustomPrompt.id == prompt_id) & (models.TMACustomPrompt.user_id == user_id))
         if not p:
@@ -180,3 +188,71 @@ def promote_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     if result:
         return {"status": "success", "new_library_id": result.id}
     raise HTTPException(status_code=500, detail="Failed to promote deck")
+
+# Admin Prompt Management Endpoints
+@router.get("/admin/prompts/all")
+def get_all_prompts():
+    """Returns all custom prompts from all users along with author user details."""
+    prompts_data = []
+    try:
+        user_map = {}
+        for u in models.TMAUser.select():
+            name = f"{u.first_name or ''} {u.last_name or ''}".strip() or f"User {u.user_id}"
+            user_map[u.user_id] = {
+                "name": name,
+                "username": u.username or "",
+                "user_id": u.user_id
+            }
+
+        global_setting = models.TMASetting.get_or_none(models.TMASetting.key == "GLOBAL_SYSTEM_PROMPT_ID")
+        global_prompt_id = int(global_setting.value) if (global_setting and global_setting.value) else None
+
+        for p in models.TMACustomPrompt.select().order_by(models.TMACustomPrompt.id.desc()):
+            user_info = user_map.get(p.user_id, {
+                "name": f"User {p.user_id}",
+                "username": "",
+                "user_id": p.user_id
+            })
+            prompts_data.append({
+                "id": p.id,
+                "user_id": p.user_id,
+                "author_name": user_info["name"],
+                "author_username": user_info["username"],
+                "name": p.name,
+                "translation_prompt": p.translation_prompt or "",
+                "context_prompt": p.context_prompt or "",
+                "is_active": p.is_active,
+                "is_global_default": p.id == global_prompt_id,
+                "created_at": str(p.created_at) if hasattr(p, 'created_at') else ""
+            })
+    except Exception as e:
+        logger.error(f"Error fetching all prompts: {e}")
+        
+    return {
+        "prompts": prompts_data,
+        "global_prompt_id": global_prompt_id
+    }
+
+@router.post("/admin/prompts/set-global/{prompt_id}")
+def set_global_default_prompt(prompt_id: int):
+    """Sets a specific prompt ID as the global default system prompt for all users."""
+    import datetime
+    try:
+        if prompt_id != 0:
+            prompt = models.TMACustomPrompt.get_or_none(models.TMACustomPrompt.id == prompt_id)
+            if not prompt:
+                raise HTTPException(status_code=404, detail="Prompt not found")
+        
+        now = datetime.datetime.now()
+        s, _ = models.TMASetting.get_or_create(key="GLOBAL_SYSTEM_PROMPT_ID", defaults={'value': str(prompt_id), 'updated_at': now})
+        s.value = str(prompt_id)
+        s.updated_at = now
+        s.save()
+        
+        return {"status": "ok", "global_prompt_id": prompt_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error setting global default prompt: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -69,6 +69,9 @@ async def start_handler(update: Update, context):
                 session.is_confirmed = True
                 session.save()
                 
+                from api import services
+                services.merge_guest_data(guest_id, user.id)
+                
                 logger.info(f"Auth Session Linked: guest={guest_id} -> user={user.id} ({user.first_name})")
                 
                 text = (

@@ -14,12 +14,18 @@ router = APIRouter(
 @router.post("/save")
 async def save_card(data: dict, user_id: int = Depends(get_user_id)):
     try:
+        from api import models
+        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+        if user and user.is_guest:
+            raise HTTPException(status_code=403, detail="Для создания и изменения карточек требуется авторизация через Telegram.")
         card = services.save_card(data, user_id)
         if card:
             await services.ensure_card_audio(card, user_id)
             # Сразу возвращаем полные данные для StudyView
             return services.format_card_for_study(card, user_id)
         raise HTTPException(status_code=400, detail="Could not save card. Check logs.")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Router save_card error: {e}")
         raise HTTPException(status_code=400, detail=str(e))

@@ -18,6 +18,10 @@ def get_decks(user_id: int = Depends(get_user_id)):
     
 @router.post("")
 def create_deck(data: dict, user_id: int = Depends(get_user_id)):
+    from api import models
+    user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+    if user and user.is_guest:
+        raise HTTPException(status_code=403, detail="Для создания колод требуется авторизация через Telegram.")
     deck = services.create_deck(data.get('name'), user_id, data.get('folder_id'))
     return {"status": "success", "id": deck.id}
 

@@ -46,6 +46,30 @@ def ensure_starter_decks(user_id: int, existing_names: set = None):
         return False
 
 
+def merge_guest_data(guest_id: int, target_user_id: int):
+    """Переносит колоды, папки, карточки и прогресс от guest_id к target_user_id."""
+    if not guest_id or not target_user_id or guest_id == target_user_id:
+        return False
+    try:
+        logger.info(f"MERGING GUEST DATA: guest_id={guest_id} -> target_user_id={target_user_id}")
+        now = datetime.datetime.now()
+        with tma_db.atomic():
+            # 1. Update folders
+            TMA_Folder.update(user_id=target_user_id, updated_at=now).where(TMA_Folder.user_id == guest_id).execute()
+            # 2. Update decks
+            TMA_Deck.update(user_id=target_user_id, updated_at=now).where(TMA_Deck.user_id == guest_id).execute()
+            # 3. Update cards creator_id
+            TMA_Card.update(creator_id=target_user_id, updated_at=now).where(TMA_Card.creator_id == guest_id).execute()
+            # 4. Update progress
+            tma_db.execute_sql("UPDATE tma_progress SET user_id = %s WHERE user_id = %s", (target_user_id, guest_id))
+        logger.info(f"MERGED GUEST DATA SUCCESSFULLY for guest_id={guest_id} -> {target_user_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error merging guest data {guest_id} -> {target_user_id}: {e}", exc_info=True)
+        return False
+
+
+
 def create_deck(name: str, user_id: int, folder_id: int = None):
     """Создает новую пользовательскую колоду."""
     try:

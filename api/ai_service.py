@@ -123,9 +123,19 @@ async def generate_card_fields(user_id: int, phrase: str):
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
-        from api.models import TMACustomPrompt
+        from api.models import TMACustomPrompt, TMASetting
         custom_prompt = TMACustomPrompt.get_or_none((TMACustomPrompt.user_id == user_id) & (TMACustomPrompt.is_active == True))
         
+        # If user has no active prompt, check for Global System Default Prompt set via Lerne UI
+        if not custom_prompt:
+            try:
+                global_setting = TMASetting.get_or_none(TMASetting.key == "GLOBAL_SYSTEM_PROMPT_ID")
+                if global_setting and global_setting.value:
+                    global_prompt_id = int(global_setting.value)
+                    custom_prompt = TMACustomPrompt.get_or_none(TMACustomPrompt.id == global_prompt_id)
+            except Exception as e:
+                logger.error(f"Error resolving global system prompt: {e}")
+
         base_prompt = DEFAULT_PROMPTS.get(lang, DEFAULT_PROMPTS["de"])
         if custom_prompt:
             if lang == "ru":
