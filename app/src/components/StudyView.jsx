@@ -368,6 +368,7 @@ export const StudyView = ({ startTutorial }) => {
   };
 
   const handleAutoplayAwareBack = async () => {
+    stopAudio();
     if (isAutoplayActive) {
       autoplay.cancelCurrent();
       const cards = currentDeck?.id === 'duplicates' ? duplicateCards : deckCards;
@@ -381,6 +382,7 @@ export const StudyView = ({ startTutorial }) => {
   };
 
   const handleAutoplayAwareNext = async () => {
+    stopAudio();
     if (isAutoplayActive) {
       autoplay.cancelCurrent();
       const cards = currentDeck?.id === 'duplicates' ? duplicateCards : deckCards;
@@ -458,7 +460,14 @@ export const StudyView = ({ startTutorial }) => {
   return (
     <div className="view-study">
       {currentDeck?.id !== 'duplicates' && !isAutoplayActive && (
-        <GradeButtons card={card} loading={loading} onGrade={submitGrade} />
+        <GradeButtons 
+          card={card} 
+          loading={loading} 
+          onGrade={(grade) => {
+            stopAudio();
+            submitGrade(grade);
+          }} 
+        />
       )}
 
       <motion.div

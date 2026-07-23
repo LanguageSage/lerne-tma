@@ -52,6 +52,10 @@ export const useUiStore = create((set) => ({
 
   userProfile: null,
   setUserProfile: (profile) => set({ userProfile: profile }),
+
+  isAuthModalOpen: false,
+  authModalTitle: 'Требуется авторизация',
+  setIsAuthModalOpen: (isOpen, title = 'Требуется авторизация') => set({ isAuthModalOpen: isOpen, authModalTitle: title }),
   
   activeFolderId: null,
   setActiveFolderId: (id) => set({ activeFolderId: id }),

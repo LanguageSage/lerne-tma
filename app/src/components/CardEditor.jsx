@@ -23,6 +23,14 @@ export const CardEditor = ({ startTutorial }) => {
   const videoFrontRef = useRef(null);
   const videoBackRef = useRef(null);
 
+  const [animDone, setAnimDone] = React.useState(false);
+
+  React.useEffect(() => {
+    if (view === 'editor') {
+      setAnimDone(false);
+    }
+  }, [view]);
+
   if (view !== 'editor') return null;
 
   const handleAiGenerate = async () => {
@@ -48,7 +56,13 @@ export const CardEditor = ({ startTutorial }) => {
 
   return (
     <div className="view-editor">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="view">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        onAnimationComplete={() => setAnimDone(true)}
+        style={animDone ? { transform: 'none' } : {}}
+        className="view"
+      >
         <div className="header-compact">
           <button className="back-btn" onClick={() => setView(editorSourceView)}><ChevronLeft size={24} /></button>
           <h2>Правка карточки</h2>

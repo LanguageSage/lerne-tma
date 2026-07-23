@@ -22,6 +22,7 @@ import { RenameDeckModal } from './components/RenameDeckModal';
 import { SyncModal } from './components/SyncModal';
 import { DuplicateManager } from './components/DuplicateManager';
 import { TrashManager } from './components/TrashManager';
+import { AuthRequiredModal } from './components/AuthRequiredModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
@@ -309,6 +310,12 @@ export default function App() {
         onShare={handleShareCard}
         onEdit={(c) => openEditor(c.deck_id || currentDeck?.id, c, view)}
         loading={loading}
+      />
+
+      <AuthRequiredModal
+        isOpen={useUiStore(s => s.isAuthModalOpen)}
+        onClose={() => useUiStore.getState().setIsAuthModalOpen(false)}
+        title={useUiStore(s => s.authModalTitle)}
       />
 
       <Toast toast={toast} />

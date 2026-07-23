@@ -94,12 +94,20 @@ export const PromptsTab = () => {
       showToast("Укажите название промпта");
       return;
     }
+    const finalTranslation = editingPrompt.isSplit 
+      ? editingPrompt.translation_prompt 
+      : editingPrompt.instruction;
+
+    const finalContext = editingPrompt.isSplit 
+      ? editingPrompt.context_prompt 
+      : editingPrompt.instruction;
+
     try {
       await api.post('/user/prompts', {
         id: editingPrompt.id,
         name: editingPrompt.name,
-        translation_prompt: editingPrompt.translation_prompt,
-        context_prompt: editingPrompt.context_prompt
+        translation_prompt: finalTranslation,
+        context_prompt: finalContext
       });
       showToast(editingPrompt.id ? "Промпт обновлен" : "Промпт создан", "success");
       setEditingPrompt(null);
@@ -122,20 +130,32 @@ export const PromptsTab = () => {
       }
     }
     
+    const cleanDe = getCleanInstruction(activeTranslation);
+    const cleanRu = getCleanInstruction(activeContext);
+    const isDifferent = Boolean(cleanDe && cleanRu && cleanDe !== cleanRu);
+
     setEditingPrompt({
       id: null,
       name: "Мой промпт",
-      translation_prompt: getCleanInstruction(activeTranslation),
-      context_prompt: getCleanInstruction(activeContext)
+      instruction: cleanDe || cleanRu || "",
+      translation_prompt: cleanDe,
+      context_prompt: cleanRu,
+      isSplit: isDifferent
     });
   };
 
   const handleEditPrompt = (prompt) => {
+    const cleanDe = getCleanInstruction(prompt.translation_prompt);
+    const cleanRu = getCleanInstruction(prompt.context_prompt);
+    const isDifferent = Boolean(cleanDe && cleanRu && cleanDe !== cleanRu);
+
     setEditingPrompt({
       id: prompt.id,
       name: prompt.name,
-      translation_prompt: getCleanInstruction(prompt.translation_prompt),
-      context_prompt: getCleanInstruction(prompt.context_prompt)
+      instruction: cleanDe || cleanRu || "",
+      translation_prompt: cleanDe,
+      context_prompt: cleanRu,
+      isSplit: isDifferent
     });
   };
 
@@ -161,8 +181,8 @@ export const PromptsTab = () => {
         }}>
           <Lightbulb size={20} style={{ color: '#38bdf8', flexShrink: 0, marginTop: '2px' }} />
           <div style={{ fontSize: '0.85rem', lineHeight: '1.4', color: '#e2e8f0' }}>
-            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Инструкции для ИИ</strong>
-            Задайте правила разбора слов, грамматики и примеры использования. Настройки разделены по языку ввода.
+            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Инструкция для ИИ</strong>
+            Задайте единые правила разбора слов, грамматики и примеры. Они будут автоматически применены к запросам на немецком и русском языках.
           </div>
         </div>
         
@@ -176,27 +196,72 @@ export const PromptsTab = () => {
           />
         </div>
 
-        <div className="form-group">
-          <label>Инструкции для разбора немецкого (при вводе на немецком)</label>
-          <p className="field-hint">Определяет правила разбора слов, грамматики и количество примеров в карточке при разборе немецкого слова</p>
-          <textarea 
-            value={editingPrompt.translation_prompt} 
-            onChange={e => setEditingPrompt({ ...editingPrompt, translation_prompt: e.target.value })} 
-            rows={5} 
-            placeholder="Например: объясни отдельные слова с переводом на русский и грамматику, затем дай 3 примера. Очень коротко и ясно..."
-          />
-        </div>
+        {!editingPrompt.isSplit ? (
+          <div className="form-group">
+            <label>Инструкция для ИИ (для всех языков ввода)</label>
+            <p className="field-hint">Правила разбора слов, разбора грамматики и количество примеров в создаваемой карточке</p>
+            <textarea 
+              value={editingPrompt.instruction} 
+              onChange={e => setEditingPrompt({ ...editingPrompt, instruction: e.target.value })} 
+              rows={6} 
+              placeholder="Например: объясни отдельные слова с переводом на русский и грамматику, затем дай 3 примера. Очень коротко и ясно..."
+            />
+            <div style={{ marginTop: '8px' }}>
+              <button 
+                type="button"
+                className="btn-link"
+                style={{ fontSize: '0.75rem', color: '#38bdf8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                onClick={() => setEditingPrompt({
+                  ...editingPrompt,
+                  isSplit: true,
+                  translation_prompt: editingPrompt.translation_prompt || editingPrompt.instruction,
+                  context_prompt: editingPrompt.context_prompt || editingPrompt.instruction
+                })}
+              >
+                ⚙️ Раздельные инструкции для немецкого и русского
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="form-group">
+              <label>Инструкции для разбора немецкого (при вводе на немецком)</label>
+              <p className="field-hint">Правила разбора немецкого слова</p>
+              <textarea 
+                value={editingPrompt.translation_prompt} 
+                onChange={e => setEditingPrompt({ ...editingPrompt, translation_prompt: e.target.value })} 
+                rows={4} 
+                placeholder="Инструкция при вводе немецкого слова..."
+              />
+            </div>
 
-        <div className="form-group" style={{ marginTop: '15px' }}>
-          <label>Инструкции для перевода с русского (при вводе на русском)</label>
-          <p className="field-hint">Определяет правила перевода слов, разбора грамматики и создания примеров при переводе русского слова</p>
-          <textarea 
-            value={editingPrompt.context_prompt} 
-            onChange={e => setEditingPrompt({ ...editingPrompt, context_prompt: e.target.value })} 
-            rows={5} 
-            placeholder="Например: переведи фразу на немецкий, объясни отдельные слова с переводом на русский и грамматику, затем дай 3 примера..."
-          />
-        </div>
+            <div className="form-group" style={{ marginTop: '15px' }}>
+              <label>Инструкции для перевода с русского (при вводе на русском)</label>
+              <p className="field-hint">Правила перевода и разбора русского слова</p>
+              <textarea 
+                value={editingPrompt.context_prompt} 
+                onChange={e => setEditingPrompt({ ...editingPrompt, context_prompt: e.target.value })} 
+                rows={4} 
+                placeholder="Инструкция при вводе русского слова..."
+              />
+            </div>
+
+            <div style={{ marginTop: '8px' }}>
+              <button 
+                type="button"
+                className="btn-link"
+                style={{ fontSize: '0.75rem', color: '#38bdf8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                onClick={() => setEditingPrompt({
+                  ...editingPrompt,
+                  isSplit: false,
+                  instruction: editingPrompt.translation_prompt || editingPrompt.context_prompt || editingPrompt.instruction
+                })}
+              >
+                ← Объединить в единую инструкцию
+              </button>
+            </div>
+          </>
+        )}
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
           <button className="btn btn-primary btn-small" style={{ flex: 1 }} onClick={handleSavePrompt}>Сохранить</button>

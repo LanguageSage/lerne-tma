@@ -18,6 +18,9 @@ export const CardCreator = ({ startTutorial }) => {
   const { playAudio } = useAudio();
   const { autoPlay } = useSettingsStore();
 
+  const editingCardDeckId = useSessionStore.getState().editingCard?.deck_id;
+  const initialDeckId = editingCardDeckId !== undefined ? editingCardDeckId : (currentDeck?.id === 'favorites' ? '' : currentDeck?.id);
+
   const [newCardData, setNewCardData] = useState({
     front: '',
     back: '',
@@ -26,7 +29,7 @@ export const CardCreator = ({ startTutorial }) => {
     audio_url: '',
     image_path: '',
     image_url: '',
-    deck_id: currentDeck?.id
+    deck_id: initialDeckId
   });
 
   const handleBack = () => {
@@ -39,14 +42,19 @@ export const CardCreator = ({ startTutorial }) => {
     }
   };
 
+  const [animDone, setAnimDone] = useState(false);
+
   useEffect(() => {
     if (view === 'creator') {
+      const activeEditingDeckId = useSessionStore.getState().editingCard?.deck_id;
+      const targetId = activeEditingDeckId !== undefined ? activeEditingDeckId : (currentDeck?.id === 'favorites' ? '' : currentDeck?.id);
       setNewCardData({
         front: '',
         back: '',
         context: '',
-        deck_id: currentDeck?.id === 'favorites' ? '' : currentDeck?.id
+        deck_id: targetId
       });
+      setAnimDone(false);
     }
   }, [view, currentDeck?.id]);
 
@@ -76,7 +84,13 @@ export const CardCreator = ({ startTutorial }) => {
 
   return (
     <div className="view-creator">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="view">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        onAnimationComplete={() => setAnimDone(true)}
+        style={animDone ? { transform: 'none' } : {}}
+        className="view"
+      >
         <div className="header-compact">
           <button className="back-btn" onClick={handleBack}><ChevronLeft size={24} /></button>
           <h2>Новая карточка</h2>

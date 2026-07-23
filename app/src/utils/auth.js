@@ -50,7 +50,11 @@ export const getUserProfile = () => {
         photo_url: u.photo_url,
         is_guest: false
       };
+      const existingSavedId = storage.get('lerne_user_id');
       if (profile.user_id !== null) {
+        if (existingSavedId && parseInt(existingSavedId, 10) !== profile.user_id) {
+          storage.set('lerne_previous_guest_id', existingSavedId);
+        }
         storage.set('lerne_user_id', profile.user_id);
         storage.set('lerne_user_profile', JSON.stringify(profile));
         return profile;

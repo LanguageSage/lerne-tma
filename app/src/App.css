@@ -292,6 +292,11 @@
   display: block;
   box-sizing: border-box;
   padding: 8px;
+  isolation: isolate;
+  transform: translateZ(0);
+  -webkit-tap-highlight-color: transparent;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 

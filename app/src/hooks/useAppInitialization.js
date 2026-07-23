@@ -48,10 +48,29 @@ export const useAppInitialization = (checkStartParam) => {
       if (document.visibilityState === 'visible') {
         console.log("App became visible, re-checking parameters...");
         setTimeout(checkStartParam, 500);
+        if (isOfflineMode() && navigator.onLine) {
+          syncService.sync().catch(e => console.error("Visibility sync failed:", e));
+        }
+      }
+    };
+
+    // Listen for online event (reconnection)
+    const handleOnline = () => {
+      console.log("[Sync] Network online detected. Triggering auto-sync...");
+      if (isOfflineMode()) {
+        syncService.sync().catch(e => console.error("Online event sync failed:", e));
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
+    // Periodic background sync every 60 seconds
+    const syncInterval = setInterval(() => {
+      if (isOfflineMode() && navigator.onLine) {
+        syncService.sync().catch(e => console.error("Periodic sync failed:", e));
+      }
+    }, 60000);
 
     const USER_ID = getUserId();
     const params = new URLSearchParams(window.location.search);
@@ -79,6 +98,8 @@ export const useAppInitialization = (checkStartParam) => {
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+      clearInterval(syncInterval);
     };
   }, []);
 

@@ -231,6 +231,12 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const { openEditor, openCreator } = useCardNavigation();
 
   React.useEffect(() => {
+    if (view === 'cards' && currentDeck?.id) {
+      useDeckStore.getState().fetchDeckCards(currentDeck.id);
+    }
+  }, [view, currentDeck?.id]);
+
+  React.useEffect(() => {
     if (lastSelectedCardId) {
       const timer = setTimeout(() => {
         const el = document.getElementById(`card-item-${lastSelectedCardId}`);

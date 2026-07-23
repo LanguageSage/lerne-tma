@@ -234,6 +234,7 @@ export const StudyCard = ({
 
   // Check puzzle correctness when selectedPuzzles changes (on tap and drag-reorder)
   useEffect(() => {
+    if (loading) return;
     if (studyMode !== 'puzzle' || !puzzleData || selectedPuzzles.length === 0) return;
     if (isFlipped) return;
 
@@ -253,7 +254,7 @@ export const StudyCard = ({
         window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
       }
     }
-  }, [selectedPuzzles, puzzleData, studyMode, isFlipped, card.audio_url, playAudio, onFlip]);
+  }, [selectedPuzzles, puzzleData, studyMode, isFlipped, card.audio_url, playAudio, onFlip, loading]);
 
   // ----------------- 3. Speech Recognition Logic -----------------
   const startSpeechRecognition = (e) => {

@@ -118,10 +118,10 @@ export const useDeckStore = create((set, get) => ({
     set({ cardsLoading: true });
     try {
       if (deckId === 'favorites') {
-        const res = await api.get('/cards/favorites');
+        const res = await api.get(`/cards/favorites?_t=${Date.now()}`);
         set({ deckCards: res.data });
       } else {
-        const res = await api.get(`/decks/${deckId}/cards`);
+        const res = await api.get(`/decks/${deckId}/cards?_t=${Date.now()}`);
         set({ deckCards: res.data });
       }
     } catch (err) {

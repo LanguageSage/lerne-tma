@@ -45,7 +45,14 @@ export const useCardEditor = () => {
       const fullCard = res.data;
       showToast("Сохранено", "success");
 
-      // Всегда обновляем список колод, чтобы счетчики были актуальны
+      // Всегда обновляем список колод и карточки целевой колоды
+      const targetDeckId = fullCard.deck_id || finalDeckId || currentDeck?.id;
+      if (targetDeckId) {
+        useDeckStore.setState(state => ({
+          deckCards: [fullCard, ...state.deckCards.filter(c => c.id !== fullCard.id)]
+        }));
+        await fetchDeckCards(targetDeckId);
+      }
       fetchDecks(true);
 
       if (ui.editorSourceView === 'study') {
@@ -70,7 +77,6 @@ export const useCardEditor = () => {
         }
         setView('study');
       } else if (ui.editorSourceView === 'cards') {
-        await fetchDeckCards(data.deck_id || currentDeck?.id);
         setView('cards');
       } else if (ui.editorSourceView === 'duplicates') {
         const { fetchDuplicates } = useDeckStore.getState();

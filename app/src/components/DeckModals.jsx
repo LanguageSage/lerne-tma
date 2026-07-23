@@ -140,17 +140,38 @@ export const DeckModals = () => {
           <div className="settings-content">
             {deckModalMode === 'choice' && (
               <div className="choice-grid">
-                <button className="btn btn-primary btn-full choice-btn" onClick={() => setDeckModalMode('create')}>
+                <button className="btn btn-primary btn-full choice-btn" onClick={() => {
+                  if (useUiStore.getState().userProfile?.is_guest) {
+                    setIsNewDeckModalOpen(false);
+                    useUiStore.getState().setIsAuthModalOpen(true, "Для создания колод войдите через Telegram");
+                    return;
+                  }
+                  setDeckModalMode('create');
+                }}>
                   <Plus size={20} /> Создать колоду
                 </button>
-                <button className="btn btn-primary btn-full choice-btn" onClick={() => setDeckModalMode('create_folder')} style={{ background: '#4f46e5' }}>
+                <button className="btn btn-primary btn-full choice-btn" onClick={() => {
+                  if (useUiStore.getState().userProfile?.is_guest) {
+                    setIsNewDeckModalOpen(false);
+                    useUiStore.getState().setIsAuthModalOpen(true, "Для создания папок войдите через Telegram");
+                    return;
+                  }
+                  setDeckModalMode('create_folder');
+                }} style={{ background: '#4f46e5' }}>
                   <Folder size={20} /> Создать папку
                 </button>
                 <button className="btn-secondary btn-full choice-btn" onClick={handleFetchExternal} disabled={isImportLoading}>
                   {isImportLoading ? <RefreshCw size={20} className="spin" /> : <Layers size={20} />} 
                   {isImportLoading ? ' Загрузка...' : ' Из Библиотеки'}
                 </button>
-                <button className="btn-secondary btn-full choice-btn" onClick={() => fileInputRef.current?.click()}>
+                <button className="btn-secondary btn-full choice-btn" onClick={() => {
+                  if (useUiStore.getState().userProfile?.is_guest) {
+                    setIsNewDeckModalOpen(false);
+                    useUiStore.getState().setIsAuthModalOpen(true, "Для импорта колод войдите через Telegram");
+                    return;
+                  }
+                  fileInputRef.current?.click();
+                }}>
                   <Plus size={20} style={{ transform: 'rotate(45deg)' }} /> Загрузить JSON
                 </button>
                 <input 
