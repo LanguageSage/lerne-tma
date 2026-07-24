@@ -173,7 +173,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
     }
 
     if include_intervals:
-        result["intervals"] = srs.get_next_intervals(p) if p else []
+        result["intervals"] = srs.get_next_intervals(p)
     else:
         result["queue"] = getattr(p, 'queue', 'new') if p else "new"
         result["interval"] = getattr(p, 'interval', 0) if p else 0

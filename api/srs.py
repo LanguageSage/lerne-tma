@@ -12,16 +12,24 @@ GRADUATING_INTERVAL_EASY = 4  # дни
 HARD_MULTIPLIER = 1.1 # В lerne/logic/srs_manager.py используется 1.1
 EASY_MULTIPLIER = 1.3
 
+class _DummyProgress:
+    queue = 'new'
+    step_index = 0
+    interval = 0
+    ease_factor = INITIAL_EASE_FACTOR
+    lapses = 0
+
 def get_next_intervals(progress) -> dict[int, str]:
     """Возвращает текстовые описания следующих интервалов для кнопок."""
+    p = progress if progress is not None else _DummyProgress()
     res = {}
     now = datetime.datetime.now()
     for grade in range(4):
-        if progress.queue in ['new', 'learning', 'relearning']:
-            new_queue, val, _ = _calc_learning_next_state(progress, grade, now)
+        if p.queue in ['new', 'learning', 'relearning']:
+            new_queue, val, _ = _calc_learning_next_state(p, grade, now)
             is_days = (new_queue == 'review')
         else:
-            new_queue, val, _, _, _ = _calc_review_next_state(progress, grade, now)
+            new_queue, val, _, _, _ = _calc_review_next_state(p, grade, now)
             is_days = (new_queue != 'relearning')
             
         res[grade] = format_interval(val, is_days)

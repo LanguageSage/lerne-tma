@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Eye, Volume2, Mic, MicOff, Check, AlertCircle, Undo, Sparkles } from 'lucide-react';
+import { RefreshCw, Eye, Volume2, Mic, MicOff, Check, AlertCircle, Undo, Sparkles, Sliders } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useDeckStore } from '../../store/useDeckStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 export const StudyCard = ({
   card,
@@ -50,8 +51,14 @@ export const StudyCard = ({
   const cachedRectsRef = useRef([]);
   
   const recognitionRef = useRef(null);
+  const silenceTimerRef = useRef(null);
+  const cardFrontRef = useRef(card.front);
 
-  // Reset interactive states when card or mode changes
+  useEffect(() => {
+    cardFrontRef.current = card.front;
+  }, [card.front]);
+
+  // Reset interactive states when card, card content or mode changes
   useEffect(() => {
     setWrongSelected([]);
     setCorrectSelected(null);
@@ -65,16 +72,24 @@ export const StudyCard = ({
     setDragStartPos(null);
     setDragCurrentPos(null);
 
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
       } catch (e) {}
     }
-  }, [card.id, studyMode]);
+  }, [card.id, card.front, card.back, card.updated_at, studyMode]);
 
   // Cleanup speech recognition on unmount
   useEffect(() => {
     return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -168,7 +183,7 @@ export const StudyCard = ({
       correctAnswer: cleanTarget,
       choices
     };
-  }, [card.id, studyMode]);
+  }, [card.id, card.front, card.back, card.updated_at, studyMode]);
 
   const handleClozeClick = (option, e) => {
     e.stopPropagation();
@@ -211,7 +226,7 @@ export const StudyCard = ({
       cleanWords,
       shuffledWords
     };
-  }, [card.id, studyMode]);
+  }, [card.id, card.front, card.back, card.updated_at, studyMode]);
 
   const handlePuzzleChipClick = (wordObj, e) => {
     e.stopPropagation();
@@ -257,6 +272,76 @@ export const StudyCard = ({
   }, [selectedPuzzles, puzzleData, studyMode, isFlipped, card.audio_url, playAudio, onFlip, loading]);
 
   // ----------------- 3. Speech Recognition Logic -----------------
+  const stopSpeechRecognition = (e) => {
+    e?.stopPropagation();
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+  };
+
+  const evaluateSpeech = (transcript, isFinalOrManualStop = false) => {
+    if (!transcript) return false;
+    const cleanTranscript = transcript.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").trim();
+    const cleanOriginal = stripMarkdown(cardFrontRef.current || card.front).toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").trim();
+
+    if (!cleanTranscript || !cleanOriginal) return false;
+
+    const originalWords = cleanOriginal.split(/\s+/).filter(Boolean);
+    const transcriptWords = cleanTranscript.split(/\s+/).filter(Boolean);
+
+    let matchCount = 0;
+    originalWords.forEach(w => {
+      if (transcriptWords.includes(w)) {
+        matchCount++;
+      }
+    });
+
+    const matchRatio = originalWords.length > 0 ? matchCount / originalWords.length : 0;
+    const currentThreshold = speechMatchThreshold || 75;
+
+    // 1. Percentage overlap match: word ratio >= threshold %
+    const ratioMatched = (matchRatio * 100) >= currentThreshold;
+
+    // 2. Exact match
+    const exactMatched = cleanTranscript === cleanOriginal;
+
+    // 3. Spoke target + extra words (e.g. Target: "Tisch", Spoke: "der Tisch")
+    const extraSpokenMatched = cleanTranscript.includes(cleanOriginal) && (originalWords.length / transcriptWords.length >= 0.6);
+
+    // 4. Spoke fragment of target: ONLY if word coverage ratio ALSO meets threshold!
+    const fragmentMatched = cleanOriginal.includes(cleanTranscript) && ((matchRatio * 100) >= currentThreshold);
+
+    const isMatched = ratioMatched || exactMatched || extraSpokenMatched || fragmentMatched;
+
+    if (isMatched) {
+      setSpeechSuccess(true);
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+      if (card.audio_url) playAudio(card.audio_url);
+      setTimeout(() => {
+        onFlip(true);
+      }, 800);
+      return true;
+    } else if (isFinalOrManualStop) {
+      setSpeechSuccess(false);
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+      return false;
+    }
+    return false;
+  };
+
   const startSpeechRecognition = (e) => {
     e?.stopPropagation();
     
@@ -266,6 +351,14 @@ export const StudyCard = ({
       return;
     }
 
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {}
+    }
+
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+
     setSpeechError("");
     setRecognizedText("");
     setSpeechSuccess(false);
@@ -273,7 +366,7 @@ export const StudyCard = ({
     try {
       const rec = new SpeechRecognition();
       rec.lang = 'de-DE';
-      rec.interimResults = false;
+      rec.interimResults = true;
       rec.maxAlternatives = 1;
 
       rec.onstart = () => {
@@ -285,7 +378,7 @@ export const StudyCard = ({
         console.error("Speech Error:", err);
         if (err.error === 'not-allowed') {
           setSpeechError("Нет доступа к микрофону.");
-        } else {
+        } else if (err.error !== 'no-speech' && err.error !== 'aborted') {
           setSpeechError("Ошибка распознавания. Попробуйте еще раз.");
         }
         setIsListening(false);
@@ -293,39 +386,31 @@ export const StudyCard = ({
 
       rec.onend = () => {
         setIsListening(false);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       };
 
       rec.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setRecognizedText(transcript);
+        let currentText = '';
+        let isFinal = false;
 
-        const cleanTranscript = transcript.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").trim();
-        const cleanOriginal = stripMarkdown(card.front).toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").trim();
-
-        // Нечеткое сравнение слов (fuzzy word overlap, >= 75%)
-        const originalWords = cleanOriginal.split(/\s+/).filter(Boolean);
-        const transcriptWords = cleanTranscript.split(/\s+/).filter(Boolean);
-        
-        let matchCount = 0;
-        originalWords.forEach(w => {
-          if (transcriptWords.includes(w)) {
-            matchCount++;
+        for (let i = 0; i < event.results.length; i++) {
+          currentText += event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            isFinal = true;
           }
-        });
-        
-        const matchRatio = originalWords.length > 0 ? matchCount / originalWords.length : 0;
-        const isMatched = (matchRatio * 100) >= speechMatchThreshold || cleanTranscript === cleanOriginal || cleanOriginal.includes(cleanTranscript) || cleanTranscript.includes(cleanOriginal);
+        }
 
-        if (isMatched) {
-          setSpeechSuccess(true);
-          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
-          if (card.audio_url) playAudio(card.audio_url);
-          setTimeout(() => {
-            onFlip(true);
-          }, 1000);
-        } else {
-          setSpeechSuccess(false);
-          window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+        setRecognizedText(currentText);
+
+        const matched = evaluateSpeech(currentText, isFinal);
+
+        // Auto silence timer: if user pauses speaking for 2.2s, stop recording and do final evaluation
+        if (!matched) {
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = setTimeout(() => {
+            stopSpeechRecognition();
+            evaluateSpeech(currentText, true);
+          }, 2200);
         }
       };
 
@@ -337,12 +422,16 @@ export const StudyCard = ({
     }
   };
 
-  const stopSpeechRecognition = (e) => {
+  const toggleSpeechRecognition = (e) => {
     e?.stopPropagation();
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
+    e?.preventDefault();
+    if (isListening) {
+      stopSpeechRecognition(e);
+      if (recognizedText) {
+        evaluateSpeech(recognizedText, true);
+      }
+    } else {
+      startSpeechRecognition(e);
     }
   };
 
@@ -366,7 +455,7 @@ export const StudyCard = ({
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         id="tut-study-card"
-        key={`${card.id}-${historyIndex}`}
+        key={`${card.id}-${card.front}-${historyIndex}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -669,13 +758,30 @@ export const StudyCard = ({
                   <div className="text-hint-translation" style={{ marginBottom: '10px' }}>{stripMarkdown(card.back)}</div>
                   <div className="text-front speak-target-text" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.front)}</div>
 
+                  {/* Quick Speech Accuracy Threshold Selector */}
+                  <div className="speak-threshold-selector" onClick={e => e.stopPropagation()}>
+                    <span className="threshold-label"><Sliders size={14} /> Точность:</span>
+                    {[50, 75, 85, 100].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        className={`btn-threshold-pill ${speechMatchThreshold === val ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          useSettingsStore.getState().setSpeechMatchThreshold(val);
+                          window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
+                        }}
+                      >
+                        {val}%
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="speak-mic-area">
                     <button 
+                      type="button"
                       className={`btn-speak-mic ${isListening ? 'listening' : ''} ${speechSuccess ? 'success' : ''}`}
-                      onMouseDown={startSpeechRecognition}
-                      onMouseUp={stopSpeechRecognition}
-                      onTouchStart={startSpeechRecognition}
-                      onTouchEnd={stopSpeechRecognition}
+                      onClick={toggleSpeechRecognition}
                     >
                       {isListening ? (
                         <div className="recording-wave-rings">
@@ -687,25 +793,25 @@ export const StudyCard = ({
                       {speechSuccess ? <Check size={32} /> : <Mic size={32} />}
                     </button>
                     <p className="mic-help-label">
-                      {isListening ? "Слушаю... Отпустите для проверки" : "Зажмите микрофон и говорите"}
+                      {isListening ? "Слушаю... Нажмите для проверки" : "Нажмите микрофон и говорите"}
                     </p>
                   </div>
 
                   {recognizedText && (
                     <div className="recognized-transcript-bubble glass">
-                      <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>Вы сказали: </span>
-                      <strong style={{ color: speechSuccess ? '#10b981' : '#f43f5e' }}>{recognizedText}</strong>
+                      <span style={{ fontSize: '0.9rem', opacity: 0.8, color: '#cbd5e1' }}>Вы сказали: </span>
+                      <strong style={{ color: speechSuccess ? '#10b981' : '#f43f5e', fontSize: '1.05rem', marginLeft: '4px' }}>{recognizedText}</strong>
                       {speechSuccess ? (
-                        <Check size={16} color="#10b981" style={{ display: 'inline-block', marginLeft: '6px' }} />
+                        <Check size={20} color="#10b981" style={{ display: 'inline-block', marginLeft: '6px' }} />
                       ) : (
-                        <AlertCircle size={16} color="#f43f5e" style={{ display: 'inline-block', marginLeft: '6px' }} />
+                        <AlertCircle size={20} color="#f43f5e" style={{ display: 'inline-block', marginLeft: '6px' }} />
                       )}
                     </div>
                   )}
 
                   {speechError && (
                     <div className="speech-error-badge">
-                      <AlertCircle size={14} />
+                      <AlertCircle size={16} />
                       <span>{speechError}</span>
                     </div>
                   )}

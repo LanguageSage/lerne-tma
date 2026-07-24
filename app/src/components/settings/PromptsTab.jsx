@@ -132,7 +132,6 @@ export const PromptsTab = () => {
     
     const cleanDe = getCleanInstruction(activeTranslation);
     const cleanRu = getCleanInstruction(activeContext);
-    const isDifferent = Boolean(cleanDe && cleanRu && cleanDe !== cleanRu);
 
     setEditingPrompt({
       id: null,
@@ -140,14 +139,13 @@ export const PromptsTab = () => {
       instruction: cleanDe || cleanRu || "",
       translation_prompt: cleanDe,
       context_prompt: cleanRu,
-      isSplit: isDifferent
+      isSplit: false
     });
   };
 
   const handleEditPrompt = (prompt) => {
     const cleanDe = getCleanInstruction(prompt.translation_prompt);
     const cleanRu = getCleanInstruction(prompt.context_prompt);
-    const isDifferent = Boolean(cleanDe && cleanRu && cleanDe !== cleanRu);
 
     setEditingPrompt({
       id: prompt.id,
@@ -155,7 +153,7 @@ export const PromptsTab = () => {
       instruction: cleanDe || cleanRu || "",
       translation_prompt: cleanDe,
       context_prompt: cleanRu,
-      isSplit: isDifferent
+      isSplit: false
     });
   };
 
