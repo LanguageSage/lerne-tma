@@ -42,16 +42,13 @@ app.add_middleware(
 # Управление жизненным циклом соединений с базой данных (Peewee Connection Pool)
 @app.middleware("http")
 async def db_session_middleware(request, call_next):
-    # Убеждаемся, что перед началом запроса соединения закрыты/сброшены, если они остались в сталом состоянии от прошлых потоков/сна
     try:
-        if not models.tma_db.is_closed():
-            models.tma_db.close()
-        if not models.lerne_db.is_closed():
-            models.lerne_db.close()
-        models.tma_db.connect(reuse_if_open=True)
-        models.lerne_db.connect(reuse_if_open=True)
+        if models.tma_db.is_closed():
+            models.tma_db.connect(reuse_if_open=True)
+        if models.lerne_db.is_closed():
+            models.lerne_db.connect(reuse_if_open=True)
     except Exception as e:
-        logger.error(f"Error resetting DB connections before request: {e}")
+        logger.error(f"Error checking DB connection before request: {e}")
         try:
             models.initialize_database()
             models.tma_db.connect(reuse_if_open=True)
@@ -68,13 +65,9 @@ async def db_session_middleware(request, call_next):
             response.headers["Expires"] = "0"
         return response
     finally:
-        try:
-            if not models.tma_db.is_closed():
-                models.tma_db.close()
-            if not models.lerne_db.is_closed():
-                models.lerne_db.close()
-        except Exception as e:
-            logger.error(f"Error closing DB connections in middleware: {e}")
+        # PooledPostgresqlDatabase manages connection lifecycles automatically.
+        # We do not close pooled connections here to allow connection reuse.
+        pass
 
 # Подключение роутеров
 app.include_router(decks.router, prefix="/api")

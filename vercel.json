@@ -11,6 +11,12 @@
       "config": { "distDir": "dist" }
     }
   ],
+  "crons": [
+    {
+      "path": "/api/ping",
+      "schedule": "0 0 * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/api/ping",

@@ -22,10 +22,14 @@ STARTER_DECK_NAMES = [
 
 def ensure_starter_decks(user_id: int, existing_names: set = None):
     try:
-        user = TMAUser.get_or_none(TMAUser.user_id == user_id)
-        if user and user.default_decks_initialized:
+        user, _ = TMAUser.get_or_create(user_id=user_id, defaults={'first_name': 'Пользователь'})
+        if user.default_decks_initialized:
             return True
             
+        # Mark as initialized immediately to avoid concurrent re-triggering
+        user.default_decks_initialized = True
+        user.save()
+
         if existing_names is None:
             existing_decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id))
             existing_names = {d.name for d in existing_decks}
@@ -37,13 +41,11 @@ def ensure_starter_decks(user_id: int, existing_names: set = None):
             for lib_deck in default_decks:
                 if lib_deck.name not in existing_names:
                     import_deck(lib_deck.id, user_id)
-            if user:
-                user.default_decks_initialized = True
-                user.save()
         return True
     except Exception as e:
         logger.error(f"Error in ensure_starter_decks: {e}")
         return False
+
 
 
 def merge_guest_data(guest_id: int, target_user_id: int):
@@ -380,9 +382,23 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                 
             logger.info(f"IMPORT MERGE: Processing deck '{local_deck.name}' for user {user_id}")
                 
+            # Check if local deck is empty for fast direct SQL insert
+            local_cards_query = TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)
+            if not local_cards_query.exists():
+                sql = f"""
+                    INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
+                    SELECT {local_deck.id}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported from library"]'
+                    FROM card WHERE deck_id = {external_deck_id} AND is_deleted = false
+                """
+                tma_db.execute_sql(sql)
+                local_deck.updated_at = datetime.datetime.now()
+                local_deck.save()
+                logger.info(f"FAST IMPORT MERGE: Deck '{local_deck.name}' cards copied in single SQL query")
+                return local_deck
+
             # Update existing cards & insert new ones
             remote_cards = list(Card.select().where(Card.deck_id == external_deck_id))
-            local_cards = {c.front_text: c for c in TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)}
+            local_cards = {c.front_text: c for c in local_cards_query}
             
             logger.info(f"MERGE STATS: {len(remote_cards)} in library, {len(local_cards)} in local")
             

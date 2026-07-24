@@ -329,6 +329,12 @@ class Card(Model):
 
 try:
     initialize_database()
-    create_all_tables()
+    # On Vercel serverless, skip running 50+ migration SQL queries on every lambda cold start
+    # unless RUN_MIGRATIONS=true is explicitly set.
+    should_run_migrations = os.environ.get("RUN_MIGRATIONS", "false").lower() in ("true", "1")
+    is_local_env = not os.environ.get("VERCEL") or os.environ.get("FORCE_LOCAL_DB", "false").lower() == "true"
+    
+    if should_run_migrations or is_local_env:
+        create_all_tables()
 except Exception as e:
     logger.error(f"CRITICAL: Database initialization failed: {e}")

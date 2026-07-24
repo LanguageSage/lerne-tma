@@ -25,7 +25,13 @@ export const useAppInitialization = (checkStartParam) => {
       const profile = getUserProfile();
       setUserProfile(profile);
       
-      // Выполняем авто-синхронизацию при наличии сети перед загрузкой данных
+      // Instant UI restore from cache if available
+      loadCachedInitData();
+
+      // 1. Await profile sync FIRST to guarantee user exists in backend DB before fetching initial decks
+      await syncProfile(profile);
+      
+      // 2. Perform auto-sync in offline mode if online
       if (isOfflineMode() && navigator.onLine) {
         try {
           await syncService.sync();
@@ -34,7 +40,7 @@ export const useAppInitialization = (checkStartParam) => {
         }
       }
       
-      syncProfile(profile);
+      // 3. Fetch fresh init data from backend
       await fetchInitData();
     };
     
@@ -103,9 +109,32 @@ export const useAppInitialization = (checkStartParam) => {
     };
   }, []);
 
+  const loadCachedInitData = () => {
+    try {
+      const cachedRaw = storage.get('lerne_init_cache');
+      if (cachedRaw) {
+        const data = JSON.parse(cachedRaw);
+        const { setDecks, setFolders } = useDeckStore.getState();
+        if (data.decks && data.decks.length > 0) {
+          setDecks(data.decks);
+        }
+        if (data.folders) {
+          setFolders(data.folders);
+        }
+        if (data.settings) setAdminSettings(data.settings);
+        if (data.prompts) setUserPrompts(data.prompts);
+      }
+    } catch (e) {
+      console.error("Failed to load cached init data:", e);
+    }
+  };
+
   const fetchInitData = async () => {
     const { setDecks, setFolders, fetchDuplicates, fetchFavorites } = useDeckStore.getState();
-    useUiStore.setState({ loading: true });
+    const currentDecks = useDeckStore.getState().decks;
+    if (!currentDecks || currentDecks.length === 0) {
+      useUiStore.setState({ loading: true });
+    }
     try {
       const res = await api.get('/init');
       setDecks(res.data.decks);
@@ -114,13 +143,19 @@ export const useAppInitialization = (checkStartParam) => {
       }
       setAdminSettings(res.data.settings);
       setUserPrompts(res.data.prompts);
+      // Cache init response for instant future starts
+      storage.set('lerne_init_cache', JSON.stringify(res.data));
       fetchDuplicates();
       fetchFavorites();
     } catch (err) {
       console.error("Init Data Error:", err);
-      showToast("Ошибка загрузки данных.");
+      const decksNow = useDeckStore.getState().decks;
+      if (!decksNow || decksNow.length === 0) {
+        showToast("Ошибка загрузки данных.");
+      }
+    } finally {
+      useUiStore.setState({ loading: false });
     }
-    useUiStore.setState({ loading: false });
   };
 
   const syncProfile = async (currentProfile) => {
@@ -150,3 +185,4 @@ export const useAppInitialization = (checkStartParam) => {
     }
   };
 };
+
