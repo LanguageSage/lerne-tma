@@ -59,6 +59,9 @@ def initialize_database():
             actual_db = PooledPostgresqlDatabase(
                 autorollback=True, max_connections=8, stale_timeout=300, **db_params
             )
+            # Force an actual connection test to catch 'driver not found' errors early
+            actual_db.connect()
+            actual_db.close()
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
             logger.info("DATABASE: Connected via psycopg2")
@@ -71,6 +74,9 @@ def initialize_database():
         try:
             pg8000_url = SUPABASE_DB_URL.replace("postgresql://", "postgresql+pg8000://", 1).replace("postgres://", "postgresql+pg8000://", 1)
             actual_db = db_connect(pg8000_url)
+            # Force connection test
+            actual_db.connect()
+            actual_db.close()
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
             logger.info("DATABASE: Connected via pg8000")
@@ -82,6 +88,8 @@ def initialize_database():
     if db_connect is not None:
         try:
             actual_db = db_connect(SUPABASE_DB_URL)
+            actual_db.connect()
+            actual_db.close()
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
             logger.info("DATABASE: Connected via db_url")
