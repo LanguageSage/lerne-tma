@@ -4,8 +4,13 @@ import datetime
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from peewee import *
-from playhouse.pool import PooledPostgresqlDatabase
-from playhouse.db_url import connect as db_connect
+try:
+    from playhouse.pool import PooledPostgresqlDatabase
+    from playhouse.db_url import connect as db_connect
+except Exception as _pg_err:
+    PooledPostgresqlDatabase = None
+    db_connect = None
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -41,22 +46,24 @@ def initialize_database():
     print(f"--- Database Mode: {'LOCAL (SQLite)' if FORCE_LOCAL else 'CLOUD (Postgres)'} (FORCE_LOCAL_DB={os.environ.get('FORCE_LOCAL_DB')}) ---")
     
     if SUPABASE_DB_URL and not FORCE_LOCAL:
-        try:
-            db_params = _parse_db_url(SUPABASE_DB_URL)
-            actual_db = PooledPostgresqlDatabase(
-                autorollback=True,
-                max_connections=8,
-                stale_timeout=300,
-                **db_params,
-            )
-            tma_db.initialize(actual_db)
-            lerne_db.initialize(actual_db)
-            logger.info("DATABASE: Connected via PooledPostgresqlDatabase")
-            return True
-        except Exception as e:
-            logger.error(f"DATABASE CLOUD ERROR (Pooled): {e}")
+        if PooledPostgresqlDatabase is not None:
             try:
-                # Вторая попытка через простой коннект, если пулер не сработал
+                db_params = _parse_db_url(SUPABASE_DB_URL)
+                actual_db = PooledPostgresqlDatabase(
+                    autorollback=True,
+                    max_connections=8,
+                    stale_timeout=300,
+                    **db_params,
+                )
+                tma_db.initialize(actual_db)
+                lerne_db.initialize(actual_db)
+                logger.info("DATABASE: Connected via PooledPostgresqlDatabase")
+                return True
+            except Exception as e:
+                logger.error(f"DATABASE CLOUD ERROR (Pooled): {e}")
+        
+        if db_connect is not None:
+            try:
                 actual_db = db_connect(SUPABASE_DB_URL)
                 tma_db.initialize(actual_db)
                 lerne_db.initialize(actual_db)
@@ -64,7 +71,6 @@ def initialize_database():
                 return True
             except Exception as e2:
                 logger.error(f"DATABASE FALLBACK ERROR: {e2}")
-                # На Vercel не падать при старте модуля, чтобы серверлесс не возвращал 500
                 if not os.environ.get("VERCEL") and not FORCE_LOCAL:
                     raise e2
     
