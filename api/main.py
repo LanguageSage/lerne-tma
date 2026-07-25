@@ -11,6 +11,7 @@ if project_root not in sys.path:
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -25,10 +26,24 @@ from api.routers import decks, cards, study, settings, ai, media, bot, feedback,
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Models initializes the database on import, no need for second call
-# models.initialize_database()
+@asynccontextmanager
+async def lifespan(app):
+    """Initialize database on startup (traditional servers)."""
+    if not models.tma_db.obj:
+        models.initialize_database()
+        models.create_all_tables()
+    logger.info("DATABASE: Startup initialization complete.")
+    yield
 
-app = FastAPI(title="Lerne TMA API")
+# Also initialize at module level for Vercel serverless cold starts
+try:
+    models.initialize_database()
+    models.create_all_tables()
+    logger.info("DATABASE: Module-level initialization complete.")
+except Exception as _db_init_err:
+    logger.error(f"DATABASE: Module-level initialization FAILED: {_db_init_err}")
+
+app = FastAPI(title="Lerne TMA API", lifespan=lifespan)
 
 # CORS
 app.add_middleware(
