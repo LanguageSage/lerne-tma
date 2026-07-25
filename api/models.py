@@ -48,56 +48,54 @@ def initialize_database():
     SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL")
 
     if not SUPABASE_DB_URL:
-        raise RuntimeError("FATAL: SUPABASE_DB_URL is not set. Postgres is required.")
+        logger.error("FATAL: SUPABASE_DB_URL is not set.")
+        return False
 
     db_params = _parse_db_url(SUPABASE_DB_URL)
-    logger.info("DATABASE: Connecting to Postgres (Supabase)...")
+    logger.info("DATABASE: Initializing Postgres connection (Supabase)...")
 
-    # 1. psycopg2 via PooledPostgresqlDatabase (works locally and on most hosts)
+    # 1. psycopg2 via PooledPostgresqlDatabase — preferred on most hosts
     if PooledPostgresqlDatabase is not None:
         try:
+            # Probe psycopg2 availability without opening TCP connection
+            import psycopg2  # noqa: F401
             actual_db = PooledPostgresqlDatabase(
                 autorollback=True, max_connections=8, stale_timeout=300, **db_params
             )
-            # Force an actual connection test to catch 'driver not found' errors early
-            actual_db.connect()
-            actual_db.close()
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
-            logger.info("DATABASE: Connected via psycopg2")
+            logger.info("DATABASE: Initialized via psycopg2")
             return True
+        except ImportError:
+            logger.warning("psycopg2 not available, trying pg8000...")
         except Exception as e:
-            logger.warning(f"DATABASE psycopg2 failed (trying pg8000): {e}")
+            logger.warning(f"DATABASE psycopg2 setup failed: {e}")
 
     # 2. pg8000 — pure Python, no C extensions, works on Vercel
     if _HAS_PG8000 and db_connect is not None:
         try:
             pg8000_url = SUPABASE_DB_URL.replace("postgresql://", "postgresql+pg8000://", 1).replace("postgres://", "postgresql+pg8000://", 1)
             actual_db = db_connect(pg8000_url)
-            # Force connection test
-            actual_db.connect()
-            actual_db.close()
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
-            logger.info("DATABASE: Connected via pg8000")
+            logger.info("DATABASE: Initialized via pg8000")
             return True
         except Exception as e:
-            logger.warning(f"DATABASE pg8000 failed (trying db_url): {e}")
+            logger.warning(f"DATABASE pg8000 setup failed: {e}")
 
     # 3. Generic db_url fallback
     if db_connect is not None:
         try:
             actual_db = db_connect(SUPABASE_DB_URL)
-            actual_db.connect()
-            actual_db.close()
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
-            logger.info("DATABASE: Connected via db_url")
+            logger.info("DATABASE: Initialized via db_url")
             return True
         except Exception as e:
-            logger.error(f"DATABASE db_url failed: {e}")
+            logger.error(f"DATABASE db_url setup failed: {e}")
 
-    raise RuntimeError("FATAL: All Postgres drivers failed. Check SUPABASE_DB_URL and installed packages.")
+    logger.error("FATAL: All Postgres drivers failed. Check SUPABASE_DB_URL and installed packages.")
+    return False
 
 
 
