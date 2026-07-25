@@ -1,7 +1,6 @@
 import os
 import logging
 import datetime
-from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from peewee import *
 try:
@@ -11,6 +10,13 @@ except Exception as _pg_err:
     PooledPostgresqlDatabase = None
     db_connect = None
 
+# Try pg8000 — pure Python Postgres driver (no C extensions, works on Vercel)
+try:
+    import pg8000
+    _HAS_PG8000 = True
+except ImportError:
+    _HAS_PG8000 = False
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,9 +25,7 @@ logger = logging.getLogger(__name__)
 tma_db = Proxy()
 lerne_db = Proxy()
 
-# Пути к файлам данных (модульный уровень — используется в main.py)
-TMA_ROOT = Path(__file__).resolve().parent.parent
-TMA_DATA_DIR = TMA_ROOT / "api" / "data"
+
 
 def _parse_db_url(url: str):
     """Разбирает DATABASE_URL в параметры для PooledPostgresqlDatabase."""
@@ -42,49 +46,52 @@ def _parse_db_url(url: str):
 def initialize_database():
     global tma_db, lerne_db
     SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL")
-    FORCE_LOCAL = os.environ.get("FORCE_LOCAL_DB", "false").lower().strip() == "true"
-    print(f"--- Database Mode: {'LOCAL (SQLite)' if FORCE_LOCAL else 'CLOUD (Postgres)'} (FORCE_LOCAL_DB={os.environ.get('FORCE_LOCAL_DB')}) ---")
-    
-    if SUPABASE_DB_URL and not FORCE_LOCAL:
-        if PooledPostgresqlDatabase is not None:
-            try:
-                db_params = _parse_db_url(SUPABASE_DB_URL)
-                actual_db = PooledPostgresqlDatabase(
-                    autorollback=True,
-                    max_connections=8,
-                    stale_timeout=300,
-                    **db_params,
-                )
-                tma_db.initialize(actual_db)
-                lerne_db.initialize(actual_db)
-                logger.info("DATABASE: Connected via PooledPostgresqlDatabase")
-                return True
-            except Exception as e:
-                logger.error(f"DATABASE CLOUD ERROR (Pooled): {e}")
-        
-        if db_connect is not None:
-            try:
-                actual_db = db_connect(SUPABASE_DB_URL)
-                tma_db.initialize(actual_db)
-                lerne_db.initialize(actual_db)
-                logger.info("DATABASE: Connected via db_url fallback")
-                return True
-            except Exception as e2:
-                logger.error(f"DATABASE FALLBACK ERROR: {e2}")
-                if not os.environ.get("VERCEL") and not FORCE_LOCAL:
-                    raise e2
-    
-    TMA_ROOT = Path(__file__).resolve().parent.parent
-    if os.environ.get("VERCEL"):
-        TMA_DB_PATH = Path("/tmp/lerne.db")
-    else:
-        default_db_path = TMA_ROOT.parent / "Lerne" / "db" / "lerne.db"
-        TMA_DB_PATH = Path(os.environ.get("LOCAL_DB_PATH", str(default_db_path)))
-    os.makedirs(TMA_DB_PATH.parent, exist_ok=True)
-    shared_db = SqliteDatabase(TMA_DB_PATH)
-    tma_db.initialize(shared_db)
-    lerne_db.initialize(shared_db)
-    return False
+
+    if not SUPABASE_DB_URL:
+        raise RuntimeError("FATAL: SUPABASE_DB_URL is not set. Postgres is required.")
+
+    db_params = _parse_db_url(SUPABASE_DB_URL)
+    logger.info("DATABASE: Connecting to Postgres (Supabase)...")
+
+    # 1. psycopg2 via PooledPostgresqlDatabase (works locally and on most hosts)
+    if PooledPostgresqlDatabase is not None:
+        try:
+            actual_db = PooledPostgresqlDatabase(
+                autorollback=True, max_connections=8, stale_timeout=300, **db_params
+            )
+            tma_db.initialize(actual_db)
+            lerne_db.initialize(actual_db)
+            logger.info("DATABASE: Connected via psycopg2")
+            return True
+        except Exception as e:
+            logger.warning(f"DATABASE psycopg2 failed (trying pg8000): {e}")
+
+    # 2. pg8000 — pure Python, no C extensions, works on Vercel
+    if _HAS_PG8000 and db_connect is not None:
+        try:
+            pg8000_url = SUPABASE_DB_URL.replace("postgresql://", "postgresql+pg8000://", 1).replace("postgres://", "postgresql+pg8000://", 1)
+            actual_db = db_connect(pg8000_url)
+            tma_db.initialize(actual_db)
+            lerne_db.initialize(actual_db)
+            logger.info("DATABASE: Connected via pg8000")
+            return True
+        except Exception as e:
+            logger.warning(f"DATABASE pg8000 failed (trying db_url): {e}")
+
+    # 3. Generic db_url fallback
+    if db_connect is not None:
+        try:
+            actual_db = db_connect(SUPABASE_DB_URL)
+            tma_db.initialize(actual_db)
+            lerne_db.initialize(actual_db)
+            logger.info("DATABASE: Connected via db_url")
+            return True
+        except Exception as e:
+            logger.error(f"DATABASE db_url failed: {e}")
+
+    raise RuntimeError("FATAL: All Postgres drivers failed. Check SUPABASE_DB_URL and installed packages.")
+
+
 
 def create_all_tables():
     """Создает все таблицы и запускает накопленные миграции."""
@@ -93,24 +100,8 @@ def create_all_tables():
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, TMAFeedback, TMAUser, TMALinkedSession,
-            LibraryCategory, Deck, Card, TMA_Folder, TMACustomPrompt
+            LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt
         ]
-        
-        # Если это SQLite, проверим, являются ли tma_deck и tma_card представлениями (VIEW)
-        if isinstance(tma_db.obj, SqliteDatabase):
-            try:
-                cursor = tma_db.execute_sql("SELECT name, type FROM sqlite_master WHERE name IN ('tma_deck', 'tma_card')")
-                existing = {row[0]: row[1] for row in cursor.fetchall()}
-                if existing.get('tma_deck') != 'view':
-                    models_to_create.append(TMA_Deck)
-                if existing.get('tma_card') != 'view':
-                    models_to_create.append(TMA_Card)
-            except Exception as e:
-                logger.error(f"Error checking views in sqlite_master: {e}")
-                models_to_create.extend([TMA_Deck, TMA_Card])
-        else:
-            models_to_create.extend([TMA_Deck, TMA_Card])
-
         tma_db.create_tables(models_to_create, safe=True)
         logger.info("DATABASE: All tables created/verified.")
         run_migrations(tma_db, lerne_db)

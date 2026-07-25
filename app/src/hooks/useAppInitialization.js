@@ -118,8 +118,17 @@ export const useAppInitialization = (checkStartParam) => {
     };
   }, []);
 
+  const CACHE_VERSION = '2'; // bump to invalidate old caches missing target_language
+
   const loadCachedInitData = () => {
     try {
+      const cacheVer = storage.get('lerne_init_cache_version');
+      if (cacheVer !== CACHE_VERSION) {
+        // Stale cache — wipe it so we always get fresh data from server
+        storage.remove('lerne_init_cache');
+        storage.set('lerne_init_cache_version', CACHE_VERSION);
+        return;
+      }
       const cachedRaw = storage.get('lerne_init_cache');
       if (cachedRaw) {
         const data = JSON.parse(cachedRaw);
@@ -154,6 +163,7 @@ export const useAppInitialization = (checkStartParam) => {
       setUserPrompts(res.data.prompts);
       // Cache init response for instant future starts
       storage.set('lerne_init_cache', JSON.stringify(res.data));
+      storage.set('lerne_init_cache_version', CACHE_VERSION);
       fetchDuplicates();
       fetchFavorites();
     } catch (err) {

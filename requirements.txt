@@ -2,6 +2,7 @@
 fastapi
 uvicorn
 peewee
+pg8000
 edge-tts
 aiohttp
 Pillow
