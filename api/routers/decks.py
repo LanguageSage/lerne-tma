@@ -108,7 +108,7 @@ def sync_deck(deck_id: int, request: SyncRequest = None, user_id: int = Depends(
 
 # External/Library decks
 @router.get("/external")
-def get_external_decks(target_language: Optional[str] = None):
+def get_external_decks(target_language: str = None):
     return services.get_external_decks(target_language)
 
 @router.get("/external/categories")

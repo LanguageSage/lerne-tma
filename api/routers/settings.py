@@ -45,7 +45,7 @@ SYSTEM_PRESETS = [
 ]
 
 @router.get("/user/prompts")
-def get_user_prompts(target_language: Optional[str] = "de", user_id: int = Depends(get_user_id)):
+def get_user_prompts(target_language: str = "de", user_id: int = Depends(get_user_id)):
     custom_prompts = []
     active_prompt_id = None
     active_preset_id = None
