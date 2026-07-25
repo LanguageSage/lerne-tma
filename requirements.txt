@@ -7,7 +7,7 @@ aiohttp
 Pillow
 requests
 python-dotenv
-psycopg2-binary
 supabase
 python-multipart
 python-telegram-bot>=20.0
+
