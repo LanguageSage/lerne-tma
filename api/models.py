@@ -27,6 +27,23 @@ lerne_db = Proxy()
 
 
 
+class Pg8000Database(PostgresqlDatabase):
+    def _connect(self):
+        if not _HAS_PG8000:
+            raise ImproperlyConfigured('pg8000 driver not installed')
+        import pg8000
+        params = self.connect_params.copy()
+        if 'dbname' in params:
+            params['database'] = params.pop('dbname')
+        if 'port' in params and params['port']:
+            params['port'] = int(params['port'])
+        if 'sslmode' in params:
+            params.pop('sslmode')
+        params['ssl_context'] = True
+        conn = pg8000.connect(**params)
+        conn.autocommit = True
+        return conn
+
 def _parse_db_url(url: str):
     """Разбирает DATABASE_URL в параметры для PooledPostgresqlDatabase."""
     parsed = urlparse(url)
@@ -51,48 +68,50 @@ def initialize_database():
         logger.error("FATAL: SUPABASE_DB_URL is not set.")
         return False
 
-    IS_VERCEL = bool(os.environ.get("VERCEL"))
     db_params = _parse_db_url(SUPABASE_DB_URL)
-    logger.info(f"DATABASE: Initializing Postgres (Vercel={IS_VERCEL})...")
+    logger.info("DATABASE: Initializing Postgres connection...")
 
-    # On Vercel psycopg2 C-extension doesn't work — skip straight to pg8000
-    if not IS_VERCEL and PooledPostgresqlDatabase is not None:
+    # 1. Standard Peewee PooledPostgresqlDatabase (uses psycopg2)
+    if PooledPostgresqlDatabase is not None:
         try:
-            import psycopg2  # noqa: F401
             actual_db = PooledPostgresqlDatabase(
                 autorollback=True, max_connections=8, stale_timeout=300, **db_params
             )
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
-            logger.info("DATABASE: Initialized via psycopg2")
-            return True
-        except ImportError:
-            logger.warning("psycopg2 not available, trying pg8000...")
-        except Exception as e:
-            logger.warning(f"DATABASE psycopg2 setup failed: {e}")
-
-    # pg8000 — pure Python, no C extensions, works on Vercel
-    if _HAS_PG8000 and db_connect is not None:
-        try:
-            pg8000_url = SUPABASE_DB_URL.replace("postgresql://", "postgresql+pg8000://", 1).replace("postgres://", "postgresql+pg8000://", 1)
-            actual_db = db_connect(pg8000_url)
-            tma_db.initialize(actual_db)
-            lerne_db.initialize(actual_db)
-            logger.info("DATABASE: Initialized via pg8000")
+            logger.info("DATABASE: Initialized via PooledPostgresqlDatabase (psycopg2)")
             return True
         except Exception as e:
-            logger.warning(f"DATABASE pg8000 setup failed: {e}")
+            logger.warning(f"DATABASE PooledPostgresqlDatabase setup failed: {e}")
 
-    # Generic db_url fallback (last resort)
+    # 2. Standard Peewee db_connect (uses psycopg2)
     if db_connect is not None:
         try:
             actual_db = db_connect(SUPABASE_DB_URL)
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
-            logger.info("DATABASE: Initialized via db_url")
+            logger.info("DATABASE: Initialized via db_url (psycopg2)")
             return True
         except Exception as e:
-            logger.error(f"DATABASE db_url setup failed: {e}")
+            logger.warning(f"DATABASE db_url setup failed: {e}")
+
+    # 3. Pg8000 pure Python fallback
+    if _HAS_PG8000:
+        try:
+            actual_db = Pg8000Database(
+                database=db_params['database'],
+                user=db_params['user'],
+                password=db_params['password'],
+                host=db_params['host'],
+                port=db_params['port'],
+                autorollback=True
+            )
+            tma_db.initialize(actual_db)
+            lerne_db.initialize(actual_db)
+            logger.info("DATABASE: Initialized via Pg8000Database (pg8000)")
+            return True
+        except Exception as e:
+            logger.warning(f"DATABASE Pg8000Database setup failed: {e}")
 
     logger.error("FATAL: All Postgres drivers failed. Check SUPABASE_DB_URL and installed packages.")
     return False
