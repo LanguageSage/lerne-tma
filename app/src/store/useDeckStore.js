@@ -463,6 +463,11 @@ export const useDeckStore = create((set, get) => ({
       const aInbox = a.is_inbox ? 1 : 0;
       const bInbox = b.is_inbox ? 1 : 0;
       if (aInbox !== bInbox) return bInbox - aInbox;
+      const idxA = orderedIds.indexOf(a.id);
+      const idxB = orderedIds.indexOf(b.id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
       const aPos = a.position ?? 0;
       const bPos = b.position ?? 0;
       if (aPos !== bPos) return aPos - bPos;

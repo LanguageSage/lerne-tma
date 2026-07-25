@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Flame } from 'lucide-react';
+import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Flame, Wrench, ChevronDown } from 'lucide-react';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useLanguageStore } from '../store/useLanguageStore';
@@ -18,6 +18,8 @@ export const DeckGrid = ({
   onImportSuccess, 
   onImportClose 
 }) => {
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
+
   const { 
     view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, 
     showToast, userProfile, setIsRenameModalOpen, setDeckToRename, 
@@ -27,7 +29,8 @@ export const DeckGrid = ({
   const { 
     decks, folders, setCurrentDeck, fetchDeckCards, 
     handleSyncDeck, handleResetProgress, handleDeleteDeck, 
-    setDeckCards, togglePinDeck, reorderDecks 
+    setDeckCards, togglePinDeck, reorderDecks,
+    favoriteCards, duplicateCards
   } = useDeckStore();
 
   if (view !== 'decks') return null;
@@ -171,156 +174,152 @@ export const DeckGrid = ({
           ) : (
             <>
               {/* 1. Folders */}
-              <Reorder.Group
-                as="div"
-                axis="y"
-                values={currentFolders}
-                onReorder={(newOrder) => {
-                  const orderedIds = newOrder.map(f => f.id);
-                  useDeckStore.getState().reorderFolders(orderedIds);
-                }}
-                style={{ display: 'contents' }}
-              >
-                {currentFolders.map(folder => (
-                  <FolderCardItem
-                    key={`folder-${folder.id}`}
-                    folder={folder}
-                    setActiveFolderId={setActiveFolderId}
-                    decks={decks}
-                    folders={folders}
-                    showToast={showToast}
-                  />
-                ))}
-              </Reorder.Group>
+              {currentFolders.length > 0 && (
+                <Reorder.Group
+                  as="div"
+                  axis="y"
+                  values={currentFolders}
+                  onReorder={(newOrder) => {
+                    const orderedIds = newOrder.map(f => f.id);
+                    useDeckStore.getState().reorderFolders(orderedIds);
+                  }}
+                  className="reorder-group-list"
+                >
+                  {currentFolders.map(folder => (
+                    <FolderCardItem
+                      key={`folder-${folder.id}`}
+                      folder={folder}
+                      setActiveFolderId={setActiveFolderId}
+                      decks={decks}
+                      folders={folders}
+                      showToast={showToast}
+                    />
+                  ))}
+                </Reorder.Group>
+              )}
 
               {/* 2. Decks */}
-              <Reorder.Group
-                as="div"
-                axis="y"
-                values={currentDecks}
-                onReorder={(newOrder) => {
-                  const orderedIds = newOrder.map(d => d.id);
-                  reorderDecks(orderedIds);
-                }}
-                style={{ display: 'contents' }}
-              >
-                {currentDecks.map((deck) => (
-                  <DeckCardItem
-                    key={deck.id}
-                    deck={deck}
-                    setCurrentDeck={setCurrentDeck}
-                    setDeckCards={setDeckCards}
-                    fetchDeckCards={fetchDeckCards}
-                    showToast={showToast}
-                    openSyncModal={openSyncModal}
-                    handleSyncDeck={handleSyncDeck}
-                    handleResetProgress={handleResetProgress}
-                    handleDeleteDeck={handleDeleteDeck}
-                    setDeckToRename={setDeckToRename}
-                    setIsRenameModalOpen={setIsRenameModalOpen}
-                    togglePinDeck={togglePinDeck}
-                    folders={folders}
-                    activeFolderColor={activeFolderColor}
-                  />
-                ))}
-              </Reorder.Group>
+              {currentDecks.length > 0 && (
+                <Reorder.Group
+                  as="div"
+                  axis="y"
+                  values={currentDecks}
+                  onReorder={(newOrder) => {
+                    const orderedIds = newOrder.map(d => d.id);
+                    reorderDecks(orderedIds);
+                  }}
+                  className="reorder-group-list"
+                >
+                  {currentDecks.map((deck) => (
+                    <DeckCardItem
+                      key={deck.id}
+                      deck={deck}
+                      setCurrentDeck={setCurrentDeck}
+                      setDeckCards={setDeckCards}
+                      fetchDeckCards={fetchDeckCards}
+                      showToast={showToast}
+                      openSyncModal={openSyncModal}
+                      handleSyncDeck={handleSyncDeck}
+                      handleResetProgress={handleResetProgress}
+                      handleDeleteDeck={handleDeleteDeck}
+                      setDeckToRename={setDeckToRename}
+                      setIsRenameModalOpen={setIsRenameModalOpen}
+                      togglePinDeck={togglePinDeck}
+                      folders={folders}
+                      activeFolderColor={activeFolderColor}
+                    />
+                  ))}
+                </Reorder.Group>
+              )}
             </>
           )}
-
-          {/* Special item for Turbo Practice (Favorites) */}
-          {activeFolderId === null && useDeckStore.getState().favoriteCards.length > 0 && (
-            <div 
-              className="deck-card glass favorite-turbo-card" 
-              style={{ 
-                border: '1px solid rgba(239, 68, 68, 0.4)',
-                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(168, 85, 247, 0.08))',
-                cursor: 'pointer'
-              }}
-              onClick={() => {
-                const favoritesDeck = { id: 'favorites', name: 'Ударный режим 🔥' };
-                startStudy(favoritesDeck);
-              }}
-            >
-              <div className="deck-main-action">
-                <div className="deck-icon" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>
-                  <Flame size={24} className="pulse-icon" />
-                </div>
-                <h3 style={{ color: '#ef4444' }}>Ударный режим 🔥</h3>
-                <div className="deck-stats">
-                  <span className="stat total" style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
-                    {useDeckStore.getState().favoriteCards.length}
-                  </span>
-                </div>
-              </div>
-              <div className="deck-footer-actions" style={{ justifyContent: 'center', padding: '8px 12px' }}>
-                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                  Тренировка избранных карточек по кругу до автоматизма
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Special item for duplicates */}
-          {activeFolderId === null && useDeckStore.getState().duplicateCards.length > 0 && (
-            <div 
-              className="deck-card glass" 
-              style={{ 
-                border: '1px dashed rgba(168,85,247,0.4)',
-                background: 'rgba(168,85,247,0.05)'
-              }}
-              onClick={() => useUiStore.getState().setView('duplicates')}
-            >
-              <div className="deck-main-action">
-                <div className="deck-icon" style={{ background: 'rgba(168,85,247,0.2)', color: '#c084fc' }}>
-                  <Copy size={24} />
-                </div>
-                <h3 style={{ color: '#c084fc' }}>Управление дубликатами</h3>
-                <div className="deck-stats">
-                  <span className="stat total" style={{ color: '#c084fc' }}>
-                    {useDeckStore.getState().duplicateCards.length} карточек
-                  </span>
-                </div>
-              </div>
-              <div className="deck-footer-actions" style={{ justifyContent: 'center', padding: '8px 12px' }}>
-                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                  Найдены повторяющиеся карточки в разных колодах
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Special item for Trash */}
-          {activeFolderId === null && (
-            <div 
-              className="deck-card glass" 
-              style={{ 
-                border: '1px dashed rgba(239,68,68,0.4)',
-                background: 'rgba(239,68,68,0.05)'
-              }}
-              onClick={() => {
-                useDeckStore.getState().fetchTrash();
-                useUiStore.getState().setView('trash');
-              }}
-            >
-              <div className="deck-main-action">
-                <div className="deck-icon" style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>
-                  <Trash2 size={24} />
-                </div>
-                <h3 style={{ color: '#f87171' }}>Корзина</h3>
-                <div className="deck-stats">
-                  <span className="stat total" style={{ color: '#fca5a5', fontSize: '0.8rem', fontWeight: 500 }}>
-                    Хранилище
-                  </span>
-                </div>
-              </div>
-              <div className="deck-footer-actions" style={{ justifyContent: 'center', padding: '8px 12px' }}>
-                <span style={{ fontSize: '0.7rem', color: '#94a3b8', textAlign: 'center' }}>
-                  Удаленные колоды и карточки (возможность восстановления)
-                </span>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Collapsible dropdown menu at the very bottom for advanced tools */}
+        {activeFolderId === null && (
+          <div className="bottom-tools-container">
+            <button 
+              className={`bottom-tools-toggle ${isToolsOpen ? 'active' : ''}`}
+              onClick={() => setIsToolsOpen(!isToolsOpen)}
+            >
+              <div className="bottom-tools-toggle-left">
+                <Wrench size={18} className="tools-icon" />
+                <span>Инструменты и служебные разделы</span>
+                {((favoriteCards?.length || 0) > 0 || (duplicateCards?.length || 0) > 0) && (
+                  <span className="tools-badge-total">
+                    {(favoriteCards?.length || 0) + (duplicateCards?.length || 0)}
+                  </span>
+                )}
+              </div>
+              <ChevronDown size={18} className={`tools-chevron ${isToolsOpen ? 'open' : ''}`} />
+            </button>
+
+            {isToolsOpen && (
+              <div className="bottom-tools-menu glass">
+                {/* Item 1: Ударный режим */}
+                {(favoriteCards?.length || 0) > 0 && (
+                  <button 
+                    className="bottom-tools-item favorite-item"
+                    onClick={() => {
+                      const favoritesDeck = { id: 'favorites', name: 'Ударный режим 🔥' };
+                      startStudy(favoritesDeck);
+                    }}
+                  >
+                    <div className="tools-item-left">
+                      <div className="tools-item-icon-box flame">
+                        <Flame size={18} className="pulse-icon" />
+                      </div>
+                      <div className="tools-item-text">
+                        <span className="tools-item-title flame-text">Ударный режим 🔥</span>
+                        <span className="tools-item-desc">Тренировка избранных карточек по кругу</span>
+                      </div>
+                    </div>
+                    <span className="tools-item-badge flame">{favoriteCards.length}</span>
+                  </button>
+                )}
+
+                {/* Item 2: Управление дубликатами */}
+                {(duplicateCards?.length || 0) > 0 && (
+                  <button 
+                    className="bottom-tools-item duplicate-item"
+                    onClick={() => useUiStore.getState().setView('duplicates')}
+                  >
+                    <div className="tools-item-left">
+                      <div className="tools-item-icon-box duplicate">
+                        <Copy size={18} />
+                      </div>
+                      <div className="tools-item-text">
+                        <span className="tools-item-title duplicate-text">Управление дубликатами</span>
+                        <span className="tools-item-desc">Повторяющиеся карточки в разных колодах</span>
+                      </div>
+                    </div>
+                    <span className="tools-item-badge duplicate">{duplicateCards.length}</span>
+                  </button>
+                )}
+
+                {/* Item 3: Корзина */}
+                <button 
+                  className="bottom-tools-item trash-item"
+                  onClick={() => {
+                    useDeckStore.getState().fetchTrash();
+                    useUiStore.getState().setView('trash');
+                  }}
+                >
+                  <div className="tools-item-left">
+                    <div className="tools-item-icon-box trash">
+                      <Trash2 size={18} />
+                    </div>
+                    <div className="tools-item-text">
+                      <span className="tools-item-title trash-text">Корзина</span>
+                      <span className="tools-item-desc">Удаленные колоды и карточки (восстановление)</span>
+                    </div>
+                  </div>
+                  <span className="tools-item-badge trash">Хранилище</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </motion.div>
     </div>
   );

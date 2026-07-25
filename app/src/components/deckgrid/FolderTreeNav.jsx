@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Folder, FolderOpen, GripVertical, MoreHorizontal, ChevronRight } from 'lucide-react';
+import { Folder, FolderOpen, GripHorizontal, MoreHorizontal, ChevronRight } from 'lucide-react';
 import { useDeckStore } from '../../store/useDeckStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
+import { renderFlag } from './FlagIcons';
 import api from '../../services/api';
 
 const getDescendantFolderIds = (folderId, foldersList) => {
@@ -156,26 +158,17 @@ export const FolderCardItem = ({
     '--folder-color-bg-tint': `${folderColor}14`
   };
 
+  const folderLang = folder.target_language || useLanguageStore.getState().activeLanguage || 'de';
+
   return (
     <Reorder.Item
       value={folder}
       dragListener={false}
       dragControls={dragControls}
+      whileDrag={{ scale: 1.02, zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 25px rgba(254,208,67,0.4)' }}
       className="deck-card glass folder-card-item"
       style={folderStyle}
     >
-      <div
-        className="deck-drag-handle"
-        onPointerDown={(e) => dragControls.start(e)}
-        style={{ touchAction: 'none' }}
-        title="Перетащить папку"
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <GripVertical size={16} />
-          <GripVertical size={16} />
-        </div>
-      </div>
-
       <div className="deck-main-action" onClick={() => setActiveFolderId(folder.id)}>
         <div className="deck-info-row">
           <div className="deck-icon folder-icon-glow">
@@ -184,6 +177,12 @@ export const FolderCardItem = ({
           <h3>
             <span className="deck-title-text">{folder.name}</span>
           </h3>
+          <div 
+            className="deck-flag-badge-large"
+            title={`Язык: ${folderLang.toUpperCase()}`}
+          >
+            {renderFlag(folderLang, 32)}
+          </div>
         </div>
 
         <div className="folder-meta-row" style={{ marginTop: 8, fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.6)' }}>
@@ -191,7 +190,15 @@ export const FolderCardItem = ({
         </div>
       </div>
 
-      <div className="deck-footer-actions" style={{ justifyContent: 'flex-end', padding: '8px 12px', position: 'relative' }}>
+      <div className="deck-footer-actions" style={{ justifyContent: 'space-between', padding: '8px 12px', position: 'relative', alignItems: 'center' }}>
+        <div
+          className="deck-drag-handle-bottom"
+          onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+          title="Зажмите и потяните для перетаскивания папки"
+        >
+          <GripHorizontal size={22} />
+        </div>
+
         <button 
           className={`menu-toggle-btn ${isMenuOpen ? 'active' : ''}`}
           onClick={(e) => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Layers, Inbox, Pin, GripVertical, MoreHorizontal, ChevronRight } from 'lucide-react';
+import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { renderFlag } from './FlagIcons';
@@ -184,23 +184,10 @@ export const DeckCardItem = ({
       value={deck}
       dragListener={false}
       dragControls={dragControls}
+      whileDrag={{ scale: 1.02, zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 25px rgba(168,85,247,0.4)' }}
       className={`deck-card glass ${deck.is_pinned ? 'deck-pinned' : ''} ${deck.is_inbox ? 'deck-card-inbox' : ''} ${!deck.is_inbox ? 'deck-card-draggable' : ''}`}
       style={deckStyle}
     >
-      {!deck.is_inbox && (
-        <div
-          className="deck-drag-handle"
-          onPointerDown={(e) => dragControls.start(e)}
-          style={{ touchAction: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '6px 4px' }}
-          title="Перетащить колоду"
-        >
-          <GripVertical size={16} opacity={0.6} />
-          <div className="deck-flag-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '2px' }}>
-            {renderFlag(deck.target_language || 'de', 16)}
-          </div>
-        </div>
-      )}
-
       <div className="deck-main-action deck-main-action-with-stats" onClick={onMainAction}>
         <div className="deck-info-row">
           <div className="deck-icon">
@@ -226,6 +213,15 @@ export const DeckCardItem = ({
               </button>
             )}
           </h3>
+
+          {!deck.is_inbox && (
+            <div 
+              className="deck-flag-badge-large"
+              title={`Язык: ${(deck.target_language || 'de').toUpperCase()}`}
+            >
+              {renderFlag(deck.target_language || 'de', 32)}
+            </div>
+          )}
         </div>
 
         <div className="deck-stats-container">
@@ -248,8 +244,16 @@ export const DeckCardItem = ({
         </div>
       </div>
 
-      <div className="deck-footer-actions" style={{ justifyContent: 'flex-start', padding: '8px 12px', position: 'relative' }}>
-        {deck.is_inbox && (
+      <div className="deck-footer-actions" style={{ justifyContent: 'space-between', padding: '8px 12px', position: 'relative', alignItems: 'center' }}>
+        {!deck.is_inbox ? (
+          <div
+            className="deck-drag-handle-bottom"
+            onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+            title="Зажмите и потяните для перетаскивания колоды"
+          >
+            <GripHorizontal size={22} />
+          </div>
+        ) : (
           <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
               📥 Входящие карточки
