@@ -22,7 +22,7 @@ def create_deck(data: dict, user_id: int = Depends(get_user_id)):
     user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
     if user and user.is_guest:
         raise HTTPException(status_code=403, detail="Для создания колод требуется авторизация через Telegram.")
-    deck = services.create_deck(data.get('name'), user_id, data.get('folder_id'))
+    deck = services.create_deck(data.get('name'), user_id, data.get('folder_id'), data.get('target_language', 'de'))
     return {"status": "success", "id": deck.id}
 
 @router.post("/{deck_id}/move")
@@ -107,8 +107,8 @@ def sync_deck(deck_id: int, request: SyncRequest = None, user_id: int = Depends(
 
 # External/Library decks
 @router.get("/external")
-def get_external_decks():
-    return services.get_external_decks()
+def get_external_decks(target_language: Optional[str] = None):
+    return services.get_external_decks(target_language)
 
 @router.get("/external/categories")
 def get_library_categories():

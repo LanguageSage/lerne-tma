@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Edit2, Check, Plus, ArrowLeft, Lightbulb } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
+import { renderFlag } from '../deckgrid/FlagIcons';
 import api from '../../services/api';
 
 const getCleanInstruction = (text) => {
@@ -14,13 +16,11 @@ const getCleanInstruction = (text) => {
   // Remove prefix possibilities
   const prefixes = [
     'Переведи "{phrase}" на немецкий. Проанализируй перевод:',
-    'Переведи "{phrase}" на немецкий. Проанализируй перевод',
-    'Переведи на немецкий. Проанализируй перевод:',
+    'Переведи "{phrase}" на английский. Проанализируй перевод:',
+    'Переведи "{phrase}" на норвежский. Проанализируй перевод:',
     'Проанализируй немецкое предложение или слово "{phrase}".',
-    'Проанализируй немецкое предложение или слово "{phrase}"',
-    'Проанализируй немецкое предложение или слово.',
-    'Переведи {phrase} на немецкий. Проанализируй перевод:',
-    'Проанализируй немецкое предложение или слово {phrase}.'
+    'Проанализируй английское предложение или слово "{phrase}".',
+    'Проанализируй норвежское предложение или слово "{phrase}".'
   ];
   
   for (const prefix of prefixes) {
@@ -35,20 +35,25 @@ const getCleanInstruction = (text) => {
 
 export const PromptsTab = () => {
   const { showToast } = useUiStore();
+  const { activeLanguage, getLanguageInfo } = useLanguageStore();
+  const langInfo = getLanguageInfo();
+
   const [promptsList, setPromptsList] = useState([]);
   const [activePromptId, setActivePromptId] = useState(null);
+  const [systemPresets, setSystemPresets] = useState([]);
   const [defaults, setDefaults] = useState({ de: "", ru: "" });
   const [loading, setLoading] = useState(false);
   
   // Editor state
-  const [editingPrompt, setEditingPrompt] = useState(null); // null or { id: null|number, name: "", translation_prompt: "", context_prompt: "" }
+  const [editingPrompt, setEditingPrompt] = useState(null);
 
   const fetchPrompts = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/user/prompts');
+      const res = await api.get(`/user/prompts?target_language=${activeLanguage}`);
       setPromptsList(res.data.custom_prompts || []);
       setActivePromptId(res.data.active_prompt_id);
+      setSystemPresets(res.data.system_presets || []);
       setDefaults(res.data.defaults || { de: "", ru: "" });
     } catch (err) {
       showToast("Ошибка загрузки промптов");
@@ -59,16 +64,16 @@ export const PromptsTab = () => {
 
   useEffect(() => {
     fetchPrompts();
-  }, []);
+  }, [activeLanguage]);
 
   const handleActivate = async (promptId) => {
     try {
       if (promptId === null) {
-        await api.post('/user/prompts/deactivate');
+        await api.post('/user/prompts/deactivate', { target_language: activeLanguage });
         setActivePromptId(null);
         showToast("Активирован промпт по умолчанию", "success");
       } else {
-        await api.post(`/user/prompts/${promptId}/activate`);
+        await api.post(`/user/prompts/${promptId}/activate`, { target_language: activeLanguage });
         setActivePromptId(promptId);
         showToast("Промпт активирован", "success");
       }
@@ -107,7 +112,8 @@ export const PromptsTab = () => {
         id: editingPrompt.id,
         name: editingPrompt.name,
         translation_prompt: finalTranslation,
-        context_prompt: finalContext
+        context_prompt: finalContext,
+        target_language: activeLanguage
       });
       showToast(editingPrompt.id ? "Промпт обновлен" : "Промпт создан", "success");
       setEditingPrompt(null);
@@ -118,7 +124,6 @@ export const PromptsTab = () => {
   };
 
   const handleCreateNew = () => {
-    // Determine active prompt texts to pre-load
     let activeTranslation = defaults.de;
     let activeContext = defaults.ru;
     
@@ -135,7 +140,7 @@ export const PromptsTab = () => {
 
     setEditingPrompt({
       id: null,
-      name: "Мой промпт",
+      name: `Промпт для ${langInfo.label}`,
       instruction: cleanDe || cleanRu || "",
       translation_prompt: cleanDe,
       context_prompt: cleanRu,
@@ -164,7 +169,10 @@ export const PromptsTab = () => {
           <button className="btn-secondary btn-tiny" style={{ padding: '6px' }} onClick={() => setEditingPrompt(null)}>
             <ArrowLeft size={16} />
           </button>
-          <h3 style={{ margin: 0 }}>{editingPrompt.id ? "Редактирование" : "Создание промпта"}</h3>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>{editingPrompt.id ? "Редактирование" : "Создание промпта"} ({langInfo.label})</span>
+            {renderFlag(langInfo.code, 18)}
+          </h3>
         </div>
         
         <div style={{
@@ -179,8 +187,8 @@ export const PromptsTab = () => {
         }}>
           <Lightbulb size={20} style={{ color: '#38bdf8', flexShrink: 0, marginTop: '2px' }} />
           <div style={{ fontSize: '0.85rem', lineHeight: '1.4', color: '#e2e8f0' }}>
-            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Инструкция для ИИ</strong>
-            Задайте единые правила разбора слов, грамматики и примеры. Они будут автоматически применены к запросам на немецком и русском языках.
+            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Инструкция для ИИ ({langInfo.name})</strong>
+            Задайте правила разбора слов, грамматики и примеры для {langInfo.label.toLowerCase()} языка.
           </div>
         </div>
         
@@ -190,19 +198,42 @@ export const PromptsTab = () => {
             type="text" 
             value={editingPrompt.name} 
             onChange={e => setEditingPrompt({ ...editingPrompt, name: e.target.value })} 
-            placeholder="Например: Промпт для уровня B1" 
+            placeholder={`Например: Промпт B1 (${langInfo.label})`} 
           />
         </div>
 
         {!editingPrompt.isSplit ? (
           <div className="form-group">
-            <label>Инструкция для ИИ (для всех языков ввода)</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <label style={{ margin: 0 }}>Инструкция для ИИ</label>
+              {systemPresets.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Заполнить уровнем:</span>
+                  {systemPresets.map(preset => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      className="btn-secondary btn-tiny"
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
+                      onClick={() => setEditingPrompt({
+                        ...editingPrompt,
+                        instruction: preset.instruction,
+                        translation_prompt: preset.instruction,
+                        context_prompt: preset.instruction
+                      })}
+                    >
+                      ⚡ {preset.level || preset.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <p className="field-hint">Правила разбора слов, разбора грамматики и количество примеров в создаваемой карточке</p>
             <textarea 
               value={editingPrompt.instruction} 
               onChange={e => setEditingPrompt({ ...editingPrompt, instruction: e.target.value })} 
               rows={6} 
-              placeholder="Например: объясни отдельные слова с переводом на русский и грамматику, затем дай 3 примера. Очень коротко и ясно..."
+              placeholder="объясни слова с переводом на русский и подробно грамматику, затем 3 примера..."
             />
             <div style={{ marginTop: '8px' }}>
               <button 
@@ -216,25 +247,25 @@ export const PromptsTab = () => {
                   context_prompt: editingPrompt.context_prompt || editingPrompt.instruction
                 })}
               >
-                ⚙️ Раздельные инструкции для немецкого и русского
+                ⚙️ Раздельные инструкции для {langInfo.label.toLowerCase()} и русского
               </button>
             </div>
           </div>
         ) : (
           <>
             <div className="form-group">
-              <label>Инструкции для разбора немецкого (при вводе на немецком)</label>
-              <p className="field-hint">Правила разбора немецкого слова</p>
+              <label>Инструкции при вводе на {langInfo.label.toLowerCase()} языке</label>
+              <p className="field-hint">Правила разбора {langInfo.label.toLowerCase()} слова</p>
               <textarea 
                 value={editingPrompt.translation_prompt} 
                 onChange={e => setEditingPrompt({ ...editingPrompt, translation_prompt: e.target.value })} 
                 rows={4} 
-                placeholder="Инструкция при вводе немецкого слова..."
+                placeholder={`Инструкция при вводе ${langInfo.label.toLowerCase()} слова...`}
               />
             </div>
 
             <div className="form-group" style={{ marginTop: '15px' }}>
-              <label>Инструкции для перевода с русского (при вводе на русском)</label>
+              <label>Инструкции при вводе на русском (для перевода на {langInfo.label.toLowerCase()})</label>
               <p className="field-hint">Правила перевода и разбора русского слова</p>
               <textarea 
                 value={editingPrompt.context_prompt} 
@@ -272,103 +303,146 @@ export const PromptsTab = () => {
   return (
     <motion.div key="prompts-list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="settings-section">
       <div className="section-header-with-btn">
-        <h3>Шаблоны промптов</h3>
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>Промпты ({langInfo.label})</span>
+          {renderFlag(langInfo.code, 18)}
+        </h3>
         <button className="btn btn-primary btn-tiny" onClick={handleCreateNew}>
           <Plus size={14} /> Создать промпт
         </button>
       </div>
       <p className="field-hint" style={{ marginBottom: '15px' }}>
-        Создавайте разные промпты для изменения стиля разбора слов, грамматики или адаптации под нужный уровень владения языком.
+        Персональные и стандартные промпты для изучения {langInfo.label.toLowerCase()} языка.
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {/* System Default Prompt */}
-        <div className={`prompt-template-card glass ${activePromptId === null ? 'active' : ''}`} style={{
-          padding: '12px 16px',
-          borderRadius: '12px',
-          border: activePromptId === null ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.05)',
-          background: activePromptId === null ? 'rgba(56, 189, 248, 0.05)' : 'rgba(255,255,255,0.02)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: activePromptId === null ? '#38bdf8' : '#f1f5f9' }}>
-              По умолчанию (Системный)
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
-              Базовые инструкции для перевода и анализа
-            </div>
-          </div>
-          <div>
-            {activePromptId === null ? (
-              <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Check size={14} /> Активен
-              </span>
-            ) : (
-              <button className="btn-secondary btn-tiny" onClick={() => handleActivate(null)}>
-                Активировать
-              </button>
-            )}
-          </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '5px' }}>
+          Стандартный промпт ({langInfo.name})
         </div>
 
-        {/* Custom User Prompts */}
-        {promptsList.map(p => (
-          <div key={p.id} className={`prompt-template-card glass ${activePromptId === p.id ? 'active' : ''}`} style={{
-            padding: '12px 16px',
-            borderRadius: '12px',
-            border: activePromptId === p.id ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.05)',
-            background: activePromptId === p.id ? 'rgba(56, 189, 248, 0.05)' : 'rgba(255,255,255,0.02)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: '0.9rem', color: activePromptId === p.id ? '#38bdf8' : '#f1f5f9' }}>
-                {p.name}
+        {systemPresets.map(preset => {
+          const isPresetActive = activePromptId === null;
+          return (
+            <div key={preset.id} className={`prompt-template-card glass ${isPresetActive ? 'active' : ''}`} style={{
+              padding: '14px 16px',
+              borderRadius: '12px',
+              border: isPresetActive ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)',
+              background: isPresetActive ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255,255,255,0.02)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.92rem', color: isPresetActive ? '#38bdf8' : '#f1f5f9' }}>
+                    {preset.name}
+                  </span>
+                  {preset.badge && (
+                    <span style={{ 
+                      fontSize: '0.68rem', 
+                      padding: '2px 6px', 
+                      borderRadius: '4px', 
+                      background: isPresetActive ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                      color: isPresetActive ? '#38bdf8' : '#94a3b8',
+                      fontWeight: 500
+                    }}>
+                      {preset.badge}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px', lineHeight: '1.3' }}>
+                  {preset.description}
+                </div>
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
-                Пользовательский шаблон
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {activePromptId === p.id ? (
-                <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginRight: '5px' }}>
-                  <Check size={14} /> Активен
-                </span>
-              ) : (
-                <button className="btn-secondary btn-tiny" onClick={() => handleActivate(p.id)}>
-                  Активировать
-                </button>
-              )}
               
-              <button 
-                className="btn-secondary btn-tiny" 
-                style={{ padding: '6px' }} 
-                onClick={() => handleEditPrompt(p)}
-                title="Редактировать"
-              >
-                <Edit2 size={12} />
-              </button>
-              
-              <button 
-                className="btn-secondary btn-tiny" 
-                style={{ padding: '6px', color: '#f43f5e' }} 
-                onClick={() => handleDelete(p.id)}
-                title="Удалить"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          </div>
-        ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isPresetActive ? (
+                  <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px' }}>
+                    <Check size={14} /> Активен
+                  </span>
+                ) : (
+                  <button className="btn-secondary btn-tiny" onClick={() => handleActivate(null)}>
+                    Активировать
+                  </button>
+                )}
 
-        {promptsList.length === 0 && !loading && (
-          <div style={{ textAlign: 'center', padding: '20px', fontSize: '0.8rem', color: '#64748b' }}>
-            У вас пока нет собственных промптов. Нажмите «Создать промпт», чтобы добавить свой шаблон.
-          </div>
+                <button 
+                  className="btn-secondary btn-tiny" 
+                  style={{ padding: '6px' }} 
+                  onClick={() => setEditingPrompt({
+                    id: null,
+                    name: `${preset.name} (Копия)`,
+                    instruction: preset.instruction,
+                    translation_prompt: preset.instruction,
+                    context_prompt: preset.instruction,
+                    isSplit: false
+                  })}
+                  title="Создать копию и настроить"
+                >
+                  <Edit2 size={12} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {promptsList.length > 0 && (
+          <>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '15px' }}>
+              Мои промпты для {langInfo.label.toLowerCase()} языка
+            </div>
+            {promptsList.map(p => (
+              <div key={p.id} className={`prompt-template-card glass ${activePromptId === p.id ? 'active' : ''}`} style={{
+                padding: '12px 16px',
+                borderRadius: '12px',
+                border: activePromptId === p.id ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.05)',
+                background: activePromptId === p.id ? 'rgba(56, 189, 248, 0.05)' : 'rgba(255,255,255,0.02)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem', color: activePromptId === p.id ? '#38bdf8' : '#f1f5f9' }}>
+                    {p.name}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
+                    Пользовательский шаблон ({p.target_language.toUpperCase()})
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {activePromptId === p.id ? (
+                    <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginRight: '5px' }}>
+                      <Check size={14} /> Активен
+                    </span>
+                  ) : (
+                    <button className="btn-secondary btn-tiny" onClick={() => handleActivate(p.id)}>
+                      Активировать
+                    </button>
+                  )}
+                  
+                  <button 
+                    className="btn-secondary btn-tiny" 
+                    style={{ padding: '6px' }} 
+                    onClick={() => handleEditPrompt(p)}
+                    title="Редактировать"
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                  
+                  <button 
+                    className="btn-secondary btn-tiny" 
+                    style={{ padding: '6px', color: '#f43f5e' }} 
+                    onClick={() => handleDelete(p.id)}
+                    title="Удалить"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </>
         )}
       </div>
     </motion.div>

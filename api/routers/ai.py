@@ -13,6 +13,7 @@ router = APIRouter(
 
 class PhraseRequest(BaseModel):
     phrase: str
+    target_language: str = "de"
 
 @router.get("/admin/models/{provider}")
 async def list_models(provider: str, url: str = None):
@@ -47,4 +48,4 @@ async def test_ai_connection(request: TestAIRequest):
 @router.post("/ai/generate")
 @router.post("/cards/ai-generate")
 async def generate_card(request: PhraseRequest, user_id: int = Depends(get_user_id)):
-    return await ai_service.generate_card_fields(user_id, request.phrase)
+    return await ai_service.generate_card_fields(user_id, request.phrase, request.target_language)

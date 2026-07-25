@@ -112,11 +112,14 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
         
     return {"front": front, "back": back, "context": context}
 
-async def generate_card_fields(user_id: int, phrase: str):
+async def generate_card_fields(user_id: int, phrase: str, target_language: str = "de"):
     """Generates Front, Back, and Context for a card using AI."""
     start_time = time.time()
     try:
-        lang = detect_language(phrase)
+        from api.services.language_service import get_prompt_for_phrase, get_language_config
+        target_lang = (target_language or "de").lower()
+        lang_config = get_language_config(target_lang)
+        lang_name = lang_config["name"]
         
         provider, ai_key, ai_model = get_ai_config()
         
@@ -124,55 +127,24 @@ async def generate_card_fields(user_id: int, phrase: str):
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
         from api.models import TMACustomPrompt, TMASetting
-        custom_prompt = TMACustomPrompt.get_or_none((TMACustomPrompt.user_id == user_id) & (TMACustomPrompt.is_active == True))
+        custom_prompt = TMACustomPrompt.get_or_none(
+            (TMACustomPrompt.user_id == user_id) & 
+            (TMACustomPrompt.is_active == True) &
+            ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
+        )
         
-        # If user has no active prompt, check for Global System Default Prompt set via Lerne UI
-        if not custom_prompt:
-            try:
-                global_setting = TMASetting.get_or_none(TMASetting.key == "GLOBAL_SYSTEM_PROMPT_ID")
-                if global_setting and global_setting.value:
-                    global_prompt_id = int(global_setting.value)
-                    custom_prompt = TMACustomPrompt.get_or_none(TMACustomPrompt.id == global_prompt_id)
-            except Exception as e:
-                logger.error(f"Error resolving global system prompt: {e}")
-
-        base_prompt = DEFAULT_PROMPTS.get(lang, DEFAULT_PROMPTS["de"])
+        is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in phrase)
         if custom_prompt:
-            if lang == "ru":
-                raw_prompt = custom_prompt.context_prompt or base_prompt
-            else:
-                raw_prompt = custom_prompt.translation_prompt or base_prompt
+            raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
+            system_prompt = (raw_prompt or get_prompt_for_phrase(phrase, target_lang)).replace("{phrase}", phrase)
         else:
-            user_prompts = TMAUserPrompt.get_or_none(TMAUserPrompt.user_id == user_id)
-            if user_prompts:
-                if lang == "ru":
-                    raw_prompt = user_prompts.context_prompt or base_prompt
-                else:
-                    raw_prompt = user_prompts.translation_prompt or base_prompt
-            else:
-                raw_prompt = base_prompt
+            system_prompt = get_prompt_for_phrase(phrase, target_lang)
 
-        if "JSON" in raw_prompt.upper():
-            # Legacy custom prompts with JSON formatting instructions
-            system_prompt = raw_prompt
-        else:
-            # Simple clean prompt text
-            clean_instruction = get_clean_instruction(raw_prompt)
-            if not clean_instruction:
-                clean_instruction = get_clean_instruction(base_prompt)
-
-            # Construct final prompt with correct prefix
-            if lang == "ru":
-                system_prompt = f'Переведи "{{phrase}}" на немецкий. Проанализируй перевод: {clean_instruction}'
+        if "JSON" not in system_prompt.upper():
+            if is_cyrillic:
+                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"перевод на {lang_name.lower()}\",\n  \"back\": \"{phrase}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
             else:
-                system_prompt = f'Проанализируй немецкое предложение или слово "{{phrase}}". {clean_instruction}'
-
-        system_prompt = system_prompt.replace("{phrase}", phrase)
-        if "JSON" not in raw_prompt.upper():
-            if lang == "ru":
-                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"перевод фразы на немецкий\",\n  \"back\": \"{phrase}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. нем. - рус.\\n2. нем. - рус.\\n3. нем. - рус.\"\n}}\nEND_JSON"
-            else:
-                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{phrase}\",\n  \"back\": \"перевод фразы на русский\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. нем. - рус.\\n2. нем. - рус.\\n3. нем. - рус.\"\n}}\nEND_JSON"
+                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{phrase}\",\n  \"back\": \"перевод на русский\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
 
         client = AIService(provider=provider, api_key=ai_key)
         

@@ -2,12 +2,30 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
 import api from '../../services/api';
 import { VOICE_OPTIONS } from '../../constants/settingsConstants';
+import { renderFlag } from '../deckgrid/FlagIcons';
 
 export const VoiceTab = () => {
   const { adminSettings, updateAdminSetting, speechMatchThreshold, setSpeechMatchThreshold } = useSettingsStore();
   const { showToast } = useUiStore();
+  const { activeLanguage, getLanguageInfo } = useLanguageStore();
+
+  const langInfo = getLanguageInfo();
+
+  const getVoiceFilterPrefix = (code) => {
+    switch (code) {
+      case 'en': return 'en-';
+      case 'no': return 'nb-';
+      case 'de':
+      default:
+        return 'de-';
+    }
+  };
+
+  const currentPrefix = getVoiceFilterPrefix(activeLanguage);
+  const filteredVoices = VOICE_OPTIONS.filter(opt => opt.value.startsWith(currentPrefix));
 
   const saveAdminSettings = async () => {
     const settings = useSettingsStore.getState().adminSettings;
@@ -23,12 +41,19 @@ export const VoiceTab = () => {
     <motion.div key="voice" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
       <h3>Синтез речи (Edge TTS)</h3>
 
+      {/* Target Language Voice Selection */}
       <div style={{ marginTop: '15px', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-        <h4 style={{ marginBottom: '15px', color: '#38bdf8', fontSize: '1rem', borderBottom: '1px solid rgba(56, 189, 248, 0.2)', paddingBottom: '8px' }}>Для фразы (Немецкий)</h4>
+        <h4 style={{ marginBottom: '15px', color: '#38bdf8', fontSize: '1rem', borderBottom: '1px solid rgba(56, 189, 248, 0.2)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>Для оригинала ({langInfo.name})</span>
+          {renderFlag(langInfo.code, 18)}
+        </h4>
         <div className="form-group">
-          <label>Голос</label>
-          <select value={adminSettings.TTS_VOICE || ''} onChange={e => updateAdminSetting('TTS_VOICE', e.target.value)}>
-            {VOICE_OPTIONS.filter(opt => opt.value.startsWith('de')).map(opt => (
+          <label>Голос ({langInfo.name})</label>
+          <select 
+            value={adminSettings.TTS_VOICE || (filteredVoices[0]?.value || '')} 
+            onChange={e => updateAdminSetting('TTS_VOICE', e.target.value)}
+          >
+            {filteredVoices.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
@@ -59,8 +84,9 @@ export const VoiceTab = () => {
         </div>
       </div>
 
+      {/* Russian Translation Voice Selection */}
       <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-        <h4 style={{ marginBottom: '15px', color: '#38bdf8', fontSize: '1rem', borderBottom: '1px solid rgba(56, 189, 248, 0.2)', paddingBottom: '8px' }}>Для перевода (Русский)</h4>
+        <h4 style={{ marginBottom: '15px', color: '#38bdf8', fontSize: '1rem', borderBottom: '1px solid rgba(56, 189, 248, 0.2)', paddingBottom: '8px' }}>Для перевода (Русский 🇷🇺)</h4>
         <div className="form-group">
           <label>Голос</label>
           <select value={adminSettings.TTS_VOICE_RU || ''} onChange={e => updateAdminSetting('TTS_VOICE_RU', e.target.value)}>

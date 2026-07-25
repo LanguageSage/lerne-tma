@@ -18,7 +18,8 @@ def get_active_folders(user_id: int):
             "id": f.id,
             "name": f.name,
             "parent_id": getattr(f, 'parent_id', None),
-            "color": f.color
+            "color": f.color,
+            "target_language": getattr(f, 'target_language', 'de') or 'de'
         } for f in folders]
     except Exception as e:
         logger.error(f"Error in get_active_folders: {e}", exc_info=True)
@@ -34,13 +35,14 @@ def ensure_inbox_folder(user_id: int) -> TMA_Folder:
             user_id=user_id,
             name="📥 Входящие",
             color="#ffd043",
+            target_language='de',
             created_at=datetime.datetime.now(),
             updated_at=datetime.datetime.now()
         )
         logger.info(f"Created Inbox folder for user {user_id} (id={inbox_folder.id})")
     return inbox_folder
 
-def create_folder(name: str, user_id: int, parent_id: int = None, color: str = None):
+def create_folder(name: str, user_id: int, parent_id: int = None, color: str = None, target_language: str = 'de'):
     """Создает новую папку для пользователя."""
     try:
         # Проверяем родителя, если указан
@@ -54,6 +56,7 @@ def create_folder(name: str, user_id: int, parent_id: int = None, color: str = N
             name=name,
             parent_id=parent_id,
             color=color,
+            target_language=target_language or 'de',
             created_at=datetime.datetime.now(),
             updated_at=datetime.datetime.now()
         )

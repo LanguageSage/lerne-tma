@@ -23,6 +23,7 @@ import { SyncModal } from './components/SyncModal';
 import { DuplicateManager } from './components/DuplicateManager';
 import { TrashManager } from './components/TrashManager';
 import { AuthRequiredModal } from './components/AuthRequiredModal';
+import { LanguageSelectionModal } from './components/LanguageSelectionModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
@@ -224,6 +225,11 @@ export default function App() {
   const finishTutorial = (context) => {
     storage.set(`lerne_tut_seen_${context}`, 'true');
     setActiveTutorial(null);
+    if (context === 'welcome') {
+      import('./store/useLanguageStore').then(({ useLanguageStore }) => {
+        useLanguageStore.getState().setLanguageModalOpen(true);
+      });
+    }
   };
 
   const startTutorial = (context) => {
@@ -317,6 +323,8 @@ export default function App() {
         onClose={() => useUiStore.getState().setIsAuthModalOpen(false)}
         title={useUiStore(s => s.authModalTitle)}
       />
+
+      <LanguageSelectionModal />
 
       <Toast toast={toast} />
       <GlobalLoader isVisible={isOpeningDeck} />

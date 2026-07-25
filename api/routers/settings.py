@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
 
-import models
+from api import models
 from api import services
 from api.dependencies.auth import get_user_id
 
@@ -14,14 +14,51 @@ router = APIRouter(
 )
 
 # User Settings (Custom Prompts Manager)
-import ai_service
+from api import ai_service
+
+SYSTEM_PRESETS = [
+    {
+        "id": "preset_a2",
+        "name": "🎯 Уровень A2 — Базовый немецкий",
+        "level": "A2",
+        "badge": "Базовый",
+        "description": "Разбор слов и подробная грамматика с 3 несложными примерами",
+        "instruction": "объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык немецкий уровня А2, родной русский. пиши немецкий текст сложностью не выше уровня А2"
+    },
+    {
+        "id": "preset_b1",
+        "name": "⚡ Уровень B1 — Уверенный немецкий",
+        "level": "B1",
+        "badge": "По умолчанию",
+        "description": "Стандарт системы: подробный разбор грамматики и 3 примера уровня B1",
+        "instruction": "объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык немецкий, родной русский. пиши немецкий текст сложностью не выше уровня Б1"
+    },
+    {
+        "id": "preset_b2",
+        "name": "🚀 Уровень B2 — Продвинутый немецкий",
+        "level": "B2",
+        "badge": "Продвинутый",
+        "description": "Разбор слов, подбор синонимов, подробная грамматика и примеры уровня B2",
+        "instruction": "объясни слова с переводом на русский, синонимы и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык немецкий, родной русский. пиши немецкий текст сложностью уровня Б2"
+    }
+]
 
 @router.get("/user/prompts")
-def get_user_prompts(user_id: int = Depends(get_user_id)):
+def get_user_prompts(target_language: Optional[str] = "de", user_id: int = Depends(get_user_id)):
     custom_prompts = []
     active_prompt_id = None
+    target_lang = (target_language or "de").lower().strip()
+    
     try:
-        for p in models.TMACustomPrompt.select().where(models.TMACustomPrompt.user_id == user_id).order_by(models.TMACustomPrompt.id.asc()):
+        from api.services.language_service import get_language_config
+        lang_cfg = get_language_config(target_lang)
+        
+        query = models.TMACustomPrompt.select().where(
+            (models.TMACustomPrompt.user_id == user_id) & 
+            ((models.TMACustomPrompt.target_language == target_lang) | (models.TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
+        ).order_by(models.TMACustomPrompt.id.asc())
+
+        for p in query:
             if p.is_active:
                 active_prompt_id = p.id
             custom_prompts.append({
@@ -29,17 +66,34 @@ def get_user_prompts(user_id: int = Depends(get_user_id)):
                 "name": p.name,
                 "translation_prompt": p.translation_prompt or "",
                 "context_prompt": p.context_prompt or "",
+                "target_language": p.target_language or "de",
                 "is_active": p.is_active
             })
     except Exception as e:
         logger.error(f"Error fetching custom prompts: {e}")
         
+    from api.services.language_service import get_language_config
+    lang_cfg = get_language_config(target_lang)
+
     return {
         "custom_prompts": custom_prompts,
         "active_prompt_id": active_prompt_id,
+        "target_language": target_lang,
+        "language_name": lang_cfg["name"],
+        "language_flag": lang_cfg["flag"],
+        "system_presets": [
+            {
+                "id": "preset_b1",
+                "name": f"Промпт B1 ({lang_cfg['name']})",
+                "badge": "Рекомендуемый",
+                "level": "B1",
+                "description": f"Оптимальный баланс: разбор слов, объяснение грамматики {lang_cfg['name'].lower()} языка и 3 примера.",
+                "instruction": lang_cfg["default_prompts"]["analysis"]
+            }
+        ],
         "defaults": {
-            "de": ai_service.DEFAULT_PROMPTS["de"],
-            "ru": ai_service.DEFAULT_PROMPTS["ru"]
+            "de": lang_cfg["default_prompts"]["translation"],
+            "ru": lang_cfg["default_prompts"]["analysis"]
         }
     }
 
@@ -49,6 +103,7 @@ def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
     name = data.get('name', 'Мой промпт')
     translation_prompt = data.get('translation_prompt', '')
     context_prompt = data.get('context_prompt', '')
+    target_language = (data.get('target_language') or 'de').lower().strip()
     
     # Fallback for single prompt input
     single_prompt = data.get('prompt')
@@ -65,6 +120,7 @@ def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
         p.name = name
         p.translation_prompt = translation_prompt
         p.context_prompt = context_prompt
+        p.target_language = target_language
         p.save()
     else:
         p = models.TMACustomPrompt.create(
@@ -72,6 +128,7 @@ def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
             name=name,
             translation_prompt=translation_prompt,
             context_prompt=context_prompt,
+            target_language=target_language,
             is_active=False
         )
     return {"status": "ok", "id": p.id}
@@ -85,9 +142,13 @@ def delete_user_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
     return {"status": "ok"}
 
 @router.post("/user/prompts/{prompt_id}/activate")
-def activate_user_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
-    # Deactivate all
-    models.TMACustomPrompt.update(is_active=False).where(models.TMACustomPrompt.user_id == user_id).execute()
+def activate_user_prompt(prompt_id: int, data: dict = None, user_id: int = Depends(get_user_id)):
+    target_lang = (data.get('target_language') if data else 'de') or 'de'
+    # Deactivate all for target_language
+    models.TMACustomPrompt.update(is_active=False).where(
+        (models.TMACustomPrompt.user_id == user_id) & 
+        ((models.TMACustomPrompt.target_language == target_lang) | (models.TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
+    ).execute()
     # Activate selected
     updated = models.TMACustomPrompt.update(is_active=True).where(
         (models.TMACustomPrompt.id == prompt_id) & (models.TMACustomPrompt.user_id == user_id)
@@ -97,9 +158,37 @@ def activate_user_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
     return {"status": "ok"}
 
 @router.post("/user/prompts/deactivate")
-def deactivate_user_prompts(user_id: int = Depends(get_user_id)):
-    models.TMACustomPrompt.update(is_active=False).where(models.TMACustomPrompt.user_id == user_id).execute()
+def deactivate_user_prompts(data: dict = None, user_id: int = Depends(get_user_id)):
+    target_lang = (data.get('target_language') if data else 'de') or 'de'
+    models.TMACustomPrompt.update(is_active=False).where(
+        (models.TMACustomPrompt.user_id == user_id) & 
+        ((models.TMACustomPrompt.target_language == target_lang) | (models.TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
+    ).execute()
     return {"status": "ok"}
+
+@router.post("/user/prompts/preset/{preset_id}/activate")
+def activate_system_preset(preset_id: str, user_id: int = Depends(get_user_id)):
+    preset = next((p for p in SYSTEM_PRESETS if p["id"] == preset_id), None)
+    if not preset:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    
+    models.TMACustomPrompt.update(is_active=False).where(models.TMACustomPrompt.user_id == user_id).execute()
+    
+    p = models.TMACustomPrompt.get_or_none((models.TMACustomPrompt.user_id == user_id) & (models.TMACustomPrompt.name == preset["name"]))
+    if not p:
+        p = models.TMACustomPrompt.create(
+            user_id=user_id,
+            name=preset["name"],
+            translation_prompt=preset["instruction"],
+            context_prompt=preset["instruction"],
+            is_active=True
+        )
+    else:
+        p.translation_prompt = preset["instruction"]
+        p.context_prompt = preset["instruction"]
+        p.is_active = True
+        p.save()
+    return {"status": "ok", "id": p.id}
 
 # Admin Settings
 @router.get("/admin/settings")

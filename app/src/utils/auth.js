@@ -69,7 +69,6 @@ export const getUserProfile = () => {
       if (urlId !== null) {
         const accountParam = params.get('account');
         
-        // Проверяем, нет ли уже в сторадже полноценного профиля для этого ID
         const savedProfile = storage.get('lerne_user_profile');
         if (savedProfile) {
           try {
@@ -92,20 +91,12 @@ export const getUserProfile = () => {
       }
     }
 
-    // 3. Для локальной разработки
-    const fallbackId = parseUserId(FALLBACK_USER_ID);
-    if (fallbackId !== null && isLocalHost(window.location.hostname)) {
-      const profile = { user_id: fallbackId, is_guest: true, first_name: 'Dev Admin' };
-      storage.set('lerne_user_id', fallbackId);
-      storage.set('lerne_user_profile', JSON.stringify(profile));
-      return profile;
-    }
-
-    // 4. Пытаемся взять из localStorage
+    // 3. Пытаемся взять из сохранённого localStorage профиля (высокий приоритет для браузера)
     const savedProfile = storage.get('lerne_user_profile');
     if (savedProfile) {
       try {
-        return JSON.parse(savedProfile);
+        const p = JSON.parse(savedProfile);
+        if (p && p.user_id) return p;
       } catch (e) {}
     }
 
@@ -114,16 +105,17 @@ export const getUserProfile = () => {
       const id = parseUserId(savedId);
       if (id !== null) return { user_id: id, is_guest: true };
     }
-    
-    // 5. Генерируем новый случайный ID (для новых веб-пользователей)
-    const hostname = window.location.hostname;
-    if (isLocalHost(hostname)) {
-      const profile = { user_id: 642478257, is_guest: true, first_name: 'Local User' };
-      storage.set('lerne_user_id', 642478257);
+
+    // 4. Для локальной разработки без сохранённого профиля
+    const fallbackId = parseUserId(FALLBACK_USER_ID) || 642478257;
+    if (fallbackId !== null && isLocalHost(window.location.hostname)) {
+      const profile = { user_id: fallbackId, is_guest: false, first_name: 'Aruna Андрей', username: 'Aruna27' };
+      storage.set('lerne_user_id', fallbackId);
       storage.set('lerne_user_profile', JSON.stringify(profile));
       return profile;
     }
-
+    
+    // 5. Генерируем новый случайный ID
     const newId = Math.floor(100000000 + Math.random() * 900000000);
     const profile = { user_id: newId, is_guest: true };
     storage.set('lerne_user_id', newId);

@@ -747,6 +747,44 @@
   flex-direction: column;
   align-items: center;
   margin-bottom: 20px;
+  width: 100%;
+}
+
+.speak-mic-controls-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.btn-speak-audio {
+  position: absolute;
+  left: calc(50% + 58px);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(99, 102, 241, 0.1));
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.2);
+}
+
+.btn-speak-audio:hover {
+  transform: scale(1.08);
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.2));
+}
+
+.btn-speak-audio:active {
+  transform: scale(0.95);
 }
 
 .btn-speak-mic {

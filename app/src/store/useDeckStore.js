@@ -165,9 +165,11 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
-  createDeck: async (name, folderId = null) => {
+  createDeck: async (name, folderId = null, targetLang = null) => {
     try {
-      await api.post('/decks', { name, folder_id: folderId });
+      const { useLanguageStore } = await import('./useLanguageStore');
+      const targetLanguage = targetLang || useLanguageStore.getState().activeLanguage || 'de';
+      await api.post('/decks', { name, folder_id: folderId, target_language: targetLanguage });
       const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {
@@ -208,7 +210,9 @@ export const useDeckStore = create((set, get) => ({
 
   fetchExternalDecks: async () => {
     try {
-      const res = await api.get('/decks/external');
+      const { useLanguageStore } = await import('./useLanguageStore');
+      const activeLang = useLanguageStore.getState().activeLanguage || 'de';
+      const res = await api.get(`/decks/external?target_language=${activeLang}`);
       set({ externalDecks: res.data });
     } catch (err) {
       console.error('Fetch External Decks Error:', err);
@@ -328,9 +332,11 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
-  createFolder: async (name, parentId = null, color = null) => {
+  createFolder: async (name, parentId = null, color = null, targetLang = null) => {
     try {
-      await api.post('/folders', { name, parent_id: parentId, color });
+      const { useLanguageStore } = await import('./useLanguageStore');
+      const targetLanguage = targetLang || useLanguageStore.getState().activeLanguage || 'de';
+      await api.post('/folders', { name, parent_id: parentId, color, target_language: targetLanguage });
       const { fetchFolders } = get();
       await fetchFolders();
     } catch (err) {

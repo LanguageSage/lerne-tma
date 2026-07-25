@@ -75,6 +75,13 @@ MIGRATIONS = [
     (51, 'ALTER TABLE tma_card ADD COLUMN position INTEGER DEFAULT 0', 'tma'),
     (52, 'ALTER TABLE tma_deck ADD COLUMN metadata TEXT DEFAULT \'{"resources": []}\'', 'tma'),
     (53, 'ALTER TABLE deck ADD COLUMN metadata TEXT DEFAULT \'{"resources": []}\'', 'lerne'),
+
+    # --- Multi-Language Support (v3) ---
+    (54, "ALTER TABLE tma_deck ADD COLUMN target_language TEXT DEFAULT 'de'", 'tma'),
+    (55, "ALTER TABLE tma_folder ADD COLUMN target_language TEXT DEFAULT 'de'", 'tma'),
+    (56, "ALTER TABLE deck ADD COLUMN target_language TEXT DEFAULT 'de'", 'lerne'),
+    (57, "ALTER TABLE tma_custom_prompt ADD COLUMN target_language TEXT DEFAULT 'de'", 'tma'),
+    (58, "ALTER TABLE tma_user ADD COLUMN active_language TEXT DEFAULT 'de'", 'tma'),
 ]
 
 

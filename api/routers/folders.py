@@ -24,9 +24,10 @@ def create_folder(data: dict, user_id: int = Depends(get_user_id)):
     
     parent_id = data.get('parent_id')
     color = data.get('color')
+    target_language = data.get('target_language', 'de')
     
     try:
-        folder = services.create_folder(name.strip(), user_id, parent_id, color)
+        folder = services.create_folder(name.strip(), user_id, parent_id, color, target_language)
         return {"status": "success", "id": folder.id}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

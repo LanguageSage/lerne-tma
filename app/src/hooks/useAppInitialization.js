@@ -100,6 +100,15 @@ export const useAppInitialization = (checkStartParam) => {
         setActiveTutorial('welcome');
         storage.set('lerne_welcome_seen', 'true');
       }, 1500);
+    } else {
+      const hasSelectedLang = storage.get('lerne_has_selected_language');
+      if (!hasSelectedLang) {
+        setTimeout(() => {
+          import('../store/useLanguageStore').then(({ useLanguageStore }) => {
+            useLanguageStore.getState().setLanguageModalOpen(true);
+          });
+        }, 1000);
+      }
     }
 
     return () => {
@@ -160,6 +169,24 @@ export const useAppInitialization = (checkStartParam) => {
 
   const syncProfile = async (currentProfile) => {
     try {
+      // 1. Пытаемся получить существующий профиль из БД сервера
+      try {
+        const meRes = await api.get('/auth/me');
+        if (meRes.data && meRes.data.user_id) {
+          const dbProfile = meRes.data;
+          setUserProfile(dbProfile);
+          storage.set('lerne_user_profile', JSON.stringify(dbProfile));
+          if (currentProfile.is_guest && !dbProfile.is_guest) {
+            console.log("Found real user profile in DB. Fetching data...");
+            fetchInitData();
+          }
+          return;
+        }
+      } catch (e) {
+        // Запись в БД еще не создана
+      }
+
+      // 2. Если профиля в БД еще нет, выполняем синхронизацию
       const res = await api.post('/auth/sync', {
         first_name: currentProfile.first_name,
         last_name: currentProfile.last_name,
@@ -170,15 +197,8 @@ export const useAppInitialization = (checkStartParam) => {
       
       if (res.data.status === 'ok' && res.data.user) {
         const newProfile = res.data.user;
-        if (currentProfile.is_guest && !newProfile.is_guest) {
-          console.log("User promoted from Guest to Real User. Re-fetching data...");
-          setUserProfile(newProfile);
-          storage.set('lerne_user_profile', JSON.stringify(newProfile));
-          fetchInitData();
-        } else {
-          setUserProfile(newProfile);
-          storage.set('lerne_user_profile', JSON.stringify(newProfile));
-        }
+        setUserProfile(newProfile);
+        storage.set('lerne_user_profile', JSON.stringify(newProfile));
       }
     } catch (err) {
       console.error("Profile sync error:", err);

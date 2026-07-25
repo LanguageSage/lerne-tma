@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Eye, Volume2, Mic, MicOff, Check, AlertCircle, Undo, Sparkles, Sliders } from 'lucide-react';
-import { stripMarkdown } from '../../utils/text';
+import { stripMarkdown, normalizeGermanSpeechText } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -287,8 +287,8 @@ export const StudyCard = ({
 
   const evaluateSpeech = (transcript, isFinalOrManualStop = false) => {
     if (!transcript) return false;
-    const cleanTranscript = transcript.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").trim();
-    const cleanOriginal = stripMarkdown(cardFrontRef.current || card.front).toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").trim();
+    const cleanTranscript = normalizeGermanSpeechText(transcript);
+    const cleanOriginal = normalizeGermanSpeechText(cardFrontRef.current || card.front);
 
     if (!cleanTranscript || !cleanOriginal) return false;
 
@@ -778,34 +778,79 @@ export const StudyCard = ({
                   </div>
 
                   <div className="speak-mic-area">
-                    <button 
-                      type="button"
-                      className={`btn-speak-mic ${isListening ? 'listening' : ''} ${speechSuccess ? 'success' : ''}`}
-                      onClick={toggleSpeechRecognition}
-                    >
-                      {isListening ? (
-                        <div className="recording-wave-rings">
-                          <span className="ring"></span>
-                          <span className="ring"></span>
-                          <span className="ring"></span>
-                        </div>
-                      ) : null}
-                      {speechSuccess ? <Check size={32} /> : <Mic size={32} />}
-                    </button>
+                    <div className="speak-mic-controls-row">
+                      <button 
+                        type="button"
+                        className={`btn-speak-mic ${isListening ? 'listening' : ''} ${speechSuccess ? 'success' : ''}`}
+                        onClick={toggleSpeechRecognition}
+                      >
+                        {isListening ? (
+                          <div className="recording-wave-rings">
+                            <span className="ring"></span>
+                            <span className="ring"></span>
+                            <span className="ring"></span>
+                          </div>
+                        ) : null}
+                        {speechSuccess ? <Check size={32} /> : <Mic size={32} />}
+                      </button>
+
+                      {card.audio_url && (
+                        <button
+                          type="button"
+                          className="btn-speak-audio"
+                          disabled={loading || isAutoplayActive}
+                          onClick={(e) => { e.stopPropagation(); if (!isAutoplayActive) playAudio(card.audio_url); }}
+                          title="Озвучить карточку"
+                        >
+                          {isAudioLoading ? (
+                            card.audio_is_generating ? (
+                              <Sparkles size={22} className="sparkles-spin" style={{ color: '#a855f7' }} />
+                            ) : (
+                              <RefreshCw size={22} className="spin" />
+                            )
+                          ) : (
+                            <Volume2 size={24} />
+                          )}
+                        </button>
+                      )}
+                    </div>
                     <p className="mic-help-label">
                       {isListening ? "Слушаю... Нажмите для проверки" : "Нажмите микрофон и говорите"}
                     </p>
                   </div>
 
                   {recognizedText && (
-                    <div className="recognized-transcript-bubble glass">
-                      <span style={{ fontSize: '0.9rem', opacity: 0.8, color: '#cbd5e1' }}>Вы сказали: </span>
-                      <strong style={{ color: speechSuccess ? '#10b981' : '#f43f5e', fontSize: '1.05rem', marginLeft: '4px' }}>{recognizedText}</strong>
-                      {speechSuccess ? (
-                        <Check size={20} color="#10b981" style={{ display: 'inline-block', marginLeft: '6px' }} />
-                      ) : (
-                        <AlertCircle size={20} color="#f43f5e" style={{ display: 'inline-block', marginLeft: '6px' }} />
-                      )}
+                    <div 
+                      className="recognized-transcript-bubble glass"
+                      style={{
+                        borderColor: speechSuccess ? 'rgba(16, 185, 129, 0.4)' : (isListening ? 'rgba(255, 255, 255, 0.15)' : 'rgba(244, 63, 94, 0.4)'),
+                        flexDirection: 'column',
+                        padding: '12px 18px',
+                        width: '100%'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.85rem', opacity: 0.75, color: '#cbd5e1', marginBottom: '4px' }}>Вы сказали:</span>
+                      <div style={{
+                        fontFamily: cardFont,
+                        color: cardTextColor,
+                        fontSize: `${Math.max(cardFontSize * 1.1, 1.4)}rem`,
+                        fontWeight: cardFontWeight,
+                        fontStyle: cardFontStyle,
+                        textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                        textAlign: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        wordBreak: 'break-word'
+                      }}>
+                        <span>{recognizedText}</span>
+                        {speechSuccess ? (
+                          <Check size={24} color="#10b981" style={{ flexShrink: 0 }} />
+                        ) : (!isListening ? (
+                          <AlertCircle size={24} color="#f43f5e" style={{ flexShrink: 0 }} />
+                        ) : null)}
+                      </div>
                     </div>
                   )}
 
@@ -829,14 +874,16 @@ export const StudyCard = ({
                 <div className="text-front-mini" style={{ marginBottom: 0 }}>
                   {stripMarkdown(studyMode === 'reverse' ? card.back : card.front)}
                 </div>
-                {(card.audio_back_url || card.audio_url) && (
+                {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
                   <button
                     id="tut-study-audio-back"
                     className="audio-btn-back-corner"
                     disabled={loading || isAutoplayActive}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isAutoplayActive) playAudio(studyMode === 'reverse' ? card.audio_back_url : (card.audio_back_url || card.audio_url));
+                      if (!isAutoplayActive) {
+                        playAudio(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url);
+                      }
                     }}
                   >
                     {isAudioLoading ? (

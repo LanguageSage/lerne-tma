@@ -72,13 +72,14 @@ def merge_guest_data(guest_id: int, target_user_id: int):
 
 
 
-def create_deck(name: str, user_id: int, folder_id: int = None):
+def create_deck(name: str, user_id: int, folder_id: int = None, target_language: str = 'de'):
     """Создает новую пользовательскую колоду."""
     try:
         deck = TMA_Deck.create(
             user_id=user_id,
             name=name,
             folder_id=folder_id,
+            target_language=target_language or 'de',
             created_at=datetime.datetime.now(),
             updated_at=datetime.datetime.now()
         )
@@ -243,6 +244,7 @@ def get_active_decks(user_id: int):
                 "name": d.name,
                 "level": getattr(d, 'level', ''),
                 "topic": getattr(d, 'topic', ''),
+                "target_language": getattr(d, 'target_language', 'de') or 'de',
                 "is_inbox": getattr(d, 'is_inbox', False),
                 "is_pinned": getattr(d, 'is_pinned', False),
                 "position": getattr(d, 'position', 0),
@@ -262,18 +264,25 @@ def get_active_decks(user_id: int):
         raise e
 
 
-def get_external_decks():
-    """Возвращает список всех колод из общей библиотеки. Оптимизировано для быстрой загрузки."""
+def get_external_decks(target_language: str = None):
+    """Возвращает список всех колод из общей библиотеки с учетом изучаемого языка."""
     try:
-        # Используем один запрос с группировкой для подсчета карточек
         counts = {c.deck_id: c.count for c in Card.select(Card.deck_id, fn.COUNT(Card.id).alias('count')).group_by(Card.deck_id)}
         
-        decks = list(Deck.select().order_by(Deck.name))
+        query = Deck.select()
+        if target_language:
+            if target_language == 'de':
+                query = query.where((Deck.target_language == 'de') | (Deck.target_language.is_null()))
+            else:
+                query = query.where(Deck.target_language == target_language)
+
+        decks = list(query.order_by(Deck.name))
         return [{
             "id": d.id,
             "name": d.name,
             "level": getattr(d, 'level', ''),
             "topic": getattr(d, 'topic', ''),
+            "target_language": getattr(d, 'target_language', 'de') or 'de',
             "category_id": getattr(d, 'category_id', None),
             "is_default": getattr(d, 'is_default', False),
             "cards_count": counts.get(d.id, 0)

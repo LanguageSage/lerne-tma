@@ -140,8 +140,10 @@ export const useAiActions = () => {
       }
 
       try {
+        const { useLanguageStore } = await import('../store/useLanguageStore');
+        const activeLang = useLanguageStore.getState().activeLanguage || 'de';
         const res = await api.post('/cards/ai-generate', 
-          { phrase }, 
+          { phrase, target_language: activeLang }, 
           { signal: abortControllerRef.current.signal }
         );
 
