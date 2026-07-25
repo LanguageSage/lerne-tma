@@ -10,7 +10,10 @@ import { useCardActions } from '../hooks/useCardActions';
 import { useAudio } from '../hooks/useAudio';
 import { useSettingsStore } from '../store/useSettingsStore';
 
+import { useTranslation } from '../i18n/i18nContext';
+
 export const CardCreator = ({ startTutorial }) => {
+  const { t } = useTranslation();
   const { view, setView, setIsSettingsOpen, editorSourceView } = useUiStore();
   const { currentDeck } = useDeckStore();
   const { card, setCard } = useSessionStore();
@@ -93,7 +96,7 @@ export const CardCreator = ({ startTutorial }) => {
       >
         <div className="header-compact">
           <button className="back-btn" onClick={handleBack}><ChevronLeft size={24} /></button>
-          <h2>Новая карточка</h2>
+          <h2>{t('creator.title', 'Новая карточка')}</h2>
           <div className="header-actions">
             <button className="header-action-btn" disabled={true} title="Добавить карточку">
               <Plus size={22} />
@@ -102,12 +105,13 @@ export const CardCreator = ({ startTutorial }) => {
             <button 
               className="header-action-btn settings-btn" 
               onClick={() => setIsSettingsOpen(true)}
-              title="Настройки"
+              title={t('settings.title', 'Настройки')}
             >
               <Settings size={22} />
             </button>
           </div>
         </div>
+
 
         <CardForm
           cardData={newCardData}

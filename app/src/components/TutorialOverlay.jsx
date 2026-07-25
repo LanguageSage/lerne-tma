@@ -3,7 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import './TutorialOverlay.css';
 
+import { useTranslation } from '../i18n/i18nContext';
+
 export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) => {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(0);
   const [coords, setCoords] = useState({ x: window.innerWidth / 2, y: window.innerHeight / 2, r: 0 });
 
@@ -27,7 +30,6 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
 
   useEffect(() => {
     if (isOpen) {
-      console.log("TutorialOverlay OPENED with steps:", steps);
       setCurrentStep(0);
     }
   }, [isOpen, steps]);
@@ -55,16 +57,12 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
       const element = document.getElementById(targetStep.targetId);
 
       if (element) {
-        // Use instant scroll to avoid coordinate race conditions during smooth animation
         element.scrollIntoView({ behavior: 'auto', block: 'center' });
-        
-        // Short delay to let the browser update the layout
         setTimeout(() => {
           const rect = element.getBoundingClientRect();
-          const padding = targetStep.padding !== undefined ? targetStep.padding : 20; // Default increased from 10 to 20
+          const padding = targetStep.padding !== undefined ? targetStep.padding : 20;
           
           let r = Math.max(rect.width, rect.height) / 2 + padding;
-          // Cap radius to avoid it being too large on big elements
           r = Math.min(r, Math.min(window.innerWidth, window.innerHeight) * 0.3);
           if (r < 30) r = 40;
           
@@ -108,20 +106,16 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
     const spaceAbove = coords.y - coords.r;
 
     if (spaceBelow > tooltipHeight + margin * 2) {
-      // Position below the element
       finalTop = Math.max(margin + 60, coords.y + coords.r + margin);
-      // Ensure it doesn't exceed window height
       if (finalTop + tooltipHeight > window.innerHeight) {
         finalTop = window.innerHeight - tooltipHeight - margin;
       }
     } else if (spaceAbove > tooltipHeight + margin * 2) {
-      // Position above the element
       finalBottom = Math.max(margin, window.innerHeight - (coords.y - coords.r) + margin);
       if (finalBottom + tooltipHeight > window.innerHeight) {
         finalBottom = window.innerHeight - tooltipHeight - margin;
       }
     } else {
-      // Fallback: position in middle of available vertical space
       if (coords.y > window.innerHeight / 2) {
         finalTop = margin + 70;
       } else {
@@ -165,13 +159,13 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
             <h3 style={{ margin: 0, fontSize: coords.isWelcome ? '1.3rem' : '1.1rem' }}>{step.title}</h3>
-            <button className="tutorial-skip" style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }} onClick={onSkip}><X size={18} /></button>
+            <button className="tutorial-skip" style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }} onClick={onSkip} title={t('tutorial.skip', 'Пропустити')}><X size={18} /></button>
           </div>
           <p style={{ whiteSpace: 'pre-line' }}>{step.content}</p>
           
           {isLocked && (
             <div style={{ color: '#fbbf24', fontSize: '0.85rem', marginTop: '8px', fontWeight: 'bold' }}>
-              ☝️ Сначала нажми на карточку, чтобы увидеть ответ!
+              {t('tutorial.flip_first', '☝️ Спочатку натисни на картку, щоб побачити відповідь!')}
             </div>
           )}
 
@@ -184,14 +178,14 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
             
             <div style={{ display: 'flex', gap: '8px' }}>
               {currentStep > 0 && (
-                <button className="tutorial-btn" onClick={handlePrev}>Назад</button>
+                <button className="tutorial-btn" onClick={handlePrev}>{t('tutorial.back', 'Назад')}</button>
               )}
               <button 
                 className={`tutorial-btn ${!isLocked ? 'primary' : ''}`} 
                 onClick={handleNext}
                 style={{ opacity: isLocked ? 0.5 : 1, cursor: isLocked ? 'not-allowed' : 'pointer' }}
               >
-                {currentStep === steps.length - 1 ? 'Понятно' : 'Далее'}
+                {currentStep === steps.length - 1 ? t('tutorial.got_it', 'Зрозуміло') : t('tutorial.next', 'Далі')}
               </button>
             </div>
           </div>
@@ -201,8 +195,13 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
   );
 };
 
-export const HelpButton = ({ onClick, title = "Помощь" }) => (
-  <button id="tut-help-button" className="help-btn-normal" onClick={(e) => { e.stopPropagation(); onClick(); }} title={title}>
-    <span className="help-icon-text">?</span>
-  </button>
-);
+export const HelpButton = ({ onClick, title }) => {
+  const { t } = useTranslation();
+  const helpTitle = title || t('tutorial.help', 'Довідка');
+  return (
+    <button id="tut-help-button" className="help-btn-normal" onClick={(e) => { e.stopPropagation(); onClick(); }} title={helpTitle}>
+      <span className="help-icon-text">?</span>
+    </button>
+  );
+};
+

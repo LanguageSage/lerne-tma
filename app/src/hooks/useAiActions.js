@@ -142,8 +142,9 @@ export const useAiActions = () => {
       try {
         const { useLanguageStore } = await import('../store/useLanguageStore');
         const activeLang = useLanguageStore.getState().activeLanguage || 'de';
+        const nativeLang = localStorage.getItem('native_language') || 'uk';
         const res = await api.post('/cards/ai-generate', 
-          { phrase, target_language: activeLang }, 
+          { phrase, target_language: activeLang, native_language: nativeLang }, 
           { signal: abortControllerRef.current.signal }
         );
 

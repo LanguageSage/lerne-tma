@@ -45,15 +45,20 @@ SYSTEM_PRESETS = [
 ]
 
 @router.get("/user/prompts")
-def get_user_prompts(target_language: str = "de", user_id: int = Depends(get_user_id)):
+def get_user_prompts(target_language: str = "de", native_language: str = None, user_id: int = Depends(get_user_id)):
     custom_prompts = []
     active_prompt_id = None
     active_preset_id = None
     target_lang = (target_language or "de").lower().strip()
     
-    from api.services.language_service import get_language_config, get_system_presets
-    lang_cfg = get_language_config(target_lang)
-    presets = get_system_presets(target_lang)
+    from api.services.language_service import get_language_config, get_system_presets, get_prompt_for_phrase
+    if not native_language:
+        native_rec = models.TMASetting.get_or_none(models.TMASetting.key == "NATIVE_LANGUAGE")
+        native_language = native_rec.value if native_rec else "uk"
+        
+    native_lang = (native_language or "uk").lower().strip()
+    lang_cfg = get_language_config(target_lang, native_lang)
+    presets = get_system_presets(target_lang, native_lang)
     
     try:
         query = models.TMACustomPrompt.select().where(
@@ -86,12 +91,13 @@ def get_user_prompts(target_language: str = "de", user_id: int = Depends(get_use
         "active_prompt_id": active_prompt_id,
         "active_preset_id": active_preset_id or "preset_b1",
         "target_language": target_lang,
+        "native_language": native_lang,
         "language_name": lang_cfg["name"],
         "language_flag": lang_cfg["flag"],
         "system_presets": presets,
         "defaults": {
-            "de": lang_cfg["default_prompts"]["translation"],
-            "ru": lang_cfg["default_prompts"]["analysis"]
+            "translation": get_prompt_for_phrase("{phrase}", target_lang, native_lang),
+            "analysis": get_prompt_for_phrase("phrase", target_lang, native_lang)
         }
     }
 

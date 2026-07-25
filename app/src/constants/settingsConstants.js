@@ -18,6 +18,10 @@ export const VOICE_OPTIONS = [
   { value: "nb-NO-FinnNeural", label: "Норвегия: Финн (Муж)" },
   { value: "nb-NO-IselinNeural", label: "Норвегия: Иселин (Жен)" },
 
+  // Украинский (uk - перевод)
+  { value: "uk-UA-PolinaNeural", label: "Украина: Полина (Жен)" },
+  { value: "uk-UA-OstapNeural", label: "Украина: Остап (Муж)" },
+
   // Русский (ru - перевод)
   { value: "ru-RU-SvetlanaNeural", label: "Россия: Светлана (Жен)" },
   { value: "ru-RU-DmitryNeural", label: "Россия: Дмитрий (Муж)" },

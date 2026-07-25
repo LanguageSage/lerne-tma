@@ -1,0 +1,72 @@
+{
+  "welcome": {
+    "title": "Select your native language",
+    "subtitle": "This language will be used for the interface, AI grammar explanations, and word translations.",
+    "confirm": "Save and continue 🚀",
+    "tutorial_welcome_title": "Welcome to Lerne! 🚀",
+    "tutorial_welcome_content": "Your personal assistant for learning languages.\n\n✨ With Lerne you can:\n📍 Create flashcards in seconds using AI\n📍 Learn words effectively via smart repetitions\n📍 Customize card designs to your taste"
+  },
+  "nav": {
+    "decks": "Decks",
+    "cards": "Cards",
+    "settings": "Settings",
+    "library": "Library",
+    "feedback": "Feedback"
+  },
+  "decks": {
+    "my_decks": "My Decks",
+    "subtitle": "Choose a deck and start learning",
+    "cards_count": "cards",
+    "add_deck": "Create Deck",
+    "import_library": "Deck Library",
+    "empty": "You have no decks yet. Create your first one!",
+    "study_mode": "Study Mode",
+    "classic_cards": "🃏 Cards (Target → Translation)",
+    "reverse_cards": "🔄 Reverse (Translation → Target)",
+    "link": "Personal link:",
+    "copied": "Link copied!",
+    "copy": "Copy link"
+  },
+  "settings": {
+    "title": "Settings",
+    "tab_general": "General",
+    "tab_design": "Design",
+    "tab_voice": "Voice",
+    "tab_prompts": "AI Prompts",
+    "tab_models": "AI Models",
+    "native_lang_title": "🌐 Native & Interface Language",
+    "native_lang_subtitle": "Language for UI, AI explanations, and card translations",
+    "auto_sound": "Auto Sound",
+    "auto_reveal": "Auto Reveal Answer",
+    "preset_title": "AI Level Preset",
+    "save_success": "Settings saved successfully!"
+  },
+  "study": {
+    "show_answer": "Show Answer 🔄",
+    "grade_again": "Again (1 min)",
+    "grade_hard": "Hard (10 min)",
+    "grade_good": "Good (1 day)",
+    "grade_easy": "Easy (4 days)",
+    "done_title": "Great job! 🎉",
+    "done_subtitle": "You finished all cards for today.",
+    "back_to_decks": "Back to Decks"
+  },
+  "creator": {
+    "title": "New Card",
+    "word_placeholder": "Enter word or phrase...",
+    "ai_generate": "Generate with AI ✨",
+    "generating": "Generating...",
+    "front": "Front Side",
+    "back": "Back Side (Translation)",
+    "context": "Context & Grammar",
+    "save": "Save Card"
+  },
+  "tutorial": {
+    "help": "Help",
+    "back": "Back",
+    "next": "Next",
+    "got_it": "Got it",
+    "skip": "Skip",
+    "flip_first": "☝️ Click the card first to see the answer!"
+  }
+}

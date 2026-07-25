@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { useUiStore } from '../store/useUiStore';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useTranslation } from '../i18n/i18nContext';
 
 // Modular Tabs
 import { GeneralTab } from './settings/GeneralTab';
@@ -15,6 +15,7 @@ import { ProfileTab } from './settings/ProfileTab';
 
 export const SettingsModal = ({ userId, startTutorial }) => {
   const { isSettingsOpen, setIsSettingsOpen } = useUiStore();
+  const { t } = useTranslation();
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [customBackgrounds] = useState([]);
 
@@ -31,7 +32,7 @@ export const SettingsModal = ({ userId, startTutorial }) => {
           onClick={e => e.stopPropagation()}
         >
           <div className="settings-header">
-            <h2>Настройки</h2>
+            <h2>{t('settings.title', 'Настройки')}</h2>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <HelpButton onClick={() => startTutorial('settings')} />
               <button className="close-btn" onClick={() => setIsSettingsOpen(false)}>
@@ -48,12 +49,12 @@ export const SettingsModal = ({ userId, startTutorial }) => {
               value={activeSettingsTab}
               onChange={(e) => setActiveSettingsTab(e.target.value)}
             >
-              <option value="profile">👤 Профиль пользователя</option>
-              <option value="general">⚙️ Общие настройки</option>
-              <option value="design">🎨 Оформление и дизайн</option>
-              <option value="voice">🗣 Озвучка и голос</option>
-              <option value="ai">🤖 Провайдеры ИИ</option>
-              <option value="prompts">📝 Промпты для карточек</option>
+              <option value="profile">👤 Профиль</option>
+              <option value="general">⚙️ {t('settings.tab_general', 'Общие настройки')}</option>
+              <option value="design">🎨 {t('settings.tab_design', 'Дизайн')}</option>
+              <option value="voice">🗣 {t('settings.tab_voice', 'Озвучка')}</option>
+              <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>
+              <option value="prompts">📝 {t('settings.tab_prompts', 'Промпты ИИ')}</option>
             </select>
           </div>
 
@@ -77,4 +78,5 @@ export const SettingsModal = ({ userId, startTutorial }) => {
     </AnimatePresence>
   );
 };
+
 

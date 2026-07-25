@@ -112,13 +112,22 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
         
     return {"front": front, "back": back, "context": context}
 
-async def generate_card_fields(user_id: int, phrase: str, target_language: str = "de"):
+async def generate_card_fields(user_id: int, phrase: str, target_language: str = "de", native_language: str = None):
     """Generates Front, Back, and Context for a card using AI."""
     start_time = time.time()
     try:
-        from api.services.language_service import get_prompt_for_phrase, get_language_config
+        from api.services.language_service import get_prompt_for_phrase, get_language_config, get_native_config
+        from api.models import TMACustomPrompt, TMASetting
+
+        if not native_language:
+            native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
+            native_language = native_rec.value if native_rec else "uk"
+            
         target_lang = (target_language or "de").lower()
-        lang_config = get_language_config(target_lang)
+        native_lang = (native_language or "uk").lower()
+        
+        lang_config = get_language_config(target_lang, native_lang)
+        native_config = get_native_config(native_lang)
         lang_name = lang_config["name"]
         
         provider, ai_key, ai_model = get_ai_config()
@@ -126,7 +135,6 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
-        from api.models import TMACustomPrompt, TMASetting
         custom_prompt = TMACustomPrompt.get_or_none(
             (TMACustomPrompt.user_id == user_id) & 
             (TMACustomPrompt.is_active == True) &
@@ -134,17 +142,20 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         )
         
         is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in phrase)
-        if custom_prompt:
+        is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "Уровень", "Рівень", "Level", "preset"])
+        
+        if custom_prompt and not is_system_preset:
             raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
-            system_prompt = (raw_prompt or get_prompt_for_phrase(phrase, target_lang)).replace("{phrase}", phrase)
+            system_prompt = (raw_prompt or get_prompt_for_phrase(phrase, target_lang, native_lang)).replace("{phrase}", phrase)
         else:
-            system_prompt = get_prompt_for_phrase(phrase, target_lang)
+            system_prompt = get_prompt_for_phrase(phrase, target_lang, native_lang)
 
         if "JSON" not in system_prompt.upper():
+            native_name = native_config["name"].lower()
             if is_cyrillic:
                 system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"перевод на {lang_name.lower()}\",\n  \"back\": \"{phrase}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
             else:
-                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{phrase}\",\n  \"back\": \"перевод на русский\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
+                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{phrase}\",\n  \"back\": \"перевод на {native_name}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
 
         client = AIService(provider=provider, api_key=ai_key)
         

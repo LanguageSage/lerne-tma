@@ -2,7 +2,9 @@ import React from 'react';
 import { Plus, Settings, Info, Copy } from 'lucide-react';
 import { UserProfileBadge } from '../common/UserBadge';
 import { LanguageSelectorBadge } from './LanguageSelectorBadge';
+import { NativeLanguageSelectorBadge } from './NativeLanguageSelectorBadge';
 import { HelpButton } from '../TutorialOverlay';
+import { useTranslation } from '../../i18n/i18nContext';
 
 export const DeckGridHeader = ({
   personalLink,
@@ -12,6 +14,8 @@ export const DeckGridHeader = ({
   showToast,
   onLanguageChange
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="header">
       <div className="header-title-row">
@@ -19,6 +23,7 @@ export const DeckGridHeader = ({
           <div className="user-profile-and-lang">
             <UserProfileBadge />
             <LanguageSelectorBadge onLanguageChange={onLanguageChange} />
+            <NativeLanguageSelectorBadge />
           </div>
           <h1>Lerne TMA</h1>
         </div>
@@ -28,7 +33,7 @@ export const DeckGridHeader = ({
             id="tut-add-deck" 
             className="add-deck-btn" 
             onClick={() => setIsNewDeckModalOpen(true)}
-            title="Создать новую колоду"
+            title={t('decks.add_deck', 'Создать новую колоду')}
           >
             <Plus size={20} />
           </button>
@@ -36,27 +41,27 @@ export const DeckGridHeader = ({
             id="tut-main-settings" 
             className="settings-btn" 
             onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }}
-            title="Настройки"
+            title={t('settings.title', 'Настройки')}
           >
             <Settings size={20} />
           </button>
         </div>
       </div>
-      <p>Выбирайте колоду и начните обучение</p>
+      <p>{t('decks.subtitle', 'Выберите колоду и начните обучение')}</p>
       
       {personalLink && (
         <div className="commercial-info glass">
           <Info size={16} />
           <div className="web-link-container">
-            <span>Персональная ссылка: </span>
+            <span>{t('decks.link', 'Персональная ссылка:')} </span>
             <code className="web-link">{personalLink}</code>
             <button 
               className="copy-link-btn" 
               onClick={() => {
                 navigator.clipboard.writeText(personalLink);
-                showToast("Ссылка скопирована!", "success");
+                showToast(t('decks.copied', 'Ссылка скопирована!'), 'success');
               }}
-              title="Копировать ссылку"
+              title={t('decks.copy', 'Копировать ссылку')}
             >
               <Copy size={14} />
             </button>
@@ -66,3 +71,4 @@ export const DeckGridHeader = ({
     </div>
   );
 };
+

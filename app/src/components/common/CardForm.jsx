@@ -9,6 +9,8 @@ import { useMediaUpload } from '../../hooks/useMediaUpload';
 import { MediaPicker } from './MediaPicker';
 import { useDeckStore } from '../../store/useDeckStore';
 
+import { useTranslation } from '../../i18n/i18nContext';
+
 export const CardForm = ({
   cardData,
   setCardData,
@@ -19,6 +21,7 @@ export const CardForm = ({
   playAudio,
   isCreator = false
 }) => {
+  const { t } = useTranslation();
   const { 
     cardFont, cardTextColor, cardFontWeight, cardFontStyle, cardFontSize, cardTextShadow,
     cardBgFront, cardBgBack,
@@ -151,7 +154,7 @@ export const CardForm = ({
               height: 'auto',
               minHeight: '100px'
             }}
-            placeholder="Слово или фраза (Front)..."
+            placeholder={t('creator.word_placeholder', 'Слово или фраза...')}
           />
           
           {(cardData.image_url || cardData.image_path) && (
@@ -204,7 +207,7 @@ export const CardForm = ({
             style={{ flex: 1 }}
           >
             <Sparkles size={18} />
-            <span>Генерировать</span>
+            <span>{t('creator.ai_generate', 'Генерировать ✨')}</span>
           </button>
         )}
         <button 
@@ -214,7 +217,7 @@ export const CardForm = ({
           disabled={loading}
           style={{ padding: '12px 20px' }}
         >
-          {loading ? <RefreshCw className="spin" size={18} /> : 'Сохранить'}
+          {loading ? <RefreshCw className="spin" size={18} /> : t('creator.save', 'Сохранить')}
         </button>
       </div>
 
@@ -293,7 +296,7 @@ export const CardForm = ({
               height: 'auto',
               minHeight: '100px'
             }}
-            placeholder="Перевод..."
+            placeholder={t('creator.back', 'Перевод...')}
           />
           
           {(cardData.context || isCreator) && (
@@ -321,10 +324,11 @@ export const CardForm = ({
                    height: 'auto',
                    minHeight: '100px'
                  }}
-                 placeholder="Примеры, грамматика..."
+                 placeholder={t('creator.context', 'Примеры, грамматика...')}
                />
              </>
           )}
+
 
         </div>
       </div>

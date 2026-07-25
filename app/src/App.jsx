@@ -36,9 +36,15 @@ import { useAutoImport } from './hooks/useAutoImport';
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useCardNavigation } from './hooks/useCardNavigation';
 
+import { LanguageProvider, useTranslation } from './i18n/i18nContext';
+import { getLocalizedTutorialSteps } from './i18n/tutorialSteps';
+import LanguageWelcomeModal from './components/modals/LanguageWelcomeModal';
+
 const USER_ID = getUserId();
 
-export default function App() {
+function AppContent() {
+  const { isFirstLaunch, setIsFirstLaunch, nativeLanguage } = useTranslation();
+
   const { 
     view, setView, isOpeningDeck, setIsOpeningDeck, 
     activeTutorial, setActiveTutorial, toast, isCardActionModalOpen, 
@@ -295,13 +301,15 @@ export default function App() {
         loading={loading}
       />
 
-      <TutorialOverlay
+import { getLocalizedTutorialSteps } from './i18n/tutoria      <TutorialOverlay
         isOpen={!!activeTutorial}
-        steps={TUTORIAL_STEPS[activeTutorial] || []}
+        steps={getLocalizedTutorialSteps(nativeLanguage, activeTutorial)}
         onFinish={() => finishTutorial(activeTutorial)}
         onSkip={() => finishTutorial(activeTutorial)}
         isFlipped={isFlipped}
       />
+
+
 
       <CardActionModal
         isOpen={isCardActionModalOpen}
@@ -325,10 +333,22 @@ export default function App() {
       />
 
       <LanguageSelectionModal />
+      <LanguageWelcomeModal 
+        isOpen={isFirstLaunch} 
+        onClose={() => setIsFirstLaunch(false)} 
+      />
 
       <Toast toast={toast} />
       <GlobalLoader isVisible={isOpeningDeck} />
     </motion.div>
+  );
+}
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 }
 
