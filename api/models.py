@@ -51,13 +51,13 @@ def initialize_database():
         logger.error("FATAL: SUPABASE_DB_URL is not set.")
         return False
 
+    IS_VERCEL = bool(os.environ.get("VERCEL"))
     db_params = _parse_db_url(SUPABASE_DB_URL)
-    logger.info("DATABASE: Initializing Postgres connection (Supabase)...")
+    logger.info(f"DATABASE: Initializing Postgres (Vercel={IS_VERCEL})...")
 
-    # 1. psycopg2 via PooledPostgresqlDatabase — preferred on most hosts
-    if PooledPostgresqlDatabase is not None:
+    # On Vercel psycopg2 C-extension doesn't work — skip straight to pg8000
+    if not IS_VERCEL and PooledPostgresqlDatabase is not None:
         try:
-            # Probe psycopg2 availability without opening TCP connection
             import psycopg2  # noqa: F401
             actual_db = PooledPostgresqlDatabase(
                 autorollback=True, max_connections=8, stale_timeout=300, **db_params
@@ -71,7 +71,7 @@ def initialize_database():
         except Exception as e:
             logger.warning(f"DATABASE psycopg2 setup failed: {e}")
 
-    # 2. pg8000 — pure Python, no C extensions, works on Vercel
+    # pg8000 — pure Python, no C extensions, works on Vercel
     if _HAS_PG8000 and db_connect is not None:
         try:
             pg8000_url = SUPABASE_DB_URL.replace("postgresql://", "postgresql+pg8000://", 1).replace("postgres://", "postgresql+pg8000://", 1)
@@ -83,7 +83,7 @@ def initialize_database():
         except Exception as e:
             logger.warning(f"DATABASE pg8000 setup failed: {e}")
 
-    # 3. Generic db_url fallback
+    # Generic db_url fallback (last resort)
     if db_connect is not None:
         try:
             actual_db = db_connect(SUPABASE_DB_URL)
