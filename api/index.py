@@ -1,15 +1,46 @@
-from fastapi import FastAPI
+import sys
+import os
+import traceback
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 app = FastAPI()
 
-@app.get("/api/health")
-@app.get("/health")
-def health():
-    return {"status": "ok", "message": "Vercel Python active"}
+try:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
 
-@app.api_route("/api/{path:path}", methods=["GET", "POST"])
-@app.api_route("/{path:path}", methods=["GET", "POST"])
-def catch_all(path: str):
-    return {"status": "ok", "path": path}
+    from api.main import app as main_app
+    app = main_app
 
-app = app
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        error_trace = traceback.format_exc()
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "runtime_error",
+                "error": str(exc),
+                "traceback": error_trace
+            }
+        )
+except Exception as e:
+    error_trace = traceback.format_exc()
+    error_msg = str(e)
+
+    @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
+    async def error_report(request: Request, full_path: str = ""):
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "startup_error",
+                "error": error_msg,
+                "traceback": error_trace
+            }
+        )
+
+handler = app
