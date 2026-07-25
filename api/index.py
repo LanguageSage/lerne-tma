@@ -4,7 +4,6 @@ import traceback
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-# Инициализируем базовый fallback app
 app = FastAPI()
 
 try:
@@ -17,6 +16,18 @@ try:
 
     from api.main import app as main_app
     app = main_app
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        error_trace = traceback.format_exc()
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "runtime_error",
+                "error": str(exc),
+                "traceback": error_trace
+            }
+        )
 except Exception as e:
     error_trace = traceback.format_exc()
     error_msg = str(e)
@@ -33,5 +44,3 @@ except Exception as e:
         )
 
 handler = app
-
-
