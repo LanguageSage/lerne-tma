@@ -1,45 +1,9 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/ping.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "app/package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/ping",
-      "schedule": "0 0 * * *"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/ping",
-      "dest": "api/ping.py"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|json|ttf|woff|woff2|mp3))",
-      "dest": "app/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "app/index.html"
-    }
-  ],
-  "env": {
-    "PYTHON_VERSION": "3.9"
-  }
+  ]
 }
