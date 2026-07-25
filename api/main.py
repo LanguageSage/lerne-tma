@@ -43,31 +43,26 @@ app.add_middleware(
 @app.middleware("http")
 async def db_session_middleware(request, call_next):
     try:
-        if models.tma_db.is_closed():
-            models.tma_db.connect(reuse_if_open=True)
-        if models.lerne_db.is_closed():
-            models.lerne_db.connect(reuse_if_open=True)
+        if hasattr(models.tma_db, 'obj') and models.tma_db.obj is not None:
+            if models.tma_db.is_closed():
+                models.tma_db.connect(reuse_if_open=True)
+        if hasattr(models.lerne_db, 'obj') and models.lerne_db.obj is not None:
+            if models.lerne_db.is_closed():
+                models.lerne_db.connect(reuse_if_open=True)
     except Exception as e:
         logger.error(f"Error checking DB connection before request: {e}")
         try:
             models.initialize_database()
-            models.tma_db.connect(reuse_if_open=True)
-            models.lerne_db.connect(reuse_if_open=True)
         except Exception as e2:
-            logger.error(f"CRITICAL: DB reconnect failed: {e2}")
+            logger.error(f"CRITICAL: DB initialize failed: {e2}")
 
-    try:
-        response = await call_next(request)
-        path = request.url.path
-        if path.startswith("/api") and not path.startswith("/api/media"):
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-        return response
-    finally:
-        # PooledPostgresqlDatabase manages connection lifecycles automatically.
-        # We do not close pooled connections here to allow connection reuse.
-        pass
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/api") and not path.startswith("/api/media"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 # Подключение роутеров
 app.include_router(decks.router, prefix="/api")
