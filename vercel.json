@@ -24,5 +24,8 @@
       "src": "/(.*)",
       "dest": "app/index.html"
     }
-  ]
+  ],
+  "env": {
+    "PYTHON_VERSION": "3.12"
+  }
 }
