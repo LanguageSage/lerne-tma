@@ -20,27 +20,28 @@ STARTER_DECK_NAMES = [
     "⭐ [B1] Hören: Alltagsdialoge / Аудирование: диалоги"
 ]
 
-def ensure_starter_decks(user_id: int, existing_names: set = None):
+def ensure_starter_decks(user_id: int, target_language: str = None):
     try:
         user, _ = TMAUser.get_or_create(user_id=user_id, defaults={'first_name': 'Пользователь'})
-        if user.default_decks_initialized:
-            return True
-            
-        # Mark as initialized immediately to avoid concurrent re-triggering
-        user.default_decks_initialized = True
-        user.save()
 
-        if existing_names is None:
-            existing_decks = list(TMA_Deck.select().where(TMA_Deck.user_id == user_id))
-            existing_names = {d.name for d in existing_decks}
+        existing_decks = list(TMA_Deck.select().where((TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)))
+        existing_names = {d.name for d in existing_decks}
         
-        # Get default decks from library (where is_default == True and is_deleted == False)
         default_decks = list(Deck.select().where((Deck.is_default == True) & (Deck.is_deleted == False)))
         
+        imported_any = False
         with tma_db.atomic():
             for lib_deck in default_decks:
                 if lib_deck.name not in existing_names:
                     import_deck(lib_deck.id, user_id)
+                    existing_names.add(lib_deck.name)
+                    imported_any = True
+                    logger.info(f"Auto-imported default deck '{lib_deck.name}' (lang: {lib_deck.target_language}) for user {user_id}")
+
+        if not user.default_decks_initialized or imported_any:
+            user.default_decks_initialized = True
+            user.save()
+
         return True
     except Exception as e:
         logger.error(f"Error in ensure_starter_decks: {e}")

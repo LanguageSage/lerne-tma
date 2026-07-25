@@ -14,11 +14,19 @@ export const useLanguageStore = create((set, get) => ({
   hasSelectedLanguage: INITIAL_HAS_SELECTED,
   isLanguageModalOpen: false,
   
-  setLanguage: (code) => {
+  setLanguage: async (code) => {
     if (SUPPORTED_LANGUAGES.some(l => l.code === code)) {
       localStorage.setItem('lerne_target_language', code);
       localStorage.setItem('lerne_has_selected_language', 'true');
       set({ activeLanguage: code, hasSelectedLanguage: true, isLanguageModalOpen: false });
+      
+      // Automatically refresh decks and folders for newly selected language
+      try {
+        const { useDeckStore } = await import('./useDeckStore');
+        await useDeckStore.getState().fetchDecks(true);
+      } catch (err) {
+        console.error("Error refreshing decks after language change:", err);
+      }
     }
   },
 

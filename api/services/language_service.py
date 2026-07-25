@@ -47,9 +47,47 @@ def get_language_config(lang_code: str = "de") -> dict:
 
 def get_prompt_for_phrase(phrase: str, target_lang: str = "de") -> str:
     cfg = get_language_config(target_lang)
-    # Detect if phrase is Russian (Cyrillic) -> needs translation to target lang
     is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in phrase)
     
     prompt_key = "translation" if is_cyrillic else "analysis"
     raw_prompt = cfg["default_prompts"][prompt_key]
     return raw_prompt.format(phrase=phrase)
+
+def get_system_presets(target_lang: str = "de") -> list:
+    cfg = get_language_config(target_lang)
+    lang_name = cfg["name"]
+    code = (target_lang or "de").lower().strip()
+    
+    if code == "en":
+        adj = "английский"
+    elif code == "no":
+        adj = "норвежский"
+    else:
+        adj = "немецкий"
+
+    return [
+        {
+            "id": "preset_a2",
+            "name": f"🎯 Уровень A2 — Базовый ({lang_name})",
+            "level": "A2",
+            "badge": "Базовый",
+            "description": f"Простой разбор слов и базовой грамматики {adj} языка уровня А2 с 3 примерами.",
+            "instruction": f'объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык {adj} уровня А2, родной русский. пиши {adj} текст сложностью не выше уровня А2'
+        },
+        {
+            "id": "preset_b1",
+            "name": f"⚡ Уровень B1 — Уверенный ({lang_name})",
+            "level": "B1",
+            "badge": "Рекомендуемый",
+            "description": f"Оптимальный баланс: разбор слов, объяснение грамматики {adj} языка и 3 примера.",
+            "instruction": f'объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык {adj} уровня Б1, родной русский. пиши {adj} текст сложностью не выше уровня Б1'
+        },
+        {
+            "id": "preset_b2",
+            "name": f"🔥 Уровень B2 — Продвинутый ({lang_name})",
+            "level": "B2",
+            "badge": "Продвинутый",
+            "description": f"Продвинутый разбор сложных языковых конструкций уровня B2 с 3 примерами.",
+            "instruction": f'объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык {adj} уровня Б2, родной русский. пиши {adj} текст сложностью не выше уровня Б2'
+        }
+    ]

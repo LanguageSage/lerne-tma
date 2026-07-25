@@ -64,14 +64,16 @@ def initialize_database():
                 return True
             except Exception as e2:
                 logger.error(f"DATABASE FALLBACK ERROR: {e2}")
-                # Если мы в облаке (на Vercel) и база не подключилась - это критично
-                if not FORCE_LOCAL:
+                # На Vercel не падать при старте модуля, чтобы серверлесс не возвращал 500
+                if not os.environ.get("VERCEL") and not FORCE_LOCAL:
                     raise e2
     
     TMA_ROOT = Path(__file__).resolve().parent.parent
-    # Путь к основной базе данных (может быть переопределен через LOCAL_DB_PATH)
-    default_db_path = TMA_ROOT.parent / "Lerne" / "db" / "lerne.db"
-    TMA_DB_PATH = Path(os.environ.get("LOCAL_DB_PATH", str(default_db_path)))
+    if os.environ.get("VERCEL"):
+        TMA_DB_PATH = Path("/tmp/lerne.db")
+    else:
+        default_db_path = TMA_ROOT.parent / "Lerne" / "db" / "lerne.db"
+        TMA_DB_PATH = Path(os.environ.get("LOCAL_DB_PATH", str(default_db_path)))
     os.makedirs(TMA_DB_PATH.parent, exist_ok=True)
     shared_db = SqliteDatabase(TMA_DB_PATH)
     tma_db.initialize(shared_db)

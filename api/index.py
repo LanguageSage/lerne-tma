@@ -3,20 +3,23 @@ import os
 import traceback
 from fastapi.responses import JSONResponse
 
-# Добавляем путь к текущей папке
-sys.path.append(os.path.dirname(__file__))
+# Добавляем корень проекта и текущую папку в sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
 try:
-    from main import app
+    from api.main import app
 except Exception as e:
-    # Если даже после всех фиксов падает - выводим причину
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Request
     app = FastAPI()
     error_trace = traceback.format_exc()
     
-    @app.get("/api/health")
-    @app.get("/api/decks")
-    def error_report():
+    @app.api_route("/api/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
+    async def error_report(request: Request, full_path: str = ""):
         return JSONResponse(
             status_code=500,
             content={
@@ -28,3 +31,4 @@ except Exception as e:
 
 # Для Vercel
 handler = app
+

@@ -40,6 +40,7 @@ export const PromptsTab = () => {
 
   const [promptsList, setPromptsList] = useState([]);
   const [activePromptId, setActivePromptId] = useState(null);
+  const [activePresetId, setActivePresetId] = useState('preset_b1');
   const [systemPresets, setSystemPresets] = useState([]);
   const [defaults, setDefaults] = useState({ de: "", ru: "" });
   const [loading, setLoading] = useState(false);
@@ -51,12 +52,16 @@ export const PromptsTab = () => {
     setLoading(true);
     try {
       const res = await api.get(`/user/prompts?target_language=${activeLanguage}`);
-      setPromptsList(res.data.custom_prompts || []);
-      setActivePromptId(res.data.active_prompt_id);
-      setSystemPresets(res.data.system_presets || []);
-      setDefaults(res.data.defaults || { de: "", ru: "" });
+      if (res && res.data) {
+        setPromptsList(res.data.custom_prompts || []);
+        setActivePromptId(res.data.active_prompt_id);
+        setActivePresetId(res.data.active_preset_id || 'preset_b1');
+        setSystemPresets(res.data.system_presets || []);
+        setDefaults(res.data.defaults || { de: "", ru: "" });
+      }
     } catch (err) {
-      showToast("Ошибка загрузки промптов");
+      console.error("fetchPrompts error:", err);
+      showToast("Ошибка загрузки промптов", "error");
     } finally {
       setLoading(false);
     }
@@ -160,6 +165,16 @@ export const PromptsTab = () => {
       context_prompt: cleanRu,
       isSplit: false
     });
+  };
+
+  const handleActivatePreset = async (presetId) => {
+    try {
+      await api.post(`/user/prompts/preset/${presetId}/activate`, { target_language: activeLanguage });
+      showToast("Шаблон уровня активирован", "success");
+      fetchPrompts();
+    } catch (err) {
+      showToast("Не удалось активировать шаблон");
+    }
   };
 
   if (editingPrompt) {
@@ -321,7 +336,7 @@ export const PromptsTab = () => {
         </div>
 
         {systemPresets.map(preset => {
-          const isPresetActive = activePromptId === null;
+          const isPresetActive = activePromptId === null ? activePresetId === preset.id : (promptsList.find(p => p.id === activePromptId)?.name === preset.name);
           return (
             <div key={preset.id} className={`prompt-template-card glass ${isPresetActive ? 'active' : ''}`} style={{
               padding: '14px 16px',
@@ -362,7 +377,7 @@ export const PromptsTab = () => {
                     <Check size={14} /> Активен
                   </span>
                 ) : (
-                  <button className="btn-secondary btn-tiny" onClick={() => handleActivate(null)}>
+                  <button className="btn-secondary btn-tiny" onClick={() => handleActivatePreset(preset.id)}>
                     Активировать
                   </button>
                 )}
