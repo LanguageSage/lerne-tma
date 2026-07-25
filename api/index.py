@@ -1,15 +1,16 @@
-from fastapi import FastAPI
+from http.server import BaseHTTPRequestHandler
 
-app = FastAPI()
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"status":"ok","message":"BaseHTTPRequestHandler works"}')
+        return
 
-@app.get("/api/health")
-@app.get("/health")
-def health():
-    return {"status": "ok", "message": "Vercel Python serverless active"}
-
-@app.api_route("/api/{path:path}", methods=["GET", "POST"])
-@app.api_route("/{path:path}", methods=["GET", "POST"])
-def catch_all(path: str):
-    return {"status": "ok", "path": path}
-
-handler = app
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"status":"ok","message":"BaseHTTPRequestHandler POST works"}')
+        return
