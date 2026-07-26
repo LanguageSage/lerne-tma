@@ -51,19 +51,24 @@ const GERMAN_NUMBER_MAP = [
   [/\b0\b/g, 'null']
 ];
 
-export const normalizeGermanSpeechText = (text) => {
+export const normalizeSpeechText = (text, lang = 'de') => {
   if (!text) return "";
   let str = stripMarkdown(text).toLowerCase();
 
-  // Normalize Eszett for speech matching (dreißig <-> dreissig)
-  str = str.replace(/ß/g, "ss");
+  if ((lang || 'de').toLowerCase() === 'de') {
+    // Normalize Eszett for speech matching (dreißig <-> dreissig)
+    str = str.replace(/ß/g, "ss");
 
-  // Expand numbers & symbols to German words
-  GERMAN_NUMBER_MAP.forEach(([regex, replacement]) => {
-    str = str.replace(regex, replacement);
-  });
+    // Expand numbers & symbols to German words
+    GERMAN_NUMBER_MAP.forEach(([regex, replacement]) => {
+      str = str.replace(regex, replacement);
+    });
+  }
 
   // Remove punctuation
   str = str.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, " ").replace(/\s+/g, " ").trim();
   return str;
 };
+
+export const normalizeGermanSpeechText = (text) => normalizeSpeechText(text, 'de');
+

@@ -217,6 +217,8 @@ import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useLanguageStore } from '../store/useLanguageStore';
+import { getTtsVoiceForLang } from '../constants/languageConstants';
 import { useCardActions } from '../hooks/useCardActions';
 import { useMediaUpload } from '../hooks/useMediaUpload';
 import { CardActionButton } from './CardActionModal';
@@ -418,11 +420,12 @@ export const StudyView = ({ startTutorial }) => {
     }
 
     try {
+      const nativeLang = useLanguageStore.getState().nativeLanguage || 'ru';
       const generated = await api.post('/media/generate-audio', {
         text: targetCard.back,
-        lang: 'ru',
+        lang: nativeLang,
         rate: formatRate(settings.ttsSpeedRu),
-        voice: settings.adminSettings?.TTS_VOICE_RU
+        voice: getTtsVoiceForLang(nativeLang, settings.adminSettings)
       });
       const saved = await api.post('/cards/save', {
         card_id: targetCard.id,

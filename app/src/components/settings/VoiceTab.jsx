@@ -49,14 +49,20 @@ export const VoiceTab = () => {
         </h4>
         <div className="form-group">
           <label>Голос ({langInfo.name})</label>
-          <select 
-            value={adminSettings.TTS_VOICE || (filteredVoices[0]?.value || '')} 
-            onChange={e => updateAdminSetting('TTS_VOICE', e.target.value)}
-          >
-            {filteredVoices.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          {(() => {
+            const voiceKey = activeLanguage === 'de' ? 'TTS_VOICE' : `TTS_VOICE_${activeLanguage.toUpperCase()}`;
+            const selectedVal = adminSettings[voiceKey] || (filteredVoices[0]?.value || '');
+            return (
+              <select 
+                value={selectedVal} 
+                onChange={e => updateAdminSetting(voiceKey, e.target.value)}
+              >
+                {filteredVoices.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            );
+          })()}
         </div>
         <div className="form-group">
           <div className="label-with-value">

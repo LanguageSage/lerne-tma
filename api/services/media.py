@@ -133,14 +133,24 @@ async def ensure_card_audio(card, user_id: int):
     LANG_DEFAULT_VOICES = {
         "de": "de-DE-KatjaNeural",
         "ru": "ru-RU-SvetlanaNeural",
+        "en": "en-US-JennyNeural",
+        "no": "nb-NO-FinnNeural",
+        "uk": "uk-UA-PolinaNeural",
     }
     
-    if lang == "de":
+    clean_lang = (lang or "de").lower().strip()
+    if clean_lang == "de":
         voice = db_settings.get("TTS_VOICE") or LANG_DEFAULT_VOICES["de"]
         rate = db_settings.get("TTS_SPEED") or "+0%"
-    else:
+    elif clean_lang == "ru":
         voice = db_settings.get("TTS_VOICE_RU") or LANG_DEFAULT_VOICES["ru"]
         rate = db_settings.get("TTS_SPEED_RU") or db_settings.get("TTS_SPEED") or "+0%"
+    elif clean_lang in LANG_DEFAULT_VOICES:
+        voice = db_settings.get(f"TTS_VOICE_{clean_lang.upper()}") or LANG_DEFAULT_VOICES[clean_lang]
+        rate = db_settings.get("TTS_SPEED") or "+0%"
+    else:
+        voice = db_settings.get("TTS_VOICE") or LANG_DEFAULT_VOICES["de"]
+        rate = db_settings.get("TTS_SPEED") or "+0%"
         
     try:
         # Генерируем аудио

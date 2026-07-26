@@ -30,7 +30,9 @@ SUPPORTED_IMAGE_FORMATS = {
 LANG_DEFAULT_VOICES = {
     "de": "de-DE-KatjaNeural",
     "ru": "ru-RU-SvetlanaNeural",
-    "en": "en-US-AriaNeural",
+    "en": "en-US-JennyNeural",
+    "no": "nb-NO-FinnNeural",
+    "uk": "uk-UA-PolinaNeural",
 }
 
 RATE_RE = re.compile(r"^[+-]\d{1,3}%$")
@@ -184,12 +186,19 @@ async def generate_audio_endpoint(
     # 2. Определяем голос. Глобальная настройка TTS_VOICE относится к немецкой
     # озвучке; для русского перевода используем TTS_VOICE_RU или голос по умолчанию.
     if not voice:
-        if lang == "de":
+        clean_lang = (lang or "de").lower().strip()
+        if clean_lang == "de":
             voice = db_settings.get("TTS_VOICE") or LANG_DEFAULT_VOICES["de"]
-        elif lang == "ru":
+        elif clean_lang == "ru":
             voice = db_settings.get("TTS_VOICE_RU") or LANG_DEFAULT_VOICES["ru"]
+        elif clean_lang == "no":
+            voice = db_settings.get("TTS_VOICE_NO") or LANG_DEFAULT_VOICES["no"]
+        elif clean_lang == "uk":
+            voice = db_settings.get("TTS_VOICE_UK") or LANG_DEFAULT_VOICES["uk"]
+        elif clean_lang == "en":
+            voice = db_settings.get("TTS_VOICE_EN") or LANG_DEFAULT_VOICES["en"]
         else:
-            voice = LANG_DEFAULT_VOICES.get(lang, LANG_DEFAULT_VOICES["en"])
+            voice = db_settings.get(f"TTS_VOICE_{clean_lang.upper()}") or LANG_DEFAULT_VOICES.get(clean_lang, LANG_DEFAULT_VOICES["de"])
             
     # 3. Определяем скорость
     if not rate:

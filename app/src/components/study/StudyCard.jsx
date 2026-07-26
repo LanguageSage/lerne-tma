@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Eye, Volume2, Mic, MicOff, Check, AlertCircle, Undo, Sparkles, Sliders } from 'lucide-react';
-import { stripMarkdown, normalizeGermanSpeechText } from '../../utils/text';
+import { stripMarkdown, normalizeSpeechText } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
+import { getSpeechLocaleForLang } from '../../constants/languageConstants';
 
 export const StudyCard = ({
   card,
@@ -54,9 +56,27 @@ export const StudyCard = ({
   const silenceTimerRef = useRef(null);
   const cardFrontRef = useRef(card.front);
 
+  // Press-and-Hold & Tap refs for microphone
+  const isHoldingRef = useRef(false);
+  const pressTimerRef = useRef(null);
+  const pressStartTimeRef = useRef(0);
+  const isPointerDownRef = useRef(false);
+  const justHandledPointerRef = useRef(false);
+  const recognizedTextRef = useRef("");
+  const speechSuccessRef = useRef(false);
+  const wasListeningOnPressStartRef = useRef(false);
+
   useEffect(() => {
     cardFrontRef.current = card.front;
   }, [card.front]);
+
+  useEffect(() => {
+    recognizedTextRef.current = recognizedText;
+  }, [recognizedText]);
+
+  useEffect(() => {
+    speechSuccessRef.current = speechSuccess;
+  }, [speechSuccess]);
 
   // Reset interactive states when card, card content or mode changes
   useEffect(() => {
@@ -71,6 +91,14 @@ export const StudyCard = ({
     setHoverIndex(null);
     setDragStartPos(null);
     setDragCurrentPos(null);
+
+    isHoldingRef.current = false;
+    isPointerDownRef.current = false;
+    justHandledPointerRef.current = false;
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
 
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -87,6 +115,9 @@ export const StudyCard = ({
   // Cleanup speech recognition on unmount
   useEffect(() => {
     return () => {
+      if (pressTimerRef.current) {
+        clearTimeout(pressTimerRef.current);
+      }
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
@@ -287,8 +318,11 @@ export const StudyCard = ({
 
   const evaluateSpeech = (transcript, isFinalOrManualStop = false) => {
     if (!transcript) return false;
-    const cleanTranscript = normalizeGermanSpeechText(transcript);
-    const cleanOriginal = normalizeGermanSpeechText(cardFrontRef.current || card.front);
+    const currentDeck = useDeckStore.getState().currentDeck;
+    const activeLang = useLanguageStore.getState().activeLanguage;
+    const cardLang = card.target_language || currentDeck?.target_language || activeLang || 'de';
+    const cleanTranscript = normalizeSpeechText(transcript, cardLang);
+    const cleanOriginal = normalizeSpeechText(cardFrontRef.current || card.front, cardLang);
 
     if (!cleanTranscript || !cleanOriginal) return false;
 
@@ -362,10 +396,14 @@ export const StudyCard = ({
     setSpeechError("");
     setRecognizedText("");
     setSpeechSuccess(false);
+    recognizedTextRef.current = "";
 
     try {
       const rec = new SpeechRecognition();
-      rec.lang = 'de-DE';
+      const currentDeck = useDeckStore.getState().currentDeck;
+      const activeLang = useLanguageStore.getState().activeLanguage;
+      const cardLang = card.target_language || currentDeck?.target_language || activeLang || 'de';
+      rec.lang = getSpeechLocaleForLang(cardLang);
       rec.interimResults = true;
       rec.maxAlternatives = 1;
 
@@ -385,6 +423,12 @@ export const StudyCard = ({
       };
 
       rec.onend = () => {
+        if (isHoldingRef.current && !speechSuccessRef.current) {
+          try {
+            rec.start();
+            return;
+          } catch (err) {}
+        }
         setIsListening(false);
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       };
@@ -401,11 +445,13 @@ export const StudyCard = ({
         }
 
         setRecognizedText(currentText);
+        recognizedTextRef.current = currentText;
 
         const matched = evaluateSpeech(currentText, isFinal);
 
-        // Auto silence timer: if user pauses speaking for 2.2s, stop recording and do final evaluation
-        if (!matched) {
+        // Auto silence timer: if user pauses speaking for 2.2s, stop recording and do final evaluation,
+        // UNLESS the user is currently holding down the mic button!
+        if (!matched && !isHoldingRef.current) {
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = setTimeout(() => {
             stopSpeechRecognition();
@@ -422,9 +468,68 @@ export const StudyCard = ({
     }
   };
 
-  const toggleSpeechRecognition = (e) => {
+  const handleMicPointerDown = (e) => {
+    e?.stopPropagation();
+    pressStartTimeRef.current = Date.now();
+    isHoldingRef.current = false;
+    isPointerDownRef.current = true;
+    wasListeningOnPressStartRef.current = isListening;
+    justHandledPointerRef.current = false;
+
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+    }
+
+    pressTimerRef.current = setTimeout(() => {
+      isHoldingRef.current = true;
+    }, 250);
+
+    if (!isListening && !speechSuccess) {
+      startSpeechRecognition(e);
+    }
+  };
+
+  const handleMicPointerUp = (e) => {
+    e?.stopPropagation();
+    if (!isPointerDownRef.current) return;
+    isPointerDownRef.current = false;
+
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+
+    justHandledPointerRef.current = true;
+    setTimeout(() => {
+      justHandledPointerRef.current = false;
+    }, 300);
+
+    const duration = Date.now() - pressStartTimeRef.current;
+    const wasHolding = isHoldingRef.current || duration >= 250;
+
+    if (wasHolding) {
+      isHoldingRef.current = false;
+      stopSpeechRecognition(e);
+      if (recognizedTextRef.current) {
+        evaluateSpeech(recognizedTextRef.current, true);
+      }
+    } else {
+      isHoldingRef.current = false;
+      if (wasListeningOnPressStartRef.current) {
+        stopSpeechRecognition(e);
+        if (recognizedTextRef.current) {
+          evaluateSpeech(recognizedTextRef.current, true);
+        }
+      }
+    }
+  };
+
+  const handleMicClick = (e) => {
     e?.stopPropagation();
     e?.preventDefault();
+    if (justHandledPointerRef.current) {
+      return;
+    }
     if (isListening) {
       stopSpeechRecognition(e);
       if (recognizedText) {
@@ -755,7 +860,6 @@ export const StudyCard = ({
 
               {studyMode === 'speak' && (
                 <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-                  <div className="text-hint-translation" style={{ marginBottom: '10px' }}>{stripMarkdown(card.back)}</div>
                   <div className="text-front speak-target-text" style={{ fontStyle: cardFontStyle }}>{stripMarkdown(card.front)}</div>
 
                   {/* Quick Speech Accuracy Threshold Selector */}
@@ -782,7 +886,11 @@ export const StudyCard = ({
                       <button 
                         type="button"
                         className={`btn-speak-mic ${isListening ? 'listening' : ''} ${speechSuccess ? 'success' : ''}`}
-                        onClick={toggleSpeechRecognition}
+                        onClick={handleMicClick}
+                        onPointerDown={handleMicPointerDown}
+                        onPointerUp={handleMicPointerUp}
+                        onPointerLeave={handleMicPointerUp}
+                        onPointerCancel={handleMicPointerUp}
                       >
                         {isListening ? (
                           <div className="recording-wave-rings">
@@ -815,7 +923,7 @@ export const StudyCard = ({
                       )}
                     </div>
                     <p className="mic-help-label">
-                      {isListening ? "Слушаю... Нажмите для проверки" : "Нажмите микрофон и говорите"}
+                      {isListening ? "Слушаю... Отпустите или нажмите для проверки" : "Нажмите или удерживайте микрофон"}
                     </p>
                   </div>
 

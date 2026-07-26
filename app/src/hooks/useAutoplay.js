@@ -3,6 +3,8 @@ import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useLanguageStore } from '../store/useLanguageStore';
+import { getTtsVoiceForLang } from '../constants/languageConstants';
 import { stripMarkdown } from '../utils/text';
 
 const formatRate = (value) => `${value >= 0 ? '+' : ''}${value}%`;
@@ -78,9 +80,13 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     const urlKey = isBack ? 'audio_back_url' : 'audio_url';
     const pathKey = isBack ? 'audio_back_path' : 'audio_path';
     const text = getCardText(targetCard, side);
-    const lang = isBack ? 'ru' : 'de';
+    const deckTargetLang = targetCard.target_language || useDeckStore.getState().currentDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de';
+    const nativeLang = useLanguageStore.getState().nativeLanguage || 'ru';
+    const lang = isBack ? nativeLang : deckTargetLang;
     const rate = formatRate(isBack ? settings.ttsSpeedRu : settings.ttsSpeed);
-    const voice = isBack ? settings.adminSettings?.TTS_VOICE_RU : settings.adminSettings?.TTS_VOICE;
+    const voice = isBack 
+      ? getTtsVoiceForLang(nativeLang, settings.adminSettings)
+      : getTtsVoiceForLang(deckTargetLang, settings.adminSettings);
     const forceGenerate = isBack ? settings.autoplayForceBackAudio : settings.autoplayForceFrontAudio;
     const hasWrongBackAudio = isBack && (
       (targetCard.audio_back_url && targetCard.audio_url && targetCard.audio_back_url === targetCard.audio_url) ||

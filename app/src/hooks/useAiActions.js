@@ -4,6 +4,8 @@ import api from '../services/api';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useLanguageStore } from '../store/useLanguageStore';
+import { getTtsVoiceForLang } from '../constants/languageConstants';
 import { cleanMedia } from '../utils/media';
 
 export const useAiActions = () => {
@@ -14,9 +16,11 @@ export const useAiActions = () => {
   const handleQuickAudio = async (c, playAudioFn) => {
     if (!c || !c.front) return;
     setLoading(true);
-    const voice = adminSettings?.TTS_VOICE || 'de-DE-KatjaNeural';
-    const rate = adminSettings?.TTS_SPEED || '+0%';
+    const targetLang = c.target_language || useLanguageStore.getState().activeLanguage || 'de';
     const hasRussian = /[а-яА-Я]/.test(c.front);
+    const langToSpeak = hasRussian ? (useLanguageStore.getState().nativeLanguage || 'ru') : targetLang;
+    const voice = getTtsVoiceForLang(langToSpeak, adminSettings);
+    const rate = adminSettings?.TTS_SPEED || '+0%';
     const textToSpeak = hasRussian ? c.back : c.front;
 
     if (!textToSpeak) {
@@ -28,7 +32,7 @@ export const useAiActions = () => {
     try {
       const res = await api.post('/media/generate-audio', {
         text: textToSpeak,
-        lang: 'de',
+        lang: langToSpeak,
         voice: voice,
         rate: rate
       });
@@ -74,9 +78,11 @@ export const useAiActions = () => {
     if (!data || !data.front) return;
 
     setLoading(true);
-    const voice = adminSettings?.TTS_VOICE || 'de-DE-KatjaNeural';
-    const rate = adminSettings?.TTS_SPEED || '+0%';
+    const targetLang = data.target_language || useLanguageStore.getState().activeLanguage || 'de';
     const hasRussian = /[а-яА-Я]/.test(data.front);
+    const langToSpeak = hasRussian ? (useLanguageStore.getState().nativeLanguage || 'ru') : targetLang;
+    const voice = getTtsVoiceForLang(langToSpeak, adminSettings);
+    const rate = adminSettings?.TTS_SPEED || '+0%';
     const textToSpeak = hasRussian ? data.back : data.front;
 
     if (!textToSpeak) {
@@ -88,7 +94,7 @@ export const useAiActions = () => {
     try {
       const res = await api.post('/media/generate-audio', {
         text: textToSpeak,
-        lang: 'de',
+        lang: langToSpeak,
         voice: voice,
         rate: rate
       });
