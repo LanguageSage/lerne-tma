@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Body, Request
 from fastapi.responses import HTMLResponse, Response
 
-from api.models import TMAUser, TMA_Deck, TMA_Card, TMAMedia
+from api.models import TMAUser, TMA_Deck, TMA_Card, TMA_Folder, TMAMedia
 from api.dependencies.auth import get_user_id
 from api.services.sharing_service import SharingService
 from api.templates.share_templates import get_share_html
@@ -12,12 +12,15 @@ logger = logging.getLogger(__name__)
 
 @router.post("/share/generate/{type}/{item_id}")
 def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: int = Depends(get_user_id)):
-    """Generates or retrieves a unique share_id for a deck or card."""
-    prefix = "d_" if type == "deck" else "c_"
-    
+    """Generates or retrieves a unique share_id for a deck, folder, or card."""
     if type == "deck":
+        prefix = "d_"
         item = TMA_Deck.get_or_none((TMA_Deck.id == item_id) & (TMA_Deck.user_id == user_id))
+    elif type == "folder":
+        prefix = "f_"
+        item = TMA_Folder.get_or_none((TMA_Folder.id == item_id) & (TMA_Folder.user_id == user_id) & (TMA_Folder.is_deleted == False))
     elif type == "card":
+        prefix = "c_"
         item = TMA_Card.get_or_none((TMA_Card.id == item_id) & (TMA_Card.is_deleted == False))
         if item and item.deck and item.deck.user_id != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
@@ -55,6 +58,26 @@ def get_share_info(share_id: str):
             "name": deck.name,
             "level": deck.level,
             "topic": deck.topic,
+            "target_language": deck.target_language or "de",
+            "creator_name": creator.username or creator.first_name if creator else "Unknown",
+            "creator_avatar": creator.photo_url if creator else None
+        }
+    elif share_id.startswith("f_"):
+        folder = TMA_Folder.get_or_none((TMA_Folder.share_id == share_id) & (TMA_Folder.is_deleted == False))
+        if not folder:
+            raise HTTPException(status_code=404, detail="Shared folder not found")
+            
+        creator = TMAUser.get_or_none(TMAUser.user_id == folder.user_id)
+        decks_count = TMA_Deck.select().where((TMA_Deck.folder == folder) & (TMA_Deck.is_deleted == False)).count()
+        cards_count = TMA_Card.select().join(TMA_Deck).where((TMA_Deck.folder == folder) & (TMA_Card.is_deleted == False) & (TMA_Deck.is_deleted == False)).count()
+        return {
+            "type": "folder",
+            "id": folder.id,
+            "name": folder.name,
+            "color": folder.color,
+            "target_language": folder.target_language or "de",
+            "decks_count": decks_count,
+            "cards_count": cards_count,
             "creator_name": creator.username or creator.first_name if creator else "Unknown",
             "creator_avatar": creator.photo_url if creator else None
         }
@@ -65,12 +88,14 @@ def get_share_info(share_id: str):
             
         creator_id = card.creator_id or (card.deck.user_id if card.deck else None)
         creator = TMAUser.get_or_none(TMAUser.user_id == creator_id)
+        card_lang = (card.deck.target_language if card.deck else "de") or "de"
         return {
             "type": "card",
             "id": card.id,
             "front_text": card.front_text,
             "back_text": card.back_text,
             "image_path": card.image_path,
+            "target_language": card_lang,
             "creator_name": creator.username or creator.first_name if creator else "Unknown",
             "creator_avatar": creator.photo_url if creator else None
         }

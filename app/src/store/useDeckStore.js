@@ -310,6 +310,44 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
+  handleShareFolder: async (folderId) => {
+    try {
+      const res = await api.post(`/share/generate/folder/${folderId}`);
+      if (res.data.status === 'ok') {
+        const shareId = res.data.share_id;
+        const link = `${window.location.origin}/api/share/v/${shareId}`;
+        const text = 'Посмотри эту папку с колодами в Lerne!';
+        
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: 'Папка Lerne',
+              text: text,
+              url: link,
+            });
+            return { success: true, type: 'share' };
+          } catch (shareErr) {
+            if (shareErr.name === 'AbortError') return { success: false };
+          }
+        }
+
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+          const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+          tg.openTelegramLink(shareUrl);
+          return { success: true, type: 'telegram' };
+        }
+
+        await navigator.clipboard.writeText(link);
+        return { success: true, type: 'copy' };
+      }
+      return { success: false };
+    } catch (err) {
+      console.error('Share Folder Error:', err);
+      throw err;
+    }
+  },
+
   fetchFolders: async () => {
     try {
       const res = await api.get('/folders');

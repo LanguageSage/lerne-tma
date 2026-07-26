@@ -82,6 +82,7 @@ MIGRATIONS = [
     (56, "ALTER TABLE deck ADD COLUMN target_language TEXT DEFAULT 'de'", 'lerne'),
     (57, "ALTER TABLE tma_custom_prompt ADD COLUMN target_language TEXT DEFAULT 'de'", 'tma'),
     (58, "ALTER TABLE tma_user ADD COLUMN active_language TEXT DEFAULT 'de'", 'tma'),
+    (59, "ALTER TABLE tma_folder ADD COLUMN share_id TEXT", 'tma'),
 ]
 
 

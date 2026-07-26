@@ -110,13 +110,17 @@
   padding: 0;
   transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
   position: relative;
-  overflow: hidden;
+  overflow: visible !important;
   border: 1px solid var(--folder-color-border, rgba(255, 255, 255, 0.15));
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(16px);
   border-radius: 20px;
   box-sizing: border-box;
+}
+
+.deck-card.has-open-menu {
+  z-index: 100 !important;
 }
 
 .deck-card::before {

@@ -179,20 +179,29 @@ class SharingService:
     @staticmethod
     def import_item(share_id, user_id, resolution=None):
         from api.services.decks import ensure_inbox_deck, import_deck
+        from api.services.folders import ensure_inbox_folder
         
         if share_id.startswith("d_"):
             source_deck = TMA_Deck.get_or_none(TMA_Deck.share_id == share_id)
             if not source_deck:
                 raise HTTPException(status_code=404, detail="Shared deck not found")
             
-            # Check if deck with same name exists for this user
-            existing_deck = TMA_Deck.get_or_none(TMA_Deck.user_id == user_id, TMA_Deck.name == source_deck.name, TMA_Deck.is_deleted == False)
+            deck_lang = (getattr(source_deck, 'target_language', 'de') or 'de').lower().strip()
+
+            # Check if deck with same name and language exists for this user
+            existing_deck = TMA_Deck.get_or_none(
+                TMA_Deck.user_id == user_id, 
+                TMA_Deck.name == source_deck.name, 
+                ((TMA_Deck.target_language == deck_lang) | (TMA_Deck.target_language.is_null() if deck_lang == 'de' else False)),
+                TMA_Deck.is_deleted == False
+            )
             if existing_deck and not resolution:
                 return {
                     "status": "conflict",
                     "type": "deck",
                     "existing_id": existing_deck.id,
-                    "name": source_deck.name
+                    "name": source_deck.name,
+                    "target_language": deck_lang
                 }
             
             # Resolution handling
@@ -203,21 +212,22 @@ class SharingService:
             if resolution == 'replace' and existing_deck:
                 # Delete existing cards (soft delete or hard?)
                 TMA_Card.update(is_deleted=True).where(TMA_Card.deck == existing_deck).execute()
-                # Copy metadata
+                # Copy metadata & ensure language matches
                 existing_deck.metadata = source_deck.metadata
+                existing_deck.target_language = deck_lang
                 existing_deck.save()
                 target_deck = existing_deck
             elif resolution == 'merge' and existing_deck:
                 target_deck = existing_deck
             else:
-                # Create new deck inside Inbox folder
-                from api.services.folders import ensure_inbox_folder
-                inbox_folder = ensure_inbox_folder(user_id)
+                # Create new deck inside language-specific Inbox folder
+                inbox_folder = ensure_inbox_folder(user_id, target_language=deck_lang)
                 target_deck = TMA_Deck.create(
                     user_id=user_id,
                     name=source_deck.name,
                     level=source_deck.level,
                     topic=source_deck.topic,
+                    target_language=deck_lang,
                     folder_id=inbox_folder.id,
                     metadata=source_deck.metadata, # Copy deck metadata (resources)
                     created_at=datetime.datetime.now(),
@@ -267,17 +277,137 @@ class SharingService:
                 "cards_added": count, 
                 "new_deck_id": target_deck.id, 
                 "deck_name": target_deck.name,
+                "target_language": deck_lang,
                 "merged": resolution == 'merge'
             }
             
+        elif share_id.startswith("f_"):
+            source_folder = TMA_Folder.get_or_none((TMA_Folder.share_id == share_id) & (TMA_Folder.is_deleted == False))
+            if not source_folder:
+                raise HTTPException(status_code=404, detail="Shared folder not found")
+            
+            folder_lang = (getattr(source_folder, 'target_language', 'de') or 'de').lower().strip()
+
+            # Check if root folder with same name exists for user
+            existing_folder = TMA_Folder.get_or_none(
+                TMA_Folder.user_id == user_id,
+                TMA_Folder.name == source_folder.name,
+                TMA_Folder.parent.is_null(),
+                ((TMA_Folder.target_language == folder_lang) | (TMA_Folder.target_language.is_null() if folder_lang == 'de' else False)),
+                TMA_Folder.is_deleted == False
+            )
+            if existing_folder and not resolution:
+                return {
+                    "status": "conflict",
+                    "type": "folder",
+                    "existing_id": existing_folder.id,
+                    "name": source_folder.name,
+                    "target_language": folder_lang
+                }
+
+            if resolution == 'cancel':
+                return {"status": "cancelled"}
+
+            target_folder = None
+            if resolution == 'replace' and existing_folder:
+                existing_folder.color = source_folder.color
+                existing_folder.target_language = folder_lang
+                existing_folder.save()
+                target_folder = existing_folder
+            elif resolution == 'merge' and existing_folder:
+                target_folder = existing_folder
+            else:
+                target_folder = TMA_Folder.create(
+                    user_id=user_id,
+                    name=source_folder.name,
+                    color=source_folder.color,
+                    target_language=folder_lang,
+                    created_at=datetime.datetime.now(),
+                    updated_at=datetime.datetime.now()
+                )
+
+            # Helper to recursively copy subfolders and decks
+            def copy_folder_contents(src_f, dest_f):
+                decks_added = 0
+                cards_added = 0
+                
+                # 1. Copy decks in src_f
+                src_decks = TMA_Deck.select().where((TMA_Deck.folder == src_f) & (TMA_Deck.is_deleted == False))
+                for s_deck in src_decks:
+                    dest_deck = TMA_Deck.create(
+                        user_id=user_id,
+                        name=s_deck.name,
+                        level=s_deck.level,
+                        topic=s_deck.topic,
+                        target_language=folder_lang,
+                        folder_id=dest_f.id,
+                        metadata=s_deck.metadata,
+                        created_at=datetime.datetime.now(),
+                        updated_at=datetime.datetime.now()
+                    )
+                    decks_added += 1
+                    s_cards = TMA_Card.select().where((TMA_Card.deck == s_deck) & (TMA_Card.is_deleted == False))
+                    for c in s_cards:
+                        TMA_Card.create(
+                            deck=dest_deck,
+                            front_text=c.front_text,
+                            back_text=c.back_text,
+                            context=c.context,
+                            image_path=c.image_path,
+                            image_data=c.image_data,
+                            audio_path=c.audio_path,
+                            tags=c.tags,
+                            metadata=c.metadata,
+                            card_type=c.card_type,
+                            difficulty=c.difficulty,
+                            topics=c.topics,
+                            source=f"shared_folder:{source_folder.share_id}",
+                            creator_id=c.creator_id or source_folder.user_id,
+                            created_at=datetime.datetime.now(),
+                            updated_at=datetime.datetime.now()
+                        )
+                        cards_added += 1
+
+                # 2. Copy child subfolders
+                src_subfolders = TMA_Folder.select().where((TMA_Folder.parent == src_f) & (TMA_Folder.is_deleted == False))
+                for s_sub in src_subfolders:
+                    dest_sub = TMA_Folder.create(
+                        user_id=user_id,
+                        name=s_sub.name,
+                        parent_id=dest_f.id,
+                        color=s_sub.color,
+                        target_language=folder_lang,
+                        created_at=datetime.datetime.now(),
+                        updated_at=datetime.datetime.now()
+                    )
+                    sub_decks, sub_cards = copy_folder_contents(s_sub, dest_sub)
+                    decks_added += sub_decks
+                    cards_added += sub_cards
+
+                return decks_added, cards_added
+
+            total_decks, total_cards = copy_folder_contents(source_folder, target_folder)
+
+            return {
+                "status": "ok",
+                "type": "folder",
+                "folder_name": target_folder.name,
+                "new_folder_id": target_folder.id,
+                "target_language": folder_lang,
+                "decks_added": total_decks,
+                "cards_added": total_cards
+            }
+            
         elif share_id.startswith("c_"):
-            inbox = ensure_inbox_deck(user_id)
             source_card = TMA_Card.get_or_none(TMA_Card.share_id == share_id)
             if not source_card:
                 raise HTTPException(status_code=404, detail="Shared card not found")
             
-            # Check if card exists anywhere? The user said "if the card is not in inbox? let there be a window with choice"
-            # So I should check all decks of the user.
+            card_lang = (getattr(source_card.deck, 'target_language', 'de') if source_card.deck else 'de') or 'de'
+            card_lang = card_lang.lower().strip()
+            inbox = ensure_inbox_deck(user_id, target_language=card_lang)
+
+            # Check if card exists anywhere in user's decks
             existing_card = (TMA_Card
                             .select(TMA_Card, TMA_Deck)
                             .join(TMA_Deck)
@@ -294,7 +424,8 @@ class SharingService:
                     "type": "card",
                     "existing_id": existing_card.id,
                     "existing_deck_name": existing_card.deck.name if existing_card.deck else "Unknown",
-                    "front": source_card.front_text
+                    "front": source_card.front_text,
+                    "target_language": card_lang
                 }
             
             if resolution == 'skip':
@@ -324,6 +455,6 @@ class SharingService:
                 created_at=datetime.datetime.now(),
                 updated_at=datetime.datetime.now()
             )
-            return {"status": "ok", "type": "card", "new_id": new_card.id, "inbox_id": inbox.id}
+            return {"status": "ok", "type": "card", "new_id": new_card.id, "inbox_id": inbox.id, "target_language": card_lang}
         else:
             raise HTTPException(status_code=400, detail="Invalid share link format")

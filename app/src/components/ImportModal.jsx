@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, AlertCircle, Inbox, BookOpen } from 'lucide-react';
+import { X, Download, AlertCircle, Inbox, BookOpen, Folder } from 'lucide-react';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
+import { useLanguageStore } from '../store/useLanguageStore';
+import { SUPPORTED_TARGET_LANGUAGES } from '../constants/languageConstants';
 
 export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const [loading, setLoading] = useState(true);
@@ -51,11 +53,32 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
       }
 
       if (res.data.status === 'ok') {
-        const msg = res.data.type === 'deck'
-          ? (res.data.merged ? `Колода успешно объединена!` : `Колода добавлена! Карточек: ${res.data.cards_added}`)
-          : 'Карточка успешно добавлена во Входящие!';
+        const targetLang = res.data.target_language || shareInfo?.target_language || 'de';
+        const langObj = SUPPORTED_TARGET_LANGUAGES.find(l => l.code === targetLang) || { name: targetLang.toUpperCase(), flag: '🌐' };
+        
+        let msg = 'Элемент успешно добавлен!';
+        if (res.data.type === 'folder') {
+          msg = res.data.merged 
+            ? `Папка «${res.data.folder_name}» объединена!` 
+            : `Папка «${res.data.folder_name}» добавлена! Колод: ${res.data.decks_added}, Карточек: ${res.data.cards_added}`;
+        } else if (res.data.type === 'deck') {
+          msg = res.data.merged 
+            ? `Колода успешно объединена!` 
+            : `Колода добавлена! Карточек: ${res.data.cards_added}`;
+        } else {
+          msg = 'Карточка успешно добавлена во Входящие!';
+        }
+        
         showToast(msg, 'success');
-        await fetchDecks(useUiStore.getState().userProfile?.user_id);
+
+        const activeLang = useLanguageStore.getState().activeLanguage;
+        if (targetLang && targetLang !== activeLang) {
+          await useLanguageStore.getState().setLanguage(targetLang);
+          showToast(`Переключено на язык ${langObj.flag} ${langObj.name}`, 'info');
+        } else {
+          await fetchDecks(useUiStore.getState().userProfile?.user_id);
+        }
+
         onImportSuccess();
       } else if (res.data.status === 'skipped' || res.data.status === 'cancelled') {
         onClose();
@@ -70,7 +93,10 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
 
   if (!shareId) return null;
 
+  const isFolder = shareInfo?.type === 'folder';
   const isCard = shareInfo?.type === 'card';
+  const itemLangCode = shareInfo?.target_language || conflict?.target_language || 'de';
+  const langObj = SUPPORTED_TARGET_LANGUAGES.find(l => l.code === itemLangCode) || { name: itemLangCode.toUpperCase(), flag: '🌐' };
 
   return (
     <AnimatePresence>
@@ -92,7 +118,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'white' }}>
-              {conflict ? 'Разрешение конфликта' : (isCard ? 'Добавить карточку' : 'Добавить колоду')}
+              {conflict ? 'Разрешение конфликта' : (isFolder ? 'Добавить папку' : (isCard ? 'Добавить карточку' : 'Добавить колоду'))}
             </h2>
             <button className="close-btn" onClick={onClose}>
               <X size={20} />
@@ -113,27 +139,33 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                 <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.4 }}>Не удалось получить информацию по вашей ссылке</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
                 {/* Icon */}
                 <div style={{
                   width: 64, height: 64, borderRadius: 18,
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25))',
-                  border: '1px solid rgba(168,85,247,0.3)',
+                  background: isFolder
+                    ? `linear-gradient(135deg, ${(shareInfo.color || '#ffd043')}40, ${(shareInfo.color || '#ffd043')}20)`
+                    : 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25))',
+                  border: isFolder ? `1px solid ${(shareInfo.color || '#ffd043')}60` : '1px solid rgba(168,85,247,0.3)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
-                  <BookOpen size={28} color="#c084fc" />
+                  {isFolder ? (
+                    <Folder size={32} color={shareInfo.color || "#ffd043"} fill={shareInfo.color || "#ffd043"} fillOpacity={0.2} />
+                  ) : (
+                    <BookOpen size={28} color="#c084fc" />
+                  )}
                 </div>
 
                 {/* Sender badge */}
                 {shareInfo.creator_name && (
                   <div style={{
                     display: 'inline-flex', alignItems: 'center', gap: 10,
-                    background: 'rgba(255,255,255,0.05)', padding: '8px 14px',
+                    background: 'rgba(255,255,255,0.05)', padding: '6px 14px',
                     borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)'
                   }}>
                     {shareInfo.creator_avatar
-                      ? <img src={shareInfo.creator_avatar} alt="avatar" style={{ width: 26, height: 26, borderRadius: '50%' }} />
-                      : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#a855f7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 11, fontWeight: 700 }}>
+                      ? <img src={shareInfo.creator_avatar} alt="avatar" style={{ width: 24, height: 24, borderRadius: '50%' }} />
+                      : <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#a855f7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 11, fontWeight: 700 }}>
                           {shareInfo.creator_name.charAt(0)}
                         </div>
                     }
@@ -143,19 +175,33 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                   </div>
                 )}
 
-                {/* Title */}
+                {/* Title & Language */}
                 <div>
-                  <p style={{ color: '#818cf8', fontSize: '1.05rem', fontWeight: 600, marginBottom: 6 }}>
-                    Вам отправили {isCard ? 'карточку' : 'колоду'}:
+                  <p style={{ color: '#818cf8', fontSize: '1rem', fontWeight: 600, marginBottom: 4 }}>
+                    Вам отправили {isFolder ? 'папку с колодами' : (isCard ? 'карточку' : 'колоду')}:
                   </p>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'white', margin: 0 }}>
                     {isCard ? shareInfo.front_text : shareInfo.name}
                   </h3>
-                  {!isCard && shareInfo.level && (
-                    <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: 4 }}>
+                  {isFolder && (
+                    <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: 4, marginBottom: 0 }}>
+                      Колод: {shareInfo.decks_count || 0} • Карточек: {shareInfo.cards_count || 0}
+                    </p>
+                  )}
+                  {!isFolder && !isCard && shareInfo.level && (
+                    <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: 4, marginBottom: 0 }}>
                       {shareInfo.level} • {shareInfo.topic}
                     </p>
                   )}
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    background: 'rgba(255,255,255,0.08)', padding: '4px 12px',
+                    borderRadius: 12, border: '1px solid rgba(255,255,255,0.15)',
+                    fontSize: '0.85rem', color: '#e2e8f0', marginTop: 8
+                  }}>
+                    <span>{langObj.flag}</span>
+                    <span>Язык: <strong>{langObj.name}</strong></span>
+                  </div>
                 </div>
 
                 {conflict ? (
@@ -169,30 +215,33 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                       <strong style={{ fontSize: '0.9rem' }}>Обнаружен дубликат</strong>
                     </div>
                     <p style={{ fontSize: '0.85rem', color: '#e2e8f0', margin: 0 }}>
-                      {isCard 
-                        ? `Карточка уже существует в колоде <${conflict.existing_deck_name}>. Что сделать?`
-                        : `Колода с названием <${conflict.name}> уже существует. Что сделать?`
+                      {isFolder
+                        ? `Папка «${conflict.name}» в языке ${langObj.flag} ${langObj.name} уже существует. Что сделать?`
+                        : (isCard 
+                          ? `Карточка уже существует в колоде <${conflict.existing_deck_name}>. Что сделать?`
+                          : `Колода с названием <${conflict.name}> в языке ${langObj.flag} ${langObj.name} уже существует. Что сделать?`
+                        )
                       }
                     </p>
                   </div>
                 ) : (
-                  /* Inbox info */
+                  /* Inbox / Target info */
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 14,
-                    background: 'rgba(99,102,241,0.08)', padding: '16px 20px',
+                    background: 'rgba(99,102,241,0.08)', padding: '14px 18px',
                     borderRadius: 16, border: '1px solid rgba(99,102,241,0.2)',
                     width: '100%', boxSizing: 'border-box'
                   }}>
                     <Inbox size={24} color="#818cf8" style={{ flexShrink: 0 }} />
-                    <span style={{ fontSize: '1.05rem', color: '#e2e8f0', textAlign: 'left', lineHeight: 1.4 }}>
-                      {isCard
-                        ? 'Карточка попадет во «📥 Входящие»'
-                        : 'Колода попадет во «📥 Входящие»'}
-                      <br />
-                      <span style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: 4, display: 'inline-block' }}>
-                        Потом можно переместить в любую папку
+                    <div style={{ fontSize: '0.9rem', color: '#e2e8f0', textAlign: 'left', lineHeight: 1.4 }}>
+                      <span>
+                        {isFolder
+                          ? `Папка добавится в ваш список (${langObj.flag} ${langObj.name})`
+                          : (isCard
+                            ? `Попадёт во «📥 Входящие» (${langObj.flag} ${langObj.name})`
+                            : `Добавится в раздел языка: ${langObj.flag} ${langObj.name}`)}
                       </span>
-                    </span>
+                    </div>
                   </div>
                 )}
               </div>

@@ -122,6 +122,7 @@ def create_all_tables():
     """Создает все таблицы и запускает накопленные миграции."""
     from api.migrations import run_migrations
     try:
+        run_migrations(tma_db, lerne_db)
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, TMAFeedback, TMAUser, TMALinkedSession,
@@ -129,7 +130,6 @@ def create_all_tables():
         ]
         tma_db.create_tables(models_to_create, safe=True)
         logger.info("DATABASE: All tables created/verified.")
-        run_migrations(tma_db, lerne_db)
     except Exception as e:
         logger.error(f"Error in create_all_tables: {e}")
 
@@ -147,6 +147,7 @@ class TMA_Folder(BaseModel):
     is_deleted = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
+    share_id = CharField(null=True, unique=True)
     class Meta:
         table_name = 'tma_folder'
 

@@ -25,21 +25,28 @@ def get_active_folders(user_id: int):
         logger.error(f"Error in get_active_folders: {e}", exc_info=True)
         raise e
 
-def ensure_inbox_folder(user_id: int) -> TMA_Folder:
-    """Возвращает (или создаёт) специальную папку «Входящие» для пользователя."""
+def ensure_inbox_folder(user_id: int, target_language: str = 'de') -> TMA_Folder:
+    """Возвращает (или создаёт) специальную папку «Входящие» для пользователя под конкретный язык."""
+    lang = (target_language or 'de').lower().strip()
     inbox_folder = TMA_Folder.get_or_none(
-        (TMA_Folder.user_id == user_id) & (TMA_Folder.name == "📥 Входящие") & (TMA_Folder.is_deleted == False)
+        (TMA_Folder.user_id == user_id) & 
+        (TMA_Folder.name == "📥 Входящие") & 
+        ((TMA_Folder.target_language == lang) | (TMA_Folder.target_language.is_null() if lang == 'de' else False)) &
+        (TMA_Folder.is_deleted == False)
     )
     if not inbox_folder:
         inbox_folder = TMA_Folder.create(
             user_id=user_id,
             name="📥 Входящие",
             color="#ffd043",
-            target_language='de',
+            target_language=lang,
             created_at=datetime.datetime.now(),
             updated_at=datetime.datetime.now()
         )
-        logger.info(f"Created Inbox folder for user {user_id} (id={inbox_folder.id})")
+        logger.info(f"Created Inbox folder for user {user_id} (lang={lang}, id={inbox_folder.id})")
+    elif getattr(inbox_folder, 'target_language', None) != lang:
+        inbox_folder.target_language = lang
+        inbox_folder.save()
     return inbox_folder
 
 def create_folder(name: str, user_id: int, parent_id: int = None, color: str = None, target_language: str = 'de'):

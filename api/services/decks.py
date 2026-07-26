@@ -90,32 +90,37 @@ def create_deck(name: str, user_id: int, folder_id: int = None, target_language:
         raise e
 
 
-def ensure_inbox_deck(user_id: int) -> TMA_Deck:
-    """Возвращает (или создаёт) специальную колоду «Входящие» для пользователя внутри папки Входящие."""
+def ensure_inbox_deck(user_id: int, target_language: str = 'de') -> TMA_Deck:
+    """Возвращает (или создаёт) специальную колоду «Входящие» для пользователя внутри папки Входящие для целевого языка."""
+    lang = (target_language or 'de').lower().strip()
     from .folders import ensure_inbox_folder
-    inbox_folder = ensure_inbox_folder(user_id)
+    inbox_folder = ensure_inbox_folder(user_id, target_language=lang)
     
     inbox = TMA_Deck.get_or_none(
-        (TMA_Deck.user_id == user_id) & (TMA_Deck.is_inbox == True)
+        (TMA_Deck.user_id == user_id) & 
+        (TMA_Deck.is_inbox == True) & 
+        ((TMA_Deck.target_language == lang) | (TMA_Deck.target_language.is_null() if lang == 'de' else False))
     )
     if not inbox:
         inbox = TMA_Deck.create(
             user_id=user_id,
             name="📥 Входящие карточки",
             is_inbox=True,
+            target_language=lang,
             folder_id=inbox_folder.id,
             created_at=datetime.datetime.now(),
             updated_at=datetime.datetime.now()
         )
-        logger.info(f"Created Inbox deck for user {user_id} (id={inbox.id}) inside folder {inbox_folder.id}")
+        logger.info(f"Created Inbox deck for user {user_id} (lang={lang}, id={inbox.id}) inside folder {inbox_folder.id}")
     else:
-        if inbox.folder_id != inbox_folder.id or inbox.name != "📥 Входящие карточки" or inbox.is_deleted:
+        if inbox.folder_id != inbox_folder.id or inbox.name != "📥 Входящие карточки" or inbox.is_deleted or getattr(inbox, 'target_language', None) != lang:
             inbox.folder_id = inbox_folder.id
             inbox.name = "📥 Входящие карточки"
+            inbox.target_language = lang
             inbox.is_deleted = False
             inbox.updated_at = datetime.datetime.now()
             inbox.save()
-            logger.info(f"Updated/Restored Inbox deck for user {user_id} (id={inbox.id}) inside folder {inbox_folder.id}")
+            logger.info(f"Updated/Restored Inbox deck for user {user_id} (lang={lang}, id={inbox.id}) inside folder {inbox_folder.id}")
     return inbox
 
 

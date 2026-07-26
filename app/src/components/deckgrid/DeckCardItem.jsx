@@ -185,7 +185,7 @@ export const DeckCardItem = ({
       dragListener={false}
       dragControls={dragControls}
       whileDrag={{ scale: 1.02, zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 25px rgba(168,85,247,0.4)' }}
-      className={`deck-card glass ${deck.is_pinned ? 'deck-pinned' : ''} ${deck.is_inbox ? 'deck-card-inbox' : ''} ${!deck.is_inbox ? 'deck-card-draggable' : ''}`}
+      className={`deck-card glass ${deck.is_pinned ? 'deck-pinned' : ''} ${deck.is_inbox ? 'deck-card-inbox' : ''} ${!deck.is_inbox ? 'deck-card-draggable' : ''} ${isMenuOpen ? 'has-open-menu' : ''}`}
       style={deckStyle}
     >
       <div className="deck-main-action deck-main-action-with-stats" onClick={onMainAction}>

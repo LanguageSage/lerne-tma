@@ -817,12 +817,14 @@ h1, h2, h3 {
   bottom: calc(100% + 6px);
   left: auto;
   right: 12px;
-  z-index: 1000;
+  z-index: 10000;
   min-width: 200px;
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  max-height: 70vh;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 14px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(168, 85, 247, 0.05);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(168, 85, 247, 0.15);
   padding: 6px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);

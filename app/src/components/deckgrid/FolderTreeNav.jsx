@@ -80,39 +80,16 @@ export const FolderCardItem = ({
     e.stopPropagation();
     setIsMenuOpen(false);
     
-    if (childDecks.length === 0) {
-      showToast("В папке нет колод для отправки", "info");
-      return;
-    }
-
     try {
-      if (childDecks.length === 1) {
-        const deck = childDecks[0];
-        const result = await useDeckStore.getState().handleShareDeck(deck.id);
-        if (result.success) {
-          if (result.type === 'copy') showToast('Ссылка скопирована!', 'success');
-          else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
-        }
-      } else {
-        showToast("Генерируем ссылки для колод...", "info");
-        const links = [];
-        for (const deck of childDecks) {
-          const res = await api.post(`/share/generate/deck/${deck.id}`);
-          if (res.data.status === 'ok') {
-            links.push({ name: deck.name, url: `${window.location.origin}/api/share/v/${res.data.share_id}` });
-          }
-        }
-        
-        if (links.length > 0) {
-          const text = `📁 Папка «${folder.name}»:\n` + links.map(l => `📚 ${l.name}: ${l.url}`).join('\n');
-          await navigator.clipboard.writeText(text);
-          showToast("Ссылки на все колоды скопированы!", "success");
-        } else {
-          showToast("Не удалось создать ссылки", "error");
-        }
+      const result = await useDeckStore.getState().handleShareFolder(folder.id);
+      if (result.success) {
+        if (result.type === 'copy') showToast('Ссылка на папку скопирована!', 'success');
+        else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
+        else if (result.type === 'share') showToast('Папка отправлена!', 'success');
       }
     } catch (err) {
-      showToast("Ошибка при создании ссылок", "error");
+      console.error("Error sharing folder:", err);
+      showToast("Ошибка при создании ссылки на папку", "error");
     }
   };
 
@@ -166,7 +143,7 @@ export const FolderCardItem = ({
       dragListener={false}
       dragControls={dragControls}
       whileDrag={{ scale: 1.02, zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 25px rgba(254,208,67,0.4)' }}
-      className="deck-card glass folder-card-item"
+      className={`deck-card glass folder-card-item ${isMenuOpen ? 'has-open-menu' : ''}`}
       style={folderStyle}
     >
       <div className="deck-main-action" onClick={() => setActiveFolderId(folder.id)}>
