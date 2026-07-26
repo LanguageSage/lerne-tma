@@ -113,10 +113,22 @@ async def _upload_to_supabase(file_path, filename, project_url, api_key):
         logger.error(f"Supabase Storage Exception: {e}")
         return None
 
+def _clean_bracket_syntax(t):
+    if not t: return ""
+    def _repl(m):
+        raw = m.group(1)
+        parts = [p.strip() for p in re.split(r'[|;]', raw) if p.strip()]
+        if not parts: return ""
+        correct = next((p for p in parts if p.startswith('*')), parts[0])
+        return re.sub(r'^\*', '', correct).strip()
+    return re.sub(r'\{([^}]+)\}', _repl, t)
+
 def _strip_markdown(text):
     if not text: return ""
+    # 0. Очищаем скобки тренажера {*den|dem|der} -> den
+    res = _clean_bracket_syntax(text)
     # 1. Убираем разметку
-    res = text.replace("**", "").replace("__", "").replace("`", "").replace("*", "").replace("_", "")
+    res = res.replace("**", "").replace("__", "").replace("`", "").replace("*", "").replace("_", "")
     res = res.replace("<center>", "").replace("</center>", "").replace("<large>", "").replace("</large>", "")
     
     # 2. Убираем специфические символы разметки SRS/Anki, если они есть

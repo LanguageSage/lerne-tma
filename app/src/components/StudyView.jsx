@@ -232,6 +232,7 @@ import { StudyHeader } from './study/StudyHeader';
 import { StudyNavigation } from './study/StudyNavigation';
 import { GradeButtons } from './study/GradeButtons';
 import { StudyFinished } from './study/StudyFinished';
+import { TrainerFinished } from './study/TrainerFinished';
 import { StudyCard } from './study/StudyCard';
 
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
@@ -258,6 +259,35 @@ export const StudyView = ({ startTutorial }) => {
   const lastAutoplayedCardRef = useRef(null);
   const [activeRandomMode, setActiveRandomMode] = useState(null);
   const lastCardKeyRef = useRef('');
+
+  // State for Trainer mode
+  const [trainerStartTime, setTrainerStartTime] = useState(null);
+  const [trainerCorrectCount, setTrainerCorrectCount] = useState(0);
+  const [trainerWrongCardIds, setTrainerWrongCardIds] = useState([]);
+  const [trainerAnsweredIds, setTrainerAnsweredIds] = useState(new Set());
+
+  useEffect(() => {
+    if (currentDeck?.metadata?.deck_type === 'trainer' && studyMode !== 'trainer') {
+      setStudyMode('trainer');
+    }
+  }, [currentDeck?.id, currentDeck?.metadata?.deck_type]);
+
+  useEffect(() => {
+    if (studyMode === 'trainer' && view === 'study') {
+      if (!trainerStartTime) {
+        setTrainerStartTime(Date.now());
+      }
+    }
+  }, [studyMode, view, currentDeck?.id]);
+
+  const handleTrainerAnswer = (cardId, isFirstTry) => {
+    setTrainerAnsweredIds(prev => new Set(prev).add(cardId));
+    if (isFirstTry) {
+      setTrainerCorrectCount(prev => prev + 1);
+    } else {
+      setTrainerWrongCardIds(prev => prev.includes(cardId) ? prev : [...prev, cardId]);
+    }
+  };
 
   const openCardActions = (targetCard) => {
     setActionCard(targetCard);
@@ -462,7 +492,7 @@ export const StudyView = ({ startTutorial }) => {
 
   return (
     <div className="view-study">
-      {currentDeck?.id !== 'duplicates' && !isAutoplayActive && (
+      {currentDeck?.id !== 'duplicates' && !isAutoplayActive && studyMode !== 'trainer' && (
         <GradeButtons 
           card={card} 
           loading={loading} 
@@ -552,6 +582,7 @@ export const StudyView = ({ startTutorial }) => {
                 <option value="classic">🃏 Карточки (Немецкий → Русский)</option>
                 <option value="reverse">🔄 Перевод (Русский → Немецкий)</option>
                 <option value="cloze">📝 Выбор слова (Пропуски)</option>
+                <option value="trainer">🎯 Тренажер (Тест без SRS)</option>
                 <option value="puzzle">🧩 Конструктор (Сборка фразы)</option>
                 <option value="speak">🗣 Произношение (Голос)</option>
                 <option value="turbo">🔥 Ударная тренировка (До автоматизма)</option>
@@ -613,6 +644,7 @@ export const StudyView = ({ startTutorial }) => {
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
               studyMode={studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
+              onTrainerAnswer={handleTrainerAnswer}
             />
 
             <div className="card-actions-row-study">
@@ -722,8 +754,35 @@ export const StudyView = ({ startTutorial }) => {
               onAutoplayStop={autoplay.stop}
               onAutoplayPause={autoplay.pause}
               onAutoplayResume={autoplay.resume}
+              hideAutoplay={studyMode === 'trainer'}
             />
           </div>
+        ) : studyMode === 'trainer' ? (
+          <TrainerFinished
+            totalCards={trainerAnsweredIds.size || deckCards?.length || 1}
+            correctFirstTry={trainerCorrectCount}
+            wrongCount={trainerWrongCardIds.length}
+            elapsedSeconds={Math.round(((trainerStartTime ? Date.now() - trainerStartTime : 0)) / 1000)}
+            onRetryWrong={() => {
+              const wrongCards = (deckCards || []).filter(c => trainerWrongCardIds.includes(c.id));
+              if (wrongCards.length > 0) {
+                setTrainerWrongCardIds([]);
+                setTrainerCorrectCount(0);
+                setTrainerAnsweredIds(new Set());
+                setTrainerStartTime(Date.now());
+                useSessionStore.getState().setFavoritesQueue([...wrongCards]);
+                fetchNextCard(currentDeck.id);
+              }
+            }}
+            onRestart={() => {
+              setTrainerWrongCardIds([]);
+              setTrainerCorrectCount(0);
+              setTrainerAnsweredIds(new Set());
+              setTrainerStartTime(Date.now());
+              fetchNextCard(currentDeck.id);
+            }}
+            onGoToDecks={() => setView('cards')}
+          />
         ) : (
           <StudyFinished
             apiError={apiError}

@@ -136,29 +136,16 @@ async def start_handler(update: Update, context):
             await safe_send_reply(update, text, reply_markup=keyboard)
             return
 
-        is_subscribed = await check_user_sub(context, user.id)
-        
-        if is_subscribed:
-            text = (
-                f"🌟 <b>Привет, {first_name}! Рады твоему возвращению!</b>\n\n"
-                "Ниже ссылка на Lerne TMA, удачной учебы! 🇩🇪"
-            )
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📢 Перейти в канал", url=f"https://t.me/{RAW_CHANNEL}")],
-                [InlineKeyboardButton("🚀 Учить в Telegram", web_app=WebAppInfo(url=TMA_URL))],
-                [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}/?user_id={user.id}")]
-            ])
-        else:
-            text = (
-                f"🌟 <b>Привет, {first_name}! Добро пожаловать в Lerne App!</b>\n\n"
-                "Это пространство для эффективного изучения немецкого языка с помощью ИИ. 🇩🇪\n\n"
-                "Подпишись на наш канал, чтобы получить доступ к приложению! 👇"
-            )
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📢 Зайти в канал", url=f"https://t.me/{RAW_CHANNEL}")],
-                [InlineKeyboardButton("✅ Я подписался, открыть TMA", callback_data="check_and_open")],
-                [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}/?user_id={user.id}")]
-            ])
+        text = (
+            f"🌟 <b>Привет, {first_name}! Добро пожаловать в Lerne App!</b>\n\n"
+            "Это пространство для эффективного изучения немецкого языка с помощью ИИ. 🇩🇪\n\n"
+            "Нажми кнопку ниже, чтобы начать обучение! 👇"
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚀 Учить в Telegram", web_app=WebAppInfo(url=TMA_URL))],
+            [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}/?user_id={user.id}")],
+            [InlineKeyboardButton("📢 Наш Telegram-канал", url=f"https://t.me/{RAW_CHANNEL}")]
+        ])
         
         await safe_send_reply(update, text, reply_markup=keyboard)
     except Exception as e:
@@ -175,21 +162,16 @@ async def callback_handler(update: Update, context):
             await save_tma_user(user)
         
         if query and query.data == "check_and_open":
-            is_subscribed = await check_user_sub(context, user.id if user else 0)
-            
-            if is_subscribed:
-                try:
-                    await query.edit_message_text(
-                        "✅ <b>Спасибо за подписку!</b>\n\nТеперь тебе доступен полный функционал приложения. Удачи в обучении! 🚀",
-                        reply_markup=InlineKeyboardMarkup([
-                            [InlineKeyboardButton("🚀 Учить с помощью Lerne TMA", web_app=WebAppInfo(url=TMA_URL))]
-                        ]),
-                        parse_mode="HTML"
-                    )
-                except Exception as e:
-                    logger.error(f"Error editing message in callback: {e}")
-            else:
-                await query.answer("Хмм, похоже подписка еще не оформлена. Попробуй еще раз после вступления в канал! 😊", show_alert=True)
+            try:
+                await query.edit_message_text(
+                    "✅ <b>Добро пожаловать!</b>\n\nТебе доступен полный функционал приложения. Удачи в обучении! 🚀",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🚀 Учить с помощью Lerne TMA", web_app=WebAppInfo(url=TMA_URL))]
+                    ]),
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logger.error(f"Error editing message in callback: {e}")
     except Exception as e:
         logger.error(f"Error in callback_handler: {e}", exc_info=True)
 

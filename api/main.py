@@ -71,7 +71,20 @@ async def db_session_middleware(request, call_next):
         except Exception as e2:
             logger.error(f"CRITICAL: DB initialize failed: {e2}")
 
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        exc_str = str(exc).lower()
+        if "closed" in exc_str or "terminated" in exc_str or "connection" in exc_str:
+            logger.warning(f"DB connection reset due to error: {exc}")
+            try:
+                if hasattr(models.tma_db, 'obj') and models.tma_db.obj:
+                    models.tma_db.close()
+                    models.tma_db.connect(reuse_if_open=True)
+            except Exception:
+                pass
+        raise exc
+
     path = request.url.path
     if path.startswith("/api") and not path.startswith("/api/media"):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"

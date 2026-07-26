@@ -165,11 +165,11 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
-  createDeck: async (name, folderId = null, targetLang = null) => {
+  createDeck: async (name, folderId = null, targetLang = null, deckType = 'standard') => {
     try {
       const { useLanguageStore } = await import('./useLanguageStore');
       const targetLanguage = targetLang || useLanguageStore.getState().activeLanguage || 'de';
-      await api.post('/decks', { name, folder_id: folderId, target_language: targetLanguage });
+      await api.post('/decks', { name, folder_id: folderId, target_language: targetLanguage, deck_type: deckType });
       const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {

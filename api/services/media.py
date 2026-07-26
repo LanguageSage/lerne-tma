@@ -98,13 +98,11 @@ async def ensure_card_audio(card, user_id: int):
             has_valid_audio = True
         else:
             filename = os.path.basename(card.audio_path)
-            # Проверяем наличие файла в TMAMedia и то, что он не пустой
-            media = TMAMedia.get_or_none(
+            # Проверяем только наличие записи по ID (без скачивания гигабайтных/мегабайтных BLOB из БД)
+            has_valid_audio = TMAMedia.select(TMAMedia.id).where(
                 (TMAMedia.filename == filename) & 
                 (TMAMedia.folder == "audio")
-            )
-            if media and media.content and len(media.content) > 0:
-                has_valid_audio = True
+            ).exists()
                 
     if has_valid_audio:
         return

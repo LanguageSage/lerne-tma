@@ -73,14 +73,16 @@ def merge_guest_data(guest_id: int, target_user_id: int):
 
 
 
-def create_deck(name: str, user_id: int, folder_id: int = None, target_language: str = 'de'):
+def create_deck(name: str, user_id: int, folder_id: int = None, target_language: str = 'de', deck_type: str = 'standard'):
     """Создает новую пользовательскую колоду."""
     try:
+        meta_dict = {"resources": [], "deck_type": deck_type}
         deck = TMA_Deck.create(
             user_id=user_id,
             name=name,
             folder_id=folder_id,
             target_language=target_language or 'de',
+            metadata=json.dumps(meta_dict),
             created_at=datetime.datetime.now(),
             updated_at=datetime.datetime.now()
         )

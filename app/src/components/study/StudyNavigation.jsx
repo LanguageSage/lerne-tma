@@ -16,7 +16,8 @@ export const StudyNavigation = ({
   onAutoplayStart,
   onAutoplayStop,
   onAutoplayPause,
-  onAutoplayResume
+  onAutoplayResume,
+  hideAutoplay = false
 }) => {
   const isPlaying = autoplayState === 'playing';
   const isPaused = autoplayState === 'paused';
@@ -51,15 +52,17 @@ export const StudyNavigation = ({
         </div>
       </div>
 
-      <button
-        className={`autoplay-main-btn ${isAutoplayOpen ? 'is-playing' : ''}`}
-        onClick={isAutoplayOpen ? onAutoplayStop : onAutoplayStart}
-        disabled={loading}
-        title={isAutoplayOpen ? 'Остановить авто-режим' : 'Запустить авто-режим'}
-      >
-        {isAutoplayOpen ? <Square size={18} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-        <span>{isAutoplayOpen ? 'Стоп' : 'Авто'}</span>
-      </button>
+      {!hideAutoplay && (
+        <button
+          className={`autoplay-main-btn ${isAutoplayOpen ? 'is-playing' : ''}`}
+          onClick={isAutoplayOpen ? onAutoplayStop : onAutoplayStart}
+          disabled={loading}
+          title={isAutoplayOpen ? 'Остановить авто-режим' : 'Запустить авто-режим'}
+        >
+          {isAutoplayOpen ? <Square size={18} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+          <span>{isAutoplayOpen ? 'Стоп' : 'Авто'}</span>
+        </button>
+      )}
 
       {isAutoplayOpen && (
         <div className="autoplay-controls">
