@@ -56,9 +56,6 @@ export const StudyCard = React.memo(({
   const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]);
   const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]);
 
-  const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
-  const effectiveStudyMode = (hasBracketSyntax || studyMode === 'trainer') ? 'trainer' : studyMode;
-
   // Cloze / Trainer Data Parsing
   const clozeData = useMemo(() => {
     const allDeckCards = useDeckStore.getState().deckCards || [];
@@ -66,6 +63,12 @@ export const StudyCard = React.memo(({
     const allSourceCards = [...allDeckCards, ...allFavCards];
     return parseClozeData(card, studyMode, allSourceCards);
   }, [card.id, card.front, card.back, card.updated_at, studyMode]);
+
+  const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
+  const hasTrainerGaps = clozeData && clozeData.gaps && clozeData.gaps.length > 0;
+  const effectiveStudyMode = (hasBracketSyntax || hasTrainerGaps) 
+    ? 'trainer' 
+    : (studyMode === 'trainer' ? 'classic' : studyMode);
 
   const handleClozeClick = (option, e) => {
     e.stopPropagation();
@@ -120,7 +123,7 @@ export const StudyCard = React.memo(({
         className={`card-container ${loading ? 'loading-card' : ''}`}
       >
         {!isFlipped ? (
-          <div className="card-inner card-front glass">
+          <div className="card-inner card-front glass" onClick={() => onFlip(true)} style={{ cursor: 'pointer' }}>
             <CardBackground styleType={resolvedBgFront} />
             <div className="card-face">
               
@@ -139,7 +142,7 @@ export const StudyCard = React.memo(({
                   </div>
                   <div className="flip-hint-badge">
                     <Eye size={16} />
-                    <span>Узнать немецкий оригинал</span>
+                    <span>Посмотреть ответ</span>
                   </div>
                 </>
               )}

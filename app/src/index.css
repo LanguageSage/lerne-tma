@@ -2,7 +2,7 @@
 
 :root {
   --layout-max-width-sm: 500px;
-  --layout-max-width-md: 840px;
+  --layout-max-width-md: 960px;
   --layout-max-width-lg: 1080px;
 
   font-family: 'Inter', sans-serif;
@@ -48,7 +48,7 @@ body {
   transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   #root {
     max-width: var(--layout-max-width-md);
   }
@@ -1004,6 +1004,27 @@ h1, h2, h3 {
 @keyframes sparklesPulse {
   from { opacity: 0.7; }
   to { opacity: 1; }
+}
+
+/* Pulsing animation for interactive unfilled gap badges in trainer mode */
+@keyframes pulse-glowing-gap {
+  0% {
+    box-shadow: 0 0 4px rgba(168, 85, 247, 0.4), inset 0 0 4px rgba(168, 85, 247, 0.2);
+    border-color: rgba(168, 85, 247, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(168, 85, 247, 0.95), inset 0 0 10px rgba(168, 85, 247, 0.4);
+    border-color: rgba(232, 121, 249, 0.95);
+    transform: scale(1.03);
+  }
+  100% {
+    box-shadow: 0 0 4px rgba(168, 85, 247, 0.4), inset 0 0 4px rgba(168, 85, 247, 0.2);
+    border-color: rgba(168, 85, 247, 0.6);
+  }
+}
+
+.pulsing-unfilled-gap {
+  animation: pulse-glowing-gap 2.2s infinite ease-in-out;
 }
 
 

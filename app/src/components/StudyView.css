@@ -1120,20 +1120,20 @@
 }
 
 /* Tablet & Desktop Responsive Scaling */
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   .study-navigation-panel,
   .study-mode-dropdown-container {
-    max-width: 620px;
+    max-width: 720px;
     margin-left: auto;
     margin-right: auto;
   }
 
   .study-navigation {
-    max-width: 420px;
+    max-width: 480px;
   }
 
   .settings-modal {
-    max-width: 520px;
+    max-width: 580px;
   }
 }
 

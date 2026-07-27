@@ -191,7 +191,16 @@ def get_cards_for_study(deck_id: int, user_id: int):
         cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()).dicts())
         
         if not cards:
-            return []
+            # Self-healing: if deck exists in TMA_Deck but has 0 cards, check if it matches a default library deck
+            tma_deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+            if tma_deck:
+                lib_deck = Deck.get_or_none((Deck.name == tma_deck.name) & (Deck.is_deleted == False))
+                if lib_deck:
+                    from api.services.decks import import_deck
+                    import_deck(lib_deck.id, user_id, mode='merge', local_deck_id=tma_deck.id)
+                    cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()).dicts())
+            if not cards:
+                return []
 
         # Получаем прогресс через JOIN с TMA_Card по deck_id, избегая передачи тысяч параметров
         progress_query = (TMAProgress.select()

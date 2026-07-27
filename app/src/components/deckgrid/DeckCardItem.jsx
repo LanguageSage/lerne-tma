@@ -79,7 +79,7 @@ export const DeckCardItem = ({
 
   const onMainAction = () => {
     setCurrentDeck(deck);
-    setDeckCards([]);
+    useDeckStore.setState({ deckCards: [], cardsLoading: true });
     fetchDeckCards(deck.id);
     useUiStore.getState().setView('cards');
   };

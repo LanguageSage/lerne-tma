@@ -116,8 +116,17 @@ export const AITab = () => {
 
       {adminSettings.AI_PROVIDER === 'google' && (
         <div className="form-group">
-          <label>Google Gemini API Key</label>
-          <input type="password" value={adminSettings.GOOGLE_API_KEY || ''} onChange={e => updateAdminSetting('GOOGLE_API_KEY', e.target.value)} placeholder="AIzaSy..." />
+          <label>Google Gemini API Keys (можно несколько)</label>
+          <textarea 
+            rows={3}
+            value={adminSettings.GOOGLE_API_KEY || ''} 
+            onChange={e => updateAdminSetting('GOOGLE_API_KEY', e.target.value)} 
+            placeholder="AIzaSy...&#10;AIzaSy... (укажите каждый ключ с новой строки или через запятую)" 
+            style={{ width: '100%', minHeight: '70px', resize: 'vertical', fontSize: '0.85rem', padding: '8px' }}
+          />
+          <small style={{ color: '#8e8e93', fontSize: '0.75rem', marginTop: '4px', display: 'block', lineHeight: '1.4' }}>
+            💡 Вы можете вставить несколько API-ключей Google (своего аккаунта, семьи или коллег). Как только у одного ключа заканчивается лимит (Quota / 429), система автоматически переключится на следующий ключ без сбоев.
+          </small>
         </div>
       )}
 

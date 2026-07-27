@@ -118,8 +118,13 @@ def initialize_database():
 
 
 
+_tables_created = False
+
 def create_all_tables():
-    """Создает все таблицы и запускает накопленные миграции."""
+    """Создает все таблицы и запускает накопленные миграции (выполняется только 1 раз за запуск)."""
+    global _tables_created
+    if _tables_created:
+        return
     from api.migrations import run_migrations
     try:
         run_migrations(tma_db, lerne_db)
@@ -129,6 +134,7 @@ def create_all_tables():
             LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt
         ]
         tma_db.create_tables(models_to_create, safe=True)
+        _tables_created = True
         logger.info("DATABASE: All tables created/verified.")
     except Exception as e:
         logger.error(f"Error in create_all_tables: {e}")

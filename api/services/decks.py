@@ -32,11 +32,18 @@ def ensure_starter_decks(user_id: int, target_language: str = None):
         imported_any = False
         with tma_db.atomic():
             for lib_deck in default_decks:
-                if lib_deck.name not in existing_names:
+                tma_deck = next((d for d in existing_decks if d.name == lib_deck.name), None)
+                if not tma_deck:
                     import_deck(lib_deck.id, user_id)
-                    existing_names.add(lib_deck.name)
                     imported_any = True
-                    logger.info(f"Auto-imported default deck '{lib_deck.name}' (lang: {lib_deck.target_language}) for user {user_id}")
+                    logger.info(f"Auto-imported default deck '{lib_deck.name}' for user {user_id}")
+                else:
+                    # If deck exists but has 0 cards, populate its cards
+                    cards_exist = TMA_Card.select().where((TMA_Card.deck_id == tma_deck.id) & (TMA_Card.is_deleted == False)).exists()
+                    if not cards_exist:
+                        import_deck(lib_deck.id, user_id, mode='merge', local_deck_id=tma_deck.id)
+                        imported_any = True
+                        logger.info(f"Populated cards for empty default deck '{lib_deck.name}' for user {user_id}")
 
         if not user.default_decks_initialized or imported_any:
             user.default_decks_initialized = True

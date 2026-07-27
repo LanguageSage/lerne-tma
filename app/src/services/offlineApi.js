@@ -146,9 +146,10 @@ const ensureInboxDeck = async (userId) => {
 // --- API Router Mock ---
 
 export const offlineApi = {
-  async handle(method, url, data) {
+  async handle(method, rawUrl, data) {
     const userId = getUserId();
     const nowStr = new Date().toISOString();
+    const url = rawUrl ? rawUrl.split('?')[0] : '';
 
     // 0. GET /init (Offline Initialization)
     if (method === 'get' && url === '/init') {

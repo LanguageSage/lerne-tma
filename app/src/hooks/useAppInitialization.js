@@ -166,6 +166,13 @@ export const useAppInitialization = (checkStartParam) => {
       storage.set('lerne_init_cache_version', CACHE_VERSION);
       fetchDuplicates();
       fetchFavorites();
+
+      // If user opened a deck while startup init was running, re-sync cards for current deck
+      const uiState = useUiStore.getState();
+      const currDeck = useDeckStore.getState().currentDeck;
+      if (uiState.view === 'cards' && currDeck?.id) {
+        useDeckStore.getState().fetchDeckCards(currDeck.id);
+      }
     } catch (err) {
       console.error("Init Data Error:", err);
       const decksNow = useDeckStore.getState().decks;
@@ -188,7 +195,7 @@ export const useAppInitialization = (checkStartParam) => {
           storage.set('lerne_user_profile', JSON.stringify(dbProfile));
           if (currentProfile.is_guest && !dbProfile.is_guest) {
             console.log("Found real user profile in DB. Fetching data...");
-            fetchInitData();
+            await fetchInitData();
           }
           return;
         }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Eye, X, Sparkles } from 'lucide-react';
+import { Eye, X, Sparkles, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { stripMarkdown } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
@@ -19,7 +19,7 @@ export const StudyCardTrainer = React.memo(({
   const [activeGapId, setActiveGapId] = useState(null); // null by default
   const [isChecked, setIsChecked] = useState(false);
   const [isFirstTry, setIsFirstTry] = useState(true);
-  const [popoverAlign, setPopoverAlign] = useState({}); // { [gapId]: 'center' | 'left' | 'right' }
+  const [popoverStyleMap, setPopoverStyleMap] = useState({}); // { [gapId]: { popover, arrow } }
 
   const gapRefs = useRef({});
   const gaps = clozeData?.gaps || [];
@@ -30,27 +30,43 @@ export const StudyCardTrainer = React.memo(({
     setActiveGapId(null);
     setIsChecked(false);
     setIsFirstTry(true);
+    setPopoverStyleMap({});
   }, [card?.id]);
 
-  // Smart Popover Edge Alignment Detection (Prevents off-screen overflow!)
+  // Smart Viewport-Clamped Popover Alignment Detection (Prevents off-screen overflow 100% on Galaxy S24 Ultra & mobile!)
   useEffect(() => {
     if (activeGapId !== null && gapRefs.current[activeGapId]) {
       const el = gapRefs.current[activeGapId];
       const rect = el.getBoundingClientRect();
-      const parentContainer = el.closest('.interactive-mode-container') || document.body;
-      const parentRect = parentContainer.getBoundingClientRect();
+      const vw = window.innerWidth;
+      
+      const gapCenterX = rect.left + rect.width / 2;
+      const popoverWidth = Math.min(260, vw - 24);
+      
+      let leftViewport = gapCenterX - popoverWidth / 2;
+      const minLeft = 12;
+      const maxLeft = vw - popoverWidth - 12;
+      leftViewport = Math.max(minLeft, Math.min(leftViewport, maxLeft));
+      
+      const relativeLeft = leftViewport - rect.left;
+      
+      let arrowLeft = gapCenterX - leftViewport;
+      arrowLeft = Math.max(16, Math.min(arrowLeft, popoverWidth - 16));
 
-      const spaceLeft = rect.left - parentRect.left;
-      const spaceRight = parentRect.right - rect.right;
-
-      let align = 'center';
-      if (spaceLeft < 110) {
-        align = 'left';
-      } else if (spaceRight < 110) {
-        align = 'right';
-      }
-
-      setPopoverAlign(prev => ({ ...prev, [activeGapId]: align }));
+      setPopoverStyleMap(prev => ({
+        ...prev,
+        [activeGapId]: {
+          popover: {
+            left: `${relativeLeft}px`,
+            width: `${popoverWidth}px`,
+            transform: 'none'
+          },
+          arrow: {
+            left: `${arrowLeft}px`,
+            transform: 'translateX(-50%) rotate(45deg)'
+          }
+        }
+      }));
     }
   }, [activeGapId]);
 
@@ -168,16 +184,9 @@ export const StudyCardTrainer = React.memo(({
         }
 
         // Dynamic alignment styles for popover container & arrow
-        let popoverPos = { left: '50%', transform: 'translateX(-50%)' };
-        let arrowPos = { left: '50%', transform: 'translateX(-50%) rotate(45deg)' };
-
-        if (align === 'left') {
-          popoverPos = { left: '0', transform: 'none' };
-          arrowPos = { left: '20px', transform: 'rotate(45deg)' };
-        } else if (align === 'right') {
-          popoverPos = { right: '0', left: 'auto', transform: 'none' };
-          arrowPos = { right: '20px', transform: 'rotate(45deg)' };
-        }
+        const currentStyles = popoverStyleMap[gap.id] || {};
+        const popoverPos = currentStyles.popover || { left: '50%', transform: 'translateX(-50%)', width: '240px' };
+        const arrowPos = currentStyles.arrow || { left: '50%', transform: 'translateX(-50%) rotate(45deg)' };
 
         elements.push(
           <span
@@ -192,6 +201,7 @@ export const StudyCardTrainer = React.memo(({
           >
             {/* Clickable Gap Badge */}
             <span
+              className={!chosen && !isChecked ? 'pulsing-unfilled-gap' : ''}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!isChecked) {
@@ -200,8 +210,11 @@ export const StudyCardTrainer = React.memo(({
                 }
               }}
               style={{
-                display: 'inline-block',
-                minWidth: '56px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                minWidth: '64px',
                 padding: '3px 10px',
                 borderRadius: '10px',
                 border: `2px ${chosen || isActive ? 'solid' : 'dashed'} ${borderColor}`,
@@ -210,13 +223,16 @@ export const StudyCardTrainer = React.memo(({
                 fontWeight: 700,
                 textAlign: 'center',
                 cursor: isChecked ? 'default' : 'pointer',
-                boxShadow: isActive ? '0 0 20px rgba(168, 85, 247, 0.95)' : 'none',
-                transform: isActive ? 'scale(1.08)' : 'none',
+                boxShadow: isActive ? '0 0 20px rgba(168, 85, 247, 0.95)' : undefined,
+                transform: isActive ? 'scale(1.08)' : undefined,
                 transition: 'all 0.2s ease-in-out'
               }}
               title={isChecked ? undefined : `Нажмите, чтобы открыть варианты для пропуска #${gap.id + 1}`}
             >
-              {badgeLabel}
+              <span>{badgeLabel}</span>
+              {!chosen && !isChecked && (
+                <ChevronDown size={14} style={{ opacity: 0.9, flexShrink: 0, color: '#c084fc', marginLeft: '2px' }} />
+              )}
             </span>
 
             {/* INLINE DROPDOWN POPOVER MENU WITH SMART BOUNDARY PROTECTION */}
@@ -232,9 +248,7 @@ export const StudyCardTrainer = React.memo(({
                     top: 'calc(100% + 8px)',
                     ...popoverPos,
                     zIndex: 1000,
-                    minWidth: '200px',
-                    maxWidth: 'calc(100vw - 32px)',
-                    width: 'max-content',
+                    maxWidth: 'calc(100vw - 24px)',
                     background: 'rgba(20, 15, 38, 0.97)',
                     backdropFilter: 'blur(18px)',
                     WebkitBackdropFilter: 'blur(18px)',

@@ -50,11 +50,7 @@ export const cleanBracketSyntax = (text) => {
 
 export const parseClozeData = (card, studyMode, sourceCards = []) => {
   if (!card) return null;
-  const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
-  const effectiveStudyMode = (hasBracketSyntax || studyMode === 'trainer') ? 'trainer' : studyMode;
-
-  if (effectiveStudyMode !== 'cloze' && effectiveStudyMode !== 'trainer' && !hasBracketSyntax) return null;
-  const originalText = stripMarkdown(card.front);
+  const originalText = stripMarkdown(card.front || '');
 
   // 1. Explicit bracket syntax: supports 1, 2, or multiple gaps!
   const bracketMatches = [...originalText.matchAll(/\{([^}]+)\}/g)];
@@ -95,7 +91,9 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
     };
   }
 
-  // 2. Standard cloze fallback: choose longest word
+  // 2. Standard cloze fallback: choose longest word (ONLY if studyMode is explicitly 'cloze')
+  if (studyMode !== 'cloze') return null;
+
   const words = originalText.split(/\s+/).map(w => w.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").trim()).filter(Boolean);
   if (words.length === 0) return { maskedText: originalText, correctAnswer: "", choices: [] };
   

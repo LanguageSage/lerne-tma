@@ -19,6 +19,15 @@ export const SettingsModal = ({ userId, startTutorial }) => {
   const [activeSettingsTab, setActiveSettingsTab] = useState('general');
   const [customBackgrounds] = useState([]);
 
+  const ADMIN_USER_ID = 642478257;
+  const isAdmin = Number(userId) === ADMIN_USER_ID;
+
+  React.useEffect(() => {
+    if (!isAdmin && activeSettingsTab === 'ai') {
+      setActiveSettingsTab('general');
+    }
+  }, [isAdmin, activeSettingsTab]);
+
   if (!isSettingsOpen) return null;
 
   return (
@@ -53,7 +62,7 @@ export const SettingsModal = ({ userId, startTutorial }) => {
               <option value="general">⚙️ {t('settings.tab_general', 'Общие настройки')}</option>
               <option value="design">🎨 {t('settings.tab_design', 'Дизайн')}</option>
               <option value="voice">🗣 {t('settings.tab_voice', 'Озвучка')}</option>
-              <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>
+              {isAdmin && <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>}
               <option value="prompts">📝 {t('settings.tab_prompts', 'Промпты ИИ')}</option>
             </select>
           </div>
@@ -69,7 +78,7 @@ export const SettingsModal = ({ userId, startTutorial }) => {
                 />
               )}
               {activeSettingsTab === 'voice' && <VoiceTab />}
-              {activeSettingsTab === 'ai' && <AITab />}
+              {activeSettingsTab === 'ai' && isAdmin && <AITab />}
               {activeSettingsTab === 'prompts' && <PromptsTab />}
             </AnimatePresence>
           </div>

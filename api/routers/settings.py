@@ -250,6 +250,8 @@ def save_admin_settings(data: dict, user_id: int = Depends(get_user_id)):
 @router.get("/settings/models")
 async def list_models(provider: str = None, url: str = None, user_id: int = Depends(get_user_id)):
     """Unified endpoint for model listing, used by AITab."""
+    if user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Only admins can access settings")
     import ai_service
     if not provider:
         provider_rec = models.TMASetting.get_or_none(models.TMASetting.key == "AI_PROVIDER")
@@ -264,6 +266,8 @@ async def list_models(provider: str = None, url: str = None, user_id: int = Depe
 @router.get("/settings/test-ai")
 async def test_ai_connection(user_id: int = Depends(get_user_id)):
     """Unified test endpoint for AITab."""
+    if user_id != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Only admins can access settings")
     import ai_service
     import ai_clients
     provider, ai_key, model = ai_service.get_ai_config()
