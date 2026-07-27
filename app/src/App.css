@@ -143,6 +143,15 @@
   }
 }
 
+@media (min-width: 640px) {
+  .deck-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+  }
+}
+
 /* Refactored Styles */
 .audio-btn-corner {
   position: absolute;

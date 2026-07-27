@@ -1119,4 +1119,22 @@
   flex-shrink: 0;
 }
 
+/* Tablet & Desktop Responsive Scaling */
+@media (min-width: 768px) {
+  .study-navigation-panel,
+  .study-mode-dropdown-container {
+    max-width: 620px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .study-navigation {
+    max-width: 420px;
+  }
+
+  .settings-modal {
+    max-width: 520px;
+  }
+}
+
 

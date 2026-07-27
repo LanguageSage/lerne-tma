@@ -949,3 +949,16 @@ select.form-input option {
   appearance: none;
 }
 
+/* Tablet & Desktop Responsive Scaling for Modals */
+@media (min-width: 768px) {
+  .wide-modal {
+    max-width: 620px;
+  }
+  .camera-capture-dialog {
+    max-width: 540px;
+  }
+  .image-picker-dialog {
+    max-width: 480px;
+  }
+}
+
