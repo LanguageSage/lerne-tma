@@ -42,6 +42,7 @@ export const StudyCardSpeech = React.memo(({
     cardFontWeight,
     cardFontStyle,
     cardTextShadow,
+    cardTextAlign,
     speechMatchThreshold = 75
   } = styles;
 
@@ -326,7 +327,7 @@ export const StudyCardSpeech = React.memo(({
 
   return (
     <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-      <div className="text-front speak-target-text" style={{ fontStyle: cardFontStyle }}>
+      <div className="text-front speak-target-text" style={{ fontStyle: cardFontStyle, textAlign: cardTextAlign || 'center' }}>
         {stripMarkdown(card.front)}
       </div>
 

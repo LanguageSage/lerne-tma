@@ -15,7 +15,7 @@ import { StudyCardSpeech } from './StudyCardSpeech';
 
 // Re-export for backward compatibility
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
-import { getCardStyle, getContextStyle } from '../../utils/cardStyles';
+import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
 
 export const StudyCard = React.memo(({
   card,
@@ -36,8 +36,6 @@ export const StudyCard = React.memo(({
 }) => {
   if (!card) return null;
 
-
-
   const deckResources = card.deck_metadata?.resources || [];
   const deckImage = deckResources.find(r => r.type === 'image');
   const deckVideo = deckResources.find(r => r.type === 'video');
@@ -54,8 +52,9 @@ export const StudyCard = React.memo(({
     setCorrectSelected(null);
   }, [card.id, card.front, card.back, card.updated_at, studyMode]);
 
-  const cardStyle = useMemo(() => getCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow]);
-  const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow]);
+  const cardStyle = useMemo(() => getCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]);
+  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]);
+  const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]);
 
   const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
   const effectiveStudyMode = (hasBracketSyntax || studyMode === 'trainer') ? 'trainer' : studyMode;
@@ -339,7 +338,7 @@ export const StudyCard = React.memo(({
                     <Volume2 size={22} />
                   )}
                 </button>
-                <div id="tut-study-answer" className="text-back" style={cardStyle}>
+                <div id="tut-study-answer" className="text-back" style={backCardStyle}>
                   {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.front : card.back))}
                 </div>
               </div>

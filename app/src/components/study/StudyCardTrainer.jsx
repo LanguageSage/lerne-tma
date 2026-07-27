@@ -62,7 +62,8 @@ export const StudyCardTrainer = React.memo(({
     cardFontSize,
     cardFontWeight,
     cardFontStyle,
-    cardTextShadow
+    cardTextShadow,
+    cardTextAlign
   } = styles;
 
   const cardStyle = {
@@ -71,7 +72,8 @@ export const StudyCardTrainer = React.memo(({
     fontSize: cardFontSize ? `${cardFontSize}rem` : undefined,
     fontWeight: cardFontWeight,
     fontStyle: cardFontStyle,
-    textShadow: getTextShadow(cardTextShadow, cardTextColor)
+    textShadow: getTextShadow(cardTextShadow, cardTextColor),
+    textAlign: cardTextAlign || 'center'
   };
 
   const filledCount = gaps.filter(g => selectedOptions[g.id]).length;

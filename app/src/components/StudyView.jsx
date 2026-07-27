@@ -51,19 +51,21 @@ export const StudyView = ({ startTutorial }) => {
   const cardFontWeight = useSettingsStore(s => s.cardFontWeight);
   const cardFontStyle = useSettingsStore(s => s.cardFontStyle);
   const cardTextShadow = useSettingsStore(s => s.cardTextShadow);
+  const cardTextAlign = useSettingsStore(s => s.cardTextAlign);
   const contextFont = useSettingsStore(s => s.contextFont);
   const contextTextColor = useSettingsStore(s => s.contextTextColor);
   const contextFontSize = useSettingsStore(s => s.contextFontSize);
   const contextFontWeight = useSettingsStore(s => s.contextFontWeight);
   const contextFontStyle = useSettingsStore(s => s.contextFontStyle);
   const contextTextShadow = useSettingsStore(s => s.contextTextShadow);
+  const contextTextAlign = useSettingsStore(s => s.contextTextAlign);
   const autoplayDelay = useSettingsStore(s => s.autoplayDelay);
   const autoplayScrollBg = useSettingsStore(s => s.autoplayScrollBg);
 
   const styleSettings = React.useMemo(() => ({
-    cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow,
-    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow
-  }), [cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow]);
+    cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign,
+    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
+  }), [cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign, contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign]);
 
   const autoplaySettingsObj = React.useMemo(() => ({
     autoplayDelay, autoplayLoop, autoplayScrollBg, autoPlay

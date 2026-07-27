@@ -14,8 +14,10 @@ const getInitialDesignState = () => ({
   contextTextShadow: storage.get('lerne_context_text_shadow') || 'outline',
   cardFontWeight: storage.get('lerne_card_font_weight') || '700',
   cardFontStyle: storage.get('lerne_card_font_style') || 'normal',
+  cardTextAlign: storage.get('lerne_card_text_align') || 'center',
   contextFontWeight: storage.get('lerne_context_font_weight') || '400',
   contextFontStyle: storage.get('lerne_context_font_style') || 'normal',
+  contextTextAlign: storage.get('lerne_context_text_align') || 'center',
   userDesign: storage.get('lerne_user_design') ? JSON.parse(storage.get('lerne_user_design')) : null,
 });
 
@@ -108,8 +110,10 @@ export const useSettingsStore = create((set, get) => ({
   setContextTextShadow: (val) => { storage.set('lerne_context_text_shadow', val); set({ contextTextShadow: val }); },
   setCardFontWeight: (val) => { storage.set('lerne_card_font_weight', val); set({ cardFontWeight: val }); },
   setCardFontStyle: (val) => { storage.set('lerne_card_font_style', val); set({ cardFontStyle: val }); },
+  setCardTextAlign: (val) => { storage.set('lerne_card_text_align', val); set({ cardTextAlign: val }); },
   setContextFontWeight: (val) => { storage.set('lerne_context_font_weight', val); set({ contextFontWeight: val }); },
   setContextFontStyle: (val) => { storage.set('lerne_context_font_style', val); set({ contextFontStyle: val }); },
+  setContextTextAlign: (val) => { storage.set('lerne_context_text_align', val); set({ contextTextAlign: val }); },
 
   // Helper to apply a full design preset
   applyDesignPreset: (preset) => {
@@ -131,8 +135,10 @@ export const useSettingsStore = create((set, get) => ({
     if (s.contextTextShadow) storage.set('lerne_context_text_shadow', s.contextTextShadow);
     if (s.cardFontWeight) storage.set('lerne_card_font_weight', s.cardFontWeight);
     if (s.cardFontStyle) storage.set('lerne_card_font_style', s.cardFontStyle);
+    if (s.cardTextAlign) storage.set('lerne_card_text_align', s.cardTextAlign);
     if (s.contextFontWeight) storage.set('lerne_context_font_weight', s.contextFontWeight);
     if (s.contextFontStyle) storage.set('lerne_context_font_style', s.contextFontStyle);
+    if (s.contextTextAlign) storage.set('lerne_context_text_align', s.contextTextAlign);
   },
 
   saveUserDesign: () => {
@@ -150,8 +156,10 @@ export const useSettingsStore = create((set, get) => ({
       contextTextShadow: s.contextTextShadow,
       cardFontWeight: s.cardFontWeight,
       cardFontStyle: s.cardFontStyle,
+      cardTextAlign: s.cardTextAlign,
       contextFontWeight: s.contextFontWeight,
       contextFontStyle: s.contextFontStyle,
+      contextTextAlign: s.contextTextAlign,
     };
     storage.set('lerne_user_design', JSON.stringify(design));
     set({ userDesign: design });
@@ -176,8 +184,10 @@ export const useSettingsStore = create((set, get) => ({
       contextTextShadow: 'outline',
       cardFontWeight: '700',
       cardFontStyle: 'normal',
+      cardTextAlign: 'center',
       contextFontWeight: '400',
-      contextFontStyle: 'normal'
+      contextFontStyle: 'normal',
+      contextTextAlign: 'center'
     };
     
     set(defaultSettings);
@@ -194,8 +204,10 @@ export const useSettingsStore = create((set, get) => ({
     storage.set('lerne_context_text_shadow', 'outline');
     storage.set('lerne_card_font_weight', '700');
     storage.set('lerne_card_font_style', 'normal');
+    storage.set('lerne_card_text_align', 'center');
     storage.set('lerne_context_font_weight', '400');
     storage.set('lerne_context_font_style', 'normal');
+    storage.set('lerne_context_text_align', 'center');
   },
 
   // --- Admin/API Settings (Fetched from Backend) ---

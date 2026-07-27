@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { TypographyPreview } from './TypographyPreview';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -26,9 +27,11 @@ export const DesignTab = () => {
     cardFont, setCardFont,
     cardTextColor, setCardTextColor,
     cardFontSize, setCardFontSize,
+    cardTextAlign, setCardTextAlign,
     contextFont, setContextFont,
     contextTextColor, setContextTextColor,
     contextFontSize, setContextFontSize,
+    contextTextAlign, setContextTextAlign,
     cardTextShadow, setCardTextShadow,
     contextTextShadow, setContextTextShadow,
     cardFontWeight, setCardFontWeight,
@@ -91,8 +94,8 @@ export const DesignTab = () => {
             style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)' }}
             onClick={() => {
               const config = {
-                cardBgFront, cardBgBack, cardFont, cardTextColor, cardFontSize,
-                contextFont, contextTextColor, contextFontSize, cardTextShadow, contextTextShadow,
+                cardBgFront, cardBgBack, cardFont, cardTextColor, cardFontSize, cardTextAlign,
+                contextFont, contextTextColor, contextFontSize, contextTextAlign, cardTextShadow, contextTextShadow,
                 cardFontWeight, cardFontStyle, contextFontWeight, contextFontStyle
               };
               navigator.clipboard.writeText(JSON.stringify(config, null, 2));
@@ -306,6 +309,68 @@ export const DesignTab = () => {
             onChange={e => setCardFontSize(Number(e.target.value))} 
           />
         </div>
+        <div className="form-group" style={{ marginTop: '12px' }}>
+          <label>Выравнивание текста (Лицевая сторона)</label>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+            <button
+              type="button"
+              className={`btn-secondary btn-tiny ${cardTextAlign === 'left' ? 'active' : ''}`}
+              onClick={() => setCardTextAlign('left')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                background: cardTextAlign === 'left' ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: cardTextAlign === 'left' ? '#a78bfa' : undefined
+              }}
+            >
+              <AlignLeft size={16} />
+              <span>Слева</span>
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary btn-tiny ${(!cardTextAlign || cardTextAlign === 'center') ? 'active' : ''}`}
+              onClick={() => setCardTextAlign('center')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                background: (!cardTextAlign || cardTextAlign === 'center') ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: (!cardTextAlign || cardTextAlign === 'center') ? '#a78bfa' : undefined
+              }}
+            >
+              <AlignCenter size={16} />
+              <span>Центр</span>
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary btn-tiny ${cardTextAlign === 'right' ? 'active' : ''}`}
+              onClick={() => setCardTextAlign('right')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                background: cardTextAlign === 'right' ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: cardTextAlign === 'right' ? '#a78bfa' : undefined
+              }}
+            >
+              <AlignRight size={16} />
+              <span>Справа</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="custom-bg-manager glass" style={{ marginTop: '15px', padding: '15px' }}>
@@ -410,6 +475,68 @@ export const DesignTab = () => {
             value={contextFontSize} 
             onChange={e => setContextFontSize(Number(e.target.value))} 
           />
+        </div>
+        <div className="form-group" style={{ marginTop: '12px' }}>
+          <label>Выравнивание текста (Обратная сторона)</label>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+            <button
+              type="button"
+              className={`btn-secondary btn-tiny ${contextTextAlign === 'left' ? 'active' : ''}`}
+              onClick={() => setContextTextAlign('left')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                background: contextTextAlign === 'left' ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: contextTextAlign === 'left' ? '#a78bfa' : undefined
+              }}
+            >
+              <AlignLeft size={16} />
+              <span>Слева</span>
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary btn-tiny ${(!contextTextAlign || contextTextAlign === 'center') ? 'active' : ''}`}
+              onClick={() => setContextTextAlign('center')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                background: (!contextTextAlign || contextTextAlign === 'center') ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: (!contextTextAlign || contextTextAlign === 'center') ? '#a78bfa' : undefined
+              }}
+            >
+              <AlignCenter size={16} />
+              <span>Центр</span>
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary btn-tiny ${contextTextAlign === 'right' ? 'active' : ''}`}
+              onClick={() => setContextTextAlign('right')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                background: contextTextAlign === 'right' ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: contextTextAlign === 'right' ? '#a78bfa' : undefined
+              }}
+            >
+              <AlignRight size={16} />
+              <span>Справа</span>
+            </button>
+          </div>
         </div>
       </div>
 

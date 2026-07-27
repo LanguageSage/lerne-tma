@@ -23,9 +23,9 @@ export const CardForm = ({
 }) => {
   const { t } = useTranslation();
   const { 
-    cardFont, cardTextColor, cardFontWeight, cardFontStyle, cardFontSize, cardTextShadow,
+    cardFont, cardTextColor, cardFontWeight, cardFontStyle, cardFontSize, cardTextShadow, cardTextAlign,
     cardBgFront, cardBgBack,
-    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow
+    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
   } = useSettingsStore();
 
   const { loading } = useUiStore();
@@ -150,6 +150,7 @@ export const CardForm = ({
               color: cardTextColor,
               fontSize: `${cardFontSize}rem`,
               textShadow: getTextShadow(cardTextShadow, cardTextColor),
+              textAlign: cardTextAlign || 'center',
               overflow: 'hidden',
               height: 'auto',
               minHeight: '100px'
@@ -295,6 +296,7 @@ export const CardForm = ({
               color: cardTextColor,
               fontSize: `${cardFontSize}rem`,
               textShadow: getTextShadow(cardTextShadow, cardTextColor),
+              textAlign: cardTextAlign || 'center',
               overflow: 'hidden',
               height: 'auto',
               minHeight: '100px'
@@ -323,6 +325,7 @@ export const CardForm = ({
                    fontWeight: contextFontWeight,
                    fontStyle: contextFontStyle,
                    textShadow: getContextShadow(contextTextShadow, contextTextColor),
+                   textAlign: contextTextAlign || 'center',
                    overflow: 'hidden',
                    height: 'auto',
                    minHeight: '100px'

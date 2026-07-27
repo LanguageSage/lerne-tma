@@ -5,15 +5,14 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 
 export const TypographyPreview = ({ styleType = 'standard', showContext = true }) => {
   const {
-    cardFont, cardTextColor, cardFontSize, cardTextShadow, cardFontWeight, cardFontStyle,
-    contextFont, contextTextColor, contextFontSize, contextTextShadow, contextFontWeight, contextFontStyle
+    cardFont, cardTextColor, cardFontSize, cardTextShadow, cardFontWeight, cardFontStyle, cardTextAlign,
+    contextFont, contextTextColor, contextFontSize, contextTextShadow, contextFontWeight, contextFontStyle, contextTextAlign
   } = useSettingsStore();
 
   return (
     <div className="typography-preview glass" style={{ 
       margin: '10px 0 20px 0', 
       padding: '30px 20px', 
-      textAlign: 'center',
       border: '1px solid rgba(255,255,255,0.1)',
       position: 'relative',
       overflow: 'hidden',
@@ -33,6 +32,7 @@ export const TypographyPreview = ({ styleType = 'standard', showContext = true }
           textShadow: getTextShadow(cardTextShadow, cardTextColor),
           fontWeight: cardFontWeight,
           fontStyle: cardFontStyle,
+          textAlign: showContext ? (contextTextAlign || 'center') : (cardTextAlign || 'center'),
           marginBottom: showContext ? '10px' : '0'
         }}>
           Sample Phrase
@@ -45,6 +45,7 @@ export const TypographyPreview = ({ styleType = 'standard', showContext = true }
             textShadow: getContextShadow(contextTextShadow, contextTextColor),
             fontWeight: contextFontWeight,
             fontStyle: contextFontStyle,
+            textAlign: contextTextAlign || 'center',
             opacity: 0.8
           }}>
             This is a context example

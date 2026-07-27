@@ -63,8 +63,10 @@ export const DESIGN_PRESETS = [
       contextTextShadow: "outline",
       cardFontWeight: "700",
       cardFontStyle: "normal",
+      cardTextAlign: "center",
       contextFontWeight: "400",
-      contextFontStyle: "normal"
+      contextFontStyle: "normal",
+      contextTextAlign: "center"
     }
   },
   {

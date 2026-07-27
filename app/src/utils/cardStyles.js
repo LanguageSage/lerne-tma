@@ -12,6 +12,20 @@ export const getCardStyle = (styles) => {
     fontWeight: styles.cardFontWeight || undefined,
     fontStyle: styles.cardFontStyle || undefined,
     textShadow: styles.cardTextShadow || undefined,
+    textAlign: styles.cardTextAlign || 'center',
+  };
+};
+
+export const getBackCardStyle = (styles) => {
+  if (!styles) return {};
+  return {
+    fontFamily: styles.cardFont || undefined,
+    color: styles.cardTextColor || undefined,
+    fontSize: styles.cardFontSize ? `${styles.cardFontSize}rem` : undefined,
+    fontWeight: styles.cardFontWeight || undefined,
+    fontStyle: styles.cardFontStyle || undefined,
+    textShadow: styles.cardTextShadow || undefined,
+    textAlign: styles.contextTextAlign || styles.cardTextAlign || 'center',
   };
 };
 
@@ -24,5 +38,6 @@ export const getContextStyle = (styles) => {
     fontWeight: styles.contextFontWeight || styles.cardFontWeight || undefined,
     fontStyle: styles.contextFontStyle || styles.cardFontStyle || undefined,
     textShadow: styles.contextTextShadow || styles.cardTextShadow || undefined,
+    textAlign: styles.contextTextAlign || styles.cardTextAlign || 'center',
   };
 };
