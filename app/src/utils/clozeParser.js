@@ -59,7 +59,16 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
   // 1. Explicit bracket syntax: supports 1, 2, or multiple gaps!
   const bracketMatches = [...originalText.matchAll(/\{([^}]+)\}/g)];
   if (bracketMatches.length > 0) {
+    let maskedText = '';
+    let lastEnd = 0;
+
     const gaps = bracketMatches.map((match, index) => {
+      const matchStart = match.index;
+      const matchEnd = match.index + match[0].length;
+
+      maskedText += originalText.substring(lastEnd, matchStart) + `___GAP_${index}___`;
+      lastEnd = matchEnd;
+
       const optionsRaw = match[1].split(/[|;]/).map(o => o.trim()).filter(Boolean);
       let correctAnswer = optionsRaw.find(o => o.startsWith('*')) || optionsRaw[0] || '';
       const cleanCorrect = correctAnswer.replace(/^\*/, '').trim();
@@ -75,10 +84,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
       };
     });
 
-    let maskedText = originalText;
-    gaps.forEach((gap) => {
-      maskedText = maskedText.replace(gap.rawMatch, `___GAP_${gap.id}___`);
-    });
+    maskedText += originalText.substring(lastEnd);
 
     return {
       isMultiGap: true,

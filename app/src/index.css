@@ -41,6 +41,13 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: max-width 0.2s ease;
+}
+
+@media (min-width: 768px) {
+  #root {
+    max-width: 540px;
+  }
 }
 
 .app-container {

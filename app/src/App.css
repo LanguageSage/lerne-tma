@@ -200,7 +200,8 @@
   font-size: 0.8rem;
   font-weight: 500;
   margin-top: auto;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
