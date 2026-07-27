@@ -265,26 +265,48 @@ async def list_models(provider: str = None, url: str = None, user_id: int = Depe
 
 @router.get("/settings/test-ai")
 async def test_ai_connection(user_id: int = Depends(get_user_id)):
-    """Unified test endpoint for AITab."""
+    """Unified test endpoint for AITab: tests all configured keys individually."""
     if user_id != ADMIN_USER_ID:
         raise HTTPException(status_code=403, detail="Only admins can access settings")
     import ai_service
     import ai_clients
     provider, ai_key, model = ai_service.get_ai_config()
     
-    # Use default model for test if not set
     if not model:
-        model = "gemini-1.5-flash" if provider == "google" else "llama3-8b-8192"
+        model = "gemini-2.0-flash" if provider == "google" else "llama3-8b-8192"
         
     client = ai_clients.AIService(provider=provider, api_key=ai_key)
-    response, success = await client.chat_completion(
-        system_prompt="Return 'OK'.",
-        user_message="Test.",
-        model=model
-    )
-    if success:
-        return {"status": "ok"}
-    return {"status": "error", "error": response}
+    keys = client.api_keys if client.api_keys else [""]
+    
+    key_results = []
+    
+    for idx, k in enumerate(keys):
+        single_client = ai_clients.AIService(provider=provider, api_key=k)
+        response, success = await single_client.chat_completion(
+            system_prompt="Return 'OK'.",
+            user_message="Test.",
+            model=model
+        )
+        masked_key = f"...{k[-4:]}" if len(k) > 6 else (k or "Пустой ключ")
+        key_results.append({
+            "index": idx + 1,
+            "key_raw": k,
+            "key_masked": masked_key,
+            "status": "ok" if success else "error",
+            "message": "OK (Соединение установлено)" if success else str(response)
+        })
+
+    all_ok = all(r["status"] == "ok" for r in key_results)
+    any_ok = any(r["status"] == "ok" for r in key_results)
+    overall_status = "ok" if all_ok else ("warning" if any_ok else "error")
+
+    return {
+        "status": overall_status,
+        "provider": provider,
+        "keys": key_results,
+        "total_keys": len(keys),
+        "error": None if any_ok else (key_results[0]["message"] if key_results else "No keys")
+    }
 
 @router.get("/admin/presets")
 def get_admin_presets(user_id: int = Depends(get_user_id)):

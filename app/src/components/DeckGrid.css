@@ -534,4 +534,67 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Larger Card & Folder Scaling for Tablet and Desktop (Single Column) */
+@media (min-width: 640px) {
+  .deck-card {
+    border-radius: 24px;
+  }
+
+  .deck-main-action-with-stats {
+    padding: 18px 22px !important;
+    gap: 1rem !important;
+  }
+
+  .deck-info-row {
+    gap: 0.9rem;
+  }
+
+  .deck-icon {
+    padding: 15px;
+    border-radius: 16px;
+  }
+
+  .deck-card h3 {
+    font-size: 1.25rem;
+    gap: 8px;
+  }
+
+  .deck-level {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 8px;
+  }
+
+  .deck-stats-container {
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .deck-stat-item {
+    padding: 9px 8px;
+    border-radius: 12px;
+  }
+
+  .deck-stat-value {
+    font-size: 1.15rem;
+  }
+
+  .deck-stat-label {
+    font-size: 0.72rem;
+  }
+
+  .bottom-tools-toggle {
+    max-width: 100%;
+    padding: 14px 22px;
+    font-size: 0.95rem;
+    border-radius: 20px;
+  }
+
+  .bottom-tools-menu {
+    max-width: 100%;
+    padding: 16px;
+    border-radius: 0 0 20px 20px;
+  }
+}
+
 

@@ -154,7 +154,6 @@ export const StudyCardTrainer = React.memo(({
         const chosen = selectedOptions[gap.id];
         const isCorrectChoice = chosen?.toLowerCase() === gap.correctAnswer.toLowerCase();
         const isActive = activeGapId === gap.id && !isChecked;
-        const align = popoverAlign[gap.id] || 'center';
 
         let borderColor = 'rgba(168, 85, 247, 0.4)';
         let bgColor = 'rgba(168, 85, 247, 0.08)';

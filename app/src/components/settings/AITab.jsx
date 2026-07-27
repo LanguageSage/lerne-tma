@@ -10,6 +10,8 @@ export const AITab = () => {
   const { showToast } = useUiStore();
   const [availableModels, setAvailableModels] = useState([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [testResults, setTestResults] = useState(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   const fetchModels = async () => {
     setIsFetchingModels(true);
@@ -39,16 +41,42 @@ export const AITab = () => {
   };
 
   const testAiConnection = async () => {
+     setIsTesting(true);
      try {
        const res = await api.get('/settings/test-ai');
+       setTestResults(res.data);
        if (res.data.status === 'ok') {
-         showToast("Соединение установлено!", "success");
+         showToast("Все ключи проверены: соединение установлено!", "success");
+       } else if (res.data.status === 'warning') {
+         showToast("Часть ключей работает, некоторые вызывают ошибки", "warning");
        } else {
-         showToast(`Ошибка: ${res.data.error}`);
+         showToast(`Ошибка проверки: ${res.data.error || 'Сбой соединения'}`);
        }
      } catch (err) {
-       showToast("Ошибка соединения");
+       showToast("Ошибка соединения при проверке");
+     } finally {
+       setIsTesting(false);
      }
+  };
+
+  const makeKeyPrimary = (rawKeyToPromote) => {
+    const rawVal = adminSettings.GOOGLE_API_KEY || '';
+    const cleaned = rawVal.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/;/g, ',');
+    const keys = [];
+    for (const line of cleaned.split('\n')) {
+      for (const part of line.split(',')) {
+        const k = part.trim();
+        if (k && !keys.includes(k)) keys.push(k);
+      }
+    }
+    const idx = keys.indexOf(rawKeyToPromote);
+    if (idx > 0) {
+      keys.splice(idx, 1);
+      keys.unshift(rawKeyToPromote);
+      const newStr = keys.join('\n');
+      updateAdminSetting('GOOGLE_API_KEY', newStr);
+      showToast("Ключ перемещён на 1-е место (основной). Сохраните настройки!", "info");
+    }
   };
 
   useEffect(() => {
@@ -70,8 +98,8 @@ export const AITab = () => {
     <motion.div key="ai" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section admin-section">
       <div className="section-header-with-btn">
         <h3>Настройки ИИ</h3>
-        <button className="btn-secondary btn-tiny" onClick={testAiConnection}>
-          Проверить соединение
+        <button className="btn-secondary btn-tiny" onClick={testAiConnection} disabled={isTesting}>
+          {isTesting ? 'Проверка...' : 'Проверить соединение'}
         </button>
       </div>
 
@@ -84,6 +112,7 @@ export const AITab = () => {
         <select value={adminSettings.AI_PROVIDER || 'default'} onChange={e => {
           updateAdminSetting('AI_PROVIDER', e.target.value);
           updateAdminSetting('DEFAULT_MODEL', '');
+          setTestResults(null);
         }}>
           <option value="default">По умолчанию (Lerne Shared)</option>
           <option value="groq">Groq (Очень быстро / Бесплатно)</option>
@@ -120,13 +149,38 @@ export const AITab = () => {
           <textarea 
             rows={3}
             value={adminSettings.GOOGLE_API_KEY || ''} 
-            onChange={e => updateAdminSetting('GOOGLE_API_KEY', e.target.value)} 
+            onChange={e => {
+              updateAdminSetting('GOOGLE_API_KEY', e.target.value);
+              setTestResults(null);
+            }} 
             placeholder="AIzaSy...&#10;AIzaSy... (укажите каждый ключ с новой строки или через запятую)" 
             style={{ width: '100%', minHeight: '70px', resize: 'vertical', fontSize: '0.85rem', padding: '8px' }}
           />
           <small style={{ color: '#8e8e93', fontSize: '0.75rem', marginTop: '4px', display: 'block', lineHeight: '1.4' }}>
-            💡 Вы можете вставить несколько API-ключей Google (своего аккаунта, семьи или коллег). Как только у одного ключа заканчивается лимит (Quota / 429), система автоматически переключится на следующий ключ без сбоев.
+            💡 Вы можете вставить несколько API-ключей Google (своего аккаунта, семьи или коллег). Как только у одного ключа заканчивается лимит (Quota / 429), система автоматически переключится на следующий ключ.
           </small>
+
+          {testResults && testResults.keys && testResults.keys.length > 0 && (
+            <div style={{ marginTop: '10px', background: 'rgba(255, 255, 255, 0.05)', padding: '10px', borderRadius: '6px', fontSize: '0.8rem' }}>
+              <strong style={{ display: 'block', marginBottom: '6px' }}>🔍 Результаты проверки ключей:</strong>
+              {testResults.keys.map((k, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '8px', padding: '4px 0', borderBottom: i < testResults.keys.length - 1 ? '1px dashed rgba(255,255,255,0.1)' : 'none' }}>
+                  <span>
+                    {k.status === 'ok' ? '🟢' : '🔴'} Ключ #{k.index} ({k.key_masked}): <span style={{ opacity: 0.85, color: k.status === 'ok' ? '#2ecc71' : '#e74c3c' }}>{k.message}</span>
+                  </span>
+                  {i > 0 && (
+                    <button 
+                      className="btn-secondary btn-tiny"
+                      onClick={() => makeKeyPrimary(k.key_raw)}
+                      title="Переместить этот ключ на первое место (сделать основным)"
+                    >
+                      Сделать 1-м
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
