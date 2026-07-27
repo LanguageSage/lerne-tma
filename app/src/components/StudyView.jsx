@@ -582,7 +582,6 @@ export const StudyView = ({ startTutorial }) => {
                 <option value="classic">🃏 Карточки (Немецкий → Русский)</option>
                 <option value="reverse">🔄 Перевод (Русский → Немецкий)</option>
                 <option value="cloze">📝 Выбор слова (Пропуски)</option>
-                <option value="trainer">🎯 Тренажер (Тест без SRS)</option>
                 <option value="puzzle">🧩 Конструктор (Сборка фразы)</option>
                 <option value="speak">🗣 Произношение (Голос)</option>
                 <option value="turbo">🔥 Ударная тренировка (До автоматизма)</option>
@@ -645,6 +644,14 @@ export const StudyView = ({ startTutorial }) => {
               resolvedBgBack={resolvedBgBack}
               studyMode={studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
               onTrainerAnswer={handleTrainerAnswer}
+              onNextCard={() => {
+                setIsFlipped(false);
+                if (studyMode === 'trainer') {
+                  fetchNextCard(currentDeck?.id);
+                } else {
+                  goNext();
+                }
+              }}
             />
 
             <div className="card-actions-row-study">

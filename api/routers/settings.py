@@ -47,8 +47,11 @@ SYSTEM_PRESETS = [
 @router.get("/user/prompts")
 def get_user_prompts(target_language: str = "de", native_language: str = None, user_id: int = Depends(get_user_id)):
     custom_prompts = []
-    active_prompt_id = None
-    active_preset_id = None
+    active_standard_prompt_id = None
+    active_trainer_prompt_id = None
+    active_standard_preset_id = None
+    active_trainer_preset_id = None
+
     target_lang = (target_language or "de").lower().strip()
     
     from api.services.language_service import get_language_config, get_system_presets, get_prompt_for_phrase
@@ -67,29 +70,44 @@ def get_user_prompts(target_language: str = "de", native_language: str = None, u
         ).order_by(models.TMACustomPrompt.id.asc())
 
         for p in query:
+            ptype = p.prompt_type or 'standard'
             if p.is_active:
-                active_prompt_id = p.id
-                matched_preset = next((pr for pr in presets if pr["name"] == p.name), None)
-                if matched_preset:
-                    active_preset_id = matched_preset["id"]
+                if ptype == 'trainer':
+                    active_trainer_prompt_id = p.id
+                    matched_preset = next((pr for pr in presets if pr["name"] == p.name), None)
+                    if matched_preset:
+                        active_trainer_preset_id = matched_preset["id"]
+                else:
+                    active_standard_prompt_id = p.id
+                    matched_preset = next((pr for pr in presets if pr["name"] == p.name), None)
+                    if matched_preset:
+                        active_standard_preset_id = matched_preset["id"]
+
             custom_prompts.append({
                 "id": p.id,
                 "name": p.name,
                 "translation_prompt": p.translation_prompt or "",
                 "context_prompt": p.context_prompt or "",
                 "target_language": p.target_language or "de",
+                "prompt_type": ptype,
                 "is_active": p.is_active
             })
             
-        if not active_prompt_id and not active_preset_id:
-            active_preset_id = "preset_b1"
+        if not active_standard_prompt_id and not active_standard_preset_id:
+            active_standard_preset_id = "preset_b1"
+        if not active_trainer_prompt_id and not active_trainer_preset_id:
+            active_trainer_preset_id = "preset_trainer"
     except Exception as e:
         logger.error(f"Error fetching custom prompts: {e}")
 
     return {
         "custom_prompts": custom_prompts,
-        "active_prompt_id": active_prompt_id,
-        "active_preset_id": active_preset_id or "preset_b1",
+        "active_prompt_id": active_standard_prompt_id,
+        "active_preset_id": active_standard_preset_id or "preset_b1",
+        "active_standard_prompt_id": active_standard_prompt_id,
+        "active_trainer_prompt_id": active_trainer_prompt_id,
+        "active_standard_preset_id": active_standard_preset_id or "preset_b1",
+        "active_trainer_preset_id": active_trainer_preset_id or "preset_trainer",
         "target_language": target_lang,
         "native_language": native_lang,
         "language_name": lang_cfg["name"],
@@ -108,8 +126,8 @@ def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
     translation_prompt = data.get('translation_prompt', '')
     context_prompt = data.get('context_prompt', '')
     target_language = (data.get('target_language') or 'de').lower().strip()
+    prompt_type = data.get('prompt_type', 'standard')
     
-    # Fallback for single prompt input
     single_prompt = data.get('prompt')
     if single_prompt:
         if not translation_prompt:
@@ -125,6 +143,7 @@ def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
         p.translation_prompt = translation_prompt
         p.context_prompt = context_prompt
         p.target_language = target_language
+        p.prompt_type = prompt_type
         p.save()
     else:
         p = models.TMACustomPrompt.create(
@@ -133,6 +152,7 @@ def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
             translation_prompt=translation_prompt,
             context_prompt=context_prompt,
             target_language=target_language,
+            prompt_type=prompt_type,
             is_active=False
         )
     return {"status": "ok", "id": p.id}
@@ -148,24 +168,32 @@ def delete_user_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
 @router.post("/user/prompts/{prompt_id}/activate")
 def activate_user_prompt(prompt_id: int, data: dict = None, user_id: int = Depends(get_user_id)):
     target_lang = (data.get('target_language') if data else 'de') or 'de'
-    # Deactivate all for target_language
+    target_type = (data.get('prompt_type') if data else None)
+    
+    p_target = models.TMACustomPrompt.get_or_none((models.TMACustomPrompt.id == prompt_id) & (models.TMACustomPrompt.user_id == user_id))
+    if not p_target:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    
+    ptype = target_type or p_target.prompt_type or 'standard'
+
+    # Deactivate all for target_language and matching prompt_type
     models.TMACustomPrompt.update(is_active=False).where(
         (models.TMACustomPrompt.user_id == user_id) & 
+        (models.TMACustomPrompt.prompt_type == ptype) &
         ((models.TMACustomPrompt.target_language == target_lang) | (models.TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
     ).execute()
-    # Activate selected
-    updated = models.TMACustomPrompt.update(is_active=True).where(
-        (models.TMACustomPrompt.id == prompt_id) & (models.TMACustomPrompt.user_id == user_id)
-    ).execute()
-    if not updated:
-        raise HTTPException(status_code=404, detail="Prompt not found")
+    
+    p_target.is_active = True
+    p_target.save()
     return {"status": "ok"}
 
 @router.post("/user/prompts/deactivate")
 def deactivate_user_prompts(data: dict = None, user_id: int = Depends(get_user_id)):
     target_lang = (data.get('target_language') if data else 'de') or 'de'
+    ptype = (data.get('prompt_type') if data else 'standard') or 'standard'
     models.TMACustomPrompt.update(is_active=False).where(
         (models.TMACustomPrompt.user_id == user_id) & 
+        (models.TMACustomPrompt.prompt_type == ptype) &
         ((models.TMACustomPrompt.target_language == target_lang) | (models.TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
     ).execute()
     return {"status": "ok"}
@@ -179,8 +207,11 @@ def activate_system_preset(preset_id: str, data: dict = None, user_id: int = Dep
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
     
+    ptype = preset.get('prompt_type', 'standard')
+
     models.TMACustomPrompt.update(is_active=False).where(
         (models.TMACustomPrompt.user_id == user_id) &
+        (models.TMACustomPrompt.prompt_type == ptype) &
         ((models.TMACustomPrompt.target_language == target_lang) | (models.TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
     ).execute()
     
@@ -196,12 +227,14 @@ def activate_system_preset(preset_id: str, data: dict = None, user_id: int = Dep
             translation_prompt=preset["instruction"],
             context_prompt=preset["instruction"],
             target_language=target_lang,
+            prompt_type=ptype,
             is_active=True
         )
     else:
         p.translation_prompt = preset["instruction"]
         p.context_prompt = preset["instruction"]
         p.target_language = target_lang
+        p.prompt_type = ptype
         p.is_active = True
         p.save()
     return {"status": "ok", "id": p.id}

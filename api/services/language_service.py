@@ -125,7 +125,8 @@ def get_prompt_for_phrase(phrase: str, target_lang: str = "de", native_lang: str
 def get_system_presets(target_lang: str = "de", native_lang: str = "uk") -> list:
     native_cfg = get_native_config(native_lang)
     target_code = (target_lang or "de").lower().strip()
-    adj, _ = native_cfg["target_names"].get(target_code, (target_code, target_code))
+    target_info = native_cfg["target_names"].get(target_code, (target_code, target_code, target_code))
+    adj = target_info[0]
     lang_name = adj.capitalize()
 
     levels = [
@@ -145,7 +146,19 @@ def get_system_presets(target_lang: str = "de", native_lang: str = "uk") -> list
             "level": lvl,
             "badge": badge,
             "description": desc,
-            "instruction": instruction
+            "instruction": instruction,
+            "prompt_type": "standard"
         })
+
+    presets.append({
+        "id": "preset_trainer",
+        "name": f"🎯 Грамматический Тренажёр ({lang_name})",
+        "level": "Trainer",
+        "badge": "Тренажёр",
+        "description": f"Генерирует предложения с проверяемым словом в скобках {{слово}} и с подробнейшим разбором правил на обороте.",
+        "instruction": f"Генерируй карточки для изучения грамматики языка {lang_name}. Оборачивай проверяемую грамматическую форму или артикль в фигурные скобки {{слово}} в предложении на лицевой стороне (например: Ich sehe {{den}} Hund). На обратной стороне напиши подробный и развернутый грамматический разбор правила: падеж, род, склонение/спряжение и понятные примеры.",
+        "prompt_type": "trainer"
+    })
+
     return presets
 

@@ -135,11 +135,23 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
+        is_trainer_request = '{' in phrase or any(w in phrase.lower() for w in ['тренажер', 'тренажёр', 'пропуск', 'cloze', 'тест', 'грамматика', 'грамматик'])
+        target_ptype = 'trainer' if is_trainer_request else 'standard'
+
         custom_prompt = TMACustomPrompt.get_or_none(
             (TMACustomPrompt.user_id == user_id) & 
             (TMACustomPrompt.is_active == True) &
+            (TMACustomPrompt.prompt_type == target_ptype) &
             ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
         )
+        
+        # Fallback if no specific prompt_type custom prompt is active
+        if not custom_prompt:
+            custom_prompt = TMACustomPrompt.get_or_none(
+                (TMACustomPrompt.user_id == user_id) & 
+                (TMACustomPrompt.is_active == True) &
+                ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
+            )
         
         is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in phrase)
         is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "Уровень", "Рівень", "Level", "preset"])
@@ -147,6 +159,8 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         if custom_prompt and not is_system_preset:
             raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
             system_prompt = (raw_prompt or get_prompt_for_phrase(phrase, target_lang, native_lang)).replace("{phrase}", phrase)
+        elif is_trainer_request:
+            system_prompt = f"Генерируй карточки для изучения грамматики языка {lang_name}. Оборачивай проверяемую грамматическую форму или артикль в фигурные скобки {{слово}} в предложении на лицевой стороне (например: Ich sehe {{den}} Hund). На обратной стороне напиши подробный и развернутый грамматический разбор правила: падеж, род, склонение/спряжение и понятные примеры."
         else:
             system_prompt = get_prompt_for_phrase(phrase, target_lang, native_lang)
 

@@ -263,6 +263,7 @@ class TMACustomPrompt(BaseModel):
     translation_prompt = TextField()
     context_prompt = TextField()
     target_language = CharField(default='de', index=True, null=True)
+    prompt_type = CharField(default='standard', index=True)
     is_active = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
     class Meta:
