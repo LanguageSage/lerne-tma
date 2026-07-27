@@ -92,6 +92,8 @@ def execute_sync_push(request, user_id: int) -> dict:
                             deck.save()
 
             # 2. Process Cards
+            user_deck_ids = set(models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id).tuples())
+            user_deck_ids = {d[0] for d in user_deck_ids}
             for c in request.cards:
                 resolved_deck_id = c.deck_id
                 if not resolved_deck_id or resolved_deck_id < 0:
@@ -122,7 +124,7 @@ def execute_sync_push(request, user_id: int) -> dict:
                 else:
                     card = models.TMA_Card.get_or_none(models.TMA_Card.id == c.id)
                     if card:
-                        if card.deck and card.deck.user_id == user_id:
+                        if card.deck_id in user_deck_ids:
                             if not card.updated_at or client_updated_at > card.updated_at:
                                 card.deck_id = resolved_deck_id
                                 card.front_text = c.front_text

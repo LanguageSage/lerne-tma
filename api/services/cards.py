@@ -310,12 +310,16 @@ def format_card_for_study(card: TMA_Card, user_id: int):
     res = _build_card_dict(card, p=progress, include_intervals=True)
     
     # Fetch deck explicitly to bypass any Peewee relationship caching issues on updated/saved objects
+    # Use pre-loaded relationship or fallback to deck_id lookup
     deck = None
-    if card.deck_id:
-        try:
-            deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
-        except Exception:
-            pass
+    try:
+        deck = card.deck  # Use Peewee's foreign key relationship (no extra query if already loaded)
+    except Exception:
+        if card.deck_id:
+            try:
+                deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
+            except Exception:
+                pass
 
     res["deck_name"] = deck.name if deck else None
     

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useCallback } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -9,13 +9,13 @@ export const useStudySession = () => {
   const gradingRef = useRef(false);
   const { setLoading, showToast } = useUiStore();
 
-  const prefetchMedia = (url) => {
+  const prefetchMedia = useCallback((url) => {
     if (!url) return;
     const img = new Image();
     img.src = url;
-  };
+  }, []);
 
-  const fetchNextCard = async (deckId, isFirst = false, excludeIds = []) => {
+  const fetchNextCard = useCallback(async (deckId, isFirst = false, excludeIds = []) => {
     setLoading(true);
     const session = useSessionStore.getState();
     session.setApiError(null);
@@ -121,9 +121,9 @@ export const useStudySession = () => {
       session.setApiError(err.response?.data?.detail || err.message);
     }
     setLoading(false);
-  };
+  }, [setLoading, prefetchMedia]);
 
-  const submitGrade = async (grade, playAudio) => {
+  const submitGrade = useCallback(async (grade) => {
     const session = useSessionStore.getState();
     const { currentDeck } = useDeckStore.getState();
     
@@ -207,9 +207,9 @@ export const useStudySession = () => {
       gradingRef.current = false;
       setLoading(false);
     }
-  };
+  }, [setLoading, showToast, prefetchMedia]);
 
-  const goBack = async () => {
+  const goBack = useCallback(async () => {
     const session = useSessionStore.getState();
     const { currentDeck, duplicateCards, deckCards } = useDeckStore.getState();
 
@@ -264,9 +264,9 @@ export const useStudySession = () => {
         }
       }
     }
-  };
+  }, [setLoading, prefetchMedia]);
 
-  const goNext = async () => {
+  const goNext = useCallback(async () => {
     const session = useSessionStore.getState();
     const { currentDeck } = useDeckStore.getState();
     if (session.historyIndex < session.studyHistory.length - 1) {
@@ -275,7 +275,7 @@ export const useStudySession = () => {
       const historyIds = session.studyHistory.map(c => c.id);
       await fetchNextCard(currentDeck.id, false, historyIds);
     }
-  };
+  }, [fetchNextCard]);
 
   return {
     fetchNextCard,

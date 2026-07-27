@@ -35,3 +35,37 @@ def add_to_history(history_str, message):
     return json.dumps(history[:10])
 
 
+def resolve_deck_metadata(deck):
+    """Parse deck metadata JSON and resolve media URLs.
+    Replaces duplicated metadata parsing across 4+ files.
+    """
+    from api.services.media import resolve_media_url
+    
+    deck_metadata = {"resources": []}
+    raw = getattr(deck, 'metadata', None) if deck else None
+    if not raw:
+        return deck_metadata
+    
+    try:
+        deck_metadata = json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError):
+        return {"resources": []}
+    
+    resolved_resources = []
+    for r in deck_metadata.get('resources', []):
+        res_type = r.get('type')
+        path = r.get('path')
+        url = r.get('url')
+        if path:
+            folder_map = {'image': 'images', 'audio': 'audio', 'video': 'videos'}
+            folder = folder_map.get(res_type)
+            if folder:
+                url = resolve_media_url(path, folder)
+        resolved_resources.append({
+            "type": res_type,
+            "path": path,
+            "url": url,
+            "title": r.get('title')
+        })
+    deck_metadata['resources'] = resolved_resources
+    return deck_metadata

@@ -6,7 +6,6 @@ from typing import List, Optional
 from api.dependencies.auth import get_user_id
 from api.services.sync_service import execute_sync_push, execute_sync_pull
 
-logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/sync",

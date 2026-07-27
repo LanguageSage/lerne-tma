@@ -5,50 +5,8 @@ import time
 
 logger = logging.getLogger(__name__)
 
-from api.models import TMASetting, TMAUserPrompt, lerne_db
+from api.models import TMASetting
 from api.ai_clients import AIService
-
-DEFAULT_PROMPTS = {
-    "de": """Проанализируй немецкое предложение или слово "{phrase}". объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык немецкий, родной русский. пиши немецкий текст сложностью не выше уровня Б1""",
-    "ru": """Переведи "{phrase}" на немецкий. Проанализируй перевод: объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык немецкий, родной русский. пиши немецкий текст сложностью не выше уровня Б1"""
-}
-
-def get_clean_instruction(text: str) -> str:
-    if not text:
-        return ""
-    
-    clean = text.strip()
-    
-    # Remove JSON instructions
-    json_index = clean.upper().find("RETURN ONLY A JSON")
-    if json_index != -1:
-        clean = clean[:json_index].strip()
-        
-    # Remove prefix possibilities
-    prefixes = [
-        'Переведи "{phrase}" на немецкий. Проанализируй перевод:',
-        'Переведи "{phrase}" на немецкий. Проанализируй перевод',
-        'Переведи на немецкий. Проанализируй перевод:',
-        'Проанализируй немецкое предложение или слово "{phrase}".',
-        'Проанализируй немецкое предложение или слово "{phrase}"',
-        'Проанализируй немецкое предложение или слово.',
-        'Переведи {phrase} на немецкий. Проанализируй перевод:',
-        'Проанализируй немецкое предложение или слово {phrase}.'
-    ]
-    
-    for prefix in prefixes:
-        if clean.lower().startswith(prefix.lower()):
-            clean = clean[len(prefix):].strip()
-            break
-            
-    return clean
-
-def detect_language(text: str) -> str:
-    """Heuristic to detect if text is Russian or German/Other."""
-    if any('\u0400' <= char <= '\u04FF' for char in text):
-        return "ru"
-    return "de"
-
 
 def get_ai_config():
     import os

@@ -18,15 +18,15 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const { showToast } = useUiStore();
 
   useEffect(() => {
-    console.log("ImportModal mounted with shareId:", shareId);
+
     if (!shareId) return;
     const fetchInfo = async () => {
       setLoading(true);
       setError(null);
       try {
-        console.log("Fetching share info for:", shareId);
+
         const res = await api.get(`/share/info/${shareId}`);
-        console.log("Share info response:", res.data);
+
         setShareInfo(res.data);
       } catch (err) {
         console.error("Error fetching share info:", err);
@@ -39,15 +39,15 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   }, [shareId]);
 
   const handleImport = async (resolution = null) => {
-    console.log("handleImport called with resolution:", resolution);
+
     setImporting(true);
     setError(null);
     try {
       const res = await api.post('/share/import', { share_id: shareId, resolution });
-      console.log("Import response:", res.data);
+
       
       if (res.data.status === 'conflict') {
-        console.log("Import conflict detected:", res.data);
+
         setConflict(res.data);
         return;
       }

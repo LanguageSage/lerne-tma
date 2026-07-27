@@ -7,7 +7,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { getSpeechLocaleForLang } from '../../constants/languageConstants';
 
-export const StudyCardSpeech = ({
+export const StudyCardSpeech = React.memo(({
   card,
   onFlip,
   loading,
@@ -452,4 +452,4 @@ export const StudyCardSpeech = ({
       </button>
     </div>
   );
-};
+});

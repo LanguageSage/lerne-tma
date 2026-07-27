@@ -270,26 +270,28 @@ export const offlineApi = {
         return b.id - a.id;
       });
 
-      const result = [];
-      for (const d of decks) {
-        const cards = await db.cards.where('deck_id').equals(d.id).filter(c => !c.is_deleted).toArray();
-        const cardIds = cards.map(c => c.id);
-        const progressList = await db.progress
-          .where('user_id')
-          .equals(userId)
-          .filter(p => cardIds.includes(p.card_id))
-          .toArray();
-
-        const progressMap = {};
-        progressList.forEach(p => { progressMap[p.card_id] = p; });
-
-        const now = new Date();
-        let due = 0;
-        let tracked = 0;
-        let learning = 0;
-
+      // Bulk fetch all cards and progress to avoid N+1 IndexedDB queries
+      const deckIds = decks.map(d => d.id);
+      const allCards = await db.cards.where('deck_id').anyOf(deckIds).filter(c => !c.is_deleted).toArray();
+      const allProgress = await db.progress.where('user_id').equals(userId).toArray();
+      
+      // Build lookup maps
+      const cardsByDeck = {};
+      allCards.forEach(c => {
+        if (!cardsByDeck[c.deck_id]) cardsByDeck[c.deck_id] = [];
+        cardsByDeck[c.deck_id].push(c);
+      });
+      
+      const progressByCard = {};
+      allProgress.forEach(p => { progressByCard[p.card_id] = p; });
+      
+      const now = new Date();
+      const result = decks.map(d => {
+        const cards = cardsByDeck[d.id] || [];
+        let due = 0, tracked = 0, learning = 0;
+        
         cards.forEach(c => {
-          const p = progressMap[c.id];
+          const p = progressByCard[c.id];
           if (p && p.queue !== 'new') {
             tracked++;
             const nextReviewDate = p.next_review ? new Date(p.next_review) : null;
@@ -302,8 +304,8 @@ export const offlineApi = {
             }
           }
         });
-
-        result.push({
+        
+        return {
           id: d.id,
           name: d.name,
           level: d.level || '',
@@ -318,8 +320,8 @@ export const offlineApi = {
             learning: learning,
             due: due
           }
-        });
-      }
+        };
+      });
       return { data: result };
     }
 

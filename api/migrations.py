@@ -84,6 +84,17 @@ MIGRATIONS = [
     (58, "ALTER TABLE tma_user ADD COLUMN active_language TEXT DEFAULT 'de'", 'tma'),
     (59, "ALTER TABLE tma_folder ADD COLUMN share_id TEXT", 'tma'),
     (60, "ALTER TABLE tma_custom_prompt ADD COLUMN prompt_type TEXT DEFAULT 'standard'", 'tma'),
+
+    # --- Performance Indexes (v4) ---
+    (61, "CREATE INDEX IF NOT EXISTS idx_tma_card_deck_deleted ON tma_card(deck_id, is_deleted)", 'tma'),
+    (62, "CREATE INDEX IF NOT EXISTS idx_tma_card_front_deleted ON tma_card(front_text, is_deleted)", 'tma'),
+    (63, "CREATE INDEX IF NOT EXISTS idx_tma_card_updated ON tma_card(updated_at)", 'tma'),
+    (64, "CREATE INDEX IF NOT EXISTS idx_tma_deck_user_deleted ON tma_deck(user_id, is_deleted)", 'tma'),
+    (65, "CREATE INDEX IF NOT EXISTS idx_tma_deck_folder ON tma_deck(folder_id)", 'tma'),
+    (66, "CREATE INDEX IF NOT EXISTS idx_tma_deck_updated ON tma_deck(updated_at)", 'tma'),
+    (67, "CREATE UNIQUE INDEX IF NOT EXISTS idx_tmaprogress_user_card ON tmaprogress(user_id, card_id)", 'tma'),
+    (68, "CREATE INDEX IF NOT EXISTS idx_tmaprogress_queue_review ON tmaprogress(user_id, queue, next_review)", 'tma'),
+    (69, "CREATE INDEX IF NOT EXISTS idx_tma_folder_user_deleted ON tma_folder(user_id, is_deleted)", 'tma'),
 ]
 
 

@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from pathlib import Path
+
 
 # ВАЖНО: Добавляем корень проекта в пути поиска модулей
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -12,9 +12,8 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from api.dependencies.auth import get_user_id
 
 from api import models, services
@@ -123,14 +122,17 @@ def get_init_data(user_id: int = Depends(get_user_id)):
     except Exception: pass
         
     # Get prompts
-    prompts = {"translation_prompt": "", "context_prompt": ""}
+    prompts = []
     try:
-        p = models.TMAUserPrompt.get_or_none(models.TMAUserPrompt.user_id == user_id)
-        if p:
-            prompts = {
-                "translation_prompt": p.translation_prompt or "",
-                "context_prompt": p.context_prompt or ""
-            }
+        for cp in models.TMACustomPrompt.select().where(models.TMACustomPrompt.user_id == user_id):
+            prompts.append({
+                "id": cp.id,
+                "name": cp.name,
+                "translation_prompt": cp.translation_prompt or "",
+                "context_prompt": cp.context_prompt or "",
+                "is_active": cp.is_active,
+                "prompt_type": cp.prompt_type
+            })
     except Exception: pass
         
     return {

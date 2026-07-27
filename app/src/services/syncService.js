@@ -171,91 +171,108 @@ export const syncService = {
       if (pullRes.data && pullRes.data.status === 'success') {
         const { folders, decks, cards, progress, server_time } = pullRes.data;
 
-        // Upsert pulled folders (only if local folder is not dirty)
-        for (const f of (folders || [])) {
-          const localFolder = await db.folders.get(f.id);
-          if (!localFolder || !localFolder.is_dirty) {
-            await db.folders.put({
-              id: f.id,
-              user_id: userId,
-              name: f.name,
-              is_deleted: f.is_deleted ? 1 : 0,
-              is_pinned: f.is_pinned ? 1 : 0,
-              position: f.position || 0,
-              created_at: f.created_at,
-              updated_at: f.updated_at,
-              is_dirty: 0
-            });
+        // Batch upsert with dirty-check using single transaction
+        await db.transaction('rw', [db.folders, db.decks, db.cards, db.progress], async () => {
+          // Upsert folders
+          if (folders && folders.length > 0) {
+            const localFolderIds = folders.map(f => f.id);
+            const localFolders = await db.folders.where('id').anyOf(localFolderIds).toArray();
+            const dirtyFolderIds = new Set(localFolders.filter(f => f.is_dirty).map(f => f.id));
+            const foldersToUpsert = folders
+              .filter(f => !dirtyFolderIds.has(f.id))
+              .map(f => ({
+                id: f.id,
+                user_id: userId,
+                name: f.name,
+                is_deleted: f.is_deleted ? 1 : 0,
+                is_pinned: f.is_pinned ? 1 : 0,
+                position: f.position || 0,
+                created_at: f.created_at,
+                updated_at: f.updated_at,
+                is_dirty: 0
+              }));
+            if (foldersToUpsert.length > 0) await db.folders.bulkPut(foldersToUpsert);
           }
-        }
 
-        // Upsert pulled decks (only if local deck is not dirty)
-        for (const d of decks) {
-          const localDeck = await db.decks.get(d.id);
-          if (!localDeck || !localDeck.is_dirty) {
-            await db.decks.put({
-              id: d.id,
-              user_id: userId,
-              name: d.name,
-              level: d.level,
-              topic: d.topic,
-              is_deleted: d.is_deleted ? 1 : 0,
-              is_inbox: d.is_inbox ? 1 : 0,
-              is_pinned: d.is_pinned ? 1 : 0,
-              position: d.position || 0,
-              folder_id: d.folder_id || null,
-              created_at: d.created_at,
-              updated_at: d.updated_at,
-              is_dirty: 0
-            });
+          // Upsert decks
+          if (decks && decks.length > 0) {
+            const localDeckIds = decks.map(d => d.id);
+            const localDecks = await db.decks.where('id').anyOf(localDeckIds).toArray();
+            const dirtyDeckIds = new Set(localDecks.filter(d => d.is_dirty).map(d => d.id));
+            const decksToUpsert = decks
+              .filter(d => !dirtyDeckIds.has(d.id))
+              .map(d => ({
+                id: d.id,
+                user_id: userId,
+                name: d.name,
+                level: d.level,
+                topic: d.topic,
+                is_deleted: d.is_deleted ? 1 : 0,
+                is_inbox: d.is_inbox ? 1 : 0,
+                is_pinned: d.is_pinned ? 1 : 0,
+                position: d.position || 0,
+                folder_id: d.folder_id || null,
+                created_at: d.created_at,
+                updated_at: d.updated_at,
+                is_dirty: 0
+              }));
+            if (decksToUpsert.length > 0) await db.decks.bulkPut(decksToUpsert);
           }
-        }
 
-        // Upsert pulled cards (only if local card is not dirty)
-        for (const c of cards) {
-          const localCard = await db.cards.get(c.id);
-          if (!localCard || !localCard.is_dirty) {
-            await db.cards.put({
-              id: c.id,
-              deck_id: c.deck_id,
-              front_text: c.front_text,
-              back_text: c.back_text,
-              context: c.context,
-              image_path: c.image_path,
-              audio_path: c.audio_path,
-              audio_back_path: c.audio_back_path,
-              video_front_path: c.video_front_path,
-              video_back_path: c.video_back_path,
-              want_to_learn: c.want_to_learn ? 1 : 0,
-              is_deleted: c.is_deleted ? 1 : 0,
-              created_at: c.created_at,
-              updated_at: c.updated_at,
-              is_dirty: 0
-            });
+          // Upsert cards
+          if (cards && cards.length > 0) {
+            const localCardIds = cards.map(c => c.id);
+            const localCards = await db.cards.where('id').anyOf(localCardIds).toArray();
+            const dirtyCardIds = new Set(localCards.filter(c => c.is_dirty).map(c => c.id));
+            const cardsToUpsert = cards
+              .filter(c => !dirtyCardIds.has(c.id))
+              .map(c => ({
+                id: c.id,
+                deck_id: c.deck_id,
+                front_text: c.front_text,
+                back_text: c.back_text,
+                context: c.context,
+                image_path: c.image_path,
+                audio_path: c.audio_path,
+                audio_back_path: c.audio_back_path,
+                video_front_path: c.video_front_path,
+                video_back_path: c.video_back_path,
+                want_to_learn: c.want_to_learn ? 1 : 0,
+                is_deleted: c.is_deleted ? 1 : 0,
+                created_at: c.created_at,
+                updated_at: c.updated_at,
+                is_dirty: 0
+              }));
+            if (cardsToUpsert.length > 0) await db.cards.bulkPut(cardsToUpsert);
           }
-        }
 
-        // Upsert pulled progress (only if local progress is not dirty)
-        for (const p of progress) {
-          const localProgress = await db.progress.get([p.card_id, userId]);
-          if (!localProgress || !localProgress.is_dirty) {
-            await db.progress.put({
-              card_id: p.card_id,
-              user_id: userId,
-              queue: p.queue,
-              interval: p.interval,
-              ease_factor: p.ease_factor,
-              repetitions: p.repetitions,
-              lapses: p.lapses,
-              step_index: p.step_index,
-              next_review: p.next_review,
-              last_reviewed: p.last_reviewed,
-              created_at: p.created_at,
-              updated_at: p.updated_at,
-              is_dirty: 0
-            });
+          // Upsert progress
+          if (progress && progress.length > 0) {
+            // Fetch all local progress for this user to check dirty status
+            const localProgressList = await db.progress.where('user_id').equals(userId).toArray();
+            const dirtyProgressKeys = new Set(
+              localProgressList.filter(p => p.is_dirty).map(p => p.card_id)
+            );
+            const progressToUpsert = progress
+              .filter(p => !dirtyProgressKeys.has(p.card_id))
+              .map(p => ({
+                card_id: p.card_id,
+                user_id: userId,
+                queue: p.queue,
+                interval: p.interval,
+                ease_factor: p.ease_factor,
+                repetitions: p.repetitions,
+                lapses: p.lapses,
+                step_index: p.step_index,
+                next_review: p.next_review,
+                last_reviewed: p.last_reviewed,
+                created_at: p.created_at,
+                updated_at: p.updated_at,
+                is_dirty: 0
+              }));
+            if (progressToUpsert.length > 0) await db.progress.bulkPut(progressToUpsert);
           }
-        }
+        });
 
         // Save server time as last sync time
         localStorage.setItem('lerne_last_sync_time', server_time);

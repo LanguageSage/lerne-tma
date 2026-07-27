@@ -301,7 +301,7 @@ function AppContent() {
         loading={loading}
       />
 
-import { getLocalizedTutorialSteps } from './i18n/tutoria      <TutorialOverlay
+      <TutorialOverlay
         isOpen={!!activeTutorial}
         steps={getLocalizedTutorialSteps(nativeLanguage, activeTutorial)}
         onFinish={() => finishTutorial(activeTutorial)}

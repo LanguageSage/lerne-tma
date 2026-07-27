@@ -1,217 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Settings2, Heart, Share2, Trash2, Folder, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
-
-const StudyDeckAudioPlayer = React.memo(({ url, title }) => {
-  const audioRef = React.useRef(null);
-  const [isPlaying, setIsPlaying] = React.useState(false);
-  const [currentTime, setCurrentTime] = React.useState(0);
-  const [duration, setDuration] = React.useState(0);
-  const [playbackRate, setPlaybackRate] = React.useState(1);
-  const [isExpanded, setIsExpanded] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
-    if (audioRef.current) {
-      audioRef.current.load();
-      audioRef.current.playbackRate = playbackRate;
-    }
-  }, [url]);
-
-  const togglePlay = (e) => {
-    e.stopPropagation();
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play().catch(err => console.error(err));
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-    }
-  };
-
-  const handleSeek = (e) => {
-    const time = Number(e.target.value);
-    setCurrentTime(time);
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-    }
-  };
-
-  const changeSpeed = (e) => {
-    e.stopPropagation();
-    const rates = [1, 1.25, 1.5, 0.75];
-    const nextIdx = (rates.indexOf(playbackRate) + 1) % rates.length;
-    const nextRate = rates[nextIdx];
-    setPlaybackRate(nextRate);
-    if (audioRef.current) {
-      audioRef.current.playbackRate = nextRate;
-    }
-  };
-
-  const formatTime = (time) => {
-    if (isNaN(time)) return '0:00';
-    const mins = Math.floor(time / 60);
-    const secs = Math.floor(time % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-
-  return (
-    <div className="glass" style={{
-      margin: '0 15px 12px 15px',
-      borderRadius: '14px',
-      border: '1px solid rgba(56, 189, 248, 0.3)',
-      background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
-      overflow: 'hidden',
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      boxShadow: '0 6px 20px rgba(56, 189, 248, 0.15)'
-    }}>
-      <audio 
-        ref={audioRef} 
-        src={url} 
-        onPlay={() => setIsPlaying(true)} 
-        onPause={() => setIsPlaying(false)}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onEnded={() => setIsPlaying(false)}
-      />
-      
-      <div 
-        onClick={() => setIsExpanded(!isExpanded)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '10px 14px',
-          cursor: 'pointer',
-          userSelect: 'none'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-          <Music size={16} className={isPlaying ? "pulse-animation" : ""} style={{ color: '#38bdf8', flexShrink: 0 }} />
-          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {title || 'Аудио колоды'}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {!isExpanded && (
-            <button
-              onClick={togglePlay}
-              style={{
-                background: 'rgba(56, 189, 248, 0.15)',
-                border: 'none',
-                color: '#38bdf8',
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-            >
-              {isPlaying ? <Pause size={12} fill="currentColor" /> : <PlayIcon size={12} fill="currentColor" style={{ marginLeft: '1px' }} />}
-            </button>
-          )}
-          {isExpanded ? <ChevronUp size={16} color="#94a3b8" /> : <ChevronDown size={16} color="#94a3b8" />}
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div style={{
-              padding: '0 14px 12px 14px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              marginTop: '4px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
-                <button 
-                  onClick={togglePlay}
-                  style={{
-                    background: 'linear-gradient(135deg, #38bdf8, #6366f1)',
-                    border: 'none',
-                    color: 'white',
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    flexShrink: 0
-                  }}
-                >
-                  {isPlaying ? <Pause size={14} fill="currentColor" /> : <PlayIcon size={14} fill="currentColor" style={{ marginLeft: '1px' }} />}
-                </button>
-
-                <input 
-                  type="range"
-                  min={0}
-                  max={duration || 100}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  style={{
-                    flex: 1,
-                    height: '4px',
-                    borderRadius: '4px',
-                    background: 'rgba(255,255,255,0.1)',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    WebkitAppearance: 'none'
-                  }}
-                />
-
-                <span style={{ fontSize: '0.7rem', color: '#94a3b8', minWidth: '60px', textAlign: 'right', fontFamily: 'monospace' }}>
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
-
-                <button
-                  onClick={changeSpeed}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '6px',
-                    padding: '2px 6px',
-                    fontSize: '0.7rem',
-                    color: '#38bdf8',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    minWidth: '36px',
-                    textAlign: 'center'
-                  }}
-                >
-                  {playbackRate}x
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-});
+import { RefreshCw, Heart, Trash2, Folder, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
+import DeckAudioPlayer from './common/DeckAudioPlayer';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
@@ -241,12 +31,43 @@ export const StudyView = ({ startTutorial }) => {
   const { view, setView, loading, setIsSettingsOpen, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards, favoriteCards } = useDeckStore();
   const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore, autoplayState, favoritesQueue } = useSessionStore();
-  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleShareCard, handleDeleteCard, handleToggleLearn } = useCardActions();
+  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleDeleteCard, handleToggleLearn } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
 
-  const settings = useSettingsStore();
-  const { autoPlay, cardBgFront, cardBgBack, studyMode, setStudyMode } = settings;
+  const autoPlay = useSettingsStore(s => s.autoPlay);
+  const cardBgFront = useSettingsStore(s => s.cardBgFront);
+  const cardBgBack = useSettingsStore(s => s.cardBgBack);
+  const studyMode = useSettingsStore(s => s.studyMode);
+  const setStudyMode = useSettingsStore(s => s.setStudyMode);
+  const randomEnabledModes = useSettingsStore(s => s.randomEnabledModes);
+  const setRandomEnabledModes = useSettingsStore(s => s.setRandomEnabledModes);
+  const autoplayLoop = useSettingsStore(s => s.autoplayLoop);
+  const ttsSpeedRu = useSettingsStore(s => s.ttsSpeedRu);
+  const adminSettings = useSettingsStore(s => s.adminSettings);
+  const cardFont = useSettingsStore(s => s.cardFont);
+  const cardTextColor = useSettingsStore(s => s.cardTextColor);
+  const cardFontSize = useSettingsStore(s => s.cardFontSize);
+  const cardFontWeight = useSettingsStore(s => s.cardFontWeight);
+  const cardFontStyle = useSettingsStore(s => s.cardFontStyle);
+  const cardTextShadow = useSettingsStore(s => s.cardTextShadow);
+  const contextFont = useSettingsStore(s => s.contextFont);
+  const contextTextColor = useSettingsStore(s => s.contextTextColor);
+  const contextFontSize = useSettingsStore(s => s.contextFontSize);
+  const contextFontWeight = useSettingsStore(s => s.contextFontWeight);
+  const contextFontStyle = useSettingsStore(s => s.contextFontStyle);
+  const contextTextShadow = useSettingsStore(s => s.contextTextShadow);
+  const autoplayDelay = useSettingsStore(s => s.autoplayDelay);
+  const autoplayScrollBg = useSettingsStore(s => s.autoplayScrollBg);
+
+  const styleSettings = React.useMemo(() => ({
+    cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow,
+    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow
+  }), [cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow]);
+
+  const autoplaySettingsObj = React.useMemo(() => ({
+    autoplayDelay, autoplayLoop, autoplayScrollBg, autoPlay
+  }), [autoplayDelay, autoplayLoop, autoplayScrollBg, autoPlay]);
 
   const { playAudio, stopAudio, isAudioLoading, startBackgroundLock, stopBackgroundLock } = useAudio(autoPlay, showToast);
   const autoplay = useAutoplay({ card, playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock });
@@ -337,7 +158,7 @@ export const StudyView = ({ startTutorial }) => {
     if (studyMode === 'random') {
       const currentCardKey = card ? `${card.id}-${historyIndex}` : '';
       const cardChanged = lastCardKeyRef.current !== currentCardKey;
-      const enabled = settings.randomEnabledModes || [];
+      const enabled = randomEnabledModes || [];
       
       if (cardChanged || !activeRandomMode || !enabled.includes(activeRandomMode)) {
         lastCardKeyRef.current = currentCardKey;
@@ -352,7 +173,7 @@ export const StudyView = ({ startTutorial }) => {
       setActiveRandomMode(null);
       lastCardKeyRef.current = '';
     }
-  }, [card?.id, historyIndex, studyMode, settings.randomEnabledModes, activeRandomMode]);
+  }, [card?.id, historyIndex, studyMode, randomEnabledModes, activeRandomMode]);
 
   useEffect(() => {
     if (view !== 'study' || !card) return;
@@ -421,7 +242,7 @@ export const StudyView = ({ startTutorial }) => {
       const currentIndex = cards.findIndex(c => c.id === card?.id);
       if (currentIndex < cards.length - 1) {
         setCard(cards[currentIndex + 1]);
-      } else if (settings.autoplayLoop && cards.length > 0) {
+      } else if (autoplayLoop && cards.length > 0) {
         setCard(cards[0]);
       }
       return;
@@ -454,8 +275,8 @@ export const StudyView = ({ startTutorial }) => {
       const generated = await api.post('/media/generate-audio', {
         text: targetCard.back,
         lang: nativeLang,
-        rate: formatRate(settings.ttsSpeedRu),
-        voice: getTtsVoiceForLang(nativeLang, settings.adminSettings)
+        rate: formatRate(ttsSpeedRu),
+        voice: getTtsVoiceForLang(nativeLang, adminSettings)
       });
       const saved = await api.post('/cards/save', {
         card_id: targetCard.id,
@@ -556,7 +377,7 @@ export const StudyView = ({ startTutorial }) => {
             {(() => {
               const deckAudio = card?.deck_metadata?.resources?.find(r => r.type === 'audio');
               if (deckAudio) {
-                return <StudyDeckAudioPlayer url={deckAudio.url} title={deckAudio.title} />;
+                return <DeckAudioPlayer url={deckAudio.url} title={deckAudio.title} variant="compact" />;
               }
               return null;
             })()}
@@ -600,14 +421,14 @@ export const StudyView = ({ startTutorial }) => {
                     { key: 'puzzle', label: '🧩 Конструктор' },
                     { key: 'speak', label: '🗣 Произношение' }
                   ].map(({ key, label }) => {
-                    const isChecked = (settings.randomEnabledModes || []).includes(key);
+                    const isChecked = (randomEnabledModes || []).includes(key);
                     return (
                       <label key={key} className="random-checkbox-label">
                         <input
                           type="checkbox"
                           checked={isChecked}
                           onChange={(e) => {
-                            const enabled = [...(settings.randomEnabledModes || [])];
+                            const enabled = [...(randomEnabledModes || [])];
                             if (e.target.checked) {
                               if (!enabled.includes(key)) enabled.push(key);
                             } else {
@@ -617,7 +438,7 @@ export const StudyView = ({ startTutorial }) => {
                               const idx = enabled.indexOf(key);
                               if (idx >= 0) enabled.splice(idx, 1);
                             }
-                            settings.setRandomEnabledModes(enabled);
+                            setRandomEnabledModes(enabled);
                           }}
                         />
                         <span className="custom-checkbox-span"></span>
@@ -639,7 +460,7 @@ export const StudyView = ({ startTutorial }) => {
               isAudioLoading={isAudioLoading}
               isAutoplayActive={isAutoplayActive}
               onPlayBackAudio={handlePlayBackAudio}
-              styles={settings}
+              styles={styleSettings}
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
               studyMode={studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
@@ -756,7 +577,7 @@ export const StudyView = ({ startTutorial }) => {
               onNext={handleAutoplayAwareNext}
               autoplayState={autoplayState}
               autoplayStatus={autoplay.status}
-              autoplaySettings={settings}
+              autoplaySettings={autoplaySettingsObj}
               onAutoplayStart={autoplay.start}
               onAutoplayStop={autoplay.stop}
               onAutoplayPause={autoplay.pause}

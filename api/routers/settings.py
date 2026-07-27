@@ -6,9 +6,9 @@ from api import models
 from api import services
 from api.dependencies.auth import get_user_id
 
-logger = logging.getLogger(__name__)
+import os
 
-ADMIN_USER_ID = 642478257
+ADMIN_USER_ID = int(os.environ.get("ADMIN_USER_ID", "642478257"))
 
 router = APIRouter(
     tags=["settings"],
@@ -17,32 +17,7 @@ router = APIRouter(
 # User Settings (Custom Prompts Manager)
 from api import ai_service
 
-SYSTEM_PRESETS = [
-    {
-        "id": "preset_a2",
-        "name": "🎯 Уровень A2 — Базовый немецкий",
-        "level": "A2",
-        "badge": "Базовый",
-        "description": "Разбор слов и подробная грамматика с 3 несложными примерами",
-        "instruction": "объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык немецкий уровня А2, родной русский. пиши немецкий текст сложностью не выше уровня А2"
-    },
-    {
-        "id": "preset_b1",
-        "name": "⚡ Уровень B1 — Уверенный немецкий",
-        "level": "B1",
-        "badge": "По умолчанию",
-        "description": "Стандарт системы: подробный разбор грамматики и 3 примера уровня B1",
-        "instruction": "объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык немецкий, родной русский. пиши немецкий текст сложностью не выше уровня Б1"
-    },
-    {
-        "id": "preset_b2",
-        "name": "🚀 Уровень B2 — Продвинутый немецкий",
-        "level": "B2",
-        "badge": "Продвинутый",
-        "description": "Разбор слов, подбор синонимов, подробная грамматика и примеры уровня B2",
-        "instruction": "объясни слова с переводом на русский, синонимы и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык немецкий, родной русский. пиши немецкий текст сложностью уровня Б2"
-    }
-]
+
 
 @router.get("/user/prompts")
 def get_user_prompts(target_language: str = "de", native_language: str = None, user_id: int = Depends(get_user_id)):
@@ -308,7 +283,8 @@ async def test_ai_connection(user_id: int = Depends(get_user_id)):
     return {"status": "error", "error": response}
 
 @router.get("/admin/presets")
-def get_admin_presets():
+def get_admin_presets(user_id: int = Depends(get_user_id)):
+    if user_id != ADMIN_USER_ID: raise HTTPException(403, 'Admin only')
     return []
 
 # Community Moderation
@@ -329,7 +305,8 @@ def promote_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 
 # Admin Prompt Management Endpoints
 @router.get("/admin/prompts/all")
-def get_all_prompts():
+def get_all_prompts(user_id: int = Depends(get_user_id)):
+    if user_id != ADMIN_USER_ID: raise HTTPException(403, 'Admin only')
     """Returns all custom prompts from all users along with author user details."""
     prompts_data = []
     try:
@@ -372,7 +349,8 @@ def get_all_prompts():
     }
 
 @router.post("/admin/prompts/set-global/{prompt_id}")
-def set_global_default_prompt(prompt_id: int):
+def set_global_default_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
+    if user_id != ADMIN_USER_ID: raise HTTPException(403, 'Admin only')
     """Sets a specific prompt ID as the global default system prompt for all users."""
     import datetime
     try:

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Eye, Check, X, Sparkles } from 'lucide-react';
+import { Eye, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { stripMarkdown } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 
-export const StudyCardTrainer = ({
+export const StudyCardTrainer = React.memo(({
   card,
   clozeData,
   isFlipped,
@@ -472,4 +472,4 @@ export const StudyCardTrainer = ({
       </div>
     </div>
   );
-};
+});

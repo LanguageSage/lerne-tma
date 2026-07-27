@@ -150,6 +150,9 @@ class TMA_Folder(BaseModel):
     share_id = CharField(null=True, unique=True)
     class Meta:
         table_name = 'tma_folder'
+        indexes = (
+            (('user_id', 'is_deleted'), False),
+        )
 
 class TMA_Deck(BaseModel):
     id = AutoField()
@@ -169,6 +172,11 @@ class TMA_Deck(BaseModel):
     metadata = TextField(default='{"resources": []}')
     class Meta:
         table_name = 'tma_deck'
+        indexes = (
+            (('user_id', 'is_deleted'), False),
+            (('folder_id',), False),
+            (('updated_at',), False),
+        )
 
 class TMA_Card(BaseModel):
     id = AutoField()
@@ -198,6 +206,11 @@ class TMA_Card(BaseModel):
     position = IntegerField(default=0)
     class Meta:
         table_name = 'tma_card'
+        indexes = (
+            (('deck_id', 'is_deleted'), False),
+            (('front_text', 'is_deleted'), False),
+            (('updated_at',), False),
+        )
 
 class TMAProgress(BaseModel):
     id = AutoField()
@@ -215,6 +228,10 @@ class TMAProgress(BaseModel):
     updated_at = DateTimeField(null=True)
     class Meta:
         table_name = 'tmaprogress'
+        indexes = (
+            (('user_id', 'card_id'), True),
+            (('user_id', 'queue', 'next_review'), False),
+        )
 
 class TMAReviewHistory(BaseModel):
     id = AutoField()

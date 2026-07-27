@@ -15,8 +15,9 @@ import { StudyCardSpeech } from './StudyCardSpeech';
 
 // Re-export for backward compatibility
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
+import { getCardStyle, getContextStyle } from '../../utils/cardStyles';
 
-export const StudyCard = ({
+export const StudyCard = React.memo(({
   card,
   isFlipped,
   onFlip,
@@ -35,10 +36,7 @@ export const StudyCard = ({
 }) => {
   if (!card) return null;
 
-  const {
-    cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow,
-    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow
-  } = styles;
+
 
   const deckResources = card.deck_metadata?.resources || [];
   const deckImage = deckResources.find(r => r.type === 'image');
@@ -56,23 +54,8 @@ export const StudyCard = ({
     setCorrectSelected(null);
   }, [card.id, card.front, card.back, card.updated_at, studyMode]);
 
-  const cardStyle = {
-    fontFamily: cardFont,
-    color: cardTextColor,
-    fontSize: `${cardFontSize}rem`,
-    fontWeight: cardFontWeight,
-    fontStyle: cardFontStyle,
-    textShadow: getTextShadow(cardTextShadow, cardTextColor)
-  };
-
-  const contextStyle = {
-    fontFamily: contextFont,
-    color: contextTextColor,
-    fontSize: `${contextFontSize}rem`,
-    fontWeight: contextFontWeight,
-    fontStyle: contextFontStyle,
-    textShadow: getContextShadow(contextTextShadow, contextTextColor)
-  };
+  const cardStyle = useMemo(() => getCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow]);
+  const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow]);
 
   const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
   const effectiveStudyMode = (hasBracketSyntax || studyMode === 'trainer') ? 'trainer' : studyMode;
@@ -294,34 +277,37 @@ export const StudyCard = ({
           <div className="card-inner card-back glass" onClick={() => onFlip(false)} style={{ cursor: 'pointer' }}>
             <CardBackground styleType={resolvedBgBack} />
             <div className="card-face">
-              <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
-                <div className="text-front-mini" style={{ marginBottom: 0 }}>
-                  {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
-                </div>
-                {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
-                  <button
-                    id="tut-study-audio-back"
-                    className="audio-btn-back-corner"
-                    disabled={loading || isAutoplayActive}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!isAutoplayActive && playAudio) {
-                        playAudio(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url);
-                      }
-                    }}
-                  >
-                    {isAudioLoading ? (
-                      card.audio_is_generating ? (
-                        <Sparkles size={24} className="sparkles-spin" style={{ color: '#a855f7' }} />
+              {/* В режиме тренажера не выводим дублирующее микро-превью, так как card.back уже содержит полный текст и разбор */}
+              {effectiveStudyMode !== 'trainer' && (
+                <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
+                  <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.9, ...cardStyle }}>
+                    {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
+                  </div>
+                  {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
+                    <button
+                      id="tut-study-audio-back"
+                      className="audio-btn-back-corner"
+                      disabled={loading || isAutoplayActive}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isAutoplayActive && playAudio) {
+                          playAudio(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url);
+                        }
+                      }}
+                    >
+                      {isAudioLoading ? (
+                        card.audio_is_generating ? (
+                          <Sparkles size={24} className="sparkles-spin" style={{ color: '#a855f7' }} />
+                        ) : (
+                          <RefreshCw size={24} className="spin" />
+                        )
                       ) : (
-                        <RefreshCw size={24} className="spin" />
-                      )
-                    ) : (
-                      <Volume2 size={24} />
-                    )}
-                  </button>
-                )}
-              </div>
+                        <Volume2 size={24} />
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {(card.video_back_url || deckVideo?.url) && (
                 <div className="video-container-card">
@@ -422,4 +408,4 @@ export const StudyCard = ({
       </motion.div>
     </AnimatePresence>
   );
-};
+});

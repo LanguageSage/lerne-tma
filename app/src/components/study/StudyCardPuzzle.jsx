@@ -4,7 +4,7 @@ import { Eye } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
 
-export const StudyCardPuzzle = ({
+export const StudyCardPuzzle = React.memo(({
   card,
   isFlipped,
   onFlip,
@@ -333,4 +333,4 @@ export const StudyCardPuzzle = ({
       )}
     </div>
   );
-};
+});
