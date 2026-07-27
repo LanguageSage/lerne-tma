@@ -180,16 +180,19 @@ def run_migrations(tma_db, lerne_db):
                 # Если разработчику нужно переприменить её, он может удалить строку из tma_migration_history.
                 new_applied.append(mig_id)
 
-    # 3. Записываем вновь примененные миграции в историю
-    if new_applied:
+        # Record migration history item immediately to prevent re-executing index/schema DDL on restarts
         try:
-            with tma_db.atomic():
-                for mig_id in new_applied:
-                    tma_db.execute_sql(f"INSERT INTO tma_migration_history (migration_id) VALUES ({mig_id})")
-        except Exception as e:
-            logger.error(f"Failed to record applied migrations: {e}")
+            tma_db.execute_sql(
+                "INSERT INTO tma_migration_history (migration_id) VALUES (%s) ON CONFLICT (migration_id) DO NOTHING",
+                (mig_id,)
+            )
+        except Exception:
+            try:
+                tma_db.execute_sql(f"INSERT OR IGNORE INTO tma_migration_history (migration_id) VALUES ({mig_id})")
+            except Exception:
+                pass
 
-    logger.info(f"Migrations: {success} newly applied, {skipped} skipped/already applied.")
+    logger.info(f"Migrations check complete: {success} newly applied, {skipped} skipped.")
 
     if isinstance(tma_db.obj, SqliteDatabase):
         try:

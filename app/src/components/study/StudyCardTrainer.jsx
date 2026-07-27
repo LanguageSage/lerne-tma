@@ -24,6 +24,8 @@ export const StudyCardTrainer = React.memo(({
   const gapRefs = useRef({});
   const gaps = clozeData?.gaps || [];
 
+  const [showFingerHint, setShowFingerHint] = useState(true);
+
   // Reset internal state when card changes
   useEffect(() => {
     setSelectedOptions({});
@@ -31,6 +33,12 @@ export const StudyCardTrainer = React.memo(({
     setIsChecked(false);
     setIsFirstTry(true);
     setPopoverStyleMap({});
+    setShowFingerHint(true);
+
+    const timer = setTimeout(() => {
+      setShowFingerHint(false);
+    }, 2600);
+    return () => clearTimeout(timer);
   }, [card?.id]);
 
   // Smart Viewport-Clamped Popover Alignment Detection (Prevents off-screen overflow 100% on Galaxy S24 Ultra & mobile!)
@@ -138,6 +146,8 @@ export const StudyCardTrainer = React.memo(({
     let text = clozeData.maskedText;
     const elements = [];
     let lastIndex = 0;
+    const firstUnfilledGap = gaps.find(g => !selectedOptions[g.id]);
+    const firstUnfilledGapId = firstUnfilledGap ? firstUnfilledGap.id : null;
 
     gaps.forEach((gap) => {
       const placeholder = `___GAP_${gap.id}___`;
@@ -198,11 +208,41 @@ export const StudyCardTrainer = React.memo(({
               verticalAlign: 'baseline'
             }}
           >
+            {/* Animated Pointer Finger Hint */}
+            <AnimatePresence>
+              {showFingerHint && gap.id === firstUnfilledGapId && !isChecked && (
+                <motion.div
+                  key="finger-hint"
+                  initial={{ opacity: 0, y: -24, scale: 0.6 }}
+                  animate={{ 
+                    opacity: [0, 1, 1, 1, 0],
+                    y: [-24, -10, -24, -10, -24],
+                    scale: [0.6, 1.25, 1, 1.25, 0.6]
+                  }}
+                  exit={{ opacity: 0, scale: 0.5 }}
+                  transition={{ duration: 2.5, ease: "easeInOut" }}
+                  style={{
+                    position: 'absolute',
+                    top: '-36px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 1002,
+                    pointerEvents: 'none',
+                    fontSize: '1.5rem',
+                    filter: 'drop-shadow(0 4px 10px rgba(168, 85, 247, 0.9))'
+                  }}
+                >
+                  👇
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Clickable Gap Badge */}
             <span
               className={!chosen && !isChecked ? 'pulsing-unfilled-gap' : ''}
               onClick={(e) => {
                 e.stopPropagation();
+                setShowFingerHint(false);
                 if (!isChecked) {
                   setActiveGapId(prev => prev === gap.id ? null : gap.id);
                   window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
@@ -358,43 +398,7 @@ export const StudyCardTrainer = React.memo(({
         {renderTextWithGaps()}
       </div>
 
-      {/* High-Contrast Helper Guide Chip */}
-      {!isChecked && (
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', margin: '8px 0 12px 0' }}>
-          <div 
-            style={{ 
-              fontSize: '0.92rem',
-              fontWeight: 600,
-              textAlign: 'center', 
-              color: '#f3e8ff',
-              background: 'rgba(15, 12, 30, 0.85)',
-              backdropFilter: 'blur(14px)',
-              WebkitBackdropFilter: 'blur(14px)',
-              border: '1px solid rgba(168, 85, 247, 0.45)',
-              padding: '8px 16px',
-              borderRadius: '999px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              maxWidth: '92%'
-            }}
-          >
-            <span>👆 <b>Нажмите на любой пропуск</b> для выбора</span>
-            <span style={{ 
-              background: filledCount === gaps.length ? 'rgba(34, 197, 94, 0.3)' : 'rgba(168, 85, 247, 0.35)', 
-              padding: '2px 9px', 
-              borderRadius: '12px', 
-              fontSize: '0.85rem', 
-              fontWeight: 700, 
-              color: filledCount === gaps.length ? '#4ade80' : '#e9d5ff',
-              border: filledCount === gaps.length ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(168, 85, 247, 0.5)'
-            }}>
-              {filledCount}/{gaps.length}
-            </span>
-          </div>
-        </div>
-      )}
+
 
       {/* Action Footer & Feedback */}
       <div style={{ marginTop: '16px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
