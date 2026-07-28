@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RefreshCw, Eye, Volume2, Mic, Check, AlertCircle, Sparkles, Sliders } from 'lucide-react';
 import { stripMarkdown, normalizeSpeechText } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
@@ -6,6 +6,7 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { getSpeechLocaleForLang } from '../../constants/languageConstants';
+import { getCardStyle } from '../../utils/cardStyles';
 
 export const StudyCardSpeech = React.memo(({
   card,
@@ -45,6 +46,16 @@ export const StudyCardSpeech = React.memo(({
     cardTextAlign,
     speechMatchThreshold = 75
   } = styles;
+
+  const cardStyle = useMemo(() => getCardStyle(styles), [
+    styles?.cardFont,
+    styles?.cardTextColor,
+    styles?.cardFontSize,
+    styles?.cardFontWeight,
+    styles?.cardFontStyle,
+    styles?.cardTextShadow,
+    styles?.cardTextAlign
+  ]);
 
   useEffect(() => {
     cardFrontRef.current = card?.front;
@@ -327,7 +338,13 @@ export const StudyCardSpeech = React.memo(({
 
   return (
     <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-      <div className="text-front speak-target-text" style={{ fontStyle: cardFontStyle, textAlign: cardTextAlign || 'center' }}>
+      <div 
+        className="text-front speak-target-text" 
+        style={{ 
+          ...cardStyle, 
+          marginBottom: '28px' 
+        }}
+      >
         {stripMarkdown(card.front)}
       </div>
 

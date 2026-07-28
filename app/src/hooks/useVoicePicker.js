@@ -1,0 +1,141 @@
+import { useState, useCallback, useRef, useEffect } from 'react';
+import api from '../services/api';
+import { VOICES_BY_LANG, getTtsVoiceForLang } from '../constants/languageConstants';
+import { useSettingsStore } from '../store/useSettingsStore';
+
+/**
+ * useVoicePicker — manages per-card voice selection and on-demand audio preview generation.
+ *
+ * Design principles:
+ *  - Preview URLs and word boundaries are cached in-memory for the session lifetime.
+ *    We never write a preview to the DB; the card's original audio_url is untouched.
+ *  - `sessionVoice` (optional): if passed, the selected voice initializes from it
+ *    and any voice change is propagated back via `onVoiceChange`, enabling
+ *    cross-card voice persistence in the parent (useSessionVoice).
+ *  - Auto-generate: when `autoGenerate=true` and cardText is set, changing the
+ *    voice triggers immediate preview generation.
+ *
+ * @param {string} lang         - language code for the card (e.g. 'de', 'en')
+ * @param {string|null} sessionVoice  - voice value to start with (from session store)
+ * @param {function|null} onVoiceChange - called with new voice when user changes selection
+ * @param {boolean} autoGenerate - auto-generate preview when voice changes
+ */
+export const useVoicePicker = (
+  lang = 'de',
+  sessionVoice = null,
+  onVoiceChange = null,
+  autoGenerate = true,
+) => {
+  const code = (lang || 'de').toLowerCase().trim();
+  const adminSettings = useSettingsStore((s) => s.adminSettings);
+  const defaultVoice = getTtsVoiceForLang(code, adminSettings);
+
+  const voices = VOICES_BY_LANG[code] || [];
+
+  const [selectedVoice, setSelectedVoiceState] = useState(sessionVoice || defaultVoice);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [wordBoundaries, setWordBoundaries] = useState(null); // for karaoke
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState(null);
+
+  // In-memory cache: Map<`${voice}|${text}`, { url, boundaries }>
+  const cacheRef = useRef(new Map());
+  // Ref to pending cardText for auto-generate
+  const cardTextRef = useRef('');
+
+  const isDefaultVoice = selectedVoice === defaultVoice;
+
+  // Sync with session voice when it changes from outside (e.g. deck changed)
+  useEffect(() => {
+    if (sessionVoice && sessionVoice !== selectedVoice) {
+      setSelectedVoiceState(sessionVoice);
+      setPreviewUrl(null);
+      setWordBoundaries(null);
+    }
+  }, [sessionVoice]);
+
+  const generatePreview = useCallback(async (text, voiceOverride = null) => {
+    const voice = voiceOverride || selectedVoice;
+    if (!text?.trim() || !voice) return null;
+
+    const cacheKey = `${voice}|${text.trim()}`;
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached) {
+      setPreviewUrl(cached.url);
+      setWordBoundaries(cached.boundaries || null);
+      return cached.url;
+    }
+
+    setIsGenerating(true);
+    setGenerateError(null);
+
+    try {
+      const res = await api.post('/media/generate-audio', {
+        text: text.trim(),
+        lang: code,
+        voice,
+        with_boundaries: true, // signals backend to include word timing
+      });
+
+      const url = res.data?.url;
+      const boundaries = res.data?.word_boundaries || null;
+
+      if (url) {
+        cacheRef.current.set(cacheKey, { url, boundaries });
+        setPreviewUrl(url);
+        setWordBoundaries(boundaries);
+      }
+      return url || null;
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err.message || 'Ошибка генерации';
+      setGenerateError(msg);
+      console.error('[useVoicePicker] generate failed:', msg);
+      return null;
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [code, selectedVoice]);
+
+  // Change voice, propagate to session store, and auto-generate if enabled
+  const setSelectedVoice = useCallback(async (voiceValue) => {
+    setSelectedVoiceState(voiceValue);
+    setPreviewUrl(null);
+    setWordBoundaries(null);
+    onVoiceChange?.(voiceValue);
+
+    if (autoGenerate && cardTextRef.current) {
+      // Give React a tick to commit the voice state before generating
+      setTimeout(() => {
+        generatePreview(cardTextRef.current, voiceValue);
+      }, 0);
+    }
+  }, [autoGenerate, generatePreview, onVoiceChange]);
+
+  // Update the text ref whenever cardText changes (used by auto-generate)
+  const setCardText = useCallback((text) => {
+    cardTextRef.current = text;
+  }, []);
+
+  const resetToDefault = useCallback(() => {
+    setSelectedVoiceState(sessionVoice || defaultVoice);
+    setPreviewUrl(null);
+    setWordBoundaries(null);
+    setGenerateError(null);
+    cardTextRef.current = '';
+  }, [defaultVoice, sessionVoice]);
+
+  return {
+    voices,
+    selectedVoice,
+    setSelectedVoice,
+    isDefaultVoice,
+    previewUrl,
+    setPreviewUrl,
+    wordBoundaries,
+    generatePreview,
+    isGenerating,
+    generateError,
+    resetToDefault,
+    setCardText,
+  };
+};

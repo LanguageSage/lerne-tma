@@ -43,10 +43,10 @@
   },
   "study": {
     "show_answer": "Показать ответ 🔄",
-    "grade_again": "Снова (1 мин)",
-    "grade_hard": "Трудно (10 мин)",
-    "grade_good": "Хорошо (1 день)",
-    "grade_easy": "Легко (4 дня)",
+    "grade_again": "Снова",
+    "grade_hard": "Трудно",
+    "grade_good": "Хорошо",
+    "grade_easy": "Легко",
     "done_title": "Отличная работа! 🎉",
     "done_subtitle": "Вы прошли все карточки на сегодня.",
     "back_to_decks": "К списку колод"

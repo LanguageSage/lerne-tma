@@ -66,8 +66,15 @@ export const useAudio = (autoPlay, showToast) => {
   const audioRef = useRef(null);
   const playAudioRef = useRef(null);
   const cacheRef = useRef(new Map());
-  const [isAudioLoading, setIsAudioLoading] = useState(false);
   const retryCountRef = useRef({});
+
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [audioState, setAudioState] = useState('idle'); // 'idle' | 'loading' | 'playing' | 'paused'
+  const [currentUrl, setCurrentUrl] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRateState] = useState(1.0);
+  const playbackRateRef = useRef(1.0);
 
   const preloadAudio = useCallback((url) => {
     if (!url) return;
@@ -94,13 +101,60 @@ export const useAudio = (autoPlay, showToast) => {
         audioRef.current.onended = null;
         audioRef.current.onerror = null;
         audioRef.current.oncanplaythrough = null;
+        audioRef.current.ontimeupdate = null;
+        audioRef.current.onloadedmetadata = null;
+        audioRef.current.onplay = null;
+        audioRef.current.onpause = null;
       } catch (e) {}
       audioRef.current = null;
     }
     setIsAudioLoading(false);
+    setAudioState('idle');
+    setCurrentTime(0);
+    setDuration(0);
+    setCurrentUrl(null);
+
     if (globalActiveAudio === audioRef.current || globalActiveStopCallback === stopAudio) {
       globalActiveAudio = null;
       globalActiveStopCallback = null;
+    }
+  }, []);
+
+  const pauseAudio = useCallback(() => {
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+      } catch (e) {}
+      setAudioState('paused');
+    }
+  }, []);
+
+  const resumeAudio = useCallback(() => {
+    if (audioRef.current && audioRef.current.paused) {
+      audioRef.current.play().then(() => {
+        setAudioState('playing');
+      }).catch(err => {
+        console.error("Resume failed:", err);
+      });
+    }
+  }, []);
+
+  const seekAudio = useCallback((timeSeconds) => {
+    if (audioRef.current) {
+      try {
+        audioRef.current.currentTime = timeSeconds;
+        setCurrentTime(timeSeconds);
+      } catch (e) {}
+    }
+  }, []);
+
+  const setPlaybackSpeed = useCallback((speed) => {
+    playbackRateRef.current = speed;
+    setPlaybackRateState(speed);
+    if (audioRef.current) {
+      try {
+        audioRef.current.playbackRate = speed;
+      } catch (e) {}
     }
   }, []);
 
@@ -115,25 +169,56 @@ export const useAudio = (autoPlay, showToast) => {
 
     stopAudio();
     setIsAudioLoading(true);
+    setAudioState('loading');
+    setCurrentUrl(url);
+    setCurrentTime(0);
 
     const cached = preloadAudio(url);
     const audio = cached?.cloneNode ? cached.cloneNode(true) : new Audio(url);
     audio.playsInline = true;
+    audio.playbackRate = playbackRateRef.current || 1.0;
+
     audioRef.current = audio;
     globalActiveAudio = audio;
     globalActiveStopCallback = stopAudio;
-    
+
     audio.oncanplaythrough = () => {
       setIsAudioLoading(false);
     };
 
+    audio.onplay = () => {
+      setIsAudioLoading(false);
+      setAudioState('playing');
+    };
+
+    audio.onpause = () => {
+      if (audioRef.current === audio && audio.currentTime < (audio.duration || 0)) {
+        setAudioState('paused');
+      }
+    };
+
+    audio.ontimeupdate = () => {
+      if (audioRef.current === audio) {
+        setCurrentTime(audio.currentTime || 0);
+        setDuration(audio.duration || 0);
+      }
+    };
+
+    audio.onloadedmetadata = () => {
+      if (audioRef.current === audio) {
+        setDuration(audio.duration || 0);
+      }
+    };
+
     audio.onerror = () => {
       setIsAudioLoading(false);
+      setAudioState('idle');
+      setCurrentUrl(null);
       if (globalActiveAudio === audio) {
         globalActiveAudio = null;
         globalActiveStopCallback = null;
       }
-      
+
       const retries = retryCountRef.current[url] || 0;
       if (retries < 1) {
         retryCountRef.current[url] = retries + 1;
@@ -147,6 +232,10 @@ export const useAudio = (autoPlay, showToast) => {
 
     audio.onended = () => {
       setIsAudioLoading(false);
+      setAudioState('idle');
+      setCurrentTime(0);
+      setCurrentUrl(null);
+
       if (globalActiveAudio === audio) {
         globalActiveAudio = null;
         globalActiveStopCallback = null;
@@ -156,25 +245,63 @@ export const useAudio = (autoPlay, showToast) => {
 
     return audio.play().then(() => {
       retryCountRef.current[url] = 0;
+      setAudioState('playing');
       return true;
     }).catch(err => {
       setIsAudioLoading(false);
+      setAudioState('idle');
+      setCurrentUrl(null);
+
       if (globalActiveAudio === audio) {
         globalActiveAudio = null;
         globalActiveStopCallback = null;
       }
       console.error("Audio play failed:", err);
       if (err.name === "NotSupportedError" || err.name === "NotAllowedError") {
-         if (!autoPlay && showToast) showToast("Браузер заблокировал звук");
+        if (!autoPlay && showToast) showToast("Браузер заблокировал звук");
       }
       if (onEndedCallback) onEndedCallback(false);
       return false;
     });
   }, [autoPlay, preloadAudio, showToast, stopAudio]);
 
+  const togglePlayPause = useCallback((url, onEndedCallback) => {
+    if (!url) return;
+    if (currentUrl === url && audioRef.current) {
+      if (audioState === 'playing') {
+        pauseAudio();
+      } else if (audioState === 'paused') {
+        resumeAudio();
+      } else {
+        playAudio(url, onEndedCallback);
+      }
+    } else {
+      playAudio(url, onEndedCallback);
+    }
+  }, [currentUrl, audioState, pauseAudio, resumeAudio, playAudio]);
+
   useEffect(() => {
     playAudioRef.current = playAudio;
   }, [playAudio]);
 
-  return { playAudio, preloadAudio, stopAudio, isAudioLoading, startBackgroundLock: startBackgroundAudioLock, stopBackgroundLock: stopBackgroundAudioLock };
+  return {
+    playAudio,
+    pauseAudio,
+    resumeAudio,
+    togglePlayPause,
+    stopAudio,
+    seekAudio,
+    setPlaybackSpeed,
+    preloadAudio,
+    isAudioLoading,
+    audioState,
+    isPlaying: audioState === 'playing',
+    isPaused: audioState === 'paused',
+    currentUrl,
+    currentTime,
+    duration,
+    playbackRate,
+    startBackgroundLock: startBackgroundAudioLock,
+    stopBackgroundLock: stopBackgroundAudioLock
+  };
 };

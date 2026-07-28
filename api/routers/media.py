@@ -161,11 +161,13 @@ async def generate_audio_endpoint(
     user_id: int = Depends(get_user_id)
 ):
     """Генерация озвучки через Edge TTS и загрузка в облако."""
+    with_boundaries = False
     if data:
         text = data.get('text') if data.get('text') is not None else text
         lang = data.get('lang') if data.get('lang') is not None else lang
         voice = data.get('voice') if data.get('voice') is not None else voice
         rate = data.get('rate') if data.get('rate') is not None else rate
+        with_boundaries = bool(data.get('with_boundaries', False))
 
     text = _clean_param(text)
     lang = _clean_param(lang, "de")
@@ -183,8 +185,7 @@ async def generate_audio_endpoint(
     except Exception as e:
         logger.error(f"Error fetching settings for audio: {e}")
 
-    # 2. Определяем голос. Глобальная настройка TTS_VOICE относится к немецкой
-    # озвучке; для русского перевода используем TTS_VOICE_RU или голос по умолчанию.
+    # 2. Определяем голос
     if not voice:
         clean_lang = (lang or "de").lower().strip()
         if clean_lang == "de":
@@ -210,17 +211,23 @@ async def generate_audio_endpoint(
             rate = db_settings.get("TTS_SPEED")
     rate = _normalize_tts_rate(rate) or "+0%"
     
-    logger.info(f"AUDIO GENERATION START: Text='{text[:30]}...', Voice={voice}, Rate={rate}")
+    logger.info(f"AUDIO GENERATION START: Text='{text[:30]}...', Voice={voice}, Rate={rate}, Boundaries={with_boundaries}")
             
     try:
         from api.utils import audio
-        result = await audio.generate_audio(text, voice=voice, rate=rate)
+        result, word_boundaries = await audio.generate_audio(
+            text, voice=voice, rate=rate, with_boundaries=with_boundaries
+        )
         
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
             
         if result.startswith("http"):
-            return {"path": result, "url": result}
+            return {
+                "path": result,
+                "url": result,
+                "word_boundaries": word_boundaries
+            }
         
         try:
             filename = os.path.basename(result)
@@ -238,7 +245,8 @@ async def generate_audio_endpoint(
             
             return {
                 "path": filename,
-                "url": f"/api/media/audio/{filename}"
+                "url": f"/api/media/audio/{filename}",
+                "word_boundaries": word_boundaries
             }
         except Exception as db_err:
             logger.error(f"DATABASE SAVE ERROR for audio: {db_err}")

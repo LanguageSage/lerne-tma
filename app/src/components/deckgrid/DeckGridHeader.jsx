@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Settings, Info, Copy } from 'lucide-react';
+import { Plus, Settings, Info, Copy, ChevronLeft } from 'lucide-react';
 import { UserProfileBadge } from '../common/UserBadge';
 import { LanguageSelectorBadge } from './LanguageSelectorBadge';
 import { NativeLanguageSelectorBadge } from './NativeLanguageSelectorBadge';
@@ -12,7 +12,9 @@ export const DeckGridHeader = ({
   setIsNewDeckModalOpen,
   setIsSettingsOpen,
   showToast,
-  onLanguageChange
+  onLanguageChange,
+  activeFolderId,
+  onFolderBack
 }) => {
   const { t } = useTranslation();
 
@@ -20,12 +22,24 @@ export const DeckGridHeader = ({
     <div className="header">
       <div className="header-title-row">
         <div className="header-left">
-          <div className="user-profile-and-lang">
-            <UserProfileBadge />
-            <LanguageSelectorBadge onLanguageChange={onLanguageChange} />
-            <NativeLanguageSelectorBadge />
+          {activeFolderId !== null && (
+            <button 
+              className="back-btn" 
+              onClick={onFolderBack}
+              title={t('common.back', 'Назад')}
+              aria-label="Назад"
+            >
+              <ChevronLeft size={24} />
+            </button>
+          )}
+          <div>
+            <div className="user-profile-and-lang">
+              <UserProfileBadge />
+              <LanguageSelectorBadge onLanguageChange={onLanguageChange} />
+              <NativeLanguageSelectorBadge />
+            </div>
+            <h1>Lerne TMA</h1>
           </div>
-          <h1>Lerne TMA</h1>
         </div>
         <div className="header-actions">
           <HelpButton onClick={() => startTutorial('decks')} />

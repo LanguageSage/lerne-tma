@@ -1,0 +1,20 @@
+.karaoke-text {
+  display: inline;
+  line-height: inherit;
+  word-break: break-word;
+}
+
+.karaoke-word {
+  display: inline;
+  transition: color 0.12s ease, text-shadow 0.12s ease, background-color 0.12s ease;
+  border-radius: 4px;
+  padding: 0 1px;
+}
+
+.karaoke-word--active {
+  color: #f0d060 !important;
+  text-shadow:
+    0 0 12px rgba(240, 208, 96, 0.85),
+    0 0 24px rgba(240, 208, 96, 0.4);
+  background-color: rgba(240, 208, 96, 0.12);
+}

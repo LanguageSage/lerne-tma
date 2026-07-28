@@ -80,6 +80,12 @@ export const DeckGrid = ({
           onLanguageChange={() => {
             showToast(`Язык изменен на ${useLanguageStore.getState().getLanguageInfo().name}`, 'info');
           }}
+          activeFolderId={activeFolderId}
+          onFolderBack={() => {
+            const activeFolder = folders?.find(f => f.id === activeFolderId);
+            const parentId = activeFolder ? (activeFolder.parent_id || null) : null;
+            setActiveFolderId(parentId);
+          }}
         />
 
         {/* Import shared item modal */}

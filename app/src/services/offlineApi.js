@@ -272,15 +272,16 @@ export const offlineApi = {
       });
 
       // Bulk fetch all cards and progress to avoid N+1 IndexedDB queries
-      const deckIds = decks.map(d => d.id);
+      const deckIds = decks.flatMap(d => [d.id, String(d.id), Number(d.id)]).filter((v, i, a) => a.indexOf(v) === i && !isNaN(v));
       const allCards = await db.cards.where('deck_id').anyOf(deckIds).filter(c => !c.is_deleted).toArray();
       const allProgress = await db.progress.where('user_id').equals(userId).toArray();
       
       // Build lookup maps
       const cardsByDeck = {};
       allCards.forEach(c => {
-        if (!cardsByDeck[c.deck_id]) cardsByDeck[c.deck_id] = [];
-        cardsByDeck[c.deck_id].push(c);
+        const key = String(c.deck_id);
+        if (!cardsByDeck[key]) cardsByDeck[key] = [];
+        cardsByDeck[key].push(c);
       });
       
       const progressByCard = {};
@@ -288,7 +289,7 @@ export const offlineApi = {
       
       const now = new Date();
       const result = decks.map(d => {
-        const cards = cardsByDeck[d.id] || [];
+        const cards = cardsByDeck[String(d.id)] || [];
         let due = 0, tracked = 0, learning = 0;
         
         cards.forEach(c => {
@@ -406,9 +407,10 @@ export const offlineApi = {
       const deck = await db.decks.get(deckId);
       const deckName = deck ? deck.name : '';
 
+      const targetDeckIds = [deckId, String(deckId), Number(deckId)].filter((v, i, a) => a.indexOf(v) === i && !isNaN(v));
       const cards = await db.cards
         .where('deck_id')
-        .equals(deckId)
+        .anyOf(targetDeckIds)
         .filter(c => !c.is_deleted)
         .toArray();
 

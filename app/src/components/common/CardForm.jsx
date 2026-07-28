@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Camera, Upload, X, Search } from 'lucide-react';
+import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw } from 'lucide-react';
 import { CardBackground } from './CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 import { MediaPicker } from './MediaPicker';
+import { ImageEditorModal } from './ImageEditorModal';
 import { useDeckStore } from '../../store/useDeckStore';
 
 import { useTranslation } from '../../i18n/i18nContext';
@@ -33,6 +33,7 @@ export const CardForm = ({
   const { decks = [] } = useDeckStore();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+  const [isEditingExistingImage, setIsEditingExistingImage] = useState(false);
   
   const frontRef = useRef(null);
   const backRef = useRef(null);
@@ -164,6 +165,17 @@ export const CardForm = ({
           {(cardData.image_url || cardData.image_path) && (
             <div className="image-preview-box" style={{ margin: '10px', position: 'relative', zIndex: 3 }}>
               <img src={cardData.image_url || `/api/media/${cardData.image_path}`} alt="" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+              <button
+                type="button"
+                className="image-edit-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingExistingImage(true);
+                }}
+                title="Повернуть / Кадрировать"
+              >
+                <RotateCw size={18} />
+              </button>
               <button
                 type="button"
                 className="image-clear-btn"
@@ -346,6 +358,17 @@ export const CardForm = ({
         onImageUpload={(file) => uploadCreatorImage(file, cardData, setCardData)}
         searchQuery={cardData?.front || ''}
         loading={loading}
+      />
+
+      <ImageEditorModal
+        isOpen={isEditingExistingImage}
+        onClose={() => setIsEditingExistingImage(false)}
+        imageSrc={cardData.image_url || (cardData.image_path ? `/api/media/${cardData.image_path}` : '')}
+        onSave={(editedFile) => {
+          setIsEditingExistingImage(false);
+          uploadCreatorImage(editedFile, cardData, setCardData);
+        }}
+        title="Редактировать картинку"
       />
     </div>
   );

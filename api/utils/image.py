@@ -1,19 +1,20 @@
 import io
 import logging
-from PIL import Image
+from PIL import Image, ImageOps
 
 logger = logging.getLogger(__name__)
 
 def optimize_image(image_content: bytes, max_size: int = 1024, quality: int = 80) -> tuple[bytes, str]:
     """
-    Оптимизирует изображение: масштабирует до max_size и конвертирует в WebP.
+    Оптимизирует изображение: делает автоповорот EXIF, масштабирует до max_size и конвертирует в WebP.
     
     Returns:
         tuple: (optimized_content_bytes, mime_type)
     """
     try:
-        # Открываем изображение из байтов
+        # Открываем изображение из байтов и учитываем EXIF-ориентацию
         img = Image.open(io.BytesIO(image_content))
+        img = ImageOps.exif_transpose(img)
         
         # Конвертируем в RGBA/RGB (важно для WebP и удаления метаданных)
         if img.mode in ("RGBA", "P"):

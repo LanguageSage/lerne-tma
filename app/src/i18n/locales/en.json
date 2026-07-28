@@ -43,10 +43,10 @@
   },
   "study": {
     "show_answer": "Show Answer 🔄",
-    "grade_again": "Again (1 min)",
-    "grade_hard": "Hard (10 min)",
-    "grade_good": "Good (1 day)",
-    "grade_easy": "Easy (4 days)",
+    "grade_again": "Again",
+    "grade_hard": "Hard",
+    "grade_good": "Good",
+    "grade_easy": "Easy",
     "done_title": "Great job! 🎉",
     "done_subtitle": "You finished all cards for today.",
     "back_to_decks": "Back to Decks"

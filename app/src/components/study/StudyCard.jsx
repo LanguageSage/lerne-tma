@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Eye, Volume2, Sparkles } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useDeckStore } from '../../store/useDeckStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
 
 // Extracted Sub-components and Utilities
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
@@ -12,6 +13,10 @@ import { parseClozeData, cleanBracketSyntax, autoGenerateChoices } from '../../u
 import { StudyCardTrainer } from './StudyCardTrainer';
 import { StudyCardPuzzle } from './StudyCardPuzzle';
 import { StudyCardSpeech } from './StudyCardSpeech';
+import { CardAudioPlayer } from './CardAudioPlayer';
+import { KaraokeText } from './KaraokeText';
+import { useVoicePicker } from '../../hooks/useVoicePicker';
+import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 
 // Re-export for backward compatibility
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
@@ -24,6 +29,8 @@ export const StudyCard = React.memo(({
   loading,
   historyIndex,
   playAudio,
+  audioControls,
+  sessionVoice = null, // from useSessionVoice in StudyView
   isAudioLoading,
   isAutoplayActive,
   onPlayBackAudio,
@@ -41,6 +48,41 @@ export const StudyCard = React.memo(({
   const deckVideo = deckResources.find(r => r.type === 'video');
 
   const imageUrl = card.image_url || deckImage?.url;
+
+  // Card language: prefer card-level, then deck-level, then global active language
+  const cardLang = card.target_language
+    || useDeckStore.getState().currentDeck?.target_language
+    || useLanguageStore.getState().activeLanguage
+    || 'de';
+
+  const deckId = useDeckStore.getState().currentDeck?.id;
+
+  // Propagate voice choice back to session store so it survives card navigation
+  const handleVoiceChange = useCallback((voiceValue) => {
+    sessionVoice?.setSessionVoice(deckId, voiceValue);
+  }, [sessionVoice, deckId]);
+
+  // Voice picker — scoped to this card's language, initialized from session store
+  const storedVoice = sessionVoice?.getSessionVoice(deckId) || null;
+  const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, true);
+
+  // Karaoke: sync word boundaries with audio playback position
+  const { activeWordIndex } = useKaraokeSync(
+    frontVoicePicker.wordBoundaries,
+    audioControls?.currentTime ?? 0,
+    audioControls?.audioState ?? 'idle',
+  );
+
+  // Provide current card text to the picker so auto-generate works on voice switch
+  const frontText = stripMarkdown(studyMode === 'reverse' ? card.back : card.front);
+  useEffect(() => {
+    frontVoicePicker.setCardText(frontText);
+  }, [frontText]);
+
+  // On card change: keep voice selection (session) but clear stale preview URL
+  useEffect(() => {
+    frontVoicePicker.setPreviewUrl(null);
+  }, [card.id]);
 
   // Interactive Cloze states
   const [wrongSelected, setWrongSelected] = useState([]);
@@ -66,8 +108,8 @@ export const StudyCard = React.memo(({
 
   const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
   const hasTrainerGaps = clozeData && clozeData.gaps && clozeData.gaps.length > 0;
-  const effectiveStudyMode = (hasBracketSyntax || hasTrainerGaps) 
-    ? 'trainer' 
+  const effectiveStudyMode = (hasBracketSyntax || hasTrainerGaps)
+    ? 'trainer'
     : (studyMode === 'trainer' ? 'classic' : studyMode);
 
   const handleClozeClick = (option, e) => {
@@ -138,14 +180,43 @@ export const StudyCard = React.memo(({
               {(effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
                 <>
                   <div id="tut-study-front" className="text-front" style={cardStyle}>
-                    {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
+                    <KaraokeText
+                      text={cleanBracketSyntax(frontText)}
+                      wordBoundaries={frontVoicePicker.wordBoundaries}
+                      activeWordIndex={activeWordIndex}
+                      style={cardStyle}
+                    />
                   </div>
                   <div className="flip-hint-badge">
                     <Eye size={16} />
                     <span>Посмотреть ответ</span>
                   </div>
+                  {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
+                    <CardAudioPlayer
+                      audioUrl={studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url}
+                      playAudio={audioControls?.playAudio || playAudio}
+                      pauseAudio={audioControls?.pauseAudio}
+                      resumeAudio={audioControls?.resumeAudio}
+                      togglePlayPause={audioControls?.togglePlayPause}
+                      stopAudio={audioControls?.stopAudio}
+                      seekAudio={audioControls?.seekAudio}
+                      setPlaybackSpeed={audioControls?.setPlaybackSpeed}
+                      audioState={audioControls?.audioState}
+                      currentUrl={audioControls?.currentUrl}
+                      currentTime={audioControls?.currentTime}
+                      duration={audioControls?.duration}
+                      playbackRate={audioControls?.playbackRate}
+                      isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
+                      isGenerating={card.audio_is_generating}
+                      voicePicker={frontVoicePicker}
+                      cardText={frontText}
+                      disabled={loading || isAutoplayActive}
+                      compact={true}
+                    />
+                  )}
                 </>
               )}
+
 
               {/* Trainer Mode Component */}
               {effectiveStudyMode === 'trainer' && clozeData && (
@@ -286,27 +357,25 @@ export const StudyCard = React.memo(({
                     {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
                   </div>
                   {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
-                    <button
-                      id="tut-study-audio-back"
-                      className="audio-btn-back-corner"
+                    <CardAudioPlayer
+                      audioUrl={studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url}
+                      playAudio={audioControls?.playAudio || playAudio}
+                      pauseAudio={audioControls?.pauseAudio}
+                      resumeAudio={audioControls?.resumeAudio}
+                      togglePlayPause={audioControls?.togglePlayPause}
+                      stopAudio={audioControls?.stopAudio}
+                      seekAudio={audioControls?.seekAudio}
+                      setPlaybackSpeed={audioControls?.setPlaybackSpeed}
+                      audioState={audioControls?.audioState}
+                      currentUrl={audioControls?.currentUrl}
+                      currentTime={audioControls?.currentTime}
+                      duration={audioControls?.duration}
+                      playbackRate={audioControls?.playbackRate}
+                      isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
+                      isGenerating={card.audio_is_generating}
                       disabled={loading || isAutoplayActive}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!isAutoplayActive && playAudio) {
-                          playAudio(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url);
-                        }
-                      }}
-                    >
-                      {isAudioLoading ? (
-                        card.audio_is_generating ? (
-                          <Sparkles size={24} className="sparkles-spin" style={{ color: '#a855f7' }} />
-                        ) : (
-                          <RefreshCw size={24} className="spin" />
-                        )
-                      ) : (
-                        <Volume2 size={24} />
-                      )}
-                    </button>
+                      compact={true}
+                    />
                   )}
                 </div>
               )}
@@ -318,29 +387,73 @@ export const StudyCard = React.memo(({
               )}
               
               <div className="back-answer-block">
-                <button
-                  className="audio-btn-translation"
-                  disabled={loading || isAudioLoading}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (studyMode === 'reverse') {
-                      if (card.audio_url && playAudio) playAudio(card.audio_url);
-                    } else {
-                      onPlayBackAudio?.(card);
-                    }
-                  }}
-                  title="Озвучить"
-                >
-                  {isAudioLoading ? (
-                    card.audio_is_generating ? (
-                      <Sparkles size={22} className="sparkles-spin" style={{ color: '#a855f7' }} />
-                    ) : (
-                      <RefreshCw size={22} className="spin" />
-                    )
-                  ) : (
-                    <Volume2 size={22} />
-                  )}
-                </button>
+                {(() => {
+                  const targetBackAudioUrl = studyMode === 'reverse' ? card.audio_url : card.audio_back_url;
+                  if (targetBackAudioUrl) {
+                    return (
+                      <CardAudioPlayer
+                        audioUrl={targetBackAudioUrl}
+                        playAudio={(url) => {
+                          if (studyMode === 'reverse') {
+                            if (card.audio_url && playAudio) playAudio(card.audio_url);
+                          } else {
+                            onPlayBackAudio?.(card);
+                          }
+                        }}
+                        pauseAudio={audioControls?.pauseAudio}
+                        resumeAudio={audioControls?.resumeAudio}
+                        togglePlayPause={(url) => {
+                          if (audioControls?.currentUrl === url && audioControls?.audioState !== 'idle') {
+                            audioControls.togglePlayPause(url);
+                          } else {
+                            if (studyMode === 'reverse') {
+                              if (card.audio_url && playAudio) playAudio(card.audio_url);
+                            } else {
+                              onPlayBackAudio?.(card);
+                            }
+                          }
+                        }}
+                        stopAudio={audioControls?.stopAudio}
+                        seekAudio={audioControls?.seekAudio}
+                        setPlaybackSpeed={audioControls?.setPlaybackSpeed}
+                        audioState={audioControls?.audioState}
+                        currentUrl={audioControls?.currentUrl}
+                        currentTime={audioControls?.currentTime}
+                        duration={audioControls?.duration}
+                        playbackRate={audioControls?.playbackRate}
+                        isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
+                        isGenerating={card.audio_is_generating}
+                        disabled={loading || isAudioLoading}
+                        compact={true}
+                      />
+                    );
+                  }
+                  return (
+                    <button
+                      className="audio-btn-translation"
+                      disabled={loading || isAudioLoading}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (studyMode === 'reverse') {
+                          if (card.audio_url && playAudio) playAudio(card.audio_url);
+                        } else {
+                          onPlayBackAudio?.(card);
+                        }
+                      }}
+                      title="Озвучить"
+                    >
+                      {isAudioLoading ? (
+                        card.audio_is_generating ? (
+                          <Sparkles size={22} className="sparkles-spin" style={{ color: '#a855f7' }} />
+                        ) : (
+                          <RefreshCw size={22} className="spin" />
+                        )
+                      ) : (
+                        <Volume2 size={22} />
+                      )}
+                    </button>
+                  );
+                })()}
                 <div id="tut-study-answer" className="text-back" style={backCardStyle}>
                   {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.front : card.back))}
                 </div>

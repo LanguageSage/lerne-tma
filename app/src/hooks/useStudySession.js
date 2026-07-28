@@ -84,8 +84,8 @@ export const useStudySession = () => {
             if (currentIndex < deckCards.length - 1) {
               nextCardInfo = deckCards[currentIndex + 1];
             } else {
-              // Loop back to the beginning
-              nextCardInfo = deckCards[0];
+              // Reached end of deck! End session to show finished summary screen
+              nextCardInfo = null;
             }
           }
         }
@@ -95,6 +95,9 @@ export const useStudySession = () => {
           const newCard = res.data;
           session.addToHistory(newCard);
           prefetchMedia(newCard.image_url);
+        } else if (!isFirst) {
+          // Reached end of sequential deckCards traversal! End session cleanly to show summary screen
+          session.setCard(null);
         } else {
           // Fallback to SRS when starting the session (isFirst) or if deck list is not loaded/empty
           const excludeParam = excludeIds.length > 0 ? `exclude_ids=${excludeIds.join(',')}` : '';

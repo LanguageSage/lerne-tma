@@ -41,3 +41,41 @@ export const getSpeechLocaleForLang = (lang) => {
   }
 };
 
+/**
+ * Structured list of available Edge-TTS voices per language code.
+ * Each entry: { value: 'de-DE-KatjaNeural', label: 'Катя', gender: 'f' | 'm' }
+ *
+ * This is the single source of truth for voice pickers across the app —
+ * both in global Settings (VoiceTab) and in the per-card voice switcher.
+ */
+export const VOICES_BY_LANG = {
+  de: [
+    { value: 'de-DE-KatjaNeural',   label: 'Катя',    gender: 'f' },
+    { value: 'de-DE-AmalaNeural',   label: 'Амала',   gender: 'f' },
+    { value: 'de-DE-KillianNeural', label: 'Киллиан', gender: 'm' },
+    { value: 'de-DE-ConradNeural',  label: 'Конрад',  gender: 'm' },
+    { value: 'de-AT-IngridNeural',  label: 'Ингрид',  gender: 'f' },
+    { value: 'de-CH-JanNeural',     label: 'Ян',      gender: 'm' },
+  ],
+  en: [
+    { value: 'en-US-JennyNeural',   label: 'Дженни',  gender: 'f' },
+    { value: 'en-US-AriaNeural',    label: 'Ария',    gender: 'f' },
+    { value: 'en-US-GuyNeural',     label: 'Гай',     gender: 'm' },
+    { value: 'en-GB-SoniaNeural',   label: 'Соня',    gender: 'f' },
+    { value: 'en-GB-RyanNeural',    label: 'Райан',   gender: 'm' },
+  ],
+  no: [
+    { value: 'nb-NO-IselinNeural',  label: 'Иселин',  gender: 'f' },
+    { value: 'nb-NO-FinnNeural',    label: 'Финн',    gender: 'm' },
+  ],
+  uk: [
+    { value: 'uk-UA-PolinaNeural',  label: 'Поліна',  gender: 'f' },
+    { value: 'uk-UA-OstapNeural',   label: 'Остап',   gender: 'm' },
+  ],
+  ru: [
+    { value: 'ru-RU-SvetlanaNeural', label: 'Светлана', gender: 'f' },
+    { value: 'ru-RU-DmitryNeural',   label: 'Дмитрий',  gender: 'm' },
+  ],
+};
+
+

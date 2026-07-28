@@ -1,18 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { Upload, Camera, Search, X } from 'lucide-react';
-import { useUiStore } from '../../store/useUiStore';
+import { ImageEditorModal } from './ImageEditorModal';
 
 export const MediaPicker = ({ 
   isOpen, 
   onClose, 
   onImageUpload, 
   searchQuery = '', 
-  loading = false,
-  googleReturnTimerRef = null
+  loading = false
 }) => {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [editingFile, setEditingFile] = useState(null);
   
   const galleryInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -72,9 +72,8 @@ export const MediaPicker = ({
     canvas.toBlob((blob) => {
       if (!blob) return;
       const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
-      onImageUpload(file);
       closeCamera();
-      onClose();
+      setEditingFile(file);
     }, 'image/jpeg', 0.9);
   };
 
@@ -92,10 +91,15 @@ export const MediaPicker = ({
 
   const googleImageUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}&tbm=isch`;
 
+  const handleSelectFile = (file) => {
+    if (!file) return;
+    setEditingFile(file);
+  };
+
   return (
     <>
       <AnimatePresence>
-        {isOpen && !isCameraOpen && (
+        {isOpen && !isCameraOpen && !editingFile && (
           <motion.div
             className="image-picker-overlay"
             initial={{ opacity: 0 }}
@@ -160,9 +164,8 @@ export const MediaPicker = ({
                 accept="image/*"
                 className="hidden-file-input"
                 onChange={e => {
-                  onImageUpload(e.target.files?.[0]);
+                  if (e.target.files?.[0]) handleSelectFile(e.target.files[0]);
                   e.target.value = '';
-                  onClose();
                 }}
               />
               <input
@@ -172,9 +175,8 @@ export const MediaPicker = ({
                 capture="environment"
                 className="hidden-file-input"
                 onChange={e => {
-                  onImageUpload(e.target.files?.[0]);
+                  if (e.target.files?.[0]) handleSelectFile(e.target.files[0]);
                   e.target.value = '';
-                  onClose();
                 }}
               />
             </motion.div>
@@ -221,6 +223,18 @@ export const MediaPicker = ({
           </div>
         )}
       </AnimatePresence>
+
+      <ImageEditorModal
+        isOpen={!!editingFile}
+        onClose={() => setEditingFile(null)}
+        imageSrc={editingFile}
+        onSave={(editedFile) => {
+          setEditingFile(null);
+          onImageUpload(editedFile);
+          onClose();
+        }}
+        title="Настройка фото"
+      />
     </>
   );
 };

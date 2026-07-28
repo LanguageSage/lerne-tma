@@ -15,6 +15,7 @@ import { CardActionButton } from './CardActionModal';
 import { useAudio } from '../hooks/useAudio';
 import { useAutoplay } from '../hooks/useAutoplay';
 import { useCardNavigation } from '../hooks/useCardNavigation';
+import { useSessionVoice } from '../hooks/useSessionVoice';
 import { MediaPicker } from './common/MediaPicker';
 
 // Sub-components
@@ -71,9 +72,42 @@ export const StudyView = ({ startTutorial }) => {
     autoplayDelay, autoplayLoop, autoplayScrollBg, autoPlay
   }), [autoplayDelay, autoplayLoop, autoplayScrollBg, autoPlay]);
 
-  const { playAudio, stopAudio, isAudioLoading, startBackgroundLock, stopBackgroundLock } = useAudio(autoPlay, showToast);
+  const {
+    playAudio,
+    pauseAudio,
+    resumeAudio,
+    togglePlayPause,
+    stopAudio,
+    seekAudio,
+    setPlaybackSpeed,
+    preloadAudio,
+    isAudioLoading,
+    audioState,
+    currentUrl,
+    currentTime,
+    duration,
+    playbackRate,
+    startBackgroundLock,
+    stopBackgroundLock,
+  } = useAudio(autoPlay, showToast);
+
+  // Bundle all playback controls into a single object so child components
+  // stay decoupled from StudyView's internal structure (easy to extend later)
+  const audioControls = React.useMemo(() => ({
+    playAudio, pauseAudio, resumeAudio, togglePlayPause, stopAudio, seekAudio,
+    setPlaybackSpeed, preloadAudio, isAudioLoading, audioState,
+    currentUrl, currentTime, duration, playbackRate,
+  }), [
+    playAudio, pauseAudio, resumeAudio, togglePlayPause, stopAudio, seekAudio,
+    setPlaybackSpeed, preloadAudio, isAudioLoading, audioState,
+    currentUrl, currentTime, duration, playbackRate,
+  ]);
+
   const autoplay = useAutoplay({ card, playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock });
   const isAutoplayActive = autoplayState === 'playing' || autoplayState === 'paused';
+
+  // Session-level voice memory: voice choice persists across card navigation within a deck
+  const sessionVoice = useSessionVoice();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const googleReturnTimerRef = useRef(null);
@@ -313,9 +347,11 @@ export const StudyView = ({ startTutorial }) => {
 
   if (view !== 'study') return null;
 
+  const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
+
   return (
     <div className="view-study">
-      {currentDeck?.id !== 'duplicates' && !isAutoplayActive && studyMode !== 'trainer' && (
+      {currentDeck?.id !== 'duplicates' && !isAutoplayActive && !hasBracketSyntax && (
         <GradeButtons 
           card={card} 
           loading={loading} 
@@ -459,6 +495,8 @@ export const StudyView = ({ startTutorial }) => {
               loading={loading}
               historyIndex={historyIndex}
               playAudio={playAudio}
+              audioControls={audioControls}
+              sessionVoice={sessionVoice}
               isAudioLoading={isAudioLoading}
               isAutoplayActive={isAutoplayActive}
               onPlayBackAudio={handlePlayBackAudio}
