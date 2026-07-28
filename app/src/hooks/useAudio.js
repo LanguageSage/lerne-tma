@@ -186,12 +186,24 @@ export const useAudio = (autoPlay, showToast) => {
       setIsAudioLoading(false);
     };
 
+    let animFrameId = null;
+    const syncTime = () => {
+      if (audioRef.current === audio && !audio.paused && !audio.ended) {
+        setCurrentTime(audio.currentTime || 0);
+        if (audio.duration) setDuration(audio.duration);
+        animFrameId = requestAnimationFrame(syncTime);
+      }
+    };
+
     audio.onplay = () => {
       setIsAudioLoading(false);
       setAudioState('playing');
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(syncTime);
     };
 
     audio.onpause = () => {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
       if (audioRef.current === audio && audio.currentTime < (audio.duration || 0)) {
         setAudioState('paused');
       }
@@ -200,8 +212,12 @@ export const useAudio = (autoPlay, showToast) => {
     audio.ontimeupdate = () => {
       if (audioRef.current === audio) {
         setCurrentTime(audio.currentTime || 0);
-        setDuration(audio.duration || 0);
+        if (audio.duration) setDuration(audio.duration);
       }
+    };
+
+    audio.onended = () => {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
     };
 
     audio.onloadedmetadata = () => {

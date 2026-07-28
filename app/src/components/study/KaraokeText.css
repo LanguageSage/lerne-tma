@@ -6,15 +6,19 @@
 
 .karaoke-word {
   display: inline;
-  transition: color 0.12s ease, text-shadow 0.12s ease, background-color 0.12s ease;
-  border-radius: 4px;
-  padding: 0 1px;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 6px;
+  padding: 1px 3px;
+  margin: 0 -1px;
 }
 
 .karaoke-word--active {
-  color: #f0d060 !important;
+  color: #ffe066 !important;
+  font-weight: 700 !important;
+  background-color: rgba(250, 204, 21, 0.22);
   text-shadow:
-    0 0 12px rgba(240, 208, 96, 0.85),
-    0 0 24px rgba(240, 208, 96, 0.4);
-  background-color: rgba(240, 208, 96, 0.12);
+    0 0 10px rgba(250, 204, 21, 0.9),
+    0 0 20px rgba(250, 204, 21, 0.5);
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.25);
+  transform: scale(1.04);
 }

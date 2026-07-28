@@ -66,15 +66,18 @@ export const StudyCard = React.memo(({
   const storedVoice = sessionVoice?.getSessionVoice(deckId) || null;
   const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, true);
 
-  // Karaoke: sync word boundaries with audio playback position
-  const { activeWordIndex } = useKaraokeSync(
+  // Provide current card text to the picker so auto-generate works on voice switch
+  const frontText = stripMarkdown(studyMode === 'reverse' ? card.back : card.front);
+
+  // Karaoke: sync word boundaries with audio playback position (with fallback estimation)
+  const { activeWordIndex, effectiveBoundaries } = useKaraokeSync(
     frontVoicePicker.wordBoundaries,
+    frontText,
+    audioControls?.duration ?? 0,
     audioControls?.currentTime ?? 0,
     audioControls?.audioState ?? 'idle',
   );
 
-  // Provide current card text to the picker so auto-generate works on voice switch
-  const frontText = stripMarkdown(studyMode === 'reverse' ? card.back : card.front);
   useEffect(() => {
     frontVoicePicker.setCardText(frontText);
   }, [frontText]);
@@ -182,7 +185,7 @@ export const StudyCard = React.memo(({
                   <div id="tut-study-front" className="text-front" style={cardStyle}>
                     <KaraokeText
                       text={cleanBracketSyntax(frontText)}
-                      wordBoundaries={frontVoicePicker.wordBoundaries}
+                      wordBoundaries={effectiveBoundaries}
                       activeWordIndex={activeWordIndex}
                       style={cardStyle}
                     />
@@ -211,7 +214,6 @@ export const StudyCard = React.memo(({
                       voicePicker={frontVoicePicker}
                       cardText={frontText}
                       disabled={loading || isAutoplayActive}
-                      compact={true}
                     />
                   )}
                 </>
