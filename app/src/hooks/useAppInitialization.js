@@ -118,7 +118,7 @@ export const useAppInitialization = (checkStartParam) => {
     };
   }, []);
 
-  const CACHE_VERSION = '2'; // bump to invalidate old caches missing target_language
+  const CACHE_VERSION = '3'; // bump to invalidate cached deck ids after cloud DB migration
 
   const loadCachedInitData = () => {
     try {
@@ -147,6 +147,23 @@ export const useAppInitialization = (checkStartParam) => {
     }
   };
 
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const requestWithRetry = async (requestFn, label, attempts = 3) => {
+    let lastError;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await requestFn();
+      } catch (err) {
+        lastError = err;
+        if (attempt === attempts) break;
+        console.warn(`${label} failed on attempt ${attempt}, retrying...`, err);
+        await sleep(400 * attempt);
+      }
+    }
+    throw lastError;
+  };
+
   const fetchInitData = async () => {
     const { setDecks, setFolders, fetchDuplicates, fetchFavorites } = useDeckStore.getState();
     const currentDecks = useDeckStore.getState().decks;
@@ -154,8 +171,9 @@ export const useAppInitialization = (checkStartParam) => {
       useUiStore.setState({ loading: true });
     }
     try {
-      const res = await api.get('/init');
-      setDecks(res.data.decks);
+      const res = await requestWithRetry(() => api.get('/init'), 'Init data load');
+      const freshDecks = res.data.decks || [];
+      setDecks(freshDecks);
       if (res.data.folders) {
         setFolders(res.data.folders);
       }
@@ -171,7 +189,15 @@ export const useAppInitialization = (checkStartParam) => {
       const uiState = useUiStore.getState();
       const currDeck = useDeckStore.getState().currentDeck;
       if (uiState.view === 'cards' && currDeck?.id) {
-        useDeckStore.getState().fetchDeckCards(currDeck.id);
+        const freshCurrentDeck = freshDecks.find(d => d.id === currDeck.id)
+          || freshDecks.find(d => d.name === currDeck.name && d.stats?.total > 0)
+          || freshDecks.find(d => d.name === currDeck.name);
+        if (freshCurrentDeck) {
+          useDeckStore.getState().setCurrentDeck(freshCurrentDeck);
+          useDeckStore.getState().fetchDeckCards(freshCurrentDeck.id);
+        } else {
+          useDeckStore.getState().fetchDeckCards(currDeck.id);
+        }
       }
     } catch (err) {
       console.error("Init Data Error:", err);
@@ -204,13 +230,13 @@ export const useAppInitialization = (checkStartParam) => {
       }
 
       // 2. Если профиля в БД еще нет, выполняем синхронизацию
-      const res = await api.post('/auth/sync', {
+      const res = await requestWithRetry(() => api.post('/auth/sync', {
         first_name: currentProfile.first_name,
         last_name: currentProfile.last_name,
         username: currentProfile.username,
         photo_url: currentProfile.photo_url,
         is_guest: currentProfile.is_guest
-      });
+      }), 'Profile sync');
       
       if (res.data.status === 'ok' && res.data.user) {
         const newProfile = res.data.user;

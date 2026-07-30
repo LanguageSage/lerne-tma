@@ -404,26 +404,40 @@ def get_duplicate_cards(user_id: int):
             
         # 2. Получаем все карточки с этими текстами
         all_duplicates = (TMA_Card
-                         .select(TMA_Card, TMA_Deck)
+                         .select(
+                             TMA_Card.id,
+                             TMA_Card.front_text,
+                             TMA_Card.back_text,
+                             TMA_Card.context,
+                             TMA_Card.image_path,
+                             TMA_Card.audio_path,
+                             TMA_Card.audio_back_path,
+                             TMA_Card.video_front_path,
+                             TMA_Card.video_back_path,
+                             TMA_Card.want_to_learn,
+                             TMA_Card.deck_id,
+                             TMA_Deck.name.alias('deck_name')
+                         )
                          .join(TMA_Deck)
                          .where(TMA_Deck.user_id == user_id, TMA_Card.front_text << text_list, TMA_Card.is_deleted == False)
-                         .order_by(TMA_Card.front_text))
+                         .order_by(TMA_Card.front_text)
+                         .dicts())
         
         result = []
         for c in all_duplicates:
             result.append({
-                "id": c.id,
-                "front": c.front_text,
-                "back": c.back_text,
-                "context": c.context,
-                "image_path": c.image_path,
-                "audio_path": c.audio_path,
-                "audio_back_path": c.audio_back_path,
-                "video_front_path": c.video_front_path,
-                "video_back_path": c.video_back_path,
-                "want_to_learn": bool(c.want_to_learn),
-                "deck_id": c.deck_id,
-                "deck_name": c.deck.name if c.deck else "Без колоды"
+                "id": c.get('id'),
+                "front": c.get('front_text'),
+                "back": c.get('back_text'),
+                "context": c.get('context'),
+                "image_path": c.get('image_path'),
+                "audio_path": c.get('audio_path'),
+                "audio_back_path": c.get('audio_back_path'),
+                "video_front_path": c.get('video_front_path'),
+                "video_back_path": c.get('video_back_path'),
+                "want_to_learn": bool(c.get('want_to_learn')),
+                "deck_id": c.get('deck_id'),
+                "deck_name": c.get('deck_name') or "Без колоды"
             })
         return result
     except Exception as e:
@@ -474,3 +488,4 @@ def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
     except Exception as e:
         logger.error(f"Error in get_next_duplicate_card: {e}", exc_info=True)
         raise e
+
