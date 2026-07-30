@@ -24,17 +24,18 @@ def get_user_prompts(target_language: str = "de", native_language: str = None, u
     custom_prompts = []
     active_standard_prompt_id = None
     active_trainer_prompt_id = None
+    active_exam_prompt_id = None
     active_standard_preset_id = None
     active_trainer_preset_id = None
-
+    active_exam_preset_id = None
     target_lang = (target_language or "de").lower().strip()
     
     from api.services.language_service import get_language_config, get_system_presets, get_prompt_for_phrase
     if not native_language:
         native_rec = models.TMASetting.get_or_none(models.TMASetting.key == "NATIVE_LANGUAGE")
-        native_language = native_rec.value if native_rec else "uk"
+        native_language = native_rec.value if native_rec else "ru"
         
-    native_lang = (native_language or "uk").lower().strip()
+    native_lang = (native_language or "ru").lower().strip()
     lang_cfg = get_language_config(target_lang, native_lang)
     presets = get_system_presets(target_lang, native_lang)
     
@@ -52,6 +53,11 @@ def get_user_prompts(target_language: str = "de", native_language: str = None, u
                     matched_preset = next((pr for pr in presets if pr["name"] == p.name), None)
                     if matched_preset:
                         active_trainer_preset_id = matched_preset["id"]
+                elif ptype == 'exam':
+                    active_exam_prompt_id = p.id
+                    matched_preset = next((pr for pr in presets if pr["name"] == p.name), None)
+                    if matched_preset:
+                        active_exam_preset_id = matched_preset["id"]
                 else:
                     active_standard_prompt_id = p.id
                     matched_preset = next((pr for pr in presets if pr["name"] == p.name), None)
@@ -72,6 +78,8 @@ def get_user_prompts(target_language: str = "de", native_language: str = None, u
             active_standard_preset_id = "preset_b1"
         if not active_trainer_prompt_id and not active_trainer_preset_id:
             active_trainer_preset_id = "preset_trainer"
+        if not active_exam_prompt_id and not active_exam_preset_id:
+            active_exam_preset_id = "preset_exam"
     except Exception as e:
         logger.error(f"Error fetching custom prompts: {e}")
 
@@ -81,8 +89,10 @@ def get_user_prompts(target_language: str = "de", native_language: str = None, u
         "active_preset_id": active_standard_preset_id or "preset_b1",
         "active_standard_prompt_id": active_standard_prompt_id,
         "active_trainer_prompt_id": active_trainer_prompt_id,
+        "active_exam_prompt_id": active_exam_prompt_id,
         "active_standard_preset_id": active_standard_preset_id or "preset_b1",
         "active_trainer_preset_id": active_trainer_preset_id or "preset_trainer",
+        "active_exam_preset_id": active_exam_preset_id or "preset_exam",
         "target_language": target_lang,
         "native_language": native_lang,
         "language_name": lang_cfg["name"],
@@ -176,8 +186,12 @@ def deactivate_user_prompts(data: dict = None, user_id: int = Depends(get_user_i
 @router.post("/user/prompts/preset/{preset_id}/activate")
 def activate_system_preset(preset_id: str, data: dict = None, user_id: int = Depends(get_user_id)):
     target_lang = (data.get('target_language') if data else 'de') or 'de'
+    native_lang = (data.get('native_language') if data else None)
+    if not native_lang:
+        native_rec = models.TMASetting.get_or_none(models.TMASetting.key == "NATIVE_LANGUAGE")
+        native_lang = native_rec.value if native_rec else "ru"
     from api.services.language_service import get_system_presets
-    presets = get_system_presets(target_lang)
+    presets = get_system_presets(target_lang, native_lang)
     preset = next((p for p in presets if p["id"] == preset_id), None)
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")

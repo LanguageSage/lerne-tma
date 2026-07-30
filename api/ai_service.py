@@ -93,8 +93,9 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
-        is_trainer_request = '{' in phrase or any(w in phrase.lower() for w in ['тренажер', 'тренажёр', 'пропуск', 'cloze', 'тест', 'грамматика', 'грамматик'])
-        target_ptype = 'trainer' if is_trainer_request else 'standard'
+        is_quiz_request = any(marker in phrase for marker in ['[*]', '[ ]', '[x]', '[X]'])
+        is_trainer_request = '{' in phrase or any(w in phrase.lower() for w in ['тренажер', 'тренажёр', 'пропуск', 'cloze', 'грамматика', 'грамматик'])
+        target_ptype = 'exam' if is_quiz_request else ('trainer' if is_trainer_request else 'standard')
 
         custom_prompt = TMACustomPrompt.get_or_none(
             (TMACustomPrompt.user_id == user_id) & 
@@ -112,11 +113,27 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             )
         
         is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in phrase)
-        is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "Уровень", "Рівень", "Level", "preset"])
+        is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "📝", "Уровень", "Рівень", "Level", "preset"])
         
         if custom_prompt and not is_system_preset:
             raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
             system_prompt = (raw_prompt or get_prompt_for_phrase(phrase, target_lang, native_lang)).replace("{phrase}", phrase)
+        elif is_quiz_request:
+            native_name = native_config["name"].lower()
+            system_prompt = (
+                f"Ты — профессиональный преподаватель и экзаменатор языка {lang_name}.\n"
+                f"Для экзаменационного вопроса с выбором вариантов ответа:\n'{phrase}'\n\n"
+                f"Проанализируй вопрос и варианты ответов.\n"
+                f"1. Сделай точный перевод вопроса и всех вариантов ответов на {native_name} язык.\n"
+                f"2. Подробно объясни грамматику и логику, почему именно отмеченный [*] или [x] вариант ответа является правильным, и в чём заключается ошибка остальных вариантов.\n"
+                f"3. Переведи ключевые сложные слова из вопроса.\n"
+                f"НЕ пиши дополнительные 3 примера предложений!\n\n"
+                f"Return ONLY a JSON object in this format:\n{{\n"
+                f'  "front": "{phrase}",\n'
+                f'  "back": "Перевод вопроса и правильного ответа",\n'
+                f'  "context": "🎯 **Перевод**:\\n[перевод вопроса и всех вариантов]\\n\\n💡 **Грамматический разбор и объяснение ответа**:\\n[подробное объяснение почему правильный ответ именно этот]\\n\\n📖 **Словарный запас**:\\n[слово — перевод]"\n'
+                f"}}\nEND_JSON"
+            )
         elif is_trainer_request:
             system_prompt = f"Генерируй карточки для изучения грамматики языка {lang_name}. Оборачивай проверяемую грамматическую форму или артикль в фигурные скобки {{слово}} в предложении на лицевой стороне (например: Ich sehe {{den}} Hund). На обратной стороне напиши подробный и развернутый грамматический разбор правила: падеж, род, склонение/спряжение и понятные примеры."
         else:

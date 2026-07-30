@@ -122,7 +122,15 @@ def get_prompt_for_phrase(phrase: str, target_lang: str = "de", native_lang: str
         name=name
     )
 
-def get_system_presets(target_lang: str = "de", native_lang: str = "uk") -> list:
+def get_system_presets(target_lang: str = "de", native_lang: str = None) -> list:
+    if not native_lang:
+        try:
+            from api import models
+            native_rec = models.TMASetting.get_or_none(models.TMASetting.key == "NATIVE_LANGUAGE")
+            native_lang = native_rec.value if native_rec else "ru"
+        except Exception:
+            native_lang = "ru"
+
     native_cfg = get_native_config(native_lang)
     target_code = (target_lang or "de").lower().strip()
     target_info = native_cfg["target_names"].get(target_code, (target_code, target_code, target_code))
@@ -169,6 +177,30 @@ def get_system_presets(target_lang: str = "de", native_lang: str = "uk") -> list
             f"   💡 **Разбор ответов и словарный запас**: краткие пояснения правильных ответов и перевод ключевых сложных слов (например: die Filiale — филиал; aushändigen — выдать; gegenstandslos — недействительный)."
         ),
         "prompt_type": "trainer"
+    })
+
+    presets.append({
+        "id": "preset_exam",
+        "name": f"📝 Экзаменационный тест ({lang_name})",
+        "level": "Exam",
+        "badge": "Тест",
+        "description": f"Генерирует вопросы экзаменационного формата с выбором ответа (2-6 вариантов с [*] и [ ]) и подробным грамматическим разбором на обороте без лишних примеров.",
+        "instruction": (
+            f"Ты — профессиональный экзаменатор языка {lang_name} для подготовки к официальным экзаменам (A1-C1).\n"
+            f"Создавай экзаменационные карточки с выбором вариантов ответа (Multiple Choice).\n\n"
+            f"ПРАВИЛА ОФОРМЛЕНИЯ:\n"
+            f"1. На ЛИЦЕВОЙ стороне (front):\n"
+            f"   Напиши четкий вопрос или задание на языке {lang_name}.\n"
+            f"   Ниже напиши варианты ответа (от 2 до 6 вариантов) в формате чекбоксов:\n"
+            f"   [*] Правильный вариант ответа\n"
+            f"   [ ] Неправильный вариант 1\n"
+            f"   [ ] Неправильный вариант 2\n"
+            f"   [ ] Неправильный вариант 3\n\n"
+            f"2. На ОБРАТНОЙ стороне (back) ОБЯЗАТЕЛЬНО пиши:\n"
+            f"   🎯 **Перевод**: точный перевод вопроса и всех вариантов ответа на русский язык.\n\n"
+            f"   💡 **Грамматический разбор**: понятное и точное объяснение, почему выбранный ответ правильный, и в чём заключается грамматическая или смысловая ошибка других вариантов. Дополнительные 3 примера писать НЕ нужно!"
+        ),
+        "prompt_type": "exam"
     })
 
     return presets

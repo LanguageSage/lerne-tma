@@ -37,6 +37,9 @@ export const StudyCardSpeech = React.memo(({
   const speechSuccessRef = useRef(false);
   const wasListeningOnPressStartRef = useRef(false);
 
+  const speechMatchThreshold = useSettingsStore(s => s.speechMatchThreshold) ?? 75;
+  const setSpeechMatchThreshold = useSettingsStore(s => s.setSpeechMatchThreshold);
+
   const {
     cardFont,
     cardTextColor,
@@ -44,8 +47,7 @@ export const StudyCardSpeech = React.memo(({
     cardFontWeight,
     cardFontStyle,
     cardTextShadow,
-    cardTextAlign,
-    speechMatchThreshold = 75
+    cardTextAlign
   } = styles;
 
   const cardStyle = useMemo(() => getCardStyle(styles), [
@@ -397,7 +399,7 @@ export const StudyCardSpeech = React.memo(({
             className={`btn-threshold-pill ${speechMatchThreshold === val ? 'active' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
-              useSettingsStore.getState().setSpeechMatchThreshold(val);
+              setSpeechMatchThreshold(val);
               window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
             }}
           >

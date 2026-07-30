@@ -10,7 +10,9 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 // Extracted Sub-components and Utilities
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { parseClozeData, cleanBracketSyntax, autoGenerateChoices } from '../../utils/clozeParser';
+import { parseQuizData } from '../../utils/quizParser';
 import { StudyCardTrainer } from './StudyCardTrainer';
+import { StudyCardQuiz } from './StudyCardQuiz';
 import { StudyCardPuzzle } from './StudyCardPuzzle';
 import { StudyCardSpeech } from './StudyCardSpeech';
 import { CardAudioPlayer } from './CardAudioPlayer';
@@ -101,19 +103,27 @@ export const StudyCard = React.memo(({
   const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]);
   const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]);
 
+  // Quiz / Exam Data Parsing
+  const quizData = useMemo(() => {
+    return parseQuizData(card);
+  }, [card?.id, card?.front, card?.back, card?.updated_at]);
+
   // Cloze / Trainer Data Parsing
   const clozeData = useMemo(() => {
     const allDeckCards = useDeckStore.getState().deckCards || [];
     const allFavCards = useDeckStore.getState().favoriteCards || [];
     const allSourceCards = [...allDeckCards, ...allFavCards];
     return parseClozeData(card, studyMode, allSourceCards);
-  }, [card.id, card.front, card.back, card.updated_at, studyMode]);
+  }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]);
 
+  const hasQuizSyntax = quizData && quizData.isQuiz;
   const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
   const hasTrainerGaps = clozeData && clozeData.gaps && clozeData.gaps.length > 0;
-  const effectiveStudyMode = (hasBracketSyntax || hasTrainerGaps)
-    ? 'trainer'
-    : (studyMode === 'trainer' ? 'classic' : studyMode);
+  const effectiveStudyMode = hasQuizSyntax
+    ? 'quiz'
+    : ((hasBracketSyntax || hasTrainerGaps)
+        ? 'trainer'
+        : (studyMode === 'trainer' ? 'classic' : studyMode));
 
   const handleClozeClick = (option, e) => {
     e.stopPropagation();
@@ -219,6 +229,18 @@ export const StudyCard = React.memo(({
                 </>
               )}
 
+
+              {/* Quiz / Exam Mode Component */}
+              {effectiveStudyMode === 'quiz' && quizData && (
+                <StudyCardQuiz
+                  card={card}
+                  quizData={quizData}
+                  isFlipped={isFlipped}
+                  setIsFlipped={setIsFlipped}
+                  playAudio={playAudio}
+                  onTrainerAnswer={onTrainerAnswer}
+                />
+              )}
 
               {/* Trainer Mode Component */}
               {effectiveStudyMode === 'trainer' && clozeData && (

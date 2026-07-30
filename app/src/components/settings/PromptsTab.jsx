@@ -38,12 +38,14 @@ export const PromptsTab = () => {
   const { activeLanguage, getLanguageInfo } = useLanguageStore();
   const langInfo = getLanguageInfo();
 
-  const [activeCategoryTab, setActiveCategoryTab] = useState('standard'); // 'standard' | 'trainer'
+  const [activeCategoryTab, setActiveCategoryTab] = useState('standard'); // 'standard' | 'trainer' | 'exam'
   const [promptsList, setPromptsList] = useState([]);
   const [activeStandardPromptId, setActiveStandardPromptId] = useState(null);
   const [activeTrainerPromptId, setActiveTrainerPromptId] = useState(null);
+  const [activeExamPromptId, setActiveExamPromptId] = useState(null);
   const [activeStandardPresetId, setActiveStandardPresetId] = useState('preset_b1');
   const [activeTrainerPresetId, setActiveTrainerPresetId] = useState('preset_trainer');
+  const [activeExamPresetId, setActiveExamPresetId] = useState('preset_exam');
   
   const [systemPresets, setSystemPresets] = useState([]);
   const [defaults, setDefaults] = useState({ de: "", ru: "" });
@@ -60,8 +62,10 @@ export const PromptsTab = () => {
         setPromptsList(res.data.custom_prompts || []);
         setActiveStandardPromptId(res.data.active_standard_prompt_id || null);
         setActiveTrainerPromptId(res.data.active_trainer_prompt_id || null);
+        setActiveExamPromptId(res.data.active_exam_prompt_id || null);
         setActiveStandardPresetId(res.data.active_standard_preset_id || 'preset_b1');
         setActiveTrainerPresetId(res.data.active_trainer_preset_id || 'preset_trainer');
+        setActiveExamPresetId(res.data.active_exam_preset_id || 'preset_exam');
         setSystemPresets(res.data.system_presets || []);
         setDefaults(res.data.defaults || { de: "", ru: "" });
       }
@@ -77,19 +81,26 @@ export const PromptsTab = () => {
     fetchPrompts();
   }, [activeLanguage]);
 
-  const currentActivePromptId = activeCategoryTab === 'trainer' ? activeTrainerPromptId : activeStandardPromptId;
-  const currentActivePresetId = activeCategoryTab === 'trainer' ? activeTrainerPresetId : activeStandardPresetId;
+  const currentActivePromptId = activeCategoryTab === 'exam' 
+    ? activeExamPromptId 
+    : (activeCategoryTab === 'trainer' ? activeTrainerPromptId : activeStandardPromptId);
+
+  const currentActivePresetId = activeCategoryTab === 'exam' 
+    ? activeExamPresetId 
+    : (activeCategoryTab === 'trainer' ? activeTrainerPresetId : activeStandardPresetId);
 
   const handleActivate = async (promptId) => {
     try {
       if (promptId === null) {
         await api.post('/user/prompts/deactivate', { target_language: activeLanguage, prompt_type: activeCategoryTab });
-        if (activeCategoryTab === 'trainer') setActiveTrainerPromptId(null);
+        if (activeCategoryTab === 'exam') setActiveExamPromptId(null);
+        else if (activeCategoryTab === 'trainer') setActiveTrainerPromptId(null);
         else setActiveStandardPromptId(null);
         showToast("Активирован промпт по умолчанию", "success");
       } else {
         await api.post(`/user/prompts/${promptId}/activate`, { target_language: activeLanguage, prompt_type: activeCategoryTab });
-        if (activeCategoryTab === 'trainer') setActiveTrainerPromptId(promptId);
+        if (activeCategoryTab === 'exam') setActiveExamPromptId(promptId);
+        else if (activeCategoryTab === 'trainer') setActiveTrainerPromptId(promptId);
         else setActiveStandardPromptId(promptId);
         showToast("Промпт активирован", "success");
       }
@@ -154,20 +165,30 @@ export const PromptsTab = () => {
     let activeTranslation = defaults.de;
     let activeContext = defaults.ru;
     
-    if (activeCategoryTab === 'trainer') {
+    if (activeCategoryTab === 'exam') {
+      const examPreset = systemPresets.find(p => p.id === 'preset_exam');
+      activeTranslation = examPreset 
+        ? (examPreset.instruction || examPreset.translation_prompt || '') 
+        : `Создавай экзаменационные карточки с выбором вариантов ответа (Multiple Choice) с [*] и [ ] на лицевой стороне и точным переводом с грамматическим разбором без примеров на обороте.`;
+      activeContext = activeTranslation;
+    } else if (activeCategoryTab === 'trainer') {
       activeTranslation = `Генерируй карточки для изучения грамматики языка ${langInfo.name}. Оборачивай проверяемую грамматическую форму в фигурные скобки {слово} в предложении на лицевой стороне (например: Ich sehe {den} Hund). На обратной стороне напиши подробный и развернутый грамматический разбор правила.`;
       activeContext = activeTranslation;
     } else if (currentActivePromptId !== null) {
       const active = promptsList.find(p => p.id === currentActivePromptId);
       if (active) {
-        activeTranslation = active.translation_prompt;
-        activeContext = active.context_prompt;
+        activeTranslation = active.translation_prompt || active.instruction || '';
+        activeContext = active.context_prompt || active.instruction || '';
       }
     }
 
+    const defaultTitle = activeCategoryTab === 'exam' 
+      ? `Экзаменационный промпт (${langInfo.label})` 
+      : (activeCategoryTab === 'trainer' ? `Грамматический промпт (${langInfo.label})` : `Мой промпт (${langInfo.label})`);
+
     setEditingPrompt({
       id: null,
-      name: activeCategoryTab === 'trainer' ? `Грамматический промпт (${langInfo.label})` : `Мой промпт (${langInfo.label})`,
+      name: defaultTitle,
       instruction: activeTranslation,
       translation_prompt: activeTranslation,
       context_prompt: activeContext,
@@ -326,16 +347,16 @@ export const PromptsTab = () => {
         </button>
       </div>
 
-      {/* Category Tabs: Standard Vocabulary vs Grammar Trainer */}
-      <div style={{ display: 'flex', gap: '8px', margin: '14px 0 16px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '10px' }}>
+      {/* Category Tabs: Standard Vocabulary vs Grammar Trainer vs Exam Test */}
+      <div style={{ display: 'flex', gap: '6px', margin: '14px 0 16px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '10px' }}>
         <button
           type="button"
           onClick={() => setActiveCategoryTab('standard')}
           style={{
             flex: 1,
-            padding: '8px 12px',
+            padding: '8px 8px',
             borderRadius: '10px',
-            fontSize: '0.88rem',
+            fontSize: '0.82rem',
             fontWeight: 600,
             background: activeCategoryTab === 'standard' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.03)',
             color: activeCategoryTab === 'standard' ? '#38bdf8' : '#94a3b8',
@@ -344,16 +365,16 @@ export const PromptsTab = () => {
             transition: 'all 0.2s ease-in-out'
           }}
         >
-          📖 Словарь / Перевод
+          📖 Перевод
         </button>
         <button
           type="button"
           onClick={() => setActiveCategoryTab('trainer')}
           style={{
             flex: 1,
-            padding: '8px 12px',
+            padding: '8px 8px',
             borderRadius: '10px',
-            fontSize: '0.88rem',
+            fontSize: '0.82rem',
             fontWeight: 600,
             background: activeCategoryTab === 'trainer' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.03)',
             color: activeCategoryTab === 'trainer' ? '#c084fc' : '#94a3b8',
@@ -362,20 +383,48 @@ export const PromptsTab = () => {
             transition: 'all 0.2s ease-in-out'
           }}
         >
-          🎯 Грамматический Тренажёр
+          🎯 Тренажёр
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveCategoryTab('exam')}
+          style={{
+            flex: 1,
+            padding: '8px 8px',
+            borderRadius: '10px',
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            background: activeCategoryTab === 'exam' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255,255,255,0.03)',
+            color: activeCategoryTab === 'exam' ? '#4ade80' : '#94a3b8',
+            border: activeCategoryTab === 'exam' ? '1px solid #22c55e' : '1px solid rgba(255,255,255,0.08)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease-in-out'
+          }}
+        >
+          📝 Тесты
         </button>
       </div>
 
       <p className="field-hint" style={{ marginBottom: '15px' }}>
-        {activeCategoryTab === 'trainer' 
-          ? `Инструкции ИИ для авто-создания карточек-тренажеров со скобками {слово} и подробным разбором правил.`
-          : `Персональные и стандартные промпты для изучения слов и фраз ${langInfo.label.toLowerCase()} языка.`
+        {activeCategoryTab === 'exam'
+          ? `Инструкции ИИ для экзаменационных тестов с выбором ответа [*] / [ ] и подробным разбором.`
+          : (activeCategoryTab === 'trainer' 
+              ? `Инструкции ИИ для авто-создания карточек-тренажеров со скобками {слово} и подробным разбором правил.`
+              : `Персональные и стандартные промпты для изучения слов и фраз ${langInfo.label.toLowerCase()} языка.`
+            )
         }
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: activeCategoryTab === 'trainer' ? '#c084fc' : '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '5px' }}>
-          Системные пресеты ({activeCategoryTab === 'trainer' ? 'Тренажёр' : langInfo.name})
+        <div style={{ 
+          fontSize: '0.8rem', 
+          fontWeight: 600, 
+          color: activeCategoryTab === 'exam' ? '#4ade80' : (activeCategoryTab === 'trainer' ? '#c084fc' : '#38bdf8'), 
+          textTransform: 'uppercase', 
+          letterSpacing: '0.5px', 
+          marginTop: '5px' 
+        }}>
+          Системные пресеты ({activeCategoryTab === 'exam' ? 'Экзамен' : (activeCategoryTab === 'trainer' ? 'Тренажёр' : langInfo.name)})
         </div>
 
         {systemPresets.filter(p => (p.prompt_type || 'standard') === activeCategoryTab).map(preset => {
@@ -387,8 +436,12 @@ export const PromptsTab = () => {
             <div key={preset.id} className={`prompt-template-card glass ${isPresetActive ? 'active' : ''}`} style={{
               padding: '14px 16px',
               borderRadius: '12px',
-              border: isPresetActive ? (activeCategoryTab === 'trainer' ? '1px solid #a855f7' : '1px solid #38bdf8') : '1px solid rgba(255,255,255,0.08)',
-              background: isPresetActive ? (activeCategoryTab === 'trainer' ? 'rgba(168, 85, 247, 0.12)' : 'rgba(56, 189, 248, 0.08)') : 'rgba(255,255,255,0.02)',
+              border: isPresetActive 
+                ? (activeCategoryTab === 'exam' ? '1px solid #22c55e' : (activeCategoryTab === 'trainer' ? '1px solid #a855f7' : '1px solid #38bdf8')) 
+                : '1px solid rgba(255,255,255,0.08)',
+              background: isPresetActive 
+                ? (activeCategoryTab === 'exam' ? 'rgba(34, 197, 94, 0.12)' : (activeCategoryTab === 'trainer' ? 'rgba(168, 85, 247, 0.12)' : 'rgba(56, 189, 248, 0.08)')) 
+                : 'rgba(255,255,255,0.02)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -396,7 +449,13 @@ export const PromptsTab = () => {
             }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.92rem', color: isPresetActive ? (activeCategoryTab === 'trainer' ? '#c084fc' : '#38bdf8') : '#f1f5f9' }}>
+                  <span style={{ 
+                    fontWeight: 600, 
+                    fontSize: '0.92rem', 
+                    color: isPresetActive 
+                      ? (activeCategoryTab === 'exam' ? '#4ade80' : (activeCategoryTab === 'trainer' ? '#c084fc' : '#38bdf8')) 
+                      : '#f1f5f9' 
+                  }}>
                     {preset.name}
                   </span>
                   {preset.badge && (
@@ -404,8 +463,12 @@ export const PromptsTab = () => {
                       fontSize: '0.68rem', 
                       padding: '2px 6px', 
                       borderRadius: '4px', 
-                      background: isPresetActive ? (activeCategoryTab === 'trainer' ? 'rgba(168, 85, 247, 0.25)' : 'rgba(56, 189, 248, 0.2)') : 'rgba(255, 255, 255, 0.08)',
-                      color: isPresetActive ? (activeCategoryTab === 'trainer' ? '#c084fc' : '#38bdf8') : '#94a3b8',
+                      background: isPresetActive 
+                        ? (activeCategoryTab === 'exam' ? 'rgba(34, 197, 94, 0.25)' : (activeCategoryTab === 'trainer' ? 'rgba(168, 85, 247, 0.25)' : 'rgba(56, 189, 248, 0.2)')) 
+                        : 'rgba(255, 255, 255, 0.08)',
+                      color: isPresetActive 
+                        ? (activeCategoryTab === 'exam' ? '#4ade80' : (activeCategoryTab === 'trainer' ? '#c084fc' : '#38bdf8')) 
+                        : '#94a3b8',
                       fontWeight: 500
                     }}>
                       {preset.badge}
@@ -419,7 +482,15 @@ export const PromptsTab = () => {
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {isPresetActive ? (
-                  <span style={{ fontSize: '0.75rem', color: activeCategoryTab === 'trainer' ? '#c084fc' : '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px' }}>
+                  <span style={{ 
+                    fontSize: '0.75rem', 
+                    color: activeCategoryTab === 'exam' ? '#4ade80' : (activeCategoryTab === 'trainer' ? '#c084fc' : '#38bdf8'), 
+                    fontWeight: 600, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '4px', 
+                    padding: '4px 8px' 
+                  }}>
                     <Check size={14} /> Активен
                   </span>
                 ) : (
@@ -431,15 +502,18 @@ export const PromptsTab = () => {
                 <button 
                   className="btn-secondary btn-tiny" 
                   style={{ padding: '6px' }} 
-                  onClick={() => setEditingPrompt({
-                    id: null,
-                    name: `${preset.name} (Копия)`,
-                    instruction: preset.instruction,
-                    translation_prompt: preset.instruction,
-                    context_prompt: preset.instruction,
-                    isSplit: false,
-                    prompt_type: activeCategoryTab
-                  })}
+                  onClick={() => {
+                    const textContent = preset.instruction || preset.translation_prompt || preset.context_prompt || '';
+                    setEditingPrompt({
+                      id: null,
+                      name: `${preset.name} (Копия)`,
+                      instruction: textContent,
+                      translation_prompt: textContent,
+                      context_prompt: textContent,
+                      isSplit: false,
+                      prompt_type: preset.prompt_type || activeCategoryTab
+                    });
+                  }}
                   title="Создать копию и настроить"
                 >
                   <Edit2 size={12} />

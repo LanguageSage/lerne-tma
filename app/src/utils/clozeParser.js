@@ -17,7 +17,9 @@ export const ARTICLE_GROUPS = [
   ['mich', 'mir', 'ich', 'mein'],
   ['ihn', 'ihm', 'er', 'sein'],
   ['uns', 'wir', 'unser', 'unsere'],
-  ['euch', 'ihr', 'euer', 'eure']
+  ['euch', 'ihr', 'euer', 'eure'],
+  ['zu', 'zum', 'zur', 'beim', 'vom', 'im', 'am', 'ans', 'ins'],
+  ['sich', 'mich', 'mir', 'dich', 'dir', 'uns', 'euch']
 ];
 
 export const autoGenerateChoices = (correctWord, existingChoices = []) => {
