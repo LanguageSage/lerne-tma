@@ -166,7 +166,7 @@ def get_active_decks(user_id: int):
         
         # --- Кросс-платформенный запрос статистики через Peewee ---
         tracked_case = Case(None, [(TMAProgress.queue != 'new', 1)], None)
-        learning_case = Case(None, [((TMAProgress.queue << ['learning', 'relearning']) & (TMAProgress.next_review <= now), 1)], None)
+        learning_case = Case(None, [(TMAProgress.queue << ['learning', 'relearning'], 1)], None)
         due_case = Case(None, [((TMAProgress.queue == 'review') & (TMAProgress.next_review <= now), 1)], None)
         stats_query = (TMA_Card
                       .select(

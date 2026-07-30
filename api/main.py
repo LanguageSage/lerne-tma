@@ -72,16 +72,23 @@ async def db_session_middleware(request, call_next):
 
     try:
         response = await call_next(request)
+        return response
     except Exception as exc:
         exc_str = str(exc).lower()
-        if "closed" in exc_str or "terminated" in exc_str or "connection" in exc_str:
-            logger.warning(f"DB connection reset due to error: {exc}")
+        if any(k in exc_str for k in ["closed", "terminated", "connection", "socket", "reset", "eof"]):
+            logger.warning(f"DB connection reset due to error: {exc}. Retrying HTTP request...")
             try:
                 if hasattr(models.tma_db, 'obj') and models.tma_db.obj:
                     models.tma_db.close()
                     models.tma_db.connect(reuse_if_open=True)
             except Exception:
                 pass
+            try:
+                response = await call_next(request)
+                return response
+            except Exception as retry_exc:
+                logger.error(f"Retry HTTP request failed: {retry_exc}")
+                raise retry_exc
         raise exc
 
     path = request.url.path

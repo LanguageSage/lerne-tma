@@ -33,6 +33,7 @@ export const StudyCardSpeech = React.memo(({
   const isPointerDownRef = useRef(false);
   const justHandledPointerRef = useRef(false);
   const recognizedTextRef = useRef("");
+  const accumulatedTextRef = useRef("");
   const speechSuccessRef = useRef(false);
   const wasListeningOnPressStartRef = useRef(false);
 
@@ -79,6 +80,7 @@ export const StudyCardSpeech = React.memo(({
     isHoldingRef.current = false;
     isPointerDownRef.current = false;
     justHandledPointerRef.current = false;
+    accumulatedTextRef.current = "";
     if (pressTimerRef.current) {
       clearTimeout(pressTimerRef.current);
       pressTimerRef.current = null;
@@ -173,7 +175,7 @@ export const StudyCardSpeech = React.memo(({
     return false;
   };
 
-  const startSpeechRecognition = (e) => {
+  const startSpeechRecognition = (e, isRestart = false) => {
     e?.stopPropagation();
     
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -185,15 +187,20 @@ export const StudyCardSpeech = React.memo(({
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
-      } catch (e) {}
+      } catch (err) {}
     }
 
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
     setSpeechError("");
-    setRecognizedText("");
-    setSpeechSuccess(false);
-    recognizedTextRef.current = "";
+    if (!isRestart) {
+      setRecognizedText("");
+      setSpeechSuccess(false);
+      recognizedTextRef.current = "";
+      accumulatedTextRef.current = "";
+    } else {
+      accumulatedTextRef.current = recognizedTextRef.current;
+    }
 
     try {
       const rec = new SpeechRecognition();
@@ -201,6 +208,7 @@ export const StudyCardSpeech = React.memo(({
       const activeLang = useLanguageStore.getState().activeLanguage;
       const cardLang = card.target_language || currentDeck?.target_language || activeLang || 'de';
       rec.lang = getSpeechLocaleForLang(cardLang);
+      rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
 
@@ -213,16 +221,17 @@ export const StudyCardSpeech = React.memo(({
         console.error("Speech Error:", err);
         if (err.error === 'not-allowed') {
           setSpeechError("Нет доступа к микрофону.");
+          setIsListening(false);
         } else if (err.error !== 'no-speech' && err.error !== 'aborted') {
           setSpeechError("Ошибка распознавания. Попробуйте еще раз.");
         }
-        setIsListening(false);
       };
 
       rec.onend = () => {
-        if (isHoldingRef.current && !speechSuccessRef.current) {
+        const stillHolding = isHoldingRef.current || isPointerDownRef.current;
+        if (stillHolding && !speechSuccessRef.current) {
           try {
-            rec.start();
+            startSpeechRecognition(null, true);
             return;
           } catch (err) {}
         }
@@ -231,27 +240,38 @@ export const StudyCardSpeech = React.memo(({
       };
 
       rec.onresult = (event) => {
-        let currentText = '';
+        let sessionText = '';
         let isFinal = false;
 
         for (let i = 0; i < event.results.length; i++) {
-          currentText += event.results[i][0].transcript;
+          sessionText += event.results[i][0].transcript;
           if (event.results[i].isFinal) {
             isFinal = true;
           }
         }
 
+        const prefix = accumulatedTextRef.current;
+        const currentText = prefix ? `${prefix} ${sessionText}`.trim() : sessionText.trim();
+
         setRecognizedText(currentText);
         recognizedTextRef.current = currentText;
 
-        const matched = evaluateSpeech(currentText, isFinal);
+        const isHolding = isHoldingRef.current || isPointerDownRef.current;
+        const matched = evaluateSpeech(currentText, isFinal && !isHolding);
 
-        if (!matched && !isHoldingRef.current) {
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = setTimeout(() => {
-            stopSpeechRecognition();
-            evaluateSpeech(currentText, true);
-          }, 2200);
+        if (!matched) {
+          if (isHolding) {
+            if (silenceTimerRef.current) {
+              clearTimeout(silenceTimerRef.current);
+              silenceTimerRef.current = null;
+            }
+          } else {
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = setTimeout(() => {
+              stopSpeechRecognition();
+              evaluateSpeech(currentText, true);
+            }, 2200);
+          }
         }
       };
 
@@ -271,6 +291,12 @@ export const StudyCardSpeech = React.memo(({
     wasListeningOnPressStartRef.current = isListening;
     justHandledPointerRef.current = false;
 
+    if (e?.currentTarget && typeof e.currentTarget.setPointerCapture === 'function') {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch (err) {}
+    }
+
     if (pressTimerRef.current) {
       clearTimeout(pressTimerRef.current);
     }
@@ -278,6 +304,11 @@ export const StudyCardSpeech = React.memo(({
     pressTimerRef.current = setTimeout(() => {
       isHoldingRef.current = true;
     }, 250);
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
 
     if (!isListening && !speechSuccess) {
       startSpeechRecognition(e);
@@ -288,6 +319,14 @@ export const StudyCardSpeech = React.memo(({
     e?.stopPropagation();
     if (!isPointerDownRef.current) return;
     isPointerDownRef.current = false;
+
+    if (e?.currentTarget && typeof e.currentTarget.releasePointerCapture === 'function') {
+      try {
+        if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+      } catch (err) {}
+    }
 
     if (pressTimerRef.current) {
       clearTimeout(pressTimerRef.current);
@@ -302,14 +341,14 @@ export const StudyCardSpeech = React.memo(({
     const duration = Date.now() - pressStartTimeRef.current;
     const wasHolding = isHoldingRef.current || duration >= 250;
 
+    isHoldingRef.current = false;
+
     if (wasHolding) {
-      isHoldingRef.current = false;
       stopSpeechRecognition(e);
       if (recognizedTextRef.current) {
         evaluateSpeech(recognizedTextRef.current, true);
       }
     } else {
-      isHoldingRef.current = false;
       if (wasListeningOnPressStartRef.current) {
         stopSpeechRecognition(e);
         if (recognizedTextRef.current) {

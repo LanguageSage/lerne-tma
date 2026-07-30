@@ -3,10 +3,10 @@ import { getUserId } from '../utils/auth';
 
 const INITIAL_EASE_FACTOR = 2.5;
 const MINIMUM_EASE_FACTOR = 1.3;
-const LEARNING_STEPS = [1, 10]; // in minutes
-const RELEARN_STEPS = [10];     // in minutes
+const LEARNING_STEPS = [5, 10]; // in minutes
+const RELEARN_STEPS = [5];      // in minutes
 const GRADUATING_INTERVAL_GOOD = 1; // in days
-const GRADUATING_INTERVAL_EASY = 4; // in days
+const GRADUATING_INTERVAL_EASY = 3; // in days
 const HARD_MULTIPLIER = 1.1;
 const EASY_MULTIPLIER = 1.3;
 
@@ -34,17 +34,15 @@ const formatInterval = (value, isDays = false) => {
 const calcLearningNextState = (progress, grade) => {
   const steps = progress.queue !== 'relearning' ? LEARNING_STEPS : RELEARN_STEPS;
   const stepIdx = progress.step_index ?? 0;
+  const nextQueue = progress.queue === 'new' ? 'learning' : progress.queue;
 
   if (grade === 0) { // Again
-    return [progress.queue === 'new' ? 'learning' : progress.queue, steps[0], 0];
+    return [nextQueue, steps[0], 0];
   } else if (grade === 1) { // Hard
-    return [progress.queue, steps[stepIdx] * 1.5, stepIdx];
+    const hardInterval = steps[1] ?? steps[0] * 2;
+    return [nextQueue, hardInterval, stepIdx];
   } else if (grade === 2) { // Good
-    if (stepIdx + 1 < steps.length) {
-      return ['learning', steps[stepIdx + 1], stepIdx + 1];
-    } else {
-      return ['review', GRADUATING_INTERVAL_GOOD, null];
-    }
+    return ['review', GRADUATING_INTERVAL_GOOD, null];
   } else { // Easy
     return ['review', GRADUATING_INTERVAL_EASY, null];
   }
@@ -296,11 +294,11 @@ export const offlineApi = {
           const p = progressByCard[c.id];
           if (p && p.queue !== 'new') {
             tracked++;
-            const nextReviewDate = p.next_review ? new Date(p.next_review) : null;
-            if (nextReviewDate && nextReviewDate <= now) {
-              if (p.queue === 'learning' || p.queue === 'relearning') {
-                learning++;
-              } else if (p.queue === 'review') {
+            if (p.queue === 'learning' || p.queue === 'relearning') {
+              learning++;
+            } else if (p.queue === 'review') {
+              const nextReviewDate = p.next_review ? new Date(p.next_review) : null;
+              if (nextReviewDate && nextReviewDate <= now) {
                 due++;
               }
             }
@@ -532,6 +530,27 @@ export const offlineApi = {
           nextProgress = dueCardsWithProgress[0].progress;
         } else if (newCards.length > 0) {
           nextCard = newCards[0];
+        }
+      }
+
+      if (!nextCard) {
+        // Fallback: check for learning cards scheduled for today
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const todayLearning = [];
+        cards.forEach(c => {
+          if (excludeSet.has(c.id)) return;
+          const p = progressMap[c.id];
+          if (p && ['learning', 'relearning'].includes(p.queue)) {
+            const nr = p.next_review ? new Date(p.next_review) : null;
+            if (nr && nr <= endOfDay) {
+              todayLearning.push({ card: c, progress: p });
+            }
+          }
+        });
+        if (todayLearning.length > 0) {
+          todayLearning.sort((a, b) => new Date(a.progress.next_review) - new Date(b.progress.next_review));
+          nextCard = todayLearning[0].card;
+          nextProgress = todayLearning[0].progress;
         }
       }
 

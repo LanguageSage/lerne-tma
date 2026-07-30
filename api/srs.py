@@ -4,10 +4,10 @@ import math
 # Константы (синхронизированы с основным приложением Lerne)
 INITIAL_EASE_FACTOR = 2.5
 MINIMUM_EASE_FACTOR = 1.3
-LEARNING_STEPS = [1, 10]  # в минутах
-RELEARN_STEPS = [10]      # в минутах
+LEARNING_STEPS = [5, 10]  # в минутах
+RELEARN_STEPS = [5]       # в минутах
 GRADUATING_INTERVAL_GOOD = 1  # дни
-GRADUATING_INTERVAL_EASY = 4  # дни
+GRADUATING_INTERVAL_EASY = 3  # дни
 
 HARD_MULTIPLIER = 1.1 # В lerne/logic/srs_manager.py используется 1.1
 EASY_MULTIPLIER = 1.3
@@ -18,6 +18,7 @@ class _DummyProgress:
     interval = 0
     ease_factor = INITIAL_EASE_FACTOR
     lapses = 0
+    next_review = None
 
 def get_next_intervals(progress) -> dict[int, str]:
     """Возвращает текстовые описания следующих интервалов для кнопок."""
@@ -87,16 +88,15 @@ def review_card(progress, grade: int):
 def _calc_learning_next_state(progress, grade, now):
     steps = LEARNING_STEPS if progress.queue != 'relearning' else RELEARN_STEPS
     step_idx = progress.step_index if progress.step_index is not None else 0
+    next_queue = 'learning' if progress.queue == 'new' else progress.queue
     
     if grade == 0: # Again
-        return ('learning' if progress.queue == 'new' else progress.queue, steps[0], 0)
+        return (next_queue, steps[0], 0)
     elif grade == 1: # Hard
-        return (progress.queue, steps[step_idx] * 1.5, step_idx)
+        hard_interval = steps[1] if len(steps) > 1 else steps[0] * 2
+        return (next_queue, hard_interval, step_idx)
     elif grade == 2: # Good
-        if step_idx + 1 < len(steps):
-            return ('learning', steps[step_idx + 1], step_idx + 1)
-        else:
-            return ('review', GRADUATING_INTERVAL_GOOD, None)
+        return ('review', GRADUATING_INTERVAL_GOOD, None)
     else: # Easy
         return ('review', GRADUATING_INTERVAL_EASY, None)
 

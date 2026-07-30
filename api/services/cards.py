@@ -275,6 +275,30 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                 return c, p
             return None, None
 
+        # Функция для поиска карточек в процессе обучения, запланированных на сегодня
+        def get_today_learning_card():
+            end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+            learning_query = (TMAProgress
+                              .select(TMAProgress, TMA_Card)
+                              .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
+                              .where(
+                                  TMAProgress.user_id == user_id,
+                                  TMA_Card.deck_id == deck_id,
+                                  TMA_Card.is_deleted == False,
+                                  TMAProgress.queue << ['learning', 'relearning'],
+                                  TMAProgress.next_review <= end_of_day
+                              ))
+            if exclude_ids:
+                learning_query = learning_query.where(~(TMAProgress.card_id << exclude_ids))
+            
+            p = learning_query.order_by(TMAProgress.next_review.asc()).first()
+            if p:
+                c = getattr(p, 'tma_card', None) or getattr(p, 'card', None)
+                if not c:
+                    c = TMA_Card.get_by_id(p.card_id)
+                return c, p
+            return None, None
+
         # Если включен режим learn_more, новые карты приоритетнее,
         # так как повторять старые раньше времени нужно только когда нет новых.
         if learn_more:
@@ -287,7 +311,11 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                 )
                 return card, progress
             
-            return get_due_card()
+            card, progress = get_due_card()
+            if card:
+                return card, progress
+                
+            return get_today_learning_card()
         else:
             card, progress = get_due_card()
             if card:
@@ -302,7 +330,7 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                 )
                 return card, progress
                 
-            return None, None
+            return get_today_learning_card()
             
     except Exception as e:
         logger.error(f"Error in get_next_card: {e}")

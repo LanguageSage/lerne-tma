@@ -61,6 +61,38 @@ def _parse_db_url(url: str):
     return params
 
 
+if PooledPostgresqlDatabase:
+    class AutoReconnectPostgresqlDatabase(PooledPostgresqlDatabase):
+        def execute_sql(self, sql, params=None, commit=True):
+            try:
+                return super().execute_sql(sql, params, commit)
+            except Exception as exc:
+                err_str = str(exc).lower()
+                if any(k in err_str for k in ["closed", "terminated", "connection", "socket", "reset", "eof"]):
+                    logger.warning(f"DB connection dropped ({exc}). Auto-reconnecting and retrying Peewee query...")
+                    try:
+                        self.close()
+                    except Exception:
+                        pass
+                    return super().execute_sql(sql, params, commit)
+                raise
+else:
+    class AutoReconnectPostgresqlDatabase(PostgresqlDatabase):
+        def execute_sql(self, sql, params=None, commit=True):
+            try:
+                return super().execute_sql(sql, params, commit)
+            except Exception as exc:
+                err_str = str(exc).lower()
+                if any(k in err_str for k in ["closed", "terminated", "connection", "socket", "reset", "eof"]):
+                    logger.warning(f"DB connection dropped ({exc}). Auto-reconnecting and retrying Peewee query...")
+                    try:
+                        self.close()
+                    except Exception:
+                        pass
+                    return super().execute_sql(sql, params, commit)
+                raise
+
+
 def _create_pool():
     global _pool
     url = os.environ.get("SUPABASE_DB_URL")
@@ -70,7 +102,7 @@ def _create_pool():
     db_params = _parse_db_url(url)
 
     for driver_name, factory in [
-        ("psycopg2_pool", lambda: PooledPostgresqlDatabase(
+        ("psycopg2_pool", lambda: AutoReconnectPostgresqlDatabase(
             max_connections=8, stale_timeout=300, autorollback=True, **db_params)),
         ("db_url", lambda: db_url_connect(url)) if db_url_connect else None,
         ("pg8000", lambda: Pg8000Database(

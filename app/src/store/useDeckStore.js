@@ -98,35 +98,53 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
-  fetchDecks: async (force = false) => {
+  fetchDecks: async (force = false, attempts = 3) => {
     const { decks } = get();
     if (!force && decks.length > 0) return;
     
-    try {
-      const res = await api.get('/decks');
-      set({ decks: res.data });
-      if (force) {
-        get().fetchFolders();
+    let lastError;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const res = await api.get('/decks');
+        set({ decks: res.data });
+        if (force) {
+          get().fetchFolders();
+        }
+        return;
+      } catch (err) {
+        lastError = err;
+        if (attempt < attempts) {
+          await new Promise(r => setTimeout(r, 400 * attempt));
+        }
       }
-    } catch (err) {
-      console.error('Fetch Decks Error:', err);
-      throw err;
     }
+    console.error('Fetch Decks Error:', lastError);
+    throw lastError;
   },
 
-  fetchDeckCards: async (deckId) => {
+  fetchDeckCards: async (deckId, attempts = 3) => {
     set({ cardsLoading: true });
     try {
-      if (deckId === 'favorites') {
-        const res = await api.get(`/cards/favorites?_t=${Date.now()}`);
-        set({ deckCards: res.data });
-      } else {
-        const res = await api.get(`/decks/${deckId}/cards?_t=${Date.now()}`);
-        set({ deckCards: res.data });
+      let lastError;
+      for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+          if (deckId === 'favorites') {
+            const res = await api.get(`/cards/favorites?_t=${Date.now()}`);
+            set({ deckCards: res.data });
+          } else {
+            const res = await api.get(`/decks/${deckId}/cards?_t=${Date.now()}`);
+            set({ deckCards: res.data });
+          }
+          return;
+        } catch (err) {
+          lastError = err;
+          if (attempt < attempts) {
+            await new Promise(r => setTimeout(r, 150 * attempt));
+          }
+        }
       }
-    } catch (err) {
-      console.error('Fetch Deck Cards Error:', err);
-      throw err;
+      console.error('Fetch Deck Cards Error after retries:', lastError);
+      throw lastError;
     } finally {
       set({ cardsLoading: false });
     }
