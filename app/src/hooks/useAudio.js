@@ -95,9 +95,19 @@ export const useAudio = (autoPlay, showToast) => {
   }, []);
 
   const stopAudio = useCallback(() => {
+    if (globalActiveAudio) {
+      try {
+        globalActiveAudio.pause();
+        globalActiveAudio.currentTime = 0;
+        globalActiveAudio.src = '';
+      } catch (e) {}
+      globalActiveAudio = null;
+    }
     if (audioRef.current) {
       try {
         audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current.src = '';
         audioRef.current.onended = null;
         audioRef.current.onerror = null;
         audioRef.current.oncanplaythrough = null;
@@ -113,11 +123,7 @@ export const useAudio = (autoPlay, showToast) => {
     setCurrentTime(0);
     setDuration(0);
     setCurrentUrl(null);
-
-    if (globalActiveAudio === audioRef.current || globalActiveStopCallback === stopAudio) {
-      globalActiveAudio = null;
-      globalActiveStopCallback = null;
-    }
+    globalActiveStopCallback = null;
   }, []);
 
   const pauseAudio = useCallback(() => {

@@ -1,5 +1,23 @@
 /* ── Floating Collapsible Audio Player CSS ────────────────────────────── */
 
+/* Fixed Screen Container — Pins the audio player above the bottom action bar regardless of card height */
+.card-audio-floating-wrapper {
+  position: fixed;
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  width: calc(100% - 32px);
+  max-width: 440px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.card-audio-floating-wrapper > * {
+  pointer-events: auto;
+}
+
 /* ── Collapsed Floating Pill Button ──────────────────────────────────── */
 .card-audio-floating-pill {
   display: inline-flex;

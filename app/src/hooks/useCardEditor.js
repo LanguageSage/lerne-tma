@@ -103,17 +103,27 @@ export const useCardEditor = () => {
       
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
-      const { currentDeck } = useDeckStore.getState();
+      const { currentDeck, deckCards } = useDeckStore.getState();
+
+      const updatedDeckCards = (deckCards || []).filter(c => c.id !== cardId);
+      useDeckStore.setState({ deckCards: updatedDeckCards });
 
       session.removeCardFromSession(cardId);
       
       const freshSession = useSessionStore.getState();
-      if (ui.view === 'study' && !freshSession.card && currentDeck) {
-        const historyIds = freshSession.studyHistory.map(c => c && c.id);
-        await fetchNextCard(currentDeck.id, false, historyIds);
+      if (ui.view === 'study' && currentDeck) {
+        if (!freshSession.card) {
+          if (updatedDeckCards.length > 0) {
+            await fetchNextCard(currentDeck.id, true);
+          } else {
+            session.setCard(null);
+          }
+        }
       }
 
-      if (currentDeck) fetchDeckCards(currentDeck.id);
+      if (currentDeck && currentDeck.id !== 'duplicates' && currentDeck.id !== 'favorites') {
+        fetchDeckCards(currentDeck.id);
+      }
       fetchDecks(true);
     } catch (err) {
       console.error(err);
@@ -159,17 +169,27 @@ export const useCardEditor = () => {
       
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
-      const { currentDeck } = useDeckStore.getState();
+      const { currentDeck, deckCards } = useDeckStore.getState();
       
+      const updatedDeckCards = (deckCards || []).filter(c => c.id !== targetCard.id);
+      useDeckStore.setState({ deckCards: updatedDeckCards });
+
       session.removeCardFromSession(targetCard.id);
       
       const freshSession = useSessionStore.getState();
-      if (ui.view === 'study' && !freshSession.card && currentDeck) {
-        const historyIds = freshSession.studyHistory.map(c => c && c.id);
-        await fetchNextCard(currentDeck.id, false, historyIds);
+      if (ui.view === 'study' && currentDeck) {
+        if (!freshSession.card) {
+          if (updatedDeckCards.length > 0) {
+            await fetchNextCard(currentDeck.id, true);
+          } else {
+            session.setCard(null);
+          }
+        }
       }
       
-      if (currentDeck) fetchDeckCards(currentDeck.id);
+      if (currentDeck && currentDeck.id !== 'duplicates' && currentDeck.id !== 'favorites') {
+        fetchDeckCards(currentDeck.id);
+      }
       fetchDecks(true);
     } catch (err) {
       showToast(`Ошибка при перемещении: ${err.response?.data?.detail || err.message}`);
@@ -182,16 +202,22 @@ export const useCardEditor = () => {
     try {
       await api.post('/cards/save', {
         deck_id: targetDeckId,
-        front: targetCard.front || '',
-        back: targetCard.back || '',
+        front: targetCard.front || targetCard.front_text || '',
+        back: targetCard.back || targetCard.back_text || '',
         context: targetCard.context || '',
         image_path: targetCard.image_path || cleanMedia(targetCard.image_url),
         audio_path: targetCard.audio_path || cleanMedia(targetCard.audio_url),
+        audio_back_path: targetCard.audio_back_path || cleanMedia(targetCard.audio_back_url),
         video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
         video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url),
-        want_to_learn: !!targetCard.want_to_learn
+        want_to_learn: !!targetCard.want_to_learn,
+        allow_duplicate: true
       });
       showToast("Карточка скопирована", "success");
+      const { currentDeck } = useDeckStore.getState();
+      if (currentDeck && currentDeck.id === targetDeckId) {
+        fetchDeckCards(currentDeck.id);
+      }
       fetchDecks(true);
     } catch (err) {
       showToast(`Ошибка при копировании: ${err.response?.data?.detail || err.message}`);

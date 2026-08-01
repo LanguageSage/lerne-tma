@@ -88,6 +88,9 @@ export const useStudySession = () => {
               nextCardInfo = null;
             }
           }
+        } else if ((isFirst || session.isLearningMore) && deckCards && deckCards.length > 0) {
+          // Starting session or repeating deck ("Учить еще"): start from card 0
+          nextCardInfo = deckCards[0];
         }
 
         if (nextCardInfo) {
@@ -95,12 +98,13 @@ export const useStudySession = () => {
           const newCard = res.data;
           session.addToHistory(newCard);
           prefetchMedia(newCard.image_url);
-        } else if (!isFirst) {
+        } else if (!isFirst && !session.isLearningMore) {
           // Reached end of sequential deckCards traversal! End session cleanly to show summary screen
           session.setCard(null);
         } else {
           // Fallback to SRS when starting the session (isFirst) or if deck list is not loaded/empty
-          const excludeParam = excludeIds.length > 0 ? `exclude_ids=${excludeIds.join(',')}` : '';
+          const effectiveExclude = session.isLearningMore ? [] : excludeIds;
+          const excludeParam = effectiveExclude.length > 0 ? `exclude_ids=${effectiveExclude.join(',')}` : '';
           const learnMoreParam = session.isLearningMore ? 'learn_more=true' : '';
           const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
           const queryString = params ? `?${params}` : '';

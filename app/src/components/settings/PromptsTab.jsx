@@ -136,13 +136,15 @@ export const PromptsTab = () => {
       showToast("Укажите название промпта");
       return;
     }
+    const mainText = editingPrompt.instruction || editingPrompt.translation_prompt || editingPrompt.context_prompt || '';
+
     const finalTranslation = editingPrompt.isSplit 
-      ? editingPrompt.translation_prompt 
-      : editingPrompt.instruction;
+      ? (editingPrompt.translation_prompt || mainText) 
+      : mainText;
 
     const finalContext = editingPrompt.isSplit 
-      ? editingPrompt.context_prompt 
-      : editingPrompt.instruction;
+      ? (editingPrompt.context_prompt || mainText) 
+      : mainText;
 
     try {
       await api.post('/user/prompts', {
@@ -265,8 +267,13 @@ export const PromptsTab = () => {
             </div>
             <p className="field-hint">Правила разбора слов, разбора грамматики и количество примеров в создаваемой карточке</p>
             <textarea 
-              value={editingPrompt.instruction} 
-              onChange={e => setEditingPrompt({ ...editingPrompt, instruction: e.target.value })} 
+              value={editingPrompt.instruction || editingPrompt.translation_prompt || ''} 
+              onChange={e => setEditingPrompt({ 
+                ...editingPrompt, 
+                instruction: e.target.value,
+                translation_prompt: e.target.value,
+                context_prompt: e.target.value 
+              })} 
               rows={6} 
               placeholder="объясни слова с переводом на русский и подробно грамматику, затем 3 примера..."
             />
@@ -556,7 +563,20 @@ export const PromptsTab = () => {
                         Активировать
                       </button>
                     )}
-                    <button className="btn-secondary btn-tiny" style={{ padding: '6px' }} onClick={() => setEditingPrompt({ ...p, isSplit: p.translation_prompt !== p.context_prompt })}>
+                    <button 
+                      className="btn-secondary btn-tiny" 
+                      style={{ padding: '6px' }} 
+                      onClick={() => {
+                        const textContent = p.instruction || p.translation_prompt || p.context_prompt || '';
+                        setEditingPrompt({ 
+                          ...p, 
+                          instruction: textContent,
+                          translation_prompt: p.translation_prompt || textContent,
+                          context_prompt: p.context_prompt || textContent,
+                          isSplit: Boolean(p.translation_prompt && p.context_prompt && p.translation_prompt !== p.context_prompt) 
+                        });
+                      }}
+                    >
                       <Edit2 size={12} />
                     </button>
                     <button className="btn-secondary btn-tiny" style={{ padding: '6px', color: '#ef4444' }} onClick={() => handleDelete(p.id)}>

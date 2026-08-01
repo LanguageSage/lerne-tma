@@ -406,61 +406,59 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 8px;
-  padding-bottom: calc(25px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 12px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: center;
   z-index: 1000;
-  pointer-events: none; /* Пропускаем клики сквозь контейнер */
-  background: none;
-  border: none;
-  box-shadow: none;
+  pointer-events: none;
+  background: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-top: none !important;
+  box-shadow: none !important;
   animation: slideUp 0.3s ease-out;
 }
 
 .grade-buttons-floating .btn-grade {
   pointer-events: auto;
   flex: 1;
-  max-width: 80px;
-  height: 48px !important;
-  border-radius: 16px;
-  backdrop-filter: blur(10px);
+  max-width: 90px;
+  height: 46px !important;
+  border-radius: 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 1px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   margin: 0 !important;
-  background: rgba(0, 0, 0, 0.3) !important;
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   cursor: pointer;
 }
 
 .grade-label {
   font-size: 0.65rem;
-  font-weight: 700;
-  opacity: 0.9;
+  font-weight: 800;
+  opacity: 0.95;
   transition: all 0.2s ease;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: -2px;
+  margin-bottom: -1px;
 }
 
 .grade-val {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
-/* Specific Tints for Grades */
-.grade-buttons-floating .grade-0 { color: #fff !important; background: rgba(239, 68, 68, 0.4) !important; border-color: rgba(239, 68, 68, 0.5) !important; }
-.grade-buttons-floating .grade-1 { color: #fff !important; background: rgba(245, 158, 11, 0.4) !important; border-color: rgba(245, 158, 11, 0.5) !important; }
-.grade-buttons-floating .grade-2 { color: #fff !important; background: rgba(16, 185, 129, 0.4) !important; border-color: rgba(16, 185, 129, 0.5) !important; }
-.grade-buttons-floating .grade-3 { color: #fff !important; background: rgba(59, 130, 246, 0.4) !important; border-color: rgba(59, 130, 246, 0.5) !important; }
+/* Opaque High-Contrast Tints for Grades */
+.grade-buttons-floating .grade-0 { color: #ffffff !important; background: #dc2626 !important; border-color: #ef4444 !important; }
+.grade-buttons-floating .grade-1 { color: #ffffff !important; background: #d97706 !important; border-color: #f59e0b !important; }
+.grade-buttons-floating .grade-2 { color: #ffffff !important; background: #059669 !important; border-color: #10b981 !important; }
+.grade-buttons-floating .grade-3 { color: #ffffff !important; background: #2563eb !important; border-color: #3b82f6 !important; }
 
 /* Active/Hover State */
 .grade-buttons-floating .btn-grade:active,

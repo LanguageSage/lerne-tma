@@ -112,172 +112,175 @@ export const CardAudioPlayer = React.memo(({
   // Per user directive: "при сворачивании голос не нужно показывать. а остальное все подходит"
   if (isCollapsed) {
     return (
-      <div
-        className={`card-audio-floating-pill glass ${isPlaying ? 'playing' : ''} ${className}`}
-        style={style}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Play/Pause Button */}
-        <button
-          type="button"
-          className="pill-btn-play"
-          onClick={handlePlayPauseClick}
-          disabled={disabled || isLoading || needsRegenerate}
-          title={isPlaying ? 'Пауза' : 'Воспроизвести'}
+      <div className="card-audio-floating-wrapper">
+        <div
+          className={`card-audio-floating-pill glass ${isPlaying ? 'playing' : ''} ${className}`}
+          style={style}
+          onClick={(e) => e.stopPropagation()}
         >
-          {isLoading ? (
-            <RefreshCw size={16} className="spin" />
-          ) : isPlaying ? (
-            <Pause size={16} />
-          ) : (
-            <Play size={16} style={{ marginLeft: '1px' }} />
+          {/* Play/Pause Button */}
+          <button
+            type="button"
+            className="pill-btn-play"
+            onClick={handlePlayPauseClick}
+            disabled={disabled || isLoading || needsRegenerate}
+            title={isPlaying ? 'Пауза' : 'Воспроизвести'}
+          >
+            {isLoading ? (
+              <RefreshCw size={16} className="spin" />
+            ) : isPlaying ? (
+              <Pause size={16} />
+            ) : (
+              <Play size={16} style={{ marginLeft: '1px' }} />
+            )}
+          </button>
+
+          {/* Small Progress / Time indicator when playing */}
+          {isThisActive && (
+            <div className="pill-mini-info">
+              <span className="pill-time">{formatTime(currentTime)}</span>
+            </div>
           )}
-        </button>
 
-        {/* Small Progress / Time indicator when playing */}
-        {isThisActive && (
-          <div className="pill-mini-info">
-            <span className="pill-time">{formatTime(currentTime)}</span>
-          </div>
-        )}
+          {/* Playback Speed indicator */}
+          <button
+            type="button"
+            className="pill-btn-speed"
+            onClick={(e) => {
+              e.stopPropagation();
+              const speeds = [0.5, 0.75, 1.0, 1.25, 1.5];
+              const nextIdx = (speeds.indexOf(playbackRate) + 1) % speeds.length;
+              setPlaybackSpeed?.(speeds[nextIdx]);
+            }}
+            title="Скорость"
+          >
+            {playbackRate}x
+          </button>
 
-        {/* Playback Speed indicator */}
-        <button
-          type="button"
-          className="pill-btn-speed"
-          onClick={(e) => {
-            e.stopPropagation();
-            const speeds = [0.5, 0.75, 1.0, 1.25, 1.5];
-            const nextIdx = (speeds.indexOf(playbackRate) + 1) % speeds.length;
-            setPlaybackSpeed?.(speeds[nextIdx]);
-          }}
-          title="Скорость"
-        >
-          {playbackRate}x
-        </button>
-
-        {/* Expand Button */}
-        <button
-          type="button"
-          className="pill-btn-expand"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsCollapsed(false);
-          }}
-          title="Раскрыть плеер"
-        >
-          <ChevronUp size={16} />
-        </button>
+          {/* Expand Button */}
+          <button
+            type="button"
+            className="pill-btn-expand"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsCollapsed(false);
+            }}
+            title="Раскрыть плеер"
+          >
+            <ChevronUp size={16} />
+          </button>
+        </div>
       </div>
     );
   }
 
   // ── EXPANDED FULL PLAYER STATE ────────────────────────────────────────────
   return (
-    <div
-      className={`card-audio-player-bar floating-expanded glass ${isThisActive ? 'active' : ''} ${className}`}
-      style={style}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Top Header Row with Title, Voice Picker & Collapse toggle */}
-      <div className="audio-player-header-row">
-        <div className="audio-player-header-left">
-          <span className="audio-player-title">Плеер</span>
+    <div className="card-audio-floating-wrapper">
+      <div
+        className={`card-audio-player-bar floating-expanded glass ${isThisActive ? 'active' : ''} ${className}`}
+        style={style}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top Header Row with Title, Voice Picker & Collapse toggle */}
+        <div className="audio-player-header-row">
+          <div className="audio-player-header-left">
+            <span className="audio-player-title">Плеер</span>
 
-          {voicePicker && voicePicker.voices.length > 0 && (
-            <div className="audio-player-voice-picker">
+            {voicePicker && voicePicker.voices.length > 0 && (
+              <div className="audio-player-voice-picker">
+                <button
+                  type="button"
+                  className={`audio-player-btn-voice ${!voicePicker.isDefaultVoice ? 'custom' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowVoiceMenu(!showVoiceMenu);
+                    setShowSpeedMenu(false);
+                  }}
+                  title="Выбрать голос"
+                >
+                  <Mic2 size={12} />
+                  <span>{selectedVoiceLabel?.label || '…'}</span>
+                  <span className="voice-gender-icon">
+                    {GENDER_ICON[selectedVoiceLabel?.gender] || ''}
+                  </span>
+                </button>
+
+                {showVoiceMenu && (
+                  <div className="audio-player-voice-dropdown glass">
+                    {voicePicker.voices.map((v) => (
+                      <button
+                        key={v.value}
+                        type="button"
+                        className={`voice-option ${voicePicker.selectedVoice === v.value ? 'active' : ''}`}
+                        onClick={(e) => handleVoiceSelect(v, e)}
+                      >
+                        <span className="voice-option-gender">{GENDER_ICON[v.gender]}</span>
+                        <span>{v.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {voicePicker && !voicePicker.isDefaultVoice && (
               <button
                 type="button"
-                className={`audio-player-btn-voice ${!voicePicker.isDefaultVoice ? 'custom' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowVoiceMenu(!showVoiceMenu);
-                  setShowSpeedMenu(false);
-                }}
-                title="Выбрать голос"
+                className={`audio-player-btn-regenerate ${voicePicker.isGenerating ? 'loading' : ''}`}
+                onClick={handleGeneratePreview}
+                disabled={voicePicker.isGenerating || !cardText}
+                title="Озвучить другим голосом"
               >
-                <Mic2 size={12} />
-                <span>{selectedVoiceLabel?.label || '…'}</span>
-                <span className="voice-gender-icon">
-                  {GENDER_ICON[selectedVoiceLabel?.gender] || ''}
-                </span>
+                {voicePicker.isGenerating ? (
+                  <RefreshCw size={12} className="spin" />
+                ) : (
+                  <Volume2 size={12} />
+                )}
+                <span>{voicePicker.isGenerating ? 'Генерирую…' : 'Прослушать'}</span>
               </button>
+            )}
+          </div>
 
-              {showVoiceMenu && (
-                <div className="audio-player-voice-dropdown glass">
-                  {voicePicker.voices.map((v) => (
-                    <button
-                      key={v.value}
-                      type="button"
-                      className={`voice-option ${voicePicker.selectedVoice === v.value ? 'active' : ''}`}
-                      onClick={(e) => handleVoiceSelect(v, e)}
-                    >
-                      <span className="voice-option-gender">{GENDER_ICON[v.gender]}</span>
-                      <span>{v.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {voicePicker && !voicePicker.isDefaultVoice && (
-            <button
-              type="button"
-              className={`audio-player-btn-regenerate ${voicePicker.isGenerating ? 'loading' : ''}`}
-              onClick={handleGeneratePreview}
-              disabled={voicePicker.isGenerating || !cardText}
-              title="Озвучить другим голосом"
-            >
-              {voicePicker.isGenerating ? (
-                <RefreshCw size={12} className="spin" />
-              ) : (
-                <Volume2 size={12} />
-              )}
-              <span>{voicePicker.isGenerating ? 'Генерирую…' : 'Прослушать'}</span>
-            </button>
-          )}
-        </div>
-
-        <button
-          type="button"
-          className="audio-player-btn-collapse"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsCollapsed(true);
-            setShowSpeedMenu(false);
-            setShowVoiceMenu(false);
-          }}
-          title="Свернуть"
-        >
-          <ChevronDown size={18} />
-        </button>
-      </div>
-
-      {/* Row 1: Playback Controls */}
-      <div className="audio-player-controls">
-        {/* Play / Pause */}
-        <button
-          type="button"
-          className={`audio-player-btn-main ${isPlaying ? 'playing' : ''}`}
-          onClick={handlePlayPauseClick}
-          disabled={disabled || isLoading || needsRegenerate}
-          title={isPlaying ? 'Пауза' : 'Воспроизвести'}
-        >
-          {isLoading ? (
-            <RefreshCw size={20} className="spin" />
-          ) : isPlaying ? (
-            <Pause size={20} />
-          ) : (
-            <Play size={20} style={{ marginLeft: '2px' }} />
-          )}
-        </button>
-
-        {/* Stop */}
-        {isThisActive && (
           <button
             type="button"
-            className="audio-player-btn-stop"
+            className="audio-player-btn-collapse"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsCollapsed(true);
+              setShowSpeedMenu(false);
+              setShowVoiceMenu(false);
+            }}
+            title="Свернуть"
+          >
+            <ChevronDown size={18} />
+          </button>
+        </div>
+
+        {/* Row 1: Playback Controls */}
+        <div className="audio-player-controls">
+          {/* Play / Pause */}
+          <button
+            type="button"
+            className={`audio-player-btn-main ${isPlaying ? 'playing' : ''}`}
+            onClick={handlePlayPauseClick}
+            disabled={disabled || isLoading || needsRegenerate}
+            title={isPlaying ? 'Пауза' : 'Воспроизвести'}
+          >
+            {isLoading ? (
+              <RefreshCw size={20} className="spin" />
+            ) : isPlaying ? (
+              <Pause size={20} />
+            ) : (
+              <Play size={20} style={{ marginLeft: '2px' }} />
+            )}
+          </button>
+
+          {/* Stop */}
+          {isThisActive && (
+            <button
+              type="button"
+              className="audio-player-btn-stop"
             onClick={handleStopClick}
             title="Остановить"
           >
@@ -336,5 +339,6 @@ export const CardAudioPlayer = React.memo(({
         </div>
       </div>
     </div>
+  </div>
   );
 });

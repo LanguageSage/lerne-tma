@@ -67,6 +67,7 @@ def get_user_prompts(target_language: str = "de", native_language: str = None, u
             custom_prompts.append({
                 "id": p.id,
                 "name": p.name,
+                "instruction": p.translation_prompt or p.context_prompt or "",
                 "translation_prompt": p.translation_prompt or "",
                 "context_prompt": p.context_prompt or "",
                 "target_language": p.target_language or "de",

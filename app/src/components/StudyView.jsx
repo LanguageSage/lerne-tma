@@ -253,7 +253,12 @@ export const StudyView = ({ startTutorial }) => {
 
   const handleLearnMore = async () => {
     setIsLearningMore(true);
-    await fetchNextCard(currentDeck?.id);
+    useSessionStore.getState().setStudyHistory([]);
+    useSessionStore.getState().setHistoryIndex(-1);
+    useSessionStore.getState().setCard(null);
+    if (currentDeck?.id) {
+      await fetchNextCard(currentDeck.id, true, []);
+    }
   };
 
   const handleAutoplayAwareBack = async () => {
@@ -337,8 +342,10 @@ export const StudyView = ({ startTutorial }) => {
       try {
         await handleResetProgress(currentDeck.id);
         showToast('Прогресс успешно сброшен', 'success');
+        
         useSessionStore.getState().resetSession();
-        await fetchNextCard(currentDeck.id);
+        await fetchDeckCards(currentDeck.id);
+        await fetchNextCard(currentDeck.id, true, []);
       } catch (err) {
         showToast('Ошибка при сбросе прогресса');
       }

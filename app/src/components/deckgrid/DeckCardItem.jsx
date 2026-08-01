@@ -121,6 +121,10 @@ export const DeckCardItem = ({
     if (window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) {
       try {
         await handleResetProgress(deck.id);
+        const session = useSessionStore.getState();
+        if (session.card && session.card.deck_id === deck.id) {
+          session.resetSession();
+        }
         showToast("Прогресс успешно сброшен", "success");
       } catch (err) {
         showToast("Ошибка при сбросе прогресса");
