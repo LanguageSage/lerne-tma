@@ -83,7 +83,7 @@ def merge_guest_data(guest_id: int, target_user_id: int):
 def create_deck(name: str, user_id: int, folder_id: int = None, target_language: str = 'de', deck_type: str = 'standard'):
     """Создает новую пользовательскую колоду."""
     try:
-        meta_dict = {"resources": [], "deck_type": deck_type}
+        meta_dict = {"resources": []}
         deck = TMA_Deck.create(
             user_id=user_id,
             name=name,
@@ -665,6 +665,12 @@ def rename_deck(deck_id: int, new_name: str, user_id: int):
         deck.name = new_name
         deck.updated_at = datetime.datetime.now()
         deck.save()
+
+        # If deck has a share_id, delete stored preview screenshot so fresh preview with new name is generated
+        if deck.share_id:
+            filename = f"preview_{deck.share_id}.png"
+            TMAMedia.delete().where((TMAMedia.filename == filename) & (TMAMedia.folder == 'previews')).execute()
+
         return deck
     except Exception as e:
         logger.error(f"Error renaming deck {deck_id}: {e}")

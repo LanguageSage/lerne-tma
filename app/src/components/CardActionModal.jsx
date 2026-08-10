@@ -290,10 +290,17 @@ export const CardActionModal = ({
 };
 
 export const CardActionButton = ({ card, size = 16, className = "", stopDrag = false }) => {
-  const { setActionCard, setIsCardActionModalOpen } = useUiStore();
+  const { setActionCard, setIsCardActionModalOpen, setLastSelectedCardId, setCardsScrollTop } = useUiStore();
 
   const handleClick = (e) => {
     e.stopPropagation();
+    const container = document.getElementById('app-container');
+    if (container) {
+      setCardsScrollTop(container.scrollTop);
+    }
+    if (card?.id) {
+      setLastSelectedCardId(card.id);
+    }
     setActionCard(card);
     setIsCardActionModalOpen(true);
   };

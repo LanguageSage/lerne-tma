@@ -50,6 +50,9 @@ export const useUiStore = create((set) => ({
   lastSelectedCardId: null,
   setLastSelectedCardId: (id) => set({ lastSelectedCardId: id }),
 
+  cardsScrollTop: 0,
+  setCardsScrollTop: (top) => set({ cardsScrollTop: top }),
+
   userProfile: null,
   setUserProfile: (profile) => set({ userProfile: profile }),
 

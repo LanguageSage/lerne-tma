@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '../services/api';
+import { getPublicShareUrl, executeShare } from '../utils/share';
 
 let reorderTimeout = null;
 let cardReorderTimeout = null;
@@ -122,8 +123,14 @@ export const useDeckStore = create((set, get) => ({
     throw lastError;
   },
 
-  fetchDeckCards: async (deckId, attempts = 3) => {
-    set({ cardsLoading: true });
+  fetchDeckCards: async (deckId, attempts = 3, forceLoading = false) => {
+    const state = get();
+    const isSameDeck = state.currentDeck?.id === deckId;
+    const hasCards = state.deckCards && state.deckCards.length > 0;
+    
+    if (forceLoading || !isSameDeck || !hasCards) {
+      set({ cardsLoading: true });
+    }
     try {
       let lastError;
       for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -288,38 +295,12 @@ export const useDeckStore = create((set, get) => ({
     try {
       const res = await api.post(`/share/generate/deck/${deckId}`);
       if (res.data.status === 'ok') {
-        const shareId = res.data.share_id;
-        // Используем веб-ссылку для красивого превью (OpenGraph)
-        const link = `${window.location.origin}/api/share/v/${shareId}`;
-        const text = 'Посмотри эту колоду в Lerne!';
-        
-        // 1. Пробуем системное меню Share (Web Share API)
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: 'Колода Lerne',
-              text: text,
-              url: link,
-            });
-            return { success: true, type: 'share' };
-          } catch (shareErr) {
-            // Если пользователь просто закрыл меню, ничего не делаем
-            if (shareErr.name === 'AbortError') return { success: false };
-            // В случае ошибки (например, запрет в iframe) переходим к другим способам
-          }
-        }
-
-        // 2. Пробуем нативный Share внутри Telegram
-        const tg = window.Telegram?.WebApp;
-        if (tg) {
-          const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
-          tg.openTelegramLink(shareUrl);
-          return { success: true, type: 'telegram' };
-        }
-
-        // 3. Фолбэк на буфер обмена
-        await navigator.clipboard.writeText(link);
-        return { success: true, type: 'copy' };
+        const link = getPublicShareUrl(res.data.share_id);
+        return await executeShare({
+          title: 'Колода Lerne',
+          text: 'Посмотри эту колоду в Lerne!',
+          link
+        });
       }
       return { success: false };
     } catch (err) {
@@ -332,32 +313,12 @@ export const useDeckStore = create((set, get) => ({
     try {
       const res = await api.post(`/share/generate/folder/${folderId}`);
       if (res.data.status === 'ok') {
-        const shareId = res.data.share_id;
-        const link = `${window.location.origin}/api/share/v/${shareId}`;
-        const text = 'Посмотри эту папку с колодами в Lerne!';
-        
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: 'Папка Lerne',
-              text: text,
-              url: link,
-            });
-            return { success: true, type: 'share' };
-          } catch (shareErr) {
-            if (shareErr.name === 'AbortError') return { success: false };
-          }
-        }
-
-        const tg = window.Telegram?.WebApp;
-        if (tg) {
-          const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
-          tg.openTelegramLink(shareUrl);
-          return { success: true, type: 'telegram' };
-        }
-
-        await navigator.clipboard.writeText(link);
-        return { success: true, type: 'copy' };
+        const link = getPublicShareUrl(res.data.share_id);
+        return await executeShare({
+          title: 'Папка Lerne',
+          text: 'Посмотри эту папку с колодами в Lerne!',
+          link
+        });
       }
       return { success: false };
     } catch (err) {

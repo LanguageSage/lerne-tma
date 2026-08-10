@@ -3,6 +3,7 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
 import { cleanMedia } from '../utils/media';
+import { getPublicShareUrl, executeShare } from '../utils/share';
 import { useStudySession } from './useStudySession';
 
 export const useCardEditor = () => {
@@ -270,38 +271,17 @@ export const useCardEditor = () => {
     try {
       const res = await api.post(`/share/generate/card/${targetCard.id}`, { screenshot });
       if (res.data.status === 'ok') {
-        const shareId = res.data.share_id;
-        const link = `${window.location.origin}/api/share/v/${shareId}`;
-        const text = `Посмотри эту карточку: ${targetCard.front}`;
-        
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: 'Карточка Lerne',
-              text: text,
-              url: link,
-            });
-            if (isMobile) setLoading(false);
-            return { success: true, type: 'share' };
-          } catch (shareErr) {
-            if (shareErr.name === 'AbortError') {
-               if (isMobile) setLoading(false);
-               return { success: false };
-            }
-          }
+        const link = getPublicShareUrl(res.data.share_id);
+        const result = await executeShare({
+          title: 'Карточка Lerne',
+          text: `Посмотри эту карточку: ${targetCard.front}`,
+          link
+        });
+        if (result.type === 'copy') {
+          showToast("Ссылка скопирована!", "success");
         }
-
-        const tg = window.Telegram?.WebApp;
-        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
-        
-        if (tg && tg.openTelegramLink) {
-          tg.openTelegramLink(shareUrl);
-        } else {
-          window.open(shareUrl, '_blank');
-        }
-        
         if (isMobile) setLoading(false);
-        return { success: true, type: 'telegram' };
+        return result;
       }
     } catch (err) {
       showToast("Ошибка при создании ссылки", "error");

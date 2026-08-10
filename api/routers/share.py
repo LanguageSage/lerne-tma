@@ -136,8 +136,11 @@ def view_shared_item(share_id: str, request: Request):
     host = request.headers.get("host", "tma-amber.vercel.app")
     scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
     domain = f"{scheme}://{host}"
+    if "localhost" in host or "127.0.0.1" in host or scheme == "http":
+        domain = "https://tma-amber.vercel.app"
     
-    preview_url = f"{domain}/api/preview/{share_id}.jpg?v=18"
+    v_param = abs(hash(f"{title}_{info.get('type')}_{info.get('id')}")) % 1000000
+    preview_url = f"{domain}/api/preview/{share_id}.jpg?v={v_param}"
     app_url = f"https://t.me/LerneDeutsch287_bot?startapp={share_id}"
 
     return get_share_html(title, description, preview_url, app_url)

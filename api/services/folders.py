@@ -1,6 +1,6 @@
 import datetime
 import logging
-from ..models import TMA_Folder, TMA_Deck, tma_db
+from ..models import TMA_Folder, TMA_Deck, TMAMedia, tma_db
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,11 @@ def rename_folder(folder_id: int, name: str, user_id: int):
         folder.name = name
         folder.updated_at = datetime.datetime.now()
         folder.save()
+
+        if folder.share_id:
+            filename = f"preview_{folder.share_id}.png"
+            TMAMedia.delete().where((TMAMedia.filename == filename) & (TMAMedia.folder == 'previews')).execute()
+
         return folder
     except Exception as e:
         logger.error(f"Error renaming folder {folder_id}: {e}")

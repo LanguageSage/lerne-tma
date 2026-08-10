@@ -18,6 +18,14 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
   const dragControls = useDragControls();
   const flagStyle = getFlagStyle(c.flag);
   const flagInfo = FLAG_COLORS[c.flag] || FLAG_COLORS[0];
+  const { setLastSelectedCardId, setCardsScrollTop } = useUiStore();
+
+  const handleItemClick = () => {
+    const container = document.getElementById('app-container');
+    if (container) setCardsScrollTop(container.scrollTop);
+    setLastSelectedCardId(c.id);
+    startStudyCard(currentDeck, c.id);
+  };
 
   return (
     <Reorder.Item
@@ -50,7 +58,7 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
       </div>
       <div 
         className="card-item-text"
-        onClick={() => startStudyCard(currentDeck, c.id)}
+        onClick={handleItemClick}
         style={{ cursor: 'pointer', position: 'relative' }}
       >
         <div className="front-min" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -84,7 +92,7 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
 };
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
-  const { view, setView, setIsSettingsOpen, setEditorSourceView, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, setLastSelectedCardId, showToast } = useUiStore();
+  const { view, setView, setIsSettingsOpen, setEditorSourceView, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, setLastSelectedCardId, cardsScrollTop, setCardsScrollTop, showToast } = useUiStore();
   const { currentDeck, deckCards, cardsLoading } = useDeckStore();
   const [isMediaModalOpen, setIsMediaModalOpen] = React.useState(false);
 
@@ -96,18 +104,41 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     }
   }, [view, currentDeck?.id]);
 
+  // Track and restore scroll position of app-container
   React.useEffect(() => {
-    if (lastSelectedCardId) {
+    if (view !== 'cards') return;
+    const container = document.getElementById('app-container');
+    if (!container) return;
+
+    if (cardsScrollTop > 0) {
+      container.scrollTop = cardsScrollTop;
+    }
+
+    const handleScroll = () => {
+      setCardsScrollTop(container.scrollTop);
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [view]);
+
+  React.useEffect(() => {
+    if (lastSelectedCardId && view === 'cards') {
       const timer = setTimeout(() => {
         const el = document.getElementById(`card-item-${lastSelectedCardId}`);
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const rect = el.getBoundingClientRect();
+          const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
+          if (!inView) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
         }
-        setLastSelectedCardId(null);
-      }, 150);
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [lastSelectedCardId, setLastSelectedCardId]);
+  }, [lastSelectedCardId, view]);
 
   if (view !== 'cards') return null;
 
@@ -461,7 +492,12 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                 const flagStyle = getFlagStyle(c.flag);
                 const flagInfo = FLAG_COLORS[c.flag] || FLAG_COLORS[0];
                 return (
-                  <div key={c.id} id={`card-item-${c.id}`} className="card-item glass" style={flagStyle} onClick={() => startStudyCard(currentDeck, c.id)}>
+                  <div key={c.id} id={`card-item-${c.id}`} className="card-item glass" style={flagStyle} onClick={() => {
+                    const container = document.getElementById('app-container');
+                    if (container) setCardsScrollTop(container.scrollTop);
+                    setLastSelectedCardId(c.id);
+                    startStudyCard(currentDeck, c.id);
+                  }}>
                     <div className="card-item-text">
                       <div className="front-min" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {flagInfo.hex && (

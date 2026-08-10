@@ -3,15 +3,26 @@ import { useSessionStore } from '../store/useSessionStore';
 import { cleanMedia } from '../utils/media';
 
 export const useCardNavigation = () => {
-  const { setView, setEditorSourceView, userProfile, setIsAuthModalOpen } = useUiStore();
+  const { setView, setEditorSourceView, userProfile, setIsAuthModalOpen, setLastSelectedCardId, setCardsScrollTop } = useUiStore();
   const { setEditingCard } = useSessionStore();
+
+  const captureScroll = () => {
+    const container = document.getElementById('app-container');
+    if (container) {
+      setCardsScrollTop(container.scrollTop);
+    }
+  };
 
   const openEditor = (deckId, cardToEdit = null, source = 'cards') => {
     if (userProfile?.is_guest) {
       setIsAuthModalOpen(true, "Для редактирования карточек войдите через Telegram");
       return;
     }
+    captureScroll();
     if (cardToEdit) {
+      if (cardToEdit.id) {
+        setLastSelectedCardId(cardToEdit.id);
+      }
       setEditingCard({
         id: cardToEdit.id,
         front: cardToEdit.front || '',
@@ -39,6 +50,7 @@ export const useCardNavigation = () => {
       setIsAuthModalOpen(true, "Для создания карточек войдите через Telegram");
       return;
     }
+    captureScroll();
     setEditorSourceView(source);
     setEditingCard({
       deck_id: deckId,

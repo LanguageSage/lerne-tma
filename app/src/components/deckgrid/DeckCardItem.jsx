@@ -81,6 +81,8 @@ export const DeckCardItem = ({
     setCurrentDeck(deck);
     useDeckStore.setState({ deckCards: [], cardsLoading: true });
     fetchDeckCards(deck.id);
+    useUiStore.getState().setCardsScrollTop(0);
+    useUiStore.getState().setLastSelectedCardId(null);
     useUiStore.getState().setView('cards');
   };
 

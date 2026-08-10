@@ -124,12 +124,6 @@ export const StudyView = ({ startTutorial }) => {
   const [trainerAnsweredIds, setTrainerAnsweredIds] = useState(new Set());
 
   useEffect(() => {
-    if (currentDeck?.metadata?.deck_type === 'trainer' && studyMode !== 'trainer') {
-      setStudyMode('trainer');
-    }
-  }, [currentDeck?.id, currentDeck?.metadata?.deck_type]);
-
-  useEffect(() => {
     if (studyMode === 'trainer' && view === 'study') {
       if (!trainerStartTime) {
         setTrainerStartTime(Date.now());

@@ -12,7 +12,6 @@ export const DeckModals = () => {
 
   const [deckModalMode, setDeckModalMode] = useState('choice');
   const [newDeckName, setNewDeckName] = useState('');
-  const [newDeckType, setNewDeckType] = useState('standard');
   const [newFolderName, setNewFolderName] = useState('');
   const [isImportLoading, setIsImportLoading] = useState(false);
   const fileInputRef = useRef(null);
@@ -23,11 +22,10 @@ export const DeckModals = () => {
     if (!newDeckName.trim()) return;
     setLoading(true);
     try {
-      await createDeck(newDeckName.trim(), activeFolderId, null, newDeckType);
+      await createDeck(newDeckName.trim(), activeFolderId, null, 'standard');
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
       setNewDeckName('');
-      setNewDeckType('standard');
       showToast('Колода создана', 'success');
     } catch (err) {
       showToast('Ошибка при создании колоды');
@@ -191,30 +189,6 @@ export const DeckModals = () => {
                 <div className="form-group">
                   <label>Название колоды</label>
                   <input autoFocus placeholder="Введите название..." value={newDeckName} onChange={e => setNewDeckName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
-                </div>
-
-                <div className="form-group" style={{ marginTop: '14px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', opacity: 0.9 }}>Тип колоды</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <button
-                      type="button"
-                      className={`btn ${newDeckType === 'standard' ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ padding: '10px 8px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
-                      onClick={() => setNewDeckType('standard')}
-                    >
-                      <span style={{ fontWeight: '700' }}>🃏 Обычная</span>
-                      <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>SRS повторение</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn ${newDeckType === 'trainer' ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ padding: '10px 8px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
-                      onClick={() => setNewDeckType('trainer')}
-                    >
-                      <span style={{ fontWeight: '700' }}>🎯 Тренажер</span>
-                      <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>Тест без SRS</span>
-                    </button>
-                  </div>
                 </div>
 
                 <div className="modal-footer-actions" style={{ marginTop: '16px' }}>
