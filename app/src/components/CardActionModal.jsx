@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Move, Copy, Trash2, Heart, Edit2, Settings2 } from 'lucide-react';
 import { useUiStore } from '../store/useUiStore';
 import { useCardActions } from '../hooks/useCardActions';
-import { FLAG_COLORS } from '../constants/cardFlags';
+import { FlagPicker } from './common/FlagPicker';
 
 const getSortedFolderAndDeckTree = (foldersList, decksList, expandedFolders) => {
   const result = [];
@@ -193,44 +193,13 @@ export const CardActionModal = ({
                   </button>
                 )}
 
-                <div style={{ marginTop: '12px', marginBottom: '8px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.7, marginBottom: '10px', letterSpacing: '0.5px' }}>
-                    ЦВЕТОВАЯ МЕТКА (ФЛАГ)
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {Object.values(FLAG_COLORS).map(f => {
-                      const isSelected = (card.flag || 0) === f.id;
-                      return (
-                        <button
-                          key={f.id}
-                          onClick={() => {
-                            handleSetCardFlag(card, f.id);
-                            onClose();
-                          }}
-                          title={f.name}
-                          style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '50%',
-                            background: f.id === 0 ? 'rgba(255, 255, 255, 0.1)' : f.hex,
-                            border: isSelected ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.2)',
-                            boxShadow: isSelected && f.hex ? `0 0 12px ${f.hex}` : 'none',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.75rem',
-                            color: '#fff',
-                            transition: 'all 0.2s ease',
-                            transform: isSelected ? 'scale(1.15)' : 'scale(1)'
-                          }}
-                        >
-                          {f.id === 0 ? '✕' : isSelected ? '✓' : ''}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <FlagPicker 
+                  value={card.flag} 
+                  onChange={(flagId) => {
+                    handleSetCardFlag(card, flagId);
+                    onClose();
+                  }} 
+                />
                 
                 <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.05)', margin: '10px 0' }} />
 
