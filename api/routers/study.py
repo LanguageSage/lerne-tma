@@ -75,6 +75,7 @@ async def _card_to_response(card, progress, user_id: int):
         "audio_back_path": card.audio_back_path,
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
+        "flag": int(getattr(card, 'flag', 0) or 0),
         "deck_id": card.deck_id,
         "deck_name": deck.name if deck else None,
         "deck_metadata": deck_metadata

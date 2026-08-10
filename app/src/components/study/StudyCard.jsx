@@ -23,6 +23,7 @@ import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 // Re-export for backward compatibility
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
 import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
+import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
 
 export const StudyCard = React.memo(({
   card,
@@ -43,6 +44,8 @@ export const StudyCard = React.memo(({
   onTrainerAnswer,
   onNextCard
 }) => {
+  const flagStyle = useMemo(() => getFlagStyle(card?.flag), [card?.flag]);
+
   if (!card) return null;
 
   const deckResources = card.deck_metadata?.resources || [];
@@ -176,9 +179,10 @@ export const StudyCard = React.memo(({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         className={`card-container ${loading ? 'loading-card' : ''}`}
+        style={{ borderRadius: '20px', transition: 'all 0.3s ease', ...flagStyle }}
       >
         {!isFlipped ? (
-          <div className="card-inner card-front glass" onClick={() => onFlip(true)} style={{ cursor: 'pointer' }}>
+          <div className="card-inner card-front glass" onClick={() => onFlip(true)} style={{ cursor: 'pointer', ...flagStyle }}>
             <CardBackground styleType={resolvedBgFront} />
             <div className="card-face">
               
@@ -371,7 +375,7 @@ export const StudyCard = React.memo(({
             </div>
           </div>
         ) : (
-          <div className="card-inner card-back glass" onClick={() => onFlip(false)} style={{ cursor: 'pointer' }}>
+          <div className="card-inner card-back glass" onClick={() => onFlip(false)} style={{ cursor: 'pointer', ...flagStyle }}>
             <CardBackground styleType={resolvedBgBack} />
             <div className="card-face">
               {/* В режиме тренажера не выводим дублирующее микро-превью, так как card.back уже содержит полный текст и разбор */}

@@ -12,9 +12,12 @@ import { UserProfileBadge } from './common/UserBadge';
 import { DeckMediaModal } from './DeckMediaModal';
 
 import DeckAudioPlayer from './common/DeckAudioPlayer';
+import { getFlagStyle, FLAG_COLORS } from '../constants/cardFlags';
 
 const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
   const dragControls = useDragControls();
+  const flagStyle = getFlagStyle(c.flag);
+  const flagInfo = FLAG_COLORS[c.flag] || FLAG_COLORS[0];
 
   return (
     <Reorder.Item
@@ -23,6 +26,7 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
       as="div"
       id={`card-item-${c.id}`}
       className="card-item glass card-item-draggable"
+      style={flagStyle}
       dragListener={false}
       dragControls={dragControls}
       whileDrag={{
@@ -47,9 +51,24 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
       <div 
         className="card-item-text"
         onClick={() => startStudyCard(currentDeck, c.id)}
-        style={{ cursor: 'pointer' }}
+        style={{ cursor: 'pointer', position: 'relative' }}
       >
-        <div className="front-min">{c.front}</div>
+        <div className="front-min" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {flagInfo.hex && (
+            <span 
+              style={{ 
+                width: '8px', 
+                height: '8px', 
+                borderRadius: '50%', 
+                backgroundColor: flagInfo.hex, 
+                boxShadow: `0 0 6px ${flagInfo.hex}`,
+                flexShrink: 0 
+              }} 
+              title={`Флаг: ${flagInfo.name}`} 
+            />
+          )}
+          <span>{c.front}</span>
+        </div>
         <div className="back-min">{c.back}</div>
       </div>
       <div className="card-item-actions">
@@ -438,22 +457,41 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             </div>
           ) : currentDeck?.id === 'favorites' ? (
             <div className="card-list">
-              {deckCards.map(c => (
-                <div key={c.id} id={`card-item-${c.id}`} className="card-item glass" onClick={() => startStudyCard(currentDeck, c.id)}>
-                  <div className="card-item-text">
-                    <div className="front-min">{c.front}</div>
-                    <div className="back-min">{c.back}</div>
+              {deckCards.map(c => {
+                const flagStyle = getFlagStyle(c.flag);
+                const flagInfo = FLAG_COLORS[c.flag] || FLAG_COLORS[0];
+                return (
+                  <div key={c.id} id={`card-item-${c.id}`} className="card-item glass" style={flagStyle} onClick={() => startStudyCard(currentDeck, c.id)}>
+                    <div className="card-item-text">
+                      <div className="front-min" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {flagInfo.hex && (
+                          <span 
+                            style={{ 
+                              width: '8px', 
+                              height: '8px', 
+                              borderRadius: '50%', 
+                              backgroundColor: flagInfo.hex, 
+                              boxShadow: `0 0 6px ${flagInfo.hex}`,
+                              flexShrink: 0 
+                            }} 
+                            title={`Флаг: ${flagInfo.name}`} 
+                          />
+                        )}
+                        <span>{c.front}</span>
+                      </div>
+                      <div className="back-min">{c.back}</div>
+                    </div>
+                    <div className="card-item-actions">
+                      <CardActionButton 
+                        card={c} 
+                        size={16} 
+                        className="card-item-actions-trigger" 
+                        stopDrag={false} 
+                      />
+                    </div>
                   </div>
-                  <div className="card-item-actions">
-                    <CardActionButton 
-                      card={c} 
-                      size={16} 
-                      className="card-item-actions-trigger" 
-                      stopDrag={false} 
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <Reorder.Group

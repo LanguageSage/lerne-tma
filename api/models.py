@@ -210,6 +210,7 @@ class TMA_Card(BaseModel):
     creator_id = BigIntegerField(null=True, index=True)
     share_id = CharField(null=True, unique=True)
     position = IntegerField(default=0)
+    flag = IntegerField(default=0)
     class Meta:
         table_name = 'tma_card'
         indexes = (
@@ -377,6 +378,7 @@ class Card(Model):
     updated_at = DateTimeField(null=True)
     history = TextField(default='[]')
     position = IntegerField(default=0)
+    flag = IntegerField(default=0)
     class Meta:
         database = lerne_db
         table_name = 'card'

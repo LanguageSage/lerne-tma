@@ -43,6 +43,14 @@ async def toggle_learn(card_id: int, user_id: int = Depends(get_user_id)):
         await services.ensure_card_audio(card, user_id)
         return services.format_card_for_study(card, user_id)
     raise HTTPException(status_code=404, detail="Card not found")
+
+@router.post("/{card_id}/flag")
+async def set_flag(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
+    flag = data.get("flag", 0)
+    card = services.set_card_flag(card_id, user_id, flag)
+    if card:
+        return services.format_card_for_study(card, user_id)
+    raise HTTPException(status_code=404, detail="Card not found")
     
 @router.get("/duplicates")
 def get_duplicates(user_id: int = Depends(get_user_id)):

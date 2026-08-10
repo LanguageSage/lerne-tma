@@ -68,6 +68,11 @@ def save_card(data, user_id):
         
     if 'want_to_learn' in data:
         card.want_to_learn = bool(data.get('want_to_learn'))
+    if 'flag' in data:
+        try:
+            card.flag = int(data.get('flag') or 0)
+        except (ValueError, TypeError):
+            card.flag = 0
 
     # Проверяем, не перепутаны ли стороны (меняем только если на лицевой кириллица, а на обороте непустая латиница)
     import re
@@ -158,6 +163,17 @@ def toggle_want_to_learn(card_id: int, user_id: int):
         raise e
 
 
+def set_card_flag(card_id: int, user_id: int, flag: int):
+    try:
+        card = TMA_Card.get_by_id(card_id)
+        card.flag = int(flag) if flag is not None else 0
+        card.save()
+        return card
+    except Exception as e:
+        logger.error(f"Error setting card flag: {e}", exc_info=True)
+        raise e
+
+
 def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, creator=None):
     is_dict = isinstance(c, dict)
     get_val = lambda k_dict, k_obj: c.get(k_dict) if is_dict else getattr(c, k_obj, None)
@@ -191,6 +207,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "video_front_path": video_front,
         "video_back_path": video_back,
         "want_to_learn": bool(get_val('want_to_learn', 'want_to_learn')),
+        "flag": int(get_val('flag', 'flag') or 0),
         "creator_name": creator_name,
         "creator_avatar": creator_avatar
     }
@@ -470,6 +487,7 @@ def get_duplicate_cards(user_id: int):
                              TMA_Card.video_front_path,
                              TMA_Card.video_back_path,
                              TMA_Card.want_to_learn,
+                             TMA_Card.flag,
                              TMA_Card.deck_id,
                              TMA_Deck.name.alias('deck_name')
                          )
@@ -491,6 +509,7 @@ def get_duplicate_cards(user_id: int):
                 "video_front_path": c.get('video_front_path'),
                 "video_back_path": c.get('video_back_path'),
                 "want_to_learn": bool(c.get('want_to_learn')),
+                "flag": int(c.get('flag') or 0),
                 "deck_id": c.get('deck_id'),
                 "deck_name": c.get('deck_name') or "Без колоды"
             })

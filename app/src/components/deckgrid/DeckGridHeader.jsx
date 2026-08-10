@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Settings, Info, Copy, ChevronLeft } from 'lucide-react';
+import { Plus, Settings, Info, Copy, ChevronLeft, ExternalLink } from 'lucide-react';
 import { UserProfileBadge } from '../common/UserBadge';
 import { LanguageSelectorBadge } from './LanguageSelectorBadge';
 import { NativeLanguageSelectorBadge } from './NativeLanguageSelectorBadge';
@@ -17,6 +17,24 @@ export const DeckGridHeader = ({
   onFolderBack
 }) => {
   const { t } = useTranslation();
+
+  const handleOpenLink = (e) => {
+    e.preventDefault();
+    if (!personalLink) return;
+
+    const tg = window.Telegram?.WebApp;
+    const isInsideTelegram = Boolean(tg && tg.initData && tg.initData.length > 0);
+
+    if (isInsideTelegram && tg?.openLink) {
+      tg.openLink(personalLink);
+    } else {
+      if (window.location.href === personalLink) {
+        window.location.reload();
+      } else {
+        window.location.href = personalLink;
+      }
+    }
+  };
 
   return (
     <div className="header">
@@ -68,7 +86,17 @@ export const DeckGridHeader = ({
           <Info size={16} />
           <div className="web-link-container">
             <span>{t('decks.link', 'Персональная ссылка:')} </span>
-            <code className="web-link">{personalLink}</code>
+            <a
+              href={personalLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="web-link"
+              onClick={handleOpenLink}
+              title={t('decks.open_link', 'Открыть ссылку в браузере по умолчанию')}
+            >
+              <span>{personalLink}</span>
+              <ExternalLink size={12} style={{ flexShrink: 0 }} />
+            </a>
             <button 
               className="copy-link-btn" 
               onClick={() => {

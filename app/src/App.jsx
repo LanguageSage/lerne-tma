@@ -210,6 +210,10 @@ function AppContent() {
       setCurrentDeck(deck);
       setView('study');
       useSessionStore.getState().resetSession();
+      const localCard = (useDeckStore.getState().deckCards || []).find(c => c.id === cardId);
+      if (localCard) {
+        useSessionStore.getState().setCard(localCard);
+      }
       if (deck.id === 'duplicates') {
         await useDeckStore.getState().fetchDuplicates();
       } else {

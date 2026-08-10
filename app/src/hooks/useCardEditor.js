@@ -35,6 +35,7 @@ export const useCardEditor = () => {
         audio_path: data.audio_path || cleanMedia(data.audio_url),
         video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
         video_back_path: data.video_back_path || cleanMedia(data.video_back_url),
+        flag: data.flag !== undefined ? data.flag : 0,
         allow_duplicate: true
       };
 
@@ -310,10 +311,30 @@ export const useCardEditor = () => {
     return { success: false };
   };
 
+  const handleSetCardFlag = async (targetCard, flag) => {
+    if (!targetCard || !targetCard.id) return;
+    try {
+      const res = await api.post(`/cards/${targetCard.id}/flag`, { flag });
+      const updatedCard = res.data;
+      const session = useSessionStore.getState();
+      if (session.card && session.card.id === targetCard.id) {
+        session.setCard({ ...session.card, flag: updatedCard.flag });
+      }
+      session.setStudyHistory(session.studyHistory.map(c => c.id === targetCard.id ? { ...c, flag: updatedCard.flag } : c));
+      useDeckStore.setState(state => ({
+        deckCards: state.deckCards.map(c => c.id === targetCard.id ? { ...c, flag: updatedCard.flag } : c)
+      }));
+      showToast(flag ? "Метка установлена" : "Метка снята", "success");
+    } catch (err) {
+      showToast("Ошибка при установке метки");
+    }
+  };
+
   return {
     saveCard,
     handleDeleteCard,
     handleToggleLearn,
+    handleSetCardFlag,
     handleMoveCard,
     handleCopyCard,
     handleShareCard

@@ -571,7 +571,7 @@ export const useDeckStore = create((set, get) => ({
       const aIdx = orderedIds.indexOf(a.id);
       const bIdx = orderedIds.indexOf(b.id);
       return aIdx - bIdx;
-    });
+    }).map((c, idx) => ({ ...c, position: idx }));
     set({ deckCards: updated });
 
     if (cardReorderTimeout) {
@@ -583,15 +583,6 @@ export const useDeckStore = create((set, get) => ({
         await api.post('/cards/reorder', { card_ids: orderedIds });
       } catch (err) {
         console.error('Reorder Cards Error:', err);
-        const { currentDeck } = get();
-        if (currentDeck) {
-          try {
-            const res = await api.get(`/decks/${currentDeck.id}/cards`);
-            set({ deckCards: res.data });
-          } catch (fetchErr) {
-            console.error('Fetch cards failed after reorder error:', fetchErr);
-          }
-        }
       }
     }, 400);
   },
