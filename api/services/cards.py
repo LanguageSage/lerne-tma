@@ -346,19 +346,23 @@ def format_card_for_study(card: TMA_Card, user_id: int):
     
     res = _build_card_dict(card, p=progress, include_intervals=True)
     
-    # Fetch deck explicitly to bypass any Peewee relationship caching issues on updated/saved objects
-    # Use pre-loaded relationship or fallback to deck_id lookup
+    # ⚠️ CRITICAL STABILITY GUARANTEE: DO NOT ALTER OR REMOVE DECK RESOLUTION LOGIC.
+    # Safely handle both model objects (TMA_Card) and dictionaries (.dicts()) without throwing AttributeError.
     deck = None
-    try:
-        deck = card.deck  # Use Peewee's foreign key relationship (no extra query if already loaded)
-    except Exception:
-        if card.deck_id:
-            try:
-                deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
-            except Exception:
-                pass
+    deck_id = card.get('deck_id') if isinstance(card, dict) else getattr(card, 'deck_id', None)
+    if not isinstance(card, dict):
+        try:
+            deck = getattr(card, 'deck', None)
+        except Exception:
+            pass
+    if not deck and deck_id:
+        try:
+            deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
+        except Exception:
+            pass
 
-    res["deck_name"] = deck.name if deck else None
+    deck_name = deck.name if deck else (card.get('deck_name') if isinstance(card, dict) else getattr(card, 'deck_name', None))
+    res["deck_name"] = deck_name or "Без колоды"
     
     import json
     deck_metadata = {"resources": []}
@@ -446,7 +450,7 @@ def get_duplicate_cards(user_id: int):
                              TMA_Card.deck_id,
                              TMA_Deck.name.alias('deck_name')
                          )
-                         .join(TMA_Deck)
+                         .join(TMA_Deck, JOIN.LEFT_OUTER)
                          .where(TMA_Deck.user_id == user_id, TMA_Card.front_text << text_list, TMA_Card.is_deleted == False)
                          .order_by(TMA_Card.front_text)
                          .dicts())

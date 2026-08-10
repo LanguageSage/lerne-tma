@@ -149,6 +149,8 @@ export const useAppInitialization = (checkStartParam) => {
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+  // ⚠️ CRITICAL NETWORK STABILITY GUARANTEE: DO NOT REMOVE OR BYPASS RETRY LOGIC (requestWithRetry).
+  // Required to protect against Supabase cloud DB cold starts, TCP disconnects, and backend reboots!
   const requestWithRetry = async (requestFn, label, attempts = 3) => {
     let lastError;
     for (let attempt = 1; attempt <= attempts; attempt += 1) {

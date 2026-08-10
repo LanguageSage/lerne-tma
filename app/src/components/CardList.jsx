@@ -13,7 +13,7 @@ import { DeckMediaModal } from './DeckMediaModal';
 
 import DeckAudioPlayer from './common/DeckAudioPlayer';
 
-const DraggableCardItem = React.memo(({ c, currentDeck, startStudyCard }) => {
+const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
   const dragControls = useDragControls();
 
   return (
@@ -23,7 +23,6 @@ const DraggableCardItem = React.memo(({ c, currentDeck, startStudyCard }) => {
       as="div"
       id={`card-item-${c.id}`}
       className="card-item glass card-item-draggable"
-      onClick={() => startStudyCard(currentDeck, c.id)}
       dragListener={false}
       dragControls={dragControls}
       whileDrag={{
@@ -35,7 +34,8 @@ const DraggableCardItem = React.memo(({ c, currentDeck, startStudyCard }) => {
     >
       <div 
         className="card-drag-handle" 
-        onPointerDown={(e) => dragControls.start(e)}
+        onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+        onClick={(e) => e.stopPropagation()}
         style={{ touchAction: 'none' }}
         title="Перетащить карточку"
       >
@@ -44,7 +44,11 @@ const DraggableCardItem = React.memo(({ c, currentDeck, startStudyCard }) => {
           <GripVertical size={16} />
         </div>
       </div>
-      <div className="card-item-text">
+      <div 
+        className="card-item-text"
+        onClick={() => startStudyCard(currentDeck, c.id)}
+        style={{ cursor: 'pointer' }}
+      >
         <div className="front-min">{c.front}</div>
         <div className="back-min">{c.back}</div>
       </div>
@@ -58,12 +62,7 @@ const DraggableCardItem = React.memo(({ c, currentDeck, startStudyCard }) => {
       </div>
     </Reorder.Item>
   );
-}, (prevProps, nextProps) => {
-  return prevProps.c.id === nextProps.c.id &&
-         prevProps.c.front === nextProps.c.front &&
-         prevProps.c.back === nextProps.c.back &&
-         prevProps.currentDeck?.id === nextProps.currentDeck?.id;
-});
+};
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const { view, setView, setIsSettingsOpen, setEditorSourceView, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, setLastSelectedCardId, showToast } = useUiStore();

@@ -171,6 +171,7 @@ export const FolderCardItem = ({
         <div
           className="deck-drag-handle-bottom"
           onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+          onClick={(e) => e.stopPropagation()}
           title="Зажмите и потяните для перетаскивания папки"
         >
           <GripHorizontal size={22} />

@@ -77,8 +77,8 @@ export const useStudySession = () => {
         const currentCard = session.card;
         let nextCardInfo = null;
 
-        // If not the first load, try to navigate sequentially in deckCards list
-        if (!isFirst && currentCard && deckCards && deckCards.length > 0) {
+        // If not the first load, try to navigate sequentially in deckCards list if currentCard is set
+        if (!isFirst && !session.isLearningMore && currentCard && deckCards && deckCards.length > 0) {
           const currentIndex = deckCards.findIndex(c => c.id === currentCard.id);
           if (currentIndex >= 0) {
             if (currentIndex < deckCards.length - 1) {
@@ -88,9 +88,6 @@ export const useStudySession = () => {
               nextCardInfo = null;
             }
           }
-        } else if ((isFirst || session.isLearningMore) && deckCards && deckCards.length > 0) {
-          // Starting session or repeating deck ("Учить еще"): start from card 0
-          nextCardInfo = deckCards[0];
         }
 
         if (nextCardInfo) {
@@ -98,12 +95,12 @@ export const useStudySession = () => {
           const newCard = res.data;
           session.addToHistory(newCard);
           prefetchMedia(newCard.image_url);
-        } else if (!isFirst && !session.isLearningMore) {
+        } else if (!isFirst && !session.isLearningMore && currentCard) {
           // Reached end of sequential deckCards traversal! End session cleanly to show summary screen
           session.setCard(null);
         } else {
-          // Fallback to SRS when starting the session (isFirst) or if deck list is not loaded/empty
-          const effectiveExclude = session.isLearningMore ? [] : excludeIds;
+          // Fetch from SRS when starting session (isFirst), or in learn_more mode (early review by next_review asc)
+          const effectiveExclude = session.isLearningMore ? (isFirst ? [] : excludeIds) : excludeIds;
           const excludeParam = effectiveExclude.length > 0 ? `exclude_ids=${effectiveExclude.join(',')}` : '';
           const learnMoreParam = session.isLearningMore ? 'learn_more=true' : '';
           const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
