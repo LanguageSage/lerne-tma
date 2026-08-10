@@ -700,9 +700,40 @@ export const offlineApi = {
       } else {
         // Create
         const tempId = getNextTempId();
+        const deckId = parseInt(data.deck_id, 10) || null;
+        let newPos = 0;
+        const afterCardId = data.after_card_id ? parseInt(data.after_card_id, 10) : null;
+
+        if (afterCardId && deckId) {
+          const refCard = await db.cards.get(afterCardId);
+          if (refCard && refCard.deck_id === deckId && !refCard.is_deleted) {
+            const refPos = refCard.position || 0;
+            const subsequentCards = await db.cards
+              .where('deck_id')
+              .equals(deckId)
+              .filter(c => !c.is_deleted && (c.position || 0) > refPos)
+              .toArray();
+            for (const c of subsequentCards) {
+              await db.cards.update(c.id, { position: (c.position || 0) + 1 });
+            }
+            newPos = refPos + 1;
+          }
+        }
+
+        if (newPos === 0 && deckId) {
+          const deckCards = await db.cards
+            .where('deck_id')
+            .equals(deckId)
+            .filter(c => !c.is_deleted)
+            .toArray();
+          const maxPos = deckCards.reduce((max, c) => Math.max(max, c.position || 0), 0);
+          newPos = maxPos + 1;
+        }
+
         card = {
           id: tempId,
-          deck_id: parseInt(data.deck_id, 10) || null,
+          deck_id: deckId,
+          position: newPos,
           front_text: data.front || '',
           back_text: data.back || '',
           context: data.context || '',

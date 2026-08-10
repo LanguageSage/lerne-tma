@@ -85,9 +85,32 @@ def save_card(data, user_id):
     if card.context is None: card.context = ""
     if card.source is None: card.source = "user"
 
-    # При создании новой карточки выставляем позицию в конец колоды
+    # При создании новой карточки выставляем позицию
     if not card.id:
-        if deck_id:
+        after_card_id = data.get('after_card_id')
+        if after_card_id and deck_id:
+            try:
+                after_card_id = int(after_card_id)
+            except (ValueError, TypeError):
+                after_card_id = None
+                
+        ref_card = None
+        if after_card_id and deck_id:
+            ref_card = TMA_Card.get_or_none(
+                (TMA_Card.id == after_card_id) & 
+                (TMA_Card.deck_id == deck_id) & 
+                (TMA_Card.is_deleted == False)
+            )
+            
+        if ref_card:
+            ref_pos = ref_card.position or 0
+            TMA_Card.update(position=TMA_Card.position + 1).where(
+                (TMA_Card.deck_id == deck_id) & 
+                (TMA_Card.position > ref_pos) & 
+                (TMA_Card.is_deleted == False)
+            ).execute()
+            card.position = ref_pos + 1
+        elif deck_id:
             max_pos = TMA_Card.select(fn.Max(TMA_Card.position)).where(
                 TMA_Card.deck == deck_id,
                 TMA_Card.is_deleted == False

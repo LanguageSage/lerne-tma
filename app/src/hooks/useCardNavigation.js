@@ -34,7 +34,7 @@ export const useCardNavigation = () => {
     setView('editor');
   };
 
-  const openCreator = (deckId, source = 'cards') => {
+  const openCreator = (deckId, source = 'cards', afterCardId = null) => {
     if (userProfile?.is_guest) {
       setIsAuthModalOpen(true, "Для создания карточек войдите через Telegram");
       return;
@@ -46,7 +46,8 @@ export const useCardNavigation = () => {
       back: '',
       context: '',
       image_path: '',
-      audio_path: ''
+      audio_path: '',
+      after_card_id: afterCardId
     });
     setView('creator');
   };

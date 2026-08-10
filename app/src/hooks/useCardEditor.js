@@ -27,6 +27,7 @@ export const useCardEditor = () => {
       const reqData = {
         card_id: data.id || null,
         deck_id: finalDeckId || null,
+        after_card_id: data.after_card_id || null,
         front: data.front,
         back: data.back,
         context: data.context || '',

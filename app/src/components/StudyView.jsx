@@ -394,7 +394,7 @@ export const StudyView = ({ startTutorial }) => {
             }
             setCard(null); 
           }}
-          onOpenCreator={() => openCreator(currentDeck?.id, 'study')}
+          onOpenCreator={() => openCreator(currentDeck?.id, 'study', card?.id)}
           onStartTutorial={() => startTutorial(isFlipped ? 'study_back' : 'study')}
           onQuickAudio={() => handleQuickAudio(card, playAudio)}
           onOpenEditor={() => openEditor(currentDeck?.id === 'duplicates' ? card.deck_id : currentDeck?.id, card, 'study')}

@@ -21,8 +21,10 @@ export const CardCreator = ({ startTutorial }) => {
   const { playAudio } = useAudio();
   const { autoPlay } = useSettingsStore();
 
-  const editingCardDeckId = useSessionStore.getState().editingCard?.deck_id;
+  const editingCard = useSessionStore.getState().editingCard;
+  const editingCardDeckId = editingCard?.deck_id;
   const initialDeckId = editingCardDeckId !== undefined ? editingCardDeckId : (currentDeck?.id === 'favorites' ? '' : currentDeck?.id);
+  const initialAfterCardId = editingCard?.after_card_id || null;
 
   const [newCardData, setNewCardData] = useState({
     front: '',
@@ -32,7 +34,8 @@ export const CardCreator = ({ startTutorial }) => {
     audio_url: '',
     image_path: '',
     image_url: '',
-    deck_id: initialDeckId
+    deck_id: initialDeckId,
+    after_card_id: initialAfterCardId
   });
 
   const handleBack = () => {
@@ -49,13 +52,16 @@ export const CardCreator = ({ startTutorial }) => {
 
   useEffect(() => {
     if (view === 'creator') {
-      const activeEditingDeckId = useSessionStore.getState().editingCard?.deck_id;
+      const activeEditingCard = useSessionStore.getState().editingCard;
+      const activeEditingDeckId = activeEditingCard?.deck_id;
       const targetId = activeEditingDeckId !== undefined ? activeEditingDeckId : (currentDeck?.id === 'favorites' ? '' : currentDeck?.id);
+      const activeAfterCardId = activeEditingCard?.after_card_id || null;
       setNewCardData({
         front: '',
         back: '',
         context: '',
-        deck_id: targetId
+        deck_id: targetId,
+        after_card_id: activeAfterCardId
       });
       setAnimDone(false);
     }
