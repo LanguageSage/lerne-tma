@@ -23,13 +23,16 @@ export const isWeb = () => getPlatform() === 'web';
 
 /**
  * Trigger platform-appropriate haptic feedback
- * @param {'light'|'medium'|'heavy'|'success'|'error'|'warning'} type 
+ * @param {'light'|'medium'|'heavy'|'success'|'error'|'warning'|'selection'} type 
  */
 export const triggerHaptic = (type = 'light') => {
   try {
+    // 1. Telegram WebApp Haptic
     const tg = window.Telegram?.WebApp?.HapticFeedback;
     if (tg) {
-      if (['success', 'error', 'warning'].includes(type)) {
+      if (type === 'selection') {
+        tg.selectionChanged();
+      } else if (['success', 'error', 'warning'].includes(type)) {
         tg.notificationOccurred(type);
       } else {
         tg.impactOccurred(type);
@@ -37,21 +40,45 @@ export const triggerHaptic = (type = 'light') => {
       return;
     }
 
+    // 2. Capacitor Haptics Plugin (Native Android / iOS)
+    const capHaptics = window.Capacitor?.Plugins?.Haptics;
+    if (capHaptics) {
+      if (type === 'selection') {
+        capHaptics.selectionChanged();
+      } else if (['success', 'error', 'warning'].includes(type)) {
+        const notificationTypeMap = { success: 'SUCCESS', warning: 'WARNING', error: 'ERROR' };
+        capHaptics.notification({ type: notificationTypeMap[type] || 'SUCCESS' });
+      } else {
+        const styleMap = { light: 'LIGHT', medium: 'MEDIUM', heavy: 'HEAVY' };
+        capHaptics.impact({ style: styleMap[type] || 'LIGHT' });
+      }
+      return;
+    }
+
+    // 3. Web Vibration Fallback
     if (navigator?.vibrate) {
       const patterns = {
         light: 10,
         medium: 25,
         heavy: 50,
+        selection: 5,
         success: [15, 30, 15],
         warning: [30, 50, 30],
         error: [50, 50, 50]
       };
       navigator.vibrate(patterns[type] || 15);
     }
-  } catch (e) {
+  } catch (err) {
     // Ignore haptic errors on unsupported devices
   }
 };
+
+export const hapticImpact = (style = 'light') => triggerHaptic(style);
+export const hapticNotification = (type = 'success') => triggerHaptic(type);
+export const hapticSuccess = () => triggerHaptic('success');
+export const hapticError = () => triggerHaptic('error');
+export const hapticWarning = () => triggerHaptic('warning');
+export const hapticSelection = () => triggerHaptic('selection');
 
 /**
  * Enable swipe/window closing confirmation if supported by platform
@@ -61,22 +88,63 @@ export const enableClosingConfirmation = () => {
     if (window.Telegram?.WebApp?.enableClosingConfirmation) {
       window.Telegram.WebApp.enableClosingConfirmation();
     }
-  } catch (e) {}
+  } catch (err) {
+    // Ignore error
+  }
+};
+
+/**
+ * Close application on native platform / TMA
+ */
+export const closeApp = () => {
+  try {
+    if (window.Telegram?.WebApp?.close) {
+      window.Telegram.WebApp.close();
+      return;
+    }
+    if (window.Capacitor?.Plugins?.App?.exitApp) {
+      window.Capacitor.Plugins.App.exitApp();
+      return;
+    }
+  } catch (err) {
+    // Ignore error
+  }
 };
 
 /**
  * Control Native Back Button (Telegram & Capacitor)
  */
 export const setupBackButton = (onClickCallback) => {
+  const cleanupFns = [];
+
   try {
+    // Telegram BackButton
     const tg = window.Telegram?.WebApp?.BackButton;
     if (tg) {
       tg.show();
       tg.onClick(onClickCallback);
-      return () => tg.offClick(onClickCallback);
+      cleanupFns.push(() => {
+        try { tg.offClick(onClickCallback); } catch {}
+      });
     }
-  } catch (e) {}
-  return () => {};
+
+    // Capacitor App BackButton (Android hardware back button)
+    const capApp = window.Capacitor?.Plugins?.App;
+    if (capApp && typeof capApp.addListener === 'function') {
+      const listenerPromise = capApp.addListener('backButton', () => {
+        onClickCallback();
+      });
+      cleanupFns.push(() => {
+        listenerPromise.then(l => l?.remove?.()).catch(() => {});
+      });
+    }
+  } catch (err) {
+    // Ignore error
+  }
+
+  return () => {
+    cleanupFns.forEach(fn => fn());
+  };
 };
 
 export const hideBackButton = () => {
@@ -85,5 +153,28 @@ export const hideBackButton = () => {
     if (tg) {
       tg.hide();
     }
-  } catch (e) {}
+  } catch (err) {
+    // Ignore error
+  }
 };
+
+/**
+ * Open external URL in system browser or Telegram target
+ */
+export const openExternalLink = (url) => {
+  try {
+    const tg = window.Telegram?.WebApp;
+    if (tg?.openLink) {
+      tg.openLink(url);
+      return;
+    }
+    if (window.Capacitor?.Plugins?.Browser?.open) {
+      window.Capacitor.Plugins.Browser.open({ url });
+      return;
+    }
+  } catch (err) {
+    // Fallback to window.open
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
+

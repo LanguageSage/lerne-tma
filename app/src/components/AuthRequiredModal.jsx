@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Send } from 'lucide-react';
 import { useUiStore } from '../store/useUiStore';
+import { openExternalLink } from '../utils/platform';
 
 export const AuthRequiredModal = ({ isOpen, onClose, title = "Требуется авторизация" }) => {
   if (!isOpen) return null;
@@ -9,12 +10,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Требуется
   const botUrl = "https://t.me/LerneDeutsch287_bot";
 
   const handleOpenTelegram = () => {
-    const tg = window.Telegram?.WebApp;
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink(botUrl);
-    } else {
-      window.open(botUrl, '_blank');
-    }
+    openExternalLink(botUrl);
     if (onClose) onClose();
   };
 

@@ -27,5 +27,6 @@ export const getNextTempId = () => {
 
 // Check if app is in offline-first mode
 export const isOfflineMode = () => {
-  return localStorage.getItem('offline_mode') === 'true' || !!window.Capacitor;
+  return localStorage.getItem('offline_mode') === 'true';
 };
+

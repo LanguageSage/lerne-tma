@@ -23,6 +23,8 @@ import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 // Re-export for backward compatibility
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
 import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
+import { triggerHaptic } from '../../utils/platform';
+
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
 
 export const StudyCard = React.memo(({
@@ -135,7 +137,7 @@ export const StudyCard = React.memo(({
     if (option.toLowerCase() === clozeData.correctAnswer.toLowerCase()) {
       setCorrectSelected(option);
       if (card.audio_url) playAudio(card.audio_url);
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+      triggerHaptic('success');
       
       if (studyMode === 'trainer' && onTrainerAnswer) {
         const isFirstTry = wrongSelected.length === 0;
@@ -151,7 +153,7 @@ export const StudyCard = React.memo(({
           onTrainerAnswer(card.id, false);
         }
         setWrongSelected([...wrongSelected, option]);
-        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+        triggerHaptic('error');
       }
     }
   };

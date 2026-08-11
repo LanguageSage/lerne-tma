@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, Check } from 'lucide-react';
+import { triggerHaptic } from '../../utils/platform';
 
 export const StudyCardQuiz = ({
   card,
@@ -42,12 +43,12 @@ export const StudyCardQuiz = ({
 
     if (correct) {
       if (card.audio_url) playAudio(card.audio_url);
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+      triggerHaptic('success');
       if (onTrainerAnswer) {
         onTrainerAnswer(card.id, true);
       }
     } else {
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+      triggerHaptic('error');
       if (onTrainerAnswer) {
         onTrainerAnswer(card.id, false);
       }

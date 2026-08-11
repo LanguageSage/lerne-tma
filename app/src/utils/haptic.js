@@ -1,19 +1,9 @@
-/**
- * Centralized Telegram WebApp haptic feedback utilities.
- * Replaces copy-pasted window.Telegram?.WebApp?.HapticFeedback?.* calls.
- */
+import { triggerHaptic } from './platform';
 
-export const hapticImpact = (style = 'light') => {
-  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style);
-};
+export const hapticImpact = (style = 'light') => triggerHaptic(style);
+export const hapticNotification = (type = 'success') => triggerHaptic(type);
+export const hapticSuccess = () => triggerHaptic('success');
+export const hapticError = () => triggerHaptic('error');
+export const hapticWarning = () => triggerHaptic('warning');
+export const hapticSelection = () => triggerHaptic('selection');
 
-export const hapticNotification = (type = 'success') => {
-  window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred(type);
-};
-
-export const hapticSuccess = () => hapticNotification('success');
-export const hapticError = () => hapticNotification('error');
-export const hapticWarning = () => hapticNotification('warning');
-export const hapticSelection = () => {
-  window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
-};

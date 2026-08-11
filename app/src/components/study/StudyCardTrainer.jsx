@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { stripMarkdown } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
+import { triggerHaptic } from '../../utils/platform';
+
 
 export const StudyCardTrainer = React.memo(({
   card,
@@ -106,7 +108,7 @@ export const StudyCardTrainer = React.memo(({
   const handleSelectOption = (gapId, option) => {
     const updated = { ...selectedOptions, [gapId]: option };
     setSelectedOptions(updated);
-    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+    triggerHaptic('light');
     // Close dropdown menu immediately after selecting an option!
     setActiveGapId(null);
   };
@@ -125,12 +127,12 @@ export const StudyCardTrainer = React.memo(({
       if (card.audio_url && playAudio) {
         playAudio(card.audio_url);
       }
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+      triggerHaptic('success');
       onTrainerAnswer?.(card.id, isFirstTry);
     } else {
       playErrorSound();
       setIsFirstTry(false);
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+      triggerHaptic('error');
       onTrainerAnswer?.(card.id, false);
     }
   };
@@ -245,7 +247,7 @@ export const StudyCardTrainer = React.memo(({
                 setShowFingerHint(false);
                 if (!isChecked) {
                   setActiveGapId(prev => prev === gap.id ? null : gap.id);
-                  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+                  triggerHaptic('light');
                 }
               }}
               style={{

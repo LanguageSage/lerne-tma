@@ -5,6 +5,8 @@ import './App.css';
 // Utils & Services
 import { getUserId, storage } from './utils/auth';
 import api from './services/api';
+import { enableClosingConfirmation, setupBackButton, hideBackButton, closeApp } from './utils/platform';
+
 
 // Components
 import { Toast } from './components/common/Toast';
@@ -76,11 +78,9 @@ function AppContent() {
   const isAuthModalOpen = useUiStore(state => state.isAuthModalOpen);
   const anyModalOpen = isSettingsOpen || isNewDeckModalOpen || isRenameModalOpen || isCardActionModalOpen || syncModalOpen || isAuthModalOpen;
 
-  // 1. Setup popstate listener and Telegram back button onClick callback on mount
+  // 1. Setup popstate listener and native back button onClick callback on mount
   useEffect(() => {
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.enableClosingConfirmation();
-    }
+    enableClosingConfirmation();
     
     // Replace initial state with root decks view
     window.history.replaceState({ view: 'decks', folderId: null }, '');
@@ -116,11 +116,7 @@ function AppContent() {
         // Popped past root in browser
         const confirmExit = window.confirm("Вы действительно хотите выйти из приложения?");
         if (confirmExit) {
-          if (window.Telegram?.WebApp) {
-            window.Telegram.WebApp.close();
-          } else {
-            window.close();
-          }
+          closeApp();
         } else {
           // Push state back so they don't exit next time
           window.history.pushState({ view: 'decks', folderId: null }, '');
@@ -130,23 +126,17 @@ function AppContent() {
 
     window.addEventListener('popstate', handlePopState);
     
-    const handleTgBackClick = () => {
+    const cleanupBackButton = setupBackButton(() => {
       window.history.back();
-    };
-    
-    if (window.Telegram?.WebApp?.BackButton) {
-      window.Telegram.WebApp.BackButton.onClick(handleTgBackClick);
-    }
+    });
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
-      if (window.Telegram?.WebApp?.BackButton) {
-        window.Telegram.WebApp.BackButton.offClick(handleTgBackClick);
-      }
+      cleanupBackButton();
     };
   }, [setView, setActiveFolderId]);
 
-  // 2. Push history state on view/folder/modal transitions and sync Telegram BackButton visibility
+  // 2. Push history state on view/folder/modal transitions and sync BackButton visibility
   useEffect(() => {
     if (isPopStateRef.current) {
       lastViewRef.current = view;
@@ -176,15 +166,10 @@ function AppContent() {
     lastViewRef.current = view;
     lastFolderIdRef.current = activeFolderId;
 
-    // Sync Telegram BackButton visibility
-    const isRoot = view === 'decks' && activeFolderId === null;
-    const tg = window.Telegram?.WebApp;
-    if (tg?.BackButton) {
-      if (isRoot) {
-        tg.BackButton.hide();
-      } else {
-        tg.BackButton.show();
-      }
+    // Sync BackButton visibility
+    const isRoot = view === 'decks' && activeFolderId === null && !anyModalOpen;
+    if (isRoot) {
+      hideBackButton();
     }
   }, [view, activeFolderId, anyModalOpen]);
 

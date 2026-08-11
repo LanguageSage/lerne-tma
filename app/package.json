@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "axios": "^1.15.0",
     "dexie": "^4.4.2",
     "framer-motion": "^12.38.0",

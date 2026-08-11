@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Eye } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
+import { triggerHaptic } from '../../utils/platform';
 
 export const StudyCardPuzzle = React.memo(({
   card,
@@ -64,7 +65,7 @@ export const StudyCardPuzzle = React.memo(({
 
     const updated = [...selectedPuzzles, wordObj];
     setSelectedPuzzles(updated);
-    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+    triggerHaptic('light');
   };
 
   const handleRemovePuzzleWord = (wordObj, index, e) => {
@@ -73,7 +74,7 @@ export const StudyCardPuzzle = React.memo(({
 
     const updated = selectedPuzzles.filter((_, i) => i !== index);
     setSelectedPuzzles(updated);
-    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+    triggerHaptic('light');
   };
 
   // Check correctness when all words are placed
@@ -85,17 +86,18 @@ export const StudyCardPuzzle = React.memo(({
       const targetText = puzzleData.cleanWords.join(' ');
 
       if (userText === targetText) {
-        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+        triggerHaptic('success');
         if (card.audio_url && playAudio) playAudio(card.audio_url);
         const timer = setTimeout(() => {
           onFlip(true);
         }, 800);
         return () => clearTimeout(timer);
       } else {
-        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+        triggerHaptic('error');
       }
     }
   }, [selectedPuzzles, puzzleData, isFlipped, card.audio_url, playAudio, onFlip, loading]);
+
 
   if (!puzzleData) return null;
 

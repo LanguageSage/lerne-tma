@@ -7,6 +7,8 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { getSpeechLocaleForLang } from '../../constants/languageConstants';
 import { getCardStyle } from '../../utils/cardStyles';
+import { triggerHaptic } from '../../utils/platform';
+
 
 export const StudyCardSpeech = React.memo(({
   card,
@@ -136,7 +138,7 @@ export const StudyCardSpeech = React.memo(({
       
       stopSpeechRecognition();
 
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+      triggerHaptic('success');
       if (card.audio_url && playAudio) playAudio(card.audio_url);
       setTimeout(() => {
         onFlip(true);
@@ -144,7 +146,7 @@ export const StudyCardSpeech = React.memo(({
       return true;
     } else if (isFinalCheck) {
       setSpeechSuccess(false);
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+      triggerHaptic('error');
       return false;
     }
     return false;
@@ -186,7 +188,7 @@ export const StudyCardSpeech = React.memo(({
 
       rec.onstart = () => {
         setIsListening(true);
-        window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium');
+        triggerHaptic('medium');
       };
 
       rec.onerror = (err) => {
@@ -300,7 +302,7 @@ export const StudyCardSpeech = React.memo(({
             onClick={(e) => {
               e.stopPropagation();
               setSpeechMatchThreshold(val);
-              window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
+              triggerHaptic('selection');
             }}
           >
             {val}%

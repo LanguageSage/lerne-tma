@@ -5,6 +5,7 @@ import { LanguageSelectorBadge } from './LanguageSelectorBadge';
 import { NativeLanguageSelectorBadge } from './NativeLanguageSelectorBadge';
 import { HelpButton } from '../TutorialOverlay';
 import { useTranslation } from '../../i18n/i18nContext';
+import { openExternalLink } from '../../utils/platform';
 
 export const DeckGridHeader = ({
   personalLink,
@@ -21,19 +22,7 @@ export const DeckGridHeader = ({
   const handleOpenLink = (e) => {
     e.preventDefault();
     if (!personalLink) return;
-
-    const tg = window.Telegram?.WebApp;
-    const isInsideTelegram = Boolean(tg && tg.initData && tg.initData.length > 0);
-
-    if (isInsideTelegram && tg?.openLink) {
-      tg.openLink(personalLink);
-    } else {
-      if (window.location.href === personalLink) {
-        window.location.reload();
-      } else {
-        window.location.href = personalLink;
-      }
-    }
+    openExternalLink(personalLink);
   };
 
   return (
