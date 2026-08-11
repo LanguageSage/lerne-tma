@@ -13,10 +13,7 @@ export const DeckGrid = ({
   startTutorial, 
   userId, 
   openSyncModal, 
-  startStudy, 
-  importShareId, 
-  onImportSuccess, 
-  onImportClose 
+  startStudy 
 }) => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
 
@@ -87,15 +84,6 @@ export const DeckGrid = ({
             setActiveFolderId(parentId);
           }}
         />
-
-        {/* Import shared item modal */}
-        {importShareId && (
-          <ImportModal
-            shareId={importShareId}
-            onImportSuccess={onImportSuccess}
-            onClose={onImportClose}
-          />
-        )}
 
         {/* Breadcrumbs for folder navigation */}
         {activeFolderId !== null && (

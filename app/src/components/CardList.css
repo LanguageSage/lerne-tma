@@ -61,36 +61,6 @@
   cursor: grabbing;
 }
 
-.card-drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.45);
-  background: rgba(255, 255, 255, 0.04); /* Distinct color for drag handle */
-  cursor: grab;
-  width: 44px;
-  align-self: stretch;
-  margin: -14px 0 -14px -18px;
-  border-radius: 16px 0 0 16px;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  touch-action: none;
-  z-index: 1;
-}
-
-.card-drag-handle:hover {
-  color: #c084fc;
-  background: rgba(168, 85, 247, 0.12);
-  border-right-color: rgba(168, 85, 247, 0.25);
-}
-
-.card-drag-handle:active {
-  cursor: grabbing;
-  color: #a855f7;
-  background: rgba(168, 85, 247, 0.2);
-  border-right-color: rgba(168, 85, 247, 0.4);
-}
-
 .card-item-text {
   flex: 1;
   min-width: 0;

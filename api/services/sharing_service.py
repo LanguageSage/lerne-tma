@@ -210,8 +210,8 @@ class SharingService:
             
             target_deck = None
             if resolution == 'replace' and existing_deck:
-                # Delete existing cards (soft delete or hard?)
-                TMA_Card.update(is_deleted=True).where(TMA_Card.deck == existing_deck).execute()
+                # Delete existing cards in the target deck
+                TMA_Card.update(is_deleted=True).where(TMA_Card.deck_id == existing_deck.id).execute()
                 # Copy metadata & ensure language matches
                 existing_deck.metadata = source_deck.metadata
                 existing_deck.target_language = deck_lang
@@ -236,7 +236,7 @@ class SharingService:
             
             source_cards = TMA_Card.select().where(
                 (TMA_Card.deck == source_deck) & (TMA_Card.is_deleted == False)
-            )
+            ).order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
             
             creator_id = source_deck.user_id
             count = 0
@@ -259,11 +259,17 @@ class SharingService:
                     image_path=card.image_path,
                     image_data=card.image_data,
                     audio_path=card.audio_path,
+                    audio_back_path=card.audio_back_path,
+                    video_front_path=card.video_front_path,
+                    video_back_path=card.video_back_path,
                     tags=card.tags,
                     metadata=card.metadata,
                     card_type=card.card_type,
                     difficulty=card.difficulty,
                     topics=card.topics,
+                    flag=card.flag if card.flag is not None else 0,
+                    position=card.position if card.position is not None else count,
+                    want_to_learn=card.want_to_learn if card.want_to_learn is not None else True,
                     source=f"shared_deck:{source_deck.share_id}",
                     creator_id=card.creator_id or creator_id,
                     created_at=datetime.datetime.now(),
@@ -346,7 +352,7 @@ class SharingService:
                         updated_at=datetime.datetime.now()
                     )
                     decks_added += 1
-                    s_cards = TMA_Card.select().where((TMA_Card.deck == s_deck) & (TMA_Card.is_deleted == False))
+                    s_cards = TMA_Card.select().where((TMA_Card.deck == s_deck) & (TMA_Card.is_deleted == False)).order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
                     for c in s_cards:
                         TMA_Card.create(
                             deck=dest_deck,
@@ -356,11 +362,17 @@ class SharingService:
                             image_path=c.image_path,
                             image_data=c.image_data,
                             audio_path=c.audio_path,
+                            audio_back_path=c.audio_back_path,
+                            video_front_path=c.video_front_path,
+                            video_back_path=c.video_back_path,
                             tags=c.tags,
                             metadata=c.metadata,
                             card_type=c.card_type,
                             difficulty=c.difficulty,
                             topics=c.topics,
+                            flag=c.flag if c.flag is not None else 0,
+                            position=c.position if c.position is not None else cards_added,
+                            want_to_learn=c.want_to_learn if c.want_to_learn is not None else True,
                             source=f"shared_folder:{source_folder.share_id}",
                             creator_id=c.creator_id or source_folder.user_id,
                             created_at=datetime.datetime.now(),
@@ -445,11 +457,17 @@ class SharingService:
                 image_path=source_card.image_path,
                 image_data=source_card.image_data,
                 audio_path=source_card.audio_path,
+                audio_back_path=source_card.audio_back_path,
+                video_front_path=source_card.video_front_path,
+                video_back_path=source_card.video_back_path,
                 tags=source_card.tags,
                 metadata=source_card.metadata,
                 card_type=source_card.card_type,
                 difficulty=source_card.difficulty,
                 topics=source_card.topics,
+                flag=source_card.flag if source_card.flag is not None else 0,
+                position=source_card.position if source_card.position is not None else 0,
+                want_to_learn=source_card.want_to_learn if source_card.want_to_learn is not None else True,
                 source=f"shared_card:{source_card.share_id}",
                 creator_id=source_creator,
                 created_at=datetime.datetime.now(),

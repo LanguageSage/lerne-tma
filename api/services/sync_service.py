@@ -103,6 +103,8 @@ def execute_sync_push(request, user_id: int) -> dict:
                         resolved_deck_id = inbox.id
                 
                 client_updated_at = parse_iso_datetime(c.updated_at)
+                card_flag = getattr(c, 'flag', 0) if getattr(c, 'flag', 0) is not None else 0
+                card_pos = getattr(c, 'position', None)
                 if c.id < 0:
                     new_card = models.TMA_Card.create(
                         deck_id=resolved_deck_id,
@@ -116,6 +118,8 @@ def execute_sync_push(request, user_id: int) -> dict:
                         video_back_path=c.video_back_path,
                         want_to_learn=c.want_to_learn,
                         is_deleted=c.is_deleted,
+                        flag=card_flag,
+                        position=card_pos,
                         source='user',
                         created_at=parse_iso_datetime(c.created_at),
                         updated_at=client_updated_at
@@ -137,6 +141,9 @@ def execute_sync_push(request, user_id: int) -> dict:
                                 card.video_back_path = c.video_back_path
                                 card.want_to_learn = c.want_to_learn
                                 card.is_deleted = c.is_deleted
+                                card.flag = card_flag
+                                if card_pos is not None:
+                                    card.position = card_pos
                                 card.updated_at = client_updated_at
                                 card.save()
                     else:
@@ -152,6 +159,8 @@ def execute_sync_push(request, user_id: int) -> dict:
                             video_back_path=c.video_back_path,
                             want_to_learn=c.want_to_learn,
                             is_deleted=c.is_deleted,
+                            flag=card_flag,
+                            position=card_pos,
                             source='user',
                             created_at=parse_iso_datetime(c.created_at),
                             updated_at=client_updated_at

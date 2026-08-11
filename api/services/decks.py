@@ -626,7 +626,7 @@ def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
             updated_at=datetime.datetime.now()
         )
         
-        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False))
+        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()))
         
         now = datetime.datetime.now()
         card_data = [{
@@ -641,6 +641,7 @@ def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
             'video_back_path': card.video_back_path,
             'source': card.source,
             'position': card.position,
+            'flag': card.flag if card.flag is not None else 0,
             'want_to_learn': card.want_to_learn,
             'created_at': now,
             'updated_at': now

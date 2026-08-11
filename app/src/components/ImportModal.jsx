@@ -39,15 +39,13 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   }, [shareId]);
 
   const handleImport = async (resolution = null) => {
-
     setImporting(true);
     setError(null);
+    if (resolution) setConflict(null);
     try {
       const res = await api.post('/share/import', { share_id: shareId, resolution });
 
-      
       if (res.data.status === 'conflict') {
-
         setConflict(res.data);
         return;
       }
@@ -71,17 +69,28 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
         
         showToast(msg, 'success');
 
-        const activeLang = useLanguageStore.getState().activeLanguage;
-        if (targetLang && targetLang !== activeLang) {
-          await useLanguageStore.getState().setLanguage(targetLang);
-          showToast(`Переключено на язык ${langObj.flag} ${langObj.name}`, 'info');
-        } else {
-          await fetchDecks(useUiStore.getState().userProfile?.user_id);
+        try {
+          const activeLang = useLanguageStore.getState().activeLanguage;
+          if (targetLang && targetLang !== activeLang) {
+            await useLanguageStore.getState().setLanguage(targetLang);
+            showToast(`Переключено на язык ${langObj.flag} ${langObj.name}`, 'info');
+          } else {
+            await fetchDecks(true);
+          }
+        } catch (refreshErr) {
+          console.warn("Post-import refresh warning:", refreshErr);
         }
 
-        onImportSuccess();
+        try {
+          onImportSuccess?.();
+        } catch (cbErr) {
+          console.warn("onImportSuccess error:", cbErr);
+          onClose?.();
+        }
+        return;
       } else if (res.data.status === 'skipped' || res.data.status === 'cancelled') {
         onClose();
+        return;
       }
     } catch (err) {
       console.error("Error during import:", err);

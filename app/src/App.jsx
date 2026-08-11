@@ -24,6 +24,7 @@ import { DuplicateManager } from './components/DuplicateManager';
 import { TrashManager } from './components/TrashManager';
 import { AuthRequiredModal } from './components/AuthRequiredModal';
 import { LanguageSelectionModal } from './components/LanguageSelectionModal';
+import { ImportModal } from './components/ImportModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
@@ -188,7 +189,7 @@ function AppContent() {
   }, [view, activeFolderId, anyModalOpen]);
 
   // Custom hooks for initialization and import logic
-  const { importShareId, setImportShareId, checkStartParam } = useAutoImport();
+  const { importShareId, clearImportShareId, checkStartParam } = useAutoImport();
   useAppInitialization(checkStartParam);
   
   // Scroll to top on view change
@@ -238,7 +239,7 @@ function AppContent() {
       useSessionStore.getState().resetSession();
       const localCard = (useDeckStore.getState().deckCards || []).find(c => c.id === cardId);
       if (localCard) {
-        useSessionStore.getState().setCard(localCard);
+        useSessionStore.getState().addToHistory(localCard);
       }
       if (deck.id === 'duplicates') {
         await useDeckStore.getState().fetchDuplicates();
@@ -247,8 +248,17 @@ function AppContent() {
       }
       
       const res = await api.get(`/study/card/${cardId}`);
-      useSessionStore.getState().setCard(res.data);
-      useSessionStore.getState().addToHistory(res.data);
+      if (localCard) {
+        useSessionStore.getState().setCard(res.data);
+        const history = useSessionStore.getState().studyHistory;
+        if (history.length > 0) {
+          const updatedHistory = [...history];
+          updatedHistory[history.length - 1] = res.data;
+          useSessionStore.getState().setStudyHistory(updatedHistory);
+        }
+      } else {
+        useSessionStore.getState().addToHistory(res.data);
+      }
     } catch (err) {
       console.error("startStudyCard Error:", err);
       useUiStore.getState().showToast("Ошибка при запуске обучения для этой карточки");
@@ -285,9 +295,6 @@ function AppContent() {
             userId={USER_ID}
             startStudy={startStudy}
             startTutorial={startTutorial}
-            importShareId={importShareId}
-            onImportSuccess={() => setImportShareId(null)}
-            onImportClose={() => setImportShareId(null)}
           />
         );
       case 'study':
@@ -322,6 +329,17 @@ function AppContent() {
       <DeckModals />
       <RenameDeckModal />
       <SettingsModal userId={USER_ID} startTutorial={startTutorial} />
+      
+      {importShareId && (
+        <ImportModal
+          shareId={importShareId}
+          onImportSuccess={() => {
+            clearImportShareId();
+            setView('decks');
+          }}
+          onClose={() => clearImportShareId()}
+        />
+      )}
       
       <SyncModal
         isOpen={syncModalOpen}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, Reorder, useDragControls } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus, Edit2, Settings, Play, RefreshCw, GripVertical, Paperclip, ExternalLink, Pause, Play as PlayIcon } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { CardActionButton } from './CardActionModal';
 import { useUiStore } from '../store/useUiStore';
@@ -45,16 +45,12 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
       }}
     >
       <div 
-        className="card-drag-handle" 
+        className="deck-drag-handle-bottom" 
         onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
         onClick={(e) => e.stopPropagation()}
-        style={{ touchAction: 'none' }}
-        title="Перетащить карточку"
+        title="Зажмите и потяните для перетаскивания карточки"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <GripVertical size={16} />
-          <GripVertical size={16} />
-        </div>
+        <GripHorizontal size={22} />
       </div>
       <div 
         className="card-item-text"
