@@ -35,8 +35,8 @@ def _build_media_exists_map(cards_dicts: list) -> set:
         filenames_list = list(filenames)
         for i in range(0, len(filenames_list), 500):
             chunk = filenames_list[i:i+500]
-            for m in TMAMedia.select(TMAMedia.filename, TMAMedia.folder).where(TMAMedia.filename << chunk):
-                existing.add((m.filename, m.folder))
+            for filename, folder in TMAMedia.select(TMAMedia.filename, TMAMedia.folder).where(TMAMedia.filename << chunk).tuples():
+                existing.add((filename, folder))
         return existing
     except Exception as e:
         logger.error(f"Error in _build_media_exists_map: {e}")

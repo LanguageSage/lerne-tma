@@ -131,7 +131,8 @@ def create_all_tables():
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, TMAFeedback, TMAUser, TMALinkedSession,
-            LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt
+            LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt,
+            TMA_Collaborator
         ]
         tma_db.create_tables(models_to_create, safe=True)
         _tables_created = True
@@ -217,6 +218,21 @@ class TMA_Card(BaseModel):
             (('deck_id', 'is_deleted'), False),
             (('front_text', 'is_deleted'), False),
             (('updated_at',), False),
+        )
+
+class TMA_Collaborator(BaseModel):
+    id = AutoField()
+    target_type = CharField(index=True)  # 'folder' or 'deck'
+    target_id = IntegerField(index=True)  # ID of folder or deck
+    user_id = BigIntegerField(index=True) # Telegram User ID of collaborator
+    role = CharField(default='editor')    # 'owner', 'editor', 'viewer'
+    added_by = BigIntegerField(null=True) # Telegram User ID who added this collaborator
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = 'tma_collaborator'
+        indexes = (
+            (('target_type', 'target_id', 'user_id'), True),
         )
 
 class TMAProgress(BaseModel):

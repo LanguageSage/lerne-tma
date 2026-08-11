@@ -39,6 +39,8 @@ class SyncCardItem(BaseModel):
     video_back_path: Optional[str] = None
     want_to_learn: bool = False
     is_deleted: bool = False
+    flag: Optional[int] = 0
+    position: Optional[int] = 0
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

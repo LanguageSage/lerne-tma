@@ -21,6 +21,17 @@ def parse_iso_datetime(iso_str: Optional[str]) -> datetime.datetime:
         return datetime.datetime.now()
 
 
+def _merge_media_field(client_val: Optional[str], server_val: Optional[str]) -> Optional[str]:
+    """
+    Smart selection rule for media preservation:
+    If client explicitly sent a non-empty media path, use client's value.
+    If client sent None or empty string, but server has a non-empty media path, preserve server's value.
+    """
+    if client_val and str(client_val).strip():
+        return client_val
+    return server_val
+
+
 def execute_sync_push(request, user_id: int) -> dict:
     """Processes offline client changes and applies updates in a single DB transaction."""
     logger.info(f"Sync Push Service: starting for user {user_id}")
@@ -134,11 +145,11 @@ def execute_sync_push(request, user_id: int) -> dict:
                                 card.front_text = c.front_text
                                 card.back_text = c.back_text
                                 card.context = c.context
-                                card.image_path = c.image_path
-                                card.audio_path = c.audio_path
-                                card.audio_back_path = c.audio_back_path
-                                card.video_front_path = c.video_front_path
-                                card.video_back_path = c.video_back_path
+                                card.image_path = _merge_media_field(c.image_path, card.image_path)
+                                card.audio_path = _merge_media_field(c.audio_path, card.audio_path)
+                                card.audio_back_path = _merge_media_field(c.audio_back_path, card.audio_back_path)
+                                card.video_front_path = _merge_media_field(c.video_front_path, card.video_front_path)
+                                card.video_back_path = _merge_media_field(c.video_back_path, card.video_back_path)
                                 card.want_to_learn = c.want_to_learn
                                 card.is_deleted = c.is_deleted
                                 card.flag = card_flag
@@ -290,6 +301,8 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
                 "video_back_path": c.video_back_path or "",
                 "want_to_learn": bool(c.want_to_learn),
                 "is_deleted": bool(c.is_deleted),
+                "flag": getattr(c, 'flag', 0) or 0,
+                "position": getattr(c, 'position', 0) or 0,
                 "created_at": c.created_at.isoformat() if c.created_at else None,
                 "updated_at": c.updated_at.isoformat() if c.updated_at else None
             }

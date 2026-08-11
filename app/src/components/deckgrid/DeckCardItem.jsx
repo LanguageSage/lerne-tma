@@ -78,12 +78,15 @@ export const DeckCardItem = ({
   }, [isCopyMenuOpen]);
 
   const onMainAction = () => {
+    const currentId = useDeckStore.getState().currentDeck?.id;
+    if (currentId !== deck.id) {
+      useDeckStore.setState({ deckCards: [], cardsLoading: true });
+    }
     setCurrentDeck(deck);
-    useDeckStore.setState({ deckCards: [], cardsLoading: true });
-    fetchDeckCards(deck.id);
     useUiStore.getState().setCardsScrollTop(0);
     useUiStore.getState().setLastSelectedCardId(null);
     useUiStore.getState().setView('cards');
+    fetchDeckCards(deck.id);
   };
 
   const handleShare = async (e) => {
@@ -206,6 +209,12 @@ export const DeckCardItem = ({
             {deck.is_inbox && deck.stats.total > 0 && (
               <span style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
                 новые
+              </span>
+            )}
+
+            {deck.is_shared && (
+              <span className="deck-collab-badge" style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 7px', borderRadius: 6, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                👥 {deck.role === 'viewer' ? 'Только чтение' : 'Совместная'}
               </span>
             )}
 

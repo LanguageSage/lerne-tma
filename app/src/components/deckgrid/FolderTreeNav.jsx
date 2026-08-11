@@ -153,6 +153,11 @@ export const FolderCardItem = ({
           </div>
           <h3>
             <span className="deck-title-text">{folder.name}</span>
+            {folder.is_shared && (
+              <span className="folder-collab-badge" style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.25)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                👥 {folder.role === 'viewer' ? 'Только чтение' : 'Совместная'}
+              </span>
+            )}
           </h3>
           <div 
             className="deck-flag-badge-large"

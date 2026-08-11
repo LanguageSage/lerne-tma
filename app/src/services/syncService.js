@@ -11,7 +11,6 @@ export const syncService = {
     console.log("[Sync Service] Starting synchronization...");
 
     const userId = getUserId();
-    const nowStr = new Date().toISOString();
 
     try {
       // 1. Gather dirty items from local database
@@ -58,6 +57,8 @@ export const syncService = {
           video_back_path: c.video_back_path || null,
           want_to_learn: !!c.want_to_learn,
           is_deleted: !!c.is_deleted,
+          flag: c.flag || 0,
+          position: c.position || 0,
           created_at: c.created_at,
           updated_at: c.updated_at
         })),
@@ -223,26 +224,32 @@ export const syncService = {
           if (cards && cards.length > 0) {
             const localCardIds = cards.map(c => c.id);
             const localCards = await db.cards.where('id').anyOf(localCardIds).toArray();
+            const localCardMap = new Map(localCards.map(lc => [lc.id, lc]));
             const dirtyCardIds = new Set(localCards.filter(c => c.is_dirty).map(c => c.id));
             const cardsToUpsert = cards
               .filter(c => !dirtyCardIds.has(c.id))
-              .map(c => ({
-                id: c.id,
-                deck_id: c.deck_id,
-                front_text: c.front_text,
-                back_text: c.back_text,
-                context: c.context,
-                image_path: c.image_path,
-                audio_path: c.audio_path,
-                audio_back_path: c.audio_back_path,
-                video_front_path: c.video_front_path,
-                video_back_path: c.video_back_path,
-                want_to_learn: c.want_to_learn ? 1 : 0,
-                is_deleted: c.is_deleted ? 1 : 0,
-                created_at: c.created_at,
-                updated_at: c.updated_at,
-                is_dirty: 0
-              }));
+              .map(c => {
+                const lc = localCardMap.get(c.id);
+                return {
+                  id: c.id,
+                  deck_id: c.deck_id,
+                  front_text: c.front_text,
+                  back_text: c.back_text,
+                  context: c.context,
+                  image_path: c.image_path || (lc ? lc.image_path : null) || null,
+                  audio_path: c.audio_path || (lc ? lc.audio_path : null) || null,
+                  audio_back_path: c.audio_back_path || (lc ? lc.audio_back_path : null) || null,
+                  video_front_path: c.video_front_path || (lc ? lc.video_front_path : null) || null,
+                  video_back_path: c.video_back_path || (lc ? lc.video_back_path : null) || null,
+                  want_to_learn: c.want_to_learn ? 1 : 0,
+                  is_deleted: c.is_deleted ? 1 : 0,
+                  flag: c.flag || 0,
+                  position: c.position || 0,
+                  created_at: c.created_at,
+                  updated_at: c.updated_at,
+                  is_dirty: 0
+                };
+              });
             if (cardsToUpsert.length > 0) await db.cards.bulkPut(cardsToUpsert);
           }
 

@@ -4,6 +4,8 @@ import { getPublicShareUrl, executeShare } from '../utils/share';
 
 let reorderTimeout = null;
 let cardReorderTimeout = null;
+let pendingFetchCardsPromise = null;
+let pendingFetchCardsDeckId = null;
 
 export const useDeckStore = create((set, get) => ({
   decks: [],
@@ -124,6 +126,10 @@ export const useDeckStore = create((set, get) => ({
   },
 
   fetchDeckCards: async (deckId, attempts = 3, forceLoading = false) => {
+    if (pendingFetchCardsDeckId === deckId && pendingFetchCardsPromise) {
+      return pendingFetchCardsPromise;
+    }
+
     const state = get();
     const isSameDeck = state.currentDeck?.id === deckId;
     const hasCards = state.deckCards && state.deckCards.length > 0;
@@ -131,30 +137,38 @@ export const useDeckStore = create((set, get) => ({
     if (forceLoading || !isSameDeck || !hasCards) {
       set({ cardsLoading: true });
     }
-    try {
-      let lastError;
-      for (let attempt = 1; attempt <= attempts; attempt++) {
-        try {
-          if (deckId === 'favorites') {
-            const res = await api.get(`/cards/favorites?_t=${Date.now()}`);
+
+    const fetchPromise = (async () => {
+      try {
+        let lastError;
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+          try {
+            const endpoint = deckId === 'favorites' ? '/cards/favorites' : `/decks/${deckId}/cards`;
+            const res = await api.get(endpoint);
             set({ deckCards: res.data });
-          } else {
-            const res = await api.get(`/decks/${deckId}/cards?_t=${Date.now()}`);
-            set({ deckCards: res.data });
-          }
-          return;
-        } catch (err) {
-          lastError = err;
-          if (attempt < attempts) {
-            await new Promise(r => setTimeout(r, 150 * attempt));
+            return res.data;
+          } catch (err) {
+            lastError = err;
+            if (attempt < attempts) {
+              await new Promise(r => setTimeout(r, 150 * attempt));
+            }
           }
         }
+        console.error('Fetch Deck Cards Error after retries:', lastError);
+        throw lastError;
+      } finally {
+        if (pendingFetchCardsDeckId === deckId) {
+          pendingFetchCardsPromise = null;
+          pendingFetchCardsDeckId = null;
+        }
+        set({ cardsLoading: false });
       }
-      console.error('Fetch Deck Cards Error after retries:', lastError);
-      throw lastError;
-    } finally {
-      set({ cardsLoading: false });
-    }
+    })();
+
+    pendingFetchCardsPromise = fetchPromise;
+    pendingFetchCardsDeckId = deckId;
+
+    return fetchPromise;
   },
 
   handleDeleteDeck: async (deckId) => {
