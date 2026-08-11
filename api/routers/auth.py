@@ -17,6 +17,12 @@ class UserSyncSchema(BaseModel):
     phone: Optional[str] = None
     is_guest: bool = False
     guest_id: Optional[int] = None
+    active_language: Optional[str] = None
+    has_selected_language: Optional[bool] = None
+
+class UserLanguageSchema(BaseModel):
+    active_language: str
+    has_selected_language: bool = True
 
 @router.post("/auth/sync")
 def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
@@ -37,6 +43,8 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
         if data.username: user.username = data.username
         if data.photo_url: user.photo_url = data.photo_url
         if data.phone: user.phone = data.phone
+        if data.active_language: user.active_language = data.active_language
+        if data.has_selected_language is not None: user.has_selected_language = data.has_selected_language
         
         # Logic: If we have a name (from this request or already in DB), it's NOT a guest.
         # This is crucial for "Open in Browser" redirect where frontend sends is_guest=True
@@ -64,7 +72,9 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
                 "username": user.username,
                 "photo_url": user.photo_url,
                 "phone": user.phone,
-                "is_guest": user.is_guest
+                "is_guest": user.is_guest,
+                "active_language": user.active_language or "de",
+                "has_selected_language": bool(user.has_selected_language)
             }
         }
     except Exception as e:
@@ -85,8 +95,26 @@ def get_me(user_id: int = Depends(get_user_id)):
         "username": user.username,
         "photo_url": user.photo_url,
         "phone": user.phone,
-        "is_guest": user.is_guest
+        "is_guest": user.is_guest,
+        "active_language": user.active_language or "de",
+        "has_selected_language": bool(user.has_selected_language)
     }
+
+@router.post("/user/language")
+def update_user_language(data: UserLanguageSchema, user_id: int = Depends(get_user_id)):
+    lang = (data.active_language or "de").lower().strip()
+    if lang in ["de", "en", "no"]:
+        user, _ = TMAUser.get_or_create(user_id=user_id)
+        user.active_language = lang
+        user.has_selected_language = data.has_selected_language
+        user.updated_at = datetime.datetime.now()
+        user.save()
+        return {
+            "status": "ok",
+            "active_language": user.active_language,
+            "has_selected_language": bool(user.has_selected_language)
+        }
+    raise HTTPException(status_code=400, detail="Unsupported language")
 
 @router.post("/auth/session")
 def create_session(guest_id: int):

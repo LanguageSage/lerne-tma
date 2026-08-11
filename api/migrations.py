@@ -97,6 +97,7 @@ MIGRATIONS = [
     (69, "CREATE INDEX IF NOT EXISTS idx_tma_folder_user_deleted ON tma_folder(user_id, is_deleted)", 'tma'),
     (70, "ALTER TABLE tma_card ADD COLUMN flag INTEGER DEFAULT 0", 'tma'),
     (71, "ALTER TABLE card ADD COLUMN flag INTEGER DEFAULT 0", 'lerne'),
+    (72, "ALTER TABLE tma_user ADD COLUMN has_selected_language BOOLEAN DEFAULT false", 'tma'),
 ]
 
 

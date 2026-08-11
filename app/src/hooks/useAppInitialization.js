@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { getUserId, getUserProfile, storage } from '../utils/auth';
+import { getUserId, getUserProfile, storage, cloudStorage } from '../utils/auth';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
@@ -13,7 +13,7 @@ const SETTINGS_VERSION = '6';
 export const useAppInitialization = (checkStartParam) => {
   const { setUserProfile, showToast, setActiveTutorial } = useUiStore();
   const { setAdminSettings, setUserPrompts, applyDesignPreset } = useSettingsStore();
-  
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (tg) {
@@ -24,13 +24,25 @@ export const useAppInitialization = (checkStartParam) => {
     const init = async () => {
       const profile = getUserProfile();
       setUserProfile(profile);
-      
+
+      // 0. Attempt Telegram CloudStorage language restoration
+      try {
+        const cloudHasSelected = await cloudStorage.get('lerne_has_selected_language');
+        const cloudLang = await cloudStorage.get('lerne_target_language');
+        if (cloudHasSelected === 'true' && cloudLang) {
+          const { useLanguageStore } = await import('../store/useLanguageStore');
+          useLanguageStore.getState().syncLanguageFromExternal(cloudLang, true);
+        }
+      } catch (e) {
+        console.warn("CloudStorage language restore failed:", e);
+      }
+
       // Instant UI restore from cache if available
       loadCachedInitData();
 
       // 1. Await profile sync FIRST to guarantee user exists in backend DB before fetching initial decks
       await syncProfile(profile);
-      
+
       // 2. Perform auto-sync in offline mode if online
       if (isOfflineMode() && navigator.onLine) {
         try {
@@ -39,16 +51,16 @@ export const useAppInitialization = (checkStartParam) => {
           console.error("Startup sync failed:", e);
         }
       }
-      
+
       // 3. Fetch fresh init data from backend
       await fetchInitData();
     };
-    
+
     init();
-    
+
     // Check start param on mount
     checkStartParam();
-    
+
     // Listen for visibility changes
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -67,7 +79,7 @@ export const useAppInitialization = (checkStartParam) => {
         syncService.sync().catch(e => console.error("Online event sync failed:", e));
       }
     };
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleOnline);
 
@@ -101,14 +113,22 @@ export const useAppInitialization = (checkStartParam) => {
         storage.set('lerne_welcome_seen', 'true');
       }, 1500);
     } else {
-      const hasSelectedLang = storage.get('lerne_has_selected_language');
-      if (!hasSelectedLang) {
-        setTimeout(() => {
-          import('../store/useLanguageStore').then(({ useLanguageStore }) => {
-            useLanguageStore.getState().setLanguageModalOpen(true);
-          });
-        }, 1000);
-      }
+      setTimeout(async () => {
+        const { useLanguageStore } = await import('../store/useLanguageStore');
+        const langState = useLanguageStore.getState();
+        if (langState.hasSelectedLanguage) return;
+
+        const cloudHasSelected = await cloudStorage.get('lerne_has_selected_language');
+        const cloudLang = await cloudStorage.get('lerne_target_language');
+        if (cloudHasSelected === 'true' && cloudLang) {
+          langState.syncLanguageFromExternal(cloudLang, true);
+          return;
+        }
+
+        if (!langState.hasSelectedLanguage) {
+          langState.setLanguageModalOpen(true);
+        }
+      }, 1200);
     }
 
     return () => {
@@ -181,6 +201,15 @@ export const useAppInitialization = (checkStartParam) => {
       }
       setAdminSettings(res.data.settings);
       setUserPrompts(res.data.prompts);
+
+      if (res.data.user_info?.has_selected_language || res.data.user_info?.active_language) {
+        const { useLanguageStore } = await import('../store/useLanguageStore');
+        useLanguageStore.getState().syncLanguageFromExternal(
+          res.data.user_info.active_language || 'de',
+          Boolean(res.data.user_info.has_selected_language)
+        );
+      }
+
       // Cache init response for instant future starts
       storage.set('lerne_init_cache', JSON.stringify(res.data));
       storage.set('lerne_init_cache_version', CACHE_VERSION);
@@ -214,6 +243,9 @@ export const useAppInitialization = (checkStartParam) => {
 
   const syncProfile = async (currentProfile) => {
     try {
+      const { useLanguageStore } = await import('../store/useLanguageStore');
+      const langState = useLanguageStore.getState();
+
       // 1. Пытаемся получить существующий профиль из БД сервера
       try {
         const meRes = await api.get('/auth/me');
@@ -221,6 +253,14 @@ export const useAppInitialization = (checkStartParam) => {
           const dbProfile = meRes.data;
           setUserProfile(dbProfile);
           storage.set('lerne_user_profile', JSON.stringify(dbProfile));
+
+          if (dbProfile.has_selected_language || dbProfile.active_language) {
+            langState.syncLanguageFromExternal(
+              dbProfile.active_language || 'de',
+              Boolean(dbProfile.has_selected_language)
+            );
+          }
+
           if (currentProfile.is_guest && !dbProfile.is_guest) {
             console.log("Found real user profile in DB. Fetching data...");
             await fetchInitData();
@@ -237,17 +277,25 @@ export const useAppInitialization = (checkStartParam) => {
         last_name: currentProfile.last_name,
         username: currentProfile.username,
         photo_url: currentProfile.photo_url,
-        is_guest: currentProfile.is_guest
+        is_guest: currentProfile.is_guest,
+        active_language: langState.activeLanguage,
+        has_selected_language: langState.hasSelectedLanguage
       }), 'Profile sync');
-      
+
       if (res.data.status === 'ok' && res.data.user) {
         const newProfile = res.data.user;
         setUserProfile(newProfile);
         storage.set('lerne_user_profile', JSON.stringify(newProfile));
+
+        if (newProfile.has_selected_language || newProfile.active_language) {
+          langState.syncLanguageFromExternal(
+            newProfile.active_language || 'de',
+            Boolean(newProfile.has_selected_language)
+          );
+        }
       }
     } catch (err) {
       console.error("Profile sync error:", err);
     }
   };
 };
-

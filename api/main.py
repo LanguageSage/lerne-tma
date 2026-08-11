@@ -142,11 +142,23 @@ def get_init_data(user_id: int = Depends(get_user_id)):
             })
     except Exception: pass
         
+    # Get user language profile
+    user_info = {"active_language": "de", "has_selected_language": False}
+    try:
+        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+        if user:
+            user_info = {
+                "active_language": user.active_language or "de",
+                "has_selected_language": bool(user.has_selected_language)
+            }
+    except Exception: pass
+
     return {
         "decks": decks,
         "folders": folders,
         "settings": settings,
-        "prompts": prompts
+        "prompts": prompts,
+        "user_info": user_info
     }
 
 # --- Базовые Эндпоинты ---

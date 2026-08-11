@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { cloudStorage } from '../utils/auth';
+import api from '../services/api';
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'de', name: 'Deutsch', flag: '🇩🇪', label: 'Немецкий', desc: 'Изучение грамматики, артиклей der/die/das и падежей' },
@@ -14,11 +16,26 @@ export const useLanguageStore = create((set, get) => ({
   hasSelectedLanguage: INITIAL_HAS_SELECTED,
   isLanguageModalOpen: false,
   
-  setLanguage: async (code) => {
+  setLanguage: async (code, skipBackend = false) => {
     if (SUPPORTED_LANGUAGES.some(l => l.code === code)) {
+      // 1. LocalStorage
       localStorage.setItem('lerne_target_language', code);
       localStorage.setItem('lerne_has_selected_language', 'true');
+
+      // 2. Telegram CloudStorage
+      cloudStorage.set('lerne_target_language', code);
+      cloudStorage.set('lerne_has_selected_language', 'true');
+
       set({ activeLanguage: code, hasSelectedLanguage: true, isLanguageModalOpen: false });
+
+      // 3. Backend DB sync
+      if (!skipBackend) {
+        try {
+          await api.post('/user/language', { active_language: code, has_selected_language: true });
+        } catch (err) {
+          console.error("Error saving user language to backend:", err);
+        }
+      }
       
       // Automatically refresh decks and folders for newly selected language
       try {
@@ -27,6 +44,22 @@ export const useLanguageStore = create((set, get) => ({
       } catch (err) {
         console.error("Error refreshing decks after language change:", err);
       }
+    }
+  },
+
+  syncLanguageFromExternal: (code, hasSelected = true) => {
+    if (SUPPORTED_LANGUAGES.some(l => l.code === code)) {
+      localStorage.setItem('lerne_target_language', code);
+      if (hasSelected) {
+        localStorage.setItem('lerne_has_selected_language', 'true');
+        cloudStorage.set('lerne_has_selected_language', 'true');
+      }
+      cloudStorage.set('lerne_target_language', code);
+      set({
+        activeLanguage: code,
+        hasSelectedLanguage: Boolean(hasSelected),
+        isLanguageModalOpen: false
+      });
     }
   },
 

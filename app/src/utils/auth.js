@@ -127,4 +127,31 @@ export const getUserProfile = () => {
   }
 };
 
+export const cloudStorage = {
+  get: (key) => new Promise((resolve) => {
+    try {
+      const cs = window.Telegram?.WebApp?.CloudStorage;
+      if (cs && typeof cs.getItem === 'function') {
+        cs.getItem(key, (err, val) => resolve(err ? null : val));
+      } else {
+        resolve(null);
+      }
+    } catch (e) {
+      resolve(null);
+    }
+  }),
+  set: (key, val) => new Promise((resolve) => {
+    try {
+      const cs = window.Telegram?.WebApp?.CloudStorage;
+      if (cs && typeof cs.setItem === 'function') {
+        cs.setItem(key, String(val), (err, res) => resolve(!err));
+      } else {
+        resolve(false);
+      }
+    } catch (e) {
+      resolve(false);
+    }
+  })
+};
+
 export { storage };
