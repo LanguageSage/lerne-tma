@@ -2,6 +2,7 @@ import re
 import json
 import logging
 import time
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -190,3 +191,121 @@ async def get_provider_models(provider: str, ollama_url: str = None):
     )
     
     return await client.get_models()
+
+
+async def generate_batch_card_fields(user_id: int, text: str, target_language: str = "de", native_language: str = None) -> dict:
+    """
+    Parses multi-line text input (each line = 1 card) and generates cards in AI batches.
+    Dynamic batching:
+    - Short phrases (< 30 chars): 15 items per prompt batch.
+    - Long sentences (>= 30 chars): 5 items per prompt batch.
+    Rate-limit safe: Delays 3.5s between consecutive batch prompt calls to comply with Gemini 15 RPM.
+    """
+    start_time = time.time()
+    try:
+        from api.services.language_service import get_language_config, get_native_config
+        from api.models import TMACustomPrompt, TMASetting
+
+        raw_lines = [line.strip() for line in text.splitlines() if line and line.strip()]
+        if not raw_lines:
+            return {"error": "Введите хотя бы одну непустую строку для генерации."}
+        
+        # Max limit safeguard (30 lines per call)
+        if len(raw_lines) > 30:
+            raw_lines = raw_lines[:30]
+
+        if not native_language:
+            native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
+            native_language = native_rec.value if native_rec else "uk"
+            
+        target_lang = (target_language or "de").lower()
+        native_lang = (native_language or "uk").lower()
+        
+        lang_config = get_language_config(target_lang, native_lang)
+        native_config = get_native_config(native_lang)
+        lang_name = lang_config["name"]
+        native_name = native_config["name"]
+
+        provider, ai_key, ai_model = get_ai_config()
+        if not ai_key and provider != "ollama":
+            return {"error": f"API ключ для {provider} не настроен."}
+
+        client = AIService(provider=provider, api_key=ai_key)
+
+        # Determine batch size dynamically based on average line length
+        avg_len = sum(len(line) for line in raw_lines) / len(raw_lines)
+        batch_size = 5 if avg_len >= 30 else 15
+
+        chunks = [raw_lines[i:i + batch_size] for i in range(0, len(raw_lines), batch_size)]
+        all_results = []
+
+        # Check for active custom prompt
+        custom_prompt = TMACustomPrompt.get_or_none(
+            (TMACustomPrompt.user_id == user_id) & 
+            (TMACustomPrompt.is_active == True) &
+            ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
+        )
+
+        for index, chunk in enumerate(chunks):
+            if index > 0:
+                # Rate-limit safe delay (3.5 seconds) for consecutive API calls
+                await asyncio.sleep(3.5)
+
+            chunk_text = "\n".join(f"{idx+1}. {phrase}" for idx, phrase in enumerate(chunk))
+
+            if custom_prompt and custom_prompt.translation_prompt:
+                custom_instructions = custom_prompt.translation_prompt
+                batch_prompt = (
+                    f"Ты — профессиональный преподаватель языка {lang_name}.\n"
+                    f"Инструкции по стилю:\n{custom_instructions}\n\n"
+                    f"Сгенерируй карточки для {len(chunk)} элементов:\n{chunk_text}\n\n"
+                    f"Верни СТРОГО JSON-массив из объектов формата:\n"
+                    f"[{{\"front\": \"...\", \"back\": \"...\", \"context\": \"...\"}}]"
+                )
+            else:
+                batch_prompt = (
+                    f"Ты — профессиональный преподаватель языка {lang_name}.\n"
+                    f"Сгенерируй учебные флеш-карточки для следующего списка из {len(chunk)} элементов:\n"
+                    f"{chunk_text}\n\n"
+                    f"ТРЕБОВАНИЯ:\n"
+                    f"1. Верни СТРОГО JSON-массив из {len(chunk)} объектов без текста вокруг.\n"
+                    f"2. Формат каждого объекта в массиве:\n"
+                    f"   {{\n"
+                    f"     \"front\": \"исходная фраза на немецком/родном языке\",\n"
+                    f"     \"back\": \"точный перевод на {native_name} язык + грамматический комментарий\",\n"
+                    f"     \"context\": \"2-3 контекстных примера на {lang_name} с переводом\"\n"
+                    f"   }}\n"
+                    f"3. Если фраза на русском, переведи её на {lang_name} для 'front'.\n"
+                )
+
+            success, response = await client.chat_completion(
+                system_prompt=batch_prompt,
+                user_message="Сгенерируй JSON массив для указанного списка.",
+                model=ai_model
+            )
+
+            if success and response:
+                try:
+                    clean_resp = response.replace("```json", "").replace("```", "").strip()
+                    first_bracket = clean_resp.find('[')
+                    last_bracket = clean_resp.rfind(']')
+                    if first_bracket != -1 and last_bracket != -1:
+                        clean_resp = clean_resp[first_bracket:last_bracket+1]
+                    items = json.loads(clean_resp)
+                    if isinstance(items, list):
+                        all_results.extend(items)
+                except Exception as parse_err:
+                    logger.warning(f"Batch parse warning on chunk {index}: {parse_err}")
+
+        duration = time.time() - start_time
+        logger.info(f"Batch AI Generation complete for {len(raw_lines)} lines in {duration:.2f}s")
+        return {
+            "status": "success",
+            "total_requested": len(raw_lines),
+            "generated_count": len(all_results),
+            "cards": all_results
+        }
+    except Exception as e:
+        logger.error(f"Batch AI Generation Error: {e}", exc_info=True)
+        return {"error": f"Ошибка пакетной генерации: {str(e)}"}
+

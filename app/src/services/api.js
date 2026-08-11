@@ -3,7 +3,19 @@ import { getUserId } from '../utils/auth';
 import { isOfflineMode } from './localDb';
 import { offlineApi } from './offlineApi';
 
-const baseURL = import.meta.env.VITE_API_URL || '/api';
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    if (window.Capacitor || window.location.protocol === 'capacitor:' || window.location.protocol === 'file:') {
+      return 'https://tma-amber.vercel.app/api';
+    }
+  }
+  return '/api';
+};
+
+const baseURL = getBaseURL();
 
 const axiosInstance = axios.create({
   baseURL: baseURL,

@@ -1,6 +1,10 @@
 {
   "appId": "com.lerne.app",
   "appName": "Lerne",
-  "webDir": "app/dist"
+  "webDir": "app/dist",
+  "server": {
+    "androidScheme": "https"
+  }
 }
+
 
