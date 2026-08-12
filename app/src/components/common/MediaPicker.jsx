@@ -108,14 +108,14 @@ export const MediaPicker = ({
             onClick={onClose}
           >
             <motion.div
-              className="image-picker-dialog glass"
+              className="image-picker-dialog"
               initial={{ opacity: 0, y: 18, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 18, scale: 0.98 }}
               onClick={e => e.stopPropagation()}
             >
               <div className="image-picker-header">
-                <h3>Картинка</h3>
+                <h3>Выбор изображения</h3>
                 <button
                   type="button"
                   className="image-picker-close"
@@ -132,7 +132,7 @@ export const MediaPicker = ({
                   onClick={() => galleryInputRef.current?.click()}
                   disabled={loading}
                 >
-                  <Upload size={24} />
+                  <Upload size={24} color="#c084fc" />
                   <span>Галерея</span>
                 </button>
                 <button
@@ -141,8 +141,8 @@ export const MediaPicker = ({
                   onClick={openCamera}
                   disabled={loading}
                 >
-                  <Camera size={24} />
-                  <span>Фото</span>
+                  <Camera size={24} color="#38bdf8" />
+                  <span>Камера</span>
                 </button>
                 <a
                   href={googleImageUrl}
@@ -154,8 +154,8 @@ export const MediaPicker = ({
                     onClose();
                   }}
                 >
-                  <Search size={24} />
-                  <span>Поиск Google</span>
+                  <Search size={22} color="#34d399" />
+                  <span>Поиск в Google</span>
                 </a>
               </div>
               <input

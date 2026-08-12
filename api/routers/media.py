@@ -56,21 +56,26 @@ def get_range_response(request: Request, content: bytes, media_type: str) -> Res
     """Helper to handle HTTP 206 Partial Content for media streaming."""
     file_size = len(content)
     range_header = request.headers.get("range")
+    etag = f'"{hashlib.md5(content[:1024]).hexdigest()}"'
     
-    etag = hashlib.md5(content).hexdigest()
+    cors_headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+        "Cache-Control": "public, max-age=604800",
+        "ETag": etag,
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(file_size),
+    }
+
     if request.headers.get("if-none-match") == etag:
-        return Response(status_code=304)
+        return Response(status_code=304, headers=cors_headers)
 
     if not range_header:
         return Response(
             content=content,
             media_type=media_type,
-            headers={
-                "Cache-Control": "public, max-age=604800",
-                "ETag": etag,
-                "Accept-Ranges": "bytes",
-                "Content-Length": str(file_size),
-            }
+            headers=cors_headers
         )
 
     try:
@@ -80,32 +85,26 @@ def get_range_response(request: Request, content: bytes, media_type: str) -> Res
         end = int(byte_range[1]) if len(byte_range) > 1 and byte_range[1] else file_size - 1
         
         if start >= file_size or end >= file_size:
-            return Response(status_code=416, headers={"Content-Range": f"bytes */{file_size}"})
+            return Response(status_code=416, headers={"Content-Range": f"bytes */{file_size}", "Access-Control-Allow-Origin": "*"})
             
         chunk = content[start:end+1]
         
+        range_cors_headers = {
+            **cors_headers,
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Content-Length": str(len(chunk)),
+        }
         return Response(
             content=chunk,
             status_code=206,
             media_type=media_type,
-            headers={
-                "Content-Range": f"bytes {start}-{end}/{file_size}",
-                "Accept-Ranges": "bytes",
-                "Content-Length": str(len(chunk)),
-                "Cache-Control": "public, max-age=604800",
-                "ETag": etag,
-            }
+            headers=range_cors_headers
         )
     except Exception:
         return Response(
             content=content,
             media_type=media_type,
-            headers={
-                "Cache-Control": "public, max-age=604800",
-                "ETag": etag,
-                "Accept-Ranges": "bytes",
-                "Content-Length": str(file_size),
-            }
+            headers=cors_headers
         )
 
 @router.post("/upload-image")
@@ -289,12 +288,13 @@ async def upload_audio_file(
         "url": f"/api/media/audio/{filename}"
     }
 
-@router.get("/audio/{filename}")
+@router.get("/audio/{filename:path}")
 def get_audio(filename: str, request: Request):
-    logger.debug(f"MEDIA: Requesting audio: {filename}")
+    clean_filename = os.path.basename(filename)
+    logger.debug(f"MEDIA: Requesting audio: {clean_filename}")
     media = models.TMAMedia.get_or_none(
-        models.TMAMedia.filename == filename, 
-        models.TMAMedia.folder == 'audio'
+        (models.TMAMedia.filename == clean_filename) & 
+        (models.TMAMedia.folder == 'audio')
     )
     if not media:
         raise HTTPException(status_code=404, detail="Audio not found in DB")
@@ -302,21 +302,32 @@ def get_audio(filename: str, request: Request):
     content = bytes(media.content)
     return get_range_response(request, content, "audio/mpeg")
 
-@router.get("/images/{filename}")
+@router.get("/images/{filename:path}")
 def get_image(filename: str, request: Request):
-    logger.debug(f"MEDIA: Requesting image: {filename}")
+    clean_filename = os.path.basename(filename)
+    logger.debug(f"MEDIA: Requesting image: {clean_filename}")
     media = models.TMAMedia.get_or_none(
-        models.TMAMedia.filename == filename, 
-        models.TMAMedia.folder == 'images'
+        (models.TMAMedia.filename == clean_filename) & 
+        (models.TMAMedia.folder == 'images')
     )
     if not media:
         raise HTTPException(status_code=404, detail="Image not found in DB")
     
-    ext = filename.split('.')[-1].lower()
-    media_type = f"image/{ext}" if ext != 'jpg' else "image/jpeg"
-    if ext == 'webp': media_type = "image/webp"
-    
     content = bytes(media.content)
+    
+    # Detect exact magic bytes to guarantee valid browser rendering
+    if content.startswith(b'\xff\xd8\xff'):
+        media_type = "image/jpeg"
+    elif content.startswith(b'\x89PNG\r\n\x1a\n'):
+        media_type = "image/png"
+    elif content.startswith(b'RIFF') and b'WEBP' in content[:16]:
+        media_type = "image/webp"
+    elif content.startswith(b'GIF8'):
+        media_type = "image/gif"
+    else:
+        ext = clean_filename.split('.')[-1].lower()
+        media_type = f"image/{ext}" if ext != 'jpg' else "image/jpeg"
+    
     return get_range_response(request, content, media_type)
 
 @router.post("/upload-video")

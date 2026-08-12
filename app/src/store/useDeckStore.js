@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import api from '../services/api';
 import { getPublicShareUrl, executeShare } from '../utils/share';
+import { storage } from '../utils/auth';
 
 let reorderTimeout = null;
 let cardReorderTimeout = null;
@@ -26,7 +27,17 @@ export const useDeckStore = create((set, get) => ({
   setDecks: (decks) => set({ decks }),
   setFolders: (folders) => set({ folders }),
   setLibraryCategories: (categories) => set({ libraryCategories: categories }),
-  setCurrentDeck: (deck) => set({ currentDeck: deck }),
+  setCurrentDeck: (deck) => {
+    const prevDeck = get().currentDeck;
+    if (deck?.id) {
+      storage.set('lerne_current_deck_id', String(deck.id));
+    }
+    if (!prevDeck || prevDeck.id !== deck?.id) {
+      set({ currentDeck: deck, cardsLoading: true });
+    } else {
+      set({ currentDeck: deck });
+    }
+  },
   setExternalDecks: (decks) => set({ externalDecks: decks }),
   setCommunityDecks: (decks) => set({ communityDecks: decks }),
   setDeckCards: (cards) => set({ deckCards: cards }),
@@ -98,7 +109,12 @@ export const useDeckStore = create((set, get) => ({
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
         const res = await api.get('/decks');
-        set({ decks: res.data });
+        const newDecks = res.data || [];
+        const state = get();
+        const updatedCurrentDeck = state.currentDeck 
+          ? newDecks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
+          : null;
+        set({ decks: newDecks, currentDeck: updatedCurrentDeck });
         if (force) {
           get().fetchFolders();
         }
@@ -223,12 +239,16 @@ export const useDeckStore = create((set, get) => ({
   updateDeckMetadata: async (deckId, metadata) => {
     try {
       const res = await api.post(`/decks/${deckId}/metadata`, metadata);
-      const { fetchDecks, currentDeck } = get();
-      await fetchDecks(true);
+      const { fetchDecks, currentDeck, decks } = get();
+      const updatedMeta = res.data.metadata;
+      const updatedDecks = (decks || []).map(d => d.id === deckId ? { ...d, metadata: updatedMeta } : d);
+      set({ decks: updatedDecks });
       if (currentDeck && currentDeck.id === deckId) {
-        set({ currentDeck: { ...currentDeck, metadata: res.data.metadata } });
+        set({ currentDeck: { ...currentDeck, metadata: updatedMeta } });
       }
-      return res.data.metadata;
+      storage.remove('lerne_init_cache');
+      await fetchDecks(true);
+      return updatedMeta;
     } catch (err) {
       console.error('Update Deck Metadata Error:', err);
       throw err;

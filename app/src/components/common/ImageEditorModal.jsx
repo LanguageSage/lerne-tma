@@ -40,9 +40,9 @@ export const ImageEditorModal = ({
     if (!imageSrc) return;
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
 
     if (typeof imageSrc === 'string') {
+      img.crossOrigin = 'anonymous';
       img.src = imageSrc;
     } else if (imageSrc instanceof File || imageSrc instanceof Blob) {
       img.src = URL.createObjectURL(imageSrc);
@@ -54,9 +54,15 @@ export const ImageEditorModal = ({
       resetTransforms();
     };
 
+    img.onerror = (err) => {
+      console.error('Image load error in editor:', err);
+    };
+
     return () => {
       if (imageSrc instanceof File || imageSrc instanceof Blob) {
-        URL.revokeObjectURL(img.src);
+        try {
+          URL.revokeObjectURL(img.src);
+        } catch { /* ignore */ }
       }
     };
   }, [imageSrc, resetTransforms]);
@@ -184,67 +190,109 @@ export const ImageEditorModal = ({
 
   // Export edited image to File
   const handleApply = () => {
-    if (!imageRef.current) return;
+    if (!imageRef.current || !canvasRef.current || !containerRef.current) return;
 
     const img = imageRef.current;
+    const container = containerRef.current;
 
-    // Create high-res offscreen canvas
-    const offCanvas = document.createElement('canvas');
-    const ctx = offCanvas.getContext('2d');
+    const containerWidth = container.clientWidth || 320;
+    const containerHeight = container.clientHeight || 320;
 
-    const isSwapped = rotation === 90 || rotation === 270;
-    const targetW = isSwapped ? img.naturalHeight : img.naturalWidth;
-    const targetH = isSwapped ? img.naturalWidth : img.naturalHeight;
+    // 1. Calculate crop box dimensions in preview coordinates
+    let cropW = containerWidth * 0.85;
+    let cropH = containerHeight * 0.85;
 
-    // Determine output resolution (max 1200px)
-    const maxDim = 1200;
-    let outW = targetW;
-    let outH = targetH;
-    if (outW > maxDim || outH > maxDim) {
-      const ratio = Math.min(maxDim / outW, maxDim / outH);
-      outW = Math.round(outW * ratio);
-      outH = Math.round(outH * ratio);
-    }
-
-    // Adjust according to aspect ratio if set
     if (aspectRatio === '1:1') {
-      const side = Math.min(outW, outH);
-      outW = side;
-      outH = side;
+      const side = Math.min(240, Math.min(containerWidth, containerHeight) * 0.85);
+      cropW = side;
+      cropH = side;
     } else if (aspectRatio === '4:3') {
-      outH = Math.round(outW * (3 / 4));
+      cropW = Math.min(260, containerWidth * 0.85);
+      cropH = Math.round(cropW * (3 / 4));
     } else if (aspectRatio === '16:9') {
-      outH = Math.round(outW * (9 / 16));
+      cropW = Math.min(270, containerWidth * 0.85);
+      cropH = Math.round(cropW * (9 / 16));
     }
 
-    offCanvas.width = outW;
-    offCanvas.height = outH;
+    const cropX = (containerWidth - cropW) / 2;
+    const cropY = (containerHeight - cropH) / 2;
+
+    // 2. High-res target scale (max 1400px for crisp quality)
+    const targetMaxDim = 1400;
+    const scale = Math.max(1, Math.min(targetMaxDim / cropW, targetMaxDim / cropH));
+
+    const fullCanvas = document.createElement('canvas');
+    fullCanvas.width = Math.round(containerWidth * scale);
+    fullCanvas.height = Math.round(containerHeight * scale);
+
+    const ctx = fullCanvas.getContext('2d');
+    ctx.clearRect(0, 0, fullCanvas.width, fullCanvas.height);
 
     ctx.save();
-    ctx.translate(outW / 2, outH / 2);
+    const centerX = fullCanvas.width / 2;
+    const centerY = fullCanvas.height / 2;
+    ctx.translate(centerX + pan.x * scale, centerY + pan.y * scale);
+
     ctx.rotate((rotation * Math.PI) / 180);
     ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-    ctx.scale(zoom, zoom);
 
-    // Calculate draw offset considering panning
-    const drawW = isSwapped ? outH : outW;
-    const drawH = isSwapped ? outW : outH;
+    const isSwapped = rotation === 90 || rotation === 270;
+    const effWidth = isSwapped ? img.naturalHeight : img.naturalWidth;
+    const effHeight = isSwapped ? img.naturalWidth : img.naturalHeight;
 
-    const panFactorX = pan.x / (canvasRef.current?.width || 1);
-    const panFactorY = pan.y / (canvasRef.current?.height || 1);
+    const fitScale = Math.min(
+      (containerWidth * 0.85) / effWidth,
+      (containerHeight * 0.85) / effHeight
+    );
+    const renderWidth = img.naturalWidth * fitScale * zoom * scale;
+    const renderHeight = img.naturalHeight * fitScale * zoom * scale;
 
     ctx.drawImage(
       img,
-      -drawW / 2 + panFactorX * drawW,
-      -drawH / 2 + panFactorY * drawH,
-      drawW,
-      drawH
+      -renderWidth / 2,
+      -renderHeight / 2,
+      renderWidth,
+      renderHeight
     );
     ctx.restore();
 
-    offCanvas.toBlob(
+    // 3. Extract the crop overlay area with solid background
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = Math.round(cropW * scale);
+    cropCanvas.height = Math.round(cropH * scale);
+    const cropCtx = cropCanvas.getContext('2d');
+    
+    // Fill background so canvas is never transparent or blank
+    cropCtx.fillStyle = '#ffffff';
+    cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+    cropCtx.drawImage(
+      fullCanvas,
+      Math.round(cropX * scale),
+      Math.round(cropY * scale),
+      Math.round(cropW * scale),
+      Math.round(cropH * scale),
+      0,
+      0,
+      cropCanvas.width,
+      cropCanvas.height
+    );
+
+    // 4. Export crop overlay region as universal JPEG (100% browser rendering support)
+    cropCanvas.toBlob(
       (blob) => {
-        if (!blob) return;
+        if (!blob) {
+          cropCanvas.toBlob((pngBlob) => {
+            if (!pngBlob) return;
+            const file = new File([pngBlob], `edited_${Date.now()}.png`, {
+              type: 'image/png',
+              lastModified: Date.now()
+            });
+            onSave(file);
+            onClose();
+          }, 'image/png');
+          return;
+        }
         const file = new File([blob], `edited_${Date.now()}.jpg`, {
           type: 'image/jpeg',
           lastModified: Date.now()

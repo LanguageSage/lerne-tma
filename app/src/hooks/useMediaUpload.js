@@ -240,9 +240,20 @@ export const useMediaUpload = () => {
 
         let updatedResources = [...metadata.resources];
         if (replaceIndex >= 0 && replaceIndex < updatedResources.length) {
-          updatedResources[replaceIndex] = newResource;
+          updatedResources[replaceIndex] = {
+            ...updatedResources[replaceIndex],
+            ...newResource
+          };
         } else {
-          updatedResources.push(newResource);
+          const existingImgIdx = type === 'image' ? updatedResources.findIndex(r => r.type === 'image') : -1;
+          if (existingImgIdx >= 0) {
+            updatedResources[existingImgIdx] = {
+              ...updatedResources[existingImgIdx],
+              ...newResource
+            };
+          } else {
+            updatedResources.push(newResource);
+          }
         }
         const newMetadata = { ...metadata, resources: updatedResources };
 

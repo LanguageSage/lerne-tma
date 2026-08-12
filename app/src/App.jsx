@@ -239,7 +239,9 @@ function AppContent() {
       }
     } catch (err) {
       console.error("startStudyCard Error:", err);
-      useUiStore.getState().showToast("Ошибка при запуске обучения для этой карточки");
+      const { deckCards } = useDeckStore.getState();
+      useDeckStore.setState({ deckCards: (deckCards || []).filter(c => c.id !== cardId) });
+      useUiStore.getState().showToast("Карточка была удалена");
       setView('cards');
     } finally {
       setIsOpeningDeck(false);

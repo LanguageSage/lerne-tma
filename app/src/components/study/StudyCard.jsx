@@ -115,11 +115,31 @@ export const StudyCard = React.memo(({
   // --- Early return after all hooks ---
   if (!card) return null;
 
-  const deckResources = card.deck_metadata?.resources || [];
-  const deckImage = deckResources.find(r => r.type === 'image');
+  let deckMeta = card.deck_metadata;
+  if (!deckMeta) {
+    const currentDeck = useDeckStore.getState().currentDeck;
+    if (currentDeck?.metadata) {
+      deckMeta = typeof currentDeck.metadata === 'string' ? JSON.parse(currentDeck.metadata) : currentDeck.metadata;
+    }
+  } else if (typeof deckMeta === 'string') {
+    try { deckMeta = JSON.parse(deckMeta); } catch { /* pass */ }
+  }
+
+  const deckResources = deckMeta?.resources || [];
+  const deckImage = deckResources.find(r => r.type === 'image' && r.show_in_cards !== false);
   const deckVideo = deckResources.find(r => r.type === 'video');
 
-  const imageUrl = card.image_url || deckImage?.url;
+  const getDeckImageUrl = (resItem) => {
+    if (!resItem) return null;
+    if (resItem.url) return resItem.url;
+    if (resItem.path) {
+      const cleanPath = resItem.path.replace(/^(images|audio|videos)\//, '');
+      return `/api/media/images/${cleanPath}`;
+    }
+    return null;
+  };
+
+  const imageUrl = card.image_url || getDeckImageUrl(deckImage);
 
   const hasQuizSyntax = quizData && quizData.isQuiz;
   const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
@@ -190,8 +210,26 @@ export const StudyCard = React.memo(({
               
               {/* Media Preview Header */}
               {imageUrl && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
-                <div className="media-container-card" style={{ marginBottom: '14px' }}>
-                  <img src={imageUrl} alt="Card visual" className="card-img" />
+                <div style={{
+                  width: '100%',
+                  maxHeight: '180px',
+                  overflow: 'hidden',
+                  borderRadius: '12px',
+                  marginBottom: '14px',
+                  background: '#000',
+                  flexShrink: 0
+                }}>
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      height: '180px',
+                      objectFit: 'contain',
+                      borderRadius: '12px'
+                    }}
+                  />
                 </div>
               )}
 
@@ -490,12 +528,28 @@ export const StudyCard = React.memo(({
               </div>
               
               {imageUrl && (
-                <img
-                  src={imageUrl}
-                  className="card-img"
-                  alt="Card"
-                  onError={(e) => { console.warn('Image load error:', imageUrl); e.target.style.display = 'none'; }}
-                />
+                <div style={{
+                  width: '100%',
+                  maxHeight: '180px',
+                  overflow: 'hidden',
+                  borderRadius: '12px',
+                  marginBottom: '12px',
+                  background: '#000',
+                  flexShrink: 0
+                }}>
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      height: '180px',
+                      objectFit: 'contain',
+                      borderRadius: '12px'
+                    }}
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                </div>
               )}
               {card.context && (
                 <div className="text-context" style={contextStyle}>

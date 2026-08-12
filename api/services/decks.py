@@ -269,12 +269,10 @@ def get_active_decks(user_id: int):
                         url = resolve_media_url(path, 'audio')
                     elif res_type == 'video':
                         url = resolve_media_url(path, 'videos')
-                resolved_resources.append({
-                    "type": res_type,
-                    "path": path,
-                    "url": url,
-                    "title": res.get('title')
-                })
+                item = {**res}
+                if url:
+                    item['url'] = url
+                resolved_resources.append(item)
             parsed_metadata['resources'] = resolved_resources
 
             role = get_effective_user_role(user_id, 'deck', d.id)
@@ -734,9 +732,15 @@ def get_community_content(user_id: int):
 
 def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
     try:
-        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
         if not deck:
             return None
+        
+        from .collaborative_service import get_effective_user_role
+        role = get_effective_user_role(user_id, 'deck', deck_id)
+        if not role or role not in ('owner', 'editor', 'admin'):
+            return None
+
         deck.metadata = json.dumps(metadata_dict)
         deck.updated_at = datetime.datetime.now()
         deck.save()

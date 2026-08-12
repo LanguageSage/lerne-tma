@@ -52,12 +52,10 @@ async def _card_to_response(card, progress, user_id: int):
                 url = services.resolve_media_url(path, 'audio')
             elif res_type == 'video':
                 url = services.resolve_media_url(path, 'videos')
-        resolved_resources.append({
-            "type": res_type,
-            "path": path,
-            "url": url,
-            "title": res.get('title')
-        })
+        item = {**res}
+        if url:
+            item['url'] = url
+        resolved_resources.append(item)
     deck_metadata['resources'] = resolved_resources
 
     return {

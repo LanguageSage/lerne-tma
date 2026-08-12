@@ -224,23 +224,28 @@ input:checked + .slider:before {
 .image-picker-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2600;
+  z-index: 3000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 18px;
-  background: rgba(0, 0, 0, 0.56);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .image-picker-dialog {
   width: 100%;
-  max-width: 360px;
-  padding: 18px;
-  border-radius: 18px;
+  max-width: 380px;
+  padding: 22px;
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  box-sizing: border-box;
 }
 
 .import-item-info {

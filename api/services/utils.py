@@ -61,11 +61,9 @@ def resolve_deck_metadata(deck):
             folder = folder_map.get(res_type)
             if folder:
                 url = resolve_media_url(path, folder)
-        resolved_resources.append({
-            "type": res_type,
-            "path": path,
-            "url": url,
-            "title": r.get('title')
-        })
+        item = {**r}
+        if url:
+            item['url'] = url
+        resolved_resources.append(item)
     deck_metadata['resources'] = resolved_resources
     return deck_metadata

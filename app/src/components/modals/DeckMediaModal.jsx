@@ -53,6 +53,21 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleToggleShowInCardsModal = async (indexToToggle, isChecked) => {
+    try {
+      const updatedResources = resources.map((r, idx) => {
+        if (idx === indexToToggle) {
+          return { ...r, show_in_cards: isChecked };
+        }
+        return r;
+      });
+      const newMetadata = { ...metadata, resources: updatedResources };
+      await updateDeckMetadata(currentDeck.id, newMetadata);
+    } catch {
+      showToast('Не удалось обновить настройки');
+    }
+  };
+
   const handleAddLink = async () => {
     if (!linkUrl.trim()) {
       showToast('Введите ссылку URL');
@@ -176,30 +191,54 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           {res.type === 'image' && (
-                            <button
-                              onClick={() => {
-                                const src = res.url || (res.path ? `/api/media/${res.path}` : '');
-                                setEditingImageSrc(src);
-                                setTargetResourceIndex(idx);
-                              }}
-                              disabled={loading}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#c084fc',
-                                padding: '4px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                opacity: 0.8,
-                                transition: 'opacity 0.2s'
-                              }}
-                              onMouseOver={e => e.currentTarget.style.opacity = '1'}
-                              onMouseOut={e => e.currentTarget.style.opacity = '0.8'}
-                              title="Редактировать изображение"
-                            >
-                              <Edit2 size={16} />
-                            </button>
+                            <>
+                              <label
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  marginRight: '6px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.75rem',
+                                  color: '#94a3b8',
+                                  userSelect: 'none'
+                                }}
+                                title="Показывать в каждой карточке"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={res.show_in_cards !== false}
+                                  onChange={(e) => handleToggleShowInCardsModal(idx, e.target.checked)}
+                                  style={{ width: '15px', height: '15px', accentColor: '#c084fc', cursor: 'pointer' }}
+                                />
+                                <span>В карточках</span>
+                              </label>
+
+                              <button
+                                onClick={() => {
+                                  const src = res.url || (res.path ? `/api/media/${res.path}` : '');
+                                  setEditingImageSrc(src);
+                                  setTargetResourceIndex(idx);
+                                }}
+                                disabled={loading}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#c084fc',
+                                  padding: '4px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  opacity: 0.8,
+                                  transition: 'opacity 0.2s'
+                                }}
+                                onMouseOver={e => e.currentTarget.style.opacity = '1'}
+                                onMouseOut={e => e.currentTarget.style.opacity = '0.8'}
+                                title="Редактировать изображение"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                            </>
                           )}
                           <button
                             onClick={() => handleDeleteResource(idx)}
@@ -240,13 +279,8 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                     gap: '10px'
                   }}>
                     {/* Image input trigger */}
-                    <button 
+                    <label 
                       className="btn" 
-                      onClick={() => {
-                        setTargetResourceIndex(-1);
-                        setIsImagePickerOpen(true);
-                      }}
-                      disabled={loading}
                       style={{
                         background: 'rgba(192, 132, 252, 0.1)',
                         border: '1px solid rgba(192, 132, 252, 0.3)',
@@ -263,7 +297,21 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                     >
                       <ImageIcon size={16} />
                       <span>Картинка</span>
-                    </button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setTargetResourceIndex(-1);
+                            setEditingImageSrc(file);
+                          }
+                          e.target.value = '';
+                        }}
+                        disabled={loading}
+                      />
+                    </label>
 
                     {/* Audio input trigger */}
                     <label className="btn" style={{

@@ -166,9 +166,16 @@ export const useAppInitialization = (checkStartParam) => {
       const cachedRaw = storage.get('lerne_init_cache');
       if (cachedRaw) {
         const data = JSON.parse(cachedRaw);
-        const { setDecks, setFolders } = useDeckStore.getState();
+        const { setDecks, setFolders, setCurrentDeck } = useDeckStore.getState();
         if (data.decks && data.decks.length > 0) {
           setDecks(data.decks);
+          const savedDeckId = storage.get('lerne_current_deck_id');
+          if (savedDeckId) {
+            const cachedCurrent = data.decks.find(d => String(d.id) === String(savedDeckId));
+            if (cachedCurrent) {
+              setCurrentDeck(cachedCurrent);
+            }
+          }
         }
         if (data.folders) {
           setFolders(data.folders);
@@ -236,19 +243,23 @@ export const useAppInitialization = (checkStartParam) => {
       storage.set('lerne_init_cache_version', CACHE_VERSION);
       fetchDuplicates();
 
-      // If user opened a deck while startup init was running, re-sync cards for current deck
+      // If user opened a deck or refreshed, re-sync currentDeck & cards for current deck
       const uiState = useUiStore.getState();
-      const currDeck = useDeckStore.getState().currentDeck;
-      if (uiState.view === 'cards' && currDeck?.id) {
+      const savedDeckId = storage.get('lerne_current_deck_id');
+      const currDeck = useDeckStore.getState().currentDeck 
+        || (savedDeckId ? freshDecks.find(d => String(d.id) === String(savedDeckId)) : null);
+
+      if (currDeck) {
         const freshCurrentDeck = freshDecks.find(d => d.id === currDeck.id)
           || freshDecks.find(d => d.name === currDeck.name && d.stats?.total > 0)
-          || freshDecks.find(d => d.name === currDeck.name);
-        if (freshCurrentDeck) {
-          useDeckStore.getState().setCurrentDeck(freshCurrentDeck);
+          || freshDecks.find(d => d.name === currDeck.name)
+          || currDeck;
+        useDeckStore.getState().setCurrentDeck(freshCurrentDeck);
+        if (uiState.view === 'cards') {
           useDeckStore.getState().fetchDeckCards(freshCurrentDeck.id);
-        } else {
-          useDeckStore.getState().fetchDeckCards(currDeck.id);
         }
+      } else if (uiState.view === 'cards') {
+        useUiStore.setState({ view: 'main' });
       }
     } catch (err) {
       console.error("Init Data Error:", err);

@@ -57,29 +57,27 @@ def _check_media_exists(filename: str, folder: str) -> bool:
 
 
 def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) -> str | None:
-    """Формирует URL для медиа. Если передан exists_map — пропускаем запрос в БД."""
-    if not path_str: return None
-    if path_str.startswith("http"): return path_str
+    """Формирует канонический URL для медиа-ресурсов."""
+    if not path_str:
+        return None
+    if path_str.startswith("http://") or path_str.startswith("https://"):
+        return path_str
+    if path_str.startswith("/api/media/"):
+        return path_str
     
-    # Извлекаем только имя файла
     filename = os.path.basename(path_str)
+    if not filename:
+        return None
     
     folder = "images"
-    if media_type == "audio": folder = "audio"
-    elif media_type == "videos": folder = "videos"
-    elif media_type == "backgrounds": folder = "backgrounds"
+    if media_type in ("audio", "audio_back"):
+        folder = "audio"
+    elif media_type in ("videos", "video_front", "video_back"):
+        folder = "videos"
+    elif media_type == "backgrounds":
+        folder = "backgrounds"
     
-    # 1. Если есть предзагруженная карта существования — используем её
-    if exists_map is not None:
-        if (filename, folder) not in exists_map:
-            return None
-        return f"/api/media/{media_type}/{filename}"
-    
-    # 2. Используем кэшированную проверку (убирает сотни лишних запросов к БД)
-    if _check_media_exists(filename, folder):
-        return f"/api/media/{media_type}/{filename}"
-    
-    return None
+    return f"/api/media/{folder}/{filename}"
 
 
 async def ensure_card_audio(card, user_id: int):

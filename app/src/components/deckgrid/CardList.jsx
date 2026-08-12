@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, Reorder, useDragControls } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon, Crop } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon, Crop, Loader2 } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
 import { useUiStore } from '../../store/useUiStore';
@@ -97,6 +97,23 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const { uploadDeckResource } = useMediaUpload();
   const { openCreator } = useCardNavigation();
 
+  const handleToggleShowInCards = async (targetImg, isChecked) => {
+    if (!currentDeck) return;
+    let metadata = { resources: [] };
+    if (currentDeck.metadata) {
+      metadata = typeof currentDeck.metadata === 'string'
+        ? JSON.parse(currentDeck.metadata)
+        : currentDeck.metadata;
+    }
+    const updatedResources = (metadata.resources || []).map(r => {
+      if (r === targetImg || (r.type === 'image' && (r.url === targetImg.url || r.path === targetImg.path))) {
+        return { ...r, show_in_cards: isChecked };
+      }
+      return r;
+    });
+    await useDeckStore.getState().updateDeckMetadata(currentDeck.id, { ...metadata, resources: updatedResources });
+  };
+
   React.useEffect(() => {
     if (view === 'cards' && currentDeck?.id) {
       useDeckStore.getState().fetchDeckCards(currentDeck.id);
@@ -139,6 +156,13 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   }, [lastSelectedCardId, view]);
 
   if (view !== 'cards') return null;
+  if (!currentDeck) {
+    return (
+      <div className="view-cards" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '350px' }}>
+        <Loader2 className="animate-spin" size={32} color="#a855f7" />
+      </div>
+    );
+  }
 
   return (
     <div className="view-cards">
@@ -323,79 +347,125 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                   WebkitOverflowScrolling: 'touch'
                 }}>
                   {images.map((img, idx) => {
-                    const imgSrc = img.url || (img.path ? `/api/media/${img.path}` : '');
+                    const getImgSrc = (imgItem) => {
+                      if (!imgItem) return '';
+                      if (imgItem.url) return imgItem.url;
+                      if (imgItem.path) {
+                        const cleanPath = imgItem.path.replace(/^(images|audio|videos)\//, '');
+                        return `/api/media/images/${cleanPath}`;
+                      }
+                      return '';
+                    };
+                    const imgSrc = getImgSrc(img);
                     const resourceIndex = resources.findIndex(r => r === img || (r.type === 'image' && (r.url === img.url || r.path === img.path)));
                     return (
-                      <div key={idx} className="glass" style={{
-                        position: 'relative',
-                        borderRadius: '16px',
-                        overflow: 'hidden',
-                        aspectRatio: '16 / 9',
-                        flex: '0 0 100%',
-                        maxWidth: '100%',
-                        height: '180px',
-                        scrollSnapAlign: 'start',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        background: 'rgba(0, 0, 0, 0.35)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <img 
-                          src={imgSrc} 
-                          alt={img.title || 'Deck image'} 
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }} 
-                          onClick={() => window.open(imgSrc, '_blank')}
-                        />
+                      <div key={idx} style={{ flex: '0 0 100%', maxWidth: '100%', scrollSnapAlign: 'start' }}>
+                        <div className="glass" style={{
+                          position: 'relative',
+                          borderRadius: '16px',
+                          overflow: 'hidden',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          background: '#000'
+                        }}>
+                          <img 
+                            src={imgSrc} 
+                            alt="" 
+                            style={{ 
+                              display: 'block',
+                              width: '100%', 
+                              maxHeight: '260px', 
+                              objectFit: 'contain',
+                              borderRadius: '16px',
+                              cursor: 'zoom-in' 
+                            }} 
+                            onClick={() => window.open(imgSrc, '_blank')}
+                          />
 
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingDeckImgSrc(imgSrc);
-                            setEditingDeckImgIndex(resourceIndex >= 0 ? resourceIndex : idx);
-                          }}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingDeckImgSrc(imgSrc);
+                              setEditingDeckImgIndex(resourceIndex >= 0 ? resourceIndex : idx);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: '10px',
+                              right: '10px',
+                              background: 'rgba(0, 0, 0, 0.7)',
+                              backdropFilter: 'blur(6px)',
+                              border: '1px solid rgba(255, 255, 255, 0.25)',
+                              color: '#e9d5ff',
+                              padding: '6px 12px',
+                              borderRadius: '10px',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              zIndex: 2,
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.85)'}
+                            onMouseOut={e => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)'}
+                            title="Редактировать изображение списка"
+                          >
+                            <Crop size={14} />
+                            <span>Изменить</span>
+                          </button>
+
+                          {images.length > 1 && (
+                            <div style={{
+                              position: 'absolute',
+                              bottom: '10px',
+                              right: '12px',
+                              background: 'rgba(0, 0, 0, 0.65)',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              padding: '3px 10px',
+                              borderRadius: '10px',
+                              fontWeight: 600
+                            }}>
+                              {idx + 1} / {images.length}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Toggle switch for showing image in every card */}
+                        <label 
+                          onClick={(e) => e.stopPropagation()}
                           style={{
-                            position: 'absolute',
-                            top: '8px',
-                            right: '8px',
-                            background: 'rgba(0, 0, 0, 0.65)',
-                            backdropFilter: 'blur(4px)',
-                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                            color: '#e9d5ff',
-                            padding: '4px 10px',
-                            borderRadius: '10px',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            zIndex: 2,
-                            transition: 'all 0.2s'
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                            marginTop: '8px',
+                            padding: '8px 12px',
+                            borderRadius: '12px',
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            width: '100%',
+                            boxSizing: 'border-box'
                           }}
-                          onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.8)'}
-                          onMouseOut={e => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.65)'}
-                          title="Редактировать изображение списка"
                         >
-                          <Crop size={14} />
-                          <span>Изменить</span>
-                        </button>
-
-                        {images.length > 1 && (
-                          <div style={{
-                            position: 'absolute',
-                            bottom: '8px',
-                            right: '12px',
-                            background: 'rgba(0,0,0,0.6)',
-                            color: 'white',
-                            fontSize: '0.7rem',
-                            padding: '2px 8px',
-                            borderRadius: '10px',
-                            fontWeight: 600
-                          }}>
-                            {idx + 1} / {images.length}
-                          </div>
-                        )}
+                          <span style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 500 }}>
+                            Показывать картинку в каждой карточке
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={img.show_in_cards !== false}
+                            onChange={(e) => handleToggleShowInCards(img, e.target.checked)}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              accentColor: '#a855f7',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        </label>
                       </div>
                     );
                   })}

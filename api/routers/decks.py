@@ -195,12 +195,10 @@ def update_deck_metadata(deck_id: int, data: dict, user_id: int = Depends(get_us
                         url = services.resolve_media_url(path, 'audio')
                     elif res_type == 'video':
                         url = services.resolve_media_url(path, 'videos')
-                resolved_resources.append({
-                    "type": res_type,
-                    "path": path,
-                    "url": url,
-                    "title": res.get('title')
-                })
+                item = {**res}
+                if url:
+                    item['url'] = url
+                resolved_resources.append(item)
             parsed_meta['resources'] = resolved_resources
             return {"status": "success", "metadata": parsed_meta}
         raise HTTPException(status_code=404, detail="Deck not found or access denied")

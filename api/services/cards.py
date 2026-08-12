@@ -233,7 +233,7 @@ def get_cards_for_study(deck_id: int, user_id: int):
         
         if not cards:
             # Self-healing: if deck exists in TMA_Deck but has 0 cards, check if it matches a default library deck
-            tma_deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+            tma_deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
             if tma_deck:
                 lib_deck = Deck.get_or_none((Deck.name == tma_deck.name) & (Deck.is_deleted == False))
                 if lib_deck:
@@ -424,12 +424,10 @@ def format_card_for_study(card: TMA_Card, user_id: int):
                 url = resolve_media_url(path, 'audio')
             elif res_type == 'video':
                 url = resolve_media_url(path, 'videos')
-        resolved_resources.append({
-            "type": res_type,
-            "path": path,
-            "url": url,
-            "title": r.get('title')
-        })
+        item = {**r}
+        if url:
+            item['url'] = url
+        resolved_resources.append(item)
     deck_metadata['resources'] = resolved_resources
     
     res["deck_metadata"] = deck_metadata
