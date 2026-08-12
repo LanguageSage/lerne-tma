@@ -17,16 +17,16 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const { fetchDecks } = useDeckStore();
   const { showToast } = useUiStore();
 
-  useEffect(() => {
+  const isCollab = shareId && shareId.startsWith('collab_');
+  const cleanShareId = shareId ? shareId.replace('collab_', '') : '';
 
+  useEffect(() => {
     if (!shareId) return;
     const fetchInfo = async () => {
       setLoading(true);
       setError(null);
       try {
-
-        const res = await api.get(`/share/info/${shareId}`);
-
+        const res = await api.get(`/share/info/${cleanShareId}`);
         setShareInfo(res.data);
       } catch (err) {
         console.error("Error fetching share info:", err);
@@ -36,11 +36,30 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
       }
     };
     fetchInfo();
-  }, [shareId]);
+  }, [shareId, cleanShareId]);
 
-  const handleImport = async (resolution = null) => {
+  const handleJoin = async () => {
     setImporting(true);
     setError(null);
+    try {
+      const res = await useDeckStore.getState().joinCollaborativeItem(shareId);
+      showToast(`Вы успешно присоединились к «${res.name || 'элементу'}»!`, 'success');
+      onImportSuccess?.();
+    } catch (err) {
+      console.error("Error joining collaborative item:", err);
+      setError("Не удалось присоединиться к совместной папке/колоде.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImport = async (resolution = null) => {
+    if (isCollab && !resolution) {
+      return handleJoin();
+    }
+    setImporting(true);
+    setError(null);
+
     if (resolution) setConflict(null);
     try {
       const res = await api.post('/share/import', { share_id: shareId, resolution });
@@ -351,8 +370,9 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: 1, padding: '12px' }}
                 >
                   <Download size={18} />
-                  {importing ? 'Сохранение...' : 'Добавить'}
+                  {importing ? 'Сохранение...' : (isCollab ? 'Присоединиться' : 'Добавить')}
                 </button>
+
               </div>
             )}
           </div>

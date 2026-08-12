@@ -116,9 +116,7 @@ export const StudyCard = React.memo(({
   // Cloze / Trainer Data Parsing
   const clozeData = useMemo(() => {
     const allDeckCards = useDeckStore.getState().deckCards || [];
-    const allFavCards = useDeckStore.getState().favoriteCards || [];
-    const allSourceCards = [...allDeckCards, ...allFavCards];
-    return parseClozeData(card, studyMode, allSourceCards);
+    return parseClozeData(card, studyMode, allDeckCards);
   }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]);
 
   const hasQuizSyntax = quizData && quizData.isQuiz;

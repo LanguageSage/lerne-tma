@@ -1,12 +1,11 @@
 import React from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, Reorder, useDragControls } from 'framer-motion';
 import { ChevronLeft, Trash2, Plus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon } from 'lucide-react';
 import { HelpButton } from './TutorialOverlay';
 import { CardActionButton } from './CardActionModal';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
-import { useSessionStore } from '../store/useSessionStore';
-import { useCardActions } from '../hooks/useCardActions';
 import { useCardNavigation } from '../hooks/useCardNavigation';
 import { UserProfileBadge } from './common/UserBadge';
 import { DeckMediaModal } from './DeckMediaModal';
@@ -88,11 +87,11 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
 };
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
-  const { view, setView, setIsSettingsOpen, setEditorSourceView, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, setLastSelectedCardId, cardsScrollTop, setCardsScrollTop, showToast } = useUiStore();
+  const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, setLastSelectedCardId, cardsScrollTop, setCardsScrollTop } = useUiStore();
   const { currentDeck, deckCards, cardsLoading } = useDeckStore();
   const [isMediaModalOpen, setIsMediaModalOpen] = React.useState(false);
 
-  const { openEditor, openCreator } = useCardNavigation();
+  const { openCreator } = useCardNavigation();
 
   React.useEffect(() => {
     if (view === 'cards' && currentDeck?.id) {
@@ -118,7 +117,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     return () => {
       container.removeEventListener('scroll', handleScroll);
     };
-  }, [view]);
+  }, [view, cardsScrollTop, setCardsScrollTop]);
 
   React.useEffect(() => {
     if (lastSelectedCardId && view === 'cards') {
@@ -166,14 +165,6 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
               }} />
             </button>
 
-            <button 
-              className="header-action-btn" 
-              onClick={() => startStudy(currentDeck)}
-              title="Начать изучение"
-              style={{ color: '#10b981' }}
-            >
-              <Play size={22} fill="currentColor" />
-            </button>
 
             <button 
               className="header-action-btn settings-btn" 
@@ -481,49 +472,6 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
               >
                 Создать карточку
               </button>
-            </div>
-          ) : currentDeck?.id === 'favorites' ? (
-            <div className="card-list">
-              {deckCards.map(c => {
-                const flagStyle = getFlagStyle(c.flag);
-                const flagInfo = FLAG_COLORS[c.flag] || FLAG_COLORS[0];
-                return (
-                  <div key={c.id} id={`card-item-${c.id}`} className="card-item glass" style={flagStyle} onClick={() => {
-                    const container = document.getElementById('app-container');
-                    if (container) setCardsScrollTop(container.scrollTop);
-                    setLastSelectedCardId(c.id);
-                    startStudyCard(currentDeck, c.id);
-                  }}>
-                    <div className="card-item-text">
-                      <div className="front-min" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {flagInfo.hex && (
-                          <span 
-                            style={{ 
-                              width: '8px', 
-                              height: '8px', 
-                              borderRadius: '50%', 
-                              backgroundColor: flagInfo.hex, 
-                              boxShadow: `0 0 6px ${flagInfo.hex}`,
-                              flexShrink: 0 
-                            }} 
-                            title={`Флаг: ${flagInfo.name}`} 
-                          />
-                        )}
-                        <span>{c.front}</span>
-                      </div>
-                      <div className="back-min">{c.back}</div>
-                    </div>
-                    <div className="card-item-actions">
-                      <CardActionButton 
-                        card={c} 
-                        size={16} 
-                        className="card-item-actions-trigger" 
-                        stopDrag={false} 
-                      />
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           ) : (
             <Reorder.Group

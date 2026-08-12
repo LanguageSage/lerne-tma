@@ -187,7 +187,7 @@ export const useAppInitialization = (checkStartParam) => {
   };
 
   const fetchInitData = async () => {
-    const { setDecks, setFolders, fetchDuplicates, fetchFavorites } = useDeckStore.getState();
+    const { setDecks, setFolders, fetchDuplicates } = useDeckStore.getState();
     const currentDecks = useDeckStore.getState().decks;
     if (!currentDecks || currentDecks.length === 0) {
       useUiStore.setState({ loading: true });
@@ -214,7 +214,6 @@ export const useAppInitialization = (checkStartParam) => {
       storage.set('lerne_init_cache', JSON.stringify(res.data));
       storage.set('lerne_init_cache_version', CACHE_VERSION);
       fetchDuplicates();
-      fetchFavorites();
 
       // If user opened a deck while startup init was running, re-sync cards for current deck
       const uiState = useUiStore.getState();

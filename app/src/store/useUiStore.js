@@ -62,4 +62,10 @@ export const useUiStore = create((set) => ({
   
   activeFolderId: null,
   setActiveFolderId: (id) => set({ activeFolderId: id }),
+
+  isCollaboratorsModalOpen: false,
+  setIsCollaboratorsModalOpen: (isOpen) => set({ isCollaboratorsModalOpen: isOpen }),
+  collaboratorsTarget: null, // { type: 'folder'|'deck', id: number, name: string }
+  setCollaboratorsTarget: (target) => set({ collaboratorsTarget: target }),
 }));
+

@@ -36,14 +36,6 @@ def delete_card(card_id: int, user_id: int = Depends(get_user_id)):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Card not found or access denied")
 
-@router.post("/{card_id}/toggle-learn")
-async def toggle_learn(card_id: int, user_id: int = Depends(get_user_id)):
-    card = services.toggle_want_to_learn(card_id, user_id)
-    if card:
-        await services.ensure_card_audio(card, user_id)
-        return services.format_card_for_study(card, user_id)
-    raise HTTPException(status_code=404, detail="Card not found")
-
 @router.post("/{card_id}/flag")
 async def set_flag(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
     flag = data.get("flag", 0)
@@ -55,10 +47,6 @@ async def set_flag(card_id: int, data: dict, user_id: int = Depends(get_user_id)
 @router.get("/duplicates")
 def get_duplicates(user_id: int = Depends(get_user_id)):
     return services.get_duplicate_cards(user_id)
-
-@router.get("/favorites")
-def get_favorites(user_id: int = Depends(get_user_id)):
-    return services.get_favorite_cards(user_id)
 
 
 @router.post("/reorder")

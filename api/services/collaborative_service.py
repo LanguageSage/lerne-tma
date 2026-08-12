@@ -120,7 +120,7 @@ def add_collaborator(target_type: str, target_id: int, user_id_to_add: int, role
         raise Exception("Access denied: Only owner or editor can add collaborators")
 
     if role not in ['editor', 'viewer']:
-        role = 'editor'
+        role = 'viewer'
 
     collab, created = models.TMA_Collaborator.get_or_create(
         target_type=target_type,
@@ -139,6 +139,87 @@ def add_collaborator(target_type: str, target_id: int, user_id_to_add: int, role
     return {"status": "ok", "user_id": user_id_to_add, "role": role}
 
 
+def update_collaborator_role(target_type: str, target_id: int, user_id_to_update: int, new_role: str, requester_id: int) -> dict:
+    """Updates role for an existing collaborator. Only owner can change roles."""
+    requester_role = get_effective_user_role(requester_id, target_type, target_id)
+    if requester_role != 'owner':
+        raise Exception("Access denied: Only item owner can change collaborator roles")
+
+    if new_role not in ['editor', 'viewer']:
+        new_role = 'viewer'
+
+    collab = models.TMA_Collaborator.get_or_none(
+        (models.TMA_Collaborator.target_type == target_type) &
+        (models.TMA_Collaborator.target_id == target_id) &
+        (models.TMA_Collaborator.user_id == user_id_to_update)
+    )
+
+    if not collab:
+        collab = models.TMA_Collaborator.create(
+            target_type=target_type,
+            target_id=target_id,
+            user_id=user_id_to_update,
+            role=new_role,
+            added_by=requester_id
+        )
+    else:
+        collab.role = new_role
+        collab.save()
+
+    return {"status": "ok", "user_id": user_id_to_update, "role": new_role}
+
+
+def join_by_share_id(share_id: str, user_id: int) -> dict:
+    """Allows a user to join a shared folder or deck as a viewer using its share_id."""
+    clean_share_id = share_id.replace("collab_", "")
+    target_type = None
+    target_id = None
+    item_name = ""
+    owner_id = None
+
+    if clean_share_id.startswith("d_"):
+        deck = models.TMA_Deck.get_or_none((models.TMA_Deck.share_id == clean_share_id) & (models.TMA_Deck.is_deleted == False))
+        if not deck:
+            raise Exception("Shared deck not found")
+        target_type = "deck"
+        target_id = deck.id
+        item_name = deck.name
+        owner_id = deck.user_id
+    elif clean_share_id.startswith("f_"):
+        folder = models.TMA_Folder.get_or_none((models.TMA_Folder.share_id == clean_share_id) & (models.TMA_Folder.is_deleted == False))
+        if not folder:
+            raise Exception("Shared folder not found")
+        target_type = "folder"
+        target_id = folder.id
+        item_name = folder.name
+        owner_id = folder.user_id
+    else:
+        raise Exception("Invalid share link format")
+
+    if owner_id == user_id:
+        return {"status": "ok", "type": target_type, "id": target_id, "name": item_name, "is_owner": True}
+
+    collab, created = models.TMA_Collaborator.get_or_create(
+        target_type=target_type,
+        target_id=target_id,
+        user_id=user_id,
+        defaults={
+            "role": "viewer",
+            "added_by": owner_id
+        }
+    )
+
+    return {
+        "status": "ok",
+        "type": target_type,
+        "id": target_id,
+        "name": item_name,
+        "role": collab.role,
+        "joined": created
+    }
+
+
+
 def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int, requester_id: int) -> bool:
     """Removes a collaborator from a folder or deck."""
     requester_role = get_effective_user_role(requester_id, target_type, target_id)
@@ -154,6 +235,20 @@ def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int
         collab.delete_instance()
         return True
     return False
+
+
+def remove_all_collaborators(target_type: str, target_id: int, requester_id: int) -> int:
+    """Removes all collaborators for a folder or deck (completely closes shared access)."""
+    requester_role = get_effective_user_role(requester_id, target_type, target_id)
+    if requester_role != 'owner':
+        raise Exception("Access denied: Only item owner can close shared access")
+
+    count = models.TMA_Collaborator.delete().where(
+        (models.TMA_Collaborator.target_type == target_type) &
+        (models.TMA_Collaborator.target_id == target_id)
+    ).execute()
+    return count
+
 
 
 def _get_all_subfolder_ids(folder_id: int) -> List[int]:

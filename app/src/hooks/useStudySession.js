@@ -21,20 +21,18 @@ export const useStudySession = () => {
     session.setApiError(null);
     try {
       const { studyMode } = useSettingsStore.getState();
-      if (deckId === 'favorites' || studyMode === 'turbo') {
-        const { favoriteCards, deckCards } = useDeckStore.getState();
-        const sourceCards = deckId === 'favorites' ? favoriteCards : deckCards;
+      if (studyMode === 'turbo') {
+        const { deckCards } = useDeckStore.getState();
+        const sourceCards = deckCards;
         const currentCard = session.card;
         let nextCardInfo = null;
 
-        if (isFirst || !currentCard || session.favoritesQueue.length === 0) {
-          session.setFavoritesQueue([...sourceCards]);
+        if (isFirst || !currentCard) {
           nextCardInfo = sourceCards[0];
         } else {
-          const queue = session.favoritesQueue;
-          const currentIndex = queue.findIndex(c => c.id === currentCard.id);
-          if (currentIndex >= 0 && currentIndex < queue.length - 1) {
-            nextCardInfo = queue[currentIndex + 1];
+          const currentIndex = sourceCards.findIndex(c => c.id === currentCard.id);
+          if (currentIndex >= 0 && currentIndex < sourceCards.length - 1) {
+            nextCardInfo = sourceCards[currentIndex + 1];
           } else {
             nextCardInfo = null;
           }
@@ -142,46 +140,23 @@ export const useStudySession = () => {
 
       const { studyMode } = useSettingsStore.getState();
 
-      if (currentDeck.id === 'favorites' || studyMode === 'turbo') {
-        // Ударный режим: сохраняем прогресс на сервере
+      if (studyMode === 'turbo') {
         await api.post('/study/grade', {
           card_id: gradedCardId,
           deck_id: session.card.deck_id,
           grade
         });
 
-        // Если карточка успешно пройдена (оценка 2 или 3), убираем её из ударного режима на сервере с подтверждения пользователя
-        if (currentDeck.id === 'favorites' && grade >= 2) {
-          if (window.confirm("Убрать эту карточку из Ударного режима?")) {
-            try {
-              await api.post(`/cards/${gradedCardId}/toggle-learn`);
-              // Также обновим список избранных в фоновом режиме
-              useDeckStore.getState().fetchFavorites();
-            } catch (err) {
-              console.error("Error removing card from favorites on grade:", err);
-            }
-          }
+        const { deckCards } = useDeckStore.getState();
+        const currentIndex = deckCards.findIndex(c => c.id === gradedCardId);
+        let nextCardInfo = null;
+        if (currentIndex >= 0 && currentIndex < deckCards.length - 1) {
+          nextCardInfo = deckCards[currentIndex + 1];
         }
 
-        // Обновляем локальную очередь в сессии
-        const queue = [...session.favoritesQueue];
-        if (queue.length > 0 && queue[0].id === gradedCardId) {
-          if (grade >= 2) {
-            // Выучено: удаляем из очереди сессии
-            queue.shift();
-          } else {
-            // Ошибка: переносим в конец очереди
-            const first = queue.shift();
-            queue.push(first);
-          }
-          session.setFavoritesQueue(queue);
-        }
-
-        if (queue.length === 0) {
+        if (!nextCardInfo) {
           session.setCard(null);
         } else {
-          // Получаем следующую карточку из очереди
-          const nextCardInfo = queue[0];
           const res = await api.get(`/study/card/${nextCardInfo.id}`);
           const nextCard = res.data;
           session.addToHistory(nextCard);

@@ -40,10 +40,6 @@ export const useCardEditor = () => {
         allow_duplicate: true
       };
 
-      if (currentDeck?.id === 'favorites' && viewState === 'creator') {
-        reqData.want_to_learn = true;
-      }
-
       const res = await api.post('/cards/save', reqData);
       const fullCard = res.data;
       showToast("Сохранено", "success");
@@ -124,7 +120,7 @@ export const useCardEditor = () => {
         }
       }
 
-      if (currentDeck && currentDeck.id !== 'duplicates' && currentDeck.id !== 'favorites') {
+      if (currentDeck && currentDeck.id !== 'duplicates') {
         fetchDeckCards(currentDeck.id);
       }
       fetchDecks(true);
@@ -133,23 +129,6 @@ export const useCardEditor = () => {
       showToast("Ошибка при удалении");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleToggleLearn = async (targetCard) => {
-    const session = useSessionStore.getState();
-    try {
-      const res = await api.post(`/cards/${targetCard.id}/toggle-learn`);
-      const updatedCard = res.data;
-      if (session.card && session.card.id === targetCard.id) {
-        session.setCard({ ...session.card, want_to_learn: updatedCard.want_to_learn });
-      }
-      session.setStudyHistory(session.studyHistory.map(c => c.id === targetCard.id ? { ...c, want_to_learn: updatedCard.want_to_learn } : c));
-      showToast(updatedCard.want_to_learn ? "Добавлено в 'Хочу выучить'" : "Удалено из 'Хочу выучить'", "success");
-      // Обновляем список избранных карточек
-      useDeckStore.getState().fetchFavorites();
-    } catch (err) {
-      showToast("Ошибка при изменении статуса");
     }
   };
 
@@ -165,8 +144,7 @@ export const useCardEditor = () => {
         image_path: targetCard.image_path || cleanMedia(targetCard.image_url),
         audio_path: targetCard.audio_path || cleanMedia(targetCard.audio_url),
         video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
-        video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url),
-        want_to_learn: !!targetCard.want_to_learn
+        video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url)
       });
       showToast("Карточка перемещена", "success");
       
@@ -190,7 +168,7 @@ export const useCardEditor = () => {
         }
       }
       
-      if (currentDeck && currentDeck.id !== 'duplicates' && currentDeck.id !== 'favorites') {
+      if (currentDeck && currentDeck.id !== 'duplicates') {
         fetchDeckCards(currentDeck.id);
       }
       fetchDecks(true);
@@ -213,7 +191,6 @@ export const useCardEditor = () => {
         audio_back_path: targetCard.audio_back_path || cleanMedia(targetCard.audio_back_url),
         video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
         video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url),
-        want_to_learn: !!targetCard.want_to_learn,
         allow_duplicate: true
       });
       showToast("Карточка скопирована", "success");
@@ -313,7 +290,6 @@ export const useCardEditor = () => {
   return {
     saveCard,
     handleDeleteCard,
-    handleToggleLearn,
     handleSetCardFlag,
     handleMoveCard,
     handleCopyCard,

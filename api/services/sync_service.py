@@ -127,7 +127,6 @@ def execute_sync_push(request, user_id: int) -> dict:
                         audio_back_path=c.audio_back_path,
                         video_front_path=c.video_front_path,
                         video_back_path=c.video_back_path,
-                        want_to_learn=c.want_to_learn,
                         is_deleted=c.is_deleted,
                         flag=card_flag,
                         position=card_pos,
@@ -150,7 +149,6 @@ def execute_sync_push(request, user_id: int) -> dict:
                                 card.audio_back_path = _merge_media_field(c.audio_back_path, card.audio_back_path)
                                 card.video_front_path = _merge_media_field(c.video_front_path, card.video_front_path)
                                 card.video_back_path = _merge_media_field(c.video_back_path, card.video_back_path)
-                                card.want_to_learn = c.want_to_learn
                                 card.is_deleted = c.is_deleted
                                 card.flag = card_flag
                                 if card_pos is not None:
@@ -168,7 +166,6 @@ def execute_sync_push(request, user_id: int) -> dict:
                             audio_back_path=c.audio_back_path,
                             video_front_path=c.video_front_path,
                             video_back_path=c.video_back_path,
-                            want_to_learn=c.want_to_learn,
                             is_deleted=c.is_deleted,
                             flag=card_flag,
                             position=card_pos,
@@ -299,7 +296,6 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
                 "audio_back_path": c.audio_back_path or "",
                 "video_front_path": c.video_front_path or "",
                 "video_back_path": c.video_back_path or "",
-                "want_to_learn": bool(c.want_to_learn),
                 "is_deleted": bool(c.is_deleted),
                 "flag": getattr(c, 'flag', 0) or 0,
                 "position": getattr(c, 'position', 0) or 0,

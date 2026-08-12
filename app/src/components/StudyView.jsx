@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Heart, Trash2, Folder, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
+import { RefreshCw, Trash2, Folder, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
 import DeckAudioPlayer from './common/DeckAudioPlayer';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
@@ -30,9 +30,9 @@ const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
 export const StudyView = ({ startTutorial }) => {
   const { view, setView, loading, setIsSettingsOpen, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
-  const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards, favoriteCards } = useDeckStore();
-  const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore, autoplayState, favoritesQueue } = useSessionStore();
-  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleDeleteCard, handleToggleLearn } = useCardActions();
+  const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
+  const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore, autoplayState } = useSessionStore();
+  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleDeleteCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
 
@@ -431,12 +431,6 @@ export const StudyView = ({ startTutorial }) => {
                   const val = e.target.value;
                   setStudyMode(val);
                   setIsFlipped(false); // Reset card face on mode swap
-                  
-                  // If we switch to turbo mode, initialize favoritesQueue
-                  if (val === 'turbo' && (!favoritesQueue || favoritesQueue.length === 0)) {
-                    const cardsToUse = deckCards.length > 0 ? deckCards : (card ? [card] : []);
-                    useSessionStore.getState().setFavoritesQueue([...cardsToUse]);
-                  }
                 }}
               >
                 <option value="classic">🃏 Карточки (Немецкий → Русский)</option>
@@ -535,41 +529,6 @@ export const StudyView = ({ startTutorial }) => {
                 </button>
               )}
 
-              <button
-                className={`btn-card-action-trigger btn-favorite-toggle-direct ${card.want_to_learn ? 'active' : ''}`}
-                onClick={(e) => { e.stopPropagation(); handleToggleLearn(card); }}
-                title={card.want_to_learn ? "Убрать из Ударного режима" : "Добавить в Ударный режим"}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  background: card.want_to_learn 
-                    ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(244, 63, 94, 0.15))' 
-                    : 'rgba(255, 255, 255, 0.05)',
-                  border: card.want_to_learn 
-                    ? '1px solid rgba(239, 68, 68, 0.45)' 
-                    : '1px solid rgba(255, 255, 255, 0.12)',
-                  padding: '0 16px',
-                  height: '42px',
-                  borderRadius: '12px',
-                  color: card.want_to_learn ? '#fecdd3' : '#cbd5e1',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  flexGrow: 1,
-                  flexShrink: 0,
-                  boxShadow: card.want_to_learn 
-                    ? '0 4px 12px rgba(239, 68, 68, 0.2)' 
-                    : '0 4px 8px rgba(0, 0, 0, 0.1)',
-                  fontWeight: 600
-                }}
-              >
-                <Heart size={18} fill={card.want_to_learn ? "#ef4444" : "none"} color={card.want_to_learn ? "#ef4444" : "currentColor"} />
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.2px' }}>
-                  {card.want_to_learn ? 'В ударном 🔥' : 'В ударный'}
-                </span>
-              </button>
-
               {!isFlipped && card.deck_name && (
                 <div 
                   className="deck-badge-subcard" 
@@ -598,8 +557,6 @@ export const StudyView = ({ startTutorial }) => {
               historyIndex={
                 currentDeck?.id === 'duplicates' 
                   ? duplicateCards.findIndex(c => c.id === card?.id) 
-                  : currentDeck?.id === 'favorites'
-                  ? favoriteCards.length - favoritesQueue.length
                   : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => c.id === card?.id) !== -1)
                   ? deckCards.findIndex(c => c.id === card?.id)
                   : historyIndex
@@ -607,8 +564,6 @@ export const StudyView = ({ startTutorial }) => {
               totalCards={
                 currentDeck?.id === 'duplicates' 
                   ? duplicateCards.length 
-                  : currentDeck?.id === 'favorites'
-                  ? favoriteCards.length
                   : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => c.id === card?.id) !== -1)
                   ? deckCards.length
                   : (currentDeck?.stats?.total || 0)
@@ -639,7 +594,6 @@ export const StudyView = ({ startTutorial }) => {
                 setTrainerCorrectCount(0);
                 setTrainerAnsweredIds(new Set());
                 setTrainerStartTime(Date.now());
-                useSessionStore.getState().setFavoritesQueue([...wrongCards]);
                 fetchNextCard(currentDeck.id);
               }
             }}

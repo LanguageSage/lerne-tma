@@ -66,8 +66,6 @@ def save_card(data, user_id):
     elif not card.source:
         card.source = 'user'
         
-    if 'want_to_learn' in data:
-        card.want_to_learn = bool(data.get('want_to_learn'))
     if 'flag' in data:
         try:
             card.flag = int(data.get('flag') or 0)
@@ -152,17 +150,6 @@ def delete_card(card_id: int, user_id: int):
         raise e
 
 
-def toggle_want_to_learn(card_id: int, user_id: int):
-    try:
-        card = TMA_Card.get_by_id(card_id)
-        card.want_to_learn = not card.want_to_learn
-        card.save()
-        return card
-    except Exception as e:
-        logger.error(f"Error toggling want_to_learn: {e}", exc_info=True)
-        raise e
-
-
 def set_card_flag(card_id: int, user_id: int, flag: int):
     try:
         card = TMA_Card.get_by_id(card_id)
@@ -206,7 +193,6 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "audio_back_path": audio_back_path,
         "video_front_path": video_front,
         "video_back_path": video_back,
-        "want_to_learn": bool(get_val('want_to_learn', 'want_to_learn')),
         "flag": int(get_val('flag', 'flag') or 0),
         "creator_name": creator_name,
         "creator_avatar": creator_avatar
@@ -435,30 +421,6 @@ def format_card_for_study(card: TMA_Card, user_id: int):
     return res
 
 
-def get_favorite_cards(user_id: int):
-    """Возвращает карточки с want_to_learn = True у пользователя."""
-    try:
-        cards = list(TMA_Card
-                     .select()
-                     .join(TMA_Deck)
-                     .where(TMA_Deck.user_id == user_id, TMA_Card.want_to_learn == True, TMA_Card.is_deleted == False)
-                     .dicts())
-        
-        if not cards:
-            return []
-            
-        media_exists = _build_media_exists_map(cards)
-        
-        result = []
-        for c in cards:
-            result.append(_build_card_dict(c, media_exists=media_exists))
-        return result
-    except Exception as e:
-        logger.error(f"Error in get_favorite_cards: {e}", exc_info=True)
-        raise e
-
-
-
 def get_duplicate_cards(user_id: int):
     """Находит карточки с одинаковым front_text у пользователя."""
     try:
@@ -486,7 +448,6 @@ def get_duplicate_cards(user_id: int):
                              TMA_Card.audio_back_path,
                              TMA_Card.video_front_path,
                              TMA_Card.video_back_path,
-                             TMA_Card.want_to_learn,
                              TMA_Card.flag,
                              TMA_Card.deck_id,
                              TMA_Deck.name.alias('deck_name')
@@ -508,7 +469,6 @@ def get_duplicate_cards(user_id: int):
                 "audio_back_path": c.get('audio_back_path'),
                 "video_front_path": c.get('video_front_path'),
                 "video_back_path": c.get('video_back_path'),
-                "want_to_learn": bool(c.get('want_to_learn')),
                 "flag": int(c.get('flag') or 0),
                 "deck_id": c.get('deck_id'),
                 "deck_name": c.get('deck_name') or "Без колоды"

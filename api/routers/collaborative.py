@@ -17,7 +17,12 @@ logger = logging.getLogger(__name__)
 
 class AddCollaboratorRequest(BaseModel):
     user_identifier: str  # @username or user_id string
-    role: str = 'editor'  # 'editor' or 'viewer'
+    role: str = 'viewer'  # 'editor' or 'viewer'
+
+
+class UpdateRoleRequest(BaseModel):
+    user_id_to_update: int
+    role: str  # 'editor' or 'viewer'
 
 
 @router.get("/check-access")
@@ -77,6 +82,26 @@ def add_collaborator(target_type: str, target_id: int, req: AddCollaboratorReque
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/{target_type}/{target_id}/role")
+def update_collaborator_role(target_type: str, target_id: int, req: UpdateRoleRequest, user_id: int = Depends(get_user_id)):
+    """Updates role for a collaborator."""
+    try:
+        res = collaborative_service.update_collaborator_role(target_type, target_id, req.user_id_to_update, req.role, requester_id=user_id)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/join/{share_id}")
+def join_by_share_id(share_id: str, user_id: int = Depends(get_user_id)):
+    """Allows a user to join a shared item as a viewer via share link."""
+    try:
+        res = collaborative_service.join_by_share_id(share_id, user_id)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.delete("/{target_type}/{target_id}/remove/{user_id_to_remove}")
 def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int, user_id: int = Depends(get_user_id)):
     """Removes a collaborator from folder or deck."""
@@ -90,6 +115,16 @@ def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.delete("/{target_type}/{target_id}/remove-all")
+def remove_all_collaborators(target_type: str, target_id: int, user_id: int = Depends(get_user_id)):
+    """Completely closes shared access for a folder or deck by removing all collaborators."""
+    try:
+        count = collaborative_service.remove_all_collaborators(target_type, target_id, requester_id=user_id)
+        return {"status": "ok", "removed_count": count}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/folder/{folder_id}/group-progress")
 def get_group_progress(folder_id: int, user_id: int = Depends(get_user_id)):
     """Gets dashboard and leaderboard progress for all collaborators of a folder."""
@@ -97,3 +132,5 @@ def get_group_progress(folder_id: int, user_id: int = Depends(get_user_id)):
         return collaborative_service.get_group_progress(folder_id, requester_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+

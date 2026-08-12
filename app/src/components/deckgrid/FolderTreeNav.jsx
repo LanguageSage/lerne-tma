@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Folder, FolderOpen, GripHorizontal, MoreHorizontal, ChevronRight } from 'lucide-react';
+import { Folder, FolderOpen, GripHorizontal, MoreHorizontal, ChevronRight, Users } from 'lucide-react';
+import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { renderFlag } from './FlagIcons';
-import api from '../../services/api';
+
 
 const getDescendantFolderIds = (folderId, foldersList) => {
   const descendantIds = [];
@@ -153,11 +154,6 @@ export const FolderCardItem = ({
           </div>
           <h3>
             <span className="deck-title-text">{folder.name}</span>
-            {folder.is_shared && (
-              <span className="folder-collab-badge" style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.25)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                👥 {folder.role === 'viewer' ? 'Только чтение' : 'Совместная'}
-              </span>
-            )}
           </h3>
           <div 
             className="deck-flag-badge-large"
@@ -173,13 +169,35 @@ export const FolderCardItem = ({
       </div>
 
       <div className="deck-footer-actions" style={{ justifyContent: 'space-between', padding: '8px 12px', position: 'relative', alignItems: 'center' }}>
-        <div
-          className="deck-drag-handle-bottom"
-          onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
-          onClick={(e) => e.stopPropagation()}
-          title="Зажмите и потяните для перетаскивания папки"
-        >
-          <GripHorizontal size={22} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            className="deck-drag-handle-bottom"
+            onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+            onClick={(e) => e.stopPropagation()}
+            title="Зажмите и потяните для перетаскивания папки"
+          >
+            <GripHorizontal size={22} />
+          </div>
+
+          {folder.is_shared && (
+            <div 
+              title="Совместный доступ"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.35), rgba(99,102,241,0.25))',
+                border: '1px solid rgba(167,139,250,0.5)',
+                color: '#c4b5fd',
+                boxShadow: '0 0 10px rgba(139,92,246,0.35)'
+              }}
+            >
+              <Users size={14} />
+            </div>
+          )}
         </div>
 
         <button 
@@ -196,12 +214,21 @@ export const FolderCardItem = ({
 
         {isMenuOpen && (
           <div className="deck-dropdown-menu glass" ref={menuRef} onClick={(e) => e.stopPropagation()}>
+            <button className="dropdown-item" onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen(false);
+              useUiStore.getState().setCollaboratorsTarget({ type: 'folder', id: folder.id, name: folder.name });
+              useUiStore.getState().setIsCollaboratorsModalOpen(true);
+            }}>
+              <span>👥 Совместный доступ</span>
+            </button>
             <button className="dropdown-item" onClick={handleShare}>
               <span>🔗 Поделиться содержимым</span>
             </button>
             <button className="dropdown-item" onClick={handleRename}>
               <span>✍️ Переименовать</span>
             </button>
+
             
             <button 
               className={`dropdown-item ${isMoveMenuOpen ? 'active' : ''}`}

@@ -23,7 +23,7 @@ export const CardCreator = ({ startTutorial }) => {
 
   const editingCard = useSessionStore.getState().editingCard;
   const editingCardDeckId = editingCard?.deck_id;
-  const initialDeckId = editingCardDeckId !== undefined ? editingCardDeckId : (currentDeck?.id === 'favorites' ? '' : currentDeck?.id);
+  const initialDeckId = editingCardDeckId !== undefined ? editingCardDeckId : (currentDeck?.id || '');
   const initialAfterCardId = editingCard?.after_card_id || null;
 
   const [newCardData, setNewCardData] = useState({
@@ -54,7 +54,7 @@ export const CardCreator = ({ startTutorial }) => {
     if (view === 'creator') {
       const activeEditingCard = useSessionStore.getState().editingCard;
       const activeEditingDeckId = activeEditingCard?.deck_id;
-      const targetId = activeEditingDeckId !== undefined ? activeEditingDeckId : (currentDeck?.id === 'favorites' ? '' : currentDeck?.id);
+      const targetId = activeEditingDeckId !== undefined ? activeEditingDeckId : (currentDeck?.id || '');
       const activeAfterCardId = activeEditingCard?.after_card_id || null;
       setNewCardData({
         front: '',

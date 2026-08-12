@@ -16,7 +16,6 @@ export const useDeckStore = create((set, get) => ({
   communityDecks: [],
   deckCards: [],
   duplicateCards: [],
-  favoriteCards: [],
   lastDuplicateCardId: null,
   syncModalOpen: false,
   deckToSync: null,
@@ -32,7 +31,6 @@ export const useDeckStore = create((set, get) => ({
   setCommunityDecks: (decks) => set({ communityDecks: decks }),
   setDeckCards: (cards) => set({ deckCards: cards }),
   setDuplicateCards: (cards) => set({ duplicateCards: cards }),
-  setFavoriteCards: (cards) => set({ favoriteCards: cards }),
   setLastDuplicateCardId: (id) => set({ lastDuplicateCardId: id }),
   setSyncModalOpen: (isOpen) => set({ syncModalOpen: isOpen }),
   setDeckToSync: (deck) => set({ deckToSync: deck }),
@@ -92,15 +90,6 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
-  fetchFavorites: async () => {
-    try {
-      const res = await api.get('/cards/favorites');
-      set({ favoriteCards: res.data });
-    } catch (err) {
-      console.error('Fetch Favorites Error:', err);
-    }
-  },
-
   fetchDecks: async (force = false, attempts = 3) => {
     const { decks } = get();
     if (!force && decks.length > 0) return;
@@ -143,7 +132,7 @@ export const useDeckStore = create((set, get) => ({
         let lastError;
         for (let attempt = 1; attempt <= attempts; attempt++) {
           try {
-            const endpoint = deckId === 'favorites' ? '/cards/favorites' : `/decks/${deckId}/cards`;
+            const endpoint = `/decks/${deckId}/cards`;
             const res = await api.get(endpoint);
             set({ deckCards: res.data });
             return res.data;
@@ -340,6 +329,88 @@ export const useDeckStore = create((set, get) => ({
       throw err;
     }
   },
+
+  fetchCollaborators: async (targetType, targetId) => {
+    try {
+      const res = await api.get(`/collaborative/${targetType}/${targetId}/collaborators`);
+      return res.data;
+    } catch (err) {
+      console.error('Fetch Collaborators Error:', err);
+      throw err;
+    }
+  },
+
+  addCollaborator: async (targetType, targetId, userIdentifier, role = 'viewer') => {
+    try {
+      const res = await api.post(`/collaborative/${targetType}/${targetId}/add`, {
+        user_identifier: userIdentifier,
+        role
+      });
+      return res.data;
+    } catch (err) {
+      console.error('Add Collaborator Error:', err);
+      throw err;
+    }
+  },
+
+  updateCollaboratorRole: async (targetType, targetId, collaboratorUserId, role) => {
+    try {
+      const res = await api.put(`/collaborative/${targetType}/${targetId}/role`, {
+        user_id_to_update: collaboratorUserId,
+        role
+      });
+      return res.data;
+    } catch (err) {
+      console.error('Update Collaborator Role Error:', err);
+      throw err;
+    }
+  },
+
+  removeCollaborator: async (targetType, targetId, collaboratorUserId) => {
+    try {
+      const res = await api.delete(`/collaborative/${targetType}/${targetId}/remove/${collaboratorUserId}`);
+      return res.data;
+    } catch (err) {
+      console.error('Remove Collaborator Error:', err);
+      throw err;
+    }
+  },
+
+  removeAllCollaborators: async (targetType, targetId) => {
+    try {
+      const res = await api.delete(`/collaborative/${targetType}/${targetId}/remove-all`);
+      await get().fetchDecks(true);
+      await get().fetchFolders();
+      return res.data;
+    } catch (err) {
+      console.error('Remove All Collaborators Error:', err);
+      throw err;
+    }
+  },
+
+
+  fetchGroupProgress: async (folderId) => {
+    try {
+      const res = await api.get(`/collaborative/folder/${folderId}/group-progress`);
+      return res.data;
+    } catch (err) {
+      console.error('Fetch Group Progress Error:', err);
+      throw err;
+    }
+  },
+
+  joinCollaborativeItem: async (shareId) => {
+    try {
+      const res = await api.post(`/collaborative/join/${shareId}`);
+      await get().fetchDecks(true);
+      await get().fetchFolders();
+      return res.data;
+    } catch (err) {
+      console.error('Join Collaborative Item Error:', err);
+      throw err;
+    }
+  },
+
 
   fetchFolders: async () => {
     try {

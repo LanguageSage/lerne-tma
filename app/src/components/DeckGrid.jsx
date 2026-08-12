@@ -27,7 +27,7 @@ export const DeckGrid = ({
     decks, folders, setCurrentDeck, fetchDeckCards, 
     handleSyncDeck, handleResetProgress, handleDeleteDeck, 
     setDeckCards, togglePinDeck, reorderDecks,
-    favoriteCards, duplicateCards
+    duplicateCards
   } = useDeckStore();
 
   if (view !== 'decks') return null;
@@ -239,9 +239,9 @@ export const DeckGrid = ({
               <div className="bottom-tools-toggle-left">
                 <Wrench size={18} className="tools-icon" />
                 <span>Инструменты и служебные разделы</span>
-                {((favoriteCards?.length || 0) > 0 || (duplicateCards?.length || 0) > 0) && (
+                {(duplicateCards?.length || 0) > 0 && (
                   <span className="tools-badge-total">
-                    {(favoriteCards?.length || 0) + (duplicateCards?.length || 0)}
+                    {duplicateCards.length}
                   </span>
                 )}
               </div>
@@ -250,28 +250,6 @@ export const DeckGrid = ({
 
             {isToolsOpen && (
               <div className="bottom-tools-menu glass">
-                {/* Item 1: Ударный режим */}
-                {(favoriteCards?.length || 0) > 0 && (
-                  <button 
-                    className="bottom-tools-item favorite-item"
-                    onClick={() => {
-                      const favoritesDeck = { id: 'favorites', name: 'Ударный режим 🔥' };
-                      startStudy(favoritesDeck);
-                    }}
-                  >
-                    <div className="tools-item-left">
-                      <div className="tools-item-icon-box flame">
-                        <Flame size={18} className="pulse-icon" />
-                      </div>
-                      <div className="tools-item-text">
-                        <span className="tools-item-title flame-text">Ударный режим 🔥</span>
-                        <span className="tools-item-desc">Тренировка избранных карточек по кругу</span>
-                      </div>
-                    </div>
-                    <span className="tools-item-badge flame">{favoriteCards.length}</span>
-                  </button>
-                )}
-
                 {/* Item 2: Управление дубликатами */}
                 {(duplicateCards?.length || 0) > 0 && (
                   <button 

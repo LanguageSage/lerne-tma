@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Move, Copy, Trash2, Heart, Edit2, Settings2 } from 'lucide-react';
+import { X, Move, Copy, Trash2, Edit2, Settings2 } from 'lucide-react';
 import { useUiStore } from '../store/useUiStore';
 import { useCardActions } from '../hooks/useCardActions';
 import { FlagPicker } from './common/FlagPicker';

@@ -10,13 +10,11 @@ export const useSessionStore = create((set, get) => ({
   editorSourceView: 'cards', // 'cards' | 'study'
   isLearningMore: false,
   autoplayState: 'stopped', // 'stopped' | 'playing' | 'paused'
-  favoritesQueue: [],
 
   setIsLearningMore: (val) => set({ isLearningMore: val }),
   setAutoplayState: (autoplayState) => set({ autoplayState }),
   pauseAutoplay: () => set({ autoplayState: 'paused' }),
   stopAutoplay: () => set({ autoplayState: 'stopped' }),
-  setFavoritesQueue: (favoritesQueue) => set({ favoritesQueue }),
 
   setCard: (updater) => set((state) => ({ 
     card: typeof updater === 'function' ? updater(state.card) : (updater ? { ...updater } : null) 
@@ -59,9 +57,8 @@ export const useSessionStore = create((set, get) => ({
   },
 
   removeCardFromSession: (cardId) => {
-    const { studyHistory, favoritesQueue, card, historyIndex } = get();
+    const { studyHistory, card, historyIndex } = get();
     const newHistory = studyHistory.filter(c => c && c.id !== cardId);
-    const newFavQueue = favoritesQueue.filter(c => c && c.id !== cardId);
     
     let nextIndex = historyIndex;
     let nextCard = card;
@@ -79,7 +76,6 @@ export const useSessionStore = create((set, get) => ({
     
     set({
       studyHistory: newHistory,
-      favoritesQueue: newFavQueue,
       card: nextCard,
       historyIndex: nextIndex
     });
@@ -93,8 +89,7 @@ export const useSessionStore = create((set, get) => ({
       isFlipped: false,
       apiError: null,
       isLearningMore: false,
-      autoplayState: 'stopped',
-      favoritesQueue: []
+      autoplayState: 'stopped'
     });
   }
 }

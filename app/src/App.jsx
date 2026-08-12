@@ -27,7 +27,9 @@ import { TrashManager } from './components/TrashManager';
 import { AuthRequiredModal } from './components/AuthRequiredModal';
 import { LanguageSelectionModal } from './components/LanguageSelectionModal';
 import { ImportModal } from './components/ImportModal';
+import { CollaboratorsModal } from './components/CollaboratorsModal';
 import { TutorialOverlay } from './components/TutorialOverlay';
+
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
 // Stores & Hooks
@@ -313,7 +315,9 @@ function AppContent() {
       <CardEditor startTutorial={startTutorial} />
       <DeckModals />
       <RenameDeckModal />
+      <CollaboratorsModal />
       <SettingsModal userId={USER_ID} startTutorial={startTutorial} />
+
       
       {importShareId && (
         <ImportModal

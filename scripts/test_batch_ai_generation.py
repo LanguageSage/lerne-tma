@@ -20,7 +20,8 @@ models.tma_db.create_tables([
     models.TMA_Deck,
     models.TMA_Card,
     models.TMAProgress,
-    models.TMASetting
+    models.TMASetting,
+    models.TMACustomPrompt
 ], safe=True)
 
 # Mock AI Service responses

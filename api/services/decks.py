@@ -642,7 +642,6 @@ def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
             'source': card.source,
             'position': card.position,
             'flag': card.flag if card.flag is not None else 0,
-            'want_to_learn': card.want_to_learn,
             'created_at': now,
             'updated_at': now
         } for card in cards]

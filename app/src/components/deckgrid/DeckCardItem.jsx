@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight } from 'lucide-react';
+import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users } from 'lucide-react';
+
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
+import { useSessionStore } from '../../store/useSessionStore';
 import { renderFlag } from './FlagIcons';
 
 const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds = []) => {
@@ -212,12 +214,6 @@ export const DeckCardItem = ({
               </span>
             )}
 
-            {deck.is_shared && (
-              <span className="deck-collab-badge" style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(59,130,246,0.2)', color: '#60a5fa', padding: '2px 7px', borderRadius: 6, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                👥 {deck.role === 'viewer' ? 'Только чтение' : 'Совместная'}
-              </span>
-            )}
-
             {!deck.is_inbox && (
               <button
                 className={`pin-deck-btn ${deck.is_pinned ? 'pinned' : ''}`}
@@ -261,13 +257,35 @@ export const DeckCardItem = ({
 
       <div className="deck-footer-actions" style={{ justifyContent: 'space-between', padding: '8px 12px', position: 'relative', alignItems: 'center' }}>
         {!deck.is_inbox ? (
-          <div
-            className="deck-drag-handle-bottom"
-            onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
-            onClick={(e) => e.stopPropagation()}
-            title="Зажмите и потяните для перетаскивания колоды"
-          >
-            <GripHorizontal size={22} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              className="deck-drag-handle-bottom"
+              onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+              onClick={(e) => e.stopPropagation()}
+              title="Зажмите и потяните для перетаскивания колоды"
+            >
+              <GripHorizontal size={22} />
+            </div>
+
+            {deck.is_shared && (
+              <div 
+                title="Совместный доступ"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, rgba(139,92,246,0.35), rgba(99,102,241,0.25))',
+                  border: '1px solid rgba(167,139,250,0.5)',
+                  color: '#c4b5fd',
+                  boxShadow: '0 0 10px rgba(139,92,246,0.35)'
+                }}
+              >
+                <Users size={14} />
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -296,10 +314,22 @@ export const DeckCardItem = ({
         {isMenuOpen && (
           <div className="deck-dropdown-menu glass" ref={menuRef} onClick={(e) => e.stopPropagation()}>
             {!deck.is_inbox && (
+              <button className="dropdown-item" onClick={(e) => {
+                e.stopPropagation();
+                setIsMenuOpen(false);
+                useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: deck.id, name: deck.name });
+                useUiStore.getState().setIsCollaboratorsModalOpen(true);
+              }}>
+                <span>👥 Совместный доступ</span>
+              </button>
+            )}
+
+            {!deck.is_inbox && (
               <button className="dropdown-item" onClick={handleShare}>
                 <span>🔗 Поделиться</span>
               </button>
             )}
+
 
             {!deck.is_inbox && (
               <button className="dropdown-item" onClick={handleSync}>
