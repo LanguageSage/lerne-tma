@@ -5,25 +5,42 @@ from ..models import TMA_Folder, TMA_Deck, TMAMedia, tma_db
 logger = logging.getLogger(__name__)
 
 def get_active_folders(user_id: int):
-    """Возвращает все активные (не удаленные) папки пользователя."""
+    """Возвращает все активные папки пользователя (собственные и доступные по соавторству)."""
     try:
         from .decks import ensure_inbox_deck
+        from .collaborative_service import get_user_accessible_folder_ids, get_effective_user_role, is_shared_item
         ensure_inbox_deck(user_id)
 
+        accessible_folder_ids = get_user_accessible_folder_ids(user_id)
+        if not accessible_folder_ids:
+            return []
+
         folders = list(TMA_Folder.select().where(
-            (TMA_Folder.user_id == user_id) & (TMA_Folder.is_deleted == False)
+            (TMA_Folder.id << list(accessible_folder_ids)) & (TMA_Folder.is_deleted == False)
         ).order_by(TMA_Folder.id.asc()))
         
-        return [{
-            "id": f.id,
-            "name": f.name,
-            "parent_id": getattr(f, 'parent_id', None),
-            "color": f.color,
-            "target_language": getattr(f, 'target_language', 'de') or 'de'
-        } for f in folders]
+        result = []
+        for f in folders:
+            role = get_effective_user_role(user_id, 'folder', f.id)
+            is_shared = is_shared_item(user_id, 'folder', f.id)
+            
+            result.append({
+                "id": f.id,
+                "name": f.name,
+
+                "parent_id": getattr(f, 'parent_id', None),
+                "color": f.color,
+                "target_language": getattr(f, 'target_language', 'de') or 'de',
+                "is_shared": is_shared,
+                "role": role,
+                "is_owner": role == 'owner'
+            })
+
+        return result
     except Exception as e:
         logger.error(f"Error in get_active_folders: {e}", exc_info=True)
         raise e
+
 
 def ensure_inbox_folder(user_id: int, target_language: str = 'de') -> TMA_Folder:
     """Возвращает (или создаёт) специальную папку «Входящие» для пользователя под конкретный язык."""

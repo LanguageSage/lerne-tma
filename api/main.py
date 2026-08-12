@@ -144,12 +144,13 @@ def get_init_data(user_id: int = Depends(get_user_id)):
     except Exception: pass
         
     # Get user language profile
-    user_info = {"active_language": "de", "has_selected_language": False}
+    user_info = {"active_language": "de", "native_language": "uk", "has_selected_language": False}
     try:
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
         if user:
             user_info = {
                 "active_language": user.active_language or "de",
+                "native_language": getattr(user, 'native_language', None) or "uk",
                 "has_selected_language": bool(user.has_selected_language)
             }
     except Exception: pass

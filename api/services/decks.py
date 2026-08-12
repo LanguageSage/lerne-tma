@@ -150,9 +150,17 @@ def get_active_decks(user_id: int):
         except Exception:
             ensure_starter_decks(user_id)
         
-        # 3. Получаем все активные колоды
+        # 3. Получаем все доступные пользователю колоды (собственные и расшаренные)
+        from .collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, get_effective_user_role, is_shared_item
+        accessible_deck_ids = get_user_accessible_deck_ids(user_id)
+        accessible_folder_ids = get_user_accessible_folder_ids(user_id)
+
+
+        if not accessible_deck_ids:
+            return []
+
         decks = list(TMA_Deck.select().where(
-            (TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)
+            (TMA_Deck.id << list(accessible_deck_ids)) & (TMA_Deck.is_deleted == False)
         ).order_by(TMA_Deck.is_pinned.desc(), TMA_Deck.is_inbox.desc(), TMA_Deck.position.asc(), TMA_Deck.id.desc()))
 
         if not decks:
@@ -259,6 +267,14 @@ def get_active_decks(user_id: int):
                 })
             parsed_metadata['resources'] = resolved_resources
 
+            role = get_effective_user_role(user_id, 'deck', d.id)
+            is_shared = is_shared_item(user_id, 'deck', d.id)
+
+
+            deck_folder_id = getattr(d, 'folder_id', None)
+            if deck_folder_id and deck_folder_id not in accessible_folder_ids:
+                deck_folder_id = None
+
             result.append({
                 "id": d.id,
                 "name": d.name,
@@ -268,9 +284,12 @@ def get_active_decks(user_id: int):
                 "is_inbox": getattr(d, 'is_inbox', False),
                 "is_pinned": getattr(d, 'is_pinned', False),
                 "position": getattr(d, 'position', 0),
-                "folder_id": getattr(d, 'folder_id', None),
+                "folder_id": deck_folder_id,
                 "has_updates": has_updates,
                 "metadata": parsed_metadata,
+                "is_shared": is_shared,
+                "role": role,
+                "is_owner": role == 'owner',
                 "stats": {
                     "total": total,
                     "new": max(0, total - tracked),
@@ -278,6 +297,8 @@ def get_active_decks(user_id: int):
                     "due": due
                 }
             })
+
+
         return result
     except Exception as e:
         logger.error(f"Error in get_active_decks: {e}", exc_info=True)

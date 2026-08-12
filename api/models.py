@@ -317,6 +317,7 @@ class TMAUser(BaseModel):
     photo_url = TextField(null=True)
     phone = CharField(null=True)
     active_language = CharField(default='de', null=True)
+    native_language = CharField(default='uk', null=True)
     has_selected_language = BooleanField(default=False)
     is_guest = BooleanField(default=False)
     default_decks_initialized = BooleanField(default=False)

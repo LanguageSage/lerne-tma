@@ -80,11 +80,24 @@ def run_tests():
     assert role_deck_practice_after == 'editor', f"Practice deck should override to editor, got {role_deck_practice_after}"
     print("  -> PASSED: Granular override worked! Deck 20 is 'editor' while Deck 10 remains 'viewer'.")
 
-    # 4. Accessible IDs lookup
-    print("\n[Step 4] Testing User Accessible Decks Lookup...")
+    # 4. Accessible IDs lookup and active decks/folders query
+    print("\n[Step 4] Testing User Accessible Decks & Folders Lookup...")
     student_a_decks = collaborative_service.get_user_accessible_deck_ids(student_a_id)
     assert 10 in student_a_decks and 20 in student_a_decks, f"Student A should have access to decks 10 and 20. Got: {student_a_decks}"
-    print("  -> PASSED: Accessible deck lookup returns shared decks.")
+    
+    from api.services.decks import get_active_decks
+    from api.services.folders import get_active_folders
+    
+    active_decks_student_a = get_active_decks(student_a_id)
+    active_folders_student_a = get_active_folders(student_a_id)
+    
+    deck_ids_student_a = [d["id"] for d in active_decks_student_a]
+    folder_ids_student_a = [f["id"] for f in active_folders_student_a]
+
+    assert 10 in deck_ids_student_a and 20 in deck_ids_student_a, f"Student A active decks query must include shared decks. Got: {deck_ids_student_a}"
+    assert 1 in folder_ids_student_a and 2 in folder_ids_student_a, f"Student A active folders query must include shared folders. Got: {folder_ids_student_a}"
+    print("  -> PASSED: get_active_decks and get_active_folders successfully return shared decks and folders!")
+
 
     # 5. Group Progress & Leaderboard
     print("\n[Step 5] Testing Group Progress Aggregation & Leaderboard...")
@@ -123,7 +136,28 @@ def run_tests():
     assert members[0]["user_id"] == student_a_id or members[1]["user_id"] == student_a_id
     print("  -> PASSED: Group progress aggregated correctly, percent calculated, and leaderboard sorted.")
 
+    # 6. Card Editing Role Enforcement
+    print("\n[Step 6] Testing Card Editing Role Enforcement...")
+    from api.services.cards import save_card
+    from fastapi import HTTPException
+
+    # Student B has role 'viewer' on deck 10 -> Should fail with 403
+    viewer_failed = False
+    try:
+        save_card({"id": 101, "deck_id": 10, "front": "Hacked Front"}, user_id=student_b_id)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            viewer_failed = True
+
+    assert viewer_failed, "Student B (viewer) should be rejected from editing card on deck 10 with HTTP 403."
+
+    # Student A has role 'editor' on deck 20 -> Should succeed!
+    updated_card = save_card({"id": 102, "deck_id": 20, "front": "Editor Updated Front"}, user_id=student_a_id)
+    assert updated_card.front_text == "Editor Updated Front"
+    print("  -> PASSED: Viewer rejected from editing cards (HTTP 403), Editor successfully saved changes for group!")
+
     print("\n=== ALL COLLABORATIVE & GRANULAR PERMISSION TESTS PASSED PERFECTLY ===")
+
 
 
 if __name__ == '__main__':

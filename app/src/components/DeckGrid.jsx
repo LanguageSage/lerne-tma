@@ -12,8 +12,7 @@ import { FolderCardItem } from './deckgrid/FolderTreeNav';
 export const DeckGrid = ({ 
   startTutorial, 
   userId, 
-  openSyncModal, 
-  startStudy 
+  openSyncModal
 }) => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
 
@@ -29,6 +28,9 @@ export const DeckGrid = ({
     setDeckCards, togglePinDeck, reorderDecks,
     duplicateCards
   } = useDeckStore();
+
+  const activeLanguage = useLanguageStore(state => state.activeLanguage);
+  const langInfo = useLanguageStore(state => state.getLanguageInfo());
 
   if (view !== 'decks') return null;
 
@@ -49,15 +51,23 @@ export const DeckGrid = ({
     return trail;
   };
 
-  const activeLanguage = useLanguageStore(state => state.activeLanguage);
-  const langInfo = useLanguageStore(state => state.getLanguageInfo());
+  const currentFolders = folders ? folders.filter(f => {
+    if (f.parent_id !== activeFolderId) return false;
+    if (activeFolderId !== null) return true;
+    return (f.target_language || 'de') === activeLanguage;
+  }) : [];
 
-  const currentFolders = folders ? folders.filter(f => f.parent_id === activeFolderId && (f.target_language || 'de') === activeLanguage) : [];
   const activeFolder = folders?.find(f => f.id === activeFolderId);
   const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
   
-  // Filter decks by active folder and target language
-  const currentDecks = decks ? decks.filter(d => d.folder_id === activeFolderId && (d.target_language || 'de') === activeLanguage) : [];
+  // Filter decks by active folder: when inside a specific folder, display all its decks
+  const currentDecks = decks ? decks.filter(d => {
+    if (d.folder_id !== activeFolderId) return false;
+    if (activeFolderId !== null) return true;
+    return (d.target_language || 'de') === activeLanguage;
+  }) : [];
+
+
 
   const isFolderEmpty = currentFolders.length === 0 && currentDecks.length === 0;
 

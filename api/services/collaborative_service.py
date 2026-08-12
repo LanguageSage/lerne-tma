@@ -63,6 +63,34 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
     return None
 
 
+def is_shared_item(user_id: int, target_type: str, target_id: int) -> bool:
+    """Returns True if the folder or deck has active collaborators or the user is an invited collaborator."""
+    role = get_effective_user_role(user_id, target_type, target_id)
+    if role and role != 'owner':
+        return True
+
+    if target_type == 'folder':
+        collab_count = models.TMA_Collaborator.select().where(
+            (models.TMA_Collaborator.target_type == 'folder') &
+            (models.TMA_Collaborator.target_id == target_id)
+        ).count()
+        return collab_count > 0
+    elif target_type == 'deck':
+        collab_count = models.TMA_Collaborator.select().where(
+            (models.TMA_Collaborator.target_type == 'deck') &
+            (models.TMA_Collaborator.target_id == target_id)
+        ).count()
+        if collab_count > 0:
+            return True
+        
+        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
+        if deck and deck.folder_id:
+            return is_shared_item(user_id, 'folder', deck.folder_id)
+
+    return False
+
+
+
 def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
     """Returns all collaborators and owner for a given folder or deck."""
     collaborators = []
@@ -177,6 +205,7 @@ def join_by_share_id(share_id: str, user_id: int) -> dict:
     item_name = ""
     owner_id = None
 
+    target_language = "de"
     if clean_share_id.startswith("d_"):
         deck = models.TMA_Deck.get_or_none((models.TMA_Deck.share_id == clean_share_id) & (models.TMA_Deck.is_deleted == False))
         if not deck:
@@ -185,6 +214,7 @@ def join_by_share_id(share_id: str, user_id: int) -> dict:
         target_id = deck.id
         item_name = deck.name
         owner_id = deck.user_id
+        target_language = getattr(deck, 'target_language', 'de') or 'de'
     elif clean_share_id.startswith("f_"):
         folder = models.TMA_Folder.get_or_none((models.TMA_Folder.share_id == clean_share_id) & (models.TMA_Folder.is_deleted == False))
         if not folder:
@@ -193,11 +223,21 @@ def join_by_share_id(share_id: str, user_id: int) -> dict:
         target_id = folder.id
         item_name = folder.name
         owner_id = folder.user_id
+        target_language = getattr(folder, 'target_language', 'de') or 'de'
     else:
         raise Exception("Invalid share link format")
 
     if owner_id == user_id:
-        return {"status": "ok", "type": target_type, "id": target_id, "name": item_name, "is_owner": True}
+        return {
+            "status": "ok",
+            "type": target_type,
+            "id": target_id,
+            "name": item_name,
+            "target_language": target_language,
+            "is_owner": True,
+            "already_had_access": True,
+            "role": "owner"
+        }
 
     collab, created = models.TMA_Collaborator.get_or_create(
         target_type=target_type,
@@ -214,26 +254,43 @@ def join_by_share_id(share_id: str, user_id: int) -> dict:
         "type": target_type,
         "id": target_id,
         "name": item_name,
+        "target_language": target_language,
         "role": collab.role,
-        "joined": created
+        "joined": created,
+        "already_had_access": not created,
+        "is_owner": False
     }
+
+
 
 
 
 def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int, requester_id: int) -> bool:
     """Removes a collaborator from a folder or deck."""
     requester_role = get_effective_user_role(requester_id, target_type, target_id)
-    if requester_role != 'owner' and requester_id != user_id_to_remove:
+    if requester_role != 'owner' and int(requester_id) != int(user_id_to_remove):
         raise Exception("Access denied: Only owner can remove collaborators")
 
-    collab = models.TMA_Collaborator.get_or_none(
+    deleted = models.TMA_Collaborator.delete().where(
         (models.TMA_Collaborator.target_type == target_type) &
         (models.TMA_Collaborator.target_id == target_id) &
         (models.TMA_Collaborator.user_id == user_id_to_remove)
-    )
-    if collab:
-        collab.delete_instance()
+    ).execute()
+
+    if deleted > 0:
         return True
+
+    if target_type == 'deck':
+        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
+        if deck and deck.folder_id:
+            deleted_folder = models.TMA_Collaborator.delete().where(
+                (models.TMA_Collaborator.target_type == 'folder') &
+                (models.TMA_Collaborator.target_id == deck.folder_id) &
+                (models.TMA_Collaborator.user_id == user_id_to_remove)
+            ).execute()
+            if deleted_folder > 0:
+                return True
+
     return False
 
 
@@ -247,7 +304,17 @@ def remove_all_collaborators(target_type: str, target_id: int, requester_id: int
         (models.TMA_Collaborator.target_type == target_type) &
         (models.TMA_Collaborator.target_id == target_id)
     ).execute()
+
+    if target_type == 'deck':
+        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
+        if deck and deck.folder_id:
+            count += models.TMA_Collaborator.delete().where(
+                (models.TMA_Collaborator.target_type == 'folder') &
+                (models.TMA_Collaborator.target_id == deck.folder_id)
+            ).execute()
+
     return count
+
 
 
 

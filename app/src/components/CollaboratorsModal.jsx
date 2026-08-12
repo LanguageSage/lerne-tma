@@ -8,7 +8,7 @@ import api from '../services/api';
 
 export const CollaboratorsModal = () => {
   const { isCollaboratorsModalOpen, setIsCollaboratorsModalOpen, collaboratorsTarget, showToast } = useUiStore();
-  const { fetchCollaborators, addCollaborator, updateCollaboratorRole, removeCollaborator, removeAllCollaborators, fetchGroupProgress } = useDeckStore();
+  const { fetchCollaborators, addCollaborator, updateCollaboratorRole, removeCollaborator, removeAllCollaborators, fetchGroupProgress, fetchDecks, fetchFolders } = useDeckStore();
 
   const [activeTab, setActiveTab] = useState('members'); // 'members' | 'leaderboard'
   const [collaborators, setCollaborators] = useState([]);
@@ -19,6 +19,7 @@ export const CollaboratorsModal = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [shareId, setShareId] = useState(null);
   const [groupProgress, setGroupProgress] = useState(null);
+  const [confirmTarget, setConfirmTarget] = useState(null); // { action: 'remove_user' | 'close_all', userId, userName }
 
   const targetType = collaboratorsTarget?.type || 'folder';
   const targetId = collaboratorsTarget?.id;
@@ -30,6 +31,8 @@ export const CollaboratorsModal = () => {
     if (isCollaboratorsModalOpen && targetId) {
       loadCollaboratorsData();
       getShareId();
+    } else {
+      setConfirmTarget(null);
     }
   }, [isCollaboratorsModalOpen, targetId, targetType]);
 
@@ -100,6 +103,8 @@ export const CollaboratorsModal = () => {
       showToast("Участник добавлен (Только чтение)", "success");
       setUserIdentifier('');
       await loadCollaboratorsData();
+      await fetchDecks(true);
+      await fetchFolders();
     } catch (err) {
       const msg = err.response?.data?.detail || "Не удалось добавить пользователя";
       showToast(msg, "error");
@@ -113,30 +118,53 @@ export const CollaboratorsModal = () => {
       await updateCollaboratorRole(targetType, targetId, collaboratorUserId, newRole);
       showToast("Роль участника обновлена", "success");
       await loadCollaboratorsData();
+      await fetchDecks(true);
+      await fetchFolders();
     } catch (err) {
+      console.error("Error updating role:", err);
       showToast("Ошибка при изменении роли", "error");
     }
   };
 
-  const handleRemove = async (collaboratorUserId) => {
-    if (!window.confirm("Удалить участника из совместного доступа?")) return;
-    try {
-      await removeCollaborator(targetType, targetId, collaboratorUserId);
-      showToast("Участник удален", "success");
-      await loadCollaboratorsData();
-    } catch (err) {
-      showToast("Ошибка при удалении", "error");
-    }
+  const promptRemove = (collaborator) => {
+    setConfirmTarget({
+      action: 'remove_user',
+      userId: collaborator.user_id,
+      userName: collaborator.first_name || collaborator.username || `Пользователь #${collaborator.user_id}`
+    });
   };
 
-  const handleCloseAllSharing = async () => {
-    if (!window.confirm("Закрыть совместный доступ? Все соавторы потеряют доступ к этой папке/колоде.")) return;
-    try {
-      await removeAllCollaborators(targetType, targetId);
-      showToast("Совместный доступ закрыт", "info");
-      setIsCollaboratorsModalOpen(false);
-    } catch (err) {
-      showToast("Ошибка при закрытии доступа", "error");
+  const promptCloseAll = () => {
+    setConfirmTarget({ action: 'close_all' });
+  };
+
+  const executeConfirm = async () => {
+    if (!confirmTarget) return;
+    const { action, userId } = confirmTarget;
+    setConfirmTarget(null);
+
+    if (action === 'remove_user') {
+      try {
+        await removeCollaborator(targetType, targetId, userId);
+        showToast("Участник удален", "success");
+        await loadCollaboratorsData();
+        await fetchDecks(true);
+        await fetchFolders();
+      } catch (err) {
+        console.error("Error removing collaborator:", err);
+        showToast("Ошибка при удалении", "error");
+      }
+    } else if (action === 'close_all') {
+      try {
+        await removeAllCollaborators(targetType, targetId);
+        showToast("Совместный доступ закрыт", "info");
+        await fetchDecks(true);
+        await fetchFolders();
+        setIsCollaboratorsModalOpen(false);
+      } catch (err) {
+        console.error("Error closing sharing:", err);
+        showToast("Ошибка при закрытии доступа", "error");
+      }
     }
   };
 
@@ -174,9 +202,82 @@ export const CollaboratorsModal = () => {
             boxShadow: '0 20px 50px rgba(0,0,0,0.6), 0 0 30px rgba(139, 92, 246, 0.2)',
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            position: 'relative'
           }}
         >
+          {/* Custom In-Modal Confirm Overlay */}
+          {confirmTarget && (
+            <div style={{
+              position: 'absolute',
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(15, 15, 30, 0.96)',
+              backdropFilter: 'blur(10px)',
+              zIndex: 100,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#f87171', marginBottom: '16px'
+              }}>
+                <Trash2 size={28} />
+              </div>
+              <h4 style={{ margin: '0 0 8px', color: '#fff', fontSize: '1.1rem', fontWeight: 700 }}>
+                {confirmTarget.action === 'close_all' 
+                  ? 'Закрыть совместный доступ?' 
+                  : `Удалить ${confirmTarget.userName}?`}
+              </h4>
+              <p style={{ margin: '0 0 20px', color: 'rgba(255,255,255,0.6)', fontSize: '0.88rem', lineHeight: 1.4, maxWidth: '280px' }}>
+                {confirmTarget.action === 'close_all'
+                  ? 'Все соавторы потеряют доступ к этой папке/колоде.'
+                  : 'Пользователь больше не сможет просматривать или редактировать этот элемент.'}
+              </p>
+              <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '280px' }}>
+                <button
+                  onClick={() => setConfirmTarget(null)}
+                  style={{
+                    flex: 1,
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: '12px',
+                    padding: '10px',
+                    color: '#fff',
+                    fontWeight: 600,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={executeConfirm}
+                  style={{
+                    flex: 1,
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '10px',
+                    color: '#fff',
+                    fontWeight: 600,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)'
+                  }}
+                >
+                  {confirmTarget.action === 'close_all' ? 'Да, закрыть' : 'Да, удалить'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div style={{
             padding: '20px 24px 16px',
@@ -513,7 +614,7 @@ export const CollaboratorsModal = () => {
 
                           {isOwner && !c.is_owner && (
                             <button
-                              onClick={() => handleRemove(c.user_id)}
+                              onClick={() => promptRemove(c)}
                               style={{
                                 background: 'rgba(239, 68, 68, 0.15)',
                                 border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -538,7 +639,7 @@ export const CollaboratorsModal = () => {
                 {/* Close All Collaborative Access Button */}
                 {isOwner && collaborators.length > 0 && (
                   <button
-                    onClick={handleCloseAllSharing}
+                    onClick={promptCloseAll}
                     style={{
                       marginTop: '24px',
                       width: '100%',

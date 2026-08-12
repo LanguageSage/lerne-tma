@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, AlertCircle, Inbox, BookOpen, Folder } from 'lucide-react';
+import { X, Download, AlertCircle, Inbox, BookOpen, Folder, Check, ExternalLink } from 'lucide-react';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
@@ -14,11 +14,16 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const [shareInfo, setShareInfo] = useState(null);
   const [conflict, setConflict] = useState(null);
   
-  const { fetchDecks } = useDeckStore();
+  const { fetchDecks, decks, folders } = useDeckStore();
   const { showToast } = useUiStore();
 
   const isCollab = shareId && shareId.startsWith('collab_');
   const cleanShareId = shareId ? shareId.replace('collab_', '') : '';
+
+  const isAlreadyAccessible = isCollab && shareInfo && (
+    (shareInfo.type === 'deck' && decks.some(d => d.id === shareInfo.id)) ||
+    (shareInfo.type === 'folder' && folders.some(f => f.id === shareInfo.id))
+  );
 
   useEffect(() => {
     if (!shareId) return;
@@ -26,11 +31,11 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
       setLoading(true);
       setError(null);
       try {
-        const res = await api.get(`/share/info/${cleanShareId}`);
+        const res = await api.get(`/share/info/${shareId}`);
         setShareInfo(res.data);
       } catch (err) {
         console.error("Error fetching share info:", err);
-        setError("Не удалось загрузить информацию. Возможно, ссылка недействительна.");
+        setError("Ссылка недействительна или была удалена.");
       } finally {
         setLoading(false);
       }
@@ -43,8 +48,29 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
     setError(null);
     try {
       const res = await useDeckStore.getState().joinCollaborativeItem(shareId);
-      showToast(`Вы успешно присоединились к «${res.name || 'элементу'}»!`, 'success');
+      const targetLang = res?.target_language || shareInfo?.target_language || 'de';
+      const activeLang = useLanguageStore.getState().activeLanguage;
+
+      if (targetLang && targetLang !== activeLang) {
+        await useLanguageStore.getState().setLanguage(targetLang);
+      }
+
+      if (res?.type === 'folder' && res?.id) {
+        useUiStore.getState().setActiveFolderId(res.id);
+      }
+
+      if (res?.already_had_access) {
+        if (res.is_owner) {
+          showToast(`Вы являетесь владельцем «${res.name || 'элемента'}»`, 'info');
+        } else {
+          showToast(`У вас уже есть доступ к «${res.name || 'элементу'}»!`, 'info');
+        }
+      } else {
+        showToast(`Вы присоединились к «${res.name || 'элементу'}»!`, 'success');
+      }
+
       onImportSuccess?.();
+
     } catch (err) {
       console.error("Error joining collaborative item:", err);
       setError("Не удалось присоединиться к совместной папке/колоде.");
@@ -69,22 +95,14 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
         return;
       }
 
-      if (res.data.status === 'ok') {
+      if (res.data.status === 'success') {
         const targetLang = res.data.target_language || shareInfo?.target_language || 'de';
         const langObj = SUPPORTED_TARGET_LANGUAGES.find(l => l.code === targetLang) || { name: targetLang.toUpperCase(), flag: '🌐' };
-        
+
         let msg = 'Элемент успешно добавлен!';
-        if (res.data.type === 'folder') {
-          msg = res.data.merged 
-            ? `Папка «${res.data.folder_name}» объединена!` 
-            : `Папка «${res.data.folder_name}» добавлена! Колод: ${res.data.decks_added}, Карточек: ${res.data.cards_added}`;
-        } else if (res.data.type === 'deck') {
-          msg = res.data.merged 
-            ? `Колода успешно объединена!` 
-            : `Колода добавлена! Карточек: ${res.data.cards_added}`;
-        } else {
-          msg = 'Карточка успешно добавлена во Входящие!';
-        }
+        if (res.data.type === 'folder') msg = `Папка «${res.data.name}» добавлена!`;
+        else if (res.data.type === 'deck') msg = `Колода «${res.data.name}» добавлена!`;
+        else if (res.data.type === 'card') msg = `Карточка добавлена в «📥 Входящие»!`;
         
         showToast(msg, 'success');
 
@@ -206,7 +224,9 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                 {/* Title & Language */}
                 <div>
                   <p style={{ color: '#818cf8', fontSize: '1rem', fontWeight: 600, marginBottom: 4 }}>
-                    Вам отправили {isFolder ? 'папку с колодами' : (isCard ? 'карточку' : 'колоду')}:
+                    {isCollab 
+                      ? `Приглашение в совместный доступ:` 
+                      : `Вам отправили ${isFolder ? 'папку с колодами' : (isCard ? 'карточку' : 'колоду')}:`}
                   </p>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'white', margin: 0 }}>
                     {isCard ? shareInfo.front_text : shareInfo.name}
@@ -255,21 +275,46 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                 ) : (
                   /* Inbox / Target info */
                   <div style={{
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    background: 'rgba(99,102,241,0.08)', padding: '14px 18px',
-                    borderRadius: 16, border: '1px solid rgba(99,102,241,0.2)',
-                    width: '100%', boxSizing: 'border-box'
+                    display: 'flex', flexDirection: 'column', gap: 10, width: '100%', boxSizing: 'border-box'
                   }}>
-                    <Inbox size={24} color="#818cf8" style={{ flexShrink: 0 }} />
-                    <div style={{ fontSize: '0.9rem', color: '#e2e8f0', textAlign: 'left', lineHeight: 1.4 }}>
-                      <span>
-                        {isFolder
-                          ? `Папка добавится в ваш список (${langObj.flag} ${langObj.name})`
-                          : (isCard
-                            ? `Попадёт во «📥 Входящие» (${langObj.flag} ${langObj.name})`
-                            : `Добавится в раздел языка: ${langObj.flag} ${langObj.name}`)}
-                      </span>
-                    </div>
+                    {isAlreadyAccessible ? (
+                      <div style={{
+                        background: 'rgba(59, 130, 246, 0.15)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: 16,
+                        padding: '12px 16px',
+                        color: '#93c5fd',
+                        fontSize: '0.88rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        width: '100%',
+                        boxSizing: 'border-box'
+                      }}>
+                        <Check size={18} />
+                        <span>У вас уже есть доступ к этой {isFolder ? 'папке' : 'колоде'}!</span>
+                      </div>
+                    ) : (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 14,
+                        background: 'rgba(99,102,241,0.08)', padding: '14px 18px',
+                        borderRadius: 16, border: '1px solid rgba(99,102,241,0.2)',
+                        width: '100%', boxSizing: 'border-box'
+                      }}>
+                        <Inbox size={24} color="#818cf8" style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '0.9rem', color: '#e2e8f0', textAlign: 'left', lineHeight: 1.4 }}>
+                          <span>
+                            {isFolder
+                              ? `Папка добавится в ваш список (${langObj.flag} ${langObj.name})`
+                              : (isCard
+                                ? `Попадёт во «📥 Входящие» (${langObj.flag} ${langObj.name})`
+                                : `Добавится в раздел языка: ${langObj.flag} ${langObj.name}`)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -369,10 +414,9 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                   disabled={loading || importing || !shareInfo}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: 1, padding: '12px' }}
                 >
-                  <Download size={18} />
-                  {importing ? 'Сохранение...' : (isCollab ? 'Присоединиться' : 'Добавить')}
+                  {isAlreadyAccessible ? <ExternalLink size={18} /> : <Download size={18} />}
+                  {importing ? 'Загрузка...' : (isAlreadyAccessible ? 'Открыть' : (isCollab ? 'Присоединиться' : 'Добавить'))}
                 </button>
-
               </div>
             )}
           </div>

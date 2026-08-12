@@ -46,8 +46,11 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
 @router.get("/share/info/{share_id}")
 def get_share_info(share_id: str):
     """Gets public info about a shared item for preview."""
-    if share_id.startswith("d_"):
-        deck = TMA_Deck.get_or_none(TMA_Deck.share_id == share_id)
+    is_collab = share_id.startswith("collab_")
+    clean_id = share_id.replace("collab_", "")
+
+    if clean_id.startswith("d_"):
+        deck = TMA_Deck.get_or_none(TMA_Deck.share_id == clean_id)
         if not deck:
             raise HTTPException(status_code=404, detail="Shared deck not found")
             
@@ -60,10 +63,11 @@ def get_share_info(share_id: str):
             "topic": deck.topic,
             "target_language": deck.target_language or "de",
             "creator_name": creator.username or creator.first_name if creator else "Unknown",
-            "creator_avatar": creator.photo_url if creator else None
+            "creator_avatar": creator.photo_url if creator else None,
+            "is_collab": is_collab
         }
-    elif share_id.startswith("f_"):
-        folder = TMA_Folder.get_or_none((TMA_Folder.share_id == share_id) & (TMA_Folder.is_deleted == False))
+    elif clean_id.startswith("f_"):
+        folder = TMA_Folder.get_or_none((TMA_Folder.share_id == clean_id) & (TMA_Folder.is_deleted == False))
         if not folder:
             raise HTTPException(status_code=404, detail="Shared folder not found")
             
@@ -79,10 +83,11 @@ def get_share_info(share_id: str):
             "decks_count": decks_count,
             "cards_count": cards_count,
             "creator_name": creator.username or creator.first_name if creator else "Unknown",
-            "creator_avatar": creator.photo_url if creator else None
+            "creator_avatar": creator.photo_url if creator else None,
+            "is_collab": is_collab
         }
-    elif share_id.startswith("c_"):
-        card = TMA_Card.get_or_none((TMA_Card.share_id == share_id) & (TMA_Card.is_deleted == False))
+    elif clean_id.startswith("c_"):
+        card = TMA_Card.get_or_none((TMA_Card.share_id == clean_id) & (TMA_Card.is_deleted == False))
         if not card:
             raise HTTPException(status_code=404, detail="Shared card not found")
             
@@ -97,8 +102,10 @@ def get_share_info(share_id: str):
             "image_path": card.image_path,
             "target_language": card_lang,
             "creator_name": creator.username or creator.first_name if creator else "Unknown",
-            "creator_avatar": creator.photo_url if creator else None
+            "creator_avatar": creator.photo_url if creator else None,
+            "is_collab": is_collab
         }
+
     else:
         raise HTTPException(status_code=400, detail="Invalid share link format")
 

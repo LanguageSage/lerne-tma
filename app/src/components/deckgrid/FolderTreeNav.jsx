@@ -147,7 +147,13 @@ export const FolderCardItem = ({
       className={`deck-card glass folder-card-item ${isMenuOpen ? 'has-open-menu' : ''}`}
       style={folderStyle}
     >
-      <div className="deck-main-action" onClick={() => setActiveFolderId(folder.id)}>
+      <div className="deck-main-action" onClick={() => {
+        if (folder.target_language && folder.target_language !== useLanguageStore.getState().activeLanguage) {
+          useLanguageStore.getState().setLanguage(folder.target_language);
+        }
+        setActiveFolderId(folder.id);
+      }}>
+
         <div className="deck-info-row">
           <div className="deck-icon folder-icon-glow">
             <Folder size={24} color={folderColor} fill={folderColor} fillOpacity={0.2} />
@@ -182,6 +188,11 @@ export const FolderCardItem = ({
           {folder.is_shared && (
             <div 
               title="Совместный доступ"
+              onClick={(e) => {
+                e.stopPropagation();
+                useUiStore.getState().setCollaboratorsTarget({ type: 'folder', id: folder.id, name: folder.name });
+                useUiStore.getState().setIsCollaboratorsModalOpen(true);
+              }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -192,12 +203,14 @@ export const FolderCardItem = ({
                 background: 'linear-gradient(135deg, rgba(139,92,246,0.35), rgba(99,102,241,0.25))',
                 border: '1px solid rgba(167,139,250,0.5)',
                 color: '#c4b5fd',
-                boxShadow: '0 0 10px rgba(139,92,246,0.35)'
+                boxShadow: '0 0 10px rgba(139,92,246,0.35)',
+                cursor: 'pointer'
               }}
             >
               <Users size={14} />
             </div>
           )}
+
         </div>
 
         <button 

@@ -87,8 +87,13 @@ export const useCardEditor = () => {
     } catch (err) {
       console.error(err);
       const detail = err.response?.data?.detail || err.message;
-      showToast(`Ошибка сохранения: ${detail}`);
+      if (err.response?.status === 403) {
+        showToast(detail, "error");
+      } else {
+        showToast(`Ошибка сохранения: ${detail}`, "error");
+      }
     } finally {
+
       setLoading(false);
     }
   };

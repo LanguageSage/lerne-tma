@@ -49,15 +49,18 @@ export const useLanguageStore = create((set, get) => ({
 
   syncLanguageFromExternal: (code, hasSelected = true) => {
     if (SUPPORTED_LANGUAGES.some(l => l.code === code)) {
+      const currentHasSelected = get().hasSelectedLanguage;
+      const finalHasSelected = currentHasSelected || Boolean(hasSelected);
+
       localStorage.setItem('lerne_target_language', code);
-      if (hasSelected) {
+      if (finalHasSelected) {
         localStorage.setItem('lerne_has_selected_language', 'true');
         cloudStorage.set('lerne_has_selected_language', 'true');
       }
       cloudStorage.set('lerne_target_language', code);
       set({
         activeLanguage: code,
-        hasSelectedLanguage: Boolean(hasSelected),
+        hasSelectedLanguage: finalHasSelected,
         isLanguageModalOpen: false
       });
     }

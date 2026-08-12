@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import ukTranslations from './locales/uk.json';
 import ruTranslations from './locales/ru.json';
 import enTranslations from './locales/en.json';
+import { cloudStorage } from '../utils/auth';
+import api from '../services/api';
 
 const TRANSLATIONS = {
   uk: ukTranslations,
@@ -30,6 +32,25 @@ export function LanguageProvider({ children }) {
     return !localStorage.getItem('native_language_selected');
   });
 
+  // 1. Restore native language from Telegram CloudStorage on mount if missing in LocalStorage
+  useEffect(() => {
+    const restoreFromCloud = async () => {
+      try {
+        const cloudSel = await cloudStorage.get('lerne_native_language_selected');
+        const cloudLang = await cloudStorage.get('lerne_native_language');
+        if (cloudSel === 'true' && cloudLang && TRANSLATIONS[cloudLang]) {
+          setNativeLanguage(cloudLang);
+          localStorage.setItem('native_language', cloudLang);
+          localStorage.setItem('native_language_selected', 'true');
+          setIsFirstLaunch(false);
+        }
+      } catch (e) {
+        console.warn("CloudStorage native language restore failed:", e);
+      }
+    };
+    restoreFromCloud();
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('native_language', nativeLanguage);
   }, [nativeLanguage]);
@@ -39,7 +60,27 @@ export function LanguageProvider({ children }) {
       setNativeLanguage(code);
       localStorage.setItem('native_language', code);
       localStorage.setItem('native_language_selected', 'true');
+      cloudStorage.set('lerne_native_language', code);
+      cloudStorage.set('lerne_native_language_selected', 'true');
       setIsFirstLaunch(false);
+
+      // Async sync to backend
+      api.post('/user/language', { native_language: code }).catch(err => {
+        console.error("Failed to save native language to backend:", err);
+      });
+    }
+  };
+
+  const syncNativeLanguageFromExternal = (code, selected = true) => {
+    if (TRANSLATIONS[code]) {
+      setNativeLanguage(code);
+      localStorage.setItem('native_language', code);
+      cloudStorage.set('lerne_native_language', code);
+      if (selected) {
+        localStorage.setItem('native_language_selected', 'true');
+        cloudStorage.set('lerne_native_language_selected', 'true');
+        setIsFirstLaunch(false);
+      }
     }
   };
 
@@ -58,7 +99,14 @@ export function LanguageProvider({ children }) {
   };
 
   return (
-    <LanguageContext.Provider value={{ nativeLanguage, changeNativeLanguage, t, isFirstLaunch, setIsFirstLaunch }}>
+    <LanguageContext.Provider value={{
+      nativeLanguage, 
+      changeNativeLanguage, 
+      syncNativeLanguageFromExternal,
+      t, 
+      isFirstLaunch, 
+      setIsFirstLaunch 
+    }}>
       {children}
     </LanguageContext.Provider>
   );

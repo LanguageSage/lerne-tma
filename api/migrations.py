@@ -98,6 +98,7 @@ MIGRATIONS = [
     (70, "ALTER TABLE tma_card ADD COLUMN flag INTEGER DEFAULT 0", 'tma'),
     (71, "ALTER TABLE card ADD COLUMN flag INTEGER DEFAULT 0", 'lerne'),
     (72, "ALTER TABLE tma_user ADD COLUMN has_selected_language BOOLEAN DEFAULT false", 'tma'),
+    (73, "ALTER TABLE tma_user ADD COLUMN native_language TEXT DEFAULT 'uk'", 'tma'),
 ]
 
 

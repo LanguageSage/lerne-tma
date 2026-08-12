@@ -270,6 +270,11 @@ export const DeckCardItem = ({
             {deck.is_shared && (
               <div 
                 title="Совместный доступ"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: deck.id, name: deck.name });
+                  useUiStore.getState().setIsCollaboratorsModalOpen(true);
+                }}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -280,12 +285,14 @@ export const DeckCardItem = ({
                   background: 'linear-gradient(135deg, rgba(139,92,246,0.35), rgba(99,102,241,0.25))',
                   border: '1px solid rgba(167,139,250,0.5)',
                   color: '#c4b5fd',
-                  boxShadow: '0 0 10px rgba(139,92,246,0.35)'
+                  boxShadow: '0 0 10px rgba(139,92,246,0.35)',
+                  cursor: 'pointer'
                 }}
               >
                 <Users size={14} />
               </div>
             )}
+
           </div>
         ) : (
           <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>

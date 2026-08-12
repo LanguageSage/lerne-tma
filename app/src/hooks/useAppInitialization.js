@@ -33,6 +33,13 @@ export const useAppInitialization = (checkStartParam) => {
           const { useLanguageStore } = await import('../store/useLanguageStore');
           useLanguageStore.getState().syncLanguageFromExternal(cloudLang, true);
         }
+
+        const cloudNativeSel = await cloudStorage.get('lerne_native_language_selected');
+        const cloudNativeLang = await cloudStorage.get('lerne_native_language');
+        if (cloudNativeSel === 'true' && cloudNativeLang) {
+          localStorage.setItem('native_language', cloudNativeLang);
+          localStorage.setItem('native_language_selected', 'true');
+        }
       } catch (e) {
         console.warn("CloudStorage language restore failed:", e);
       }
@@ -118,10 +125,17 @@ export const useAppInitialization = (checkStartParam) => {
         const langState = useLanguageStore.getState();
         if (langState.hasSelectedLanguage) return;
 
+        // Double check CloudStorage
         const cloudHasSelected = await cloudStorage.get('lerne_has_selected_language');
         const cloudLang = await cloudStorage.get('lerne_target_language');
         if (cloudHasSelected === 'true' && cloudLang) {
           langState.syncLanguageFromExternal(cloudLang, true);
+          return;
+        }
+
+        // Double check LocalStorage
+        if (localStorage.getItem('lerne_has_selected_language') === 'true') {
+          langState.syncLanguageFromExternal(localStorage.getItem('lerne_target_language') || 'de', true);
           return;
         }
 
@@ -210,6 +224,13 @@ export const useAppInitialization = (checkStartParam) => {
         );
       }
 
+      if (res.data.user_info?.native_language) {
+        localStorage.setItem('native_language', res.data.user_info.native_language);
+        localStorage.setItem('native_language_selected', 'true');
+        cloudStorage.set('lerne_native_language', res.data.user_info.native_language);
+        cloudStorage.set('lerne_native_language_selected', 'true');
+      }
+
       // Cache init response for instant future starts
       storage.set('lerne_init_cache', JSON.stringify(res.data));
       storage.set('lerne_init_cache_version', CACHE_VERSION);
@@ -260,6 +281,13 @@ export const useAppInitialization = (checkStartParam) => {
             );
           }
 
+          if (dbProfile.native_language) {
+            localStorage.setItem('native_language', dbProfile.native_language);
+            localStorage.setItem('native_language_selected', 'true');
+            cloudStorage.set('lerne_native_language', dbProfile.native_language);
+            cloudStorage.set('lerne_native_language_selected', 'true');
+          }
+
           if (currentProfile.is_guest && !dbProfile.is_guest) {
             console.log("Found real user profile in DB. Fetching data...");
             await fetchInitData();
@@ -271,15 +299,20 @@ export const useAppInitialization = (checkStartParam) => {
       }
 
       // 2. Если профиля в БД еще нет, выполняем синхронизацию
-      const res = await requestWithRetry(() => api.post('/auth/sync', {
+      const syncPayload = {
         first_name: currentProfile.first_name,
         last_name: currentProfile.last_name,
         username: currentProfile.username,
         photo_url: currentProfile.photo_url,
         is_guest: currentProfile.is_guest,
         active_language: langState.activeLanguage,
-        has_selected_language: langState.hasSelectedLanguage
-      }), 'Profile sync');
+        native_language: localStorage.getItem('native_language') || 'uk'
+      };
+      if (langState.hasSelectedLanguage) {
+        syncPayload.has_selected_language = true;
+      }
+
+      const res = await requestWithRetry(() => api.post('/auth/sync', syncPayload), 'Profile sync');
 
       if (res.data.status === 'ok' && res.data.user) {
         const newProfile = res.data.user;
@@ -291,6 +324,13 @@ export const useAppInitialization = (checkStartParam) => {
             newProfile.active_language || 'de',
             Boolean(newProfile.has_selected_language)
           );
+        }
+
+        if (newProfile.native_language) {
+          localStorage.setItem('native_language', newProfile.native_language);
+          localStorage.setItem('native_language_selected', 'true');
+          cloudStorage.set('lerne_native_language', newProfile.native_language);
+          cloudStorage.set('lerne_native_language_selected', 'true');
         }
       }
     } catch (err) {

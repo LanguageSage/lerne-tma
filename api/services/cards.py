@@ -40,8 +40,19 @@ def save_card(data, user_id):
         from .decks import ensure_inbox_deck
         inbox = ensure_inbox_deck(user_id)
         card.deck_id = inbox.id
+
+    target_deck_id = card.deck_id or deck_id
+    if target_deck_id:
+        from .collaborative_service import get_effective_user_role
+        from fastapi import HTTPException
+        role = get_effective_user_role(user_id, 'deck', target_deck_id)
+        if role == 'viewer':
+            raise HTTPException(status_code=403, detail="У вас роль Слушателя (только чтение). Изменение карточек доступно Редакторам и Владельцу.")
+        elif role is None and card.id:
+            raise HTTPException(status_code=403, detail="Нет прав на изменение этой карточки.")
     
     # Обновляем только если передано (используем get с проверкой наличия ключа, чтобы позволить пустые строки)
+
     if 'front' in data or 'front_text' in data:
         card.front_text = data.get('front') if 'front' in data else data.get('front_text')
         
@@ -138,8 +149,12 @@ def delete_card(card_id: int, user_id: int):
         if not card:
             return False
             
-        if card.deck and card.deck.user_id != user_id:
-            return False
+        if card.deck_id:
+            from .collaborative_service import get_effective_user_role
+            role = get_effective_user_role(user_id, 'deck', card.deck_id)
+            if role not in ['owner', 'editor']:
+                return False
+
             
         card.is_deleted = True
         card.updated_at = datetime.datetime.now()
