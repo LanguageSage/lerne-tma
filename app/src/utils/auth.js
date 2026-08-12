@@ -32,7 +32,7 @@ export const getUserId = () => {
     return profile.user_id;
   } catch (err) {
     console.error("Critical error in getUserId:", err);
-    return 642478257; 
+    return Math.floor(100000000 + Math.random() * 900000000); 
   }
 };
 
@@ -106,9 +106,9 @@ export const getUserProfile = () => {
       if (id !== null) return { user_id: id, is_guest: true };
     }
 
-    // 4. Для локальной разработки без сохранённого профиля
+    // 4. Для локальной веб-разработки (Vite Dev Server) без сохранённого профиля
     const fallbackId = parseUserId(FALLBACK_USER_ID) || 642478257;
-    if (fallbackId !== null && isLocalHost(window.location.hostname)) {
+    if (import.meta.env.DEV && fallbackId !== null && isLocalHost(window.location.hostname) && !window.Capacitor) {
       const profile = { user_id: fallbackId, is_guest: false, first_name: 'Aruna Андрей', username: 'Aruna27' };
       storage.set('lerne_user_id', fallbackId);
       storage.set('lerne_user_profile', JSON.stringify(profile));
