@@ -174,10 +174,10 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
 
 
 def add_collaborator(target_type: str, target_id: int, user_id_to_add: int, role: str, added_by: int) -> dict:
-    """Adds or updates a collaborator for a folder or deck."""
+    """Adds or updates a collaborator for a folder or deck. Only the owner can manage collaborators."""
     requester_role = get_effective_user_role(added_by, target_type, target_id)
-    if requester_role not in ['owner', 'editor']:
-        raise Exception("Access denied: Only owner or editor can add collaborators")
+    if requester_role != 'owner':
+        raise Exception("Access denied: Only the owner can add collaborators")
 
     if role not in ['editor', 'viewer']:
         role = 'viewer'
@@ -298,7 +298,10 @@ def join_by_share_id(share_id: str, user_id: int) -> dict:
 
 
 def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int, requester_id: int) -> bool:
-    """Removes a collaborator from a folder or deck."""
+    """Removes a collaborator directly from a folder or deck.
+    NOTE: For decks inside folders, only the direct deck-level entry is removed.
+    Folder-level access must be managed from the folder itself.
+    """
     requester_role = get_effective_user_role(requester_id, target_type, target_id)
     if requester_role != 'owner' and int(requester_id) != int(user_id_to_remove):
         raise Exception("Access denied: Only owner can remove collaborators")
@@ -309,25 +312,14 @@ def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int
         (models.TMA_Collaborator.user_id == user_id_to_remove)
     ).execute()
 
-    if deleted > 0:
-        return True
-
-    if target_type == 'deck':
-        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
-        if deck and deck.folder_id:
-            deleted_folder = models.TMA_Collaborator.delete().where(
-                (models.TMA_Collaborator.target_type == 'folder') &
-                (models.TMA_Collaborator.target_id == deck.folder_id) &
-                (models.TMA_Collaborator.user_id == user_id_to_remove)
-            ).execute()
-            if deleted_folder > 0:
-                return True
-
-    return False
+    return deleted > 0
 
 
 def remove_all_collaborators(target_type: str, target_id: int, requester_id: int) -> int:
-    """Removes all collaborators for a folder or deck (completely closes shared access)."""
+    """Removes all direct collaborators for a folder or deck (closes shared access for that item).
+    NOTE: For decks inside folders, this only removes deck-level direct entries.
+    It does NOT cascade to the parent folder to avoid accidentally revoking folder access.
+    """
     requester_role = get_effective_user_role(requester_id, target_type, target_id)
     if requester_role != 'owner':
         raise Exception("Access denied: Only item owner can close shared access")
@@ -336,14 +328,6 @@ def remove_all_collaborators(target_type: str, target_id: int, requester_id: int
         (models.TMA_Collaborator.target_type == target_type) &
         (models.TMA_Collaborator.target_id == target_id)
     ).execute()
-
-    if target_type == 'deck':
-        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
-        if deck and deck.folder_id:
-            count += models.TMA_Collaborator.delete().where(
-                (models.TMA_Collaborator.target_type == 'folder') &
-                (models.TMA_Collaborator.target_id == deck.folder_id)
-            ).execute()
 
     return count
 

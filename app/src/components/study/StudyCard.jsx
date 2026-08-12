@@ -128,6 +128,7 @@ export const StudyCard = React.memo(({
   const deckResources = deckMeta?.resources || [];
   const deckImage = deckResources.find(r => r.type === 'image' && r.show_in_cards !== false);
   const deckVideo = deckResources.find(r => r.type === 'video');
+  const deckImageHeight = deckMeta?.imageHeight || 180;
 
   const getDeckImageUrl = (resItem) => {
     if (!resItem) return null;
@@ -212,11 +213,10 @@ export const StudyCard = React.memo(({
               {imageUrl && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
                 <div style={{
                   width: '100%',
-                  maxHeight: '180px',
+                  height: `${deckImageHeight}px`,
                   overflow: 'hidden',
                   borderRadius: '12px',
                   marginBottom: '14px',
-                  background: '#000',
                   flexShrink: 0
                 }}>
                   <img
@@ -225,7 +225,7 @@ export const StudyCard = React.memo(({
                     style={{
                       display: 'block',
                       width: '100%',
-                      height: '180px',
+                      height: '100%',
                       objectFit: 'contain',
                       borderRadius: '12px'
                     }}
@@ -530,11 +530,10 @@ export const StudyCard = React.memo(({
               {imageUrl && (
                 <div style={{
                   width: '100%',
-                  maxHeight: '180px',
+                  height: `${deckImageHeight}px`,
                   overflow: 'hidden',
                   borderRadius: '12px',
                   marginBottom: '12px',
-                  background: '#000',
                   flexShrink: 0
                 }}>
                   <img
@@ -543,7 +542,7 @@ export const StudyCard = React.memo(({
                     style={{
                       display: 'block',
                       width: '100%',
-                      height: '180px',
+                      height: '100%',
                       objectFit: 'contain',
                       borderRadius: '12px'
                     }}

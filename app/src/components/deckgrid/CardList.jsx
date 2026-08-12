@@ -97,6 +97,57 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const { uploadDeckResource } = useMediaUpload();
   const { openCreator } = useCardNavigation();
 
+  // Resizable image height — read from metadata, default 220px
+  const getMetaImageHeight = () => {
+    try {
+      const meta = currentDeck?.metadata
+        ? (typeof currentDeck.metadata === 'string' ? JSON.parse(currentDeck.metadata) : currentDeck.metadata)
+        : {};
+      return meta.imageHeight || 220;
+    } catch { return 220; }
+  };
+  const [imageHeight, setImageHeight] = React.useState(getMetaImageHeight);
+
+  // Sync imageHeight when deck changes
+  React.useEffect(() => {
+    setImageHeight(getMetaImageHeight());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDeck?.id]);
+
+  const saveImageHeight = React.useCallback(async (h) => {
+    if (!currentDeck) return;
+    const meta = currentDeck.metadata
+      ? (typeof currentDeck.metadata === 'string' ? JSON.parse(currentDeck.metadata) : currentDeck.metadata)
+      : {};
+    await useDeckStore.getState().updateDeckMetadata(currentDeck.id, { ...meta, imageHeight: h });
+  }, [currentDeck]);
+
+  const startResizeDrag = React.useCallback((e) => {
+    e.preventDefault();
+    const startY = e.touches ? e.touches[0].clientY : e.clientY;
+    const startH = imageHeight;
+    const onMove = (ev) => {
+      const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      const delta = clientY - startY;
+      const newH = Math.max(80, Math.min(500, startH + delta));
+      setImageHeight(newH);
+    };
+    const onUp = (ev) => {
+      const clientY = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
+      const delta = clientY - startY;
+      const finalH = Math.max(80, Math.min(500, startH + delta));
+      saveImageHeight(Math.round(finalH));
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+  }, [imageHeight, saveImageHeight]);
+
   const handleToggleShowInCards = async (targetImg, isChecked) => {
     if (!currentDeck) return;
     let metadata = { resources: [] };
@@ -364,8 +415,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                           position: 'relative',
                           borderRadius: '16px',
                           overflow: 'hidden',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          background: '#000'
+                          border: '1px solid rgba(255, 255, 255, 0.12)'
                         }}>
                           <img 
                             src={imgSrc} 
@@ -373,9 +423,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             style={{ 
                               display: 'block',
                               width: '100%', 
-                              maxHeight: '260px', 
+                              height: `${imageHeight}px`, 
                               objectFit: 'contain',
-                              borderRadius: '16px',
                               cursor: 'zoom-in' 
                             }} 
                             onClick={() => window.open(imgSrc, '_blank')}
@@ -418,8 +467,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                           {images.length > 1 && (
                             <div style={{
                               position: 'absolute',
-                              bottom: '10px',
-                              right: '12px',
+                              top: '10px',
+                              left: '12px',
                               background: 'rgba(0, 0, 0, 0.65)',
                               color: 'white',
                               fontSize: '0.75rem',
@@ -430,6 +479,34 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                               {idx + 1} / {images.length}
                             </div>
                           )}
+                        </div>
+
+                        {/* Resize handle */}
+                        <div
+                          onMouseDown={startResizeDrag}
+                          onTouchStart={startResizeDrag}
+                          title="Потяни чтобы изменить высоту"
+                          style={{
+                            height: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'ns-resize',
+                            margin: '2px 0 4px 0',
+                            userSelect: 'none',
+                            touchAction: 'none'
+                          }}
+                        >
+                          <div style={{
+                            width: '48px',
+                            height: '4px',
+                            borderRadius: '2px',
+                            background: 'rgba(168, 85, 247, 0.5)',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.9)'}
+                          onMouseOut={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.5)'}
+                          />
                         </div>
 
                         {/* Toggle switch for showing image in every card */}

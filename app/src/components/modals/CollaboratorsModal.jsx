@@ -44,16 +44,21 @@ export const CollaboratorsModal = () => {
       const data = await fetchCollaborators(targetType, targetId);
       setCollaborators(data.collaborators || []);
       setUserRole(data.user_role || 'viewer');
-
-      if (targetType === 'folder') {
-        const prog = await fetchGroupProgress(targetId);
-        setGroupProgress(prog);
-      }
     } catch (err) {
       console.error("Error loading collaborators:", err);
       showToast("Ошибка загрузки соавторов");
     } finally {
       setLoading(false);
+    }
+
+    if (targetType === 'folder') {
+      try {
+        const prog = await fetchGroupProgress(targetId);
+        setGroupProgress(prog);
+      } catch (err) {
+        console.warn("Group progress unavailable:", err);
+        // Non-critical: don't show error toast for missing progress
+      }
     }
   };
 
@@ -465,8 +470,8 @@ export const CollaboratorsModal = () => {
                   </div>
                 </div>
 
-                {/* Direct User Invite Form (Only for Owner/Editor) */}
-                {(isOwner || userRole === 'editor') && (
+                {/* Direct User Invite Form (Only for Owner) */}
+                {isOwner && (
                   <form onSubmit={handleAddUser} style={{ marginBottom: '24px' }}>
                     <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginBottom: '8px', fontWeight: 500 }}>
                       Добавить участника по имя пользователя:
