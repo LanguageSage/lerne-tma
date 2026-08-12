@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Eye, Volume2, Sparkles } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
-import { getTextShadow, getContextShadow } from '../../utils/style';
+import { getTextShadow } from '../../utils/style';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 
@@ -21,6 +21,7 @@ import { useVoicePicker } from '../../hooks/useVoicePicker';
 import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 
 // Re-export for backward compatibility
+// eslint-disable-next-line react-refresh/only-export-components
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
 import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
@@ -48,16 +49,8 @@ export const StudyCard = React.memo(({
 }) => {
   const flagStyle = useMemo(() => getFlagStyle(card?.flag), [card?.flag]);
 
-  if (!card) return null;
-
-  const deckResources = card.deck_metadata?.resources || [];
-  const deckImage = deckResources.find(r => r.type === 'image');
-  const deckVideo = deckResources.find(r => r.type === 'video');
-
-  const imageUrl = card.image_url || deckImage?.url;
-
   // Card language: prefer card-level, then deck-level, then global active language
-  const cardLang = card.target_language
+  const cardLang = card?.target_language
     || useDeckStore.getState().currentDeck?.target_language
     || useLanguageStore.getState().activeLanguage
     || 'de';
@@ -74,7 +67,7 @@ export const StudyCard = React.memo(({
   const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, true);
 
   // Provide current card text to the picker so auto-generate works on voice switch
-  const frontText = stripMarkdown(studyMode === 'reverse' ? card.back : card.front);
+  const frontText = card ? stripMarkdown(studyMode === 'reverse' ? card.back : card.front) : '';
 
   // Karaoke: sync word boundaries with audio playback position (with fallback estimation)
   const { activeWordIndex, effectiveBoundaries } = useKaraokeSync(
@@ -87,12 +80,12 @@ export const StudyCard = React.memo(({
 
   useEffect(() => {
     frontVoicePicker.setCardText(frontText);
-  }, [frontText]);
+  }, [frontText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // On card change: keep voice selection (session) but clear stale preview URL
   useEffect(() => {
     frontVoicePicker.setPreviewUrl(null);
-  }, [card.id]);
+  }, [card?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Interactive Cloze states
   const [wrongSelected, setWrongSelected] = useState([]);
@@ -102,7 +95,7 @@ export const StudyCard = React.memo(({
   useEffect(() => {
     setWrongSelected([]);
     setCorrectSelected(null);
-  }, [card.id, card.front, card.back, card.updated_at, studyMode]);
+  }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]);
   const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]);
@@ -118,6 +111,15 @@ export const StudyCard = React.memo(({
     const allDeckCards = useDeckStore.getState().deckCards || [];
     return parseClozeData(card, studyMode, allDeckCards);
   }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]);
+
+  // --- Early return after all hooks ---
+  if (!card) return null;
+
+  const deckResources = card.deck_metadata?.resources || [];
+  const deckImage = deckResources.find(r => r.type === 'image');
+  const deckVideo = deckResources.find(r => r.type === 'video');
+
+  const imageUrl = card.image_url || deckImage?.url;
 
   const hasQuizSyntax = quizData && quizData.isQuiz;
   const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
@@ -240,7 +242,7 @@ export const StudyCard = React.memo(({
                   card={card}
                   quizData={quizData}
                   isFlipped={isFlipped}
-                  setIsFlipped={setIsFlipped}
+                  setIsFlipped={onFlip}
                   playAudio={playAudio}
                   onTrainerAnswer={onTrainerAnswer}
                 />
@@ -319,12 +321,12 @@ export const StudyCard = React.memo(({
 
                       let btnClass = 'btn-cloze-option';
                       let customStyle = {
-                        fontFamily: cardFont,
-                        fontSize: `${cardFontSize}rem`,
-                        fontWeight: cardFontWeight,
-                        fontStyle: cardFontStyle,
-                        textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                        color: cardTextColor
+                        fontFamily: styles?.cardFont,
+                        fontSize: `${styles?.cardFontSize}rem`,
+                        fontWeight: styles?.cardFontWeight,
+                        fontStyle: styles?.cardFontStyle,
+                        textShadow: getTextShadow(styles?.cardTextShadow, styles?.cardTextColor),
+                        color: styles?.cardTextColor
                       };
 
                       if (isCorrect) { btnClass += ' correct'; delete customStyle.color; }
@@ -421,7 +423,7 @@ export const StudyCard = React.memo(({
                     return (
                       <CardAudioPlayer
                         audioUrl={targetBackAudioUrl}
-                        playAudio={(url) => {
+                        playAudio={() => {
                           if (studyMode === 'reverse') {
                             if (card.audio_url && playAudio) playAudio(card.audio_url);
                           } else {

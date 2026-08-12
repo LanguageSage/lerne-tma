@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Globe, Sparkles } from 'lucide-react';
-import { useLanguageStore, SUPPORTED_LANGUAGES } from '../store/useLanguageStore';
-import { renderFlag } from './deckgrid/FlagIcons';
-import './LanguageSelectionModal.css';
+import { useLanguageStore, SUPPORTED_LANGUAGES } from '../../store/useLanguageStore';
+import { renderFlag } from '../deckgrid/FlagIcons';
+import '../LanguageSelectionModal.css';
 
 export const LanguageSelectionModal = () => {
   const { isLanguageModalOpen, setLanguageModalOpen, activeLanguage, setLanguage } = useLanguageStore();

@@ -6,32 +6,6 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { renderFlag } from '../deckgrid/FlagIcons';
 import api from '../../services/api';
 
-const getCleanInstruction = (text) => {
-  if (!text) return "";
-  
-  // Remove JSON instructions
-  const index = text.toUpperCase().indexOf("RETURN ONLY A JSON");
-  let clean = index !== -1 ? text.substring(0, index).trim() : text.trim();
-  
-  // Remove prefix possibilities
-  const prefixes = [
-    'Переведи "{phrase}" на немецкий. Проанализируй перевод:',
-    'Переведи "{phrase}" на английский. Проанализируй перевод:',
-    'Переведи "{phrase}" на норвежский. Проанализируй перевод:',
-    'Проанализируй немецкое предложение или слово "{phrase}".',
-    'Проанализируй английское предложение или слово "{phrase}".',
-    'Проанализируй норвежское предложение или слово "{phrase}".'
-  ];
-  
-  for (const prefix of prefixes) {
-    if (clean.toLowerCase().startsWith(prefix.toLowerCase())) {
-      clean = clean.substring(prefix.length).trim();
-      break;
-    }
-  }
-  
-  return clean;
-};
 
 export const PromptsTab = () => {
   const { showToast } = useUiStore();
@@ -49,7 +23,7 @@ export const PromptsTab = () => {
   
   const [systemPresets, setSystemPresets] = useState([]);
   const [defaults, setDefaults] = useState({ de: "", ru: "" });
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   
   // Editor state
   const [editingPrompt, setEditingPrompt] = useState(null);
@@ -105,7 +79,7 @@ export const PromptsTab = () => {
         showToast("Промпт активирован", "success");
       }
       fetchPrompts();
-    } catch (err) {
+    } catch {
       showToast("Не удалось активировать промпт");
     }
   };
@@ -115,7 +89,7 @@ export const PromptsTab = () => {
       await api.post(`/user/prompts/preset/${presetId}/activate`, { target_language: activeLanguage });
       fetchPrompts();
       showToast("Системный промпт активирован", "success");
-    } catch (err) {
+    } catch {
       showToast("Не удалось активировать пресет");
     }
   };
@@ -126,7 +100,7 @@ export const PromptsTab = () => {
       await api.delete(`/user/prompts/${promptId}`);
       showToast("Промпт успешно удален", "success");
       fetchPrompts();
-    } catch (err) {
+    } catch {
       showToast("Не удалось удалить промпт");
     }
   };
@@ -158,7 +132,7 @@ export const PromptsTab = () => {
       showToast(editingPrompt.id ? "Промпт обновлен" : "Промпт создан", "success");
       setEditingPrompt(null);
       fetchPrompts();
-    } catch (err) {
+    } catch {
       showToast("Ошибка сохранения промпта");
     }
   };

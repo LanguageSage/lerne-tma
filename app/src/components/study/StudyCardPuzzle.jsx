@@ -32,11 +32,13 @@ export const StudyCardPuzzle = React.memo(({
 
   // Reset state when card changes
   useEffect(() => {
-    setSelectedPuzzles([]);
-    setActiveDragId(null);
-    setHoverIndex(null);
-    setDragStartPos(null);
-    setDragCurrentPos(null);
+    queueMicrotask(() => {
+      setSelectedPuzzles([]);
+      setActiveDragId(null);
+      setHoverIndex(null);
+      setDragStartPos(null);
+      setDragCurrentPos(null);
+    });
   }, [card?.id]);
 
   const puzzleData = useMemo(() => {
@@ -46,18 +48,24 @@ export const StudyCardPuzzle = React.memo(({
       .map(w => w.trim())
       .filter(Boolean);
 
-    const cleanWords = originalWords.map(w => w.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").toLowerCase());
+    const cleanWords = originalWords.map(w => w.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").toLowerCase());
 
+    const cardSeed = (card?.id || 1);
+    const prng = (seed) => {
+      const x = Math.sin(seed + 1) * 10000;
+      return x - Math.floor(x);
+    };
     const shuffledWords = originalWords
-      .map((w, index) => ({ id: index, text: w }))
-      .sort(() => Math.random() - 0.5);
+      .map((w, index) => ({ id: index, text: w, r: prng(cardSeed + index) }))
+      .sort((a, b) => a.r - b.r)
+      .map(({ id, text }) => ({ id, text }));
 
     return {
       originalWords,
       cleanWords,
       shuffledWords
     };
-  }, [card?.id, card?.front, card?.back, card?.updated_at]);
+  }, [card]);
 
   const handlePuzzleChipClick = (wordObj, e) => {
     e.stopPropagation();
@@ -82,7 +90,7 @@ export const StudyCardPuzzle = React.memo(({
     if (loading || !puzzleData || selectedPuzzles.length === 0 || isFlipped) return;
 
     if (selectedPuzzles.length === puzzleData.originalWords.length) {
-      const userText = selectedPuzzles.map(w => w.text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").toLowerCase()).join(' ');
+      const userText = selectedPuzzles.map(w => w.text.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").toLowerCase()).join(' ');
       const targetText = puzzleData.cleanWords.join(' ');
 
       if (userText === targetText) {

@@ -61,7 +61,7 @@ export const DesignTab = () => {
       // Refresh backgrounds
       const res = await api.get('/media/backgrounds');
       setCustomBackgrounds(res.data);
-    } catch (err) {
+    } catch {
       showToast("Ошибка загрузки фона");
     }
   };

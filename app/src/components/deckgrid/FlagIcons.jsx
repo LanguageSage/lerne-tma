@@ -44,6 +44,7 @@ export const FlagNO = ({ size = 20, className = "" }) => (
   </svg>
 );
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const renderFlag = (code, size = 20) => {
   switch (code) {
     case 'en': return <FlagGB size={size} />;

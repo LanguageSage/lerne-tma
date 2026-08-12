@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, UserPlus, Link, Copy, Check, Trash2, Send, Trophy, Sparkles } from 'lucide-react';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import { executeShare } from '../utils/share';
-import api from '../services/api';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
+import { useCollaborativeStore } from '../../store/useCollaborativeStore';
+import { executeShare } from '../../utils/share';
+import api from '../../services/api';
 
 export const CollaboratorsModal = () => {
   const { isCollaboratorsModalOpen, setIsCollaboratorsModalOpen, collaboratorsTarget, showToast } = useUiStore();
-  const { fetchCollaborators, addCollaborator, updateCollaboratorRole, removeCollaborator, removeAllCollaborators, fetchGroupProgress, fetchDecks, fetchFolders } = useDeckStore();
+  const { fetchDecks, fetchFolders } = useDeckStore();
+  const { fetchCollaborators, addCollaborator, updateCollaboratorRole, removeCollaborator, removeAllCollaborators, fetchGroupProgress } = useCollaborativeStore();
 
   const [activeTab, setActiveTab] = useState('members'); // 'members' | 'leaderboard'
   const [collaborators, setCollaborators] = useState([]);

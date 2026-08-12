@@ -17,14 +17,16 @@ const DeckAudioPlayer = React.memo(({ url, title, variant = 'full' }) => {
   const [isExpanded, setIsExpanded] = useState(variant === 'full');
 
   useEffect(() => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
+    queueMicrotask(() => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
+    });
     if (audioRef.current) {
       audioRef.current.load();
       audioRef.current.playbackRate = playbackRate;
     }
-  }, [url]);
+  }, [url, playbackRate]);
 
   const togglePlay = (e) => {
     e.stopPropagation();

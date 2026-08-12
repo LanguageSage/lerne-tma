@@ -105,17 +105,19 @@ def run_tests():
     collaborative_service.add_collaborator('folder', 1, student_b_id, role='viewer', added_by=teacher_id)
 
     # Seed 3 cards
-    c1 = models.TMA_Card.create(id=101, deck=deck_theory, front_text="Front 1", back_text="Back 1")
-    c2 = models.TMA_Card.create(id=102, deck=deck_practice, front_text="Front 2", back_text="Back 2")
-    c3 = models.TMA_Card.create(id=103, deck=deck_practice, front_text="Front 3", back_text="Back 3")
+    models.TMA_Card.delete().where(models.TMA_Card.id << [9101, 9102, 9103]).execute()
+    models.TMAProgress.delete().where(models.TMAProgress.card_id << [9101, 9102, 9103]).execute()
+    c1 = models.TMA_Card.create(id=9101, deck=deck_theory, front_text="Front 1", back_text="Back 1")
+    c2 = models.TMA_Card.create(id=9102, deck=deck_practice, front_text="Front 2", back_text="Back 2")
+    c3 = models.TMA_Card.create(id=9103, deck=deck_practice, front_text="Front 3", back_text="Back 3")
 
     # Student A mastered 2 cards
-    models.TMAProgress.create(card_id=101, user_id=student_a_id, queue='review', interval=25)
-    models.TMAProgress.create(card_id=102, user_id=student_a_id, queue='review', interval=30)
-    models.TMAReviewHistory.create(card_id=101, user_id=student_a_id, rating=3)
+    models.TMAProgress.create(card_id=9101, user_id=student_a_id, queue='review', interval=25)
+    models.TMAProgress.create(card_id=9102, user_id=student_a_id, queue='review', interval=30)
+    models.TMAReviewHistory.create(card_id=9101, user_id=student_a_id, rating=3)
 
     # Student B mastered 1 card
-    models.TMAProgress.create(card_id=101, user_id=student_b_id, queue='review', interval=25)
+    models.TMAProgress.create(card_id=9101, user_id=student_b_id, queue='review', interval=25)
 
     progress_data = collaborative_service.get_group_progress(folder_id=1, requester_id=teacher_id)
     assert progress_data["total_cards"] == 3
@@ -156,7 +158,45 @@ def run_tests():
     assert updated_card.front_text == "Editor Updated Front"
     print("  -> PASSED: Viewer rejected from editing cards (HTTP 403), Editor successfully saved changes for group!")
 
+    # 7. Creating new decks inside a shared folder
+    print("\n[Step 7] Testing New Deck Creation in Shared Folder...")
+    from api.services.decks import create_deck
+
+    # Student B (viewer) trying to create deck in Folder 1 -> Should fail HTTP 403
+    create_viewer_failed = False
+    try:
+        create_deck(name="Illegal Deck", user_id=student_b_id, folder_id=1)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            create_viewer_failed = True
+
+    assert create_viewer_failed, "Student B (viewer) must be blocked from creating decks in Folder 1"
+
+    # Update Student A's role on Folder 1 to 'editor'
+    collaborative_service.add_collaborator('folder', 1, student_a_id, role='editor', added_by=teacher_id)
+
+    # Student A (editor on folder 1) -> Creates deck in Folder 1
+    new_collab_deck = create_deck(name="Editor Shared Deck", user_id=student_a_id, folder_id=1)
+    assert new_collab_deck.id is not None
+
+
+    # Verify Teacher and Student B automatically get access and roles for new_collab_deck
+    teacher_accessible_decks = collaborative_service.get_user_accessible_deck_ids(teacher_id)
+    student_b_accessible_decks = collaborative_service.get_user_accessible_deck_ids(student_b_id)
+
+    assert new_collab_deck.id in teacher_accessible_decks, "Teacher must see new deck created in shared folder"
+    assert new_collab_deck.id in student_b_accessible_decks, "Student B must see new deck created in shared folder"
+
+    role_teacher_new_deck = collaborative_service.get_effective_user_role(teacher_id, 'deck', new_collab_deck.id)
+    role_student_b_new_deck = collaborative_service.get_effective_user_role(student_b_id, 'deck', new_collab_deck.id)
+
+    assert role_teacher_new_deck == 'owner', f"Teacher should be owner, got {role_teacher_new_deck}"
+    assert role_student_b_new_deck == 'viewer', f"Student B should be viewer, got {role_student_b_new_deck}"
+
+    print("  -> PASSED: New deck created by Editor in shared folder is automatically accessible to everyone with inherited roles!")
+
     print("\n=== ALL COLLABORATIVE & GRANULAR PERMISSION TESTS PASSED PERFECTLY ===")
+
 
 
 

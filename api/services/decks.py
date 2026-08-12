@@ -71,7 +71,7 @@ def merge_guest_data(guest_id: int, target_user_id: int):
             # 3. Update cards creator_id
             TMA_Card.update(creator_id=target_user_id, updated_at=now).where(TMA_Card.creator_id == guest_id).execute()
             # 4. Update progress
-            tma_db.execute_sql("UPDATE tma_progress SET user_id = %s WHERE user_id = %s", (target_user_id, guest_id))
+            TMAProgress.update(user_id=target_user_id).where(TMAProgress.user_id == guest_id).execute()
         logger.info(f"MERGED GUEST DATA SUCCESSFULLY for guest_id={guest_id} -> {target_user_id}")
         return True
     except Exception as e:
@@ -83,6 +83,15 @@ def merge_guest_data(guest_id: int, target_user_id: int):
 def create_deck(name: str, user_id: int, folder_id: int = None, target_language: str = 'de', deck_type: str = 'standard'):
     """Создает новую пользовательскую колоду."""
     try:
+        if folder_id:
+            from .collaborative_service import get_effective_user_role
+            from fastapi import HTTPException
+            role = get_effective_user_role(user_id, 'folder', folder_id)
+            if role == 'viewer':
+                raise HTTPException(status_code=403, detail="У вас роль Слушателя (только чтение). Создавать колоды в этой папке может только Редактор или Владелец.")
+            elif role is None:
+                raise HTTPException(status_code=403, detail="Родительская папка не найдена или нет доступа")
+
         meta_dict = {"resources": []}
         deck = TMA_Deck.create(
             user_id=user_id,
@@ -94,6 +103,7 @@ def create_deck(name: str, user_id: int, folder_id: int = None, target_language:
             updated_at=datetime.datetime.now()
         )
         return deck
+
     except Exception as e:
         logger.error(f"Error in create_deck: {e}")
         raise e
@@ -382,10 +392,11 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     'updated_at': datetime.datetime.now()
                 }
             )
-            sql = """
+            ph = '?' if 'sqlite' in str(type(getattr(tma_db, 'obj', None))).lower() else '%s'
+            sql = f"""
                 INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                SELECT %s, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported as copy"]'
-                FROM card WHERE deck_id = %s
+                SELECT {ph}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported as copy"]'
+                FROM card WHERE deck_id = {ph}
             """
             tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
             return local_deck
@@ -403,10 +414,11 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                 TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
                 
             # Insert all cards
-            sql = """
+            ph = '?' if 'sqlite' in str(type(getattr(tma_db, 'obj', None))).lower() else '%s'
+            sql = f"""
                 INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                SELECT %s, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported via replace"]'
-                FROM card WHERE deck_id = %s AND is_deleted = false
+                SELECT {ph}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported via replace"]'
+                FROM card WHERE deck_id = {ph} AND is_deleted = false
             """
             tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
             
@@ -434,16 +446,20 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             # Check if local deck is empty for fast direct SQL insert
             local_cards_query = TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)
             if not local_cards_query.exists():
-                sql = """
-                    INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                    SELECT %s, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported from library"]'
-                    FROM card WHERE deck_id = %s AND is_deleted = false
-                """
-                tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
-                local_deck.updated_at = datetime.datetime.now()
-                local_deck.save()
-                logger.info(f"FAST IMPORT MERGE: Deck '{local_deck.name}' cards copied in single SQL query")
-                return local_deck
+                try:
+                    ph = '?' if 'sqlite' in str(type(getattr(tma_db, 'obj', None))).lower() else '%s'
+                    sql = f"""
+                        INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
+                        SELECT {ph}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported from library"]'
+                        FROM card WHERE deck_id = {ph} AND is_deleted = false
+                    """
+                    tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
+                    local_deck.updated_at = datetime.datetime.now()
+                    local_deck.save()
+                    logger.info(f"FAST IMPORT MERGE: Deck '{local_deck.name}' cards copied in single SQL query")
+                    return local_deck
+                except Exception as sql_err:
+                    logger.warning(f"Fast SQL import merge skipped ({sql_err}), falling back to ORM merge...")
 
             # Update existing cards & insert new ones
             remote_cards = list(Card.select().where(Card.deck_id == external_deck_id))

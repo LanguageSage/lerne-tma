@@ -30,14 +30,14 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
 
   useEffect(() => {
     if (isOpen) {
-      setCurrentStep(0);
+      queueMicrotask(() => setCurrentStep(0));
     }
   }, [isOpen, steps]);
 
   // Auto-advance when flipped
   useEffect(() => {
     if (isOpen && isFlipped && steps?.[currentStep]?.skipIfFlipped) {
-      handleNext();
+      queueMicrotask(() => handleNext());
     }
   }, [isFlipped, currentStep, isOpen, steps, handleNext]);
 

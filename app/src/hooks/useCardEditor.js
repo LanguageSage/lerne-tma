@@ -4,6 +4,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
 import { cleanMedia } from '../utils/media';
 import { getPublicShareUrl, executeShare } from '../utils/share';
+import { isTelegram, isNative } from '../utils/platform';
 import { useStudySession } from './useStudySession';
 
 export const useCardEditor = () => {
@@ -137,7 +138,7 @@ export const useCardEditor = () => {
     }
   };
 
-  const handleMoveCard = async (targetCard, targetDeckId, goNextFn) => {
+  const handleMoveCard = async (targetCard, targetDeckId) => {
     setLoading(true);
     try {
       await api.post('/cards/save', {
@@ -211,52 +212,35 @@ export const useCardEditor = () => {
   };
 
   const handleShareCard = async (targetCard) => {
-    // 1. Telegram Desktop Fix: На десктопе лучше не показывать лоадер сразу,
-    // чтобы не блокировать "user activation" для открытия ссылки.
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) setLoading(true);
-
-    let screenshot = null;
+    if (!targetCard) return;
     try {
-      // Пытаемся сделать скриншот текущего вида карточки
-      const html2canvas = (await import('html2canvas')).default;
-      const { isFlipped } = useSessionStore.getState();
-      const { view } = useUiStore.getState();
+      const link = getPublicShareUrl('card', targetCard.id);
+      const isMobile = isTelegram() || isNative();
+      if (isMobile) setLoading(true);
+
+      const title = targetCard.front || 'Карточка Lerne';
+      const text = `${targetCard.front || ''} — ${targetCard.back || ''}`;
       
-      let elementId = 'tut-study-card';
-      if (view === 'creator' || view === 'editor') {
-        elementId = isFlipped ? 'card-preview-back' : 'card-preview-front';
-      }
-      
-      let element = document.getElementById(elementId);
-      if (!element) {
-        // Fallback search
-        element = document.querySelector('.card-container');
+      const shareData = {
+        title: `Учи слово в Lerne: ${title}`,
+        text: `Изучай немецкий язык с карточкой: "${text}"`,
+        url: link
+      };
+
+      if (!isMobile && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(link);
+        showToast("Ссылка скопирована!", "success");
+        return { success: true, type: 'copy' };
       }
 
-      if (element) {
-        const canvas = await html2canvas(element, {
-          useCORS: true,
-          allowTaint: true,
-          scale: 2, // Increased for better resolution
-          backgroundColor: null,
-          logging: false,
-          imageTimeout: 5000
-        });
-        screenshot = canvas.toDataURL('image/jpeg', 0.85);
-        console.log("Screenshot captured, length:", screenshot.length);
-      }
-    } catch (err) {
-      console.error("Screenshot error:", err);
-    }
-
-    try {
-      const res = await api.post(`/share/generate/card/${targetCard.id}`, { screenshot });
-      if (res.data.status === 'ok') {
-        const link = getPublicShareUrl(res.data.share_id);
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return { success: true, type: 'share' };
+      } else {
         const result = await executeShare({
-          title: 'Карточка Lerne',
-          text: `Посмотри эту карточку: ${targetCard.front}`,
+          title: shareData.title,
+          text: shareData.text,
+          url: link,
           link
         });
         if (result.type === 'copy') {
@@ -265,7 +249,7 @@ export const useCardEditor = () => {
         if (isMobile) setLoading(false);
         return result;
       }
-    } catch (err) {
+    } catch {
       showToast("Ошибка при создании ссылки", "error");
     } finally {
       setLoading(false);
@@ -287,7 +271,7 @@ export const useCardEditor = () => {
         deckCards: state.deckCards.map(c => c.id === targetCard.id ? { ...c, flag: updatedCard.flag } : c)
       }));
       showToast(flag ? "Метка установлена" : "Метка снята", "success");
-    } catch (err) {
+    } catch {
       showToast("Ошибка при установке метки");
     }
   };

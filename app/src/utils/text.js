@@ -66,7 +66,7 @@ export const normalizeSpeechText = (text, lang = 'de') => {
   }
 
   // Remove punctuation
-  str = str.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, " ").replace(/\s+/g, " ").trim();
+  str = str.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, " ").replace(/\s+/g, " ").trim();
   return str;
 };
 

@@ -1,27 +1,20 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Plus, Settings, X } from 'lucide-react';
-import { HelpButton } from './TutorialOverlay';
-import { CardForm } from './common/CardForm';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import { useSessionStore } from '../store/useSessionStore';
-import { useCardActions } from '../hooks/useCardActions';
-import { useAudio } from '../hooks/useAudio';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { useMediaUpload } from '../hooks/useMediaUpload';
+import { HelpButton } from '../TutorialOverlay';
+import { CardForm } from '../common/CardForm';
+import { useUiStore } from '../../store/useUiStore';
+import { useSessionStore } from '../../store/useSessionStore';
+import { useCardActions } from '../../hooks/useCardActions';
+import { useAudio } from '../../hooks/useAudio';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 export const CardEditor = ({ startTutorial }) => {
   const { view, setView, setIsSettingsOpen, editorSourceView } = useUiStore();
-  const { currentDeck } = useDeckStore();
   const { editingCard, setEditingCard } = useSessionStore();
   const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
-  const { uploadCardVideo } = useMediaUpload();
   const { playAudio } = useAudio();
   const { autoPlay } = useSettingsStore();
-
-  const videoFrontRef = useRef(null);
-  const videoBackRef = useRef(null);
 
   const [animDone, setAnimDone] = React.useState(false);
 

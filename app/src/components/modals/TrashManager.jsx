@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, RotateCcw, ArrowLeft, Layers, FileText, CheckCircle, RefreshCw } from 'lucide-react';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import './TrashManager.css';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
+import '../TrashManager.css';
 
 export const TrashManager = () => {
   const [activeTab, setActiveTab] = useState('decks'); // 'decks' | 'cards'
@@ -22,7 +22,7 @@ export const TrashManager = () => {
     try {
       await restoreTrashDeck(deckId);
       showToast('Колода успешно восстановлена!', 'success');
-    } catch (err) {
+    } catch {
       showToast('Ошибка при восстановлении колоды');
     } finally {
       setRestoringId(null);
@@ -34,7 +34,7 @@ export const TrashManager = () => {
     try {
       await restoreTrashCard(cardId);
       showToast('Карточка успешно восстановлена!', 'success');
-    } catch (err) {
+    } catch {
       showToast('Ошибка при восстановлении карточки');
     } finally {
       setRestoringId(null);
@@ -49,7 +49,7 @@ export const TrashManager = () => {
     try {
       await clearTrash();
       showToast('Корзина успешно очищена', 'success');
-    } catch (err) {
+    } catch {
       showToast('Ошибка при очистке корзины');
     } finally {
       setClearing(false);

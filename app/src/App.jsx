@@ -12,22 +12,13 @@ import { enableClosingConfirmation, setupBackButton, hideBackButton, closeApp } 
 import { Toast } from './components/common/Toast';
 import { GlobalLoader } from './components/common/Loader';
 import { GuestBanner } from './components/common/UserBadge';
-import { DeckGrid } from './components/DeckGrid';
-import { StudyView } from './components/StudyView';
-import { CardList } from './components/CardList';
-import { CardEditor } from './components/CardEditor';
-import { CardCreator } from './components/CardCreator';
-import { CardActionModal } from './components/CardActionModal';
-import { DeckModals } from './components/DeckModals';
-import { SettingsModal } from './components/SettingsModal';
-import { RenameDeckModal } from './components/RenameDeckModal';
-import { SyncModal } from './components/SyncModal';
-import { DuplicateManager } from './components/DuplicateManager';
-import { TrashManager } from './components/TrashManager';
-import { AuthRequiredModal } from './components/AuthRequiredModal';
-import { LanguageSelectionModal } from './components/LanguageSelectionModal';
-import { ImportModal } from './components/ImportModal';
-import { CollaboratorsModal } from './components/CollaboratorsModal';
+import { DeckGrid, CardList, CardEditor, CardCreator } from './components/deckgrid';
+import { StudyView } from './components/study';
+import { 
+  CardActionModal, DeckModals, SettingsModal, RenameDeckModal, 
+  SyncModal, DuplicateManager, TrashManager, AuthRequiredModal, 
+  LanguageSelectionModal, ImportModal, CollaboratorsModal 
+} from './components/modals';
 import { TutorialOverlay } from './components/TutorialOverlay';
 
 import { TUTORIAL_STEPS } from './constants/appConstants';

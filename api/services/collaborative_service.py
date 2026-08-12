@@ -91,22 +91,40 @@ def is_shared_item(user_id: int, target_type: str, target_id: int) -> bool:
 
 
 
+def _get_all_parent_folder_ids(folder_id: int) -> List[int]:
+    """Recursively collects folder_id and all its parent folder IDs."""
+    ids = []
+    current_id = folder_id
+    while current_id:
+        ids.append(current_id)
+        f = models.TMA_Folder.get_or_none((models.TMA_Folder.id == current_id) & (models.TMA_Folder.is_deleted == False))
+        if f and f.parent_id:
+            current_id = f.parent_id
+        else:
+            break
+    return ids
+
+
 def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
-    """Returns all collaborators and owner for a given folder or deck."""
+    """Returns all collaborators and owner for a given folder or deck, including inherited folder collaborators."""
     collaborators = []
+    seen_user_ids = set()
     
     # Get owner info
     owner_id = None
+    folder_id = None
     if target_type == 'deck':
         deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
         if deck:
             owner_id = deck.user_id
+            folder_id = deck.folder_id
     elif target_type == 'folder':
         folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
         if folder:
             owner_id = folder.user_id
             
     if owner_id:
+        seen_user_ids.add(owner_id)
         owner_user = models.TMAUser.get_or_none(models.TMAUser.user_id == owner_id)
         collaborators.append({
             "user_id": owner_id,
@@ -117,28 +135,42 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
             "is_owner": True
         })
 
-    # Get added collaborators
-    rows = models.TMA_Collaborator.select().where(
+    # Direct collaborators
+    direct_rows = list(models.TMA_Collaborator.select().where(
         (models.TMA_Collaborator.target_type == target_type) &
         (models.TMA_Collaborator.target_id == target_id)
-    )
-    
-    for r in rows:
-        if r.user_id == owner_id:
+    ))
+
+    # Inherited folder collaborators if deck is inside a folder
+    folder_rows = []
+    if target_type == 'deck' and folder_id:
+        parent_folder_ids = _get_all_parent_folder_ids(folder_id)
+        if parent_folder_ids:
+            folder_rows = list(models.TMA_Collaborator.select().where(
+                (models.TMA_Collaborator.target_type == 'folder') &
+                (models.TMA_Collaborator.target_id << parent_folder_ids)
+            ))
+
+    all_rows = direct_rows + folder_rows
+    for r in all_rows:
+        if r.user_id in seen_user_ids:
             continue
+        seen_user_ids.add(r.user_id)
         u = models.TMAUser.get_or_none(models.TMAUser.user_id == r.user_id)
+        effective_role = get_effective_user_role(r.user_id, target_type, target_id) or r.role
         collaborators.append({
             "id": r.id,
             "user_id": r.user_id,
             "username": u.username if u else None,
             "first_name": u.first_name if u else f"User #{r.user_id}",
             "photo_url": u.photo_url if u else None,
-            "role": r.role,
+            "role": effective_role,
             "is_owner": False,
             "created_at": r.created_at.isoformat() if r.created_at else None
         })
 
     return collaborators
+
 
 
 def add_collaborator(target_type: str, target_id: int, user_id_to_add: int, role: str, added_by: int) -> dict:
@@ -416,7 +448,7 @@ def get_group_progress(folder_id: int, requester_id: int) -> dict:
 
 
 def get_user_accessible_deck_ids(user_id: int) -> set:
-    """Returns all deck IDs that user owns or has collaborator access to."""
+    """Returns all deck IDs that user owns or has collaborator access to, including decks in owned/collaborated folders."""
     owned_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
         (models.TMA_Deck.user_id == user_id) & (models.TMA_Deck.is_deleted == False)
     )
@@ -431,22 +463,20 @@ def get_user_accessible_deck_ids(user_id: int) -> set:
         if d:
             deck_ids.add(d.id)
 
-    collab_folders = models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
-        (models.TMA_Collaborator.target_type == 'folder') &
-        (models.TMA_Collaborator.user_id == user_id)
-    )
-    shared_folder_ids = set()
-    for cf in collab_folders:
-        shared_folder_ids.update(_get_all_subfolder_ids(cf.target_id))
+    accessible_folder_ids = get_user_accessible_folder_ids(user_id)
+    all_accessible_folder_ids = set()
+    for fid in accessible_folder_ids:
+        all_accessible_folder_ids.update(_get_all_subfolder_ids(fid))
 
-    if shared_folder_ids:
+    if all_accessible_folder_ids:
         folder_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
-            (models.TMA_Deck.folder_id << list(shared_folder_ids)) & (models.TMA_Deck.is_deleted == False)
+            (models.TMA_Deck.folder_id << list(all_accessible_folder_ids)) & (models.TMA_Deck.is_deleted == False)
         )
         for d in folder_decks:
             deck_ids.add(d.id)
 
     return deck_ids
+
 
 
 def get_user_accessible_folder_ids(user_id: int) -> set:

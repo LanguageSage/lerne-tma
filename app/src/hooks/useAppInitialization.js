@@ -294,7 +294,7 @@ export const useAppInitialization = (checkStartParam) => {
           }
           return;
         }
-      } catch (e) {
+      } catch {
         // Запись в БД еще не создана
       }
 

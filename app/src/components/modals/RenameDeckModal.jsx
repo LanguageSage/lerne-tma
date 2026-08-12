@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
 
 const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds = []) => {
   const result = [];
@@ -60,7 +60,7 @@ export const RenameDeckModal = () => {
 
       setIsRenameModalOpen(false);
       showToast('Настройки сохранены', 'success');
-    } catch (err) {
+    } catch {
       showToast('Ошибка при сохранении настроек');
     } finally {
       setLoading(false);

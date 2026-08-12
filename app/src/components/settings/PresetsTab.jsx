@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
-import { useSettingsStore } from '../../store/useSettingsStore';
 
 export const PresetsTab = ({ 
   newPresetName, 
@@ -11,8 +10,6 @@ export const PresetsTab = ({
   applyPreset, 
   deletePreset 
 }) => {
-  const { adminSettings } = useSettingsStore();
-
   return (
     <motion.div key="presets" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
       <h3>Управление пресетами</h3>

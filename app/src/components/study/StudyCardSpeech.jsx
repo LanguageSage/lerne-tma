@@ -40,8 +40,7 @@ export const StudyCardSpeech = React.memo(({
     cardFontSize = 1,
     cardFontWeight,
     cardFontStyle,
-    cardTextShadow,
-    cardTextAlign
+    cardTextShadow
   } = styles;
 
   const cardStyle = useMemo(() => getCardStyle(styles), [
@@ -82,7 +81,7 @@ export const StudyCardSpeech = React.memo(({
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch (e) {}
+        try { recognitionRef.current.abort(); } catch { /* ignore */ }
       }
     };
   }, []);
@@ -96,7 +95,7 @@ export const StudyCardSpeech = React.memo(({
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (e) {}
+      } catch { /* ignore */ }
     }
   };
 
@@ -164,7 +163,7 @@ export const StudyCardSpeech = React.memo(({
     }
 
     if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch (err) {}
+      try { recognitionRef.current.abort(); } catch { /* ignore */ }
     }
 
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -256,7 +255,7 @@ export const StudyCardSpeech = React.memo(({
 
       recognitionRef.current = rec;
       rec.start();
-    } catch(err) {
+    } catch {
       setSpeechError("Ошибка при запуске микрофона.");
       setIsListening(false);
     }

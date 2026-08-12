@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { HelpButton } from './TutorialOverlay';
-import { useUiStore } from '../store/useUiStore';
-import { useTranslation } from '../i18n/i18nContext';
+import { HelpButton } from '../TutorialOverlay';
+import { useUiStore } from '../../store/useUiStore';
+import { useTranslation } from '../../i18n/i18nContext';
 
 // Modular Tabs
-import { GeneralTab } from './settings/GeneralTab';
-import { DesignTab } from './settings/DesignTab';
-import { VoiceTab } from './settings/VoiceTab';
-import { AITab } from './settings/AITab';
-import { PromptsTab } from './settings/PromptsTab';
-import { ProfileTab } from './settings/ProfileTab';
+import { GeneralTab } from '../settings/GeneralTab';
+import { DesignTab } from '../settings/DesignTab';
+import { VoiceTab } from '../settings/VoiceTab';
+import { AITab } from '../settings/AITab';
+import { PromptsTab } from '../settings/PromptsTab';
+import { ProfileTab } from '../settings/ProfileTab';
 
 export const SettingsModal = ({ userId, startTutorial }) => {
   const { isSettingsOpen, setIsSettingsOpen } = useUiStore();

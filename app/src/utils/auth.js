@@ -1,12 +1,12 @@
 const storage = {
   get: (key) => {
-    try { return localStorage.getItem(key); } catch (e) { return null; }
+    try { return localStorage.getItem(key); } catch { return null; }
   },
   set: (key, value) => {
-    try { localStorage.setItem(key, value); } catch (e) {}
+    try { localStorage.setItem(key, value); } catch { /* ignore */ }
   },
   remove: (key) => {
-    try { localStorage.removeItem(key); } catch (e) {}
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
   }
 };
 
@@ -76,7 +76,7 @@ export const getUserProfile = () => {
             if (p.user_id === urlId && !p.is_guest) {
               return p;
             }
-          } catch (e) {}
+          } catch { /* ignore */ }
         }
         
         const profile = { 
@@ -97,7 +97,7 @@ export const getUserProfile = () => {
       try {
         const p = JSON.parse(savedProfile);
         if (p && p.user_id) return p;
-      } catch (e) {}
+      } catch { /* ignore */ }
     }
 
     const savedId = storage.get('lerne_user_id');
@@ -136,7 +136,7 @@ export const cloudStorage = {
       } else {
         resolve(null);
       }
-    } catch (e) {
+    } catch {
       resolve(null);
     }
   }),
@@ -144,11 +144,11 @@ export const cloudStorage = {
     try {
       const cs = window.Telegram?.WebApp?.CloudStorage;
       if (cs && typeof cs.setItem === 'function') {
-        cs.setItem(key, String(val), (err, res) => resolve(!err));
+        cs.setItem(key, String(val), (err) => resolve(!err));
       } else {
         resolve(false);
       }
-    } catch (e) {
+    } catch {
       resolve(false);
     }
   })

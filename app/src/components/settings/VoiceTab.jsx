@@ -32,7 +32,7 @@ export const VoiceTab = () => {
     try {
       await api.post('/admin/settings', settings);
       showToast("Настройки сохранены", "success");
-    } catch (err) {
+    } catch {
       showToast("Ошибка сохранения настроек");
     }
   };

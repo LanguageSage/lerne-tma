@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Move, Copy, Trash2, Edit2, Settings2 } from 'lucide-react';
-import { useUiStore } from '../store/useUiStore';
-import { useCardActions } from '../hooks/useCardActions';
-import { FlagPicker } from './common/FlagPicker';
+import { useUiStore } from '../../store/useUiStore';
+import { useCardActions } from '../../hooks/useCardActions';
+import { FlagPicker } from '../common/FlagPicker';
 
 const getSortedFolderAndDeckTree = (foldersList, decksList, expandedFolders) => {
   const result = [];
@@ -50,10 +50,8 @@ export const CardActionModal = ({
   onMove,
   onCopy,
   onDelete,
-  onToggleLearn,
   onShare,
-  onEdit,
-  loading
+  onEdit
 }) => {
   const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy'
   const [expandedFolders, setExpandedFolders] = React.useState({});

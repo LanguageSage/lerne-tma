@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Eye, X, Sparkles, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { stripMarkdown } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
@@ -10,7 +9,6 @@ import { triggerHaptic } from '../../utils/platform';
 export const StudyCardTrainer = React.memo(({
   card,
   clozeData,
-  isFlipped,
   onFlip,
   playAudio,
   onTrainerAnswer,
@@ -30,12 +28,14 @@ export const StudyCardTrainer = React.memo(({
 
   // Reset internal state when card changes
   useEffect(() => {
-    setSelectedOptions({});
-    setActiveGapId(null);
-    setIsChecked(false);
-    setIsFirstTry(true);
-    setPopoverStyleMap({});
-    setShowFingerHint(true);
+    queueMicrotask(() => {
+      setSelectedOptions({});
+      setActiveGapId(null);
+      setIsChecked(false);
+      setIsFirstTry(true);
+      setPopoverStyleMap({});
+      setShowFingerHint(true);
+    });
 
     const timer = setTimeout(() => {
       setShowFingerHint(false);

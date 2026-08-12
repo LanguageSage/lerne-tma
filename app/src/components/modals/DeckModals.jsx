@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Layers, RefreshCw, Folder, Star } from 'lucide-react';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 export const DeckModals = () => {
   const { isNewDeckModalOpen, setIsNewDeckModalOpen, loading, setLoading, showToast, activeFolderId } = useUiStore();
@@ -27,7 +27,7 @@ export const DeckModals = () => {
       setDeckModalMode('choice');
       setNewDeckName('');
       showToast('Колода создана', 'success');
-    } catch (err) {
+    } catch {
       showToast('Ошибка при создании колоды');
     } finally {
       setLoading(false);
@@ -43,7 +43,7 @@ export const DeckModals = () => {
       setDeckModalMode('choice');
       setNewFolderName('');
       showToast('Папка создана', 'success');
-    } catch (err) {
+    } catch {
       showToast('Ошибка при создании папки');
     } finally {
       setLoading(false);
@@ -56,7 +56,7 @@ export const DeckModals = () => {
       await fetchExternalDecks();
       await fetchLibraryCategories();
       setDeckModalMode('import');
-    } catch (err) {
+    } catch {
       showToast('Ошибка при загрузке колод');
     } finally {
       setIsImportLoading(false);
@@ -70,7 +70,7 @@ export const DeckModals = () => {
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
       showToast('Колода импортирована', 'success');
-    } catch (err) {
+    } catch {
       showToast('Ошибка импорта');
     } finally {
       setLoading(false);
@@ -85,7 +85,7 @@ export const DeckModals = () => {
         setDeckModalMode('choice');
         showToast('JSON импортирован', 'success');
       });
-    } catch (err) {
+    } catch {
       showToast('Ошибка загрузки JSON');
     } finally {
       setLoading(false);

@@ -111,7 +111,7 @@ export const FolderCardItem = ({
     try {
       await useDeckStore.getState().moveFolder(folder.id, parentId);
       showToast("Папка перемещена", "success");
-    } catch (err) {
+    } catch {
       showToast("Ошибка при перемещении папки", "error");
     }
   };

@@ -7,7 +7,6 @@ export const StudyHeader = ({
   deckName,
   card,
   loading,
-  isFlipped,
   isAudioLoading,
   onBack,
   onOpenCreator,

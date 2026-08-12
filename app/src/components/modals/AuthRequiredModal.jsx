@@ -1,8 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Send } from 'lucide-react';
-import { useUiStore } from '../store/useUiStore';
-import { openExternalLink } from '../utils/platform';
+import { openExternalLink } from '../../utils/platform';
 
 export const AuthRequiredModal = ({ isOpen, onClose, title = "Требуется авторизация" }) => {
   if (!isOpen) return null;

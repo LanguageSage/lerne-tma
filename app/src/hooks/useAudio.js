@@ -54,7 +54,7 @@ export const stopBackgroundAudioLock = () => {
   if (silentAudio) {
     try {
       silentAudio.pause();
-    } catch (e) {}
+    } catch { /* ignore */ }
     silentAudio = null;
   }
 };
@@ -100,7 +100,7 @@ export const useAudio = (autoPlay, showToast) => {
         globalActiveAudio.pause();
         globalActiveAudio.currentTime = 0;
         globalActiveAudio.src = '';
-      } catch (e) {}
+      } catch { /* ignore */ }
       globalActiveAudio = null;
     }
     if (audioRef.current) {
@@ -115,7 +115,7 @@ export const useAudio = (autoPlay, showToast) => {
         audioRef.current.onloadedmetadata = null;
         audioRef.current.onplay = null;
         audioRef.current.onpause = null;
-      } catch (e) {}
+      } catch { /* ignore */ }
       audioRef.current = null;
     }
     setIsAudioLoading(false);
@@ -130,7 +130,7 @@ export const useAudio = (autoPlay, showToast) => {
     if (audioRef.current) {
       try {
         audioRef.current.pause();
-      } catch (e) {}
+      } catch { /* ignore */ }
       setAudioState('paused');
     }
   }, []);
@@ -150,7 +150,7 @@ export const useAudio = (autoPlay, showToast) => {
       try {
         audioRef.current.currentTime = timeSeconds;
         setCurrentTime(timeSeconds);
-      } catch (e) {}
+      } catch { /* ignore */ }
     }
   }, []);
 
@@ -160,7 +160,7 @@ export const useAudio = (autoPlay, showToast) => {
     if (audioRef.current) {
       try {
         audioRef.current.playbackRate = speed;
-      } catch (e) {}
+      } catch { /* ignore */ }
     }
   }, []);
 
@@ -170,7 +170,7 @@ export const useAudio = (autoPlay, showToast) => {
     if (globalActiveStopCallback && globalActiveStopCallback !== stopAudio) {
       try {
         globalActiveStopCallback();
-      } catch (e) {}
+      } catch { /* ignore */ }
     }
 
     stopAudio();

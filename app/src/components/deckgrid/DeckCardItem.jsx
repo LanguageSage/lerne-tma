@@ -30,7 +30,6 @@ const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds
 export const DeckCardItem = ({
   deck,
   setCurrentDeck,
-  setDeckCards,
   fetchDeckCards,
   showToast,
   openSyncModal,
@@ -66,17 +65,19 @@ export const DeckCardItem = ({
 
   useEffect(() => {
     if (!isMenuOpen) {
-      setIsMoveMenuOpen(false);
-      setIsCopyMenuOpen(false);
+      queueMicrotask(() => {
+        setIsMoveMenuOpen(false);
+        setIsCopyMenuOpen(false);
+      });
     }
   }, [isMenuOpen]);
 
   useEffect(() => {
-    if (isMoveMenuOpen) setIsCopyMenuOpen(false);
+    if (isMoveMenuOpen) queueMicrotask(() => setIsCopyMenuOpen(false));
   }, [isMoveMenuOpen]);
 
   useEffect(() => {
-    if (isCopyMenuOpen) setIsMoveMenuOpen(false);
+    if (isCopyMenuOpen) queueMicrotask(() => setIsMoveMenuOpen(false));
   }, [isCopyMenuOpen]);
 
   const onMainAction = () => {
@@ -100,7 +101,7 @@ export const DeckCardItem = ({
         if (result.type === 'copy') showToast('Ссылка скопирована!', 'success');
         else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
       }
-    } catch (err) {
+    } catch {
       showToast('Ошибка при создании ссылки', 'error');
     }
   };
@@ -133,7 +134,7 @@ export const DeckCardItem = ({
           session.resetSession();
         }
         showToast("Прогресс успешно сброшен", "success");
-      } catch (err) {
+      } catch {
         showToast("Ошибка при сбросе прогресса");
       }
     }
@@ -152,7 +153,7 @@ export const DeckCardItem = ({
     try {
       await togglePinDeck(deck.id);
       showToast(deck.is_pinned ? 'Колода откреплена' : 'Колода закреплена', 'success');
-    } catch (err) {
+    } catch {
       showToast('Ошибка при закреплении колоды', 'error');
     }
   };
@@ -164,7 +165,7 @@ export const DeckCardItem = ({
     try {
       await useDeckStore.getState().moveDeckToFolder(deck.id, folderId);
       showToast("Колода перемещена", "success");
-    } catch (err) {
+    } catch {
       showToast("Ошибка при перемещении колоды", "error");
     }
   };
@@ -176,7 +177,7 @@ export const DeckCardItem = ({
     try {
       await useDeckStore.getState().copyDeckToFolder(deck.id, folderId);
       showToast("Колода скопирована", "success");
-    } catch (err) {
+    } catch {
       showToast("Ошибка при копировании колоды", "error");
     }
   };

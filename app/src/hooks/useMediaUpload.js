@@ -5,7 +5,7 @@ import { useDeckStore } from '../store/useDeckStore';
 
 export const useMediaUpload = () => {
   const { setLoading, showToast } = useUiStore();
-  const { card, setCard, editingCard, setEditingCard } = useSessionStore();
+  const { setCard, editingCard, setEditingCard } = useSessionStore();
   const { currentDeck } = useDeckStore();
 
   const uploadImageFile = async (file) => {
@@ -201,7 +201,7 @@ export const useMediaUpload = () => {
     }
   };
 
-  const uploadDeckResource = async (file, type, deckId) => {
+  const uploadDeckResource = async (file, type, deckId, replaceIndex = -1) => {
     if (!file || !deckId) return null;
     setLoading(true);
     try {
@@ -234,14 +234,20 @@ export const useMediaUpload = () => {
         const newResource = {
           type,
           path: res.data.path,
+          url: res.data.url,
           title: file.name || (type === 'image' ? 'Картинка' : type === 'audio' ? 'Аудио' : 'Видео')
         };
 
-        const updatedResources = [...metadata.resources, newResource];
+        let updatedResources = [...metadata.resources];
+        if (replaceIndex >= 0 && replaceIndex < updatedResources.length) {
+          updatedResources[replaceIndex] = newResource;
+        } else {
+          updatedResources.push(newResource);
+        }
         const newMetadata = { ...metadata, resources: updatedResources };
 
         const updatedMeta = await store.updateDeckMetadata(deckId, newMetadata);
-        showToast("Файл добавлен в ресурсы колоды", "success");
+        showToast(replaceIndex >= 0 ? "Ресурс обновлен" : "Файл добавлен в ресурсы колоды", "success");
         return updatedMeta;
       }
       return null;

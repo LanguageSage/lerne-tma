@@ -23,7 +23,7 @@ export const AITab = () => {
         }
       });
       setAvailableModels(res.data);
-    } catch (err) {
+    } catch {
       showToast("Ошибка загрузки моделей");
     } finally {
       setIsFetchingModels(false);
@@ -35,7 +35,7 @@ export const AITab = () => {
     try {
       await api.post('/admin/settings', settings);
       showToast("Настройки сохранены", "success");
-    } catch (err) {
+    } catch {
       showToast("Ошибка сохранения настроек");
     }
   };
@@ -52,7 +52,7 @@ export const AITab = () => {
        } else {
          showToast(`Ошибка проверки: ${res.data.error || 'Сбой соединения'}`);
        }
-     } catch (err) {
+     } catch {
        showToast("Ошибка соединения при проверке");
      } finally {
        setIsTesting(false);

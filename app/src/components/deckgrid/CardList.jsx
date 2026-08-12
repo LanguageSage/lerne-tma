@@ -1,17 +1,18 @@
 import React from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion, Reorder, useDragControls } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon } from 'lucide-react';
-import { HelpButton } from './TutorialOverlay';
-import { CardActionButton } from './CardActionModal';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import { useCardNavigation } from '../hooks/useCardNavigation';
-import { UserProfileBadge } from './common/UserBadge';
-import { DeckMediaModal } from './DeckMediaModal';
+import { ChevronLeft, Trash2, Plus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon, Crop } from 'lucide-react';
+import { HelpButton } from '../TutorialOverlay';
+import { CardActionButton } from '../modals/CardActionModal';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
+import { useCardNavigation } from '../../hooks/useCardNavigation';
+import { UserProfileBadge } from '../common/UserBadge';
+import { DeckMediaModal } from '../modals/DeckMediaModal';
+import { ImageEditorModal } from '../common/ImageEditorModal';
+import { useMediaUpload } from '../../hooks/useMediaUpload';
 
-import DeckAudioPlayer from './common/DeckAudioPlayer';
-import { getFlagStyle, FLAG_COLORS } from '../constants/cardFlags';
+import DeckAudioPlayer from '../common/DeckAudioPlayer';
+import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
 
 const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
   const dragControls = useDragControls();
@@ -87,10 +88,13 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
 };
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
-  const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, setLastSelectedCardId, cardsScrollTop, setCardsScrollTop } = useUiStore();
+  const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop } = useUiStore();
   const { currentDeck, deckCards, cardsLoading } = useDeckStore();
   const [isMediaModalOpen, setIsMediaModalOpen] = React.useState(false);
+  const [editingDeckImgSrc, setEditingDeckImgSrc] = React.useState(null);
+  const [editingDeckImgIndex, setEditingDeckImgIndex] = React.useState(-1);
 
+  const { uploadDeckResource } = useMediaUpload();
   const { openCreator } = useCardNavigation();
 
   React.useEffect(() => {
@@ -99,7 +103,6 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     }
   }, [view, currentDeck?.id]);
 
-  // Track and restore scroll position of app-container
   React.useEffect(() => {
     if (view !== 'cards') return;
     const container = document.getElementById('app-container');
@@ -176,7 +179,6 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           </div>
         </div>
 
-        {/* Deck Title Header */}
         <div style={{ padding: '0 15px', marginTop: '15px', marginBottom: '10px', textAlign: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
             <h1 style={{ 
@@ -219,7 +221,6 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           </div>
         </div>
 
-        {/* Resources container */}
         {(() => {
           let metadata = { resources: [] };
           if (currentDeck?.metadata) {
@@ -311,7 +312,6 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                 </div>
               )}
 
-              {/* Images Carousel */}
               {images.length > 0 && (
                 <div className="deck-images-gallery" style={{
                   margin: '10px 15px 15px 15px',
@@ -322,51 +322,90 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                   scrollSnapType: 'x mandatory',
                   WebkitOverflowScrolling: 'touch'
                 }}>
-                  {images.map((img, idx) => (
-                    <div key={idx} className="glass" style={{
-                      position: 'relative',
-                      borderRadius: '16px',
-                      overflow: 'hidden',
-                      aspectRatio: '16 / 9',
-                      flex: '0 0 100%',
-                      maxWidth: '100%',
-                      height: '180px',
-                      scrollSnapAlign: 'start',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      background: 'rgba(0, 0, 0, 0.2)'
-                    }}>
-                      <img 
-                        src={img.url} 
-                        alt={img.title || 'Deck image'} 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} 
-                        onClick={() => window.open(img.url, '_blank')}
-                      />
-                      {images.length > 1 && (
-                        <div style={{
-                          position: 'absolute',
-                          bottom: '8px',
-                          right: '12px',
-                          background: 'rgba(0,0,0,0.6)',
-                          color: 'white',
-                          fontSize: '0.7rem',
-                          padding: '2px 8px',
-                          borderRadius: '10px',
-                          fontWeight: 600
-                        }}>
-                          {idx + 1} / {images.length}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {images.map((img, idx) => {
+                    const imgSrc = img.url || (img.path ? `/api/media/${img.path}` : '');
+                    const resourceIndex = resources.findIndex(r => r === img || (r.type === 'image' && (r.url === img.url || r.path === img.path)));
+                    return (
+                      <div key={idx} className="glass" style={{
+                        position: 'relative',
+                        borderRadius: '16px',
+                        overflow: 'hidden',
+                        aspectRatio: '16 / 9',
+                        flex: '0 0 100%',
+                        maxWidth: '100%',
+                        height: '180px',
+                        scrollSnapAlign: 'start',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        background: 'rgba(0, 0, 0, 0.35)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <img 
+                          src={imgSrc} 
+                          alt={img.title || 'Deck image'} 
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }} 
+                          onClick={() => window.open(imgSrc, '_blank')}
+                        />
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingDeckImgSrc(imgSrc);
+                            setEditingDeckImgIndex(resourceIndex >= 0 ? resourceIndex : idx);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '8px',
+                            right: '8px',
+                            background: 'rgba(0, 0, 0, 0.65)',
+                            backdropFilter: 'blur(4px)',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            color: '#e9d5ff',
+                            padding: '4px 10px',
+                            borderRadius: '10px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            zIndex: 2,
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.8)'}
+                          onMouseOut={e => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.65)'}
+                          title="Редактировать изображение списка"
+                        >
+                          <Crop size={14} />
+                          <span>Изменить</span>
+                        </button>
+
+                        {images.length > 1 && (
+                          <div style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            right: '12px',
+                            background: 'rgba(0,0,0,0.6)',
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontWeight: 600
+                          }}>
+                            {idx + 1} / {images.length}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Audios List */}
               {audios.map((aud, idx) => (
                 <DeckAudioPlayer key={idx} url={aud.url} title={aud.title} />
               ))}
 
-              {/* Videos List */}
               {videos.map((vid, idx) => (
                 <div key={idx} className="glass" style={{
                   margin: '0 15px 15px 15px',
@@ -384,7 +423,6 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                 </div>
               ))}
 
-              {/* Links Grid */}
               {links.length > 0 && (
                 <div style={{
                   margin: '0 15px 15px 15px',
@@ -400,25 +438,19 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                       rel="noopener noreferrer"
                       className="glass"
                       style={{
-                        display: 'inline-flex',
+                        padding: '6px 12px',
+                        borderRadius: '10px',
+                        fontSize: '0.8rem',
+                        color: '#34d399',
+                        display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        padding: '8px 14px',
-                        borderRadius: '20px',
-                        border: '1px solid rgba(52, 211, 153, 0.3)',
-                        background: 'rgba(52, 211, 153, 0.06)',
-                        color: '#a7f3d0',
-                        fontSize: '0.78rem',
                         textDecoration: 'none',
-                        fontWeight: 600,
-                        transition: 'all 0.2s'
+                        border: '1px solid rgba(52, 211, 153, 0.2)'
                       }}
-                      onMouseOver={e => e.currentTarget.style.background = 'rgba(52, 211, 153, 0.15)'}
-                      onMouseOut={e => e.currentTarget.style.background = 'rgba(52, 211, 153, 0.06)'}
                     >
-                      <Paperclip size={13} />
-                      <span>{lnk.title || 'Ссылка'}</span>
-                      <ExternalLink size={11} style={{ opacity: 0.7 }} />
+                      <ExternalLink size={14} />
+                      <span>{lnk.title || lnk.url}</span>
                     </a>
                   ))}
                 </div>
@@ -427,18 +459,29 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           );
         })()}
 
-        {/* Prominent Study Button */}
-        {!cardsLoading && deckCards.length > 0 && (
-          <div className="study-action-bar">
-            <button className="btn-back-main" onClick={() => setView('decks')} title="Назад к колодам">
-              <ChevronLeft size={24} />
-            </button>
-            <button className="btn-study-main" onClick={() => startStudy(currentDeck)}>
-              <Play size={20} fill="currentColor" />
-              <span>Начать изучение</span>
-            </button>
-          </div>
-        )}
+        <div style={{ padding: '0 15px', marginBottom: '15px' }}>
+          <button 
+            className="btn btn-primary btn-full"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '8px',
+              padding: '14px',
+              fontSize: '1.05rem',
+              fontWeight: 700,
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
+              boxShadow: '0 8px 20px rgba(168, 85, 247, 0.35)'
+            }}
+            onClick={() => startStudy(currentDeck)}
+            disabled={!deckCards || deckCards.length === 0}
+          >
+            <Play size={20} fill="currentColor" />
+            <span>Учить колоду ({deckCards?.length || 0})</span>
+          </button>
+        </div>
+
         <div id="tut-card-list-content" className="card-list">
           {cardsLoading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
@@ -497,7 +540,6 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           )}
         </div>
         
-        {/* Floating Action Button for adding cards */}
         <button id="tut-fab-add" className="fab-add-card" onClick={() => openCreator(currentDeck?.id)}>
           <Plus size={28} />
         </button>
@@ -505,6 +547,22 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
         <DeckMediaModal 
           isOpen={isMediaModalOpen} 
           onClose={() => setIsMediaModalOpen(false)} 
+        />
+
+        <ImageEditorModal
+          isOpen={!!editingDeckImgSrc}
+          onClose={() => {
+            setEditingDeckImgSrc(null);
+            setEditingDeckImgIndex(-1);
+          }}
+          imageSrc={editingDeckImgSrc}
+          onSave={async (editedFile) => {
+            setEditingDeckImgSrc(null);
+            if (editedFile && currentDeck?.id) {
+              await uploadDeckResource(editedFile, 'image', currentDeck.id, editingDeckImgIndex);
+            }
+          }}
+          title="Настройка фото списка"
         />
       </motion.div>
     </div>

@@ -69,11 +69,15 @@ def ensure_inbox_folder(user_id: int, target_language: str = 'de') -> TMA_Folder
 def create_folder(name: str, user_id: int, parent_id: int = None, color: str = None, target_language: str = 'de'):
     """Создает новую папку для пользователя."""
     try:
-        # Проверяем родителя, если указан
         if parent_id is not None:
-            parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.user_id == user_id))
-            if not parent:
-                raise ValueError("Родительская папка не найдена")
+            from .collaborative_service import get_effective_user_role
+            from fastapi import HTTPException
+            role = get_effective_user_role(user_id, 'folder', parent_id)
+            if role == 'viewer':
+                raise HTTPException(status_code=403, detail="У вас роль Слушателя (только чтение). Создавать подпапки в этой папке может только Редактор или Владелец.")
+            elif role is None:
+                raise ValueError("Родительская папка не найдена или нет доступа")
+
 
         folder = TMA_Folder.create(
             user_id=user_id,

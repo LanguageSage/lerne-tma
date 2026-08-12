@@ -96,7 +96,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
   // 2. Standard cloze fallback: choose longest word (ONLY if studyMode is explicitly 'cloze')
   if (studyMode !== 'cloze') return null;
 
-  const words = originalText.split(/\s+/).map(w => w.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").trim()).filter(Boolean);
+  const words = originalText.split(/\s+/).map(w => w.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").trim()).filter(Boolean);
   if (words.length === 0) return { maskedText: originalText, correctAnswer: "", choices: [] };
   
   const validWords = words.filter(w => w.length >= 3);
@@ -104,13 +104,13 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
     ? validWords.reduce((longest, current) => current.length > longest.length ? current : longest, validWords[0])
     : words[0];
 
-  const cleanTarget = targetWord.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "");
+  const cleanTarget = targetWord.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "");
   
   let maskedText = originalText;
   try {
     const regex = new RegExp(`\\b${cleanTarget}\\b`, 'i');
     maskedText = originalText.replace(regex, '_____');
-  } catch(e) {
+  } catch {
     maskedText = originalText.replace(cleanTarget, '_____');
   }
 
@@ -119,7 +119,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
     if (c.id === card.id) return;
     const frontTxt = stripMarkdown(c.front || '');
     frontTxt.split(/\s+/).forEach(w => {
-      const cleaned = w.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, "").trim();
+      const cleaned = w.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").trim();
       if (cleaned.length >= 3 && cleaned.toLowerCase() !== cleanTarget.toLowerCase()) {
         distractorWords.add(cleaned);
       }

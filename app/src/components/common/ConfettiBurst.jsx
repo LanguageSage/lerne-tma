@@ -5,14 +5,18 @@ export const ConfettiBurst = () => {
   const particles = useMemo(() => {
     const symbols = ['🎉', '✨', '⭐', '🌟', '💥', '🟢', '✨', '⭐'];
     const colors = ['#22c55e', '#a855f7', '#eab308', '#3b82f6', '#ec4899', '#10b981'];
+    const prng = (seed) => {
+      const x = Math.sin(seed + 1) * 10000;
+      return x - Math.floor(x);
+    };
     return Array.from({ length: 22 }).map((_, i) => ({
       id: i,
       symbol: symbols[i % symbols.length],
       color: colors[i % colors.length],
-      x: (Math.random() - 0.5) * 260,
-      y: (Math.random() - 0.7) * 220,
-      scale: 0.7 + Math.random() * 0.7,
-      rotation: (Math.random() - 0.5) * 360,
+      x: (prng(i * 4 + 1) - 0.5) * 260,
+      y: (prng(i * 4 + 2) - 0.7) * 220,
+      scale: 0.7 + prng(i * 4 + 3) * 0.7,
+      rotation: (prng(i * 4 + 4) - 0.5) * 360,
     }));
   }, []);
 

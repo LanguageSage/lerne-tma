@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Play, Pause, Square, Volume2, RefreshCw, Sparkles, Mic2, ChevronUp, ChevronDown } from 'lucide-react';
 import './CardAudioPlayer.css';
+
 
 const formatTime = (seconds) => {
   if (!seconds || isNaN(seconds)) return '0:00';
@@ -16,7 +18,6 @@ export const CardAudioPlayer = React.memo(({
   audioUrl,
   playAudio,
   pauseAudio,
-  resumeAudio,
   togglePlayPause,
   stopAudio,
   seekAudio,
@@ -111,7 +112,7 @@ export const CardAudioPlayer = React.memo(({
   // ── COLLAPSED FLOATING PILL STATE ──────────────────────────────────────────
   // Per user directive: "при сворачивании голос не нужно показывать. а остальное все подходит"
   if (isCollapsed) {
-    return (
+    return createPortal(
       <div className="card-audio-floating-wrapper">
         <div
           className={`card-audio-floating-pill glass ${isPlaying ? 'playing' : ''} ${className}`}
@@ -170,12 +171,14 @@ export const CardAudioPlayer = React.memo(({
             <ChevronUp size={16} />
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
+
   // ── EXPANDED FULL PLAYER STATE ────────────────────────────────────────────
-  return (
+  return createPortal(
     <div className="card-audio-floating-wrapper">
       <div
         className={`card-audio-player-bar floating-expanded glass ${isThisActive ? 'active' : ''} ${className}`}
@@ -281,64 +284,66 @@ export const CardAudioPlayer = React.memo(({
             <button
               type="button"
               className="audio-player-btn-stop"
-            onClick={handleStopClick}
-            title="Остановить"
-          >
-            <Square size={16} />
-          </button>
-        )}
+              onClick={handleStopClick}
+              title="Остановить"
+            >
+              <Square size={16} />
+            </button>
+          )}
 
-        {/* Scrubber & Timestamps */}
-        <div className="audio-player-progress-wrapper">
-          <input
-            type="range"
-            min={0}
-            max={duration || 100}
-            step={0.1}
-            value={currentTime || 0}
-            onChange={handleSeekChange}
-            className="audio-player-slider"
-            style={{
-              background: `linear-gradient(to right, #a855f7 ${progressPercent}%, rgba(255,255,255,0.15) ${progressPercent}%)`
-            }}
-          />
-          <div className="audio-player-timestamps">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
+          {/* Scrubber & Timestamps */}
+          <div className="audio-player-progress-wrapper">
+            <input
+              type="range"
+              min={0}
+              max={duration || 100}
+              step={0.1}
+              value={currentTime || 0}
+              onChange={handleSeekChange}
+              className="audio-player-slider"
+              style={{
+                background: `linear-gradient(to right, #a855f7 ${progressPercent}%, rgba(255,255,255,0.15) ${progressPercent}%)`
+              }}
+            />
+            <div className="audio-player-timestamps">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+          </div>
+
+          {/* Speed Selector */}
+          <div className="audio-player-speed-picker">
+            <button
+              type="button"
+              className="audio-player-btn-speed"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSpeedMenu(!showSpeedMenu);
+                setShowVoiceMenu(false);
+              }}
+              title="Скорость воспроизведения"
+            >
+              {playbackRate}x
+            </button>
+            {showSpeedMenu && (
+              <div className="audio-player-speed-dropdown glass">
+                {SPEEDS.map((spd) => (
+                  <button
+                    key={spd}
+                    type="button"
+                    className={`speed-option ${playbackRate === spd ? 'active' : ''}`}
+                    onClick={(e) => handleSpeedSelect(spd, e)}
+                  >
+                    {spd}x
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Speed Selector */}
-        <div className="audio-player-speed-picker">
-          <button
-            type="button"
-            className="audio-player-btn-speed"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowSpeedMenu(!showSpeedMenu);
-              setShowVoiceMenu(false);
-            }}
-            title="Скорость воспроизведения"
-          >
-            {playbackRate}x
-          </button>
-          {showSpeedMenu && (
-            <div className="audio-player-speed-dropdown glass">
-              {SPEEDS.map((spd) => (
-                <button
-                  key={spd}
-                  type="button"
-                  className={`speed-option ${playbackRate === spd ? 'active' : ''}`}
-                  onClick={(e) => handleSpeedSelect(spd, e)}
-                >
-                  {spd}x
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
-    </div>
-  </div>
+    </div>,
+    document.body
   );
 });
+

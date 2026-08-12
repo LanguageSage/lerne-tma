@@ -15,7 +15,7 @@ export const parseQuizData = (card) => {
   const rawFront = card.front.trim();
 
   // Regex to detect markdown checkbox pattern: [*], [x], [X], [ ]
-  const checkboxRegex = /^\s*\[([\*xX ]|\s*)\]\s*(.+)$/gm;
+  const checkboxRegex = /^\s*\[([*xX ]|\s*)\]\s*(.+)$/gm;
 
   const matches = [...rawFront.matchAll(checkboxRegex)];
 

@@ -1,16 +1,16 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Trash2, Edit2, Share2, Copy, Inbox, Layers, BookOpen } from 'lucide-react';
-import api from '../services/api';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import { useSessionStore } from '../store/useSessionStore';
-import { useCardNavigation } from '../hooks/useCardNavigation';
-import { useCardActions } from '../hooks/useCardActions';
-import { stripMarkdown } from '../utils/text';
+import api from '../../services/api';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
+import { useSessionStore } from '../../store/useSessionStore';
+import { useCardNavigation } from '../../hooks/useCardNavigation';
+import { useCardActions } from '../../hooks/useCardActions';
+import { stripMarkdown } from '../../utils/text';
 
 export const DuplicateManager = () => {
-  const { setView, setActionCard, setIsCardActionModalOpen, showToast, setIsOpeningDeck } = useUiStore();
+  const { setView, showToast, setIsOpeningDeck } = useUiStore();
   const { duplicateCards, fetchDuplicates, setCurrentDeck, lastDuplicateCardId, setLastDuplicateCardId } = useDeckStore();
   const { openEditor } = useCardNavigation();
   const { handleDeleteCard, handleShareCard, fetchNextCard } = useCardActions();
@@ -55,7 +55,7 @@ export const DuplicateManager = () => {
       const res = await api.get(`/study/card/${card.id}`);
       useSessionStore.getState().setCard(res.data);
       useSessionStore.getState().addToHistory(res.data);
-    } catch (err) {
+    } catch {
       showToast("Ошибка при открытии карточки");
     } finally {
       setIsOpeningDeck(false);

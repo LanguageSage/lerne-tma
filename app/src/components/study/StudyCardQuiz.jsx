@@ -5,8 +5,6 @@ import { triggerHaptic } from '../../utils/platform';
 export const StudyCardQuiz = ({
   card,
   quizData,
-  isFlipped,
-  setIsFlipped,
   playAudio,
   onTrainerAnswer
 }) => {
@@ -16,9 +14,11 @@ export const StudyCardQuiz = ({
 
   // Reset state on card change
   useEffect(() => {
-    setSelectedOptionId(null);
-    setIsChecked(false);
-    setIsCorrect(null);
+    queueMicrotask(() => {
+      setSelectedOptionId(null);
+      setIsChecked(false);
+      setIsCorrect(null);
+    });
   }, [card?.id, card?.front, card?.back]);
 
   if (!card || !quizData) return null;

@@ -1,22 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Plus, Settings } from 'lucide-react';
-import { HelpButton } from './TutorialOverlay';
-import { CardForm } from './common/CardForm';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import { useSessionStore } from '../store/useSessionStore';
-import { useCardActions } from '../hooks/useCardActions';
-import { useAudio } from '../hooks/useAudio';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { HelpButton } from '../TutorialOverlay';
+import { CardForm } from '../common/CardForm';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
+import { useSessionStore } from '../../store/useSessionStore';
+import { useCardActions } from '../../hooks/useCardActions';
+import { useAudio } from '../../hooks/useAudio';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
-import { useTranslation } from '../i18n/i18nContext';
+import { useTranslation } from '../../i18n/i18nContext';
 
 export const CardCreator = ({ startTutorial }) => {
   const { t } = useTranslation();
   const { view, setView, setIsSettingsOpen, editorSourceView } = useUiStore();
   const { currentDeck } = useDeckStore();
-  const { card, setCard } = useSessionStore();
   const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
   const { playAudio } = useAudio();
   const { autoPlay } = useSettingsStore();

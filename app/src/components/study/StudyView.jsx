@@ -1,35 +1,35 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Trash2, Folder, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
-import DeckAudioPlayer from './common/DeckAudioPlayer';
-import api from '../services/api';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import { useSessionStore } from '../store/useSessionStore';
-import { useSettingsStore } from '../store/useSettingsStore';
-import { useLanguageStore } from '../store/useLanguageStore';
-import { getTtsVoiceForLang } from '../constants/languageConstants';
-import { useCardActions } from '../hooks/useCardActions';
-import { useMediaUpload } from '../hooks/useMediaUpload';
-import { CardActionButton } from './CardActionModal';
-import { useAudio } from '../hooks/useAudio';
-import { useAutoplay } from '../hooks/useAutoplay';
-import { useCardNavigation } from '../hooks/useCardNavigation';
-import { useSessionVoice } from '../hooks/useSessionVoice';
-import { MediaPicker } from './common/MediaPicker';
+import DeckAudioPlayer from '../common/DeckAudioPlayer';
+import api from '../../services/api';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
+import { useSessionStore } from '../../store/useSessionStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
+import { getTtsVoiceForLang } from '../../constants/languageConstants';
+import { useCardActions } from '../../hooks/useCardActions';
+import { useMediaUpload } from '../../hooks/useMediaUpload';
+import { CardActionButton } from '../modals/CardActionModal';
+import { useAudio } from '../../hooks/useAudio';
+import { useAutoplay } from '../../hooks/useAutoplay';
+import { useCardNavigation } from '../../hooks/useCardNavigation';
+import { useSessionVoice } from '../../hooks/useSessionVoice';
+import { MediaPicker } from '../common/MediaPicker';
 
 // Sub-components
-import { StudyHeader } from './study/StudyHeader';
-import { StudyNavigation } from './study/StudyNavigation';
-import { GradeButtons } from './study/GradeButtons';
-import { StudyFinished } from './study/StudyFinished';
-import { TrainerFinished } from './study/TrainerFinished';
-import { StudyCard } from './study/StudyCard';
+import { StudyHeader } from './StudyHeader';
+import { StudyNavigation } from './StudyNavigation';
+import { GradeButtons } from './GradeButtons';
+import { StudyFinished } from './StudyFinished';
+import { TrainerFinished } from './TrainerFinished';
+import { StudyCard } from './StudyCard';
 
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
 export const StudyView = ({ startTutorial }) => {
-  const { view, setView, loading, setIsSettingsOpen, setActionCard, setIsCardActionModalOpen, showToast } = useUiStore();
+  const { view, setView, loading, setIsSettingsOpen, showToast } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
   const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore, autoplayState } = useSessionStore();
   const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleDeleteCard } = useCardActions();
@@ -114,11 +114,14 @@ export const StudyView = ({ startTutorial }) => {
   const previousAutoplayStateRef = useRef(autoplayState);
   const suppressLegacyAutoplayCardRef = useRef(null);
   const lastAutoplayedCardRef = useRef(null);
+  
+  // Local UI & Animation State
   const [activeRandomMode, setActiveRandomMode] = useState(null);
   const lastCardKeyRef = useRef('');
 
   // State for Trainer mode
   const [trainerStartTime, setTrainerStartTime] = useState(null);
+  const [trainerElapsedSeconds, setTrainerElapsedSeconds] = useState(0);
   const [trainerCorrectCount, setTrainerCorrectCount] = useState(0);
   const [trainerWrongCardIds, setTrainerWrongCardIds] = useState([]);
   const [trainerAnsweredIds, setTrainerAnsweredIds] = useState(new Set());
@@ -126,10 +129,16 @@ export const StudyView = ({ startTutorial }) => {
   useEffect(() => {
     if (studyMode === 'trainer' && view === 'study') {
       if (!trainerStartTime) {
-        setTrainerStartTime(Date.now());
+        queueMicrotask(() => setTrainerStartTime(Date.now()));
       }
     }
-  }, [studyMode, view, currentDeck?.id]);
+  }, [studyMode, view, currentDeck?.id, trainerStartTime]);
+
+  useEffect(() => {
+    if (trainerStartTime && (!card || trainerAnsweredIds.size >= (deckCards?.length || 1))) {
+      queueMicrotask(() => setTrainerElapsedSeconds(Math.round((Date.now() - trainerStartTime) / 1000)));
+    }
+  }, [trainerStartTime, card, trainerAnsweredIds, deckCards]);
 
   const handleTrainerAnswer = (cardId, isFirstTry) => {
     setTrainerAnsweredIds(prev => new Set(prev).add(cardId));
@@ -140,18 +149,13 @@ export const StudyView = ({ startTutorial }) => {
     }
   };
 
-  const openCardActions = (targetCard) => {
-    setActionCard(targetCard);
-    setIsCardActionModalOpen(true);
-  };
-
   const onDeleteDuplicate = async (e) => {
     e.stopPropagation();
     if (window.confirm('Удалить этот дубликат?')) {
       try {
         await handleDeleteCard(card.id, true);
         fetchDuplicates(); // Update the list in background
-      } catch (err) {
+      } catch {
         showToast('Ошибка при удалении');
       }
     }
@@ -194,13 +198,13 @@ export const StudyView = ({ startTutorial }) => {
         lastCardKeyRef.current = currentCardKey;
         if (enabled.length > 0) {
           const randomIndex = Math.floor(Math.random() * enabled.length);
-          setActiveRandomMode(enabled[randomIndex]);
+          queueMicrotask(() => setActiveRandomMode(enabled[randomIndex]));
         } else {
-          setActiveRandomMode('classic');
+          queueMicrotask(() => setActiveRandomMode('classic'));
         }
       }
     } else {
-      setActiveRandomMode(null);
+      queueMicrotask(() => setActiveRandomMode(null));
       lastCardKeyRef.current = '';
     }
   }, [card?.id, historyIndex, studyMode, randomEnabledModes, activeRandomMode]);
@@ -338,9 +342,9 @@ export const StudyView = ({ startTutorial }) => {
         showToast('Прогресс успешно сброшен', 'success');
         
         useSessionStore.getState().resetSession();
-        await fetchDeckCards(currentDeck.id);
+        await useDeckStore.getState().fetchDeckCards(currentDeck.id);
         await fetchNextCard(currentDeck.id, true, []);
-      } catch (err) {
+      } catch {
         showToast('Ошибка при сбросе прогресса');
       }
     }
@@ -586,7 +590,7 @@ export const StudyView = ({ startTutorial }) => {
             totalCards={trainerAnsweredIds.size || deckCards?.length || 1}
             correctFirstTry={trainerCorrectCount}
             wrongCount={trainerWrongCardIds.length}
-            elapsedSeconds={Math.round(((trainerStartTime ? Date.now() - trainerStartTime : 0)) / 1000)}
+            elapsedSeconds={trainerElapsedSeconds}
             onRetryWrong={() => {
               const wrongCards = (deckCards || []).filter(c => trainerWrongCardIds.includes(c.id));
               if (wrongCards.length > 0) {

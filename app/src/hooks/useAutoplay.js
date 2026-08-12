@@ -22,6 +22,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
   const autoplayCardsRef = useRef([]);
   const cardRepeatCountRef = useRef(1);
   const currentCardIdRef = useRef(card?.id);
+  const runCardCycleRef = useRef(null);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
@@ -238,7 +239,9 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
         stopAudio();
         const nextRunId = runRef.current + 1;
         runRef.current = nextRunId;
-        runCardCycle(nextRunId);
+        if (runCardCycleRef.current) {
+          runCardCycleRef.current(nextRunId);
+        }
       } else {
         await moveToNextCard(latestCard, runId);
       }
@@ -252,6 +255,10 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
       }
     }
   }, [clearTimer, ensureAudio, isCurrentRun, moveToNextCard, showToast, stopAudio, wait, waitForAudio]);
+
+  useEffect(() => {
+    runCardCycleRef.current = runCardCycle;
+  }, [runCardCycle]);
 
   const restart = useCallback(() => {
     clearTimer();

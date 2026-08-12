@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Flame, Wrench, ChevronDown } from 'lucide-react';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import { useLanguageStore } from '../store/useLanguageStore';
-import { ImportModal } from './ImportModal';
-import { DeckGridHeader } from './deckgrid/DeckGridHeader';
-import { DeckCardItem } from './deckgrid/DeckCardItem';
-import { FolderCardItem } from './deckgrid/FolderTreeNav';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
+import { ImportModal } from '../modals/ImportModal';
+import { DeckGridHeader } from './DeckGridHeader';
+import { DeckCardItem } from './DeckCardItem';
+import { FolderCardItem } from './FolderTreeNav';
 
 export const DeckGrid = ({ 
   startTutorial, 

@@ -96,8 +96,8 @@ export const useKaraokeSync = (wordBoundaries, text, duration, currentTime, audi
   useEffect(() => {
     if (!effectiveBoundaries?.length || audioState === 'idle') {
       if (prevIndexRef.current !== -1) {
-        setActiveWordIndex(-1);
         prevIndexRef.current = -1;
+        queueMicrotask(() => setActiveWordIndex(-1));
       }
       return;
     }
@@ -128,10 +128,10 @@ export const useKaraokeSync = (wordBoundaries, text, duration, currentTime, audi
     }
 
     if (found !== prevIndexRef.current) {
-      setActiveWordIndex(found);
       prevIndexRef.current = found;
+      queueMicrotask(() => setActiveWordIndex(found));
     }
-  }, [effectiveBoundaries, currentTime, audioState]);
+  }, [effectiveBoundaries, currentTime, audioState, wordBoundaries]);
 
   const activeWord = activeWordIndex >= 0 ? effectiveBoundaries?.[activeWordIndex]?.word ?? null : null;
 

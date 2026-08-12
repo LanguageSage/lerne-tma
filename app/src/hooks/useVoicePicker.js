@@ -52,7 +52,7 @@ export const useVoicePicker = (
       setPreviewUrl(null);
       setWordBoundaries(null);
     }
-  }, [sessionVoice]);
+  }, [sessionVoice, selectedVoice]);
 
   const generatePreview = useCallback(async (text, voiceOverride = null) => {
     const voice = voiceOverride || selectedVoice;

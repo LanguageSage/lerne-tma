@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback } from 'react';
 
 /**
  * useSessionVoice — stores the user's voice choice for the current study session,

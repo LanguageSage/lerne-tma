@@ -30,7 +30,7 @@ export const ProfileTab = () => {
         localStorage.setItem('lerne_user_profile', JSON.stringify(updatedProfile));
         showToast("Профиль обновлен!", "success");
       }
-    } catch (err) {
+    } catch {
       showToast("Ошибка при сохранении");
     } finally {
       setIsSaving(false);
@@ -62,14 +62,14 @@ export const ProfileTab = () => {
               window.location.reload();
             }, 800);
           }
-        } catch (e) {}
+        } catch { /* ignore */ }
       }, 2000);
       
       setTimeout(() => {
         clearInterval(interval);
         setIsPolling(false);
       }, 120000);
-    } catch (e) {}
+    } catch { /* ignore */ }
   };
 
   return (

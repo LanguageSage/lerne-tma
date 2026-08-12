@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, AlertCircle, Inbox, BookOpen, Folder, Check, ExternalLink } from 'lucide-react';
-import api from '../services/api';
-import { useUiStore } from '../store/useUiStore';
-import { useDeckStore } from '../store/useDeckStore';
-import { useLanguageStore } from '../store/useLanguageStore';
-import { SUPPORTED_TARGET_LANGUAGES } from '../constants/languageConstants';
+import api from '../../services/api';
+import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
+import { SUPPORTED_TARGET_LANGUAGES } from '../../constants/languageConstants';
 
 export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const [loading, setLoading] = useState(true);

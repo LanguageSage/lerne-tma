@@ -68,7 +68,7 @@ export const triggerHaptic = (type = 'light') => {
       };
       navigator.vibrate(patterns[type] || 15);
     }
-  } catch (err) {
+  } catch {
     // Ignore haptic errors on unsupported devices
   }
 };
@@ -88,7 +88,7 @@ export const enableClosingConfirmation = () => {
     if (window.Telegram?.WebApp?.enableClosingConfirmation) {
       window.Telegram.WebApp.enableClosingConfirmation();
     }
-  } catch (err) {
+  } catch {
     // Ignore error
   }
 };
@@ -106,7 +106,7 @@ export const closeApp = () => {
       window.Capacitor.Plugins.App.exitApp();
       return;
     }
-  } catch (err) {
+  } catch {
     // Ignore error
   }
 };
@@ -124,7 +124,7 @@ export const setupBackButton = (onClickCallback) => {
       tg.show();
       tg.onClick(onClickCallback);
       cleanupFns.push(() => {
-        try { tg.offClick(onClickCallback); } catch {}
+        try { tg.offClick(onClickCallback); } catch { /* ignore */ }
       });
     }
 
@@ -138,7 +138,7 @@ export const setupBackButton = (onClickCallback) => {
         listenerPromise.then(l => l?.remove?.()).catch(() => {});
       });
     }
-  } catch (err) {
+  } catch {
     // Ignore error
   }
 
@@ -153,7 +153,7 @@ export const hideBackButton = () => {
     if (tg) {
       tg.hide();
     }
-  } catch (err) {
+  } catch {
     // Ignore error
   }
 };
@@ -172,7 +172,7 @@ export const openExternalLink = (url) => {
       window.Capacitor.Plugins.Browser.open({ url });
       return;
     }
-  } catch (err) {
+  } catch {
     // Fallback to window.open
   }
   window.open(url, '_blank', 'noopener,noreferrer');
