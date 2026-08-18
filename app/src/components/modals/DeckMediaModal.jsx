@@ -19,6 +19,8 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [editingImageSrc, setEditingImageSrc] = useState(null);
   const [targetResourceIndex, setTargetResourceIndex] = useState(-1);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
 
   if (!isOpen || !currentDeck) return null;
 
@@ -34,22 +36,32 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
   const handleFileUpload = async (e, type) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
+    setIsUploading(true);
+    setUploadStatus('Загрузка...');
     try {
       await uploadDeckResource(file, type, currentDeck.id);
-      // Reset input
+      setUploadStatus('');
       e.target.value = '';
     } catch {
       showToast('Ошибка при загрузке файла');
+      setUploadStatus('');
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const handleSaveDeckImage = async (file) => {
     if (!file) return;
+    setIsUploading(true);
+    setUploadStatus('Сохранение изображения...');
     try {
       await uploadDeckResource(file, 'image', currentDeck.id, targetResourceIndex);
+      setUploadStatus('');
     } catch {
       showToast('Ошибка при сохранении изображения');
+      setUploadStatus('');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -456,8 +468,16 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
 
               {/* Footer */}
               <div className="modal-footer-actions" style={{ marginTop: '20px' }}>
-                <button className="btn btn-primary btn-full" onClick={onClose} disabled={loading}>
-                  Готово
+                {isUploading && (
+                  <div style={{ textAlign: 'center', marginBottom: '10px', color: '#a78bfa', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 1s linear infinite' }}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                    </svg>
+                    {uploadStatus}
+                  </div>
+                )}
+                <button className="btn btn-primary btn-full" onClick={onClose} disabled={isUploading}>
+                  {isUploading ? 'Подождите...' : 'Готово'}
                 </button>
               </div>
             </div>

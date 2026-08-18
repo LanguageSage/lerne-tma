@@ -38,12 +38,10 @@ export const CardCreator = ({ startTutorial }) => {
   });
 
   const handleBack = () => {
-    if (editorSourceView === 'study') {
-      setView('study');
-    } else if (editorSourceView === 'cards') {
-      setView('cards');
+    if (window.history.state?.view === 'creator') {
+      window.history.back();
     } else {
-      setView('decks');
+      setView(editorSourceView || 'cards');
     }
   };
 

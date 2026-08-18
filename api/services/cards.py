@@ -147,15 +147,16 @@ def delete_card(card_id: int, user_id: int):
         # Мягкое удаление: помечаем карточку как is_deleted = True
         card = TMA_Card.get_or_none(TMA_Card.id == card_id)
         if not card:
-            return False
+            # Карточка не найдена или уже удалена — считаем операцию успешной
+            return True
             
-        if card.deck_id:
+        is_creator = card.creator_id and int(card.creator_id) == int(user_id)
+        if not is_creator and card.deck_id:
             from .collaborative_service import get_effective_user_role
             role = get_effective_user_role(user_id, 'deck', card.deck_id)
             if role not in ['owner', 'editor']:
                 return False
 
-            
         card.is_deleted = True
         card.updated_at = datetime.datetime.now()
         card.save()

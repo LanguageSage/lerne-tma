@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users } from 'lucide-react';
+import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users, Dumbbell } from 'lucide-react';
 
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -203,7 +203,13 @@ export const DeckCardItem = ({
       <div className="deck-main-action deck-main-action-with-stats" onClick={onMainAction}>
         <div className="deck-info-row">
           <div className="deck-icon">
-            {deck.is_inbox ? <Inbox size={24} /> : <Layers size={24} />}
+            {deck.is_inbox ? (
+              <Inbox size={24} />
+            ) : deck.is_trainer ? (
+              <Dumbbell size={24} color="#c084fc" />
+            ) : (
+              <Layers size={24} />
+            )}
           </div>
           
           <h3>
@@ -212,6 +218,29 @@ export const DeckCardItem = ({
             {deck.is_inbox && deck.stats.total > 0 && (
               <span style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
                 новые
+              </span>
+            )}
+
+            {!deck.is_inbox && deck.is_trainer && (
+              <span 
+                style={{ 
+                  marginLeft: 8, 
+                  fontSize: '0.68rem', 
+                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(124, 58, 237, 0.2))', 
+                  border: '1px solid rgba(168, 85, 247, 0.45)', 
+                  color: '#c084fc', 
+                  padding: '2px 8px', 
+                  borderRadius: 10, 
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  verticalAlign: 'middle',
+                  boxShadow: '0 2px 8px rgba(168, 85, 247, 0.2)'
+                }}
+              >
+                <span>🏋️</span>
+                <span>Тренажёр</span>
               </span>
             )}
 

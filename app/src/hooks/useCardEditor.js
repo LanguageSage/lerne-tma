@@ -9,10 +9,10 @@ import { useStudySession } from './useStudySession';
 
 export const useCardEditor = () => {
   const { fetchDecks, fetchDeckCards } = useDeckStore();
-  const { setLoading, showToast, setView } = useUiStore();
+  const { setLoading, showToast } = useUiStore();
   const { fetchNextCard } = useStudySession();
 
-  const saveCard = async (manualCardData = null, viewState = 'editor') => {
+  const saveCard = async (manualCardData = null) => {
     const session = useSessionStore.getState();
     const ui = useUiStore.getState();
     const { currentDeck } = useDeckStore.getState();
@@ -28,73 +28,57 @@ export const useCardEditor = () => {
       }
       const reqData = {
         card_id: data.id || null,
-        deck_id: finalDeckId || null,
-        after_card_id: data.after_card_id || null,
-        front: data.front,
-        back: data.back,
+        deck_id: finalDeckId,
+        front: data.front || '',
+        back: data.back || '',
         context: data.context || '',
         image_path: data.image_path || cleanMedia(data.image_url),
         audio_path: data.audio_path || cleanMedia(data.audio_url),
         video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
-        video_back_path: data.video_back_path || cleanMedia(data.video_back_url),
-        flag: data.flag !== undefined ? data.flag : 0,
-        allow_duplicate: true
+        video_back_path: data.video_back_path || cleanMedia(data.video_back_url)
       };
+      if (data.after_card_id) reqData.after_card_id = data.after_card_id;
 
-      const res = await api.post('/cards/save', reqData);
-      const fullCard = res.data;
-      showToast("Сохранено", "success");
+      await api.post('/cards/save', reqData);
 
-      // Всегда обновляем список колод и карточки целевой колоды
-      const targetDeckId = fullCard.deck_id || finalDeckId || currentDeck?.id;
-      if (targetDeckId) {
-        useDeckStore.setState(state => ({
-          deckCards: [fullCard, ...state.deckCards.filter(c => c.id !== fullCard.id)]
-        }));
-        await fetchDeckCards(targetDeckId);
+      showToast("Карточка сохранена", "success");
+      
+      const updatedDeck = useDeckStore.getState().decks.find(d => d.id === finalDeckId) || currentDeck;
+      if (updatedDeck) {
+        await fetchDeckCards(updatedDeck.id);
       }
       fetchDecks(true);
 
-      if (ui.editorSourceView === 'study') {
-        session.setCard(fullCard);
-        session.setIsFlipped(false);
-        
-        if (currentDeck?.id === 'duplicates') {
-          const { fetchDuplicates } = useDeckStore.getState();
-          fetchDuplicates();
-        }
+      const sourceView = ui.editorSourceView || 'cards';
+      session.setEditingCard(null);
 
-        // Если это была новая карточка (creator), добавляем в историю
-        if (viewState === 'creator') {
-          session.addToHistory(fullCard);
-        } else {
-          // Если редактировали текущую карточку
-          if (session.card && session.card.id === data.id) {
-            const newHistory = [...session.studyHistory];
-            if (session.historyIndex >= 0) newHistory[session.historyIndex] = fullCard;
-            session.setStudyHistory(newHistory);
-          }
+      if (sourceView === 'study') {
+        if (session.card && session.card.id === data.id) {
+          await fetchNextCard(finalDeckId, true);
         }
-        setView('study');
-      } else if (ui.editorSourceView === 'cards') {
-        setView('cards');
-      } else if (ui.editorSourceView === 'duplicates') {
-        const { fetchDuplicates } = useDeckStore.getState();
-        fetchDuplicates();
-        setView('duplicates');
+        if (window.history.state?.view === 'editor' || window.history.state?.view === 'creator') {
+          window.history.back();
+        } else {
+          ui.setView('study');
+        }
+      } else if (sourceView === 'duplicates') {
+        if (window.history.state?.view === 'editor' || window.history.state?.view === 'creator') {
+          window.history.back();
+        } else {
+          ui.setView('duplicates');
+        }
       } else {
-        setView('decks');
+        if (window.history.state?.view === 'editor' || window.history.state?.view === 'creator') {
+          window.history.back();
+        } else {
+          ui.setView(sourceView);
+        }
       }
     } catch (err) {
       console.error(err);
       const detail = err.response?.data?.detail || err.message;
-      if (err.response?.status === 403) {
-        showToast(detail, "error");
-      } else {
-        showToast(`Ошибка сохранения: ${detail}`, "error");
-      }
+      showToast(`Ошибка сохранения: ${detail}`, "error");
     } finally {
-
       setLoading(false);
     }
   };
@@ -110,7 +94,7 @@ export const useCardEditor = () => {
       const ui = useUiStore.getState();
       const { currentDeck, deckCards } = useDeckStore.getState();
 
-      const updatedDeckCards = (deckCards || []).filter(c => c.id !== cardId);
+      const updatedDeckCards = (deckCards || []).filter(c => String(c.id) !== String(cardId));
       useDeckStore.setState({ deckCards: updatedDeckCards });
 
       session.removeCardFromSession(cardId);
@@ -126,12 +110,12 @@ export const useCardEditor = () => {
         }
       }
 
-      if (currentDeck && currentDeck.id !== 'duplicates') {
-        fetchDeckCards(currentDeck.id);
+      if (currentDeck && currentDeck.id && currentDeck.id !== 'duplicates') {
+        fetchDeckCards(currentDeck.id).catch(err => console.warn('Refresh deck cards failed:', err));
       }
-      fetchDecks(true);
+      fetchDecks(true).catch(err => console.warn('Refresh decks failed:', err));
     } catch (err) {
-      console.error(err);
+      console.error('Delete Card Error:', err);
       showToast("Ошибка при удалении");
     } finally {
       setLoading(false);

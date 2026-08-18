@@ -32,7 +32,7 @@ def optimize_image(image_content: bytes, max_size: int = 1024, quality: int = 80
         
         # Сохранение в WebP в буфер памяти
         output = io.BytesIO()
-        img.save(output, format="WEBP", quality=quality, method=6) # method 6 = best compression
+        img.save(output, format="WEBP", quality=quality, method=4)  # method 4 = fast, good quality
         
         return output.getvalue(), "image/webp"
         

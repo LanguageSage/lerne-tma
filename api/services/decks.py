@@ -161,7 +161,7 @@ def get_active_decks(user_id: int):
             ensure_starter_decks(user_id)
         
         # 3. Получаем все доступные пользователю колоды (собственные и расшаренные)
-        from .collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, get_effective_user_role, is_shared_item
+        from .collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, get_batch_collaborative_info
         accessible_deck_ids = get_user_accessible_deck_ids(user_id)
         accessible_folder_ids = get_user_accessible_folder_ids(user_id)
 
@@ -180,19 +180,25 @@ def get_active_decks(user_id: int):
         deck_ids = [d.id for d in decks]
         deck_names = [d.name for d in decks]
 
+        # Batch resolve collaborative roles and is_shared in 1 query
+        collab_info = get_batch_collaborative_info(user_id, decks=decks)
+        deck_collab_map = collab_info.get('decks', {})
+
         from peewee import Case
         
         # --- Кросс-платформенный запрос статистики через Peewee ---
         tracked_case = Case(None, [(TMAProgress.queue != 'new', 1)], None)
         learning_case = Case(None, [(TMAProgress.queue << ['learning', 'relearning'], 1)], None)
         due_case = Case(None, [((TMAProgress.queue == 'review') & (TMAProgress.next_review <= now), 1)], None)
+        trainer_case = Case(None, [(TMA_Card.front_text.contains('{'), 1)], None)
         stats_query = (TMA_Card
                       .select(
                           TMA_Card.deck_id.alias('deck_id'),
                           fn.COUNT(TMA_Card.id).alias('total'),
                           fn.COUNT(tracked_case).alias('tracked'),
                           fn.COUNT(learning_case).alias('learning'),
-                          fn.COUNT(due_case).alias('due')
+                          fn.COUNT(due_case).alias('due'),
+                          fn.COUNT(trainer_case).alias('trainer_count')
                       )
                       .join(TMAProgress, JOIN.LEFT_OUTER, on=(
                           (TMAProgress.card_id == TMA_Card.id) & (TMAProgress.user_id == user_id)
@@ -208,7 +214,8 @@ def get_active_decks(user_id: int):
                 'total': row['total'], 
                 'tracked': row['tracked'], 
                 'learning': int(row['learning'] or 0),
-                'due': int(row['due'] or 0)
+                'due': int(row['due'] or 0),
+                'trainer_count': int(row['trainer_count'] or 0)
             }
 
         # --- ОДИН запрос для проверки обновлений из библиотеки ---
@@ -232,11 +239,13 @@ def get_active_decks(user_id: int):
         
         result = []
         for d in decks:
-            s = stats_map.get(d.id, {'total': 0, 'tracked': 0, 'learning': 0, 'due': 0})
+            s = stats_map.get(d.id, {'total': 0, 'tracked': 0, 'learning': 0, 'due': 0, 'trainer_count': 0})
             total = s['total']
             tracked = s['tracked']
             learning = s['learning']
             due = s['due']
+            trainer_count = s['trainer_count']
+            is_trainer_deck = bool(total > 0 and trainer_count == total)
             
             # Check for updates
             has_updates = False
@@ -275,8 +284,9 @@ def get_active_decks(user_id: int):
                 resolved_resources.append(item)
             parsed_metadata['resources'] = resolved_resources
 
-            role = get_effective_user_role(user_id, 'deck', d.id)
-            is_shared = is_shared_item(user_id, 'deck', d.id)
+            collab_meta = deck_collab_map.get(d.id, {})
+            role = collab_meta.get('role', 'owner' if d.user_id == user_id else None)
+            is_shared = collab_meta.get('is_shared', False)
 
 
             deck_folder_id = getattr(d, 'folder_id', None)
@@ -291,6 +301,7 @@ def get_active_decks(user_id: int):
                 "target_language": getattr(d, 'target_language', 'de') or 'de',
                 "is_inbox": getattr(d, 'is_inbox', False),
                 "is_pinned": getattr(d, 'is_pinned', False),
+                "is_trainer": is_trainer_deck,
                 "position": getattr(d, 'position', 0),
                 "folder_id": deck_folder_id,
                 "has_updates": has_updates,
@@ -302,7 +313,8 @@ def get_active_decks(user_id: int):
                     "total": total,
                     "new": max(0, total - tracked),
                     "learning": learning,
-                    "due": due
+                    "due": due,
+                    "trainer_count": trainer_count
                 }
             })
 

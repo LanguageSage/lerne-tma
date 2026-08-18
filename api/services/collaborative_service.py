@@ -7,6 +7,139 @@ from api import models
 logger = logging.getLogger(__name__)
 
 
+def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders: List[Any] = None) -> Dict[str, Dict[int, Dict[str, Any]]]:
+    """
+    Computes effective user role and is_shared for multiple decks and folders in 1-2 DB queries.
+    """
+    decks = decks or []
+    folders = folders or []
+    deck_ids = [d.id for d in decks]
+    folder_ids = [f.id for f in folders]
+
+    # Collect all related folder IDs to build folder hierarchy in memory
+    all_folder_ids = set(folder_ids)
+    for d in decks:
+        if getattr(d, 'folder_id', None):
+            all_folder_ids.add(d.folder_id)
+
+    # Fetch all folders in hierarchy
+    folder_map = {f.id: f for f in folders}
+    missing_folder_ids = all_folder_ids - set(folder_map.keys())
+    if missing_folder_ids:
+        for f in models.TMA_Folder.select().where((models.TMA_Folder.id << list(missing_folder_ids)) & (models.TMA_Folder.is_deleted == False)):
+            folder_map[f.id] = f
+
+    # Also make sure parent folders up the tree are loaded
+    curr_parents = set(f.parent_id for f in folder_map.values() if getattr(f, 'parent_id', None))
+    while curr_parents - set(folder_map.keys()):
+        missing = curr_parents - set(folder_map.keys())
+        fetched = list(models.TMA_Folder.select().where((models.TMA_Folder.id << list(missing)) & (models.TMA_Folder.is_deleted == False)))
+        if not fetched:
+            break
+        for f in fetched:
+            folder_map[f.id] = f
+        curr_parents = set(f.parent_id for f in folder_map.values() if getattr(f, 'parent_id', None))
+
+    all_known_folder_ids = list(folder_map.keys())
+
+    # Single query for all collaborators
+    collabs = []
+    conditions = []
+    if deck_ids:
+        conditions.append((models.TMA_Collaborator.target_type == 'deck') & (models.TMA_Collaborator.target_id << deck_ids))
+    if all_known_folder_ids:
+        conditions.append((models.TMA_Collaborator.target_type == 'folder') & (models.TMA_Collaborator.target_id << all_known_folder_ids))
+    
+    if conditions:
+        from peewee import reduce, operator
+        query_condition = reduce(operator.or_, conditions)
+        collabs = list(models.TMA_Collaborator.select().where(query_condition))
+
+    collabs_by_target = {}
+    for c in collabs:
+        key = (c.target_type, c.target_id)
+        if key not in collabs_by_target:
+            collabs_by_target[key] = []
+        collabs_by_target[key].append(c)
+
+    role_memo = {}
+    shared_memo = {}
+
+    def resolve_folder_role(fid):
+        if fid in role_memo:
+            return role_memo[fid]
+        f = folder_map.get(fid)
+        if not f or f.is_deleted:
+            role_memo[fid] = None
+            return None
+        if f.user_id == user_id:
+            role_memo[fid] = 'owner'
+            return 'owner'
+        target_collabs = collabs_by_target.get(('folder', fid), [])
+        for c in target_collabs:
+            if c.user_id == user_id:
+                role_memo[fid] = c.role
+                return c.role
+        if getattr(f, 'parent_id', None):
+            res = resolve_folder_role(f.parent_id)
+            role_memo[fid] = res
+            return res
+        role_memo[fid] = None
+        return None
+
+    def resolve_folder_shared(fid):
+        if fid in shared_memo:
+            return shared_memo[fid]
+        role = resolve_folder_role(fid)
+        if role and role != 'owner':
+            shared_memo[fid] = True
+            return True
+        if len(collabs_by_target.get(('folder', fid), [])) > 0:
+            shared_memo[fid] = True
+            return True
+        f = folder_map.get(fid)
+        if f and getattr(f, 'parent_id', None):
+            res = resolve_folder_shared(f.parent_id)
+            shared_memo[fid] = res
+            return res
+        shared_memo[fid] = False
+        return False
+
+    deck_info = {}
+    for d in decks:
+        if d.user_id == user_id:
+            deck_role = 'owner'
+        else:
+            deck_collabs = collabs_by_target.get(('deck', d.id), [])
+            matching = next((c for c in deck_collabs if c.user_id == user_id), None)
+            if matching:
+                deck_role = matching.role
+            elif getattr(d, 'folder_id', None):
+                deck_role = resolve_folder_role(d.folder_id)
+            else:
+                deck_role = None
+
+        if deck_role and deck_role != 'owner':
+            deck_shared = True
+        elif len(collabs_by_target.get(('deck', d.id), [])) > 0:
+            deck_shared = True
+        elif getattr(d, 'folder_id', None):
+            deck_shared = resolve_folder_shared(d.folder_id)
+        else:
+            deck_shared = False
+
+        deck_info[d.id] = {'role': deck_role, 'is_shared': deck_shared}
+
+    folder_info = {}
+    for f in folders:
+        folder_info[f.id] = {
+            'role': resolve_folder_role(f.id),
+            'is_shared': resolve_folder_shared(f.id)
+        }
+
+    return {'decks': deck_info, 'folders': folder_info}
+
+
 def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> Optional[str]:
     """
     Determines effective permission role ('owner', 'editor', 'viewer', or None)
@@ -438,13 +571,16 @@ def get_user_accessible_deck_ids(user_id: int) -> set:
     )
     deck_ids = set(d.id for d in owned_decks)
 
-    collab_decks = models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
+    collab_decks = list(models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
         (models.TMA_Collaborator.target_type == 'deck') &
         (models.TMA_Collaborator.user_id == user_id)
-    )
-    for c in collab_decks:
-        d = models.TMA_Deck.get_or_none((models.TMA_Deck.id == c.target_id) & (models.TMA_Deck.is_deleted == False))
-        if d:
+    ))
+    collab_target_ids = [c.target_id for c in collab_decks]
+    if collab_target_ids:
+        valid_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
+            (models.TMA_Deck.id << collab_target_ids) & (models.TMA_Deck.is_deleted == False)
+        )
+        for d in valid_decks:
             deck_ids.add(d.id)
 
     accessible_folder_ids = get_user_accessible_folder_ids(user_id)

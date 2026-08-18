@@ -25,42 +25,43 @@ export const useAppInitialization = (checkStartParam) => {
       const profile = getUserProfile();
       setUserProfile(profile);
 
-      // 0. Attempt Telegram CloudStorage language restoration
-      try {
-        const cloudHasSelected = await cloudStorage.get('lerne_has_selected_language');
-        const cloudLang = await cloudStorage.get('lerne_target_language');
-        if (cloudHasSelected === 'true' && cloudLang) {
-          const { useLanguageStore } = await import('../store/useLanguageStore');
-          useLanguageStore.getState().syncLanguageFromExternal(cloudLang, true);
-        }
-
-        const cloudNativeSel = await cloudStorage.get('lerne_native_language_selected');
-        const cloudNativeLang = await cloudStorage.get('lerne_native_language');
-        if (cloudNativeSel === 'true' && cloudNativeLang) {
-          localStorage.setItem('native_language', cloudNativeLang);
-          localStorage.setItem('native_language_selected', 'true');
-        }
-      } catch (e) {
-        console.warn("CloudStorage language restore failed:", e);
-      }
-
-      // Instant UI restore from cache if available
+      // Instant UI restore from cache if available (synchronous)
       loadCachedInitData();
 
-      // 1. Await profile sync FIRST to guarantee user exists in backend DB before fetching initial decks
-      await syncProfile(profile);
-
-      // 2. Perform auto-sync in offline mode if online
-      if (isOfflineMode() && navigator.onLine) {
+      // CloudStorage language restoration in background (non-blocking)
+      (async () => {
         try {
-          await syncService.sync();
+          const [cloudHasSelected, cloudLang, cloudNativeSel, cloudNativeLang] = await Promise.all([
+            cloudStorage.get('lerne_has_selected_language'),
+            cloudStorage.get('lerne_target_language'),
+            cloudStorage.get('lerne_native_language_selected'),
+            cloudStorage.get('lerne_native_language')
+          ]);
+          if (cloudHasSelected === 'true' && cloudLang) {
+            const { useLanguageStore } = await import('../store/useLanguageStore');
+            useLanguageStore.getState().syncLanguageFromExternal(cloudLang, true);
+          }
+          if (cloudNativeSel === 'true' && cloudNativeLang) {
+            localStorage.setItem('native_language', cloudNativeLang);
+            localStorage.setItem('native_language_selected', 'true');
+          }
         } catch (e) {
-          console.error("Startup sync failed:", e);
+          console.warn("CloudStorage language restore failed:", e);
         }
+      })();
+
+      // 1. Fetch fresh init data from backend immediately
+      const initPromise = fetchInitData();
+
+      // 2. Sync profile in parallel
+      syncProfile(profile).catch(e => console.error("Profile sync error:", e));
+
+      // 3. Perform background sync in offline mode if online
+      if (isOfflineMode() && navigator.onLine) {
+        syncService.sync().catch(e => console.error("Startup sync failed:", e));
       }
 
-      // 3. Fetch fresh init data from backend
-      await fetchInitData();
+      await initPromise;
     };
 
     init();
@@ -268,7 +269,7 @@ export const useAppInitialization = (checkStartParam) => {
         showToast("Ошибка загрузки данных.");
       }
     } finally {
-      useUiStore.setState({ loading: false });
+      useUiStore.setState({ loading: false, hasInitialized: true });
     }
   };
 

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from api.dependencies.auth import get_user_id
-from api.services.sync_service import execute_sync_push, execute_sync_pull
+from api.services.sync_service import execute_sync_push, execute_sync_pull, execute_collab_pull
 
 
 router = APIRouter(
@@ -84,3 +84,11 @@ def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
 def pull_changes(since: Optional[str] = None, user_id: int = Depends(get_user_id)):
     """Returns all changes that happened on the server since the given timestamp for this user."""
     return execute_sync_pull(since, user_id)
+
+
+@router.get("/collab-pull")
+def collab_pull_changes(since: Optional[str] = None, user_id: int = Depends(get_user_id)):
+    """Returns collaborative changes from ALL participants in shared folders since the given timestamp.
+    Used for real-time sync polling: cards, decks, folders changed by any collaborator."""
+    return execute_collab_pull(since, user_id)
+

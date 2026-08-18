@@ -418,37 +418,34 @@ export const StudyCard = React.memo(({
           <div className="card-inner card-back glass" onClick={() => onFlip(false)} style={{ cursor: 'pointer', ...flagStyle }}>
             <CardBackground styleType={resolvedBgBack} />
             <div className="card-face">
-              {/* В режиме тренажера не выводим дублирующее микро-превью, так как card.back уже содержит полный текст и разбор */}
-              {effectiveStudyMode !== 'trainer' && (
-                <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
-                  <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.9, ...cardStyle }}>
-                    {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
-                  </div>
-                  {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
-                    <CardAudioPlayer
-                      audioUrl={studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url}
-                      playAudio={audioControls?.playAudio || playAudio}
-                      pauseAudio={audioControls?.pauseAudio}
-                      resumeAudio={audioControls?.resumeAudio}
-                      togglePlayPause={audioControls?.togglePlayPause}
-                      stopAudio={audioControls?.stopAudio}
-                      seekAudio={audioControls?.seekAudio}
-                      setPlaybackSpeed={audioControls?.setPlaybackSpeed}
-                      audioState={audioControls?.audioState}
-                      currentUrl={audioControls?.currentUrl}
-                      currentTime={audioControls?.currentTime}
-                      duration={audioControls?.duration}
-                      playbackRate={audioControls?.playbackRate}
-                      isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
-                      isGenerating={card.audio_is_generating}
-                      disabled={loading || isAutoplayActive}
-                      compact={true}
-                    />
-                  )}
+              <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
+                <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.9, ...cardStyle }}>
+                  {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
                 </div>
-              )}
+                {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
+                  <CardAudioPlayer
+                    audioUrl={studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url}
+                    playAudio={audioControls?.playAudio || playAudio}
+                    pauseAudio={audioControls?.pauseAudio}
+                    resumeAudio={audioControls?.resumeAudio}
+                    togglePlayPause={audioControls?.togglePlayPause}
+                    stopAudio={audioControls?.stopAudio}
+                    seekAudio={audioControls?.seekAudio}
+                    setPlaybackSpeed={audioControls?.setPlaybackSpeed}
+                    audioState={audioControls?.audioState}
+                    currentUrl={audioControls?.currentUrl}
+                    currentTime={audioControls?.currentTime}
+                    duration={audioControls?.duration}
+                    playbackRate={audioControls?.playbackRate}
+                    isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
+                    isGenerating={card.audio_is_generating}
+                    disabled={loading || isAutoplayActive}
+                    compact={true}
+                  />
+                )}
+              </div>
 
-              {(card.video_back_url || deckVideo?.url) && (
+                {(card.video_back_url || deckVideo?.url) && (
                 <div className="video-container-card">
                   <video src={card.video_back_url || deckVideo?.url} autoPlay loop muted playsInline />
                 </div>

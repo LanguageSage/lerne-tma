@@ -7,6 +7,9 @@ export const useUiStore = create((set) => ({
   loading: false,
   setLoading: (loading) => set({ loading }),
   
+  hasInitialized: false,
+  setHasInitialized: (hasInitialized) => set({ hasInitialized }),
+  
   toast: null,
   showToast: (message, type = 'error') => {
     set({ toast: { message, type } });

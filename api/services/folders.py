@@ -8,7 +8,7 @@ def get_active_folders(user_id: int):
     """Возвращает все активные папки пользователя (собственные и доступные по соавторству)."""
     try:
         from .decks import ensure_inbox_deck
-        from .collaborative_service import get_user_accessible_folder_ids, get_effective_user_role, is_shared_item
+        from .collaborative_service import get_user_accessible_folder_ids, get_batch_collaborative_info
         ensure_inbox_deck(user_id)
 
         accessible_folder_ids = get_user_accessible_folder_ids(user_id)
@@ -18,11 +18,15 @@ def get_active_folders(user_id: int):
         folders = list(TMA_Folder.select().where(
             (TMA_Folder.id << list(accessible_folder_ids)) & (TMA_Folder.is_deleted == False)
         ).order_by(TMA_Folder.id.asc()))
+
+        collab_info = get_batch_collaborative_info(user_id, folders=folders)
+        folder_collab_map = collab_info.get('folders', {})
         
         result = []
         for f in folders:
-            role = get_effective_user_role(user_id, 'folder', f.id)
-            is_shared = is_shared_item(user_id, 'folder', f.id)
+            collab_meta = folder_collab_map.get(f.id, {})
+            role = collab_meta.get('role', 'owner' if f.user_id == user_id else None)
+            is_shared = collab_meta.get('is_shared', False)
             
             result.append({
                 "id": f.id,

@@ -13,7 +13,7 @@ import { Toast } from './components/common/Toast';
 import { GlobalLoader } from './components/common/Loader';
 import { GuestBanner } from './components/common/UserBadge';
 import { DeckGrid, CardList, CardEditor, CardCreator } from './components/deckgrid';
-import { StudyView } from './components/study';
+import { StudyView, TrainerView } from './components/study';
 import { 
   CardActionModal, DeckModals, SettingsModal, RenameDeckModal, 
   SyncModal, DuplicateManager, TrashManager, AuthRequiredModal, 
@@ -31,6 +31,7 @@ import { useCardActions } from './hooks/useCardActions';
 import { useAutoImport } from './hooks/useAutoImport';
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useCardNavigation } from './hooks/useCardNavigation';
+import { useCollaborativeSync } from './hooks/useCollaborativeSync';
 
 import { LanguageProvider, useTranslation } from './i18n/i18nContext';
 import { getLocalizedTutorialSteps } from './i18n/tutorialSteps';
@@ -169,6 +170,7 @@ function AppContent() {
   // Custom hooks for initialization and import logic
   const { importShareId, clearImportShareId, checkStartParam } = useAutoImport();
   useAppInitialization(checkStartParam);
+  useCollaborativeSync(); // Real-time background sync for collaborative folders
   
   // Scroll to top on view change
   useEffect(() => {
@@ -196,14 +198,22 @@ function AppContent() {
     setIsOpeningDeck(true);
     try {
       setCurrentDeck(deck);
-      setView('study');
       useSessionStore.getState().resetSession();
       if (deck.id === 'duplicates') {
         await useDeckStore.getState().fetchDuplicates();
       } else {
         await useDeckStore.getState().fetchDeckCards(deck.id);
       }
-      await fetchNextCard(deck.id, true);
+
+      const cards = useDeckStore.getState().deckCards || [];
+      const isPureTrainer = cards.length > 0 && cards.every(c => /\{([^}]+)\}/.test(c.front || ''));
+
+      if (isPureTrainer || deck.is_trainer) {
+        setView('trainer');
+      } else {
+        setView('study');
+        await fetchNextCard(deck.id, true);
+      }
     } finally {
       setIsOpeningDeck(false);
     }
@@ -213,29 +223,36 @@ function AppContent() {
     setIsOpeningDeck(true);
     try {
       setCurrentDeck(deck);
-      setView('study');
       useSessionStore.getState().resetSession();
-      const localCard = (useDeckStore.getState().deckCards || []).find(c => c.id === cardId);
-      if (localCard) {
-        useSessionStore.getState().addToHistory(localCard);
-      }
       if (deck.id === 'duplicates') {
         await useDeckStore.getState().fetchDuplicates();
       } else {
         await useDeckStore.getState().fetchDeckCards(deck.id);
       }
       
-      const res = await api.get(`/study/card/${cardId}`);
-      if (localCard) {
-        useSessionStore.getState().setCard(res.data);
-        const history = useSessionStore.getState().studyHistory;
-        if (history.length > 0) {
-          const updatedHistory = [...history];
-          updatedHistory[history.length - 1] = res.data;
-          useSessionStore.getState().setStudyHistory(updatedHistory);
-        }
+      const cards = useDeckStore.getState().deckCards || [];
+      const isPureTrainer = cards.length > 0 && cards.every(c => /\{([^}]+)\}/.test(c.front || ''));
+
+      if (isPureTrainer || deck.is_trainer) {
+        setView('trainer');
       } else {
-        useSessionStore.getState().addToHistory(res.data);
+        setView('study');
+        const localCard = cards.find(c => c.id === cardId);
+        if (localCard) {
+          useSessionStore.getState().addToHistory(localCard);
+        }
+        const res = await api.get(`/study/card/${cardId}`);
+        if (localCard) {
+          useSessionStore.getState().setCard(res.data);
+          const history = useSessionStore.getState().studyHistory;
+          if (history.length > 0) {
+            const updatedHistory = [...history];
+            updatedHistory[history.length - 1] = res.data;
+            useSessionStore.getState().setStudyHistory(updatedHistory);
+          }
+        } else {
+          useSessionStore.getState().addToHistory(res.data);
+        }
       }
     } catch (err) {
       console.error("startStudyCard Error:", err);
@@ -279,6 +296,8 @@ function AppContent() {
         );
       case 'study':
         return <StudyView startTutorial={startTutorial} />;
+      case 'trainer':
+        return <TrainerView />;
       case 'cards':
         return (
           <CardList

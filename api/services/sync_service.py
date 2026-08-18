@@ -333,3 +333,121 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
     except Exception as e:
         logger.error(f"Sync Pull Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch updates from database: {str(e)}")
+
+
+def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
+    """Returns changes from ALL participants in shared folders/decks the user has access to.
+    This is the backbone of real-time collaborative sync polling.
+    """
+    from api.services.collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, _get_all_subfolder_ids
+
+    since_dt = parse_iso_datetime(since) if since else datetime.datetime.min
+
+    try:
+        # 1. Get all folder and deck IDs accessible to this user (owned + collaborative)
+        accessible_folder_ids = get_user_accessible_folder_ids(user_id)
+        accessible_deck_ids = get_user_accessible_deck_ids(user_id)
+
+        # Expand to include all sub-folders
+        all_folder_ids = set()
+        for fid in accessible_folder_ids:
+            all_folder_ids.update(_get_all_subfolder_ids(fid))
+
+        has_changes = False
+
+        # 2. Folders: changed by anyone, within accessible folders, since timestamp
+        folders_data = []
+        if all_folder_ids:
+            changed_folders = models.TMA_Folder.select().where(
+                (models.TMA_Folder.id << list(all_folder_ids)) &
+                (models.TMA_Folder.updated_at > since_dt)
+            )
+            for f in changed_folders:
+                # Skip own changes — the client already has those
+                if f.user_id == user_id:
+                    continue
+                has_changes = True
+                folders_data.append({
+                    "id": f.id,
+                    "name": f.name,
+                    "is_deleted": bool(f.is_deleted),
+                    "is_pinned": bool(f.is_pinned),
+                    "position": int(f.position or 0),
+                    "user_id": f.user_id,
+                    "updated_at": f.updated_at.isoformat() if f.updated_at else None
+                })
+
+        # 3. Decks: changed by anyone, within accessible decks, since timestamp
+        decks_data = []
+        if accessible_deck_ids:
+            changed_decks = models.TMA_Deck.select().where(
+                (models.TMA_Deck.id << list(accessible_deck_ids)) &
+                (models.TMA_Deck.updated_at > since_dt) &
+                (models.TMA_Deck.is_deleted == False)
+            )
+            for d in changed_decks:
+                if d.user_id == user_id:
+                    continue
+                has_changes = True
+                decks_data.append({
+                    "id": d.id,
+                    "name": d.name,
+                    "level": d.level or "",
+                    "topic": d.topic or "",
+                    "is_deleted": bool(d.is_deleted),
+                    "is_inbox": bool(d.is_inbox),
+                    "is_pinned": bool(d.is_pinned),
+                    "position": int(d.position or 0),
+                    "folder_id": d.folder_id,
+                    "user_id": d.user_id,
+                    "updated_at": d.updated_at.isoformat() if d.updated_at else None
+                })
+
+        # 4. Cards: changed by anyone, within accessible decks, since timestamp
+        cards_data = []
+        if accessible_deck_ids:
+            changed_cards = models.TMA_Card.select().where(
+                (models.TMA_Card.deck_id << list(accessible_deck_ids)) &
+                (models.TMA_Card.updated_at > since_dt)
+            )
+            # Get deck owners for filtering own changes
+            deck_owners = {}
+            for d in models.TMA_Deck.select(models.TMA_Deck.id, models.TMA_Deck.user_id).where(
+                models.TMA_Deck.id << list(accessible_deck_ids)
+            ):
+                deck_owners[d.id] = d.user_id
+
+            for c in changed_cards:
+                deck_owner = deck_owners.get(c.deck_id)
+                if deck_owner == user_id:
+                    continue  # Skip own deck's cards — already have those
+                has_changes = True
+                cards_data.append({
+                    "id": c.id,
+                    "deck_id": c.deck_id,
+                    "front_text": c.front_text or "",
+                    "back_text": c.back_text or "",
+                    "context": c.context or "",
+                    "image_path": c.image_path or "",
+                    "audio_path": c.audio_path or "",
+                    "audio_back_path": c.audio_back_path or "",
+                    "video_front_path": c.video_front_path or "",
+                    "video_back_path": c.video_back_path or "",
+                    "is_deleted": bool(c.is_deleted),
+                    "flag": getattr(c, 'flag', 0) or 0,
+                    "position": getattr(c, 'position', 0) or 0,
+                    "updated_at": c.updated_at.isoformat() if c.updated_at else None
+                })
+
+        return {
+            "has_changes": has_changes,
+            "folders": folders_data,
+            "decks": decks_data,
+            "cards": cards_data,
+            "server_time": datetime.datetime.utcnow().isoformat() + "Z"
+        }
+
+    except Exception as e:
+        logger.error(f"Collab Pull Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Collaborative sync failed: {str(e)}")
+

@@ -8,9 +8,34 @@ let cardReorderTimeout = null;
 let pendingFetchCardsPromise = null;
 let pendingFetchCardsDeckId = null;
 
+const getInitialCachedData = () => {
+  try {
+    const raw = storage.get('lerne_init_cache');
+    if (raw) {
+      const data = JSON.parse(raw);
+      return {
+        decks: Array.isArray(data.decks) ? data.decks : [],
+        folders: Array.isArray(data.folders) ? data.folders : []
+      };
+    }
+  } catch { /* ignore */ }
+  return { decks: [], folders: [] };
+};
+
+const saveToInitCache = (partialData) => {
+  try {
+    const raw = storage.get('lerne_init_cache');
+    const existing = raw ? JSON.parse(raw) : {};
+    const merged = { ...existing, ...partialData };
+    storage.set('lerne_init_cache', JSON.stringify(merged));
+  } catch { /* ignore */ }
+};
+
+const initialCached = getInitialCachedData();
+
 export const useDeckStore = create((set, get) => ({
-  decks: [],
-  folders: [],
+  decks: initialCached.decks,
+  folders: initialCached.folders,
   libraryCategories: [],
   currentDeck: null,
   externalDecks: [],
@@ -24,8 +49,14 @@ export const useDeckStore = create((set, get) => ({
   cardsLoading: false,
 
   
-  setDecks: (decks) => set({ decks }),
-  setFolders: (folders) => set({ folders }),
+  setDecks: (decks) => {
+    set({ decks });
+    saveToInitCache({ decks });
+  },
+  setFolders: (folders) => {
+    set({ folders });
+    saveToInitCache({ folders });
+  },
   setLibraryCategories: (categories) => set({ libraryCategories: categories }),
   setCurrentDeck: (deck) => {
     const prevDeck = get().currentDeck;
@@ -225,11 +256,14 @@ export const useDeckStore = create((set, get) => ({
   renameDeck: async (deckId, newName) => {
     try {
       await api.post(`/decks/${deckId}/rename`, { name: newName });
-      const { fetchDecks, currentDeck } = get();
-      await fetchDecks(true);
+      const { currentDeck, decks } = get();
+      const updatedDecks = (decks || []).map(d => d.id === deckId ? { ...d, name: newName } : d);
+      set({ decks: updatedDecks });
+      saveToInitCache({ decks: updatedDecks });
       if (currentDeck && currentDeck.id === deckId) {
         set({ currentDeck: { ...currentDeck, name: newName } });
       }
+      get().fetchDecks(true).catch(() => {});
     } catch (err) {
       console.error('Rename Deck Error:', err);
       throw err;
@@ -243,10 +277,10 @@ export const useDeckStore = create((set, get) => ({
       const updatedMeta = res.data.metadata;
       const updatedDecks = (decks || []).map(d => d.id === deckId ? { ...d, metadata: updatedMeta } : d);
       set({ decks: updatedDecks });
+      saveToInitCache({ decks: updatedDecks });
       if (currentDeck && currentDeck.id === deckId) {
         set({ currentDeck: { ...currentDeck, metadata: updatedMeta } });
       }
-      storage.remove('lerne_init_cache');
       await fetchDecks(true);
       return updatedMeta;
     } catch (err) {
@@ -515,8 +549,14 @@ export const useDeckStore = create((set, get) => ({
   moveDeckToFolder: async (deckId, folderId) => {
     try {
       await api.post(`/decks/${deckId}/move`, { folder_id: folderId });
-      const { fetchDecks } = get();
-      await fetchDecks(true);
+      const { currentDeck, decks } = get();
+      const updatedDecks = (decks || []).map(d => d.id === deckId ? { ...d, folder_id: folderId } : d);
+      set({ decks: updatedDecks });
+      saveToInitCache({ decks: updatedDecks });
+      if (currentDeck && currentDeck.id === deckId) {
+        set({ currentDeck: { ...currentDeck, folder_id: folderId } });
+      }
+      get().fetchDecks(true).catch(() => {});
     } catch (err) {
       console.error('Move Deck to Folder Error:', err);
       throw err;

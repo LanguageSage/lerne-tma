@@ -17,7 +17,7 @@ export const DeckGrid = ({
   const [isToolsOpen, setIsToolsOpen] = useState(false);
 
   const { 
-    view, loading, setIsNewDeckModalOpen, setIsSettingsOpen, 
+    view, loading, hasInitialized, setIsNewDeckModalOpen, setIsSettingsOpen, 
     showToast, userProfile, setIsRenameModalOpen, setDeckToRename, 
     activeFolderId, setActiveFolderId 
   } = useUiStore();
@@ -140,7 +140,7 @@ export const DeckGrid = ({
         )}
 
         <div id="tut-deck-list" className="deck-grid">
-          {loading && decks.length === 0 ? (
+          {(!hasInitialized || loading) && decks.length === 0 ? (
             <div className="empty-decks-state glass">
               <RefreshCw size={48} className="spin" color="#a855f7" />
               <h3>Идет загрузка колод...</h3>

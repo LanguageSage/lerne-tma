@@ -43,6 +43,14 @@ export const CardEditor = ({ startTutorial }) => {
     }
   };
 
+  const handleBack = () => {
+    if (window.history.state?.view === 'editor') {
+      window.history.back();
+    } else {
+      setView(editorSourceView || 'cards');
+    }
+  };
+
   const handleSave = () => {
     saveCard(null, 'editor');
   };
@@ -57,7 +65,7 @@ export const CardEditor = ({ startTutorial }) => {
         className="view"
       >
         <div className="header-compact">
-          <button className="back-btn" onClick={() => setView(editorSourceView)}><ChevronLeft size={24} /></button>
+          <button className="back-btn" onClick={handleBack}><ChevronLeft size={24} /></button>
           <h2>Правка карточки</h2>
           <div className="header-actions">
             <button className="header-action-btn" disabled={true} title="Добавить карточку">
