@@ -237,28 +237,42 @@ function AppContent() {
         setView('trainer');
       } else {
         setView('study');
-        const localCard = cards.find(c => c.id === cardId);
+        const localCard = cards.find(c => String(c.id) === String(cardId));
         if (localCard) {
           useSessionStore.getState().addToHistory(localCard);
         }
-        const res = await api.get(`/study/card/${cardId}`);
-        if (localCard) {
-          useSessionStore.getState().setCard(res.data);
-          const history = useSessionStore.getState().studyHistory;
-          if (history.length > 0) {
-            const updatedHistory = [...history];
-            updatedHistory[history.length - 1] = res.data;
-            useSessionStore.getState().setStudyHistory(updatedHistory);
+        try {
+          const res = await api.get(`/study/card/${cardId}`);
+          if (res?.data) {
+            if (localCard) {
+              useSessionStore.getState().setCard(res.data);
+              const history = useSessionStore.getState().studyHistory;
+              if (history.length > 0) {
+                const updatedHistory = [...history];
+                updatedHistory[history.length - 1] = res.data;
+                useSessionStore.getState().setStudyHistory(updatedHistory);
+              }
+            } else {
+              useSessionStore.getState().addToHistory(res.data);
+            }
           }
-        } else {
-          useSessionStore.getState().addToHistory(res.data);
+        } catch (apiErr) {
+          console.warn("api.get study card failed in startStudyCard:", apiErr);
+          if (!localCard) {
+            if (apiErr?.response?.status === 404) {
+              const { deckCards } = useDeckStore.getState();
+              useDeckStore.setState({ deckCards: (deckCards || []).filter(c => String(c.id) !== String(cardId)) });
+              useUiStore.getState().showToast("Карточка была удалена");
+              setView('cards');
+            } else {
+              useUiStore.getState().showToast("Не удалось загрузить данные с сервера");
+            }
+          }
         }
       }
     } catch (err) {
       console.error("startStudyCard Error:", err);
-      const { deckCards } = useDeckStore.getState();
-      useDeckStore.setState({ deckCards: (deckCards || []).filter(c => c.id !== cardId) });
-      useUiStore.getState().showToast("Карточка была удалена");
+      useUiStore.getState().showToast("Ошибка при открытии карточки");
       setView('cards');
     } finally {
       setIsOpeningDeck(false);

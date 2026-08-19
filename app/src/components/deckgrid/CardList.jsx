@@ -13,6 +13,8 @@ import { useMediaUpload } from '../../hooks/useMediaUpload';
 
 import DeckAudioPlayer from '../common/DeckAudioPlayer';
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
+import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
+import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 
 const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
   const dragControls = useDragControls();
@@ -96,6 +98,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
 
   const { uploadDeckResource } = useMediaUpload();
   const { openCreator } = useCardNavigation();
+  const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck?.id, view === 'cards');
 
   // Resizable image height — read from metadata, default 220px
   const getMetaImageHeight = () => {
@@ -253,6 +256,12 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             </button>
           </div>
         </div>
+
+        {isShared && (
+          <div style={{ padding: '0 15px', marginTop: '10px' }}>
+            <CollaboratorPresenceBar collaborators={collaborators} onlineCount={onlineCount} isShared={isShared} />
+          </div>
+        )}
 
         <div style={{ padding: '0 15px', marginTop: '15px', marginBottom: '10px', textAlign: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>

@@ -17,16 +17,19 @@ def save_card(data, user_id):
     logger.info(f"Saving card for user {user_id}. Data: {data}")
     
     raw_card_id = data.get('card_id') or data.get('id')
-    card_id = int(raw_card_id) if raw_card_id else None
+    try:
+        card_id = int(raw_card_id) if raw_card_id else None
+    except (ValueError, TypeError):
+        card_id = None
     
     if card_id:
-        try:
-            card = TMA_Card.get_by_id(card_id)
-        except TMA_Card.DoesNotExist:
+        card = TMA_Card.get_or_none(TMA_Card.id == card_id)
+        if not card:
             logger.warning(f"Card {card_id} not found, creating new.")
             card = TMA_Card()
     else:
         card = TMA_Card()
+        card.creator_id = user_id
         
     raw_deck_id = data.get('deck_id')
     try:
@@ -138,6 +141,8 @@ def save_card(data, user_id):
         card.history = add_to_history(card.history, "Edited manually")
     
     card.save()
+    if card.deck_id:
+        TMA_Deck.update(updated_at=datetime.datetime.now()).where(TMA_Deck.id == card.deck_id).execute()
     logger.info(f"Card {card.id} saved successfully")
     return card
 
@@ -160,6 +165,8 @@ def delete_card(card_id: int, user_id: int):
         card.is_deleted = True
         card.updated_at = datetime.datetime.now()
         card.save()
+        if card.deck_id:
+            TMA_Deck.update(updated_at=datetime.datetime.now()).where(TMA_Deck.id == card.deck_id).execute()
         return True
     except Exception as e:
         logger.error(f"Error deleting card: {e}", exc_info=True)

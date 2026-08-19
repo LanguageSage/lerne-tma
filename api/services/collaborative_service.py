@@ -615,3 +615,60 @@ def get_user_accessible_folder_ids(user_id: int) -> set:
 
     return folder_ids
 
+
+_active_presence_map: Dict[str, Dict[int, datetime.datetime]] = {}
+
+
+def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> dict:
+    """
+    Tracks real-time user heartbeat presence for a deck or folder and returns online status of all collaborators.
+    Active members (heartbeat within 15 seconds) are flagged is_online=True and sorted leftmost.
+    """
+    key = f"{target_type}:{target_id}"
+    now = datetime.datetime.now()
+
+    if key not in _active_presence_map:
+        _active_presence_map[key] = {}
+
+    _active_presence_map[key][user_id] = now
+
+    # Clean up stale heartbeats older than 60 seconds
+    stale_users = [u for u, ts in _active_presence_map[key].items() if (now - ts).total_seconds() > 60]
+    for u in stale_users:
+        del _active_presence_map[key][u]
+
+    # Get collaborators list
+    collaborators = get_collaborators(target_type, target_id)
+    online_count = 0
+
+    for c in collaborators:
+        uid = c["user_id"]
+        last_ts = _active_presence_map[key].get(uid)
+        is_online = bool(last_ts and (now - last_ts).total_seconds() <= 15)
+        c["is_online"] = is_online
+        c["last_seen_seconds"] = int((now - last_ts).total_seconds()) if last_ts else None
+        if is_online:
+            online_count += 1
+
+    # Sort collaborators: Online users first (leftmost), then offline users
+    collaborators.sort(key=lambda x: (not x["is_online"], x.get("last_seen_seconds") or 999999))
+
+    # Fetch updated_at timestamp for deck/folder
+    updated_at_iso = None
+    if target_type == 'deck':
+        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
+        if deck and deck.updated_at:
+            updated_at_iso = deck.updated_at.isoformat()
+    elif target_type == 'folder':
+        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
+        if folder and folder.updated_at:
+            updated_at_iso = folder.updated_at.isoformat()
+
+    return {
+        "target_type": target_type,
+        "target_id": target_id,
+        "updated_at": updated_at_iso,
+        "online_count": online_count,
+        "collaborators": collaborators
+    }
+

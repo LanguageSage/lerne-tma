@@ -58,6 +58,43 @@ export const offlineApi = {
       throw new Error(`Card ${cardId} not found in local DB`);
     }
 
+    // 4.1. POST /cards/save -> Save card to local DB offline
+    if (m === 'post' && url === '/cards/save') {
+      const cardData = data || {};
+      const rawCardId = cardData.card_id || cardData.id;
+      const cardId = rawCardId || `temp_${Date.now()}`;
+      
+      const newCard = {
+        id: cardId,
+        deck_id: cardData.deck_id,
+        front_text: cardData.front || cardData.front_text || '',
+        back_text: cardData.back || cardData.back_text || '',
+        context: cardData.context || '',
+        image_path: cardData.image_path || '',
+        audio_path: cardData.audio_path || '',
+        video_front_path: cardData.video_front_path || '',
+        video_back_path: cardData.video_back_path || '',
+        flag: cardData.flag || 0,
+        is_dirty: 1,
+        updated_at: new Date().toISOString()
+      };
+
+      await db.cards.put(newCard);
+
+      return {
+        data: {
+          id: newCard.id,
+          deck_id: newCard.deck_id,
+          front: newCard.front_text,
+          back: newCard.back_text,
+          context: newCard.context,
+          image_url: newCard.image_path,
+          audio_url: newCard.audio_path,
+          flag: newCard.flag
+        }
+      };
+    }
+
     // 5. POST /study/grade or POST /study/duplicates/grade -> Process card rating offline
     if (m === 'post' && (url === '/study/grade' || url === '/study/duplicates/grade')) {
       const { card_id, deck_id, grade } = data || {};

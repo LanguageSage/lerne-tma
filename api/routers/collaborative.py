@@ -134,3 +134,17 @@ def get_group_progress(folder_id: int, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/{target_type}/{target_id}/presence")
+def get_presence(target_type: str, target_id: int, user_id: int = Depends(get_user_id)):
+    """Records caller's presence heartbeat and returns online status of all collaborators + target updated_at timestamp."""
+    if target_type not in ['deck', 'folder']:
+        raise HTTPException(status_code=400, detail="Invalid target type")
+    
+    role = collaborative_service.get_effective_user_role(user_id, target_type, target_id)
+    if not role:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return collaborative_service.record_and_get_presence(user_id, target_type, target_id)
+
+
+

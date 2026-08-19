@@ -10,7 +10,7 @@ import { useCardActions } from '../../hooks/useCardActions';
 import { stripMarkdown } from '../../utils/text';
 
 export const DuplicateManager = () => {
-  const { setView, showToast, setIsOpeningDeck } = useUiStore();
+  const { setView, setIsOpeningDeck } = useUiStore();
   const { duplicateCards, fetchDuplicates, setCurrentDeck, lastDuplicateCardId, setLastDuplicateCardId } = useDeckStore();
   const { openEditor } = useCardNavigation();
   const { handleDeleteCard, handleShareCard, fetchNextCard } = useCardActions();
@@ -50,13 +50,16 @@ export const DuplicateManager = () => {
       setLastDuplicateCardId(card.id);
       setCurrentDeck({ id: 'duplicates', name: 'Дубликаты' });
       setView('study');
-      useSessionStore.getState().resetSession();
+      useSessionStore.getState().addToHistory(card);
       
-      const res = await api.get(`/study/card/${card.id}`);
-      useSessionStore.getState().setCard(res.data);
-      useSessionStore.getState().addToHistory(res.data);
-    } catch {
-      showToast("Ошибка при открытии карточки");
+      try {
+        const res = await api.get(`/study/card/${card.id}`);
+        if (res?.data) {
+          useSessionStore.getState().setCard(res.data);
+        }
+      } catch (err) {
+        console.warn("api.get study card failed in DuplicateManager onViewCard:", err);
+      }
     } finally {
       setIsOpeningDeck(false);
     }

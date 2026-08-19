@@ -20,7 +20,10 @@ async def save_card(data: dict, user_id: int = Depends(get_user_id)):
             raise HTTPException(status_code=403, detail="Для создания и изменения карточек требуется авторизация через Telegram.")
         card = services.save_card(data, user_id)
         if card:
-            await services.ensure_card_audio(card, user_id)
+            try:
+                await services.ensure_card_audio(card, user_id)
+            except Exception as audio_err:
+                logger.error(f"Error ensuring audio for card {card.id} during save: {audio_err}")
             # Сразу возвращаем полные данные для StudyView
             return services.format_card_for_study(card, user_id)
         raise HTTPException(status_code=400, detail="Could not save card. Check logs.")

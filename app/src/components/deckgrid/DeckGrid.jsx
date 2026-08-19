@@ -8,6 +8,8 @@ import { ImportModal } from '../modals/ImportModal';
 import { DeckGridHeader } from './DeckGridHeader';
 import { DeckCardItem } from './DeckCardItem';
 import { FolderCardItem } from './FolderTreeNav';
+import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
+import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 
 export const DeckGrid = ({ 
   startTutorial, 
@@ -31,6 +33,8 @@ export const DeckGrid = ({
 
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
   const langInfo = useLanguageStore(state => state.getLanguageInfo());
+
+  const { collaborators, onlineCount, isShared } = useCollaborativePresence('folder', activeFolderId, view === 'decks' && activeFolderId !== null);
 
   if (view !== 'decks') return null;
 
@@ -136,6 +140,12 @@ export const DeckGrid = ({
                 </span>
               </React.Fragment>
             ))}
+          </div>
+        )}
+
+        {activeFolderId !== null && isShared && (
+          <div style={{ marginBottom: '16px' }}>
+            <CollaboratorPresenceBar collaborators={collaborators} onlineCount={onlineCount} isShared={isShared} />
           </div>
         )}
 

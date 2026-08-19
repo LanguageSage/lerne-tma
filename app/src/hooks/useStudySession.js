@@ -77,7 +77,7 @@ export const useStudySession = () => {
 
         // If not the first load, try to navigate sequentially in deckCards list if currentCard is set
         if (!isFirst && !session.isLearningMore && currentCard && deckCards && deckCards.length > 0) {
-          const currentIndex = deckCards.findIndex(c => c.id === currentCard.id);
+          const currentIndex = deckCards.findIndex(c => String(c.id) === String(currentCard.id));
           if (currentIndex >= 0) {
             if (currentIndex < deckCards.length - 1) {
               nextCardInfo = deckCards[currentIndex + 1];
@@ -89,10 +89,16 @@ export const useStudySession = () => {
         }
 
         if (nextCardInfo) {
-          const res = await api.get(`/study/card/${nextCardInfo.id}`);
-          const newCard = res.data;
-          session.addToHistory(newCard);
-          prefetchMedia(newCard.image_url);
+          try {
+            const res = await api.get(`/study/card/${nextCardInfo.id}`);
+            const newCard = res.data;
+            session.addToHistory(newCard);
+            prefetchMedia(newCard.image_url);
+          } catch (err) {
+            console.warn("api.get study card failed in useStudySession, using nextCardInfo fallback:", err);
+            session.addToHistory(nextCardInfo);
+            prefetchMedia(nextCardInfo.image_url);
+          }
         } else if (!isFirst && !session.isLearningMore && currentCard) {
           // Reached end of sequential deckCards traversal! End session cleanly to show summary screen
           session.setCard(null);

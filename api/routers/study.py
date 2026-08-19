@@ -23,7 +23,10 @@ async def _card_to_response(card, progress, user_id: int):
             creator_avatar = creator.photo_url
 
     # Убеждаемся, что озвучка существует и корректна
-    await services.ensure_card_audio(card, user_id)
+    try:
+        await services.ensure_card_audio(card, user_id)
+    except Exception as e:
+        logger.error(f"Error ensuring card audio for card {card.id}: {e}")
 
     # Fetch deck explicitly to bypass any Peewee relationship caching issues
     deck = None
