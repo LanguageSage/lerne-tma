@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw } from 'lucide-react';
 import { CardBackground } from './CardBackground';
+import { SplitButton } from './SplitButton';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -221,17 +222,13 @@ export const CardForm = ({
             <span>Отменить</span>
           </button>
         ) : (
-          <button 
-            type="button"
-            id="tut-creator-ai"
-            className="btn-ai-generate" 
-            onClick={onAiGenerate}
+          <SplitButton
+            onMainClick={() => onAiGenerate && onAiGenerate('full_card')}
+            onOptionClick={(actionId) => onAiGenerate && onAiGenerate(actionId)}
+            loading={loading}
             disabled={!cardData.front}
-            style={{ flex: 1 }}
-          >
-            <Sparkles size={18} />
-            <span>{t('creator.ai_generate', 'Генерировать ✨')}</span>
-          </button>
+            mainLabel={t('creator.ai_generate', 'Генерировать ✨')}
+          />
         )}
         <button 
           type="button"

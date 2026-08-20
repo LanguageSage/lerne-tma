@@ -26,20 +26,29 @@ export const CardEditor = ({ startTutorial }) => {
 
   if (view !== 'editor') return null;
 
-  const handleAiGenerate = async () => {
+  const handleAiGenerate = async (actionType = 'full_card') => {
     if (!editingCard?.front) return;
-    const result = await runAiGenerator(editingCard.front, true);
+    const result = await runAiGenerator(editingCard.front, true, actionType);
     if (result) {
-      const updated = {
-        ...editingCard,
-        front: result.front || editingCard.front,
-        back: result.back || editingCard.back,
-        context: result.context || editingCard.context
-      };
-      setEditingCard(updated);
-      setTimeout(() => {
-        generateAudioInternal(updated, setEditingCard, autoPlay ? playAudio : null);
-      }, 500);
+      if (actionType === 'custom_directive') {
+        const currentCtx = editingCard.context || '';
+        const updatedCtx = currentCtx ? `${currentCtx.trim()}\n\n${result.context}` : result.context;
+        setEditingCard({
+          ...editingCard,
+          context: updatedCtx
+        });
+      } else {
+        const updated = {
+          ...editingCard,
+          front: result.front || editingCard.front,
+          back: result.back || editingCard.back,
+          context: result.context || editingCard.context
+        };
+        setEditingCard(updated);
+        setTimeout(() => {
+          generateAudioInternal(updated, setEditingCard, autoPlay ? playAudio : null);
+        }, 500);
+      }
     }
   };
 

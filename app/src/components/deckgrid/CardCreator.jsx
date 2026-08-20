@@ -66,21 +66,30 @@ export const CardCreator = ({ startTutorial }) => {
 
   if (view !== 'creator') return null;
 
-  const handleAiGenerate = async () => {
+  const handleAiGenerate = async (actionType = 'full_card') => {
     if (!newCardData.front) return;
-    const result = await runAiGenerator(newCardData.front, true);
+    const result = await runAiGenerator(newCardData.front, true, actionType);
     if (result) {
-      const updated = {
-        ...newCardData,
-        front: result.front || newCardData.front,
-        back: result.back || newCardData.back,
-        context: result.context || newCardData.context
-      };
-      setNewCardData(updated);
-      
-      setTimeout(() => {
-        generateAudioInternal(updated, setNewCardData, autoPlay ? playAudio : null);
-      }, 500);
+      if (actionType === 'custom_directive') {
+        const currentCtx = newCardData.context || '';
+        const updatedCtx = currentCtx ? `${currentCtx.trim()}\n\n${result.context}` : result.context;
+        setNewCardData({
+          ...newCardData,
+          context: updatedCtx
+        });
+      } else {
+        const updated = {
+          ...newCardData,
+          front: result.front || newCardData.front,
+          back: result.back || newCardData.back,
+          context: result.context || newCardData.context
+        };
+        setNewCardData(updated);
+        
+        setTimeout(() => {
+          generateAudioInternal(updated, setNewCardData, autoPlay ? playAudio : null);
+        }, 500);
+      }
     }
   };
 

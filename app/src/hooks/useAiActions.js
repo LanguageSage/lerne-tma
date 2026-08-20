@@ -128,7 +128,7 @@ export const useAiActions = () => {
     }
   };
 
-  const runAiGenerator = async (phrase, returnResult = false) => {
+  const runAiGenerator = async (phrase, returnResult = false, actionType = 'full_card') => {
     if (!phrase) return;
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -150,7 +150,7 @@ export const useAiActions = () => {
         const activeLang = useLanguageStore.getState().activeLanguage || 'de';
         const nativeLang = localStorage.getItem('native_language') || 'uk';
         const res = await api.post('/cards/ai-generate', 
-          { phrase, target_language: activeLang, native_language: nativeLang }, 
+          { phrase, target_language: activeLang, native_language: nativeLang, action_type: actionType }, 
           { signal: abortControllerRef.current.signal }
         );
 
@@ -176,14 +176,26 @@ export const useAiActions = () => {
 
         const session = useSessionStore.getState();
         const ui = useUiStore.getState();
-        session.setEditingCard({
-          ...session.editingCard,
-          front: res.data.front || session.editingCard?.front,
-          back: res.data.back || session.editingCard?.back,
-          context: res.data.context || session.editingCard?.context
-        });
+
+        if (actionType === 'custom_directive') {
+          const currentCtx = session.editingCard?.context || '';
+          const updatedCtx = currentCtx ? `${currentCtx.strip ? currentCtx.strip() : currentCtx.trim()}\n\n${res.data.context}` : res.data.context;
+          session.setEditingCard({
+            ...session.editingCard,
+            context: updatedCtx
+          });
+          showToast("Ответ добавлен в Контекст!", "success");
+        } else {
+          session.setEditingCard({
+            ...session.editingCard,
+            front: res.data.front || session.editingCard?.front,
+            back: res.data.back || session.editingCard?.back,
+            context: res.data.context || session.editingCard?.context
+          });
+          showToast("Готово! Проверьте поля.", "success");
+        }
+        
         ui.setIsAiWizardOpen(false);
-        showToast("Готово! Проверьте поля.", "success");
         setLoading(false);
         return res.data;
 

@@ -122,6 +122,85 @@ def get_prompt_for_phrase(phrase: str, target_lang: str = "de", native_lang: str
         name=name
     )
 
+def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "uk", directive: str = None) -> str:
+    lang_config = get_language_config(target_lang, native_lang)
+    native_config = get_native_config(native_lang)
+    lang_name = lang_config["name"]
+    native_name = native_config["name"]
+
+    directive_block = ""
+    qa_instruction = ""
+    if directive:
+        directive_block = f"\n\nДополнительное указание или вопрос пользователя: \"{directive}\". Выполни просьбу пользователя."
+        qa_instruction = f"❓ **Вопрос:** {directive}\n💡 **Ответ:** [ёмкий ответ на вопрос]\n\n"
+
+    is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in phrase)
+    if is_cyrillic:
+        prompt = (
+            f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
+            f"Создай карточку для перевода на {lang_name}: \"{phrase}\".{directive_block}\n\n"
+            f"ПРАВИЛА:\n"
+            f"1. \"front\": точный перевод фразы на {lang_name} (без скобок и вопросов).\n"
+            f"2. \"back\": исходная фраза на {native_name} (\"{phrase}\").\n"
+            f"3. \"context\": структурированный текст:\n"
+            f"   {qa_instruction}"
+            f"📖 **Словарь**:\n"
+            f"• слово — перевод\n\n"
+            f"💡 **Грамматика**:\n"
+            f"[объяснение правила и формы]\n\n"
+            f"✨ **Примеры**:\n"
+            f"1. [фраза на {lang_name}] — [перевод на {native_name}]\n"
+            f"2. [фраза на {lang_name}] — [перевод на {native_name}]\n"
+            f"3. [фраза на {lang_name}] — [перевод на {native_name}]\n\n"
+            f"Return ONLY a JSON object in this format:\n{{\n"
+            f'  "front": "перевод на {lang_name.lower()}",\n'
+            f'  "back": "{phrase}",\n'
+            f'  "context": "..."\n'
+            f"}}\nEND_JSON"
+        )
+    else:
+        prompt = (
+            f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
+            f"Создай карточку для фразы: \"{phrase}\".{directive_block}\n\n"
+            f"ПРАВИЛА:\n"
+            f"1. \"front\": только чистая фраза на {lang_name} (без скобок и вопросов).\n"
+            f"2. \"back\": точный перевод на {native_name}.\n"
+            f"3. \"context\": структурированный текст:\n"
+            f"   {qa_instruction}"
+            f"📖 **Словарь**:\n"
+            f"• слово — перевод\n\n"
+            f"💡 **Грамматика**:\n"
+            f"[объяснение правила и формы]\n\n"
+            f"✨ **Примеры**:\n"
+            f"1. [фраза на {lang_name}] — [перевод на {native_name}]\n"
+            f"2. [фраза на {lang_name}] — [перевод на {native_name}]\n"
+            f"3. [фраза на {lang_name}] — [перевод на {native_name}]\n\n"
+            f"Return ONLY a JSON object in this format:\n{{\n"
+            f'  "front": "{phrase}",\n'
+            f'  "back": "перевод на {native_name.lower()}",\n'
+            f'  "context": "..."\n'
+            f"}}\nEND_JSON"
+        )
+    return prompt
+
+def build_custom_directive_prompt(phrase: str, directive: str, target_lang: str = "de", native_lang: str = "uk") -> str:
+    lang_config = get_language_config(target_lang, native_lang)
+    native_config = get_native_config(native_lang)
+    lang_name = lang_config["name"]
+    native_name = native_config["name"]
+
+    question_or_directive = directive if directive else phrase
+    prompt = (
+        f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
+        f"Фраза: \"{phrase}\"\n"
+        f"Вопрос или просьба: \"{question_or_directive}\"\n\n"
+        f"Выполни просьбу пользователя и дай чёткий ответ.\n\n"
+        f"Формат вывода (строго Markdown):\n"
+        f"❓ **Вопрос:** {question_or_directive}\n"
+        f"💡 **Ответ:** [твой ответ]"
+    )
+    return prompt
+
 def get_system_presets(target_lang: str = "de", native_lang: str = None) -> list:
     if not native_lang:
         try:

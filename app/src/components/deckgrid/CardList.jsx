@@ -98,7 +98,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
 
   const { uploadDeckResource } = useMediaUpload();
   const { openCreator } = useCardNavigation();
-  const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck?.id, view === 'cards');
+  const isDeckViewActive = ['cards', 'study', 'trainer', 'editor'].includes(view);
+  const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck?.id, isDeckViewActive);
 
   // Resizable image height — read from metadata, default 220px
   const getMetaImageHeight = () => {

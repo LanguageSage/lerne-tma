@@ -622,7 +622,7 @@ _active_presence_map: Dict[str, Dict[int, datetime.datetime]] = {}
 def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> dict:
     """
     Tracks real-time user heartbeat presence for a deck or folder and returns online status of all collaborators.
-    Active members (heartbeat within 15 seconds) are flagged is_online=True and sorted leftmost.
+    Active members (heartbeat within 30 seconds) are flagged is_online=True and sorted leftmost.
     """
     key = f"{target_type}:{target_id}"
     now = datetime.datetime.now()
@@ -631,6 +631,16 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
         _active_presence_map[key] = {}
 
     _active_presence_map[key][user_id] = now
+
+    # Also record presence for parent folder if target is a deck inside a folder
+    deck = None
+    if target_type == 'deck':
+        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
+        if deck and deck.folder_id:
+            folder_key = f"folder:{deck.folder_id}"
+            if folder_key not in _active_presence_map:
+                _active_presence_map[folder_key] = {}
+            _active_presence_map[folder_key][user_id] = now
 
     # Clean up stale heartbeats older than 60 seconds
     stale_users = [u for u, ts in _active_presence_map[key].items() if (now - ts).total_seconds() > 60]
@@ -644,7 +654,7 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
     for c in collaborators:
         uid = c["user_id"]
         last_ts = _active_presence_map[key].get(uid)
-        is_online = bool(last_ts and (now - last_ts).total_seconds() <= 15)
+        is_online = bool(last_ts and (now - last_ts).total_seconds() <= 30)
         c["is_online"] = is_online
         c["last_seen_seconds"] = int((now - last_ts).total_seconds()) if last_ts else None
         if is_online:
@@ -656,7 +666,8 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
     # Fetch updated_at timestamp for deck/folder
     updated_at_iso = None
     if target_type == 'deck':
-        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
+        if not deck:
+            deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
         if deck and deck.updated_at:
             updated_at_iso = deck.updated_at.isoformat()
     elif target_type == 'folder':
@@ -671,4 +682,30 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
         "online_count": online_count,
         "collaborators": collaborators
     }
+
+
+def touch_deck_and_parent_folders(deck_id: int):
+    """
+    Updates updated_at timestamp on a deck AND recursively updates all parent TMA_Folder timestamps.
+    This guarantees that live sync detects card edits/deletions when a user is in Folder view ('Диалоги').
+    """
+    if not deck_id:
+        return
+    now = datetime.datetime.now()
+    deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == deck_id)
+    if not deck:
+        return
+
+    models.TMA_Deck.update(updated_at=now).where(models.TMA_Deck.id == deck_id).execute()
+
+    current_folder_id = deck.folder_id
+    visited = set()
+    while current_folder_id and current_folder_id not in visited:
+        visited.add(current_folder_id)
+        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == current_folder_id)
+        if not folder:
+            break
+        models.TMA_Folder.update(updated_at=now).where(models.TMA_Folder.id == current_folder_id).execute()
+        current_folder_id = folder.parent_id
+
 

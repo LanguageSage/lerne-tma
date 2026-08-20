@@ -147,7 +147,8 @@ def save_card(data, user_id):
     
     card.save()
     if card.deck_id:
-        TMA_Deck.update(updated_at=datetime.datetime.now()).where(TMA_Deck.id == card.deck_id).execute()
+        from .collaborative_service import touch_deck_and_parent_folders
+        touch_deck_and_parent_folders(card.deck_id)
     logger.info(f"Card {card.id} saved successfully")
     return card
 
@@ -156,22 +157,33 @@ def delete_card(card_id: int, user_id: int):
     try:
         # Мягкое удаление: помечаем карточку как is_deleted = True
         card = TMA_Card.get_or_none(TMA_Card.id == card_id)
-        if not card:
+        if not card or card.is_deleted:
             # Карточка не найдена или уже удалена — считаем операцию успешной
             return True
-            
-        is_creator = card.creator_id and int(card.creator_id) == int(user_id)
-        if not is_creator and card.deck_id:
-            from .collaborative_service import get_effective_user_role
+
+        from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
+
+        creator_id_int = None
+        if card.creator_id is not None:
+            try:
+                creator_id_int = int(card.creator_id)
+            except (ValueError, TypeError):
+                creator_id_int = None
+
+        is_creator = (creator_id_int is not None) and (creator_id_int == int(user_id))
+        
+        if card.deck_id:
             role = get_effective_user_role(user_id, 'deck', card.deck_id)
-            if role not in ['owner', 'editor']:
+            if role == 'viewer':
+                return False
+            if not is_creator and role not in ['owner', 'editor']:
                 return False
 
         card.is_deleted = True
         card.updated_at = datetime.datetime.now()
         card.save()
         if card.deck_id:
-            TMA_Deck.update(updated_at=datetime.datetime.now()).where(TMA_Deck.id == card.deck_id).execute()
+            touch_deck_and_parent_folders(card.deck_id)
         return True
     except Exception as e:
         logger.error(f"Error deleting card: {e}", exc_info=True)

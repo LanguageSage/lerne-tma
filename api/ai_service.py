@@ -71,12 +71,19 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
         
     return {"front": front, "back": back, "context": context}
 
-async def generate_card_fields(user_id: int, phrase: str, target_language: str = "de", native_language: str = None):
+async def generate_card_fields(user_id: int, phrase: str, target_language: str = "de", native_language: str = None, action_type: str = "full_card"):
     """Generates Front, Back, and Context for a card using AI."""
     start_time = time.time()
     try:
-        from api.services.language_service import get_prompt_for_phrase, get_language_config, get_native_config
+        from api.services.language_service import (
+            get_prompt_for_phrase, get_language_config, get_native_config,
+            build_card_prompt, build_custom_directive_prompt
+        )
+        from api.services.input_parser import parse_user_input
         from api.models import TMACustomPrompt, TMASetting
+
+        parsed = parse_user_input(phrase)
+        clean_phrase = parsed.clean_phrase or phrase
 
         if not native_language:
             native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
@@ -94,6 +101,40 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
+        client = AIService(provider=provider, api_key=ai_key)
+        
+        if provider == "openrouter":
+            default_model = "google/gemini-2.0-flash-lite:free"
+            model_name = f"google/{ai_model}" if ai_model and "/" not in ai_model else (ai_model or default_model)
+        elif provider == "groq":
+            default_model = "llama3-70b-8192"
+            model_name = ai_model or default_model
+        else:
+            default_model = "gemini-2.0-flash"
+            model_name = ai_model or default_model
+
+        # Handle custom_directive mode (Answer/directive only)
+        if action_type == "custom_directive":
+            system_prompt = build_custom_directive_prompt(
+                phrase=clean_phrase,
+                directive=parsed.directive,
+                target_lang=target_lang,
+                native_lang=native_lang
+            )
+            logger.info(f"AI: Processing custom_directive for '{clean_phrase}' using {provider}/{model_name}...")
+            response, success = await client.chat_completion(
+                system_prompt=system_prompt,
+                user_message=clean_phrase,
+                model=model_name
+            )
+            duration = time.time() - start_time
+            if not success:
+                logger.error(f"AI: Custom directive failed after {duration:.2f}s: {response}")
+                return {"error": response}
+            logger.info(f"AI: Custom directive successful in {duration:.2f}s")
+            return {"front": "", "back": "", "context": response.strip()}
+
+        # Standard full_card mode
         is_quiz_request = any(marker in phrase for marker in ['[*]', '[ ]', '[x]', '[X]'])
         is_trainer_request = '{' in phrase or any(w in phrase.lower() for w in ['тренажер', 'тренажёр', 'пропуск', 'cloze', 'грамматика', 'грамматик'])
         target_ptype = 'exam' if is_quiz_request else ('trainer' if is_trainer_request else 'standard')
@@ -105,7 +146,6 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
         )
         
-        # Fallback if no specific prompt_type custom prompt is active
         if not custom_prompt:
             custom_prompt = TMACustomPrompt.get_or_none(
                 (TMACustomPrompt.user_id == user_id) & 
@@ -113,24 +153,26 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
             )
         
-        is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in phrase)
+        is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in clean_phrase)
         is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "📝", "Уровень", "Рівень", "Level", "preset"])
         
         if custom_prompt and not is_system_preset:
             raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
-            system_prompt = (raw_prompt or get_prompt_for_phrase(phrase, target_lang, native_lang)).replace("{phrase}", phrase)
+            system_prompt = (raw_prompt or get_prompt_for_phrase(clean_phrase, target_lang, native_lang)).replace("{phrase}", clean_phrase)
+            if parsed.has_directive:
+                system_prompt += f"\n\nДополнительное указание пользователя: \"{parsed.directive}\". Выполни просьбу пользователя."
         elif is_quiz_request:
             native_name = native_config["name"].lower()
             system_prompt = (
                 f"Ты — профессиональный преподаватель и экзаменатор языка {lang_name}.\n"
-                f"Для экзаменационного вопроса с выбором вариантов ответа:\n'{phrase}'\n\n"
+                f"Для экзаменационного вопроса с выбором вариантов ответа:\n'{clean_phrase}'\n\n"
                 f"Проанализируй вопрос и варианты ответов.\n"
                 f"1. Сделай точный перевод вопроса и всех вариантов ответов на {native_name} язык.\n"
                 f"2. Подробно объясни грамматику и логику, почему именно отмеченный [*] или [x] вариант ответа является правильным, и в чём заключается ошибка остальных вариантов.\n"
                 f"3. Переведи ключевые сложные слова из вопроса.\n"
                 f"НЕ пиши дополнительные 3 примера предложений!\n\n"
                 f"Return ONLY a JSON object in this format:\n{{\n"
-                f'  "front": "{phrase}",\n'
+                f'  "front": "{clean_phrase}",\n'
                 f'  "back": "Перевод вопроса и правильного ответа",\n'
                 f'  "context": "🎯 **Перевод**:\\n[перевод вопроса и всех вариантов]\\n\\n💡 **Грамматический разбор и объяснение ответа**:\\n[подробное объяснение почему правильный ответ именно этот]\\n\\n📖 **Словарный запас**:\\n[слово — перевод]"\n'
                 f"}}\nEND_JSON"
@@ -138,7 +180,7 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         elif is_trainer_request:
             native_name = native_config["name"].lower()
             system_prompt = (
-                f"Ты — преподаватель языка {lang_name}. Создай грамматическую карточку-тренажёр на основе фразы:\n'{phrase}'\n\n"
+                f"Ты — преподаватель языка {lang_name}. Создай грамматическую карточку-тренажёр на основе фразы:\n'{clean_phrase}'\n\n"
                 f"Инструкции:\n"
                 f"1. На лицевой стороне ('front') сформируй предложение на {lang_name} языке и обязательно оберни проверяемую грамматическую форму, предлог или артикль в фигурные скобки, например: 'Ich fahre {{mit dem}} Bus' или 'der Weg {{zum}} Gipfel' (можно указать варианты через черту: '{{zum|zur|ins}}').\n"
                 f"2. На обратной стороне ('back') ОБЯЗАТЕЛЬНО укажи ПОЛНЫЙ И ТОЧНЫЙ перевод всего предложения на {native_name} язык.\n"
@@ -153,7 +195,12 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 f"}}\nEND_JSON"
             )
         else:
-            system_prompt = get_prompt_for_phrase(phrase, target_lang, native_lang)
+            system_prompt = build_card_prompt(
+                phrase=clean_phrase,
+                target_lang=target_lang,
+                native_lang=native_lang,
+                directive=parsed.directive
+            )
 
         if "JSON" not in system_prompt.upper():
             native_name = native_config["name"].lower()

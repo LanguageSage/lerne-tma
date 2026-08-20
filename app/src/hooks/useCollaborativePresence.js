@@ -31,10 +31,18 @@ export const useCollaborativePresence = (targetType, targetId, enabled = true) =
         // Check if target updated_at timestamp changed on server
         if (updated_at) {
           if (lastUpdatedAtRef.current && lastUpdatedAtRef.current !== updated_at) {
-            console.log(`[CollaborativeSync] Server update detected (${lastUpdatedAtRef.current} -> ${updated_at}). Auto-refreshing cards...`);
-            if (targetType === 'deck') {
-              // Silently refresh deck cards in Zustand store
-              useDeckStore.getState().fetchDeckCards(targetId, 1, true).catch(err => {
+            console.log(`[CollaborativeSync] Server update detected (${lastUpdatedAtRef.current} -> ${updated_at}). Auto-refreshing...`);
+            const deckStore = useDeckStore.getState();
+            
+            // Refresh decks & folders list
+            deckStore.fetchDecks().catch(err => {
+              console.warn("[CollaborativeSync] Fetch decks failed:", err);
+            });
+
+            // If a deck is open, refresh deck cards
+            const currentDeckId = targetType === 'deck' ? targetId : deckStore.currentDeck?.id;
+            if (currentDeckId) {
+              deckStore.fetchDeckCards(currentDeckId, 1, true).catch(err => {
                 console.warn("[CollaborativeSync] Card auto-refresh failed:", err);
               });
             }
@@ -60,16 +68,20 @@ export const useCollaborativePresence = (targetType, targetId, enabled = true) =
       checkPresence();
     }, 4000);
 
-    // Also check on window focus
-    const handleFocus = () => {
-      checkPresence();
+    // Check on window focus and tab/app visibility change
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkPresence();
+      }
     };
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [targetId, enabled, checkPresence]);
 
