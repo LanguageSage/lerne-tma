@@ -110,8 +110,6 @@ export const StudyCardPuzzle = React.memo(({
 
   return (
     <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-      <div className="text-hint-translation">{stripMarkdown(card.back)}</div>
-      
       {/* Target Slots Container */}
       <div 
         className="puzzle-target-slots glass"

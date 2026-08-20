@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Send } from 'lucide-react';
+import { User, Mail, Send, BarChart2, Sparkles } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import api from '../../services/api';
 import { isOfflineMode } from '../../services/localDb';
 import { syncService } from '../../services/syncService';
+import { SrsStatsModal } from '../study/SrsStatsModal';
 
 export const ProfileTab = () => {
   const { userProfile, setUserProfile, showToast } = useUiStore();
@@ -13,6 +14,7 @@ export const ProfileTab = () => {
   const [email, setEmail] = useState(userProfile?.email || '');
   const [phone, setPhone] = useState(userProfile?.phone || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [srsStatsOpen, setSrsStatsOpen] = useState(false);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -135,6 +137,28 @@ export const ProfileTab = () => {
           {isSaving ? "Сохранение..." : "Сохранить изменения"}
         </button>
 
+        {/* SRS Analytics Section */}
+        <div className="link-telegram-section glass" style={{ marginTop: '16px', border: '1px solid rgba(168, 85, 247, 0.3)', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(59, 130, 246, 0.04))' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BarChart2 size={18} color="#a855f7" />
+              Статистика памяти (SRS)
+            </h4>
+            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc', fontWeight: 600 }}>SM-2 PRO</span>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 12px 0' }}>
+            Анализ удержания памяти, распределение зрелости карточек и прогноз повторений на 7 дней.
+          </p>
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%', background: 'linear-gradient(135deg, #a855f7, #6366f1)', border: 'none' }}
+            onClick={() => setSrsStatsOpen(true)}
+          >
+            <Sparkles size={16} style={{ marginRight: '6px' }} />
+            Открыть аналитику SRS
+          </button>
+        </div>
+
         {userProfile?.is_guest && (
           <div className="link-telegram-section glass">
             <h4>Синхронизация</h4>
@@ -174,6 +198,8 @@ export const ProfileTab = () => {
           </div>
         )}
       </div>
+
+      <SrsStatsModal isOpen={srsStatsOpen} onClose={() => setSrsStatsOpen(false)} />
     </motion.div>
   );
 };

@@ -1,0 +1,337 @@
+.srs-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 16px;
+}
+
+.srs-modal-container {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  background: #1e1e24;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.srs-modal-header {
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.srs-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.srs-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(168, 85, 247, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.srs-title-wrapper h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.srs-title-wrapper p {
+  margin: 2px 0 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.srs-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: #94a3b8;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.srs-close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.srs-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.srs-loading-state, .srs-error-state {
+  padding: 40px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #94a3b8;
+}
+
+.srs-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(168, 85, 247, 0.2);
+  border-top-color: #a855f7;
+  border-radius: 50%;
+  animation: srs-spin 0.8s linear infinite;
+}
+
+@keyframes srs-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Metrics Grid */
+.srs-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.srs-metric-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.srs-metric-card.primary {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(59, 130, 246, 0.08));
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+.srs-metric-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.srs-metric-label {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.srs-metric-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.srs-metric-sub {
+  font-size: 0.68rem;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Section Card */
+.srs-section-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.srs-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.srs-section-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.srs-mature-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Stacked Progress Bar */
+.srs-stacked-bar {
+  height: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.srs-bar-segment {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.srs-bar-segment.mature { background: #eab308; }
+.srs-bar-segment.young { background: #22c55e; }
+.srs-bar-segment.learning { background: #3b82f6; }
+.srs-bar-segment.new { background: #64748b; }
+
+/* Legend */
+.srs-legend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.srs-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.srs-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.srs-dot.mature { background: #eab308; box-shadow: 0 0 6px rgba(234, 179, 8, 0.5); }
+.srs-dot.young { background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.5); }
+.srs-dot.learning { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.5); }
+.srs-dot.new { background: #64748b; }
+
+.srs-legend-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.srs-legend-name {
+  font-size: 0.76rem;
+  color: #cbd5e1;
+}
+
+.srs-legend-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.srs-leech-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: #fca5a5;
+}
+
+/* 7-Day Forecast Chart */
+.srs-forecast-chart {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  align-items: flex-end;
+  height: 110px;
+  padding-top: 15px;
+}
+
+.srs-forecast-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+}
+
+.srs-forecast-val {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.srs-forecast-col.today .srs-forecast-val {
+  color: #a855f7;
+}
+
+.srs-forecast-bar-track {
+  flex: 1;
+  width: 100%;
+  max-width: 22px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.srs-forecast-bar-fill {
+  width: 100%;
+  background: linear-gradient(180deg, #60a5fa, #3b82f6);
+  border-radius: 6px 6px 0 0;
+  transition: height 0.4s ease;
+}
+
+.srs-forecast-col.today .srs-forecast-bar-fill {
+  background: linear-gradient(180deg, #c084fc, #a855f7);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+}
+
+.srs-forecast-day {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.srs-forecast-col.today .srs-forecast-day {
+  color: #c084fc;
+  font-weight: 700;
+}

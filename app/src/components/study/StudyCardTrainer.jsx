@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Eye, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getTextShadow } from '../../utils/style';
+import { getCardStyle, getContextStyle } from '../../utils/cardStyles';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
 
@@ -18,6 +18,9 @@ export const StudyCardTrainer = React.memo(({
   const [activeGapId, setActiveGapId] = useState(null);
   const [isChecked, setIsChecked] = useState(false);
   const [isFirstTry, setIsFirstTry] = useState(true);
+
+  const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
+  const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
 
   const gaps = useMemo(() => clozeData?.gaps || [], [clozeData?.gaps]);
 
@@ -46,26 +49,6 @@ export const StudyCardTrainer = React.memo(({
   }, [gaps, currentActiveGapId]);
 
   if (!card || !clozeData) return null;
-
-  const {
-    cardFont,
-    cardTextColor,
-    cardFontSize,
-    cardFontWeight,
-    cardFontStyle,
-    cardTextShadow,
-    cardTextAlign
-  } = styles;
-
-  const cardStyle = {
-    fontFamily: cardFont,
-    color: cardTextColor,
-    fontSize: cardFontSize ? `${cardFontSize}rem` : undefined,
-    fontWeight: cardFontWeight,
-    fontStyle: cardFontStyle,
-    textShadow: getTextShadow(cardTextShadow, cardTextColor),
-    textAlign: cardTextAlign || 'center'
-  };
 
   const filledCount = gaps.filter(g => selectedOptions[g.id]).length;
   const allGapsFilled = gaps.length > 0 && filledCount === gaps.length;
@@ -323,12 +306,12 @@ export const StudyCardTrainer = React.memo(({
                 borderRadius: '14px',
                 background: btnBg,
                 border: btnBorder,
-                color: btnColor,
-                fontFamily: cardFont,
-                fontSize: cardFontSize ? `${Math.min(cardFontSize, 1.25)}rem` : '1.1rem',
-                fontWeight: isSelected ? 700 : (cardFontWeight || 600),
-                fontStyle: cardFontStyle,
-                textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                color: (isChecked || isSelected) ? btnColor : (contextStyle.color || btnColor),
+                fontFamily: contextStyle.fontFamily || undefined,
+                fontSize: contextStyle.fontSize || '1.1rem',
+                fontWeight: isSelected ? 700 : (contextStyle.fontWeight || 600),
+                fontStyle: contextStyle.fontStyle || undefined,
+                textShadow: contextStyle.textShadow || undefined,
                 cursor: isChecked ? 'default' : 'pointer',
                 textAlign: 'center',
                 boxShadow: btnShadow,

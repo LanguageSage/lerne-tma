@@ -235,15 +235,16 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "video_back_path": video_back,
         "flag": int(get_val('flag', 'flag') or 0),
         "creator_name": creator_name,
-        "creator_avatar": creator_avatar
+        "creator_avatar": creator_avatar,
+        "is_leech": srs.is_leech(getattr(p, 'lapses', 0) if p else 0),
+        "lapses": getattr(p, 'lapses', 0) if p else 0,
+        "queue": getattr(p, 'queue', 'new') if p else "new",
+        "interval": getattr(p, 'interval', 0) if p else 0
     }
 
     if include_intervals:
         result["intervals"] = srs.get_next_intervals(p)
     else:
-        result["queue"] = getattr(p, 'queue', 'new') if p else "new"
-        result["interval"] = getattr(p, 'interval', 0) if p else 0
-        
         nr = getattr(p, 'next_review', None) if p else None
         result["next_review"] = nr.isoformat() if nr else None
         

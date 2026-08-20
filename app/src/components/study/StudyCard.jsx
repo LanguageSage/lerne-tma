@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Eye, Volume2, Sparkles } from 'lucide-react';
+import { RefreshCw, Eye, Volume2, Sparkles, AlertTriangle } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
-import { getTextShadow } from '../../utils/style';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 
@@ -208,6 +207,31 @@ export const StudyCard = React.memo(({
             <CardBackground styleType={resolvedBgFront} />
             <div className="card-face">
               
+              {/* Leech Indicator */}
+              {Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5)) && (
+                <div
+                  className="leech-badge"
+                  title={`Сложная карточка (${card?.lapses || 5} ошибок). Рекомендуем упростить или добавить мнемонику.`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    color: '#fca5a5',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    marginBottom: '12px',
+                    alignSelf: 'center'
+                  }}
+                >
+                  <AlertTriangle size={12} color="#ef4444" />
+                  <span>Сложная карточка ({card?.lapses || 5} ошибок)</span>
+                </div>
+              )}
+              
               {/* Media Preview Header */}
               {imageUrl && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
                 <div style={{
@@ -282,6 +306,7 @@ export const StudyCard = React.memo(({
                   setIsFlipped={onFlip}
                   playAudio={playAudio}
                   onTrainerAnswer={onTrainerAnswer}
+                  styles={styles}
                 />
               )}
 
@@ -302,11 +327,7 @@ export const StudyCard = React.memo(({
               {/* Cloze (Fill-in-the-blanks) Mode */}
               {effectiveStudyMode === 'cloze' && clozeData && (
                 <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-                  <div className="text-hint-translation" style={{ marginBottom: '12px', opacity: 0.85, fontSize: '1rem' }}>
-                    {stripMarkdown(card.back)}
-                  </div>
-
-                  <div className="text-front cloze-masked-text" style={{ fontSize: '1.25rem', fontWeight: 600, margin: '14px 0', lineHeight: 1.5 }}>
+                  <div className="text-front cloze-masked-text" style={{ ...cardStyle, margin: '14px 0', lineHeight: 1.5 }}>
                     {(() => {
                       const parts = clozeData.maskedText.split('_____');
                       const activeWord = correctSelected || wrongSelected[wrongSelected.length - 1];
@@ -358,12 +379,12 @@ export const StudyCard = React.memo(({
 
                       let btnClass = 'btn-cloze-option';
                       let customStyle = {
-                        fontFamily: styles?.cardFont,
-                        fontSize: `${styles?.cardFontSize}rem`,
-                        fontWeight: styles?.cardFontWeight,
-                        fontStyle: styles?.cardFontStyle,
-                        textShadow: getTextShadow(styles?.cardTextShadow, styles?.cardTextColor),
-                        color: styles?.cardTextColor
+                        fontFamily: contextStyle.fontFamily,
+                        fontSize: contextStyle.fontSize || `${styles?.cardFontSize}rem`,
+                        fontWeight: contextStyle.fontWeight,
+                        fontStyle: contextStyle.fontStyle,
+                        textShadow: contextStyle.textShadow,
+                        color: contextStyle.color
                       };
 
                       if (isCorrect) { btnClass += ' correct'; delete customStyle.color; }
@@ -417,6 +438,30 @@ export const StudyCard = React.memo(({
           <div className="card-inner card-back glass" onClick={() => onFlip(false)} style={{ cursor: 'pointer', ...flagStyle }}>
             <CardBackground styleType={resolvedBgBack} />
             <div className="card-face">
+              {/* Leech Indicator */}
+              {Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5)) && (
+                <div
+                  className="leech-badge"
+                  title={`Сложная карточка (${card?.lapses || 5} ошибок). Рекомендуем упростить или добавить мнемонику.`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    color: '#fca5a5',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    marginBottom: '12px',
+                    alignSelf: 'center'
+                  }}
+                >
+                  <AlertTriangle size={12} color="#ef4444" />
+                  <span>Сложная карточка ({card?.lapses || 5} ошибок)</span>
+                </div>
+              )}
               <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
                 <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.9, ...cardStyle }}>
                   {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}

@@ -1,15 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, XCircle, Check } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
+import { getCardStyle, getContextStyle } from '../../utils/cardStyles';
+import { stripMarkdown } from '../../utils/text';
 
 export const StudyCardQuiz = ({
   card,
   quizData,
-  onTrainerAnswer
+  onTrainerAnswer,
+  styles = {}
 }) => {
   const [selectedOptionId, setSelectedOptionId] = useState(null);
   const [isChecked, setIsChecked] = useState(false);
   const [isCorrect, setIsCorrect] = useState(null);
+
+  const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
+  const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
 
   // Reset state on card change
   useEffect(() => {
@@ -23,6 +29,8 @@ export const StudyCardQuiz = ({
   if (!card || !quizData) return null;
 
   const { question, options } = quizData;
+  const backText = stripMarkdown(card?.back || '').trim().toLowerCase();
+  const displayQuestion = (question && question.trim().toLowerCase() === backText) ? null : question;
 
   const handleSelectOption = (optionId, e) => {
     e.stopPropagation();
@@ -60,16 +68,16 @@ export const StudyCardQuiz = ({
   return (
     <div className="quiz-container" style={{ width: '100%', padding: '4px 0' }}>
       {/* Question Header */}
-      <div className="quiz-question" style={{
-        fontSize: '1.2rem',
-        fontWeight: 600,
-        marginBottom: '16px',
-        color: '#f8fafc',
-        lineHeight: 1.4,
-        textAlign: 'center'
-      }}>
-        {question}
-      </div>
+      {displayQuestion && (
+        <div className="quiz-question" style={{
+          ...cardStyle,
+          marginBottom: '16px',
+          lineHeight: 1.4,
+          width: '100%'
+        }}>
+          {displayQuestion}
+        </div>
+      )}
 
       {/* Options List */}
       <div className="quiz-options-list" style={{
@@ -156,7 +164,15 @@ export const StudyCardQuiz = ({
                   getOptionLetter(index)
                 ))}
               </div>
-              <span style={{ flex: 1, wordBreak: 'break-word' }}>{option.text}</span>
+              <span style={{
+                flex: 1,
+                wordBreak: 'break-word',
+                fontFamily: contextStyle.fontFamily || undefined,
+                color: isSelected || isChecked ? undefined : (contextStyle.color || undefined),
+                textShadow: contextStyle.textShadow || undefined
+              }}>
+                {option.text}
+              </span>
             </button>
           );
         })}
