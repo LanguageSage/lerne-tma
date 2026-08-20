@@ -56,8 +56,13 @@ def save_card(data, user_id):
     
     # Обновляем только если передано (используем get с проверкой наличия ключа, чтобы позволить пустые строки)
 
+    old_front = card.front_text
     if 'front' in data or 'front_text' in data:
-        card.front_text = data.get('front') if 'front' in data else data.get('front_text')
+        new_front = data.get('front') if 'front' in data else data.get('front_text')
+        if old_front and new_front and old_front.strip() != new_front.strip():
+            if 'audio_path' not in data or not data.get('audio_path'):
+                card.audio_path = None
+        card.front_text = new_front
         
     if 'back' in data or 'back_text' in data:
         card.back_text = data.get('back') if 'back' in data else data.get('back_text')
@@ -66,7 +71,7 @@ def save_card(data, user_id):
         card.context = data.get('context')
     if 'image_path' in data:
         card.image_path = data.get('image_path')
-    if 'audio_path' in data:
+    if 'audio_path' in data and data.get('audio_path'):
         card.audio_path = data.get('audio_path')
     if 'audio_back_path' in data:
         card.audio_back_path = data.get('audio_back_path')

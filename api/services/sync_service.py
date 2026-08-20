@@ -102,9 +102,9 @@ def execute_sync_push(request, user_id: int) -> dict:
                             deck.updated_at = client_updated_at
                             deck.save()
 
-            # 2. Process Cards
-            user_deck_ids = set(models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id).tuples())
-            user_deck_ids = {d[0] for d in user_deck_ids}
+            # 2. Process Cards (including accessible collaborative decks)
+            from api.services.collaborative_service import get_user_accessible_deck_ids
+            user_deck_ids = set(get_user_accessible_deck_ids(user_id))
             for c in request.cards:
                 resolved_deck_id = c.deck_id
                 if not resolved_deck_id or resolved_deck_id < 0:
@@ -410,17 +410,7 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
                 (models.TMA_Card.deck_id << list(accessible_deck_ids)) &
                 (models.TMA_Card.updated_at > since_dt)
             )
-            # Get deck owners for filtering own changes
-            deck_owners = {}
-            for d in models.TMA_Deck.select(models.TMA_Deck.id, models.TMA_Deck.user_id).where(
-                models.TMA_Deck.id << list(accessible_deck_ids)
-            ):
-                deck_owners[d.id] = d.user_id
-
             for c in changed_cards:
-                deck_owner = deck_owners.get(c.deck_id)
-                if deck_owner == user_id:
-                    continue  # Skip own deck's cards — already have those
                 has_changes = True
                 cards_data.append({
                     "id": c.id,

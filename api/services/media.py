@@ -1,6 +1,7 @@
 import os
 import datetime
 import logging
+import time
 import json
 from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia
 from .. import srs
@@ -8,6 +9,25 @@ from peewee import fn, JOIN
 from functools import lru_cache
 
 logger = logging.getLogger(__name__)
+
+_tma_settings_cache = {}
+_tma_settings_cache_time = 0
+
+def _get_cached_tma_settings():
+    global _tma_settings_cache, _tma_settings_cache_time
+    now = time.time()
+    if now - _tma_settings_cache_time < 30 and _tma_settings_cache:
+        return _tma_settings_cache
+    try:
+        from ..models import TMASetting
+        new_cache = {}
+        for s in TMASetting.select():
+            new_cache[s.key] = s.value
+        _tma_settings_cache = new_cache
+        _tma_settings_cache_time = now
+    except Exception as e:
+        logger.error(f"Error fetching settings for ensure_card_audio: {e}")
+    return _tma_settings_cache
 
 def _build_media_exists_map(cards_dicts: list) -> set:
     """Собирает множество (filename, folder) существующих в TMAMedia записей.
@@ -114,13 +134,8 @@ async def ensure_card_audio(card, user_id: int):
     # Определяем язык по наличию кириллицы
     lang = "ru" if re.search(r'[а-яА-ЯёЁ]', card.front_text) else "de"
     
-    # Загружаем настройки озвучки
-    db_settings = {}
-    try:
-        for s in TMASetting.select():
-            db_settings[s.key] = s.value
-    except Exception as e:
-        logger.error(f"Error fetching settings for ensure_card_audio: {e}")
+    # Загружаем настройки озвучки (с простым TTL кэшем)
+    db_settings = _get_cached_tma_settings()
         
     voice = None
     rate = None

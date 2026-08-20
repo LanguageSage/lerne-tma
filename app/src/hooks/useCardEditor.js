@@ -39,15 +39,28 @@ export const useCardEditor = () => {
       };
       if (data.after_card_id) reqData.after_card_id = data.after_card_id;
 
-      await api.post('/cards/save', reqData);
+      const res = await api.post('/cards/save', reqData);
 
       showToast("Карточка сохранена", "success");
       
+      const { deckCards } = useDeckStore.getState();
+      if (res?.data && res.data.id) {
+        const savedCard = res.data;
+        const existingIdx = (deckCards || []).findIndex(c => String(c.id) === String(savedCard.id));
+        let nextCards = [...(deckCards || [])];
+        if (existingIdx !== -1) {
+          nextCards[existingIdx] = { ...nextCards[existingIdx], ...savedCard };
+        } else {
+          nextCards.push(savedCard);
+        }
+        useDeckStore.setState({ deckCards: nextCards });
+      }
+
       const updatedDeck = useDeckStore.getState().decks.find(d => d.id === finalDeckId) || currentDeck;
       if (updatedDeck) {
-        await fetchDeckCards(updatedDeck.id);
+        fetchDeckCards(updatedDeck.id).catch(err => console.warn('Background deck cards refresh:', err));
       }
-      fetchDecks(true);
+      fetchDecks(true).catch(err => console.warn('Background decks refresh:', err));
 
       const sourceView = ui.editorSourceView || 'cards';
       session.setEditingCard(null);
