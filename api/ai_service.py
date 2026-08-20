@@ -77,9 +77,9 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
     try:
         from api.services.language_service import (
             get_prompt_for_phrase, get_language_config, get_native_config,
-            build_card_prompt, build_custom_directive_prompt
+            build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt
         )
-        from api.services.input_parser import parse_user_input
+        from api.services.input_parser import parse_user_input, parse_ai_json_response
         from api.models import TMACustomPrompt, TMASetting
 
         parsed = parse_user_input(phrase)
@@ -112,6 +112,29 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         else:
             default_model = "gemini-2.0-flash"
             model_name = ai_model or default_model
+
+        # Handle explain_rule mode (grammar explanation for cloze gap)
+        if action_type == "explain_rule":
+            system_prompt = build_rule_explanation_prompt(
+                phrase=clean_phrase,
+                target_lang=target_lang,
+                native_lang=native_lang
+            )
+            logger.info(f"AI: Processing explain_rule for '{clean_phrase}' using {provider}/{model_name}...")
+            response, success = await client.chat_completion(
+                system_prompt=system_prompt,
+                user_message=clean_phrase,
+                model=model_name
+            )
+            duration = time.time() - start_time
+            if not success:
+                logger.error(f"AI: Explain rule failed after {duration:.2f}s: {response}")
+                return {"error": response}
+            logger.info(f"AI: Explain rule successful in {duration:.2f}s")
+            parsed_json = parse_ai_json_response(response)
+            if parsed_json:
+                return parsed_json
+            return {"front": clean_phrase, "back": "", "context": response.strip()}
 
         # Handle custom_directive mode (Answer/directive only)
         if action_type == "custom_directive":

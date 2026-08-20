@@ -201,6 +201,28 @@ def build_custom_directive_prompt(phrase: str, directive: str, target_lang: str 
     )
     return prompt
 
+def build_rule_explanation_prompt(phrase: str, target_lang: str = "de", native_lang: str = "uk") -> str:
+    lang_config = get_language_config(target_lang, native_lang)
+    native_config = get_native_config(native_lang)
+    lang_name = lang_config["name"]
+    native_name = native_config["name"]
+
+    prompt = (
+        f"Ты — профессиональный преподаватель языка {lang_name}.\n"
+        f"Проанализируй пропуск в фигурных скобках {{...}} или ключевую конструкцию в предложении: \"{phrase}\".\n\n"
+        f"ЗАДАЧА:\n"
+        f"1. Дай точный перевод предложения на {native_name} язык.\n"
+        f"2. Подробно и понятно объясни грамматическое правило для пропуска {{...}} (почему используется именно эта форма слова, падеж, управление глагола или артикль).\n"
+        f"3. Приведи 2 наглядных примера аналогичных предложений.\n\n"
+        f"Верни результат СТРОГО в формате JSON:\n"
+        f"{{\n"
+        f'  "front": "{phrase}",\n'
+        f'  "back": "[точный перевод на {native_name} с подставленным правильным словом в пропуске]",\n'
+        f'  "context": "📖 **Грамматическое правило**:\\n[Подробное объяснение правила, падежа или формы слова]\\n\\n💡 **Примеры**:\\n• [Пример 1]\\n• [Пример 2]"\n'
+        f"}}\n"
+    )
+    return prompt
+
 def get_system_presets(target_lang: str = "de", native_lang: str = None) -> list:
     if not native_lang:
         try:

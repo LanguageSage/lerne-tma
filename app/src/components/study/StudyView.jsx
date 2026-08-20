@@ -411,7 +411,6 @@ export const StudyView = ({ startTutorial }) => {
                 <option value="cloze">📝 Выбор слова (Пропуски)</option>
                 <option value="puzzle">🧩 Конструктор (Сборка фразы)</option>
                 <option value="speak">🗣 Произношение (Голос)</option>
-                <option value="turbo">🔥 Ударная тренировка (До автоматизма)</option>
                 <option value="random">🎲 Случайный выбор (Рандом)</option>
               </select>
             </div>

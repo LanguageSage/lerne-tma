@@ -157,7 +157,6 @@ export const StudyCard = React.memo(({
 
     if (option.toLowerCase() === clozeData.correctAnswer.toLowerCase()) {
       setCorrectSelected(option);
-      if (card.audio_url) playAudio(card.audio_url);
       triggerHaptic('success');
       
       if (studyMode === 'trainer' && onTrainerAnswer) {

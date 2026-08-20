@@ -44,8 +44,8 @@ export const useCardEditor = () => {
       showToast("Карточка сохранена", "success");
       
       const { deckCards } = useDeckStore.getState();
+      let savedCard = (res?.data && res.data.id) ? res.data : data;
       if (res?.data && res.data.id) {
-        const savedCard = res.data;
         const existingIdx = (deckCards || []).findIndex(c => String(c.id) === String(savedCard.id));
         let nextCards = [...(deckCards || [])];
         if (existingIdx !== -1) {
@@ -66,8 +66,16 @@ export const useCardEditor = () => {
       session.setEditingCard(null);
 
       if (sourceView === 'study') {
-        if (session.card && session.card.id === data.id) {
-          await fetchNextCard(finalDeckId, true);
+        if (savedCard && savedCard.id) {
+          session.setCard(savedCard);
+          const { studyHistory, historyIndex } = session;
+          if (data.id && historyIndex >= 0 && studyHistory[historyIndex]?.id === savedCard.id) {
+            const updatedHistory = [...studyHistory];
+            updatedHistory[historyIndex] = savedCard;
+            session.setStudyHistory(updatedHistory);
+          } else if (!data.id) {
+            session.addToHistory(savedCard);
+          }
         }
         if (window.history.state?.view === 'editor' || window.history.state?.view === 'creator') {
           window.history.back();

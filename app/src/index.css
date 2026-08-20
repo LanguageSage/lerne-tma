@@ -540,7 +540,19 @@ h1, h2, h3 {
 .ai-quick-actions {
   display: flex;
   justify-content: center;
+  align-items: stretch;
+  gap: 10px;
   margin: 10px 0 20px;
+  width: 100%;
+}
+
+.ai-quick-actions > button,
+.ai-quick-actions > .btn,
+.ai-quick-actions > .btn-ai-generate {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  justify-content: center;
 }
 
 .btn-ai-generate {
@@ -600,15 +612,15 @@ h1, h2, h3 {
 .split-button-container {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   flex: 1;
 }
 
 .split-btn-main {
   flex: 1;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right: none;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-right: none !important;
   justify-content: center;
 }
 
@@ -616,20 +628,24 @@ h1, h2, h3 {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 10px;
-  background: linear-gradient(135deg, rgba(255, 255, 0, 0.1), rgba(255, 100, 0, 0.1));
+  padding: 0 10px;
+  background: linear-gradient(135deg, rgba(255, 255, 0, 0.08), rgba(255, 100, 0, 0.08));
   border: 1px solid rgba(255, 255, 0, 0.3);
-  border-left: 1px solid rgba(255, 255, 0, 0.2);
+  border-left: 1px solid rgba(255, 255, 0, 0.15);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
   border-top-right-radius: 12px;
   border-bottom-right-radius: 12px;
-  color: #ffff00;
+  color: rgba(255, 255, 0, 0.6);
   cursor: pointer;
+  box-sizing: border-box;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .split-btn-arrow:hover, .split-btn-arrow.active {
   background: linear-gradient(135deg, rgba(255, 255, 0, 0.2), rgba(255, 100, 0, 0.2));
   border-color: rgba(255, 255, 0, 0.5);
+  color: #ffff00;
 }
 
 .split-btn-arrow:disabled {

@@ -3,7 +3,6 @@ import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
-import { useSettingsStore } from '../store/useSettingsStore';
 
 export const useStudySession = () => {
   const gradingRef = useRef(false);
@@ -20,33 +19,7 @@ export const useStudySession = () => {
     const session = useSessionStore.getState();
     session.setApiError(null);
     try {
-      const { studyMode } = useSettingsStore.getState();
-      if (studyMode === 'turbo') {
-        const { deckCards } = useDeckStore.getState();
-        const sourceCards = deckCards;
-        const currentCard = session.card;
-        let nextCardInfo = null;
-
-        if (isFirst || !currentCard) {
-          nextCardInfo = sourceCards[0];
-        } else {
-          const currentIndex = sourceCards.findIndex(c => c.id === currentCard.id);
-          if (currentIndex >= 0 && currentIndex < sourceCards.length - 1) {
-            nextCardInfo = sourceCards[currentIndex + 1];
-          } else {
-            nextCardInfo = null;
-          }
-        }
-
-        if (!nextCardInfo) {
-          session.setCard(null);
-        } else {
-          const res = await api.get(`/study/card/${nextCardInfo.id}`);
-          const newCard = res.data;
-          session.addToHistory(newCard);
-          prefetchMedia(newCard.image_url);
-        }
-      } else if (deckId === 'duplicates') {
+      if (deckId === 'duplicates') {
         const { duplicateCards } = useDeckStore.getState();
         const currentCard = session.card;
         let nextDuplicateCard = null;
@@ -144,46 +117,20 @@ export const useStudySession = () => {
     try {
       const gradedCardId = session.card.id;
 
-      const { studyMode } = useSettingsStore.getState();
+      const endpoint = currentDeck.id === 'duplicates' ? '/study/duplicates/grade' : '/study/grade';
+      const res = await api.post(endpoint, {
+        card_id: gradedCardId,
+        deck_id: currentDeck.id,
+        grade,
+        learn_more: session.isLearningMore
+      });
 
-      if (studyMode === 'turbo') {
-        await api.post('/study/grade', {
-          card_id: gradedCardId,
-          deck_id: session.card.deck_id,
-          grade
-        });
-
-        const { deckCards } = useDeckStore.getState();
-        const currentIndex = deckCards.findIndex(c => c.id === gradedCardId);
-        let nextCardInfo = null;
-        if (currentIndex >= 0 && currentIndex < deckCards.length - 1) {
-          nextCardInfo = deckCards[currentIndex + 1];
-        }
-
-        if (!nextCardInfo) {
-          session.setCard(null);
-        } else {
-          const res = await api.get(`/study/card/${nextCardInfo.id}`);
-          const nextCard = res.data;
-          session.addToHistory(nextCard);
-          prefetchMedia(nextCard.image_url);
-        }
+      if (res.data.finished) {
+        session.setCard(null);
       } else {
-        const endpoint = currentDeck.id === 'duplicates' ? '/study/duplicates/grade' : '/study/grade';
-        const res = await api.post(endpoint, {
-          card_id: gradedCardId,
-          deck_id: currentDeck.id,
-          grade,
-          learn_more: session.isLearningMore
-        });
-
-        if (res.data.finished) {
-          session.setCard(null);
-        } else {
-          const nextCard = res.data;
-          session.addToHistory(nextCard);
-          prefetchMedia(nextCard.image_url);
-        }
+        const nextCard = res.data;
+        session.addToHistory(nextCard);
+        prefetchMedia(nextCard.image_url);
       }
     } catch (err) {
       console.error("SubmitGrade Error:", err);

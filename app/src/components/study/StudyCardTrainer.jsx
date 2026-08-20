@@ -9,7 +9,6 @@ export const StudyCardTrainer = React.memo(({
   card,
   clozeData,
   onFlip,
-  playAudio,
   onTrainerAnswer,
   onNextCard,
   styles = {},
@@ -94,9 +93,6 @@ export const StudyCardTrainer = React.memo(({
 
     if (allCorrect) {
       playSuccessSound();
-      if (card.audio_url && playAudio) {
-        playAudio(card.audio_url);
-      }
       triggerHaptic('success');
       onTrainerAnswer?.(card.id, isFirstTry);
     } else {

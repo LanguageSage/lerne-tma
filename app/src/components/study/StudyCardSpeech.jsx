@@ -138,7 +138,6 @@ export const StudyCardSpeech = React.memo(({
       stopSpeechRecognition();
 
       triggerHaptic('success');
-      if (card.audio_url && playAudio) playAudio(card.audio_url);
       setTimeout(() => {
         onFlip(true);
       }, 800);

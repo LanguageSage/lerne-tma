@@ -95,7 +95,6 @@ export const StudyCardPuzzle = React.memo(({
 
       if (userText === targetText) {
         triggerHaptic('success');
-        if (card.audio_url && playAudio) playAudio(card.audio_url);
         const timer = setTimeout(() => {
           onFlip(true);
         }, 800);

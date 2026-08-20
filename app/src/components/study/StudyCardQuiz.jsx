@@ -5,7 +5,6 @@ import { triggerHaptic } from '../../utils/platform';
 export const StudyCardQuiz = ({
   card,
   quizData,
-  playAudio,
   onTrainerAnswer
 }) => {
   const [selectedOptionId, setSelectedOptionId] = useState(null);
@@ -42,7 +41,6 @@ export const StudyCardQuiz = ({
     setIsCorrect(correct);
 
     if (correct) {
-      if (card.audio_url) playAudio(card.audio_url);
       triggerHaptic('success');
       if (onTrainerAnswer) {
         onTrainerAnswer(card.id, true);

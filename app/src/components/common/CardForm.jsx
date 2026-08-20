@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw } from 'lucide-react';
+import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, MessageSquare } from 'lucide-react';
 import { CardBackground } from './CardBackground';
 import { SplitButton } from './SplitButton';
 import { getTextShadow, getContextShadow } from '../../utils/style';
@@ -210,36 +210,82 @@ export const CardForm = ({
         </div>
       </div>
 
-      <div className="ai-quick-actions" style={{ gap: '10px' }}>
-        {loading ? (
-          <button 
-            type="button"
-            className="btn-ai-generate loading" 
-            onClick={onStopGeneration}
-            style={{ flex: 1, background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}
-          >
-            <X size={18} />
-            <span>Отменить</span>
-          </button>
-        ) : (
-          <SplitButton
-            onMainClick={() => onAiGenerate && onAiGenerate('full_card')}
-            onOptionClick={(actionId) => onAiGenerate && onAiGenerate(actionId)}
-            loading={loading}
-            disabled={!cardData.front}
-            mainLabel={t('creator.ai_generate', 'Генерировать ✨')}
-          />
-        )}
-        <button 
-          type="button"
-          className="btn btn-primary" 
-          onClick={onSave} 
-          disabled={loading}
-          style={{ padding: '12px 20px' }}
-        >
-          {loading ? <RefreshCw className="spin" size={18} /> : t('creator.save', 'Сохранить')}
-        </button>
-      </div>
+      {(() => {
+        const frontText = cardData.front || '';
+        const hasClozeBraces = /\{([^}]+)\}/.test(frontText);
+        const hasParentheses = /\(([^)]+)\)/.test(frontText);
+
+        let dynamicAction = null;
+        if (hasClozeBraces) {
+          dynamicAction = {
+            id: 'explain_rule',
+            label: '📖 Правило',
+            icon: BookOpen
+          };
+        } else if (hasParentheses) {
+          dynamicAction = {
+            id: 'custom_directive',
+            label: '💬 Только просьбу',
+            icon: MessageSquare
+          };
+        }
+
+        const DynamicIcon = dynamicAction?.icon || BookOpen;
+
+        return (
+          <div className="ai-quick-actions" style={{ gap: '10px' }}>
+            {loading ? (
+              <button 
+                type="button"
+                className="btn-ai-generate loading" 
+                onClick={onStopGeneration}
+                style={{ flex: 1, background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}
+              >
+                <X size={18} />
+                <span>Отменить</span>
+              </button>
+            ) : (
+              <>
+                {dynamicAction && (
+                  <button
+                    type="button"
+                    className="btn-ai-generate secondary-action-btn"
+                    onClick={() => onAiGenerate && onAiGenerate(dynamicAction.id)}
+                    disabled={loading || !cardData.front}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(147, 197, 253, 0.12))',
+                      borderColor: 'rgba(59, 130, 246, 0.4)',
+                      color: '#93c5fd'
+                    }}
+                  >
+                    <DynamicIcon size={16} />
+                    <span>{dynamicAction.label}</span>
+                  </button>
+                )}
+
+                <button 
+                  type="button"
+                  className="btn-ai-generate" 
+                  onClick={() => onAiGenerate && onAiGenerate('full_card')}
+                  disabled={loading || !cardData.front}
+                >
+                  <Sparkles size={16} />
+                  <span>{t('creator.ai_generate', 'Генерировать ✨')}</span>
+                </button>
+              </>
+            )}
+            <button 
+              type="button"
+              className="btn btn-primary" 
+              onClick={onSave} 
+              disabled={loading}
+              style={{ padding: '12px 20px' }}
+            >
+              {loading ? <RefreshCw className="spin" size={18} /> : t('creator.save', 'Сохранить')}
+            </button>
+          </div>
+        );
+      })()}
 
       <div className="media-edit-group" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
          <div className="form-group" style={{ flex: 1 }}>
