@@ -55,7 +55,7 @@ function AppContent() {
 
   const { isFlipped } = useSessionStore();
   const { fetchNextCard, handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
-  const { openEditor } = useCardNavigation();
+  const { openEditor, openCreator } = useCardNavigation();
 
   const activeFolderId = useUiStore(state => state.activeFolderId);
   const setActiveFolderId = useUiStore(state => state.setActiveFolderId);
@@ -386,6 +386,7 @@ function AppContent() {
         onToggleLearn={handleToggleLearn}
         onShare={handleShareCard}
         onEdit={(c) => openEditor(c.deck_id || currentDeck?.id, c, view)}
+        onInsertBelow={(c) => openCreator(c.deck_id || currentDeck?.id, view, c.id)}
         loading={loading}
       />
 

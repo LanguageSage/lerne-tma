@@ -50,6 +50,13 @@ export const useCardEditor = () => {
         let nextCards = [...(deckCards || [])];
         if (existingIdx !== -1) {
           nextCards[existingIdx] = { ...nextCards[existingIdx], ...savedCard };
+        } else if (data.after_card_id) {
+          const afterIdx = nextCards.findIndex(c => String(c.id) === String(data.after_card_id));
+          if (afterIdx !== -1) {
+            nextCards.splice(afterIdx + 1, 0, savedCard);
+          } else {
+            nextCards.push(savedCard);
+          }
         } else {
           nextCards.push(savedCard);
         }
