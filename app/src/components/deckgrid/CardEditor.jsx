@@ -43,7 +43,6 @@ export const CardEditor = ({ startTutorial }) => {
           front: result.front || editingCard.front,
           back: result.back || editingCard.back,
           context: result.context || editingCard.context,
-          difficulty: result.difficulty !== undefined ? result.difficulty : editingCard.difficulty,
           level: result.level || editingCard.level,
           tags: result.tags || editingCard.tags
         };

@@ -17,7 +17,7 @@ import { StudyView, TrainerView } from './components/study';
 import { 
   CardActionModal, DeckModals, SettingsModal, RenameDeckModal, 
   SyncModal, DuplicateManager, TrashManager, AuthRequiredModal, 
-  LanguageSelectionModal, ImportModal, CollaboratorsModal 
+  LanguageSelectionModal, ImportModal, CollaboratorsModal, BatchCardModal 
 } from './components/modals';
 import { TutorialOverlay } from './components/TutorialOverlay';
 
@@ -70,7 +70,8 @@ function AppContent() {
   const lastFolderIdRef = React.useRef(activeFolderId);
 
   const isAuthModalOpen = useUiStore(state => state.isAuthModalOpen);
-  const anyModalOpen = isSettingsOpen || isNewDeckModalOpen || isRenameModalOpen || isCardActionModalOpen || syncModalOpen || isAuthModalOpen;
+  const isBatchModalOpen = useUiStore(state => state.isBatchModalOpen);
+  const anyModalOpen = isSettingsOpen || isNewDeckModalOpen || isRenameModalOpen || isCardActionModalOpen || syncModalOpen || isAuthModalOpen || isBatchModalOpen;
 
   // 1. Setup popstate listener and native back button onClick callback on mount
   useEffect(() => {
@@ -87,7 +88,7 @@ function AppContent() {
         // If a modal was open, close it and prevent changing the view
         const uiState = useUiStore.getState();
         const deckState = useDeckStore.getState();
-        const wasModalOpen = uiState.isSettingsOpen || uiState.isNewDeckModalOpen || uiState.isRenameModalOpen || uiState.isCardActionModalOpen || uiState.isAuthModalOpen || deckState.syncModalOpen;
+        const wasModalOpen = uiState.isSettingsOpen || uiState.isNewDeckModalOpen || uiState.isRenameModalOpen || uiState.isCardActionModalOpen || uiState.isAuthModalOpen || uiState.isBatchModalOpen || deckState.syncModalOpen;
         
         if (wasModalOpen) {
           uiState.setIsSettingsOpen(false);
@@ -95,6 +96,7 @@ function AppContent() {
           uiState.setIsRenameModalOpen(false);
           uiState.setIsCardActionModalOpen(false);
           uiState.setIsAuthModalOpen(false);
+          uiState.setIsBatchModalOpen(false);
           deckState.setSyncModalOpen(false);
           lastModalOpenRef.current = false;
         } else {
@@ -339,6 +341,7 @@ function AppContent() {
       {/* Overlays and Modals */}
       <CardCreator startTutorial={startTutorial} />
       <CardEditor startTutorial={startTutorial} />
+      <BatchCardModal />
       <DeckModals />
       <RenameDeckModal />
       <CollaboratorsModal />

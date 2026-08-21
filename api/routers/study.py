@@ -2,9 +2,10 @@ import asyncio
 from fastapi import APIRouter, HTTPException, Depends
 import logging
 
-from api import services
-import srs
-import models
+try:
+    from api import services, srs, models
+except ImportError:
+    import services, srs, models
 from api.dependencies.auth import get_user_id
 
 logger = logging.getLogger(__name__)
@@ -66,11 +67,21 @@ async def _card_to_response(card, progress, user_id: int):
     ease_factor = getattr(progress, 'ease_factor', 2.5) or 2.5
     repetitions = getattr(progress, 'repetitions', 0) or 0
 
+    tags_val = getattr(card, 'tags', None)
+    level_label = None
+    if tags_val:
+        for lvl in ["A1", "A2", "B1", "B2", "C1", "C2"]:
+            if lvl in str(tags_val).upper():
+                level_label = lvl
+                break
+
     return {
         "id": card.id,
         "front": card.front_text,
         "back": card.back_text,
         "context": card.context,
+        "tags": tags_val,
+        "level": level_label,
         "audio_url": services.resolve_media_url(card.audio_path, "audio"),
         "audio_back_url": services.resolve_media_url(card.audio_back_path, "audio"),
         "image_url": services.resolve_media_url(card.image_path, "images"),

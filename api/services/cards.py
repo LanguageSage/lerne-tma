@@ -103,18 +103,7 @@ def save_card(data, user_id):
         except (ValueError, TypeError):
             card.flag = 0
 
-    if 'difficulty' in data and data.get('difficulty') is not None:
-        try:
-            card.difficulty = float(data.get('difficulty'))
-        except (ValueError, TypeError):
-            pass
-    elif 'level' in data and data.get('level'):
-        level_map = {"A1": 1.0, "A2": 2.0, "B1": 3.0, "B2": 4.0, "C1": 5.0, "C2": 6.0}
-        level_str = str(data.get('level')).upper().strip()
-        if level_str in level_map:
-            card.difficulty = level_map[level_str]
-
-    if 'tags' in data:
+    if 'tags' in data and data.get('tags') is not None:
         card.tags = data.get('tags')
     elif 'level' in data and data.get('level'):
         level_str = str(data.get('level')).upper().strip()
@@ -249,7 +238,6 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         creator_name = creator.username or creator.first_name
         creator_avatar = creator.photo_url
 
-    diff_val = get_val('difficulty', 'difficulty')
     tags_val = get_val('tags', 'tags')
     level_label = None
 
@@ -258,17 +246,6 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
             if lvl in str(tags_val).upper():
                 level_label = lvl
                 break
-    if not level_label and diff_val is not None:
-        try:
-            d_num = float(diff_val)
-            if d_num <= 1.5: level_label = "A1"
-            elif d_num <= 2.5: level_label = "A2"
-            elif d_num <= 3.5: level_label = "B1"
-            elif d_num <= 4.5: level_label = "B2"
-            elif d_num <= 5.5: level_label = "C1"
-            else: level_label = "C2"
-        except (ValueError, TypeError):
-            pass
 
     result = {
         "id": get_val('id', 'id'),
@@ -276,7 +253,6 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "front": get_val('front_text', 'front_text'),
         "back": get_val('back_text', 'back_text'),
         "context": get_val('context', 'context'),
-        "difficulty": diff_val,
         "tags": tags_val,
         "level": level_label,
         "audio_url": resolve_media_url(audio_path, "audio", exists_map=media_exists),

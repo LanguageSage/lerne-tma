@@ -231,6 +231,22 @@ export const AITab = () => {
           </div>
         </div>
       )}
+      {/* AI Detect Level Toggle */}
+      <div className="form-group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.08)', margin: '15px 0' }}>
+        <div style={{ paddingRight: '15px' }}>
+          <label style={{ margin: 0, fontWeight: 600, display: 'block' }}>Определять уровень сложности (CEFR)</label>
+          <span style={{ fontSize: '0.75rem', opacity: 0.7, display: 'block', marginTop: '2px' }}>
+            Автоматически определять A1–C2 для новых карточек с помощью ИИ
+          </span>
+        </div>
+        <input 
+          type="checkbox"
+          style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: '#3498db' }}
+          checked={adminSettings.AI_DETECT_LEVEL !== 'false'}
+          onChange={e => updateAdminSetting('AI_DETECT_LEVEL', e.target.checked ? 'true' : 'false')}
+        />
+      </div>
+
       <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
         <button className="btn btn-primary btn-small" style={{ flex: 1 }} onClick={saveAdminSettings}>Сохранить</button>
       </div>

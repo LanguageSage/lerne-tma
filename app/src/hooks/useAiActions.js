@@ -224,10 +224,55 @@ export const useAiActions = () => {
     return null;
   };
 
+  const runBatchAiGenerator = async (text, deckId) => {
+    if (!text || !text.trim()) return null;
+
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+
+    setLoading(true);
+    try {
+      const { useLanguageStore } = await import('../store/useLanguageStore');
+      const activeLang = useLanguageStore.getState().activeLanguage || 'de';
+      const nativeLang = localStorage.getItem('native_language') || 'uk';
+
+      const res = await api.post('/cards/ai-generate-batch',
+        {
+          text: text.trim(),
+          deck_id: deckId ? String(deckId) : null,
+          target_language: activeLang,
+          native_language: nativeLang
+        },
+        { signal: abortControllerRef.current.signal }
+      );
+
+      setLoading(false);
+      abortControllerRef.current = null;
+
+      if (res.data.error) {
+        showToast(`Ошибка пакетной генерации: ${res.data.error}`);
+        return null;
+      }
+
+      showToast(`Успешно сгенерировано карточек: ${res.data.generated_count || res.data.cards?.length || 0}`, 'success');
+      return res.data;
+    } catch (err) {
+      setLoading(false);
+      abortControllerRef.current = null;
+      if (err.name === 'CanceledError' || err.name === 'AbortError' || axios.isCancel(err)) {
+        return null;
+      }
+      const detail = err.response?.data?.detail || err.message;
+      showToast(`Ошибка ИИ: ${detail}`);
+      return null;
+    }
+  };
+
   return {
     handleQuickAudio,
     generateAudioInternal,
     runAiGenerator,
+    runBatchAiGenerator,
     stopAiGeneration
   };
 };

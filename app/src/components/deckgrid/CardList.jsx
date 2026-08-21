@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, Reorder, useDragControls } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon, Crop, Loader2 } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus, ListPlus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon, Crop, Loader2 } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
 import { useUiStore } from '../../store/useUiStore';
@@ -77,7 +77,7 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
           <span>{c.front}</span>
         </div>
         <div className="back-min">{c.back}</div>
-        <CardLevelBadge card={c} size="sm" showDifficulty={true} style={{ marginTop: '4px' }} />
+        <CardLevelBadge card={c} size="sm" style={{ marginTop: '2px' }} />
       </div>
       <div className="card-item-actions">
         <CardActionButton 
@@ -92,7 +92,7 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
 };
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
-  const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop } = useUiStore();
+  const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen } = useUiStore();
   const { currentDeck, deckCards, cardsLoading } = useDeckStore();
   const [isMediaModalOpen, setIsMediaModalOpen] = React.useState(false);
   const [editingDeckImgSrc, setEditingDeckImgSrc] = React.useState(null);
@@ -231,10 +231,10 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             <UserProfileBadge />
             <button 
               className="header-action-btn" 
-              onClick={() => openCreator(currentDeck?.id, 'cards')} 
-              title="Добавить карточку"
+              onClick={() => setIsBatchModalOpen(true)} 
+              title="Пакетная генерация карточек"
             >
-              <Plus size={22} />
+              <ListPlus size={22} />
             </button>
 
             <HelpButton onClick={() => startTutorial('cards')} />

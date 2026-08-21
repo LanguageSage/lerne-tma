@@ -88,3 +88,67 @@ def parse_ai_json_response(text: str) -> Optional[dict]:
 
     return None
 
+
+def parse_ai_batch_json_response(text: str) -> list:
+    """
+    Extracts and parses a JSON array of cards from AI response text.
+    Normalizes front, back, context, level, and tags for each card item.
+    """
+    if not text:
+        return []
+
+    clean_text = str(text).replace("END_JSON", "").strip()
+
+    if "```" in clean_text:
+        match = re.search(r'```(?:json)?\s*(.*?)\s*```', clean_text, re.DOTALL | re.IGNORECASE)
+        clean_text = match.group(1).strip() if match else re.sub(r'^```(?:json)?\n?', '', clean_text, flags=re.IGNORECASE).strip()
+
+    items = []
+    first_bracket = clean_text.find('[')
+    last_bracket = clean_text.rfind(']')
+
+    if first_bracket != -1 and last_bracket != -1 and last_bracket > first_bracket:
+        array_str = clean_text[first_bracket:last_bracket + 1]
+        try:
+            import json
+            parsed = json.loads(array_str)
+            if isinstance(parsed, list):
+                items = parsed
+        except Exception:
+            pass
+
+    if not items:
+        try:
+            import json
+            parsed = json.loads(clean_text)
+            if isinstance(parsed, list):
+                items = parsed
+            elif isinstance(parsed, dict):
+                for key in ["cards", "items", "result", "results", "data"]:
+                    if isinstance(parsed.get(key), list):
+                        items = parsed[key]
+                        break
+        except Exception:
+            pass
+
+    valid_levels = {"A1", "A2", "B1", "B2", "C1", "C2"}
+    results = []
+
+    if isinstance(items, list) and items:
+        for item in items:
+            if isinstance(item, dict):
+                front = item.get("front", "")
+                back = item.get("back", "")
+                context = item.get("context", "")
+                raw_lvl = str(item.get("level", "")).upper().strip()
+                lvl = raw_lvl if raw_lvl in valid_levels else "A1"
+                results.append({
+                    "front": front,
+                    "back": back,
+                    "context": context,
+                    "level": lvl,
+                    "tags": lvl
+                })
+
+    return results
+

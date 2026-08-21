@@ -46,30 +46,19 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
     else:
         json_str = clean_text
         
-    level_map = {"A1": 1.0, "A2": 2.0, "B1": 3.0, "B2": 4.0, "C1": 5.0, "C2": 6.0}
+    valid_levels = {"A1", "A2", "B1", "B2", "C1", "C2"}
     try:
         data = json.loads(json_str)
         raw_level = data.get("level")
         level_str = str(raw_level).upper().strip() if raw_level else None
-        if level_str not in level_map:
+        if level_str not in valid_levels:
             level_str = None
-
-        raw_diff = data.get("difficulty")
-        diff_val = None
-        if raw_diff is not None:
-            try:
-                diff_val = float(raw_diff)
-            except (ValueError, TypeError):
-                diff_val = None
-        if diff_val is None and level_str:
-            diff_val = level_map.get(level_str)
 
         return {
             "front": data.get("front", default_front),
             "back": data.get("back", ""),
             "context": data.get("context", ""),
-            "level": level_str,
-            "difficulty": diff_val
+            "level": level_str
         }
     except json.JSONDecodeError:
         pass
@@ -78,7 +67,6 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
     front = default_front
     back = context = ""
     level_str = None
-    diff_val = None
 
     m_front = re.search(r'"front"\s*:\s*"(.*?)"', text, re.DOTALL)
     if m_front: front = m_front.group(1).replace('\\"', '"')
@@ -90,19 +78,11 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
     m_level = re.search(r'"level"\s*:\s*"(A1|A2|B1|B2|C1|C2)"', text, re.IGNORECASE)
     if m_level:
         level_str = m_level.group(1).upper()
-        diff_val = level_map.get(level_str)
-
-    m_diff = re.search(r'"difficulty"\s*:\s*([0-9]+(?:\.[0-9]+)?)', text)
-    if m_diff:
-        try:
-            diff_val = float(m_diff.group(1))
-        except (ValueError, TypeError):
-            pass
 
     if not back and not context:
-        return {"front": default_front, "back": text, "context": "", "level": level_str, "difficulty": diff_val}
+        return {"front": default_front, "back": text, "context": "", "level": level_str}
         
-    return {"front": front, "back": back, "context": context, "level": level_str, "difficulty": diff_val}
+    return {"front": front, "back": back, "context": context, "level": level_str}
 
 async def generate_card_fields(user_id: int, phrase: str, target_language: str = "de", native_language: str = None, action_type: str = "full_card"):
     """Generates Front, Back, and Context for a card using AI."""
@@ -134,17 +114,11 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
+        if not ai_model or not ai_model.strip():
+            return {"error": "В настройках не выбрана модель ИИ. Пожалуйста, выберите модель в Настройках."}
+
         client = AIService(provider=provider, api_key=ai_key)
-        
-        if provider == "openrouter":
-            default_model = "google/gemini-2.0-flash-lite:free"
-            model_name = f"google/{ai_model}" if ai_model and "/" not in ai_model else (ai_model or default_model)
-        elif provider == "groq":
-            default_model = "llama3-70b-8192"
-            model_name = ai_model or default_model
-        else:
-            default_model = "gemini-2.0-flash"
-            model_name = ai_model or default_model
+        model_name = ai_model.strip()
 
         # Handle explain_rule mode (grammar explanation for cloze gap)
         if action_type == "explain_rule":
@@ -212,15 +186,20 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in clean_phrase)
         is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "📝", "Уровень", "Рівень", "Level", "preset"])
         
+        detect_level_setting = TMASetting.get_or_none(TMASetting.key == "AI_DETECT_LEVEL")
+        detect_level = (detect_level_setting.value.lower() != "false") if detect_level_setting else True
+
         if custom_prompt and not is_system_preset:
             raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
             system_prompt = (raw_prompt or get_prompt_for_phrase(clean_phrase, target_lang, native_lang)).replace("{phrase}", clean_phrase)
             if parsed.has_directive:
                 system_prompt += f"\n\nДополнительное указание пользователя: \"{parsed.directive}\". Выполни просьбу пользователя."
-            if "level" not in system_prompt.lower():
-                system_prompt += f"\n\nОбязательно добавь в выводимый JSON объект поля уровней:\n\"level\": \"один из уровня CEFR (A1, A2, B1, B2, C1, C2)\",\n\"difficulty\": числовая сложность от 1.0 до 6.0"
+            if detect_level and "level" not in system_prompt.lower():
+                system_prompt += f"\n\nОбязательно добавь в выводимый JSON объект поле уровня:\n\"level\": \"один из уровня CEFR (A1, A2, B1, B2, C1, C2)\""
         elif is_quiz_request:
             native_name = native_config["name"].lower()
+            level_rule = '4. "level": определи CEFR уровень вопроса ("A1", "A2", "B1", "B2", "C1", "C2").\n' if detect_level else ''
+            json_level = ',\n  "level": "B1"' if detect_level else ''
             system_prompt = (
                 f"Ты — профессиональный преподаватель и экзаменатор языка {lang_name}.\n"
                 f"Для экзаменационного вопроса с выбором вариантов ответа:\n'{clean_phrase}'\n\n"
@@ -228,19 +207,18 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 f"1. Сделай точный перевод вопроса и всех вариантов ответов на {native_name} язык.\n"
                 f"2. Подробно объясни грамматику и логику, почему именно отмеченный [*] или [x] вариант ответа является правильным, и в чём заключается ошибка остальных вариантов.\n"
                 f"3. Переведи ключевые сложные слова из вопроса.\n"
-                f"4. \"level\": определи CEFR уровень вопроса (\"A1\", \"A2\", \"B1\", \"B2\", \"C1\", \"C2\").\n"
-                f"5. \"difficulty\": числовая сложность от 1.0 до 6.0.\n"
+                f"{level_rule}"
                 f"НЕ пиши дополнительные 3 примера предложений!\n\n"
                 f"Return ONLY a JSON object in this format:\n{{\n"
                 f'  "front": "{clean_phrase}",\n'
                 f'  "back": "Перевод вопроса и правильного ответа",\n'
-                f'  "context": "🎯 **Перевод**:\\n[перевод вопроса и всех вариантов]\\n\\n💡 **Грамматический разбор и объяснение ответа**:\\n[подробное объяснение почему правильный ответ именно этот]\\n\\n📖 **Словарный запас**:\\n[слово — перевод]",\n'
-                f'  "level": "B1",\n'
-                f'  "difficulty": 3.0\n'
+                f'  "context": "🎯 **Перевод**:\\n[перевод вопроса и всех вариантов]\\n\\n💡 **Грамматический разбор и объяснение ответа**:\\n[подробное объяснение почему правильный ответ именно этот]\\n\\n📖 **Словарный запас**:\\n[слово — перевод]"{json_level}\n'
                 f"}}\nEND_JSON"
             )
         elif is_trainer_request:
             native_name = native_config["name"].lower()
+            level_rule = '4. "level": определи CEFR уровень сложности выражения ("A1", "A2", "B1", "B2", "C1", "C2").\n\n' if detect_level else '\n'
+            json_level = ',\n  "level": "B1"' if detect_level else ''
             system_prompt = (
                 f"Ты — преподаватель языка {lang_name}. Создай грамматическую карточку-тренажёр на основе фразы:\n'{clean_phrase}'\n\n"
                 f"Инструкции:\n"
@@ -250,14 +228,11 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 f"   - 🎯 **Перевод**: [перевод фразы]\n"
                 f"   - 💡 **Грамматический разбор**: [почему выбран именно этот вариант/падеж/род/управление/окончание, подробное правило простыми словами]\n"
                 f"   - 📖 **Словарик**: [разбор ключевых слов фразы]\n"
-                f"4. \"level\": определи CEFR уровень сложности выражения (\"A1\", \"A2\", \"B1\", \"B2\", \"C1\", \"C2\").\n"
-                f"5. \"difficulty\": числовая сложность от 1.0 до 6.0.\n\n"
+                f"{level_rule}"
                 f"Return ONLY a JSON object in this format:\n{{\n"
                 f'  "front": "предложение с {{пропуском}} на {lang_name.lower()}",\n'
                 f'  "back": "полный перевод предложения на {native_name}",\n'
-                f'  "context": "🎯 **Перевод**:\\n[перевод]\\n\\n💡 **Грамматический разбор**:\\n[объяснение правила и почему именно такой ответ]\\n\\n📖 **Словарик**:\\n[слово - перевод]",\n'
-                f'  "level": "B1",\n'
-                f'  "difficulty": 3.0\n'
+                f'  "context": "🎯 **Перевод**:\\n[перевод]\\n\\n💡 **Грамматический разбор**:\\n[объяснение правила и почему именно такой ответ]\\n\\n📖 **Словарик**:\\n[слово - перевод]"{json_level}\n'
                 f"}}\nEND_JSON"
             )
         else:
@@ -265,7 +240,8 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 phrase=clean_phrase,
                 target_lang=target_lang,
                 native_lang=native_lang,
-                directive=parsed.directive
+                directive=parsed.directive,
+                detect_level=detect_level
             )
 
         if "JSON" not in system_prompt.upper():
@@ -356,9 +332,13 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
 
         provider, ai_key, ai_model = get_ai_config()
         if not ai_key and provider != "ollama":
-            return {"error": f"API ключ для {provider} не настроен."}
+            return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
+
+        if not ai_model or not ai_model.strip():
+            return {"error": "В настройках не выбрана модель ИИ. Пожалуйста, выберите модель в Настройках."}
 
         client = AIService(provider=provider, api_key=ai_key)
+        model_name = ai_model.strip()
 
         # Determine batch size dynamically based on average line length
         avg_len = sum(len(line) for line in raw_lines) / len(raw_lines)
@@ -374,6 +354,8 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
             ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
         )
 
+        from api.services.input_parser import parse_ai_batch_json_response
+
         for index, chunk in enumerate(chunks):
             if index > 0:
                 # Rate-limit safe delay (3.5 seconds) for consecutive API calls
@@ -384,46 +366,56 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
             if custom_prompt and custom_prompt.translation_prompt:
                 custom_instructions = custom_prompt.translation_prompt
                 batch_prompt = (
-                    f"Ты — профессиональный преподаватель языка {lang_name}.\n"
+                    f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
                     f"Инструкции по стилю:\n{custom_instructions}\n\n"
                     f"Сгенерируй карточки для {len(chunk)} элементов:\n{chunk_text}\n\n"
+                    f"ТРЕБОВАНИЯ К ПОЛЮ context:\n"
+                    f"Обязательно включи построчный разбор каждого слова списком (📖 **Словарь**:\n• слово — перевод), грамматику (💡 **Грамматика**) и 3 примера (✨ **Примеры**:\n1. ...\n2. ...\n3. ...).\n\n"
                     f"Верни СТРОГО JSON-массив из объектов формата:\n"
-                    f"[{{\"front\": \"...\", \"back\": \"...\", \"context\": \"...\", \"level\": \"A1|A2|B1|B2|C1|C2\", \"difficulty\": 1.0}}]"
+                    f"[{{\"front\": \"...\", \"back\": \"...\", \"context\": \"...\"}}]"
                 )
             else:
                 batch_prompt = (
-                    f"Ты — профессиональный преподаватель языка {lang_name}.\n"
-                    f"Сгенерируй учебные флеш-карточки для следующего списка из {len(chunk)} элементов:\n"
+                    f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
+                    f"Создай учебные флеш-карточки для следующего списка из {len(chunk)} элементов:\n"
                     f"{chunk_text}\n\n"
-                    f"ТРЕБОВАНИЯ:\n"
-                    f"1. Верни СТРОГО JSON-массив из {len(chunk)} объектов без текста вокруг.\n"
-                    f"2. Формат каждого объекта в массиве:\n"
-                    f"   {{\n"
-                    f"     \"front\": \"исходная фраза на немецком/родном языке\",\n"
-                    f"     \"back\": \"точный перевод на {native_name} язык + грамматический комментарий\",\n"
-                    f"     \"context\": \"2-3 контекстных примера на {lang_name} с переводом\",\n"
-                    f"     \"level\": \"один из уровня CEFR: A1, A2, B1, B2, C1 или C2\",\n"
-                    f"     \"difficulty\": числовое значение сложности от 1.0 до 6.0\n"
-                    f"   }}\n"
-                    f"3. Если фраза на русском, переведи её на {lang_name} для 'front'.\n"
+                    f"ПРАВИЛА ОФОРМЛЕНИЯ КАЖДОЙ КАРТОЧКИ:\n"
+                    f"1. \"front\": фраза/слово на {lang_name} языке (если исходная строка на {native_name}, переведи её на {lang_name}).\n"
+                    f"2. \"back\": точный перевод всей фразы на {native_name} язык.\n"
+                    f"3. \"context\": СТРОГО следующий структурированный Markdown-текст (каждое слово на отдельной строке с маркером •, 3 примера):\n"
+                    f"📖 **Словарь**:\n"
+                    f"• слово 1 — перевод\n"
+                    f"• слово 2 — перевод\n\n"
+                    f"💡 **Грамматика**:\n"
+                    f"[Подробное объяснение грамматических правил, конструкции, падежей и форм]\n\n"
+                    f"✨ **Примеры**:\n"
+                    f"1. [фраза на {lang_name}] — [перевод на {native_name}]\n"
+                    f"2. [фраза на {lang_name}] — [перевод на {native_name}]\n"
+                    f"3. [фраза на {lang_name}] — [перевод на {native_name}]\n\n"
+                    f"Верни СТРОГО JSON-массив из {len(chunk)} объектов без лишнего текста вокруг:\n"
+                    f"[{{\"front\": \"...\", \"back\": \"...\", \"context\": \"...\"}}]"
                 )
 
-            success, response = await client.chat_completion(
+            logger.info(f"Batch AI: processing chunk {index+1}/{len(chunks)} ({len(chunk)} lines) with {provider}/{model_name}...")
+            response, success = await client.chat_completion(
                 system_prompt=batch_prompt,
                 user_message="Сгенерируй JSON массив для указанного списка.",
-                model=ai_model
+                model=model_name
             )
 
-            if success and response:
+            if not success:
+                logger.error(f"Batch AI chunk {index+1} failed: {response}")
+                if len(chunks) == 1:
+                    return {"error": str(response)}
+                continue
+
+            if response:
                 try:
-                    clean_resp = response.replace("```json", "").replace("```", "").strip()
-                    first_bracket = clean_resp.find('[')
-                    last_bracket = clean_resp.rfind(']')
-                    if first_bracket != -1 and last_bracket != -1:
-                        clean_resp = clean_resp[first_bracket:last_bracket+1]
-                    items = json.loads(clean_resp)
-                    if isinstance(items, list):
+                    items = parse_ai_batch_json_response(response)
+                    if items:
                         all_results.extend(items)
+                    else:
+                        logger.warning(f"Batch parse empty items on chunk {index}: {str(response)[:200]}")
                 except Exception as parse_err:
                     logger.warning(f"Batch parse warning on chunk {index}: {parse_err}")
 
@@ -438,4 +430,69 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
     except Exception as e:
         logger.error(f"Batch AI Generation Error: {e}", exc_info=True)
         return {"error": f"Ошибка пакетной генерации: {str(e)}"}
+
+
+async def classify_phrases_batch(phrases: list[str], target_language: str = "de") -> list[str]:
+    """Classifies a list of phrases into CEFR levels (A1 - C2) in a single fast LLM request using dual rubric."""
+    if not phrases:
+        return []
+
+    provider, ai_key, ai_model = get_ai_config()
+    if not ai_model or not ai_model.strip():
+        logger.warning("classify_phrases_batch: No AI model configured, returning default A1 levels.")
+        return ["A1"] * len(phrases)
+
+    client = AIService(provider=provider, api_key=ai_key)
+    model_name = ai_model.strip()
+
+    numbered_phrases = "\n".join([f"{i+1}. {p.strip()}" for i, p in enumerate(phrases)])
+
+    rubric = (
+        "КРИТЕРИИ CEFR (определяй уровень как МАКСИМУМ из сложности грамматики и сложности лексики):\n\n"
+        "1. ГРАММАТИКА:\n"
+        "• A1: Простые предложения в Präsens/Perfekt, прямой/обратный порядок слов без придаточных союзов.\n"
+        "• A2: Придаточные предложения (союзы weil, dass, wenn, ob, als), модальные глаголы, возвратные глаголы (sich), Dativ, вежливый Konjunktiv II (könnte/möchte).\n"
+        "• B1: Обороты um... zu, ohne... zu, союзы obwohl/während/nachdem, управление глаголов (warten auf), полный Konjunktiv II, Passiv Präsens.\n"
+        "• B2: Passiv всех времен, Konjunktiv I, Partizip I/II в роли прилагательных, двойные союзы (je... desto, nicht nur... sondern auch).\n"
+        "• C1/C2: Сложные причастные обороты, пассивные конструкции sein+zu, инверсии, субстантивации.\n\n"
+        "2. ЛЕКСИКА:\n"
+        "• A1: Базовый быт, еда, семья, числа, простые глаголы действия.\n"
+        "• A2: Покупки, работа, путешествия, самочувствие, базовые хобби.\n"
+        "• B1: Описание чувств, планов, мнений, стандартные абстрактные понятия.\n"
+        "• B2: Профессиональная, деловая, новостная лексика (Erfahrung, Verantwortung).\n"
+        "• C1/C2: Академические термины, официально-деловой/юридический язык, идиомы, метафоры."
+    )
+
+    prompt = (
+        f"Определи точный уровень сложности CEFR (A1, A2, B1, B2, C1, C2) для каждого из следующих {len(phrases)} элементов:\n\n"
+        f"{numbered_phrases}\n\n"
+        f"{rubric}\n\n"
+        f"Верни СТРОГО JSON-массив строк ровно из {len(phrases)} элементов:\n"
+        f"[\"A1\", \"A2\", ...]"
+    )
+
+    try:
+        response, success = await client.chat_completion(
+            system_prompt="Ты сертифицированный экзаменатор CEFR. Возвращай только JSON массив уровней.",
+            user_message=prompt,
+            model=model_name
+        )
+        if success and response:
+            import json, re
+            clean = response.strip()
+            match = re.search(r'\[\s*(.*?)\s*\]', clean, re.DOTALL)
+            if match:
+                raw_arr = json.loads(f"[{match.group(1)}]")
+                valid_levels = {"A1", "A2", "B1", "B2", "C1", "C2"}
+                result = []
+                for item in raw_arr:
+                    lvl = str(item).upper().strip()
+                    result.append(lvl if lvl in valid_levels else "A1")
+                if len(result) < len(phrases):
+                    result.extend(["A1"] * (len(phrases) - len(result)))
+                return result[:len(phrases)]
+    except Exception as e:
+        logger.error(f"Error in classify_phrases_batch: {e}")
+
+    return ["A1"] * len(phrases)
 

@@ -83,7 +83,6 @@ export const CardCreator = ({ startTutorial }) => {
           front: result.front || newCardData.front,
           back: result.back || newCardData.back,
           context: result.context || newCardData.context,
-          difficulty: result.difficulty !== undefined ? result.difficulty : newCardData.difficulty,
           level: result.level || newCardData.level,
           tags: result.tags || newCardData.tags
         };
