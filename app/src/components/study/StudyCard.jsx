@@ -26,6 +26,7 @@ import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/car
 import { triggerHaptic } from '../../utils/platform';
 
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
+import { CardLevelBadge } from '../common/CardLevelBadge';
 
 export const StudyCard = React.memo(({
   card,
@@ -432,6 +433,9 @@ export const StudyCard = React.memo(({
                 />
               )}
 
+              {/* Card Level Badge (Bottom-Left Corner) */}
+              <CardLevelBadge card={card} textColor={cardStyle?.color} style={{ position: 'absolute', bottom: '12px', left: '12px', zIndex: 15 }} />
+
             </div>
           </div>
         ) : (
@@ -609,6 +613,9 @@ export const StudyCard = React.memo(({
                   <span style={{ fontSize: '0.65rem', color: '#fff', fontWeight: 500 }}>{card.creator_name}</span>
                 </div>
               )}
+
+              {/* Card Level Badge (Bottom-Left Corner) */}
+              <CardLevelBadge card={card} textColor={backCardStyle?.color} style={{ position: 'absolute', bottom: '12px', left: '12px', zIndex: 15 }} />
 
               <div 
                 className="flip-hint-badge" 

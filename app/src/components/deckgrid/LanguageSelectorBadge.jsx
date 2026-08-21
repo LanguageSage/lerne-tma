@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Globe, Check } from 'lucide-react';
 import { useLanguageStore, SUPPORTED_LANGUAGES } from '../../store/useLanguageStore';
+import { useTranslation } from '../../i18n/i18nContext';
 import { renderFlag } from './FlagIcons';
 import './LanguageSelectorBadge.css';
 
 export const LanguageSelectorBadge = ({ onLanguageChange }) => {
   const { activeLanguage, setLanguage } = useLanguageStore();
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -19,8 +21,12 @@ export const LanguageSelectorBadge = ({ onLanguageChange }) => {
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [isOpen]);
 
   const handleSelect = (code) => {
@@ -36,7 +42,7 @@ export const LanguageSelectorBadge = ({ onLanguageChange }) => {
       <button 
         className="language-badge-btn"
         onClick={() => setIsOpen(!isOpen)}
-        title="Выбрать изучаемый язык"
+        title={t('header.target_lang_title', 'Выбрать изучаемый язык')}
       >
         <span className="lang-flag">{renderFlag(currentLang.code, 18)}</span>
         <span className="lang-name">{currentLang.name}</span>
@@ -47,7 +53,7 @@ export const LanguageSelectorBadge = ({ onLanguageChange }) => {
         <div className="language-dropdown-menu">
           <div className="language-dropdown-header">
             <Globe size={14} />
-            <span>Изучаемый язык</span>
+            <span>{t('header.target_lang', 'Изучаемый язык')}</span>
           </div>
           <div className="language-dropdown-list">
             {SUPPORTED_LANGUAGES.map((lang) => (

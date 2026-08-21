@@ -152,10 +152,14 @@ def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "
             f"1. [фраза на {lang_name}] — [перевод на {native_name}]\n"
             f"2. [фраза на {lang_name}] — [перевод на {native_name}]\n"
             f"3. [фраза на {lang_name}] — [перевод на {native_name}]\n\n"
+            f"4. \"level\": определи CEFR уровень сложности выражения (строго одно значение: \"A1\", \"A2\", \"B1\", \"B2\", \"C1\" или \"C2\").\n"
+            f"5. \"difficulty\": числовая сложность от 1.0 (самый простой A1) до 6.0 (самый сложный C2).\n\n"
             f"Return ONLY a JSON object in this format:\n{{\n"
             f'  "front": "перевод на {lang_name.lower()}",\n'
             f'  "back": "{phrase}",\n'
-            f'  "context": "..."\n'
+            f'  "context": "...",\n'
+            f'  "level": "B1",\n'
+            f'  "difficulty": 3.0\n'
             f"}}\nEND_JSON"
         )
     else:
@@ -175,10 +179,14 @@ def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "
             f"1. [фраза на {lang_name}] — [перевод на {native_name}]\n"
             f"2. [фраза на {lang_name}] — [перевод на {native_name}]\n"
             f"3. [фраза на {lang_name}] — [перевод на {native_name}]\n\n"
+            f"4. \"level\": определи CEFR уровень сложности выражения (строго одно значение: \"A1\", \"A2\", \"B1\", \"B2\", \"C1\" или \"C2\").\n"
+            f"5. \"difficulty\": числовая сложность от 1.0 (самый простой A1) до 6.0 (самый сложный C2).\n\n"
             f"Return ONLY a JSON object in this format:\n{{\n"
             f'  "front": "{phrase}",\n'
             f'  "back": "перевод на {native_name.lower()}",\n'
-            f'  "context": "..."\n'
+            f'  "context": "...",\n'
+            f'  "level": "B1",\n'
+            f'  "difficulty": 3.0\n'
             f"}}\nEND_JSON"
         )
     return prompt

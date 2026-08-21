@@ -46,12 +46,30 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
     else:
         json_str = clean_text
         
+    level_map = {"A1": 1.0, "A2": 2.0, "B1": 3.0, "B2": 4.0, "C1": 5.0, "C2": 6.0}
     try:
         data = json.loads(json_str)
+        raw_level = data.get("level")
+        level_str = str(raw_level).upper().strip() if raw_level else None
+        if level_str not in level_map:
+            level_str = None
+
+        raw_diff = data.get("difficulty")
+        diff_val = None
+        if raw_diff is not None:
+            try:
+                diff_val = float(raw_diff)
+            except (ValueError, TypeError):
+                diff_val = None
+        if diff_val is None and level_str:
+            diff_val = level_map.get(level_str)
+
         return {
             "front": data.get("front", default_front),
             "back": data.get("back", ""),
-            "context": data.get("context", "")
+            "context": data.get("context", ""),
+            "level": level_str,
+            "difficulty": diff_val
         }
     except json.JSONDecodeError:
         pass
@@ -59,6 +77,9 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
     # Fallback to regex
     front = default_front
     back = context = ""
+    level_str = None
+    diff_val = None
+
     m_front = re.search(r'"front"\s*:\s*"(.*?)"', text, re.DOTALL)
     if m_front: front = m_front.group(1).replace('\\"', '"')
     m_back = re.search(r'"back"\s*:\s*"(.*?)"', text, re.DOTALL)
@@ -66,10 +87,22 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
     m_context = re.search(r'"context"\s*:\s*"(.*?)"', text, re.DOTALL)
     if m_context: context = m_context.group(1).replace('\\"', '"').replace('\\n', '\n')
     
+    m_level = re.search(r'"level"\s*:\s*"(A1|A2|B1|B2|C1|C2)"', text, re.IGNORECASE)
+    if m_level:
+        level_str = m_level.group(1).upper()
+        diff_val = level_map.get(level_str)
+
+    m_diff = re.search(r'"difficulty"\s*:\s*([0-9]+(?:\.[0-9]+)?)', text)
+    if m_diff:
+        try:
+            diff_val = float(m_diff.group(1))
+        except (ValueError, TypeError):
+            pass
+
     if not back and not context:
-        return {"front": default_front, "back": text, "context": ""}
+        return {"front": default_front, "back": text, "context": "", "level": level_str, "difficulty": diff_val}
         
-    return {"front": front, "back": back, "context": context}
+    return {"front": front, "back": back, "context": context, "level": level_str, "difficulty": diff_val}
 
 async def generate_card_fields(user_id: int, phrase: str, target_language: str = "de", native_language: str = None, action_type: str = "full_card"):
     """Generates Front, Back, and Context for a card using AI."""
@@ -184,6 +217,8 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             system_prompt = (raw_prompt or get_prompt_for_phrase(clean_phrase, target_lang, native_lang)).replace("{phrase}", clean_phrase)
             if parsed.has_directive:
                 system_prompt += f"\n\nДополнительное указание пользователя: \"{parsed.directive}\". Выполни просьбу пользователя."
+            if "level" not in system_prompt.lower():
+                system_prompt += f"\n\nОбязательно добавь в выводимый JSON объект поля уровней:\n\"level\": \"один из уровня CEFR (A1, A2, B1, B2, C1, C2)\",\n\"difficulty\": числовая сложность от 1.0 до 6.0"
         elif is_quiz_request:
             native_name = native_config["name"].lower()
             system_prompt = (
@@ -193,11 +228,15 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 f"1. Сделай точный перевод вопроса и всех вариантов ответов на {native_name} язык.\n"
                 f"2. Подробно объясни грамматику и логику, почему именно отмеченный [*] или [x] вариант ответа является правильным, и в чём заключается ошибка остальных вариантов.\n"
                 f"3. Переведи ключевые сложные слова из вопроса.\n"
+                f"4. \"level\": определи CEFR уровень вопроса (\"A1\", \"A2\", \"B1\", \"B2\", \"C1\", \"C2\").\n"
+                f"5. \"difficulty\": числовая сложность от 1.0 до 6.0.\n"
                 f"НЕ пиши дополнительные 3 примера предложений!\n\n"
                 f"Return ONLY a JSON object in this format:\n{{\n"
                 f'  "front": "{clean_phrase}",\n'
                 f'  "back": "Перевод вопроса и правильного ответа",\n'
-                f'  "context": "🎯 **Перевод**:\\n[перевод вопроса и всех вариантов]\\n\\n💡 **Грамматический разбор и объяснение ответа**:\\n[подробное объяснение почему правильный ответ именно этот]\\n\\n📖 **Словарный запас**:\\n[слово — перевод]"\n'
+                f'  "context": "🎯 **Перевод**:\\n[перевод вопроса и всех вариантов]\\n\\n💡 **Грамматический разбор и объяснение ответа**:\\n[подробное объяснение почему правильный ответ именно этот]\\n\\n📖 **Словарный запас**:\\n[слово — перевод]",\n'
+                f'  "level": "B1",\n'
+                f'  "difficulty": 3.0\n'
                 f"}}\nEND_JSON"
             )
         elif is_trainer_request:
@@ -210,11 +249,15 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 f"3. В поле 'context' дай структурированное и понятное объяснение:\n"
                 f"   - 🎯 **Перевод**: [перевод фразы]\n"
                 f"   - 💡 **Грамматический разбор**: [почему выбран именно этот вариант/падеж/род/управление/окончание, подробное правило простыми словами]\n"
-                f"   - 📖 **Словарик**: [разбор ключевых слов фразы]\n\n"
+                f"   - 📖 **Словарик**: [разбор ключевых слов фразы]\n"
+                f"4. \"level\": определи CEFR уровень сложности выражения (\"A1\", \"A2\", \"B1\", \"B2\", \"C1\", \"C2\").\n"
+                f"5. \"difficulty\": числовая сложность от 1.0 до 6.0.\n\n"
                 f"Return ONLY a JSON object in this format:\n{{\n"
                 f'  "front": "предложение с {{пропуском}} на {lang_name.lower()}",\n'
                 f'  "back": "полный перевод предложения на {native_name}",\n'
-                f'  "context": "🎯 **Перевод**:\\n[перевод]\\n\\n💡 **Грамматический разбор**:\\n[объяснение правила и почему именно такой ответ]\\n\\n📖 **Словарик**:\\n[слово - перевод]"\n'
+                f'  "context": "🎯 **Перевод**:\\n[перевод]\\n\\n💡 **Грамматический разбор**:\\n[объяснение правила и почему именно такой ответ]\\n\\n📖 **Словарик**:\\n[слово - перевод]",\n'
+                f'  "level": "B1",\n'
+                f'  "difficulty": 3.0\n'
                 f"}}\nEND_JSON"
             )
         else:
@@ -345,7 +388,7 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
                     f"Инструкции по стилю:\n{custom_instructions}\n\n"
                     f"Сгенерируй карточки для {len(chunk)} элементов:\n{chunk_text}\n\n"
                     f"Верни СТРОГО JSON-массив из объектов формата:\n"
-                    f"[{{\"front\": \"...\", \"back\": \"...\", \"context\": \"...\"}}]"
+                    f"[{{\"front\": \"...\", \"back\": \"...\", \"context\": \"...\", \"level\": \"A1|A2|B1|B2|C1|C2\", \"difficulty\": 1.0}}]"
                 )
             else:
                 batch_prompt = (
@@ -358,7 +401,9 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
                     f"   {{\n"
                     f"     \"front\": \"исходная фраза на немецком/родном языке\",\n"
                     f"     \"back\": \"точный перевод на {native_name} язык + грамматический комментарий\",\n"
-                    f"     \"context\": \"2-3 контекстных примера на {lang_name} с переводом\"\n"
+                    f"     \"context\": \"2-3 контекстных примера на {lang_name} с переводом\",\n"
+                    f"     \"level\": \"один из уровня CEFR: A1, A2, B1, B2, C1 или C2\",\n"
+                    f"     \"difficulty\": числовое значение сложности от 1.0 до 6.0\n"
                     f"   }}\n"
                     f"3. Если фраза на русском, переведи её на {lang_name} для 'front'.\n"
                 )

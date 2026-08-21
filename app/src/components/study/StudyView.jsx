@@ -275,7 +275,8 @@ export const StudyView = ({ startTutorial }) => {
   const handlePlayBackAudio = async (targetCard) => {
     if (!targetCard?.back) return;
 
-    if (targetCard.audio_back_url) {
+    const forceGenerate = useSettingsStore.getState().autoplayForceBackAudio;
+    if (targetCard.audio_back_url && !forceGenerate) {
       playAudio(targetCard.audio_back_url);
       return;
     }

@@ -57,24 +57,36 @@ def save_card(data, user_id):
     # Обновляем только если передано (используем get с проверкой наличия ключа, чтобы позволить пустые строки)
 
     old_front = card.front_text
+    old_back = card.back_text
+
     if 'front' in data or 'front_text' in data:
         new_front = data.get('front') if 'front' in data else data.get('front_text')
         if old_front and new_front and old_front.strip() != new_front.strip():
-            if 'audio_path' not in data or not data.get('audio_path'):
+            incoming_audio = data.get('audio_path')
+            if not incoming_audio or incoming_audio == card.audio_path:
                 card.audio_path = None
+            else:
+                card.audio_path = incoming_audio
+        elif 'audio_path' in data:
+            card.audio_path = data.get('audio_path')
         card.front_text = new_front
         
     if 'back' in data or 'back_text' in data:
-        card.back_text = data.get('back') if 'back' in data else data.get('back_text')
+        new_back = data.get('back') if 'back' in data else data.get('back_text')
+        if old_back and new_back and old_back.strip() != new_back.strip():
+            incoming_back_audio = data.get('audio_back_path')
+            if not incoming_back_audio or incoming_back_audio == card.audio_back_path:
+                card.audio_back_path = None
+            else:
+                card.audio_back_path = incoming_back_audio
+        elif 'audio_back_path' in data:
+            card.audio_back_path = data.get('audio_back_path')
+        card.back_text = new_back
         
     if 'context' in data:
         card.context = data.get('context')
     if 'image_path' in data:
         card.image_path = data.get('image_path')
-    if 'audio_path' in data and data.get('audio_path'):
-        card.audio_path = data.get('audio_path')
-    if 'audio_back_path' in data:
-        card.audio_back_path = data.get('audio_back_path')
     if 'video_front_path' in data:
         card.video_front_path = data.get('video_front_path')
     if 'video_back_path' in data:
@@ -90,6 +102,26 @@ def save_card(data, user_id):
             card.flag = int(data.get('flag') or 0)
         except (ValueError, TypeError):
             card.flag = 0
+
+    if 'difficulty' in data and data.get('difficulty') is not None:
+        try:
+            card.difficulty = float(data.get('difficulty'))
+        except (ValueError, TypeError):
+            pass
+    elif 'level' in data and data.get('level'):
+        level_map = {"A1": 1.0, "A2": 2.0, "B1": 3.0, "B2": 4.0, "C1": 5.0, "C2": 6.0}
+        level_str = str(data.get('level')).upper().strip()
+        if level_str in level_map:
+            card.difficulty = level_map[level_str]
+
+    if 'tags' in data:
+        card.tags = data.get('tags')
+    elif 'level' in data and data.get('level'):
+        level_str = str(data.get('level')).upper().strip()
+        if level_str in {"A1", "A2", "B1", "B2", "C1", "C2"}:
+            curr_tags = card.tags or ""
+            if level_str not in curr_tags:
+                card.tags = f"{curr_tags},{level_str}".strip(",") if curr_tags else level_str
 
     # Проверяем, не перепутаны ли стороны (меняем только если на лицевой кириллица, а на обороте непустая латиница)
     import re
@@ -217,12 +249,36 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         creator_name = creator.username or creator.first_name
         creator_avatar = creator.photo_url
 
+    diff_val = get_val('difficulty', 'difficulty')
+    tags_val = get_val('tags', 'tags')
+    level_label = None
+
+    if tags_val:
+        for lvl in ["A1", "A2", "B1", "B2", "C1", "C2"]:
+            if lvl in str(tags_val).upper():
+                level_label = lvl
+                break
+    if not level_label and diff_val is not None:
+        try:
+            d_num = float(diff_val)
+            if d_num <= 1.5: level_label = "A1"
+            elif d_num <= 2.5: level_label = "A2"
+            elif d_num <= 3.5: level_label = "B1"
+            elif d_num <= 4.5: level_label = "B2"
+            elif d_num <= 5.5: level_label = "C1"
+            else: level_label = "C2"
+        except (ValueError, TypeError):
+            pass
+
     result = {
         "id": get_val('id', 'id'),
         "deck_id": get_val('deck_id', 'deck_id'),
         "front": get_val('front_text', 'front_text'),
         "back": get_val('back_text', 'back_text'),
         "context": get_val('context', 'context'),
+        "difficulty": diff_val,
+        "tags": tags_val,
+        "level": level_label,
         "audio_url": resolve_media_url(audio_path, "audio", exists_map=media_exists),
         "audio_back_url": resolve_media_url(audio_back_path, "audio", exists_map=media_exists),
         "image_url": resolve_media_url(image_path, "images", exists_map=media_exists),

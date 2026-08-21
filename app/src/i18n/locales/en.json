@@ -13,6 +13,12 @@
     "library": "Library",
     "feedback": "Feedback"
   },
+  "header": {
+    "target_lang": "Learning Language",
+    "target_lang_title": "Select learning language",
+    "native_lang": "Interface Language",
+    "native_lang_title": "Select interface language"
+  },
   "decks": {
     "my_decks": "My Decks",
     "subtitle": "Choose a deck and start learning",

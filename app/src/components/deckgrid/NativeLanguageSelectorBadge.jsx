@@ -20,8 +20,12 @@ export const NativeLanguageSelectorBadge = () => {
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [isOpen]);
 
   const handleSelect = (e, code) => {
@@ -43,7 +47,7 @@ export const NativeLanguageSelectorBadge = () => {
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        title={t('settings.native_lang_title', 'Родной язык')}
+        title={t('header.native_lang_title', 'Выбрать язык интерфейса')}
         style={{
           border: '1px solid rgba(56, 189, 248, 0.3)',
           background: 'rgba(56, 189, 248, 0.1)'
@@ -58,7 +62,7 @@ export const NativeLanguageSelectorBadge = () => {
         <div className="language-dropdown-menu" onClick={(e) => e.stopPropagation()}>
           <div className="language-dropdown-header">
             <Globe size={14} />
-            <span>{t('settings.native_lang_title', 'Мова UI')}</span>
+            <span>{t('header.native_lang', 'Язык интерфейса')}</span>
           </div>
           <div className="language-dropdown-list">
             {SUPPORTED_NATIVE_LANGUAGES.map((lang) => (

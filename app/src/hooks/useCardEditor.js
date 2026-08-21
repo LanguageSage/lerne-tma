@@ -32,8 +32,12 @@ export const useCardEditor = () => {
         front: data.front || '',
         back: data.back || '',
         context: data.context || '',
+        difficulty: data.difficulty !== undefined ? data.difficulty : null,
+        level: data.level || null,
+        tags: data.tags || null,
         image_path: data.image_path || cleanMedia(data.image_url),
         audio_path: data.audio_path || cleanMedia(data.audio_url),
+        audio_back_path: data.audio_back_path || cleanMedia(data.audio_back_url),
         video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
         video_back_path: data.video_back_path || cleanMedia(data.video_back_url)
       };

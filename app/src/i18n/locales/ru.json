@@ -13,6 +13,12 @@
     "library": "Библиотека",
     "feedback": "Отзыв"
   },
+  "header": {
+    "target_lang": "Изучаемый язык",
+    "target_lang_title": "Выбрать изучаемый язык",
+    "native_lang": "Язык интерфейса",
+    "native_lang_title": "Выбрать язык интерфейса"
+  },
   "decks": {
     "my_decks": "Мои колоды",
     "subtitle": "Выберите колоду и начните обучение",

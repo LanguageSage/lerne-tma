@@ -22,6 +22,7 @@
 | `PROJECT_MAP.md` | Полная карта модулей (`app/`, `api/`), структура папок, стек технологий и маршрутизация Vercel Serverless. |
 | `USER_FILES.md` | Описание формата пользовательских данных, структурирование карточек, папок, прогресса и промптов. |
 | `/ARCHITECTURE/DATABASE_AND_STORAGE.md` | Техническая спецификация 3-уровневой системы хранения данных (`LocalStorage` → `Telegram CloudStorage` → `Supabase PostgreSQL`). |
+| `/ARCHITECTURE/SRS_SYSTEM.md` | Полное описание системы интервального повторения (SM-2 PRO, Fuzzing, Anti Ease-Hell, Leech detection, Dual-Engine, аналитика). |
 
 ---
 

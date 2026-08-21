@@ -51,13 +51,21 @@
   top: calc(100% + 6px);
   left: 0;
   min-width: 190px;
-  background: rgba(25, 27, 38, 0.95);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  max-width: calc(100vw - 32px);
+  background: rgba(18, 20, 32, 0.98);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 14px;
   padding: 6px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
   animation: dropFadeIn 0.2s ease-out;
+  z-index: 9999;
+}
+
+.header-lang-item:last-child .language-dropdown-menu {
+  left: auto;
+  right: 0;
 }
 
 @keyframes dropFadeIn {

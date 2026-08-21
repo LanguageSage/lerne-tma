@@ -21,7 +21,7 @@ def parse_user_input(text: str) -> ParsedInput:
 
     text_str = text.strip()
     
-    # Match a newline followed by optional whitespace, open paren, content, close paren at string end
+    # Match a newline followed by optional whitespace and parenthesized directive at string end
     match = re.search(r'\n\s*\((.+?)\)\s*$', text_str, re.DOTALL)
     if match:
         directive_text = match.group(1).strip()

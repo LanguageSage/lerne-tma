@@ -13,6 +13,7 @@ import { useMediaUpload } from '../../hooks/useMediaUpload';
 
 import DeckAudioPlayer from '../common/DeckAudioPlayer';
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
+import { CardLevelBadge } from '../common/CardLevelBadge';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 
@@ -76,6 +77,7 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
           <span>{c.front}</span>
         </div>
         <div className="back-min">{c.back}</div>
+        <CardLevelBadge card={c} size="sm" showDifficulty={true} style={{ marginTop: '4px' }} />
       </div>
       <div className="card-item-actions">
         <CardActionButton 

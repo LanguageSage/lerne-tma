@@ -68,7 +68,13 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     session.setCard((current) => (
       current?.id === cardId ? { ...current, ...patch } : current
     ));
-    deck.setDeckCards(deck.deckCards.map((item) => (
+    if (typeof session.setStudyHistory === 'function') {
+      const currentHistory = session.studyHistory || [];
+      session.setStudyHistory(currentHistory.map((item) => (
+        item?.id === cardId ? { ...item, ...patch } : item
+      )));
+    }
+    deck.setDeckCards((deck.deckCards || []).map((item) => (
       item.id === cardId ? { ...item, ...patch } : item
     )));
   }, []);

@@ -27,8 +27,8 @@ export const DeckGridHeader = ({
 
   return (
     <div className="header">
-      <div className="header-title-row">
-        <div className="header-left">
+      <div className="header-top-row">
+        <div className="header-top-left">
           {activeFolderId !== null && (
             <button 
               className="back-btn" 
@@ -39,14 +39,7 @@ export const DeckGridHeader = ({
               <ChevronLeft size={24} />
             </button>
           )}
-          <div>
-            <div className="user-profile-and-lang">
-              <UserProfileBadge />
-              <LanguageSelectorBadge onLanguageChange={onLanguageChange} />
-              <NativeLanguageSelectorBadge />
-            </div>
-            <h1>Lerne TMA</h1>
-          </div>
+          <UserProfileBadge />
         </div>
         <div className="header-actions">
           <HelpButton onClick={() => startTutorial('decks')} />
@@ -68,7 +61,22 @@ export const DeckGridHeader = ({
           </button>
         </div>
       </div>
-      <p>{t('decks.subtitle', 'Выберите колоду и начните обучение')}</p>
+
+      <div className="header-title-section">
+        <h1>Lerne TMA</h1>
+        <p>{t('decks.subtitle', 'Выберите колоду и начните обучение')}</p>
+      </div>
+
+      <div className="header-languages-bar">
+        <div className="header-lang-item">
+          <span className="header-lang-label">{t('header.target_lang', 'Изучаемый язык')}</span>
+          <LanguageSelectorBadge onLanguageChange={onLanguageChange} />
+        </div>
+        <div className="header-lang-item">
+          <span className="header-lang-label">{t('header.native_lang', 'Язык интерфейса')}</span>
+          <NativeLanguageSelectorBadge />
+        </div>
+      </div>
       
       {personalLink && (
         <div className="commercial-info glass">
