@@ -83,7 +83,7 @@ export const AITab = () => {
     if (adminSettings.AI_PROVIDER && adminSettings.AI_PROVIDER !== 'default') {
       fetchModels();
     }
-  }, [adminSettings.AI_PROVIDER]);
+  }, [adminSettings.AI_PROVIDER]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getApiKeyLink = () => {
     switch(adminSettings.AI_PROVIDER) {

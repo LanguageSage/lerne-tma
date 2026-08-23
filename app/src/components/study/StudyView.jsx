@@ -178,7 +178,7 @@ export const StudyView = ({ startTutorial }) => {
       queueMicrotask(() => setActiveRandomMode(null));
       lastCardKeyRef.current = '';
     }
-  }, [card?.id, historyIndex, studyMode, randomEnabledModes, activeRandomMode]);
+  }, [card?.id, historyIndex, studyMode, randomEnabledModes, activeRandomMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (view !== 'study' || !card) return;
@@ -207,7 +207,7 @@ export const StudyView = ({ startTutorial }) => {
       window.removeEventListener('focus', openPickerAfterGoogle);
       document.removeEventListener('visibilitychange', openPickerAfterGoogle);
     };
-  }, [view, card?.id]);
+  }, [view, card?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
   const getResolvedStyle = (settingStyle, cardId) => {

@@ -36,7 +36,7 @@ export const CollaboratorsModal = () => {
     } else {
       setConfirmTarget(null);
     }
-  }, [isCollaboratorsModalOpen, targetId, targetType]);
+  }, [isCollaboratorsModalOpen, targetId, targetType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCollaboratorsData = async () => {
     setLoading(true);

@@ -97,20 +97,20 @@ export const StudyCard = React.memo(({
     setCorrectSelected(null);
   }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]);
 
-  const cardStyle = useMemo(() => getCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]);
-  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]);
-  const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]);
+  const cardStyle = useMemo(() => getCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
+  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
+  const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Quiz / Exam Data Parsing
   const quizData = useMemo(() => {
     return parseQuizData(card);
-  }, [card?.id, card?.front, card?.back, card?.updated_at]);
+  }, [card?.id, card?.front, card?.back, card?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cloze / Trainer Data Parsing
   const clozeData = useMemo(() => {
     const allDeckCards = useDeckStore.getState().deckCards || [];
     return parseClozeData(card, studyMode, allDeckCards);
-  }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]);
+  }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Early return after all hooks ---
   if (!card) return null;

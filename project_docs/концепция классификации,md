@@ -1,0 +1,1228 @@
+Да. Для твоей программы я бы сделал не просто `spaCy → AI`, а четыре уровня обработки:
+
+```text
+                    ┌──────────────────────┐
+                    │   Немецкая фраза     │
+                    └──────────┬───────────┘
+                               ↓
+                    ┌──────────────────────┐
+                    │       spaCy          │
+                    │ token / lemma / POS  │
+                    │ morphology / parser  │
+                    └──────────┬───────────┘
+                               ↓
+                    ┌──────────────────────┐
+                    │     Rule Engine      │
+                    │ грамматические       │
+                    │ конструкции + regex  │
+                    └──────────┬───────────┘
+                               ↓
+                 ┌─────────────┴─────────────┐
+                 ↓                           ↓
+        уверенная классификация        сомнительный случай
+                 ↓                           ↓
+             локальный JSON              AI fallback
+                 │                           ↓
+                 └─────────────┬─────────────┘
+                               ↓
+                    ┌──────────────────────┐
+                    │  Final Classifier    │
+                    │ grammar              │
+                    │ vocabulary           │
+                    │ overall              │
+                    │ difficulty           │
+                    │ confidence           │
+                    └──────────┬───────────┘
+                               ↓
+                         JSON / DB
+```
+
+Для немецкого spaCy сейчас предоставляет `de_core_news_sm/md/lg`, а также transformer-модель `de_dep_news_trf`; актуальная `de_core_news_lg` 3.8.0 содержит tokenizer, tagger, morphologizer, parser, lemmatizer и NER. Для твоей задачи я бы начал с `de_core_news_lg`: она рассчитана на CPU и даёт нужный синтаксический анализ. ([spacy.io][1])
+
+## 1. Структура проекта
+
+Я бы сразу разложил проект так:
+
+```text
+language_classifier/
+│
+├── app.py
+│
+├── classifier/
+│   ├── __init__.py
+│   ├── pipeline.py
+│   ├── analyzer.py
+│   ├── rules.py
+│   ├── scorer.py
+│   ├── vocabulary.py
+│   ├── ai_fallback.py
+│   └── schemas.py
+│
+├── data/
+│   ├── grammar_rules.json
+│   ├── vocabulary.json
+│   └── cache.json
+│
+├── tests/
+│   └── test_classifier.py
+│
+└── requirements.txt
+```
+
+Смысл такой:
+
+`analyzer.py` — разбирает немецкую фразу через spaCy.
+
+`rules.py` — определяет конструкции.
+
+`vocabulary.py` — определяет уровень слов.
+
+`scorer.py` — объединяет результаты.
+
+`ai_fallback.py` — обращается к LLM только там, где локальная система не уверена.
+
+`schemas.py` — единый формат JSON.
+
+---
+
+# 2. Установка
+
+Например:
+
+```bash
+pip install spacy pydantic
+python -m spacy download de_core_news_lg
+```
+
+Потом:
+
+```python
+import spacy
+
+nlp = spacy.load("de_core_news_lg")
+```
+
+spaCy dependency parser даёт нам `token.dep_`, `token.head`, а морфологический анализ — `token.morph`. Это как раз то, что нужно для определения грамматических конструкций. ([spacy.io][2])
+
+---
+
+# 3. Сначала spaCy
+
+Например:
+
+```python
+import spacy
+
+nlp = spacy.load("de_core_news_lg")
+
+text = "Ich habe das Passwort falsch eingegeben."
+
+doc = nlp(text)
+
+for token in doc:
+    print(
+        token.text,
+        token.lemma_,
+        token.pos_,
+        token.tag_,
+        token.dep_,
+        token.morph
+    )
+```
+
+Мы получаем примерно такую информацию:
+
+```text
+Ich         ich          PRON
+habe        haben        AUX
+das         der          DET
+Passwort    Passwort     NOUN
+falsch      falsch       ADV
+eingegeben  eingeben     VERB
+```
+
+Но для классификатора важнее не сами POS-теги, а комбинации.
+
+Например:
+
+```text
+haben + Partizip II
+```
+
+→ Perfekt.
+
+---
+
+# 4. Rule Engine
+
+Вот здесь находится основная логика.
+
+Я бы вообще не пытался делать это через огромный набор regex.
+
+Regex должен быть вспомогательным механизмом.
+
+Основная логика:
+
+```text
+spaCy
+ ↓
+леммы
+ ↓
+POS
+ ↓
+Morphology
+ ↓
+dependency tree
+ ↓
+rules
+```
+
+## Пример определения Perfekt
+
+```python
+def detect_perfekt(doc):
+    for token in doc:
+        if token.lemma_ in {"haben", "sein"}:
+            for child in token.children:
+                if child.pos_ == "VERB":
+                    if "VerbForm=Part" in child.morph:
+                        return True
+
+    return False
+```
+
+Можно сделать более надёжную версию, учитывая Aux/Verb и порядок слов.
+
+---
+
+# 5. Определение Modalverb
+
+```python
+MODAL_VERBS = {
+    "können",
+    "müssen",
+    "wollen",
+    "dürfen",
+    "sollen",
+    "mögen"
+}
+
+def detect_modalverb(doc):
+    return any(
+        token.lemma_ in MODAL_VERBS
+        for token in doc
+    )
+```
+
+Это даст:
+
+```text
+Ich kann heute nicht kommen.
+```
+
+→ modalverb.
+
+Но уровень не должен автоматически становиться A1 только потому, что есть `können`.
+
+---
+
+# 6. Определение придаточного
+
+Можно использовать dependency tree и союзы.
+
+```python
+A2_SUBORDINATORS = {
+    "weil",
+    "dass",
+    "wenn",
+    "ob",
+    "als"
+}
+
+B1_SUBORDINATORS = {
+    "obwohl",
+    "während",
+    "nachdem",
+    "bevor",
+    "seitdem",
+    "sodass"
+}
+```
+
+```python
+def detect_subordinators(doc):
+    found = []
+
+    for token in doc:
+        word = token.lemma_.lower()
+
+        if word in A2_SUBORDINATORS:
+            found.append((word, "A2"))
+
+        elif word in B1_SUBORDINATORS:
+            found.append((word, "B1"))
+
+    return found
+```
+
+Для:
+
+```text
+Ich bleibe zu Hause, weil ich krank bin.
+```
+
+получим:
+
+```python
+[
+    ("weil", "A2")
+]
+```
+
+Для:
+
+```text
+Obwohl ich müde bin, gehe ich arbeiten.
+```
+
+получим:
+
+```python
+[
+    ("obwohl", "B1")
+]
+```
+
+---
+
+# 7. Relativsatz
+
+Здесь уже очень полезен dependency parser.
+
+Например:
+
+```text
+Der Mann, den ich gestern gesehen habe, wohnt hier.
+```
+
+Можно искать относительные местоимения:
+
+```python
+RELATIVPRONOMEN = {
+    "der",
+    "die",
+    "das",
+    "den",
+    "dem",
+    "deren",
+    "dessen",
+    "denen"
+}
+```
+
+Но просто наличие `der` недостаточно.
+
+Поэтому rule engine должен смотреть на dependency relations.
+
+Условно:
+
+```python
+def detect_relative_clause(doc):
+    for token in doc:
+        if token.dep_ in {"rc", "ref"}:
+            return True
+
+    return False
+```
+
+Точное правило стоит протестировать на реальных выходах твоей конкретной модели, потому что dependency labels зависят от модели/разметки.
+
+---
+
+# 8. Passiv
+
+Можно искать комбинацию:
+
+```text
+werden + Partizip II
+```
+
+Например:
+
+```text
+Das Auto wird repariert.
+```
+
+```python
+def detect_passiv(doc):
+    for token in doc:
+        if token.lemma_ == "werden":
+            for child in token.children:
+                if (
+                    child.pos_ in {"VERB", "AUX"}
+                    and "VerbForm=Part" in child.morph
+                ):
+                    return True
+
+    return False
+```
+
+Тогда:
+
+```text
+Das Auto wird repariert.
+```
+
+→ Passiv Präsens → B1.
+
+А:
+
+```text
+Das Auto ist repariert worden.
+```
+
+должно выявить уже более сложную комбинацию:
+
+```text
+sein
++
+Partizip II
++
+worden
+```
+
+→ Passiv Perfekt → B2 по твоей учебной модели.
+
+---
+
+# 9. Konjunktiv II
+
+Здесь morphology особенно полезна.
+
+Например:
+
+```text
+Wenn ich mehr Zeit hätte, würde ich Deutsch lernen.
+```
+
+Ищем:
+
+```text
+Mood=Sub
+```
+
+или конкретные формы `hätte`, `wäre`, `würde`, `könnte`, `müsste` и т. д.
+
+Но я бы сделал словарь исключений:
+
+```python
+KONJUNKTIV_II_FORMS = {
+    "wäre",
+    "hätte",
+    "würde",
+    "könnte",
+    "müsste",
+    "sollte",
+    "dürfte",
+    "wollte"
+}
+```
+
+И потом анализировал контекст.
+
+Это важно, потому что:
+
+```text
+Ich möchte einen Kaffee.
+```
+
+не должен классифицироваться так же, как:
+
+```text
+Wenn ich mehr Geld hätte, würde ich ein Haus kaufen.
+```
+
+Первая конструкция — вежливая формула.
+
+Вторая — полноценный гипотетический Konjunktiv II.
+
+---
+
+# 10. Главное — не делать `if grammar == ...`
+
+Лучше сделать систему признаков.
+
+Например:
+
+```python
+features = []
+```
+
+После анализа:
+
+```python
+features = [
+    {
+        "name": "Perfekt",
+        "level": "A2",
+        "confidence": 0.98
+    },
+    {
+        "name": "trennbares Verb",
+        "level": "A2",
+        "confidence": 0.96
+    }
+]
+```
+
+Другой пример:
+
+```text
+Nachdem ich das Passwort eingegeben habe, bin ich gegangen.
+```
+
+результат:
+
+```python
+[
+    {
+        "name": "Perfekt",
+        "level": "A2"
+    },
+    {
+        "name": "nachdem-Nebensatz",
+        "level": "B1"
+    }
+]
+```
+
+---
+
+# 11. Scorer
+
+Затем отдельная функция:
+
+```python
+CEFR_ORDER = {
+    "A1": 1,
+    "A2": 2,
+    "B1": 3,
+    "B2": 4,
+    "C1": 5,
+    "C2": 6
+}
+
+def max_level(levels):
+    return max(
+        levels,
+        key=lambda x: CEFR_ORDER[x]
+    )
+```
+
+Получаем:
+
+```python
+grammar_level = max_level(
+    feature["level"]
+    for feature in grammar_features
+)
+```
+
+---
+
+# 12. Лексика
+
+Здесь я бы не полагался на spaCy.
+
+spaCy скажет:
+
+```text
+Passwort
+NOUN
+lemma = Passwort
+```
+
+Но он не скажет тебе:
+
+```text
+Passwort = A2
+```
+
+Это должна делать твоя собственная база.
+
+Например:
+
+```json
+{
+  "Passwort": "A2",
+  "eingeben": "A2",
+  "Datei": "A2",
+  "herunterladen": "A2",
+  "verschlüsseln": "B2",
+  "Datenschutzbestimmung": "C1"
+}
+```
+
+Причём лучше хранить не только уровень, а метаданные:
+
+```json
+{
+  "Passwort": {
+    "level": "A2",
+    "frequency": 0.82,
+    "domain": "digital",
+    "lemma": "Passwort"
+  }
+}
+```
+
+---
+
+# 13. Что делать с неизвестным словом
+
+Вот это как раз одно из главных мест для AI fallback.
+
+Например, твой словарь не содержит:
+
+```text
+Zweckentfremdungsverbot
+```
+
+spaCy определил:
+
+```text
+lemma = Zweckentfremdungsverbot
+POS = NOUN
+```
+
+Но локальная база ничего не знает.
+
+Тогда:
+
+```text
+known vocabulary?
+        ↓
+       NO
+        ↓
+AI fallback
+```
+
+AI возвращает:
+
+```json
+{
+  "word": "Zweckentfremdungsverbot",
+  "level": "C1",
+  "confidence": 0.88
+}
+```
+
+Ты сохраняешь результат в локальный словарь.
+
+Следующий раз API уже не нужен.
+
+---
+
+# 14. AI fallback должен получать не только фразу
+
+Это очень важно.
+
+Не надо отправлять:
+
+```text
+Classify this:
+Ich habe das Passwort falsch eingegeben.
+```
+
+Лучше передавать уже разобранную информацию:
+
+```json
+{
+  "sentence": "Ich habe das Passwort falsch eingegeben.",
+  "grammar_features": [
+    {
+      "name": "Perfekt",
+      "level": "A2"
+    },
+    {
+      "name": "trennbares Verb",
+      "level": "A2"
+    }
+  ],
+  "known_vocabulary": [
+    {
+      "word": "Passwort",
+      "level": "A2"
+    }
+  ],
+  "unknown_vocabulary": [
+    "eingeben"
+  ]
+}
+```
+
+Тогда AI не начинает классификацию с нуля.
+
+Он только разрешает неопределённость.
+
+---
+
+# 15. Когда отправлять в AI
+
+Я бы ввёл простой confidence score.
+
+Например:
+
+```python
+confidence = 1.0
+```
+
+Если все грамматические правила сработали однозначно:
+
+```text
+confidence = 0.95
+```
+
+Если неизвестное слово:
+
+```text
+confidence -= 0.20
+```
+
+Если не удалось определить структуру:
+
+```text
+confidence -= 0.30
+```
+
+Если обнаружена потенциально неоднозначная конструкция:
+
+```text
+confidence -= 0.20
+```
+
+И:
+
+```python
+if confidence < 0.80:
+    use_ai = True
+else:
+    use_ai = False
+```
+
+Порог потом можно подобрать на тестовой выборке.
+
+---
+
+# 16. Полный объект результата
+
+Я бы сделал такой JSON:
+
+```json
+{
+  "text": "Nachdem ich das Passwort falsch eingegeben habe, bin ich nach Hause gegangen.",
+  "grammar_level": "B1",
+  "vocabulary_level": "A2",
+  "overall_level": "B1",
+  "difficulty": "medium",
+  "confidence": 0.96,
+  "grammar_features": [
+    {
+      "name": "Perfekt",
+      "level": "A2"
+    },
+    {
+      "name": "nachdem-Nebensatz",
+      "level": "B1"
+    },
+    {
+      "name": "trennbares Verb",
+      "level": "A2"
+    }
+  ],
+  "vocabulary_features": [
+    {
+      "word": "Passwort",
+      "lemma": "Passwort",
+      "level": "A2"
+    },
+    {
+      "word": "eingeben",
+      "lemma": "eingeben",
+      "level": "A2"
+    }
+  ],
+  "classification_source": "rules",
+  "ai_used": false
+}
+```
+
+Это уже хороший формат для твоей БД.
+
+---
+
+# 17. Очень важный момент: classification_source
+
+Я бы обязательно добавил:
+
+```json
+"classification_source": "rules"
+```
+
+или:
+
+```json
+"classification_source": "ai"
+```
+
+или:
+
+```json
+"classification_source": "rules+ai"
+```
+
+Потому что через несколько месяцев ты сможешь посмотреть:
+
+```text
+100 000 фраз
+
+rules → 82 000
+AI → 18 000
+```
+
+А потом увидеть, какие конструкции чаще всего требуют AI.
+
+Это позволит постепенно расширять Rule Engine и уменьшать расходы на API.
+
+---
+
+# 18. Кэш AI
+
+Обязательно.
+
+Например:
+
+```python
+cache_key = sentence.strip().lower()
+```
+
+В SQLite:
+
+```text
+sentence_hash
+text
+grammar_level
+vocabulary_level
+overall_level
+result_json
+model
+created_at
+```
+
+Если фраза уже классифицирована:
+
+```text
+DB
+ ↓
+найдено
+ ↓
+не вызываем AI
+```
+
+Таким образом одна и та же фраза не оплачивается дважды.
+
+---
+
+# 19. Полный pipeline в Python
+
+В итоге `pipeline.py` может выглядеть так:
+
+```python
+from .analyzer import analyze_sentence
+from .rules import detect_grammar
+from .vocabulary import detect_vocabulary
+from .scorer import calculate_result
+from .ai_fallback import classify_with_ai
+
+
+def classify_sentence(text: str) -> dict:
+    # 1. NLP
+    doc = analyze_sentence(text)
+
+    # 2. Grammar rules
+    grammar = detect_grammar(doc)
+
+    # 3. Vocabulary
+    vocabulary = detect_vocabulary(doc)
+
+    # 4. Local scoring
+    result = calculate_result(
+        text=text,
+        grammar_features=grammar,
+        vocabulary_features=vocabulary
+    )
+
+    # 5. AI fallback
+    if result["confidence"] < 0.80:
+        ai_result = classify_with_ai(
+            text=text,
+            grammar_features=grammar,
+            vocabulary_features=vocabulary
+        )
+
+        result = merge_results(
+            local=result,
+            ai=ai_result
+        )
+
+    return result
+```
+
+Это и есть основа системы.
+
+---
+
+# 20. `analyzer.py`
+
+```python
+import spacy
+
+nlp = spacy.load("de_core_news_lg")
+
+
+def analyze_sentence(text: str):
+    return nlp(text)
+```
+
+Позже можно оптимизировать загрузку модели, чтобы `nlp` создавался только один раз.
+
+---
+
+# 21. `rules.py`
+
+Я бы строил её примерно так:
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass
+class GrammarFeature:
+    name: str
+    level: str
+    confidence: float
+
+
+def detect_grammar(doc):
+    features = []
+
+    if detect_perfekt(doc):
+        features.append(
+            GrammarFeature(
+                name="Perfekt",
+                level="A2",
+                confidence=0.98
+            )
+        )
+
+    if detect_passive(doc):
+        features.append(
+            GrammarFeature(
+                name="Passiv",
+                level="B1",
+                confidence=0.90
+            )
+        )
+
+    if detect_konjunktiv_ii(doc):
+        features.append(
+            GrammarFeature(
+                name="Konjunktiv II",
+                level="B1",
+                confidence=0.90
+            )
+        )
+
+    # ...
+
+    return features
+```
+
+Это намного лучше, чем огромная функция на 1000 строк.
+
+---
+
+# 22. И главное — отдельно хранить словарь грамматических правил
+
+Например:
+
+`data/grammar_rules.json`
+
+```json
+{
+  "Perfekt": {
+    "level": "A2"
+  },
+  "Dativ": {
+    "level": "A2"
+  },
+  "weil-Nebensatz": {
+    "level": "A2"
+  },
+  "dass-Nebensatz": {
+    "level": "A2"
+  },
+  "obwohl-Nebensatz": {
+    "level": "B1"
+  },
+  "nachdem-Nebensatz": {
+    "level": "B1"
+  },
+  "Relativsatz": {
+    "level": "B1"
+  },
+  "Passiv Präsens": {
+    "level": "B1"
+  },
+  "Passiv Perfekt": {
+    "level": "B2"
+  }
+}
+```
+
+Тогда ты сможешь менять классификацию **без изменения Python-кода**.
+
+Это особенно важно для твоего проекта, потому что ты наверняка несколько раз пересмотришь границы A2/B1.
+
+---
+
+# 23. Как будет классифицироваться твоя исходная фраза
+
+Вход:
+
+```text
+Ich habe das Passwort falsch eingegeben.
+```
+
+spaCy:
+
+```text
+Ich
+haben
+Passwort
+falsch
+eingeben
+```
+
+Rule Engine:
+
+```text
+Perfekt              → A2
+trennbares Verb      → A2
+```
+
+Vocabulary:
+
+```text
+Passwort             → A2
+eingeben             → A2
+```
+
+Scorer:
+
+```text
+grammar_level        = A2
+vocabulary_level     = A2
+overall_level        = A2
+```
+
+AI:
+
+```text
+не нужен
+```
+
+JSON:
+
+```json
+{
+  "grammar_level": "A2",
+  "vocabulary_level": "A2",
+  "overall_level": "A2",
+  "difficulty": "low",
+  "confidence": 0.97,
+  "ai_used": false
+}
+```
+
+---
+
+# 24. А вот другой пример
+
+```text
+Nachdem ich das Passwort falsch eingegeben habe, konnte ich mich nicht anmelden.
+```
+
+Rule Engine:
+
+```text
+Perfekt                    → A2
+nachdem-Nebensatz          → B1
+Modalverb                  → A1/A2
+Reflexives Verb            → A2
+```
+
+Итог:
+
+```text
+grammar_level = B1
+```
+
+Лексика:
+
+```text
+Passwort                    → A2
+eingeben                    → A2
+anmelden                    → A2
+```
+
+Итого:
+
+```text
+vocabulary_level = A2
+overall_level = B1
+```
+
+Это именно то поведение, которое тебе нужно.
+
+---
+
+# 25. Почему не стоит сразу делать всё через AI
+
+Есть четыре проблемы.
+
+Во-первых, AI может сегодня классифицировать одну и ту же конструкцию как A2, а завтра как B1.
+
+Во-вторых, он часто определяет CEFR по общей сложности фразы, а не по конкретной грамматической конструкции.
+
+В-третьих, это лишние API-запросы.
+
+В-четвёртых, тебе будет трудно отлаживать систему. Ты не увидишь, почему программа решила, что предложение B1.
+
+Rule Engine даёт обратную трассировку:
+
+```text
+B1
+↑
+nachdem-Nebensatz
+↑
+"nachdem"
+↑
+rule #B1-017
+```
+
+Это очень ценно для твоего приложения.
+
+---
+
+# 26. Где AI действительно будет сильнее
+
+AI нужен там, где правила плохо работают:
+
+```text
+идиомы
+фразеологизмы
+многозначные слова
+неочевидный уровень слова
+сложные синтаксические структуры
+пограничные B1/B2
+профессиональная лексика
+стилистическая маркированность
+```
+
+Например:
+
+**eine Entscheidung treffen**
+
+spaCy увидит:
+
+```text
+eine
+Entscheidung
+treffen
+```
+
+Но AI или твой словарь должен понимать, что это единая **Nomen-Verb-Verbindung**, а не просто существительное + глагол.
+
+---
+
+# 27. Следующий этап — не делать сразу B2/C1
+
+Я бы первую версию ограничил:
+
+```text
+A1
+A2
+B1
+```
+
+И реализовал примерно 25–35 грамматических правил.
+
+Например:
+
+```text
+A1:
+Präsens
+sein/haben
+Modalverb
+Akkusativ
+Negation
+separable verbs
+
+A2:
+Perfekt
+Dativ
+Reflexive
+weil
+dass
+wenn
+ob
+als
+simple Konjunktiv II
+Präteritum modal verbs
+
+B1:
+obwohl
+nachdem
+bevor
+während
+Relativsatz
+um...zu
+ohne...zu
+Passiv
+Konjunktiv II
+Plusquamperfekt
+Verben mit Präpositionen
+Genitivpräpositionen
+```
+
+После этого взять, например, **500–1000 реальных немецких предложений**, вручную разметить ожидаемый уровень и прогнать классификатор.
+
+Получишь:
+
+```text
+Accuracy
+A1 precision
+A1 recall
+A2 precision
+A2 recall
+B1 precision
+B1 recall
+```
+
+И уже по ошибкам станет понятно, какие правила нужно улучшать.
+
+Для твоего проекта это существенно полезнее, чем пытаться сразу создать «идеальный AI-классификатор».
+
+И ещё один технический момент: если позже ты захочешь обучать или хранить собственную разметку spaCy, используй `DocBin`; это стандартный эффективный бинарный формат spaCy для коллекций `Doc`, а старый JSON-формат обучения в современных версиях считается устаревшим. ([spacy.io][3])
+

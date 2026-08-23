@@ -70,9 +70,9 @@ async def db_session_middleware(request, call_next):
         except Exception as e2:
             logger.error(f"CRITICAL: DB initialize failed: {e2}")
 
+    response = None
     try:
         response = await call_next(request)
-        return response
     except Exception as exc:
         exc_str = str(exc).lower()
         if any(k in exc_str for k in ["closed", "terminated", "connection", "socket", "reset", "eof"]):
@@ -85,17 +85,18 @@ async def db_session_middleware(request, call_next):
                 pass
             try:
                 response = await call_next(request)
-                return response
             except Exception as retry_exc:
                 logger.error(f"Retry HTTP request failed: {retry_exc}")
                 raise retry_exc
-        raise exc
+        else:
+            raise exc
 
-    path = request.url.path
-    if path.startswith("/api") and not path.startswith("/api/media"):
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
+    if response:
+        path = request.url.path
+        if path.startswith("/api") and not path.startswith("/api/media"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
     return response
 
 # Подключение роутеров

@@ -53,7 +53,7 @@ export const PromptsTab = () => {
 
   useEffect(() => {
     fetchPrompts();
-  }, [activeLanguage]);
+  }, [activeLanguage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentActivePromptId = activeCategoryTab === 'exam' 
     ? activeExamPromptId 

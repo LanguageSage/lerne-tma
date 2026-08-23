@@ -43,6 +43,7 @@ export const StudyCardSpeech = React.memo(({
     cardTextShadow
   } = styles;
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const cardStyle = useMemo(() => getCardStyle(styles), [
     styles?.cardFont,
     styles?.cardTextColor,

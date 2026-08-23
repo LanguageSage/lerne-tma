@@ -151,7 +151,7 @@ export const useAppInitialization = (checkStartParam) => {
       window.removeEventListener('online', handleOnline);
       clearInterval(syncInterval);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const CACHE_VERSION = '3'; // bump to invalidate cached deck ids after cloud DB migration
 
