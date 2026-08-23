@@ -122,6 +122,62 @@ def get_prompt_for_phrase(phrase: str, target_lang: str = "de", native_lang: str
         name=name
     )
 
+def get_cefr_rubric(target_language: str = "de") -> str:
+    """Returns a tailored, highly accurate dual CEFR rubric (Grammar + Vocabulary) for the target language (de, en, no)."""
+    code = (target_language or "de").lower().strip()
+
+    if code == "en":
+        return (
+            "КРИТЕРИИ CEFR ДЛЯ АНГЛИЙСКОГО ЯЗЫКА (определяй уровень как МАКСИМУМ из сложности грамматики и сложности лексики):\n\n"
+            "1. ГРАММАТИКА:\n"
+            "• A1: Present Simple, Present Continuous, базовый Past Simple (be, go, see), модальный can, базовые предлоги (in, at, on), простые вопросы.\n"
+            "• A2: Past Continuous, Present Perfect Simple (just, already, yet), Future (will, going to), Conditionals 0 и 1-й (if/when), модальные (should, must, have to), сравнительные степени.\n"
+            "• B1: Present Perfect Continuous, Past Perfect (had done), 2-й Conditional (would + V), Passive Voice (Present/Past Simple), придаточные определительные (relative clauses: which, who, that), косвенная речь (reported speech), модальные предположения (might, could).\n"
+            "• B2: 3-й Conditional (had been... would have done), Mixed Conditionals, Passive всех времен и модальный пассив, конструкции Wish / If only, Causative (have/get smth done), союзы противопоставления (whereas, despite, nevertheless), инверсии.\n"
+            "• C1/C2: Сложные причастные обороты (Having finished...), эмфатические конструкции Cleft sentences (What surprised me was...), сложные инверсии (No sooner had...), субъюнктив (It is crucial that he be...), сложные идиомы.\n\n"
+            "2. ЛЕКСИКА:\n"
+            "• A1: Базовый быт, семья, еда, простые действия, цифры, цвета, погода.\n"
+            "• A2: Покупки, работа, транспорт, здоровье, хобби, базовые фразовые глаголы.\n"
+            "• B1: Описание чувств, планов, мнений, путешествия, социальные темы, базовые абстрактные понятия.\n"
+            "• B2: Профессиональная, деловая, академическая лексика, устойчивые фразовые глаголы и коллокации.\n"
+            "• C1/C2: Академические/юридические термины, узкоспециализированная лексика, идиоматические выражения, метафоры."
+        )
+
+    elif code in ("no", "nb", "nn"):
+        return (
+            "КРИТЕРИИ CEFR ДЛЯ НОРВЕЖСКОГО ЯЗЫКА (определяй уровень как МАКСИМУМ из сложности грамматики и сложности лексики):\n\n"
+            "1. ГРАММАТИКА:\n"
+            "• A1: Presens, Preteritum (слабые и простые сильные глаголы), прямой порядок слов и базовое правило инверсии V2, притяжательные местоимения, базовые предлоги.\n"
+            "• A2: Perfektum (har gjort), придаточные предложения с союзами fordi, at, hvis, da/når, модальные глаголы (skal, vil, må, bør, kan), степени сравнения прилагательных, возвратные местоимения (seg).\n"
+            "• B1: Pluskvamperfektum (hadde gjort), Passiv с s-verb и bli-passiv (ble skrevet), инфинитивные обороты (for å...), союзы selv om, mens, ettersom, действительные и страдательные причастия (partisipper).\n"
+            "• B2: Двойные союзы (jo... desto, ikke bare... men også), согласование причастий (samsvarsbøying), сложные условные конструкции (hadde jeg visst...), косвенная речь, инверсии в начале предложения.\n"
+            "• C1/C2: Сложные причастные конструкции, пассивные стилистические обороты, инверсивные стилистические структуры, устойчивые идиоматические обороты, формальный/академический синтаксис.\n\n"
+            "2. ЛЕКСИКА:\n"
+            "• A1: Базовый быт, еда, семья, числа, простые глаголы действия.\n"
+            "• A2: Покупки, работа, путешествия, здоровье, базовые хобби и повседневные темы.\n"
+            "• B1: Описание чувств, планов, мнений, стандартные абстрактные понятия, обсуждение новостей.\n"
+            "• B2: Профессиональная, деловая, общественно-политическая лексика, устойчивые выражения.\n"
+            "• C1/C2: Академические и юридические термины, идиомы, метафоры, стилистически окрашенная лексика."
+        )
+
+    else:
+        # Default German (de)
+        return (
+            "КРИТЕРИИ CEFR ДЛЯ НЕМЕЦКОГО ЯЗЫКА (определяй уровень как МАКСИМУМ из сложности грамматики и сложности лексики):\n\n"
+            "1. ГРАММАТИКА:\n"
+            "• A1: Простые предложения в Präsens/Perfekt, прямой/обратный порядок слов без придаточных союзов.\n"
+            "• A2: Придаточные предложения (союзы weil, dass, wenn, ob, als), модальные глаголы, возвратные глаголы (sich), Dativ, вежливый Konjunktiv II (könnte/möchte).\n"
+            "• B1: Обороты um... zu, ohne... zu, союзы obwohl/während/nachdem, управление глаголов (warten auf), полный Konjunktiv II, Passiv Präsens.\n"
+            "• B2: Passiv всех времен, Konjunktiv I, Partizip I/II в роли прилагательных, двойные союзы (je... desto, nicht nur... sondern auch).\n"
+            "• C1/C2: Сложные причастные обороты, пассивные конструкции sein+zu, инверсии, субстантивации.\n\n"
+            "2. ЛЕКСИКА:\n"
+            "• A1: Базовый быт, еда, семья, числа, простые глаголы действия.\n"
+            "• A2: Покупки, работа, путешествия, самочувствие, базовые хобби.\n"
+            "• B1: Описание чувств, планов, мнений, стандартные абстрактные понятия.\n"
+            "• B2: Профессиональная, деловая, новостная лексика (Erfahrung, Verantwortung).\n"
+            "• C1/C2: Академические термины, официально-деловой/юридический язык, идиомы, метафоры."
+        )
+
 def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "uk", directive: str = None, detect_level: bool = True) -> str:
     lang_config = get_language_config(target_lang, native_lang)
     native_config = get_native_config(native_lang)
@@ -137,12 +193,8 @@ def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "
     level_rule = ""
     json_level_field = ""
     if detect_level:
-        level_rule = (
-            f"\n4. \"level\": определи уровень CEFR (A1, A2, B1, B2, C1, C2) как МАКСИМУМ из сложности грамматики и лексики:\n"
-            f"   • Грамматика: A1 (Präsens/Perfekt без придаточных), A2 (придаточные weil/dass/wenn, модальные глаголы, Dativ), "
-            f"B1 (обороты um... zu, союзы obwohl/während, Konjunktiv II, Passiv), B2 (Passiv всех времен, Konjunktiv I, союзы je... desto), C1/C2 (сложные инверсии, причастные обороты).\n"
-            f"   • Лексика: A1 (базовый быт, простые действия), A2 (работа, здоровье, покупки), B1 (описание чувств, планов), B2 (профессиональная и абстрактная лексика), C1/C2 (академические/юридические термины, идиомы).\n"
-        )
+        rubric_text = get_cefr_rubric(target_lang)
+        level_rule = f"\n4. \"level\": определи CEFR уровень сложности выражения (A1, A2, B1, B2, C1 или C2) строго по следующим критериям:\n{rubric_text}\n"
         json_level_field = ',\n  "level": "B1"'
 
     is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in phrase)

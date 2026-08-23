@@ -447,21 +447,8 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
 
     numbered_phrases = "\n".join([f"{i+1}. {p.strip()}" for i, p in enumerate(phrases)])
 
-    rubric = (
-        "КРИТЕРИИ CEFR (определяй уровень как МАКСИМУМ из сложности грамматики и сложности лексики):\n\n"
-        "1. ГРАММАТИКА:\n"
-        "• A1: Простые предложения в Präsens/Perfekt, прямой/обратный порядок слов без придаточных союзов.\n"
-        "• A2: Придаточные предложения (союзы weil, dass, wenn, ob, als), модальные глаголы, возвратные глаголы (sich), Dativ, вежливый Konjunktiv II (könnte/möchte).\n"
-        "• B1: Обороты um... zu, ohne... zu, союзы obwohl/während/nachdem, управление глаголов (warten auf), полный Konjunktiv II, Passiv Präsens.\n"
-        "• B2: Passiv всех времен, Konjunktiv I, Partizip I/II в роли прилагательных, двойные союзы (je... desto, nicht nur... sondern auch).\n"
-        "• C1/C2: Сложные причастные обороты, пассивные конструкции sein+zu, инверсии, субстантивации.\n\n"
-        "2. ЛЕКСИКА:\n"
-        "• A1: Базовый быт, еда, семья, числа, простые глаголы действия.\n"
-        "• A2: Покупки, работа, путешествия, самочувствие, базовые хобби.\n"
-        "• B1: Описание чувств, планов, мнений, стандартные абстрактные понятия.\n"
-        "• B2: Профессиональная, деловая, новостная лексика (Erfahrung, Verantwortung).\n"
-        "• C1/C2: Академические термины, официально-деловой/юридический язык, идиомы, метафоры."
-    )
+    from api.services.language_service import get_cefr_rubric
+    rubric = get_cefr_rubric(target_language)
 
     prompt = (
         f"Определи точный уровень сложности CEFR (A1, A2, B1, B2, C1, C2) для каждого из следующих {len(phrases)} элементов:\n\n"
@@ -472,10 +459,13 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
     )
 
     try:
-        response, success = await client.chat_completion(
-            system_prompt="Ты сертифицированный экзаменатор CEFR. Возвращай только JSON массив уровней.",
-            user_message=prompt,
-            model=model_name
+        response, success = await asyncio.wait_for(
+            client.chat_completion(
+                system_prompt="Ты сертифицированный экзаменатор CEFR. Возвращай только JSON массив уровней.",
+                user_message=prompt,
+                model=model_name
+            ),
+            timeout=35.0
         )
         if success and response:
             import json, re
@@ -491,6 +481,8 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
                 if len(result) < len(phrases):
                     result.extend(["A1"] * (len(phrases) - len(result)))
                 return result[:len(phrases)]
+    except asyncio.TimeoutError:
+        logger.warning(f"Timeout in classify_phrases_batch after 35s for {len(phrases)} items.")
     except Exception as e:
         logger.error(f"Error in classify_phrases_batch: {e}")
 
