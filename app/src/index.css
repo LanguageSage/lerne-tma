@@ -541,6 +541,7 @@ h1, h2, h3 {
   display: flex;
   justify-content: center;
   align-items: stretch;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 10px 0 20px;
   width: 100%;
@@ -549,10 +550,24 @@ h1, h2, h3 {
 .ai-quick-actions > button,
 .ai-quick-actions > .btn,
 .ai-quick-actions > .btn-ai-generate {
-  flex: 1;
+  flex: 1 1 calc(50% - 5px);
   min-width: 0;
   white-space: nowrap;
   justify-content: center;
+}
+
+.ai-quick-actions > button span,
+.ai-quick-actions > .btn span,
+.ai-quick-actions > .btn-ai-generate span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-quick-actions.has-dynamic > .btn-save-action,
+.ai-quick-actions.has-dynamic > .btn-primary {
+  flex: 1 1 100%;
+  width: 100%;
 }
 
 .btn-ai-generate {

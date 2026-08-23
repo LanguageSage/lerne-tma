@@ -233,7 +233,7 @@ export const CardForm = ({
         const DynamicIcon = dynamicAction?.icon || BookOpen;
 
         return (
-          <div className="ai-quick-actions" style={{ gap: '10px' }}>
+          <div className={`ai-quick-actions ${dynamicAction && !loading ? 'has-dynamic' : ''}`} style={{ gap: '10px' }}>
             {loading ? (
               <button 
                 type="button"
@@ -276,7 +276,7 @@ export const CardForm = ({
             )}
             <button 
               type="button"
-              className="btn btn-primary" 
+              className="btn btn-primary btn-save-action" 
               onClick={onSave} 
               disabled={loading}
               style={{ padding: '12px 20px' }}

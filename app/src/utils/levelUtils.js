@@ -2,15 +2,28 @@
  * Helper utilities for formatting and styling card CEFR levels (A1 - C2).
  */
 
+const CEFR_ORDER = { "A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6 };
+
 export const getLevelInfo = (card) => {
   if (!card) return null;
 
   let levelStr = card.level;
 
-  // Fallback to tags if level string is missing
+  // Fallback to tags if level string is missing or needs extraction
   if (!levelStr && card.tags) {
-    const match = String(card.tags).match(/\b(A1|A2|B1|B2|C1|C2)\b/i);
-    if (match) levelStr = match[1].toUpperCase();
+    const matches = String(card.tags).match(/\b(A1|A2|B1|B2|C1|C2)\b/gi);
+    if (matches && matches.length > 0) {
+      let maxLvl = "A1";
+      let maxScore = 0;
+      for (const m of matches) {
+        const u = m.toUpperCase();
+        if (CEFR_ORDER[u] && CEFR_ORDER[u] > maxScore) {
+          maxScore = CEFR_ORDER[u];
+          maxLvl = u;
+        }
+      }
+      levelStr = maxLvl;
+    }
   }
 
   if (!levelStr) return null;

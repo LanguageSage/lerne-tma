@@ -165,17 +165,17 @@ def get_cefr_rubric(target_language: str = "de") -> str:
         return (
             "КРИТЕРИИ CEFR ДЛЯ НЕМЕЦКОГО ЯЗЫКА (определяй уровень как МАКСИМУМ из сложности грамматики и сложности лексики):\n\n"
             "1. ГРАММАТИКА:\n"
-            "• A1: Простые предложения в Präsens/Perfekt, прямой/обратный порядок слов без придаточных союзов.\n"
-            "• A2: Придаточные предложения (союзы weil, dass, wenn, ob, als), модальные глаголы, возвратные глаголы (sich), Dativ, вежливый Konjunktiv II (könnte/möchte).\n"
-            "• B1: Обороты um... zu, ohne... zu, союзы obwohl/während/nachdem, управление глаголов (warten auf), полный Konjunktiv II, Passiv Präsens.\n"
-            "• B2: Passiv всех времен, Konjunktiv I, Partizip I/II в роли прилагательных, двойные союзы (je... desto, nicht nur... sondern auch).\n"
-            "• C1/C2: Сложные причастные обороты, пассивные конструкции sein+zu, инверсии, субстантивации.\n\n"
+            "• A1: ИСКЛЮЧИТЕЛЬНО настоящее время (Präsens): простые утвердительные и вопросительные предложения без союзов, спряжение глаголов в Präsens, формы haben/sein в настоящем времени. ВНИМАНИЕ: любые формы прошедшего времени (Perfekt / Präteritum) относятся к уровню A2 или выше!\n"
+            "• A2: ВСЕ предложения в прошедшем времени Perfekt (любые глаголы с haben/sein: habe gemacht, habe gekauft, bin gegangen, habe eingegeben, habe gehört); отделяемые глаголы в Präsens; придаточные предложения (союзы weil, dass, wenn, ob, als); модальные глаголы в Präsens и Präteritum (musste, wollte, konnte); возвратные глаголы (sich); Dativ и предлоги Dativ (mit, nach, aus, zu, bei, von, seit); вежливый Konjunktiv II (könnte, möchte, hätte gern).\n"
+            "• B1: Инфинитивные обороты um... zu, ohne... zu, statt... zu; придаточные союзы хотя/пока/после (obwohl, während, nachdem, seitdem, bevor, sodass); управление глаголов с предлогами (warten auf, träumen von); Passiv Präsens (wird gemacht); полный Konjunktiv II (hätte, wäre, würde + Infinitiv); придаточные определительные (Relativsätze: der Mann, den ich kenne); предлоги с Genitiv (wegen, während, trotz).\n"
+            "• B2: Passiv всех времен и с модальными глаголами (muss gemacht werden, ist gebaut worden); Konjunktiv I; Partizip I/II в роли распространенных определений; двойные союзы (je... desto, nicht nur... sondern auch, sowohl... als auch, weder... noch, zwar... aber); устойчивые глагольно-именные связки (Nomen-Verb-Verbindungen: eine Entscheidung treffen, zur Verfügung stehen).\n"
+            "• C1/C2: Пассивные конструкции sein+zu+Infinitiv, lassen sich+Infinitiv; сложные обособленные причастные обороты; инверсии и стилистические трансформации; академический, научный и официально-деловой синтаксис.\n\n"
             "2. ЛЕКСИКА:\n"
-            "• A1: Базовый быт, еда, семья, числа, простые глаголы действия.\n"
-            "• A2: Покупки, работа, путешествия, самочувствие, базовые хобби.\n"
-            "• B1: Описание чувств, планов, мнений, стандартные абстрактные понятия.\n"
-            "• B2: Профессиональная, деловая, новостная лексика (Erfahrung, Verantwortung).\n"
-            "• C1/C2: Академические термины, официально-деловой/юридический язык, идиомы, метафоры."
+            "• A1: Базовый быт, еда, семья, числа, простые глаголы действия (kommen, heißen, wohnen, essen, trinken, kaufen).\n"
+            "• A2: Цифровая/компьютерная лексика (Passwort, eingeben, herunterladen, Datei, App, anmelden), покупки, работа, банк, транспорт, здоровье, бытовые сервисы и инструкции.\n"
+            "• B1: Описание чувств, планов, мнений, социальные темы, стандартные абстрактные понятия.\n"
+            "• B2: Профессиональная, деловая, новостная, экономическая лексика, устойчивые фразеологизмы.\n"
+            "• C1/C2: Академические/юридические термины, узкоспециализированная лексика, идиомы, метафоры."
         )
 
 def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "uk", directive: str = None, detect_level: bool = True) -> str:
