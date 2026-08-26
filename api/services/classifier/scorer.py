@@ -80,8 +80,46 @@ def calculate_result(phrase: str, grammar_features: list, vocab_result: dict) ->
 
     confidence = round(max(0.0, min(1.0, confidence)), 3)
 
+    # ── Reason generation ────────────────────────────────────────────────
+    g_reasons = [f.name for f in grammar_features if f.level == overall_level or f.level == grammar_level]
+    v_matching = [w["word"] for w in vocab_result.get("words", []) if w.get("level") == overall_level]
+
+    reasons = []
+    if g_reasons:
+        reasons.extend(g_reasons)
+    if v_matching:
+        reasons.append(f"Словарь: {', '.join(v_matching)}")
+
+    if not reasons:
+        reason = "Präsens (базовая фраза)" if overall_level == "A1" else f"Уровень {overall_level}"
+        reason_short = "Präsens" if overall_level == "A1" else overall_level
+    else:
+        # Deduplicate while preserving order
+        seen = set()
+        dedup = [r for r in reasons if not (r in seen or seen.add(r))]
+        reason = " | ".join(dedup)
+        # Short primary reason (first grammar rule or vocab)
+        primary = g_reasons[0] if g_reasons else (f"Словарь ({v_matching[0]})" if v_matching else overall_level)
+        # Simplify common verbose names for short badge display
+        short_map = {
+            "Perfekt (haben + Part.II)": "Perfekt (haben)",
+            "Perfekt (sein + Part.II)": "Perfekt (sein)",
+            "Passiv Präsens (wird + Part.II)": "Passiv (wird)",
+            "Passiv Präteritum (wurde + Part.II)": "Passiv (wurde)",
+            "Passiv Perfekt (…worden)": "Passiv Perfekt",
+            "um…zu Konstruktion": "um…zu",
+            "ohne…zu Konstruktion": "ohne…zu",
+            "statt…zu Konstruktion": "statt…zu",
+            "je…desto Konstruktion": "je…desto",
+            "sein + zu + Infinitiv": "sein + zu",
+            "sich lassen + Infinitiv": "sich lassen",
+        }
+        reason_short = short_map.get(primary, primary)
+
     return {
         "level":               overall_level,
+        "reason":              reason,
+        "reason_short":        reason_short,
         "grammar_level":       grammar_level,
         "vocabulary_level":    vocabulary_level,
         "confidence":          confidence,
@@ -93,3 +131,4 @@ def calculate_result(phrase: str, grammar_features: list, vocab_result: dict) ->
         "source":              "rules",
         "ai_used":             False,
     }
+

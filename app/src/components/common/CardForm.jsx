@@ -10,6 +10,7 @@ import { MediaPicker } from './MediaPicker';
 import { ImageEditorModal } from './ImageEditorModal';
 import { useDeckStore } from '../../store/useDeckStore';
 import { FlagPicker } from './FlagPicker';
+import { CardLevelBadge } from './CardLevelBadge';
 
 import { useTranslation } from '../../i18n/i18nContext';
 
@@ -140,6 +141,9 @@ export const CardForm = ({
       <div className="form-group">
         <div id="tut-creator-front" className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
           <CardBackground styleType={resolvedBgFront} />
+          <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 5, pointerEvents: 'auto' }}>
+            <CardLevelBadge card={cardData} size="sm" />
+          </div>
           <textarea 
             ref={frontRef}
             className="textarea-preview textarea-front-preview"

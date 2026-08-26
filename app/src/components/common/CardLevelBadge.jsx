@@ -1,8 +1,28 @@
 import React from 'react';
 import { getLevelInfo } from '../../utils/levelUtils';
+import { classifySentenceFast } from '../../services/classifier';
 
-export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}, onClick = null }) => {
-  const info = getLevelInfo(card);
+export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}, onClick = null, showReason = true }) => {
+  let info = getLevelInfo(card);
+
+  // If card doesn't have an explicit level/tag yet, compute via local classifier on the fly
+  let localClassified = null;
+  const frontText = (card?.front_text || card?.front || '').trim();
+
+  if (frontText && (!info || showReason)) {
+    try {
+      const res = classifySentenceFast(frontText, 'de');
+      if (res && res.level) {
+        localClassified = res;
+        if (!info) {
+          info = getLevelInfo({ level: res.level });
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   if (!info) return null;
 
   const isSmall = size === 'sm';
@@ -12,17 +32,23 @@ export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}
 
   const badgeTextColor = textColor || info.color;
 
+  // Determine reason strings
+  const reasonShort = card?.reason_short || localClassified?.reason_short || null;
+  const fullReason  = card?.reason || localClassified?.reason || null;
+
+  const tooltipText = fullReason ? `Уровень: ${info.level} (${fullReason})` : `Уровень языка: ${info.level}`;
+
   return (
     <div
       className="card-level-badge"
-      title={`Уровень языка: ${info.level}`}
+      title={tooltipText}
       onClick={onClick}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         alignSelf: 'flex-start',
         width: 'fit-content',
-        gap: '5px',
+        gap: '6px',
         fontSize,
         fontWeight: 600,
         padding,
@@ -51,6 +77,19 @@ export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}
         }}
       />
       <span style={{ color: badgeTextColor, fontWeight: 700 }}>{info.level}</span>
+      {showReason && reasonShort && (
+        <span
+          className="badge-reason"
+          style={{
+            opacity: 0.88,
+            fontWeight: 500,
+            fontSize: isSmall ? '0.8em' : '0.85em',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          • {reasonShort}
+        </span>
+      )}
     </div>
   );
 };

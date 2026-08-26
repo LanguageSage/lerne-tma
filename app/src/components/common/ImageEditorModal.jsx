@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   RotateCw, RotateCcw, FlipHorizontal, FlipVertical, 
   ZoomIn, ZoomOut, Check, X, RefreshCw, Crop 
@@ -305,19 +305,24 @@ export const ImageEditorModal = ({
     );
   };
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <div
-        className="image-picker-overlay"
-        onClick={onClose}
-        style={{ zIndex: 9999 }}
-      >
-        <div
-          className="image-editor-dialog glass"
-          onClick={(e) => e.stopPropagation()}
+      {isOpen && (
+        <motion.div
+          className="image-picker-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          style={{ zIndex: 9999 }}
         >
+          <motion.div
+            className="image-editor-dialog glass"
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.98 }}
+            onClick={(e) => e.stopPropagation()}
+          >
           {/* Header */}
           <div className="image-picker-header">
             <h3>
@@ -463,8 +468,9 @@ export const ImageEditorModal = ({
               <Check size={18} /> Применить
             </button>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
+      )}
     </AnimatePresence>
   );
 };

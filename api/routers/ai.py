@@ -151,9 +151,39 @@ class ClassifyBatchRequest(BaseModel):
     target_language: Optional[str] = "de"
 
 
+async def _async_bg_classify_ai(cards_data: list, target_language: str = "de"):
+    """Background task: classifies remaining ambiguous cards using AI and updates DB."""
+    if not cards_data:
+        return
+    try:
+        phrases = [item["front"] for item in cards_data]
+        ai_levels = await ai_service.classify_phrases_batch(phrases, target_language or "de")
+
+        with models.tma_db.atomic():
+            for idx, item in enumerate(cards_data):
+                card_id = item["id"]
+                lvl = ai_levels[idx] if idx < len(ai_levels) else "A1"
+                card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+                if card:
+                    curr_tags = card.tags or ""
+                    cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1", "A2", "B1", "B2", "C1", "C2"}])
+                    new_tags = f"{cleaned},{lvl}".strip(",") if cleaned else lvl
+                    card.tags = new_tags
+                    card.updated_at = datetime.datetime.now()
+                    card.save()
+        logger.info(f"_async_bg_classify_ai: finished background AI classification for {len(cards_data)} cards.")
+    except Exception as e:
+        logger.error(f"_async_bg_classify_ai error: {e}")
+
+
 @router.post("/cards/classify-batch")
 async def classify_cards_batch_endpoint(request: ClassifyBatchRequest, user_id: int = Depends(get_user_id)):
-    """Batch classifies CEFR levels for existing cards in a deck or by card IDs (usable by Lerne UA and TMA)."""
+    """Batch classifies CEFR levels for cards in a deck or by card IDs.
+    
+    1. Synchronously classifies high-confidence cards using local rules (< 10 ms).
+    2. Immediately updates DB & returns 200 OK with instant results.
+    3. Queues remaining ambiguous cards for background AI classification via asyncio.create_task.
+    """
     cards_query = []
     if request.deck_id:
         cards_query = list(models.TMA_Card.select().where(
@@ -165,31 +195,50 @@ async def classify_cards_batch_endpoint(request: ClassifyBatchRequest, user_id: 
         ))
 
     if not cards_query:
-        return {"status": "ok", "updated_count": 0, "cards": []}
+        return {"status": "ok", "updated_count": 0, "pending_background_count": 0, "cards": []}
 
-    phrases = [c.front_text or "" for c in cards_query]
-    levels = await ai_service.classify_phrases_batch(phrases, request.target_language or "de")
-
+    target_lang = (request.target_language or "de").lower()
     updated_cards = []
+    pending_ai = []
+
+    # Step 1: Instant local classification (< 10 ms)
+    from api.services.classifier import classify_sentence_fast
+
     with models.tma_db.atomic():
-        for idx, card in enumerate(cards_query):
-            lvl = levels[idx] if idx < len(levels) else "A1"
-            curr_tags = card.tags or ""
-            cleaned_tags = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1", "A2", "B1", "B2", "C1", "C2"}])
-            new_tags = f"{cleaned_tags},{lvl}".strip(",") if cleaned_tags else lvl
-            card.tags = new_tags
-            card.updated_at = datetime.datetime.now()
-            card.save()
-            updated_cards.append({
-                "id": card.id,
-                "deck_id": card.deck_id,
-                "front": card.front_text,
-                "level": lvl,
-                "tags": new_tags
-            })
+        for card in cards_query:
+            front = (card.front_text or "").strip()
+            local_res = classify_sentence_fast(front, target_lang) if target_lang == "de" else {"confidence": 0.0}
+
+            if local_res.get("confidence", 0.0) >= 0.80:
+                lvl = local_res["level"]
+                curr_tags = card.tags or ""
+                cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1", "A2", "B1", "B2", "C1", "C2"}])
+                new_tags = f"{cleaned},{lvl}".strip(",") if cleaned else lvl
+                card.tags = new_tags
+                card.updated_at = datetime.datetime.now()
+                card.save()
+                updated_cards.append({
+                    "id": card.id,
+                    "deck_id": card.deck_id,
+                    "front": card.front_text,
+                    "level": lvl,
+                    "tags": new_tags,
+                    "source": "local_rules"
+                })
+            else:
+                pending_ai.append({"id": card.id, "front": front})
+
+    # Step 2: Launch non-blocking background task for remaining AI cards
+    if pending_ai:
+        logger.info(f"classify_cards_batch_endpoint: {len(updated_cards)} cards updated instantly; {len(pending_ai)} sent to background AI.")
+        asyncio.create_task(_async_bg_classify_ai(pending_ai, target_lang))
+    else:
+        logger.info(f"classify_cards_batch_endpoint: All {len(updated_cards)} cards classified instantly via local rules.")
 
     return {
         "status": "ok",
         "updated_count": len(updated_cards),
+        "pending_background_count": len(pending_ai),
         "cards": updated_cards
     }
+

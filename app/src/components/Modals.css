@@ -248,6 +248,13 @@ input:checked + .slider:before {
   box-sizing: border-box;
 }
 
+.image-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
 .import-item-info {
   display: flex;
   flex-direction: column;
