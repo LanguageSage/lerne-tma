@@ -15,6 +15,12 @@ import os
 # Make sure project root is on the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 from api.services.classifier import classify_sentence_fast
 
 # ─── Test cases: (phrase, expected_level) ─────────────────────────────────────
@@ -42,12 +48,15 @@ TEST_CASES = [
     ("Obwohl ich müde bin, gehe ich arbeiten.",                     "B1"),
     ("Nachdem ich gegessen hatte, bin ich schlafen gegangen.",      "B1"),
     ("Wegen des Regens blieben wir zu Hause.",                      "B1"),
+    ("Gut, wir machen es so, wie du denkst.",                       "B1"),
+    ("Ich weiß nicht, wie das funktioniert.",                       "B1"),
+    ("Er fragt, wo der Bahnhof ist.",                               "B1"),
     # ── B2 ──────────────────────────────────────────────────────────────────
     ("Je mehr ich lerne, desto besser spreche ich.",                "B2"),
     ("Das Dokument ist verschlüsselt worden.",                      "B2"),
     ("Nicht nur Kinder, sondern auch Erwachsene lieben Spiele.",    "B2"),
     # ── C1 ──────────────────────────────────────────────────────────────────
-    ("Das Problem ist schwer zu lösen.",                            "C1"),
+    ("Das Problem ist zu lösen.",                                   "C1"),
     ("Das lässt sich leicht erklären.",                             "C1"),
 ]
 

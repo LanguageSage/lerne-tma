@@ -148,6 +148,28 @@ export const DeckCardItem = ({
     }
   };
 
+  const handleReclassifyDeck = async (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    showToast('Обновление уровней колоды...', 'info');
+    try {
+      const response = await fetch('/api/cards/classify-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: deck.id, target_language: deck.target_language || 'de' })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (fetchDeckCards) fetchDeckCards(deck.id);
+        showToast(`✨ Уровни карточек обновлены! (${data.updated_count || 0} шт.)`, 'success');
+      } else {
+        showToast('Ошибка при переклассификации');
+      }
+    } catch {
+      showToast('Ошибка сети при переклассификации');
+    }
+  };
+
   const handlePin = async (e) => {
     e.stopPropagation();
     try {
@@ -458,6 +480,9 @@ export const DeckCardItem = ({
                   </div>
                 )}
 
+                <button className="dropdown-item" onClick={handleReclassifyDeck}>
+                  <span>✨ Обновить CEFR-уровни</span>
+                </button>
                 <button className="dropdown-item warning" onClick={handleReset}>
                   <span>🧹 Сбросить прогресс</span>
                 </button>

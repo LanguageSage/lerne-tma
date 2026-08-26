@@ -91,6 +91,8 @@ def save_card(data, user_id):
         card.video_front_path = data.get('video_front_path')
     if 'video_back_path' in data:
         card.video_back_path = data.get('video_back_path')
+    if 'card_type' in data:
+        card.card_type = data.get('card_type')
         
     if 'source' in data:
         card.source = data.get('source')
@@ -250,6 +252,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
     result = {
         "id": get_val('id', 'id'),
         "deck_id": get_val('deck_id', 'deck_id'),
+        "card_type": get_val('card_type', 'card_type'),
         "front": get_val('front_text', 'front_text'),
         "back": get_val('back_text', 'back_text'),
         "context": get_val('context', 'context'),

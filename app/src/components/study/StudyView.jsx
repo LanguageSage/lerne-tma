@@ -345,6 +345,7 @@ export const StudyView = ({ startTutorial }) => {
       >
         <StudyHeader
           deckName={currentDeck?.name}
+          isTrainerDeck={Boolean(currentDeck?.is_trainer || (deckCards && deckCards.length > 0 && deckCards.every(c => /\{([^}]+)\}/.test(c.front || ''))))}
           card={card}
           loading={loading}
           isFlipped={isFlipped}

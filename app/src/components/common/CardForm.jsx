@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, MessageSquare } from 'lucide-react';
+import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, MessageSquare, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
 import { SplitButton } from './SplitButton';
 import { getTextShadow, getContextShadow } from '../../utils/style';
@@ -11,6 +11,9 @@ import { ImageEditorModal } from './ImageEditorModal';
 import { useDeckStore } from '../../store/useDeckStore';
 import { FlagPicker } from './FlagPicker';
 import { CardLevelBadge } from './CardLevelBadge';
+import { updateCardLevelTags } from '../../utils/levelUtils';
+import { classifySentenceFast } from '../../services/classifier';
+import { triggerHaptic } from '../../utils/platform';
 
 import { useTranslation } from '../../i18n/i18nContext';
 
@@ -31,12 +34,14 @@ export const CardForm = ({
     contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
   } = useSettingsStore();
 
-  const { loading } = useUiStore();
+  const { loading, showToast } = useUiStore();
   const { uploadCreatorImage, uploadVideo } = useMediaUpload();
   const { decks = [] } = useDeckStore();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isEditingExistingImage, setIsEditingExistingImage] = useState(false);
+  const [isClassifyingLevel, setIsClassifyingLevel] = useState(false);
+  const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
   
   const frontRef = useRef(null);
   const backRef = useRef(null);
@@ -80,6 +85,74 @@ export const CardForm = ({
   const resolvedBgFront = getResolvedStyle(cardBgFront, cardData?.id || 0);
   const resolvedBgBack = getResolvedStyle(cardBgBack, cardData?.id || 0);
 
+  const timerRef = useRef(null);
+  const pickerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isLevelPickerOpen) return;
+    const handleOutsideClick = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setIsLevelPickerOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutsideClick);
+    return () => document.removeEventListener('pointerdown', handleOutsideClick);
+  }, [isLevelPickerOpen]);
+
+  const handleReclassifyLevel = () => {
+    if (isClassifyingLevel) return;
+    setIsClassifyingLevel(true);
+    setIsLevelPickerOpen(false);
+    triggerHaptic('medium');
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      const front = (cardData?.front || '').trim();
+      const res = classifySentenceFast(front, 'de');
+      const newLevel = res.level || 'A1';
+
+      setCardData(prev => ({
+        ...prev,
+        level: newLevel,
+        manual_level: false,
+        reason: res.reason,
+        reason_short: res.reason_short,
+        tags: updateCardLevelTags(prev?.tags, newLevel)
+      }));
+
+      setIsClassifyingLevel(false);
+      triggerHaptic('success');
+      showToast(`Уровень определен: ${newLevel} (${res.reason_short || res.reason})`, 'success');
+    }, 1000);
+  };
+
+  const handleSelectManualLevel = (selectedLevel) => {
+    setIsLevelPickerOpen(false);
+    triggerHaptic('selection');
+
+    if (selectedLevel === 'auto') {
+      handleReclassifyLevel();
+      return;
+    }
+
+    setCardData(prev => ({
+      ...prev,
+      level: selectedLevel,
+      manual_level: true,
+      reason: 'Установлен вручную пользователем',
+      reason_short: 'вручную',
+      tags: updateCardLevelTags(prev?.tags, selectedLevel)
+    }));
+
+    showToast(`Уровень установлен: ${selectedLevel} (вручную)`, 'info');
+  };
+
   if (!cardData) return null;
 
   return (
@@ -117,8 +190,25 @@ export const CardForm = ({
         onChange={(flagId) => setCardData({ ...cardData, flag: flagId })} 
       />
 
-      {/* TOOLBAR FOR MEDIA */}
-      <div className="form-toolbar form-toolbar-custom">
+      {/* Toolbar / Header Actions */}
+      <div className="form-toolbar">
+        <SplitButton
+          mainAction={{
+            id: 'auto_full',
+            label: isCreator ? t('creator.fill_full', 'Заполнить всё') : t('creator.regenerate_full', 'Перегенерировать всё'),
+            icon: Sparkles
+          }}
+          menuActions={[
+            { id: 'explain_rule', label: t('creator.explain_rule', '📖 Объяснить правило'), icon: BookOpen },
+            { id: 'full_card', label: t('creator.full_card', '✨ Новое объяснение'), icon: Sparkles },
+            { id: 'translate_only', label: t('creator.translate_only', '🔤 Только перевод'), icon: RefreshCw },
+            { id: 'context_only', label: t('creator.context_only', '💡 Только пример и контекст'), icon: RefreshCw },
+            { id: 'conjugate', label: t('creator.conjugate', '📋 Спряжение глагола'), icon: BookOpen }
+          ]}
+          onActionSelect={(actionId) => onAiGenerate(actionId, cardData, setCardData)}
+          disabled={loading}
+        />
+
         <button
           type="button"
           className="form-toolbar-btn"
@@ -141,8 +231,139 @@ export const CardForm = ({
       <div className="form-group">
         <div id="tut-creator-front" className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
           <CardBackground styleType={resolvedBgFront} />
-          <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 5, pointerEvents: 'auto' }}>
-            <CardLevelBadge card={cardData} size="sm" />
+          
+          {/* Level Badge + Manual Override Controls */}
+          <div style={{ position: 'absolute', bottom: '10px', left: '10px', zIndex: 15, pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div 
+              style={{
+                opacity: isClassifyingLevel ? 0 : 1,
+                transform: isClassifyingLevel ? 'scale(0.8)' : 'scale(1)',
+                transition: 'opacity 0.25s ease, transform 0.25s ease',
+                pointerEvents: isClassifyingLevel ? 'none' : 'auto'
+              }}
+              title="Нажмите для автоматического пересчета уровня"
+            >
+              <CardLevelBadge 
+                card={cardData} 
+                size="sm" 
+                onClick={handleReclassifyLevel} 
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsLevelPickerOpen(!isLevelPickerOpen);
+              }}
+              title="Ручная смена уровня CEFR"
+              style={{
+                background: 'rgba(255, 255, 255, 0.12)',
+                border: '1px solid rgba(255, 255, 255, 0.22)',
+                borderRadius: '8px',
+                color: 'rgba(255, 255, 255, 0.85)',
+                padding: '2px 7px',
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                lineHeight: 1.2
+              }}
+            >
+              <SlidersHorizontal size={11} />
+              <span>Правка</span>
+            </button>
+
+            {isLevelPickerOpen && (
+              <div
+                ref={pickerRef}
+                style={{
+                  position: 'absolute',
+                  bottom: '36px',
+                  left: '0',
+                  background: 'rgba(24, 24, 27, 0.96)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  borderRadius: '12px',
+                  padding: '6px',
+                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.55)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  zIndex: 50,
+                  minWidth: '185px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '3px'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ fontSize: '0.68rem', color: 'rgba(255, 255, 255, 0.55)', padding: '2px 6px', fontWeight: 600 }}>
+                  Уровень сложности:
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => handleSelectManualLevel('auto')}
+                  style={{
+                    background: !cardData.manual_level ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                    border: !cardData.manual_level ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
+                    color: !cardData.manual_level ? '#a5b4fc' : 'rgba(255, 255, 255, 0.85)',
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    fontSize: '0.74rem',
+                    fontWeight: 600,
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <span>⚡ Авто (распознать)</span>
+                  {!cardData.manual_level && <Check size={12} color="#a5b4fc" />}
+                </button>
+
+                <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
+
+                {[
+                  { lvl: 'A1', label: '🟢 A1 (Начальный)' },
+                  { lvl: 'A2', label: '🔵 A2 (Базовый)' },
+                  { lvl: 'B1', label: '🔹 B1 (Средний)' },
+                  { lvl: 'B2', label: '🟣 B2 (Выше среднего)' },
+                  { lvl: 'C1', label: '🔮 C1 (Продвинутый)' },
+                  { lvl: 'C2', label: '🟠 C2 (В совершенстве)' }
+                ].map(({ lvl, label }) => {
+                  const isSelected = cardData.manual_level && cardData.level === lvl;
+                  return (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => handleSelectManualLevel(lvl)}
+                      style={{
+                        background: isSelected ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+                        border: isSelected ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid transparent',
+                        color: isSelected ? '#fff' : 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: isSelected ? 700 : 500,
+                        textAlign: 'left',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>{label}</span>
+                      {isSelected && <Check size={12} color="#4ade80" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <textarea 
             ref={frontRef}
@@ -171,7 +392,7 @@ export const CardForm = ({
             placeholder={t('creator.word_placeholder', 'Слово или фраза...')}
           />
           <div style={{ fontSize: '0.72rem', opacity: 0.65, padding: '4px 10px 8px 10px', fontStyle: 'italic', zIndex: 3, position: 'relative' }}>
-            💡 Тренажёр: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '3px' }}>{'слово {*den|dem|der}'}</code> | Тест: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '3px' }}>{'[*] верный [ ] неверный'}</code>
+            💡 Тренажёр: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '3px' }}>{'слово {*den|dem|der}'}</code> | Тест: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '3px' }}>{'*верный ответ'}</code>
           </div>
           
           {(cardData.image_url || cardData.image_path) && (
@@ -217,6 +438,7 @@ export const CardForm = ({
       {(() => {
         const frontText = cardData.front || '';
         const hasClozeBraces = /\{([^}]+)\}/.test(frontText);
+        const hasQuizStar = (/\n\*/.test(frontText) || /^\*/.test(frontText)) && frontText.includes('\n');
         const hasParentheses = /\(([^)]+)\)/.test(frontText);
 
         let dynamicAction = null;
@@ -224,6 +446,12 @@ export const CardForm = ({
           dynamicAction = {
             id: 'explain_rule',
             label: '📖 Правило',
+            icon: BookOpen
+          };
+        } else if (hasQuizStar) {
+          dynamicAction = {
+            id: 'full_card',
+            label: '📝 Разбор теста',
             icon: BookOpen
           };
         } else if (hasParentheses) {

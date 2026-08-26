@@ -16,12 +16,15 @@ import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
+import { parseQuizData } from '../../utils/quizParser';
 
 const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
   const dragControls = useDragControls();
   const flagStyle = getFlagStyle(c.flag);
   const flagInfo = FLAG_COLORS[c.flag] || FLAG_COLORS[0];
   const { setLastSelectedCardId, setCardsScrollTop } = useUiStore();
+  const isQuizCard = c.card_type === 'quiz' || parseQuizData(c) !== null;
+  const isTrainerCard = c.card_type === 'trainer' || (!isQuizCard && /\{([^}]+)\}/.test(c.front || ''));
 
   const handleItemClick = () => {
     const container = document.getElementById('app-container');
@@ -77,7 +80,41 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
           <span>{c.front}</span>
         </div>
         <div className="back-min">{c.back}</div>
-        <CardLevelBadge card={c} size="sm" style={{ marginTop: '2px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+          <CardLevelBadge card={c} size="sm" />
+          {isQuizCard && (
+            <span style={{ 
+              fontSize: '0.68rem', 
+              fontWeight: 700, 
+              color: '#4ade80', 
+              background: 'rgba(34, 197, 94, 0.15)', 
+              border: '1px solid rgba(34, 197, 94, 0.3)', 
+              borderRadius: '6px', 
+              padding: '1px 5px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px'
+            }}>
+              ☑️ Тест
+            </span>
+          )}
+          {isTrainerCard && (
+            <span style={{ 
+              fontSize: '0.68rem', 
+              fontWeight: 700, 
+              color: '#c084fc', 
+              background: 'rgba(168, 85, 247, 0.15)', 
+              border: '1px solid rgba(168, 85, 247, 0.3)', 
+              borderRadius: '6px', 
+              padding: '1px 5px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px'
+            }}>
+              🏋️ Тренажер
+            </span>
+          )}
+        </div>
       </div>
       <div className="card-item-actions">
         <CardActionButton 

@@ -207,15 +207,8 @@ function AppContent() {
         await useDeckStore.getState().fetchDeckCards(deck.id);
       }
 
-      const cards = useDeckStore.getState().deckCards || [];
-      const isPureTrainer = cards.length > 0 && cards.every(c => /\{([^}]+)\}/.test(c.front || ''));
-
-      if (isPureTrainer || deck.is_trainer) {
-        setView('trainer');
-      } else {
-        setView('study');
-        await fetchNextCard(deck.id, true);
-      }
+      setView('study');
+      await fetchNextCard(deck.id, true);
     } finally {
       setIsOpeningDeck(false);
     }
@@ -232,43 +225,37 @@ function AppContent() {
         await useDeckStore.getState().fetchDeckCards(deck.id);
       }
       
+      setView('study');
       const cards = useDeckStore.getState().deckCards || [];
-      const isPureTrainer = cards.length > 0 && cards.every(c => /\{([^}]+)\}/.test(c.front || ''));
-
-      if (isPureTrainer || deck.is_trainer) {
-        setView('trainer');
-      } else {
-        setView('study');
-        const localCard = cards.find(c => String(c.id) === String(cardId));
-        if (localCard) {
-          useSessionStore.getState().addToHistory(localCard);
-        }
-        try {
-          const res = await api.get(`/study/card/${cardId}`);
-          if (res?.data) {
-            if (localCard) {
-              useSessionStore.getState().setCard(res.data);
-              const history = useSessionStore.getState().studyHistory;
-              if (history.length > 0) {
-                const updatedHistory = [...history];
-                updatedHistory[history.length - 1] = res.data;
-                useSessionStore.getState().setStudyHistory(updatedHistory);
-              }
-            } else {
-              useSessionStore.getState().addToHistory(res.data);
+      const localCard = cards.find(c => String(c.id) === String(cardId));
+      if (localCard) {
+        useSessionStore.getState().addToHistory(localCard);
+      }
+      try {
+        const res = await api.get(`/study/card/${cardId}`);
+        if (res?.data) {
+          if (localCard) {
+            useSessionStore.getState().setCard(res.data);
+            const history = useSessionStore.getState().studyHistory;
+            if (history.length > 0) {
+              const updatedHistory = [...history];
+              updatedHistory[history.length - 1] = res.data;
+              useSessionStore.getState().setStudyHistory(updatedHistory);
             }
+          } else {
+            useSessionStore.getState().addToHistory(res.data);
           }
-        } catch (apiErr) {
-          console.warn("api.get study card failed in startStudyCard:", apiErr);
-          if (!localCard) {
-            if (apiErr?.response?.status === 404) {
-              const { deckCards } = useDeckStore.getState();
-              useDeckStore.setState({ deckCards: (deckCards || []).filter(c => String(c.id) !== String(cardId)) });
-              useUiStore.getState().showToast("Карточка была удалена");
-              setView('cards');
-            } else {
-              useUiStore.getState().showToast("Не удалось загрузить данные с сервера");
-            }
+        }
+      } catch (apiErr) {
+        console.warn("api.get study card failed in startStudyCard:", apiErr);
+        if (!localCard) {
+          if (apiErr?.response?.status === 404) {
+            const { deckCards } = useDeckStore.getState();
+            useDeckStore.setState({ deckCards: (deckCards || []).filter(c => String(c.id) !== String(cardId)) });
+            useUiStore.getState().showToast("Карточка была удалена");
+            setView('cards');
+          } else {
+            useUiStore.getState().showToast("Не удалось загрузить данные с сервера");
           }
         }
       }
@@ -311,9 +298,8 @@ function AppContent() {
           />
         );
       case 'study':
-        return <StudyView startTutorial={startTutorial} />;
       case 'trainer':
-        return <TrainerView />;
+        return <StudyView startTutorial={startTutorial} />;
       case 'cards':
         return (
           <CardList

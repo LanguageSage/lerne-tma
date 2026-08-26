@@ -3,9 +3,12 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
 import { cleanMedia } from '../utils/media';
+import { parseQuizData } from '../utils/quizParser';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { useStudySession } from './useStudySession';
+import { classifySentenceFast } from '../services/classifier';
+import { updateCardLevelTags } from '../utils/levelUtils';
 
 export const useCardEditor = () => {
   const { fetchDecks, fetchDeckCards } = useDeckStore();
@@ -26,14 +29,42 @@ export const useCardEditor = () => {
       if (finalDeckId === 'duplicates' || !finalDeckId) {
         finalDeckId = currentDeck?.id !== 'duplicates' ? currentDeck?.id : null;
       }
+
+      const frontText = data.front || '';
+      let computedType = data.card_type;
+      if (!computedType || computedType === 'translation' || computedType === 'standard') {
+        if (/\{([^}]+)\}/.test(frontText)) {
+          computedType = 'trainer';
+        } else if (parseQuizData({ front: frontText }) !== null) {
+          computedType = 'quiz';
+        } else {
+          computedType = 'standard';
+        }
+      }
+
+      let finalLevel = data.level;
+      let finalTags = data.tags;
+      if (!data.manual_level && frontText) {
+        try {
+          const res = classifySentenceFast(frontText, 'de');
+          if (res && res.level) {
+            finalLevel = res.level;
+            finalTags = updateCardLevelTags(finalTags, res.level);
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       const reqData = {
         card_id: data.id || null,
         deck_id: finalDeckId,
-        front: data.front || '',
+        card_type: computedType,
+        front: frontText,
         back: data.back || '',
         context: data.context || '',
-        level: data.level || null,
-        tags: data.tags || null,
+        level: finalLevel || null,
+        tags: finalTags || null,
         image_path: data.image_path || cleanMedia(data.image_url),
         audio_path: data.audio_path || cleanMedia(data.audio_url),
         audio_back_path: data.audio_back_path || cleanMedia(data.audio_back_url),

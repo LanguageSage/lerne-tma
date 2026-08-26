@@ -14,13 +14,31 @@ export const StudyHeader = ({
   onQuickAudio,
   onOpenEditor,
   onOpenSettings,
+  isTrainerDeck = false,
 }) => (
   <div className="header-compact">
     <button className="back-btn" onClick={onBack}>
       <ChevronLeft size={24} />
     </button>
-    <div className="header-study-info">
+    <div className="header-study-info" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <h2>{deckName}</h2>
+      {isTrainerDeck && (
+        <span style={{
+          fontSize: '0.7rem',
+          fontWeight: 700,
+          color: '#c084fc',
+          background: 'rgba(168, 85, 247, 0.2)',
+          border: '1px solid rgba(168, 85, 247, 0.4)',
+          borderRadius: '8px',
+          padding: '2px 6px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px',
+          flexShrink: 0
+        }}>
+          🏋️ Тренажер
+        </span>
+      )}
     </div>
     <div className="header-actions">
       <UserProfileBadge />

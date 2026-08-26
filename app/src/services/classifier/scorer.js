@@ -69,6 +69,7 @@ export function calculateResult(phrase, grammarFeatures, vocabResult) {
 
     const primary = gReasons.length > 0 ? gReasons[0] : (vMatching.length > 0 ? `Словарь (${vMatching[0]})` : overallLevel);
     const shortMap = {
+      'Modalsatz (so, wie)': 'so, wie',
       'Perfekt (haben + Part.II)': 'Perfekt (haben)',
       'Perfekt (sein + Part.II)': 'Perfekt (sein)',
       'Passiv Präsens (wird + Part.II)': 'Passiv (wird)',
@@ -77,6 +78,7 @@ export function calculateResult(phrase, grammarFeatures, vocabResult) {
       'um…zu Konstruktion': 'um…zu',
       'ohne…zu Konstruktion': 'ohne…zu',
       'statt…zu Konstruktion': 'statt…zu',
+      'Adjektiv + zu + Infinitiv': 'Adjektiv + zu',
       'je…desto Konstruktion': 'je…desto',
       'sein + zu + Infinitiv': 'sein + zu',
       'sich lassen + Infinitiv': 'sich lassen',

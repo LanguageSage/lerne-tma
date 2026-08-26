@@ -208,6 +208,52 @@ export const StudyCard = React.memo(({
             <CardBackground styleType={resolvedBgFront} />
             <div className="card-face">
               
+              {/* Type Badge (Top-Right Corner) */}
+              {effectiveStudyMode === 'quiz' && (
+                <div style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: '#4ade80',
+                  background: 'rgba(34, 197, 94, 0.18)',
+                  border: '1px solid rgba(34, 197, 94, 0.35)',
+                  borderRadius: '8px',
+                  padding: '3px 8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+                  zIndex: 15
+                }}>
+                  ☑️ Тест
+                </div>
+              )}
+              {effectiveStudyMode === 'trainer' && (
+                <div style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: '#c084fc',
+                  background: 'rgba(168, 85, 247, 0.18)',
+                  border: '1px solid rgba(168, 85, 247, 0.35)',
+                  borderRadius: '8px',
+                  padding: '3px 8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+                  zIndex: 15
+                }}>
+                  🏋️ Тренажер
+                </div>
+              )}
+
               {/* Leech Indicator */}
               {Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5)) && (
                 <div
@@ -442,6 +488,52 @@ export const StudyCard = React.memo(({
           <div className="card-inner card-back glass" onClick={() => onFlip(false)} style={{ cursor: 'pointer', ...flagStyle }}>
             <CardBackground styleType={resolvedBgBack} />
             <div className="card-face">
+              {/* Type Badge (Top-Right Corner) */}
+              {effectiveStudyMode === 'quiz' && (
+                <div style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: '#4ade80',
+                  background: 'rgba(34, 197, 94, 0.18)',
+                  border: '1px solid rgba(34, 197, 94, 0.35)',
+                  borderRadius: '8px',
+                  padding: '3px 8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+                  zIndex: 15
+                }}>
+                  ☑️ Тест
+                </div>
+              )}
+              {effectiveStudyMode === 'trainer' && (
+                <div style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: '#c084fc',
+                  background: 'rgba(168, 85, 247, 0.18)',
+                  border: '1px solid rgba(168, 85, 247, 0.35)',
+                  borderRadius: '8px',
+                  padding: '3px 8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+                  zIndex: 15
+                }}>
+                  🏋️ Тренажер
+                </div>
+              )}
+
               {/* Leech Indicator */}
               {Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5)) && (
                 <div

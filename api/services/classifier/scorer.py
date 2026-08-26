@@ -102,6 +102,7 @@ def calculate_result(phrase: str, grammar_features: list, vocab_result: dict) ->
         primary = g_reasons[0] if g_reasons else (f"Словарь ({v_matching[0]})" if v_matching else overall_level)
         # Simplify common verbose names for short badge display
         short_map = {
+            "Modalsatz (so, wie)": "so, wie",
             "Perfekt (haben + Part.II)": "Perfekt (haben)",
             "Perfekt (sein + Part.II)": "Perfekt (sein)",
             "Passiv Präsens (wird + Part.II)": "Passiv (wird)",
@@ -110,6 +111,7 @@ def calculate_result(phrase: str, grammar_features: list, vocab_result: dict) ->
             "um…zu Konstruktion": "um…zu",
             "ohne…zu Konstruktion": "ohne…zu",
             "statt…zu Konstruktion": "statt…zu",
+            "Adjektiv + zu + Infinitiv": "Adjektiv + zu",
             "je…desto Konstruktion": "je…desto",
             "sein + zu + Infinitiv": "sein + zu",
             "sich lassen + Infinitiv": "sich lassen",

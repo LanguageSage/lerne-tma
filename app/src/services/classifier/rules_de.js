@@ -5,9 +5,12 @@
  * Matches Python rules_de.py 1:1.
  */
 
+const TOKENIZE_RE = /[a-zäöüß]+(?:-[a-zäöüß]+)*/g;
+
 // Tokenize text into lowercased words
 function tokenize(text) {
-  const matches = text.lower ? text.toLowerCase().match(/[a-zäöüß]+(?:-[a-zäöüß]+)*/g) : text.toLowerCase().match(/[a-zäöüß]+(?:-[a-zäöüß]+)*/g);
+  if (!text) return [];
+  const matches = text.toLowerCase().match(TOKENIZE_RE);
   return matches || [];
 }
 
@@ -100,7 +103,7 @@ const A2_SUBORDINATORS = new Set(['weil', 'dass', 'ob', 'wenn', 'als']);
 const B1_SUBORDINATORS = new Set([
   'obwohl', 'während', 'nachdem', 'bevor', 'seitdem',
   'sodass', 'solange', 'sobald', 'indem', 'sofern', 'falls',
-  'vorausgesetzt', 'insofern',
+  'vorausgesetzt', 'insofern', 'damit', 'da', 'seit', 'ehe',
 ]);
 
 const B1_GENITIV = new Set([
@@ -108,7 +111,9 @@ const B1_GENITIV = new Set([
   'infolge', 'trotz', 'mangels', 'dank', 'kraft', 'laut',
 ]);
 
-const RELATIV_RE = /,\s*(?:der|die|das|den|dem|denen|deren|dessen)\b/i;
+const RELATIV_RE = /,\s*(?:(?:in|auf|an|mit|bei|über|unter|vor|hinter|nach|von|zu|durch|für|ohne|um|gegen|wegen|trotz)\s+)?(?:der|die|das|den|dem|denen|deren|dessen)\b/i;
+const SO_WIE_RE  = /\bso\s*,\s*wie\b/i;
+const W_NEBENSATZ_RE = /,\s*(?:wie|wo|wohin|woher|wann|warum|weshalb|wieso|weswegen|was|wer|wen|wem|wessen|womit|worüber|wovon|woran|wozu|worauf|wobei|wodurch)\b/i;
 const WORDEN_RE  = /\bworden\b/i;
 
 const B2_JE_DESTO  = /\bje\b[\s\S]{1,80}\b(?:desto|umso)\b/i;
@@ -116,13 +121,19 @@ const B2_NICHT_NUR = /\bnicht\s+nur\b/i;
 const B2_SOWOHL   = /\bsowohl\b[\s\S]{1,80}\bals\s+auch\b/i;
 const B2_WEDER    = /\bweder\b[\s\S]{1,80}\bnoch\b/i;
 
+const B1_INF_ADJECTIVES = new Set([
+  'schwer', 'leicht', 'einfach', 'wichtig', 'möglich', 'unmöglich',
+  'klar', 'interessant', 'schön', 'gut', 'hart', 'kompliziert', 'nützlich', 'nötig'
+]);
+const B1_ADJ_ZU = /\b(?:schwer|leicht|einfach|wichtig|möglich|unmöglich|klar|interessant|schön|gut|hart|kompliziert|nützlich|nötig)\b[\s\S]{0,30}\bzu\b\s+[a-zäöüß]+en\b/i;
+
 const C1_SEIN_ZU     = /\b(?:ist|sind|war|waren|wäre|sei|wären)\b[\s\S]{0,40}\bzu\b\s+[a-zäöüß]+en\b/i;
 const C1_LASSEN_SICH = /\b(?:lässt|lassen|ließ|ließen)\b[\s\S]{0,40}\bsich\b/i;
 
 // Detectors
 function detectC1(text) {
   if (C1_LASSEN_SICH.test(text)) return { name: 'sich lassen + Infinitiv', level: 'C1', confidence: 0.88 };
-  if (C1_SEIN_ZU.test(text))     return { name: 'sein + zu + Infinitiv', level: 'C1', confidence: 0.82 };
+  if (C1_SEIN_ZU.test(text) && !B1_ADJ_ZU.test(text)) return { name: 'sein + zu + Infinitiv', level: 'C1', confidence: 0.82 };
   return null;
 }
 
@@ -146,7 +157,15 @@ function detectPassiv(text, tokens) {
   return null;
 }
 
-function detectSubordinators(tokens) {
+function detectSubordinators(text, tokens) {
+  if (SO_WIE_RE.test(text)) {
+    return { name: 'Modalsatz (so, wie)', level: 'B1', confidence: 0.90 };
+  }
+  const wMatch = text.match(W_NEBENSATZ_RE);
+  if (wMatch) {
+    const wWord = wMatch[0].replace(/,/g, '').trim().toLowerCase();
+    return { name: `B1-Nebensatz (${wWord})`, level: 'B1', confidence: 0.90 };
+  }
   const b1 = tokens.find(t => B1_SUBORDINATORS.has(t));
   if (b1) return { name: `B1-Nebensatz (${b1})`, level: 'B1', confidence: 0.90 };
   const a2 = tokens.find(t => A2_SUBORDINATORS.has(t));
@@ -161,6 +180,7 @@ function detectRelativsatz(text) {
 
 function detectInfinitivKonstruktionen(text) {
   const tl = text.toLowerCase();
+  if (B1_ADJ_ZU.test(tl)) return { name: 'Adjektiv + zu + Infinitiv', level: 'B1', confidence: 0.88 };
   if (/\bum\b[\s\S]{0,60}\bzu\b/i.test(tl)) return { name: 'um…zu Konstruktion', level: 'B1', confidence: 0.85 };
   if (/\bohne\b[\s\S]{0,60}\bzu\b/i.test(tl)) return { name: 'ohne…zu Konstruktion', level: 'B1', confidence: 0.88 };
   if (/\b(?:statt|anstatt)\b[\s\S]{0,60}\bzu\b/i.test(tl)) return { name: 'statt…zu Konstruktion', level: 'B1', confidence: 0.88 };
@@ -263,7 +283,7 @@ export function detectAllFeaturesDe(text) {
   const passiv = detectPassiv(text, tokens);
   if (passiv) features.push(passiv);
 
-  const subord = detectSubordinators(tokens);
+  const subord = detectSubordinators(text, tokens);
   if (subord) features.push(subord);
 
   const rel = detectRelativsatz(text);

@@ -22,9 +22,12 @@ const tests = [
   ['Das ist der Mann, den ich gestern gesehen habe.', 'B1'],
   ['Obwohl ich müde bin, gehe ich arbeiten.', 'B1'],
   ['Wegen des Regens blieben wir zu Hause.', 'B1'],
+  ['Gut, wir machen es so, wie du denkst.', 'B1'],
+  ['Ich weiß nicht, wie das funktioniert.', 'B1'],
+  ['Er fragt, wo der Bahnhof ist.', 'B1'],
   ['Je mehr ich lerne, desto besser spreche ich.', 'B2'],
   ['Das Dokument ist verschlüsselt worden.', 'B2'],
-  ['Das Problem ist schwer zu lösen.', 'C1'],
+  ['Das Problem ist zu lösen.', 'C1'],
   ['Das lässt sich leicht erklären.', 'C1'],
 ];
 

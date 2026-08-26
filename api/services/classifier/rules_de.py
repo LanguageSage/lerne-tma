@@ -159,7 +159,7 @@ A2_SUBORDINATORS = frozenset({"weil", "dass", "ob", "wenn", "als"})
 B1_SUBORDINATORS = frozenset({
     "obwohl", "während", "nachdem", "bevor", "seitdem",
     "sodass", "solange", "sobald", "indem", "sofern", "falls",
-    "vorausgesetzt", "insofern",
+    "vorausgesetzt", "insofern", "damit", "da", "seit", "ehe",
 })
 
 # ─── Genitiv prepositions (B1) ────────────────────────────────────────────────
@@ -171,9 +171,18 @@ B1_GENITIV = frozenset({
 
 # ─── Regex patterns ───────────────────────────────────────────────────────────
 
-# Relativsatz: comma + relative pronoun (B1)
+# Relativsatz: comma + optional preposition + relative pronoun (B1)
 _RELATIV_RE = re.compile(
-    r',\s*(?:der|die|das|den|dem|denen|deren|dessen)\b',
+    r',\s*(?:(?:in|auf|an|mit|bei|über|unter|vor|hinter|nach|von|zu|durch|für|ohne|um|gegen|wegen|trotz)\s+)?(?:der|die|das|den|dem|denen|deren|dessen)\b',
+    re.IGNORECASE
+)
+
+# Modalsatz with so, wie
+_SO_WIE_RE = re.compile(r'\bso\s*,\s*wie\b', re.IGNORECASE)
+
+# W-word subordinate clauses / indirect questions (B1)
+_W_SUBORDINATE_RE = re.compile(
+    r',\s*(?:wie|wo|wohin|woher|wann|warum|weshalb|wieso|weswegen|was|wer|wen|wem|wessen|womit|worüber|wovon|woran|wozu|worauf|wobei|wodurch)\b',
     re.IGNORECASE
 )
 
@@ -186,14 +195,25 @@ _B2_NICHT_NUR    = re.compile(r'\bnicht\s+nur\b', re.IGNORECASE)
 _B2_SOWOHL       = re.compile(r'\bsowohl\b.{1,80}\bals\s+auch\b', re.IGNORECASE | re.DOTALL)
 _B2_WEDER        = re.compile(r'\bweder\b.{1,80}\bnoch\b', re.IGNORECASE | re.DOTALL)
 
-# C1: sein + zu + Infinitiv ("Das ist schwer zu lösen")
-_C1_SEIN_ZU      = re.compile(
-    r'\b(?:ist|sind|war|waren|wäre|sei|wären)\b.{0,40}\bzu\b\s+\w+en\b',
+# B1 evaluation adjectives used with zu + Infinitiv ("schwer zu finden", "wichtig zu lernen", "möglich zu kommen")
+B1_INF_ADJECTIVES = frozenset({
+    "schwer", "leicht", "einfach", "wichtig", "möglich", "unmöglich",
+    "klar", "interessant", "schön", "gut", "hart", "kompliziert", "nützlich", "nötig"
+})
+
+_B1_ADJ_ZU = re.compile(
+    r'\b(?:' + '|'.join(B1_INF_ADJECTIVES) + r')\b.{0,30}\bzu\b\s+[a-zäöüß]+en\b',
     re.IGNORECASE | re.DOTALL
 )
 
-# C1: sich lassen + Infinitiv ("Das lässt sich leicht erklären")
-_C1_LASSEN_SICH  = re.compile(
+# C1: sein + zu + Infinitiv without evaluation adjective (Passiversatzform: "Das ist zu lösen")
+_C1_SEIN_ZU = re.compile(
+    r'\b(?:ist|sind|war|waren|wäre|sei|wären)\b.{0,40}\bzu\b\s+[a-zäöüß]+en\b',
+    re.IGNORECASE | re.DOTALL
+)
+
+# C1: sich lassen + Infinitiv ("Das lässt sich erklären")
+_C1_LASSEN_SICH = re.compile(
     r'\b(?:lässt|lassen|ließ|ließen)\b.{0,40}\bsich\b',
     re.IGNORECASE | re.DOTALL
 )
@@ -202,10 +222,10 @@ _C1_LASSEN_SICH  = re.compile(
 # ─── Individual detectors ─────────────────────────────────────────────────────
 
 def detect_c1(text: str) -> GrammarFeature | None:
-    """C1: sein+zu+Infinitiv, sich lassen."""
+    """C1: sein+zu+Infinitiv (Passiversatzform), sich lassen."""
     if _C1_LASSEN_SICH.search(text):
         return GrammarFeature("sich lassen + Infinitiv", "C1", 0.88)
-    if _C1_SEIN_ZU.search(text):
+    if _C1_SEIN_ZU.search(text) and not _B1_ADJ_ZU.search(text):
         return GrammarFeature("sein + zu + Infinitiv", "C1", 0.82)
     return None
 
@@ -241,8 +261,14 @@ def detect_passiv(text: str, tokens: list) -> GrammarFeature | None:
     return None
 
 
-def detect_subordinators(tokens: list) -> GrammarFeature | None:
-    """B1 or A2 subordinating conjunctions."""
+def detect_subordinators(text: str, tokens: list) -> GrammarFeature | None:
+    """B1 or A2 subordinating conjunctions and indirect questions/Modalsätze."""
+    if _SO_WIE_RE.search(text):
+        return GrammarFeature("Modalsatz (so, wie)", "B1", 0.90)
+    w_match = _W_SUBORDINATE_RE.search(text)
+    if w_match:
+        w_word = w_match.group(0).replace(',', '').strip().lower()
+        return GrammarFeature(f"B1-Nebensatz ({w_word})", "B1", 0.90)
     b1 = next((t for t in tokens if t in B1_SUBORDINATORS), None)
     if b1:
         return GrammarFeature(f"B1-Nebensatz ({b1})", "B1", 0.90)
@@ -260,8 +286,10 @@ def detect_relativsatz(text: str) -> GrammarFeature | None:
 
 
 def detect_infinitiv_konstruktionen(text: str) -> GrammarFeature | None:
-    """B1: um…zu, ohne…zu, statt…zu / anstatt…zu."""
+    """B1: um…zu, ohne…zu, statt…zu / anstatt…zu, Adjektiv + zu + Infinitiv (schwer zu finden)."""
     tl = text.lower()
+    if _B1_ADJ_ZU.search(tl):
+        return GrammarFeature("Adjektiv + zu + Infinitiv", "B1", 0.88)
     if re.search(r'\bum\b.{0,60}\bzu\b', tl):
         return GrammarFeature("um…zu Konstruktion", "B1", 0.85)
     if re.search(r'\bohne\b.{0,60}\bzu\b', tl):
@@ -404,7 +432,7 @@ def detect_all_features_de(text: str) -> list:
         features.append(passiv)
 
     # B1 subordinators / relativsatz / infinitive constructions / genitiv
-    subord = detect_subordinators(tokens)
+    subord = detect_subordinators(text, tokens)
     if subord:
         features.append(subord)
 

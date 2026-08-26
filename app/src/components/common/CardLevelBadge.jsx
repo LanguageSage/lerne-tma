@@ -1,27 +1,41 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { getLevelInfo } from '../../utils/levelUtils';
 import { classifySentenceFast } from '../../services/classifier';
 
 export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}, onClick = null, showReason = true }) => {
-  let info = getLevelInfo(card);
-
-  // If card doesn't have an explicit level/tag yet, compute via local classifier on the fly
-  let localClassified = null;
   const frontText = (card?.front_text || card?.front || '').trim();
+  const isManual = Boolean(card?.manual_level || card?.is_manual_level || card?.reason_short === 'вручную' || card?.reason === 'Установлен вручную');
 
-  if (frontText && (!info || showReason)) {
-    try {
-      const res = classifySentenceFast(frontText, 'de');
-      if (res && res.level) {
-        localClassified = res;
-        if (!info) {
-          info = getLevelInfo({ level: res.level });
+  const { info, reasonShort, fullReason } = useMemo(() => {
+    let computedInfo = null;
+    let localClassified = null;
+
+    if (isManual) {
+      computedInfo = getLevelInfo(card);
+    } else {
+      if (frontText) {
+        try {
+          const res = classifySentenceFast(frontText, 'de');
+          if (res && res.level) {
+            localClassified = res;
+            computedInfo = getLevelInfo({ level: res.level });
+          }
+        } catch {
+          // ignore
         }
       }
-    } catch {
-      // ignore
+      if (!computedInfo) {
+        computedInfo = getLevelInfo(card);
+      }
     }
-  }
+
+    if (!computedInfo) return { info: null, reasonShort: null, fullReason: null };
+
+    const rShort = isManual ? (card?.reason_short || 'вручную') : (localClassified?.reason_short || card?.reason_short || null);
+    const fReason = isManual ? (card?.reason || 'Установлено вручную') : (localClassified?.reason || card?.reason || null);
+
+    return { info: computedInfo, reasonShort: rShort, fullReason: fReason };
+  }, [card, frontText, isManual]);
 
   if (!info) return null;
 
@@ -31,11 +45,6 @@ export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}
   const borderRadius = isSmall ? '10px' : '14px';
 
   const badgeTextColor = textColor || info.color;
-
-  // Determine reason strings
-  const reasonShort = card?.reason_short || localClassified?.reason_short || null;
-  const fullReason  = card?.reason || localClassified?.reason || null;
-
   const tooltipText = fullReason ? `Уровень: ${info.level} (${fullReason})` : `Уровень языка: ${info.level}`;
 
   return (
@@ -61,7 +70,8 @@ export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}
         WebkitBackdropFilter: 'blur(10px)',
         userSelect: 'none',
         lineHeight: 1.2,
-        cursor: 'pointer',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'opacity 0.2s ease, transform 0.15s ease',
         ...style
       }}
     >
