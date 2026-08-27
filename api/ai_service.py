@@ -90,7 +90,8 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
     try:
         from api.services.language_service import (
             get_prompt_for_phrase, get_language_config, get_native_config,
-            build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt
+            build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt,
+            build_quiz_prompt
         )
         from api.services.input_parser import parse_user_input, parse_ai_json_response
         from api.models import TMACustomPrompt, TMASetting
@@ -197,31 +198,12 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             if detect_level and "level" not in system_prompt.lower():
                 system_prompt += f"\n\nОбязательно добавь в выводимый JSON объект поле уровня:\n\"level\": \"один из уровня CEFR (A1, A2, B1, B2, C1, C2)\""
         elif is_quiz_request:
-            native_name = native_config["name"].lower()
-            level_rule = '4. "level": определи CEFR уровень вопроса ("A1", "A2", "B1", "B2", "C1", "C2").\n' if detect_level else ''
-            json_level = ',\n  "level": "B1"' if detect_level else ''
-            system_prompt = (
-                f"Ты — профессиональный преподаватель и экзаменатор языка {lang_name}.\n"
-                f"Для экзаменационного вопроса с выбором вариантов ответа:\n'{clean_phrase}'\n\n"
-                f"Проанализируй вопрос и варианты ответов.\n"
-                f"1. В поле 'back' сделай ПОЛНЫЙ перевод вопроса и ВСЕХ вариантов ответа на {native_name} язык, поставив зелёную галочку ✅ перед правильным ответом.\n"
-                f"   Формат поля 'back':\n"
-                f"   Вопрос: [Перевод вопроса]\n"
-                f"   1. [Перевод первого варианта]\n"
-                f"   2. [Перевод второго варианта]\n"
-                f"   3. ✅ [Перевод правильного варианта]\n"
-                f"   4. [Перевод четвертого варианта]\n\n"
-                f"2. В поле 'context' напиши СТРОГО 2 блока:\n"
-                f"   📖 **Словарный запас**:\n"
-                f"   [Ключевые слова из вопроса и вариантов с переводом]\n\n"
-                f"   💡 **Грамматический разбор и объяснение**:\n"
-                f"   [Подробно: почему выбран именно этот вариант, и в чём заключается грамматическая или смысловая ошибка остальных вариантов]\n\n"
-                f"{level_rule}"
-                f"Return ONLY a JSON object in this format:\n{{\n"
-                f'  "front": "{clean_phrase}",\n'
-                f'  "back": "Вопрос: [Перевод]\\n1. [Вариант 1]\\n2. ✅ [Правильный вариант]",\n'
-                f'  "context": "📖 **Словарный запас**:\\n[слово - перевод]\\n\\n💡 **Грамматический разбор и объяснение**:\\n[подробный разбор правил]"{json_level}\n'
-                f"}}\nEND_JSON"
+            system_prompt = build_quiz_prompt(
+                phrase_or_items=clean_phrase,
+                target_lang=target_lang,
+                native_lang=native_lang,
+                is_batch=False,
+                detect_level=detect_level
             )
         elif is_trainer_request:
             native_name = native_config["name"].lower()
@@ -230,17 +212,21 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             system_prompt = (
                 f"Ты — преподаватель языка {lang_name}. Создай грамматическую карточку-тренажёр на основе фразы:\n'{clean_phrase}'\n\n"
                 f"Инструкции:\n"
-                f"1. На лицевой стороне ('front') сформируй предложение на {lang_name} языке и обязательно оберни проверяемую грамматическую форму, предлог или артикль в фигурные скобки, например: 'Ich fahre {{mit dem}} Bus' или 'der Weg {{zum}} Gipfel' (можно указать варианты через черту: '{{zum|zur|ins}}').\n"
+                f"1. На лицевой стороне ('front') сформируй предложение на {lang_name} языке и обязательно оберни проверяемую грамматическую форму, предлог или артикль в фигурные скобки, например: 'Ich fahre {{mit dem}} Bus' или 'der Weg {{zum}} Gipfel' (можно указать варианты через черту: '{{*zum|zur|ins}}').\n"
                 f"2. На обратной стороне ('back') ОБЯЗАТЕЛЬНО укажи ПОЛНЫЙ И ТОЧНЫЙ перевод всего предложения на {native_name} язык.\n"
-                f"3. В поле 'context' дай структурированное и понятное объяснение:\n"
-                f"   - 🎯 **Перевод**: [перевод фразы]\n"
-                f"   - 💡 **Грамматический разбор**: [почему выбран именно этот вариант/падеж/род/управление/окончание, подробное правило простыми словами]\n"
-                f"   - 📖 **Словарик**: [разбор ключевых слов фразы]\n"
+                f"3. В поле 'context' оформи 3 блока:\n"
+                f"   🎯 **Ответ и суть**:\n"
+                f"   [подробно: почему в пропуск ставится именно эта форма, падеж или предлог]\n\n"
+                f"   📖 **Словарный запас**:\n"
+                f"   - [слово / глагол с артиклем на {lang_name}] — [перевод на {native_name}]\n"
+                f"   (подробный разбор ключевых слов предложения)\n\n"
+                f"   💡 **Грамматика**:\n"
+                f"   [Понятное грамматическое правило простыми словами]\n\n"
                 f"{level_rule}"
                 f"Return ONLY a JSON object in this format:\n{{\n"
                 f'  "front": "предложение с {{пропуском}} на {lang_name.lower()}",\n'
                 f'  "back": "полный перевод предложения на {native_name}",\n'
-                f'  "context": "🎯 **Перевод**:\\n[перевод]\\n\\n💡 **Грамматический разбор**:\\n[объяснение правила и почему именно такой ответ]\\n\\n📖 **Словарик**:\\n[слово - перевод]"{json_level}\n'
+                f'  "context": "🎯 **Ответ и суть**:\\n...\\n\\n📖 **Словарный запас**:\\n- слово — перевод\\n\\n💡 **Грамматика**:\\n..."{json_level}\n'
                 f"}}\nEND_JSON"
             )
         else:
@@ -538,3 +524,117 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
         logger.error(f"Error in classify_phrases_batch (AI step): {e}")
 
     return final_results
+
+
+async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: str = "de", native_language: str = None) -> dict:
+    """
+    Массово обогащает список тестов и карточек с помощью ИИ:
+    - Генерирует точный перевод вопроса и правильного ответа на родной язык (русский);
+    - Генерирует понятное учебное объяснение (почему ответ правильный, законы ФРГ, грамматика);
+    - Составляет структурированный контекстный словарь ключевых слов (context);
+    - Определяет правильный ответ со звёздочкой '*', если он не был отмечен;
+    - Рассчитывает уровень сложности CEFR.
+    """
+    start_time = time.time()
+    try:
+        from api.services.language_service import get_language_config, get_native_config
+        from api.models import TMASetting
+        from api.services.input_parser import parse_ai_batch_json_response
+
+        if not cards:
+            return {"error": "Список карточек для генерации пуст."}
+
+        # Ограничение на количество за один запрос (до 30 карточек)
+        if len(cards) > 30:
+            cards = cards[:30]
+
+        if not native_language:
+            native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
+            native_language = native_rec.value if native_rec else "ru"
+
+        target_lang = (target_language or "de").lower()
+        native_lang = (native_language or "ru").lower()
+        
+        lang_config = get_language_config(target_lang, native_lang)
+        native_config = get_native_config(native_lang)
+        lang_name = lang_config["name"]
+        native_name = native_config["name"]
+
+        provider, ai_key, ai_model = get_ai_config()
+        if not ai_key and provider != "ollama":
+            return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
+
+        if not ai_model or not ai_model.strip():
+            return {"error": "В настройках не выбрана модель ИИ. Пожалуйста, выберите модель в Настройках."}
+
+        client = AIService(provider=provider, api_key=ai_key)
+        model_name = ai_model.strip()
+
+        batch_size = 5
+        chunks = [cards[i:i + batch_size] for i in range(0, len(cards), batch_size)]
+        enriched_cards = []
+
+        for index, chunk in enumerate(chunks):
+            if index > 0:
+                await asyncio.sleep(2.5)
+
+            chunk_items_formatted = []
+            for idx, c in enumerate(chunk):
+                f = c.get("front") or c.get("front_text") or ""
+                chunk_items_formatted.append(f"--- БЛОК {idx+1} ---\n{f.strip()}")
+
+            prompt_text = "\n\n".join(chunk_items_formatted)
+
+            from api.services.language_service import build_quiz_prompt
+            system_prompt = build_quiz_prompt(
+                phrase_or_items=chunk,
+                target_lang=target_lang,
+                native_lang=native_lang,
+                is_batch=True,
+                detect_level=True
+            )
+
+            logger.info(f"Batch Quiz AI: processing chunk {index+1}/{len(chunks)} ({len(chunk)} items)...")
+            response, success = await client.chat_completion(
+                system_prompt=system_prompt,
+                user_message=prompt_text,
+                model=model_name
+            )
+
+            if success and response:
+                try:
+                    items = parse_ai_batch_json_response(response)
+                    if items and len(items) > 0:
+                        for original_card, generated_item in zip(chunk, items):
+                            merged = dict(original_card)
+                            if generated_item.get("front"):
+                                merged["front"] = generated_item["front"]
+                                merged["front_text"] = generated_item["front"]
+                            if generated_item.get("back"):
+                                merged["back"] = generated_item["back"]
+                                merged["back_text"] = generated_item["back"]
+                            if generated_item.get("context"):
+                                merged["context"] = generated_item["context"]
+                            if generated_item.get("level"):
+                                merged["level"] = generated_item["level"]
+                                merged["tags"] = generated_item["level"]
+                            merged["card_type"] = generated_item.get("card_type") or original_card.get("card_type") or "quiz"
+                            enriched_cards.append(merged)
+                    else:
+                        logger.warning(f"Could not parse AI response chunk {index}")
+                        enriched_cards.extend(chunk)
+                except Exception as parse_e:
+                    logger.warning(f"Error parsing AI enriched cards chunk {index}: {parse_e}")
+                    enriched_cards.extend(chunk)
+            else:
+                logger.error(f"Batch Quiz AI chunk {index+1} failed: {response}")
+                enriched_cards.extend(chunk)
+
+        duration = time.time() - start_time
+        logger.info(f"Batch Quiz AI finished in {duration:.2f}s, total cards: {len(enriched_cards)}")
+        return {"status": "success", "cards": enriched_cards}
+
+    except Exception as e:
+        logger.error(f"Critical error in enrich_batch_quiz_fields: {e}", exc_info=True)
+        return {"error": str(e)}
+

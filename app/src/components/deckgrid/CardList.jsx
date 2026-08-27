@@ -18,7 +18,7 @@ import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 import { parseQuizData } from '../../utils/quizParser';
 
-const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
+const DraggableCardItem = ({ c, index, currentDeck, startStudyCard }) => {
   const dragControls = useDragControls();
   const flagStyle = getFlagStyle(c.flag);
   const flagInfo = FLAG_COLORS[c.flag] || FLAG_COLORS[0];
@@ -124,6 +124,11 @@ const DraggableCardItem = ({ c, currentDeck, startStudyCard }) => {
           stopDrag={true} 
         />
       </div>
+      {typeof index === 'number' && (
+        <span className="card-item-corner-number">
+          {index + 1}
+        </span>
+      )}
     </Reorder.Item>
   );
 };
@@ -172,13 +177,13 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     const onMove = (ev) => {
       const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
       const delta = clientY - startY;
-      const newH = Math.max(80, Math.min(500, startH + delta));
+      const newH = Math.max(80, Math.min(800, startH + delta));
       setImageHeight(newH);
     };
     const onUp = (ev) => {
       const clientY = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
       const delta = clientY - startY;
-      const finalH = Math.max(80, Math.min(500, startH + delta));
+      const finalH = Math.max(80, Math.min(800, startH + delta));
       saveImageHeight(Math.round(finalH));
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
@@ -724,10 +729,11 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
               className="card-list"
               id="tut-card-list-content"
             >
-              {deckCards.map(c => (
+              {deckCards.map((c, idx) => (
                 <DraggableCardItem 
                   key={c.id} 
                   c={c} 
+                  index={idx}
                   currentDeck={currentDeck} 
                   startStudyCard={startStudyCard} 
                 />

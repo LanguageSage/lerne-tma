@@ -43,11 +43,18 @@ def execute_sync_push(request, user_id: int) -> dict:
         with models.tma_db.atomic():
             # 0. Process Folders
             for f in request.folders:
+                resolved_parent_id = f.parent_id
+                if resolved_parent_id and resolved_parent_id < 0:
+                    resolved_parent_id = folder_id_map.get(str(resolved_parent_id))
+
                 client_updated_at = parse_iso_datetime(f.updated_at)
                 if f.id < 0:
                     new_folder = models.TMA_Folder.create(
                         user_id=user_id,
                         name=f.name,
+                        parent_id=resolved_parent_id,
+                        color=f.color,
+                        target_language=f.target_language or 'de',
                         is_deleted=f.is_deleted,
                         is_pinned=f.is_pinned,
                         position=f.position,
@@ -60,6 +67,9 @@ def execute_sync_push(request, user_id: int) -> dict:
                     if folder:
                         if not folder.updated_at or client_updated_at > folder.updated_at:
                             folder.name = f.name
+                            folder.parent_id = resolved_parent_id
+                            folder.color = f.color
+                            folder.target_language = f.target_language or 'de'
                             folder.is_deleted = f.is_deleted
                             folder.is_pinned = f.is_pinned
                             folder.position = f.position
@@ -258,9 +268,12 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
             {
                 "id": f.id,
                 "name": f.name,
+                "parent_id": getattr(f, 'parent_id', None),
+                "color": f.color,
+                "target_language": getattr(f, 'target_language', 'de') or 'de',
                 "is_deleted": bool(f.is_deleted),
                 "is_pinned": bool(f.is_pinned),
-                "position": int(f.position or 0),
+                "position": int(getattr(f, 'position', 0) or 0),
                 "created_at": f.created_at.isoformat() if f.created_at else None,
                 "updated_at": f.updated_at.isoformat() if f.updated_at else None
             }
@@ -370,9 +383,12 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
                 folders_data.append({
                     "id": f.id,
                     "name": f.name,
+                    "parent_id": getattr(f, 'parent_id', None),
+                    "color": f.color,
+                    "target_language": getattr(f, 'target_language', 'de') or 'de',
                     "is_deleted": bool(f.is_deleted),
                     "is_pinned": bool(f.is_pinned),
-                    "position": int(f.position or 0),
+                    "position": int(getattr(f, 'position', 0) or 0),
                     "user_id": f.user_id,
                     "updated_at": f.updated_at.isoformat() if f.updated_at else None
                 })

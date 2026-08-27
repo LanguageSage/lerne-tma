@@ -125,6 +125,35 @@
   transform: scale(1.08);
 }
 
+.card-item-corner-number {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #c084fc;
+  background: rgba(168, 85, 247, 0.14);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 7px;
+  padding: 1px 7px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  transition: all 0.2s ease;
+  z-index: 5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.card-item:hover .card-item-corner-number {
+  color: #e9d5ff;
+  background: rgba(168, 85, 247, 0.28);
+  border-color: rgba(168, 85, 247, 0.55);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+  transform: scale(1.05);
+}
+
 /* Card List Loader & Empty States */
 .cards-loading-state, .empty-cards-state {
   display: flex;

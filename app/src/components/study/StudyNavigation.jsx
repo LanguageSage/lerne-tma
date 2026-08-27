@@ -23,33 +23,39 @@ export const StudyNavigation = ({
   const isPaused = autoplayState === 'paused';
   const isAutoplayOpen = isPlaying || isPaused;
 
+  const currentNumber = (typeof historyIndex === 'number' && historyIndex >= 0) ? historyIndex + 1 : 1;
+  const total = totalCards || 0;
+
   return (
     <div className="study-navigation-panel">
       <div className="study-navigation">
-        <div className="nav-counter nav-counter-current" title="Текущая позиция">
-          {historyIndex + 1}
+        <button
+          className="nav-arrow-btn"
+          onClick={onBack}
+          disabled={historyIndex <= 0 || loading}
+          title="Назад"
+        >
+          <ChevronLeft size={28} />
+        </button>
+
+        <div className="nav-card-counter" title={`Карточка ${currentNumber}${total > 0 ? ` из ${total}` : ''}`}>
+          <span className="nav-card-current">{currentNumber}</span>
+          {total > 0 && (
+            <>
+              <span className="nav-card-divider">/</span>
+              <span className="nav-card-total">{total}</span>
+            </>
+          )}
         </div>
-        <div className="nav-buttons-group">
-          <button
-            className="nav-arrow-btn"
-            onClick={onBack}
-            disabled={historyIndex <= 0 || loading}
-            title="Назад"
-          >
-            <ChevronLeft size={28} />
-          </button>
-          <button
-            className="nav-arrow-btn"
-            onClick={onNext}
-            disabled={loading}
-            title="Вперед (пропустить)"
-          >
-            <ChevronRight size={28} />
-          </button>
-        </div>
-        <div className="nav-counter nav-counter-total" title="Всего в колоде">
-          {totalCards || 0}
-        </div>
+
+        <button
+          className="nav-arrow-btn"
+          onClick={onNext}
+          disabled={loading}
+          title="Вперед (пропустить)"
+        >
+          <ChevronRight size={28} />
+        </button>
       </div>
 
       {!hideAutoplay && (

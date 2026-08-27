@@ -1,31 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Layers, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Sparkles, Layers, Loader2, CheckCircle2, AlertCircle, FileText, Check, Zap } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { CardLevelBadge } from '../common/CardLevelBadge';
-import { syncService } from '../../services/syncService';
+import { db } from '../../services/localDb';
+import { parseBatchCardsText } from '../../utils/batchCardParser';
+import api from '../../services/api';
 
 export const BatchCardModal = () => {
   const { isBatchModalOpen, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck } = useDeckStore();
   const { runBatchAiGenerator } = useCardActions();
 
+  const [activeTab, setActiveTab] = useState('import'); // 'import' | 'ai'
   const [rawText, setRawText] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMode, setProcessingMode] = useState(''); // 'ai' | 'direct'
   const [generatedCards, setGeneratedCards] = useState(null);
 
+  // Auto-switch to import tab if user pastes text with '---' or quiz asterisks
+  useEffect(() => {
+    if (rawText && (rawText.includes('---') || rawText.includes('\n*') || /\{([^}]+)\}/.test(rawText))) {
+      setActiveTab('import');
+    }
+  }, [rawText]);
+
   const handleClose = () => {
-    if (isGenerating) return;
+    if (isProcessing) return;
     setRawText('');
-    setIsGenerating(false);
+    setIsProcessing(false);
+    setProcessingMode('');
     setGeneratedCards(null);
     setIsBatchModalOpen(false);
   };
 
+  const parsedCards = useMemo(() => {
+    if (activeTab !== 'import' || !rawText.trim()) return [];
+    return parseBatchCardsText(rawText);
+  }, [rawText, activeTab]);
+
   if (!isBatchModalOpen) return null;
 
+  // Lines for AI generation tab
   const lines = rawText
     .split('\n')
     .map(line => line.trim())
@@ -35,54 +53,146 @@ export const BatchCardModal = () => {
   const isOverLimit = lineCount > 30;
   const effectiveCount = isOverLimit ? 30 : lineCount;
 
-  const handleGenerate = async () => {
+  // ── Helper to sync cards into Zustand store & cloud backend ─────────────────
+  const updateLocalStores = async (cardsList) => {
+    if (!currentDeck?.id) return;
+    const { fetchDeckCards, fetchDecks } = useDeckStore.getState();
+
+    // Optional local cache update (safe for cloud-only DB setups)
+    try {
+      if (db?.cards && cardsList?.length > 0) {
+        await db.cards.bulkPut(cardsList);
+      }
+    } catch {
+      // Ignored for cloud-only setups
+    }
+
+    // Refresh cards and decks from cloud backend
+    try {
+      await fetchDeckCards(currentDeck.id);
+      await fetchDecks(true);
+    } catch (refreshErr) {
+      console.warn('Post-save cloud refresh:', refreshErr);
+    }
+  };
+
+  // ── 1. Batch AI Generator (Plain phrase list) ──────────────────────────────
+  const handleAiGenerate = async () => {
     if (lineCount === 0) {
       showToast('Введите хотя бы одну фразу для генерации', 'error');
       return;
     }
 
-    setIsGenerating(true);
+    setIsProcessing(true);
+    setProcessingMode('ai');
     setGeneratedCards(null);
 
     const targetText = lines.slice(0, 30).join('\n');
     const result = await runBatchAiGenerator(targetText, currentDeck?.id);
 
-    setIsGenerating(false);
+    setIsProcessing(false);
+    setProcessingMode('');
 
     if (result && result.cards && result.cards.length > 0) {
       const cardsList = result.saved_cards || result.cards;
       setGeneratedCards(cardsList);
+      await updateLocalStores(cardsList);
+    }
+  };
 
-      // Auto-sync into Dexie & Zustand store if cards were saved to DB or created
-      if (currentDeck?.id) {
-        const { deckCards, fetchDeckCards, fetchDecks } = useDeckStore.getState();
-        const newCardObjects = cardsList.map(cardData => ({
-          id: cardData.id || Date.now() + Math.random(),
-          deck_id: currentDeck.id,
-          front: cardData.front || cardData.front_text || '',
-          front_text: cardData.front_text || cardData.front || '',
-          back: cardData.back || cardData.back_text || '',
-          back_text: cardData.back_text || cardData.back || '',
-          context: cardData.context || '',
-          tags: cardData.tags || cardData.level || 'A1',
-          level: cardData.level || 'A1',
-          position: cardData.position || (deckCards ? deckCards.length : 0),
-          source: 'ai_batch',
-          created_at: new Date().toISOString()
-        }));
+  // ── 2. AI Quiz/Card Enrichment (Generates explanations & translations) ─────
+  const handleAiEnrichImport = async () => {
+    if (parsedCards.length === 0) {
+      showToast('Не удалось распознать карточки в тексте. Проверьте разделители (---)', 'error');
+      return;
+    }
 
-        useDeckStore.setState({ deckCards: [...(deckCards || []), ...newCardObjects] });
+    setIsProcessing(true);
+    setProcessingMode('ai_enrich');
+    try {
+      const payloadCards = parsedCards.map((c, idx) => ({
+        deck_id: currentDeck?.id || null,
+        front: c.front,
+        front_text: c.front,
+        back: c.back,
+        back_text: c.back,
+        context: c.context || '',
+        card_type: c.card_type,
+        level: c.level,
+        tags: c.tags,
+        position: idx
+      }));
 
-        await Promise.all(newCardObjects.map(card => syncService.saveCardLocal(card)));
-        fetchDeckCards(currentDeck.id).catch(err => console.warn('Background deck cards refresh:', err));
-        fetchDecks(true).catch(err => console.warn('Background decks refresh:', err));
-      }
+      const res = await api.post('/ai/enrich-batch', {
+        cards: payloadCards,
+        deck_id: currentDeck?.id ? String(currentDeck.id) : null
+      });
+
+      const cardsList = res.data?.saved_cards || res.data?.cards || payloadCards;
+      setGeneratedCards(cardsList);
+      await updateLocalStores(cardsList);
+
+      showToast(`ИИ успешно сгенерировал ответы для ${cardsList.length} карточек!`, 'success');
+    } catch (err) {
+      console.error('AI enrich error:', err);
+      showToast(`Ошибка генерации ИИ: ${err.response?.data?.detail || err.message}`, 'error');
+    } finally {
+      setIsProcessing(false);
+      setProcessingMode('');
+    }
+  };
+
+  // ── 3. Direct Fast Import (Quizzes, Trainers, Standard without AI) ─────────
+  const handleDirectImport = async () => {
+    if (parsedCards.length === 0) {
+      showToast('Не удалось распознать карточки в тексте. Проверьте разделители (---)', 'error');
+      return;
+    }
+
+    setIsProcessing(true);
+    setProcessingMode('direct');
+    try {
+      const { deckCards } = useDeckStore.getState();
+      const currentPos = deckCards?.length || 0;
+
+      const payloadCards = parsedCards.map((c, idx) => ({
+        deck_id: currentDeck?.id || null,
+        front: c.front,
+        front_text: c.front,
+        back: c.back,
+        back_text: c.back,
+        context: c.context || '',
+        card_type: c.card_type,
+        level: c.level,
+        tags: c.tags,
+        position: currentPos + idx,
+        source: 'batch_import'
+      }));
+
+      const res = await api.post('/cards/bulk-save', { cards: payloadCards });
+      const savedCardsList = res.data?.cards || payloadCards;
+
+      setGeneratedCards(savedCardsList);
+      await updateLocalStores(savedCardsList);
+
+      showToast(`Успешно добавлено ${savedCardsList.length} карточек!`, 'success');
+    } catch (err) {
+      console.error('Bulk save error:', err);
+      showToast(`Ошибка импорта: ${err.response?.data?.detail || err.message}`, 'error');
+    } finally {
+      setIsProcessing(false);
+      setProcessingMode('');
     }
   };
 
   const handleDone = () => {
     handleClose();
   };
+
+  // Count types for summary
+  const quizCount = parsedCards.filter(c => c.card_type === 'quiz').length;
+  const trainerCount = parsedCards.filter(c => c.card_type === 'trainer').length;
+  const standardCount = parsedCards.filter(c => c.card_type === 'standard').length;
 
   return (
     <AnimatePresence>
@@ -93,10 +203,10 @@ export const BatchCardModal = () => {
           exit={{ opacity: 0, scale: 0.95, y: 20 }} 
           className="settings-modal" 
           onClick={e => e.stopPropagation()}
-          style={{ maxWidth: 500, width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '20px' }}
+          style={{ maxWidth: 540, width: '92%', maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: '20px' }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{
                 width: 40, height: 40, borderRadius: 12,
@@ -108,75 +218,232 @@ export const BatchCardModal = () => {
               </div>
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'white', margin: 0 }}>
-                  Пакетная генерация ИИ
+                  Массовое создание карточек
                 </h3>
                 <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                  {currentDeck ? `Колода: ${currentDeck.name}` : 'Каждая строка — 1 карточка'}
+                  {currentDeck ? `Колода: ${currentDeck.name}` : 'Импорт тестов и карточек'}
                 </span>
               </div>
             </div>
-            <button className="close-btn" disabled={isGenerating} onClick={handleClose}>
+            <button className="close-btn" disabled={isProcessing} onClick={handleClose}>
               <X size={20} />
             </button>
           </div>
 
+          {/* Mode Switcher Tabs */}
+          {!generatedCards && (
+            <div style={{
+              display: 'flex',
+              background: 'rgba(255, 255, 255, 0.06)',
+              borderRadius: 12,
+              padding: 3,
+              marginBottom: 12,
+              gap: 4
+            }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('import')}
+                style={{
+                  flex: 1,
+                  padding: '7px 10px',
+                  borderRadius: 9,
+                  border: 'none',
+                  background: activeTab === 'import' ? 'rgba(168, 85, 247, 0.3)' : 'transparent',
+                  color: activeTab === 'import' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
+                  fontSize: '0.82rem',
+                  fontWeight: activeTab === 'import' ? 700 : 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <FileText size={15} />
+                <span>Импорт тестов (---)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('ai')}
+                style={{
+                  flex: 1,
+                  padding: '7px 10px',
+                  borderRadius: 9,
+                  border: 'none',
+                  background: activeTab === 'ai' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
+                  color: activeTab === 'ai' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
+                  fontSize: '0.82rem',
+                  fontWeight: activeTab === 'ai' ? 700 : 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Sparkles size={15} />
+                <span>Генерация ИИ</span>
+              </button>
+            </div>
+          )}
+
           {/* Body */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {!generatedCards ? (
-              <>
-                <p style={{ fontSize: '0.88rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
-                  Вставьте список слов или фраз (по одному выражению на строку). ИИ автоматически сгенерирует переводы, контекст и определит уровень языка CEFR для каждой фразы.
-                </p>
+              activeTab === 'import' ? (
+                /* ── TAB 1: Direct Text Import ── */
+                <>
+                  <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
+                    Вставьте готовые тесты или карточки, разделённые строкой <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>---</code>. Правильный вариант ответа в тесте отметьте звёздочкой <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#4ade80' }}>*</code>.
+                  </p>
 
-                <div style={{ position: 'relative' }}>
-                  <textarea
-                    rows={8}
-                    value={rawText}
-                    onChange={(e) => setRawText(e.target.value)}
-                    disabled={isGenerating}
-                    placeholder={`Der Hund\nDie Katze\nMein erster Eindruck ist, dass das Gebäude sehr modern wirkt.\nDas Haus mit dem großen Garten.`}
-                    style={{
-                      width: '100%',
-                      padding: '12px 14px',
-                      borderRadius: 12,
-                      background: 'rgba(15, 23, 42, 0.6)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: 'white',
-                      fontSize: '0.92rem',
-                      fontFamily: 'inherit',
-                      resize: 'vertical',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  <div style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    marginTop: 6, fontSize: '0.8rem', color: isOverLimit ? '#f87171' : '#94a3b8'
-                  }}>
-                    <span>
-                      {lineCount === 0 ? 'Введите список фраз' : `Обнаружено строк: ${lineCount}`}
-                    </span>
-                    <span>Лимит: до 30 строк</span>
+                  <div style={{ position: 'relative' }}>
+                    <textarea
+                      rows={9}
+                      value={rawText}
+                      onChange={(e) => setRawText(e.target.value)}
+                      disabled={isProcessing}
+                      placeholder={`Deutschland ist ein Rechtsstaat. Was ist damit gemeint?\n\n*Alle Einwohner und der Staat müssen sich an die Gesetze halten.\nDer Staat muss sich nicht an die Gesetze halten.\nNur Deutsche müssen die Gesetze befolgen.\nDie Gerichte machen die Gesetze.\n---\nWie heißt die deutsche Verfassung?\n\nVolksgesetz\nBundesgesetz\n*Grundgesetz\n---`}
+                      style={{
+                        width: '100%',
+                        padding: '12px 14px',
+                        borderRadius: 12,
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color: 'white',
+                        fontSize: '0.88rem',
+                        fontFamily: 'monospace',
+                        resize: 'vertical',
+                        boxSizing: 'border-box',
+                        lineHeight: 1.4
+                      }}
+                    />
+                    
+                    {/* Live parsing summary badge bar */}
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      marginTop: 6, fontSize: '0.8rem', color: parsedCards.length > 0 ? '#4ade80' : '#94a3b8'
+                    }}>
+                      <span>
+                        {parsedCards.length === 0 ? 'Вставьте текст с разделителями ---' : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <Check size={14} color="#4ade80" />
+                            <strong>Распознано: {parsedCards.length} карточек</strong>
+                            {quizCount > 0 && <span style={{ color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '1px 5px', borderRadius: 4 }}>☑️ {quizCount} тестов</span>}
+                            {trainerCount > 0 && <span style={{ color: '#c084fc', background: 'rgba(168,85,247,0.15)', padding: '1px 5px', borderRadius: 4 }}>🏋️ {trainerCount} тренаж.</span>}
+                            {standardCount > 0 && <span style={{ color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4 }}>📖 {standardCount} обычн.</span>}
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ opacity: 0.7 }}>Без лимитов</span>
+                    </div>
                   </div>
-                </div>
 
-                {isOverLimit && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 12px', borderRadius: 8,
-                    background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#fca5a5', fontSize: '0.82rem'
-                  }}>
-                    <AlertCircle size={16} />
-                    <span>Будет обработано первые 30 строк за один запрос.</span>
+                  {/* Live Preview of parsed cards */}
+                  {parsedCards.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '200px', overflowY: 'auto', paddingRight: 4, marginTop: 4 }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' }}>
+                        Предпросмотр ({parsedCards.length}):
+                      </span>
+                      {parsedCards.map((card, idx) => (
+                        <div key={idx} style={{
+                          padding: '8px 12px',
+                          borderRadius: 8,
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          border: '1px solid rgba(255, 255, 255, 0.07)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 3
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                              {card.card_type === 'quiz' && (
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>
+                                  ☑️ Тест
+                                </span>
+                              )}
+                              {card.card_type === 'trainer' && (
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>
+                                  🏋️ Тренажер
+                                </span>
+                              )}
+                              <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {card.front.split('\n')[0]}
+                              </span>
+                            </div>
+                            <CardLevelBadge card={card} size="sm" />
+                          </div>
+                          {card.back && (
+                            <div style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ color: '#4ade80' }}>✓</span>
+                              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.back}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* ── TAB 2: AI Batch Generation ── */
+                <>
+                  <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
+                    Вставьте список слов или выражений (по одному на строку). ИИ автоматически сгенерирует переводы, контекст и определит уровень языка CEFR.
+                  </p>
+
+                  <div style={{ position: 'relative' }}>
+                    <textarea
+                      rows={8}
+                      value={rawText}
+                      onChange={(e) => setRawText(e.target.value)}
+                      disabled={isProcessing}
+                      placeholder={`Der Hund\nDie Katze\nMein erster Eindruck ist, dass das Gebäude sehr modern wirkt.\nDas Haus mit dem großen Garten.`}
+                      style={{
+                        width: '100%',
+                        padding: '12px 14px',
+                        borderRadius: 12,
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color: 'white',
+                        fontSize: '0.9rem',
+                        fontFamily: 'inherit',
+                        resize: 'vertical',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      marginTop: 6, fontSize: '0.8rem', color: isOverLimit ? '#f87171' : '#94a3b8'
+                    }}>
+                      <span>
+                        {lineCount === 0 ? 'Введите список фраз' : `Обнаружено строк: ${lineCount}`}
+                      </span>
+                      <span>Лимит: до 30 строк</span>
+                    </div>
                   </div>
-                )}
-              </>
+
+                  {isOverLimit && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 12px', borderRadius: 8,
+                      background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#fca5a5', fontSize: '0.82rem'
+                    }}>
+                      <AlertCircle size={16} />
+                      <span>Будет обработано первые 30 строк за один запрос.</span>
+                    </div>
+                  )}
+                </>
+              )
             ) : (
-              /* Results List */
+              /* ── Results List ── */
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#4ade80', fontWeight: 600, fontSize: '0.95rem' }}>
                   <CheckCircle2 size={20} />
-                  <span>Успешно создано карточек: {generatedCards.length}</span>
+                  <span>Успешно добавлено карточек: {generatedCards.length}</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '350px', overflowY: 'auto', paddingRight: 4 }}>
@@ -190,13 +457,25 @@ export const BatchCardModal = () => {
                       flexDirection: 'column',
                       gap: 4
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.92rem' }}>
-                          {card.front_text || card.front}
-                        </span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                          {card.card_type === 'quiz' && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>
+                              ☑️ Тест
+                            </span>
+                          )}
+                          {card.card_type === 'trainer' && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>
+                              🏋️ Тренажер
+                            </span>
+                          )}
+                          <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {(card.front_text || card.front || '').split('\n')[0]}
+                          </span>
+                        </div>
                         <CardLevelBadge card={card} size="sm" />
                       </div>
-                      <span style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
+                      <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
                         {card.back_text || card.back}
                       </span>
                     </div>
@@ -207,38 +486,85 @@ export const BatchCardModal = () => {
           </div>
 
           {/* Footer Actions */}
-          <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             {!generatedCards ? (
               <>
                 <button
                   className="btn btn-secondary"
                   onClick={handleClose}
-                  disabled={isGenerating}
+                  disabled={isProcessing}
                   style={{ padding: '10px 18px', borderRadius: 12 }}
                 >
                   Отмена
                 </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleGenerate}
-                  disabled={isGenerating || lineCount === 0}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '10px 20px', borderRadius: 12, fontWeight: 600
-                  }}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 size={18} className="spin" />
-                      Генерация ({effectiveCount})...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={18} />
-                      Сгенерировать ({effectiveCount})
-                    </>
-                  )}
-                </button>
+
+                {activeTab === 'import' ? (
+                  <>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={handleDirectImport}
+                      disabled={isProcessing || parsedCards.length === 0}
+                      title="Мгновенно сохранить карточки без вызова ИИ"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '10px 14px', borderRadius: 12, fontSize: '0.86rem'
+                      }}
+                    >
+                      {isProcessing && processingMode === 'direct' ? (
+                        <Loader2 size={16} className="spin" />
+                      ) : (
+                        <Zap size={16} />
+                      )}
+                      <span>⚡ Быстро</span>
+                    </button>
+
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleAiEnrichImport}
+                      disabled={isProcessing || parsedCards.length === 0}
+                      title="ИИ найдет правильный ответ, переведет вопрос и составит подробное объяснение"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '10px 20px', borderRadius: 12, fontWeight: 600,
+                        background: 'linear-gradient(135deg, #9333ea, #6366f1)'
+                      }}
+                    >
+                      {isProcessing && processingMode === 'ai_enrich' ? (
+                        <>
+                          <Loader2 size={18} className="spin" />
+                          Генерация ИИ ({parsedCards.length})...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={18} />
+                          Сгенерировать с ИИ ({parsedCards.length})
+                        </>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleAiGenerate}
+                    disabled={isProcessing || lineCount === 0}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '10px 20px', borderRadius: 12, fontWeight: 600
+                    }}
+                  >
+                    {isProcessing && processingMode === 'ai' ? (
+                      <>
+                        <Loader2 size={18} className="spin" />
+                        Генерация ({effectiveCount})...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={18} />
+                        Сгенерировать ({effectiveCount})
+                      </>
+                    )}
+                  </button>
+                )}
               </>
             ) : (
               <button
@@ -255,3 +581,4 @@ export const BatchCardModal = () => {
     </AnimatePresence>
   );
 };
+

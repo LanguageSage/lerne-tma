@@ -178,8 +178,24 @@ export const useAppInitialization = (checkStartParam) => {
             }
           }
         }
-        if (data.folders) {
-          setFolders(data.folders);
+        if (data.folders && Array.isArray(data.folders)) {
+          const sortedFolders = [...data.folders];
+          const storedFolderOrderStr = localStorage.getItem('lerne_folder_order');
+          const storedOrder = storedFolderOrderStr ? JSON.parse(storedFolderOrderStr) : null;
+          sortedFolders.sort((a, b) => {
+            if (storedOrder && Array.isArray(storedOrder)) {
+              const idxA = storedOrder.indexOf(a.id);
+              const idxB = storedOrder.indexOf(b.id);
+              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+              if (idxA !== -1) return -1;
+              if (idxB !== -1) return 1;
+            }
+            const aPos = a.position ?? 0;
+            const bPos = b.position ?? 0;
+            if (aPos !== bPos) return aPos - bPos;
+            return a.id - b.id;
+          });
+          setFolders(sortedFolders);
         }
         if (data.settings) setAdminSettings(data.settings);
         if (data.prompts) setUserPrompts(data.prompts);
@@ -219,7 +235,24 @@ export const useAppInitialization = (checkStartParam) => {
       const freshDecks = res.data.decks || [];
       setDecks(freshDecks);
       if (res.data.folders) {
-        setFolders(res.data.folders);
+        const freshFolders = [...res.data.folders];
+        const storedFolderOrderStr = localStorage.getItem('lerne_folder_order');
+        const storedOrder = storedFolderOrderStr ? JSON.parse(storedFolderOrderStr) : null;
+        freshFolders.sort((a, b) => {
+          if (storedOrder && Array.isArray(storedOrder)) {
+            const idxA = storedOrder.indexOf(a.id);
+            const idxB = storedOrder.indexOf(b.id);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+          }
+          const aPos = a.position ?? 0;
+          const bPos = b.position ?? 0;
+          if (aPos !== bPos) return aPos - bPos;
+          return a.id - b.id;
+        });
+        setFolders(freshFolders);
+        res.data.folders = freshFolders;
       }
       setAdminSettings(res.data.settings);
       setUserPrompts(res.data.prompts);

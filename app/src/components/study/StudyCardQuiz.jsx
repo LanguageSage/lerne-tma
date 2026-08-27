@@ -8,6 +8,7 @@ export const StudyCardQuiz = ({
   card,
   quizData,
   onTrainerAnswer,
+  renderAudioPlayer,
   styles = {}
 }) => {
   const [selectedOptionId, setSelectedOptionId] = useState(null);
@@ -69,13 +70,27 @@ export const StudyCardQuiz = ({
     <div className="quiz-container" style={{ width: '100%', padding: '4px 0' }}>
       {/* Question Header */}
       {displayQuestion && (
-        <div className="quiz-question" style={{
-          ...cardStyle,
-          marginBottom: '16px',
-          lineHeight: 1.4,
-          width: '100%'
-        }}>
-          {displayQuestion}
+        <div className="quiz-question-wrapper" style={{ width: '100%', marginBottom: '14px' }}>
+          <div className="quiz-question" style={{
+            ...cardStyle,
+            marginBottom: renderAudioPlayer ? '10px' : '16px',
+            lineHeight: 1.4,
+            width: '100%',
+            whiteSpace: 'pre-wrap'
+          }}>
+            {displayQuestion}
+          </div>
+          {renderAudioPlayer && (
+            <div style={{ width: '100%', marginBottom: '10px' }}>
+              {renderAudioPlayer()}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!displayQuestion && renderAudioPlayer && (
+        <div style={{ width: '100%', marginBottom: '14px' }}>
+          {renderAudioPlayer()}
         </div>
       )}
 
@@ -130,7 +145,7 @@ export const StudyCardQuiz = ({
                           ? '#f87171' 
                           : 'rgba(255, 255, 255, 0.12)')),
                 color: '#ffffff',
-                fontSize: '0.98rem',
+                fontSize: cardStyle.fontSize || '1.15rem',
                 fontWeight: isSelected ? 600 : 400,
                 textAlign: 'left',
                 cursor: isChecked ? 'default' : 'pointer',
@@ -140,8 +155,8 @@ export const StudyCardQuiz = ({
               }}
             >
               <div style={{
-                width: '26px',
-                height: '26px',
+                width: '28px',
+                height: '28px',
                 borderRadius: '50%',
                 background: isChecked && option.isCorrect 
                   ? '#22c55e' 
@@ -152,14 +167,14 @@ export const StudyCardQuiz = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '0.85rem',
+                fontSize: '0.9rem',
                 fontWeight: 700,
                 flexShrink: 0
               }}>
                 {isChecked && option.isCorrect ? (
-                  <CheckCircle2 size={16} />
+                  <CheckCircle2 size={18} />
                 ) : (isChecked && isSelected && !option.isCorrect ? (
-                  <XCircle size={16} />
+                  <XCircle size={18} />
                 ) : (
                   getOptionLetter(index)
                 ))}
@@ -167,9 +182,11 @@ export const StudyCardQuiz = ({
               <span style={{
                 flex: 1,
                 wordBreak: 'break-word',
-                fontFamily: contextStyle.fontFamily || undefined,
-                color: isSelected || isChecked ? undefined : (contextStyle.color || undefined),
-                textShadow: contextStyle.textShadow || undefined
+                fontFamily: cardStyle.fontFamily || contextStyle.fontFamily || undefined,
+                fontSize: cardStyle.fontSize || '1.15rem',
+                lineHeight: 1.4,
+                color: isSelected || isChecked ? undefined : (cardStyle.color || contextStyle.color || undefined),
+                textShadow: cardStyle.textShadow || contextStyle.textShadow || undefined
               }}>
                 {option.text}
               </span>

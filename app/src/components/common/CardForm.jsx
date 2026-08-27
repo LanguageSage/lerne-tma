@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, MessageSquare, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
-import { SplitButton } from './SplitButton';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -36,7 +35,7 @@ export const CardForm = ({
 
   const { loading, showToast } = useUiStore();
   const { uploadCreatorImage, uploadVideo } = useMediaUpload();
-  const { decks = [] } = useDeckStore();
+  const { decks = [], currentDeck, updateDeckMetadata } = useDeckStore();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [isEditingExistingImage, setIsEditingExistingImage] = useState(false);
@@ -191,24 +190,7 @@ export const CardForm = ({
       />
 
       {/* Toolbar / Header Actions */}
-      <div className="form-toolbar">
-        <SplitButton
-          mainAction={{
-            id: 'auto_full',
-            label: isCreator ? t('creator.fill_full', 'Заполнить всё') : t('creator.regenerate_full', 'Перегенерировать всё'),
-            icon: Sparkles
-          }}
-          menuActions={[
-            { id: 'explain_rule', label: t('creator.explain_rule', '📖 Объяснить правило'), icon: BookOpen },
-            { id: 'full_card', label: t('creator.full_card', '✨ Новое объяснение'), icon: Sparkles },
-            { id: 'translate_only', label: t('creator.translate_only', '🔤 Только перевод'), icon: RefreshCw },
-            { id: 'context_only', label: t('creator.context_only', '💡 Только пример и контекст'), icon: RefreshCw },
-            { id: 'conjugate', label: t('creator.conjugate', '📋 Спряжение глагола'), icon: BookOpen }
-          ]}
-          onActionSelect={(actionId) => onAiGenerate(actionId, cardData, setCardData)}
-          disabled={loading}
-        />
-
+      <div className="form-toolbar" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginBottom: '12px' }}>
         <button
           type="button"
           className="form-toolbar-btn"
@@ -395,33 +377,93 @@ export const CardForm = ({
             💡 Тренажёр: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '3px' }}>{'слово {*den|dem|der}'}</code> | Тест: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '3px' }}>{'*верный ответ'}</code>
           </div>
           
-          {(cardData.image_url || cardData.image_path) && (
-            <div className="image-preview-box" style={{ margin: '10px', position: 'relative', zIndex: 3 }}>
-              <img src={cardData.image_url || `/api/media/${cardData.image_path}`} alt="" style={{ maxWidth: '100%', borderRadius: '8px' }} />
-              <button
-                type="button"
-                className="image-edit-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditingExistingImage(true);
-                }}
-                title="Повернуть / Кадрировать"
-              >
-                <RotateCw size={18} />
-              </button>
-              <button
-                type="button"
-                className="image-clear-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCardData({...cardData, image_path: '', image_url: ''});
-                }}
-                title="Убрать картинку"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          )}
+          {(cardData.image_url || cardData.image_path) && (() => {
+            const getDeckH = () => {
+              try {
+                const meta = currentDeck?.metadata;
+                const parsed = meta ? (typeof meta === 'string' ? JSON.parse(meta) : meta) : {};
+                return parsed.imageHeight || 220;
+              } catch { return 220; }
+            };
+            const currentH = cardData.image_height || getDeckH();
+            const handleHeightChange = async (val) => {
+              setCardData({ ...cardData, image_height: val });
+              if (currentDeck?.id) {
+                try {
+                  let meta = currentDeck.metadata;
+                  if (typeof meta === 'string') {
+                    try { meta = JSON.parse(meta); } catch { meta = {}; }
+                  } else {
+                    meta = meta ? { ...meta } : {};
+                  }
+                  meta.imageHeight = val;
+                  await updateDeckMetadata(currentDeck.id, meta);
+                } catch (e) {
+                  console.error('Error syncing deck image height:', e);
+                }
+              }
+            };
+            return (
+              <>
+                <div className="image-preview-box" style={{ margin: '10px', position: 'relative', zIndex: 3 }}>
+                  <img
+                    src={cardData.image_url || `/api/media/${cardData.image_path}`}
+                    alt=""
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      height: `${currentH}px`,
+                      objectFit: 'contain',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="image-edit-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditingExistingImage(true);
+                    }}
+                    title="Повернуть / Кадрировать"
+                  >
+                    <RotateCw size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    className="image-clear-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCardData({...cardData, image_path: '', image_url: ''});
+                    }}
+                    title="Убрать картинку"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Image height slider — visible when card has an image */}
+                <div style={{ margin: '0 10px 10px 10px', zIndex: 3, position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.07)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>Высота</span>
+                    <input
+                      type="range"
+                      min={60}
+                      max={800}
+                      step={10}
+                      value={currentH}
+                      onChange={e => setCardData({ ...cardData, image_height: Number(e.target.value) })}
+                      onMouseUp={e => handleHeightChange(Number(e.target.value))}
+                      onTouchEnd={e => handleHeightChange(Number(e.target.value))}
+                      style={{ flex: 1, accentColor: '#a855f7', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '0.8rem', color: '#c084fc', fontWeight: 700, minWidth: '46px', textAlign: 'right' }}>
+                      {currentH}px
+                    </span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {(cardData.audio_path || cardData.audio_url) && (
             <button 

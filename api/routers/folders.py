@@ -34,6 +34,16 @@ def create_folder(data: dict, user_id: int = Depends(get_user_id)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/reorder")
+def reorder_folders(data: dict, user_id: int = Depends(get_user_id)):
+    folder_ids = data.get('folder_ids', [])
+    try:
+        services.reorder_folders(folder_ids, user_id)
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error reordering folders: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/{folder_id}/rename")
 def rename_folder(folder_id: int, data: dict, user_id: int = Depends(get_user_id)):
     name = data.get('name')

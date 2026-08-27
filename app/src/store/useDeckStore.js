@@ -5,6 +5,7 @@ import { storage } from '../utils/auth';
 
 let reorderTimeout = null;
 let cardReorderTimeout = null;
+let folderReorderTimeout = null;
 let pendingFetchCardsPromise = null;
 let pendingFetchCardsDeckId = null;
 
@@ -469,20 +470,24 @@ export const useDeckStore = create((set, get) => ({
   fetchFolders: async () => {
     try {
       const res = await api.get('/folders');
-      const folders = res.data;
+      const folders = res.data || [];
       const storedOrderStr = localStorage.getItem('lerne_folder_order');
-      if (storedOrderStr) {
-        const storedOrder = JSON.parse(storedOrderStr);
-        folders.sort((a, b) => {
+      const storedOrder = storedOrderStr ? JSON.parse(storedOrderStr) : null;
+      folders.sort((a, b) => {
+        if (storedOrder && Array.isArray(storedOrder)) {
           const idxA = storedOrder.indexOf(a.id);
           const idxB = storedOrder.indexOf(b.id);
           if (idxA !== -1 && idxB !== -1) return idxA - idxB;
           if (idxA !== -1) return -1;
           if (idxB !== -1) return 1;
-          return a.id - b.id;
-        });
-      }
+        }
+        const aPos = a.position ?? 0;
+        const bPos = b.position ?? 0;
+        if (aPos !== bPos) return aPos - bPos;
+        return a.id - b.id;
+      });
       set({ folders });
+      saveToInitCache({ folders });
     } catch (err) {
       console.error('Fetch Folders Error:', err);
     }
@@ -525,6 +530,11 @@ export const useDeckStore = create((set, get) => ({
 
   moveFolder: async (folderId, parentId) => {
     try {
+      const { folders } = get();
+      const updatedFolders = (folders || []).map(f => f.id === folderId ? { ...f, parent_id: parentId } : f);
+      set({ folders: updatedFolders });
+      saveToInitCache({ folders: updatedFolders });
+
       await api.post(`/folders/${folderId}/move`, { parent_id: parentId });
       const { fetchFolders } = get();
       await fetchFolders();
@@ -656,18 +666,49 @@ export const useDeckStore = create((set, get) => ({
     }, 400);
   },
 
-  reorderFolders: (orderedIds) => {
+  reorderFolders: async (orderedIds) => {
     const { folders } = get();
-    const updated = [...folders].sort((a, b) => {
+    // Optimistic update positions
+    const updated = (folders || []).map(f => {
+      const idx = orderedIds.indexOf(f.id);
+      if (idx !== -1) {
+        return { ...f, position: idx };
+      }
+      return f;
+    });
+    const sorted = [...updated].sort((a, b) => {
       const idxA = orderedIds.indexOf(a.id);
       const idxB = orderedIds.indexOf(b.id);
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
       if (idxA !== -1) return -1;
       if (idxB !== -1) return 1;
+      const aPos = a.position ?? 0;
+      const bPos = b.position ?? 0;
+      if (aPos !== bPos) return aPos - bPos;
       return a.id - b.id;
     });
-    set({ folders: updated });
+    set({ folders: sorted });
+    saveToInitCache({ folders: sorted });
     localStorage.setItem('lerne_folder_order', JSON.stringify(orderedIds));
+
+    if (folderReorderTimeout) {
+      clearTimeout(folderReorderTimeout);
+    }
+
+    folderReorderTimeout = setTimeout(async () => {
+      try {
+        await api.post('/folders/reorder', { folder_ids: orderedIds });
+      } catch (err) {
+        console.error('Reorder Folders Error:', err);
+        try {
+          const serverFolders = await api.get('/folders');
+          set({ folders: serverFolders.data });
+          saveToInitCache({ folders: serverFolders.data });
+        } catch (fetchErr) {
+          console.error('Fetch folders failed after reorder error:', fetchErr);
+        }
+      }
+    }, 400);
   },
 
   reorderCards: async (orderedIds) => {

@@ -26,6 +26,9 @@ export const syncService = {
         folders: dirtyFolders.map(f => ({
           id: f.id,
           name: f.name,
+          parent_id: f.parent_id || null,
+          color: f.color || null,
+          target_language: f.target_language || 'de',
           is_deleted: !!f.is_deleted,
           is_pinned: !!f.is_pinned,
           position: f.position || 0,

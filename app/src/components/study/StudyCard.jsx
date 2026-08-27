@@ -97,6 +97,64 @@ export const StudyCard = React.memo(({
     setCorrectSelected(null);
   }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]);
 
+  // Reactive image height — subscribes to store so editor changes apply instantly
+  const storedImageHeight = useDeckStore(state => {
+    try {
+      const meta = state.currentDeck?.metadata;
+      const parsed = meta ? (typeof meta === 'string' ? JSON.parse(meta) : meta) : {};
+      return parsed.imageHeight || 220;
+    } catch { return 220; }
+  });
+
+  const cardMetaImageHeight = useMemo(() => {
+    if (card?.image_height) return card.image_height;
+    if (card?.deck_metadata) {
+      try {
+        const dm = typeof card.deck_metadata === 'string' ? JSON.parse(card.deck_metadata) : card.deck_metadata;
+        if (dm?.imageHeight) return dm.imageHeight;
+      } catch { /* ignore */ }
+    }
+    return null;
+  }, [card?.image_height, card?.deck_metadata]);
+
+  const [cardImageHeight, setCardImageHeight] = useState(cardMetaImageHeight || storedImageHeight);
+
+  // Keep in sync when card or metadata changes externally (e.g. editor slider)
+  useEffect(() => {
+    setCardImageHeight(cardMetaImageHeight || storedImageHeight);
+  }, [cardMetaImageHeight, card?.id, storedImageHeight]);
+
+  const startCardImageResize = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startY = e.touches ? e.touches[0].clientY : e.clientY;
+    const startH = cardImageHeight;
+    const onMove = (ev) => {
+      const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      const newH = Math.max(60, Math.min(800, startH + (clientY - startY)));
+      setCardImageHeight(newH);
+    };
+    const onUp = (ev) => {
+      const clientY = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
+      const finalH = Math.max(60, Math.min(800, startH + (clientY - startY)));
+      const deck = useDeckStore.getState().currentDeck;
+      if (deck) {
+        const meta = deck.metadata
+          ? (typeof deck.metadata === 'string' ? JSON.parse(deck.metadata) : deck.metadata)
+          : {};
+        useDeckStore.getState().updateDeckMetadata(deck.id, { ...meta, imageHeight: Math.round(finalH) }).catch(() => {});
+      }
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+  }, [cardImageHeight]);
+
   const cardStyle = useMemo(() => getCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
   const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
   const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -111,6 +169,34 @@ export const StudyCard = React.memo(({
     const allDeckCards = useDeckStore.getState().deckCards || [];
     return parseClozeData(card, studyMode, allDeckCards);
   }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const renderFrontAudioPlayer = () => {
+    const audioUrl = studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url;
+    if (!audioUrl && !frontText) return null;
+
+    return (
+      <CardAudioPlayer
+        audioUrl={audioUrl}
+        playAudio={audioControls?.playAudio || playAudio}
+        pauseAudio={audioControls?.pauseAudio}
+        resumeAudio={audioControls?.resumeAudio}
+        togglePlayPause={audioControls?.togglePlayPause}
+        stopAudio={audioControls?.stopAudio}
+        seekAudio={audioControls?.seekAudio}
+        setPlaybackSpeed={audioControls?.setPlaybackSpeed}
+        audioState={audioControls?.audioState}
+        currentUrl={audioControls?.currentUrl}
+        currentTime={audioControls?.currentTime}
+        duration={audioControls?.duration}
+        playbackRate={audioControls?.playbackRate}
+        isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
+        isGenerating={card.audio_is_generating}
+        voicePicker={frontVoicePicker}
+        cardText={frontText}
+        disabled={loading || isAutoplayActive}
+      />
+    );
+  };
 
   // --- Early return after all hooks ---
   if (!card) return null;
@@ -128,7 +214,6 @@ export const StudyCard = React.memo(({
   const deckResources = deckMeta?.resources || [];
   const deckImage = deckResources.find(r => r.type === 'image' && r.show_in_cards !== false);
   const deckVideo = deckResources.find(r => r.type === 'video');
-  const deckImageHeight = deckMeta?.imageHeight || 180;
 
   const getDeckImageUrl = (resItem) => {
     if (!resItem) return null;
@@ -279,28 +364,58 @@ export const StudyCard = React.memo(({
                 </div>
               )}
               
-              {/* Media Preview Header */}
-              {imageUrl && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
-                <div style={{
-                  width: '100%',
-                  height: `${deckImageHeight}px`,
-                  overflow: 'hidden',
-                  borderRadius: '12px',
-                  marginBottom: '14px',
-                  flexShrink: 0
-                }}>
-                  <img
-                    src={imageUrl}
-                    alt=""
+              {/* Media Preview Header — shown on all modes */}
+              {imageUrl && (
+                <>
+                  <div style={{
+                    width: '100%',
+                    height: `${cardImageHeight}px`,
+                    overflow: 'hidden',
+                    borderRadius: '12px',
+                    marginBottom: '4px',
+                    flexShrink: 0
+                  }}>
+                    <img
+                      src={imageUrl}
+                      alt=""
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        borderRadius: '12px'
+                      }}
+                    />
+                  </div>
+                  {/* Resize handle */}
+                  <div
+                    onMouseDown={startCardImageResize}
+                    onTouchStart={startCardImageResize}
+                    title="Потяни чтобы изменить высоту"
                     style={{
-                      display: 'block',
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      borderRadius: '12px'
+                      height: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'ns-resize',
+                      marginBottom: '10px',
+                      userSelect: 'none',
+                      touchAction: 'none',
+                      flexShrink: 0
                     }}
-                  />
-                </div>
+                  >
+                    <div style={{
+                      width: '40px',
+                      height: '4px',
+                      borderRadius: '2px',
+                      background: 'rgba(168, 85, 247, 0.45)',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.9)'}
+                    onMouseOut={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.45)'}
+                    />
+                  </div>
+                </>
               )}
 
               {/* Classic / Reverse Mode Text */}
@@ -318,28 +433,7 @@ export const StudyCard = React.memo(({
                     <Eye size={16} />
                     <span>Посмотреть ответ</span>
                   </div>
-                  {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
-                    <CardAudioPlayer
-                      audioUrl={studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url}
-                      playAudio={audioControls?.playAudio || playAudio}
-                      pauseAudio={audioControls?.pauseAudio}
-                      resumeAudio={audioControls?.resumeAudio}
-                      togglePlayPause={audioControls?.togglePlayPause}
-                      stopAudio={audioControls?.stopAudio}
-                      seekAudio={audioControls?.seekAudio}
-                      setPlaybackSpeed={audioControls?.setPlaybackSpeed}
-                      audioState={audioControls?.audioState}
-                      currentUrl={audioControls?.currentUrl}
-                      currentTime={audioControls?.currentTime}
-                      duration={audioControls?.duration}
-                      playbackRate={audioControls?.playbackRate}
-                      isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
-                      isGenerating={card.audio_is_generating}
-                      voicePicker={frontVoicePicker}
-                      cardText={frontText}
-                      disabled={loading || isAutoplayActive}
-                    />
-                  )}
+                  {renderFrontAudioPlayer()}
                 </>
               )}
 
@@ -353,6 +447,7 @@ export const StudyCard = React.memo(({
                   setIsFlipped={onFlip}
                   playAudio={playAudio}
                   onTrainerAnswer={onTrainerAnswer}
+                  renderAudioPlayer={renderFrontAudioPlayer}
                   styles={styles}
                 />
               )}
@@ -367,6 +462,7 @@ export const StudyCard = React.memo(({
                   playAudio={playAudio}
                   onTrainerAnswer={onTrainerAnswer}
                   onNextCard={onNextCard}
+                  renderAudioPlayer={renderFrontAudioPlayer}
                   styles={styles}
                 />
               )}
@@ -418,6 +514,8 @@ export const StudyCard = React.memo(({
                       );
                     })()}
                   </div>
+
+                  {renderFrontAudioPlayer()}
 
                   <div className="cloze-choices-grid" style={{ marginTop: '16px' }}>
                     {clozeData.choices.map((opt, i) => {
@@ -559,7 +657,7 @@ export const StudyCard = React.memo(({
                 </div>
               )}
               <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
-                <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.9, ...cardStyle }}>
+                <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.9, whiteSpace: 'pre-wrap', ...cardStyle }}>
                   {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
                 </div>
                 {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
@@ -667,7 +765,7 @@ export const StudyCard = React.memo(({
               {imageUrl && (
                 <div style={{
                   width: '100%',
-                  height: `${deckImageHeight}px`,
+                  height: `${cardImageHeight}px`,
                   overflow: 'hidden',
                   borderRadius: '12px',
                   marginBottom: '12px',

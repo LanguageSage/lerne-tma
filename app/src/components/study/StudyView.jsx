@@ -525,15 +525,15 @@ export const StudyView = ({ startTutorial }) => {
             <StudyNavigation
               historyIndex={
                 currentDeck?.id === 'duplicates' 
-                  ? duplicateCards.findIndex(c => c.id === card?.id) 
-                  : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => c.id === card?.id) !== -1)
-                  ? deckCards.findIndex(c => c.id === card?.id)
+                  ? duplicateCards.findIndex(c => String(c.id) === String(card?.id)) 
+                  : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => String(c.id) === String(card?.id)) !== -1)
+                  ? deckCards.findIndex(c => String(c.id) === String(card?.id))
                   : historyIndex
               }
               totalCards={
                 currentDeck?.id === 'duplicates' 
                   ? duplicateCards.length 
-                  : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => c.id === card?.id) !== -1)
+                  : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => String(c.id) === String(card?.id)) !== -1)
                   ? deckCards.length
                   : (currentDeck?.stats?.total || 0)
               }

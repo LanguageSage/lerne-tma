@@ -17,7 +17,7 @@ def get_active_folders(user_id: int):
 
         folders = list(TMA_Folder.select().where(
             (TMA_Folder.id << list(accessible_folder_ids)) & (TMA_Folder.is_deleted == False)
-        ).order_by(TMA_Folder.id.asc()))
+        ).order_by(TMA_Folder.position.asc(), TMA_Folder.id.asc()))
 
         collab_info = get_batch_collaborative_info(user_id, folders=folders)
         folder_collab_map = collab_info.get('folders', {})
@@ -35,6 +35,7 @@ def get_active_folders(user_id: int):
                 "parent_id": getattr(f, 'parent_id', None),
                 "color": f.color,
                 "target_language": getattr(f, 'target_language', 'de') or 'de',
+                "position": getattr(f, 'position', 0) or 0,
                 "is_shared": is_shared,
                 "role": role,
                 "is_owner": role == 'owner'
@@ -191,3 +192,17 @@ def delete_folder(folder_id: int, user_id: int):
     except Exception as e:
         logger.error(f"Error deleting folder {folder_id}: {e}", exc_info=True)
         raise e
+
+def reorder_folders(folder_ids: list, user_id: int):
+    """Обновляет порядок папок пользователя."""
+    try:
+        with tma_db.atomic():
+            for idx, folder_id in enumerate(folder_ids):
+                TMA_Folder.update(position=idx, updated_at=datetime.datetime.now()).where(
+                    (TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id)
+                ).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error reordering folders: {e}")
+        raise e
+

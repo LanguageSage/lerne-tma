@@ -58,6 +58,46 @@ class BatchRequest(BaseModel):
     native_language: str = None
     deck_id: str = None
 
+class EnrichBatchRequest(BaseModel):
+    cards: list
+    target_language: str = "de"
+    native_language: str = None
+    deck_id: str = None
+
+@router.post("/ai/enrich-batch")
+@router.post("/cards/ai-enrich-batch")
+async def enrich_batch_cards(request: EnrichBatchRequest, user_id: int = Depends(get_user_id)):
+    res = await ai_service.enrich_batch_quiz_fields(
+        user_id=user_id,
+        cards=request.cards,
+        target_language=request.target_language,
+        native_language=request.native_language
+    )
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+
+    # If deck_id is provided, auto-create the cards in DB
+    if request.deck_id and "cards" in res and res["cards"]:
+        target_deck_id = int(request.deck_id) if str(request.deck_id).isdigit() else None
+        if target_deck_id:
+            payload_to_save = []
+            for c in res["cards"]:
+                payload_to_save.append({
+                    "deck_id": target_deck_id,
+                    "front_text": c.get("front") or c.get("front_text", ""),
+                    "back_text": c.get("back") or c.get("back_text", ""),
+                    "context": c.get("context", ""),
+                    "tags": c.get("tags") or c.get("level", "A1"),
+                    "level": c.get("level", "A1"),
+                    "card_type": c.get("card_type", "quiz"),
+                    "source": "ai_batch_quiz"
+                })
+            saved = services.bulk_save_cards(payload_to_save, user_id)
+            res["saved_cards"] = saved
+
+    return res
+
+
 @router.post("/ai/generate")
 @router.post("/cards/ai-generate")
 async def generate_card(request: PhraseRequest, user_id: int = Depends(get_user_id)):

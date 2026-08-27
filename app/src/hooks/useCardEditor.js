@@ -79,6 +79,25 @@ export const useCardEditor = () => {
       
       const { deckCards } = useDeckStore.getState();
       let savedCard = (res?.data && res.data.id) ? res.data : data;
+      if (data.image_height) {
+        savedCard = { ...savedCard, image_height: data.image_height };
+        if (currentDeck?.id) {
+          try {
+            let meta = currentDeck.metadata;
+            if (typeof meta === 'string') {
+              try { meta = JSON.parse(meta); } catch { meta = {}; }
+            } else {
+              meta = meta ? { ...meta } : {};
+            }
+            if (meta.imageHeight !== data.image_height) {
+              meta.imageHeight = data.image_height;
+              useDeckStore.getState().updateDeckMetadata(currentDeck.id, meta).catch(() => {});
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
       if (res?.data && res.data.id) {
         const existingIdx = (deckCards || []).findIndex(c => String(c.id) === String(savedCard.id));
         let nextCards = [...(deckCards || [])];

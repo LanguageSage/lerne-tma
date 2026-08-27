@@ -40,9 +40,9 @@ export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}
   if (!info) return null;
 
   const isSmall = size === 'sm';
-  const fontSize = isSmall ? '0.74rem' : '0.84rem';
-  const padding = isSmall ? '2px 7px' : '4px 10px';
-  const borderRadius = isSmall ? '10px' : '14px';
+  const fontSize = isSmall ? '0.8rem' : '0.93rem';
+  const padding = isSmall ? '2px 8px' : '4px 10px';
+  const borderRadius = isSmall ? '8px' : '10px';
 
   const badgeTextColor = textColor || info.color;
   const tooltipText = fullReason ? `Уровень: ${info.level} (${fullReason})` : `Уровень языка: ${info.level}`;
@@ -57,15 +57,15 @@ export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}
         alignItems: 'center',
         alignSelf: 'flex-start',
         width: 'fit-content',
-        gap: '6px',
+        gap: isSmall ? '5px' : '6px',
         fontSize,
-        fontWeight: 600,
+        fontWeight: 800,
         padding,
         borderRadius,
         backgroundColor: info.bgColor,
         color: badgeTextColor,
-        border: `1px solid ${info.borderColor}`,
-        boxShadow: `0 2px 6px rgba(0, 0, 0, 0.15)`,
+        border: `1.5px solid ${info.borderColor}`,
+        boxShadow: `0 2px 8px rgba(0, 0, 0, 0.2)`,
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
         userSelect: 'none',
@@ -77,8 +77,8 @@ export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}
     >
       <span
         style={{
-          width: isSmall ? '6px' : '8px',
-          height: isSmall ? '6px' : '8px',
+          width: isSmall ? '7px' : '8px',
+          height: isSmall ? '7px' : '8px',
           borderRadius: '50%',
           backgroundColor: info.color,
           boxShadow: `0 0 6px ${info.color}`,
@@ -86,14 +86,14 @@ export const CardLevelBadge = ({ card, size = 'md', textColor = null, style = {}
           flexShrink: 0
         }}
       />
-      <span style={{ color: badgeTextColor, fontWeight: 700 }}>{info.level}</span>
+      <span style={{ color: badgeTextColor, fontWeight: 800 }}>{info.level}</span>
       {showReason && reasonShort && (
         <span
           className="badge-reason"
           style={{
             opacity: 0.88,
-            fontWeight: 500,
-            fontSize: isSmall ? '0.8em' : '0.85em',
+            fontWeight: 600,
+            fontSize: isSmall ? '0.75em' : '0.8em',
             whiteSpace: 'nowrap'
           }}
         >

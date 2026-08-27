@@ -166,6 +166,9 @@ async def ensure_card_audio(card, user_id: int):
     try:
         # Генерируем аудио
         result = await generate_audio(card.front_text, voice=voice, rate=rate)
+        if isinstance(result, tuple):
+            result = result[0]
+            
         if not result:
             logger.error(f"Failed to generate audio for card {card.id}")
             return

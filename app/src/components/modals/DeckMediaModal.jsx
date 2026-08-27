@@ -7,6 +7,40 @@ import { useMediaUpload } from '../../hooks/useMediaUpload';
 import { MediaPicker } from '../common/MediaPicker';
 import { ImageEditorModal } from '../common/ImageEditorModal';
 
+const ImageHeightSlider = ({ initialHeight, onSave }) => {
+  const [height, setHeight] = useState(initialHeight);
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '12px', color: '#f1f5f9' }}>
+        Размер картинки в карточках
+      </h3>
+      <div style={{ padding: '14px 16px', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.06)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+          <span style={{ fontSize: '0.8rem', color: '#94a3b8', minWidth: '32px' }}>60px</span>
+          <input
+            type="range"
+            min={60}
+            max={800}
+            step={10}
+            value={height}
+            onChange={e => setHeight(Number(e.target.value))}
+            onMouseUp={e => onSave(Number(e.target.value))}
+            onTouchEnd={e => onSave(Number(e.target.value))}
+            style={{ flex: 1, accentColor: '#a855f7', cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: '0.8rem', color: '#94a3b8', minWidth: '38px', textAlign: 'right' }}>800px</span>
+        </div>
+        <div style={{ textAlign: 'center', fontSize: '0.9rem', color: '#c084fc', fontWeight: 700 }}>
+          {height}px
+        </div>
+        <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: '#64748b', textAlign: 'center' }}>
+          Применяется в списке карточек и в режиме обучения
+        </p>
+      </div>
+    </div>
+  );
+};
+
 export const DeckMediaModal = ({ isOpen, onClose }) => {
   const { currentDeck, updateDeckMetadata } = useDeckStore();
   const { showToast, loading } = useUiStore();
@@ -154,6 +188,15 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
               <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 16px 0', textAlign: 'center' }}>
                 Прикрепленные медиафайлы и ссылки будут доступны всем карточкам в этой колоде.
               </p>
+
+              {/* Image Height Setting — always at the top for quick access */}
+              <ImageHeightSlider
+                initialHeight={metadata.imageHeight || 220}
+                onSave={async (val) => {
+                  const newMeta = { ...metadata, imageHeight: val };
+                  await updateDeckMetadata(currentDeck.id, newMeta);
+                }}
+              />
 
               {/* Resources List */}
               <div style={{ marginBottom: '20px' }}>

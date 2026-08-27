@@ -331,7 +331,7 @@ export const TrainerView = () => {
                 >
                   {/* Top full original phrase */}
                   <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f1f5f9', ...cardStyle }}>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'pre-wrap', ...cardStyle }}>
                       {cleanBracketSyntax(stripMarkdown(currentCard.front))}
                     </div>
                   </div>
@@ -348,7 +348,7 @@ export const TrainerView = () => {
                     <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       Перевод
                     </div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#4ade80', ...backCardStyle }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#4ade80', whiteSpace: 'pre-wrap', ...backCardStyle }}>
                       {stripMarkdown(currentCard.back)}
                     </div>
                   </div>

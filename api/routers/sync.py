@@ -59,6 +59,9 @@ class SyncProgressItem(BaseModel):
 class SyncFolderItem(BaseModel):
     id: int
     name: str
+    parent_id: Optional[int] = None
+    color: Optional[str] = None
+    target_language: Optional[str] = 'de'
     is_deleted: bool = False
     is_pinned: bool = False
     position: int = 0

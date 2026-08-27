@@ -15,6 +15,7 @@ venv/
 __pycache__/
 *.db
 user_files/
+api/data/*backup*.json
 audio_debug.log
 debug_output.txt
 

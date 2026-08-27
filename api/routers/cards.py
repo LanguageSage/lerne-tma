@@ -32,6 +32,25 @@ async def save_card(data: dict, user_id: int = Depends(get_user_id)):
         logger.error(f"Router save_card error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/bulk-save")
+async def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
+    try:
+        from api import models
+        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+        if user and user.is_guest:
+            raise HTTPException(status_code=403, detail="Для создания карточек требуется авторизация.")
+        cards_list = data.get("cards", [])
+        if not cards_list:
+            raise HTTPException(status_code=400, detail="Список карточек пуст.")
+        saved = services.bulk_save_cards(cards_list, user_id)
+        return {"status": "success", "count": len(saved), "cards": saved}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Router bulk_save error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.delete("/{card_id}")
 def delete_card(card_id: int, user_id: int = Depends(get_user_id)):
     if services.delete_card(card_id, user_id):

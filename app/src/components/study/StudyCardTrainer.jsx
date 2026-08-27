@@ -11,6 +11,7 @@ export const StudyCardTrainer = React.memo(({
   onFlip,
   onTrainerAnswer,
   onNextCard,
+  renderAudioPlayer,
   styles = {},
   isPureTrainerMode = false
 }) => {
@@ -217,7 +218,7 @@ export const StudyCardTrainer = React.memo(({
         className="text-front cloze-masked-text" 
         style={{ 
           ...cardStyle, 
-          margin: '12px 0 20px 0', 
+          margin: '12px 0 16px 0', 
           lineHeight: 1.8, 
           whiteSpace: 'pre-wrap', 
           cursor: 'default',
@@ -227,6 +228,12 @@ export const StudyCardTrainer = React.memo(({
       >
         {renderTextWithGaps()}
       </div>
+
+      {renderAudioPlayer && (
+        <div style={{ width: '100%', marginBottom: '16px' }}>
+          {renderAudioPlayer()}
+        </div>
+      )}
 
       {/* Multi-gap Indicator if more than 1 gap */}
       {gaps.length > 1 && !isChecked && (

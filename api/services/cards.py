@@ -597,3 +597,18 @@ def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
         logger.error(f"Error in get_next_duplicate_card: {e}", exc_info=True)
         raise e
 
+
+def bulk_save_cards(cards_data: list, user_id: int) -> list:
+    """Массово сохраняет список карточек в одной транзакции БД."""
+    saved_cards = []
+    with tma_db.atomic():
+        for item in cards_data:
+            try:
+                card = save_card(item, user_id)
+                if card:
+                    saved_cards.append(format_card_for_study(card, user_id))
+            except Exception as item_err:
+                logger.error(f"Error saving batch card: {item_err}, data: {item}")
+    return saved_cards
+
+

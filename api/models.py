@@ -152,6 +152,7 @@ class TMA_Folder(BaseModel):
     color = CharField(null=True)
     target_language = CharField(default='de', index=True, null=True)
     is_deleted = BooleanField(default=False)
+    position = IntegerField(default=0)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     share_id = CharField(null=True, unique=True)

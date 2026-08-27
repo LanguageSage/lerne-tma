@@ -1,4 +1,4 @@
-import { stripMarkdown } from './text';
+import { stripMarkdown } from './text.js';
 
 /**
  * Helper to clean prefixes like ○, •, -, [ ], [*], A), 1., etc. from option line
@@ -14,7 +14,7 @@ const cleanOptionPrefix = (line) => {
   const cleaned = trimmed
     .replace(/^\[[*xX ]\]\s*/i, '') // strip [*], [ ], [x]
     .replace(/^[-*○•\s]+/u, '')     // strip leading *, ○, •, - and spaces
-    .replace(/^([a-zA-Z0-9]+[).])\s*/, '') // strip A), A., 1), 1.
+    .replace(/^(?:[a-zA-Z]|[0-9]{1,2})[).]\s+/i, '') // strip A) , A. , 1) , 1.
     .replace(/^[-*○•\s]+/u, '')     // strip remaining bullets after letter
     .trim();
 
