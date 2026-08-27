@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, Volume2, Edit2, Settings, RefreshCw, Plus, Sparkles, Palette } from 'lucide-react';
+import { ChevronLeft, Edit2, Settings, Plus, Palette } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { UserProfileBadge } from '../common/UserBadge';
 import { useUiStore } from '../../store/useUiStore';
@@ -7,12 +7,9 @@ import { useUiStore } from '../../store/useUiStore';
 export const StudyHeader = ({
   deckName,
   card,
-  loading,
-  isAudioLoading,
   onBack,
   onOpenCreator,
   onStartTutorial,
-  onQuickAudio,
   onOpenEditor,
   onOpenSettings,
   isTrainerDeck = false,
@@ -55,24 +52,6 @@ export const StudyHeader = ({
       <HelpButton onClick={onStartTutorial} />
 
       <button
-        id="tut-study-gen-audio"
-        className="header-action-btn"
-        onClick={onQuickAudio}
-        disabled={loading || !card}
-        title="Добавить озвучку"
-      >
-        {isAudioLoading ? (
-          card?.audio_is_generating ? (
-            <Sparkles size={22} className="sparkles-spin" style={{ color: '#a855f7' }} />
-          ) : (
-            <RefreshCw size={22} className="spin" />
-          )
-        ) : (
-          <Volume2 size={22} />
-        )}
-      </button>
-
-      <button
         id="tut-study-edit-card"
         className="header-action-btn"
         onClick={onOpenEditor}
@@ -93,6 +72,7 @@ export const StudyHeader = ({
       </button>
 
       <button
+        id="tut-study-settings"
         className="header-action-btn settings-btn"
         onClick={onOpenSettings}
         title="Настройки"

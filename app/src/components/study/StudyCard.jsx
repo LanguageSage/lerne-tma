@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Eye, Volume2, Sparkles, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Eye, Volume2, Sparkles, AlertTriangle, RotateCw, BookOpen, HelpCircle } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -22,7 +22,7 @@ import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 // Re-export for backward compatibility
 // eslint-disable-next-line react-refresh/only-export-components
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
-import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
+import { getCardStyle, getBackCardStyle, getContextStyle, getHarmonizedOptionStyles } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
 
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
@@ -156,8 +156,9 @@ export const StudyCard = React.memo(({
   }, [cardImageHeight]);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
-  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
-  const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
+  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
+  const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
+  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(styles?.cardTextColor), [styles?.cardTextColor]);
 
   // Quiz / Exam Data Parsing
   const quizData = useMemo(() => {
@@ -613,39 +614,87 @@ export const StudyCard = React.memo(({
                   <span>Сложная карточка ({card?.lapses || 5} ошибок)</span>
                 </div>
               )}
-              <div className="front-mini-container" style={{ position: 'relative', width: '100%', marginBottom: '20px' }}>
-                <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.9, whiteSpace: 'pre-wrap', ...cardStyle }}>
-                  {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
+              {/* 1. FRONT REFERENCE SECTION */}
+              <div className="card-back-front-section">
+                <div className="card-back-section-badge front-badge">
+                  <HelpCircle size={12} />
+                  <span>{effectiveStudyMode === 'quiz' ? 'Вопрос' : (studyMode === 'reverse' ? 'Перевод' : 'Лицевая сторона')}</span>
                 </div>
+
+                {effectiveStudyMode === 'quiz' && quizData ? (
+                  <div>
+                    <div className="back-quiz-question" style={{ ...cardStyle, textAlign: 'left', fontSize: '1.2rem', marginBottom: '8px' }}>
+                      {quizData.question}
+                    </div>
+
+                    <div className="back-quiz-subdivider">
+                      <span>Варианты ответа</span>
+                    </div>
+
+                    <div className="back-quiz-options-compact">
+                      {quizData.options.map((opt, i) => (
+                        <div 
+                          key={i} 
+                          className={`back-quiz-opt-row ${opt.isCorrect ? 'is-correct' : ''}`}
+                          style={opt.isCorrect ? undefined : { color: harmonizedOptions.textColor }}
+                        >
+                          <span className="back-quiz-opt-tag">{['A', 'B', 'C', 'D', 'E', 'F'][i] || (i + 1)}</span>
+                          <span className="back-quiz-opt-label">{opt.text}</span>
+                          {opt.isCorrect && <span className="back-quiz-opt-badge">✓ Верный</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="front-mini-container" style={{ position: 'relative', width: '100%' }}>
+                    <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.95, whiteSpace: 'pre-wrap', ...cardStyle }}>
+                      {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
+                    </div>
+                  </div>
+                )}
+
                 {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
-                  <CardAudioPlayer
-                    audioUrl={studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url}
-                    playAudio={audioControls?.playAudio || playAudio}
-                    pauseAudio={audioControls?.pauseAudio}
-                    resumeAudio={audioControls?.resumeAudio}
-                    togglePlayPause={audioControls?.togglePlayPause}
-                    stopAudio={audioControls?.stopAudio}
-                    seekAudio={audioControls?.seekAudio}
-                    setPlaybackSpeed={audioControls?.setPlaybackSpeed}
-                    audioState={audioControls?.audioState}
-                    currentUrl={audioControls?.currentUrl}
-                    currentTime={audioControls?.currentTime}
-                    duration={audioControls?.duration}
-                    playbackRate={audioControls?.playbackRate}
-                    isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
-                    isGenerating={card.audio_is_generating}
-                    disabled={loading || isAutoplayActive}
-                    compact={true}
-                  />
+                  <div style={{ marginTop: '8px' }}>
+                    <CardAudioPlayer
+                      audioUrl={studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url}
+                      playAudio={audioControls?.playAudio || playAudio}
+                      pauseAudio={audioControls?.pauseAudio}
+                      resumeAudio={audioControls?.resumeAudio}
+                      togglePlayPause={audioControls?.togglePlayPause}
+                      stopAudio={audioControls?.stopAudio}
+                      seekAudio={audioControls?.seekAudio}
+                      setPlaybackSpeed={audioControls?.setPlaybackSpeed}
+                      audioState={audioControls?.audioState}
+                      currentUrl={audioControls?.currentUrl}
+                      currentTime={audioControls?.currentTime}
+                      duration={audioControls?.duration}
+                      playbackRate={audioControls?.playbackRate}
+                      isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
+                      isGenerating={card.audio_is_generating}
+                      disabled={loading || isAutoplayActive}
+                      compact={true}
+                    />
+                  </div>
                 )}
               </div>
 
-                {(card.video_back_url || deckVideo?.url) && (
+              {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
+              <div className="card-side-separator">
+                <div className="separator-line" />
+                <div className="separator-badge">
+                  <RotateCw size={12} />
+                  <span>{studyMode === 'reverse' ? 'Оригинал' : 'Ответ / Перевод'}</span>
+                </div>
+                <div className="separator-line" />
+              </div>
+
+              {(card.video_back_url || deckVideo?.url) && (
                 <div className="video-container-card">
                   <video src={card.video_back_url || deckVideo?.url} autoPlay loop muted playsInline />
                 </div>
               )}
               
+              {/* 3. BACK ANSWER BLOCK */}
               <div className="back-answer-block">
                 {(() => {
                   const targetBackAudioUrl = studyMode === 'reverse' ? card.audio_url : card.audio_back_url;
@@ -725,6 +774,7 @@ export const StudyCard = React.memo(({
                   height: `${cardImageHeight}px`,
                   overflow: 'hidden',
                   borderRadius: '12px',
+                  marginTop: '12px',
                   marginBottom: '12px',
                   flexShrink: 0
                 }}>
@@ -742,9 +792,21 @@ export const StudyCard = React.memo(({
                   />
                 </div>
               )}
+
+              {/* 4. EXPLICIT SEPARATOR & CONTEXT BLOCK */}
               {card.context && (
-                <div className="text-context" style={contextStyle}>
-                  {stripMarkdown(card.context)}
+                <div className="card-context-wrapper">
+                  <div className="context-separator">
+                    <div className="separator-line" />
+                    <div className="context-badge">
+                      <BookOpen size={12} />
+                      <span>Контекст и примеры</span>
+                    </div>
+                    <div className="separator-line" />
+                  </div>
+                  <div className="text-context" style={contextStyle}>
+                    {stripMarkdown(card.context)}
+                  </div>
                 </div>
               )}
 

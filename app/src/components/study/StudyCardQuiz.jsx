@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, XCircle, Check, Eye } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
-import { getCardStyle } from '../../utils/cardStyles';
+import { getCardStyle, getHarmonizedOptionStyles } from '../../utils/cardStyles';
 import { stripMarkdown } from '../../utils/text';
 
 export const StudyCardQuiz = ({
@@ -18,6 +18,7 @@ export const StudyCardQuiz = ({
   const [isCorrect, setIsCorrect] = useState(null);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
+  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(styles?.cardTextColor), [styles?.cardTextColor]);
 
   // Reset state on card change
   useEffect(() => {
@@ -130,10 +131,10 @@ export const StudyCardQuiz = ({
           }
 
           // Option background & border calculation
-          let bg = 'rgba(15, 23, 42, 0.55)';
-          let borderColor = 'rgba(255, 255, 255, 0.12)';
+          let bg = harmonizedOptions.buttonBg;
+          let borderColor = harmonizedOptions.buttonBorder;
           let boxShadow = 'none';
-          let textColor = '#f1f5f9';
+          let textColor = harmonizedOptions.textColor;
 
           if (isChecked) {
             if (option.isCorrect) {
@@ -147,7 +148,7 @@ export const StudyCardQuiz = ({
               boxShadow = '0 0 16px rgba(239, 68, 68, 0.28)';
               textColor = '#fca5a5';
             } else {
-              textColor = 'rgba(241, 245, 249, 0.6)';
+              textColor = 'rgba(241, 245, 249, 0.45)';
             }
           } else if (isSelected) {
             bg = 'rgba(99, 102, 241, 0.25)';
@@ -189,11 +190,11 @@ export const StudyCardQuiz = ({
                   ? '#22c55e' 
                   : (isChecked && isSelected && !option.isCorrect 
                       ? '#ef4444' 
-                      : (isSelected ? '#6366f1' : 'rgba(255, 255, 255, 0.1)')),
+                      : (isSelected ? '#6366f1' : harmonizedOptions.badgeBg)),
                 border: isSelected || isChecked
                   ? 'none'
-                  : '1px solid rgba(255, 255, 255, 0.2)',
-                color: '#ffffff',
+                  : `1px solid ${harmonizedOptions.badgeBorder}`,
+                color: isSelected || isChecked ? '#ffffff' : harmonizedOptions.badgeColor,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

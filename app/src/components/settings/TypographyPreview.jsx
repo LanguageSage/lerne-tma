@@ -2,12 +2,22 @@ import React from 'react';
 import { CardBackground } from '../common/CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { getHarmonizedContextColor } from '../../utils/cardStyles';
 
 export const TypographyPreview = ({ styleType = 'standard', showContext = true }) => {
   const {
     cardFont, cardTextColor, cardFontSize, cardTextShadow, cardFontWeight, cardFontStyle, cardTextAlign,
+    backTextColor,
     contextFont, contextTextColor, contextFontSize, contextTextShadow, contextFontWeight, contextFontStyle, contextTextAlign
   } = useSettingsStore();
+
+  const effectiveBackColor = backTextColor || cardTextColor || '#ffffff';
+  const effectiveContextColor = (!contextTextColor || contextTextColor === 'auto' || contextTextColor.toLowerCase() === effectiveBackColor.toLowerCase())
+    ? getHarmonizedContextColor(effectiveBackColor)
+    : contextTextColor;
+
+  const displayColor = showContext ? effectiveBackColor : cardTextColor;
+  const displayShadow = showContext ? getTextShadow(cardTextShadow, effectiveBackColor) : getTextShadow(cardTextShadow, cardTextColor);
 
   return (
     <div className="typography-preview glass" style={{ 
@@ -27,28 +37,28 @@ export const TypographyPreview = ({ styleType = 'standard', showContext = true }
       <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
         <div style={{ 
           fontFamily: cardFont, 
-          color: cardTextColor, 
+          color: displayColor, 
           fontSize: `${cardFontSize}rem`,
-          textShadow: getTextShadow(cardTextShadow, cardTextColor),
+          textShadow: displayShadow,
           fontWeight: cardFontWeight,
           fontStyle: cardFontStyle,
           textAlign: showContext ? (contextTextAlign || 'left') : (cardTextAlign || 'center'),
           marginBottom: showContext ? '10px' : '0'
         }}>
-          Sample Phrase
+          {showContext ? 'Перевод фразы' : 'Sample Phrase'}
         </div>
         {showContext && (
           <div style={{ 
             fontFamily: contextFont, 
-            color: contextTextColor, 
+            color: effectiveContextColor, 
             fontSize: `${contextFontSize}rem`,
-            textShadow: getContextShadow(contextTextShadow, contextTextColor),
+            textShadow: getContextShadow(contextTextShadow, effectiveContextColor),
             fontWeight: contextFontWeight,
             fontStyle: contextFontStyle,
             textAlign: contextTextAlign || 'left',
-            opacity: 0.8
+            opacity: 0.95
           }}>
-            This is a context example
+            Пример контекста и предложения
           </div>
         )}
       </div>

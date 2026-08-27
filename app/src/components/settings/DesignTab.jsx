@@ -8,16 +8,28 @@ import { DESIGN_PRESETS } from '../../constants/appConstants';
 import api from '../../services/api';
 
 const PRESET_COLORS = [
-  '#ffffff', // White
-  '#080c03', // Default Dark
-  '#ffff00', // Yellow
-  '#ef4444', // Red
-  '#00e676', // Green
-  '#3b82f6', // Blue
-  '#00ffff', // Cyan
-  '#ff9800', // Orange
-  '#ec4899', // Pink
-  '#a855f7', // Purple
+  '#ffffff', // Белый
+  '#cbd5e1', // Серебристый
+  '#ffff00', // Неоновый жёлтый
+  '#fde047', // Солнечный
+  '#f59e0b', // Золотистый янтарь
+  '#ff9800', // Оранжевый
+  '#fb923c', // Тёплый персиковый
+  '#ef4444', // Красный
+  '#f43f5e', // Коралловый
+  '#ec4899', // Розовый
+  '#d946ef', // Фуксия
+  '#a855f7', // Фиолетовый
+  '#c084fc', // Нежная лаванда
+  '#818cf8', // Индиго
+  '#3b82f6', // Насыщенный синий
+  '#38bdf8', // Небесно-голубой
+  '#00ffff', // Бирюзовый / Циан
+  '#2dd4bf', // Мятный
+  '#00e676', // Неоновый изумруд
+  '#84cc16', // Лайм
+  '#1e293b', // Тёмный графит
+  '#080c03', // Глубокий обсидиан
 ];
 
 export const DesignTab = () => {
@@ -28,6 +40,7 @@ export const DesignTab = () => {
     cardTextColor, setCardTextColor,
     cardFontSize, setCardFontSize,
     cardTextAlign, setCardTextAlign,
+    backTextColor, setBackTextColor,
     contextFont, setContextFont,
     contextTextColor, setContextTextColor,
     contextFontSize, setContextFontSize,
@@ -70,70 +83,94 @@ export const DesignTab = () => {
     <motion.div id="tut-settings-design" key="design" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
       <h3>Внешний вид карточек</h3>
 
-      <div className="custom-bg-manager glass" style={{ marginBottom: '20px', padding: '15px' }}>
-        <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#94a3b8' }}>Готовые темы</h4>
+      <div className="custom-bg-manager glass" style={{ marginBottom: '18px', padding: '14px' }}>
+        <div className="form-group" style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '0.88rem', color: '#94a3b8', marginBottom: '6px' }}>Готовая тема оформления</label>
+          <select 
+            value="" 
+            onChange={(e) => {
+              const preset = DESIGN_PRESETS.find(p => p.id === e.target.value);
+              if (preset) {
+                applyDesignPreset(preset);
+                showToast(`Применена тема: ${preset.name}`, 'success');
+              }
+            }}
+            style={{ width: '100%' }}
+          >
+            <option value="" disabled>✨ Выберите готовую тему...</option>
+            <optgroup label="── Строгие тёмные темы ──">
+              <option value="strict_dark">Строгий тёмный 🖤</option>
+              <option value="strict_minimal">Минимализм 🌑</option>
+              <option value="strict_midnight">Полуночный 🌌</option>
+              <option value="strict_emerald">Тёмный изумруд 🌿</option>
+            </optgroup>
+            <optgroup label="── Цветные и анимированные ──">
+              <option value="lerne_2026">Lerne 2026 ✨</option>
+              <option value="premium">Премиум 💎</option>
+              <option value="aurora">Сияние 🌌</option>
+              <option value="morning_sea">Утреннее море 🌊</option>
+              <option value="cyberpunk">Киберпанк 🤖</option>
+              <option value="deep_ocean">Океан 🌊</option>
+            </optgroup>
+          </select>
+        </div>
+
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', 
-          gap: '8px' 
+          gridTemplateColumns: userDesign ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', 
+          gap: '8px', 
+          marginTop: '6px' 
         }}>
-          {DESIGN_PRESETS && DESIGN_PRESETS.map(p => (
-            <button 
-              key={p.id}
-              className="btn-secondary btn-small"
-              onClick={() => applyDesignPreset(p)}
-              style={{ fontSize: '0.8rem', padding: '10px 6px', textAlign: 'center' }}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
           <button 
-            className="btn-secondary btn-small" 
-            style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)' }}
+            className="btn-secondary btn-tiny" 
+            style={{ fontSize: '0.78rem', background: 'rgba(255,255,255,0.05)', padding: '8px 4px' }}
             onClick={() => {
               const config = {
                 cardBgFront, cardBgBack, cardFont, cardTextColor, cardFontSize, cardTextAlign,
+                backTextColor,
                 contextFont, contextTextColor, contextFontSize, contextTextAlign, cardTextShadow, contextTextShadow,
                 cardFontWeight, cardFontStyle, contextFontWeight, contextFontStyle
               };
               navigator.clipboard.writeText(JSON.stringify(config, null, 2));
               showToast('Конфигурация темы скопирована!', 'success');
             }}
+            title="Скопировать настройки в буфер"
           >
-            📋 Копировать
+            📋 Копия
           </button>
           <button 
-            className="btn-secondary btn-small"
-            style={{ fontSize: '0.8rem', color: '#f3f4f6', borderColor: 'rgba(255,255,255,0.1)' }}
+            className="btn-secondary btn-tiny"
+            style={{ fontSize: '0.78rem', color: '#f3f4f6', borderColor: 'rgba(255,255,255,0.1)', padding: '8px 4px' }}
             onClick={() => {
               resetDesign();
               showToast('Дизайн сброшен по умолчанию', 'success');
             }}
+            title="Сбросить дизайн к стандартному"
           >
-            🧹 Сбросить
+            🧹 Сброс
           </button>
           <button 
-            className="btn-secondary btn-small"
-            style={{ fontSize: '0.8rem', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.2)' }}
+            className="btn-secondary btn-tiny"
+            style={{ fontSize: '0.78rem', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.2)', padding: '8px 4px' }}
             onClick={() => {
               saveUserDesign();
               showToast('Мой пресет сохранен!', 'success');
             }}
+            title="Сохранить текущие настройки как мой пресет"
           >
-            Сохранить мой ✨
+            💾 Мой
           </button>
           {userDesign && (
             <button 
-              className="btn-secondary btn-small"
-              style={{ fontSize: '0.8rem', color: '#34d399', borderColor: 'rgba(52,211,153,0.2)' }}
+              className="btn-secondary btn-tiny"
+              style={{ fontSize: '0.78rem', color: '#34d399', borderColor: 'rgba(52,211,153,0.2)', padding: '8px 4px' }}
               onClick={() => {
                 applyUserDesign();
                 showToast('Мой пресет применен!', 'success');
               }}
+              title="Применить сохраненный пресет"
             >
-              Мой пресет 👤
+              👤 Мой
             </button>
           )}
         </div>
@@ -216,10 +253,102 @@ export const DesignTab = () => {
       </div>
 
       <div className="custom-bg-manager glass" style={{ marginTop: '20px', padding: '15px' }}>
-        <h4 style={{ margin: '0 0 10px 0' }}>Предпросмотр (Лицо)</h4>
+        <h4 style={{ margin: '0 0 10px 0' }}>Предпросмотр (Лицевая сторона)</h4>
         <TypographyPreview styleType={cardBgFront} showContext={false} />
         
-        <h4 style={{ margin: '0 0 10px 0' }}>Основной текст (фраза, перевод)</h4>
+        {/* Color Palette directly below Front Preview */}
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label>Цвет текста (Лицевая сторона)</label>
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            flexWrap: 'wrap', 
+            marginTop: '8px',
+            marginBottom: '10px',
+            padding: '10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            alignItems: 'center'
+          }}>
+            {PRESET_COLORS.map(color => {
+              const isSelected = cardTextColor?.toLowerCase() === color.toLowerCase();
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setCardTextColor(color)}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    border: isSelected ? '2.5px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    flexShrink: 0,
+                    boxShadow: isSelected ? '0 0 10px rgba(167,139,250,0.6)' : 'none',
+                    transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  title={color === '#ffffff' ? 'Белый' : color}
+                />
+              );
+            })}
+
+            {/* Custom color picker tool */}
+            <label 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'conic-gradient(from 0deg, red, yellow, lime, aqua, blue, magenta, red)',
+                cursor: 'pointer',
+                border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                flexShrink: 0,
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              title="Выбрать свой цвет (спектр)"
+            >
+              <input 
+                type="color" 
+                value={cardTextColor} 
+                onChange={e => setCardTextColor(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  top: '-50%',
+                  left: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  opacity: 0,
+                  cursor: 'pointer'
+                }}
+              />
+            </label>
+          </div>
+
+          <div style={{ marginTop: '8px' }}>
+            <label style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '4px', display: 'block' }}>Эффект свечения / тени</label>
+            <select 
+              value={cardTextShadow} 
+              onChange={e => setCardTextShadow(e.target.value)}
+              style={{ width: '100%' }}
+            >
+              <option value="none">Без эффектов</option>
+              <option value="shadow">Мягкая тень</option>
+              <option value="glow">Свечение ✨</option>
+              <option value="neon">Неон 🌈</option>
+              <option value="outline">Контур ✏️</option>
+              <option value="glass">Стекло 🧊</option>
+            </select>
+          </div>
+        </div>
+
         <div className="form-group" style={{ marginBottom: '15px' }}>
           <label>Шрифт</label>
           <select value={cardFont} onChange={e => setCardFont(e.target.value)}>
@@ -251,62 +380,7 @@ export const DesignTab = () => {
             </button>
           </div>
         </div>
-        <div className="form-group">
-          <label>Цвет и Эффект</label>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '6px' }}>
-            <input 
-              type="color" 
-              value={cardTextColor} 
-              onChange={e => setCardTextColor(e.target.value)}
-              style={{ width: '40px', height: '32px', padding: '0', border: 'none', background: 'transparent', cursor: 'pointer', flexShrink: 0 }}
-            />
-            <select 
-              value={cardTextShadow} 
-              onChange={e => setCardTextShadow(e.target.value)}
-              style={{ flex: 1 }}
-            >
-              <option value="none">Без эффектов</option>
-              <option value="shadow">Мягкая тень</option>
-              <option value="glow">Свечение ✨</option>
-              <option value="neon">Неон 🌈</option>
-              <option value="outline">Контур ✏️</option>
-              <option value="glass">Стекло 🧊</option>
-            </select>
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            gap: '8px', 
-            flexWrap: 'wrap', 
-            marginTop: '10px',
-            padding: '8px 10px',
-            background: 'rgba(255, 255, 255, 0.04)',
-            borderRadius: '10px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            alignItems: 'center'
-          }}>
-            {PRESET_COLORS.map(color => (
-              <button
-                key={color}
-                type="button"
-                onClick={() => setCardTextColor(color)}
-                style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '50%',
-                  backgroundColor: color,
-                  border: cardTextColor.toLowerCase() === color.toLowerCase() ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
-                  cursor: 'pointer',
-                  padding: 0,
-                  flexShrink: 0,
-                  boxShadow: cardTextColor.toLowerCase() === color.toLowerCase() ? '0 0 10px rgba(167,139,250,0.6)' : 'none',
-                  transform: cardTextColor.toLowerCase() === color.toLowerCase() ? 'scale(1.15)' : 'scale(1)',
-                  transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                }}
-                title={color === '#ffffff' ? 'Белый' : color}
-              />
-            ))}
-          </div>
-        </div>
+
         <div className="form-group" style={{ marginTop: '10px' }}>
           <div className="label-with-value">
             <label>Размер</label>
@@ -386,10 +460,101 @@ export const DesignTab = () => {
       </div>
 
       <div className="custom-bg-manager glass" style={{ marginTop: '15px', padding: '15px' }}>
-        <h4 style={{ margin: '0 0 10px 0' }}>Предпросмотр (Оборот)</h4>
+        <h4 style={{ margin: '0 0 10px 0' }}>Предпросмотр (Обратная сторона)</h4>
         <TypographyPreview styleType={cardBgBack} showContext={true} />
+
+        {/* Single Color Palette directly below Back Preview */}
         <div className="form-group" style={{ marginBottom: '15px' }}>
-          <label>Шрифт</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <label style={{ margin: 0 }}>Цвет перевода (Обратная сторона)</label>
+            <span style={{ fontSize: '0.78rem', color: '#a78bfa', background: 'rgba(168,85,247,0.12)', padding: '2px 6px', borderRadius: '6px', border: '1px solid rgba(168,85,247,0.25)' }}>
+              Контекст адаптируется 🪄
+            </span>
+          </div>
+
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            flexWrap: 'wrap', 
+            marginTop: '8px',
+            marginBottom: '10px',
+            padding: '10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            alignItems: 'center'
+          }}>
+            {PRESET_COLORS.map(color => {
+              const currentBack = (backTextColor || cardTextColor || '#ffffff').toLowerCase();
+              const isSelected = currentBack === color.toLowerCase();
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => {
+                    setBackTextColor(color);
+                    setContextTextColor('auto');
+                  }}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    border: isSelected ? '2.5px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    flexShrink: 0,
+                    boxShadow: isSelected ? '0 0 10px rgba(167,139,250,0.6)' : 'none',
+                    transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  title={color === '#ffffff' ? 'Белый' : color}
+                />
+              );
+            })}
+
+            {/* Custom color picker tool for back */}
+            <label 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'conic-gradient(from 0deg, red, yellow, lime, aqua, blue, magenta, red)',
+                cursor: 'pointer',
+                border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                flexShrink: 0,
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              title="Выбрать свой цвет (спектр)"
+            >
+              <input 
+                type="color" 
+                value={backTextColor || cardTextColor || '#ffffff'} 
+                onChange={e => {
+                  setBackTextColor(e.target.value);
+                  setContextTextColor('auto');
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '-50%',
+                  left: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  opacity: 0,
+                  cursor: 'pointer'
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label>Шрифт контекста и примеров</label>
           <select value={contextFont} onChange={e => setContextFont(e.target.value)}>
             <option value="Inter">Inter (Стандарт)</option>
             <option value="Outfit">Outfit (Современный)</option>
@@ -419,60 +584,20 @@ export const DesignTab = () => {
             </button>
           </div>
         </div>
-        <div className="form-group">
-          <label>Цвет и Эффект</label>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '6px' }}>
-            <input 
-              type="color" 
-              value={contextTextColor} 
-              onChange={e => setContextTextColor(e.target.value)}
-              style={{ width: '40px', height: '32px', padding: '0', border: 'none', background: 'transparent', cursor: 'pointer', flexShrink: 0 }}
-            />
-            <select 
-              value={contextTextShadow} 
-              onChange={e => setContextTextShadow(e.target.value)}
-              style={{ flex: 1 }}
-            >
-              <option value="none">Без эффектов</option>
-              <option value="shadow">Мягкая тень</option>
-              <option value="glow">Свечение ✨</option>
-              <option value="neon">Неон 🌈</option>
-              <option value="outline">Контур ✏️</option>
-            </select>
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            gap: '8px', 
-            flexWrap: 'wrap', 
-            marginTop: '10px',
-            padding: '8px 10px',
-            background: 'rgba(255, 255, 255, 0.04)',
-            borderRadius: '10px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            alignItems: 'center'
-          }}>
-            {PRESET_COLORS.map(color => (
-              <button
-                key={color}
-                type="button"
-                onClick={() => setContextTextColor(color)}
-                style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '50%',
-                  backgroundColor: color,
-                  border: contextTextColor.toLowerCase() === color.toLowerCase() ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
-                  cursor: 'pointer',
-                  padding: 0,
-                  flexShrink: 0,
-                  boxShadow: contextTextColor.toLowerCase() === color.toLowerCase() ? '0 0 10px rgba(167,139,250,0.6)' : 'none',
-                  transform: contextTextColor.toLowerCase() === color.toLowerCase() ? 'scale(1.15)' : 'scale(1)',
-                  transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                }}
-                title={color === '#ffffff' ? 'Белый' : color}
-              />
-            ))}
-          </div>
+
+        <div className="form-group" style={{ marginBottom: '14px' }}>
+          <label>Эффект тени контекста</label>
+          <select 
+            value={contextTextShadow} 
+            onChange={e => setContextTextShadow(e.target.value)}
+            style={{ width: '100%', marginTop: '6px' }}
+          >
+            <option value="none">Без эффектов</option>
+            <option value="shadow">Мягкая тень</option>
+            <option value="glow">Свечение ✨</option>
+            <option value="neon">Неон 🌈</option>
+            <option value="outline">Контур ✏️</option>
+          </select>
         </div>
         <div className="form-group" style={{ marginTop: '10px' }}>
           <div className="label-with-value">

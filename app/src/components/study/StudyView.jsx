@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Trash2, Folder, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
+import { RefreshCw, Trash2, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
 import DeckAudioPlayer from '../common/DeckAudioPlayer';
 import api from '../../services/api';
 import { useUiStore } from '../../store/useUiStore';
@@ -31,7 +31,7 @@ export const StudyView = ({ startTutorial }) => {
   const { view, setView, loading, setIsSettingsOpen, showToast } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
   const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore, autoplayState } = useSessionStore();
-  const { submitGrade, goBack, goNext, handleQuickAudio, fetchNextCard, handleDeleteCard } = useCardActions();
+  const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
 
@@ -52,6 +52,7 @@ export const StudyView = ({ startTutorial }) => {
   const cardFontStyle = useSettingsStore(s => s.cardFontStyle);
   const cardTextShadow = useSettingsStore(s => s.cardTextShadow);
   const cardTextAlign = useSettingsStore(s => s.cardTextAlign);
+  const backTextColor = useSettingsStore(s => s.backTextColor);
   const contextFont = useSettingsStore(s => s.contextFont);
   const contextTextColor = useSettingsStore(s => s.contextTextColor);
   const contextFontSize = useSettingsStore(s => s.contextFontSize);
@@ -62,8 +63,9 @@ export const StudyView = ({ startTutorial }) => {
 
   const styleSettings = React.useMemo(() => ({
     cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign,
+    backTextColor,
     contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
-  }), [cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign, contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign]);
+  }), [cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign, backTextColor, contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign]);
 
   const {
     playAudio,
@@ -353,9 +355,6 @@ export const StudyView = ({ startTutorial }) => {
           deckName={currentDeck?.name}
           isTrainerDeck={Boolean(currentDeck?.is_trainer || (deckCards && deckCards.length > 0 && deckCards.every(c => /\{([^}]+)\}/.test(c.front || ''))))}
           card={card}
-          loading={loading}
-          isFlipped={isFlipped}
-          isAudioLoading={isAudioLoading}
           onBack={() => { 
             autoplay.stop();
             if (currentDeck?.id === 'duplicates') {
@@ -371,7 +370,6 @@ export const StudyView = ({ startTutorial }) => {
           }}
           onOpenCreator={() => openCreator(currentDeck?.id, 'study', card?.id)}
           onStartTutorial={() => startTutorial(isFlipped ? 'study_back' : 'study')}
-          onQuickAudio={() => handleQuickAudio(card, playAudio)}
           onOpenEditor={() => openEditor(currentDeck?.id === 'duplicates' ? card.deck_id : currentDeck?.id, card, 'study')}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
@@ -485,49 +483,6 @@ export const StudyView = ({ startTutorial }) => {
               }}
             />
 
-            <div className="card-actions-row-study">
-              <CardActionButton 
-                card={card} 
-                size={22} 
-                className="btn-card-action-trigger" 
-                stopDrag={false}
-              />
-
-              {currentDeck?.id === 'duplicates' && (
-                <button
-                  className="btn-card-action-trigger"
-                  onClick={onDeleteDuplicate}
-                  title="Удалить дубликат"
-                  style={{ marginRight: '10px', color: '#ef4444' }}
-                >
-                  <Trash2 size={22} />
-                </button>
-              )}
-
-              {!isFlipped && card.deck_name && (
-                <div 
-                  className="deck-badge-subcard" 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '6px', 
-                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(168, 85, 247, 0.12))', 
-                    border: '1px solid rgba(99, 102, 241, 0.35)', 
-                    padding: '0 14px', 
-                    height: '42px',
-                    borderRadius: '20px', 
-                    flexShrink: 0,
-                    boxShadow: '0 4px 10px rgba(99, 102, 241, 0.1)'
-                  }}
-                >
-                  <Folder size={15} color="#a5b4fc" style={{ opacity: 0.8 }} />
-                  <span style={{ fontSize: '0.8rem', color: '#a5b4fc', fontWeight: 700, letterSpacing: '0.3px' }}>
-                    {card.deck_name}
-                  </span>
-                </div>
-              )}
-            </div>
-
             <StudyNavigation
               historyIndex={
                 currentDeck?.id === 'duplicates' 
@@ -552,6 +507,26 @@ export const StudyView = ({ startTutorial }) => {
               onAutoplayPause={autoplay.pause}
               onAutoplayResume={autoplay.resume}
             />
+
+            <div className="card-actions-row-study">
+              <CardActionButton 
+                card={card} 
+                size={22} 
+                className="btn-card-action-trigger" 
+                stopDrag={false}
+              />
+
+              {currentDeck?.id === 'duplicates' && (
+                <button
+                  className="btn-card-action-trigger"
+                  onClick={onDeleteDuplicate}
+                  title="Удалить дубликат"
+                  style={{ marginRight: '10px', color: '#ef4444' }}
+                >
+                  <Trash2 size={22} />
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <StudyFinished

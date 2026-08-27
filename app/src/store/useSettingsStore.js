@@ -1,25 +1,78 @@
 import { create } from 'zustand';
 import { storage } from '../utils/auth';
 
-const getInitialDesignState = () => ({
-  cardBgFront: storage.get('lerne_card_bg_front') || 'liquid_morning',
-  cardBgBack: storage.get('lerne_card_bg_back') || 'liquid_morning',
-  cardFont: storage.get('lerne_card_font') || 'Comfortaa',
-  cardTextColor: storage.get('lerne_card_text_color') || '#ffff00',
-  cardFontSize: storage.get('lerne_card_font_size') !== null ? Number(storage.get('lerne_card_font_size')) : 1.8,
-  contextFont: storage.get('lerne_context_font') || 'Inter',
-  contextTextColor: storage.get('lerne_context_text_color') || '#00ffff',
-  contextFontSize: storage.get('lerne_context_font_size') !== null ? Number(storage.get('lerne_context_font_size')) : 1.35,
-  cardTextShadow: storage.get('lerne_card_text_shadow') || 'glow',
-  contextTextShadow: storage.get('lerne_context_text_shadow') || 'outline',
-  cardFontWeight: storage.get('lerne_card_font_weight') || '700',
-  cardFontStyle: storage.get('lerne_card_font_style') || 'normal',
-  cardTextAlign: storage.get('lerne_card_text_align') || 'center',
-  contextFontWeight: storage.get('lerne_context_font_weight') || '400',
-  contextFontStyle: storage.get('lerne_context_font_style') || 'normal',
-  contextTextAlign: storage.get('lerne_context_text_align') || 'left',
-  userDesign: storage.get('lerne_user_design') ? JSON.parse(storage.get('lerne_user_design')) : null,
-});
+export const DEFAULT_DESIGN_SETTINGS = {
+  cardBgFront: 'liquid_emerald',
+  cardBgBack: 'liquid_emerald',
+  cardFont: 'Comfortaa',
+  cardTextColor: '#fde047',
+  cardFontSize: 1.7,
+  cardTextAlign: 'left',
+  backTextColor: '#cbd5e1',
+  contextFont: 'Inter',
+  contextTextColor: 'auto',
+  contextFontSize: 1.4,
+  contextTextAlign: 'left',
+  cardTextShadow: 'glow',
+  contextTextShadow: 'glow',
+  cardFontWeight: '700',
+  cardFontStyle: 'normal',
+  contextFontWeight: '400',
+  contextFontStyle: 'normal'
+};
+
+const DESIGN_STORAGE_VERSION = '2026_08_emerald';
+
+const getInitialDesignState = () => {
+  const storedVersion = storage.get('lerne_design_version');
+  const userSavedCustom = storage.get('lerne_user_design');
+
+  if (storedVersion !== DESIGN_STORAGE_VERSION && !userSavedCustom) {
+    storage.set('lerne_design_version', DESIGN_STORAGE_VERSION);
+    storage.set('lerne_card_bg_front', DEFAULT_DESIGN_SETTINGS.cardBgFront);
+    storage.set('lerne_card_bg_back', DEFAULT_DESIGN_SETTINGS.cardBgBack);
+    storage.set('lerne_card_font', DEFAULT_DESIGN_SETTINGS.cardFont);
+    storage.set('lerne_card_text_color', DEFAULT_DESIGN_SETTINGS.cardTextColor);
+    storage.set('lerne_card_font_size', DEFAULT_DESIGN_SETTINGS.cardFontSize);
+    storage.set('lerne_card_text_align', DEFAULT_DESIGN_SETTINGS.cardTextAlign);
+    storage.set('lerne_back_text_color', DEFAULT_DESIGN_SETTINGS.backTextColor);
+    storage.set('lerne_context_font', DEFAULT_DESIGN_SETTINGS.contextFont);
+    storage.set('lerne_context_text_color', DEFAULT_DESIGN_SETTINGS.contextTextColor);
+    storage.set('lerne_context_font_size', DEFAULT_DESIGN_SETTINGS.contextFontSize);
+    storage.set('lerne_context_text_align', DEFAULT_DESIGN_SETTINGS.contextTextAlign);
+    storage.set('lerne_card_text_shadow', DEFAULT_DESIGN_SETTINGS.cardTextShadow);
+    storage.set('lerne_context_text_shadow', DEFAULT_DESIGN_SETTINGS.contextTextShadow);
+    storage.set('lerne_card_font_weight', DEFAULT_DESIGN_SETTINGS.cardFontWeight);
+    storage.set('lerne_card_font_style', DEFAULT_DESIGN_SETTINGS.cardFontStyle);
+    storage.set('lerne_context_font_weight', DEFAULT_DESIGN_SETTINGS.contextFontWeight);
+    storage.set('lerne_context_font_style', DEFAULT_DESIGN_SETTINGS.contextFontStyle);
+    return {
+      ...DEFAULT_DESIGN_SETTINGS,
+      userDesign: null,
+    };
+  }
+
+  return {
+    cardBgFront: storage.get('lerne_card_bg_front') || DEFAULT_DESIGN_SETTINGS.cardBgFront,
+    cardBgBack: storage.get('lerne_card_bg_back') || DEFAULT_DESIGN_SETTINGS.cardBgBack,
+    cardFont: storage.get('lerne_card_font') || DEFAULT_DESIGN_SETTINGS.cardFont,
+    cardTextColor: storage.get('lerne_card_text_color') || DEFAULT_DESIGN_SETTINGS.cardTextColor,
+    cardFontSize: storage.get('lerne_card_font_size') !== null ? Number(storage.get('lerne_card_font_size')) : DEFAULT_DESIGN_SETTINGS.cardFontSize,
+    cardTextAlign: storage.get('lerne_card_text_align') || DEFAULT_DESIGN_SETTINGS.cardTextAlign,
+    backTextColor: storage.get('lerne_back_text_color') || DEFAULT_DESIGN_SETTINGS.backTextColor,
+    contextFont: storage.get('lerne_context_font') || DEFAULT_DESIGN_SETTINGS.contextFont,
+    contextTextColor: storage.get('lerne_context_text_color') || DEFAULT_DESIGN_SETTINGS.contextTextColor,
+    contextFontSize: storage.get('lerne_context_font_size') !== null ? Number(storage.get('lerne_context_font_size')) : DEFAULT_DESIGN_SETTINGS.contextFontSize,
+    contextTextAlign: storage.get('lerne_context_text_align') || DEFAULT_DESIGN_SETTINGS.contextTextAlign,
+    cardTextShadow: storage.get('lerne_card_text_shadow') || DEFAULT_DESIGN_SETTINGS.cardTextShadow,
+    contextTextShadow: storage.get('lerne_context_text_shadow') || DEFAULT_DESIGN_SETTINGS.contextTextShadow,
+    cardFontWeight: storage.get('lerne_card_font_weight') || DEFAULT_DESIGN_SETTINGS.cardFontWeight,
+    cardFontStyle: storage.get('lerne_card_font_style') || DEFAULT_DESIGN_SETTINGS.cardFontStyle,
+    contextFontWeight: storage.get('lerne_context_font_weight') || DEFAULT_DESIGN_SETTINGS.contextFontWeight,
+    contextFontStyle: storage.get('lerne_context_font_style') || DEFAULT_DESIGN_SETTINGS.contextFontStyle,
+    userDesign: userSavedCustom ? JSON.parse(userSavedCustom) : null,
+  };
+};
 
 const getInitialStudyState = () => ({
   autoPlay: storage.get('lerne_autoplay') !== null ? storage.get('lerne_autoplay') === 'true' : true,
@@ -103,6 +156,7 @@ export const useSettingsStore = create((set, get) => ({
   setCardFont: (val) => { storage.set('lerne_card_font', val); set({ cardFont: val }); },
   setCardTextColor: (val) => { storage.set('lerne_card_text_color', val); set({ cardTextColor: val }); },
   setCardFontSize: (val) => { storage.set('lerne_card_font_size', val); set({ cardFontSize: val }); },
+  setBackTextColor: (val) => { storage.set('lerne_back_text_color', val); set({ backTextColor: val }); },
   setContextFont: (val) => { storage.set('lerne_context_font', val); set({ contextFont: val }); },
   setContextTextColor: (val) => { storage.set('lerne_context_text_color', val); set({ contextTextColor: val }); },
   setContextFontSize: (val) => { storage.set('lerne_context_font_size', val); set({ contextFontSize: val }); },
@@ -128,6 +182,7 @@ export const useSettingsStore = create((set, get) => ({
     if (s.cardFont) storage.set('lerne_card_font', s.cardFont);
     if (s.cardTextColor) storage.set('lerne_card_text_color', s.cardTextColor);
     if (s.cardFontSize) storage.set('lerne_card_font_size', s.cardFontSize);
+    if (s.backTextColor) storage.set('lerne_back_text_color', s.backTextColor);
     if (s.contextFont) storage.set('lerne_context_font', s.contextFont);
     if (s.contextTextColor) storage.set('lerne_context_text_color', s.contextTextColor);
     if (s.contextFontSize) storage.set('lerne_context_font_size', s.contextFontSize);
@@ -149,6 +204,7 @@ export const useSettingsStore = create((set, get) => ({
       cardFont: s.cardFont,
       cardTextColor: s.cardTextColor,
       cardFontSize: s.cardFontSize,
+      backTextColor: s.backTextColor,
       contextFont: s.contextFont,
       contextTextColor: s.contextTextColor,
       contextFontSize: s.contextFontSize,
@@ -171,43 +227,25 @@ export const useSettingsStore = create((set, get) => ({
   },
 
   resetDesign: () => {
-    const defaultSettings = {
-      cardBgFront: 'liquid_morning',
-      cardBgBack: 'liquid_morning',
-      cardFont: 'Comfortaa',
-      cardTextColor: '#ffff00',
-      cardFontSize: 1.8,
-      contextFont: 'Inter',
-      contextTextColor: '#00ffff',
-      contextFontSize: 1.35,
-      cardTextShadow: 'glow',
-      contextTextShadow: 'outline',
-      cardFontWeight: '700',
-      cardFontStyle: 'normal',
-      cardTextAlign: 'center',
-      contextFontWeight: '400',
-      contextFontStyle: 'normal',
-      contextTextAlign: 'left'
-    };
+    set(DEFAULT_DESIGN_SETTINGS);
     
-    set(defaultSettings);
-    
-    storage.set('lerne_card_bg_front', 'liquid_morning');
-    storage.set('lerne_card_bg_back', 'liquid_morning');
-    storage.set('lerne_card_font', 'Comfortaa');
-    storage.set('lerne_card_text_color', '#ffff00');
-    storage.set('lerne_card_font_size', 1.8);
-    storage.set('lerne_context_font', 'Inter');
-    storage.set('lerne_context_text_color', '#00ffff');
-    storage.set('lerne_context_font_size', 1.35);
-    storage.set('lerne_card_text_shadow', 'glow');
-    storage.set('lerne_context_text_shadow', 'outline');
-    storage.set('lerne_card_font_weight', '700');
-    storage.set('lerne_card_font_style', 'normal');
-    storage.set('lerne_card_text_align', 'center');
-    storage.set('lerne_context_font_weight', '400');
-    storage.set('lerne_context_font_style', 'normal');
-    storage.set('lerne_context_text_align', 'center');
+    storage.set('lerne_card_bg_front', DEFAULT_DESIGN_SETTINGS.cardBgFront);
+    storage.set('lerne_card_bg_back', DEFAULT_DESIGN_SETTINGS.cardBgBack);
+    storage.set('lerne_card_font', DEFAULT_DESIGN_SETTINGS.cardFont);
+    storage.set('lerne_card_text_color', DEFAULT_DESIGN_SETTINGS.cardTextColor);
+    storage.set('lerne_card_font_size', DEFAULT_DESIGN_SETTINGS.cardFontSize);
+    storage.set('lerne_card_text_align', DEFAULT_DESIGN_SETTINGS.cardTextAlign);
+    storage.set('lerne_back_text_color', DEFAULT_DESIGN_SETTINGS.backTextColor);
+    storage.set('lerne_context_font', DEFAULT_DESIGN_SETTINGS.contextFont);
+    storage.set('lerne_context_text_color', DEFAULT_DESIGN_SETTINGS.contextTextColor);
+    storage.set('lerne_context_font_size', DEFAULT_DESIGN_SETTINGS.contextFontSize);
+    storage.set('lerne_context_text_align', DEFAULT_DESIGN_SETTINGS.contextTextAlign);
+    storage.set('lerne_card_text_shadow', DEFAULT_DESIGN_SETTINGS.cardTextShadow);
+    storage.set('lerne_context_text_shadow', DEFAULT_DESIGN_SETTINGS.contextTextShadow);
+    storage.set('lerne_card_font_weight', DEFAULT_DESIGN_SETTINGS.cardFontWeight);
+    storage.set('lerne_card_font_style', DEFAULT_DESIGN_SETTINGS.cardFontStyle);
+    storage.set('lerne_context_font_weight', DEFAULT_DESIGN_SETTINGS.contextFontWeight);
+    storage.set('lerne_context_font_style', DEFAULT_DESIGN_SETTINGS.contextFontStyle);
   },
 
   // --- Admin/API Settings (Fetched from Backend) ---

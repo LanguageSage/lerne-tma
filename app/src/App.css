@@ -315,10 +315,10 @@
 .card-actions-row-study {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   width: 100%;
   max-width: 380px;
-  margin-top: 6px;
+  margin-top: 4px;
   position: relative;
   gap: 8px;
 }
