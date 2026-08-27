@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, XCircle, Check, Eye } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
-import { getCardStyle, getContextStyle } from '../../utils/cardStyles';
+import { getCardStyle } from '../../utils/cardStyles';
 import { stripMarkdown } from '../../utils/text';
 
 export const StudyCardQuiz = ({
@@ -18,7 +18,6 @@ export const StudyCardQuiz = ({
   const [isCorrect, setIsCorrect] = useState(null);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
-  const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
 
   // Reset state on card change
   useEffect(() => {
@@ -68,30 +67,42 @@ export const StudyCardQuiz = ({
     return String.fromCharCode(65 + index); // A, B, C, D...
   };
 
+  const formatPunctuation = (str) => {
+    if (!str) return '';
+    return str.replace(/\s+([?!.,;:])/g, '$1').trim();
+  };
+
+  const cleanDisplayQuestion = displayQuestion ? formatPunctuation(displayQuestion) : null;
+
   return (
     <div className="quiz-container" style={{ width: '100%', padding: '4px 0' }}>
       {/* Question Header */}
-      {displayQuestion && (
-        <div className="quiz-question-wrapper" style={{ width: '100%', marginBottom: '14px' }}>
+      {cleanDisplayQuestion && (
+        <div className="quiz-question-wrapper" style={{ width: '100%', marginBottom: renderAudioPlayer ? '14px' : '20px' }}>
           <div className="quiz-question" style={{
             ...cardStyle,
-            marginBottom: renderAudioPlayer ? '10px' : '16px',
-            lineHeight: 1.4,
+            color: cardStyle.color || '#ffffff',
+            fontSize: cardStyle.fontSize ? `${Math.max(parseFloat(cardStyle.fontSize), 1.4)}rem` : '1.45rem',
+            fontWeight: cardStyle.fontWeight || 700,
+            lineHeight: 1.45,
+            letterSpacing: '-0.01em',
+            textAlign: (styles?.cardTextAlign && styles.cardTextAlign !== 'center') ? styles.cardTextAlign : 'left',
+            marginBottom: renderAudioPlayer ? '12px' : '0',
             width: '100%',
             whiteSpace: 'pre-wrap'
           }}>
-            {displayQuestion}
+            {cleanDisplayQuestion}
           </div>
           {renderAudioPlayer && (
-            <div style={{ width: '100%', marginBottom: '10px' }}>
+            <div style={{ width: '100%', marginTop: '12px' }}>
               {renderAudioPlayer()}
             </div>
           )}
         </div>
       )}
 
-      {!displayQuestion && renderAudioPlayer && (
-        <div style={{ width: '100%', marginBottom: '14px' }}>
+      {!cleanDisplayQuestion && renderAudioPlayer && (
+        <div style={{ width: '100%', marginBottom: '16px' }}>
           {renderAudioPlayer()}
         </div>
       )}
@@ -100,9 +111,9 @@ export const StudyCardQuiz = ({
       <div className="quiz-options-list" style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
+        gap: '12px',
         width: '100%',
-        marginBottom: '18px'
+        marginBottom: '22px'
       }}>
         {options.map((option, index) => {
           const isSelected = selectedOptionId === option.id;
@@ -118,6 +129,33 @@ export const StudyCardQuiz = ({
             optionClass += ' selected';
           }
 
+          // Option background & border calculation
+          let bg = 'rgba(15, 23, 42, 0.55)';
+          let borderColor = 'rgba(255, 255, 255, 0.12)';
+          let boxShadow = 'none';
+          let textColor = '#f1f5f9';
+
+          if (isChecked) {
+            if (option.isCorrect) {
+              bg = 'rgba(34, 197, 94, 0.22)';
+              borderColor = '#4ade80';
+              boxShadow = '0 0 16px rgba(34, 197, 94, 0.28)';
+              textColor = '#86efac';
+            } else if (isSelected && !option.isCorrect) {
+              bg = 'rgba(239, 68, 68, 0.22)';
+              borderColor = '#f87171';
+              boxShadow = '0 0 16px rgba(239, 68, 68, 0.28)';
+              textColor = '#fca5a5';
+            } else {
+              textColor = 'rgba(241, 245, 249, 0.6)';
+            }
+          } else if (isSelected) {
+            bg = 'rgba(99, 102, 241, 0.25)';
+            borderColor = '#818cf8';
+            boxShadow = '0 0 16px rgba(99, 102, 241, 0.35)';
+            textColor = '#ffffff';
+          }
+
           return (
             <button
               key={option.id}
@@ -128,69 +166,62 @@ export const StudyCardQuiz = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '12px 14px',
-                borderRadius: '12px',
-                border: '1.5px solid rgba(255, 255, 255, 0.12)',
-                background: isSelected && !isChecked 
-                  ? 'rgba(99, 102, 241, 0.25)' 
-                  : (isChecked && option.isCorrect 
-                      ? 'rgba(34, 197, 94, 0.25)' 
-                      : (isChecked && isSelected && !option.isCorrect 
-                          ? 'rgba(239, 68, 68, 0.25)' 
-                          : 'rgba(30, 41, 59, 0.6)')),
-                borderColor: isSelected && !isChecked 
-                  ? '#818cf8' 
-                  : (isChecked && option.isCorrect 
-                      ? '#4ade80' 
-                      : (isChecked && isSelected && !option.isCorrect 
-                          ? '#f87171' 
-                          : 'rgba(255, 255, 255, 0.12)')),
-                color: '#ffffff',
-                fontSize: cardStyle.fontSize || '1.15rem',
-                fontWeight: isSelected ? 600 : 400,
+                gap: '14px',
+                padding: '14px 16px',
+                borderRadius: '14px',
+                border: `1.5px solid ${borderColor}`,
+                background: bg,
+                color: textColor,
                 textAlign: 'left',
                 cursor: isChecked ? 'default' : 'pointer',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 width: '100%',
-                boxShadow: isSelected && !isChecked ? '0 0 12px rgba(99, 102, 241, 0.3)' : 'none'
+                boxShadow,
+                backdropFilter: 'blur(8px)',
               }}
             >
+              {/* Option Letter Badge (A, B, C, D) */}
               <div style={{
-                width: '28px',
-                height: '28px',
+                width: '32px',
+                height: '32px',
                 borderRadius: '50%',
                 background: isChecked && option.isCorrect 
                   ? '#22c55e' 
                   : (isChecked && isSelected && !option.isCorrect 
                       ? '#ef4444' 
-                      : (isSelected ? '#6366f1' : 'rgba(255, 255, 255, 0.15)')),
+                      : (isSelected ? '#6366f1' : 'rgba(255, 255, 255, 0.1)')),
+                border: isSelected || isChecked
+                  ? 'none'
+                  : '1px solid rgba(255, 255, 255, 0.2)',
                 color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '0.9rem',
+                fontSize: '0.95rem',
                 fontWeight: 700,
-                flexShrink: 0
+                flexShrink: 0,
+                boxShadow: isSelected && !isChecked ? '0 2px 8px rgba(99, 102, 241, 0.5)' : 'none'
               }}>
                 {isChecked && option.isCorrect ? (
-                  <CheckCircle2 size={18} />
+                  <CheckCircle2 size={20} />
                 ) : (isChecked && isSelected && !option.isCorrect ? (
-                  <XCircle size={18} />
+                  <XCircle size={20} />
                 ) : (
                   getOptionLetter(index)
                 ))}
               </div>
+
+              {/* Option Text */}
               <span style={{
                 flex: 1,
                 wordBreak: 'break-word',
-                fontFamily: cardStyle.fontFamily || contextStyle.fontFamily || undefined,
-                fontSize: cardStyle.fontSize || '1.15rem',
-                lineHeight: 1.4,
-                color: isSelected || isChecked ? undefined : (cardStyle.color || contextStyle.color || undefined),
-                textShadow: cardStyle.textShadow || contextStyle.textShadow || undefined
+                fontSize: '1.2rem',
+                lineHeight: 1.45,
+                fontWeight: isSelected ? 600 : 400,
+                color: textColor,
+                letterSpacing: '0.01em',
               }}>
-                {option.text}
+                {formatPunctuation(option.text)}
               </span>
             </button>
           );
@@ -206,25 +237,29 @@ export const StudyCardQuiz = ({
           disabled={selectedOptionId === null}
           style={{
             width: '100%',
-            padding: '12px 16px',
-            borderRadius: '12px',
+            padding: '14px 20px',
+            borderRadius: '14px',
             background: selectedOptionId !== null
               ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
-              : 'rgba(255, 255, 255, 0.1)',
+              : 'rgba(255, 255, 255, 0.07)',
             color: selectedOptionId !== null ? '#ffffff' : 'rgba(255, 255, 255, 0.4)',
-            border: 'none',
-            fontSize: '1rem',
+            border: selectedOptionId !== null 
+              ? '1px solid rgba(255, 255, 255, 0.25)' 
+              : '1px solid rgba(255, 255, 255, 0.12)',
+            fontSize: '1.05rem',
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
             cursor: selectedOptionId !== null ? 'pointer' : 'not-allowed',
-            transition: 'all 0.2s ease',
-            boxShadow: selectedOptionId !== null ? '0 4px 14px rgba(99, 102, 241, 0.4)' : 'none'
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: selectedOptionId !== null 
+              ? '0 4px 18px rgba(99, 102, 241, 0.45)' 
+              : 'none'
           }}
         >
-          <Check size={18} />
+          <Check size={20} />
           Проверить
         </button>
       )}
@@ -232,12 +267,12 @@ export const StudyCardQuiz = ({
       {/* Result Banner after Check */}
       {isChecked && (
         <div style={{
-          padding: '10px 14px',
+          padding: '12px 16px',
           borderRadius: '10px',
-          background: isCorrect ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-          border: `1px solid ${isCorrect ? '#22c55e' : '#ef4444'}`,
-          color: isCorrect ? '#4ade80' : '#f87171',
-          fontSize: '0.9rem',
+          background: isCorrect ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)',
+          border: `1.5px solid ${isCorrect ? '#22c55e' : '#ef4444'}`,
+          color: isCorrect ? '#4ade80' : '#fca5a5',
+          fontSize: '0.92rem',
           fontWeight: 600,
           textAlign: 'center',
           marginTop: '6px'

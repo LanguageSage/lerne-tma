@@ -661,7 +661,7 @@ export const CardForm = ({
                    fontWeight: contextFontWeight,
                    fontStyle: contextFontStyle,
                    textShadow: getContextShadow(contextTextShadow, contextTextColor),
-                   textAlign: contextTextAlign || 'center',
+                   textAlign: contextTextAlign || 'left',
                    overflow: 'hidden',
                    height: 'auto',
                    minHeight: '100px'

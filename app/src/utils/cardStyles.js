@@ -25,7 +25,7 @@ export const getBackCardStyle = (styles) => {
     fontWeight: styles.cardFontWeight || undefined,
     fontStyle: styles.cardFontStyle || undefined,
     textShadow: styles.cardTextShadow || undefined,
-    textAlign: styles.contextTextAlign || styles.cardTextAlign || 'center',
+    textAlign: styles.contextTextAlign || 'left',
   };
 };
 
@@ -38,6 +38,6 @@ export const getContextStyle = (styles) => {
     fontWeight: styles.contextFontWeight || styles.cardFontWeight || undefined,
     fontStyle: styles.contextFontStyle || styles.cardFontStyle || undefined,
     textShadow: styles.contextTextShadow || styles.cardTextShadow || undefined,
-    textAlign: styles.contextTextAlign || styles.cardTextAlign || 'center',
+    textAlign: styles.contextTextAlign || 'left',
   };
 };

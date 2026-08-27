@@ -17,7 +17,7 @@ const getInitialDesignState = () => ({
   cardTextAlign: storage.get('lerne_card_text_align') || 'center',
   contextFontWeight: storage.get('lerne_context_font_weight') || '400',
   contextFontStyle: storage.get('lerne_context_font_style') || 'normal',
-  contextTextAlign: storage.get('lerne_context_text_align') || 'center',
+  contextTextAlign: storage.get('lerne_context_text_align') || 'left',
   userDesign: storage.get('lerne_user_design') ? JSON.parse(storage.get('lerne_user_design')) : null,
 });
 
@@ -187,7 +187,7 @@ export const useSettingsStore = create((set, get) => ({
       cardTextAlign: 'center',
       contextFontWeight: '400',
       contextFontStyle: 'normal',
-      contextTextAlign: 'center'
+      contextTextAlign: 'left'
     };
     
     set(defaultSettings);

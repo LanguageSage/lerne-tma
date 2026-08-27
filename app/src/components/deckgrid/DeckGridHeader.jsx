@@ -1,11 +1,12 @@
 import React from 'react';
-import { Plus, Settings, Info, Copy, ChevronLeft, ExternalLink } from 'lucide-react';
+import { Plus, Settings, Info, Copy, ChevronLeft, ExternalLink, Palette } from 'lucide-react';
 import { UserProfileBadge } from '../common/UserBadge';
 import { LanguageSelectorBadge } from './LanguageSelectorBadge';
 import { NativeLanguageSelectorBadge } from './NativeLanguageSelectorBadge';
 import { HelpButton } from '../TutorialOverlay';
 import { useTranslation } from '../../i18n/i18nContext';
 import { openExternalLink } from '../../utils/platform';
+import { useUiStore } from '../../store/useUiStore';
 
 export const DeckGridHeader = ({
   personalLink,
@@ -50,6 +51,15 @@ export const DeckGridHeader = ({
             title={t('decks.add_deck', 'Создать новую колоду')}
           >
             <Plus size={20} />
+          </button>
+          <button 
+            id="tut-main-design" 
+            className="header-action-btn design-btn" 
+            onClick={(e) => { e.stopPropagation(); useUiStore.getState().openSettings('design'); }}
+            title="Дизайн карточек"
+            style={{ color: '#c084fc' }}
+          >
+            <Palette size={20} />
           </button>
           <button 
             id="tut-main-settings" 

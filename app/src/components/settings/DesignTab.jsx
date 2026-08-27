@@ -74,15 +74,15 @@ export const DesignTab = () => {
         <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#94a3b8' }}>Готовые темы</h4>
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(2, 1fr)', 
-          gap: '10px' 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', 
+          gap: '8px' 
         }}>
           {DESIGN_PRESETS && DESIGN_PRESETS.map(p => (
             <button 
               key={p.id}
               className="btn-secondary btn-small"
               onClick={() => applyDesignPreset(p)}
-              style={{ fontSize: '0.8rem', padding: '10px 5px' }}
+              style={{ fontSize: '0.8rem', padding: '10px 6px', textAlign: 'center' }}
             >
               {p.name}
             </button>
@@ -143,7 +143,13 @@ export const DesignTab = () => {
         <label>Фон (Лицевая сторона)</label>
         <select value={cardBgFront} onChange={e => setCardBgFront(e.target.value)}>
           <option value="auto">🎲 Случайный фон (Авто)</option>
-          <option disabled>──────────</option>
+          <option disabled>── Строгие тёмные ──</option>
+          <option value="dark_obsidian">Строгий графит 🖤</option>
+          <option value="dark_minimal">Минимализм 🌑</option>
+          <option value="dark_midnight">Полуночный синий 🌌</option>
+          <option value="dark_emerald">Тёмный изумруд 🌿</option>
+          <option value="dark_mocha">Тёмный мокко ☕</option>
+          <option disabled>── Живые градиенты ──</option>
           <option value="standard">Standard Glass</option>
           <option value="mesh">Celestial Mesh</option>
           <option value="aurora">Aurora Waves</option>
@@ -154,7 +160,7 @@ export const DesignTab = () => {
           <option value="liquid_morning">Утреннее море 🌅</option>
           <option value="liquid_cosmic">Cosmic Flow 🌌</option>
           <option value="liquid_emerald">Emerald Flow 🌿</option>
-          <option disabled>──────────</option>
+          <option disabled>── Видео фоны ──</option>
           <option value="video_aquarium">Видео: Аквариум 🐠</option>
           <option value="video_space">Видео: Космос 🌌</option>
           <option value="video_nature">Видео: Природа 🌿</option>
@@ -175,7 +181,13 @@ export const DesignTab = () => {
         <label>Фон (Обратная сторона)</label>
         <select value={cardBgBack} onChange={e => setCardBgBack(e.target.value)}>
           <option value="auto">🎲 Случайный фон (Авто)</option>
-          <option disabled>──────────</option>
+          <option disabled>── Строгие тёмные ──</option>
+          <option value="dark_obsidian">Строгий графит 🖤</option>
+          <option value="dark_minimal">Минимализм 🌑</option>
+          <option value="dark_midnight">Полуночный синий 🌌</option>
+          <option value="dark_emerald">Тёмный изумруд 🌿</option>
+          <option value="dark_mocha">Тёмный мокко ☕</option>
+          <option disabled>── Живые градиенты ──</option>
           <option value="standard">Standard Glass</option>
           <option value="mesh">Celestial Mesh</option>
           <option value="aurora">Aurora Waves</option>
@@ -186,7 +198,7 @@ export const DesignTab = () => {
           <option value="liquid_morning">Утреннее море 🌅</option>
           <option value="liquid_cosmic">Cosmic Flow 🌌</option>
           <option value="liquid_emerald">Emerald Flow 🌿</option>
-          <option disabled>──────────</option>
+          <option disabled>── Видео фоны ──</option>
           <option value="video_aquarium">Видео: Аквариум 🐠</option>
           <option value="video_space">Видео: Космос 🌌</option>
           <option value="video_nature">Видео: Природа 🌿</option>
@@ -240,59 +252,59 @@ export const DesignTab = () => {
           </div>
         </div>
         <div className="form-group">
-          <div className="label-with-value">
-            <label>Цвет и Эффект</label>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <input 
-                type="color" 
-                value={cardTextColor} 
-                onChange={e => setCardTextColor(e.target.value)}
-                style={{ width: '40px', height: '30px', padding: '0', border: 'none', background: 'transparent', cursor: 'pointer' }}
+          <label>Цвет и Эффект</label>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '6px' }}>
+            <input 
+              type="color" 
+              value={cardTextColor} 
+              onChange={e => setCardTextColor(e.target.value)}
+              style={{ width: '40px', height: '32px', padding: '0', border: 'none', background: 'transparent', cursor: 'pointer', flexShrink: 0 }}
+            />
+            <select 
+              value={cardTextShadow} 
+              onChange={e => setCardTextShadow(e.target.value)}
+              style={{ flex: 1 }}
+            >
+              <option value="none">Без эффектов</option>
+              <option value="shadow">Мягкая тень</option>
+              <option value="glow">Свечение ✨</option>
+              <option value="neon">Неон 🌈</option>
+              <option value="outline">Контур ✏️</option>
+              <option value="glass">Стекло 🧊</option>
+            </select>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            flexWrap: 'wrap', 
+            marginTop: '10px',
+            padding: '8px 10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            borderRadius: '10px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            alignItems: 'center'
+          }}>
+            {PRESET_COLORS.map(color => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => setCardTextColor(color)}
+                style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  backgroundColor: color,
+                  border: cardTextColor.toLowerCase() === color.toLowerCase() ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  flexShrink: 0,
+                  boxShadow: cardTextColor.toLowerCase() === color.toLowerCase() ? '0 0 10px rgba(167,139,250,0.6)' : 'none',
+                  transform: cardTextColor.toLowerCase() === color.toLowerCase() ? 'scale(1.15)' : 'scale(1)',
+                  transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+                title={color === '#ffffff' ? 'Белый' : color}
               />
-              <select 
-                value={cardTextShadow} 
-                onChange={e => setCardTextShadow(e.target.value)}
-                style={{ flex: 1 }}
-              >
-                <option value="none">Без эффектов</option>
-                <option value="shadow">Мягкая тень</option>
-                <option value="glow">Свечение ✨</option>
-                <option value="neon">Неон 🌈</option>
-                <option value="outline">Контур ✏️</option>
-                <option value="glass">Стекло 🧊</option>
-              </select>
-            </div>
-            <div style={{ 
-              display: 'flex', 
-              gap: '6px', 
-              flexWrap: 'wrap', 
-              marginTop: '10px',
-              padding: '6px',
-              background: 'rgba(255, 255, 255, 0.03)',
-              borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.05)'
-            }}>
-              {PRESET_COLORS.map(color => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setCardTextColor(color)}
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    backgroundColor: color,
-                    border: cardTextColor.toLowerCase() === color.toLowerCase() ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
-                    cursor: 'pointer',
-                    padding: 0,
-                    boxShadow: cardTextColor.toLowerCase() === color.toLowerCase() ? '0 0 8px rgba(167,139,250,0.6)' : 'none',
-                    transform: cardTextColor.toLowerCase() === color.toLowerCase() ? 'scale(1.18)' : 'scale(1)',
-                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                  title={color === '#ffffff' ? 'Белый' : color}
-                />
-              ))}
-            </div>
+            ))}
           </div>
         </div>
         <div className="form-group" style={{ marginTop: '10px' }}>
@@ -408,58 +420,58 @@ export const DesignTab = () => {
           </div>
         </div>
         <div className="form-group">
-          <div className="label-with-value">
-            <label>Цвет и Эффект</label>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <input 
-                type="color" 
-                value={contextTextColor} 
-                onChange={e => setContextTextColor(e.target.value)}
-                style={{ width: '40px', height: '30px', padding: '0', border: 'none', background: 'transparent', cursor: 'pointer' }}
+          <label>Цвет и Эффект</label>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '6px' }}>
+            <input 
+              type="color" 
+              value={contextTextColor} 
+              onChange={e => setContextTextColor(e.target.value)}
+              style={{ width: '40px', height: '32px', padding: '0', border: 'none', background: 'transparent', cursor: 'pointer', flexShrink: 0 }}
+            />
+            <select 
+              value={contextTextShadow} 
+              onChange={e => setContextTextShadow(e.target.value)}
+              style={{ flex: 1 }}
+            >
+              <option value="none">Без эффектов</option>
+              <option value="shadow">Мягкая тень</option>
+              <option value="glow">Свечение ✨</option>
+              <option value="neon">Неон 🌈</option>
+              <option value="outline">Контур ✏️</option>
+            </select>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            flexWrap: 'wrap', 
+            marginTop: '10px',
+            padding: '8px 10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            borderRadius: '10px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            alignItems: 'center'
+          }}>
+            {PRESET_COLORS.map(color => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => setContextTextColor(color)}
+                style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  backgroundColor: color,
+                  border: contextTextColor.toLowerCase() === color.toLowerCase() ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  flexShrink: 0,
+                  boxShadow: contextTextColor.toLowerCase() === color.toLowerCase() ? '0 0 10px rgba(167,139,250,0.6)' : 'none',
+                  transform: contextTextColor.toLowerCase() === color.toLowerCase() ? 'scale(1.15)' : 'scale(1)',
+                  transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+                title={color === '#ffffff' ? 'Белый' : color}
               />
-              <select 
-                value={contextTextShadow} 
-                onChange={e => setContextTextShadow(e.target.value)}
-                style={{ flex: 1 }}
-              >
-                <option value="none">Без эффектов</option>
-                <option value="shadow">Мягкая тень</option>
-                <option value="glow">Свечение ✨</option>
-                <option value="neon">Неон 🌈</option>
-                <option value="outline">Контур ✏️</option>
-              </select>
-            </div>
-            <div style={{ 
-              display: 'flex', 
-              gap: '6px', 
-              flexWrap: 'wrap', 
-              marginTop: '10px',
-              padding: '6px',
-              background: 'rgba(255, 255, 255, 0.03)',
-              borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.05)'
-            }}>
-              {PRESET_COLORS.map(color => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setContextTextColor(color)}
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    backgroundColor: color,
-                    border: contextTextColor.toLowerCase() === color.toLowerCase() ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
-                    cursor: 'pointer',
-                    padding: 0,
-                    boxShadow: contextTextColor.toLowerCase() === color.toLowerCase() ? '0 0 8px rgba(167,139,250,0.6)' : 'none',
-                    transform: contextTextColor.toLowerCase() === color.toLowerCase() ? 'scale(1.18)' : 'scale(1)',
-                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                  title={color === '#ffffff' ? 'Белый' : color}
-                />
-              ))}
-            </div>
+            ))}
           </div>
         </div>
         <div className="form-group" style={{ marginTop: '10px' }}>
@@ -481,7 +493,7 @@ export const DesignTab = () => {
           <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
             <button
               type="button"
-              className={`btn-secondary btn-tiny ${contextTextAlign === 'left' ? 'active' : ''}`}
+              className={`btn-secondary btn-tiny ${(!contextTextAlign || contextTextAlign === 'left') ? 'active' : ''}`}
               onClick={() => setContextTextAlign('left')}
               style={{
                 flex: 1,
@@ -491,8 +503,8 @@ export const DesignTab = () => {
                 justifyContent: 'center',
                 gap: '6px',
                 fontSize: '0.85rem',
-                background: contextTextAlign === 'left' ? 'rgba(168,85,247,0.25)' : undefined,
-                borderColor: contextTextAlign === 'left' ? '#a78bfa' : undefined
+                background: (!contextTextAlign || contextTextAlign === 'left') ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: (!contextTextAlign || contextTextAlign === 'left') ? '#a78bfa' : undefined
               }}
             >
               <AlignLeft size={16} />
@@ -500,7 +512,7 @@ export const DesignTab = () => {
             </button>
             <button
               type="button"
-              className={`btn-secondary btn-tiny ${(!contextTextAlign || contextTextAlign === 'center') ? 'active' : ''}`}
+              className={`btn-secondary btn-tiny ${contextTextAlign === 'center' ? 'active' : ''}`}
               onClick={() => setContextTextAlign('center')}
               style={{
                 flex: 1,
@@ -510,8 +522,8 @@ export const DesignTab = () => {
                 justifyContent: 'center',
                 gap: '6px',
                 fontSize: '0.85rem',
-                background: (!contextTextAlign || contextTextAlign === 'center') ? 'rgba(168,85,247,0.25)' : undefined,
-                borderColor: (!contextTextAlign || contextTextAlign === 'center') ? '#a78bfa' : undefined
+                background: contextTextAlign === 'center' ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: contextTextAlign === 'center' ? '#a78bfa' : undefined
               }}
             >
               <AlignCenter size={16} />

@@ -18,6 +18,9 @@ export const useUiStore = create((set) => ({
   
   // Modals state
   isSettingsOpen: false,
+  settingsTab: 'general',
+  setSettingsTab: (tab) => set({ settingsTab: tab }),
+  openSettings: (tab = 'general') => set({ isSettingsOpen: true, settingsTab: tab }),
   setIsSettingsOpen: (isOpen) => set({ isSettingsOpen: isOpen }),
   
   isNewDeckModalOpen: false,

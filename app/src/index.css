@@ -341,6 +341,27 @@ h1, h2, h3 {
   z-index: 1;
 }
 
+/* --- Strict Dark Backgrounds --- */
+.bg-dark-obsidian {
+  background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%);
+}
+
+.bg-dark-minimal {
+  background: linear-gradient(180deg, #18181b 0%, #09090b 100%);
+}
+
+.bg-dark-midnight {
+  background: radial-gradient(ellipse at top, #0f1d3a 0%, #070d1e 65%, #020617 100%);
+}
+
+.bg-dark-emerald {
+  background: radial-gradient(ellipse at top, #06281e 0%, #021a13 60%, #010d0a 100%);
+}
+
+.bg-dark-mocha {
+  background: radial-gradient(ellipse at top, #24160f 0%, #150c07 60%, #0a0503 100%);
+}
+
 /* --- Video Backgrounds --- */
 .bg-video {
   background: #000;

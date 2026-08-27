@@ -32,7 +32,7 @@ export const TypographyPreview = ({ styleType = 'standard', showContext = true }
           textShadow: getTextShadow(cardTextShadow, cardTextColor),
           fontWeight: cardFontWeight,
           fontStyle: cardFontStyle,
-          textAlign: showContext ? (contextTextAlign || 'center') : (cardTextAlign || 'center'),
+          textAlign: showContext ? (contextTextAlign || 'left') : (cardTextAlign || 'center'),
           marginBottom: showContext ? '10px' : '0'
         }}>
           Sample Phrase
@@ -45,7 +45,7 @@ export const TypographyPreview = ({ styleType = 'standard', showContext = true }
             textShadow: getContextShadow(contextTextShadow, contextTextColor),
             fontWeight: contextFontWeight,
             fontStyle: contextFontStyle,
-            textAlign: contextTextAlign || 'center',
+            textAlign: contextTextAlign || 'left',
             opacity: 0.8
           }}>
             This is a context example

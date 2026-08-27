@@ -151,6 +151,21 @@ export const CardBackground = ({ styleType = 'standard' }) => {
         </div>
       );
 
+    case 'dark_obsidian':
+      return <div className="card-bg-layer bg-dark-obsidian" />;
+
+    case 'dark_minimal':
+      return <div className="card-bg-layer bg-dark-minimal" />;
+
+    case 'dark_midnight':
+      return <div className="card-bg-layer bg-dark-midnight" />;
+
+    case 'dark_emerald':
+      return <div className="card-bg-layer bg-dark-emerald" />;
+
+    case 'dark_mocha':
+      return <div className="card-bg-layer bg-dark-mocha" />;
+
     case 'standard':
     default:
       if (styleType.startsWith('custom_')) {

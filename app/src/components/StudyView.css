@@ -1013,14 +1013,14 @@
 
 /* Interactive mode reveal answer button */
 .btn-interactive-reveal {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.22), rgba(99, 102, 241, 0.16));
-  border: 1.5px solid rgba(168, 85, 247, 0.45);
-  color: #f3e8ff;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(99, 102, 241, 0.24));
+  border: 1.5px solid rgba(192, 132, 252, 0.6);
+  color: #ffffff;
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
   margin-top: 14px;
-  padding: 10px 22px;
+  padding: 11px 24px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -1028,17 +1028,17 @@
   gap: 8px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
 }
 
 .btn-interactive-reveal:hover {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(99, 102, 241, 0.28));
-  border-color: rgba(216, 180, 254, 0.8);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.45), rgba(99, 102, 241, 0.38));
+  border-color: rgba(233, 213, 255, 0.9);
   color: #ffffff;
-  transform: translateY(-1px) scale(1.03);
-  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 28px rgba(168, 85, 247, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .btn-interactive-reveal:active {

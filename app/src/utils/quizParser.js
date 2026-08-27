@@ -1,5 +1,10 @@
 import { stripMarkdown } from './text.js';
 
+const cleanPunctuation = (str) => {
+  if (!str) return '';
+  return str.replace(/\s+([?!.,;:])/g, '$1').trim();
+};
+
 /**
  * Helper to clean prefixes like ○, •, -, [ ], [*], A), 1., etc. from option line
  */
@@ -18,7 +23,7 @@ const cleanOptionPrefix = (line) => {
     .replace(/^[-*○•\s]+/u, '')     // strip remaining bullets after letter
     .trim();
 
-  return { isCorrect, text: stripMarkdown(cleaned) };
+  return { isCorrect, text: cleanPunctuation(stripMarkdown(cleaned)) };
 };
 
 /**
@@ -100,7 +105,7 @@ export const parseQuizData = (card) => {
 
   return {
     isQuiz: true,
-    question: stripMarkdown(rawQuestion) || 'Выберите правильный ответ:',
+    question: cleanPunctuation(stripMarkdown(rawQuestion)) || 'Выберите правильный ответ:',
     options: shuffledOptions,
     correctAnswerId: correctOption.id,
     correctAnswerText: correctOption.text

@@ -48,6 +48,94 @@ export const TUTORIAL_STEPS = {
 
 export const DESIGN_PRESETS = [
   {
+    id: 'strict_dark',
+    name: 'Строгий тёмный 🖤',
+    settings: {
+      cardBgFront: 'dark_obsidian',
+      cardBgBack: 'dark_obsidian',
+      cardFont: 'Inter',
+      cardTextColor: '#ffffff',
+      cardFontSize: 1.8,
+      cardFontWeight: '700',
+      cardFontStyle: 'normal',
+      cardTextAlign: 'center',
+      contextFont: 'Inter',
+      contextTextColor: '#94a3b8',
+      contextFontSize: 1.35,
+      contextFontWeight: '400',
+      contextFontStyle: 'normal',
+      contextTextAlign: 'left',
+      cardTextShadow: 'none',
+      contextTextShadow: 'none'
+    }
+  },
+  {
+    id: 'strict_minimal',
+    name: 'Минимализм 🌑',
+    settings: {
+      cardBgFront: 'dark_minimal',
+      cardBgBack: 'dark_minimal',
+      cardFont: 'Inter',
+      cardTextColor: '#f8fafc',
+      cardFontSize: 1.75,
+      cardFontWeight: '600',
+      cardFontStyle: 'normal',
+      cardTextAlign: 'center',
+      contextFont: 'Inter',
+      contextTextColor: '#cbd5e1',
+      contextFontSize: 1.3,
+      contextFontWeight: '400',
+      contextFontStyle: 'normal',
+      contextTextAlign: 'left',
+      cardTextShadow: 'none',
+      contextTextShadow: 'none'
+    }
+  },
+  {
+    id: 'strict_midnight',
+    name: 'Полуночный 🌌',
+    settings: {
+      cardBgFront: 'dark_midnight',
+      cardBgBack: 'dark_midnight',
+      cardFont: 'Outfit',
+      cardTextColor: '#ffffff',
+      cardFontSize: 1.8,
+      cardFontWeight: '700',
+      cardFontStyle: 'normal',
+      cardTextAlign: 'center',
+      contextFont: 'Inter',
+      contextTextColor: '#93c5fd',
+      contextFontSize: 1.35,
+      contextFontWeight: '400',
+      contextFontStyle: 'normal',
+      contextTextAlign: 'left',
+      cardTextShadow: 'glow',
+      contextTextShadow: 'none'
+    }
+  },
+  {
+    id: 'strict_emerald',
+    name: 'Тёмный изумруд 🌿',
+    settings: {
+      cardBgFront: 'dark_emerald',
+      cardBgBack: 'dark_emerald',
+      cardFont: 'Outfit',
+      cardTextColor: '#ffffff',
+      cardFontSize: 1.8,
+      cardFontWeight: '700',
+      cardFontStyle: 'normal',
+      cardTextAlign: 'center',
+      contextFont: 'Inter',
+      contextTextColor: '#86efac',
+      contextFontSize: 1.35,
+      contextFontWeight: '400',
+      contextFontStyle: 'normal',
+      contextTextAlign: 'left',
+      cardTextShadow: 'none',
+      contextTextShadow: 'none'
+    }
+  },
+  {
     id: 'lerne_2026',
     name: 'Lerne 2026 ✨',
     settings: {
@@ -56,17 +144,17 @@ export const DESIGN_PRESETS = [
       cardFont: "Comfortaa",
       cardTextColor: "#ffff00",
       cardFontSize: 1.8,
-      contextFont: "Inter",
-      contextTextColor: "#00ffff",
-      contextFontSize: 1.35,
-      cardTextShadow: "glow",
-      contextTextShadow: "outline",
       cardFontWeight: "700",
       cardFontStyle: "normal",
       cardTextAlign: "center",
+      contextFont: "Inter",
+      contextTextColor: "#00ffff",
+      contextFontSize: 1.35,
       contextFontWeight: "400",
       contextFontStyle: "normal",
-      contextTextAlign: "center"
+      contextTextAlign: "left",
+      cardTextShadow: "glow",
+      contextTextShadow: "outline"
     }
   },
   {
@@ -78,15 +166,17 @@ export const DESIGN_PRESETS = [
       cardFont: 'Outfit',
       cardTextColor: '#ffffff',
       cardFontSize: 1.8,
+      cardFontWeight: '700',
+      cardFontStyle: 'normal',
+      cardTextAlign: 'center',
       contextFont: 'Inter',
       contextTextColor: '#cbd5e1',
       contextFontSize: 1.35,
-      cardTextShadow: 'glow',
-      contextTextShadow: 'none',
-      cardFontWeight: '700',
-      cardFontStyle: 'normal',
       contextFontWeight: '400',
-      contextFontStyle: 'normal'
+      contextFontStyle: 'normal',
+      contextTextAlign: 'left',
+      cardTextShadow: 'glow',
+      contextTextShadow: 'none'
     }
   },
   {

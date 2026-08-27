@@ -14,13 +14,19 @@ import { PromptsTab } from '../settings/PromptsTab';
 import { ProfileTab } from '../settings/ProfileTab';
 
 export const SettingsModal = ({ userId, startTutorial }) => {
-  const { isSettingsOpen, setIsSettingsOpen } = useUiStore();
+  const { isSettingsOpen, setIsSettingsOpen, settingsTab } = useUiStore();
   const { t } = useTranslation();
-  const [activeSettingsTab, setActiveSettingsTab] = useState('general');
+  const [activeSettingsTab, setActiveSettingsTab] = useState(settingsTab || 'general');
   const [customBackgrounds] = useState([]);
 
   const ADMIN_USER_ID = 642478257;
   const isAdmin = Number(userId) === ADMIN_USER_ID;
+
+  React.useEffect(() => {
+    if (isSettingsOpen && settingsTab) {
+      setActiveSettingsTab(settingsTab);
+    }
+  }, [isSettingsOpen, settingsTab]);
 
   React.useEffect(() => {
     if (!isAdmin && activeSettingsTab === 'ai') {

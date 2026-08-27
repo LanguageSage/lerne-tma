@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, Reorder, useDragControls } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus, ListPlus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon, Crop, Loader2 } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus, ListPlus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon, Crop, Loader2, Palette } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
 import { useUiStore } from '../../store/useUiStore';
@@ -291,6 +291,16 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
               }} />
             </button>
 
+
+            <button
+              id="tut-cardlist-design"
+              className="header-action-btn design-btn"
+              onClick={() => useUiStore.getState().openSettings('design')}
+              title="Дизайн карточек"
+              style={{ color: '#c084fc' }}
+            >
+              <Palette size={22} />
+            </button>
 
             <button 
               className="header-action-btn settings-btn" 

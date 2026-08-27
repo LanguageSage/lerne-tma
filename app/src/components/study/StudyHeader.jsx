@@ -1,7 +1,8 @@
 import React from 'react';
-import { ChevronLeft, Volume2, Edit2, Settings, RefreshCw, Plus, Sparkles } from 'lucide-react';
+import { ChevronLeft, Volume2, Edit2, Settings, RefreshCw, Plus, Sparkles, Palette } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { UserProfileBadge } from '../common/UserBadge';
+import { useUiStore } from '../../store/useUiStore';
 
 export const StudyHeader = ({
   deckName,
@@ -53,8 +54,6 @@ export const StudyHeader = ({
 
       <HelpButton onClick={onStartTutorial} />
 
-
-
       <button
         id="tut-study-gen-audio"
         className="header-action-btn"
@@ -81,6 +80,16 @@ export const StudyHeader = ({
         title="Редактировать"
       >
         <Edit2 size={22} />
+      </button>
+
+      <button
+        id="tut-study-design"
+        className="header-action-btn design-btn"
+        onClick={() => useUiStore.getState().openSettings('design')}
+        title="Дизайн карточек"
+        style={{ color: '#c084fc' }}
+      >
+        <Palette size={22} />
       </button>
 
       <button
