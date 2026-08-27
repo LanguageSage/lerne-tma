@@ -59,17 +59,11 @@ export const StudyView = ({ startTutorial }) => {
   const contextFontStyle = useSettingsStore(s => s.contextFontStyle);
   const contextTextShadow = useSettingsStore(s => s.contextTextShadow);
   const contextTextAlign = useSettingsStore(s => s.contextTextAlign);
-  const autoplayDelay = useSettingsStore(s => s.autoplayDelay);
-  const autoplayScrollBg = useSettingsStore(s => s.autoplayScrollBg);
 
   const styleSettings = React.useMemo(() => ({
     cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign,
     contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
   }), [cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign, contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign]);
-
-  const autoplaySettingsObj = React.useMemo(() => ({
-    autoplayDelay, autoplayLoop, autoplayScrollBg, autoPlay
-  }), [autoplayDelay, autoplayLoop, autoplayScrollBg, autoPlay]);
 
   const {
     playAudio,
@@ -104,6 +98,18 @@ export const StudyView = ({ startTutorial }) => {
 
   const autoplay = useAutoplay({ card, playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock });
   const isAutoplayActive = autoplayState === 'playing' || autoplayState === 'paused';
+
+  useEffect(() => {
+    useSessionStore.getState().registerAutoplayHandlers?.({
+      startAutoplayFn: autoplay.start,
+      stopAutoplayFn: autoplay.stop,
+      pauseAutoplayFn: autoplay.pause,
+      resumeAutoplayFn: autoplay.resume
+    });
+    return () => {
+      useSessionStore.getState().unregisterAutoplayHandlers?.();
+    };
+  }, [autoplay.start, autoplay.stop, autoplay.pause, autoplay.resume]);
 
   // Session-level voice memory: voice choice persists across card navigation within a deck
   const sessionVoice = useSessionVoice();
@@ -542,8 +548,6 @@ export const StudyView = ({ startTutorial }) => {
               onNext={handleAutoplayAwareNext}
               autoplayState={autoplayState}
               autoplayStatus={autoplay.status}
-              autoplaySettings={autoplaySettingsObj}
-              onAutoplayStart={autoplay.start}
               onAutoplayStop={autoplay.stop}
               onAutoplayPause={autoplay.pause}
               onAutoplayResume={autoplay.resume}

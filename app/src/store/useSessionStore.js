@@ -10,11 +10,22 @@ export const useSessionStore = create((set, get) => ({
   editorSourceView: 'cards', // 'cards' | 'study'
   isLearningMore: false,
   autoplayState: 'stopped', // 'stopped' | 'playing' | 'paused'
+  startAutoplayFn: null,
+  stopAutoplayFn: null,
+  pauseAutoplayFn: null,
+  resumeAutoplayFn: null,
 
   setIsLearningMore: (val) => set({ isLearningMore: val }),
   setAutoplayState: (autoplayState) => set({ autoplayState }),
   pauseAutoplay: () => set({ autoplayState: 'paused' }),
   stopAutoplay: () => set({ autoplayState: 'stopped' }),
+  registerAutoplayHandlers: (handlers) => set(handlers),
+  unregisterAutoplayHandlers: () => set({
+    startAutoplayFn: null,
+    stopAutoplayFn: null,
+    pauseAutoplayFn: null,
+    resumeAutoplayFn: null
+  }),
 
   setCard: (updater) => set((state) => ({ 
     card: typeof updater === 'function' ? updater(state.card) : (updater ? { ...updater } : null) 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle2, XCircle, Check } from 'lucide-react';
+import { CheckCircle2, XCircle, Check, Eye } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
 import { getCardStyle, getContextStyle } from '../../utils/cardStyles';
 import { stripMarkdown } from '../../utils/text';
@@ -7,6 +7,8 @@ import { stripMarkdown } from '../../utils/text';
 export const StudyCardQuiz = ({
   card,
   quizData,
+  onFlip,
+  setIsFlipped,
   onTrainerAnswer,
   renderAudioPlayer,
   styles = {}
@@ -243,6 +245,22 @@ export const StudyCardQuiz = ({
           {isCorrect ? '✅ Правильно!' : '❌ Неправильно! Смотри разбор на обороте.'}
         </div>
       )}
+
+      {/* Reveal Answer Button */}
+      <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: isChecked ? '12px' : '10px' }}>
+        <button
+          type="button"
+          className="btn-interactive-reveal"
+          onClick={(e) => {
+            e.stopPropagation();
+            const flipFn = onFlip || setIsFlipped;
+            if (flipFn) flipFn(true);
+          }}
+        >
+          <Eye size={18} />
+          <span>Показать ответ</span>
+        </button>
+      </div>
     </div>
   );
 };

@@ -376,6 +376,23 @@ function AppContent() {
         onShare={handleShareCard}
         onEdit={(c) => openEditor(c.deck_id || currentDeck?.id, c, view)}
         onInsertBelow={(c) => openCreator(c.deck_id || currentDeck?.id, view, c.id)}
+        onStartAutoplay={async (c) => {
+          if (view === 'study') {
+            const { startAutoplayFn } = useSessionStore.getState();
+            if (startAutoplayFn) {
+              startAutoplayFn();
+            }
+          } else {
+            const targetDeck = decks.find(d => d.id === c?.deck_id) || currentDeck;
+            if (targetDeck && c?.id) {
+              await startStudyCard(targetDeck, c.id);
+              setTimeout(() => {
+                const { startAutoplayFn } = useSessionStore.getState();
+                if (startAutoplayFn) startAutoplayFn();
+              }, 400);
+            }
+          }
+        }}
         loading={loading}
       />
 

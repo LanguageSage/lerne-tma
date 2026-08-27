@@ -149,8 +149,9 @@ def view_shared_item(share_id: str, request: Request):
     v_param = abs(hash(f"{title}_{info.get('type')}_{info.get('id')}")) % 1000000
     preview_url = f"{domain}/api/preview/{share_id}.jpg?v={v_param}"
     app_url = f"https://t.me/LerneDeutsch287_bot?startapp={share_id}"
+    web_url = f"{domain}/?share_id={share_id}"
 
-    return get_share_html(title, description, preview_url, app_url)
+    return get_share_html(title, description, preview_url, app_url, web_url)
 
 
 @router.get("/preview/{share_id}.jpg")

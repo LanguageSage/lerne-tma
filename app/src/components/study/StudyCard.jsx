@@ -445,6 +445,7 @@ export const StudyCard = React.memo(({
                   quizData={quizData}
                   isFlipped={isFlipped}
                   setIsFlipped={onFlip}
+                  onFlip={onFlip}
                   playAudio={playAudio}
                   onTrainerAnswer={onTrainerAnswer}
                   renderAudioPlayer={renderFrontAudioPlayer}

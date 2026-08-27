@@ -1,9 +1,14 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Move, Copy, Trash2, Edit2, Settings2, PlusCircle } from 'lucide-react';
+import { X, Move, Copy, Trash2, Edit2, Settings2, PlusCircle, Play, Square, Pause, RotateCw } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useCardActions } from '../../hooks/useCardActions';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { useSessionStore } from '../../store/useSessionStore';
 import { FlagPicker } from '../common/FlagPicker';
+
+const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
+const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => -50 + index * 5);
 
 const getSortedFolderAndDeckTree = (foldersList, decksList, expandedFolders) => {
   const result = [];
@@ -52,11 +57,34 @@ export const CardActionModal = ({
   onDelete,
   onShare,
   onEdit,
-  onInsertBelow
+  onInsertBelow,
+  onStartAutoplay
 }) => {
-  const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy'
+  const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy' | 'autoplay'
   const [expandedFolders, setExpandedFolders] = React.useState({});
   const { handleSetCardFlag } = useCardActions();
+
+  const autoplayState = useSessionStore(s => s.autoplayState);
+  const isAutoplayPlaying = autoplayState === 'playing';
+  const isAutoplayPaused = autoplayState === 'paused';
+  const isAutoplayActive = isAutoplayPlaying || isAutoplayPaused;
+
+  const autoplayFrontPause = useSettingsStore(s => s.autoplayFrontPause);
+  const setAutoplayFrontPause = useSettingsStore(s => s.setAutoplayFrontPause);
+  const autoplayBackPause = useSettingsStore(s => s.autoplayBackPause);
+  const setAutoplayBackPause = useSettingsStore(s => s.setAutoplayBackPause);
+  const autoplayCardRepeat = useSettingsStore(s => s.autoplayCardRepeat);
+  const setAutoplayCardRepeat = useSettingsStore(s => s.setAutoplayCardRepeat);
+  const ttsSpeed = useSettingsStore(s => s.ttsSpeed);
+  const setTtsSpeed = useSettingsStore(s => s.setTtsSpeed);
+  const ttsSpeedRu = useSettingsStore(s => s.ttsSpeedRu);
+  const setTtsSpeedRu = useSettingsStore(s => s.setTtsSpeedRu);
+  const autoplayLoop = useSettingsStore(s => s.autoplayLoop);
+  const setAutoplayLoop = useSettingsStore(s => s.setAutoplayLoop);
+  const autoplayForceFrontAudio = useSettingsStore(s => s.autoplayForceFrontAudio);
+  const setAutoplayForceFrontAudio = useSettingsStore(s => s.setAutoplayForceFrontAudio);
+  const autoplayForceBackAudio = useSettingsStore(s => s.autoplayForceBackAudio);
+  const setAutoplayForceBackAudio = useSettingsStore(s => s.setAutoplayForceBackAudio);
 
   const toggleFolder = (folderId) => {
     setExpandedFolders(prev => ({
@@ -127,7 +155,8 @@ export const CardActionModal = ({
           <div className="settings-header" style={{ marginBottom: '20px' }}>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>
               {mode === 'main' ? 'Управление карточкой' : 
-               mode === 'move' ? 'Переместить' : 'Копировать'}
+               mode === 'move' ? 'Переместить' : 
+               mode === 'copy' ? 'Копировать' : 'Режим «Авто»'}
             </h2>
             <button className="close-btn" onClick={onClose} style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
               <X size={20} />
@@ -137,6 +166,26 @@ export const CardActionModal = ({
           <div className="settings-content">
             {mode === 'main' && (
               <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+                <button 
+                  className="action-menu-item" 
+                  onClick={() => setMode('autoplay')}
+                >
+                  <div className="action-menu-icon" style={{ 
+                    background: isAutoplayActive ? 'rgba(239, 68, 68, 0.12)' : 'linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(168, 85, 247, 0.15))', 
+                    color: isAutoplayActive ? '#f87171' : '#38bdf8' 
+                  }}>
+                    {isAutoplayActive ? <Square size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+                  </div>
+                  <div className="action-menu-text">
+                    <strong style={{ color: isAutoplayActive ? '#f87171' : undefined }}>
+                      {isAutoplayActive ? 'Режим «Авто» (Активен)' : 'Режим «Авто»'}
+                    </strong>
+                    <span>
+                      {isAutoplayActive ? 'Остановить или настроить параметры' : 'Автоматическое воспроизведение карточек'}
+                    </span>
+                  </div>
+                </button>
 
                 <button 
                   className="action-menu-item" 
@@ -228,6 +277,199 @@ export const CardActionModal = ({
                     <strong style={{ color: '#ef4444' }}>Удалить карточку</strong>
                     <span>Это действие нельзя отменить</span>
                   </div>
+                </button>
+              </div>
+            )}
+
+            {mode === 'autoplay' && (
+              <div className="autoplay-modal-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  {!isAutoplayActive ? (
+                    <button
+                      className="btn-primary btn-full"
+                      onClick={() => {
+                        if (onStartAutoplay) {
+                          onStartAutoplay(card);
+                        } else {
+                          const { startAutoplayFn } = useSessionStore.getState();
+                          if (startAutoplayFn) startAutoplayFn();
+                        }
+                        onClose();
+                      }}
+                      style={{
+                        height: '50px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        fontSize: '1rem',
+                        fontWeight: 700,
+                        borderRadius: '16px',
+                        background: 'linear-gradient(135deg, #0ea5e9, #a855f7)',
+                        boxShadow: '0 4px 16px rgba(14, 165, 233, 0.3)'
+                      }}
+                    >
+                      <Play size={20} fill="currentColor" />
+                      <span>Запустить авто-режим</span>
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => {
+                          const { pauseAutoplayFn, resumeAutoplayFn } = useSessionStore.getState();
+                          if (isAutoplayPaused) {
+                            if (resumeAutoplayFn) resumeAutoplayFn();
+                          } else {
+                            if (pauseAutoplayFn) pauseAutoplayFn();
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          height: '48px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          borderRadius: '14px',
+                          fontWeight: 600
+                        }}
+                      >
+                        {isAutoplayPaused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
+                        <span>{isAutoplayPaused ? 'Продолжить' : 'Пауза'}</span>
+                      </button>
+
+                      <button
+                        className="btn-secondary"
+                        onClick={() => {
+                          const { stopAutoplayFn, stopAutoplay } = useSessionStore.getState();
+                          if (stopAutoplayFn) stopAutoplayFn();
+                          else stopAutoplay();
+                        }}
+                        style={{
+                          flex: 1,
+                          height: '48px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          borderRadius: '14px',
+                          borderColor: 'rgba(239, 68, 68, 0.4)',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          color: '#fca5a5',
+                          fontWeight: 600
+                        }}
+                      >
+                        <Square size={16} fill="currentColor" />
+                        <span>Остановить</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="autoplay-control-grid" style={{ marginTop: '5px' }}>
+                  <label className="autoplay-field">
+                    <span>После фразы</span>
+                    <select
+                      value={autoplayFrontPause}
+                      onChange={(e) => setAutoplayFrontPause(e.target.value)}
+                    >
+                      {PAUSE_OPTIONS.map((value) => (
+                        <option key={value} value={value}>{value}с</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="autoplay-field">
+                    <span>После перевода</span>
+                    <select
+                      value={autoplayBackPause}
+                      onChange={(e) => setAutoplayBackPause(e.target.value)}
+                    >
+                      {PAUSE_OPTIONS.map((value) => (
+                        <option key={value} value={value}>{value}с</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="autoplay-field" style={{ gridColumn: 'span 2' }}>
+                    <span>Повторов подряд</span>
+                    <select
+                      value={autoplayCardRepeat}
+                      onChange={(e) => setAutoplayCardRepeat(e.target.value)}
+                    >
+                      {PAUSE_OPTIONS.map((value) => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="autoplay-slider">
+                    <span>DE {ttsSpeed > 0 ? '+' : ''}{ttsSpeed}%</span>
+                    <input
+                      type="range"
+                      min="-50"
+                      max="50"
+                      step="5"
+                      value={ttsSpeed}
+                      onChange={(e) => setTtsSpeed(e.target.value)}
+                      list="autoplay-speed-values-modal"
+                    />
+                  </label>
+
+                  <label className="autoplay-slider">
+                    <span>RU {ttsSpeedRu > 0 ? '+' : ''}{ttsSpeedRu}%</span>
+                    <input
+                      type="range"
+                      min="-50"
+                      max="50"
+                      step="5"
+                      value={ttsSpeedRu}
+                      onChange={(e) => setTtsSpeedRu(e.target.value)}
+                      list="autoplay-speed-values-modal"
+                    />
+                  </label>
+                </div>
+
+                <datalist id="autoplay-speed-values-modal">
+                  {SPEED_OPTIONS.map((value) => <option key={value} value={value} />)}
+                </datalist>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label className="autoplay-loop">
+                    <input
+                      type="checkbox"
+                      checked={autoplayLoop}
+                      onChange={(e) => setAutoplayLoop(e.target.checked)}
+                    />
+                    <span>Повторять колоду</span>
+                  </label>
+
+                  <label className="autoplay-loop">
+                    <input
+                      type="checkbox"
+                      checked={autoplayForceFrontAudio}
+                      onChange={(e) => setAutoplayForceFrontAudio(e.target.checked)}
+                    />
+                    <span><RotateCw size={14} /> Генерировать фразу заново</span>
+                  </label>
+
+                  <label className="autoplay-loop">
+                    <input
+                      type="checkbox"
+                      checked={autoplayForceBackAudio}
+                      onChange={(e) => setAutoplayForceBackAudio(e.target.checked)}
+                    />
+                    <span><RotateCw size={14} /> Генерировать перевод заново</span>
+                  </label>
+                </div>
+
+                <button 
+                  className="btn-secondary btn-full" 
+                  onClick={() => setMode('main')} 
+                  style={{ height: '46px', marginTop: '6px', borderRadius: '14px' }}
+                >
+                  Назад
                 </button>
               </div>
             )}

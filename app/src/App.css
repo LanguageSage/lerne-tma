@@ -267,22 +267,30 @@
 .flip-hint-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(99, 102, 241, 0.15));
+  border: 1.5px solid rgba(168, 85, 247, 0.45);
   border-radius: 999px;
-  padding: 6px 14px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.8rem;
-  font-weight: 500;
+  padding: 8px 18px;
+  color: #f3e8ff;
+  font-size: 0.9rem;
+  font-weight: 700;
   margin-top: auto;
   pointer-events: auto;
   cursor: pointer;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
-  animation: pulse-subtle 2s infinite ease-in-out;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: pulse-subtle 2.5s infinite ease-in-out;
+}
+
+.flip-hint-badge:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(99, 102, 241, 0.28));
+  border-color: rgba(216, 180, 254, 0.8);
+  color: #ffffff;
+  transform: scale(1.04);
+  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 @keyframes pulse-subtle {
