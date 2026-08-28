@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Send, BarChart2, Sparkles } from 'lucide-react';
+import { User, Mail, Send, BarChart2, Sparkles, Link as LinkIcon, Copy, ExternalLink } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import api from '../../services/api';
 import { isOfflineMode } from '../../services/localDb';
 import { syncService } from '../../services/syncService';
 import { SrsStatsModal } from '../study/SrsStatsModal';
+import { openExternalLink } from '../../utils/platform';
 
 export const ProfileTab = () => {
-  const { userProfile, setUserProfile, showToast } = useUiStore();
+  const { userProfile, setUserProfile, showToast, userId } = useUiStore();
   const [name, setName] = useState(userProfile?.first_name || '');
   const [email, setEmail] = useState(userProfile?.email || '');
   const [phone, setPhone] = useState(userProfile?.phone || '');
   const [isSaving, setIsSaving] = useState(false);
   const [srsStatsOpen, setSrsStatsOpen] = useState(false);
+
+  const currentUserId = userId || userProfile?.user_id;
+  const accountParam = userProfile?.username 
+    ? `&account=${userProfile.username}` 
+    : (userProfile?.first_name ? `&account=${encodeURIComponent(userProfile.first_name)}` : '');
+  const personalLink = currentUserId ? `${window.location.origin}/?user_id=${currentUserId}${accountParam}` : '';
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -158,6 +165,70 @@ export const ProfileTab = () => {
             Открыть аналитику SRS
           </button>
         </div>
+
+        {/* Personal Web Link Section */}
+        {personalLink && (
+          <div className="link-telegram-section glass" style={{ marginTop: '16px', border: '1px solid rgba(99, 102, 241, 0.3)', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.04))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <LinkIcon size={18} color="#818cf8" />
+                Персональная ссылка
+              </h4>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 12px 0' }}>
+              Ваша уникальная ссылка для доступа к аккаунту и колодам из любого браузера.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0, 0, 0, 0.25)', padding: '8px 12px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <span style={{ fontSize: '0.82rem', color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, userSelect: 'all' }}>
+                {personalLink}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(personalLink);
+                  showToast("Ссылка скопирована!", "success");
+                }}
+                style={{
+                  background: 'rgba(168, 85, 247, 0.2)',
+                  border: '1px solid rgba(168, 85, 247, 0.4)',
+                  color: '#c084fc',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  flexShrink: 0
+                }}
+                title="Копировать ссылку"
+              >
+                <Copy size={14} />
+                <span>Копировать</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openExternalLink(personalLink)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#cbd5e1',
+                  borderRadius: '8px',
+                  padding: '6px 8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+                title="Открыть в браузере"
+              >
+                <ExternalLink size={14} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {userProfile?.is_guest && (
           <div className="link-telegram-section glass">

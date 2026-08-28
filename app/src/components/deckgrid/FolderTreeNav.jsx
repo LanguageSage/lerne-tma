@@ -45,8 +45,7 @@ export const FolderCardItem = React.memo(({
   setActiveFolderId,
   decks,
   folders,
-  showToast,
-  index
+  showToast
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
@@ -225,12 +224,6 @@ export const FolderCardItem = React.memo(({
         </div>
 
         <div className="deck-footer-actions-right">
-          {typeof index === 'number' && (
-            <span className="card-item-corner-number">
-              {index + 1}
-            </span>
-          )}
-
           <button 
             className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
             onClick={(e) => {

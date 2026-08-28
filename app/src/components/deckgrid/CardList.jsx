@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, Reorder, useDragControls } from 'framer-motion';
-import { ChevronLeft, Plus, ListPlus, Edit2, Settings, Play, RefreshCw, GripHorizontal, Paperclip, ExternalLink, Crop, Loader2, Palette, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, Plus, ListPlus, Settings, Play, RefreshCw, GripHorizontal, ExternalLink, Crop, Loader2, Search, ChevronDown, ChevronUp, MoreHorizontal, ChevronRight } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
 import { useUiStore } from '../../store/useUiStore';
@@ -12,7 +12,7 @@ import { ImageEditorModal } from '../common/ImageEditorModal';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 
 import DeckAudioPlayer from '../common/DeckAudioPlayer';
-import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
+import { getFlagStyle } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
@@ -23,13 +23,32 @@ import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
 import { matchCard } from '../../utils/search';
 
+const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds = []) => {
+  const result = [];
+  const traverse = (parentId, depth) => {
+    const children = foldersList.filter(f => f.parent_id === parentId);
+    for (const child of children) {
+      if (child.id === excludeId || excludeDescendantIds.includes(child.id)) {
+        continue;
+      }
+      result.push({
+        ...child,
+        depth: depth,
+        displayName: `${'\u00A0'.repeat(depth * 3)}${child.name}`
+      });
+      traverse(child.id, depth + 1);
+    }
+  };
+  traverse(null, 0);
+  return result;
+};
+
 const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [hasOverflow, setHasOverflow] = React.useState(false);
   const textRef = React.useRef(null);
   const dragControls = useDragControls();
   const flagStyle = getFlagStyle(c.flag);
-  const flagInfo = FLAG_COLORS[c.flag] || FLAG_COLORS[0];
   const { setLastSelectedCardId, setCardsScrollTop } = useUiStore();
   const {
     cardFont,
@@ -125,20 +144,6 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard })
             <GripHorizontal size={20} />
           </div>
 
-          {flagInfo.hex && (
-            <span 
-              style={{ 
-                width: '8px', 
-                height: '8px', 
-                borderRadius: '50%', 
-                backgroundColor: flagInfo.hex, 
-                boxShadow: `0 0 6px ${flagInfo.hex}`,
-                flexShrink: 0 
-              }} 
-              title={`Флаг: ${flagInfo.name}`} 
-            />
-          )}
-
           <CardLevelBadge card={c} size="sm" />
 
           {isQuizCard && (
@@ -182,6 +187,7 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard })
               {index + 1}
             </span>
           )}
+
           <CardActionButton 
             card={c} 
             size={16} 
@@ -196,12 +202,134 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard })
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const { t } = useTranslation();
-  const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen } = useUiStore();
-  const { currentDeck, deckCards, cardsLoading } = useDeckStore();
+  const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen, showToast } = useUiStore();
+  const { currentDeck, deckCards, cardsLoading, folders, handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [isMediaModalOpen, setIsMediaModalOpen] = React.useState(false);
+  const [isDeckMenuOpen, setIsDeckMenuOpen] = React.useState(false);
+  const [isMoveMenuOpen, setIsMoveMenuOpen] = React.useState(false);
+  const [isCopyMenuOpen, setIsCopyMenuOpen] = React.useState(false);
+  const deckMenuRef = React.useRef(null);
   const [editingDeckImgSrc, setEditingDeckImgSrc] = React.useState(null);
   const [editingDeckImgIndex, setEditingDeckImgIndex] = React.useState(-1);
+
+  React.useEffect(() => {
+    if (!isDeckMenuOpen) return;
+    const handleClickOutside = (event) => {
+      if (deckMenuRef.current && !deckMenuRef.current.contains(event.target)) {
+        setIsDeckMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isDeckMenuOpen]);
+
+  React.useEffect(() => {
+    if (!isDeckMenuOpen) {
+      setIsMoveMenuOpen(false);
+      setIsCopyMenuOpen(false);
+    }
+  }, [isDeckMenuOpen]);
+
+  const handleShare = async (e) => {
+    e?.stopPropagation();
+    setIsDeckMenuOpen(false);
+    try {
+      const result = await useDeckStore.getState().handleShareDeck(currentDeck.id);
+      if (result.success) {
+        if (result.type === 'copy') showToast('Ссылка скопирована!', 'success');
+        else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
+      }
+    } catch {
+      showToast('Ошибка при создании ссылки', 'error');
+    }
+  };
+
+  const handleSync = (e) => {
+    e?.stopPropagation();
+    setIsDeckMenuOpen(false);
+    handleSyncDeck(currentDeck.id);
+  };
+
+  const handleRename = (e) => {
+    e?.stopPropagation();
+    setIsDeckMenuOpen(false);
+    setDeckToRename(currentDeck);
+    setIsRenameModalOpen(true);
+  };
+
+  const handleReset = async (e) => {
+    e?.stopPropagation();
+    setIsDeckMenuOpen(false);
+    if (window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) {
+      try {
+        await handleResetProgress(currentDeck.id);
+        showToast("Прогресс успешно сброшен", "success");
+      } catch {
+        showToast("Ошибка при сбросе прогресса");
+      }
+    }
+  };
+
+  const handleDelete = (e) => {
+    e?.stopPropagation();
+    setIsDeckMenuOpen(false);
+    if (window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) {
+      handleDeleteDeck(currentDeck.id);
+      setView('decks');
+    }
+  };
+
+  const handleReclassifyDeck = async (e) => {
+    e?.stopPropagation();
+    setIsDeckMenuOpen(false);
+    showToast('Обновление уровней колоды...', 'info');
+    try {
+      const response = await fetch('/api/cards/classify-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: currentDeck.id, target_language: currentDeck.target_language || 'de' })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        useDeckStore.getState().fetchDeckCards(currentDeck.id);
+        showToast(`✨ Уровни карточек обновлены! (${data.updated_count || 0} шт.)`, 'success');
+      } else {
+        showToast('Ошибка при переклассификации');
+      }
+    } catch {
+      showToast('Ошибка сети при переклассификации');
+    }
+  };
+
+  const handleMoveToFolder = async (e, folderId) => {
+    e?.stopPropagation();
+    setIsDeckMenuOpen(false);
+    setIsMoveMenuOpen(false);
+    try {
+      await useDeckStore.getState().moveDeckToFolder(currentDeck.id, folderId);
+      showToast("Колода перемещена", "success");
+    } catch {
+      showToast("Ошибка при перемещении колоды", "error");
+    }
+  };
+
+  const handleCopyToFolder = async (e, folderId) => {
+    e?.stopPropagation();
+    setIsDeckMenuOpen(false);
+    setIsCopyMenuOpen(false);
+    try {
+      await useDeckStore.getState().copyDeckToFolder(currentDeck.id, folderId);
+      showToast("Колода скопирована", "success");
+    } catch {
+      showToast("Ошибка при копировании колоды", "error");
+    }
+  };
 
   const filteredCards = React.useMemo(() => {
     if (!deckCards) return [];
@@ -356,25 +484,23 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
 
             <HelpButton onClick={() => startTutorial('cards')} />
 
+            {/* Search Toggle Button */}
             <button
-              className="header-action-btn"
-              onClick={() => setIsMediaModalOpen(true)}
-              title="Ресурсы колоды"
+              className={`header-action-btn ${isSearchOpen ? 'active' : ''}`}
+              onClick={() => {
+                setIsSearchOpen(prev => {
+                  if (prev) setSearchQuery('');
+                  return !prev;
+                });
+              }}
+              title="Поиск карточек"
+              style={{
+                color: (isSearchOpen || searchQuery) ? '#c084fc' : 'currentColor',
+                background: (isSearchOpen || searchQuery) ? 'rgba(168, 85, 247, 0.2)' : undefined,
+                borderColor: (isSearchOpen || searchQuery) ? 'rgba(168, 85, 247, 0.5)' : undefined
+              }}
             >
-              <Paperclip size={22} style={{
-                color: (currentDeck?.metadata && (typeof currentDeck.metadata === 'string' ? JSON.parse(currentDeck.metadata) : currentDeck.metadata)?.resources?.length > 0) ? '#c084fc' : 'currentColor'
-              }} />
-            </button>
-
-
-            <button
-              id="tut-cardlist-design"
-              className="header-action-btn design-btn"
-              onClick={() => useUiStore.getState().openSettings('design')}
-              title="Дизайн карточек"
-              style={{ color: '#c084fc' }}
-            >
-              <Palette size={22} />
+              <Search size={20} />
             </button>
 
             <button 
@@ -384,8 +510,180 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             >
               <Settings size={22} />
             </button>
+
+            {/* Deck Options Dropdown Menu Button */}
+            <div style={{ position: 'relative' }} ref={deckMenuRef}>
+              <button 
+                className={`header-action-btn ${isDeckMenuOpen ? 'active' : ''}`} 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDeckMenuOpen(prev => !prev);
+                }}
+                title="Опции колоды"
+                style={{
+                  color: isDeckMenuOpen ? '#c084fc' : 'currentColor',
+                  background: isDeckMenuOpen ? 'rgba(168, 85, 247, 0.2)' : undefined,
+                  borderColor: isDeckMenuOpen ? 'rgba(168, 85, 247, 0.5)' : undefined
+                }}
+              >
+                <MoreHorizontal size={22} />
+              </button>
+
+              {isDeckMenuOpen && (
+                <div 
+                  className="deck-dropdown-menu glass" 
+                  style={{
+                    top: 'calc(100% + 6px)',
+                    bottom: 'auto',
+                    right: 0,
+                    transformOrigin: 'top right'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button className="dropdown-item" onClick={() => {
+                    setIsDeckMenuOpen(false);
+                    setIsMediaModalOpen(true);
+                  }}>
+                    <span>📎 Ресурсы колоды</span>
+                  </button>
+
+                  {!currentDeck?.is_inbox && (
+                    <button className="dropdown-item" onClick={handleRename}>
+                      <span>✍️ Переименовать</span>
+                    </button>
+                  )}
+
+                  {!currentDeck?.is_inbox && (
+                    <button className="dropdown-item" onClick={() => {
+                      setIsDeckMenuOpen(false);
+                      useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: currentDeck.id, name: currentDeck.name });
+                      useUiStore.getState().setIsCollaboratorsModalOpen(true);
+                    }}>
+                      <span>👥 Совместный доступ</span>
+                    </button>
+                  )}
+
+                  {!currentDeck?.is_inbox && (
+                    <button className="dropdown-item" onClick={handleShare}>
+                      <span>🔗 Поделиться</span>
+                    </button>
+                  )}
+
+                  {!currentDeck?.is_inbox && (
+                    <button className="dropdown-item" onClick={handleSync}>
+                      <span>🔄 {currentDeck?.has_updates ? '❗️ Обновить' : 'Обновить'}</span>
+                    </button>
+                  )}
+
+                  {!currentDeck?.is_inbox && (
+                    <>
+                      <button 
+                        className={`dropdown-item ${isMoveMenuOpen ? 'active' : ''}`} 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsMoveMenuOpen(prev => !prev);
+                        }}
+                      >
+                        <span>📁 Переместить в</span>
+                        <ChevronRight 
+                          size={14} 
+                          style={{ 
+                            marginLeft: 'auto', 
+                            transform: isMoveMenuOpen ? 'rotate(90deg)' : 'none',
+                            transition: 'transform 0.2s' 
+                          }} 
+                        />
+                      </button>
+                      {isMoveMenuOpen && (
+                        <div className="dropdown-sub-menu">
+                          <button 
+                            className={`dropdown-sub-item ${currentDeck?.folder_id === null ? 'current' : ''}`}
+                            onClick={(e) => handleMoveToFolder(e, null)}
+                          >
+                            <span>Без папки (Главная)</span>
+                          </button>
+                          {getSortedFolderTree(folders || []).map(f => (
+                            <button 
+                              key={f.id}
+                              className={`dropdown-sub-item ${currentDeck?.folder_id === f.id ? 'current' : ''}`}
+                              onClick={(e) => handleMoveToFolder(e, f.id)}
+                              style={{ paddingLeft: `${12 + f.depth * 14}px` }}
+                            >
+                              <span>{f.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <button 
+                        className={`dropdown-item ${isCopyMenuOpen ? 'active' : ''}`} 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsCopyMenuOpen(prev => !prev);
+                        }}
+                      >
+                        <span>📋 Скопировать в</span>
+                        <ChevronRight 
+                          size={14} 
+                          style={{ 
+                            marginLeft: 'auto', 
+                            transform: isCopyMenuOpen ? 'rotate(90deg)' : 'none',
+                            transition: 'transform 0.2s' 
+                          }} 
+                        />
+                      </button>
+                      {isCopyMenuOpen && (
+                        <div className="dropdown-sub-menu">
+                          <button 
+                            className={`dropdown-sub-item ${currentDeck?.folder_id === null ? 'current' : ''}`}
+                            onClick={(e) => handleCopyToFolder(e, null)}
+                          >
+                            <span>Без папки (Главная)</span>
+                          </button>
+                          {getSortedFolderTree(folders || []).map(f => (
+                            <button 
+                              key={f.id}
+                              className={`dropdown-sub-item ${currentDeck?.folder_id === f.id ? 'current' : ''}`}
+                              onClick={(e) => handleCopyToFolder(e, f.id)}
+                              style={{ paddingLeft: `${12 + f.depth * 14}px` }}
+                            >
+                              <span>{f.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <button className="dropdown-item" onClick={handleReclassifyDeck}>
+                        <span>✨ Обновить CEFR-уровни</span>
+                      </button>
+                      <button className="dropdown-item warning" onClick={handleReset}>
+                        <span>🧹 Сбросить прогресс</span>
+                      </button>
+                      <button className="dropdown-item danger" onClick={handleDelete}>
+                        <span>🗑️ Удалить колоду</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Expandable Search Input in CardList */}
+        {isSearchOpen && (
+          <div style={{ padding: '0 15px', marginTop: '10px', marginBottom: '4px' }}>
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder={t('cards.search_placeholder', 'Поиск по слову, переводу...')}
+              count={filteredCards.length}
+              total={deckCards?.length || 0}
+              countLabel={t('cards.search_found', { count: filteredCards.length, total: deckCards?.length || 0 })}
+              autoFocus={true}
+            />
+          </div>
+        )}
 
         {isShared && (
           <div style={{ padding: '0 15px', marginTop: '10px' }}>
@@ -393,46 +691,45 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           </div>
         )}
 
-        <div style={{ padding: '0 15px', marginTop: '15px', marginBottom: '10px', textAlign: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
-            <h1 style={{ 
-              fontSize: '1.4rem', 
-              fontWeight: 800, 
-              margin: 0,
-              background: 'linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+        {/* 2-line Hero Study Deck Button */}
+        <div style={{ padding: '0 15px', marginTop: '12px', marginBottom: '8px' }}>
+          <button 
+            className="btn btn-primary btn-full study-deck-hero-btn"
+            style={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '6px',
+              padding: '14px 18px',
+              borderRadius: '18px',
+              background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
+              boxShadow: '0 8px 24px rgba(168, 85, 247, 0.38)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              cursor: (!deckCards || deckCards.length === 0) ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+            onClick={() => startStudy(currentDeck)}
+            disabled={!deckCards || deckCards.length === 0}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '1.05rem', fontWeight: 700, color: '#ffffff' }}>
+              <Play size={20} fill="currentColor" />
+              <span>Учить колоду ({deckCards?.length || 0})</span>
+            </div>
+            <div style={{ 
+              fontSize: '1.05rem', 
+              fontWeight: 700, 
+              color: '#ffffff',
               textAlign: 'center',
-              lineHeight: 1.3,
-              overflowWrap: 'anywhere'
+              wordBreak: 'break-word',
+              lineHeight: 1.35,
+              width: '100%'
             }}>
               {currentDeck?.name}
-            </h1>
-            {currentDeck && !currentDeck.is_inbox && (
-              <button 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  setDeckToRename(currentDeck); 
-                  setIsRenameModalOpen(true); 
-                }}
-                style={{ 
-                  background: 'transparent', 
-                  border: 'none', 
-                  color: '#a0ad0e', 
-                  cursor: 'pointer', 
-                  display: 'inline-flex', 
-                  padding: '4px',
-                  flexShrink: 0,
-                  transition: 'color 0.2s'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.color = '#c4d320'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#a0ad0e'}
-                title="Переименовать колоду"
-              >
-                <Edit2 size={24} />
-              </button>
-            )}
-          </div>
+            </div>
+          </button>
         </div>
 
         {(() => {
@@ -451,88 +748,13 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
 
           return (
             <>
-              {resources.length === 0 && (
-                <div 
-                  onClick={() => setIsMediaModalOpen(true)}
-                  style={{
-                    margin: '10px 15px 15px 15px',
-                    padding: '12px',
-                    borderRadius: '14px',
-                    border: '1px dashed rgba(255, 255, 255, 0.15)',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    cursor: 'pointer',
-                    color: '#94a3b8',
-                    fontSize: '0.85rem',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseOver={e => {
-                    e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.4)';
-                    e.currentTarget.style.color = '#c084fc';
-                    e.currentTarget.style.background = 'rgba(168, 85, 247, 0.04)';
-                  }}
-                  onMouseOut={e => {
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                    e.currentTarget.style.color = '#94a3b8';
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                  }}
-                >
-                  <Paperclip size={16} />
-                  <span>Прикрепить картинку, аудио или ссылку к колоде</span>
-                </div>
-              )}
-
-              {resources.length > 0 && (
-                <div style={{
-                  margin: '5px 15px 10px 15px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Ресурсы колоды
-                  </span>
-                  <button
-                    onClick={() => setIsMediaModalOpen(true)}
-                    style={{
-                      background: 'rgba(168, 85, 247, 0.15)',
-                      border: '1px solid rgba(168, 85, 247, 0.3)',
-                      color: '#c084fc',
-                      padding: '4px 10px',
-                      borderRadius: '8px',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseOver={e => {
-                      e.currentTarget.style.background = 'rgba(168, 85, 247, 0.25)';
-                      e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.5)';
-                    }}
-                    onMouseOut={e => {
-                      e.currentTarget.style.background = 'rgba(168, 85, 247, 0.15)';
-                      e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.3)';
-                    }}
-                  >
-                    <Plus size={12} />
-                    <span>Добавить / Изменить</span>
-                  </button>
-                </div>
-              )}
-
               {images.length > 0 && (
                 <div className="deck-images-gallery" style={{
-                  margin: '10px 15px 15px 15px',
+                  margin: '4px 15px 8px 15px',
                   display: 'flex',
                   gap: '10px',
                   overflowX: 'auto',
-                  paddingBottom: '5px',
+                  paddingBottom: '4px',
                   scrollSnapType: 'x mandatory',
                   WebkitOverflowScrolling: 'touch'
                 }}>
@@ -554,7 +776,11 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                           position: 'relative',
                           borderRadius: '16px',
                           overflow: 'hidden',
-                          border: '1px solid rgba(255, 255, 255, 0.12)'
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0, 0, 0, 0.25)'
                         }}>
                           <img 
                             src={imgSrc} 
@@ -562,7 +788,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             style={{ 
                               display: 'block',
                               width: '100%', 
-                              height: `${imageHeight}px`, 
+                              height: 'auto',
+                              maxHeight: `${imageHeight}px`, 
                               objectFit: 'contain',
                               cursor: 'zoom-in' 
                             }} 
@@ -577,20 +804,20 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             }}
                             style={{
                               position: 'absolute',
-                              top: '10px',
-                              right: '10px',
+                              top: '8px',
+                              right: '8px',
                               background: 'rgba(0, 0, 0, 0.7)',
                               backdropFilter: 'blur(6px)',
                               border: '1px solid rgba(255, 255, 255, 0.25)',
                               color: '#e9d5ff',
-                              padding: '6px 12px',
-                              borderRadius: '10px',
-                              fontSize: '0.8rem',
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              fontSize: '0.75rem',
                               fontWeight: 600,
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '6px',
+                              gap: '5px',
                               zIndex: 2,
                               boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
                               transition: 'all 0.2s'
@@ -599,20 +826,20 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             onMouseOut={e => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)'}
                             title="Редактировать изображение списка"
                           >
-                            <Crop size={14} />
+                            <Crop size={13} />
                             <span>Изменить</span>
                           </button>
 
                           {images.length > 1 && (
                             <div style={{
                               position: 'absolute',
-                              top: '10px',
-                              left: '12px',
+                              top: '8px',
+                              left: '8px',
                               background: 'rgba(0, 0, 0, 0.65)',
                               color: 'white',
-                              fontSize: '0.75rem',
-                              padding: '3px 10px',
-                              borderRadius: '10px',
+                              fontSize: '0.72rem',
+                              padding: '2px 8px',
+                              borderRadius: '8px',
                               fontWeight: 600
                             }}>
                               {idx + 1} / {images.length}
@@ -626,12 +853,12 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                           onTouchStart={startResizeDrag}
                           title="Потяни чтобы изменить высоту"
                           style={{
-                            height: '16px',
+                            height: '14px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             cursor: 'ns-resize',
-                            margin: '2px 0 4px 0',
+                            margin: '2px 0',
                             userSelect: 'none',
                             touchAction: 'none'
                           }}
@@ -656,8 +883,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             gap: '8px',
-                            marginTop: '8px',
-                            padding: '8px 12px',
+                            marginTop: '4px',
+                            padding: '6px 12px',
                             borderRadius: '12px',
                             background: 'rgba(255, 255, 255, 0.04)',
                             border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -667,7 +894,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             boxSizing: 'border-box'
                           }}
                         >
-                          <span style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 500 }}>
+                          <span style={{ fontSize: '0.78rem', color: '#e2e8f0', fontWeight: 500 }}>
                             Показывать картинку в каждой карточке
                           </span>
                           <input
@@ -675,8 +902,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             checked={img.show_in_cards !== false}
                             onChange={(e) => handleToggleShowInCards(img, e.target.checked)}
                             style={{
-                              width: '18px',
-                              height: '18px',
+                              width: '16px',
+                              height: '16px',
                               accentColor: '#a855f7',
                               cursor: 'pointer'
                             }}
@@ -694,7 +921,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
 
               {videos.map((vid, idx) => (
                 <div key={idx} className="glass" style={{
-                  margin: '0 15px 15px 15px',
+                  margin: '0 15px 10px 15px',
                   borderRadius: '16px',
                   overflow: 'hidden',
                   border: '1px solid rgba(251, 113, 133, 0.2)',
@@ -711,7 +938,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
 
               {links.length > 0 && (
                 <div style={{
-                  margin: '0 15px 15px 15px',
+                  margin: '0 15px 10px 15px',
                   display: 'flex',
                   flexWrap: 'wrap',
                   gap: '8px'
@@ -744,40 +971,6 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             </>
           );
         })()}
-
-        <div style={{ padding: '0 15px', marginBottom: '12px' }}>
-          <button 
-            className="btn btn-primary btn-full"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              gap: '8px',
-              padding: '14px',
-              fontSize: '1.05rem',
-              fontWeight: 700,
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
-              boxShadow: '0 8px 20px rgba(168, 85, 247, 0.35)'
-            }}
-            onClick={() => startStudy(currentDeck)}
-            disabled={!deckCards || deckCards.length === 0}
-          >
-            <Play size={20} fill="currentColor" />
-            <span>Учить колоду ({deckCards?.length || 0})</span>
-          </button>
-        </div>
-
-        {deckCards && deckCards.length > 0 && (
-          <SearchBar
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder={t('cards.search_placeholder', 'Поиск по слову, переводу...')}
-            count={filteredCards.length}
-            total={deckCards.length}
-            countLabel={t('cards.search_found', { count: filteredCards.length, total: deckCards.length })}
-          />
-        )}
 
         <div id="tut-card-list-content" className="card-list">
           {cardsLoading ? (

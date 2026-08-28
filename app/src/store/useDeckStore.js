@@ -65,7 +65,7 @@ export const useDeckStore = create((set, get) => ({
       storage.set('lerne_current_deck_id', String(deck.id));
     }
     if (!prevDeck || prevDeck.id !== deck?.id) {
-      set({ currentDeck: deck, cardsLoading: true });
+      set({ currentDeck: deck, deckCards: [], cardsLoading: true });
     } else {
       set({ currentDeck: deck });
     }

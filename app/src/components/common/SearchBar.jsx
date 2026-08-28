@@ -49,7 +49,7 @@ export const SearchBar = ({
   return (
     <div className={`card-search-wrapper ${wrapperClassName}`} style={style}>
       <div className={`card-search-box search-bar-theme-${color} ${className}`}>
-        <Search size={18} className="card-search-icon" />
+        <Search size={15} className="card-search-icon" />
         <input
           ref={inputRef}
           type="text"
@@ -69,7 +69,7 @@ export const SearchBar = ({
             title={t('cards.search_clear', 'Очистить')}
             aria-label="Очистить поиск"
           >
-            <X size={14} />
+            <X size={13} />
           </button>
         )}
       </div>

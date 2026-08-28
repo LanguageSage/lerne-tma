@@ -279,3 +279,15 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+/* 2-line Hero Study Button */
+.study-deck-hero-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(168, 85, 247, 0.5) !important;
+  background: linear-gradient(135deg, #b865f8 0%, #7376f2 100%) !important;
+}
+
+.study-deck-hero-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.3) !important;
+}
+

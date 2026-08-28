@@ -29,7 +29,6 @@ const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds
 
 export const DeckCardItem = React.memo(({
   deck,
-  index,
   setCurrentDeck,
   fetchDeckCards,
   showToast,
@@ -354,12 +353,6 @@ export const DeckCardItem = React.memo(({
         </div>
 
         <div className="deck-footer-actions-right">
-          {typeof index === 'number' && (
-            <span className="card-item-corner-number">
-              {index + 1}
-            </span>
-          )}
-
           <button 
             className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
             onClick={(e) => {

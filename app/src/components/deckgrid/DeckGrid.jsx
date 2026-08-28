@@ -15,15 +15,15 @@ import { matchFolder, matchDeck } from '../../utils/search';
 
 export const DeckGrid = ({ 
   startTutorial, 
-  userId, 
   openSyncModal
 }) => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [deckSearchQuery, setDeckSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const { 
     view, loading, hasInitialized, setIsNewDeckModalOpen, setIsSettingsOpen, 
-    showToast, userProfile, setIsRenameModalOpen, setDeckToRename, 
+    showToast, setIsRenameModalOpen, setDeckToRename, 
     activeFolderId, setActiveFolderId 
   } = useUiStore();
 
@@ -65,24 +65,7 @@ export const DeckGrid = ({
     return currentDecks.filter(d => matchDeck(d, deckSearchQuery));
   }, [currentDecks, deckSearchQuery]);
 
-  const getOriginalFolderIndex = React.useCallback((folderId) => {
-    if (!currentFolders) return 0;
-    const idx = currentFolders.findIndex(f => f.id === folderId);
-    return idx >= 0 ? idx : 0;
-  }, [currentFolders]);
-
-  const getOriginalDeckIndex = React.useCallback((deckId) => {
-    if (!currentDecks) return 0;
-    const idx = currentDecks.findIndex(d => d.id === deckId);
-    return idx >= 0 ? idx : 0;
-  }, [currentDecks]);
-
   if (view !== 'decks') return null;
-
-  const accountParam = userProfile?.username 
-    ? `&account=${userProfile.username}` 
-    : (userProfile?.first_name ? `&account=${encodeURIComponent(userProfile.first_name)}` : '');
-  const personalLink = `${window.location.origin}/?user_id=${userId}${accountParam}`;
 
   const getBreadcrumbs = () => {
     const trail = [];
@@ -108,11 +91,9 @@ export const DeckGrid = ({
         className="view"
       >
         <DeckGridHeader
-          personalLink={personalLink}
           startTutorial={startTutorial}
           setIsNewDeckModalOpen={setIsNewDeckModalOpen}
           setIsSettingsOpen={setIsSettingsOpen}
-          showToast={showToast}
           onLanguageChange={() => {
             showToast(`Язык изменен на ${useLanguageStore.getState().getLanguageInfo().name}`, 'info');
           }}
@@ -122,7 +103,30 @@ export const DeckGrid = ({
             const parentId = activeFolder ? (activeFolder.parent_id || null) : null;
             setActiveFolderId(parentId);
           }}
+          isSearchOpen={isSearchOpen}
+          onToggleSearch={() => {
+            setIsSearchOpen(prev => {
+              if (prev) setDeckSearchQuery('');
+              return !prev;
+            });
+          }}
+          hasSearchQuery={Boolean(deckSearchQuery.trim())}
         />
+
+        {/* Expandable Search Input */}
+        {isSearchOpen && (
+          <div style={{ marginBottom: '12px' }}>
+            <SearchBar
+              value={deckSearchQuery}
+              onChange={setDeckSearchQuery}
+              placeholder="Поиск по колодам и папкам..."
+              color="indigo"
+              wrapperClassName="deck-search-wrapper"
+              autoFocus={true}
+              onClear={() => setDeckSearchQuery('')}
+            />
+          </div>
+        )}
 
         {/* Breadcrumbs for folder navigation */}
         {activeFolderId !== null && (
@@ -174,18 +178,8 @@ export const DeckGrid = ({
           </div>
         )}
 
-        {(currentFolders.length > 0 || currentDecks.length > 0 || deckSearchQuery.trim()) && (
-          <SearchBar
-            value={deckSearchQuery}
-            onChange={setDeckSearchQuery}
-            placeholder="Поиск по колодам и папкам..."
-            color="indigo"
-            wrapperClassName="deck-search-wrapper"
-          />
-        )}
-
         <div id="tut-deck-list" className="deck-grid">
-          {(!hasInitialized || loading) && decks.length === 0 ? (
+          {(!hasInitialized || loading) && currentFolders.length === 0 && currentDecks.length === 0 ? (
             <div className="empty-decks-state glass">
               <RefreshCw size={48} className="spin" color="#a855f7" />
               <h3>Идет загрузка колод...</h3>
@@ -250,11 +244,10 @@ export const DeckGrid = ({
                   }}
                   className="reorder-group-list"
                 >
-                  {filteredFolders.map((folder, idx) => (
+                  {filteredFolders.map((folder) => (
                     <FolderCardItem
                       key={`folder-${folder.id}`}
                       folder={folder}
-                      index={deckSearchQuery.trim() ? getOriginalFolderIndex(folder.id) : idx}
                       setActiveFolderId={setActiveFolderId}
                       decks={decks}
                       folders={folders}
@@ -278,11 +271,10 @@ export const DeckGrid = ({
                   }}
                   className="reorder-group-list"
                 >
-                  {filteredDecks.map((deck, idx) => (
+                  {filteredDecks.map((deck) => (
                     <DeckCardItem
                       key={deck.id}
                       deck={deck}
-                      index={deckSearchQuery.trim() ? getOriginalDeckIndex(deck.id) : idx}
                       setCurrentDeck={setCurrentDeck}
                       setDeckCards={setDeckCards}
                       fetchDeckCards={fetchDeckCards}
