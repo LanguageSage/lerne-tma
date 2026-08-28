@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Flame, Wrench, ChevronDown, Search } from 'lucide-react';
+import { motion, Reorder } from 'framer-motion';
+import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Wrench, ChevronDown, Search } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
@@ -86,8 +86,8 @@ export const DeckGrid = ({
   return (
     <div className="view-decks">
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         className="view"
       >
         <DeckGridHeader
@@ -133,17 +133,17 @@ export const DeckGrid = ({
           <div className="folder-breadcrumbs glass" style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            padding: '12px 18px',
-            borderRadius: '14px',
-            marginBottom: '20px',
-            fontSize: '1.15rem',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '10px',
+            marginBottom: '6px',
+            fontSize: '0.95rem',
             background: 'rgba(255, 255, 255, 0.02)',
             border: `1px solid ${activeFolderColor}40`,
-            boxShadow: `0 4px 20px ${activeFolderColor}15`,
+            boxShadow: `0 2px 10px ${activeFolderColor}15`,
             flexWrap: 'wrap'
           }}>
-            <FolderOpen size={22} style={{ color: activeFolderColor, marginRight: '4px', flexShrink: 0 }} />
+            <FolderOpen size={18} style={{ color: activeFolderColor, marginRight: '2px', flexShrink: 0 }} />
             <span 
               onClick={() => setActiveFolderId(null)}
               style={{ cursor: 'pointer', color: activeFolderColor, fontWeight: 600 }}
@@ -152,7 +152,7 @@ export const DeckGrid = ({
             </span>
             {getBreadcrumbs().map((b, i, arr) => (
               <React.Fragment key={b.id}>
-                <ChevronRight size={14} style={{ color: `${activeFolderColor}99`, flexShrink: 0 }} />
+                <ChevronRight size={13} style={{ color: `${activeFolderColor}99`, flexShrink: 0 }} />
                 <span 
                   onClick={() => i < arr.length - 1 && setActiveFolderId(b.id)}
                   style={{ 
@@ -173,7 +173,7 @@ export const DeckGrid = ({
         )}
 
         {activeFolderId !== null && isShared && (
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ marginBottom: '6px' }}>
             <CollaboratorPresenceBar collaborators={collaborators} onlineCount={onlineCount} isShared={isShared} />
           </div>
         )}

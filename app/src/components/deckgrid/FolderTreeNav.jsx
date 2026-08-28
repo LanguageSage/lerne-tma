@@ -5,40 +5,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { renderFlag } from './FlagIcons';
-
-
-const getDescendantFolderIds = (folderId, foldersList) => {
-  const descendantIds = [];
-  const traverse = (parentId) => {
-    const children = foldersList.filter(f => f.parent_id === parentId);
-    for (const child of children) {
-      descendantIds.push(child.id);
-      traverse(child.id);
-    }
-  };
-  traverse(folderId);
-  return descendantIds;
-};
-
-const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds = []) => {
-  const result = [];
-  const traverse = (parentId, depth) => {
-    const children = foldersList.filter(f => f.parent_id === parentId);
-    for (const child of children) {
-      if (child.id === excludeId || excludeDescendantIds.includes(child.id)) {
-        continue;
-      }
-      result.push({
-        ...child,
-        depth: depth,
-        displayName: `${'\u00A0'.repeat(depth * 3)}${child.name}`
-      });
-      traverse(child.id, depth + 1);
-    }
-  };
-  traverse(null, 0);
-  return result;
-};
+import { getSortedFolderTree, getDescendantFolderIds } from '../../utils/deckUtils';
 
 export const FolderCardItem = React.memo(({
   folder,

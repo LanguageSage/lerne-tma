@@ -20,7 +20,7 @@ export const DeckGridHeader = ({
   const { t } = useTranslation();
 
   return (
-    <div className="header">
+    <>
       <div className="header-top-row">
         <div className="header-top-left">
           {activeFolderId !== null && (
@@ -68,10 +68,12 @@ export const DeckGridHeader = ({
         </div>
       </div>
 
-      <div className="header-title-section">
-        <h1>Lerne TMA</h1>
-        <p>{t('decks.subtitle', 'Выберите колоду и начните обучение')}</p>
-      </div>
+      {activeFolderId === null && (
+        <div className="header-title-section">
+          <h1>Lerne TMA</h1>
+          <p>{t('decks.subtitle', 'Выберите колоду и начните обучение')}</p>
+        </div>
+      )}
 
       {activeFolderId === null && (
         <div className="header-languages-bar">
@@ -85,7 +87,7 @@ export const DeckGridHeader = ({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

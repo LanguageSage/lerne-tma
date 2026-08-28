@@ -16,9 +16,9 @@ export const CollaboratorPresenceBar = ({ collaborators = [], onlineCount = 0, i
       style={{
         display: 'flex',
         flexDirection: 'column',
-        padding: '10px 14px',
-        borderRadius: '16px',
-        marginBottom: '14px',
+        padding: '6px 12px',
+        borderRadius: '12px',
+        marginBottom: '0',
         background: 'rgba(30, 41, 59, 0.7)',
         border: '1px solid rgba(99, 102, 241, 0.3)',
         backdropFilter: 'blur(12px)',

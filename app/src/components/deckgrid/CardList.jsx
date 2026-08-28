@@ -22,33 +22,14 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
 import { matchCard } from '../../utils/search';
-
-const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds = []) => {
-  const result = [];
-  const traverse = (parentId, depth) => {
-    const children = foldersList.filter(f => f.parent_id === parentId);
-    for (const child of children) {
-      if (child.id === excludeId || excludeDescendantIds.includes(child.id)) {
-        continue;
-      }
-      result.push({
-        ...child,
-        depth: depth,
-        displayName: `${'\u00A0'.repeat(depth * 3)}${child.name}`
-      });
-      traverse(child.id, depth + 1);
-    }
-  };
-  traverse(null, 0);
-  return result;
-};
+import { getSortedFolderTree, parseDeckMetadata, getResourceSrc } from '../../utils/deckUtils';
 
 const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [hasOverflow, setHasOverflow] = React.useState(false);
   const textRef = React.useRef(null);
   const dragControls = useDragControls();
-  const flagStyle = getFlagStyle(c.flag);
+  const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
   const { setLastSelectedCardId, setCardsScrollTop } = useUiStore();
   const {
     cardFont,
@@ -59,17 +40,17 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard })
     cardTextAlign,
   } = useSettingsStore();
 
-  const isQuizCard = c.card_type === 'quiz' || parseQuizData(c) !== null;
-  const isTrainerCard = c.card_type === 'trainer' || (!isQuizCard && /\{([^}]+)\}/.test(c.front || ''));
+  const isQuizCard = React.useMemo(() => c.card_type === 'quiz' || parseQuizData(c) !== null, [c]);
+  const isTrainerCard = React.useMemo(() => c.card_type === 'trainer' || (!isQuizCard && /\{([^}]+)\}/.test(c.front || '')), [c, isQuizCard]);
 
-  const frontTypographyStyle = {
+  const frontTypographyStyle = React.useMemo(() => ({
     fontFamily: cardFont || undefined,
     color: cardTextColor || undefined,
     textShadow: getTextShadow(cardTextShadow, cardTextColor),
     fontWeight: cardFontWeight || 600,
     fontStyle: cardFontStyle || undefined,
     textAlign: cardTextAlign || 'left',
-  };
+  }), [cardFont, cardTextColor, cardTextShadow, cardFontWeight, cardFontStyle, cardTextAlign]);
 
   React.useEffect(() => {
     if (!isExpanded && textRef.current) {
@@ -348,30 +329,30 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const isDeckViewActive = ['cards', 'study', 'trainer', 'editor'].includes(view);
   const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck?.id, isDeckViewActive);
 
+  // Memoized Deck Metadata & Resources
+  const deckMetadata = React.useMemo(() => parseDeckMetadata(currentDeck), [currentDeck]);
+  const deckResources = React.useMemo(() => deckMetadata.resources || [], [deckMetadata]);
+  const deckImages = React.useMemo(() => deckResources.filter(r => r.type === 'image'), [deckResources]);
+  const deckAudios = React.useMemo(() => deckResources.filter(r => r.type === 'audio'), [deckResources]);
+  const deckVideos = React.useMemo(() => deckResources.filter(r => r.type === 'video'), [deckResources]);
+  const deckLinks = React.useMemo(() => deckResources.filter(r => r.type === 'link'), [deckResources]);
+
   // Resizable image height — read from metadata, default 220px
-  const getMetaImageHeight = () => {
-    try {
-      const meta = currentDeck?.metadata
-        ? (typeof currentDeck.metadata === 'string' ? JSON.parse(currentDeck.metadata) : currentDeck.metadata)
-        : {};
-      return meta.imageHeight || 220;
-    } catch { return 220; }
-  };
+  const getMetaImageHeight = React.useCallback(() => {
+    return deckMetadata.imageHeight || 220;
+  }, [deckMetadata]);
+
   const [imageHeight, setImageHeight] = React.useState(getMetaImageHeight);
 
   // Sync imageHeight when deck changes
   React.useEffect(() => {
     setImageHeight(getMetaImageHeight());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDeck?.id]);
+  }, [getMetaImageHeight]);
 
   const saveImageHeight = React.useCallback(async (h) => {
     if (!currentDeck) return;
-    const meta = currentDeck.metadata
-      ? (typeof currentDeck.metadata === 'string' ? JSON.parse(currentDeck.metadata) : currentDeck.metadata)
-      : {};
-    await useDeckStore.getState().updateDeckMetadata(currentDeck.id, { ...meta, imageHeight: h });
-  }, [currentDeck]);
+    await useDeckStore.getState().updateDeckMetadata(currentDeck.id, { ...deckMetadata, imageHeight: h });
+  }, [currentDeck, deckMetadata]);
 
   const startResizeDrag = React.useCallback((e) => {
     e.preventDefault();
@@ -686,13 +667,13 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
         )}
 
         {isShared && (
-          <div style={{ padding: '0 15px', marginTop: '10px' }}>
+          <div style={{ padding: '0 15px', marginTop: '4px', marginBottom: '2px' }}>
             <CollaboratorPresenceBar collaborators={collaborators} onlineCount={onlineCount} isShared={isShared} />
           </div>
         )}
 
         {/* 2-line Hero Study Deck Button */}
-        <div style={{ padding: '0 15px', marginTop: '12px', marginBottom: '8px' }}>
+        <div style={{ padding: '0 15px', marginTop: '6px', marginBottom: '8px' }}>
           <button 
             className="btn btn-primary btn-full study-deck-hero-btn"
             style={{ 
@@ -732,69 +713,44 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           </button>
         </div>
 
-        {(() => {
-          let metadata = { resources: [] };
-          if (currentDeck?.metadata) {
-            metadata = typeof currentDeck.metadata === 'string'
-              ? JSON.parse(currentDeck.metadata)
-              : currentDeck.metadata;
-          }
-          const resources = metadata.resources || [];
-          
-          const images = resources.filter(r => r.type === 'image');
-          const audios = resources.filter(r => r.type === 'audio');
-          const videos = resources.filter(r => r.type === 'video');
-          const links = resources.filter(r => r.type === 'link');
-
-          return (
-            <>
-              {images.length > 0 && (
-                <div className="deck-images-gallery" style={{
-                  margin: '4px 15px 8px 15px',
-                  display: 'flex',
-                  gap: '10px',
-                  overflowX: 'auto',
-                  paddingBottom: '4px',
-                  scrollSnapType: 'x mandatory',
-                  WebkitOverflowScrolling: 'touch'
-                }}>
-                  {images.map((img, idx) => {
-                    const getImgSrc = (imgItem) => {
-                      if (!imgItem) return '';
-                      if (imgItem.url) return imgItem.url;
-                      if (imgItem.path) {
-                        const cleanPath = imgItem.path.replace(/^(images|audio|videos)\//, '');
-                        return `/api/media/images/${cleanPath}`;
-                      }
-                      return '';
-                    };
-                    const imgSrc = getImgSrc(img);
-                    const resourceIndex = resources.findIndex(r => r === img || (r.type === 'image' && (r.url === img.url || r.path === img.path)));
-                    return (
-                      <div key={idx} style={{ flex: '0 0 100%', maxWidth: '100%', scrollSnapAlign: 'start' }}>
-                        <div className="glass" style={{
-                          position: 'relative',
-                          borderRadius: '16px',
-                          overflow: 'hidden',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: 'rgba(0, 0, 0, 0.25)'
-                        }}>
-                          <img 
-                            src={imgSrc} 
-                            alt="" 
-                            style={{ 
-                              display: 'block',
-                              width: '100%', 
-                              height: 'auto',
-                              maxHeight: `${imageHeight}px`, 
-                              objectFit: 'contain',
-                              cursor: 'zoom-in' 
-                            }} 
-                            onClick={() => window.open(imgSrc, '_blank')}
-                          />
+        {deckImages.length > 0 && (
+          <div className="deck-images-gallery" style={{
+            margin: '4px 15px 8px 15px',
+            display: 'flex',
+            gap: '10px',
+            overflowX: 'auto',
+            paddingBottom: '4px',
+            scrollSnapType: 'x mandatory',
+            WebkitOverflowScrolling: 'touch'
+          }}>
+            {deckImages.map((img, idx) => {
+              const imgSrc = getResourceSrc(img, 'images');
+              const resourceIndex = deckResources.findIndex(r => r === img || (r.type === 'image' && (r.url === img.url || r.path === img.path)));
+              return (
+                <div key={idx} style={{ flex: '0 0 100%', maxWidth: '100%', scrollSnapAlign: 'start' }}>
+                  <div className="glass" style={{
+                    position: 'relative',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(0, 0, 0, 0.25)'
+                  }}>
+                    <img 
+                      src={imgSrc} 
+                      alt="" 
+                      style={{ 
+                        display: 'block',
+                        width: '100%', 
+                        height: 'auto',
+                        maxHeight: `${imageHeight}px`, 
+                        objectFit: 'contain',
+                        cursor: 'zoom-in' 
+                      }} 
+                      onClick={() => window.open(imgSrc, '_blank')}
+                    />
 
                           <button
                             onClick={(e) => {
@@ -830,7 +786,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             <span>Изменить</span>
                           </button>
 
-                          {images.length > 1 && (
+                          {deckImages.length > 1 && (
                             <div style={{
                               position: 'absolute',
                               top: '8px',
@@ -842,7 +798,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                               borderRadius: '8px',
                               fontWeight: 600
                             }}>
-                              {idx + 1} / {images.length}
+                              {idx + 1} / {deckImages.length}
                             </div>
                           )}
                         </div>
@@ -915,62 +871,59 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                 </div>
               )}
 
-              {audios.map((aud, idx) => (
-                <DeckAudioPlayer key={idx} url={aud.url} title={aud.title} />
-              ))}
+        {deckAudios.map((aud, idx) => (
+          <DeckAudioPlayer key={idx} url={aud.url} title={aud.title} />
+        ))}
 
-              {videos.map((vid, idx) => (
-                <div key={idx} className="glass" style={{
-                  margin: '0 15px 10px 15px',
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  border: '1px solid rgba(251, 113, 133, 0.2)',
-                  background: '#000'
-                }}>
-                  <video 
-                    src={vid.url} 
-                    controls 
-                    playsInline
-                    style={{ width: '100%', maxHeight: '200px', display: 'block', objectFit: 'contain' }} 
-                  />
-                </div>
-              ))}
+        {deckVideos.map((vid, idx) => (
+          <div key={idx} className="glass" style={{
+            margin: '0 15px 10px 15px',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            border: '1px solid rgba(251, 113, 133, 0.2)',
+            background: '#000'
+          }}>
+            <video 
+              src={vid.url} 
+              controls 
+              playsInline
+              style={{ width: '100%', maxHeight: '200px', display: 'block', objectFit: 'contain' }} 
+            />
+          </div>
+        ))}
 
-              {links.length > 0 && (
-                <div style={{
-                  margin: '0 15px 10px 15px',
+        {deckLinks.length > 0 && (
+          <div style={{
+            margin: '0 15px 10px 15px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            {deckLinks.map((lnk, idx) => (
+              <a
+                key={idx}
+                href={lnk.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="glass"
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '10px',
+                  fontSize: '0.8rem',
+                  color: '#34d399',
                   display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '8px'
-                }}>
-                  {links.map((lnk, idx) => (
-                    <a
-                      key={idx}
-                      href={lnk.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="glass"
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '10px',
-                        fontSize: '0.8rem',
-                        color: '#34d399',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        textDecoration: 'none',
-                        border: '1px solid rgba(52, 211, 153, 0.2)'
-                      }}
-                    >
-                      <ExternalLink size={14} />
-                      <span>{lnk.title || lnk.url}</span>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </>
-          );
-        })()}
+                  alignItems: 'center',
+                  gap: '6px',
+                  textDecoration: 'none',
+                  border: '1px solid rgba(52, 211, 153, 0.2)'
+                }}
+              >
+                <ExternalLink size={14} />
+                <span>{lnk.title || lnk.url}</span>
+              </a>
+            ))}
+          </div>
+        )}
 
         <div id="tut-card-list-content" className="card-list">
           {cardsLoading ? (

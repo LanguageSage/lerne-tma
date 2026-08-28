@@ -70,13 +70,13 @@ body {
   -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
-  padding: 1rem;
+  padding: 0 1rem 1rem 1rem;
   box-sizing: border-box;
 }
 
-@media (max-width: 360px) {
+@media (max-width: 480px) {
   .app-container {
-    padding: 0.7rem;
+    padding: 0 0.75rem 1rem 0.75rem;
   }
 }
 

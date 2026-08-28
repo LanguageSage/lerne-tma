@@ -255,6 +255,7 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
         folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
         if folder:
             owner_id = folder.user_id
+            folder_id = folder.parent_id
             
     if owner_id:
         seen_user_ids.add(owner_id)
@@ -274,9 +275,9 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
         (models.TMA_Collaborator.target_id == target_id)
     ))
 
-    # Inherited folder collaborators if deck is inside a folder
+    # Inherited folder collaborators if deck or folder is inside a parent folder
     folder_rows = []
-    if target_type == 'deck' and folder_id:
+    if folder_id:
         parent_folder_ids = _get_all_parent_folder_ids(folder_id)
         if parent_folder_ids:
             folder_rows = list(models.TMA_Collaborator.select().where(
@@ -632,15 +633,24 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
 
     _active_presence_map[key][user_id] = now
 
-    # Also record presence for parent folder if target is a deck inside a folder
+    # Also record presence for all parent folders if target is a deck or subfolder
     deck = None
+    folder_id = None
     if target_type == 'deck':
         deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
-        if deck and deck.folder_id:
-            folder_key = f"folder:{deck.folder_id}"
-            if folder_key not in _active_presence_map:
-                _active_presence_map[folder_key] = {}
-            _active_presence_map[folder_key][user_id] = now
+        if deck:
+            folder_id = deck.folder_id
+    elif target_type == 'folder':
+        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
+        if folder:
+            folder_id = folder.parent_id
+
+    if folder_id:
+        for p_id in _get_all_parent_folder_ids(folder_id):
+            f_key = f"folder:{p_id}"
+            if f_key not in _active_presence_map:
+                _active_presence_map[f_key] = {}
+            _active_presence_map[f_key][user_id] = now
 
     # Clean up stale heartbeats older than 60 seconds
     stale_users = [u for u, ts in _active_presence_map[key].items() if (now - ts).total_seconds() > 60]
@@ -653,7 +663,14 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
 
     for c in collaborators:
         uid = c["user_id"]
+        # Check current key or any parent folder keys
         last_ts = _active_presence_map[key].get(uid)
+        if not last_ts and folder_id:
+            for p_id in _get_all_parent_folder_ids(folder_id):
+                f_ts = _active_presence_map.get(f"folder:{p_id}", {}).get(uid)
+                if f_ts and (not last_ts or f_ts > last_ts):
+                    last_ts = f_ts
+
         is_online = bool(last_ts and (now - last_ts).total_seconds() <= 30)
         c["is_online"] = is_online
         c["last_seen_seconds"] = int((now - last_ts).total_seconds()) if last_ts else None

@@ -21,15 +21,23 @@
   position: relative;
   z-index: 40;
   text-align: left;
-  margin-bottom: 1.2rem;
+  margin-bottom: 0.5rem;
 }
 
 .header-top-row {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.85rem;
+  margin: 0 0 0.25rem 0;
+  padding: 2px 0 4px 0;
   gap: 10px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: none;
 }
 
 .header-top-left {

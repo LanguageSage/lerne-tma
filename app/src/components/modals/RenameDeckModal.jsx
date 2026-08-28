@@ -3,26 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
-
-const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds = []) => {
-  const result = [];
-  const traverse = (parentId, depth) => {
-    const children = foldersList.filter(f => f.parent_id === parentId);
-    for (const child of children) {
-      if (child.id === excludeId || excludeDescendantIds.includes(child.id)) {
-        continue;
-      }
-      result.push({
-        ...child,
-        depth: depth,
-        displayName: `${'\u00A0'.repeat(depth * 3)}${child.name}`
-      });
-      traverse(child.id, depth + 1);
-    }
-  };
-  traverse(null, 0);
-  return result;
-};
+import { getSortedFolderTree } from '../../utils/deckUtils';
 
 export const RenameDeckModal = () => {
   const { isRenameModalOpen, setIsRenameModalOpen, deckToRename, showToast, loading, setLoading } = useUiStore();
