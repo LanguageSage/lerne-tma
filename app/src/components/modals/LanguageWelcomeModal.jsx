@@ -22,18 +22,26 @@ export default function LanguageWelcomeModal({ isOpen, onClose }) {
       zIndex: 9999,
       backgroundColor: 'rgba(15, 23, 42, 0.85)',
       backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '20px'
+      padding: '16px',
+      overflowY: 'auto',
+      overscrollBehavior: 'contain',
+      WebkitOverflowScrolling: 'touch'
     }}>
       <div style={{
         background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))',
         border: '1px solid rgba(255, 255, 255, 0.15)',
         borderRadius: '24px',
-        padding: '32px 24px',
+        padding: '28px 20px',
         maxWidth: '440px',
         width: '100%',
+        maxHeight: 'calc(100dvh - 32px)',
+        overflowY: 'auto',
+        margin: 'auto',
+        boxSizing: 'border-box',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(56, 189, 248, 0.25)',
         color: '#ffffff',
         textAlign: 'center',

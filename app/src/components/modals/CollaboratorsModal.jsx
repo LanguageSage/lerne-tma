@@ -189,7 +189,10 @@ export const CollaboratorsModal = () => {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
-          padding: '16px'
+          padding: '16px',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch'
         }}
       >
         <motion.div 
@@ -202,7 +205,8 @@ export const CollaboratorsModal = () => {
           style={{
             width: '100%',
             maxWidth: '480px',
-            maxHeight: '85vh',
+            maxHeight: 'calc(100dvh - 32px)',
+            margin: 'auto',
             borderRadius: '24px',
             background: 'linear-gradient(145deg, rgba(26, 26, 46, 0.95), rgba(15, 15, 30, 0.98))',
             border: '1px solid rgba(139, 92, 246, 0.3)',
@@ -210,7 +214,8 @@ export const CollaboratorsModal = () => {
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            position: 'relative'
+            position: 'relative',
+            boxSizing: 'border-box'
           }}
         >
           {/* Custom In-Modal Confirm Overlay */}
@@ -291,7 +296,8 @@ export const CollaboratorsModal = () => {
             borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            flexShrink: 0
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
@@ -342,7 +348,8 @@ export const CollaboratorsModal = () => {
               display: 'flex',
               padding: '8px 24px 0',
               gap: '12px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+              flexShrink: 0
             }}>
               <button 
                 onClick={() => setActiveTab('members')}
@@ -387,7 +394,7 @@ export const CollaboratorsModal = () => {
           )}
 
           {/* Body Content */}
-          <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+          <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
             {activeTab === 'members' ? (
               <>
                 {/* Invite Link Banner */}

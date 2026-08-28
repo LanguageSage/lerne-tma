@@ -27,8 +27,9 @@ const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds
   return result;
 };
 
-export const DeckCardItem = ({
+export const DeckCardItem = React.memo(({
   deck,
+  index,
   setCurrentDeck,
   fetchDeckCards,
   showToast,
@@ -236,35 +237,6 @@ export const DeckCardItem = ({
           
           <h3>
             <span className="deck-title-text">{deck.name}</span>
-            
-            {deck.is_inbox && deck.stats.total > 0 && (
-              <span style={{ marginLeft: 8, fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
-                новые
-              </span>
-            )}
-
-            {!deck.is_inbox && deck.is_trainer && (
-              <span 
-                style={{ 
-                  marginLeft: 8, 
-                  fontSize: '0.68rem', 
-                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(124, 58, 237, 0.2))', 
-                  border: '1px solid rgba(168, 85, 247, 0.45)', 
-                  color: '#c084fc', 
-                  padding: '2px 8px', 
-                  borderRadius: 10, 
-                  fontWeight: 700,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  verticalAlign: 'middle',
-                  boxShadow: '0 2px 8px rgba(168, 85, 247, 0.2)'
-                }}
-              >
-                <span>🏋️</span>
-                <span>Тренажёр</span>
-              </span>
-            )}
 
             {!deck.is_inbox && (
               <button
@@ -276,15 +248,6 @@ export const DeckCardItem = ({
               </button>
             )}
           </h3>
-
-          {!deck.is_inbox && (
-            <div 
-              className="deck-flag-badge-large"
-              title={`Язык: ${(deck.target_language || 'de').toUpperCase()}`}
-            >
-              {renderFlag(deck.target_language || 'de', 32)}
-            </div>
-          )}
         </div>
 
         <div className="deck-stats-container">
@@ -307,68 +270,110 @@ export const DeckCardItem = ({
         </div>
       </div>
 
-      <div className="deck-footer-actions" style={{ justifyContent: 'space-between', padding: '8px 12px', position: 'relative', alignItems: 'center' }}>
-        {!deck.is_inbox ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="deck-footer-actions">
+        <div className="deck-footer-actions-left">
+          {!deck.is_inbox ? (
             <div
               className="deck-drag-handle-bottom"
               onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
               onClick={(e) => e.stopPropagation()}
               title="Зажмите и потяните для перетаскивания колоды"
             >
-              <GripHorizontal size={22} />
+              <GripHorizontal size={20} />
             </div>
-
-            {deck.is_shared && (
-              <div 
-                title="Совместный доступ"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: deck.id, name: deck.name });
-                  useUiStore.getState().setIsCollaboratorsModalOpen(true);
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, rgba(139,92,246,0.35), rgba(99,102,241,0.25))',
-                  border: '1px solid rgba(167,139,250,0.5)',
-                  color: '#c4b5fd',
-                  boxShadow: '0 0 10px rgba(139,92,246,0.35)',
-                  cursor: 'pointer'
-                }}
-              >
-                <Users size={14} />
-              </div>
-            )}
-
-          </div>
-        ) : (
-          <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-              📥 Входящие карточки
-            </span>
-          </div>
-        )}
-
-        <button 
-          className={`menu-toggle-btn ${isMenuOpen ? 'active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsMenuOpen(!isMenuOpen);
-          }}
-          style={{ marginLeft: 'auto' }}
-          title="Опции колоды"
-        >
-          <MoreHorizontal size={16} />
-          <span>Опции</span>
-          {deck.has_updates && !deck.is_inbox && (
-            <span className="menu-update-indicator" />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>
+                📥 Входящие
+              </span>
+            </div>
           )}
-        </button>
+
+          {!deck.is_inbox && (
+            <div 
+              className="deck-flag-badge-inline"
+              title={`Язык: ${(deck.target_language || 'de').toUpperCase()}`}
+            >
+              {renderFlag(deck.target_language || 'de', 22)}
+            </div>
+          )}
+
+          {deck.is_inbox && deck.stats.total > 0 && (
+            <span style={{ fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
+              новые
+            </span>
+          )}
+
+          {!deck.is_inbox && deck.is_trainer && (
+            <span 
+              style={{ 
+                fontSize: '0.68rem', 
+                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(124, 58, 237, 0.2))', 
+                border: '1px solid rgba(168, 85, 247, 0.45)', 
+                color: '#c084fc', 
+                padding: '2px 8px', 
+                borderRadius: 8, 
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                verticalAlign: 'middle',
+                boxShadow: '0 2px 8px rgba(168, 85, 247, 0.2)'
+              }}
+            >
+              <span>🏋️</span>
+              <span>Тренажёр</span>
+            </span>
+          )}
+
+          {deck.is_shared && (
+            <div 
+              title="Совместный доступ"
+              onClick={(e) => {
+                e.stopPropagation();
+                useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: deck.id, name: deck.name });
+                useUiStore.getState().setIsCollaboratorsModalOpen(true);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.35), rgba(99,102,241,0.25))',
+                border: '1px solid rgba(167,139,250,0.5)',
+                color: '#c4b5fd',
+                boxShadow: '0 0 10px rgba(139,92,246,0.35)',
+                cursor: 'pointer'
+              }}
+            >
+              <Users size={14} />
+            </div>
+          )}
+        </div>
+
+        <div className="deck-footer-actions-right">
+          {typeof index === 'number' && (
+            <span className="card-item-corner-number">
+              {index + 1}
+            </span>
+          )}
+
+          <button 
+            className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen(!isMenuOpen);
+            }}
+            title="Опции колоды"
+          >
+            <MoreHorizontal size={18} />
+            {deck.has_updates && !deck.is_inbox && (
+              <span className="menu-update-indicator" />
+            )}
+          </button>
+        </div>
 
         {isMenuOpen && (
           <div className="deck-dropdown-menu glass" ref={menuRef} onClick={(e) => e.stopPropagation()}>
@@ -496,4 +501,4 @@ export const DeckCardItem = ({
       </div>
     </Reorder.Item>
   );
-};
+});

@@ -127,8 +127,25 @@ export const DeckModals = () => {
   return (
     <AnimatePresence>
       <div className="settings-overlay" onClick={resetAndClose}>
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="settings-modal" onClick={e => e.stopPropagation()}>
-          <div className="settings-header">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          exit={{ opacity: 0, scale: 0.9 }} 
+          className="settings-modal" 
+          style={{ 
+            maxWidth: 440, 
+            width: '100%', 
+            maxHeight: 'calc(100dvh - 32px)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            overflow: 'hidden', 
+            padding: '20px', 
+            margin: 'auto', 
+            boxSizing: 'border-box' 
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="settings-header" style={{ marginBottom: 16, flexShrink: 0 }}>
             <h2>
               {deckModalMode === 'choice' ? 'Добавить элемент' : 
                deckModalMode === 'create' ? 'Новая колода' : 
@@ -137,7 +154,7 @@ export const DeckModals = () => {
             <button className="close-btn" onClick={resetAndClose}><X size={24} /></button>
           </div>
           
-          <div className="settings-content">
+          <div className="settings-content scrollable" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {deckModalMode === 'choice' && (
               <div className="choice-grid">
                 <button className="btn btn-primary btn-full choice-btn" onClick={() => {

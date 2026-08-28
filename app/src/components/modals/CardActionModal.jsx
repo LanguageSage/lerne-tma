@@ -134,14 +134,19 @@ export const CardActionModal = ({
           style={{ 
             width: '100%',
             maxWidth: '450px',
+            maxHeight: 'min(90vh, 90dvh)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
             borderRadius: '28px 28px 0 0',
-            padding: '24px',
-            paddingBottom: 'max(30px, env(safe-area-inset-bottom, 20px))',
+            padding: '20px 24px',
+            paddingBottom: 'max(24px, env(safe-area-inset-bottom, 20px))',
             background: 'rgba(15, 23, 42, 0.95)',
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderBottom: 'none',
-            boxShadow: '0 -10px 40px rgba(0,0,0,0.4)'
+            boxShadow: '0 -10px 40px rgba(0,0,0,0.4)',
+            boxSizing: 'border-box'
           }}
         >
           <div className="action-modal-drag-handle" style={{
@@ -149,10 +154,11 @@ export const CardActionModal = ({
             height: '4px',
             background: 'rgba(255, 255, 255, 0.2)',
             borderRadius: '2px',
-            margin: '0 auto 20px'
+            margin: '0 auto 16px',
+            flexShrink: 0
           }} />
 
-          <div className="settings-header" style={{ marginBottom: '20px' }}>
+          <div className="settings-header" style={{ marginBottom: '16px', flexShrink: 0 }}>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>
               {mode === 'main' ? 'Управление карточкой' : 
                mode === 'move' ? 'Переместить' : 
@@ -163,7 +169,7 @@ export const CardActionModal = ({
             </button>
           </div>
           
-          <div className="settings-content">
+          <div className="settings-content scrollable" style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             {mode === 'main' && (
               <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 

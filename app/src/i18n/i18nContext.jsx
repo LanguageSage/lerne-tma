@@ -85,7 +85,18 @@ export function LanguageProvider({ children }) {
     }
   };
 
-  const t = (path, fallback = '') => {
+  const t = (path, param1, param2) => {
+    let fallback = '';
+    let params = null;
+
+    if (typeof param1 === 'object' && param1 !== null) {
+      params = param1;
+      fallback = path;
+    } else {
+      if (typeof param1 === 'string') fallback = param1;
+      if (typeof param2 === 'object' && param2 !== null) params = param2;
+    }
+
     const dict = TRANSLATIONS[nativeLanguage] || TRANSLATIONS.uk;
     const keys = path.split('.');
     let current = dict;
@@ -93,10 +104,16 @@ export function LanguageProvider({ children }) {
       if (current && current[key] !== undefined) {
         current = current[key];
       } else {
-        return fallback || path;
+        current = fallback || path;
+        break;
       }
     }
-    return current;
+
+    if (typeof current === 'string' && params) {
+      return current.replace(/\{\{(\w+)\}\}/g, (_, k) => (params[k] !== undefined ? String(params[k]) : `{{${k}}}`));
+    }
+
+    return typeof current === 'string' ? current : String(current || '');
   };
 
   return (

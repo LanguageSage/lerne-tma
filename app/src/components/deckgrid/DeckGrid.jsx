@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Flame, Wrench, ChevronDown } from 'lucide-react';
+import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Flame, Wrench, ChevronDown, Search } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
@@ -10,6 +10,8 @@ import { DeckCardItem } from './DeckCardItem';
 import { FolderCardItem } from './FolderTreeNav';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
+import { SearchBar } from '../common/SearchBar';
+import { matchFolder, matchDeck } from '../../utils/search';
 
 export const DeckGrid = ({ 
   startTutorial, 
@@ -17,6 +19,7 @@ export const DeckGrid = ({
   openSyncModal
 }) => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
+  const [deckSearchQuery, setDeckSearchQuery] = useState('');
 
   const { 
     view, loading, hasInitialized, setIsNewDeckModalOpen, setIsSettingsOpen, 
@@ -35,6 +38,44 @@ export const DeckGrid = ({
   const langInfo = useLanguageStore(state => state.getLanguageInfo());
 
   const { collaborators, onlineCount, isShared } = useCollaborativePresence('folder', activeFolderId, view === 'decks' && activeFolderId !== null);
+
+  const currentFolders = React.useMemo(() => {
+    return folders ? folders.filter(f => {
+      if (f.parent_id !== activeFolderId) return false;
+      if (activeFolderId !== null) return true;
+      return (f.target_language || 'de') === activeLanguage;
+    }) : [];
+  }, [folders, activeFolderId, activeLanguage]);
+
+  const currentDecks = React.useMemo(() => {
+    return decks ? decks.filter(d => {
+      if (d.folder_id !== activeFolderId) return false;
+      if (activeFolderId !== null) return true;
+      return (d.target_language || 'de') === activeLanguage;
+    }) : [];
+  }, [decks, activeFolderId, activeLanguage]);
+
+  const filteredFolders = React.useMemo(() => {
+    if (!deckSearchQuery.trim()) return currentFolders;
+    return currentFolders.filter(f => matchFolder(f, deckSearchQuery));
+  }, [currentFolders, deckSearchQuery]);
+
+  const filteredDecks = React.useMemo(() => {
+    if (!deckSearchQuery.trim()) return currentDecks;
+    return currentDecks.filter(d => matchDeck(d, deckSearchQuery));
+  }, [currentDecks, deckSearchQuery]);
+
+  const getOriginalFolderIndex = React.useCallback((folderId) => {
+    if (!currentFolders) return 0;
+    const idx = currentFolders.findIndex(f => f.id === folderId);
+    return idx >= 0 ? idx : 0;
+  }, [currentFolders]);
+
+  const getOriginalDeckIndex = React.useCallback((deckId) => {
+    if (!currentDecks) return 0;
+    const idx = currentDecks.findIndex(d => d.id === deckId);
+    return idx >= 0 ? idx : 0;
+  }, [currentDecks]);
 
   if (view !== 'decks') return null;
 
@@ -55,24 +96,8 @@ export const DeckGrid = ({
     return trail;
   };
 
-  const currentFolders = folders ? folders.filter(f => {
-    if (f.parent_id !== activeFolderId) return false;
-    if (activeFolderId !== null) return true;
-    return (f.target_language || 'de') === activeLanguage;
-  }) : [];
-
   const activeFolder = folders?.find(f => f.id === activeFolderId);
   const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
-  
-  // Filter decks by active folder: when inside a specific folder, display all its decks
-  const currentDecks = decks ? decks.filter(d => {
-    if (d.folder_id !== activeFolderId) return false;
-    if (activeFolderId !== null) return true;
-    return (d.target_language || 'de') === activeLanguage;
-  }) : [];
-
-
-
   const isFolderEmpty = currentFolders.length === 0 && currentDecks.length === 0;
 
   return (
@@ -149,6 +174,16 @@ export const DeckGrid = ({
           </div>
         )}
 
+        {(currentFolders.length > 0 || currentDecks.length > 0 || deckSearchQuery.trim()) && (
+          <SearchBar
+            value={deckSearchQuery}
+            onChange={setDeckSearchQuery}
+            placeholder="Поиск по колодам и папкам..."
+            color="indigo"
+            wrapperClassName="deck-search-wrapper"
+          />
+        )}
+
         <div id="tut-deck-list" className="deck-grid">
           {(!hasInitialized || loading) && decks.length === 0 ? (
             <div className="empty-decks-state glass">
@@ -185,24 +220,41 @@ export const DeckGrid = ({
                 </>
               )}
             </div>
+          ) : deckSearchQuery.trim() && filteredFolders.length === 0 && filteredDecks.length === 0 ? (
+            <div className="search-empty-state glass" style={{ gridColumn: '1 / -1' }}>
+              <Search size={32} opacity={0.4} color="#818cf8" />
+              <h3>Колоды не найдены</h3>
+              <p>По запросу «{deckSearchQuery}» ничего не найдено</p>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ padding: '8px 16px', fontSize: '0.85rem', marginTop: '4px' }}
+                onClick={() => setDeckSearchQuery('')}
+              >
+                Сбросить поиск
+              </button>
+            </div>
           ) : (
             <>
               {/* 1. Folders */}
-              {currentFolders.length > 0 && (
+              {filteredFolders.length > 0 && (
                 <Reorder.Group
                   as="div"
                   axis="y"
-                  values={currentFolders}
+                  values={filteredFolders}
                   onReorder={(newOrder) => {
-                    const orderedIds = newOrder.map(f => f.id);
-                    useDeckStore.getState().reorderFolders(orderedIds);
+                    if (!deckSearchQuery.trim()) {
+                      const orderedIds = newOrder.map(f => f.id);
+                      useDeckStore.getState().reorderFolders(orderedIds);
+                    }
                   }}
                   className="reorder-group-list"
                 >
-                  {currentFolders.map(folder => (
+                  {filteredFolders.map((folder, idx) => (
                     <FolderCardItem
                       key={`folder-${folder.id}`}
                       folder={folder}
+                      index={deckSearchQuery.trim() ? getOriginalFolderIndex(folder.id) : idx}
                       setActiveFolderId={setActiveFolderId}
                       decks={decks}
                       folders={folders}
@@ -213,21 +265,24 @@ export const DeckGrid = ({
               )}
 
               {/* 2. Decks */}
-              {currentDecks.length > 0 && (
+              {filteredDecks.length > 0 && (
                 <Reorder.Group
                   as="div"
                   axis="y"
-                  values={currentDecks}
+                  values={filteredDecks}
                   onReorder={(newOrder) => {
-                    const orderedIds = newOrder.map(d => d.id);
-                    reorderDecks(orderedIds);
+                    if (!deckSearchQuery.trim()) {
+                      const orderedIds = newOrder.map(d => d.id);
+                      reorderDecks(orderedIds);
+                    }
                   }}
                   className="reorder-group-list"
                 >
-                  {currentDecks.map((deck) => (
+                  {filteredDecks.map((deck, idx) => (
                     <DeckCardItem
                       key={deck.id}
                       deck={deck}
+                      index={deckSearchQuery.trim() ? getOriginalDeckIndex(deck.id) : idx}
                       setCurrentDeck={setCurrentDeck}
                       setDeckCards={setDeckCards}
                       fetchDeckCards={fetchDeckCards}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, Reorder, useDragControls } from 'framer-motion';
-import { ChevronLeft, Trash2, Plus, ListPlus, Edit2, Settings, Play, RefreshCw, GripVertical, GripHorizontal, Paperclip, ExternalLink, Pause, Play as PlayIcon, Crop, Loader2, Palette } from 'lucide-react';
+import { ChevronLeft, Plus, ListPlus, Edit2, Settings, Play, RefreshCw, GripHorizontal, Paperclip, ExternalLink, Crop, Loader2, Palette, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
 import { useUiStore } from '../../store/useUiStore';
@@ -17,14 +17,50 @@ import { CardLevelBadge } from '../common/CardLevelBadge';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 import { parseQuizData } from '../../utils/quizParser';
+import { getTextShadow } from '../../utils/style';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { useTranslation } from '../../i18n/i18nContext';
+import { SearchBar } from '../common/SearchBar';
+import { matchCard } from '../../utils/search';
 
-const DraggableCardItem = ({ c, index, currentDeck, startStudyCard }) => {
+const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard }) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const [hasOverflow, setHasOverflow] = React.useState(false);
+  const textRef = React.useRef(null);
   const dragControls = useDragControls();
   const flagStyle = getFlagStyle(c.flag);
   const flagInfo = FLAG_COLORS[c.flag] || FLAG_COLORS[0];
   const { setLastSelectedCardId, setCardsScrollTop } = useUiStore();
+  const {
+    cardFont,
+    cardTextColor,
+    cardTextShadow,
+    cardFontWeight,
+    cardFontStyle,
+    cardTextAlign,
+  } = useSettingsStore();
+
   const isQuizCard = c.card_type === 'quiz' || parseQuizData(c) !== null;
   const isTrainerCard = c.card_type === 'trainer' || (!isQuizCard && /\{([^}]+)\}/.test(c.front || ''));
+
+  const frontTypographyStyle = {
+    fontFamily: cardFont || undefined,
+    color: cardTextColor || undefined,
+    textShadow: getTextShadow(cardTextShadow, cardTextColor),
+    fontWeight: cardFontWeight || 600,
+    fontStyle: cardFontStyle || undefined,
+    textAlign: cardTextAlign || 'left',
+  };
+
+  React.useEffect(() => {
+    if (!isExpanded && textRef.current) {
+      const el = textRef.current;
+      setHasOverflow(el.scrollHeight > el.clientHeight + 2);
+    }
+  }, [c.front, isExpanded]);
+
+  const isLikelyLong = (c.front || '').length > 180 || (c.front || '').split('\n').length > 5;
+  const showExpandBtn = hasOverflow || isLikelyLong || isExpanded;
 
   const handleItemClick = () => {
     const container = document.getElementById('app-container');
@@ -51,19 +87,44 @@ const DraggableCardItem = ({ c, index, currentDeck, startStudyCard }) => {
       }}
     >
       <div 
-        className="deck-drag-handle-bottom" 
-        onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
-        onClick={(e) => e.stopPropagation()}
-        title="Зажмите и потяните для перетаскивания карточки"
-      >
-        <GripHorizontal size={22} />
-      </div>
-      <div 
         className="card-item-text"
         onClick={handleItemClick}
         style={{ cursor: 'pointer', position: 'relative' }}
       >
-        <div className="front-min" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div 
+          ref={textRef}
+          className={`front-min ${isExpanded ? 'expanded' : ''}`} 
+          style={frontTypographyStyle}
+        >
+          {c.front}
+        </div>
+        {showExpandBtn && (
+          <button
+            type="button"
+            className="card-expand-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(prev => !prev);
+            }}
+            title={isExpanded ? "Свернуть текст" : "Развернуть текст"}
+          >
+            <span>{isExpanded ? 'Свернуть' : 'ещё...'}</span>
+            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+        )}
+      </div>
+
+      <div className="card-item-footer">
+        <div className="card-item-footer-left">
+          <div 
+            className="deck-drag-handle-bottom" 
+            onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+            onClick={(e) => e.stopPropagation()}
+            title="Зажмите и потяните для перетаскивания карточки"
+          >
+            <GripHorizontal size={20} />
+          </div>
+
           {flagInfo.hex && (
             <span 
               style={{ 
@@ -77,11 +138,9 @@ const DraggableCardItem = ({ c, index, currentDeck, startStudyCard }) => {
               title={`Флаг: ${flagInfo.name}`} 
             />
           )}
-          <span>{c.front}</span>
-        </div>
-        <div className="back-min">{c.back}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+
           <CardLevelBadge card={c} size="sm" />
+
           {isQuizCard && (
             <span style={{ 
               fontSize: '0.68rem', 
@@ -98,6 +157,7 @@ const DraggableCardItem = ({ c, index, currentDeck, startStudyCard }) => {
               ☑️ Тест
             </span>
           )}
+
           {isTrainerCard && (
             <span style={{ 
               fontSize: '0.68rem', 
@@ -115,30 +175,45 @@ const DraggableCardItem = ({ c, index, currentDeck, startStudyCard }) => {
             </span>
           )}
         </div>
+
+        <div className="card-item-footer-right">
+          {typeof index === 'number' && (
+            <span className="card-item-corner-number">
+              {index + 1}
+            </span>
+          )}
+          <CardActionButton 
+            card={c} 
+            size={16} 
+            className="card-item-actions-trigger" 
+            stopDrag={true} 
+          />
+        </div>
       </div>
-      <div className="card-item-actions">
-        <CardActionButton 
-          card={c} 
-          size={16} 
-          className="card-item-actions-trigger" 
-          stopDrag={true} 
-        />
-      </div>
-      {typeof index === 'number' && (
-        <span className="card-item-corner-number">
-          {index + 1}
-        </span>
-      )}
     </Reorder.Item>
   );
-};
+});
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
+  const { t } = useTranslation();
   const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen } = useUiStore();
   const { currentDeck, deckCards, cardsLoading } = useDeckStore();
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [isMediaModalOpen, setIsMediaModalOpen] = React.useState(false);
   const [editingDeckImgSrc, setEditingDeckImgSrc] = React.useState(null);
   const [editingDeckImgIndex, setEditingDeckImgIndex] = React.useState(-1);
+
+  const filteredCards = React.useMemo(() => {
+    if (!deckCards) return [];
+    if (!searchQuery.trim()) return deckCards;
+    return deckCards.filter(c => matchCard(c, searchQuery));
+  }, [deckCards, searchQuery]);
+
+  const getOriginalIndex = React.useCallback((cardId) => {
+    if (!deckCards) return 0;
+    const idx = deckCards.findIndex(c => c.id === cardId);
+    return idx >= 0 ? idx : 0;
+  }, [deckCards]);
 
   const { uploadDeckResource } = useMediaUpload();
   const { openCreator } = useCardNavigation();
@@ -670,7 +745,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           );
         })()}
 
-        <div style={{ padding: '0 15px', marginBottom: '15px' }}>
+        <div style={{ padding: '0 15px', marginBottom: '12px' }}>
           <button 
             className="btn btn-primary btn-full"
             style={{ 
@@ -692,6 +767,17 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             <span>Учить колоду ({deckCards?.length || 0})</span>
           </button>
         </div>
+
+        {deckCards && deckCards.length > 0 && (
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder={t('cards.search_placeholder', 'Поиск по слову, переводу...')}
+            count={filteredCards.length}
+            total={deckCards.length}
+            countLabel={t('cards.search_found', { count: filteredCards.length, total: deckCards.length })}
+          />
+        )}
 
         <div id="tut-card-list-content" className="card-list">
           {cardsLoading ? (
@@ -727,23 +813,38 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                 Создать карточку
               </button>
             </div>
+          ) : filteredCards.length === 0 ? (
+            <div className="search-empty-state glass">
+              <Search size={32} opacity={0.4} color="#a855f7" />
+              <h3>{t('cards.search_empty_title', 'Карточки не найдены')}</h3>
+              <p>{t('cards.search_empty_desc', 'По вашему запросу ничего не найдено')}</p>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ padding: '8px 16px', fontSize: '0.85rem', marginTop: '4px' }}
+                onClick={() => setSearchQuery('')}
+              >
+                {t('cards.search_clear', 'Сбросить поиск')}
+              </button>
+            </div>
           ) : (
             <Reorder.Group
               as="div"
               axis="y"
-              values={deckCards}
+              values={filteredCards}
               onReorder={(newOrder) => {
-                const orderedIds = newOrder.map(c => c.id);
-                useDeckStore.getState().reorderCards(orderedIds);
+                if (!searchQuery.trim()) {
+                  const orderedIds = newOrder.map(c => c.id);
+                  useDeckStore.getState().reorderCards(orderedIds);
+                }
               }}
               className="card-list"
-              id="tut-card-list-content"
             >
-              {deckCards.map((c, idx) => (
+              {filteredCards.map((c, idx) => (
                 <DraggableCardItem 
                   key={c.id} 
                   c={c} 
-                  index={idx}
+                  index={searchQuery.trim() ? getOriginalIndex(c.id) : idx}
                   currentDeck={currentDeck} 
                   startStudyCard={startStudyCard} 
                 />

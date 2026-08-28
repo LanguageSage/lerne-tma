@@ -15,14 +15,32 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Требуется
 
   return (
     <AnimatePresence>
-      <div className="settings-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
+      <div 
+        className="settings-overlay" 
+        onClick={onClose} 
+        style={{ 
+          zIndex: 1100,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         <motion.div 
           initial={{ opacity: 0, scale: 0.9, y: 20 }} 
           animate={{ opacity: 1, scale: 1, y: 0 }} 
           exit={{ opacity: 0, scale: 0.9, y: 20 }} 
           className="settings-modal" 
           onClick={e => e.stopPropagation()}
-          style={{ maxWidth: 360, textAlign: 'center', padding: '24px 20px' }}
+          style={{ 
+            maxWidth: 360, 
+            width: '100%',
+            maxHeight: 'calc(100dvh - 32px)',
+            overflowY: 'auto',
+            margin: 'auto',
+            boxSizing: 'border-box',
+            textAlign: 'center', 
+            padding: '24px 20px' 
+          }}
         >
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: -10 }}>
             <button className="close-btn" onClick={onClose}><X size={20} /></button>

@@ -74,5 +74,13 @@
     "got_it": "Got it",
     "skip": "Skip",
     "flip_first": "☝️ Click the card first to see the answer!"
+  },
+  "cards": {
+    "title": "Cards",
+    "search_placeholder": "Search by word, translation...",
+    "search_found": "Found: {{count}} of {{total}}",
+    "search_empty_title": "No cards found",
+    "search_empty_desc": "No cards match your search query",
+    "search_clear": "Clear search"
   }
 }

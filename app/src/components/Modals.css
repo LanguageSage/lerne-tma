@@ -226,15 +226,20 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
+  padding: 16px;
   background: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .image-picker-dialog {
   width: 100%;
   max-width: 380px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   padding: 22px;
   border-radius: 20px;
   display: flex;
@@ -244,6 +249,8 @@ input:checked + .slider:before {
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
   box-sizing: border-box;
+  overflow-y: auto;
+  margin: auto;
 }
 
 .image-picker-header {
@@ -335,6 +342,8 @@ input:checked + .slider:before {
 .camera-capture-dialog {
   width: 100%;
   max-width: 420px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   padding: 18px;
   border-radius: 18px;
   background: #0f172a;
@@ -342,6 +351,9 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
+  margin: auto;
+  box-sizing: border-box;
 }
 
 .camera-overlay {
@@ -353,6 +365,9 @@ input:checked + .slider:before {
   justify-content: center;
   padding: 14px;
   background: #020617;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .camera-preview {
@@ -469,13 +484,15 @@ input:checked + .slider:before {
 
 .wide-modal {
   max-width: 500px;
-  max-height: 90vh;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
 }
 
 .scrollable {
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-right: 5px;
 }
 
@@ -510,22 +527,25 @@ input:checked + .slider:before {
 
 /* Scrollbar */
 .scrollable::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
 }
 .scrollable::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(168, 85, 247, 0.3);
   border-radius: 10px;
+}
+.scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.6);
 }
 /* Selective Import UI */
 .choice-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .choice-btn {
-  padding: 18px !important;
+  padding: 14px 18px !important;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -567,10 +587,13 @@ input:checked + .slider:before {
 }
 
 .import-list {
-  max-height: 300px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .import-item {
@@ -1008,6 +1031,8 @@ select.form-input option {
 .image-editor-dialog {
   width: 100%;
   max-width: 440px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   padding: 16px;
   border-radius: 20px;
   display: flex;
@@ -1018,6 +1043,9 @@ select.form-input option {
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
   user-select: none;
+  overflow-y: auto;
+  margin: auto;
+  box-sizing: border-box;
 }
 
 .image-editor-canvas-container {

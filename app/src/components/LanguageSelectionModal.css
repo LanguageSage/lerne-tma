@@ -8,21 +8,29 @@
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  padding: 20px;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .language-modal-content {
   width: 100%;
   max-width: 480px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   background: rgba(26, 31, 46, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
-  padding: 28px 24px;
+  padding: 24px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(56, 189, 248, 0.15);
   color: #ffffff;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
+  box-sizing: border-box;
+  margin: auto;
+  overflow-y: auto;
 }
 
 .language-modal-header {

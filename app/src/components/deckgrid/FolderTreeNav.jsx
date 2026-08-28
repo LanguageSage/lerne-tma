@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Folder, FolderOpen, GripHorizontal, MoreHorizontal, ChevronRight, Users } from 'lucide-react';
+import { Folder, GripHorizontal, MoreHorizontal, ChevronRight, Users } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
@@ -40,12 +40,13 @@ const getSortedFolderTree = (foldersList, excludeId = null, excludeDescendantIds
   return result;
 };
 
-export const FolderCardItem = ({
+export const FolderCardItem = React.memo(({
   folder,
   setActiveFolderId,
   decks,
   folders,
-  showToast
+  showToast,
+  index
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
@@ -161,29 +162,40 @@ export const FolderCardItem = ({
           <h3>
             <span className="deck-title-text">{folder.name}</span>
           </h3>
-          <div 
-            className="deck-flag-badge-large"
-            title={`Язык: ${folderLang.toUpperCase()}`}
-          >
-            {renderFlag(folderLang, 32)}
-          </div>
-        </div>
-
-        <div className="folder-meta-row" style={{ marginTop: 8, fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.6)' }}>
-          <span>{totalDecksCount} {totalDecksCount === 1 ? 'колода' : totalDecksCount > 1 && totalDecksCount < 5 ? 'колоды' : 'колод'}</span>
         </div>
       </div>
 
-      <div className="deck-footer-actions" style={{ justifyContent: 'space-between', padding: '8px 12px', position: 'relative', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="deck-footer-actions">
+        <div className="deck-footer-actions-left">
           <div
             className="deck-drag-handle-bottom"
             onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
             onClick={(e) => e.stopPropagation()}
             title="Зажмите и потяните для перетаскивания папки"
           >
-            <GripHorizontal size={22} />
+            <GripHorizontal size={20} />
           </div>
+
+          <div 
+            className="deck-flag-badge-inline"
+            title={`Язык: ${folderLang.toUpperCase()}`}
+          >
+            {renderFlag(folderLang, 22)}
+          </div>
+
+          <span style={{ 
+            fontSize: '0.72rem', 
+            fontWeight: 700, 
+            color: folderColor, 
+            background: `${folderColor}18`, 
+            border: `1px solid ${folderColor}45`, 
+            borderRadius: '7px', 
+            padding: '2px 8px',
+            display: 'inline-flex',
+            alignItems: 'center'
+          }}>
+            {totalDecksCount} {totalDecksCount === 1 ? 'колода' : totalDecksCount > 1 && totalDecksCount < 5 ? 'колоды' : 'колод'}
+          </span>
 
           {folder.is_shared && (
             <div 
@@ -210,20 +222,26 @@ export const FolderCardItem = ({
               <Users size={14} />
             </div>
           )}
-
         </div>
 
-        <button 
-          className={`menu-toggle-btn ${isMenuOpen ? 'active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsMenuOpen(!isMenuOpen);
-          }}
-          title="Опции папки"
-        >
-          <MoreHorizontal size={16} />
-          <span>Опции</span>
-        </button>
+        <div className="deck-footer-actions-right">
+          {typeof index === 'number' && (
+            <span className="card-item-corner-number">
+              {index + 1}
+            </span>
+          )}
+
+          <button 
+            className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen(!isMenuOpen);
+            }}
+            title="Опции папки"
+          >
+            <MoreHorizontal size={18} />
+          </button>
+        </div>
 
         {isMenuOpen && (
           <div className="deck-dropdown-menu glass" ref={menuRef} onClick={(e) => e.stopPropagation()}>
@@ -289,4 +307,4 @@ export const FolderCardItem = ({
       </div>
     </Reorder.Item>
   );
-};
+});

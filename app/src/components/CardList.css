@@ -7,11 +7,11 @@
 
 .card-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 14px 16px 10px 16px;
   text-align: left;
-  gap: 14px;
+  gap: 8px;
   background: rgba(30, 41, 59, 0.35);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -52,50 +52,97 @@
 }
 
 .card-item-draggable {
-  cursor: grab;
   user-select: none;
   touch-action: pan-y; /* Allow normal scrolling on mobile but reordering on grab */
 }
 
-.card-item-draggable:active {
-  cursor: grabbing;
-}
-
 .card-item-text {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .front-min {
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   font-weight: 600;
   color: #ffffff;
-  line-height: 1.4;
+  line-height: 1.42;
   word-break: break-word;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   display: -webkit-box;
-  -webkit-line-clamp: 6;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: pre-line;
+  transition: all 0.2s ease;
+}
+
+.front-min.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+
+.card-expand-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  color: #c084fc;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 5px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.card-expand-btn:hover {
+  background: rgba(168, 85, 247, 0.25);
+  border-color: rgba(168, 85, 247, 0.5);
+  color: #e9d5ff;
+}
+
+.card-expand-btn:active {
+  transform: scale(0.96);
 }
 
 .back-min {
-  font-size: 1.05rem; /* same size as front-min */
-  font-weight: 400;
-  color: #a1a1aa; /* elegant slightly muted color */
-  line-height: 1.4;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-line-clamp: 6;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: pre-line;
+  display: none;
+}
+
+.card-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: 4px;
+  gap: 8px;
+}
+
+.card-item-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.card-item-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .card-item-actions {
@@ -109,41 +156,43 @@
   align-items: center;
   justify-content: center;
   width: 32px;
-  height: 32px;
+  height: 30px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .card-item-actions-trigger:hover {
-  background: rgba(168, 85, 247, 0.15);
+  background: rgba(168, 85, 247, 0.2);
   color: #c084fc;
-  border-color: rgba(168, 85, 247, 0.35);
-  transform: scale(1.08);
+  border-color: rgba(168, 85, 247, 0.4);
+  transform: scale(1.05);
 }
 
 .card-item-corner-number {
-  position: absolute;
-  right: 12px;
-  bottom: 8px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 800;
   color: #c084fc;
   background: rgba(168, 85, 247, 0.14);
   border: 1px solid rgba(168, 85, 247, 0.35);
-  border-radius: 7px;
-  padding: 1px 7px;
+  border-radius: 8px;
+  padding: 0 8px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   user-select: none;
   letter-spacing: 0.5px;
-  line-height: 1.2;
+  line-height: 1;
   transition: all 0.2s ease;
-  z-index: 5;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
 }
 
 .card-item:hover .card-item-corner-number {
@@ -151,7 +200,6 @@
   background: rgba(168, 85, 247, 0.28);
   border-color: rgba(168, 85, 247, 0.55);
   box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
-  transform: scale(1.05);
 }
 
 /* Card List Loader & Empty States */

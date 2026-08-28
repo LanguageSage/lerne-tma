@@ -175,16 +175,26 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
             exit={{ opacity: 0, scale: 0.95 }}
             className="settings-modal"
             onClick={e => e.stopPropagation()}
-            style={{ maxWidth: '440px', width: '90%' }}
+            style={{ 
+              maxWidth: '440px', 
+              width: '100%',
+              maxHeight: 'calc(100dvh - 32px)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              padding: '20px',
+              margin: 'auto',
+              boxSizing: 'border-box'
+            }}
           >
-            <div className="settings-header">
+            <div className="settings-header" style={{ marginBottom: 14, flexShrink: 0 }}>
               <h2>Ресурсы колоды</h2>
               <button className="close-btn" onClick={onClose} disabled={loading}>
                 <X size={24} />
               </button>
             </div>
 
-            <div className="settings-content" style={{ maxHeight: '75vh', overflowY: 'auto', padding: '16px' }}>
+            <div className="settings-content scrollable" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 2px' }}>
               <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 16px 0', textAlign: 'center' }}>
                 Прикрепленные медиафайлы и ссылки будут доступны всем карточкам в этой колоде.
               </p>

@@ -196,23 +196,34 @@ export const BatchCardModal = () => {
 
   return (
     <AnimatePresence>
-      <div className="settings-overlay" onClick={handleClose} style={{ zIndex: 1100 }}>
+      <div className="settings-overlay" onClick={handleClose} style={{ zIndex: 1100, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
         <motion.div 
           initial={{ opacity: 0, scale: 0.95, y: 20 }} 
           animate={{ opacity: 1, scale: 1, y: 0 }} 
           exit={{ opacity: 0, scale: 0.95, y: 20 }} 
           className="settings-modal" 
           onClick={e => e.stopPropagation()}
-          style={{ maxWidth: 540, width: '92%', maxHeight: '88vh', display: 'flex', flexDirection: 'column', padding: '20px' }}
+          style={{ 
+            maxWidth: 540, 
+            width: '100%', 
+            maxHeight: 'calc(100dvh - 32px)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            overflow: 'hidden', 
+            padding: '20px',
+            margin: 'auto',
+            boxSizing: 'border-box'
+          }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{
                 width: 40, height: 40, borderRadius: 12,
                 background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25))',
                 border: '1px solid rgba(168,85,247,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0
               }}>
                 <Layers size={22} color="#c084fc" />
               </div>
@@ -238,7 +249,8 @@ export const BatchCardModal = () => {
               borderRadius: 12,
               padding: 3,
               marginBottom: 12,
-              gap: 4
+              gap: 4,
+              flexShrink: 0
             }}>
               <button
                 type="button"
@@ -486,7 +498,7 @@ export const BatchCardModal = () => {
           </div>
 
           {/* Footer Actions */}
-          <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
             {!generatedCards ? (
               <>
                 <button
