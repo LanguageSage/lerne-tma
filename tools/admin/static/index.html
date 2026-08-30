@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lerne TMA — Панель Администратора</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .glass { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- Header / Navigation -->
+  <header class="glass sticky top-0 z-40 px-6 py-4 flex items-center justify-between border-b border-slate-800">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
+        🛡️
+      </div>
+      <div>
+        <h1 class="font-bold text-lg leading-tight text-white">Lerne TMA Admin</h1>
+        <p class="text-xs text-slate-400">Управление пользователями, дефолтными колодами и ИИ</p>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <nav class="flex gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
+      <button onclick="switchTab('users')" id="tab-users" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 bg-indigo-600 text-white shadow-md">
+        <i data-lucide="users" class="w-4 h-4"></i> Пользователи
+      </button>
+      <button onclick="switchTab('decks')" id="tab-decks" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+        <i data-lucide="layers" class="w-4 h-4"></i> Все колоды
+      </button>
+      <button onclick="switchTab('ai')" id="tab-ai" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+        <i data-lucide="sparkles" class="w-4 h-4"></i> ИИ Перегенерация
+      </button>
+      <button onclick="switchTab('backups')" id="tab-backups" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+        <i data-lucide="hard-drive" class="w-4 h-4"></i> Бэкапы БД
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
+
+    <!-- Tab 1: Users -->
+    <section id="content-users" class="space-y-6">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white">Пользователи системы</h2>
+          <p class="text-sm text-slate-400">Кликните на карточку пользователя, чтобы увидеть все его колоды</p>
+        </div>
+        <div class="flex gap-3 w-full md:w-auto">
+          <input type="text" id="user-search" onkeyup="filterUsers()" placeholder="Поиск пользователя (имя, @username, ID)..." class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 w-full md:w-80">
+          <button onclick="loadUsers()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm font-medium rounded-lg border border-slate-700 flex items-center gap-2 shrink-0">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Обновить
+          </button>
+        </div>
+      </div>
+
+      <!-- Users Grid -->
+      <div id="users-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="p-8 text-center text-slate-500 col-span-full">Загрузка пользователей...</div>
+      </div>
+    </section>
+
+    <!-- Tab 2: Decks -->
+    <section id="content-decks" class="space-y-6 hidden">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white">Управление колодами</h2>
+          <p class="text-sm text-slate-400">Назначение дефолтных колод, просмотр и раздача пользователям</p>
+        </div>
+        <div class="flex flex-wrap gap-2 w-full md:w-auto items-center">
+          <input type="text" id="deck-search" onkeyup="filterDecks()" placeholder="Поиск колоды (название, ID, язык)..." class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 w-full md:w-56">
+          <button onclick="filterLibraryDecks()" class="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold rounded-lg border border-amber-500/30 flex items-center gap-1.5 shrink-0 transition">
+            ⭐ Только Библиотека
+          </button>
+          <button onclick="clearUserFilter()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 shrink-0">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Обновить
+          </button>
+          <label class="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 cursor-pointer hover:border-slate-700 shrink-0">
+            <input type="checkbox" id="decks-auto-refresh" onchange="toggleDecksAutoRefresh()" checked class="w-3.5 h-3.5 text-emerald-500 rounded">
+            <span class="text-emerald-400 font-semibold text-[11px]">🟢 LIVE (15с)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- User Active Filter Banner (Hidden by default) -->
+      <div id="user-filter-banner" class="hidden bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-indigo-400 font-bold text-sm">👤 Колоды пользователя:</span>
+          <span id="user-filter-name" class="text-white font-semibold text-sm"></span>
+        </div>
+        <button onclick="clearUserFilter()" class="px-3 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 text-xs font-semibold rounded-lg border border-indigo-500/30 transition">
+          ✕ Показать все колоды
+        </button>
+      </div>
+
+      <!-- Decks Table -->
+      <div class="glass rounded-xl overflow-hidden flex flex-col">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 uppercase text-xs">
+            <tr>
+              <th class="px-6 py-4">ID</th>
+              <th class="px-6 py-4">Название колоды</th>
+              <th class="px-6 py-4">Владелец (ID)</th>
+              <th class="px-6 py-4">Язык / Уровень</th>
+              <th class="px-6 py-4">Карточек</th>
+              <th class="px-6 py-4">Дефолтная</th>
+              <th class="px-6 py-4 text-right">Действия</th>
+            </tr>
+          </thead>
+          <tbody id="decks-table-body" class="divide-y divide-slate-800">
+            <tr>
+              <td colspan="7" class="px-6 py-8 text-center text-slate-500">Загрузка колод...</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Decks Pagination Bar -->
+        <div class="flex flex-col sm:flex-row justify-between items-center px-6 py-3 bg-slate-950/80 border-t border-slate-800 text-xs text-slate-400 gap-2">
+          <span id="deck-pagination-info" class="font-medium">Загрузка...</span>
+          <div class="flex items-center gap-2">
+            <button onclick="changeDeckPage(-1)" id="btn-deck-prev" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-slate-300 rounded-lg border border-slate-800 font-semibold transition">
+              ◄ Назад
+            </button>
+            <span id="deck-page-indicator" class="font-bold text-white px-2">Стр 1</span>
+            <button onclick="changeDeckPage(1)" id="btn-deck-next" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-slate-300 rounded-lg border border-slate-800 font-semibold transition">
+              Вперёд ►
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: AI Regeneration Studio (Full Page Workspace) -->
+    <section id="content-ai" class="space-y-6 hidden">
+      <!-- Breadcrumb & Deck Banner -->
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-md">
+        <div class="flex items-center gap-3">
+          <button onclick="switchTab('decks')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 flex items-center gap-1.5 transition">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> К списку колод
+          </button>
+          <div>
+            <h2 id="ai-active-deck-title" class="text-lg font-bold text-white flex items-center gap-2">
+              ✨ ИИ Студия Перегенерации
+            </h2>
+            <p id="ai-active-deck-subtitle" class="text-xs text-slate-400">Выберите колоду из списка для настройки и запуска</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Studio 2-Column Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Settings & Triggers (5 cols) -->
+        <div class="lg:col-span-5 space-y-5">
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
+              <i data-lucide="sliders" class="w-4 h-4"></i> 1. Параметры генерации
+            </h3>
+
+            <!-- Language & Prompt Preset -->
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1 flex items-center gap-1.5">
+                  <i data-lucide="globe" class="w-3.5 h-3.5 text-indigo-400"></i> Мова / Язык пояснений:
+                </label>
+                <select id="regen-native-lang-select" onchange="onNativeLangChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-indigo-500">
+                  <option value="uk" selected>🇺🇦 Українська (За замовчуванням)</option>
+                  <option value="ru">🇷🇺 Русский</option>
+                  <option value="en">🇬🇧 English</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1 flex items-center gap-1.5">
+                  <i data-lucide="brain-circuit" class="w-3.5 h-3.5 text-indigo-400"></i> Выбор промпта ИИ:
+                </label>
+                <select id="regen-prompt-select" onchange="onPromptSelectChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500">
+                  <option value="preset_b1">⚡ Уровень B1 — Уверенный немецкий (По умолчанию)</option>
+                </select>
+                <p id="regen-prompt-desc" class="text-[11px] text-slate-400 leading-tight pt-1">
+                  Загрузка описания промпта...
+                </p>
+
+                <!-- Full Prompt Text Inspector -->
+                <div class="pt-1.5">
+                  <button type="button" onclick="togglePromptFulltext()" class="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                    <i data-lucide="eye" class="w-3.5 h-3.5"></i> <span id="prompt-fulltext-toggle-btn">👁 Показать полный текст инструкции для ИИ</span>
+                  </button>
+                  <div id="regen-prompt-fulltext-wrapper" class="hidden mt-2">
+                    <pre id="regen-prompt-fulltext" class="whitespace-pre-wrap font-mono text-[11px] bg-slate-950 p-3 rounded-xl border border-indigo-500/30 text-indigo-200 max-h-48 overflow-y-auto leading-relaxed select-all">...</pre>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Voice selection dropdown -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1 flex items-center gap-1.5">
+                  <i data-lucide="mic" class="w-3.5 h-3.5 text-indigo-400"></i> Голос озвучки (Edge-TTS Neural):
+                </label>
+                <select id="regen-voice-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500">
+                  <option value="de-DE-KatjaNeural" selected>🇩🇪 de-DE-KatjaNeural (Катя ♀️, женский — по умолчанию)</option>
+                  <option value="de-DE-AmalaNeural">🇩🇪 de-DE-AmalaNeural (Амала ♀️, женский)</option>
+                  <option value="de-DE-KillianNeural">🇩🇪 de-DE-KillianNeural (Киллиан ♂️, мужской)</option>
+                  <option value="de-DE-ConradNeural">🇩🇪 de-DE-ConradNeural (Конрад ♂️, мужской)</option>
+                  <option value="de-AT-IngridNeural">🇦🇹 de-AT-IngridNeural (Ингрид ♀️, австрийский)</option>
+                  <option value="de-CH-JanNeural">🇨🇭 de-CH-JanNeural (Ян ♂️, швейцарский)</option>
+                  <option value="en-US-JennyNeural">🇺🇸 en-US-JennyNeural (Дженни ♀️, English)</option>
+                  <option value="en-US-GuyNeural">🇺🇸 en-US-GuyNeural (Гай ♂️, English)</option>
+                  <option value="uk-UA-PolinaNeural">🇺🇦 uk-UA-PolinaNeural (Поліна ♀️, Українська)</option>
+                  <option value="ru-RU-SvetlanaNeural">🇷🇺 ru-RU-SvetlanaNeural (Светлана ♀️, Русский)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Checkboxes Filter & Sync -->
+            <div class="space-y-2 pt-2 border-t border-slate-800/80 text-xs">
+              <label class="flex items-center gap-2.5 p-2.5 bg-emerald-950/30 rounded-xl border border-emerald-500/30 cursor-pointer hover:border-emerald-500/50">
+                <input type="checkbox" id="regen-sync-copies" checked class="w-4 h-4 text-emerald-500 rounded">
+                <span class="text-xs font-bold text-emerald-300">🔄 Синхронизировать с Библиотекой и всеми копиями пользователей</span>
+              </label>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                  <input type="checkbox" id="regen-only-empty" class="w-3.5 h-3.5 text-indigo-600 rounded">
+                  <span class="text-[11px] text-slate-300">Только пустые</span>
+                </label>
+                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                  <input type="checkbox" id="regen-only-no-context" class="w-3.5 h-3.5 text-indigo-600 rounded">
+                  <span class="text-[11px] text-slate-300">Только без контекста</span>
+                </label>
+              </div>
+
+              <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                <input type="checkbox" id="regen-no-audio" class="w-3.5 h-3.5 text-indigo-600 rounded">
+                <span class="text-[11px] text-slate-300">Отключить генерацию озвучки (быстрый режим)</span>
+              </label>
+            </div>
+
+            <!-- Action Trigger Buttons -->
+            <div class="pt-3 border-t border-slate-800/80 space-y-2.5">
+              <button onclick="startAiProcess(true)" id="btn-start-dryrun" class="w-full py-3 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10 transition">
+                <i data-lucide="flask-conical" class="w-4 h-4"></i> 🧪 Запустить ТЕСТ (3 карточки / Dry-Run)
+              </button>
+
+              <button onclick="startAiProcess(false)" id="btn-start-full" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 transition">
+                <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Запустить ПОЛНУЮ генерацию всей колоды
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Card Selector & Live Monitor (7 cols) -->
+        <div class="lg:col-span-7 space-y-5">
+          <!-- Card Selection Card -->
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-3.5 shadow-xl">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800/80 pb-2.5">
+              <h3 class="text-sm font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                <i data-lucide="check-square" class="w-4 h-4"></i> 2. Выбор карточек (<span id="deck-cards-selector-count">0</span>)
+              </h3>
+              <div class="flex items-center gap-2 text-xs">
+                <button type="button" onclick="selectAllCardSelector(true)" class="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-indigo-300 rounded-lg border border-slate-800 font-semibold transition">
+                  Выбрать все
+                </button>
+                <button type="button" onclick="selectAllCardSelector(false)" class="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-lg border border-slate-800 font-semibold transition">
+                  Снять все
+                </button>
+              </div>
+            </div>
+
+            <!-- Exclude Range Input -->
+            <div class="p-2.5 bg-slate-900/80 rounded-xl border border-slate-800 flex items-center justify-between gap-3 text-xs">
+              <span class="text-slate-300 font-medium whitespace-nowrap">Исключить номера:</span>
+              <input type="text" id="regen-exclude-range" placeholder="Например: 1, 4, 10-15" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <!-- Scrollable List of Cards -->
+            <div id="deck-cards-selector-list" class="max-h-56 overflow-y-auto space-y-1 bg-slate-950 p-3 rounded-xl border border-slate-900 text-xs">
+              <div class="text-slate-500 text-center py-4">Выберите колоду из списка для загрузки карточек...</div>
+            </div>
+          </div>
+
+          <!-- Live Monitor & Progress Section -->
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center flex-wrap gap-3">
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                  <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i> 3. Мониторинг выполнения
+                </h3>
+                <p id="ai-active-status-text" class="text-xs text-slate-400">Статус: Готов к запуску</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <span id="ai-percent-badge" class="px-3.5 py-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold rounded-xl text-base">0%</span>
+                <div id="ai-controls-bar" class="flex gap-1.5">
+                  <button id="btn-pause-regen" onclick="controlRegen('pause')" class="px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-semibold rounded-lg border border-amber-500/30 flex items-center gap-1 transition">
+                    ⏸ Пауза
+                  </button>
+                  <button id="btn-resume-regen" onclick="controlRegen('resume')" class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/30 flex items-center gap-1 transition">
+                    ▶ Продолжить
+                  </button>
+                  <button id="btn-stop-regen" onclick="controlRegen('stop')" class="px-2.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-semibold rounded-lg border border-rose-500/30 flex items-center gap-1 transition">
+                    🛑 Стоп
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-900 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-800">
+              <div id="ai-progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full w-0 transition-all duration-300"></div>
+            </div>
+
+            <!-- Log Output -->
+            <div>
+              <div class="flex justify-between items-center mb-1.5">
+                <span class="text-[11px] font-bold uppercase text-slate-400">Лог процесса в реальном времени:</span>
+                <span id="ai-current-card-badge" class="text-[11px] font-mono text-indigo-300"></span>
+              </div>
+              <div id="ai-logs-container" class="bg-slate-950 p-3.5 rounded-xl font-mono text-xs text-slate-300 h-44 overflow-y-auto space-y-1 border border-slate-900">
+                <div class="text-slate-600">Логи перегенерации будут отображаться здесь...</div>
+              </div>
+            </div>
+
+            <!-- Dry-Run Results Visual Previewer -->
+            <div id="dryrun-preview-section" class="hidden space-y-3.5 pt-4 border-t border-slate-800">
+              <div class="flex justify-between items-center flex-wrap gap-2">
+                <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <i data-lucide="eye" class="w-4 h-4 text-indigo-400"></i> Результаты теста Dry-Run (3 карточки):
+                </h4>
+                <button onclick="controlRegen('commit_dry_run')" class="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-500/20 flex items-center gap-1.5 transition">
+                  <i data-lucide="save" class="w-3.5 h-3.5"></i> Сохранить эти результаты в БД
+                </button>
+              </div>
+              <div id="dryrun-cards-grid" class="grid grid-cols-1 gap-3">
+                <!-- Rendered generated test cards -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 4: Backups -->
+    <section id="content-backups" class="space-y-6 hidden">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white">Резервное копирование БД</h2>
+          <p class="text-sm text-slate-400">История бэкапов, выгрузка снимков и настройка пользовательской папки</p>
+        </div>
+        <div class="flex gap-3">
+          <button onclick="triggerCreateFullBackup()" class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/10 flex items-center gap-2 transition">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> Создать полный бэкап БД
+          </button>
+          <button onclick="loadBackups()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm font-medium rounded-xl border border-slate-700 flex items-center gap-2">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Обновить
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="glass p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-400 font-semibold uppercase">Всего бэкапов в системе</p>
+            <h3 id="backup-stat-count" class="text-2xl font-bold text-white mt-1">0 файлов</h3>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <i data-lucide="hard-drive" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <div class="glass p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-400 font-semibold uppercase">Занимаемый объем</p>
+            <h3 id="backup-stat-size" class="text-2xl font-bold text-white mt-1">0 МБ</h3>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <i data-lucide="database" class="w-6 h-6"></i>
+          </div>
+        </div>
+
+        <div class="glass p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-400 font-semibold uppercase">Автобэкап при ИИ</p>
+            <h3 class="text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Включён всегда
+            </h3>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Folder Setting -->
+      <div class="glass p-5 rounded-2xl border border-slate-800 space-y-3">
+        <label class="block text-xs font-bold uppercase text-slate-300 flex items-center gap-2">
+          <i data-lucide="folder-output" class="w-4 h-4 text-indigo-400"></i> Выбор локальной папки для сохранения бэкапов на ПК / диск:
+        </label>
+        <div class="flex gap-3">
+          <input type="text" id="backup-custom-dir-input" placeholder="Например: C:\Lerne_Backups или D:\Backups" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+          <button onclick="saveBackupSettings()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition">
+            Сохранить путь
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-400">При указании этой папки все создаваемые бэкапы будут автоматически дублироваться по указанному пути.</p>
+      </div>
+
+      <!-- Backups Table -->
+      <div class="glass rounded-xl overflow-hidden">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 uppercase text-xs">
+            <tr>
+              <th class="px-6 py-4">Файл бэкапа</th>
+              <th class="px-6 py-4">Тип</th>
+              <th class="px-6 py-4">Детали / Содержимое</th>
+              <th class="px-6 py-4">Размер</th>
+              <th class="px-6 py-4">Дата создания</th>
+              <th class="px-6 py-4 text-right">Действие</th>
+            </tr>
+          </thead>
+          <tbody id="backups-table-body" class="divide-y divide-slate-800">
+            <tr>
+              <td colspan="6" class="px-6 py-8 text-center text-slate-500">Загрузка истории бэкапов...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal: Assign Deck to Users -->
+  <div id="modal-assign" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass max-w-lg w-full p-6 rounded-2xl border border-slate-800 space-y-5">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-lg text-white" id="modal-assign-title">Раздать колоду пользователям</h3>
+        <button onclick="closeModal('modal-assign')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Выберите пользователей (группа):</label>
+        <div id="modal-assign-users-list" class="max-h-48 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-900">
+          <!-- Users checkboxes injected via JS -->
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Режим раздачи / Назначения:</label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <label class="p-2.5 bg-slate-900 border border-slate-800 rounded-xl cursor-pointer hover:border-indigo-500 flex items-center gap-2 text-xs">
+            <input type="radio" name="assign-mode" value="copy" checked class="text-indigo-600">
+            <span>📋 Копия пользователям</span>
+          </label>
+          <label class="p-2.5 bg-slate-900 border border-slate-800 rounded-xl cursor-pointer hover:border-indigo-500 flex items-center gap-2 text-xs">
+            <input type="radio" name="assign-mode" value="collaborate" class="text-indigo-600">
+            <span>🤝 Совместный доступ</span>
+          </label>
+          <label class="p-2.5 bg-amber-950/40 border border-amber-500/30 rounded-xl cursor-pointer hover:border-amber-500/60 flex items-center gap-2 text-xs">
+            <input type="radio" name="assign-mode" value="library" class="text-amber-500">
+            <span class="font-bold text-amber-300">⭐ В Библиотеку (с заменой)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-3">
+        <button onclick="closeModal('modal-assign')" class="px-4 py-2 bg-slate-800 text-slate-300 text-sm font-medium rounded-lg">Отмена</button>
+        <button onclick="submitAssignDeck()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg">Раздать колоду</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let usersData = [];
+    let decksData = [];
+    let activeUserFilter = null;
+    let activeAssignDeckId = null;
+    let activeRegenDeckId = null;
+    let regenInterval = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      loadUsers();
+      loadDecks();
+      startDecksAutoRefresh();
+    });
+
+    function switchTab(tab) {
+      ['users', 'decks', 'ai', 'backups'].forEach(t => {
+        const contentEl = document.getElementById(`content-${t}`);
+        if (contentEl) contentEl.classList.add('hidden');
+        const btn = document.getElementById(`tab-${t}`);
+        if (btn) {
+          btn.classList.remove('bg-indigo-600', 'text-white');
+          btn.classList.add('text-slate-400');
+        }
+      });
+
+      const activeContent = document.getElementById(`content-${tab}`);
+      if (activeContent) activeContent.classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-${tab}`);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-indigo-600', 'text-white');
+        activeBtn.classList.remove('text-slate-400');
+      }
+
+      if (tab === 'backups') {
+        loadBackups();
+      }
+    }
+
+    async function loadUsers(searchQuery = '') {
+      try {
+        const url = searchQuery ? `/api/admin/users?search=${encodeURIComponent(searchQuery)}` : '/api/admin/users';
+        const res = await fetch(url);
+        const data = await res.json();
+        usersData = data.users || [];
+        renderUsersGrid(usersData);
+      } catch (err) {
+        console.error("Failed to load users", err);
+      }
+    }
+
+    function renderUsersGrid(users) {
+      const grid = document.getElementById('users-grid');
+      grid.innerHTML = '';
+
+      if (users.length === 0) {
+        grid.innerHTML = `<div class="p-8 text-center text-slate-500 col-span-full">Пользователи не найдены</div>`;
+        return;
+      }
+
+      users.forEach(u => {
+        const rawName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+        const fullName = rawName || u.username || `User ${u.user_id}`;
+        const initial = (u.first_name || u.username || 'U')[0].toUpperCase();
+        grid.innerHTML += `
+          <div onclick="viewUserDecks(${u.user_id}, '${fullName.replace(/'/g, "\\'")}')" 
+               class="glass p-5 rounded-2xl border border-slate-800 space-y-4 hover:border-indigo-500/50 hover:bg-slate-900/60 transition cursor-pointer group shadow-sm hover:shadow-indigo-500/10">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400 text-base group-hover:scale-105 transition-transform">
+                  ${initial}
+                </div>
+                <div>
+                  <h4 class="font-bold text-white text-sm group-hover:text-indigo-300 transition-colors">${fullName}</h4>
+                  <p class="text-xs text-slate-400">${u.username ? '@' + u.username : 'no_username'} • ID: <span class="font-mono text-slate-300">${u.user_id}</span></p>
+                </div>
+              </div>
+              <i data-lucide="chevron-right" class="w-5 h-5 text-slate-600 group-hover:text-indigo-400 transition-colors"></i>
+            </div>
+            <div class="flex justify-between items-center text-xs pt-3 border-t border-slate-800/80">
+              <span class="text-slate-400">Колод в аккаунте:</span>
+              <span class="px-3 py-1 bg-indigo-500/10 text-indigo-400 font-bold rounded-lg border border-indigo-500/20 flex items-center gap-1.5">
+                <i data-lucide="layers" class="w-3.5 h-3.5"></i> ${u.deck_count}
+              </span>
+            </div>
+            ${u.last_activity ? `
+              <div class="text-[11px] text-slate-500 flex items-center gap-1.5 pt-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                <span>Активность: ${u.last_activity.split('.')[0]}</span>
+              </div>
+            ` : `
+              <div class="text-[11px] text-slate-600 flex items-center gap-1.5 pt-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-slate-600 inline-block"></span>
+                <span>Визиты: Нет данных</span>
+              </div>
+            `}
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function filterUsers() {
+      const q = document.getElementById('user-search').value.trim();
+      loadUsers(q);
+    }
+
+    function viewUserDecks(userId, userName) {
+      activeUserFilter = userId;
+      document.getElementById('user-filter-name').innerText = `${userName} (ID: ${userId})`;
+      document.getElementById('user-filter-banner').classList.remove('hidden');
+      switchTab('decks');
+      loadDecks(userId);
+    }
+
+    function clearUserFilter() {
+      activeUserFilter = null;
+      document.getElementById('user-filter-banner').classList.add('hidden');
+      document.getElementById('deck-search').value = '';
+      loadDecks();
+    }
+
+    async function loadDecks(userIdFilter = null) {
+      try {
+        const uid = userIdFilter || activeUserFilter;
+        const url = uid ? `/api/admin/decks?user_id=${uid}` : '/api/admin/decks';
+        const res = await fetch(url);
+        const data = await res.json();
+        decksData = data.decks || [];
+        renderDecksTable(decksData);
+      } catch (err) {
+        console.error("Failed to load decks", err);
+      }
+    }
+
+    let currentDeckPage = 1;
+    const deckPageSize = 40;
+    let currentRenderedDecks = [];
+
+    function renderDecksTable(decks, resetPage = false) {
+      currentRenderedDecks = decks || [];
+      if (resetPage) currentDeckPage = 1;
+
+      const total = currentRenderedDecks.length;
+      const totalPages = Math.ceil(total / deckPageSize) || 1;
+      if (currentDeckPage > totalPages) currentDeckPage = 1;
+
+      const startIdx = (currentDeckPage - 1) * deckPageSize;
+      const pageDecks = currentRenderedDecks.slice(startIdx, startIdx + deckPageSize);
+
+      const tbody = document.getElementById('decks-table-body');
+      
+      if (total === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-slate-500">Колоды не найдены</td></tr>`;
+        document.getElementById('deck-pagination-info').innerText = 'Колод нет';
+        document.getElementById('deck-page-indicator').innerText = 'Стр 1 из 1';
+        document.getElementById('btn-deck-prev').disabled = true;
+        document.getElementById('btn-deck-next').disabled = true;
+        return;
+      }
+
+      const rows = pageDecks.map(d => {
+        const isDef = d.is_default;
+        const safeName = (d.name || "").replace(/'/g, "\\'");
+        return `
+          <tr class="hover:bg-slate-900/50 transition">
+            <td class="px-6 py-3.5 font-mono text-xs text-slate-400">#${d.id}</td>
+            <td class="px-6 py-3.5 font-bold text-white">${d.name}</td>
+            <td class="px-6 py-3.5 text-xs font-mono text-slate-400">
+              ${d.is_library ? '<span class="px-2 py-0.5 bg-amber-500/10 text-amber-300 font-bold rounded-md border border-amber-500/20">Библиотека ⭐</span>' : `
+              <button onclick="viewUserDecks('${d.user_id}', 'ID: ${d.user_id}')" class="hover:text-indigo-400 underline decoration-indigo-500/50">
+                ${d.user_id}
+              </button>`}
+            </td>
+            <td class="px-6 py-3.5 text-xs">
+              <span class="uppercase font-bold text-indigo-400">${d.target_language}</span>
+              ${d.level ? `<span class="ml-1 text-slate-500">(${d.level})</span>` : ''}
+            </td>
+            <td class="px-6 py-3.5 font-semibold">${d.card_count}</td>
+            <td class="px-6 py-3.5">
+              <button onclick="toggleDefaultDeck('${d.id}', ${!isDef})" class="px-2.5 py-1 text-xs font-semibold rounded-lg border transition ${isDef ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}">
+                ${isDef ? '★ Дефолтная' : '☆ Обычная'}
+              </button>
+            </td>
+            <td class="px-6 py-3.5 text-right space-x-1.5">
+              <button onclick="deduplicateDeck('${d.id}', '${safeName}')" title="🧹 Очистить дубликаты карточек" class="px-2 py-1 text-amber-400 hover:bg-amber-500/10 rounded-lg text-xs transition">
+                <i data-lucide="sparkles" class="w-4 h-4 inline"></i>
+              </button>
+              <button onclick="openAssignModal('${d.id}', '${safeName}')" class="px-3 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/20">
+                👥 Раздать
+              </button>
+              <button onclick="openRegenModal('${d.id}', '${safeName}')" class="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-medium rounded-lg border border-purple-500/20">
+                ✨ ИИ
+              </button>
+              <button onclick="deleteDeck('${d.id}')" title="Удалить колоду" class="px-2 py-1 text-rose-400 hover:bg-rose-500/10 rounded-lg text-xs">
+                <i data-lucide="trash-2" class="w-4 h-4 inline"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = rows.join('');
+      lucide.createIcons();
+
+      const endIdx = Math.min(startIdx + deckPageSize, total);
+      document.getElementById('deck-pagination-info').innerText = `Показано ${startIdx + 1}–${endIdx} из ${total} колод`;
+      document.getElementById('deck-page-indicator').innerText = `Стр ${currentDeckPage} из ${totalPages}`;
+      document.getElementById('btn-deck-prev').disabled = (currentDeckPage <= 1);
+      document.getElementById('btn-deck-next').disabled = (currentDeckPage >= totalPages);
+    }
+
+    function changeDeckPage(delta) {
+      const totalPages = Math.ceil(currentRenderedDecks.length / deckPageSize) || 1;
+      currentDeckPage += delta;
+      if (currentDeckPage < 1) currentDeckPage = 1;
+      if (currentDeckPage > totalPages) currentDeckPage = totalPages;
+      renderDecksTable(currentRenderedDecks);
+    }
+
+    function filterDecks() {
+      const q = document.getElementById('deck-search').value.toLowerCase().trim();
+      if (!q) {
+        renderDecksTable(decksData, true);
+        return;
+      }
+
+      const filtered = decksData.filter(d => 
+        d.name.toLowerCase().includes(q) || 
+        String(d.id).includes(q) || 
+        String(d.user_id).includes(q) || 
+        (d.target_language && d.target_language.toLowerCase().includes(q))
+      );
+      renderDecksTable(filtered, true);
+    }
+
+    async function toggleDefaultDeck(deckId, newDefault) {
+      const msg = newDefault 
+        ? 'Сделать колоду ДЕФОЛТНОЙ (стартовой для новых пользователей)?' 
+        : 'Снять отметку дефолтной колоды? (Колода останется у всех текущих пользователей и в Библиотеке, но перестанет выдаваться новым пользователям при регистрации)';
+      if (!confirm(msg)) return;
+
+      try {
+        const res = await fetch(`/api/admin/decks/${deckId}/set-default`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_default: newDefault, copy_to_existing: false })
+        });
+        const data = await res.json();
+        
+        // Update local dataset and re-render instantly
+        const target = decksData.find(d => String(d.id) === String(deckId));
+        if (target) {
+          target.is_default = newDefault;
+        }
+        filterDecks();
+      } catch (err) {
+        alert('Ошибка при изменении статуса: ' + err);
+      }
+    }
+
+    async function deduplicateDeck(deckId, deckName) {
+      if (!confirm(`Очистить дубликаты карточек в колоде "${deckName}"?`)) return;
+      try {
+        const res = await fetch(`/api/admin/decks/${deckId}/deduplicate`, { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || 'Дубликаты успешно удалены!');
+        loadDecks();
+      } catch (err) {
+        alert('Ошибка при очистке дубликатов: ' + err);
+      }
+    }
+
+    let decksAutoRefreshInterval = null;
+
+    function toggleDecksAutoRefresh() {
+      const isEnabled = document.getElementById('decks-auto-refresh').checked;
+      if (isEnabled) {
+        startDecksAutoRefresh();
+      } else {
+        clearInterval(decksAutoRefreshInterval);
+        decksAutoRefreshInterval = null;
+      }
+    }
+
+    function startDecksAutoRefresh() {
+      if (decksAutoRefreshInterval) clearInterval(decksAutoRefreshInterval);
+      decksAutoRefreshInterval = setInterval(() => {
+        const regenOpen = !document.getElementById('modal-regen').classList.contains('hidden');
+        const assignOpen = !document.getElementById('modal-assign').classList.contains('hidden');
+        if (!regenOpen && !assignOpen) {
+          loadDecksSilent();
+        }
+      }, 15000);
+    }
+
+    async function loadDecksSilent() {
+      try {
+        const uid = activeUserFilter;
+        const url = uid ? `/api/admin/decks?user_id=${uid}` : '/api/admin/decks';
+        const res = await fetch(url);
+        const data = await res.json();
+        decksData = data.decks || [];
+        filterDecks();
+      } catch (e) {
+        // silent
+      }
+    }
+
+    async function deleteDeck(deckId) {
+      if (!confirm(`Удалить колоду #${deckId}?`)) return;
+      await fetch(`/api/admin/decks/${deckId}`, { method: 'DELETE' });
+      loadDecks();
+    }
+
+    function openAssignModal(deckId, deckName) {
+      activeAssignDeckId = deckId;
+      document.getElementById('modal-assign-title').innerText = `Раздать: ${deckName}`;
+      
+      const container = document.getElementById('modal-assign-users-list');
+      container.innerHTML = '';
+
+      usersData.forEach(u => {
+        container.innerHTML += `
+          <label class="flex items-center gap-3 p-2 hover:bg-slate-900 rounded-lg cursor-pointer">
+            <input type="checkbox" name="assign-user" value="${u.user_id}" class="w-4 h-4 text-indigo-600 rounded">
+            <span class="text-xs text-slate-200 font-medium">${u.first_name || ''} (@${u.username || 'no_user'}) — ID: ${u.user_id}</span>
+          </label>
+        `;
+      });
+
+      document.getElementById('modal-assign').classList.remove('hidden');
+    }
+
+    async function submitAssignDeck() {
+      const mode = document.querySelector('input[name="assign-mode"]:checked').value;
+      const selectedUsers = Array.from(document.querySelectorAll('input[name="assign-user"]:checked')).map(cb => parseInt(cb.value));
+
+      if (mode !== 'library' && selectedUsers.length === 0) {
+        alert("Выберите хотя бы одного пользователя для раздачи!");
+        return;
+      }
+
+      const res = await fetch(`/api/admin/decks/${activeAssignDeckId}/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_ids: selectedUsers, mode: mode })
+      });
+
+      const data = await res.json();
+      closeModal('modal-assign');
+      alert(data.message || `Операция успешно выполнена!`);
+      loadDecks();
+    }
+
+    let promptsData = [];
+
+    async function loadPrompts(langOverride = null) {
+      const nativeLang = langOverride || document.getElementById('regen-native-lang-select').value || 'uk';
+      try {
+        const res = await fetch(`/api/admin/prompts?native_lang=${encodeURIComponent(nativeLang)}`);
+        const data = await res.json();
+        promptsData = data.prompts || [];
+        
+        const select = document.getElementById('regen-prompt-select');
+        select.innerHTML = '';
+        promptsData.forEach(p => {
+          select.innerHTML += `<option value="${p.id}" ${p.is_default ? 'selected' : ''}>${p.name}</option>`;
+        });
+        onPromptSelectChange();
+      } catch (err) {
+        console.error("Failed to load prompts", err);
+      }
+    }
+
+    function onNativeLangChange() {
+      const selectedLang = document.getElementById('regen-native-lang-select').value;
+      loadPrompts(selectedLang);
+    }
+
+    function onPromptSelectChange() {
+      const select = document.getElementById('regen-prompt-select');
+      const selectedId = select.value;
+      const found = promptsData.find(p => p.id === selectedId);
+      const descEl = document.getElementById('regen-prompt-desc');
+      const fulltextEl = document.getElementById('regen-prompt-fulltext');
+      
+      if (found) {
+        if (descEl) descEl.innerText = found.description || '';
+        if (fulltextEl) fulltextEl.innerText = found.instruction || 'Инструкция по умолчанию';
+      }
+    }
+
+    function togglePromptFulltext() {
+      const wrapper = document.getElementById('regen-prompt-fulltext-wrapper');
+      const btn = document.getElementById('prompt-fulltext-toggle-btn');
+      if (wrapper.classList.contains('hidden')) {
+        wrapper.classList.remove('hidden');
+        btn.innerText = '▲ Скрыть полный текст инструкции для ИИ';
+      } else {
+        wrapper.classList.add('hidden');
+        btn.innerText = '👁 Показать полный текст инструкции для ИИ';
+      }
+    }
+
+
+
+    let currentDeckCards = [];
+
+    async function loadDeckCardsForSelector(deckId) {
+      const countEl = document.getElementById('deck-cards-selector-count');
+      const listEl = document.getElementById('deck-cards-selector-list');
+      countEl.innerText = '0';
+      listEl.innerHTML = '<div class="text-slate-500 text-center py-2">Загрузка карточек...</div>';
+      
+      try {
+        const res = await fetch(`/api/admin/decks/${deckId}/cards`);
+        const data = await res.json();
+        currentDeckCards = data.cards || [];
+        countEl.innerText = currentDeckCards.length;
+
+        listEl.innerHTML = '';
+        currentDeckCards.forEach(c => {
+          listEl.innerHTML += `
+            <label class="flex items-start gap-2.5 p-1.5 hover:bg-slate-900 rounded cursor-pointer border border-transparent hover:border-slate-800">
+              <input type="checkbox" class="card-select-checkbox w-3.5 h-3.5 mt-0.5 text-indigo-600 rounded" value="${c.id}" checked>
+              <div class="flex-1 min-w-0">
+                <span class="text-indigo-400 font-bold">#${c.position}</span>
+                <span class="text-white font-medium ml-1">${c.front || '(пусто)'}</span>
+                ${c.back ? `<span class="text-slate-400 text-[11px] ml-1.5">— ${c.back}</span>` : ''}
+              </div>
+            </label>
+          `;
+        });
+      } catch (e) {
+        console.error("Failed to load deck cards", e);
+        listEl.innerHTML = '<div class="text-rose-400 text-center py-2">Ошибка загрузки карточек</div>';
+      }
+    }
+
+    function toggleCardSelectorAccordion() {
+      const wrapper = document.getElementById('deck-cards-selector-wrapper');
+      const arrow = document.getElementById('card-selector-arrow');
+      if (wrapper.classList.contains('hidden')) {
+        wrapper.classList.remove('hidden');
+        arrow.innerText = '▲ Скрыть';
+      } else {
+        wrapper.classList.add('hidden');
+        arrow.innerText = '▼ Показать';
+      }
+    }
+
+    function selectAllCardSelector(checked) {
+      document.querySelectorAll('.card-select-checkbox').forEach(cb => cb.checked = checked);
+    }
+
+    function openRegenModal(deckId, deckName) {
+      activeRegenDeckId = deckId;
+      switchTab('ai');
+
+      const deck = decksData.find(d => String(d.id) === String(deckId));
+      const title = deck ? deck.name : deckName || '#' + deckId;
+      document.getElementById('ai-active-deck-title').innerText = `✨ ИИ Студия: ${title}`;
+      document.getElementById('ai-active-deck-subtitle').innerText = `ID колоды: #${deckId} • Язык: ${(deck ? deck.target_language : 'de').toUpperCase()}`;
+
+      // Reset studio progress and previews
+      document.getElementById('ai-progress-bar').style.width = '0%';
+      document.getElementById('ai-percent-badge').innerText = '0%';
+      document.getElementById('ai-active-status-text').innerText = 'Статус: Готов к запуску';
+      document.getElementById('dryrun-preview-section').classList.add('hidden');
+      document.getElementById('dryrun-cards-grid').innerHTML = '';
+      document.getElementById('ai-logs-container').innerHTML = '<div class="text-slate-500">Готов к запуску. Выберите режим "Тест" или "Полная генерация".</div>';
+
+      loadPrompts();
+      loadDeckCardsForSelector(deckId);
+    }
+
+    function filterLibraryDecks() {
+      const libraryDecks = decksData.filter(d => d.is_default);
+      renderDecksTable(libraryDecks, true);
+      document.getElementById('user-filter-name').innerText = `⭐ Колоды Библиотеки (${libraryDecks.length})`;
+      document.getElementById('user-filter-banner').classList.remove('hidden');
+    }
+
+    async function startAiProcess(isDryRun) {
+      if (!activeRegenDeckId) {
+        alert("Сначала выберите колоду в списке 'Все колоды'!");
+        switchTab('decks');
+        return;
+      }
+
+      const uncheckedBoxes = document.querySelectorAll('.card-select-checkbox:not(:checked)');
+      const excludedCardIds = Array.from(uncheckedBoxes).map(cb => parseInt(cb.value, 10));
+
+      const options = {
+        dry_run: isDryRun,
+        only_empty: document.getElementById('regen-only-empty').checked,
+        only_no_context: document.getElementById('regen-only-no-context').checked,
+        no_audio: document.getElementById('regen-no-audio').checked,
+        sync_copies: document.getElementById('regen-sync-copies').checked,
+        voice: document.getElementById('regen-voice-select').value || 'de-DE-KatjaNeural',
+        prompt_id: document.getElementById('regen-prompt-select').value || 'preset_b1',
+        native_lang: document.getElementById('regen-native-lang-select').value || 'uk',
+        exclude_card_ids: excludedCardIds,
+        exclude_range_str: document.getElementById('regen-exclude-range').value.trim() || null
+      };
+
+      if (!isDryRun) {
+        if (!confirm(`Вы действительно хотите запустить ПОЛНУЮ генерацию карточек в боевую БД?`)) return;
+      }
+
+      // Hide dry run previews from previous runs
+      document.getElementById('dryrun-preview-section').classList.add('hidden');
+      document.getElementById('ai-progress-bar').style.width = '0%';
+      document.getElementById('ai-percent-badge').innerText = '0%';
+      document.getElementById('ai-active-status-text').innerText = `Запуск ${isDryRun ? 'Теста' : 'Полной генерации'}...`;
+      document.getElementById('ai-logs-container').innerHTML = `<div class="text-indigo-400">Инициализация ${isDryRun ? 'Dry-Run Теста (3 карточки)' : 'боевой генерации'}...</div>`;
+
+      try {
+        const res = await fetch(`/api/admin/decks/${activeRegenDeckId}/regenerate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(options)
+        });
+        const data = await res.json();
+        startPollRegenStatus(activeRegenDeckId);
+      } catch (err) {
+        alert("Ошибка при запуске перегенерации: " + err);
+      }
+    }
+
+    async function controlRegen(action) {
+      if (!activeRegenDeckId) return;
+      try {
+        const res = await fetch(`/api/admin/decks/${activeRegenDeckId}/regen-control`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: action })
+        });
+        const data = await res.json();
+        if (action === 'commit_dry_run') {
+          alert(data.message || `Успешно сохранено ${data.committed_count} карточек в БД!`);
+          document.getElementById('dryrun-preview-section').classList.add('hidden');
+        }
+      } catch (e) {
+        console.error("Failed to control regen", e);
+      }
+    }
+
+    function startPollRegenStatus(deckId) {
+      if (regenInterval) clearInterval(regenInterval);
+
+      regenInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/admin/decks/${deckId}/regen-status`);
+          const data = await res.json();
+
+          const total = data.total || 1;
+          const processed = data.processed || 0;
+          const pct = Math.round((processed / total) * 100);
+
+          document.getElementById('ai-progress-bar').style.width = `${pct}%`;
+          document.getElementById('ai-percent-badge').innerText = `${pct}%`;
+          document.getElementById('ai-active-status-text').innerText = `Статус: ${data.status.toUpperCase()} (${processed}/${total})`;
+
+          const logsContainer = document.getElementById('ai-logs-container');
+          logsContainer.innerHTML = (data.logs || []).map(l => `<div>${l}</div>`).join('');
+          logsContainer.scrollTop = logsContainer.scrollHeight;
+
+          // Show commit button and dry-run preview cards if results exist
+          const previewSec = document.getElementById('dryrun-preview-section');
+          const cardsGrid = document.getElementById('dryrun-cards-grid');
+
+          if (data.is_dry_run && data.dry_run_results && data.dry_run_results.length > 0) {
+            if (previewSec) previewSec.classList.remove('hidden');
+            if (cardsGrid) {
+              cardsGrid.innerHTML = data.dry_run_results.map((c, i) => `
+                <div class="glass p-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 space-y-2.5 shadow-lg">
+                  <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span class="font-bold text-xs uppercase text-indigo-400">Тестовая карточка #${i + 1} (ID: ${c.card_id})</span>
+                    ${c.level ? `<span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30">${c.level}</span>` : ''}
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <div class="text-[10px] font-semibold text-slate-500 uppercase">Лицевая сторона (Front):</div>
+                      <div class="text-white font-bold text-sm mt-0.5">${c.front || ''}</div>
+                    </div>
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <div class="text-[10px] font-semibold text-slate-500 uppercase">Обратная сторона (Back):</div>
+                      <div class="text-emerald-300 font-semibold text-sm mt-0.5">${c.back || ''}</div>
+                    </div>
+                  </div>
+                  ${c.context ? `
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs leading-relaxed text-slate-200">
+                      <div class="text-[10px] font-semibold text-indigo-400 uppercase mb-1">Сгенерированный контекст / Грамматика / Примеры:</div>
+                      <div class="whitespace-pre-wrap font-sans text-slate-300 text-[11px]">${c.context}</div>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('');
+            }
+          }
+
+          if (data.status === 'completed' || data.status === 'failed' || data.status === 'stopped') {
+            clearInterval(regenInterval);
+          }
+        } catch (e) {
+          console.error("Poll status error", e);
+        }
+      }, 1000);
+    }
+
+    async function loadBackups() {
+      try {
+        const res = await fetch('/api/admin/backups');
+        const data = await res.json();
+
+        document.getElementById('backup-stat-count').innerText = `${data.total_count || 0} файлов`;
+        document.getElementById('backup-stat-size').innerText = `${data.total_size_mb || 0} МБ`;
+        if (data.custom_dir) {
+          document.getElementById('backup-custom-dir-input').value = data.custom_dir;
+        }
+
+        const tbody = document.getElementById('backups-table-body');
+        tbody.innerHTML = '';
+
+        const backups = data.backups || [];
+        if (backups.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Бэкапы не найдены</td></tr>`;
+          return;
+        }
+
+        backups.forEach(b => {
+          const detailStr = b.deck_name ? `Колода: <b>${b.deck_name}</b> (${b.card_count || 0} карт.)` : (b.card_count ? `Содержит: ${b.card_count} элементов` : 'Снимок файлов');
+          tbody.innerHTML += `
+            <tr class="hover:bg-slate-900/50 transition">
+              <td class="px-6 py-4 font-mono text-xs font-semibold text-white">${b.filename}</td>
+              <td class="px-6 py-4 text-xs">
+                <span class="px-2.5 py-1 text-xs font-semibold rounded-lg border ${b.type === 'Полная БД' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}">
+                  ${b.type}
+                </span>
+              </td>
+              <td class="px-6 py-4 text-xs text-slate-300">${detailStr}</td>
+              <td class="px-6 py-4 text-xs font-mono text-slate-400">${b.size_kb} KB</td>
+              <td class="px-6 py-4 text-xs text-slate-400">${b.created_at}</td>
+              <td class="px-6 py-4 text-right">
+                <a href="/api/admin/backups/download/${encodeURIComponent(b.filename)}" download class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/20 inline-flex items-center gap-1.5 transition">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i> Скачать
+                </a>
+              </td>
+            </tr>
+          `;
+        });
+        lucide.createIcons();
+      } catch (e) {
+        console.error("Failed to load backups", e);
+      }
+    }
+
+    async function saveBackupSettings() {
+      const customDir = document.getElementById('backup-custom-dir-input').value.trim();
+      try {
+        const res = await fetch('/api/admin/backups/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ custom_dir: customDir })
+        });
+        const data = await res.json();
+        alert(`Путь локальной папки сохранен: ${data.custom_backup_dir || 'по умолчанию'}`);
+        loadBackups();
+      } catch (e) {
+        alert("Ошибка при сохранении пути к папке!");
+      }
+    }
+
+    async function triggerCreateFullBackup() {
+      if (!confirm("Создать полный снимок резервной копии всей базы данных?")) return;
+      try {
+        const res = await fetch('/api/admin/backups/create', { method: 'POST' });
+        const data = await res.json();
+        alert(`Полная резервная копия успешно создана!\nФайл: ${data.filename}\nКарточек: ${data.cards_count}, Колод: ${data.decks_count}, Пользователей: ${data.users_count}`);
+        loadBackups();
+      } catch (e) {
+        alert("Ошибка при создании бэкапа!");
+      }
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

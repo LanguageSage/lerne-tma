@@ -30,7 +30,7 @@ export const CardEditor = ({ startTutorial }) => {
     if (!editingCard?.front) return;
     const result = await runAiGenerator(editingCard.front, true, actionType);
     if (result) {
-      if (actionType === 'custom_directive') {
+      if (actionType === 'custom_directive' || actionType === 'explain_rule') {
         const currentCtx = editingCard.context || '';
         const updatedCtx = currentCtx ? `${result.context}\n\n${currentCtx.trim()}` : result.context;
         setEditingCard({

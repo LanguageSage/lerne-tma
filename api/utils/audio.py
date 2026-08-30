@@ -187,7 +187,7 @@ def _clean_bracket_syntax(t):
 
     def _repl(m):
         raw = m.group(1)
-        parts = [p.strip() for p in re.split(r"[|;]", raw) if p.strip()]
+        parts = [p.strip() for p in re.split(r"[|;,/]", raw) if p.strip()]
         if not parts:
             return ""
         correct = next((p for p in parts if p.startswith("*")), parts[0])

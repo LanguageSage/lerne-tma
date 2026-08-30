@@ -70,7 +70,7 @@ export const CardCreator = ({ startTutorial }) => {
     if (!newCardData.front) return;
     const result = await runAiGenerator(newCardData.front, true, actionType);
     if (result) {
-      if (actionType === 'custom_directive') {
+      if (actionType === 'custom_directive' || actionType === 'explain_rule') {
         const currentCtx = newCardData.context || '';
         const updatedCtx = currentCtx ? `${result.context}\n\n${currentCtx.trim()}` : result.context;
         setNewCardData({

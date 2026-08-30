@@ -8,10 +8,14 @@ export const UserProfileBadge = () => {
   
   if (!userProfile) return null;
 
-  const { first_name, last_name, photo_url, is_guest } = userProfile;
+  const { first_name, last_name, username, photo_url, is_guest } = userProfile;
   
+  const displayName = (first_name && first_name !== 'Пользователь') 
+    ? first_name 
+    : (username ? `@${username}` : (is_guest ? 'Гость' : 'Мой профиль'));
+
   const getInitials = () => {
-    const f = first_name ? first_name[0] : '';
+    const f = displayName ? displayName[0] : '';
     const l = last_name ? last_name[0] : '';
     return (f + l).toUpperCase() || 'G';
   };
@@ -32,7 +36,7 @@ export const UserProfileBadge = () => {
         )}
       </div>
       <div className="user-info">
-        <span className="user-name">{first_name || (is_guest ? 'Гость' : 'Пользователь')}</span>
+        <span className="user-name">{displayName}</span>
         {(is_guest && !first_name) && <span className="guest-label">Guest Mode</span>}
       </div>
     </div>

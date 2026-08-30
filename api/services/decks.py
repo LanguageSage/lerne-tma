@@ -22,7 +22,7 @@ STARTER_DECK_NAMES = [
 
 def ensure_starter_decks(user_id: int, target_language: str = None):
     try:
-        user, _ = TMAUser.get_or_create(user_id=user_id, defaults={'first_name': 'Пользователь'})
+        user, _ = TMAUser.get_or_create(user_id=user_id)
 
         existing_decks = list(TMA_Deck.select().where((TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)))
         existing_names = {d.name for d in existing_decks}
@@ -548,13 +548,37 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                         TMA_Card.insert_many(new_cards_to_insert[i:i+100]).execute()
             
             local_deck.updated_at = datetime.datetime.now()
-            local_deck.save()
+            _save_source_library_id(local_deck, external_deck_id)
             return local_deck
             
     except Exception as e:
         error_msg = f"CRITICAL ERROR in import_deck: {e}"
         logger.error(error_msg, exc_info=True)
         raise Exception(error_msg)
+
+
+def _save_source_library_id(local_deck, external_deck_id: int):
+    try:
+        import json
+        meta = json.loads(local_deck.metadata or '{}')
+        meta['source_library_id'] = external_deck_id
+        local_deck.metadata = json.dumps(meta)
+        local_deck.save()
+    except Exception as e:
+        logger.warning(f"Failed to set source_library_id metadata: {e}")
+
+
+def import_decks_batch(external_deck_ids: list[int], user_id: int, mode: str = 'merge'):
+    """Массовый импорт нескольких колод из библиотеки."""
+    imported_ids = []
+    for deck_id in external_deck_ids:
+        try:
+            d = import_deck(deck_id, user_id, mode=mode)
+            if d:
+                imported_ids.append(d.id)
+        except Exception as err:
+            logger.error(f"Error importing batch deck {deck_id}: {err}")
+    return imported_ids
 
 
 def import_deck_from_json(data: dict, user_id: int):

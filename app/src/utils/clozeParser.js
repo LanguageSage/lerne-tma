@@ -18,7 +18,10 @@ export const ARTICLE_GROUPS = [
   ['ihn', 'ihm', 'er', 'sein'],
   ['uns', 'wir', 'unser', 'unsere'],
   ['euch', 'ihr', 'euer', 'eure'],
-  ['zu', 'zum', 'zur', 'beim', 'vom', 'im', 'am', 'ans', 'ins'],
+  ['aus', 'bei', 'mit', 'nach', 'seit', 'von', 'zu', 'gegenüber'],
+  ['durch', 'für', 'gegen', 'ohne', 'um', 'bis', 'entlang'],
+  ['an', 'auf', 'hinter', 'in', 'neben', 'über', 'unter', 'vor', 'zwischen'],
+  ['am', 'ans', 'im', 'ins', 'zum', 'zur', 'vom', 'beim'],
   ['sich', 'mich', 'mir', 'dich', 'dir', 'uns', 'euch']
 ];
 
@@ -43,7 +46,7 @@ export const autoGenerateChoices = (correctWord, existingChoices = []) => {
 export const cleanBracketSyntax = (text) => {
   if (!text) return '';
   return text.replace(/\{([^}]+)\}/g, (match, contents) => {
-    const parts = contents.split(/[|;]/).map(p => p.trim()).filter(Boolean);
+    const parts = contents.split(/[|;,/]/).map(p => p.trim()).filter(Boolean);
     if (parts.length === 0) return '';
     const correct = parts.find(p => p.startsWith('*')) || parts[0];
     return correct.replace(/^\*/, '').trim();
@@ -67,7 +70,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
       maskedText += originalText.substring(lastEnd, matchStart) + `___GAP_${index}___`;
       lastEnd = matchEnd;
 
-      const optionsRaw = match[1].split(/[|;]/).map(o => o.trim()).filter(Boolean);
+      const optionsRaw = match[1].split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
       let correctAnswer = optionsRaw.find(o => o.startsWith('*')) || optionsRaw[0] || '';
       const cleanCorrect = correctAnswer.replace(/^\*/, '').trim();
       let cleanChoices = optionsRaw.map(o => o.replace(/^\*/, '').trim());

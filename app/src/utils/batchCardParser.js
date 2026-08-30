@@ -36,9 +36,9 @@ export function parseBatchCardsText(rawText) {
       let extractedAnswer = '';
       if (clozeMatches.length > 0) {
         const answers = clozeMatches.map(m => {
-          const opts = m.split('|');
+          const opts = m.split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
           const star = opts.find(o => o.startsWith('*'));
-          return star ? star.substring(1) : opts[0];
+          return star ? star.substring(1).trim() : (opts[0] || '');
         });
         extractedAnswer = answers.join(', ');
       }

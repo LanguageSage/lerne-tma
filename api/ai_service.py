@@ -91,7 +91,7 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         from api.services.language_service import (
             get_prompt_for_phrase, get_language_config, get_native_config,
             build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt,
-            build_quiz_prompt
+            build_trainer_prompt, build_quiz_prompt
         )
         from api.services.input_parser import parse_user_input, parse_ai_json_response
         from api.models import TMACustomPrompt, TMASetting
@@ -139,10 +139,7 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 logger.error(f"AI: Explain rule failed after {duration:.2f}s: {response}")
                 return {"error": response}
             logger.info(f"AI: Explain rule successful in {duration:.2f}s")
-            parsed_json = parse_ai_json_response(response)
-            if parsed_json:
-                return parsed_json
-            return {"front": clean_phrase, "back": "", "context": response.strip()}
+            return {"front": "", "back": "", "context": response.strip()}
 
         # Handle custom_directive mode (Answer/directive only)
         if action_type == "custom_directive":
@@ -206,30 +203,11 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 detect_level=detect_level
             )
         elif is_trainer_request:
-            native_name = native_config["name"].lower()
-            level_rule = '4. "level": определи CEFR уровень сложности выражения ("A1", "A2", "B1", "B2", "C1", "C2").\n\n' if detect_level else '\n'
-            json_level = ',\n  "level": "B1"' if detect_level else ''
-            system_prompt = (
-                f"Ты — преподаватель языка {lang_name}. Родной язык пользователя: {native_name}.\n"
-                f"Создай грамматическую карточку-тренажёр на основе фразы:\n'{clean_phrase}'\n\n"
-                f"Инструкции:\n"
-                f"Язык всех пояснений, грамматики, словаря и перевода: СТРОГО {native_name}.\n\n"
-                f"1. На лицевой стороне ('front') сформируй предложение на {lang_name} языке и обязательно оберни проверяемую грамматическую форму, предлог или артикль в фигурные скобки, например: 'Ich fahre {{mit dem}} Bus' или 'der Weg {{zum}} Gipfel' (можно указать варианты через черту: '{{*zum|zur|ins}}').\n"
-                f"2. На обратной стороне ('back') ОБЯЗАТЕЛЬНО укажи ПОЛНЫЙ И ТОЧНЫЙ перевод всего предложения на {native_name} язык.\n"
-                f"3. В поле 'context' оформи 3 блока:\n"
-                f"   🎯 **Ответ и суть**:\n"
-                f"   [подробно: почему в пропуск ставится именно эта форма, падеж или предлог]\n\n"
-                f"   📖 **Словарный запас**:\n"
-                f"   - [слово / глагол с артиклем на {lang_name}] — [перевод на {native_name}]\n"
-                f"   (подробный разбор ключевых слов предложения)\n\n"
-                f"   💡 **Грамматика**:\n"
-                f"   [Понятное грамматическое правило на {native_name} языке простыми словами]\n\n"
-                f"{level_rule}"
-                f"Return ONLY a JSON object in this format:\n{{\n"
-                f'  "front": "предложение с {{пропуском}} на {lang_name.lower()}",\n'
-                f'  "back": "полный перевод предложения на {native_name}",\n'
-                f'  "context": "🎯 **Ответ и суть**:\\n...\\n\\n📖 **Словарный запас**:\\n- слово — перевод\\n\\n💡 **Грамматика**:\\n..."{json_level}\n'
-                f"}}\nEND_JSON"
+            system_prompt = build_trainer_prompt(
+                phrase=clean_phrase,
+                target_lang=target_lang,
+                native_lang=native_lang,
+                detect_level=detect_level
             )
         else:
             system_prompt = build_card_prompt(

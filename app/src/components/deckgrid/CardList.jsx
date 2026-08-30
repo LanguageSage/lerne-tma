@@ -11,28 +11,31 @@ import { DeckMediaModal } from '../modals/DeckMediaModal';
 import { ImageEditorModal } from '../common/ImageEditorModal';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 
-import DeckAudioPlayer from '../common/DeckAudioPlayer';
+import { CardBackground } from '../common/CardBackground';
 import { getFlagStyle } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 import { parseQuizData } from '../../utils/quizParser';
-import { getTextShadow } from '../../utils/style';
+import { getTextShadow, getResolvedStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
 import { matchCard } from '../../utils/search';
 import { getSortedFolderTree, parseDeckMetadata, getResourceSrc } from '../../utils/deckUtils';
 
-const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, frontTypographyStyle }) => {
+const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, frontTypographyStyle, backTypographyStyle }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const cardBgFront = useSettingsStore(s => s.cardBgFront);
   const dragControls = useDragControls();
   const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
 
   const isQuizCard = React.useMemo(() => c.card_type === 'quiz' || parseQuizData(c) !== null, [c]);
   const isTrainerCard = React.useMemo(() => c.card_type === 'trainer' || (!isQuizCard && /\{([^}]+)\}/.test(c.front || '')), [c, isQuizCard]);
 
-  const isLikelyLong = (c.front || '').length > 160 || (c.front || '').split('\n').length > 4;
+  const isFrontLong = (c.front || '').length > 90 || (c.front || '').split('\n').length > 2;
+  const isBackLong = (c.back || '').length > 90 || (c.back || '').split('\n').length > 2;
+  const isLikelyLong = isFrontLong || isBackLong;
   const showExpandBtn = isLikelyLong || isExpanded;
 
   const handleItemClick = () => {
@@ -42,13 +45,15 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, f
     startStudyCard(currentDeck, c.id);
   };
 
+  const resolvedBgFront = React.useMemo(() => getResolvedStyle(cardBgFront, c.id), [cardBgFront, c.id]);
+
   return (
     <Reorder.Item
       key={c.id}
       value={c}
       as="div"
       id={`card-item-${c.id}`}
-      className="card-item glass card-item-draggable"
+      className="card-item card-front glass card-item-draggable"
       style={flagStyle}
       dragListener={false}
       dragControls={dragControls}
@@ -59,6 +64,7 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, f
         cursor: "grabbing"
       }}
     >
+      <CardBackground styleType={resolvedBgFront} />
       <div 
         className="card-item-text"
         onClick={handleItemClick}
@@ -70,6 +76,16 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, f
         >
           {c.front}
         </div>
+
+        {c.back && (
+          <div 
+            className={`back-min ${isExpanded ? 'expanded' : ''}`} 
+            style={backTypographyStyle}
+          >
+            {c.back}
+          </div>
+        )}
+
         {showExpandBtn && (
           <button
             type="button"
@@ -78,7 +94,7 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, f
               e.stopPropagation();
               setIsExpanded(prev => !prev);
             }}
-            title={isExpanded ? "Свернуть текст" : "Развернуть текст"}
+            title={isExpanded ? "Свернуть текст" : "Развернуть полный текст"}
           >
             <span>{isExpanded ? 'Свернуть' : 'ещё...'}</span>
             {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -160,6 +176,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
 
   const cardFont = useSettingsStore(s => s.cardFont);
   const cardTextColor = useSettingsStore(s => s.cardTextColor);
+  const backTextColor = useSettingsStore(s => s.backTextColor);
   const cardTextShadow = useSettingsStore(s => s.cardTextShadow);
   const cardFontWeight = useSettingsStore(s => s.cardFontWeight);
   const cardFontStyle = useSettingsStore(s => s.cardFontStyle);
@@ -173,6 +190,16 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     fontStyle: cardFontStyle || undefined,
     textAlign: cardTextAlign || 'left',
   }), [cardFont, cardTextColor, cardTextShadow, cardFontWeight, cardFontStyle, cardTextAlign]);
+
+  const effectiveBackColor = backTextColor || cardTextColor || '#cbd5e1';
+  const backTypographyStyle = React.useMemo(() => ({
+    fontFamily: cardFont || undefined,
+    color: effectiveBackColor,
+    textShadow: getTextShadow(cardTextShadow, effectiveBackColor),
+    fontWeight: 500,
+    fontStyle: cardFontStyle || undefined,
+    textAlign: cardTextAlign || 'left',
+  }), [cardFont, effectiveBackColor, cardTextShadow, cardFontStyle, cardTextAlign]);
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -983,6 +1010,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                   currentDeck={currentDeck} 
                   startStudyCard={startStudyCard}
                   frontTypographyStyle={frontTypographyStyle}
+                  backTypographyStyle={backTypographyStyle}
                 />
               ))}
             </Reorder.Group>

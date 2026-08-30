@@ -100,7 +100,8 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
       (targetCard.audio_back_path && targetCard.audio_path && targetCard.audio_back_path === targetCard.audio_path)
     );
 
-    if (targetCard[urlKey] && !hasWrongBackAudio && !forceGenerate) return targetCard[urlKey];
+    const existingUrl = targetCard[urlKey] || (targetCard[pathKey] ? (targetCard[pathKey].startsWith('http') || targetCard[pathKey].startsWith('/api/') ? targetCard[pathKey] : `/api/media/${targetCard[pathKey]}`) : null);
+    if (existingUrl && !hasWrongBackAudio && !forceGenerate) return existingUrl;
     if (!text?.trim()) return null;
 
     setStatus(isBack ? 'Генерируем перевод' : 'Генерируем фразу');

@@ -1,5 +1,0 @@
-Backup Timestamp: 20260725_114226
-Files included:
- - lerne_primary.db (70.89 MB) -> Local Primary SQLite DB
- - tma_api_data.db (0.00 MB) -> API Data SQLite DB
- - cloud_supabase_dump.db (172.66 MB) -> Cloud Dump (9 tables, 68487 rows)

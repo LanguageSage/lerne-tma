@@ -177,14 +177,14 @@ export const useAiActions = () => {
         const session = useSessionStore.getState();
         const ui = useUiStore.getState();
 
-        if (actionType === 'custom_directive') {
+        if (actionType === 'custom_directive' || actionType === 'explain_rule') {
           const currentCtx = session.editingCard?.context || '';
           const updatedCtx = currentCtx ? `${res.data.context}\n\n${currentCtx.trim()}` : res.data.context;
           session.setEditingCard({
             ...session.editingCard,
             context: updatedCtx
           });
-          showToast("Ответ добавлен в Контекст!", "success");
+          showToast(actionType === 'explain_rule' ? "Правило добавлено в Контекст!" : "Ответ добавлен в Контекст!", "success");
         } else {
           session.setEditingCard({
             ...session.editingCard,

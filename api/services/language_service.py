@@ -307,21 +307,52 @@ def build_rule_explanation_prompt(phrase: str, target_lang: str = "de", native_l
     native_name = native_config["name"]
 
     prompt = (
-        f"Ты — профессиональный преподаватель языка {lang_name}.\n"
-        f"Проанализируй пропуск в фигурных скобках {{...}} или ключевую конструкцию в предложении: \"{phrase}\".\n\n"
-        f"ЗАДАЧА:\n"
-        f"Язык всех объяснений, примеров и перевода: СТРОГО {native_name}.\n\n"
-        f"1. Дай точный перевод предложения на {native_name} язык.\n"
-        f"2. Подробно и понятно объясни грамматическое правило для пропуска {{...}} на {native_name} языке (почему используется именно эта форма слова, падеж, управление глагола или артикль).\n"
-        f"3. Приведи 2 наглядных примера аналогичных предложений с переводом на {native_name}.\n\n"
-        f"Верни результат СТРОГО в формате JSON:\n"
-        f"{{\n"
-        f'  "front": "{phrase}",\n'
-        f'  "back": "[точный перевод на {native_name} с подставленным правильным словом в пропуске]",\n'
-        f'  "context": "📖 **Грамматическое правило**:\\n[Подробное объяснение правила на {native_name} языке]\\n\\n💡 **Примеры**:\\n• [Пример 1]\\n• [Пример 2]"\n'
-        f"}}\n"
+        f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
+        f"Предложение с пропуском: \"{phrase}\"\n\n"
+        f"Кратко, понятно и ёмко объясни грамматическое правило для слова/конструкции в скобках {{...}} (почему именно эта форма, падеж или предлог).\n"
+        f"Ответ дай СТРОГО на языке: {native_name}.\n\n"
+        f"Формат вывода (строго Markdown):\n"
+        f"📖 **Правило:** [понятное объяснение правила на {native_name} языке]"
     )
     return prompt
+
+def build_trainer_prompt(phrase: str, target_lang: str = "de", native_lang: str = "uk", detect_level: bool = True) -> str:
+    lang_config = get_language_config(target_lang, native_lang)
+    native_config = get_native_config(native_lang)
+    lang_name = lang_config["name"]
+    native_name = native_config["name"]
+
+    level_rule = '4. "level": определи CEFR уровень сложности выражения ("A1", "A2", "B1", "B2", "C1", "C2").\n\n' if detect_level else '\n'
+    json_level = ',\n  "level": "B1"' if detect_level else ''
+
+    prompt = (
+        f"Ты — профессиональный преподаватель языка {lang_name}. Родной язык пользователя: {native_name}.\n"
+        f"Создай полноценную карточку-тренажёр на основе фразы:\n'{phrase}'\n\n"
+        f"Инструкции:\n"
+        f"Язык всех пояснений, грамматики, словаря и перевода: СТРОГО {native_name}.\n\n"
+        f"1. \"front\": предложение на {lang_name} языке с сохранением проверяемой формы в фигурных скобках {{...}} (например: 'Ich fahre {{mit dem}} Bus' или 'Direkt gegenüber {{von}} meinem Haus ist eine Bäckerei').\n"
+        f"2. \"back\": ПОЛНЫЙ и точный перевод всего предложения на {native_name} язык.\n"
+        f"3. \"context\": оформи 4 чётких блока:\n"
+        f"   🎯 **Ответ и суть**:\n"
+        f"   [понятно: почему в пропуск {{...}} ставится именно эта форма, падеж или предлог]\n\n"
+        f"   📖 **Словарь**:\n"
+        f"   - [слово / глагол с артиклем на {lang_name}] — [перевод на {native_name}]\n\n"
+        f"   💡 **Грамматика**:\n"
+        f"   [Понятное грамматическое правило на {native_name} языке простыми словами]\n\n"
+        f"   ✨ **Примеры**:\n"
+        f"   (Обязательно 3 примера предложений с использованием этой конструкции/предлога и их перевод):\n"
+        f"   1. [предложение на {lang_name}] — [перевод]\n"
+        f"   2. [предложение на {lang_name}] — [перевод]\n"
+        f"   3. [предложение на {lang_name}] — [перевод]\n\n"
+        f"{level_rule}"
+        f"Return ONLY a JSON object in this format:\n{{\n"
+        f'  "front": "{phrase}",\n'
+        f'  "back": "полный перевод предложения на {native_name}",\n'
+        f'  "context": "🎯 **Ответ и суть**:\\n...\\n\\n📖 **Словарь**:\\n- слово — перевод\\n\\n💡 **Грамматика**:\\n...\\n\\n✨ **Примеры**:\\n1. ...\\n2. ...\\n3. ..."{json_level}\n'
+        f"}}\nEND_JSON"
+    )
+    return prompt
+
 
 def build_quiz_prompt(phrase_or_items, target_lang: str = "de", native_lang: str = "ru", is_batch: bool = False, detect_level: bool = True) -> str:
     """
@@ -410,26 +441,98 @@ def get_system_presets(target_lang: str = "de", native_lang: str = None) -> list
     adj = target_info[0]
     lang_name = adj.capitalize()
 
-    levels = [
-        ("preset_a2", "A2", "Базовый"),
-        ("preset_b1", "B1", "Рекомендуемый"),
-        ("preset_b2", "B2", "Продвинутый")
-    ]
-    
-    presets = []
-    for pid, lvl, badge in levels:
-        instruction = native_cfg["prompts"]["preset_instruction"].format(adj=adj, level=lvl)
-        title = native_cfg["preset_titles"][lvl].format(lang_name=lang_name)
-        desc = native_cfg["preset_descriptions"][lvl].format(adj=adj)
-        presets.append({
-            "id": pid,
-            "name": title,
-            "level": lvl,
-            "badge": badge,
-            "description": desc,
-            "instruction": instruction,
-            "prompt_type": "standard"
-        })
+    native_code = (native_lang or "ru").lower().strip()
+
+    if native_code == "uk":
+        presets = [
+            {
+                "id": "preset_a2",
+                "name": f"🎯 Рівень A2 — Базовий ({lang_name})",
+                "level": "A2",
+                "badge": "Базовий",
+                "description": f"Пояснення слів з перекладом на українську, детальна граматика та 3 приклади з іншими варіантами того ж змісту. Складність тексту не вище рівня A2.",
+                "instruction": f"поясни слова з перекладом на українську та детально граматику, потім 3 приклади з іншими варіантами того ж змісту. Вивчаєма мова {lang_name} рівня А2, рідна мова українська. Пиши {lang_name} текст складністю не вище рівня А2",
+                "prompt_type": "standard"
+            },
+            {
+                "id": "preset_b1",
+                "name": f"⚡ Рівень B1 — Впевнений ({lang_name}) (За замовчуванням)",
+                "level": "B1",
+                "badge": "Рекомендований",
+                "description": f"Пояснення слів з перекладом на українську, детальна граматика та 3 приклади з іншими варіантами того ж змісту. Складність тексту не вище рівня B1.",
+                "instruction": f"поясни слова з перекладом на українську та детально граматику, потім 3 приклади з іншими варіантами того ж змісту. Вивчаєма мова {lang_name}, рідна мова українська. Пиши {lang_name} текст складністю не вище рівня Б1",
+                "prompt_type": "standard"
+            },
+            {
+                "id": "preset_b2",
+                "name": f"🚀 Рівень B2 — Просунутий ({lang_name})",
+                "level": "B2",
+                "badge": "Просунутий",
+                "description": f"Пояснення слів з перекладом на українську, синоніми та детальна граматика, потім 3 приклади з іншими варіантами того ж змісту. Складність тексту рівня B2.",
+                "instruction": f"поясни слова з перекладом на українську, синоніми та детально граматику, потім 3 приклади з іншими варіантами того ж змісту. Вивчаєма мова {lang_name}, рідна мова українська. Пиши {lang_name} текст складністю рівня Б2",
+                "prompt_type": "standard"
+            }
+        ]
+    elif native_code == "en":
+        presets = [
+            {
+                "id": "preset_a2",
+                "name": f"🎯 Level A2 — Basic ({lang_name})",
+                "level": "A2",
+                "badge": "Basic",
+                "description": f"Word breakdown with translation to English, detailed grammar, and 3 examples with other options of the same meaning. Text complexity no higher than A2 level.",
+                "instruction": f"explain words with translation to English and detailed grammar, then 3 examples with other options of the same meaning. Target language is {lang_name} at A2 level, native language is English. Write {lang_name} text with complexity no higher than A2 level",
+                "prompt_type": "standard"
+            },
+            {
+                "id": "preset_b1",
+                "name": f"⚡ Level B1 — Confident ({lang_name}) (Default)",
+                "level": "B1",
+                "badge": "Recommended",
+                "description": f"Word breakdown with translation to English, detailed grammar, and 3 examples with other options of the same meaning. Text complexity no higher than B1 level.",
+                "instruction": f"explain words with translation to English and detailed grammar, then 3 examples with other options of the same meaning. Target language is {lang_name}, native language is English. Write {lang_name} text with complexity no higher than B1 level",
+                "prompt_type": "standard"
+            },
+            {
+                "id": "preset_b2",
+                "name": f"🚀 Level B2 — Advanced ({lang_name})",
+                "level": "B2",
+                "badge": "Advanced",
+                "description": f"Word breakdown with translation to English, synonyms and detailed grammar, then 3 examples with other options of the same meaning. Text complexity at B2 level.",
+                "instruction": f"explain words with translation to English, synonyms and detailed grammar, then 3 examples with other options of the same meaning. Target language is {lang_name}, native language is English. Write {lang_name} text with complexity at B2 level",
+                "prompt_type": "standard"
+            }
+        ]
+    else:
+        presets = [
+            {
+                "id": "preset_a2",
+                "name": f"🎯 Уровень A2 — Базовый {lang_name}",
+                "level": "A2",
+                "badge": "Базовый",
+                "description": f"Объяснение слов с переводом, подробная грамматика и 3 примера с другими вариантами того же смысла. Сложность текста не выше уровня A2.",
+                "instruction": f"объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык {lang_name} уровня А2, родной русский. пиши {lang_name} текст сложностью не выше уровня А2",
+                "prompt_type": "standard"
+            },
+            {
+                "id": "preset_b1",
+                "name": f"⚡ Уровень B1 — Уверенный {lang_name} (По умолчанию)",
+                "level": "B1",
+                "badge": "Рекомендуемый",
+                "description": f"Объяснение слов с переводом на русский, подробная грамматика и 3 примера с другими вариантами того же смысла. Сложность текста не выше уровня B1.",
+                "instruction": f"объясни слова с переводом на русский и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык {lang_name}, родной русский. пиши {lang_name} текст сложностью не выше уровня Б1",
+                "prompt_type": "standard"
+            },
+            {
+                "id": "preset_b2",
+                "name": f"🚀 Уровень B2 — Продвинутый {lang_name}",
+                "level": "B2",
+                "badge": "Продвинутый",
+                "description": f"Объяснение слов с переводом на русский, синонимы и подробно грамматика, затем 3 примера с другими вариантами того же смысла. Сложность текста уровня B2.",
+                "instruction": f"объясни слова с переводом на русский, синонимы и подробно грамматику, затем 3 примера с другими вариантами того же смысла. Изучаемый язык {lang_name}, родной русский. пиши {lang_name} текст сложностью уровня Б2",
+                "prompt_type": "standard"
+            }
+        ]
 
     presets.append({
         "id": "preset_trainer",

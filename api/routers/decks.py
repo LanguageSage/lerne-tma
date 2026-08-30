@@ -116,13 +116,23 @@ def get_external_decks(target_language: str = None):
 def get_library_categories():
     return services.get_library_categories()
 
+class BatchImportRequest(BaseModel):
+    deck_ids: list[int]
+    mode: Optional[str] = 'merge'
+
 @router.post("/external/import/{deck_id}")
-def import_external_deck(deck_id: int, user_id: int = Depends(get_user_id)):
-    logger.info(f"POST /api/decks/external/import/{deck_id} - X-User-ID: {user_id}")
-    result = services.import_deck(deck_id, user_id)
+def import_external_deck(deck_id: int, mode: Optional[str] = 'merge', user_id: int = Depends(get_user_id)):
+    logger.info(f"POST /api/decks/external/import/{deck_id} (mode={mode}) - X-User-ID: {user_id}")
+    result = services.import_deck(deck_id, user_id, mode=mode or 'merge')
     if result:
         return {"status": "success", "deck_id": result.id}
     raise HTTPException(status_code=404, detail="External deck not found or import failed")
+
+@router.post("/external/import-batch")
+def import_external_decks_batch(body: BatchImportRequest, user_id: int = Depends(get_user_id)):
+    logger.info(f"POST /api/decks/external/import-batch - X-User-ID: {user_id}, count={len(body.deck_ids)}, mode={body.mode}")
+    imported_ids = services.import_decks_batch(body.deck_ids, user_id, mode=body.mode or 'merge')
+    return {"status": "success", "imported_deck_ids": imported_ids}
 
 
 @router.post("/external/{deck_id}/toggle-default")

@@ -1,29 +1,4 @@
-# Исключаем служебные и локальные файлы из деплоя Vercel
-
-# Скрипты диагностики и батники
-*.bat
-api/scratch/
-scripts/
-backups/
-run_tma.ps1
-MIGRATION_REPORT.md
-cloud_deployment_plan.md
-
-# Локальные данные
-.env
-venv/
-__pycache__/
-*.db
-user_files/
-api/data/*backup*.json
-audio_debug.log
-debug_output.txt
-
-# Системные файлы
-.agent/
-.git/
-.gemini/
-*.mp3
-*.img
-*.png
-!app/public/
+# Exclude local admin tools and launchers from Vercel deployment
+tools/
+tools/admin/
+run_admin.bat

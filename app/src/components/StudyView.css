@@ -71,6 +71,36 @@
   filter: grayscale(1);
 }
 
+@keyframes studyAddBtnPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.35), 0 0 2px rgba(251, 191, 36, 0.5);
+    transform: scale(1);
+    border-color: rgba(251, 191, 36, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.7), 0 0 6px rgba(251, 191, 36, 0.9);
+    transform: scale(1.07);
+    border-color: #fbbf24;
+  }
+}
+
+.header-action-btn.study-add-card-btn {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.6);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35), 0 0 2px rgba(251, 191, 36, 0.5);
+  animation: studyAddBtnPulse 2.5s ease-in-out infinite;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.header-action-btn.study-add-card-btn:hover:not(:disabled) {
+  animation: none;
+  background: rgba(245, 158, 11, 0.28);
+  border-color: #f59e0b;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.8), 0 0 6px rgba(251, 191, 36, 0.95);
+  transform: scale(1.1);
+}
+
 .settings-overlay {
   position: fixed;
   top: 0;

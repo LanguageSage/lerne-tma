@@ -124,6 +124,49 @@ export const useVoicePicker = (
     cardTextRef.current = '';
   }, [defaultVoice, sessionVoice]);
 
+  const generateAndSaveToCard = useCallback(async (cardId, text, isBack = false, voiceOverride = null) => {
+    const voice = voiceOverride || selectedVoice;
+    if (!text?.trim() || !voice || !cardId) return null;
+
+    setIsGenerating(true);
+    setGenerateError(null);
+
+    try {
+      const res = await api.post('/media/generate-audio', {
+        text: text.trim(),
+        lang: code,
+        voice,
+        with_boundaries: true,
+      });
+
+      const url = res.data?.url;
+      const path = res.data?.path;
+      const boundaries = res.data?.word_boundaries || null;
+
+      if (url && path) {
+        const updatePayload = isBack ? { audio_back_path: path } : { audio_path: path };
+        await api.put(`/cards/${cardId}`, updatePayload);
+
+        const { useDeckStore } = await import('../store/useDeckStore');
+        const updateCardLocal = useDeckStore.getState().updateCardLocal;
+        if (updateCardLocal) {
+          updateCardLocal(cardId, isBack ? { audio_back_url: url, audio_back_path: path } : { audio_url: url, audio_path: path });
+        }
+
+        setPreviewUrl(url);
+        setWordBoundaries(boundaries);
+      }
+      return url || null;
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err.message || 'Ошибка генерации и сохранения';
+      setGenerateError(msg);
+      console.error('[useVoicePicker] generateAndSaveToCard failed:', msg);
+      return null;
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [code, selectedVoice]);
+
   return {
     voices,
     selectedVoice,
@@ -133,6 +176,7 @@ export const useVoicePicker = (
     setPreviewUrl,
     wordBoundaries,
     generatePreview,
+    generateAndSaveToCard,
     isGenerating,
     generateError,
     resetToDefault,

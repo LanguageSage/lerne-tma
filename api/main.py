@@ -152,9 +152,10 @@ def get_init_data(user_id: int = Depends(get_user_id)):
     try:
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
         if user:
+            clean_first_name = user.first_name if (user.first_name and user.first_name != "Пользователь") else (user.username or None)
             user_info = {
                 "user_id": user.user_id,
-                "first_name": user.first_name or user.username or "Пользователь",
+                "first_name": clean_first_name,
                 "last_name": user.last_name,
                 "username": user.username,
                 "photo_url": user.photo_url,

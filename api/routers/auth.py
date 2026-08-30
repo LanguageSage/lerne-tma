@@ -40,7 +40,8 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
             services.merge_guest_data(data.guest_id, user_id)
         
         # Update info if provided in request (usually from Telegram WebApp)
-        if data.first_name: user.first_name = data.first_name
+        if data.first_name and data.first_name != "Пользователь": 
+            user.first_name = data.first_name
         if data.last_name: user.last_name = data.last_name
         if data.username: user.username = data.username
         if data.photo_url: user.photo_url = data.photo_url
@@ -48,14 +49,18 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
         if data.active_language: user.active_language = data.active_language
         if data.native_language: user.native_language = data.native_language
         
+        # Clean up legacy "Пользователь" if we have a real username or first_name
+        if (not user.first_name or user.first_name == "Пользователь") and user.username:
+            user.first_name = user.username
+        elif user.first_name == "Пользователь" and not data.first_name:
+            user.first_name = None
+        
         # Protect has_selected_language: if DB is already True, do NOT overwrite with False from cold start
         if data.has_selected_language is True:
             user.has_selected_language = True
         
         # Logic: If we have a name (from this request or already in DB), it's NOT a guest.
-        # This is crucial for "Open in Browser" redirect where frontend sends is_guest=True
-        # but the backend already knows the user from the bot.
-        has_identifying_info = user.first_name or user.username
+        has_identifying_info = (user.first_name and user.first_name != "Пользователь") or user.username
         
         if has_identifying_info:
             user.is_guest = False
@@ -67,13 +72,15 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
         user.updated_at = datetime.datetime.now()
         user.save()
         
+        clean_first_name = user.first_name if (user.first_name and user.first_name != "Пользователь") else (user.username or None)
+
         status = "created" if created else "updated"
         return {
             "status": "ok",
             "action": status,
             "user": {
                 "user_id": user.user_id,
-                "first_name": user.first_name,
+                "first_name": clean_first_name,
                 "last_name": user.last_name,
                 "username": user.username,
                 "photo_url": user.photo_url,

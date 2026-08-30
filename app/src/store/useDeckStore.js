@@ -73,6 +73,11 @@ export const useDeckStore = create((set, get) => ({
   setExternalDecks: (decks) => set({ externalDecks: decks }),
   setCommunityDecks: (decks) => set({ communityDecks: decks }),
   setDeckCards: (cards) => set({ deckCards: cards }),
+  updateCardLocal: (cardId, fields) => {
+    const { deckCards } = get();
+    const updated = deckCards.map(c => c.id === cardId ? { ...c, ...fields } : c);
+    set({ deckCards: updated });
+  },
   setDuplicateCards: (cards) => set({ duplicateCards: cards }),
   setLastDuplicateCardId: (id) => set({ lastDuplicateCardId: id }),
   setSyncModalOpen: (isOpen) => set({ syncModalOpen: isOpen }),
@@ -303,13 +308,24 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
-  importDeck: async (deckId) => {
+  importDeck: async (deckId, mode = 'merge') => {
     try {
-      await api.post(`/decks/external/import/${deckId}`);
+      await api.post(`/decks/external/import/${deckId}?mode=${mode}`);
       const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {
       console.error('Import Deck Error:', err);
+      throw err;
+    }
+  },
+
+  importDecksBatch: async (deckIds, mode = 'merge') => {
+    try {
+      await api.post('/decks/external/import-batch', { deck_ids: deckIds, mode });
+      const { fetchDecks } = get();
+      await fetchDecks(true);
+    } catch (err) {
+      console.error('Import Decks Batch Error:', err);
       throw err;
     }
   },

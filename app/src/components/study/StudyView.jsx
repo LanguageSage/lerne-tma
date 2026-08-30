@@ -158,14 +158,15 @@ export const StudyView = ({ startTutorial }) => {
     const isSuppressedAfterAutoplay = suppressLegacyAutoplayCardRef.current === card?.id;
     const currentCardKey = `${card?.id}-${historyIndex}`;
     const isAutoplayEnabledMode = studyMode === 'classic' || (studyMode === 'random' && activeRandomMode === 'classic');
-    if (view === 'study' && card?.audio_url && autoPlay && isAutoplayEnabledMode && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay && lastAutoplayedCardRef.current !== currentCardKey) {
+    const resolvedUrl = card?.audio_url || (card?.audio_path ? (card.audio_path.startsWith('http') || card.audio_path.startsWith('/api/') ? card.audio_path : `/api/media/${card.audio_path}`) : '');
+    if (view === 'study' && resolvedUrl && autoPlay && isAutoplayEnabledMode && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay && lastAutoplayedCardRef.current !== currentCardKey) {
       lastAutoplayedCardRef.current = currentCardKey;
       const timer = setTimeout(() => {
-        playAudio(card.audio_url);
+        playAudio(resolvedUrl);
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [card?.id, card?.audio_url, historyIndex, autoPlay, view, loading, isAutoplayActive, playAudio, studyMode, activeRandomMode]);
+  }, [card?.id, card?.audio_url, card?.audio_path, historyIndex, autoPlay, view, loading, isAutoplayActive, playAudio, studyMode, activeRandomMode]);
 
   useEffect(() => {
     if (studyMode === 'random') {

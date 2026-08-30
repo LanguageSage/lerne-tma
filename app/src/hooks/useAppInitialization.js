@@ -297,12 +297,14 @@ export const useAppInitialization = (checkStartParam) => {
 
       if (res.data.status === 'ok' && res.data.user) {
         const serverUser = res.data.user;
+        const validLocalName = currentProfile.first_name && currentProfile.first_name !== 'Пользователь' ? currentProfile.first_name : null;
+        const validServerName = serverUser.first_name && serverUser.first_name !== 'Пользователь' ? serverUser.first_name : null;
+        const fallbackName = validServerName || validLocalName || serverUser.username || currentProfile.username || null;
+
         const mergedProfile = {
           ...currentProfile,
           ...serverUser,
-          first_name: (serverUser.first_name && serverUser.first_name !== 'Пользователь') 
-            ? serverUser.first_name 
-            : (currentProfile.first_name || serverUser.first_name || 'Пользователь'),
+          first_name: fallbackName,
           photo_url: serverUser.photo_url || currentProfile.photo_url || null,
           is_guest: Boolean(serverUser.is_guest)
         };

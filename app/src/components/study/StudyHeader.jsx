@@ -40,14 +40,6 @@ export const StudyHeader = ({
     </div>
     <div className="header-actions">
       <UserProfileBadge />
-      <button
-        id="tut-study-add-card"
-        className="header-action-btn"
-        onClick={onOpenCreator}
-        title="Добавить карточку"
-      >
-        <Plus size={22} />
-      </button>
 
       <HelpButton onClick={onStartTutorial} />
 
@@ -78,6 +70,15 @@ export const StudyHeader = ({
         title="Настройки"
       >
         <Settings size={22} />
+      </button>
+
+      <button
+        id="tut-study-add-card"
+        className="header-action-btn study-add-card-btn"
+        onClick={onOpenCreator}
+        title="Добавить карточку"
+      >
+        <Plus size={22} />
       </button>
     </div>
   </div>

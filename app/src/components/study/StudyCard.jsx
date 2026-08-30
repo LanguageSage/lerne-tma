@@ -171,8 +171,19 @@ export const StudyCard = React.memo(({
     return parseClozeData(card, studyMode, allDeckCards);
   }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const getResolvedAudioUrl = (c, isBack = false) => {
+    if (!c) return '';
+    const urlVal = isBack ? c.audio_back_url : c.audio_url;
+    const pathVal = isBack ? c.audio_back_path : c.audio_path;
+    const raw = urlVal || pathVal;
+    if (!raw) return '';
+    if (raw.startsWith('http') || raw.startsWith('/api/') || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+    return `/api/media/${raw}`;
+  };
+
   const renderFrontAudioPlayer = () => {
-    const audioUrl = studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url;
+    const isBackSide = studyMode === 'reverse';
+    const audioUrl = getResolvedAudioUrl(card, isBackSide) || getResolvedAudioUrl(card, !isBackSide);
     if (!audioUrl && !frontText) return null;
 
     return (
@@ -194,6 +205,8 @@ export const StudyCard = React.memo(({
         isGenerating={card.audio_is_generating}
         voicePicker={frontVoicePicker}
         cardText={frontText}
+        cardId={card?.id}
+        isBack={isBackSide}
         disabled={loading || isAutoplayActive}
       />
     );
@@ -653,29 +666,39 @@ export const StudyCard = React.memo(({
                   </div>
                 )}
 
-                {(studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url) && (
-                  <div style={{ marginTop: '8px' }}>
-                    <CardAudioPlayer
-                      audioUrl={studyMode === 'reverse' ? (card.audio_back_url || card.audio_url) : card.audio_url}
-                      playAudio={audioControls?.playAudio || playAudio}
-                      pauseAudio={audioControls?.pauseAudio}
-                      resumeAudio={audioControls?.resumeAudio}
-                      togglePlayPause={audioControls?.togglePlayPause}
-                      stopAudio={audioControls?.stopAudio}
-                      seekAudio={audioControls?.seekAudio}
-                      setPlaybackSpeed={audioControls?.setPlaybackSpeed}
-                      audioState={audioControls?.audioState}
-                      currentUrl={audioControls?.currentUrl}
-                      currentTime={audioControls?.currentTime}
-                      duration={audioControls?.duration}
-                      playbackRate={audioControls?.playbackRate}
-                      isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
-                      isGenerating={card.audio_is_generating}
-                      disabled={loading || isAutoplayActive}
-                      compact={true}
-                    />
-                  </div>
-                )}
+                {(() => {
+                  const resolvedFrontUrl = studyMode === 'reverse'
+                    ? (getResolvedAudioUrl(card, true) || getResolvedAudioUrl(card, false))
+                    : getResolvedAudioUrl(card, false);
+                  if (!resolvedFrontUrl) return null;
+
+                  return (
+                    <div style={{ marginTop: '8px' }}>
+                      <CardAudioPlayer
+                        audioUrl={resolvedFrontUrl}
+                        playAudio={audioControls?.playAudio || playAudio}
+                        pauseAudio={audioControls?.pauseAudio}
+                        resumeAudio={audioControls?.resumeAudio}
+                        togglePlayPause={audioControls?.togglePlayPause}
+                        stopAudio={audioControls?.stopAudio}
+                        seekAudio={audioControls?.seekAudio}
+                        setPlaybackSpeed={audioControls?.setPlaybackSpeed}
+                        audioState={audioControls?.audioState}
+                        currentUrl={audioControls?.currentUrl}
+                        currentTime={audioControls?.currentTime}
+                        duration={audioControls?.duration}
+                        playbackRate={audioControls?.playbackRate}
+                        isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
+                        isGenerating={card.audio_is_generating}
+                        voicePicker={frontVoicePicker}
+                        cardText={frontText}
+                        cardId={card?.id}
+                        isBack={studyMode === 'reverse'}
+                        disabled={loading || isAutoplayActive}
+                      />
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
@@ -697,14 +720,17 @@ export const StudyCard = React.memo(({
               {/* 3. BACK ANSWER BLOCK */}
               <div className="back-answer-block">
                 {(() => {
-                  const targetBackAudioUrl = studyMode === 'reverse' ? card.audio_url : card.audio_back_url;
+                  const targetBackAudioUrl = studyMode === 'reverse'
+                    ? getResolvedAudioUrl(card, false)
+                    : getResolvedAudioUrl(card, true);
                   if (targetBackAudioUrl) {
                     return (
                       <CardAudioPlayer
                         audioUrl={targetBackAudioUrl}
                         playAudio={() => {
                           if (studyMode === 'reverse') {
-                            if (card.audio_url && playAudio) playAudio(card.audio_url);
+                            const frontAudio = getResolvedAudioUrl(card, false);
+                            if (frontAudio && playAudio) playAudio(frontAudio);
                           } else {
                             onPlayBackAudio?.(card);
                           }
@@ -716,7 +742,8 @@ export const StudyCard = React.memo(({
                             audioControls.togglePlayPause(url);
                           } else {
                             if (studyMode === 'reverse') {
-                              if (card.audio_url && playAudio) playAudio(card.audio_url);
+                              const frontAudio = getResolvedAudioUrl(card, false);
+                              if (frontAudio && playAudio) playAudio(frontAudio);
                             } else {
                               onPlayBackAudio?.(card);
                             }
@@ -732,8 +759,11 @@ export const StudyCard = React.memo(({
                         playbackRate={audioControls?.playbackRate}
                         isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
                         isGenerating={card.audio_is_generating}
+                        voicePicker={frontVoicePicker}
+                        cardText={frontText}
+                        cardId={card?.id}
+                        isBack={studyMode !== 'reverse'}
                         disabled={loading || isAudioLoading}
-                        compact={true}
                       />
                     );
                   }

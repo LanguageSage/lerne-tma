@@ -34,6 +34,8 @@ export const CardAudioPlayer = React.memo(({
 
   voicePicker = null,
   cardText = '',
+  cardId = null,
+  isBack = false,
 
   disabled = false,
   className = '',
@@ -46,7 +48,10 @@ export const CardAudioPlayer = React.memo(({
   const autoPlay = useSettingsStore((s) => s.autoPlay);
   const setAutoPlay = useSettingsStore((s) => s.setAutoPlay);
 
-  const effectiveUrl = (voicePicker?.previewUrl) || audioUrl;
+  const rawUrl = (voicePicker?.previewUrl) || audioUrl;
+  const effectiveUrl = rawUrl
+    ? (rawUrl.startsWith('http') || rawUrl.startsWith('/api/') || rawUrl.startsWith('blob:') || rawUrl.startsWith('data:') ? rawUrl : `/api/media/${rawUrl}`)
+    : '';
   const isThisActive = currentUrl === effectiveUrl && audioState !== 'idle';
   const isPlaying = isThisActive && audioState === 'playing';
   const isLoading = (isThisActive && (audioState === 'loading' || isAudioLoading))
@@ -90,6 +95,16 @@ export const CardAudioPlayer = React.memo(({
 
     voicePicker.setSelectedVoice(voice.value);
     voicePicker.setPreviewUrl(null);
+
+    if (cardText) {
+      if (cardId) {
+        const url = await voicePicker.generateAndSaveToCard(cardId, cardText, isBack, voice.value);
+        if (url) playAudio?.(url);
+      } else {
+        const url = await voicePicker.generatePreview(cardText, voice.value);
+        if (url) playAudio?.(url);
+      }
+    }
   };
 
   const handleGeneratePreview = async (e) => {
@@ -101,7 +116,45 @@ export const CardAudioPlayer = React.memo(({
     }
   };
 
-  if (!audioUrl) return null;
+  const handleRegenerateAndSave = async (e) => {
+    e.stopPropagation();
+    if (!voicePicker || !cardText || !cardId) return;
+    const url = await voicePicker.generateAndSaveToCard(cardId, cardText, isBack);
+    if (url) {
+      playAudio?.(url);
+    }
+  };
+
+  // If card has no audio yet, allow generating audio on demand
+  if (!effectiveUrl) {
+    if (!voicePicker || !cardText || !cardId) return null;
+    return createPortal(
+      <div className="card-audio-floating-wrapper">
+        <div
+          className={`card-audio-floating-pill glass ${className}`}
+          style={{ ...style, gap: '8px', padding: '6px 12px' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="pill-btn-play"
+            onClick={handleRegenerateAndSave}
+            disabled={disabled || isLoading}
+            style={{ width: 'auto', padding: '0 8px', borderRadius: '12px', gap: '4px', display: 'flex', alignItems: 'center' }}
+            title="Сгенерировать и сохранить озвучку"
+          >
+            {isLoading ? (
+              <RefreshCw size={14} className="spin" />
+            ) : (
+              <Volume2 size={14} />
+            )}
+            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Озвучить</span>
+          </button>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   const progressPercent = duration > 0
     ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
@@ -114,7 +167,6 @@ export const CardAudioPlayer = React.memo(({
   const needsRegenerate = voicePicker && !voicePicker.isDefaultVoice && !voicePicker.previewUrl;
 
   // ── COLLAPSED FLOATING PILL STATE ──────────────────────────────────────────
-  // Per user directive: "при сворачивании голос не нужно показывать. а остальное все подходит"
   if (isCollapsed) {
     return createPortal(
       <div className="card-audio-floating-wrapper">
@@ -146,6 +198,8 @@ export const CardAudioPlayer = React.memo(({
               <span className="pill-time">{formatTime(currentTime)}</span>
             </div>
           )}
+
+
 
           {/* Playback Speed indicator */}
           <button
@@ -189,11 +243,9 @@ export const CardAudioPlayer = React.memo(({
         style={style}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header Row with Title, Voice Picker & Collapse toggle */}
+        {/* Top Header Row with Voice Picker & Collapse toggle */}
         <div className="audio-player-header-row">
           <div className="audio-player-header-left">
-            <span className="audio-player-title">Плеер</span>
-
             {voicePicker && voicePicker.voices.length > 0 && (
               <div className="audio-player-voice-picker">
                 <button
@@ -231,20 +283,20 @@ export const CardAudioPlayer = React.memo(({
               </div>
             )}
 
-            {voicePicker && !voicePicker.isDefaultVoice && (
+            {voicePicker && (
               <button
                 type="button"
                 className={`audio-player-btn-regenerate ${voicePicker.isGenerating ? 'loading' : ''}`}
-                onClick={handleGeneratePreview}
+                onClick={cardId ? handleRegenerateAndSave : handleGeneratePreview}
                 disabled={voicePicker.isGenerating || !cardText}
-                title="Озвучить другим голосом"
+                title={cardId ? "Перегенерировать и сохранить озвучку карточки" : "Озвучить выбранным голосом"}
               >
                 {voicePicker.isGenerating ? (
                   <RefreshCw size={12} className="spin" />
                 ) : (
-                  <Volume2 size={12} />
+                  <RefreshCw size={12} />
                 )}
-                <span>{voicePicker.isGenerating ? 'Генерирую…' : 'Прослушать'}</span>
+                <span>{voicePicker.isGenerating ? 'Генерирую…' : cardId ? 'Сохранить голос' : 'Прослушать'}</span>
               </button>
             )}
 
