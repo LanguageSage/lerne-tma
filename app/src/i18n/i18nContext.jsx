@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import ukTranslations from './locales/uk.json';
 import ruTranslations from './locales/ru.json';
 import enTranslations from './locales/en.json';
@@ -64,7 +64,7 @@ export function LanguageProvider({ children }) {
     localStorage.setItem('native_language', nativeLanguage);
   }, [nativeLanguage]);
 
-  const changeNativeLanguage = (code, markCompleted = false) => {
+  const changeNativeLanguage = useCallback((code, markCompleted = false) => {
     if (TRANSLATIONS[code]) {
       setNativeLanguage(code);
       localStorage.setItem('native_language', code);
@@ -81,9 +81,9 @@ export function LanguageProvider({ children }) {
         console.error("Failed to save native language to backend:", err);
       });
     }
-  };
+  }, []);
 
-  const syncNativeLanguageFromExternal = (code, selected = true) => {
+  const syncNativeLanguageFromExternal = useCallback((code, selected = true) => {
     if (TRANSLATIONS[code]) {
       setNativeLanguage(code);
       localStorage.setItem('native_language', code);
@@ -94,9 +94,9 @@ export function LanguageProvider({ children }) {
         setIsFirstLaunch(false);
       }
     }
-  };
+  }, []);
 
-  const t = (path, param1, param2) => {
+  const t = useCallback((path, param1, param2) => {
     let fallback = '';
     let params = null;
 
@@ -125,17 +125,19 @@ export function LanguageProvider({ children }) {
     }
 
     return typeof current === 'string' ? current : String(current || '');
-  };
+  }, [nativeLanguage]);
+
+  const value = useMemo(() => ({
+    nativeLanguage, 
+    changeNativeLanguage, 
+    syncNativeLanguageFromExternal,
+    t, 
+    isFirstLaunch, 
+    setIsFirstLaunch 
+  }), [nativeLanguage, changeNativeLanguage, syncNativeLanguageFromExternal, t, isFirstLaunch]);
 
   return (
-    <LanguageContext.Provider value={{
-      nativeLanguage, 
-      changeNativeLanguage, 
-      syncNativeLanguageFromExternal,
-      t, 
-      isFirstLaunch, 
-      setIsFirstLaunch 
-    }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );

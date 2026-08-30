@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Globe, ArrowRight, ArrowLeft, Sparkles, Check } from 'lucide-react';
 import { useTranslation } from '../../i18n/i18nContext';
@@ -7,11 +7,11 @@ import { useLanguageStore, SUPPORTED_LANGUAGES } from '../../store/useLanguageSt
 import { renderFlag } from '../deckgrid/FlagIcons';
 import '../LanguageSelectionModal.css';
 
-export default function LanguageWelcomeModal({ isOpen, onComplete, onClose }) {
+export default function LanguageWelcomeModal({ isOpen, onComplete, onClose, targetOnly = false }) {
   const { nativeLanguage, changeNativeLanguage, t } = useTranslation();
   const { activeLanguage, setLanguage } = useLanguageStore();
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(targetOnly ? 2 : 1);
   const [selectedNative, setSelectedNative] = useState(nativeLanguage || 'uk');
   const [selectedTarget, setSelectedTarget] = useState(activeLanguage || 'de');
 
@@ -27,7 +27,9 @@ export default function LanguageWelcomeModal({ isOpen, onComplete, onClose }) {
   };
 
   const handleFinish = () => {
-    changeNativeLanguage(selectedNative, true);
+    if (!targetOnly) {
+      changeNativeLanguage(selectedNative, true);
+    }
     setLanguage(selectedTarget);
     if (onComplete) {
       onComplete(selectedNative, selectedTarget);
@@ -49,7 +51,7 @@ export default function LanguageWelcomeModal({ isOpen, onComplete, onClose }) {
         <div className="language-modal-header">
           <div className="language-modal-badge">
             <Globe size={16} color="#38bdf8" />
-            <span>{t('welcome.step', { current: step, total: 2 }, `Шаг ${step} из 2`)}</span>
+            <span>{targetOnly ? t('header.target_lang', 'Выбор языка') : t('welcome.step', { current: step, total: 2 }, `Шаг ${step} из 2`)}</span>
           </div>
 
           <AnimatePresence mode="wait">
@@ -173,26 +175,28 @@ export default function LanguageWelcomeModal({ isOpen, onComplete, onClose }) {
             </button>
           ) : (
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setStep(1)}
-                style={{
-                  padding: '14px 18px',
-                  borderRadius: '14px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: '#e2e8f0',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <ArrowLeft size={16} />
-                <span>{t('welcome.back', 'Назад')}</span>
-              </button>
+              {!targetOnly && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setStep(1)}
+                  style={{
+                    padding: '14px 18px',
+                    borderRadius: '14px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#e2e8f0',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <ArrowLeft size={16} />
+                  <span>{t('welcome.back', 'Назад')}</span>
+                </button>
+              )}
               <button
                 className="btn btn-primary btn-large btn-glow"
                 style={{ flex: 1 }}

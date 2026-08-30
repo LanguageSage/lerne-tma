@@ -7,7 +7,7 @@ import datetime
 import urllib.request
 from PIL import Image, ImageDraw, ImageFont
 from fastapi import HTTPException
-from api.models import TMA_Deck, TMA_Card, TMAMedia, TMAUser, tma_db
+from api.models import TMA_Deck, TMA_Card, TMA_Folder, TMAMedia, TMAUser, tma_db
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +86,13 @@ class SharingService:
         buf.seek(0)
         return buf.getvalue()
 
+    _font_cache = None
+
     @staticmethod
     def _load_fonts():
+        if SharingService._font_cache is not None:
+            return SharingService._font_cache
+
         try:
             FONT_PATH = "api/fonts/NotoSans-Bold.ttf"
             if not os.path.exists(FONT_PATH):
@@ -102,16 +107,54 @@ class SharingService:
                         FONT_PATH = None
             
             if not FONT_PATH or not os.path.exists(FONT_PATH):
-                return ImageFont.load_default(), ImageFont.load_default(), ImageFont.load_default()
-            
-            return (
-                ImageFont.truetype(FONT_PATH, 80),
-                ImageFont.truetype(FONT_PATH, 45),
-                ImageFont.truetype(FONT_PATH, 32)
-            )
+                SharingService._font_cache = (ImageFont.load_default(), ImageFont.load_default(), ImageFont.load_default())
+            else:
+                SharingService._font_cache = (
+                    ImageFont.truetype(FONT_PATH, 80),
+                    ImageFont.truetype(FONT_PATH, 45),
+                    ImageFont.truetype(FONT_PATH, 32)
+                )
         except Exception as e:
             logger.error(f"Font loading error: {e}")
-            return ImageFont.load_default(), ImageFont.load_default(), ImageFont.load_default()
+            SharingService._font_cache = (ImageFont.load_default(), ImageFont.load_default(), ImageFont.load_default())
+        
+        return SharingService._font_cache
+
+    @staticmethod
+    def _clone_cards_batch(source_cards, target_deck, source_tag, creator_id, now, existing_pairs=None):
+        """Batch clones a list of cards into target_deck in a single optimized SQL statement."""
+        cards_to_create = []
+        for idx, card in enumerate(source_cards):
+            if existing_pairs and (card.front_text, card.back_text) in existing_pairs:
+                continue
+
+            cards_to_create.append(TMA_Card(
+                deck=target_deck,
+                front_text=card.front_text,
+                back_text=card.back_text,
+                context=card.context,
+                image_path=card.image_path,
+                image_data=card.image_data,
+                audio_path=card.audio_path,
+                audio_back_path=card.audio_back_path,
+                video_front_path=card.video_front_path,
+                video_back_path=card.video_back_path,
+                tags=card.tags,
+                metadata=card.metadata,
+                card_type=card.card_type,
+                difficulty=card.difficulty,
+                topics=card.topics,
+                flag=card.flag if card.flag is not None else 0,
+                position=card.position if card.position is not None else idx,
+                source=source_tag,
+                creator_id=card.creator_id or creator_id,
+                created_at=now,
+                updated_at=now
+            ))
+        
+        if cards_to_create:
+            TMA_Card.bulk_create(cards_to_create, batch_size=200)
+        return len(cards_to_create)
 
     @staticmethod
     def _draw_card_image(img, image_path, width, height, card_width):
@@ -182,6 +225,7 @@ class SharingService:
         from api.services.folders import ensure_inbox_folder
         
         with tma_db.atomic():
+            now = datetime.datetime.now()
             if share_id.startswith("d_"):
                 source_deck = TMA_Deck.get_or_none(TMA_Deck.share_id == share_id)
                 if not source_deck:
@@ -230,16 +274,14 @@ class SharingService:
                         topic=source_deck.topic,
                         target_language=deck_lang,
                         folder_id=inbox_folder.id,
-                        metadata=source_deck.metadata, # Copy deck metadata (resources)
-                        created_at=datetime.datetime.now(),
-                        updated_at=datetime.datetime.now()
+                        metadata=source_deck.metadata,
+                        created_at=now,
+                        updated_at=now
                     )
                 
                 source_cards = list(TMA_Card.select().where(
                     (TMA_Card.deck == source_deck) & (TMA_Card.is_deleted == False)
                 ).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()))
-                
-                creator_id = source_deck.user_id
                 
                 # If merging, check if cards already exist
                 existing_pairs = set()
@@ -250,43 +292,19 @@ class SharingService:
                         )
                     )
 
-                cards_to_create = []
-                now = datetime.datetime.now()
-                for idx, card in enumerate(source_cards):
-                    if resolution == 'merge' and (card.front_text, card.back_text) in existing_pairs:
-                        continue
-
-                    cards_to_create.append(TMA_Card(
-                        deck=target_deck,
-                        front_text=card.front_text,
-                        back_text=card.back_text,
-                        context=card.context,
-                        image_path=card.image_path,
-                        image_data=card.image_data,
-                        audio_path=card.audio_path,
-                        audio_back_path=card.audio_back_path,
-                        video_front_path=card.video_front_path,
-                        video_back_path=card.video_back_path,
-                        tags=card.tags,
-                        metadata=card.metadata,
-                        card_type=card.card_type,
-                        difficulty=card.difficulty,
-                        topics=card.topics,
-                        flag=card.flag if card.flag is not None else 0,
-                        position=card.position if card.position is not None else idx,
-                        source=f"shared_deck:{source_deck.share_id}",
-                        creator_id=card.creator_id or creator_id,
-                        created_at=now,
-                        updated_at=now
-                    ))
-                
-                if cards_to_create:
-                    TMA_Card.bulk_create(cards_to_create, batch_size=200)
+                cards_added = SharingService._clone_cards_batch(
+                    source_cards=source_cards,
+                    target_deck=target_deck,
+                    source_tag=f"shared_deck:{source_deck.share_id}",
+                    creator_id=source_deck.user_id,
+                    now=now,
+                    existing_pairs=existing_pairs if resolution == 'merge' else None
+                )
                 
                 return {
                     "status": "ok", 
                     "type": "deck", 
-                    "cards_added": len(cards_to_create), 
+                    "cards_added": cards_added, 
                     "new_deck_id": target_deck.id, 
                     "name": target_deck.name,
                     "deck_name": target_deck.name,
@@ -335,15 +353,14 @@ class SharingService:
                         name=source_folder.name,
                         color=source_folder.color,
                         target_language=folder_lang,
-                        created_at=datetime.datetime.now(),
-                        updated_at=datetime.datetime.now()
+                        created_at=now,
+                        updated_at=now
                     )
 
                 # Helper to recursively copy subfolders and decks
                 def copy_folder_contents(src_f, dest_f):
                     decks_added = 0
                     cards_added = 0
-                    now = datetime.datetime.now()
                     
                     # 1. Copy decks in src_f
                     src_decks = TMA_Deck.select().where((TMA_Deck.folder == src_f) & (TMA_Deck.is_deleted == False))
@@ -361,35 +378,13 @@ class SharingService:
                         )
                         decks_added += 1
                         s_cards = list(TMA_Card.select().where((TMA_Card.deck == s_deck) & (TMA_Card.is_deleted == False)).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()))
-                        
-                        cards_to_create = []
-                        for idx, c in enumerate(s_cards):
-                            cards_to_create.append(TMA_Card(
-                                deck=dest_deck,
-                                front_text=c.front_text,
-                                back_text=c.back_text,
-                                context=c.context,
-                                image_path=c.image_path,
-                                image_data=c.image_data,
-                                audio_path=c.audio_path,
-                                audio_back_path=c.audio_back_path,
-                                video_front_path=c.video_front_path,
-                                video_back_path=c.video_back_path,
-                                tags=c.tags,
-                                metadata=c.metadata,
-                                card_type=c.card_type,
-                                difficulty=c.difficulty,
-                                topics=c.topics,
-                                flag=c.flag if c.flag is not None else 0,
-                                position=c.position if c.position is not None else idx,
-                                source=f"shared_folder:{source_folder.share_id}",
-                                creator_id=c.creator_id or source_folder.user_id,
-                                created_at=now,
-                                updated_at=now
-                            ))
-                        if cards_to_create:
-                            TMA_Card.bulk_create(cards_to_create, batch_size=200)
-                            cards_added += len(cards_to_create)
+                        cards_added += SharingService._clone_cards_batch(
+                            source_cards=s_cards,
+                            target_deck=dest_deck,
+                            source_tag=f"shared_folder:{source_folder.share_id}",
+                            creator_id=source_folder.user_id,
+                            now=now
+                        )
 
                     # 2. Copy child subfolders
                     src_subfolders = TMA_Folder.select().where((TMA_Folder.parent == src_f) & (TMA_Folder.is_deleted == False))
