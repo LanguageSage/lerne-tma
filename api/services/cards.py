@@ -287,10 +287,33 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
 
 
 def get_cards_for_study(deck_id: int, user_id: int):
-    """Возвращает список всех карточек в колоде. Оптимизировано: батчинг медиа."""
+    """Возвращает список всех карточек в колоде. Оптимизировано: проекция полей без BLOB и исключение лишних проверок."""
     try:
-        # Используем .dicts() для более быстрой выборки
-        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()).dicts())
+        # Явная проекция колонок без загрузки тяжелого image_data BLOB и history
+        cards_query = TMA_Card.select(
+            TMA_Card.id,
+            TMA_Card.deck_id,
+            TMA_Card.front_text,
+            TMA_Card.back_text,
+            TMA_Card.context,
+            TMA_Card.audio_path,
+            TMA_Card.audio_back_path,
+            TMA_Card.image_path,
+            TMA_Card.video_front_path,
+            TMA_Card.video_back_path,
+            TMA_Card.tags,
+            TMA_Card.card_type,
+            TMA_Card.flag,
+            TMA_Card.position,
+            TMA_Card.creator_id,
+            TMA_Card.source,
+            TMA_Card.want_to_learn
+        ).where(
+            TMA_Card.deck_id == deck_id, 
+            TMA_Card.is_deleted == False
+        ).order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
+
+        cards = list(cards_query.dicts())
         
         if not cards:
             # Self-healing: if deck exists in TMA_Deck but has 0 cards, check if it matches a default library deck
@@ -300,31 +323,34 @@ def get_cards_for_study(deck_id: int, user_id: int):
                 if lib_deck:
                     from api.services.decks import import_deck
                     import_deck(lib_deck.id, user_id, mode='merge', local_deck_id=tma_deck.id)
-                    cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()).dicts())
+                    cards = list(cards_query.dicts())
             if not cards:
                 return []
 
         # Получаем прогресс через JOIN с TMA_Card по deck_id, избегая передачи тысяч параметров
-        progress_query = (TMAProgress.select()
+        progress_query = (TMAProgress.select(
+                              TMAProgress.card_id,
+                              TMAProgress.queue,
+                              TMAProgress.interval,
+                              TMAProgress.lapses,
+                              TMAProgress.next_review
+                          )
                           .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
                           .where(TMAProgress.user_id == user_id, TMA_Card.deck_id == deck_id))
         progress_map = {p.card_id: p for p in progress_query}
-        
-        # Предзагрузка: собираем все пути медиа и проверяем существование ОДНИМ запросом
-        media_exists = _build_media_exists_map(cards)
         
         creator_ids = list(set([c.get('creator_id') for c in cards if c.get('creator_id')]))
         creators = {}
         if creator_ids:
             from ..models import TMAUser
-            for u in TMAUser.select().where(TMAUser.user_id << creator_ids):
+            for u in TMAUser.select(TMAUser.user_id, TMAUser.username, TMAUser.first_name, TMAUser.photo_url).where(TMAUser.user_id << creator_ids):
                 creators[u.user_id] = u
         
         result = []
         for c in cards:
             p = progress_map.get(c['id'])
             creator = creators.get(c.get('creator_id'))
-            result.append(_build_card_dict(c, p=p, media_exists=media_exists, creator=creator))
+            result.append(_build_card_dict(c, p=p, media_exists=None, creator=creator))
         return result
     except Exception as e:
         logger.error(f"Error in get_cards_for_study: {e}", exc_info=True)

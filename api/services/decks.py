@@ -144,53 +144,103 @@ def ensure_inbox_deck(user_id: int, target_language: str = 'de') -> TMA_Deck:
 
 
 
-def get_active_decks(user_id: int):
-    """Возвращает список колод со статистикой. Оптимизировано: 2 запроса вместо 5."""
+_lib_cache = {
+    'time': 0,
+    'by_name': {},
+    'counts': {}
+}
+
+def _get_cached_library_info():
+    global _lib_cache
+    import time
+    now = time.time()
+    if now - _lib_cache['time'] < 300 and _lib_cache['by_name']:
+        return _lib_cache['by_name'], _lib_cache['counts']
+    try:
+        ext_decks = list(Deck.select().where(Deck.is_deleted == False))
+        by_name = {d.name: d for d in ext_decks}
+        ext_ids = [d.id for d in ext_decks]
+        counts = {}
+        if ext_ids:
+            counts = {
+                deck_id: count
+                for deck_id, count in (
+                    Card
+                    .select(Card.deck, fn.COUNT(Card.id))
+                    .where(Card.deck << ext_ids)
+                    .group_by(Card.deck)
+                    .tuples()
+                )
+            }
+        _lib_cache = {
+            'time': now,
+            'by_name': by_name,
+            'counts': counts
+        }
+        return by_name, counts
+    except Exception as e:
+        logger.error(f"Error caching library info: {e}")
+        return _lib_cache.get('by_name', {}), _lib_cache.get('counts', {})
+
+
+def get_active_decks(user_id: int, folder_map: dict = None):
+    """Возвращает список колод со статистикой. Оптимизировано для быстрой загрузки."""
     try:
         now = datetime.datetime.now()
         
-        # 1. Сначала проверяем/создаем Входящие (всегда должны быть)
-        ensure_inbox_deck(user_id)
-        
-        # 2. Убеждаемся, что все дефолтные колоды импортированы (пропускаем если уже инициализировано)
+        if folder_map is None:
+            all_folders = list(TMA_Folder.select().where(TMA_Folder.is_deleted == False))
+            folder_map = {f.id: f for f in all_folders}
+
+        # 1. Убеждаемся, что дефолтные колоды импортированы только для новых пользователей
         try:
             user = TMAUser.get_or_none(TMAUser.user_id == user_id)
             if not user or not user.default_decks_initialized:
                 ensure_starter_decks(user_id)
         except Exception:
-            ensure_starter_decks(user_id)
+            pass
         
-        # 3. Получаем все доступные пользователю колоды (собственные и расшаренные)
+        # 2. Получаем все доступные пользователю колоды (собственные и расшаренные)
         from .collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, get_batch_collaborative_info
-        accessible_deck_ids = get_user_accessible_deck_ids(user_id)
-        accessible_folder_ids = get_user_accessible_folder_ids(user_id)
-
+        accessible_deck_ids = get_user_accessible_deck_ids(user_id, folder_map=folder_map)
+        accessible_folder_ids = get_user_accessible_folder_ids(user_id, folder_map=folder_map)
 
         if not accessible_deck_ids:
-            return []
+            # Fallback: ensure inbox if user has 0 decks
+            ensure_inbox_deck(user_id)
+            accessible_deck_ids = get_user_accessible_deck_ids(user_id, folder_map=folder_map)
+            if not accessible_deck_ids:
+                return []
 
         decks = list(TMA_Deck.select().where(
             (TMA_Deck.id << list(accessible_deck_ids)) & (TMA_Deck.is_deleted == False)
         ).order_by(TMA_Deck.is_pinned.desc(), TMA_Deck.is_inbox.desc(), TMA_Deck.position.asc(), TMA_Deck.id.desc()))
 
+        # Check if inbox exists in decks, if not ensure and reload
+        if not any(getattr(d, 'is_inbox', False) for d in decks):
+            ensure_inbox_deck(user_id)
+            accessible_deck_ids = get_user_accessible_deck_ids(user_id, folder_map=folder_map)
+            decks = list(TMA_Deck.select().where(
+                (TMA_Deck.id << list(accessible_deck_ids)) & (TMA_Deck.is_deleted == False)
+            ).order_by(TMA_Deck.is_pinned.desc(), TMA_Deck.is_inbox.desc(), TMA_Deck.position.asc(), TMA_Deck.id.desc()))
+
         if not decks:
-            logger.warning(f"No decks found for user {user_id} even after ensure_inbox and ensure_starter_decks")
+            logger.warning(f"No decks found for user {user_id}")
             return []
 
         deck_ids = [d.id for d in decks]
-        deck_names = [d.name for d in decks]
 
         # Batch resolve collaborative roles and is_shared in 1 query
-        collab_info = get_batch_collaborative_info(user_id, decks=decks)
+        collab_info = get_batch_collaborative_info(user_id, decks=decks, folder_map=folder_map)
         deck_collab_map = collab_info.get('decks', {})
 
         from peewee import Case
         
-        # --- Кросс-платформенный запрос статистики через Peewee ---
+        # --- Оптимизированный запрос статистики через Peewee ---
         tracked_case = Case(None, [(TMAProgress.queue != 'new', 1)], None)
         learning_case = Case(None, [(TMAProgress.queue << ['learning', 'relearning'], 1)], None)
         due_case = Case(None, [((TMAProgress.queue == 'review') & (TMAProgress.next_review <= now), 1)], None)
-        trainer_case = Case(None, [(TMA_Card.front_text.contains('{'), 1)], None)
+        trainer_case = Case(None, [(TMA_Card.card_type == 'trainer', 1)], None)
         stats_query = (TMA_Card
                       .select(
                           TMA_Card.deck_id.alias('deck_id'),
@@ -206,8 +256,6 @@ def get_active_decks(user_id: int):
                       .where((TMA_Card.deck_id << deck_ids) & (TMA_Card.is_deleted == False))
                       .group_by(TMA_Card.deck_id))
         
-        # logger.info(f"Stats query SQL: {stats_query.sql()}")
-        
         stats_map = {}
         for row in stats_query.dicts():
             stats_map[row['deck_id']] = {
@@ -218,24 +266,8 @@ def get_active_decks(user_id: int):
                 'trainer_count': int(row['trainer_count'] or 0)
             }
 
-        # --- ОДИН запрос для проверки обновлений из библиотеки ---
-        ext_by_name = {}
-        lib_counts = {}
-        if deck_names:
-            ext_decks = list(Deck.select().where(Deck.name << deck_names))
-            ext_by_name = {d.name: d for d in ext_decks}
-            ext_ids = [d.id for d in ext_decks]
-            if ext_ids:
-                lib_counts = {
-                    deck_id: count
-                    for deck_id, count in (
-                        Card
-                        .select(Card.deck, fn.COUNT(Card.id))
-                        .where(Card.deck << ext_ids)
-                        .group_by(Card.deck)
-                        .tuples()
-                    )
-                }
+        # --- Кэшированная проверка обновлений из библиотеки ---
+        ext_by_name, lib_counts = _get_cached_library_info()
         
         result = []
         for d in decks:

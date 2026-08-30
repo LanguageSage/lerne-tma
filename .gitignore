@@ -174,4 +174,24 @@ api/data/media/pending_images/
 audio_debug.log
 debug_output.txt
 api/debug_api.txt
+reorg_output.txt
 __pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Git rewrite leftovers
+.git-rewrite/
+
+# IDE and AI Tool cache
+.gemini/
+.vscode/
+.idea/
+
+# Additional Backups & Data Dumps
+backups/*.db
+backups/*.json
+api/data/backups/
+api/data/*_backup_*.json
+

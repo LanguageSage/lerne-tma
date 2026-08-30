@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { User, Mail, Send, BarChart2, Sparkles, Link as LinkIcon, Copy, ExternalLink } from 'lucide-react';
+import { User, Mail, Send, BarChart2, Sparkles, Link as LinkIcon, Copy, ExternalLink, Trash2, LogOut } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import api from '../../services/api';
-import { isOfflineMode } from '../../services/localDb';
+import { isOfflineMode, db } from '../../services/localDb';
 import { syncService } from '../../services/syncService';
 import { SrsStatsModal } from '../study/SrsStatsModal';
-import { openExternalLink } from '../../utils/platform';
+import { openExternalLink, closeApp } from '../../utils/platform';
+import { resetUserSession, getUserId } from '../../utils/auth';
 
-export const ProfileTab = () => {
-  const { userProfile, setUserProfile, showToast, userId } = useUiStore();
+export const ProfileTab = ({ userId }) => {
+  const { userProfile, setUserProfile, showToast } = useUiStore();
   const [name, setName] = useState(userProfile?.first_name || '');
   const [email, setEmail] = useState(userProfile?.email || '');
   const [phone, setPhone] = useState(userProfile?.phone || '');
   const [isSaving, setIsSaving] = useState(false);
   const [srsStatsOpen, setSrsStatsOpen] = useState(false);
 
-  const currentUserId = userId || userProfile?.user_id;
+  const currentUserId = userId || userProfile?.user_id || getUserId();
   const accountParam = userProfile?.username 
     ? `&account=${userProfile.username}` 
     : (userProfile?.first_name ? `&account=${encodeURIComponent(userProfile.first_name)}` : '');
@@ -34,7 +34,7 @@ export const ProfileTab = () => {
       });
       
       if (res.data.status === 'ok') {
-        const updatedProfile = { ...userProfile, first_name: name, email: email, phone: phone };
+        const updatedProfile = { ...(userProfile || {}), first_name: name, email: email, phone: phone };
         setUserProfile(updatedProfile);
         localStorage.setItem('lerne_user_profile', JSON.stringify(updatedProfile));
         showToast("Профиль обновлен!", "success");
@@ -47,13 +47,14 @@ export const ProfileTab = () => {
   };
 
   const [isPolling, setIsPolling] = useState(false);
-  const botLink = `https://t.me/LerneDeutsch287_bot?start=link_${userProfile?.user_id}`;
+  const botLink = `https://t.me/LerneDeutsch287_bot?start=link_${currentUserId}`;
   
   const startPolling = async () => {
     if (isPolling) return;
+    if (!currentUserId) return;
     
     try {
-      await api.post(`/auth/session?guest_id=${userProfile.user_id}`);
+      await api.post(`/auth/session?guest_id=${currentUserId}`);
       setIsPolling(true);
       
       const interval = setInterval(async () => {
@@ -82,11 +83,7 @@ export const ProfileTab = () => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="profile-tab"
-    >
+    <div className="profile-tab">
       <h3>Ваш профиль</h3>
       <p className="tab-description">
         {userProfile?.is_guest && !userProfile?.first_name 
@@ -184,9 +181,22 @@ export const ProfileTab = () => {
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(personalLink);
-                  showToast("Ссылка скопирована!", "success");
+                onClick={async () => {
+                  try {
+                    if (navigator?.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(personalLink);
+                    } else {
+                      const ta = document.createElement('textarea');
+                      ta.value = personalLink;
+                      document.body.appendChild(ta);
+                      ta.select();
+                      document.execCommand('copy');
+                      document.body.removeChild(ta);
+                    }
+                    showToast("Ссылка скопирована!", "success");
+                  } catch {
+                    showToast("Не удалось скопировать", "error");
+                  }
                 }}
                 style={{
                   background: 'rgba(168, 85, 247, 0.2)',
@@ -268,10 +278,85 @@ export const ProfileTab = () => {
             </button>
           </div>
         )}
+
+        {/* Account Management & Reset */}
+        <div className="link-telegram-section glass" style={{ marginTop: '20px', border: '1px solid rgba(239, 68, 68, 0.25)', background: 'rgba(239, 68, 68, 0.04)' }}>
+          <h4 style={{ margin: '0 0 6px 0', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Trash2 size={16} />
+            Управление данными и аккаунтом
+          </h4>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 12px 0' }}>
+            Вы можете сбросить текущую сессию в чистый гостевой режим или полностью удалить все данные с сервера.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: '100%', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              onClick={() => {
+                if (window.confirm("Сбросить сессию и войти как новый гость без регистрации?")) {
+                  resetUserSession();
+                }
+              }}
+            >
+              <LogOut size={15} />
+              Сбросить сессию / Войти как гость
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: '100%', fontSize: '0.85rem', color: '#fca5a5', background: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              onClick={async () => {
+                if (window.confirm("ВНИМАНИЕ! Это навсегда удалит все ваши колоды, карточки и прогресс с сервера. Вы уверены?")) {
+                  try {
+                    await api.delete('/auth/account');
+                    
+                    // 1. Полная очистка локальной базы данных IndexedDB (Dexie)
+                    try {
+                      if (db && typeof db.delete === 'function') {
+                        await db.delete();
+                      }
+                    } catch (dbErr) {
+                      console.warn("Failed to clear local IndexedDB:", dbErr);
+                    }
+
+                    // 2. Полная очистка localStorage и sessionStorage
+                    try {
+                      localStorage.clear();
+                      sessionStorage.clear();
+                    } catch (storageErr) {
+                      console.warn("Failed to clear storage:", storageErr);
+                    }
+
+                    showToast("Аккаунт и все данные удалены. Закрываем...", "info");
+                    
+                    // 3. Закрываем приложение
+                    setTimeout(() => {
+                      closeApp();
+                      if (typeof window !== 'undefined') {
+                        try {
+                          window.close();
+                        } catch { /* ignore */ }
+                        window.location.href = 'about:blank';
+                      }
+                    }, 800);
+
+                  } catch (err) {
+                    showToast(err?.response?.data?.detail || "Ошибка при удалении", "error");
+                  }
+                }
+              }}
+            >
+              <Trash2 size={15} />
+              Удалить аккаунт и все данные
+            </button>
+          </div>
+        </div>
       </div>
 
       <SrsStatsModal isOpen={srsStatsOpen} onClose={() => setSrsStatsOpen(false)} />
-    </motion.div>
+    </div>
   );
 };
 

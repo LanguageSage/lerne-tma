@@ -32,7 +32,7 @@ export const CardEditor = ({ startTutorial }) => {
     if (result) {
       if (actionType === 'custom_directive') {
         const currentCtx = editingCard.context || '';
-        const updatedCtx = currentCtx ? `${currentCtx.trim()}\n\n${result.context}` : result.context;
+        const updatedCtx = currentCtx ? `${result.context}\n\n${currentCtx.trim()}` : result.context;
         setEditingCard({
           ...editingCard,
           context: updatedCtx

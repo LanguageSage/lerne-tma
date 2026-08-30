@@ -179,7 +179,7 @@ export const useAiActions = () => {
 
         if (actionType === 'custom_directive') {
           const currentCtx = session.editingCard?.context || '';
-          const updatedCtx = currentCtx ? `${currentCtx.strip ? currentCtx.strip() : currentCtx.trim()}\n\n${res.data.context}` : res.data.context;
+          const updatedCtx = currentCtx ? `${res.data.context}\n\n${currentCtx.trim()}` : res.data.context;
           session.setEditingCard({
             ...session.editingCard,
             context: updatedCtx

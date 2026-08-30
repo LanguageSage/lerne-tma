@@ -32,7 +32,7 @@ export const NativeLanguageSelectorBadge = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsOpen(false);
-    changeNativeLanguage(code);
+    changeNativeLanguage(code, true);
     const langObj = SUPPORTED_NATIVE_LANGUAGES.find(l => l.code === code);
     if (langObj) {
       setVoiceBack(langObj.defaultVoice);

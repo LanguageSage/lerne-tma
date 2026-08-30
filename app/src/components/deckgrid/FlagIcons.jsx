@@ -44,9 +44,38 @@ export const FlagNO = ({ size = 20, className = "" }) => (
   </svg>
 );
 
+export const FlagUK = ({ size = 20, className = "" }) => (
+  <svg 
+    width={size} 
+    height={Math.round(size * 0.75)} 
+    viewBox="0 0 640 480" 
+    className={`flag-svg ${className}`}
+    style={{ borderRadius: '3px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', flexShrink: 0 }}
+  >
+    <path fill="#0057B7" d="M0 0h640v240H0z"/>
+    <path fill="#FFD700" d="M0 240h640v240H0z"/>
+  </svg>
+);
+
+export const FlagRU = ({ size = 20, className = "" }) => (
+  <svg 
+    width={size} 
+    height={Math.round(size * 0.75)} 
+    viewBox="0 0 640 480" 
+    className={`flag-svg ${className}`}
+    style={{ borderRadius: '3px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', flexShrink: 0 }}
+  >
+    <path fill="#FFF" d="M0 0h640v160H0z"/>
+    <path fill="#0039A6" d="M0 160h640v160H0z"/>
+    <path fill="#D52B1E" d="M0 320h640v160H0z"/>
+  </svg>
+);
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const renderFlag = (code, size = 20) => {
   switch (code) {
+    case 'uk': return <FlagUK size={size} />;
+    case 'ru': return <FlagRU size={size} />;
     case 'en': return <FlagGB size={size} />;
     case 'no': return <FlagNO size={size} />;
     case 'de':

@@ -9,7 +9,7 @@ export const useAutoImport = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
     
-    const startParam = tg?.initDataUnsafe?.start_param || 
+    let startParam = tg?.initDataUnsafe?.start_param || 
                       urlParams.get('tgWebAppStartParam') ||
                       urlParams.get('startapp') ||
                       urlParams.get('start') ||
@@ -18,6 +18,13 @@ export const useAutoImport = () => {
                       hashParams.get('startapp') ||
                       hashParams.get('start') ||
                       hashParams.get('share_id');
+    
+    if (startParam) {
+      startParam = String(startParam).trim();
+      if (startParam.includes('?')) startParam = startParam.split('?')[0];
+      if (startParam.includes('&')) startParam = startParam.split('&')[0];
+      if (startParam.includes('#')) startParam = startParam.split('#')[0];
+    }
     
     if (startParam && (
       startParam.startsWith('c_') || 

@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, Response
 from api.models import TMAUser, TMA_Deck, TMA_Card, TMA_Folder, TMAMedia
 from api.dependencies.auth import get_user_id
 from api.services.sharing_service import SharingService
-from api.templates.share_templates import get_share_html
+from api.templates.share_templates import get_share_html, get_share_error_html
 
 router = APIRouter(tags=["share"])
 logger = logging.getLogger(__name__)
@@ -15,20 +15,39 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
     """Generates or retrieves a unique share_id for a deck, folder, or card."""
     if type == "deck":
         prefix = "d_"
-        item = TMA_Deck.get_or_none((TMA_Deck.id == item_id) & (TMA_Deck.user_id == user_id))
+        item = TMA_Deck.get_or_none((TMA_Deck.id == item_id) & (TMA_Deck.is_deleted == False))
+        if not item:
+            raise HTTPException(status_code=404, detail="Deck not found")
+        if item.user_id != user_id:
+            from api.models import TMA_Collaborator
+            collab = TMA_Collaborator.get_or_none(
+                (TMA_Collaborator.target_type == 'deck') & 
+                (TMA_Collaborator.target_id == item_id) & 
+                (TMA_Collaborator.user_id == user_id)
+            )
+            if not collab:
+                raise HTTPException(status_code=403, detail="Access denied")
     elif type == "folder":
         prefix = "f_"
-        item = TMA_Folder.get_or_none((TMA_Folder.id == item_id) & (TMA_Folder.user_id == user_id) & (TMA_Folder.is_deleted == False))
+        item = TMA_Folder.get_or_none((TMA_Folder.id == item_id) & (TMA_Folder.is_deleted == False))
+        if not item:
+            raise HTTPException(status_code=404, detail="Folder not found")
+        if item.user_id != user_id:
+            from api.models import TMA_Collaborator
+            collab = TMA_Collaborator.get_or_none(
+                (TMA_Collaborator.target_type == 'folder') & 
+                (TMA_Collaborator.target_id == item_id) & 
+                (TMA_Collaborator.user_id == user_id)
+            )
+            if not collab:
+                raise HTTPException(status_code=403, detail="Access denied")
     elif type == "card":
         prefix = "c_"
         item = TMA_Card.get_or_none((TMA_Card.id == item_id) & (TMA_Card.is_deleted == False))
-        if item and item.deck and item.deck.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        if not item:
+            raise HTTPException(status_code=404, detail="Card not found")
     else:
         raise HTTPException(status_code=400, detail="Invalid item type")
-        
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
         
     if not item.share_id:
         item.share_id = SharingService.generate_unique_share_id(prefix)
@@ -47,14 +66,15 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
 def get_share_info(share_id: str):
     """Gets public info about a shared item for preview."""
     is_collab = share_id.startswith("collab_")
-    clean_id = share_id.replace("collab_", "")
+    clean_id = share_id.replace("collab_", "").strip()
 
     if clean_id.startswith("d_"):
-        deck = TMA_Deck.get_or_none(TMA_Deck.share_id == clean_id)
+        deck = TMA_Deck.get_or_none((TMA_Deck.share_id == clean_id) & (TMA_Deck.is_deleted == False))
         if not deck:
             raise HTTPException(status_code=404, detail="Shared deck not found")
             
         creator = TMAUser.get_or_none(TMAUser.user_id == deck.user_id)
+        cards_count = TMA_Card.select().where((TMA_Card.deck == deck) & (TMA_Card.is_deleted == False)).count()
         return {
             "type": "deck",
             "id": deck.id,
@@ -62,6 +82,7 @@ def get_share_info(share_id: str):
             "level": deck.level,
             "topic": deck.topic,
             "target_language": deck.target_language or "de",
+            "cards_count": cards_count,
             "creator_name": creator.username or creator.first_name if creator else "Unknown",
             "creator_avatar": creator.photo_url if creator else None,
             "is_collab": is_collab
@@ -132,26 +153,50 @@ def import_shared_item(payload: dict = Body(...), user_id: int = Depends(get_use
 @router.get("/share/v/{share_id}", response_class=HTMLResponse)
 def view_shared_item(share_id: str, request: Request):
     """Returns a page with OpenGraph tags for beautiful link preview in Telegram/Socials."""
-    info = get_share_info(share_id)
-    title = info.get("name") or info.get("front_text") or "Lerne TMA"
-    description = f"Поделился: {info.get('creator_name', 'Пользователь Lerne')}"
-    if info.get("type") == "deck":
-        description += f" | Уровень: {info.get('level', '—')} | Тема: {info.get('topic', '—')}"
-    else:
-        description += " | Новая карточка для изучения"
-
     host = request.headers.get("host", "tma-amber.vercel.app")
     scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
     domain = f"{scheme}://{host}"
     if "localhost" in host or "127.0.0.1" in host or scheme == "http":
         domain = "https://tma-amber.vercel.app"
-    
+
+    try:
+        info = get_share_info(share_id)
+    except HTTPException:
+        return HTMLResponse(
+            status_code=404,
+            content=get_share_error_html(
+                "Материал не найден",
+                "Похоже, ссылка устарела или автор удалил эту колоду/карточку.",
+                home_url=f"{domain}/"
+            )
+        )
+    except Exception as e:
+        logger.error(f"Error fetching share info for {share_id}: {e}")
+        return HTMLResponse(
+            status_code=500,
+            content=get_share_error_html(
+                "Ошибка загрузки",
+                "Не удалось загрузить данные предпросмотра. Попробуйте открыть приложение напрямую.",
+                home_url=f"{domain}/"
+            )
+        )
+
+    title = info.get("name") or info.get("front_text") or "Lerne TMA"
+    creator = info.get('creator_name', 'Пользователь Lerne')
+    if info.get("type") == "deck":
+        description = f"Колода от {creator} | Уровень: {info.get('level', '—')} | Тема: {info.get('topic', '—')}"
+    elif info.get("type") == "folder":
+        description = f"Папка от {creator} | Колоды: {info.get('decks_count', 0)} | Карточки: {info.get('cards_count', 0)}"
+    else:
+        description = f"Карточка от {creator} для изучения в Lerne"
+
     v_param = abs(hash(f"{title}_{info.get('type')}_{info.get('id')}")) % 1000000
     preview_url = f"{domain}/api/preview/{share_id}.jpg?v={v_param}"
     app_url = f"https://t.me/LerneDeutsch287_bot?startapp={share_id}"
+    tg_scheme_url = f"tg://resolve?domain=LerneDeutsch287_bot&startapp={share_id}"
     web_url = f"{domain}/?share_id={share_id}"
 
-    return get_share_html(title, description, preview_url, app_url, web_url)
+    return get_share_html(title, description, preview_url, app_url, web_url, tg_scheme_url=tg_scheme_url)
 
 
 @router.get("/preview/{share_id}.jpg")

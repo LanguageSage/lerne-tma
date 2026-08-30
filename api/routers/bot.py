@@ -120,18 +120,26 @@ async def start_handler(update: Update, context):
             await safe_send_reply(update, text, reply_markup=keyboard)
             return
 
-        if args and (args[0].startswith("c_") or args[0].startswith("d_")):
+        if args and (args[0].startswith("c_") or args[0].startswith("d_") or args[0].startswith("f_") or args[0].startswith("collab_")):
             share_id = args[0]
-            item_type = "колоду" if share_id.startswith("d_") else "карточку"
+            if share_id.startswith("d_"):
+                item_type = "колоду"
+            elif share_id.startswith("f_"):
+                item_type = "папку с колодами"
+            elif share_id.startswith("c_"):
+                item_type = "карточку"
+            else:
+                item_type = "материалы для совместного изучения"
+
             text = (
-                f"💌 <b>Вам отправили {item_type} для изучения!</b>\n\n"
+                f"💌 <b>Вам отправили {item_type}!</b>\n\n"
                 f"Привет, {first_name}!\n"
                 f"Нажми кнопку ниже, чтобы открыть Lerne и добавить {item_type} себе 👇"
             )
             custom_url = f"{TMA_URL}?tgWebAppStartParam={share_id}"
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🚀 Открыть и добавить", web_app=WebAppInfo(url=custom_url))],
-                [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}?tgWebAppStartParam={share_id}")]
+                [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}/?user_id={user.id}&tgWebAppStartParam={share_id}")]
             ])
             await safe_send_reply(update, text, reply_markup=keyboard)
             return

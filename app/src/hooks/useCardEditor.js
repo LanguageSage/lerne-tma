@@ -279,7 +279,16 @@ export const useCardEditor = () => {
   const handleShareCard = async (targetCard) => {
     if (!targetCard) return;
     try {
-      const link = getPublicShareUrl('card', targetCard.id);
+      let shareId = targetCard.share_id;
+      if (!shareId) {
+        try {
+          const res = await api.post(`/share/generate/card/${targetCard.id}`);
+          shareId = res.data?.share_id;
+        } catch {
+          shareId = `c_${targetCard.id}`;
+        }
+      }
+      const link = getPublicShareUrl(shareId || `c_${targetCard.id}`);
       const isMobile = isTelegram() || isNative();
       if (isMobile) setLoading(true);
 

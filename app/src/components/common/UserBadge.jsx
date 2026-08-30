@@ -4,7 +4,7 @@ import api from '../../services/api';
 import './UserBadge.css';
 
 export const UserProfileBadge = () => {
-  const { userProfile, setIsSettingsOpen } = useUiStore();
+  const { userProfile, openSettings } = useUiStore();
   
   if (!userProfile) return null;
 
@@ -19,7 +19,7 @@ export const UserProfileBadge = () => {
   return (
     <div 
       className={`user-badge-container ${is_guest ? 'guest' : ''}`}
-      onClick={() => setIsSettingsOpen(true)}
+      onClick={() => openSettings('profile')}
       title={is_guest ? "Настроить профиль" : "Ваш профиль"}
     >
       <div className="avatar-wrapper">

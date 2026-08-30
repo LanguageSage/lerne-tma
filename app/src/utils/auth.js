@@ -36,11 +36,36 @@ export const getUserId = () => {
   }
 };
 
+export const resetUserSession = () => {
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+    const newId = Math.floor(100000000 + Math.random() * 900000000);
+    const profile = { user_id: newId, is_guest: true, first_name: 'Гость' };
+    storage.set('lerne_user_id', newId);
+    storage.set('lerne_user_profile', JSON.stringify(profile));
+    window.location.href = window.location.origin + window.location.pathname;
+  } catch (e) {
+    console.error("Error resetting user session:", e);
+    window.location.reload();
+  }
+};
+
 export const getUserProfile = () => {
   try {
-    // 1. Пытаемся взять из Telegram WebApp
+    const params = new URLSearchParams(window.location.search);
+    const isResetRequested = params.get('guest') === '1' || params.get('reset') === '1';
+
+    if (isResetRequested) {
+      storage.remove('lerne_user_id');
+      storage.remove('lerne_user_profile');
+      storage.remove('lerne_init_cache');
+      storage.remove('lerne_current_deck_id');
+    }
+
+    // 1. Пытаемся взять из Telegram WebApp (если не запрошен сброс в гостя)
     const tg = window.Telegram?.WebApp;
-    if (tg?.initDataUnsafe?.user?.id) {
+    if (!isResetRequested && tg?.initDataUnsafe?.user?.id) {
       const u = tg.initDataUnsafe.user;
       const profile = {
         user_id: parseUserId(u.id),
@@ -62,28 +87,22 @@ export const getUserProfile = () => {
     }
     
     // 2. Пытаемся взять из URL (?user_id=123)
-    const params = new URLSearchParams(window.location.search);
     const urlIdStr = params.get('user_id');
     if (urlIdStr) {
       const urlId = parseUserId(urlIdStr);
       if (urlId !== null) {
-        const accountParam = params.get('account');
-        
-        const savedProfile = storage.get('lerne_user_profile');
-        if (savedProfile) {
-          try {
-            const p = JSON.parse(savedProfile);
-            if (p.user_id === urlId && !p.is_guest) {
-              return p;
-            }
-          } catch { /* ignore */ }
-        }
+        const firstNameParam = params.get('first_name') || params.get('account') || 'Пользователь';
+        const lastNameParam = params.get('last_name') || null;
+        const usernameParam = params.get('username') || null;
+        const photoParam = params.get('photo') || null;
         
         const profile = { 
           user_id: urlId, 
-          first_name: accountParam || 'Пользователь', 
-          username: accountParam || null,
-          is_guest: !accountParam 
+          first_name: firstNameParam, 
+          last_name: lastNameParam,
+          username: usernameParam,
+          photo_url: photoParam,
+          is_guest: false 
         };
         storage.set('lerne_user_id', urlId);
         storage.set('lerne_user_profile', JSON.stringify(profile));

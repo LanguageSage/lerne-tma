@@ -9,7 +9,8 @@ import api from '../services/api';
 const TRANSLATIONS = {
   uk: ukTranslations,
   ru: ruTranslations,
-  en: enTranslations
+  en: enTranslations,
+  no: enTranslations
 };
 
 const LanguageContext = createContext();
@@ -30,19 +31,26 @@ export function LanguageProvider({ children }) {
   });
 
   const [isFirstLaunch, setIsFirstLaunch] = useState(() => {
-    return !localStorage.getItem('native_language_selected');
+    const nativeDone = localStorage.getItem('native_language_selected') === 'true';
+    const targetDone = localStorage.getItem('lerne_has_selected_language') === 'true';
+    return !nativeDone || !targetDone;
   });
 
   // 1. Restore native language from Telegram CloudStorage on mount if missing in LocalStorage
   useEffect(() => {
     const restoreFromCloud = async () => {
       try {
-        const cloudSel = await cloudStorage.get('lerne_native_language_selected');
-        const cloudLang = await cloudStorage.get('lerne_native_language');
+        const [cloudSel, cloudLang, cloudTargetSel] = await Promise.all([
+          cloudStorage.get('lerne_native_language_selected'),
+          cloudStorage.get('lerne_native_language'),
+          cloudStorage.get('lerne_has_selected_language')
+        ]);
         if (cloudSel === 'true' && cloudLang && TRANSLATIONS[cloudLang]) {
           setNativeLanguage(cloudLang);
           localStorage.setItem('native_language', cloudLang);
           localStorage.setItem('native_language_selected', 'true');
+        }
+        if (cloudSel === 'true' && cloudTargetSel === 'true') {
           setIsFirstLaunch(false);
         }
       } catch (e) {
@@ -56,14 +64,17 @@ export function LanguageProvider({ children }) {
     localStorage.setItem('native_language', nativeLanguage);
   }, [nativeLanguage]);
 
-  const changeNativeLanguage = (code) => {
+  const changeNativeLanguage = (code, markCompleted = false) => {
     if (TRANSLATIONS[code]) {
       setNativeLanguage(code);
       localStorage.setItem('native_language', code);
-      localStorage.setItem('native_language_selected', 'true');
       cloudStorage.set('lerne_native_language', code);
-      cloudStorage.set('lerne_native_language_selected', 'true');
-      setIsFirstLaunch(false);
+
+      if (markCompleted) {
+        localStorage.setItem('native_language_selected', 'true');
+        cloudStorage.set('lerne_native_language_selected', 'true');
+        setIsFirstLaunch(false);
+      }
 
       // Async sync to backend
       api.post('/user/language', { native_language: code }).catch(err => {

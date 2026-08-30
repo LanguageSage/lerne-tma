@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { ErrorBoundary } from './components/common/ErrorBoundary'
 
 // Инициализация Telegram WebApp как можно раньше
 if (window.Telegram?.WebApp) {
@@ -9,5 +10,7 @@ if (window.Telegram?.WebApp) {
 }
 
 createRoot(document.getElementById('root')).render(
-  <App />,
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
 )

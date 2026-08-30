@@ -81,17 +81,18 @@ export const hapticWarning = () => triggerHaptic('warning');
 export const hapticSelection = () => triggerHaptic('selection');
 
 /**
- * Enable swipe/window closing confirmation if supported by platform
+ * Disable swipe/window closing confirmation in Telegram Mini App
  */
-export const enableClosingConfirmation = () => {
+export const disableClosingConfirmation = () => {
   try {
-    if (window.Telegram?.WebApp?.enableClosingConfirmation) {
-      window.Telegram.WebApp.enableClosingConfirmation();
+    if (window.Telegram?.WebApp?.disableClosingConfirmation) {
+      window.Telegram.WebApp.disableClosingConfirmation();
     }
   } catch {
     // Ignore error
   }
 };
+export const enableClosingConfirmation = disableClosingConfirmation;
 
 /**
  * Close application on native platform / TMA

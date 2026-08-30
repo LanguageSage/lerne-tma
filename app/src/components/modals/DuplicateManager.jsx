@@ -92,7 +92,7 @@ export const DuplicateManager = () => {
   return (
     <div className="view-duplicates">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="view">
-        <div className="header-compact">
+        <div className="header-compact header-compact-sticky">
           <button className="back-btn" onClick={handleBack}><ChevronLeft size={24} /></button>
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <h2 style={{ marginBottom: 2 }}>Дубликаты</h2>

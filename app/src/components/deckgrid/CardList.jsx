@@ -24,48 +24,21 @@ import { SearchBar } from '../common/SearchBar';
 import { matchCard } from '../../utils/search';
 import { getSortedFolderTree, parseDeckMetadata, getResourceSrc } from '../../utils/deckUtils';
 
-const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard }) => {
+const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, frontTypographyStyle }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const [hasOverflow, setHasOverflow] = React.useState(false);
-  const textRef = React.useRef(null);
   const dragControls = useDragControls();
   const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
-  const { setLastSelectedCardId, setCardsScrollTop } = useUiStore();
-  const {
-    cardFont,
-    cardTextColor,
-    cardTextShadow,
-    cardFontWeight,
-    cardFontStyle,
-    cardTextAlign,
-  } = useSettingsStore();
 
   const isQuizCard = React.useMemo(() => c.card_type === 'quiz' || parseQuizData(c) !== null, [c]);
   const isTrainerCard = React.useMemo(() => c.card_type === 'trainer' || (!isQuizCard && /\{([^}]+)\}/.test(c.front || '')), [c, isQuizCard]);
 
-  const frontTypographyStyle = React.useMemo(() => ({
-    fontFamily: cardFont || undefined,
-    color: cardTextColor || undefined,
-    textShadow: getTextShadow(cardTextShadow, cardTextColor),
-    fontWeight: cardFontWeight || 600,
-    fontStyle: cardFontStyle || undefined,
-    textAlign: cardTextAlign || 'left',
-  }), [cardFont, cardTextColor, cardTextShadow, cardFontWeight, cardFontStyle, cardTextAlign]);
-
-  React.useEffect(() => {
-    if (!isExpanded && textRef.current) {
-      const el = textRef.current;
-      setHasOverflow(el.scrollHeight > el.clientHeight + 2);
-    }
-  }, [c.front, isExpanded]);
-
-  const isLikelyLong = (c.front || '').length > 180 || (c.front || '').split('\n').length > 5;
-  const showExpandBtn = hasOverflow || isLikelyLong || isExpanded;
+  const isLikelyLong = (c.front || '').length > 160 || (c.front || '').split('\n').length > 4;
+  const showExpandBtn = isLikelyLong || isExpanded;
 
   const handleItemClick = () => {
     const container = document.getElementById('app-container');
-    if (container) setCardsScrollTop(container.scrollTop);
-    setLastSelectedCardId(c.id);
+    if (container) useUiStore.getState().setCardsScrollTop(container.scrollTop);
+    useUiStore.getState().setLastSelectedCardId(c.id);
     startStudyCard(currentDeck, c.id);
   };
 
@@ -92,7 +65,6 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard })
         style={{ cursor: 'pointer', position: 'relative' }}
       >
         <div 
-          ref={textRef}
           className={`front-min ${isExpanded ? 'expanded' : ''}`} 
           style={frontTypographyStyle}
         >
@@ -185,6 +157,23 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const { t } = useTranslation();
   const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck, deckCards, cardsLoading, folders, handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
+
+  const cardFont = useSettingsStore(s => s.cardFont);
+  const cardTextColor = useSettingsStore(s => s.cardTextColor);
+  const cardTextShadow = useSettingsStore(s => s.cardTextShadow);
+  const cardFontWeight = useSettingsStore(s => s.cardFontWeight);
+  const cardFontStyle = useSettingsStore(s => s.cardFontStyle);
+  const cardTextAlign = useSettingsStore(s => s.cardTextAlign);
+
+  const frontTypographyStyle = React.useMemo(() => ({
+    fontFamily: cardFont || undefined,
+    color: cardTextColor || undefined,
+    textShadow: getTextShadow(cardTextShadow, cardTextColor),
+    fontWeight: cardFontWeight || 600,
+    fontStyle: cardFontStyle || undefined,
+    textAlign: cardTextAlign || 'left',
+  }), [cardFont, cardTextColor, cardTextShadow, cardFontWeight, cardFontStyle, cardTextAlign]);
+
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [isMediaModalOpen, setIsMediaModalOpen] = React.useState(false);
@@ -450,7 +439,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   return (
     <div className="view-cards">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
-        <div className="header-compact">
+        <div className="header-compact header-compact-sticky">
           <button className="back-btn" onClick={() => setView('decks')}><ChevronLeft size={24} /></button>
 
           <div className="header-actions">
@@ -992,7 +981,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                   c={c} 
                   index={searchQuery.trim() ? getOriginalIndex(c.id) : idx}
                   currentDeck={currentDeck} 
-                  startStudyCard={startStudyCard} 
+                  startStudyCard={startStudyCard}
+                  frontTypographyStyle={frontTypographyStyle}
                 />
               ))}
             </Reorder.Group>

@@ -1,7 +1,8 @@
 export const SUPPORTED_NATIVE_LANGUAGES = [
   { code: 'uk', name: 'Українська', flag: '🇺🇦', defaultVoice: 'uk-UA-PolinaNeural' },
   { code: 'ru', name: 'Русский', flag: '🇷🇺', defaultVoice: 'ru-RU-SvetlanaNeural' },
-  { code: 'en', name: 'English', flag: '🇬🇧', defaultVoice: 'en-US-JennyNeural' }
+  { code: 'en', name: 'English', flag: '🇬🇧', defaultVoice: 'en-US-JennyNeural' },
+  { code: 'no', name: 'Norsk', flag: '🇳🇴', defaultVoice: 'nb-NO-FinnNeural' }
 ];
 
 export const SUPPORTED_TARGET_LANGUAGES = [

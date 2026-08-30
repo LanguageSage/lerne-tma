@@ -217,7 +217,7 @@ def get_cefr_rubric(target_language: str = "de") -> str:
             "• C1/C2: Академическая, юридическая, научная лексика (Datenschutzbestimmung, Paradigmenwechsel), редкие идиомы."
         )
 
-def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "uk", directive: str = None, detect_level: bool = True) -> str:
+def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "uk", directive: str = None) -> str:
     lang_config = get_language_config(target_lang, native_lang)
     native_config = get_native_config(native_lang)
     lang_name = lang_config["name"]
@@ -229,21 +229,15 @@ def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "
         directive_block = f"\n\nДополнительное указание или вопрос пользователя: \"{directive}\". Выполни просьбу пользователя."
         qa_instruction = f"❓ **Вопрос:** {directive}\n💡 **Ответ:** [ёмкий ответ на вопрос]\n\n"
 
-    level_rule = ""
-    json_level_field = ""
-    if detect_level:
-        rubric_text = get_cefr_rubric(target_lang)
-        level_rule = f"\n4. \"level\": определи CEFR уровень сложности выражения (A1, A2, B1, B2, C1 или C2) строго по следующим критериям:\n{rubric_text}\n"
-        json_level_field = ',\n  "level": "B1"'
-
     is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in phrase)
     if is_cyrillic:
         prompt = (
             f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
             f"Создай карточку для перевода на {lang_name}: \"{phrase}\".{directive_block}\n\n"
             f"ПРАВИЛА:\n"
-            f"1. \"front\": точный перевод фразы на {lang_name} (без скобок и вопросов).\n"
-            f"2. \"back\": исходная фраза на {native_name} (\"{phrase}\").\n"
+            f"Язык всех пояснений и переводов: СТРОГО {native_name}, независимо от языка ввода.\n\n"
+            f"1. \"front\": точный перевод фразы/слова на {lang_name} (без скобок и вопросов).\n"
+            f"2. \"back\": точный перевод фразы/слова на {native_name} язык.\n"
             f"3. \"context\": структурированный текст:\n"
             f"   {qa_instruction}"
             f"📖 **Словарь**:\n"
@@ -251,22 +245,23 @@ def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "
             f"💡 **Грамматика**:\n"
             f"[объяснение правила, форм и конструкций]\n\n"
             f"✨ **Примеры**:\n"
-            f"1. [фраза на {lang_name}] — [перевод на {native_name}]\n"
-            f"2. [фраза на {lang_name}] — [перевод на {native_name}]\n"
-            f"3. [фраза на {lang_name}] — [перевод на {native_name}]\n"
-            f"{level_rule}\n"
+            f"(Обязательно 3 примера предложений с использованием данного слова/фразы и их перевод):\n"
+            f"1. [предложение на {lang_name}] — [перевод]\n"
+            f"2. [предложение на {lang_name}] — [перевод]\n"
+            f"3. [предложение на {lang_name}] — [перевод]\n\n"
             f"Return ONLY a JSON object in this format:\n{{\n"
             f'  "front": "перевод на {lang_name.lower()}",\n'
-            f'  "back": "{phrase}",\n'
-            f'  "context": "..."{json_level_field}\n'
+            f'  "back": "перевод на {native_name}",\n'
+            f'  "context": "..."\n'
             f"}}\nEND_JSON"
         )
     else:
         prompt = (
             f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
-            f"Создай карточку для фразы: \"{phrase}\".{directive_block}\n\n"
+            f"Создай карточку для фразы/слова: \"{phrase}\".{directive_block}\n\n"
             f"ПРАВИЛА:\n"
-            f"1. \"front\": только чистая фраза на {lang_name} (без скобок и вопросов).\n"
+            f"Язык всех пояснений и ответов: СТРОГО {native_name}.\n\n"
+            f"1. \"front\": только чистая фраза/слово на {lang_name} (без скобок и вопросов).\n"
             f"2. \"back\": точный перевод на {native_name}.\n"
             f"3. \"context\": структурированный текст:\n"
             f"   {qa_instruction}"
@@ -275,14 +270,14 @@ def build_card_prompt(phrase: str, target_lang: str = "de", native_lang: str = "
             f"💡 **Грамматика**:\n"
             f"[объяснение правила, форм и конструкций]\n\n"
             f"✨ **Примеры**:\n"
-            f"1. [фраза на {lang_name}] — [перевод на {native_name}]\n"
-            f"2. [фраза на {lang_name}] — [перевод на {native_name}]\n"
-            f"3. [фраза на {lang_name}] — [перевод на {native_name}]\n"
-            f"{level_rule}\n"
+            f"(Обязательно 3 примера предложений с использованием данного слова/фразы и их перевод):\n"
+            f"1. [предложение на {lang_name}] — [перевод]\n"
+            f"2. [предложение на {lang_name}] — [перевод]\n"
+            f"3. [предложение на {lang_name}] — [перевод]\n\n"
             f"Return ONLY a JSON object in this format:\n{{\n"
             f'  "front": "{phrase}",\n'
             f'  "back": "перевод на {native_name.lower()}",\n'
-            f'  "context": "..."{json_level_field}\n'
+            f'  "context": "..."\n'
             f"}}\nEND_JSON"
         )
     return prompt
@@ -298,10 +293,10 @@ def build_custom_directive_prompt(phrase: str, directive: str, target_lang: str 
         f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
         f"Фраза: \"{phrase}\"\n"
         f"Вопрос или просьба: \"{question_or_directive}\"\n\n"
-        f"Выполни просьбу пользователя и дай чёткий ответ.\n\n"
+        f"Выполни просьбу пользователя и дай чёткий ответ СТРОГО на языке: {native_name}.\n\n"
         f"Формат вывода (строго Markdown):\n"
         f"❓ **Вопрос:** {question_or_directive}\n"
-        f"💡 **Ответ:** [твой ответ]"
+        f"💡 **Ответ:** [твой ответ на {native_name} языке]"
     )
     return prompt
 
@@ -315,14 +310,15 @@ def build_rule_explanation_prompt(phrase: str, target_lang: str = "de", native_l
         f"Ты — профессиональный преподаватель языка {lang_name}.\n"
         f"Проанализируй пропуск в фигурных скобках {{...}} или ключевую конструкцию в предложении: \"{phrase}\".\n\n"
         f"ЗАДАЧА:\n"
+        f"Язык всех объяснений, примеров и перевода: СТРОГО {native_name}.\n\n"
         f"1. Дай точный перевод предложения на {native_name} язык.\n"
-        f"2. Подробно и понятно объясни грамматическое правило для пропуска {{...}} (почему используется именно эта форма слова, падеж, управление глагола или артикль).\n"
-        f"3. Приведи 2 наглядных примера аналогичных предложений.\n\n"
+        f"2. Подробно и понятно объясни грамматическое правило для пропуска {{...}} на {native_name} языке (почему используется именно эта форма слова, падеж, управление глагола или артикль).\n"
+        f"3. Приведи 2 наглядных примера аналогичных предложений с переводом на {native_name}.\n\n"
         f"Верни результат СТРОГО в формате JSON:\n"
         f"{{\n"
         f'  "front": "{phrase}",\n'
         f'  "back": "[точный перевод на {native_name} с подставленным правильным словом в пропуске]",\n'
-        f'  "context": "📖 **Грамматическое правило**:\\n[Подробное объяснение правила, падежа или формы слова]\\n\\n💡 **Примеры**:\\n• [Пример 1]\\n• [Пример 2]"\n'
+        f'  "context": "📖 **Грамматическое правило**:\\n[Подробное объяснение правила на {native_name} языке]\\n\\n💡 **Примеры**:\\n• [Пример 1]\\n• [Пример 2]"\n'
         f"}}\n"
     )
     return prompt
@@ -346,7 +342,8 @@ def build_quiz_prompt(phrase_or_items, target_lang: str = "de", native_lang: str
             f"Ты — профессиональный преподаватель языка {lang_name}.\n"
             f"Изучаемый язык: {lang_name}. Родной язык пользователя: {native_name}.\n\n"
             f"Тебе передан список из {items_count} вопросов с вариантами ответа.\n\n"
-            f"ДЛЯ КАЖДОГО БЛОКА СФОРМИРУЙ ОБЪЕКТ:\n\n"
+            f"ДЛЯ КАЖДОГО БЛОКА СФОРМИРУЙ ОБЪЕКТ:\n"
+            f"Язык всех объяснений, словаря и перевода: СТРОГО {native_name}.\n\n"
             f"1. \"front\": Исходный текст вопроса и вариантов на {lang_name} (правильный вариант начинается со звёздочки '*').\n\n"
             f"2. \"back\": ПОЛНЫЙ перевод вопроса и ВСЕХ имеющихся вариантов ответа на {native_name} язык.\n"
             f"   - Сохрани точное количество вариантов (2, 3, 4 или более) и их исходный порядок.\n"
@@ -357,8 +354,6 @@ def build_quiz_prompt(phrase_or_items, target_lang: str = "de", native_lang: str
             f"   📖 **Словарный запас**:\n"
             f"   - [слово / глагол / существительное с артиклем на {lang_name}] — [перевод на {native_name}]\n"
             f"   (подробный разбор всех ключевых слов и глаголов из вопроса и вариантов)\n\n"
-            f"   💡 **Грамматика**:\n"
-            f"   [Понятный разбор правил, падежей или грамматических конструкций]\n\n"
             f"{level_rule}"
             f"5. \"card_type\": \"quiz\"\n\n"
             f"Верни СТРОГО валидный JSON-массив из {items_count} объектов:\n"
@@ -366,7 +361,7 @@ def build_quiz_prompt(phrase_or_items, target_lang: str = "de", native_lang: str
             f"  {{\n"
             f'    "front": "Frage auf {lang_name}?\\n\\nOption 1\\n*Option 2\\nOption 3",\n'
             f'    "back": "Перевод вопроса на {native_name}\\n\\n1. Перевод опции 1\\n2. ✅ Перевод правильной опции 2\\n3. Перевод опции 3",\n'
-            f'    "context": "🎯 **Объяснение**:\\n...\\n\\n📖 **Словарный запас**:\\n- слово1 — перевод1\\n- die слово2 — перевод2\\n\\n💡 **Грамматика**:\\n...",\n'
+            f'    "context": "🎯 **Объяснение**:\\n...\\n\\n📖 **Словарный запас**:\\n- слово1 — перевод1\\n- die слово2 — перевод2",\n'
             f'    "level": "B1",\n'
             f'    "card_type": "quiz"\n'
             f"  }}\n"
@@ -376,8 +371,10 @@ def build_quiz_prompt(phrase_or_items, target_lang: str = "de", native_lang: str
         clean_phrase = phrase_or_items if isinstance(phrase_or_items, str) else phrase_or_items[0]
         return (
             f"Ты — профессиональный преподаватель языка {lang_name}.\n"
+            f"Изучаемый язык: {lang_name}. Родной язык пользователя: {native_name}.\n\n"
             f"Проанализируй вопрос с вариантами ответа:\n'{clean_phrase}'\n\n"
-            f"ПРАВИЛА ОФОРМЛЕНИЯ:\n\n"
+            f"ПРАВИЛА ОФОРМЛЕНИЯ:\n"
+            f"Язык всех объяснений, словаря и перевода: СТРОГО {native_name}.\n\n"
             f"1. \"front\": Исходный текст вопроса и вариантов на {lang_name} без изменений.\n\n"
             f"2. \"back\": ПОЛНЫЙ перевод вопроса и ВСЕХ имеющихся вариантов ответа на {native_name} язык.\n"
             f"   - Сохрани точное количество вариантов (2, 3, 4 или более) и их исходный порядок.\n"
@@ -389,7 +386,7 @@ def build_quiz_prompt(phrase_or_items, target_lang: str = "de", native_lang: str
             f"   - [слово / глагол / существительное с артиклем на {lang_name}] — [перевод на {native_name}]\n"
             f"   (подробный разбор всех ключевых слов и глаголов из вопроса и вариантов)\n\n"
             f"   💡 **Грамматика**:\n"
-            f"   [Понятный разбор правил, падежей или грамматических конструкций]\n\n"
+            f"   [Понятный разбор правил, падежей или грамматических конструкций на {native_name} языке]\n\n"
             f"{level_rule}"
             f"Return ONLY a JSON object in this format:\n{{\n"
             f'  "front": "{clean_phrase}",\n'

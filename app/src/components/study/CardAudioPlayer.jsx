@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Play, Pause, Square, Volume2, RefreshCw, Sparkles, Mic2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, Pause, Square, Volume2, RefreshCw, Mic2, ChevronUp, ChevronDown } from 'lucide-react';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import './CardAudioPlayer.css';
 
 
@@ -41,6 +42,9 @@ export const CardAudioPlayer = React.memo(({
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
+
+  const autoPlay = useSettingsStore((s) => s.autoPlay);
+  const setAutoPlay = useSettingsStore((s) => s.setAutoPlay);
 
   const effectiveUrl = (voicePicker?.previewUrl) || audioUrl;
   const isThisActive = currentUrl === effectiveUrl && audioState !== 'idle';
@@ -243,6 +247,20 @@ export const CardAudioPlayer = React.memo(({
                 <span>{voicePicker.isGenerating ? 'Генерирую…' : 'Прослушать'}</span>
               </button>
             )}
+
+            <label
+              className="audio-player-autoplay-label"
+              onClick={(e) => e.stopPropagation()}
+              title="Автоматическое воспроизведение аудио при открытии карточки"
+            >
+              <input
+                type="checkbox"
+                className="audio-player-autoplay-checkbox"
+                checked={autoPlay}
+                onChange={(e) => setAutoPlay(e.target.checked)}
+              />
+              <span className="audio-player-autoplay-text">Автовоспроизведение</span>
+            </label>
           </div>
 
           <button

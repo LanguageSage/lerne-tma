@@ -21,8 +21,3 @@ Use this skill whenever generating or modifying codebase features, running refac
    - Inspect `api.log`, `api-dev.log`, or test execution outputs.
    - Ensure no unhandled promise rejections, CORS errors, or unhandled exceptions.
 
-4. **Walkthrough Documentation**:
-   - Create or update `walkthrough.md` documenting:
-     - Exact changes made across frontend (`/app`) and backend (`/api`).
-     - Verification commands executed.
-     - Empirical log outputs demonstrating clean pass.

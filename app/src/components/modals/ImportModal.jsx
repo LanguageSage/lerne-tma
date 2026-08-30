@@ -6,6 +6,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { SUPPORTED_TARGET_LANGUAGES } from '../../constants/languageConstants';
+import { getUserId } from '../../utils/auth';
 
 export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const [loading, setLoading] = useState(true);
@@ -95,13 +96,14 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
         return;
       }
 
-      if (res.data.status === 'success') {
+      if (res.data.status === 'success' || res.data.status === 'ok') {
         const targetLang = res.data.target_language || shareInfo?.target_language || 'de';
         const langObj = SUPPORTED_TARGET_LANGUAGES.find(l => l.code === targetLang) || { name: targetLang.toUpperCase(), flag: '🌐' };
 
+        const itemName = res.data.name || res.data.deck_name || res.data.folder_name || shareInfo?.name || '';
         let msg = 'Элемент успешно добавлен!';
-        if (res.data.type === 'folder') msg = `Папка «${res.data.name}» добавлена!`;
-        else if (res.data.type === 'deck') msg = `Колода «${res.data.name}» добавлена!`;
+        if (res.data.type === 'folder') msg = `Папка «${itemName}» добавлена!`;
+        else if (res.data.type === 'deck') msg = `Колода «${itemName}» добавлена!`;
         else if (res.data.type === 'card') msg = `Карточка добавлена в «📥 Входящие»!`;
         
         showToast(msg, 'success');
@@ -131,10 +133,47 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
       }
     } catch (err) {
       console.error("Error during import:", err);
-      setError("Произошла ошибка при импорте.");
+      setError(err?.response?.data?.detail || "Произошла ошибка при импорте.");
     } finally {
       setImporting(false);
     }
+  };
+
+  const isInsideTelegram = Boolean(window.Telegram?.WebApp?.initData);
+
+  const handleOpenInBrowser = () => {
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    const user = useUiStore.getState().userProfile;
+    const currentUserId = tgUser?.id || user?.user_id || getUserId();
+    const firstName = tgUser?.first_name || user?.first_name || 'Пользователь';
+    const lastName = tgUser?.last_name || user?.last_name || '';
+    const username = tgUser?.username || user?.username || '';
+    const photoUrl = tgUser?.photo_url || user?.photo_url || '';
+    
+    // Construct authenticated URL for external browser with exact parameters
+    const params = new URLSearchParams();
+    params.set('user_id', currentUserId);
+    params.set('share_id', shareId);
+    if (firstName) params.set('first_name', firstName);
+    if (lastName) params.set('last_name', lastName);
+    if (username) params.set('username', username);
+    if (photoUrl) params.set('photo', photoUrl);
+    
+    const browserUrl = `https://tma-amber.vercel.app/?${params.toString()}`;
+    
+    const tg = window.Telegram?.WebApp;
+    if (tg && tg.openLink) {
+      tg.openLink(browserUrl);
+      setTimeout(() => {
+        try {
+          tg.close();
+        } catch { /* ignore */ }
+      }, 400);
+    } else {
+      window.open(browserUrl, '_blank');
+    }
+    showToast("Открываем в браузере...", "info");
+    onClose?.();
   };
 
   if (!shareId) return null;
@@ -411,23 +450,62 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                   )}
                 </div>
               ) : (
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', width: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+                  {isInsideTelegram ? (
+                    <>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => handleImport()}
+                        disabled={loading || importing || !shareInfo}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          width: '100%', padding: '14px', fontSize: '0.96rem', fontWeight: 700
+                        }}
+                      >
+                        {isAlreadyAccessible ? <ExternalLink size={18} /> : <Download size={18} />}
+                        {importing ? 'Загрузка...' : (isAlreadyAccessible ? 'Открыть в Telegram' : (isCollab ? 'Присоединиться в Telegram' : '🚀 Учить в Telegram'))}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={handleOpenInBrowser}
+                        disabled={loading || importing || !shareInfo}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          width: '100%', padding: '12px 14px', fontSize: '0.88rem',
+                          background: 'rgba(255, 255, 255, 0.06)', borderColor: 'rgba(255, 255, 255, 0.14)', color: '#cbd5e1'
+                        }}
+                      >
+                        <ExternalLink size={16} />
+                        <span>🌍 Учить в браузере (Safari / Chrome)</span>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleImport()}
+                      disabled={loading || importing || !shareInfo}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        width: '100%', padding: '14px', fontSize: '0.96rem', fontWeight: 700
+                      }}
+                    >
+                      {isAlreadyAccessible ? <ExternalLink size={18} /> : <Download size={18} />}
+                      {importing ? 'Загрузка...' : (isAlreadyAccessible ? 'Открыть колоду' : (isCollab ? 'Присоединиться' : '📥 Добавить колоду'))}
+                    </button>
+                  )}
+
                   <button 
-                    className="btn btn-secondary" 
+                    type="button"
                     onClick={onClose} 
                     disabled={importing}
-                    style={{ flex: 1, padding: '12px' }}
+                    style={{
+                      background: 'none', border: 'none', color: '#64748b',
+                      fontSize: '0.82rem', padding: '6px', cursor: 'pointer'
+                    }}
                   >
                     Отмена
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => handleImport()}
-                    disabled={loading || importing || !shareInfo}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: 1, padding: '12px' }}
-                  >
-                    {isAlreadyAccessible ? <ExternalLink size={18} /> : <Download size={18} />}
-                    {importing ? 'Загрузка...' : (isAlreadyAccessible ? 'Открыть' : (isCollab ? 'Присоединиться' : 'Добавить'))}
                   </button>
                 </div>
               )}

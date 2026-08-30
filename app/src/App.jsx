@@ -5,7 +5,7 @@ import './App.css';
 // Utils & Services
 import { getUserId, storage } from './utils/auth';
 import api from './services/api';
-import { enableClosingConfirmation, setupBackButton, hideBackButton, closeApp } from './utils/platform';
+import { disableClosingConfirmation, setupBackButton, hideBackButton } from './utils/platform';
 
 
 // Components
@@ -75,7 +75,7 @@ function AppContent() {
 
   // 1. Setup popstate listener and native back button onClick callback on mount
   useEffect(() => {
-    enableClosingConfirmation();
+    disableClosingConfirmation();
     
     // Replace initial state with root decks view
     window.history.replaceState({ view: 'decks', folderId: null }, '');
@@ -101,22 +101,18 @@ function AppContent() {
           lastModalOpenRef.current = false;
         } else {
           // No modal was open -> change view/folder
-          setView(state.view);
-          setActiveFolderId(state.folderId);
+          setView(state.view || 'decks');
+          setActiveFolderId(state.folderId ?? null);
         }
         
         setTimeout(() => {
           isPopStateRef.current = false;
         }, 50);
       } else {
-        // Popped past root in browser
-        const confirmExit = window.confirm("Вы действительно хотите выйти из приложения?");
-        if (confirmExit) {
-          closeApp();
-        } else {
-          // Push state back so they don't exit next time
-          window.history.pushState({ view: 'decks', folderId: null }, '');
-        }
+        // Popped past root in browser or null state
+        window.history.replaceState({ view: 'decks', folderId: null }, '');
+        setView('decks');
+        setActiveFolderId(null);
       }
     };
 
@@ -201,9 +197,11 @@ function AppContent() {
     try {
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
+      const state = useDeckStore.getState();
+      const hasCards = state.currentDeck?.id === deck.id && state.deckCards && state.deckCards.length > 0;
       if (deck.id === 'duplicates') {
         await useDeckStore.getState().fetchDuplicates();
-      } else {
+      } else if (!hasCards) {
         await useDeckStore.getState().fetchDeckCards(deck.id);
       }
 
@@ -215,22 +213,54 @@ function AppContent() {
   };
 
   const startStudyCard = async (deck, cardId) => {
-    setIsOpeningDeck(true);
     try {
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
+      
+      const deckState = useDeckStore.getState();
+      let cards = deck.id === 'duplicates' ? (deckState.duplicateCards || []) : (deckState.deckCards || []);
+      let localCard = cards.find(c => String(c.id) === String(cardId));
+
+      // Fast path: card is already in memory -> instant transition (0ms delay)
+      if (localCard) {
+        useSessionStore.getState().addToHistory(localCard);
+        setView('study');
+        setIsOpeningDeck(false);
+
+        // Fetch fresh card details/intervals in background without blocking UI
+        api.get(`/study/card/${cardId}`).then((res) => {
+          if (res?.data) {
+            useSessionStore.getState().setCard(res.data);
+            const history = useSessionStore.getState().studyHistory;
+            if (history.length > 0) {
+              const updatedHistory = [...history];
+              updatedHistory[history.length - 1] = res.data;
+              useSessionStore.getState().setStudyHistory(updatedHistory);
+            }
+          }
+        }).catch((err) => {
+          console.warn("Background study card refresh:", err);
+        });
+        return;
+      }
+
+      // Fallback: card not in memory, fetch with loader
+      setIsOpeningDeck(true);
       if (deck.id === 'duplicates') {
         await useDeckStore.getState().fetchDuplicates();
+        cards = useDeckStore.getState().duplicateCards || [];
       } else {
         await useDeckStore.getState().fetchDeckCards(deck.id);
+        cards = useDeckStore.getState().deckCards || [];
       }
-      
-      setView('study');
-      const cards = useDeckStore.getState().deckCards || [];
-      const localCard = cards.find(c => String(c.id) === String(cardId));
+
+      localCard = cards.find(c => String(c.id) === String(cardId));
       if (localCard) {
         useSessionStore.getState().addToHistory(localCard);
       }
+
+      setView('study');
+
       try {
         const res = await api.get(`/study/card/${cardId}`);
         if (res?.data) {
@@ -271,11 +301,6 @@ function AppContent() {
   const finishTutorial = (context) => {
     storage.set(`lerne_tut_seen_${context}`, 'true');
     setActiveTutorial(null);
-    if (context === 'welcome') {
-      import('./store/useLanguageStore').then(({ useLanguageStore }) => {
-        useLanguageStore.getState().setLanguageModalOpen(true);
-      });
-    }
   };
 
   const startTutorial = (context) => {
@@ -289,14 +314,6 @@ function AppContent() {
   // View Router
   const renderView = () => {
     switch (view) {
-      case 'decks':
-        return (
-          <DeckGrid
-            userId={USER_ID}
-            startStudy={startStudy}
-            startTutorial={startTutorial}
-          />
-        );
       case 'study':
       case 'trainer':
         return <StudyView startTutorial={startTutorial} />;
@@ -312,8 +329,15 @@ function AppContent() {
         return <DuplicateManager />;
       case 'trash':
         return <TrashManager />;
+      case 'decks':
       default:
-        return null;
+        return (
+          <DeckGrid
+            userId={USER_ID}
+            startStudy={startStudy}
+            startTutorial={startTutorial}
+          />
+        );
     }
   };
 
@@ -405,6 +429,13 @@ function AppContent() {
       <LanguageSelectionModal />
       <LanguageWelcomeModal 
         isOpen={isFirstLaunch} 
+        onComplete={() => {
+          setIsFirstLaunch(false);
+          storage.set('lerne_welcome_seen', 'true');
+          setTimeout(() => {
+            setActiveTutorial('welcome');
+          }, 350);
+        }}
         onClose={() => setIsFirstLaunch(false)} 
       />
 

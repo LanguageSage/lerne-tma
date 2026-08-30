@@ -16,8 +16,24 @@ export const FolderCardItem = React.memo(({
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
+  const [menuPlacement, setMenuPlacement] = useState('bottom');
   const menuRef = useRef(null);
   const dragControls = useDragControls();
+
+  const toggleMenu = (e) => {
+    e.stopPropagation();
+    if (!isMenuOpen) {
+      const buttonRect = e.currentTarget.getBoundingClientRect();
+      if (window.innerHeight - buttonRect.bottom < 360 && buttonRect.top > 360) {
+        setMenuPlacement('top');
+      } else {
+        setMenuPlacement('bottom');
+      }
+      setIsMenuOpen(true);
+    } else {
+      setIsMenuOpen(false);
+    }
+  };
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -193,10 +209,7 @@ export const FolderCardItem = React.memo(({
         <div className="deck-footer-actions-right">
           <button 
             className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsMenuOpen(!isMenuOpen);
-            }}
+            onClick={toggleMenu}
             title="Опции папки"
           >
             <MoreHorizontal size={18} />
@@ -204,7 +217,7 @@ export const FolderCardItem = React.memo(({
         </div>
 
         {isMenuOpen && (
-          <div className="deck-dropdown-menu glass" ref={menuRef} onClick={(e) => e.stopPropagation()}>
+          <div className={`deck-dropdown-menu glass placement-${menuPlacement}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
             <button className="dropdown-item" onClick={(e) => {
               e.stopPropagation();
               setIsMenuOpen(false);

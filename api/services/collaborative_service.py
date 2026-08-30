@@ -7,7 +7,7 @@ from api import models
 logger = logging.getLogger(__name__)
 
 
-def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders: List[Any] = None) -> Dict[str, Dict[int, Dict[str, Any]]]:
+def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders: List[Any] = None, folder_map: Dict[int, Any] = None) -> Dict[str, Dict[int, Dict[str, Any]]]:
     """
     Computes effective user role and is_shared for multiple decks and folders in 1-2 DB queries.
     """
@@ -16,29 +16,12 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
     deck_ids = [d.id for d in decks]
     folder_ids = [f.id for f in folders]
 
-    # Collect all related folder IDs to build folder hierarchy in memory
-    all_folder_ids = set(folder_ids)
-    for d in decks:
-        if getattr(d, 'folder_id', None):
-            all_folder_ids.add(d.folder_id)
-
-    # Fetch all folders in hierarchy
-    folder_map = {f.id: f for f in folders}
-    missing_folder_ids = all_folder_ids - set(folder_map.keys())
-    if missing_folder_ids:
-        for f in models.TMA_Folder.select().where((models.TMA_Folder.id << list(missing_folder_ids)) & (models.TMA_Folder.is_deleted == False)):
-            folder_map[f.id] = f
-
-    # Also make sure parent folders up the tree are loaded
-    curr_parents = set(f.parent_id for f in folder_map.values() if getattr(f, 'parent_id', None))
-    while curr_parents - set(folder_map.keys()):
-        missing = curr_parents - set(folder_map.keys())
-        fetched = list(models.TMA_Folder.select().where((models.TMA_Folder.id << list(missing)) & (models.TMA_Folder.is_deleted == False)))
-        if not fetched:
-            break
-        for f in fetched:
-            folder_map[f.id] = f
-        curr_parents = set(f.parent_id for f in folder_map.values() if getattr(f, 'parent_id', None))
+    # Fetch all folders in 1 query if not already provided
+    if folder_map is None:
+        all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
+        folder_map = {f.id: f for f in all_folders}
+    else:
+        folder_map = dict(folder_map)
 
     all_known_folder_ids = list(folder_map.keys())
 
@@ -58,6 +41,9 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
     collabs_by_target = {}
     for c in collabs:
         key = (c.target_type, c.target_id)
+        if key not in collabs_by_target:
+            collabs_by_target[key] = []
+        collabs_by_target[key].append(c)
         if key not in collabs_by_target:
             collabs_by_target[key] = []
         collabs_by_target[key].append(c)
@@ -468,15 +454,19 @@ def remove_all_collaborators(target_type: str, target_id: int, requester_id: int
 
 
 
-def _get_all_subfolder_ids(folder_id: int) -> List[int]:
-    """Recursively collects folder_id and all subfolder IDs."""
-    ids = [folder_id]
-    subfolders = models.TMA_Folder.select(models.TMA_Folder.id).where(
-        (models.TMA_Folder.parent == folder_id) & (models.TMA_Folder.is_deleted == False)
-    )
-    for sf in subfolders:
-        ids.extend(_get_all_subfolder_ids(sf.id))
-    return ids
+def _get_all_subfolder_ids(folder_id: int, folder_map: Dict[int, Any] = None) -> List[int]:
+    """Recursively collects folder_id and all subfolder IDs using in-memory folder_map when available."""
+    if folder_map is not None:
+        ids = [folder_id]
+        for f in folder_map.values():
+            if getattr(f, 'parent_id', None) == folder_id and not getattr(f, 'is_deleted', False):
+                ids.extend(_get_all_subfolder_ids(f.id, folder_map))
+        return ids
+
+    # Fallback: load all non-deleted folders once
+    all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
+    f_map = {f.id: f for f in all_folders}
+    return _get_all_subfolder_ids(folder_id, f_map)
 
 
 def get_group_progress(folder_id: int, requester_id: int) -> dict:
@@ -565,7 +555,7 @@ def get_group_progress(folder_id: int, requester_id: int) -> dict:
     }
 
 
-def get_user_accessible_deck_ids(user_id: int) -> set:
+def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None) -> set:
     """Returns all deck IDs that user owns or has collaborator access to, including decks in owned/collaborated folders."""
     owned_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
         (models.TMA_Deck.user_id == user_id) & (models.TMA_Deck.is_deleted == False)
@@ -584,14 +574,10 @@ def get_user_accessible_deck_ids(user_id: int) -> set:
         for d in valid_decks:
             deck_ids.add(d.id)
 
-    accessible_folder_ids = get_user_accessible_folder_ids(user_id)
-    all_accessible_folder_ids = set()
-    for fid in accessible_folder_ids:
-        all_accessible_folder_ids.update(_get_all_subfolder_ids(fid))
-
-    if all_accessible_folder_ids:
+    accessible_folder_ids = get_user_accessible_folder_ids(user_id, folder_map=folder_map)
+    if accessible_folder_ids:
         folder_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
-            (models.TMA_Deck.folder_id << list(all_accessible_folder_ids)) & (models.TMA_Deck.is_deleted == False)
+            (models.TMA_Deck.folder_id << list(accessible_folder_ids)) & (models.TMA_Deck.is_deleted == False)
         )
         for d in folder_decks:
             deck_ids.add(d.id)
@@ -600,21 +586,27 @@ def get_user_accessible_deck_ids(user_id: int) -> set:
 
 
 
-def get_user_accessible_folder_ids(user_id: int) -> set:
+def get_user_accessible_folder_ids(user_id: int, folder_map: Dict[int, Any] = None) -> set:
     """Returns all folder IDs that user owns or has collaborator access to."""
-    owned_folders = models.TMA_Folder.select(models.TMA_Folder.id).where(
-        (models.TMA_Folder.user_id == user_id) & (models.TMA_Folder.is_deleted == False)
-    )
-    folder_ids = set(f.id for f in owned_folders)
+    if folder_map is None:
+        all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
+        folder_map = {f.id: f for f in all_folders}
 
-    collab_folders = models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
-        (models.TMA_Collaborator.target_type == 'folder') &
-        (models.TMA_Collaborator.user_id == user_id)
+    owned_folder_ids = set(f.id for f in folder_map.values() if f.user_id == user_id and not getattr(f, 'is_deleted', False))
+    
+    collab_folder_ids = set(
+        c.target_id for c in models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
+            (models.TMA_Collaborator.target_type == 'folder') &
+            (models.TMA_Collaborator.user_id == user_id)
+        )
     )
-    for cf in collab_folders:
-        folder_ids.update(_get_all_subfolder_ids(cf.target_id))
+    
+    root_folder_ids = owned_folder_ids | collab_folder_ids
+    all_accessible = set()
+    for fid in root_folder_ids:
+        all_accessible.update(_get_all_subfolder_ids(fid, folder_map))
 
-    return folder_ids
+    return all_accessible
 
 
 _active_presence_map: Dict[str, Dict[int, datetime.datetime]] = {}

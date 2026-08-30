@@ -4,22 +4,31 @@ from ..models import TMA_Folder, TMA_Deck, TMAMedia, tma_db
 
 logger = logging.getLogger(__name__)
 
-def get_active_folders(user_id: int):
+def get_active_folders(user_id: int, folder_map: dict = None):
     """Возвращает все активные папки пользователя (собственные и доступные по соавторству)."""
     try:
         from .decks import ensure_inbox_deck
         from .collaborative_service import get_user_accessible_folder_ids, get_batch_collaborative_info
-        ensure_inbox_deck(user_id)
 
-        accessible_folder_ids = get_user_accessible_folder_ids(user_id)
+        if folder_map is None:
+            all_folders = list(TMA_Folder.select().where(TMA_Folder.is_deleted == False))
+            folder_map = {f.id: f for f in all_folders}
+
+        # Only ensure inbox folder/deck if missing
+        has_inbox_folder = any(f.user_id == user_id and f.name == "📥 Входящие" for f in folder_map.values())
+        if not has_inbox_folder:
+            ensure_inbox_deck(user_id)
+            all_folders = list(TMA_Folder.select().where(TMA_Folder.is_deleted == False))
+            folder_map = {f.id: f for f in all_folders}
+
+        accessible_folder_ids = get_user_accessible_folder_ids(user_id, folder_map=folder_map)
         if not accessible_folder_ids:
             return []
 
-        folders = list(TMA_Folder.select().where(
-            (TMA_Folder.id << list(accessible_folder_ids)) & (TMA_Folder.is_deleted == False)
-        ).order_by(TMA_Folder.position.asc(), TMA_Folder.id.asc()))
+        folders = [folder_map[fid] for fid in accessible_folder_ids if fid in folder_map]
+        folders.sort(key=lambda f: (getattr(f, 'position', 0) or 0, f.id))
 
-        collab_info = get_batch_collaborative_info(user_id, folders=folders)
+        collab_info = get_batch_collaborative_info(user_id, folders=folders, folder_map=folder_map)
         folder_collab_map = collab_info.get('folders', {})
         
         result = []
@@ -31,7 +40,6 @@ def get_active_folders(user_id: int):
             result.append({
                 "id": f.id,
                 "name": f.name,
-
                 "parent_id": getattr(f, 'parent_id', None),
                 "color": f.color,
                 "target_language": getattr(f, 'target_language', 'de') or 'de',

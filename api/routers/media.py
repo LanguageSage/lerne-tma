@@ -288,9 +288,51 @@ async def upload_audio_file(
         "url": f"/api/media/audio/{filename}"
     }
 
+from collections import OrderedDict
+
+class MediaMemoryCache:
+    def __init__(self, max_items=250, max_bytes=64 * 1024 * 1024):
+        self.max_items = max_items
+        self.max_bytes = max_bytes
+        self.cache = OrderedDict() # (folder, filename) -> (bytes, media_type)
+        self.current_bytes = 0
+
+    def get(self, folder: str, filename: str):
+        key = (folder, filename)
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            return self.cache[key]
+        return None
+
+    def set(self, folder: str, filename: str, content: bytes, media_type: str = None):
+        key = (folder, filename)
+        size = len(content)
+        if size > 10 * 1024 * 1024:
+            return
+        
+        if key in self.cache:
+            old_content, _ = self.cache[key]
+            self.current_bytes -= len(old_content)
+            del self.cache[key]
+
+        while self.cache and (len(self.cache) >= self.max_items or self.current_bytes + size > self.max_bytes):
+            _, (old_c, _) = self.cache.popitem(last=False)
+            self.current_bytes -= len(old_c)
+
+        self.cache[key] = (content, media_type)
+        self.current_bytes += size
+
+_media_cache = MediaMemoryCache()
+
+
 @router.get("/audio/{filename:path}")
 def get_audio(filename: str, request: Request):
     clean_filename = os.path.basename(filename)
+    cached = _media_cache.get('audio', clean_filename)
+    if cached:
+        content, _ = cached
+        return get_range_response(request, content, "audio/mpeg")
+
     logger.debug(f"MEDIA: Requesting audio: {clean_filename}")
     media = models.TMAMedia.get_or_none(
         (models.TMAMedia.filename == clean_filename) & 
@@ -300,11 +342,17 @@ def get_audio(filename: str, request: Request):
         raise HTTPException(status_code=404, detail="Audio not found in DB")
     
     content = bytes(media.content)
+    _media_cache.set('audio', clean_filename, content, "audio/mpeg")
     return get_range_response(request, content, "audio/mpeg")
 
 @router.get("/images/{filename:path}")
 def get_image(filename: str, request: Request):
     clean_filename = os.path.basename(filename)
+    cached = _media_cache.get('images', clean_filename)
+    if cached:
+        content, media_type = cached
+        return get_range_response(request, content, media_type)
+
     logger.debug(f"MEDIA: Requesting image: {clean_filename}")
     media = models.TMAMedia.get_or_none(
         (models.TMAMedia.filename == clean_filename) & 
@@ -328,6 +376,7 @@ def get_image(filename: str, request: Request):
         ext = clean_filename.split('.')[-1].lower()
         media_type = f"image/{ext}" if ext != 'jpg' else "image/jpeg"
     
+    _media_cache.set('images', clean_filename, content, media_type)
     return get_range_response(request, content, media_type)
 
 @router.post("/upload-video")

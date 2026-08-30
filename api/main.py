@@ -120,8 +120,11 @@ app.include_router(collaborative.router, prefix="/api")
 @app.get("/api/init")
 def get_init_data(user_id: int = Depends(get_user_id)):
     """Returns all initial data needed by the app in a single request."""
-    decks = services.get_active_decks(user_id)
-    folders = services.get_active_folders(user_id)
+    all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
+    folder_map = {f.id: f for f in all_folders}
+
+    decks = services.get_active_decks(user_id, folder_map=folder_map)
+    folders = services.get_active_folders(user_id, folder_map=folder_map)
     
     # Get settings
     settings = {}
@@ -144,12 +147,19 @@ def get_init_data(user_id: int = Depends(get_user_id)):
             })
     except Exception: pass
         
-    # Get user language profile
+    # Get user language and profile
     user_info = {"active_language": "de", "native_language": "uk", "has_selected_language": False}
     try:
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
         if user:
             user_info = {
+                "user_id": user.user_id,
+                "first_name": user.first_name or user.username or "Пользователь",
+                "last_name": user.last_name,
+                "username": user.username,
+                "photo_url": user.photo_url,
+                "phone": user.phone,
+                "is_guest": bool(user.is_guest),
                 "active_language": user.active_language or "de",
                 "native_language": getattr(user, 'native_language', None) or "uk",
                 "has_selected_language": bool(user.has_selected_language)

@@ -9,7 +9,7 @@ export const GeneralTab = ({ userId }) => {
   const { nativeLanguage, changeNativeLanguage, t } = useTranslation();
 
   const handleLanguageChange = (code) => {
-    changeNativeLanguage(code);
+    changeNativeLanguage(code, true);
     const langObj = SUPPORTED_NATIVE_LANGUAGES.find(l => l.code === code);
     if (langObj) {
       setVoiceBack(langObj.defaultVoice);

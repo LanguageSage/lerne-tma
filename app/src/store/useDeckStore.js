@@ -351,12 +351,29 @@ export const useDeckStore = create((set, get) => ({
 
   handleShareDeck: async (deckId) => {
     try {
-      const res = await api.post(`/share/generate/deck/${deckId}`);
+      let targetId = deckId;
+      if (targetId < 0) {
+        try {
+          const { syncService } = await import('../services/syncService');
+          await syncService.sync();
+          const currentDeck = useDeckStore.getState().decks.find(d => d.id === targetId || d.local_id === targetId);
+          if (currentDeck && currentDeck.id > 0) {
+            targetId = currentDeck.id;
+          }
+        } catch { /* ignore */ }
+      }
+      const res = await api.post(`/share/generate/deck/${targetId}`);
       if (res.data.status === 'ok') {
         const link = getPublicShareUrl(res.data.share_id);
+        const deck = useDeckStore.getState().decks.find(d => d.id === targetId || d.id === deckId);
+        const deckName = deck?.name || 'Колода';
+        const cardCount = deck?.stats?.total || deck?.cards_count || '';
+        const level = deck?.level ? ` • ${deck.level}` : '';
+        const text = `📚 Колода: «${deckName}»${cardCount ? ` (${cardCount} карточек${level})` : ''}\nУчи немецкий в приложении Lerne:`;
+
         return await executeShare({
-          title: 'Колода Lerne',
-          text: 'Посмотри эту колоду в Lerne!',
+          title: `Колода «${deckName}» в Lerne`,
+          text,
           link
         });
       }
@@ -369,12 +386,27 @@ export const useDeckStore = create((set, get) => ({
 
   handleShareFolder: async (folderId) => {
     try {
-      const res = await api.post(`/share/generate/folder/${folderId}`);
+      let targetId = folderId;
+      if (targetId < 0) {
+        try {
+          const { syncService } = await import('../services/syncService');
+          await syncService.sync();
+          const currentFolder = useDeckStore.getState().folders.find(f => f.id === targetId || f.local_id === targetId);
+          if (currentFolder && currentFolder.id > 0) {
+            targetId = currentFolder.id;
+          }
+        } catch { /* ignore */ }
+      }
+      const res = await api.post(`/share/generate/folder/${targetId}`);
       if (res.data.status === 'ok') {
         const link = getPublicShareUrl(res.data.share_id);
+        const folder = useDeckStore.getState().folders.find(f => f.id === targetId || f.id === folderId);
+        const folderName = folder?.name || 'Папка';
+        const text = `📁 Папка: «${folderName}»\nУчи немецкий в приложении Lerne:`;
+
         return await executeShare({
-          title: 'Папка Lerne',
-          text: 'Посмотри эту папку с колодами в Lerne!',
+          title: `Папка «${folderName}» в Lerne`,
+          text,
           link
         });
       }

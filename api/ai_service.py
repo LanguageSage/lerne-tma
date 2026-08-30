@@ -210,8 +210,10 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             level_rule = '4. "level": определи CEFR уровень сложности выражения ("A1", "A2", "B1", "B2", "C1", "C2").\n\n' if detect_level else '\n'
             json_level = ',\n  "level": "B1"' if detect_level else ''
             system_prompt = (
-                f"Ты — преподаватель языка {lang_name}. Создай грамматическую карточку-тренажёр на основе фразы:\n'{clean_phrase}'\n\n"
+                f"Ты — преподаватель языка {lang_name}. Родной язык пользователя: {native_name}.\n"
+                f"Создай грамматическую карточку-тренажёр на основе фразы:\n'{clean_phrase}'\n\n"
                 f"Инструкции:\n"
+                f"Язык всех пояснений, грамматики, словаря и перевода: СТРОГО {native_name}.\n\n"
                 f"1. На лицевой стороне ('front') сформируй предложение на {lang_name} языке и обязательно оберни проверяемую грамматическую форму, предлог или артикль в фигурные скобки, например: 'Ich fahre {{mit dem}} Bus' или 'der Weg {{zum}} Gipfel' (можно указать варианты через черту: '{{*zum|zur|ins}}').\n"
                 f"2. На обратной стороне ('back') ОБЯЗАТЕЛЬНО укажи ПОЛНЫЙ И ТОЧНЫЙ перевод всего предложения на {native_name} язык.\n"
                 f"3. В поле 'context' оформи 3 блока:\n"
@@ -221,7 +223,7 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 f"   - [слово / глагол с артиклем на {lang_name}] — [перевод на {native_name}]\n"
                 f"   (подробный разбор ключевых слов предложения)\n\n"
                 f"   💡 **Грамматика**:\n"
-                f"   [Понятное грамматическое правило простыми словами]\n\n"
+                f"   [Понятное грамматическое правило на {native_name} языке простыми словами]\n\n"
                 f"{level_rule}"
                 f"Return ONLY a JSON object in this format:\n{{\n"
                 f'  "front": "предложение с {{пропуском}} на {lang_name.lower()}",\n'
@@ -234,14 +236,13 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 phrase=clean_phrase,
                 target_lang=target_lang,
                 native_lang=native_lang,
-                directive=parsed.directive,
-                detect_level=detect_level
+                directive=parsed.directive
             )
 
         if "JSON" not in system_prompt.upper():
             native_name = native_config["name"].lower()
             if is_cyrillic:
-                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"перевод на {lang_name.lower()}\",\n  \"back\": \"{phrase}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
+                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"перевод на {lang_name.lower()}\",\n  \"back\": \"перевод на {native_name}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
             else:
                 system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{phrase}\",\n  \"back\": \"перевод на {native_name}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
 
@@ -271,7 +272,19 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             return {"error": response}
         
         logger.info(f"AI: Generation successful in {duration:.2f}s")
-        return extract_json_from_text(response, phrase)
+        result = extract_json_from_text(response, phrase)
+
+        # Determine CEFR level using fast local classifier if not already set
+        if detect_level and result and "front" in result and not result.get("level"):
+            try:
+                from api.services.classifier import classify_sentence_fast
+                local_res = classify_sentence_fast(result["front"], target_lang)
+                result["level"] = local_res.get("level", "A1")
+            except Exception as classify_err:
+                logger.warning(f"Local classifier in generate_card_fields warning: {classify_err}")
+                result["level"] = "A1"
+
+        return result
         
     except Exception as e:
         duration = time.time() - start_time

@@ -72,7 +72,7 @@ export const CardCreator = ({ startTutorial }) => {
     if (result) {
       if (actionType === 'custom_directive') {
         const currentCtx = newCardData.context || '';
-        const updatedCtx = currentCtx ? `${currentCtx.trim()}\n\n${result.context}` : result.context;
+        const updatedCtx = currentCtx ? `${result.context}\n\n${currentCtx.trim()}` : result.context;
         setNewCardData({
           ...newCardData,
           context: updatedCtx
