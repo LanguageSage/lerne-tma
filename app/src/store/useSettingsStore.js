@@ -34,13 +34,13 @@ export const DEFAULT_DESIGN_SETTINGS = {
   previewCardLines: 3
 };
 
-const DESIGN_STORAGE_VERSION = '2026_08_emerald_defaults_v3';
+const DESIGN_STORAGE_VERSION = '2026_08_emerald_final_v4';
 
 const getInitialDesignState = () => {
   const storedVersion = storage.get('lerne_design_version');
   const userSavedCustom = storage.get('lerne_user_design');
 
-  if (storedVersion !== DESIGN_STORAGE_VERSION && !userSavedCustom) {
+  if (storedVersion !== DESIGN_STORAGE_VERSION) {
     storage.set('lerne_design_version', DESIGN_STORAGE_VERSION);
     storage.set('lerne_card_bg_front', DEFAULT_DESIGN_SETTINGS.cardBgFront);
     storage.set('lerne_card_bg_back', DEFAULT_DESIGN_SETTINGS.cardBgBack);
@@ -73,7 +73,7 @@ const getInitialDesignState = () => {
 
     return {
       ...DEFAULT_DESIGN_SETTINGS,
-      userDesign: null,
+      userDesign: userSavedCustom ? JSON.parse(userSavedCustom) : null,
     };
   }
 

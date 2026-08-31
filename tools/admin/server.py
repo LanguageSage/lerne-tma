@@ -111,6 +111,37 @@ class RegenerateAudioRequest(BaseModel):
     exclude_card_ids: Optional[List[int]] = None
     exclude_range_str: Optional[str] = None
 
+class BatchRegenerateDeckRequest(BaseModel):
+    deck_ids: List[str]
+    dry_run: bool = False
+    only_empty: bool = False
+    only_no_context: bool = False
+    no_audio: bool = False
+    sync_copies: bool = False
+    voice: Optional[str] = "de-DE-KatjaNeural"
+    rate: Optional[str] = "+0%"
+    delay: float = 1.5
+    prompt_id: Optional[str] = "preset_b1"
+    native_lang: Optional[str] = "uk"
+    target_lang: Optional[str] = "de"
+    cards_per_deck_limit: Optional[int] = None
+
+class BatchRegenerateAudioRequest(BaseModel):
+    deck_ids: List[str]
+    voice: Optional[str] = "de-DE-KatjaNeural"
+    rate: Optional[str] = "+0%"
+    only_missing_audio: bool = False
+    sync_copies: bool = True
+    delay: float = 0.3
+    cards_per_deck_limit: Optional[int] = None
+
+class BatchSummaryRequest(BaseModel):
+    deck_ids: List[str]
+
+class BatchControlRequest(BaseModel):
+    action: str  # "pause", "resume", "stop", "commit_dry_run"
+
+
 
 # API Routes
 
@@ -1291,6 +1322,439 @@ def get_regen_status(deck_id: str):
     if not status_info:
         return {"status": "idle", "processed": 0, "total": 0, "logs": []}
     return status_info
+
+
+# ==========================================
+# Batch Multi-Deck Regeneration API
+# ==========================================
+
+@app.post("/api/admin/decks/batch/summary")
+def get_batch_summary(req: BatchSummaryRequest):
+    """Returns aggregated statistics and breakdown for a list of staged deck IDs."""
+    deck_list = []
+    total_cards = 0
+    total_missing_audio = 0
+    languages = set()
+
+    for d_id in req.deck_ids:
+        deck, cards, is_lib = get_deck_and_cards(d_id)
+        if not deck:
+            continue
+
+        c_count = len(cards)
+        m_audio = sum(1 for c in cards if not card_has_valid_audio(c))
+        lang = getattr(deck, 'target_language', 'de') or 'de'
+        languages.add(lang)
+        total_cards += c_count
+        total_missing_audio += m_audio
+
+        deck_list.append({
+            "id": str(d_id),
+            "name": deck.name,
+            "target_language": lang,
+            "level": getattr(deck, 'level', None),
+            "card_count": c_count,
+            "missing_audio_count": m_audio,
+            "is_library": is_lib
+        })
+
+    return {
+        "decks": deck_list,
+        "total_decks": len(deck_list),
+        "total_cards": total_cards,
+        "total_missing_audio": total_missing_audio,
+        "languages": list(languages)
+    }
+
+
+async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRequest):
+    global regen_tasks
+    task_info = regen_tasks.get(task_id)
+    if not task_info:
+        return
+
+    # 1. Collect all valid decks and filter cards per deck
+    decks_to_process = []
+    total_cards_count = 0
+
+    for deck_id in options.deck_ids:
+        deck, cards, is_lib = get_deck_and_cards(deck_id)
+        if not deck:
+            task_info["logs"].append(f"⚠️ Колода #{deck_id} не найдена, пропускаем")
+            continue
+
+        if options.only_empty:
+            cards = [c for c in cards if not c.back_text or not c.context]
+        if options.only_no_context:
+            cards = [c for c in cards if not c.context or not str(c.context).strip()]
+
+        if options.dry_run:
+            cards = cards[:2]  # Sample strictly 2 cards per deck for fast test
+        elif options.cards_per_deck_limit and options.cards_per_deck_limit > 0:
+            cards = cards[:options.cards_per_deck_limit]
+
+        if cards:
+            decks_to_process.append((deck_id, deck, cards, is_lib))
+            total_cards_count += len(cards)
+
+    task_info["total_decks"] = len(decks_to_process)
+    task_info["total_cards"] = total_cards_count
+    task_info["status"] = "running"
+    task_info["control"] = "run"
+    task_info["dry_run_results"] = []
+    task_info["is_dry_run"] = options.dry_run
+    task_info["sync_copies"] = options.sync_copies
+    task_info["voice"] = options.voice or "de-DE-KatjaNeural"
+    task_info["no_audio"] = options.no_audio
+
+    mode_str = "🧪 ТЕСТ (Dry-Run: по 2 карточки на колоду)" if options.dry_run else f"🚀 МАССОВАЯ ГЕНЕРАЦИЯ ({len(decks_to_process)} колод, {total_cards_count} карточек)"
+    task_info["logs"].append(f"Запуск: {mode_str} (Голос: {options.voice or 'Default'})...")
+
+    # Auto backup before full mass run
+    if not options.dry_run:
+        try:
+            create_full_db_backup()
+            task_info["logs"].append("🛡️ Автобэкап базы данных успешно создан перед стартом пакета.")
+        except Exception as b_err:
+            task_info["logs"].append(f"⚠️ Не удалось создать автобэкап: {b_err}")
+
+    global_card_idx = 0
+
+    for d_idx, (deck_id, deck, cards, is_lib) in enumerate(decks_to_process, 1):
+        task_info["current_deck_id"] = str(deck_id)
+        task_info["current_deck_name"] = deck.name
+        task_info["processed_decks"] = d_idx - 1
+
+        target_lang = getattr(deck, 'target_language', 'de') or options.target_lang or "de"
+        native_lang = options.native_lang or "uk"
+        user_id_val = getattr(deck, 'user_id', 0) if hasattr(deck, 'user_id') and isinstance(getattr(deck, 'user_id'), int) else 0
+
+        task_info["logs"].append(f"📦 [{d_idx}/{len(decks_to_process)}] Колода: «{deck.name}» (#{deck_id}) — {len(cards)} карточек...")
+
+        for c_idx, card in enumerate(cards, 1):
+            while task_info.get("control") == "pause":
+                task_info["status"] = "paused"
+                await asyncio.sleep(0.5)
+
+            if task_info.get("control") == "stop":
+                task_info["status"] = "stopped"
+                task_info["logs"].append("🛑 Пакетная перегенерация остановлена пользователем.")
+                return
+
+            task_info["status"] = "running"
+            front = (card.front_text or "").strip()
+            if not front:
+                continue
+
+            global_card_idx += 1
+            task_info["processed_cards"] = global_card_idx
+            task_info["current_card"] = f"[{c_idx}/{len(cards)}] {front[:30]}"
+
+            try:
+                res = await ai_service.generate_card_fields(
+                    user_id=user_id_val,
+                    phrase=front,
+                    target_language=target_lang,
+                    native_language=native_lang,
+                    action_type="full_card"
+                )
+
+                if isinstance(res, dict) and "error" in res:
+                    task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ❌ {front[:20]}: {res['error']}")
+                    continue
+
+                new_front = res.get("front") or front
+                new_back = res.get("back") or ""
+                new_context = res.get("context") or ""
+                new_level = res.get("level")
+
+                if options.dry_run:
+                    task_info["dry_run_results"].append({
+                        "deck_id": str(deck_id),
+                        "deck_name": deck.name,
+                        "card_id": card.id,
+                        "front": new_front,
+                        "back": new_back,
+                        "context": new_context,
+                        "level": new_level
+                    })
+                else:
+                    card.front_text = new_front
+                    card.back_text = new_back
+                    card.context = new_context
+                    if new_level:
+                        curr_tags = card.tags or ""
+                        cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1","A2","B1","B2","C1","C2"}])
+                        card.tags = f"{cleaned},{new_level}".strip(",") if cleaned else new_level
+                    card.updated_at = datetime.datetime.now()
+                    card.save()
+
+                    if not options.no_audio:
+                        try:
+                            from api.utils.audio import generate_audio
+                            res_audio = await generate_audio(new_front, voice=options.voice or "de-DE-KatjaNeural", rate=options.rate or "+0%")
+                            if isinstance(res_audio, tuple):
+                                res_audio = res_audio[0]
+                            if res_audio:
+                                saved_audio = save_audio_to_db_or_cloud(res_audio)
+                                if saved_audio:
+                                    card.audio_path = saved_audio
+                                    card.save()
+                        except Exception as err:
+                            task_info["logs"].append(f"    ⚠️ [TTS] Ошибка озвучки: {err}")
+
+                    if options.sync_copies:
+                        d_count, c_count = sync_card_updates_to_matching_decks(
+                            deck, front, new_front, new_back, new_context, new_level, card.audio_path
+                        )
+                        if c_count > 0:
+                            task_info["logs"].append(f"    ↪ 🔄 Синхронизировано с {d_count} другими колодами ({c_count} карт.)")
+
+                task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ✅ {new_front[:20]} -> {new_back[:20]}")
+
+            except Exception as e:
+                task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ❌ Исключение: {str(e)}")
+
+            if options.delay > 0:
+                await asyncio.sleep(options.delay)
+
+        task_info["processed_decks"] = d_idx
+
+    task_info["status"] = "completed"
+    task_info["logs"].append(f"🎉 Пакетная перегенерация {len(decks_to_process)} колод ({global_card_idx} карточек) успешно завершена!")
+
+
+async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAudioRequest):
+    global regen_tasks
+    task_info = regen_tasks.get(task_id)
+    if not task_info:
+        return
+
+    from api.utils.audio import generate_audio
+
+    decks_to_process = []
+    total_cards_count = 0
+
+    for deck_id in options.deck_ids:
+        deck, cards, is_lib = get_deck_and_cards(deck_id)
+        if not deck:
+            task_info["logs"].append(f"⚠️ Колода #{deck_id} не найдена, пропускаем")
+            continue
+
+        if options.only_missing_audio:
+            cards = [c for c in cards if not card_has_valid_audio(c)]
+
+        if options.cards_per_deck_limit and options.cards_per_deck_limit > 0:
+            cards = cards[:options.cards_per_deck_limit]
+
+        if cards:
+            decks_to_process.append((deck_id, deck, cards, is_lib))
+            total_cards_count += len(cards)
+
+    task_info["total_decks"] = len(decks_to_process)
+    task_info["total_cards"] = total_cards_count
+    task_info["status"] = "running"
+    task_info["control"] = "run"
+    task_info["voice"] = options.voice or "de-DE-KatjaNeural"
+    task_info["rate"] = options.rate or "+0%"
+    task_info["sync_copies"] = options.sync_copies
+
+    voice_str = options.voice or "de-DE-KatjaNeural"
+    rate_str = options.rate or "+0%"
+    task_info["logs"].append(f"🎙️ Запуск пакетного озвучивания: {len(decks_to_process)} колод, {total_cards_count} карточек (Голос: {voice_str}, Скорость: {rate_str})...")
+
+    global_card_idx = 0
+
+    for d_idx, (deck_id, deck, cards, is_lib) in enumerate(decks_to_process, 1):
+        task_info["current_deck_id"] = str(deck_id)
+        task_info["current_deck_name"] = deck.name
+        task_info["processed_decks"] = d_idx - 1
+
+        task_info["logs"].append(f"📦 [{d_idx}/{len(decks_to_process)}] Озвучка колоды: «{deck.name}» (#{deck_id}) — {len(cards)} карточек...")
+
+        for c_idx, card in enumerate(cards, 1):
+            while task_info.get("control") == "pause":
+                task_info["status"] = "paused"
+                await asyncio.sleep(0.5)
+
+            if task_info.get("control") == "stop":
+                task_info["status"] = "stopped"
+                task_info["logs"].append("🛑 Пакетное озвучивание остановлено пользователем.")
+                return
+
+            task_info["status"] = "running"
+            front = (card.front_text or "").strip()
+            if not front:
+                continue
+
+            global_card_idx += 1
+            task_info["processed_cards"] = global_card_idx
+            task_info["current_card"] = f"[{c_idx}/{len(cards)}] {front[:30]}"
+
+            try:
+                res_audio = await generate_audio(front, voice=voice_str, rate=rate_str)
+                if isinstance(res_audio, tuple):
+                    res_audio = res_audio[0]
+
+                if res_audio:
+                    saved_audio = save_audio_to_db_or_cloud(res_audio)
+                    if saved_audio:
+                        card.audio_path = saved_audio
+                        card.updated_at = datetime.datetime.now()
+                        card.save()
+
+                        if options.sync_copies:
+                            d_count, c_count = sync_card_audio_to_matching_decks(deck, front, saved_audio)
+                            if c_count > 0:
+                                task_info["logs"].append(f"    ↪ 🔄 Аудио синхронизировано с {d_count} другими колодами ({c_count} карт.)")
+
+                        task_info["logs"].append(f"  [{c_idx}/{len(cards)}] 🎙️ {front[:25]} -> {saved_audio}")
+                    else:
+                        task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ❌ Ошибка сохранения аудио: {front[:20]}")
+                else:
+                    task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ❌ Пустой результат TTS: {front[:20]}")
+
+            except Exception as e:
+                task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ❌ Ошибка TTS: {str(e)}")
+
+            if options.delay > 0:
+                await asyncio.sleep(options.delay)
+
+        task_info["processed_decks"] = d_idx
+
+    task_info["status"] = "completed"
+    task_info["logs"].append(f"🎉 Пакетная озвучка {len(decks_to_process)} колод ({global_card_idx} карточек) успешно завершена!")
+
+
+@app.post("/api/admin/decks/batch/regenerate")
+def start_batch_regeneration(req: BatchRegenerateDeckRequest, background_tasks: BackgroundTasks):
+    """Starts background AI regeneration for multiple staged decks."""
+    global regen_tasks
+    if not req.deck_ids:
+        raise HTTPException(status_code=400, detail="No decks provided for batch regeneration")
+
+    task_id = f"batch_ai_{int(time.time())}"
+    regen_tasks[task_id] = {
+        "task_id": task_id,
+        "is_batch": True,
+        "status": "pending",
+        "control": "run",
+        "total_decks": len(req.deck_ids),
+        "processed_decks": 0,
+        "current_deck_id": "",
+        "current_deck_name": "",
+        "total_cards": 0,
+        "processed_cards": 0,
+        "current_card": "",
+        "logs": [],
+        "dry_run_results": [],
+        "is_dry_run": req.dry_run,
+        "is_audio_only": False,
+        "voice": req.voice,
+        "start_time": time.time()
+    }
+    background_tasks.add_task(run_batch_ai_regeneration, task_id, req)
+    return {"status": "ok", "task_id": task_id, "total_decks": len(req.deck_ids), "message": "Batch AI regeneration started"}
+
+
+@app.post("/api/admin/decks/batch/regenerate-audio")
+def start_batch_audio_regeneration(req: BatchRegenerateAudioRequest, background_tasks: BackgroundTasks):
+    """Starts background audio regeneration for multiple staged decks."""
+    global regen_tasks
+    if not req.deck_ids:
+        raise HTTPException(status_code=400, detail="No decks provided for batch regeneration")
+
+    task_id = f"batch_audio_{int(time.time())}"
+    regen_tasks[task_id] = {
+        "task_id": task_id,
+        "is_batch": True,
+        "status": "pending",
+        "control": "run",
+        "total_decks": len(req.deck_ids),
+        "processed_decks": 0,
+        "current_deck_id": "",
+        "current_deck_name": "",
+        "total_cards": 0,
+        "processed_cards": 0,
+        "current_card": "",
+        "logs": [],
+        "dry_run_results": [],
+        "is_dry_run": False,
+        "is_audio_only": True,
+        "voice": req.voice,
+        "start_time": time.time()
+    }
+    background_tasks.add_task(run_batch_audio_regeneration, task_id, req)
+    return {"status": "ok", "task_id": task_id, "total_decks": len(req.deck_ids), "message": "Batch audio regeneration started"}
+
+
+@app.get("/api/admin/decks/batch/{task_id}/status")
+def get_batch_regen_status(task_id: str):
+    """Returns progress and logs of a batch regeneration task."""
+    global regen_tasks
+    status_info = regen_tasks.get(task_id)
+    if not status_info:
+        return {"status": "idle", "processed_decks": 0, "total_decks": 0, "processed_cards": 0, "total_cards": 0, "logs": []}
+    return status_info
+
+
+@app.post("/api/admin/decks/batch/{task_id}/control")
+def control_batch_regeneration(task_id: str, req: BatchControlRequest):
+    """Controls running batch regeneration (pause, resume, stop) or commits dry-run results to DB."""
+    global regen_tasks
+    task_info = regen_tasks.get(task_id)
+    if not task_info:
+        raise HTTPException(status_code=404, detail="Batch regeneration task not found")
+
+    action = req.action.lower()
+    if action == "pause":
+        task_info["control"] = "pause"
+        task_info["status"] = "paused"
+        task_info["logs"].append("⏸ Пакетная перегенерация приостановлена.")
+    elif action == "resume":
+        task_info["control"] = "run"
+        task_info["status"] = "running"
+        task_info["logs"].append("▶ Пакетная перегенерация возобновлена.")
+    elif action == "stop":
+        task_info["control"] = "stop"
+        task_info["status"] = "stopped"
+        task_info["logs"].append("🛑 Сигнал остановки отправлен.")
+    elif action == "commit_dry_run":
+        results = task_info.get("dry_run_results", [])
+        if not results:
+            return {"status": "ok", "committed_count": 0, "message": "Нет результатов Dry-Run для сохранения"}
+
+        count = 0
+        sync_total = 0
+        now = datetime.datetime.now()
+        for item in results:
+            deck_id = item["deck_id"]
+            deck, _, is_lib = get_deck_and_cards(deck_id)
+            card_model = models.Card if is_lib else models.TMA_Card
+            card = card_model.get_or_none(card_model.id == item["card_id"])
+            if card:
+                orig_front = card.front_text
+                card.front_text = item["front"]
+                card.back_text = item["back"]
+                card.context = item["context"]
+                if item.get("level"):
+                    curr_tags = card.tags or ""
+                    cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1","A2","B1","B2","C1","C2"}])
+                    card.tags = f"{cleaned},{item['level']}".strip(",") if cleaned else item['level']
+                card.updated_at = now
+                card.save()
+                count += 1
+
+                if task_info.get("sync_copies") and deck:
+                    _, sc = sync_card_updates_to_matching_decks(deck, orig_front, item["front"], item["back"], item["context"], item.get("level"))
+                    sync_total += sc
+
+        sync_msg = f" (и синхронизировано {sync_total} карточек у других колод)" if sync_total > 0 else ""
+        task_info["logs"].append(f"💾 Результаты Dry-Run успешно записаны в БД для {count} карточек{sync_msg}!")
+        return {"status": "ok", "committed_count": count, "synced_count": sync_total}
+
+    return {"status": "ok", "current_control": task_info.get("control"), "task_status": task_info.get("status")}
+
 
 
 class BackupSettingsRequest(BaseModel):

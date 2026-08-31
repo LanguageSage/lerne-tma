@@ -117,7 +117,11 @@ export const DeckGrid = ({
           onFolderBack={() => {
             const activeFolder = folders?.find(f => f.id === activeFolderId);
             const parentId = activeFolder ? (activeFolder.parent_id || null) : null;
-            setActiveFolderId(parentId);
+            if (window.history.state?.folderId === activeFolderId) {
+              window.history.back();
+            } else {
+              setActiveFolderId(parentId);
+            }
           }}
           isSearchOpen={isSearchOpen}
           onToggleSearch={() => {

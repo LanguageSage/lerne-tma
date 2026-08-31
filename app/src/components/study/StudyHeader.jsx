@@ -15,7 +15,7 @@ export const StudyHeader = ({
   isTrainerDeck = false,
 }) => (
   <div className="header-compact">
-    <button className="back-btn" onClick={onBack}>
+    <button className="back-btn" onClick={onBack} title="Назад" aria-label="Назад">
       <ChevronLeft size={24} />
     </button>
     <div className="header-study-info" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

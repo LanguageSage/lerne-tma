@@ -164,7 +164,13 @@ export const TrainerView = () => {
             elapsedSeconds={trainerElapsedSeconds}
             onRetryWrong={handleRetryWrong}
             onRestart={handleRestart}
-            onGoToDecks={() => setView('cards')}
+            onGoToDecks={() => {
+              if (window.history.state?.view === 'trainer') {
+                window.history.back();
+              } else {
+                setView('cards');
+              }
+            }}
           />
         </div>
       </div>
@@ -186,24 +192,22 @@ export const TrainerView = () => {
         margin: '0 auto'
       }}>
         <button
-          className="btn-header-back"
+          className="back-btn btn-header-back"
           onClick={() => {
             stopAudio();
-            setView('cards');
+            if (window.history.state?.view === 'trainer') {
+              window.history.back();
+            } else {
+              setView('cards');
+            }
           }}
           title="Вернуться к колоде"
+          aria-label="Вернуться к колоде"
           style={{
-            display: 'flex',
-            alignItems: 'center',
             gap: '6px',
-            background: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            color: '#f8fafc',
-            borderRadius: '12px',
             padding: '8px 14px',
             fontSize: '0.9rem',
-            fontWeight: 600,
-            cursor: 'pointer'
+            fontWeight: 600
           }}
         >
           <ArrowLeft size={18} />

@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { getLevelInfo } from '../../utils/levelUtils';
 import { classifySentenceFast } from '../../services/classifier';
 
@@ -90,8 +89,7 @@ export const CardLevelBadge = ({
   };
 
   return (
-    <motion.div
-      layout="position"
+    <div
       className="card-level-badge"
       title={tooltipText}
       onClick={handleClick}
@@ -116,10 +114,8 @@ export const CardLevelBadge = ({
         lineHeight: 1.25,
         cursor: 'pointer',
         boxSizing: 'border-box',
-        transition: 'background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease',
         ...style
       }}
-      whileTap={{ scale: 0.95 }}
     >
       <span
         style={{
@@ -133,27 +129,19 @@ export const CardLevelBadge = ({
         }}
       />
       <span style={{ color: badgeTextColor, fontWeight: 800, flexShrink: 0 }}>{info.level}</span>
-      <AnimatePresence initial={false}>
-        {isExpanded && detailedExplanation && (
-          <motion.span
-            key="badge-reason-text"
-            initial={{ opacity: 0, width: 0, x: -4 }}
-            animate={{ opacity: 1, width: 'auto', x: 0 }}
-            exit={{ opacity: 0, width: 0, x: -4 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="badge-reason"
-            style={{
-              opacity: 0.92,
-              fontWeight: 600,
-              fontSize: isSmall ? '0.75em' : '0.82em',
-              wordBreak: 'break-word',
-              overflow: 'hidden'
-            }}
-          >
-            • {detailedExplanation}
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </motion.div>
+      {isExpanded && detailedExplanation && (
+        <span
+          className="badge-reason"
+          style={{
+            opacity: 0.92,
+            fontWeight: 600,
+            fontSize: isSmall ? '0.75em' : '0.82em',
+            wordBreak: 'break-word'
+          }}
+        >
+          • {detailedExplanation}
+        </span>
+      )}
+    </div>
   );
 };

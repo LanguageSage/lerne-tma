@@ -358,16 +358,19 @@ export const StudyView = ({ startTutorial }) => {
           card={card}
           onBack={() => { 
             autoplay.stop();
-            if (currentDeck?.id === 'duplicates') {
-              useDeckStore.getState().setLastDuplicateCardId(card?.id);
-              setView('duplicates');
-            } else {
-              if (card?.id) {
+            if (card?.id) {
+              if (currentDeck?.id === 'duplicates') {
+                useDeckStore.getState().setLastDuplicateCardId(card.id);
+              } else {
                 useUiStore.getState().setLastSelectedCardId(card.id);
               }
-              setView('cards');
             }
             setCard(null); 
+            if (window.history.state?.view === 'study') {
+              window.history.back();
+            } else {
+              setView(currentDeck?.id === 'duplicates' ? 'duplicates' : 'cards');
+            }
           }}
           onOpenCreator={() => openCreator(currentDeck?.id, 'study', card?.id)}
           onStartTutorial={() => startTutorial(isFlipped ? 'study_back' : 'study')}
@@ -532,7 +535,14 @@ export const StudyView = ({ startTutorial }) => {
         ) : (
           <StudyFinished
             apiError={apiError}
-            onGoToDecks={() => setView('cards')}
+            onGoToDecks={() => {
+              useSessionStore.getState().resetSession();
+              if (window.history.state?.view === 'study') {
+                window.history.back();
+              } else {
+                setView('cards');
+              }
+            }}
             onLearnMore={handleLearnMore}
             onSyncDeck={() => handleSyncDeck(currentDeck.id)}
             onResetProgress={handleResetProgressConfirmed}

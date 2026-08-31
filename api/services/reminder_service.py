@@ -10,6 +10,7 @@ except ImportError:
     InlineKeyboardMarkup = None
     WebAppInfo = None
 
+from peewee import fn
 from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAUser, TMASetting, tma_db
 
 logger = logging.getLogger(__name__)
@@ -20,8 +21,14 @@ def get_user_reminder_settings(user_id: int) -> dict:
     """Возвращает настройки напоминаний пользователя."""
     default_settings = {
         "enabled": True,
-        "times": ["10:00", "19:00"],
-        "frequency": "twice_daily",  # 'twice_daily', 'daily', 'on_due_only'
+        "times": ["09:00", "19:00"],
+        "frequency": "twice_daily",  # 'hourly', 'five_times', 'three_times', 'twice_daily', 'daily', 'custom'
+        "hourly_start": "08:00",
+        "hourly_end": "22:00",
+        "only_due": False,
+        "quiet_enabled": False,
+        "quiet_start": "23:00",
+        "quiet_end": "07:00",
         "timezone_offset": 3  # UTC+3 по умолчанию
     }
     try:
@@ -85,7 +92,7 @@ def get_user_due_summary(user_id: int) -> dict:
 
         # 1. Считаем созревшие карточки к повторению (queue in learning/review/relearning and next_review <= now)
         due_query = (TMAProgress
-                     .select(TMA_Card.deck_id, fn.COUNT(TMAProgress.id).alias('due_count'))
+                     .select(TMA_Card.deck_id, fn.COUNT(TMAProgress.id))
                      .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
                      .where(
                          (TMAProgress.user_id == user_id) &
@@ -94,24 +101,26 @@ def get_user_due_summary(user_id: int) -> dict:
                          (TMAProgress.queue != 'new') &
                          (TMAProgress.next_review <= now)
                      )
-                     .group_by(TMA_Card.deck_id))
+                     .group_by(TMA_Card.deck_id)
+                     .tuples())
 
-        due_map = {row.tma_card.deck_id: row.due_count for row in due_query}
+        due_map = {deck_id: count for deck_id, count in due_query}
 
         # 2. Считаем общее количество карточек в каждой колоде
         cards_query = (TMA_Card
-                       .select(TMA_Card.deck_id, fn.COUNT(TMA_Card.id).alias('total_cards'))
+                       .select(TMA_Card.deck_id, fn.COUNT(TMA_Card.id))
                        .where(
                            (TMA_Card.deck_id << active_deck_ids) &
                            (TMA_Card.is_deleted == False)
                        )
-                       .group_by(TMA_Card.deck_id))
+                       .group_by(TMA_Card.deck_id)
+                       .tuples())
 
-        total_cards_map = {row.deck_id: row.total_cards for row in cards_query}
+        total_cards_map = {deck_id: count for deck_id, count in cards_query}
 
         # 3. Считаем уже изученные карточки
         tracked_query = (TMAProgress
-                         .select(TMA_Card.deck_id, fn.COUNT(TMAProgress.id).alias('tracked_count'))
+                         .select(TMA_Card.deck_id, fn.COUNT(TMAProgress.id))
                          .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
                          .where(
                              (TMAProgress.user_id == user_id) &
@@ -119,9 +128,10 @@ def get_user_due_summary(user_id: int) -> dict:
                              (TMA_Card.is_deleted == False) &
                              (TMAProgress.queue != 'new')
                          )
-                         .group_by(TMA_Card.deck_id))
+                         .group_by(TMA_Card.deck_id)
+                         .tuples())
 
-        tracked_map = {row.tma_card.deck_id: row.tracked_count for row in tracked_query}
+        tracked_map = {deck_id: count for deck_id, count in tracked_query}
 
         for d in active_decks:
             due = due_map.get(d.id, 0)
@@ -240,7 +250,7 @@ async def check_and_send_all_reminders(bot_app) -> dict:
         return {"status": "error", "message": "Bot not configured"}
 
     results = {"sent": 0, "skipped": 0, "errors": 0}
-    now_utc = datetime.datetime.utcnow()
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
 
     try:
         users = list(TMAUser.select().where(TMAUser.is_guest == False))
@@ -254,25 +264,63 @@ async def check_and_send_all_reminders(bot_app) -> dict:
                 tz_offset = int(settings.get("timezone_offset", 3))
                 user_local_time = now_utc + datetime.timedelta(hours=tz_offset)
                 current_hour = user_local_time.hour
-                current_minute = user_local_time.minute
+                date_hour_key = f"{user_local_time.strftime('%Y-%m-%d')}_{current_hour:02d}"
 
-                scheduled_times = settings.get("times", ["10:00", "19:00"])
-                
-                # Проверяем, попадает ли текущий час в расписание (в пределах текущего часового окна)
+                # Защита от повторной отправки в тот же самый час
+                last_sent_key = f"LAST_REMINDER_SENT_{u.user_id}"
+                last_sent_setting = TMASetting.get_or_none(TMASetting.key == last_sent_key)
+                if last_sent_setting and last_sent_setting.value == date_hour_key:
+                    results["skipped"] += 1
+                    continue
+
+                # Проверка тихого режима (если включен)
+                if settings.get("quiet_enabled", False):
+                    q_start = int(settings.get("quiet_start", "23:00").split(":")[0])
+                    q_end = int(settings.get("quiet_end", "07:00").split(":")[0])
+                    if q_start > q_end:
+                        if current_hour >= q_start or current_hour < q_end:
+                            results["skipped"] += 1
+                            continue
+                    else:
+                        if q_start <= current_hour < q_end:
+                            results["skipped"] += 1
+                            continue
+
+                frequency = settings.get("frequency", "twice_daily")
                 should_send = False
-                for t_str in scheduled_times:
-                    try:
-                        sh_hour = int(t_str.split(":")[0])
-                        if current_hour == sh_hour and current_minute < 45:
-                            should_send = True
-                            break
-                    except Exception:
-                        pass
+
+                if frequency == "hourly":
+                    h_start = int(settings.get("hourly_start", "08:00").split(":")[0])
+                    h_end = int(settings.get("hourly_end", "22:00").split(":")[0])
+                    if h_start <= current_hour <= h_end:
+                        should_send = True
+                else:
+                    scheduled_times = settings.get("times", ["09:00", "19:00"])
+                    for t_str in scheduled_times:
+                        try:
+                            sh_hour = int(t_str.split(":")[0])
+                            if current_hour == sh_hour:
+                                should_send = True
+                                break
+                        except Exception:
+                            pass
 
                 if should_send:
+                    # Проверка фильтра "только созревшие"
+                    if settings.get("only_due", False):
+                        due_check = get_user_due_summary(u.user_id)
+                        if due_check.get("total_due", 0) == 0:
+                            results["skipped"] += 1
+                            continue
+
                     res = await send_reminder_to_user(bot_app, u.user_id, force=False)
                     if res.get("status") == "success":
                         results["sent"] += 1
+                        # Фиксируем отметку успешной отправки в этот час
+                        s_obj, _ = TMASetting.get_or_create(key=last_sent_key)
+                        s_obj.value = date_hour_key
+                        s_obj.updated_at = datetime.datetime.now()
+                        s_obj.save()
                     else:
                         results["skipped"] += 1
                 else:
@@ -285,3 +333,4 @@ async def check_and_send_all_reminders(bot_app) -> dict:
     except Exception as e:
         logger.error(f"Error in check_and_send_all_reminders: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
+

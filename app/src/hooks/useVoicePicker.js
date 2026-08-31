@@ -26,13 +26,14 @@ export const useVoicePicker = (
   onVoiceChange = null,
   autoGenerate = true,
 ) => {
-  const code = (lang || 'de').toLowerCase().trim();
+  const rawCode = (lang || 'de').toLowerCase().trim().replace('_', '-');
+  const code = rawCode.split('-')[0] || 'de';
   const adminSettings = useSettingsStore((s) => s.adminSettings);
   const defaultVoice = getTtsVoiceForLang(code, adminSettings);
 
   const voices = VOICES_BY_LANG[code] || [];
 
-  const [selectedVoice, setSelectedVoiceState] = useState(sessionVoice || defaultVoice);
+  const [selectedVoice, setSelectedVoiceState] = useState(sessionVoice || null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [wordBoundaries, setWordBoundaries] = useState(null); // for karaoke
   const [isGenerating, setIsGenerating] = useState(false);
@@ -47,15 +48,15 @@ export const useVoicePicker = (
 
   // Sync with session voice when it changes from outside (e.g. deck changed)
   useEffect(() => {
-    if (sessionVoice && sessionVoice !== selectedVoice) {
-      setSelectedVoiceState(sessionVoice);
+    if (sessionVoice !== selectedVoice) {
+      setSelectedVoiceState(sessionVoice || null);
       setPreviewUrl(null);
       setWordBoundaries(null);
     }
   }, [sessionVoice, selectedVoice]);
 
   const generatePreview = useCallback(async (text, voiceOverride = null) => {
-    const voice = voiceOverride || selectedVoice;
+    const voice = voiceOverride || selectedVoice || defaultVoice;
     if (!text?.trim() || !voice) return null;
 
     const cacheKey = `${voice}|${text.trim()}`;
@@ -94,7 +95,7 @@ export const useVoicePicker = (
     } finally {
       setIsGenerating(false);
     }
-  }, [code, selectedVoice]);
+  }, [code, selectedVoice, defaultVoice]);
 
   // Change voice, propagate to session store, and auto-generate if enabled
   const setSelectedVoice = useCallback(async (voiceValue) => {
@@ -125,7 +126,7 @@ export const useVoicePicker = (
   }, [defaultVoice, sessionVoice]);
 
   const generateAndSaveToCard = useCallback(async (cardId, text, isBack = false, voiceOverride = null) => {
-    const voice = voiceOverride || selectedVoice;
+    const voice = voiceOverride || selectedVoice || defaultVoice;
     if (!text?.trim() || !voice || !cardId) return null;
 
     setIsGenerating(true);
@@ -165,7 +166,7 @@ export const useVoicePicker = (
     } finally {
       setIsGenerating(false);
     }
-  }, [code, selectedVoice]);
+  }, [code, selectedVoice, defaultVoice]);
 
   return {
     voices,

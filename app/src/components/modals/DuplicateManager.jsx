@@ -28,7 +28,11 @@ export const DuplicateManager = () => {
   }, [lastDuplicateCardId]);
 
   const handleBack = () => {
-    setView('decks');
+    if (window.history.state?.view === 'duplicates') {
+      window.history.back();
+    } else {
+      setView('decks');
+    }
   };
 
   const onShow = async () => {
@@ -93,7 +97,7 @@ export const DuplicateManager = () => {
     <div className="view-duplicates">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="view">
         <div className="header-compact header-compact-sticky">
-          <button className="back-btn" onClick={handleBack}><ChevronLeft size={24} /></button>
+          <button className="back-btn" onClick={handleBack} title="Назад" aria-label="Назад"><ChevronLeft size={24} /></button>
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <h2 style={{ marginBottom: 2 }}>Дубликаты</h2>
             <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>

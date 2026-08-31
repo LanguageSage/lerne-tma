@@ -67,7 +67,18 @@ export const TrashManager = () => {
       exit={{ opacity: 0, y: -20 }}
     >
       <div className="trash-header">
-        <button className="trash-back-btn" onClick={() => setView('decks')}>
+        <button 
+          className="trash-back-btn" 
+          onClick={() => {
+            if (window.history.state?.view === 'trash') {
+              window.history.back();
+            } else {
+              setView('decks');
+            }
+          }}
+          title="Назад"
+          aria-label="Назад"
+        >
           <ArrowLeft size={18} /> Назад к колодам
         </button>
         <div className="trash-title">

@@ -291,7 +291,8 @@ async def test_bot_reminder(user_id: int = Depends(get_user_id)):
     if not ptb_app:
         raise HTTPException(status_code=503, detail="Бот не настроен (BOT_TOKEN отсутствует)")
     
-    result = await services.send_reminder_to_user(ptb_app, user_id, force=True)
+    async with ptb_app:
+        result = await services.send_reminder_to_user(ptb_app, user_id, force=True)
     if result.get("status") == "error":
         raise HTTPException(status_code=500, detail=result.get("message", "Не удалось отправить сообщение в Telegram"))
     return result
@@ -302,5 +303,6 @@ async def trigger_cron_reminders():
     """Эндпоинт для запуска крона рассылки напоминаний."""
     if not ptb_app:
         return {"status": "skipped", "message": "Bot not configured"}
-    return await services.check_and_send_all_reminders(ptb_app)
+    async with ptb_app:
+        return await services.check_and_send_all_reminders(ptb_app)
 

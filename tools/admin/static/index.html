@@ -83,12 +83,18 @@
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 class="text-xl font-bold text-white">Управление колодами</h2>
-          <p class="text-sm text-slate-400">Назначение дефолтных колод, просмотр и раздача пользователям</p>
+          <p class="text-sm text-slate-400">Поиск, отбор колод в пакетную очередь, назначение дефолтных и раздача</p>
         </div>
         <div class="flex flex-wrap gap-2 w-full md:w-auto items-center">
           <input type="text" id="deck-search" onkeyup="filterDecks()" placeholder="Поиск колоды (название, ID, язык)..." class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 w-full md:w-56">
           <button onclick="filterLibraryDecks()" class="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold rounded-lg border border-amber-500/30 flex items-center gap-1.5 shrink-0 transition">
             ⭐ Только Библиотека
+          </button>
+          <button id="btn-stage-selected" onclick="stageSelectedDecks()" class="hidden px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg border border-indigo-400/30 flex items-center gap-1.5 shrink-0 transition shadow-md shadow-indigo-500/20">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Отложить выбранные (<span id="selected-table-decks-count">0</span>)
+          </button>
+          <button onclick="openStagedDecksModal()" id="btn-toolbar-staged" class="px-3 py-2 bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 text-xs font-bold rounded-lg border border-indigo-500/40 flex items-center gap-1.5 shrink-0 transition shadow-sm">
+            <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-400"></i> Отложено: <span id="toolbar-staged-count" class="font-extrabold text-amber-300">0</span>
           </button>
           <button onclick="clearUserFilter()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 shrink-0">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Обновить
@@ -116,18 +122,21 @@
         <table class="w-full text-left text-sm text-slate-300">
           <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 uppercase text-xs">
             <tr>
-              <th class="px-6 py-4">ID</th>
+              <th class="w-10 px-4 py-4 text-center">
+                <input type="checkbox" id="deck-table-select-all" onchange="toggleSelectAllDeckRows(this.checked)" class="w-4 h-4 text-indigo-600 rounded cursor-pointer" title="Выбрать все на странице">
+              </th>
+              <th class="px-4 py-4">ID</th>
               <th class="px-6 py-4">Название колоды</th>
-              <th class="px-6 py-4">Владелец (ID)</th>
-              <th class="px-6 py-4">Язык / Уровень</th>
-              <th class="px-6 py-4">Карточек</th>
-              <th class="px-6 py-4">Дефолтная</th>
+              <th class="px-4 py-4">Владелец (ID)</th>
+              <th class="px-4 py-4">Язык / Уровень</th>
+              <th class="px-4 py-4">Карточек</th>
+              <th class="px-4 py-4">Дефолтная</th>
               <th class="px-6 py-4 text-right">Действия</th>
             </tr>
           </thead>
           <tbody id="decks-table-body" class="divide-y divide-slate-800">
             <tr>
-              <td colspan="7" class="px-6 py-8 text-center text-slate-500">Загрузка колод...</td>
+              <td colspan="8" class="px-6 py-8 text-center text-slate-500">Загрузка колод...</td>
             </tr>
           </tbody>
         </table>
@@ -157,11 +166,25 @@
             <i data-lucide="arrow-left" class="w-4 h-4"></i> К списку колод
           </button>
           <div>
-            <h2 id="ai-active-deck-title" class="text-lg font-bold text-white flex items-center gap-2">
-              ✨ ИИ Студия Перегенерации
-            </h2>
+            <div class="flex items-center gap-2">
+              <h2 id="ai-active-deck-title" class="text-lg font-bold text-white flex items-center gap-2">
+                ✨ ИИ Студия Перегенерации
+              </h2>
+              <span id="ai-mode-pill" class="px-2.5 py-0.5 text-[11px] font-bold rounded-lg border bg-indigo-500/10 text-indigo-300 border-indigo-500/20">
+                Одиночная колода
+              </span>
+            </div>
             <p id="ai-active-deck-subtitle" class="text-xs text-slate-400">Выберите колоду из списка для настройки и запуска</p>
           </div>
+        </div>
+
+        <div id="ai-batch-header-actions" class="hidden flex items-center gap-2">
+          <button onclick="openStagedDecksModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition">
+            <i data-lucide="list" class="w-3.5 h-3.5"></i> Список пакета (<span class="batch-total-decks-lbl">0</span>)
+          </button>
+          <button onclick="clearStagedDecksAndReturn()" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 flex items-center gap-1 transition">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i> Сбросить пакет
+          </button>
         </div>
       </div>
 
@@ -279,8 +302,8 @@
               </div>
             </div>
 
-            <!-- Action Trigger Buttons -->
-            <div class="pt-3 border-t border-slate-800/80 space-y-2.5">
+            <!-- Single Deck Trigger Buttons -->
+            <div id="single-deck-actions" class="pt-3 border-t border-slate-800/80 space-y-2.5">
               <button onclick="startAudioOnlyProcess()" id="btn-start-audio-only" class="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition">
                 <i data-lucide="mic" class="w-4 h-4"></i> 🎙️ Перегенерировать ТОЛЬКО озвучку (TTS)
               </button>
@@ -293,13 +316,29 @@
                 <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Запустить ПОЛНУЮ генерацию всей колоды
               </button>
             </div>
+
+            <!-- Batch Multi-Deck Trigger Buttons (Visible in Batch Mode) -->
+            <div id="batch-deck-actions" class="hidden pt-3 border-t border-slate-800/80 space-y-2.5">
+              <button onclick="startBatchAudioProcess()" id="btn-start-batch-audio" class="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition">
+                <i data-lucide="mic" class="w-4 h-4"></i> 🎙️ Массовая озвучка всех (<span class="batch-total-decks-lbl">0</span>) колод (TTS)
+              </button>
+
+              <button onclick="startBatchAiProcess(true)" id="btn-start-batch-dryrun" class="w-full py-2.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10 transition">
+                <i data-lucide="flask-conical" class="w-4 h-4"></i> 🧪 ТЕСТ пакета (по 2 карточки на колоду / Dry-Run)
+              </button>
+
+              <button onclick="startBatchAiProcess(false)" id="btn-start-batch-full" class="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 transition">
+                <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Запустить МАССОВУЮ генерацию всех (<span class="batch-total-decks-lbl">0</span>) колод
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- Right Column: Card Selector & Live Monitor (7 cols) -->
         <div class="lg:col-span-7 space-y-5">
-          <!-- Card Selection Card -->
-          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-3.5 shadow-xl">
+
+          <!-- Option A: Single Deck Card Selector (Single Mode) -->
+          <div id="single-card-selector-box" class="glass p-5 rounded-2xl border border-slate-800 space-y-3.5 shadow-xl">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800/80 pb-2.5">
               <h3 class="text-sm font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
                 <i data-lucide="check-square" class="w-4 h-4"></i> 2. Выбор карточек (<span id="deck-cards-selector-count">0</span>)
@@ -326,6 +365,30 @@
             </div>
           </div>
 
+          <!-- Option B: Batch Staged Decks Inspector (Batch Mode) -->
+          <div id="batch-decks-selector-box" class="hidden glass p-5 rounded-2xl border border-slate-800 space-y-3.5 shadow-xl">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800/80 pb-2.5">
+              <h3 class="text-sm font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                <i data-lucide="layers" class="w-4 h-4"></i> 2. Отложенные колоды в пакете (<span class="batch-total-decks-lbl">0</span>)
+              </h3>
+              <div class="flex items-center gap-2 text-xs">
+                <button type="button" onclick="switchTab('decks')" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg border border-indigo-500/30 font-semibold flex items-center gap-1 transition">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i> Добавить ещё колоды
+                </button>
+              </div>
+            </div>
+
+            <!-- Batch Decks List -->
+            <div id="ai-batch-decks-list" class="max-h-56 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-900 text-xs">
+              <!-- Rendered batch decks injected via JS -->
+            </div>
+
+            <div class="flex justify-between items-center text-xs text-slate-400 pt-1">
+              <span>Суммарно: <b id="ai-batch-summary-cards-lbl" class="text-white">0</b> карточек</span>
+              <span id="ai-batch-summary-noaudio-lbl" class="text-amber-400">0 без озвучки</span>
+            </div>
+          </div>
+
           <!-- Live Monitor & Progress Section -->
           <div class="glass p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
             <div class="flex justify-between items-center flex-wrap gap-3">
@@ -338,29 +401,59 @@
               <div class="flex items-center gap-3">
                 <span id="ai-percent-badge" class="px-3.5 py-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold rounded-xl text-base">0%</span>
                 <div id="ai-controls-bar" class="flex gap-1.5">
-                  <button id="btn-pause-regen" onclick="controlRegen('pause')" class="px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-semibold rounded-lg border border-amber-500/30 flex items-center gap-1 transition">
+                  <button id="btn-pause-regen" onclick="controlActiveRegen('pause')" class="px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-semibold rounded-lg border border-amber-500/30 flex items-center gap-1 transition">
                     ⏸ Пауза
                   </button>
-                  <button id="btn-resume-regen" onclick="controlRegen('resume')" class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/30 flex items-center gap-1 transition">
+                  <button id="btn-resume-regen" onclick="controlActiveRegen('resume')" class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/30 flex items-center gap-1 transition">
                     ▶ Продолжить
                   </button>
-                  <button id="btn-stop-regen" onclick="controlRegen('stop')" class="px-2.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-semibold rounded-lg border border-rose-500/30 flex items-center gap-1 transition">
+                  <button id="btn-stop-regen" onclick="controlActiveRegen('stop')" class="px-2.5 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-semibold rounded-lg border border-rose-500/30 flex items-center gap-1 transition">
                     🛑 Стоп
                   </button>
                 </div>
               </div>
             </div>
 
-            <!-- Progress Bar -->
-            <div class="w-full bg-slate-900 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-800">
-              <div id="ai-progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full w-0 transition-all duration-300"></div>
+            <!-- Single Deck Progress Bar -->
+            <div id="single-progress-bar-container" class="space-y-1">
+              <div class="w-full bg-slate-900 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-800">
+                <div id="ai-progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full w-0 transition-all duration-300"></div>
+              </div>
+            </div>
+
+            <!-- Batch Multi-Deck Dual Progress Bar -->
+            <div id="batch-progress-bar-container" class="hidden space-y-2.5 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <!-- Deck Progress -->
+              <div>
+                <div class="flex justify-between text-[11px] font-bold text-slate-300 mb-1">
+                  <span class="flex items-center gap-1.5"><i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-400"></i> Прогресс колод:</span>
+                  <span id="ai-batch-decks-progress-text" class="text-indigo-400 font-mono">0 / 0 (0%)</span>
+                </div>
+                <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-800">
+                  <div id="ai-batch-decks-bar" class="bg-gradient-to-r from-indigo-500 to-cyan-500 h-full rounded-full w-0 transition-all duration-300"></div>
+                </div>
+              </div>
+
+              <!-- Cards Progress -->
+              <div>
+                <div class="flex justify-between text-[11px] font-bold text-slate-300 mb-1">
+                  <span class="flex items-center gap-1.5"><i data-lucide="zap" class="w-3.5 h-3.5 text-purple-400"></i> Всего карточек:</span>
+                  <span id="ai-batch-cards-progress-text" class="text-purple-300 font-mono">0 / 0 (0%)</span>
+                </div>
+                <div class="w-full bg-slate-950 rounded-full h-3 overflow-hidden p-0.5 border border-slate-800">
+                  <div id="ai-batch-cards-bar" class="bg-gradient-to-r from-purple-500 via-indigo-500 to-emerald-500 h-full rounded-full w-0 transition-all duration-300"></div>
+                </div>
+              </div>
             </div>
 
             <!-- Log Output -->
             <div>
-              <div class="flex justify-between items-center mb-1.5">
+              <div class="flex justify-between items-center mb-1.5 flex-wrap gap-2">
                 <span class="text-[11px] font-bold uppercase text-slate-400">Лог процесса в реальном времени:</span>
-                <span id="ai-current-card-badge" class="text-[11px] font-mono text-indigo-300"></span>
+                <div class="flex items-center gap-2 text-[11px]">
+                  <span id="ai-current-deck-badge" class="font-bold text-indigo-300"></span>
+                  <span id="ai-current-card-badge" class="font-mono text-emerald-300"></span>
+                </div>
               </div>
               <div id="ai-logs-container" class="bg-slate-950 p-3.5 rounded-xl font-mono text-xs text-slate-300 h-44 overflow-y-auto space-y-1 border border-slate-900">
                 <div class="text-slate-600">Логи перегенерации будут отображаться здесь...</div>
@@ -371,9 +464,9 @@
             <div id="dryrun-preview-section" class="hidden space-y-3.5 pt-4 border-t border-slate-800">
               <div class="flex justify-between items-center flex-wrap gap-2">
                 <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <i data-lucide="eye" class="w-4 h-4 text-indigo-400"></i> Результаты теста Dry-Run (3 карточки):
+                  <i data-lucide="eye" class="w-4 h-4 text-indigo-400"></i> Результаты теста Dry-Run:
                 </h4>
-                <button onclick="controlRegen('commit_dry_run')" class="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-500/20 flex items-center gap-1.5 transition">
+                <button onclick="controlActiveRegen('commit_dry_run')" class="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-purple-500/20 flex items-center gap-1.5 transition">
                   <i data-lucide="save" class="w-3.5 h-3.5"></i> Сохранить эти результаты в БД
                 </button>
               </div>
@@ -384,6 +477,7 @@
           </div>
         </div>
       </div>
+    </section>
     </section>
 
     <!-- Tab 4: Backups -->
@@ -516,14 +610,383 @@
     </div>
   </div>
 
+  <!-- Floating Staged Decks Bottom Dock -->
+  <div id="staged-decks-dock" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[94%] glass bg-slate-900/95 border border-indigo-500/40 rounded-2xl p-3.5 shadow-2xl flex items-center justify-between gap-3 backdrop-blur-md transition-all">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold text-lg shrink-0">
+        📦
+      </div>
+      <div class="min-w-0">
+        <div class="text-xs font-bold text-white flex items-center gap-2 truncate">
+          <span>Отложено: <b id="dock-staged-count" class="text-indigo-400 text-sm">0</b> колод</span>
+          <span class="text-slate-500">•</span>
+          <span id="dock-staged-cards" class="text-emerald-400 font-semibold text-xs">~0 карт.</span>
+        </div>
+        <div id="dock-staged-langs" class="text-[11px] text-slate-400 truncate">Пакетная перегенерация</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5 shrink-0">
+      <button onclick="openStagedDecksModal()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition" title="Открыть список">
+        📋 Список
+      </button>
+      <button onclick="clearStagedDecks()" class="px-2 py-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 text-xs rounded-xl transition" title="Очистить всю очередь">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+      <button onclick="openBatchRegenStudio('audio')" class="px-2.5 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 text-xs font-bold rounded-xl flex items-center gap-1 transition">
+        <i data-lucide="mic" class="w-3.5 h-3.5"></i> Озвучка
+      </button>
+      <button onclick="openBatchRegenStudio('ai')" class="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-bold rounded-xl flex items-center gap-1 shadow-lg shadow-indigo-500/20 transition">
+        <i data-lucide="zap" class="w-3.5 h-3.5"></i> Массовая ИИ
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Staged Decks Drawer / Manager -->
+  <div id="modal-staged-decks" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass max-w-2xl w-full p-6 rounded-2xl border border-slate-800 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <i data-lucide="layers" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-lg text-white">Отложенные колоды для генерации</h3>
+            <p class="text-xs text-slate-400">Пакет собран через поиск и готов к массовой обработке</p>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-staged-decks')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- Stats Summary Strip -->
+      <div class="grid grid-cols-3 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-900 text-center">
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-500">Всего колод:</span>
+          <div id="modal-staged-stat-decks" class="text-base font-bold text-white">0</div>
+        </div>
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-500">Всего карточек:</span>
+          <div id="modal-staged-stat-cards" class="text-base font-bold text-indigo-400">0</div>
+        </div>
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-500">Без озвучки:</span>
+          <div id="modal-staged-stat-noaudio" class="text-base font-bold text-amber-400">0</div>
+        </div>
+      </div>
+
+      <!-- Staged Decks Scrollable List -->
+      <div id="modal-staged-decks-list" class="max-h-64 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-900 text-xs">
+        <!-- Rendered staged decks injected via JS -->
+      </div>
+
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-slate-800/80">
+        <div class="flex items-center gap-2">
+          <button onclick="clearStagedDecks()" class="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 transition">
+            🧹 Очистить всё
+          </button>
+          <button onclick="closeModal('modal-staged-decks'); switchTab('decks');" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition">
+            + Найти ещё колоды
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="closeModal('modal-staged-decks'); openBatchRegenStudio('audio');" class="px-3.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold rounded-xl border border-emerald-500/30 flex items-center gap-1.5 transition">
+            <i data-lucide="mic" class="w-3.5 h-3.5"></i> Массовая озвучка
+          </button>
+          <button onclick="closeModal('modal-staged-decks'); openBatchRegenStudio('ai');" class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-1.5 transition">
+            <i data-lucide="zap" class="w-3.5 h-3.5"></i> Запустить массовую ИИ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let usersData = [];
     let decksData = [];
     let activeUserFilter = null;
     let activeAssignDeckId = null;
     let activeRegenDeckId = null;
+    let activeBatchTaskId = null;
+    let isBatchStudioMode = false;
     let activeDeckTargetLang = 'de';
     let regenInterval = null;
+    let batchRegenInterval = null;
+
+    // Staged Decks State (Deck Staging Queue for Mass Batch Operations)
+    let stagedDecks = {};
+
+    const STAGED_STORAGE_KEY = 'lerne_admin_staged_decks';
+
+    function loadStagedDecksFromStorage() {
+      try {
+        const raw = localStorage.getItem(STAGED_STORAGE_KEY);
+        if (raw) {
+          stagedDecks = JSON.parse(raw) || {};
+        }
+      } catch (e) {
+        stagedDecks = {};
+      }
+    }
+
+    function saveStagedDecksToStorage() {
+      try {
+        localStorage.setItem(STAGED_STORAGE_KEY, JSON.stringify(stagedDecks));
+      } catch (e) {
+        console.error("Failed to save staged decks to localStorage", e);
+      }
+    }
+
+    function isDeckStaged(deckId) {
+      return Boolean(stagedDecks[String(deckId)]);
+    }
+
+    function toggleStageDeck(deckId) {
+      const sId = String(deckId);
+      if (stagedDecks[sId]) {
+        delete stagedDecks[sId];
+      } else {
+        const found = decksData.find(d => String(d.id) === sId);
+        if (found) {
+          stagedDecks[sId] = {
+            id: sId,
+            name: found.name || `Колода #${sId}`,
+            target_language: found.target_language || 'de',
+            level: found.level || '',
+            card_count: found.card_count || 0,
+            is_library: Boolean(found.is_library)
+          };
+        } else {
+          stagedDecks[sId] = {
+            id: sId,
+            name: `Колода #${sId}`,
+            target_language: 'de',
+            level: '',
+            card_count: 0,
+            is_library: false
+          };
+        }
+      }
+      saveStagedDecksToStorage();
+      updateStagingUI();
+      renderDecksTable(currentRenderedDecks);
+    }
+
+    function removeStagedDeck(deckId) {
+      const sId = String(deckId);
+      delete stagedDecks[sId];
+      saveStagedDecksToStorage();
+      updateStagingUI();
+      renderDecksTable(currentRenderedDecks);
+      if (!document.getElementById('modal-staged-decks').classList.contains('hidden')) {
+        renderStagedDecksModalList();
+      }
+      if (isBatchStudioMode) {
+        loadBatchStudioSummary();
+      }
+    }
+
+    function clearStagedDecks() {
+      if (Object.keys(stagedDecks).length === 0) return;
+      if (!confirm("Очистить всю очередь отложенных колод?")) return;
+      stagedDecks = {};
+      saveStagedDecksToStorage();
+      updateStagingUI();
+      renderDecksTable(currentRenderedDecks);
+      closeModal('modal-staged-decks');
+    }
+
+    function clearStagedDecksAndReturn() {
+      stagedDecks = {};
+      saveStagedDecksToStorage();
+      updateStagingUI();
+      switchTab('decks');
+      renderDecksTable(currentRenderedDecks);
+    }
+
+    function stageSelectedDecks() {
+      const checkedBoxes = document.querySelectorAll('.deck-row-checkbox:checked');
+      if (checkedBoxes.length === 0) return;
+
+      checkedBoxes.forEach(cb => {
+        const sId = String(cb.value);
+        if (!stagedDecks[sId]) {
+          const found = decksData.find(d => String(d.id) === sId);
+          if (found) {
+            stagedDecks[sId] = {
+              id: sId,
+              name: found.name || `Колода #${sId}`,
+              target_language: found.target_language || 'de',
+              level: found.level || '',
+              card_count: found.card_count || 0,
+              is_library: Boolean(found.is_library)
+            };
+          }
+        }
+      });
+
+      saveStagedDecksToStorage();
+      updateStagingUI();
+      renderDecksTable(currentRenderedDecks);
+      
+      // Uncheck select-all
+      const selectAll = document.getElementById('deck-table-select-all');
+      if (selectAll) selectAll.checked = false;
+      onDeckRowCheckboxChange();
+    }
+
+    function toggleSelectAllDeckRows(checked) {
+      document.querySelectorAll('.deck-row-checkbox').forEach(cb => cb.checked = checked);
+      onDeckRowCheckboxChange();
+    }
+
+    function onDeckRowCheckboxChange() {
+      const checkedCount = document.querySelectorAll('.deck-row-checkbox:checked').length;
+      const btn = document.getElementById('btn-stage-selected');
+      const countEl = document.getElementById('selected-table-decks-count');
+      if (btn && countEl) {
+        countEl.innerText = checkedCount;
+        if (checkedCount > 0) {
+          btn.classList.remove('hidden');
+        } else {
+          btn.classList.add('hidden');
+        }
+      }
+    }
+
+    function updateStagingUI() {
+      const stagedList = Object.values(stagedDecks);
+      const count = stagedList.length;
+      let totalCards = 0;
+      const langs = new Set();
+
+      stagedList.forEach(d => {
+        totalCards += (d.card_count || 0);
+        if (d.target_language) langs.add(d.target_language.toUpperCase());
+      });
+
+      // Update Toolbar badge
+      const toolbarCount = document.getElementById('toolbar-staged-count');
+      if (toolbarCount) toolbarCount.innerText = count;
+
+      // Update Floating Dock
+      const dock = document.getElementById('staged-decks-dock');
+      const dockCount = document.getElementById('dock-staged-count');
+      const dockCards = document.getElementById('dock-staged-cards');
+      const dockLangs = document.getElementById('dock-staged-langs');
+
+      if (dock && dockCount && dockCards) {
+        dockCount.innerText = count;
+        dockCards.innerText = `~${totalCards} карт.`;
+        if (dockLangs) {
+          dockLangs.innerText = count > 0 
+            ? `Языки: ${Array.from(langs).join(', ') || 'DE'}` 
+            : 'Пакетная перегенерация';
+        }
+
+        if (count > 0) {
+          dock.classList.remove('hidden');
+        } else {
+          dock.classList.add('hidden');
+        }
+      }
+
+      // Update modal stats
+      const modalStatDecks = document.getElementById('modal-staged-stat-decks');
+      const modalStatCards = document.getElementById('modal-staged-stat-cards');
+      if (modalStatDecks && modalStatCards) {
+        modalStatDecks.innerText = count;
+        modalStatCards.innerText = totalCards;
+      }
+
+      // Update labels in batch AI Studio
+      document.querySelectorAll('.batch-total-decks-lbl').forEach(el => el.innerText = count);
+      const summaryCardsLbl = document.getElementById('ai-batch-summary-cards-lbl');
+      if (summaryCardsLbl) summaryCardsLbl.innerText = totalCards;
+    }
+
+    async function openStagedDecksModal() {
+      const stagedIds = Object.keys(stagedDecks);
+      if (stagedIds.length === 0) {
+        alert("В очереди пока нет отложенных колод. Найдите колоды через поиск и нажмите '➕ Отложить'!");
+        switchTab('decks');
+        return;
+      }
+
+      renderStagedDecksModalList();
+      document.getElementById('modal-staged-decks').classList.remove('hidden');
+      lucide.createIcons();
+
+      // Fetch fresh summary stats in background
+      try {
+        const res = await fetch('/api/admin/decks/batch/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deck_ids: stagedIds })
+        });
+        const data = await res.json();
+        if (data.decks) {
+          data.decks.forEach(d => {
+            if (stagedDecks[d.id]) {
+              stagedDecks[d.id].card_count = d.card_count;
+              stagedDecks[d.id].missing_audio_count = d.missing_audio_count;
+            }
+          });
+          saveStagedDecksToStorage();
+          renderStagedDecksModalList(data);
+        }
+      } catch (e) {
+        console.error("Batch summary error", e);
+      }
+    }
+
+    function renderStagedDecksModalList(summaryData = null) {
+      const listEl = document.getElementById('modal-staged-decks-list');
+      if (!listEl) return;
+
+      const decks = summaryData && summaryData.decks ? summaryData.decks : Object.values(stagedDecks);
+      if (decks.length === 0) {
+        listEl.innerHTML = '<div class="text-slate-500 text-center py-6">В очереди нет отложенных колод</div>';
+        return;
+      }
+
+      let totalCards = 0;
+      let totalMissingAudio = 0;
+
+      listEl.innerHTML = decks.map(d => {
+        const cCount = d.card_count || 0;
+        const mAudio = d.missing_audio_count !== undefined ? d.missing_audio_count : 0;
+        totalCards += cCount;
+        totalMissingAudio += mAudio;
+
+        return `
+          <div class="glass p-3 rounded-xl border border-slate-800 bg-slate-900/80 flex items-center justify-between gap-3 hover:border-slate-700 transition">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-mono text-[11px] text-slate-500">#${d.id}</span>
+                <span class="font-bold text-white text-xs truncate">${d.name}</span>
+                ${d.is_library ? '<span class="px-1.5 py-0.5 bg-amber-500/10 text-amber-300 text-[10px] font-bold rounded border border-amber-500/20">Библиотека ⭐</span>' : ''}
+              </div>
+              <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
+                <span class="uppercase font-semibold text-indigo-400">${d.target_language || 'DE'}</span>
+                <span>•</span>
+                <span class="text-slate-300 font-medium">${cCount} карточек</span>
+                ${mAudio > 0 ? `<span class="text-amber-400">• ${mAudio} без звука</span>` : ''}
+              </div>
+            </div>
+            <button onclick="removeStagedDeck('${d.id}')" title="Убрать из очереди" class="px-2 py-1.5 text-rose-400 hover:bg-rose-500/20 rounded-lg text-xs transition shrink-0 flex items-center gap-1 font-semibold">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i> Убрать
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      const statDecks = document.getElementById('modal-staged-stat-decks');
+      const statCards = document.getElementById('modal-staged-stat-cards');
+      const statNoAudio = document.getElementById('modal-staged-stat-noaudio');
+      if (statDecks) statDecks.innerText = decks.length;
+      if (statCards) statCards.innerText = totalCards;
+      if (statNoAudio) statNoAudio.innerText = totalMissingAudio;
+      lucide.createIcons();
+    }
 
     const ADMIN_VOICES_BY_LANG = {
       de: [
@@ -626,6 +1089,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
+      loadStagedDecksFromStorage();
+      updateStagingUI();
       renderVoiceOptions('de');
       loadUsers();
       loadDecks();
@@ -770,7 +1235,7 @@
       const tbody = document.getElementById('decks-table-body');
       
       if (total === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-slate-500">Колоды не найдены</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-slate-500">Колоды не найдены</td></tr>`;
         document.getElementById('deck-pagination-info').innerText = 'Колод нет';
         document.getElementById('deck-page-indicator').innerText = 'Стр 1 из 1';
         document.getElementById('btn-deck-prev').disabled = true;
@@ -781,27 +1246,40 @@
       const rows = pageDecks.map(d => {
         const isDef = d.is_default;
         const safeName = (d.name || "").replace(/'/g, "\\'");
+        const isStaged = isDeckStaged(d.id);
+        const stageBtn = isStaged
+          ? `<button onclick="toggleStageDeck('${d.id}')" title="Убрать из очереди массовой обработки" class="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold border border-emerald-500/40 rounded-lg text-xs transition shadow-sm inline-flex items-center gap-1">
+               <i data-lucide="check" class="w-3.5 h-3.5"></i> Отложена
+             </button>`
+          : `<button onclick="toggleStageDeck('${d.id}')" title="Добавить в очередь массовой обработки" class="px-2.5 py-1 bg-slate-800 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-200 border border-slate-700 hover:border-indigo-500/30 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1">
+               <i data-lucide="plus" class="w-3.5 h-3.5"></i> Отложить
+             </button>`;
+
         return `
           <tr class="hover:bg-slate-900/50 transition">
-            <td class="px-6 py-3.5 font-mono text-xs text-slate-400">#${d.id}</td>
+            <td class="px-4 py-3.5 text-center">
+              <input type="checkbox" class="deck-row-checkbox w-4 h-4 text-indigo-600 rounded cursor-pointer" value="${d.id}" onchange="onDeckRowCheckboxChange()">
+            </td>
+            <td class="px-4 py-3.5 font-mono text-xs text-slate-400">#${d.id}</td>
             <td class="px-6 py-3.5 font-bold text-white">${d.name}</td>
-            <td class="px-6 py-3.5 text-xs font-mono text-slate-400">
+            <td class="px-4 py-3.5 text-xs font-mono text-slate-400">
               ${d.is_library ? '<span class="px-2 py-0.5 bg-amber-500/10 text-amber-300 font-bold rounded-md border border-amber-500/20">Библиотека ⭐</span>' : `
               <button onclick="viewUserDecks('${d.user_id}', 'ID: ${d.user_id}')" class="hover:text-indigo-400 underline decoration-indigo-500/50">
                 ${d.user_id}
               </button>`}
             </td>
-            <td class="px-6 py-3.5 text-xs">
+            <td class="px-4 py-3.5 text-xs">
               <span class="uppercase font-bold text-indigo-400">${d.target_language}</span>
               ${d.level ? `<span class="ml-1 text-slate-500">(${d.level})</span>` : ''}
             </td>
-            <td class="px-6 py-3.5 font-semibold">${d.card_count}</td>
-            <td class="px-6 py-3.5">
+            <td class="px-4 py-3.5 font-semibold">${d.card_count}</td>
+            <td class="px-4 py-3.5">
               <button onclick="toggleDefaultDeck('${d.id}', ${!isDef})" class="px-2.5 py-1 text-xs font-semibold rounded-lg border transition ${isDef ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}">
                 ${isDef ? '★ Дефолтная' : '☆ Обычная'}
               </button>
             </td>
             <td class="px-6 py-3.5 text-right space-x-1.5">
+              ${stageBtn}
               <button onclick="deduplicateDeck('${d.id}', '${safeName}')" title="🧹 Очистить дубликаты карточек" class="px-2 py-1 text-amber-400 hover:bg-amber-500/10 rounded-lg text-xs transition">
                 <i data-lucide="sparkles" class="w-4 h-4 inline"></i>
               </button>
@@ -870,7 +1348,6 @@
         });
         const data = await res.json();
         
-        // Update local dataset and re-render instantly
         const target = decksData.find(d => String(d.id) === String(deckId));
         if (target) {
           target.is_default = newDefault;
@@ -908,7 +1385,7 @@
     function startDecksAutoRefresh() {
       if (decksAutoRefreshInterval) clearInterval(decksAutoRefreshInterval);
       decksAutoRefreshInterval = setInterval(() => {
-        const regenOpen = !document.getElementById('modal-regen').classList.contains('hidden');
+        const regenOpen = !document.getElementById('content-ai').classList.contains('hidden');
         const assignOpen = !document.getElementById('modal-assign').classList.contains('hidden');
         if (!regenOpen && !assignOpen) {
           loadDecksSilent();
@@ -932,6 +1409,7 @@
     async function deleteDeck(deckId) {
       if (!confirm(`Удалить колоду #${deckId}?`)) return;
       await fetch(`/api/admin/decks/${deckId}`, { method: 'DELETE' });
+      removeStagedDeck(deckId);
       loadDecks();
     }
 
@@ -1012,7 +1490,6 @@
         if (descEl) descEl.innerText = found.description || '';
         if (fulltextEl) fulltextEl.innerText = found.instruction || 'Инструкция по умолчанию';
 
-        // Filter and group voices by prompt target language
         const promptTargetLang = found.target_lang || activeDeckTargetLang || 'de';
         renderVoiceOptions(promptTargetLang);
       }
@@ -1029,8 +1506,6 @@
         btn.innerText = '👁 Показать полный текст инструкции для ИИ';
       }
     }
-
-
 
     let currentDeckCards = [];
     let currentPlayingAudio = null;
@@ -1149,32 +1624,32 @@
       }
     }
 
-    function toggleCardSelectorAccordion() {
-      const wrapper = document.getElementById('deck-cards-selector-wrapper');
-      const arrow = document.getElementById('card-selector-arrow');
-      if (wrapper.classList.contains('hidden')) {
-        wrapper.classList.remove('hidden');
-        arrow.innerText = '▲ Скрыть';
-      } else {
-        wrapper.classList.add('hidden');
-        arrow.innerText = '▼ Показать';
-      }
-    }
-
     function selectAllCardSelector(checked) {
       document.querySelectorAll('.card-select-checkbox').forEach(cb => cb.checked = checked);
     }
 
     function openRegenModal(deckId, deckName, initialMode = 'ai') {
+      isBatchStudioMode = false;
       activeRegenDeckId = deckId;
       switchTab('ai');
+
+      // Adjust Studio Mode UI
+      document.getElementById('ai-mode-pill').innerText = 'Одиночная колода';
+      document.getElementById('ai-mode-pill').className = 'px-2.5 py-0.5 text-[11px] font-bold rounded-lg border bg-indigo-500/10 text-indigo-300 border-indigo-500/20';
+      document.getElementById('ai-batch-header-actions').classList.add('hidden');
+      document.getElementById('single-deck-actions').classList.remove('hidden');
+      document.getElementById('batch-deck-actions').classList.add('hidden');
+      document.getElementById('single-card-selector-box').classList.remove('hidden');
+      document.getElementById('batch-decks-selector-box').classList.add('hidden');
+      document.getElementById('single-progress-bar-container').classList.remove('hidden');
+      document.getElementById('batch-progress-bar-container').classList.add('hidden');
 
       const deck = decksData.find(d => String(d.id) === String(deckId));
       const title = deck ? deck.name : deckName || '#' + deckId;
       activeDeckTargetLang = (deck && deck.target_language) ? deck.target_language : 'de';
 
       document.getElementById('ai-active-deck-title').innerText = initialMode === 'audio' 
-        ? `🎙️ Озвучивание колоды: ${title}` 
+        ? `🎙️ Озвучивание: ${title}` 
         : `✨ ИИ Студия: ${title}`;
       document.getElementById('ai-active-deck-subtitle').innerText = `ID колоды: #${deckId} • Язык: ${activeDeckTargetLang.toUpperCase()}`;
 
@@ -1182,6 +1657,8 @@
       document.getElementById('ai-progress-bar').style.width = '0%';
       document.getElementById('ai-percent-badge').innerText = '0%';
       document.getElementById('ai-active-status-text').innerText = 'Статус: Готов к запуску';
+      document.getElementById('ai-current-deck-badge').innerText = '';
+      document.getElementById('ai-current-card-badge').innerText = '';
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('dryrun-cards-grid').innerHTML = '';
       document.getElementById('ai-logs-container').innerHTML = initialMode === 'audio'
@@ -1191,6 +1668,107 @@
       renderVoiceOptions(activeDeckTargetLang);
       loadPrompts(null, activeDeckTargetLang);
       loadDeckCardsForSelector(deckId);
+    }
+
+    async function openBatchRegenStudio(initialMode = 'ai') {
+      const stagedIds = Object.keys(stagedDecks);
+      if (stagedIds.length === 0) {
+        alert("В очереди нет отложенных колод! Сначала найдите и отложите колоды через поиск.");
+        switchTab('decks');
+        return;
+      }
+
+      isBatchStudioMode = true;
+      switchTab('ai');
+
+      // Adjust Studio Mode UI for Batch
+      document.getElementById('ai-mode-pill').innerText = `Пакетный режим (${stagedIds.length} колод)`;
+      document.getElementById('ai-mode-pill').className = 'px-2.5 py-0.5 text-[11px] font-bold rounded-lg border bg-purple-500/20 text-purple-300 border-purple-500/30 animate-pulse';
+      document.getElementById('ai-batch-header-actions').classList.remove('hidden');
+      document.getElementById('single-deck-actions').classList.add('hidden');
+      document.getElementById('batch-deck-actions').classList.remove('hidden');
+      document.getElementById('single-card-selector-box').classList.add('hidden');
+      document.getElementById('batch-decks-selector-box').classList.remove('hidden');
+      document.getElementById('single-progress-bar-container').classList.add('hidden');
+      document.getElementById('batch-progress-bar-container').classList.remove('hidden');
+
+      document.getElementById('ai-active-deck-title').innerText = initialMode === 'audio'
+        ? `🎙️ Пакетное озвучивание: ${stagedIds.length} отложенных колод`
+        : `📦✨ Массовая ИИ Студия: ${stagedIds.length} отложенных колод`;
+      document.getElementById('ai-active-deck-subtitle').innerText = `Массовая генерация для всех колод из очереди`;
+
+      // Reset studio progress and previews
+      document.getElementById('ai-batch-decks-bar').style.width = '0%';
+      document.getElementById('ai-batch-cards-bar').style.width = '0%';
+      document.getElementById('ai-percent-badge').innerText = '0%';
+      document.getElementById('ai-batch-decks-progress-text').innerText = `0 / ${stagedIds.length} (0%)`;
+      document.getElementById('ai-batch-cards-progress-text').innerText = `0 / ~0 (0%)`;
+      document.getElementById('ai-active-status-text').innerText = 'Статус: Готов к массовому запуску';
+      document.getElementById('ai-current-deck-badge').innerText = '';
+      document.getElementById('ai-current-card-badge').innerText = '';
+      document.getElementById('dryrun-preview-section').classList.add('hidden');
+      document.getElementById('dryrun-cards-grid').innerHTML = '';
+      document.getElementById('ai-logs-container').innerHTML = initialMode === 'audio'
+        ? `<div class="text-emerald-400">Готов к пакетному озвучиванию ${stagedIds.length} колод. Нажмите "Массовая озвучка всех колод (TTS)".</div>`
+        : `<div class="text-indigo-400">Готов к массовой генерации ${stagedIds.length} колод. Выберите "ТЕСТ пакета" или "Запустить МАССОВУЮ генерацию".</div>`;
+
+      renderVoiceOptions('de');
+      loadPrompts(null, 'de');
+      loadBatchStudioSummary();
+    }
+
+    async function loadBatchStudioSummary() {
+      const stagedIds = Object.keys(stagedDecks);
+      const listEl = document.getElementById('ai-batch-decks-list');
+      if (!listEl) return;
+
+      if (stagedIds.length === 0) {
+        listEl.innerHTML = '<div class="text-slate-500 text-center py-4">Очередь колод пуста</div>';
+        return;
+      }
+
+      listEl.innerHTML = '<div class="text-slate-500 text-center py-2">Загрузка информации о колодах...</div>';
+
+      try {
+        const res = await fetch('/api/admin/decks/batch/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deck_ids: stagedIds })
+        });
+        const data = await res.json();
+        const decks = data.decks || [];
+
+        listEl.innerHTML = decks.map(d => `
+          <div class="glass p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 truncate">
+                <span class="font-mono text-[10px] text-slate-500">#${d.id}</span>
+                <span class="font-bold text-white text-xs truncate">${d.name}</span>
+              </div>
+              <div class="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400">
+                <span class="uppercase font-semibold text-indigo-400">${d.target_language || 'DE'}</span>
+                <span>•</span>
+                <span class="text-slate-200">${d.card_count} карточек</span>
+                ${d.missing_audio_count > 0 ? `<span class="text-amber-400">• ${d.missing_audio_count} без аудио</span>` : ''}
+              </div>
+            </div>
+            <button onclick="removeStagedDeck('${d.id}')" title="Убрать из пакета" class="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `).join('');
+
+        const summaryCards = document.getElementById('ai-batch-summary-cards-lbl');
+        const summaryNoAudio = document.getElementById('ai-batch-summary-noaudio-lbl');
+        if (summaryCards) summaryCards.innerText = data.total_cards || 0;
+        if (summaryNoAudio) summaryNoAudio.innerText = `${data.total_missing_audio || 0} без озвучки`;
+        document.getElementById('ai-batch-cards-progress-text').innerText = `0 / ${data.total_cards || 0} (0%)`;
+
+        lucide.createIcons();
+      } catch (err) {
+        console.error("Failed to load batch summary", err);
+        listEl.innerHTML = '<div class="text-rose-400 text-center py-2">Ошибка загрузки деталей пакета</div>';
+      }
     }
 
     function filterLibraryDecks() {
@@ -1209,8 +1787,8 @@
 
       const uncheckedBoxes = document.querySelectorAll('.card-select-checkbox:not(:checked)');
       const excludedCardIds = Array.from(uncheckedBoxes).map(cb => parseInt(cb.value, 10));
-      const onlyMissing = document.getElementById('regen-only-missing-audio') ? document.getElementById('regen-only-missing-audio').checked : false;
-      const selectedVoice = document.getElementById('regen-voice-select').value || 'de-DE-KatjaNeural';
+      const onlyMissing = document.getElementById('regen-only-missing-audio')?.checked || false;
+      const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
 
       const options = {
@@ -1230,7 +1808,6 @@
         return;
       }
 
-      // Reset progress and previews
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('ai-progress-bar').style.width = '0%';
       document.getElementById('ai-percent-badge').innerText = '0%';
@@ -1259,7 +1836,7 @@
 
       const uncheckedBoxes = document.querySelectorAll('.card-select-checkbox:not(:checked)');
       const excludedCardIds = Array.from(uncheckedBoxes).map(cb => parseInt(cb.value, 10));
-      const selectedVoice = document.getElementById('regen-voice-select').value || 'de-DE-KatjaNeural';
+      const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
 
       const options = {
@@ -1281,7 +1858,6 @@
         if (!confirm(`Вы действительно хотите запустить ПОЛНУЮ генерацию карточек в боевую БД?`)) return;
       }
 
-      // Hide dry run previews from previous runs
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('ai-progress-bar').style.width = '0%';
       document.getElementById('ai-percent-badge').innerText = '0%';
@@ -1301,21 +1877,136 @@
       }
     }
 
-    async function controlRegen(action) {
-      if (!activeRegenDeckId) return;
+    async function startBatchAudioProcess() {
+      const stagedIds = Object.keys(stagedDecks);
+      if (stagedIds.length === 0) {
+        alert("В очереди нет отложенных колод!");
+        return;
+      }
+
+      const onlyMissing = document.getElementById('regen-only-missing-audio')?.checked || false;
+      const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
+      const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
+
+      const options = {
+        deck_ids: stagedIds,
+        voice: selectedVoice,
+        rate: selectedRate,
+        only_missing_audio: onlyMissing,
+        sync_copies: document.getElementById('regen-sync-copies').checked,
+        delay: 0.3
+      };
+
+      const modeDesc = onlyMissing ? 'для карточек БЕЗ озвучки' : 'для ВСЕХ карточек';
+      if (!confirm(`Запустить МАССОВОЕ озвучивание (TTS) ${modeDesc} для ${stagedIds.length} колод?\nГолос: ${selectedVoice}\nСкорость: ${selectedRate}`)) {
+        return;
+      }
+
+      document.getElementById('dryrun-preview-section').classList.add('hidden');
+      document.getElementById('ai-batch-decks-bar').style.width = '0%';
+      document.getElementById('ai-batch-cards-bar').style.width = '0%';
+      document.getElementById('ai-percent-badge').innerText = '0%';
+      document.getElementById('ai-active-status-text').innerText = 'Запуск пакетного озвучивания...';
+      document.getElementById('ai-logs-container').innerHTML = `<div class="text-emerald-400">🎙️ Инициализация массового TTS (${stagedIds.length} колод)...</div>`;
+
       try {
-        const res = await fetch(`/api/admin/decks/${activeRegenDeckId}/regen-control`, {
+        const res = await fetch(`/api/admin/decks/batch/regenerate-audio`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: action })
+          body: JSON.stringify(options)
         });
         const data = await res.json();
-        if (action === 'commit_dry_run') {
-          alert(data.message || `Успешно сохранено ${data.committed_count} карточек в БД!`);
-          document.getElementById('dryrun-preview-section').classList.add('hidden');
+        activeBatchTaskId = data.task_id;
+        startPollBatchRegenStatus(data.task_id);
+      } catch (err) {
+        alert("Ошибка при запуске пакетной озвучки: " + err);
+      }
+    }
+
+    async function startBatchAiProcess(isDryRun) {
+      const stagedIds = Object.keys(stagedDecks);
+      if (stagedIds.length === 0) {
+        alert("В очереди нет отложенных колод!");
+        return;
+      }
+
+      const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
+      const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
+
+      const options = {
+        deck_ids: stagedIds,
+        dry_run: isDryRun,
+        only_empty: document.getElementById('regen-only-empty').checked,
+        only_no_context: document.getElementById('regen-only-no-context').checked,
+        no_audio: document.getElementById('regen-no-audio').checked,
+        sync_copies: document.getElementById('regen-sync-copies').checked,
+        voice: selectedVoice,
+        rate: selectedRate,
+        prompt_id: document.getElementById('regen-prompt-select').value || 'preset_b1',
+        native_lang: document.getElementById('regen-native-lang-select').value || 'uk',
+        target_lang: 'de',
+        delay: 1.2
+      };
+
+      const modeTitle = isDryRun ? 'ТЕСТ (Dry-Run: по 2 карточки на колоду)' : 'МАССОВУЮ генерацию в БД';
+      if (!confirm(`Вы действительно хотите запустить ${modeTitle} для ${stagedIds.length} колод?`)) {
+        return;
+      }
+
+      document.getElementById('dryrun-preview-section').classList.add('hidden');
+      document.getElementById('ai-batch-decks-bar').style.width = '0%';
+      document.getElementById('ai-batch-cards-bar').style.width = '0%';
+      document.getElementById('ai-percent-badge').innerText = '0%';
+      document.getElementById('ai-active-status-text').innerText = `Запуск ${isDryRun ? 'Теста' : 'Массовой генерации'}...`;
+      document.getElementById('ai-logs-container').innerHTML = `<div class="text-indigo-400">Инициализация ${isDryRun ? 'Dry-Run Теста пакета' : 'массовой генерации'} (${stagedIds.length} колод)...</div>`;
+
+      try {
+        const res = await fetch(`/api/admin/decks/batch/regenerate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(options)
+        });
+        const data = await res.json();
+        activeBatchTaskId = data.task_id;
+        startPollBatchRegenStatus(data.task_id);
+      } catch (err) {
+        alert("Ошибка при запуске пакетной генерации: " + err);
+      }
+    }
+
+    async function controlActiveRegen(action) {
+      if (isBatchStudioMode) {
+        if (!activeBatchTaskId) return;
+        try {
+          const res = await fetch(`/api/admin/decks/batch/${activeBatchTaskId}/control`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action })
+          });
+          const data = await res.json();
+          if (action === 'commit_dry_run') {
+            alert(data.message || `Успешно сохранено ${data.committed_count} карточек в БД!`);
+            document.getElementById('dryrun-preview-section').classList.add('hidden');
+          }
+        } catch (e) {
+          console.error("Batch control error", e);
         }
-      } catch (e) {
-        console.error("Failed to control regen", e);
+      } else {
+        if (!activeRegenDeckId) return;
+        try {
+          const res = await fetch(`/api/admin/decks/${activeRegenDeckId}/regen-control`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action })
+          });
+          const data = await res.json();
+          if (action === 'commit_dry_run') {
+            alert(data.message || `Успешно сохранено ${data.committed_count} карточек в БД!`);
+            document.getElementById('dryrun-preview-section').classList.add('hidden');
+          }
+        } catch (e) {
+          console.error("Regen control error", e);
+        }
       }
     }
 
@@ -1335,11 +2026,14 @@
           document.getElementById('ai-percent-badge').innerText = `${pct}%`;
           document.getElementById('ai-active-status-text').innerText = `Статус: ${data.status.toUpperCase()} (${processed}/${total})`;
 
+          if (data.current_card) {
+            document.getElementById('ai-current-card-badge').innerText = data.current_card;
+          }
+
           const logsContainer = document.getElementById('ai-logs-container');
           logsContainer.innerHTML = (data.logs || []).map(l => `<div>${l}</div>`).join('');
           logsContainer.scrollTop = logsContainer.scrollHeight;
 
-          // Show commit button and dry-run preview cards if results exist
           const previewSec = document.getElementById('dryrun-preview-section');
           const cardsGrid = document.getElementById('dryrun-cards-grid');
 
@@ -1378,6 +2072,88 @@
           }
         } catch (e) {
           console.error("Poll status error", e);
+        }
+      }, 1000);
+    }
+
+    function startPollBatchRegenStatus(taskId) {
+      if (batchRegenInterval) clearInterval(batchRegenInterval);
+
+      batchRegenInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/admin/decks/batch/${taskId}/status`);
+          const data = await res.json();
+
+          const totalDecks = data.total_decks || 1;
+          const processedDecks = data.processed_decks || 0;
+          const deckPct = Math.round((processedDecks / totalDecks) * 100);
+
+          const totalCards = data.total_cards || 1;
+          const processedCards = data.processed_cards || 0;
+          const cardPct = Math.round((processedCards / totalCards) * 100);
+
+          document.getElementById('ai-batch-decks-bar').style.width = `${deckPct}%`;
+          document.getElementById('ai-batch-decks-progress-text').innerText = `${processedDecks} / ${totalDecks} (${deckPct}%)`;
+
+          document.getElementById('ai-batch-cards-bar').style.width = `${cardPct}%`;
+          document.getElementById('ai-batch-cards-progress-text').innerText = `${processedCards} / ${totalCards} (${cardPct}%)`;
+
+          document.getElementById('ai-percent-badge').innerText = `${cardPct}%`;
+          document.getElementById('ai-active-status-text').innerText = `Статус: ${data.status.toUpperCase()} (Колоды: ${processedDecks}/${totalDecks}, Карточки: ${processedCards}/${totalCards})`;
+
+          if (data.current_deck_name) {
+            document.getElementById('ai-current-deck-badge').innerText = `📦 ${data.current_deck_name}`;
+          }
+          if (data.current_card) {
+            document.getElementById('ai-current-card-badge').innerText = `• 🗂️ ${data.current_card}`;
+          }
+
+          const logsContainer = document.getElementById('ai-logs-container');
+          logsContainer.innerHTML = (data.logs || []).map(l => `<div>${l}</div>`).join('');
+          logsContainer.scrollTop = logsContainer.scrollHeight;
+
+          // Render Dry Run preview cards grouped by deck
+          const previewSec = document.getElementById('dryrun-preview-section');
+          const cardsGrid = document.getElementById('dryrun-cards-grid');
+
+          if (data.is_dry_run && data.dry_run_results && data.dry_run_results.length > 0) {
+            if (previewSec) previewSec.classList.remove('hidden');
+            if (cardsGrid) {
+              cardsGrid.innerHTML = data.dry_run_results.map((c, i) => `
+                <div class="glass p-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 space-y-2.5 shadow-lg">
+                  <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <div>
+                      <span class="font-bold text-xs uppercase text-indigo-400">Тест #${i + 1}</span>
+                      <span class="text-xs text-slate-300 font-semibold ml-2">📦 ${c.deck_name || '#' + c.deck_id}</span>
+                    </div>
+                    ${c.level ? `<span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30">${c.level}</span>` : ''}
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <div class="text-[10px] font-semibold text-slate-500 uppercase">Лицевая сторона (Front):</div>
+                      <div class="text-white font-bold text-sm mt-0.5">${c.front || ''}</div>
+                    </div>
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                      <div class="text-[10px] font-semibold text-slate-500 uppercase">Обратная сторона (Back):</div>
+                      <div class="text-emerald-300 font-semibold text-sm mt-0.5">${c.back || ''}</div>
+                    </div>
+                  </div>
+                  ${c.context ? `
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs leading-relaxed text-slate-200">
+                      <div class="text-[10px] font-semibold text-indigo-400 uppercase mb-1">Контекст / Грамматика:</div>
+                      <div class="whitespace-pre-wrap font-sans text-slate-300 text-[11px]">${c.context}</div>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('');
+            }
+          }
+
+          if (data.status === 'completed' || data.status === 'failed' || data.status === 'stopped') {
+            clearInterval(batchRegenInterval);
+          }
+        } catch (e) {
+          console.error("Batch poll status error", e);
         }
       }, 1000);
     }

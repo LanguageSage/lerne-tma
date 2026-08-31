@@ -21,7 +21,8 @@ export const DEFAULT_TTS_VOICES = {
 };
 
 export const getTtsVoiceForLang = (lang, adminSettings) => {
-  const code = (lang || 'de').toLowerCase().trim();
+  const rawCode = (lang || 'de').toLowerCase().trim().replace('_', '-');
+  const code = rawCode.split('-')[0] || 'de';
   if (code === 'de') return adminSettings?.TTS_VOICE || DEFAULT_TTS_VOICES.de;
   if (code === 'ru') return adminSettings?.TTS_VOICE_RU || DEFAULT_TTS_VOICES.ru;
   if (code === 'no') return adminSettings?.TTS_VOICE_NO || DEFAULT_TTS_VOICES.no;

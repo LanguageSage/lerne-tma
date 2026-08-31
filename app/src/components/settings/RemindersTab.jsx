@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Bell, Send, Check, Clock, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Bell, 
+  Send, 
+  Check, 
+  Clock, 
+  Sparkles, 
+  Plus, 
+  Trash2, 
+  Moon, 
+  Globe, 
+  Zap, 
+  Layers,
+  ShieldAlert
+} from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 
@@ -16,8 +29,14 @@ export const RemindersTab = () => {
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [localSettings, setLocalSettings] = useState(reminderSettings || {
     enabled: true,
-    times: ['10:00', '19:00'],
     frequency: 'twice_daily',
+    times: ['09:00', '19:00'],
+    hourly_start: '08:00',
+    hourly_end: '22:00',
+    only_due: false,
+    quiet_enabled: false,
+    quiet_start: '23:00',
+    quiet_end: '07:00',
     timezone_offset: 3
   });
 
@@ -27,48 +46,86 @@ export const RemindersTab = () => {
 
   useEffect(() => {
     if (reminderSettings) {
-      setLocalSettings(reminderSettings);
+      setLocalSettings(prev => ({
+        ...prev,
+        ...reminderSettings
+      }));
     }
   }, [reminderSettings]);
 
-  const handleToggleEnabled = async (checked) => {
-    const updated = { ...localSettings, enabled: checked };
+  // Автоопределение часового пояса при первой загрузке, если не был установлен
+  useEffect(() => {
+    if (!reminderSettings?.timezone_offset && reminderSettings?.timezone_offset !== 0) {
+      const browserOffset = -Math.round(new Date().getTimezoneOffset() / 60);
+      setLocalSettings(prev => (prev.timezone_offset !== browserOffset ? { ...prev, timezone_offset: browserOffset } : prev));
+    }
+  }, [reminderSettings]);
+
+  const handleUpdate = async (updated) => {
     setLocalSettings(updated);
     try {
       await saveReminderSettings(updated);
-      showToast(checked ? 'Напоминания бота включены' : 'Напоминания бота отключены', 'info');
     } catch {
       showToast('Ошибка сохранения настроек', 'error');
     }
+  };
+
+  const handleToggleEnabled = async (checked) => {
+    const updated = { ...localSettings, enabled: checked };
+    await handleUpdate(updated);
+    showToast(checked ? '🔔 Напоминания бота включены' : '🔕 Напоминания отключены', 'info');
   };
 
   const handleFrequencyChange = async (freq) => {
-    let newTimes = [...(localSettings.times || ['10:00', '19:00'])];
-    if (freq === 'daily' && newTimes.length > 1) {
+    let newTimes = [...(localSettings.times || [])];
+    if (freq === 'hourly') {
+      newTimes = [];
+    } else if (freq === 'five_times') {
+      newTimes = ['09:00', '12:00', '15:00', '18:00', '21:00'];
+    } else if (freq === 'three_times') {
+      newTimes = ['09:00', '14:00', '20:00'];
+    } else if (freq === 'twice_daily') {
+      newTimes = ['09:00', '19:00'];
+    } else if (freq === 'daily') {
       newTimes = [newTimes[0] || '10:00'];
-    } else if (freq === 'twice_daily' && newTimes.length < 2) {
-      newTimes = ['10:00', '19:00'];
+    } else if (freq === 'custom' && newTimes.length === 0) {
+      newTimes = ['10:00', '18:00'];
     }
+
     const updated = { ...localSettings, frequency: freq, times: newTimes };
-    setLocalSettings(updated);
-    try {
-      await saveReminderSettings(updated);
-      showToast('Режим напоминаний обновлен', 'success');
-    } catch {
-      showToast('Ошибка сохранения настроек', 'error');
-    }
+    await handleUpdate(updated);
+    showToast('Режим напоминаний обновлен', 'success');
   };
 
   const handleTimeChange = async (index, newTime) => {
-    const newTimes = [...(localSettings.times || ['10:00', '19:00'])];
+    const newTimes = [...(localSettings.times || ['09:00'])];
     newTimes[index] = newTime;
     const updated = { ...localSettings, times: newTimes };
-    setLocalSettings(updated);
-    try {
-      await saveReminderSettings(updated);
-    } catch {
-      showToast('Ошибка сохранения времени', 'error');
+    await handleUpdate(updated);
+  };
+
+  const handleAddTime = async () => {
+    const currentTimes = [...(localSettings.times || [])];
+    const lastTime = currentTimes[currentTimes.length - 1] || '12:00';
+    let [h, m] = lastTime.split(':').map(Number);
+    let nextH = (h + 3) % 24;
+    const nextTimeStr = `${String(nextH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const newTimes = [...currentTimes, nextTimeStr].sort();
+    const updated = { ...localSettings, frequency: 'custom', times: newTimes };
+    await handleUpdate(updated);
+    showToast('Добавлено новое время', 'info');
+  };
+
+  const handleRemoveTime = async (index) => {
+    const currentTimes = [...(localSettings.times || [])];
+    if (currentTimes.length <= 1) {
+      showToast('Должно остаться хотя бы одно время', 'warning');
+      return;
     }
+    currentTimes.splice(index, 1);
+    const updated = { ...localSettings, frequency: 'custom', times: currentTimes };
+    await handleUpdate(updated);
+    showToast('Время удалено', 'info');
   };
 
   const handleTestSend = async () => {
@@ -76,7 +133,7 @@ export const RemindersTab = () => {
     try {
       const res = await sendTestReminder();
       if (res?.status === 'success') {
-        showToast('🚀 Тестовое напоминание отправлено в Telegram-чат!', 'success');
+        showToast('🚀 Напоминание отправлено в Telegram!', 'success');
       } else {
         showToast(res?.message || 'Не удалось отправить напоминание', 'error');
       }
@@ -86,6 +143,15 @@ export const RemindersTab = () => {
       setIsSendingTest(false);
     }
   };
+
+  const frequencies = [
+    { id: 'hourly', label: 'Каждый час', desc: 'В дневное время (активная учеба)', icon: Zap, color: '#f59e0b' },
+    { id: 'five_times', label: '5 раз в день', desc: '09:00, 12:00, 15:00, 18:00, 21:00', icon: Layers, color: '#ec4899' },
+    { id: 'three_times', label: '3 раза в день', desc: 'Утро, день и вечер', icon: Clock, color: '#8b5cf6' },
+    { id: 'twice_daily', label: '2 раза в день', desc: 'Утро и вечер (стандарт)', icon: Check, color: '#38bdf8' },
+    { id: 'daily', label: '1 раз в день', desc: 'Одно напоминание в день', icon: Bell, color: '#34d399' },
+    { id: 'custom', label: 'Свой график', desc: 'Настроить любое время вручную', icon: Plus, color: '#a855f7' }
+  ];
 
   return (
     <motion.div 
@@ -97,7 +163,7 @@ export const RemindersTab = () => {
     >
       <h3>🔔 Напоминания Telegram-бота</h3>
       <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '16px' }}>
-        Бот вовремя напомнит о карточках, созревших для повторения по интервальной системе (SRS).
+        Бот автоматически проверяет ваш прогресс по SRS и присылает напоминания прямо в Telegram.
       </p>
 
       {/* Main Switch */}
@@ -124,101 +190,276 @@ export const RemindersTab = () => {
       {localSettings.enabled && (
         <>
           {/* Frequency Options */}
-          <h4 style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '8px', marginTop: '16px' }}>
+          <h4 style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '10px', marginTop: '16px' }}>
             Частота напоминаний
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '18px' }}>
-            <button
-              type="button"
-              onClick={() => handleFrequencyChange('twice_daily')}
-              style={{
-                padding: '12px 10px',
-                borderRadius: '12px',
-                border: localSettings.frequency === 'twice_daily' ? '2px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.1)',
-                background: localSettings.frequency === 'twice_daily' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.02)',
-                color: '#ffffff',
-                textAlign: 'left',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span>2 раза в день</span>
-                {localSettings.frequency === 'twice_daily' && <Check size={14} color="#818cf8" />}
-              </div>
-              <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: 3 }}>
-                Утро и вечер (рекомендуется)
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleFrequencyChange('daily')}
-              style={{
-                padding: '12px 10px',
-                borderRadius: '12px',
-                border: localSettings.frequency === 'daily' ? '2px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.1)',
-                background: localSettings.frequency === 'daily' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.02)',
-                color: '#ffffff',
-                textAlign: 'left',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span>1 раз в день</span>
-                {localSettings.frequency === 'daily' && <Check size={14} color="#818cf8" />}
-              </div>
-              <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: 3 }}>
-                Одно напоминание в день
-              </div>
-            </button>
+            {frequencies.map(f => {
+              const Icon = f.icon;
+              const isActive = localSettings.frequency === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => handleFrequencyChange(f.id)}
+                  style={{
+                    padding: '12px 10px',
+                    borderRadius: '12px',
+                    border: isActive ? `2px solid ${f.color}` : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: isActive ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                    color: '#ffffff',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Icon size={15} color={f.color} />
+                    <span>{f.label}</span>
+                    {isActive && <Check size={14} color={f.color} style={{ marginLeft: 'auto' }} />}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 4, lineHeight: 1.2 }}>
+                    {f.desc}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Time Picker */}
-          <h4 style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '8px' }}>
-            <Clock size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
-            Время отправки
-          </h4>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <span style={{ fontSize: '0.85rem', color: '#e2e8f0' }}>Первое напоминание (Утро):</span>
-              <input 
-                type="time" 
-                value={localSettings.times?.[0] || '10:00'} 
-                onChange={(e) => handleTimeChange(0, e.target.value)}
+          {/* Hourly Range Configuration */}
+          {localSettings.frequency === 'hourly' ? (
+            <div style={{ 
+              padding: '14px', 
+              background: 'rgba(245, 158, 11, 0.08)', 
+              borderRadius: '12px', 
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Zap size={16} color="#f59e0b" />
+                <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#fef3c7' }}>
+                  Дневные часы для ежечасных напоминаний:
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>C</span>
+                  <input 
+                    type="time" 
+                    value={localSettings.hourly_start || '08:00'} 
+                    onChange={(e) => handleUpdate({ ...localSettings, hourly_start: e.target.value })}
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      color: '#ffffff',
+                      padding: '5px 8px',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>До</span>
+                  <input 
+                    type="time" 
+                    value={localSettings.hourly_end || '22:00'} 
+                    onChange={(e) => handleUpdate({ ...localSettings, hourly_end: e.target.value })}
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      color: '#ffffff',
+                      padding: '5px 8px',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Time Picker List */
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <h4 style={{ fontSize: '0.9rem', color: '#cbd5e1', margin: 0 }}>
+                  <Clock size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
+                  Время отправки ({localSettings.times?.length || 0})
+                </h4>
+                <button
+                  type="button"
+                  onClick={handleAddTime}
+                  style={{
+                    background: 'rgba(99, 102, 241, 0.2)',
+                    border: '1px solid rgba(99, 102, 241, 0.4)',
+                    color: '#818cf8',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
+                  }}
+                >
+                  <Plus size={13} />
+                  <span>Добавить время</span>
+                </button>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <AnimatePresence>
+                  {(localSettings.times || ['09:00']).map((timeVal, idx) => (
+                    <motion.div 
+                      key={idx}
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        padding: '8px 14px', 
+                        background: 'rgba(255,255,255,0.03)', 
+                        borderRadius: '12px', 
+                        border: '1px solid rgba(255,255,255,0.06)' 
+                      }}
+                    >
+                      <span style={{ fontSize: '0.85rem', color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ 
+                          width: 20, 
+                          height: 20, 
+                          borderRadius: '50%', 
+                          background: 'rgba(255,255,255,0.08)', 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          fontSize: '0.72rem',
+                          color: '#94a3b8'
+                        }}>
+                          {idx + 1}
+                        </span>
+                        Напоминание {idx + 1}:
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input 
+                          type="time" 
+                          value={timeVal} 
+                          onChange={(e) => handleTimeChange(idx, e.target.value)}
+                          style={{
+                            background: 'rgba(15, 23, 42, 0.8)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            color: '#ffffff',
+                            padding: '4px 8px',
+                            borderRadius: '8px',
+                            fontSize: '0.88rem',
+                            outline: 'none'
+                          }}
+                        />
+                        {(localSettings.times?.length || 0) > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTime(idx)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            title="Удалить это время"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+
+          {/* Advanced Controls */}
+          <div style={{ 
+            background: 'rgba(255,255,255,0.02)', 
+            borderRadius: '14px', 
+            border: '1px solid rgba(255,255,255,0.06)',
+            padding: '14px',
+            marginBottom: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px'
+          }}>
+            {/* Timezone */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Globe size={18} color="#38bdf8" />
+                <div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>Часовой пояс</div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Для точной отправки по вашему времени</div>
+                </div>
+              </div>
+              <select
+                value={localSettings.timezone_offset ?? 3}
+                onChange={(e) => handleUpdate({ ...localSettings, timezone_offset: Number(e.target.value) })}
                 style={{
-                  background: 'rgba(15, 23, 42, 0.8)',
+                  background: 'rgba(15, 23, 42, 0.9)',
                   border: '1px solid rgba(255,255,255,0.2)',
                   color: '#ffffff',
-                  padding: '5px 8px',
+                  padding: '5px 10px',
                   borderRadius: '8px',
-                  fontSize: '0.9rem',
+                  fontSize: '0.82rem',
                   outline: 'none'
                 }}
-              />
+              >
+                {Array.from({ length: 27 }, (_, i) => i - 12).map(tz => (
+                  <option key={tz} value={tz}>
+                    UTC{tz >= 0 ? `+${tz}` : tz} {tz === 3 ? '(МСК / Киев / Стамбул)' : (tz === 1 ? '(Берлин / Париж)' : (tz === 2 ? '(Хельсинки)' : ''))}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {localSettings.frequency === 'twice_daily' && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <span style={{ fontSize: '0.85rem', color: '#e2e8f0' }}>Второе напоминание (Вечер):</span>
-                <input 
-                  type="time" 
-                  value={localSettings.times?.[1] || '19:00'} 
-                  onChange={(e) => handleTimeChange(1, e.target.value)}
-                  style={{
-                    background: 'rgba(15, 23, 42, 0.8)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    color: '#ffffff',
-                    padding: '5px 8px',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    outline: 'none'
-                  }}
-                />
+            {/* Quiet Hours Switch */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Moon size={18} color="#a855f7" />
+                <div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>Тихий режим (Ночь)</div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Не присылать с 23:00 до 07:00</div>
+                </div>
               </div>
-            )}
+              <label className="switch">
+                <input 
+                  type="checkbox" 
+                  checked={Boolean(localSettings.quiet_enabled)} 
+                  onChange={(e) => handleUpdate({ ...localSettings, quiet_enabled: e.target.checked })} 
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
+
+            {/* Only Due Cards Switch */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ShieldAlert size={18} color="#34d399" />
+                <div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>Только созревшие карточки</div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Не напоминать, если созревших карточек 0</div>
+                </div>
+              </div>
+              <label className="switch">
+                <input 
+                  type="checkbox" 
+                  checked={Boolean(localSettings.only_due)} 
+                  onChange={(e) => handleUpdate({ ...localSettings, only_due: e.target.checked })} 
+                />
+                <span className="slider"></span>
+              </label>
+            </div>
           </div>
 
           {/* Info callout */}
@@ -233,7 +474,7 @@ export const RemindersTab = () => {
           }}>
             <Sparkles size={18} color="#38bdf8" style={{ flexShrink: 0, marginTop: '2px' }} />
             <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
-              Бот отслеживает <b>только те колоды</b>, на которых включен статус <b>«✓ Учу»</b>. Если колода лежит про запас — отключите на ней галочку, и бот не будет по ней напоминать.
+              Бот напоминает <b>только по активным колодам</b> (со статусом <b>«✓ Учу»</b>).
             </div>
           </div>
         </>
@@ -265,12 +506,13 @@ export const RemindersTab = () => {
           }}
         >
           <Send size={16} />
-          <span>{isSendingTest ? 'Отправка...' : '⚡ Протестировать напоминание'}</span>
+          <span>{isSendingTest ? 'Отправка...' : '⚡ Протестировать напоминание сейчас'}</span>
         </button>
         <p style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', marginTop: '8px' }}>
-          Бот мгновенно пришлет сообщение в ваш Telegram-чат с расчетом созревших карточек.
+          Бот мгновенно пришлет актуальный расчет созревших карточек в Telegram.
         </p>
       </div>
     </motion.div>
   );
 };
+

@@ -487,7 +487,20 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     <div className="view-cards">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
         <div className="header-compact header-compact-sticky">
-          <button className="back-btn" onClick={() => setView('decks')}><ChevronLeft size={24} /></button>
+          <button 
+            className="back-btn" 
+            onClick={() => {
+              if (window.history.state?.view === 'cards') {
+                window.history.back();
+              } else {
+                setView('decks');
+              }
+            }}
+            title="Назад"
+            aria-label="Назад"
+          >
+            <ChevronLeft size={24} />
+          </button>
 
           <div className="header-actions">
             <UserProfileBadge />

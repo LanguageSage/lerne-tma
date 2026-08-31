@@ -101,7 +101,25 @@ function AppContent() {
           lastModalOpenRef.current = false;
         } else {
           // No modal was open -> change view/folder
-          setView(state.view || 'decks');
+          const currentView = uiState.view;
+          const session = useSessionStore.getState();
+
+          // If leaving study or trainer, clean up autoplay and preserve scroll target
+          if (currentView === 'study' || currentView === 'trainer') {
+            session.stopAutoplay?.();
+            if (session.card?.id) {
+              uiState.setLastSelectedCardId(session.card.id);
+            }
+          }
+
+          let targetView = state.view || 'decks';
+          // Safety guard: If returning to 'study' or 'trainer' via popstate, but session has no card loaded,
+          // route to 'cards' (if currentDeck is set) or 'decks' to prevent showing StudyFinished unexpectedly.
+          if ((targetView === 'study' || targetView === 'trainer') && !session.card) {
+            targetView = deckState.currentDeck ? 'cards' : 'decks';
+          }
+
+          setView(targetView);
           setActiveFolderId(state.folderId ?? null);
         }
         
