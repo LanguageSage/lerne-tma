@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { TypographyPreview } from './TypographyPreview';
+import { CardListPreview } from './CardListPreview';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { DESIGN_PRESETS } from '../../constants/appConstants';
@@ -51,6 +52,17 @@ export const DesignTab = () => {
     cardFontStyle, setCardFontStyle,
     contextFontWeight, setContextFontWeight,
     contextFontStyle, setContextFontStyle,
+    previewCardFont, setPreviewCardFont,
+    previewCardTextColor, setPreviewCardTextColor,
+    previewBackTextColor, setPreviewBackTextColor,
+    previewCardFontSize, setPreviewCardFontSize,
+    previewBackFontSize, setPreviewBackFontSize,
+    previewCardFontWeight, setPreviewCardFontWeight,
+    previewCardFontStyle, setPreviewCardFontStyle,
+    previewTextShadow, setPreviewTextShadow,
+    previewCardTextAlign, setPreviewCardTextAlign,
+    previewCardLines, setPreviewCardLines,
+    syncPreviewFromCard,
     applyDesignPreset,
     saveUserDesign,
     applyUserDesign,
@@ -129,7 +141,11 @@ export const DesignTab = () => {
                 cardBgFront, cardBgBack, cardFont, cardTextColor, cardFontSize, cardTextAlign,
                 backTextColor,
                 contextFont, contextTextColor, contextFontSize, contextTextAlign, cardTextShadow, contextTextShadow,
-                cardFontWeight, cardFontStyle, contextFontWeight, contextFontStyle
+                cardFontWeight, cardFontStyle, contextFontWeight, contextFontStyle,
+                previewCardFont, previewCardTextColor, previewBackTextColor,
+                previewCardFontSize, previewBackFontSize,
+                previewCardFontWeight, previewCardFontStyle,
+                previewTextShadow, previewCardTextAlign, previewCardLines
               };
               navigator.clipboard.writeText(JSON.stringify(config, null, 2));
               showToast('Конфигурация темы скопирована!', 'success');
@@ -673,6 +689,368 @@ export const DesignTab = () => {
               <AlignRight size={16} />
               <span>Справа</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CARD LIST PREVIEW TYPOGRAPHY SECTION ── */}
+      <div className="custom-bg-manager glass" style={{ marginTop: '20px', padding: '15px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+          <h4 style={{ margin: 0 }}>Список карточек (Превью)</h4>
+          <button
+            type="button"
+            className="btn-secondary btn-tiny"
+            style={{ fontSize: '0.78rem', color: '#c084fc', borderColor: 'rgba(168,85,247,0.3)', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
+            onClick={() => {
+              syncPreviewFromCard();
+              showToast('Стиль скопирован из карточки!', 'success');
+            }}
+            title="Скопировать цвета и шрифт из настроек основной карточки"
+          >
+            <span>🪄 Скопировать из карточки</span>
+          </button>
+        </div>
+        <p className="field-hint" style={{ marginBottom: '10px' }}>
+          Индивидуальная настройка шрифтов и цветов для карточек в общем списке
+        </p>
+
+        <CardListPreview styleType={cardBgFront} />
+
+        {/* Front text color in preview */}
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label>Цвет текста (Лицевая сторона списка)</label>
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            flexWrap: 'wrap', 
+            marginTop: '8px',
+            marginBottom: '10px',
+            padding: '10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            alignItems: 'center'
+          }}>
+            {PRESET_COLORS.map(color => {
+              const isSelected = previewCardTextColor?.toLowerCase() === color.toLowerCase();
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setPreviewCardTextColor(color)}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    border: isSelected ? '2.5px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    flexShrink: 0,
+                    boxShadow: isSelected ? '0 0 10px rgba(167,139,250,0.6)' : 'none',
+                    transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  title={color === '#ffffff' ? 'Белый' : color}
+                />
+              );
+            })}
+
+            <label 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'conic-gradient(from 0deg, red, yellow, lime, aqua, blue, magenta, red)',
+                cursor: 'pointer',
+                border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                flexShrink: 0,
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              title="Выбрать свой цвет (спектр)"
+            >
+              <input 
+                type="color" 
+                value={previewCardTextColor || '#ffffff'} 
+                onChange={e => setPreviewCardTextColor(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  top: '-50%',
+                  left: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  opacity: 0,
+                  cursor: 'pointer'
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* Back translation text color in preview */}
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label>Цвет перевода (Обратная сторона списка)</label>
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            flexWrap: 'wrap', 
+            marginTop: '8px',
+            marginBottom: '10px',
+            padding: '10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            alignItems: 'center'
+          }}>
+            {PRESET_COLORS.map(color => {
+              const isSelected = (previewBackTextColor || '#cbd5e1').toLowerCase() === color.toLowerCase();
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setPreviewBackTextColor(color)}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    border: isSelected ? '2.5px solid #a78bfa' : '1px solid rgba(255,255,255,0.2)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    flexShrink: 0,
+                    boxShadow: isSelected ? '0 0 10px rgba(167,139,250,0.6)' : 'none',
+                    transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  title={color === '#ffffff' ? 'Белый' : color}
+                />
+              );
+            })}
+
+            <label 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'conic-gradient(from 0deg, red, yellow, lime, aqua, blue, magenta, red)',
+                cursor: 'pointer',
+                border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                flexShrink: 0,
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              title="Выбрать свой цвет (спектр)"
+            >
+              <input 
+                type="color" 
+                value={previewBackTextColor || '#cbd5e1'} 
+                onChange={e => setPreviewBackTextColor(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  top: '-50%',
+                  left: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  opacity: 0,
+                  cursor: 'pointer'
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* Font Selection */}
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label>Шрифт списка</label>
+          <select value={previewCardFont} onChange={e => setPreviewCardFont(e.target.value)}>
+            <option value="Comfortaa">Comfortaa (Круглый)</option>
+            <option value="Inter">Inter (Стандарт)</option>
+            <option value="Outfit">Outfit (Современный)</option>
+            <option value="Montserrat">Montserrat (Акцентный)</option>
+            <option value="Playfair Display">Playfair (Элегантный)</option>
+            <option value="Roboto">Roboto (Техничный)</option>
+            <option value="Caveat">Caveat (Рукописный)</option>
+            <option value="Pacifico">Pacifico (Курсивный)</option>
+            <option value="Oswald">Oswald (Строгий)</option>
+            <option value="Lobster">Lobster (Декоративный)</option>
+          </select>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+            <button 
+              type="button"
+              className={`btn-secondary btn-tiny ${previewCardFontWeight === '700' ? 'active' : ''}`}
+              onClick={() => setPreviewCardFontWeight(previewCardFontWeight === '700' ? '400' : '700')}
+              style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: previewCardFontWeight === '700' ? 'rgba(168,85,247,0.2)' : '' }}
+            >
+              <b>Ж</b>
+            </button>
+            <button 
+              type="button"
+              className={`btn-secondary btn-tiny ${previewCardFontStyle === 'italic' ? 'active' : ''}`}
+              onClick={() => setPreviewCardFontStyle(previewCardFontStyle === 'italic' ? 'normal' : 'italic')}
+              style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: previewCardFontStyle === 'italic' ? 'rgba(168,85,247,0.2)' : '' }}
+            >
+              <i>К</i>
+            </button>
+          </div>
+        </div>
+
+        {/* Text Shadow */}
+        <div className="form-group" style={{ marginBottom: '14px' }}>
+          <label>Эффект свечения / тени в списке</label>
+          <select 
+            value={previewTextShadow} 
+            onChange={e => setPreviewTextShadow(e.target.value)}
+            style={{ width: '100%', marginTop: '6px' }}
+          >
+            <option value="none">Без эффектов (Максимальная чёткость)</option>
+            <option value="shadow">Мягкая тень</option>
+            <option value="glow">Свечение ✨</option>
+            <option value="neon">Неон 🌈</option>
+            <option value="outline">Контур ✏️</option>
+            <option value="glass">Стекло 🧊</option>
+          </select>
+        </div>
+
+        {/* Font size sliders */}
+        <div className="form-group" style={{ marginTop: '10px' }}>
+          <div className="label-with-value">
+            <label>Размер лицевой стороны</label>
+            <span className="value-badge">{previewCardFontSize}rem</span>
+          </div>
+          <input 
+            type="range" 
+            min="0.85" 
+            max="1.6" 
+            step="0.02"
+            value={previewCardFontSize} 
+            onChange={e => setPreviewCardFontSize(Number(e.target.value))} 
+          />
+        </div>
+
+        <div className="form-group" style={{ marginTop: '10px' }}>
+          <div className="label-with-value">
+            <label>Размер перевода</label>
+            <span className="value-badge">{previewBackFontSize}rem</span>
+          </div>
+          <input 
+            type="range" 
+            min="0.75" 
+            max="1.4" 
+            step="0.02"
+            value={previewBackFontSize} 
+            onChange={e => setPreviewBackFontSize(Number(e.target.value))} 
+          />
+        </div>
+
+        {/* Alignment */}
+        <div className="form-group" style={{ marginTop: '12px' }}>
+          <label>Выравнивание текста в списке</label>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+            <button
+              type="button"
+              className={`btn-secondary btn-tiny ${(!previewCardTextAlign || previewCardTextAlign === 'left') ? 'active' : ''}`}
+              onClick={() => setPreviewCardTextAlign('left')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                background: (!previewCardTextAlign || previewCardTextAlign === 'left') ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: (!previewCardTextAlign || previewCardTextAlign === 'left') ? '#a78bfa' : undefined
+              }}
+            >
+              <AlignLeft size={16} />
+              <span>Слева</span>
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary btn-tiny ${previewCardTextAlign === 'center' ? 'active' : ''}`}
+              onClick={() => setPreviewCardTextAlign('center')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                background: previewCardTextAlign === 'center' ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: previewCardTextAlign === 'center' ? '#a78bfa' : undefined
+              }}
+            >
+              <AlignCenter size={16} />
+              <span>Центр</span>
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary btn-tiny ${previewCardTextAlign === 'right' ? 'active' : ''}`}
+              onClick={() => setPreviewCardTextAlign('right')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontSize: '0.85rem',
+                background: previewCardTextAlign === 'right' ? 'rgba(168,85,247,0.25)' : undefined,
+                borderColor: previewCardTextAlign === 'right' ? '#a78bfa' : undefined
+              }}
+            >
+              <AlignRight size={16} />
+              <span>Справа</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Number of lines */}
+        <div className="form-group" style={{ marginTop: '14px' }}>
+          <label>Количество строк текста в списке карточек</label>
+          <p className="field-hint" style={{ marginTop: '2px', marginBottom: '8px' }}>
+            Сколько строк текста показывать до сворачивания карточки в списке
+          </p>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+            {[
+              { val: 1, label: '1 строка' },
+              { val: 2, label: '2 строки (стандарт)' },
+              { val: 3, label: '3 строки' },
+              { val: 4, label: '4 строки' },
+              { val: 5, label: '5 строк' },
+              { val: 0, label: '∞ Без ограничений' },
+            ].map(item => {
+              const isActive = (previewCardLines === undefined && item.val === 2) || previewCardLines === item.val;
+              return (
+                <button
+                  key={item.val}
+                  type="button"
+                  className={`btn-secondary btn-tiny ${isActive ? 'active' : ''}`}
+                  onClick={() => setPreviewCardLines(item.val)}
+                  style={{
+                    flex: item.val === 0 ? '1 1 100%' : '1 1 auto',
+                    padding: '8px 10px',
+                    fontSize: '0.82rem',
+                    fontWeight: isActive ? 700 : 500,
+                    background: isActive ? 'rgba(168,85,247,0.25)' : undefined,
+                    borderColor: isActive ? '#a78bfa' : undefined,
+                    color: isActive ? '#f3e8ff' : undefined
+                  }}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

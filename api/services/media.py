@@ -129,10 +129,17 @@ async def ensure_card_audio(card, user_id: int):
     if not card.front_text or not card.front_text.strip():
         return
         
-    logger.info(f"Audio missing or invalid for card {card.id}. Regenerating front audio...")
-    
-    # Определяем язык по наличию кириллицы
-    lang = "ru" if re.search(r'[а-яА-ЯёЁ]', card.front_text) else "de"
+    # Определяем язык по наличию кириллицы либо языку колоды
+    if re.search(r'[а-яА-ЯёЁ]', card.front_text):
+        lang = "ru"
+    else:
+        deck_lang = getattr(card, 'target_language', None)
+        if not deck_lang and getattr(card, 'deck_id', None):
+            from ..models import TMA_Deck
+            deck_obj = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
+            if deck_obj and deck_obj.target_language:
+                deck_lang = deck_obj.target_language
+        lang = (deck_lang or "de").lower().strip()
     
     # Загружаем настройки озвучки (с простым TTL кэшем)
     db_settings = _get_cached_tma_settings()

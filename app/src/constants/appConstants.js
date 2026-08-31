@@ -159,7 +159,17 @@ export const DESIGN_PRESETS = [
       contextFontStyle: 'normal',
       contextTextAlign: 'left',
       cardTextShadow: 'glow',
-      contextTextShadow: 'glow'
+      contextTextShadow: 'glow',
+      previewCardFont: 'Comfortaa',
+      previewCardTextColor: '#cbdeb5',
+      previewBackTextColor: '#b1e7e0',
+      previewCardFontSize: 1.19,
+      previewBackFontSize: 0.98,
+      previewCardFontWeight: '700',
+      previewCardFontStyle: 'normal',
+      previewTextShadow: 'none',
+      previewCardTextAlign: 'left',
+      previewCardLines: 3
     }
   },
   {

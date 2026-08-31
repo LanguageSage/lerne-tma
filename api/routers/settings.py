@@ -19,6 +19,17 @@ from api import ai_service
 
 
 
+@router.get("/user/reminder-settings")
+def get_user_reminder_settings_endpoint(user_id: int = Depends(get_user_id)):
+    return services.get_user_reminder_settings(user_id)
+
+@router.post("/user/reminder-settings")
+def save_user_reminder_settings_endpoint(data: dict, user_id: int = Depends(get_user_id)):
+    success = services.save_user_reminder_settings(user_id, data)
+    if success:
+        return {"status": "success", "settings": services.get_user_reminder_settings(user_id)}
+    raise HTTPException(status_code=500, detail="Failed to save reminder settings")
+
 @router.get("/user/prompts")
 def get_user_prompts(target_language: str = "de", native_language: str = None, user_id: int = Depends(get_user_id)):
     custom_prompts = []

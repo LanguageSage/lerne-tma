@@ -178,7 +178,8 @@ export const StudyCard = React.memo(({
     const raw = urlVal || pathVal;
     if (!raw) return '';
     if (raw.startsWith('http') || raw.startsWith('/api/') || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
-    return `/api/media/${raw}`;
+    if (raw.startsWith('audio/')) return `/api/media/${raw}`;
+    return `/api/media/audio/${raw}`;
   };
 
   const renderFrontAudioPlayer = () => {

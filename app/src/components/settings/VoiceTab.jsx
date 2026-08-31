@@ -18,6 +18,8 @@ export const VoiceTab = () => {
     switch (code) {
       case 'en': return 'en-';
       case 'no': return 'nb-';
+      case 'uk': return 'uk-';
+      case 'ru': return 'ru-';
       case 'de':
       default:
         return 'de-';

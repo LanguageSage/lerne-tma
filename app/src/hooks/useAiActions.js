@@ -147,10 +147,12 @@ export const useAiActions = () => {
 
       try {
         const { useLanguageStore } = await import('../store/useLanguageStore');
-        const activeLang = useLanguageStore.getState().activeLanguage || 'de';
-        const nativeLang = localStorage.getItem('native_language') || 'uk';
+        const { useDeckStore } = await import('../store/useDeckStore');
+        const currentDeck = useDeckStore.getState().currentDeck;
+        const targetLang = currentDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de';
+        const nativeLang = localStorage.getItem('native_language') || useLanguageStore.getState().nativeLanguage || 'ru';
         const res = await api.post('/cards/ai-generate', 
-          { phrase, target_language: activeLang, native_language: nativeLang, action_type: actionType }, 
+          { phrase, target_language: targetLang, native_language: nativeLang, action_type: actionType }, 
           { signal: abortControllerRef.current.signal }
         );
 
@@ -233,14 +235,18 @@ export const useAiActions = () => {
     setLoading(true);
     try {
       const { useLanguageStore } = await import('../store/useLanguageStore');
-      const activeLang = useLanguageStore.getState().activeLanguage || 'de';
-      const nativeLang = localStorage.getItem('native_language') || 'uk';
+      const { useDeckStore } = await import('../store/useDeckStore');
+      const decks = useDeckStore.getState().decks || [];
+      const currentDeck = useDeckStore.getState().currentDeck;
+      const targetDeck = deckId ? decks.find(d => String(d.id) === String(deckId)) || currentDeck : currentDeck;
+      const targetLang = targetDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de';
+      const nativeLang = localStorage.getItem('native_language') || useLanguageStore.getState().nativeLanguage || 'ru';
 
       const res = await api.post('/cards/ai-generate-batch',
         {
           text: text.trim(),
           deck_id: deckId ? String(deckId) : null,
-          target_language: activeLang,
+          target_language: targetLang,
           native_language: nativeLang
         },
         { signal: abortControllerRef.current.signal }

@@ -75,7 +75,13 @@ def rename_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
+@router.post("/{deck_id}/toggle-learning")
+def toggle_deck_learning(deck_id: int, data: dict = None, user_id: int = Depends(get_user_id)):
+    incoming_status = data.get('is_learning') if data else None
+    new_status = services.toggle_deck_learning(deck_id, user_id, is_learning=incoming_status)
+    if new_status is not None:
+        return {"status": "success", "is_learning": new_status}
+    raise HTTPException(status_code=404, detail="Deck not found or access denied")
 
 @router.post("/import-json")
 def import_json_deck(data: dict, user_id: int = Depends(get_user_id)):
@@ -119,19 +125,22 @@ def get_library_categories():
 class BatchImportRequest(BaseModel):
     deck_ids: list[int]
     mode: Optional[str] = 'merge'
+    force_trash: Optional[bool] = False
 
 @router.post("/external/import/{deck_id}")
-def import_external_deck(deck_id: int, mode: Optional[str] = 'merge', user_id: int = Depends(get_user_id)):
-    logger.info(f"POST /api/decks/external/import/{deck_id} (mode={mode}) - X-User-ID: {user_id}")
-    result = services.import_deck(deck_id, user_id, mode=mode or 'merge')
+def import_external_deck(deck_id: int, mode: Optional[str] = 'merge', force_trash: bool = False, user_id: int = Depends(get_user_id)):
+    logger.info(f"POST /api/decks/external/import/{deck_id} (mode={mode}, force_trash={force_trash}) - X-User-ID: {user_id}")
+    result = services.import_deck(deck_id, user_id, mode=mode or 'merge', force_trash=force_trash)
+    if isinstance(result, dict) and result.get("status") == "in_trash":
+        return result
     if result:
-        return {"status": "success", "deck_id": result.id}
+        return {"status": "success", "deck_id": getattr(result, 'id', result)}
     raise HTTPException(status_code=404, detail="External deck not found or import failed")
 
 @router.post("/external/import-batch")
 def import_external_decks_batch(body: BatchImportRequest, user_id: int = Depends(get_user_id)):
-    logger.info(f"POST /api/decks/external/import-batch - X-User-ID: {user_id}, count={len(body.deck_ids)}, mode={body.mode}")
-    imported_ids = services.import_decks_batch(body.deck_ids, user_id, mode=body.mode or 'merge')
+    logger.info(f"POST /api/decks/external/import-batch - X-User-ID: {user_id}, count={len(body.deck_ids)}, mode={body.mode}, force_trash={body.force_trash}")
+    imported_ids = services.import_decks_batch(body.deck_ids, user_id, mode=body.mode or 'merge', force_trash=body.force_trash or False)
     return {"status": "success", "imported_deck_ids": imported_ids}
 
 

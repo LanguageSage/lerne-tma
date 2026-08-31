@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Layers, Loader2, CheckCircle2, AlertCircle, FileText, Check, Zap } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
+import { useLanguageStore } from '../../store/useLanguageStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { db } from '../../services/localDb';
@@ -13,12 +14,34 @@ export const BatchCardModal = () => {
   const { isBatchModalOpen, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck } = useDeckStore();
   const { runBatchAiGenerator } = useCardActions();
+  const activeLanguage = useLanguageStore(state => state.activeLanguage);
+  const targetLanguage = currentDeck?.target_language || activeLanguage || 'de';
 
   const [activeTab, setActiveTab] = useState('import'); // 'import' | 'ai'
   const [rawText, setRawText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMode, setProcessingMode] = useState(''); // 'ai' | 'direct'
   const [generatedCards, setGeneratedCards] = useState(null);
+
+  const importPlaceholder = useMemo(() => {
+    if (targetLanguage === 'en') {
+      return `What is the capital of the United Kingdom?\n\n*London\nParis\nBerlin\nRome\n---\nWhich word is an adjective?\n\nQuickly\n*Beautiful\nRun\nHappiness\n---`;
+    }
+    if (targetLanguage === 'no') {
+      return `Hva er hovedstaden i Norge?\n\n*Oslo\nBergen\nTrondheim\nStavanger\n---\nHvilket ord er et adjektiv?\n\nRaskt\n*Vakker\nLøpe\nGlede\n---`;
+    }
+    return `Deutschland ist ein Rechtsstaat. Was ist damit gemeint?\n\n*Alle Einwohner und der Staat müssen sich an die Gesetze halten.\nDer Staat muss sich nicht an die Gesetze halten.\nNur Deutsche müssen die Gesetze befolgen.\nDie Gerichte machen die Gesetze.\n---\nWie heißt die deutsche Verfassung?\n\nVolksgesetz\nBundesgesetz\n*Grundgesetz\n---`;
+  }, [targetLanguage]);
+
+  const aiBatchPlaceholder = useMemo(() => {
+    if (targetLanguage === 'en') {
+      return `The dog\nThe cat\nMy first impression is that the building looks very modern.\nThe house with the big garden.`;
+    }
+    if (targetLanguage === 'no') {
+      return `Hunden\nKatten\nMitt første inntrykk er at bygningen virker veldig moderne.\nHuset med den store hagen.`;
+    }
+    return `Der Hund\nDie Katze\nMein erster Eindruck ist, dass das Gebäude sehr modern wirkt.\nDas Haus mit dem großen Garten.`;
+  }, [targetLanguage]);
 
   // Auto-switch to import tab if user pastes text with '---' or quiz asterisks
   useEffect(() => {
@@ -123,9 +146,13 @@ export const BatchCardModal = () => {
         position: idx
       }));
 
+      const nativeLang = localStorage.getItem('native_language') || useLanguageStore.getState().nativeLanguage || 'ru';
+
       const res = await api.post('/ai/enrich-batch', {
         cards: payloadCards,
-        deck_id: currentDeck?.id ? String(currentDeck.id) : null
+        deck_id: currentDeck?.id ? String(currentDeck.id) : null,
+        target_language: targetLanguage,
+        native_language: nativeLang
       });
 
       const cardsList = res.data?.saved_cards || res.data?.cards || payloadCards;
@@ -318,7 +345,7 @@ export const BatchCardModal = () => {
                       value={rawText}
                       onChange={(e) => setRawText(e.target.value)}
                       disabled={isProcessing}
-                      placeholder={`Deutschland ist ein Rechtsstaat. Was ist damit gemeint?\n\n*Alle Einwohner und der Staat müssen sich an die Gesetze halten.\nDer Staat muss sich nicht an die Gesetze halten.\nNur Deutsche müssen die Gesetze befolgen.\nDie Gerichte machen die Gesetze.\n---\nWie heißt die deutsche Verfassung?\n\nVolksgesetz\nBundesgesetz\n*Grundgesetz\n---`}
+                      placeholder={importPlaceholder}
                       style={{
                         width: '100%',
                         padding: '12px 14px',
@@ -412,7 +439,7 @@ export const BatchCardModal = () => {
                       value={rawText}
                       onChange={(e) => setRawText(e.target.value)}
                       disabled={isProcessing}
-                      placeholder={`Der Hund\nDie Katze\nMein erster Eindruck ist, dass das Gebäude sehr modern wirkt.\nDas Haus mit dem großen Garten.`}
+                      placeholder={aiBatchPlaceholder}
                       style={{
                         width: '100%',
                         padding: '12px 14px',

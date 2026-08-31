@@ -137,6 +137,22 @@ export const DeckCardItem = React.memo(({
     }
   };
 
+  const handleToggleLearning = async (e) => {
+    e.stopPropagation();
+    try {
+      const nextStatus = !deck.is_learning;
+      await useDeckStore.getState().toggleDeckLearning(deck.id, nextStatus);
+      if (nextStatus) {
+        showToast(`🔥 Колода «${deck.name}» добавлена в изучаемые`, 'success');
+      } else {
+        showToast(`Колода «${deck.name}» убрана из изучаемых`, 'info');
+      }
+    } catch {
+      showToast('Ошибка при смене статуса колоды', 'error');
+    }
+  };
+
+
   const handleDelete = (e) => {
     e.stopPropagation();
     setIsMenuOpen(false);
@@ -216,7 +232,7 @@ export const DeckCardItem = React.memo(({
       dragListener={false}
       dragControls={dragControls}
       whileDrag={{ scale: 1.02, zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 25px rgba(168,85,247,0.4)' }}
-      className={`deck-card glass ${deck.is_pinned ? 'deck-pinned' : ''} ${deck.is_inbox ? 'deck-card-inbox' : ''} ${!deck.is_inbox ? 'deck-card-draggable' : ''} ${isMenuOpen ? 'has-open-menu' : ''}`}
+      className={`deck-card glass ${deck.is_pinned ? 'deck-pinned' : ''} ${deck.is_learning === false ? 'deck-learning-paused' : ''} ${deck.is_inbox ? 'deck-card-inbox' : ''} ${!deck.is_inbox ? 'deck-card-draggable' : ''} ${isMenuOpen ? 'has-open-menu' : ''}`}
       style={deckStyle}
     >
       <div className="deck-main-action deck-main-action-with-stats" onClick={onMainAction}>
@@ -236,6 +252,7 @@ export const DeckCardItem = React.memo(({
 
             {!deck.is_inbox && (
               <button
+                type="button"
                 className={`pin-deck-btn ${deck.is_pinned ? 'pinned' : ''}`}
                 onClick={handlePin}
                 title={deck.is_pinned ? "Открепить колоду" : "Закрепить колоду"}
@@ -290,8 +307,24 @@ export const DeckCardItem = React.memo(({
               className="deck-flag-badge-inline"
               title={`Язык: ${(deck.target_language || 'de').toUpperCase()}`}
             >
-              {renderFlag(deck.target_language || 'de', 22)}
+              {renderFlag(deck.target_language || 'de', 26)}
             </div>
+          )}
+
+          {!deck.is_inbox && (
+            <button
+              type="button"
+              className={`deck-learning-action-btn ${deck.is_learning ? 'active' : 'inactive'}`}
+              onClick={handleToggleLearning}
+              title={deck.is_learning ? "Колода в активном изучении (бот напоминает). Нажмите, чтобы отключить" : "Нажмите, чтобы включить колоду в изучение"}
+            >
+              <span className={`learning-btn-icon ${deck.is_learning ? 'pulse' : ''}`}>
+                {deck.is_learning ? '🔥' : '🎯'}
+              </span>
+              <span className="learning-btn-text">
+                {deck.is_learning ? 'Учу' : 'Учить'}
+              </span>
+            </button>
           )}
 
           {deck.is_inbox && deck.stats.total > 0 && (
@@ -321,6 +354,36 @@ export const DeckCardItem = React.memo(({
               <span>Тренажёр</span>
             </span>
           )}
+
+          {deck.folder_id && folders && (() => {
+            const parent = folders.find(f => f.id === deck.folder_id);
+            if (!parent) return null;
+            return (
+              <span 
+                className="deck-folder-shortcut-badge"
+                title={`Папка: ${parent.name}`}
+                style={{ 
+                  fontSize: '0.68rem', 
+                  background: parent.color ? `${parent.color}22` : 'rgba(255, 255, 255, 0.06)', 
+                  border: `1px solid ${parent.color ? parent.color + '55' : 'rgba(255, 255, 255, 0.15)'}`, 
+                  color: parent.color || '#cbd5e1', 
+                  padding: '2px 7px', 
+                  borderRadius: 8, 
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  maxWidth: '130px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <span>📁</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{parent.name}</span>
+              </span>
+            );
+          })()}
 
           {deck.is_shared && (
             <div 
@@ -372,6 +435,15 @@ export const DeckCardItem = React.memo(({
                 useUiStore.getState().setIsCollaboratorsModalOpen(true);
               }}>
                 <span>👥 Совместный доступ</span>
+              </button>
+            )}
+
+            {!deck.is_inbox && (
+              <button className="dropdown-item" onClick={(e) => {
+                setIsMenuOpen(false);
+                handleToggleLearning(e);
+              }}>
+                <span>{deck.is_learning ? '⏸ Отключить напоминания (Не учу)' : '🔥 Включить в изучение (Учить)'}</span>
               </button>
             )}
 

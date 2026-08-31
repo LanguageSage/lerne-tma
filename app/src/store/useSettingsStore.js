@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { storage } from '../utils/auth';
+import api from '../services/api';
 
 export const DEFAULT_DESIGN_SETTINGS = {
   cardBgFront: 'liquid_emerald',
@@ -18,10 +19,22 @@ export const DEFAULT_DESIGN_SETTINGS = {
   cardFontWeight: '700',
   cardFontStyle: 'normal',
   contextFontWeight: '400',
-  contextFontStyle: 'normal'
+  contextFontStyle: 'normal',
+
+  // Card List Preview Settings
+  previewCardFont: 'Comfortaa',
+  previewCardTextColor: '#cbdeb5',
+  previewBackTextColor: '#b1e7e0',
+  previewCardFontSize: 1.19,
+  previewBackFontSize: 0.98,
+  previewCardFontWeight: '700',
+  previewCardFontStyle: 'normal',
+  previewTextShadow: 'none',
+  previewCardTextAlign: 'left',
+  previewCardLines: 3
 };
 
-const DESIGN_STORAGE_VERSION = '2026_08_emerald';
+const DESIGN_STORAGE_VERSION = '2026_08_emerald_defaults_v3';
 
 const getInitialDesignState = () => {
   const storedVersion = storage.get('lerne_design_version');
@@ -46,6 +59,18 @@ const getInitialDesignState = () => {
     storage.set('lerne_card_font_style', DEFAULT_DESIGN_SETTINGS.cardFontStyle);
     storage.set('lerne_context_font_weight', DEFAULT_DESIGN_SETTINGS.contextFontWeight);
     storage.set('lerne_context_font_style', DEFAULT_DESIGN_SETTINGS.contextFontStyle);
+
+    storage.set('lerne_preview_card_font', DEFAULT_DESIGN_SETTINGS.previewCardFont);
+    storage.set('lerne_preview_card_text_color', DEFAULT_DESIGN_SETTINGS.previewCardTextColor);
+    storage.set('lerne_preview_back_text_color', DEFAULT_DESIGN_SETTINGS.previewBackTextColor);
+    storage.set('lerne_preview_card_font_size', DEFAULT_DESIGN_SETTINGS.previewCardFontSize);
+    storage.set('lerne_preview_back_font_size', DEFAULT_DESIGN_SETTINGS.previewBackFontSize);
+    storage.set('lerne_preview_card_font_weight', DEFAULT_DESIGN_SETTINGS.previewCardFontWeight);
+    storage.set('lerne_preview_card_font_style', DEFAULT_DESIGN_SETTINGS.previewCardFontStyle);
+    storage.set('lerne_preview_text_shadow', DEFAULT_DESIGN_SETTINGS.previewTextShadow);
+    storage.set('lerne_preview_card_text_align', DEFAULT_DESIGN_SETTINGS.previewCardTextAlign);
+    storage.set('lerne_preview_card_lines', DEFAULT_DESIGN_SETTINGS.previewCardLines);
+
     return {
       ...DEFAULT_DESIGN_SETTINGS,
       userDesign: null,
@@ -70,6 +95,18 @@ const getInitialDesignState = () => {
     cardFontStyle: storage.get('lerne_card_font_style') || DEFAULT_DESIGN_SETTINGS.cardFontStyle,
     contextFontWeight: storage.get('lerne_context_font_weight') || DEFAULT_DESIGN_SETTINGS.contextFontWeight,
     contextFontStyle: storage.get('lerne_context_font_style') || DEFAULT_DESIGN_SETTINGS.contextFontStyle,
+
+    previewCardFont: storage.get('lerne_preview_card_font') || DEFAULT_DESIGN_SETTINGS.previewCardFont,
+    previewCardTextColor: storage.get('lerne_preview_card_text_color') || DEFAULT_DESIGN_SETTINGS.previewCardTextColor,
+    previewBackTextColor: storage.get('lerne_preview_back_text_color') || DEFAULT_DESIGN_SETTINGS.previewBackTextColor,
+    previewCardFontSize: storage.get('lerne_preview_card_font_size') !== null ? Number(storage.get('lerne_preview_card_font_size')) : DEFAULT_DESIGN_SETTINGS.previewCardFontSize,
+    previewBackFontSize: storage.get('lerne_preview_back_font_size') !== null ? Number(storage.get('lerne_preview_back_font_size')) : DEFAULT_DESIGN_SETTINGS.previewBackFontSize,
+    previewCardFontWeight: storage.get('lerne_preview_card_font_weight') || DEFAULT_DESIGN_SETTINGS.previewCardFontWeight,
+    previewCardFontStyle: storage.get('lerne_preview_card_font_style') || DEFAULT_DESIGN_SETTINGS.previewCardFontStyle,
+    previewTextShadow: storage.get('lerne_preview_text_shadow') || DEFAULT_DESIGN_SETTINGS.previewTextShadow,
+    previewCardTextAlign: storage.get('lerne_preview_card_text_align') || DEFAULT_DESIGN_SETTINGS.previewCardTextAlign,
+    previewCardLines: storage.get('lerne_preview_card_lines') !== null ? Number(storage.get('lerne_preview_card_lines')) : DEFAULT_DESIGN_SETTINGS.previewCardLines,
+
     userDesign: userSavedCustom ? JSON.parse(userSavedCustom) : null,
   };
 };
@@ -169,6 +206,39 @@ export const useSettingsStore = create((set, get) => ({
   setContextFontStyle: (val) => { storage.set('lerne_context_font_style', val); set({ contextFontStyle: val }); },
   setContextTextAlign: (val) => { storage.set('lerne_context_text_align', val); set({ contextTextAlign: val }); },
 
+  // Preview List Typography Setters
+  setPreviewCardFont: (val) => { storage.set('lerne_preview_card_font', val); set({ previewCardFont: val }); },
+  setPreviewCardTextColor: (val) => { storage.set('lerne_preview_card_text_color', val); set({ previewCardTextColor: val }); },
+  setPreviewBackTextColor: (val) => { storage.set('lerne_preview_back_text_color', val); set({ previewBackTextColor: val }); },
+  setPreviewCardFontSize: (val) => { storage.set('lerne_preview_card_font_size', val); set({ previewCardFontSize: val }); },
+  setPreviewBackFontSize: (val) => { storage.set('lerne_preview_back_font_size', val); set({ previewBackFontSize: val }); },
+  setPreviewCardFontWeight: (val) => { storage.set('lerne_preview_card_font_weight', val); set({ previewCardFontWeight: val }); },
+  setPreviewCardFontStyle: (val) => { storage.set('lerne_preview_card_font_style', val); set({ previewCardFontStyle: val }); },
+  setPreviewTextShadow: (val) => { storage.set('lerne_preview_text_shadow', val); set({ previewTextShadow: val }); },
+  setPreviewCardTextAlign: (val) => { storage.set('lerne_preview_card_text_align', val); set({ previewCardTextAlign: val }); },
+  setPreviewCardLines: (val) => { storage.set('lerne_preview_card_lines', val); set({ previewCardLines: Number(val) }); },
+
+  syncPreviewFromCard: () => {
+    const s = get();
+    const updates = {
+      previewCardFont: s.cardFont,
+      previewCardTextColor: s.cardTextColor,
+      previewBackTextColor: s.backTextColor || s.cardTextColor,
+      previewCardFontWeight: s.cardFontWeight || '600',
+      previewCardFontStyle: s.cardFontStyle || 'normal',
+      previewTextShadow: s.cardTextShadow || 'none',
+      previewCardTextAlign: s.cardTextAlign || 'left',
+    };
+    storage.set('lerne_preview_card_font', updates.previewCardFont);
+    storage.set('lerne_preview_card_text_color', updates.previewCardTextColor);
+    storage.set('lerne_preview_back_text_color', updates.previewBackTextColor);
+    storage.set('lerne_preview_card_font_weight', updates.previewCardFontWeight);
+    storage.set('lerne_preview_card_font_style', updates.previewCardFontStyle);
+    storage.set('lerne_preview_text_shadow', updates.previewTextShadow);
+    storage.set('lerne_preview_card_text_align', updates.previewCardTextAlign);
+    set(updates);
+  },
+
   // Helper to apply a full design preset
   applyDesignPreset: (preset) => {
     const s = preset.settings;
@@ -194,6 +264,17 @@ export const useSettingsStore = create((set, get) => ({
     if (s.contextFontWeight) storage.set('lerne_context_font_weight', s.contextFontWeight);
     if (s.contextFontStyle) storage.set('lerne_context_font_style', s.contextFontStyle);
     if (s.contextTextAlign) storage.set('lerne_context_text_align', s.contextTextAlign);
+
+    if (s.previewCardFont) storage.set('lerne_preview_card_font', s.previewCardFont);
+    if (s.previewCardTextColor) storage.set('lerne_preview_card_text_color', s.previewCardTextColor);
+    if (s.previewBackTextColor) storage.set('lerne_preview_back_text_color', s.previewBackTextColor);
+    if (s.previewCardFontSize) storage.set('lerne_preview_card_font_size', s.previewCardFontSize);
+    if (s.previewBackFontSize) storage.set('lerne_preview_back_font_size', s.previewBackFontSize);
+    if (s.previewCardFontWeight) storage.set('lerne_preview_card_font_weight', s.previewCardFontWeight);
+    if (s.previewCardFontStyle) storage.set('lerne_preview_card_font_style', s.previewCardFontStyle);
+    if (s.previewTextShadow) storage.set('lerne_preview_text_shadow', s.previewTextShadow);
+    if (s.previewCardTextAlign) storage.set('lerne_preview_card_text_align', s.previewCardTextAlign);
+    if (s.previewCardLines !== undefined) storage.set('lerne_preview_card_lines', s.previewCardLines);
   },
 
   saveUserDesign: () => {
@@ -216,6 +297,17 @@ export const useSettingsStore = create((set, get) => ({
       contextFontWeight: s.contextFontWeight,
       contextFontStyle: s.contextFontStyle,
       contextTextAlign: s.contextTextAlign,
+
+      previewCardFont: s.previewCardFont,
+      previewCardTextColor: s.previewCardTextColor,
+      previewBackTextColor: s.previewBackTextColor,
+      previewCardFontSize: s.previewCardFontSize,
+      previewBackFontSize: s.previewBackFontSize,
+      previewCardFontWeight: s.previewCardFontWeight,
+      previewCardFontStyle: s.previewCardFontStyle,
+      previewTextShadow: s.previewTextShadow,
+      previewCardTextAlign: s.previewCardTextAlign,
+      previewCardLines: s.previewCardLines,
     };
     storage.set('lerne_user_design', JSON.stringify(design));
     set({ userDesign: design });
@@ -246,6 +338,17 @@ export const useSettingsStore = create((set, get) => ({
     storage.set('lerne_card_font_style', DEFAULT_DESIGN_SETTINGS.cardFontStyle);
     storage.set('lerne_context_font_weight', DEFAULT_DESIGN_SETTINGS.contextFontWeight);
     storage.set('lerne_context_font_style', DEFAULT_DESIGN_SETTINGS.contextFontStyle);
+
+    storage.set('lerne_preview_card_font', DEFAULT_DESIGN_SETTINGS.previewCardFont);
+    storage.set('lerne_preview_card_text_color', DEFAULT_DESIGN_SETTINGS.previewCardTextColor);
+    storage.set('lerne_preview_back_text_color', DEFAULT_DESIGN_SETTINGS.previewBackTextColor);
+    storage.set('lerne_preview_card_font_size', DEFAULT_DESIGN_SETTINGS.previewCardFontSize);
+    storage.set('lerne_preview_back_font_size', DEFAULT_DESIGN_SETTINGS.previewBackFontSize);
+    storage.set('lerne_preview_card_font_weight', DEFAULT_DESIGN_SETTINGS.previewCardFontWeight);
+    storage.set('lerne_preview_card_font_style', DEFAULT_DESIGN_SETTINGS.previewCardFontStyle);
+    storage.set('lerne_preview_text_shadow', DEFAULT_DESIGN_SETTINGS.previewTextShadow);
+    storage.set('lerne_preview_card_text_align', DEFAULT_DESIGN_SETTINGS.previewCardTextAlign);
+    storage.set('lerne_preview_card_lines', DEFAULT_DESIGN_SETTINGS.previewCardLines);
   },
 
   // --- Admin/API Settings (Fetched from Backend) ---
@@ -263,4 +366,52 @@ export const useSettingsStore = create((set, get) => ({
 
   customBackgrounds: [],
   setCustomBackgrounds: (bgs) => set({ customBackgrounds: bgs }),
+
+  // --- Bot Reminder Settings ---
+  reminderSettings: {
+    enabled: true,
+    times: ['10:00', '19:00'],
+    frequency: 'twice_daily',
+    timezone_offset: 3,
+  },
+  reminderLoading: false,
+
+  fetchReminderSettings: async () => {
+    try {
+      set({ reminderLoading: true });
+      const res = await api.get('/user/reminder-settings');
+      if (res.data) {
+        set({ reminderSettings: res.data });
+      }
+    } catch (err) {
+      console.error('Fetch Reminder Settings Error:', err);
+    } finally {
+      set({ reminderLoading: false });
+    }
+  },
+
+  saveReminderSettings: async (newSettings) => {
+    try {
+      set((state) => ({ reminderSettings: { ...state.reminderSettings, ...newSettings } }));
+      const res = await api.post('/user/reminder-settings', newSettings);
+      if (res.data?.settings) {
+        set({ reminderSettings: res.data.settings });
+      }
+      return true;
+    } catch (err) {
+      console.error('Save Reminder Settings Error:', err);
+      throw err;
+    }
+  },
+
+  sendTestReminder: async () => {
+    try {
+      const res = await api.post('/bot/test-reminder');
+      return res.data;
+    } catch (err) {
+      console.error('Send Test Reminder Error:', err);
+      throw err;
+    }
+  },
 }));
+

@@ -27,16 +27,31 @@ import { getSortedFolderTree, parseDeckMetadata, getResourceSrc } from '../../ut
 const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, frontTypographyStyle, backTypographyStyle }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const cardBgFront = useSettingsStore(s => s.cardBgFront);
+  const previewCardLines = useSettingsStore(s => s.previewCardLines);
   const dragControls = useDragControls();
   const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
 
   const isQuizCard = React.useMemo(() => c.card_type === 'quiz' || parseQuizData(c) !== null, [c]);
   const isTrainerCard = React.useMemo(() => c.card_type === 'trainer' || (!isQuizCard && /\{([^}]+)\}/.test(c.front || '')), [c, isQuizCard]);
 
-  const isFrontLong = (c.front || '').length > 90 || (c.front || '').split('\n').length > 2;
-  const isBackLong = (c.back || '').length > 90 || (c.back || '').split('\n').length > 2;
+  const linesLimit = previewCardLines === 0 ? 0 : (previewCardLines || 2);
+  const isFrontLong = linesLimit > 0 && ((c.front || '').length > (linesLimit * 45) || (c.front || '').split('\n').length > linesLimit);
+  const isBackLong = linesLimit > 0 && ((c.back || '').length > (linesLimit * 45) || (c.back || '').split('\n').length > linesLimit);
   const isLikelyLong = isFrontLong || isBackLong;
-  const showExpandBtn = isLikelyLong || isExpanded;
+  const showExpandBtn = linesLimit > 0 && (isLikelyLong || isExpanded);
+
+  const clampStyle = linesLimit === 0 || isExpanded ? {
+    display: 'block',
+    WebkitLineClamp: 'unset',
+    lineClamp: 'unset',
+    overflow: 'visible'
+  } : {
+    display: '-webkit-box',
+    WebkitLineClamp: linesLimit,
+    lineClamp: linesLimit,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden'
+  };
 
   const handleItemClick = () => {
     const container = document.getElementById('app-container');
@@ -72,7 +87,7 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, f
       >
         <div 
           className={`front-min ${isExpanded ? 'expanded' : ''}`} 
-          style={frontTypographyStyle}
+          style={{ ...frontTypographyStyle, ...clampStyle }}
         >
           {c.front}
         </div>
@@ -80,7 +95,7 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, f
         {c.back && (
           <div 
             className={`back-min ${isExpanded ? 'expanded' : ''}`} 
-            style={backTypographyStyle}
+            style={{ ...backTypographyStyle, ...clampStyle }}
           >
             {c.back}
           </div>
@@ -174,32 +189,37 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck, deckCards, cardsLoading, folders, handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
 
-  const cardFont = useSettingsStore(s => s.cardFont);
-  const cardTextColor = useSettingsStore(s => s.cardTextColor);
-  const backTextColor = useSettingsStore(s => s.backTextColor);
-  const cardTextShadow = useSettingsStore(s => s.cardTextShadow);
-  const cardFontWeight = useSettingsStore(s => s.cardFontWeight);
-  const cardFontStyle = useSettingsStore(s => s.cardFontStyle);
-  const cardTextAlign = useSettingsStore(s => s.cardTextAlign);
+  const previewCardFont = useSettingsStore(s => s.previewCardFont);
+  const previewCardTextColor = useSettingsStore(s => s.previewCardTextColor);
+  const previewBackTextColor = useSettingsStore(s => s.previewBackTextColor);
+  const previewCardFontSize = useSettingsStore(s => s.previewCardFontSize);
+  const previewBackFontSize = useSettingsStore(s => s.previewBackFontSize);
+  const previewCardFontWeight = useSettingsStore(s => s.previewCardFontWeight);
+  const previewCardFontStyle = useSettingsStore(s => s.previewCardFontStyle);
+  const previewTextShadow = useSettingsStore(s => s.previewTextShadow);
+  const previewCardTextAlign = useSettingsStore(s => s.previewCardTextAlign);
 
+  const frontColor = previewCardTextColor || '#ffffff';
   const frontTypographyStyle = React.useMemo(() => ({
-    fontFamily: cardFont || undefined,
-    color: cardTextColor || undefined,
-    textShadow: getTextShadow(cardTextShadow, cardTextColor),
-    fontWeight: cardFontWeight || 600,
-    fontStyle: cardFontStyle || undefined,
-    textAlign: cardTextAlign || 'left',
-  }), [cardFont, cardTextColor, cardTextShadow, cardFontWeight, cardFontStyle, cardTextAlign]);
+    fontFamily: previewCardFont || undefined,
+    color: frontColor,
+    fontSize: previewCardFontSize ? `${previewCardFontSize}rem` : undefined,
+    textShadow: getTextShadow(previewTextShadow, frontColor),
+    fontWeight: previewCardFontWeight || 600,
+    fontStyle: previewCardFontStyle || undefined,
+    textAlign: previewCardTextAlign || 'left',
+  }), [previewCardFont, frontColor, previewCardFontSize, previewTextShadow, previewCardFontWeight, previewCardFontStyle, previewCardTextAlign]);
 
-  const effectiveBackColor = backTextColor || cardTextColor || '#cbd5e1';
+  const effectiveBackColor = previewBackTextColor || '#cbd5e1';
   const backTypographyStyle = React.useMemo(() => ({
-    fontFamily: cardFont || undefined,
+    fontFamily: previewCardFont || undefined,
     color: effectiveBackColor,
-    textShadow: getTextShadow(cardTextShadow, effectiveBackColor),
+    fontSize: previewBackFontSize ? `${previewBackFontSize}rem` : undefined,
+    textShadow: getTextShadow(previewTextShadow, effectiveBackColor),
     fontWeight: 500,
-    fontStyle: cardFontStyle || undefined,
-    textAlign: cardTextAlign || 'left',
-  }), [cardFont, effectiveBackColor, cardTextShadow, cardFontStyle, cardTextAlign]);
+    fontStyle: previewCardFontStyle || undefined,
+    textAlign: previewCardTextAlign || 'left',
+  }), [previewCardFont, effectiveBackColor, previewBackFontSize, previewTextShadow, previewCardFontStyle, previewCardTextAlign]);
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -500,6 +520,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
               <Search size={20} />
             </button>
 
+            {/* Quick Lines Switcher Button */}
             <button 
               className="header-action-btn settings-btn" 
               onClick={() => setIsSettingsOpen(true)}

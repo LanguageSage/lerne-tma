@@ -162,7 +162,7 @@ export const FolderCardItem = React.memo(({
             className="deck-flag-badge-inline"
             title={`Язык: ${folderLang.toUpperCase()}`}
           >
-            {renderFlag(folderLang, 22)}
+            {renderFlag(folderLang, 26)}
           </div>
 
           <span style={{ 

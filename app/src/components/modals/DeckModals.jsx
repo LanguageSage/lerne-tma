@@ -1,9 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Layers, RefreshCw, Folder, Star, CheckSquare, Square, Check, Copy, RotateCcw } from 'lucide-react';
+import { X, Plus, Layers, RefreshCw, Folder, Star, CheckSquare, Square, Check, Copy, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { SearchBar } from '../common/SearchBar';
+import { matchesSearchQuery } from '../../utils/search';
 
 export const DeckModals = () => {
   const { isNewDeckModalOpen, setIsNewDeckModalOpen, loading, setLoading, showToast, activeFolderId } = useUiStore();
@@ -17,8 +19,7 @@ export const DeckModals = () => {
     fetchLibraryCategories,
     importDeck,
     importDecksBatch,
-    toggleDefaultDeck,
-    handleFileUpload
+    toggleDefaultDeck
   } = useDeckStore();
   const { isAdmin } = useSettingsStore();
 
@@ -28,9 +29,8 @@ export const DeckModals = () => {
   const [isImportLoading, setIsImportLoading] = useState(false);
   const [selectedDeckIds, setSelectedDeckIds] = useState([]);
   const [duplicateDeckTarget, setDuplicateDeckTarget] = useState(null); // { deck: externalDeck, mode: 'merge' }
-  const fileInputRef = useRef(null);
-
-  if (!isNewDeckModalOpen) return null;
+  const [trashConflictTarget, setTrashConflictTarget] = useState(null); // { deckId, name, mode }
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
 
   const isDeckOwned = (extDeck) => {
     return (userDecks || []).some(ud => {
@@ -84,6 +84,7 @@ export const DeckModals = () => {
       await fetchExternalDecks();
       await fetchLibraryCategories();
       setSelectedDeckIds([]);
+      setLibrarySearchQuery('');
       setDeckModalMode('import');
     } catch {
       showToast('Ошибка при загрузке колод');
@@ -92,14 +93,23 @@ export const DeckModals = () => {
     }
   };
 
-  const handleImportSingle = async (deckId, mode = 'merge') => {
+  const handleImportSingle = async (deckId, mode = 'merge', forceTrash = false) => {
     setLoading(true);
     try {
-      await importDeck(deckId, mode);
+      const res = await importDeck(deckId, mode, forceTrash);
+      if (res?.status === 'in_trash') {
+        setTrashConflictTarget({
+          deckId,
+          name: res.name || res.deck_name || 'Колода',
+          mode
+        });
+        return;
+      }
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
       setDuplicateDeckTarget(null);
-      showToast('Колода импортирована', 'success');
+      setTrashConflictTarget(null);
+      showToast('Колода добавлена', 'success');
     } catch {
       showToast('Ошибка импорта');
     } finally {
@@ -141,35 +151,35 @@ export const DeckModals = () => {
     }
   };
 
-  const onFileChange = async (e) => {
-    setLoading(true);
-    try {
-      await handleFileUpload(e, () => {
-        setIsNewDeckModalOpen(false);
-        setDeckModalMode('choice');
-        showToast('JSON импортирован', 'success');
-      });
-    } catch {
-      showToast('Ошибка загрузки JSON');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getCategoryPath = (catId) => {
+  const getCategoryPath = useCallback((catId) => {
     const path = [];
-    let curr = libraryCategories.find(c => c.id === catId);
+    let curr = (libraryCategories || []).find(c => c.id === catId);
     while (curr) {
       path.unshift(curr.name);
-      curr = libraryCategories.find(c => c.id === curr.parent_id);
+      curr = (libraryCategories || []).find(c => c.id === curr.parent_id);
     }
     return path.join(' ➔ ');
-  };
+  }, [libraryCategories]);
+
+  // Filter external decks by search query
+  const filteredExternalDecks = useMemo(() => {
+    if (!librarySearchQuery.trim()) return externalDecks || [];
+    return (externalDecks || []).filter(d => {
+      const categoryPath = d.category_id ? getCategoryPath(d.category_id) : '';
+      return (
+        matchesSearchQuery(d.name, librarySearchQuery) ||
+        matchesSearchQuery(d.topic, librarySearchQuery) ||
+        matchesSearchQuery(d.level, librarySearchQuery) ||
+        matchesSearchQuery(categoryPath, librarySearchQuery) ||
+        matchesSearchQuery(d.description, librarySearchQuery)
+      );
+    });
+  }, [externalDecks, librarySearchQuery, getCategoryPath]);
 
   // Group external decks by category path
-  const groupedExternalDecks = (() => {
+  const groupedExternalDecks = useMemo(() => {
     const groups = {};
-    externalDecks.forEach(d => {
+    filteredExternalDecks.forEach(d => {
       let path = 'Разное (Без категории)';
       if (d.category_id) {
         const p = getCategoryPath(d.category_id);
@@ -179,7 +189,7 @@ export const DeckModals = () => {
       groups[path].push(d);
     });
     return groups;
-  })();
+  }, [filteredExternalDecks, getCategoryPath]);
 
   const resetAndClose = () => {
     setIsNewDeckModalOpen(false);
@@ -188,7 +198,11 @@ export const DeckModals = () => {
     setNewFolderName('');
     setSelectedDeckIds([]);
     setDuplicateDeckTarget(null);
+    setTrashConflictTarget(null);
+    setLibrarySearchQuery('');
   };
+
+  if (!isNewDeckModalOpen) return null;
 
   return (
     <AnimatePresence>
@@ -247,23 +261,6 @@ export const DeckModals = () => {
                   {isImportLoading ? <RefreshCw size={20} className="spin" /> : <Layers size={20} />} 
                   {isImportLoading ? ' Загрузка...' : ' Из Библиотеки'}
                 </button>
-                <button className="btn-secondary btn-full choice-btn" onClick={() => {
-                  if (useUiStore.getState().userProfile?.is_guest) {
-                    setIsNewDeckModalOpen(false);
-                    useUiStore.getState().setIsAuthModalOpen(true, "Для импорта колод войдите через Telegram");
-                    return;
-                  }
-                  fileInputRef.current?.click();
-                }}>
-                  <Plus size={20} style={{ transform: 'rotate(45deg)' }} /> Загрузить JSON
-                </button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  style={{ display: 'none' }} 
-                  accept=".json" 
-                  onChange={onFileChange} 
-                />
               </div>
             )}
 
@@ -295,9 +292,38 @@ export const DeckModals = () => {
             )}
 
             {deckModalMode === 'import' && (
-              <div className="import-list scrollable">
-                {externalDecks.length === 0 ? <p>Колоды не найдены</p> : 
-                  Object.entries(groupedExternalDecks).map(([categoryName, categoryDecks]) => {
+              <>
+                <div style={{ marginBottom: '12px', flexShrink: 0 }}>
+                  <SearchBar
+                    value={librarySearchQuery}
+                    onChange={setLibrarySearchQuery}
+                    onClear={() => setLibrarySearchQuery('')}
+                    placeholder="Поиск по библиотеке колод..."
+                    color="purple"
+                    count={filteredExternalDecks.length}
+                    total={externalDecks?.length || 0}
+                  />
+                </div>
+
+                <div className="import-list scrollable">
+                  {(externalDecks || []).length === 0 ? (
+                    <p style={{ textAlign: 'center', color: '#9ca3af', padding: '24px 0' }}>Колоды не найдены</p>
+                  ) : filteredExternalDecks.length === 0 ? (
+                    <div className="search-empty-state glass" style={{ margin: '16px 0', padding: '24px 16px' }}>
+                      <Search size={28} opacity={0.4} color="#a855f7" />
+                      <h3>Ничего не найдено</h3>
+                      <p>По запросу «{librarySearchQuery}» колод в библиотеке не нашлось</p>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        style={{ padding: '6px 14px', fontSize: '0.82rem', marginTop: '4px' }}
+                        onClick={() => setLibrarySearchQuery('')}
+                      >
+                        Сбросить поиск
+                      </button>
+                    </div>
+                  ) : (
+                    Object.entries(groupedExternalDecks).map(([categoryName, categoryDecks]) => {
                     const categoryIds = categoryDecks.map(d => d.id);
                     const isAllCatSelected = categoryIds.every(id => selectedDeckIds.includes(id));
 
@@ -469,7 +495,7 @@ export const DeckModals = () => {
                       </div>
                     );
                   })
-                }
+                )}
 
                 <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {selectedDeckIds.length > 0 && (
@@ -483,9 +509,15 @@ export const DeckModals = () => {
                       Импортировать выбранные ({selectedDeckIds.length})
                     </button>
                   )}
-                  <button className="btn-secondary btn-full" onClick={() => setDeckModalMode('choice')}>Назад</button>
+                  <button className="btn-secondary btn-full" onClick={() => {
+                    setLibrarySearchQuery('');
+                    setDeckModalMode('choice');
+                  }}>
+                    Назад
+                  </button>
                 </div>
               </div>
+              </>
             )}
           </div>
         </motion.div>
@@ -588,6 +620,52 @@ export const DeckModals = () => {
                 <button
                   className="btn-secondary btn-full"
                   onClick={() => setDuplicateDeckTarget(null)}
+                >
+                  Отмена
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Modal Prompt for Trash Conflict */}
+        {trashConflictTarget && (
+          <div
+            className="settings-overlay"
+            style={{ zIndex: 1200, background: 'rgba(0, 0, 0, 0.65)' }}
+            onClick={() => setTrashConflictTarget(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="settings-modal glass"
+              style={{ maxWidth: 400, width: '90%', padding: '24px', margin: 'auto' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', color: '#f59e0b' }}>
+                <Trash2 size={24} style={{ flexShrink: 0 }} />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#f8fafc' }}>
+                  Колода в корзине
+                </h3>
+              </div>
+
+              <p style={{ fontSize: '0.9rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '20px' }}>
+                У вас такая колода (<strong>«{trashConflictTarget.name}»</strong>) уже есть в корзине. Колода из корзины будет удалена.
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  className="btn btn-primary btn-full"
+                  onClick={() => handleImportSingle(trashConflictTarget.deckId, trashConflictTarget.mode, true)}
+                  disabled={loading}
+                  style={{ background: 'linear-gradient(135deg, #a855f7, #6366f1)' }}
+                >
+                  ОК
+                </button>
+                <button
+                  className="btn-secondary btn-full"
+                  onClick={() => setTrashConflictTarget(null)}
                 >
                   Отмена
                 </button>

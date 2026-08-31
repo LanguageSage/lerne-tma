@@ -210,23 +210,42 @@
                 </div>
               </div>
 
-              <!-- Voice selection dropdown -->
-              <div>
-                <label class="block text-xs font-bold text-slate-300 mb-1 flex items-center gap-1.5">
-                  <i data-lucide="mic" class="w-3.5 h-3.5 text-indigo-400"></i> Голос озвучки (Edge-TTS Neural):
-                </label>
-                <select id="regen-voice-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500">
-                  <option value="de-DE-KatjaNeural" selected>🇩🇪 de-DE-KatjaNeural (Катя ♀️, женский — по умолчанию)</option>
-                  <option value="de-DE-AmalaNeural">🇩🇪 de-DE-AmalaNeural (Амала ♀️, женский)</option>
-                  <option value="de-DE-KillianNeural">🇩🇪 de-DE-KillianNeural (Киллиан ♂️, мужской)</option>
-                  <option value="de-DE-ConradNeural">🇩🇪 de-DE-ConradNeural (Конрад ♂️, мужской)</option>
-                  <option value="de-AT-IngridNeural">🇦🇹 de-AT-IngridNeural (Ингрид ♀️, австрийский)</option>
-                  <option value="de-CH-JanNeural">🇨🇭 de-CH-JanNeural (Ян ♂️, швейцарский)</option>
-                  <option value="en-US-JennyNeural">🇺🇸 en-US-JennyNeural (Дженни ♀️, English)</option>
-                  <option value="en-US-GuyNeural">🇺🇸 en-US-GuyNeural (Гай ♂️, English)</option>
-                  <option value="uk-UA-PolinaNeural">🇺🇦 uk-UA-PolinaNeural (Поліна ♀️, Українська)</option>
-                  <option value="ru-RU-SvetlanaNeural">🇷🇺 ru-RU-SvetlanaNeural (Светлана ♀️, Русский)</option>
-                </select>
+              <!-- Voice selection dropdown & Voice Preview -->
+              <div class="space-y-2.5">
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <i data-lucide="mic" class="w-3.5 h-3.5 text-indigo-400"></i> Голос озвучки (Edge-TTS):
+                    </label>
+                    <button type="button" onclick="playVoicePreview()" id="btn-voice-preview" class="text-[11px] font-bold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition shadow-sm">
+                      <i data-lucide="volume-2" class="w-3.5 h-3.5 text-amber-400"></i> <span>🔊 Превью</span>
+                    </button>
+                  </div>
+                  <select id="regen-voice-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500">
+                    <!-- Populated dynamically based on prompt / deck target language -->
+                  </select>
+                </div>
+
+                <!-- Speed / Rate Selector -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <i data-lucide="gauge" class="w-3.5 h-3.5 text-indigo-400"></i> Скорость озвучки:
+                    </label>
+                    <span id="regen-rate-badge" class="text-[10px] text-indigo-300 font-mono font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">+0% (Норм)</span>
+                  </div>
+                  <select id="regen-rate-select" onchange="onRateSelectChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500">
+                    <option value="-20%">🐢 -20% (Очень медленно)</option>
+                    <option value="-15%">🐢 -15% (Заметно медленнее)</option>
+                    <option value="-10%">🚶 -10% (Немного медленнее)</option>
+                    <option value="-5%">🚶 -5% (Слегка медленнее)</option>
+                    <option value="+0%" selected>⚡ +0% (Стандартная / Норма)</option>
+                    <option value="+5%">🏃 +5% (Слегка быстрее)</option>
+                    <option value="+10%">🏃 +10% (Бодро)</option>
+                    <option value="+15%">🚀 +15% (Быстро)</option>
+                    <option value="+20%">🚀 +20% (Очень быстро)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -248,19 +267,29 @@
                 </label>
               </div>
 
-              <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
-                <input type="checkbox" id="regen-no-audio" class="w-3.5 h-3.5 text-indigo-600 rounded">
-                <span class="text-[11px] text-slate-300">Отключить генерацию озвучки (быстрый режим)</span>
-              </label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label class="flex items-center gap-2 p-2 bg-emerald-950/20 rounded-xl border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40">
+                  <input type="checkbox" id="regen-only-missing-audio" class="w-3.5 h-3.5 text-emerald-500 rounded">
+                  <span class="text-[11px] text-emerald-300 font-medium">🎙️ Только без озвучки</span>
+                </label>
+                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                  <input type="checkbox" id="regen-no-audio" class="w-3.5 h-3.5 text-indigo-600 rounded">
+                  <span class="text-[11px] text-slate-300">Отключить TTS (при ИИ)</span>
+                </label>
+              </div>
             </div>
 
             <!-- Action Trigger Buttons -->
             <div class="pt-3 border-t border-slate-800/80 space-y-2.5">
-              <button onclick="startAiProcess(true)" id="btn-start-dryrun" class="w-full py-3 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10 transition">
+              <button onclick="startAudioOnlyProcess()" id="btn-start-audio-only" class="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition">
+                <i data-lucide="mic" class="w-4 h-4"></i> 🎙️ Перегенерировать ТОЛЬКО озвучку (TTS)
+              </button>
+
+              <button onclick="startAiProcess(true)" id="btn-start-dryrun" class="w-full py-2.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10 transition">
                 <i data-lucide="flask-conical" class="w-4 h-4"></i> 🧪 Запустить ТЕСТ (3 карточки / Dry-Run)
               </button>
 
-              <button onclick="startAiProcess(false)" id="btn-start-full" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 transition">
+              <button onclick="startAiProcess(false)" id="btn-start-full" class="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 transition">
                 <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Запустить ПОЛНУЮ генерацию всей колоды
               </button>
             </div>
@@ -493,10 +522,111 @@
     let activeUserFilter = null;
     let activeAssignDeckId = null;
     let activeRegenDeckId = null;
+    let activeDeckTargetLang = 'de';
     let regenInterval = null;
+
+    const ADMIN_VOICES_BY_LANG = {
+      de: [
+        { group: '🇩🇪 Германия', voices: [
+          { value: 'de-DE-KatjaNeural', label: 'Катя (♀️ Женский — по умолчанию)', default: true },
+          { value: 'de-DE-AmalaNeural', label: 'Амала (♀️ Женский)' },
+          { value: 'de-DE-SeraphinaMultilingualNeural', label: 'Серафина (♀️ Женский)' },
+          { value: 'de-DE-KillianNeural', label: 'Киллиан (♂️ Мужской)' },
+          { value: 'de-DE-ConradNeural', label: 'Конрад (♂️ Мужской)' },
+          { value: 'de-DE-FlorianMultilingualNeural', label: 'Флориан (♂️ Мужской)' },
+        ]},
+        { group: '🇦🇹 Австрия', voices: [
+          { value: 'de-AT-IngridNeural', label: 'Ингрид (♀️ Женский)' },
+          { value: 'de-AT-JonasNeural', label: 'Йонас (♂️ Мужской)' },
+        ]},
+        { group: '🇨🇭 Швейцария', voices: [
+          { value: 'de-CH-JanNeural', label: 'Ян (♂️ Мужской)' },
+          { value: 'de-CH-LeniNeural', label: 'Лени (♀️ Женский)' },
+        ]}
+      ],
+      en: [
+        { group: '🇺🇸 США', voices: [
+          { value: 'en-US-JennyNeural', label: 'Дженни (♀️ Женский — по умолчанию)', default: true },
+          { value: 'en-US-AriaNeural', label: 'Ария (♀️ Женский)' },
+          { value: 'en-US-AvaNeural', label: 'Ава (♀️ Женский)' },
+          { value: 'en-US-EmmaNeural', label: 'Эмма (♀️ Женский)' },
+          { value: 'en-US-GuyNeural', label: 'Гай (♂️ Мужской)' },
+          { value: 'en-US-BrianNeural', label: 'Брайан (♂️ Мужской)' },
+          { value: 'en-US-AndrewNeural', label: 'Эндрю (♂️ Мужской)' },
+        ]},
+        { group: '🇬🇧 Великобритания', voices: [
+          { value: 'en-GB-SoniaNeural', label: 'Соня (♀️ Женский)' },
+          { value: 'en-GB-MaisieNeural', label: 'Мэйзи (♀️ Женский)' },
+          { value: 'en-GB-RyanNeural', label: 'Райан (♂️ Мужской)' },
+          { value: 'en-GB-ThomasNeural', label: 'Томас (♂️ Мужской)' },
+        ]}
+      ],
+      no: [
+        { group: '🇳🇴 Норвегия (Bokmål)', voices: [
+          { value: 'nb-NO-FinnNeural', label: 'Финн (♂️ Мужской — по умолчанию)', default: true },
+          { value: 'nb-NO-PernilleNeural', label: 'Пернилле (♀️ Женский)' },
+          { value: 'nb-NO-IselinNeural', label: 'Иселин (♀️ Женский)' },
+        ]}
+      ],
+      uk: [
+        { group: '🇺🇦 Украина', voices: [
+          { value: 'uk-UA-PolinaNeural', label: 'Поліна (♀️ Жіночий — за замовчуванням)', default: true },
+          { value: 'uk-UA-OstapNeural', label: 'Остап (♂️ Чоловічий)' },
+        ]}
+      ],
+      ru: [
+        { group: '🇷🇺 Россия', voices: [
+          { value: 'ru-RU-SvetlanaNeural', label: 'Светлана (♀️ Женский — по умолчанию)', default: true },
+          { value: 'ru-RU-DmitryNeural', label: 'Дмитрий (♂️ Мужской)' },
+        ]}
+      ]
+    };
+
+    function renderVoiceOptions(targetLang = 'de', currentVoiceToKeep = null) {
+      const select = document.getElementById('regen-voice-select');
+      if (!select) return;
+
+      const langCode = (targetLang || 'de').toLowerCase().trim();
+      const groups = ADMIN_VOICES_BY_LANG[langCode] || ADMIN_VOICES_BY_LANG['de'];
+
+      const prevValue = currentVoiceToKeep || select.value;
+      select.innerHTML = '';
+
+      let defaultVoice = null;
+      let hasPrevValue = false;
+
+      groups.forEach(g => {
+        const optGroup = document.createElement('optgroup');
+        optGroup.label = g.group;
+        g.voices.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.value;
+          opt.textContent = `${v.value} (${v.label})`;
+          if (v.default) defaultVoice = v.value;
+          if (v.value === prevValue) hasPrevValue = true;
+          optGroup.appendChild(opt);
+        });
+        select.appendChild(optGroup);
+      });
+
+      if (hasPrevValue && prevValue) {
+        select.value = prevValue;
+      } else if (defaultVoice) {
+        select.value = defaultVoice;
+      }
+    }
+
+    function onRateSelectChange() {
+      const select = document.getElementById('regen-rate-select');
+      const badge = document.getElementById('regen-rate-badge');
+      if (select && badge) {
+        badge.innerText = select.value;
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
+      renderVoiceOptions('de');
       loadUsers();
       loadDecks();
       startDecksAutoRefresh();
@@ -681,6 +811,9 @@
               <button onclick="openRegenModal('${d.id}', '${safeName}')" class="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-medium rounded-lg border border-purple-500/20">
                 ✨ ИИ
               </button>
+              <button onclick="openRegenModal('${d.id}', '${safeName}', 'audio')" title="🎙️ Озвучить колоду" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-medium rounded-lg border border-emerald-500/20">
+                🎙️ Озвучка
+              </button>
               <button onclick="deleteDeck('${d.id}')" title="Удалить колоду" class="px-2 py-1 text-rose-400 hover:bg-rose-500/10 rounded-lg text-xs">
                 <i data-lucide="trash-2" class="w-4 h-4 inline"></i>
               </button>
@@ -844,17 +977,18 @@
 
     let promptsData = [];
 
-    async function loadPrompts(langOverride = null) {
+    async function loadPrompts(langOverride = null, targetLangOverride = null) {
       const nativeLang = langOverride || document.getElementById('regen-native-lang-select').value || 'uk';
+      const targetLang = targetLangOverride || activeDeckTargetLang || 'de';
       try {
-        const res = await fetch(`/api/admin/prompts?native_lang=${encodeURIComponent(nativeLang)}`);
+        const res = await fetch(`/api/admin/prompts?native_lang=${encodeURIComponent(nativeLang)}&target_lang=${encodeURIComponent(targetLang)}`);
         const data = await res.json();
         promptsData = data.prompts || [];
         
         const select = document.getElementById('regen-prompt-select');
         select.innerHTML = '';
         promptsData.forEach(p => {
-          select.innerHTML += `<option value="${p.id}" ${p.is_default ? 'selected' : ''}>${p.name}</option>`;
+          select.innerHTML += `<option value="${p.id}" data-target-lang="${p.target_lang || targetLang}" ${p.is_default ? 'selected' : ''}>${p.name}</option>`;
         });
         onPromptSelectChange();
       } catch (err) {
@@ -864,7 +998,7 @@
 
     function onNativeLangChange() {
       const selectedLang = document.getElementById('regen-native-lang-select').value;
-      loadPrompts(selectedLang);
+      loadPrompts(selectedLang, activeDeckTargetLang);
     }
 
     function onPromptSelectChange() {
@@ -877,6 +1011,10 @@
       if (found) {
         if (descEl) descEl.innerText = found.description || '';
         if (fulltextEl) fulltextEl.innerText = found.instruction || 'Инструкция по умолчанию';
+
+        // Filter and group voices by prompt target language
+        const promptTargetLang = found.target_lang || activeDeckTargetLang || 'de';
+        renderVoiceOptions(promptTargetLang);
       }
     }
 
@@ -895,6 +1033,77 @@
 
 
     let currentDeckCards = [];
+    let currentPlayingAudio = null;
+    let currentPreviewAudio = null;
+
+    function playAudioFile(audioPath, event) {
+      if (event) event.stopPropagation();
+      if (!audioPath) return;
+      if (currentPlayingAudio) {
+        currentPlayingAudio.pause();
+        currentPlayingAudio = null;
+      }
+      const url = audioPath.startsWith('http') ? audioPath : `/api/media/audio/${encodeURIComponent(audioPath)}`;
+      currentPlayingAudio = new Audio(url);
+      currentPlayingAudio.play().catch(e => {
+        console.error("Audio play error", e);
+      });
+    }
+
+    async function playVoicePreview() {
+      const voiceSelect = document.getElementById('regen-voice-select');
+      const voice = voiceSelect ? voiceSelect.value : 'de-DE-KatjaNeural';
+      const rateSelect = document.getElementById('regen-rate-select');
+      const rate = rateSelect ? rateSelect.value : '+0%';
+      const btn = document.getElementById('btn-voice-preview');
+      
+      if (currentPreviewAudio) {
+        currentPreviewAudio.pause();
+        currentPreviewAudio = null;
+      }
+
+      if (btn) {
+        btn.innerHTML = `<span class="animate-spin inline-block text-xs">⏳</span> <span>Синтез...</span>`;
+        btn.disabled = true;
+      }
+
+      try {
+        const url = `/api/admin/voice-preview?voice=${encodeURIComponent(voice)}&rate=${encodeURIComponent(rate)}&t=${Date.now()}`;
+        currentPreviewAudio = new Audio(url);
+        currentPreviewAudio.onplaying = () => {
+          if (btn) {
+            btn.innerHTML = `<span class="text-emerald-300 animate-pulse">🔊 Играет (${rate})...</span>`;
+          }
+        };
+        currentPreviewAudio.onended = () => {
+          if (btn) {
+            btn.innerHTML = `<i data-lucide="volume-2" class="w-3.5 h-3.5 text-amber-400"></i> <span>🔊 Превью</span>`;
+            btn.disabled = false;
+            lucide.createIcons();
+          }
+          currentPreviewAudio = null;
+        };
+        currentPreviewAudio.onerror = (e) => {
+          console.error("Voice preview error", e);
+          alert("Ошибка воспроизведения превью голоса");
+          if (btn) {
+            btn.innerHTML = `<i data-lucide="volume-2" class="w-3.5 h-3.5 text-amber-400"></i> <span>🔊 Превью</span>`;
+            btn.disabled = false;
+            lucide.createIcons();
+          }
+          currentPreviewAudio = null;
+        };
+        await currentPreviewAudio.play();
+      } catch (err) {
+        console.error("Voice preview error", err);
+        alert("Не удалось загрузить превью голоса: " + err);
+        if (btn) {
+          btn.innerHTML = `<i data-lucide="volume-2" class="w-3.5 h-3.5 text-amber-400"></i> <span>🔊 Превью</span>`;
+          btn.disabled = false;
+          lucide.createIcons();
+        }
+      }
+    }
 
     async function loadDeckCardsForSelector(deckId) {
       const countEl = document.getElementById('deck-cards-selector-count');
@@ -910,17 +1119,30 @@
 
         listEl.innerHTML = '';
         currentDeckCards.forEach(c => {
+          const safeAudio = (c.audio_path || '').replace(/'/g, "\\'");
+          const audioBadge = c.has_audio 
+            ? `<button type="button" onclick="playAudioFile('${safeAudio}', event)" title="Воспроизвести озвучку" class="px-1.5 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold rounded text-[10px] flex items-center gap-1 transition">
+                 <i data-lucide="volume-2" class="w-3 h-3"></i> Аудио
+               </button>` 
+            : `<span class="px-1.5 py-0.5 bg-amber-500/10 text-amber-400/80 rounded text-[10px]">⚠️ Без аудио</span>`;
+
           listEl.innerHTML += `
             <label class="flex items-start gap-2.5 p-1.5 hover:bg-slate-900 rounded cursor-pointer border border-transparent hover:border-slate-800">
               <input type="checkbox" class="card-select-checkbox w-3.5 h-3.5 mt-0.5 text-indigo-600 rounded" value="${c.id}" checked>
-              <div class="flex-1 min-w-0">
-                <span class="text-indigo-400 font-bold">#${c.position}</span>
-                <span class="text-white font-medium ml-1">${c.front || '(пусто)'}</span>
-                ${c.back ? `<span class="text-slate-400 text-[11px] ml-1.5">— ${c.back}</span>` : ''}
+              <div class="flex-1 min-w-0 flex items-center justify-between gap-2">
+                <div class="truncate">
+                  <span class="text-indigo-400 font-bold">#${c.position}</span>
+                  <span class="text-white font-medium ml-1">${c.front || '(пусто)'}</span>
+                  ${c.back ? `<span class="text-slate-400 text-[11px] ml-1.5">— ${c.back}</span>` : ''}
+                </div>
+                <div class="shrink-0">
+                  ${audioBadge}
+                </div>
               </div>
             </label>
           `;
         });
+        lucide.createIcons();
       } catch (e) {
         console.error("Failed to load deck cards", e);
         listEl.innerHTML = '<div class="text-rose-400 text-center py-2">Ошибка загрузки карточек</div>';
@@ -943,14 +1165,18 @@
       document.querySelectorAll('.card-select-checkbox').forEach(cb => cb.checked = checked);
     }
 
-    function openRegenModal(deckId, deckName) {
+    function openRegenModal(deckId, deckName, initialMode = 'ai') {
       activeRegenDeckId = deckId;
       switchTab('ai');
 
       const deck = decksData.find(d => String(d.id) === String(deckId));
       const title = deck ? deck.name : deckName || '#' + deckId;
-      document.getElementById('ai-active-deck-title').innerText = `✨ ИИ Студия: ${title}`;
-      document.getElementById('ai-active-deck-subtitle').innerText = `ID колоды: #${deckId} • Язык: ${(deck ? deck.target_language : 'de').toUpperCase()}`;
+      activeDeckTargetLang = (deck && deck.target_language) ? deck.target_language : 'de';
+
+      document.getElementById('ai-active-deck-title').innerText = initialMode === 'audio' 
+        ? `🎙️ Озвучивание колоды: ${title}` 
+        : `✨ ИИ Студия: ${title}`;
+      document.getElementById('ai-active-deck-subtitle').innerText = `ID колоды: #${deckId} • Язык: ${activeDeckTargetLang.toUpperCase()}`;
 
       // Reset studio progress and previews
       document.getElementById('ai-progress-bar').style.width = '0%';
@@ -958,9 +1184,12 @@
       document.getElementById('ai-active-status-text').innerText = 'Статус: Готов к запуску';
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('dryrun-cards-grid').innerHTML = '';
-      document.getElementById('ai-logs-container').innerHTML = '<div class="text-slate-500">Готов к запуску. Выберите режим "Тест" или "Полная генерация".</div>';
+      document.getElementById('ai-logs-container').innerHTML = initialMode === 'audio'
+        ? '<div class="text-emerald-400">Готов к генерации озвучки. Выберите голос, скорость и нажмите "Перегенерировать ТОЛЬКО озвучку".</div>'
+        : '<div class="text-slate-500">Готов к запуску. Выберите режим "Тест", "Озвучка" или "Полная генерация".</div>';
 
-      loadPrompts();
+      renderVoiceOptions(activeDeckTargetLang);
+      loadPrompts(null, activeDeckTargetLang);
       loadDeckCardsForSelector(deckId);
     }
 
@@ -969,6 +1198,56 @@
       renderDecksTable(libraryDecks, true);
       document.getElementById('user-filter-name').innerText = `⭐ Колоды Библиотеки (${libraryDecks.length})`;
       document.getElementById('user-filter-banner').classList.remove('hidden');
+    }
+
+    async function startAudioOnlyProcess() {
+      if (!activeRegenDeckId) {
+        alert("Сначала выберите колоду в списке 'Все колоды'!");
+        switchTab('decks');
+        return;
+      }
+
+      const uncheckedBoxes = document.querySelectorAll('.card-select-checkbox:not(:checked)');
+      const excludedCardIds = Array.from(uncheckedBoxes).map(cb => parseInt(cb.value, 10));
+      const onlyMissing = document.getElementById('regen-only-missing-audio') ? document.getElementById('regen-only-missing-audio').checked : false;
+      const selectedVoice = document.getElementById('regen-voice-select').value || 'de-DE-KatjaNeural';
+      const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
+
+      const options = {
+        voice: selectedVoice,
+        rate: selectedRate,
+        only_missing_audio: onlyMissing,
+        sync_copies: document.getElementById('regen-sync-copies').checked,
+        exclude_card_ids: excludedCardIds,
+        exclude_range_str: document.getElementById('regen-exclude-range').value.trim() || null
+      };
+
+      const deck = decksData.find(d => String(d.id) === String(activeRegenDeckId));
+      const deckTitle = deck ? deck.name : '#' + activeRegenDeckId;
+      const modeDesc = onlyMissing ? 'для карточек БЕЗ озвучки' : 'для ВСЕХ выбранных карточек';
+
+      if (!confirm(`Запустить перегенерацию ТОЛЬКО озвучки ${modeDesc}?\nКолода: "${deckTitle}"\nГолос: ${selectedVoice}\nСкорость: ${selectedRate}\n\nТексты, переводы и контексты затронуты НЕ будут.`)) {
+        return;
+      }
+
+      // Reset progress and previews
+      document.getElementById('dryrun-preview-section').classList.add('hidden');
+      document.getElementById('ai-progress-bar').style.width = '0%';
+      document.getElementById('ai-percent-badge').innerText = '0%';
+      document.getElementById('ai-active-status-text').innerText = 'Запуск озвучивания...';
+      document.getElementById('ai-logs-container').innerHTML = `<div class="text-emerald-400">🎙️ Инициализация генерации озвучки (голос: ${selectedVoice}, скорость: ${selectedRate})...</div>`;
+
+      try {
+        const res = await fetch(`/api/admin/decks/${activeRegenDeckId}/regenerate-audio`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(options)
+        });
+        const data = await res.json();
+        startPollRegenStatus(activeRegenDeckId);
+      } catch (err) {
+        alert("Ошибка при запуске перегенерации озвучки: " + err);
+      }
     }
 
     async function startAiProcess(isDryRun) {
@@ -980,6 +1259,8 @@
 
       const uncheckedBoxes = document.querySelectorAll('.card-select-checkbox:not(:checked)');
       const excludedCardIds = Array.from(uncheckedBoxes).map(cb => parseInt(cb.value, 10));
+      const selectedVoice = document.getElementById('regen-voice-select').value || 'de-DE-KatjaNeural';
+      const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
 
       const options = {
         dry_run: isDryRun,
@@ -987,9 +1268,11 @@
         only_no_context: document.getElementById('regen-only-no-context').checked,
         no_audio: document.getElementById('regen-no-audio').checked,
         sync_copies: document.getElementById('regen-sync-copies').checked,
-        voice: document.getElementById('regen-voice-select').value || 'de-DE-KatjaNeural',
+        voice: selectedVoice,
+        rate: selectedRate,
         prompt_id: document.getElementById('regen-prompt-select').value || 'preset_b1',
         native_lang: document.getElementById('regen-native-lang-select').value || 'uk',
+        target_lang: activeDeckTargetLang || 'de',
         exclude_card_ids: excludedCardIds,
         exclude_range_str: document.getElementById('regen-exclude-range').value.trim() || null
       };

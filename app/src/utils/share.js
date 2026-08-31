@@ -6,7 +6,7 @@
  */
 export const getPublicShareUrl = (shareId) => {
   if (!shareId) return 'https://t.me/LerneDeutsch287_bot';
-  return `https://t.me/LerneDeutsch287_bot?startapp=${shareId}`;
+  return `https://t.me/LerneDeutsch287_bot?start=${shareId}`;
 };
 
 /**

@@ -1,15 +1,15 @@
 export const getTextShadow = (effect, color) => {
   switch (effect) {
     case 'shadow':
-      return '0 2px 4px rgba(0,0,0,0.5)';
+      return '0 0.08em 0.16em rgba(0,0,0,0.5)';
     case 'glow':
-      return `0 0 10px ${color}aa, 0 2px 4px rgba(0,0,0,0.5)`;
+      return `0 0 0.22em ${color}aa, 0 0.06em 0.12em rgba(0,0,0,0.5)`;
     case 'neon':
-      return `0 0 5px #fff, 0 0 10px ${color}, 0 0 20px ${color}, 0 2px 4px rgba(0,0,0,0.5)`;
+      return `0 0 0.12em #fff, 0 0 0.25em ${color}, 0 0 0.45em ${color}, 0 0.06em 0.12em rgba(0,0,0,0.5)`;
     case 'outline':
-      return `-1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.3)`;
+      return `-1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8), 0 0.06em 0.12em rgba(0,0,0,0.3)`;
     case 'glass':
-      return `0 0 15px rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.2)`;
+      return `0 0 0.35em rgba(255,255,255,0.3), 0 0.06em 0.12em rgba(0,0,0,0.2)`;
     case 'none':
     default:
       return 'none';
@@ -19,11 +19,11 @@ export const getTextShadow = (effect, color) => {
 export const getContextShadow = (effect, color) => {
   switch (effect) {
     case 'shadow':
-      return '0 1px 2px rgba(0,0,0,0.3)';
+      return '0 0.06em 0.12em rgba(0,0,0,0.3)';
     case 'glow':
-      return `0 0 8px ${color}88, 0 1px 2px rgba(0,0,0,0.3)`;
+      return `0 0 0.18em ${color}88, 0 0.05em 0.1em rgba(0,0,0,0.3)`;
     case 'neon':
-      return `0 0 4px #fff, 0 0 8px ${color}, 0 0 12px ${color}`;
+      return `0 0 0.1em #fff, 0 0 0.2em ${color}, 0 0 0.35em ${color}`;
     case 'outline':
       return `-0.5px -0.5px 0 rgba(0,0,0,0.6), 0.5px -0.5px 0 rgba(0,0,0,0.6), -0.5px 0.5px 0 rgba(0,0,0,0.6), 0.5px 0.5px 0 rgba(0,0,0,0.6)`;
     case 'none':

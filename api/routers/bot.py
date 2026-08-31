@@ -1,9 +1,12 @@
 import os
 import logging
 import datetime
-from fastapi import APIRouter, Request, Header
+from fastapi import APIRouter, Request, Header, Depends, HTTPException
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application
+
+from api.dependencies.auth import get_user_id
+from api import services
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -122,36 +125,75 @@ async def start_handler(update: Update, context):
 
         if args and (args[0].startswith("c_") or args[0].startswith("d_") or args[0].startswith("f_") or args[0].startswith("collab_")):
             share_id = args[0]
-            if share_id.startswith("d_"):
-                item_type = "колоду"
-            elif share_id.startswith("f_"):
-                item_type = "папку с колодами"
-            elif share_id.startswith("c_"):
-                item_type = "карточку"
-            else:
-                item_type = "материалы для совместного изучения"
+            clean_id = share_id.replace("collab_", "").strip()
+            item_desc = "материалы"
+            try:
+                from api.models import TMA_Deck, TMAFolder, TMA_Card
+                from api.services.reminder_service import plural_cards
+
+                if clean_id.startswith("d_"):
+                    # 1. Поиск по share_id (например, d_a1b2c3d4e5f6)
+                    d = TMA_Deck.get_or_none((TMA_Deck.share_id == clean_id) & (TMA_Deck.is_deleted == False))
+                    # 2. Если не найдено, проверка числового id (d_36)
+                    if not d:
+                        num_part = clean_id.replace("d_", "")
+                        if num_part.isdigit():
+                            d = TMA_Deck.get_or_none((TMA_Deck.id == int(num_part)) & (TMA_Deck.is_deleted == False))
+                    
+                    if d:
+                        total_c = TMA_Card.select().where((TMA_Card.deck_id == d.id) & (TMA_Card.is_deleted == False)).count()
+                        c_info = f" ({plural_cards(total_c)})" if total_c > 0 else ""
+                        item_desc = f"колоду «<b>{html.escape(d.name)}</b>»{c_info}"
+                    else:
+                        item_desc = "колоду"
+
+                elif clean_id.startswith("f_"):
+                    f = TMAFolder.get_or_none((TMAFolder.share_id == clean_id) & (TMAFolder.is_deleted == False))
+                    if not f:
+                        num_part = clean_id.replace("f_", "")
+                        if num_part.isdigit():
+                            f = TMAFolder.get_or_none((TMAFolder.id == int(num_part)) & (TMAFolder.is_deleted == False))
+                    
+                    if f:
+                        item_desc = f"папку «<b>{html.escape(f.name)}</b>»"
+                    else:
+                        item_desc = "папку с колодами"
+
+                elif clean_id.startswith("c_"):
+                    c = TMA_Card.get_or_none((TMA_Card.share_id == clean_id) & (TMA_Card.is_deleted == False))
+                    if not c:
+                        num_part = clean_id.replace("c_", "")
+                        if num_part.isdigit():
+                            c = TMA_Card.get_or_none((TMA_Card.id == int(num_part)) & (TMA_Card.is_deleted == False))
+                    
+                    if c:
+                        card_preview = c.front_text[:30] + ("..." if len(c.front_text) > 30 else "")
+                        item_desc = f"карточку «<b>{html.escape(card_preview)}</b>»"
+                    else:
+                        item_desc = "карточку"
+            except Exception as e:
+                logger.error(f"Error resolving share details for {share_id}: {e}", exc_info=True)
 
             text = (
-                f"💌 <b>Вам отправили {item_type}!</b>\n\n"
-                f"Привет, {first_name}!\n"
-                f"Нажми кнопку ниже, чтобы открыть Lerne и добавить {item_type} себе 👇"
+                f"💌 <b>Здравствуйте, {first_name}!</b>\n\n"
+                f"Вам отправили {item_desc}.\n\n"
+                "Нажмите кнопку ниже, чтобы открыть её и начать учить! 👇"
             )
-            custom_url = f"{TMA_URL}?tgWebAppStartParam={share_id}"
+            browser_url = f"{TMA_URL}/?user_id={user.id}&tgWebAppStartParam={share_id}"
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🚀 Открыть и добавить", web_app=WebAppInfo(url=custom_url))],
-                [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}/?user_id={user.id}&tgWebAppStartParam={share_id}")]
+                [InlineKeyboardButton("🚀 Открыть колоду", url=browser_url)],
+                [InlineKeyboardButton("📢 Наш Telegram-канал", url=f"https://t.me/{RAW_CHANNEL}")]
             ])
             await safe_send_reply(update, text, reply_markup=keyboard)
             return
 
         text = (
-            f"🌟 <b>Привет, {first_name}! Добро пожаловать в Lerne App!</b>\n\n"
+            f"🌟 <b>Здравствуйте, {first_name}! Добро пожаловать в Lerne!</b>\n\n"
             "Это пространство для эффективного изучения немецкого языка с помощью ИИ. 🇩🇪\n\n"
-            "Нажми кнопку ниже, чтобы начать обучение! 👇"
+            "Нажмите кнопку ниже, чтобы начать обучение в браузере! 👇"
         )
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚀 Учить в Telegram", web_app=WebAppInfo(url=TMA_URL))],
-            [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}/?user_id={user.id}")],
+            [InlineKeyboardButton("🚀 Начать учить в браузере", url=f"{TMA_URL}/?user_id={user.id}")],
             [InlineKeyboardButton("📢 Наш Telegram-канал", url=f"https://t.me/{RAW_CHANNEL}")]
         ])
         
@@ -174,7 +216,7 @@ async def callback_handler(update: Update, context):
                 await query.edit_message_text(
                     "✅ <b>Добро пожаловать!</b>\n\nТебе доступен полный функционал приложения. Удачи в обучении! 🚀",
                     reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🚀 Учить с помощью Lerne TMA", web_app=WebAppInfo(url=TMA_URL))]
+                        [InlineKeyboardButton("🚀 Начать учить в браузере", url=f"{TMA_URL}/?user_id={user.id}")]
                     ]),
                     parse_mode="HTML"
                 )
@@ -242,3 +284,23 @@ async def bot_setup(request: Request):
         "success": success,
         "db_status": db_status
     }
+
+@router.post("/bot/test-reminder")
+async def test_bot_reminder(user_id: int = Depends(get_user_id)):
+    """Отправляет тестовое напоминание текущему пользователю."""
+    if not ptb_app:
+        raise HTTPException(status_code=503, detail="Бот не настроен (BOT_TOKEN отсутствует)")
+    
+    result = await services.send_reminder_to_user(ptb_app, user_id, force=True)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=500, detail=result.get("message", "Не удалось отправить сообщение в Telegram"))
+    return result
+
+@router.get("/bot/cron-reminders")
+@router.post("/bot/cron-reminders")
+async def trigger_cron_reminders():
+    """Эндпоинт для запуска крона рассылки напоминаний."""
+    if not ptb_app:
+        return {"status": "skipped", "message": "Bot not configured"}
+    return await services.check_and_send_all_reminders(ptb_app)
+

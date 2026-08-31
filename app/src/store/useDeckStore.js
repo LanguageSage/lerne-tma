@@ -275,6 +275,50 @@ export const useDeckStore = create((set, get) => ({
       throw err;
     }
   },
+
+  toggleDeckLearning: async (deckId, explicitStatus = null) => {
+    const { decks, currentDeck } = get();
+    const targetDeck = decks.find(d => d.id === deckId);
+    if (!targetDeck) return;
+    
+    const nextStatus = explicitStatus !== null ? explicitStatus : !targetDeck.is_learning;
+    
+    // Optimistic update
+    const updatedDecks = decks.map(d => {
+      if (d.id === deckId) {
+        return {
+          ...d,
+          is_learning: nextStatus,
+          metadata: { ...(d.metadata || {}), is_learning: nextStatus }
+        };
+      }
+      return d;
+    });
+    
+    set({ decks: updatedDecks });
+    saveToInitCache({ decks: updatedDecks });
+    
+    if (currentDeck && currentDeck.id === deckId) {
+      set({ 
+        currentDeck: { 
+          ...currentDeck, 
+          is_learning: nextStatus,
+          metadata: { ...(currentDeck.metadata || {}), is_learning: nextStatus }
+        } 
+      });
+    }
+
+    try {
+      await api.post(`/decks/${deckId}/toggle-learning`, { is_learning: nextStatus });
+    } catch (err) {
+      console.error('Toggle Deck Learning Error:', err);
+      // Revert on failure
+      const revertedDecks = get().decks.map(d => d.id === deckId ? targetDeck : d);
+      set({ decks: revertedDecks });
+      saveToInitCache({ decks: revertedDecks });
+      throw err;
+    }
+  },
   
   updateDeckMetadata: async (deckId, metadata) => {
     try {
@@ -308,22 +352,27 @@ export const useDeckStore = create((set, get) => ({
     }
   },
 
-  importDeck: async (deckId, mode = 'merge') => {
+  importDeck: async (deckId, mode = 'merge', forceTrash = false) => {
     try {
-      await api.post(`/decks/external/import/${deckId}?mode=${mode}`);
+      const res = await api.post(`/decks/external/import/${deckId}?mode=${mode}&force_trash=${forceTrash}`);
+      if (res.data?.status === 'in_trash') {
+        return res.data;
+      }
       const { fetchDecks } = get();
       await fetchDecks(true);
+      return res.data;
     } catch (err) {
       console.error('Import Deck Error:', err);
       throw err;
     }
   },
 
-  importDecksBatch: async (deckIds, mode = 'merge') => {
+  importDecksBatch: async (deckIds, mode = 'merge', forceTrash = false) => {
     try {
-      await api.post('/decks/external/import-batch', { deck_ids: deckIds, mode });
+      const res = await api.post('/decks/external/import-batch', { deck_ids: deckIds, mode, force_trash: forceTrash });
       const { fetchDecks } = get();
       await fetchDecks(true);
+      return res.data;
     } catch (err) {
       console.error('Import Decks Batch Error:', err);
       throw err;
@@ -385,7 +434,7 @@ export const useDeckStore = create((set, get) => ({
         const deckName = deck?.name || 'Колода';
         const cardCount = deck?.stats?.total || deck?.cards_count || '';
         const level = deck?.level ? ` • ${deck.level}` : '';
-        const text = `📚 Колода: «${deckName}»${cardCount ? ` (${cardCount} карточек${level})` : ''}\nУчи немецкий в приложении Lerne:`;
+        const text = `🇩🇪 Делюсь с тобой колодой «${deckName}»${cardCount ? ` (${cardCount} карточек${level})` : ''} в Lerne.\nНажми ссылку и кнопку «Старт», чтобы открыть её в браузере:`;
 
         return await executeShare({
           title: `Колода «${deckName}» в Lerne`,
@@ -418,7 +467,7 @@ export const useDeckStore = create((set, get) => ({
         const link = getPublicShareUrl(res.data.share_id);
         const folder = useDeckStore.getState().folders.find(f => f.id === targetId || f.id === folderId);
         const folderName = folder?.name || 'Папка';
-        const text = `📁 Папка: «${folderName}»\nУчи немецкий в приложении Lerne:`;
+        const text = `🇩🇪 Делюсь с тобой папкой «${folderName}» в Lerne.\nНажми ссылку и кнопку «Старт», чтобы открыть её в браузере:`;
 
         return await executeShare({
           title: `Папка «${folderName}» в Lerne`,

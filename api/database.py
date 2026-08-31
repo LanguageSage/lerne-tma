@@ -103,7 +103,7 @@ def _create_pool():
 
     for driver_name, factory in [
         ("psycopg2_pool", lambda: AutoReconnectPostgresqlDatabase(
-            max_connections=8, stale_timeout=300, autorollback=True, **db_params)),
+            max_connections=32, stale_timeout=300, autorollback=True, **db_params)),
         ("db_url", lambda: db_url_connect(url)) if db_url_connect else None,
         ("pg8000", lambda: Pg8000Database(
             database=db_params['database'],

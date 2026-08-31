@@ -11,6 +11,7 @@ import { FolderCardItem } from './FolderTreeNav';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 import { SearchBar } from '../common/SearchBar';
+import { LearningShortcutsBar } from './LearningShortcutsBar';
 import { matchFolder, matchDeck } from '../../utils/search';
 
 export const DeckGrid = ({ 
@@ -37,6 +38,8 @@ export const DeckGrid = ({
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
   const langInfo = useLanguageStore(state => state.getLanguageInfo());
 
+  const [deckFilter, setDeckFilter] = useState('all'); // 'all' | 'learning'
+
   const { collaborators, onlineCount, isShared } = useCollaborativePresence('folder', activeFolderId, view === 'decks' && activeFolderId !== null);
 
   const currentFolders = React.useMemo(() => {
@@ -55,15 +58,28 @@ export const DeckGrid = ({
     }) : [];
   }, [decks, activeFolderId, activeLanguage]);
 
+  const allActiveLearningDecks = React.useMemo(() => {
+    if (!decks) return [];
+    return decks.filter(d => (d.target_language || 'de') === activeLanguage && Boolean(d.is_learning) && !d.is_inbox && !d.is_deleted);
+  }, [decks, activeLanguage]);
+
+  const learningCount = React.useMemo(() => {
+    return currentDecks.filter(d => Boolean(d.is_learning)).length;
+  }, [currentDecks]);
+
   const filteredFolders = React.useMemo(() => {
     if (!deckSearchQuery.trim()) return currentFolders;
     return currentFolders.filter(f => matchFolder(f, deckSearchQuery));
   }, [currentFolders, deckSearchQuery]);
 
   const filteredDecks = React.useMemo(() => {
-    if (!deckSearchQuery.trim()) return currentDecks;
-    return currentDecks.filter(d => matchDeck(d, deckSearchQuery));
-  }, [currentDecks, deckSearchQuery]);
+    let list = currentDecks;
+    if (deckFilter === 'learning') {
+      list = list.filter(d => Boolean(d.is_learning));
+    }
+    if (!deckSearchQuery.trim()) return list;
+    return list.filter(d => matchDeck(d, deckSearchQuery));
+  }, [currentDecks, deckFilter, deckSearchQuery]);
 
   if (view !== 'decks') return null;
 
@@ -175,6 +191,36 @@ export const DeckGrid = ({
         {activeFolderId !== null && isShared && (
           <div style={{ marginBottom: '6px' }}>
             <CollaboratorPresenceBar collaborators={collaborators} onlineCount={onlineCount} isShared={isShared} />
+          </div>
+        )}
+
+        {/* Pulsing shortcuts bar for actively studied decks */}
+        {activeFolderId === null && !deckSearchQuery.trim() && (
+          <LearningShortcutsBar
+            learningDecks={allActiveLearningDecks}
+            folders={folders}
+            setCurrentDeck={setCurrentDeck}
+            fetchDeckCards={fetchDeckCards}
+          />
+        )}
+
+        {/* Quick Filter Tabs: All vs Learning */}
+        {activeFolderId === null && currentDecks.length > 0 && !deckSearchQuery.trim() && (
+          <div className="deck-filter-tabs glass">
+            <button 
+              type="button"
+              className={`deck-filter-tab ${deckFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setDeckFilter('all')}
+            >
+              <span>Все ({currentDecks.length})</span>
+            </button>
+            <button 
+              type="button"
+              className={`deck-filter-tab ${deckFilter === 'learning' ? 'active' : ''}`}
+              onClick={() => setDeckFilter('learning')}
+            >
+              <span>🎯 Учу ({learningCount})</span>
+            </button>
           </div>
         )}
 

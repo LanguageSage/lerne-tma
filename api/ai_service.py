@@ -171,14 +171,14 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             (TMACustomPrompt.user_id == user_id) & 
             (TMACustomPrompt.is_active == True) &
             (TMACustomPrompt.prompt_type == target_ptype) &
-            ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
+            ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
         )
         
         if not custom_prompt:
             custom_prompt = TMACustomPrompt.get_or_none(
                 (TMACustomPrompt.user_id == user_id) & 
                 (TMACustomPrompt.is_active == True) &
-                ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
+                ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
             )
         
         is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in clean_phrase)
@@ -336,8 +336,9 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
         custom_prompt = TMACustomPrompt.get_or_none(
             (TMACustomPrompt.user_id == user_id) & 
             (TMACustomPrompt.is_active == True) &
-            ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null()))
+            ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
         )
+        is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "📝", "Уровень", "Рівень", "Level", "preset"])
 
         from api.services.input_parser import parse_ai_batch_json_response
 
@@ -348,7 +349,7 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
 
             chunk_text = "\n".join(f"{idx+1}. {phrase}" for idx, phrase in enumerate(chunk))
 
-            if custom_prompt and custom_prompt.translation_prompt:
+            if custom_prompt and not is_system_preset and custom_prompt.translation_prompt:
                 custom_instructions = custom_prompt.translation_prompt
                 batch_prompt = (
                     f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"

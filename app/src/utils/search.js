@@ -71,7 +71,7 @@ export const matchDeck = (deck, query) => {
   if (!query || !query.trim()) return true;
   if (!deck) return false;
 
-  const fields = [deck.name, deck.description];
+  const fields = [deck.name, deck.description, deck.topic, deck.level];
   return fields.some(field => matchesSearchQuery(field, query));
 };
 

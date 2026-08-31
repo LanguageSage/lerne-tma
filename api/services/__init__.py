@@ -4,4 +4,6 @@ from .study import *
 from .media import *
 from .utils import *
 from .folders import *
+from .reminder_service import *
 from . import trash
+

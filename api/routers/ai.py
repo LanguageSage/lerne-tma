@@ -67,10 +67,18 @@ class EnrichBatchRequest(BaseModel):
 @router.post("/ai/enrich-batch")
 @router.post("/cards/ai-enrich-batch")
 async def enrich_batch_cards(request: EnrichBatchRequest, user_id: int = Depends(get_user_id)):
+    target_lang = request.target_language
+    if request.deck_id and (not target_lang or target_lang == "de"):
+        target_deck_id = int(request.deck_id) if str(request.deck_id).isdigit() else None
+        if target_deck_id:
+            deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_deck_id)
+            if deck and deck.target_language:
+                target_lang = deck.target_language
+
     res = await ai_service.enrich_batch_quiz_fields(
         user_id=user_id,
         cards=request.cards,
-        target_language=request.target_language,
+        target_language=target_lang,
         native_language=request.native_language
     )
     if "error" in res:
@@ -112,10 +120,18 @@ async def generate_card(request: PhraseRequest, user_id: int = Depends(get_user_
 @router.post("/ai/generate-batch")
 @router.post("/cards/ai-generate-batch")
 async def generate_batch_cards(request: BatchRequest, user_id: int = Depends(get_user_id)):
+    target_lang = request.target_language
+    if request.deck_id and (not target_lang or target_lang == "de"):
+        target_deck_id = int(request.deck_id) if str(request.deck_id).isdigit() else None
+        if target_deck_id:
+            deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_deck_id)
+            if deck and deck.target_language:
+                target_lang = deck.target_language
+
     res = await ai_service.generate_batch_card_fields(
         user_id=user_id,
         text=request.text,
-        target_language=request.target_language,
+        target_language=target_lang,
         native_language=request.native_language
     )
     if "error" in res:
@@ -130,7 +146,7 @@ async def generate_batch_cards(request: BatchRequest, user_id: int = Depends(get
     if detect_level and "cards" in res and res["cards"]:
         phrases = [c.get("front") or c.get("front_text") or "" for c in res["cards"]]
         try:
-            levels = await ai_service.classify_phrases_batch(phrases, request.target_language or "de")
+            levels = await ai_service.classify_phrases_batch(phrases, target_lang or "de")
         except Exception as e:
             logger.warning(f"Pass 2 level classification error: {e}")
             levels = ["A1"] * len(res["cards"])

@@ -75,7 +75,7 @@ async def db_session_middleware(request, call_next):
         response = await call_next(request)
     except Exception as exc:
         exc_str = str(exc).lower()
-        if any(k in exc_str for k in ["closed", "terminated", "connection", "socket", "reset", "eof"]):
+        if any(k in exc_str for k in ["closed", "terminated", "connection", "socket", "reset", "eof", "exceeded maximum connections"]):
             logger.warning(f"DB connection reset due to error: {exc}. Retrying HTTP request...")
             try:
                 if hasattr(models.tma_db, 'obj') and models.tma_db.obj:
@@ -90,6 +90,20 @@ async def db_session_middleware(request, call_next):
                 raise retry_exc
         else:
             raise exc
+    finally:
+        # Crucial: Always release DB connections back to the pool after the HTTP request is finished
+        try:
+            if hasattr(models.tma_db, 'obj') and models.tma_db.obj is not None:
+                if not models.tma_db.is_closed():
+                    models.tma_db.close()
+        except Exception:
+            pass
+        try:
+            if hasattr(models.lerne_db, 'obj') and models.lerne_db.obj is not None:
+                if not models.lerne_db.is_closed():
+                    models.lerne_db.close()
+        except Exception:
+            pass
 
     if response:
         path = request.url.path

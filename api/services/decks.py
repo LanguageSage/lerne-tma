@@ -92,7 +92,7 @@ def create_deck(name: str, user_id: int, folder_id: int = None, target_language:
             elif role is None:
                 raise HTTPException(status_code=403, detail="Родительская папка не найдена или нет доступа")
 
-        meta_dict = {"resources": []}
+        meta_dict = {"resources": [], "is_learning": False}
         deck = TMA_Deck.create(
             user_id=user_id,
             name=name,
@@ -338,6 +338,7 @@ def get_active_decks(user_id: int, folder_map: dict = None):
                 "folder_id": deck_folder_id,
                 "has_updates": has_updates,
                 "metadata": parsed_metadata,
+                "is_learning": bool(parsed_metadata.get('is_learning', False)),
                 "is_shared": is_shared,
                 "role": role,
                 "is_owner": role == 'owner',
@@ -415,39 +416,94 @@ def get_library_categories():
         raise e
 
 
-def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_deck_id: int = None):
-    """Импортирует колоду из библиотеки. Поддерживает режимы: merge, replace, copy."""
+def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_deck_id: int = None, force_trash: bool = False):
+    """Импортирует колоду из библиотеки. Поддерживает режимы: merge, replace, copy.
+    Если колода уже находится в корзине и force_trash=False, возвращает {'status': 'in_trash', ...}."""
     try:
-        logger.info(f"IMPORT START: deck_id={external_deck_id}, user_id={user_id}, mode={mode}")
+        logger.info(f"IMPORT START: deck_id={external_deck_id}, user_id={user_id}, mode={mode}, force_trash={force_trash}")
         
         ext_deck = Deck.get_by_id(external_deck_id)
+        ext_target_lang = getattr(ext_deck, 'target_language', None) or 'de'
+
+        # Check if user has this deck in trash (soft-deleted)
+        if not local_deck_id and mode in ('merge', 'replace'):
+            deleted_deck = TMA_Deck.get_or_none(
+                (TMA_Deck.user_id == user_id) & 
+                (TMA_Deck.name == ext_deck.name) & 
+                (TMA_Deck.is_deleted == True)
+            )
+            active_deck = TMA_Deck.get_or_none(
+                (TMA_Deck.user_id == user_id) & 
+                (TMA_Deck.name == ext_deck.name) & 
+                (TMA_Deck.is_deleted == False)
+            )
+
+            if deleted_deck and not active_deck:
+                if not force_trash:
+                    logger.info(f"IMPORT DETECTED TRASH CONFLICT: user {user_id} has deleted deck '{ext_deck.name}' (id={deleted_deck.id})")
+                    return {
+                        "status": "in_trash",
+                        "name": ext_deck.name,
+                        "deck_name": ext_deck.name,
+                        "deck_id": external_deck_id,
+                        "trash_deck_id": deleted_deck.id
+                    }
+                else:
+                    logger.info(f"PURGING TRASH DECK {deleted_deck.id} for user {user_id} before re-importing")
+                    card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == deleted_deck.id)]
+                    if card_ids:
+                        TMAProgress.delete().where(TMAProgress.card_id << card_ids).execute()
+                        TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
+                    deleted_deck.delete_instance()
         
         if mode == 'copy':
             copy_name = f"{ext_deck.name} (v2)"
-            local_deck, _ = TMA_Deck.get_or_create(
+            local_deck, created = TMA_Deck.get_or_create(
                 user_id=user_id, 
                 name=copy_name,
                 defaults={
                     'level': getattr(ext_deck, 'level', ''),
                     'topic': getattr(ext_deck, 'topic', ''),
+                    'target_language': ext_target_lang,
                     'created_at': datetime.datetime.now(),
                     'updated_at': datetime.datetime.now()
                 }
             )
+            if not created and local_deck.is_deleted:
+                local_deck.is_deleted = False
+                local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
+                local_deck.updated_at = datetime.datetime.now()
+                local_deck.save()
+
             ph = '?' if 'sqlite' in str(type(getattr(tma_db, 'obj', None))).lower() else '%s'
             sql = f"""
                 INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
                 SELECT {ph}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported as copy"]'
-                FROM card WHERE deck_id = {ph}
+                FROM card WHERE deck_id = {ph} AND is_deleted = false
             """
             tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
+            _save_source_library_id(local_deck, external_deck_id)
             return local_deck
             
         elif mode == 'replace':
             if local_deck_id:
                 local_deck = TMA_Deck.get_by_id(local_deck_id)
             else:
-                local_deck, _ = TMA_Deck.get_or_create(user_id=user_id, name=ext_deck.name)
+                local_deck, _ = TMA_Deck.get_or_create(
+                    user_id=user_id, 
+                    name=ext_deck.name,
+                    defaults={
+                        'level': getattr(ext_deck, 'level', ''),
+                        'topic': getattr(ext_deck, 'topic', ''),
+                        'target_language': ext_target_lang,
+                        'created_at': datetime.datetime.now(),
+                        'updated_at': datetime.datetime.now()
+                    }
+                )
+            
+            if local_deck.is_deleted:
+                local_deck.is_deleted = False
+            local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
             
             # Delete old cards
             card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == local_deck.id)]
@@ -465,6 +521,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
             
             local_deck.updated_at = datetime.datetime.now()
+            _save_source_library_id(local_deck, external_deck_id)
             local_deck.save()
             return local_deck
             
@@ -472,22 +529,38 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             if local_deck_id:
                 local_deck = TMA_Deck.get_by_id(local_deck_id)
             else:
-                local_deck, _ = TMA_Deck.get_or_create(
+                local_deck, created = TMA_Deck.get_or_create(
                     user_id=user_id, 
                     name=ext_deck.name,
                     defaults={
                         'level': getattr(ext_deck, 'level', ''),
                         'topic': getattr(ext_deck, 'topic', ''),
+                        'target_language': ext_target_lang,
                         'created_at': datetime.datetime.now(),
                         'updated_at': datetime.datetime.now()
                     }
                 )
                 
-            logger.info(f"IMPORT MERGE: Processing deck '{local_deck.name}' for user {user_id}")
+            logger.info(f"IMPORT MERGE: Processing deck '{local_deck.name}' (id={local_deck.id}) for user {user_id}")
+            
+            # If the local deck was previously soft-deleted, un-delete it
+            if local_deck.is_deleted:
+                local_deck.is_deleted = False
+                local_deck.updated_at = datetime.datetime.now()
+            local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
+            local_deck.save()
                 
-            # Check if local deck is empty for fast direct SQL insert
+            # Check if local deck has active cards
             local_cards_query = TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)
-            if not local_cards_query.exists():
+            has_active_cards = local_cards_query.where(TMA_Card.is_deleted == False).exists()
+            
+            if not has_active_cards:
+                # Clean up any old soft-deleted cards to prevent ghost duplicates
+                card_ids = [c.id for c in local_cards_query]
+                if card_ids:
+                    TMAProgress.delete().where(TMAProgress.card_id << card_ids).execute()
+                    TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
+
                 try:
                     ph = '?' if 'sqlite' in str(type(getattr(tma_db, 'obj', None))).lower() else '%s'
                     sql = f"""
@@ -497,6 +570,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     """
                     tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
                     local_deck.updated_at = datetime.datetime.now()
+                    _save_source_library_id(local_deck, external_deck_id)
                     local_deck.save()
                     logger.info(f"FAST IMPORT MERGE: Deck '{local_deck.name}' cards copied in single SQL query")
                     return local_deck
@@ -504,8 +578,8 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     logger.warning(f"Fast SQL import merge skipped ({sql_err}), falling back to ORM merge...")
 
             # Update existing cards & insert new ones
-            remote_cards = list(Card.select().where(Card.deck_id == external_deck_id))
-            local_cards = {c.front_text: c for c in local_cards_query}
+            remote_cards = list(Card.select().where((Card.deck_id == external_deck_id) & (Card.is_deleted == False)))
+            local_cards = {c.front_text: c for c in TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)}
             
             logger.info(f"MERGE STATS: {len(remote_cards)} in library, {len(local_cards)} in local")
             
@@ -514,6 +588,9 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             for rc in remote_cards:
                 if rc.front_text in local_cards:
                     lc = local_cards[rc.front_text]
+                    # Ensure card is restored if it was soft-deleted
+                    if lc.is_deleted:
+                        lc.is_deleted = False
                     # Check if remote is newer
                     if rc.updated_at and (not lc.updated_at or rc.updated_at > lc.updated_at):
                         logger.info(f"UPDATING CARD: {rc.front_text}")
@@ -524,7 +601,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                         lc.tags = merge_tags(lc.tags, getattr(rc, 'tags', '[]'))
                         lc.updated_at = datetime.datetime.now()
                         lc.history = add_to_history(lc.history, "Updated from library")
-                        lc.save()
+                    lc.save()
                 else:
                     new_cards_to_insert.append({
                         'deck_id': local_deck.id,
@@ -534,6 +611,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                         'image_path': rc.image_path or '',
                         'audio_path': rc.audio_path or '',
                         'card_type': 'translation',
+                        'is_deleted': False,
                         'source': 'library',
                         'tags': getattr(rc, 'tags', '[]'),
                         'metadata': getattr(rc, 'metadata', '{}'),
@@ -549,6 +627,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             
             local_deck.updated_at = datetime.datetime.now()
             _save_source_library_id(local_deck, external_deck_id)
+            local_deck.save()
             return local_deck
             
     except Exception as e:
@@ -568,14 +647,16 @@ def _save_source_library_id(local_deck, external_deck_id: int):
         logger.warning(f"Failed to set source_library_id metadata: {e}")
 
 
-def import_decks_batch(external_deck_ids: list[int], user_id: int, mode: str = 'merge'):
+def import_decks_batch(external_deck_ids: list[int], user_id: int, mode: str = 'merge', force_trash: bool = False):
     """Массовый импорт нескольких колод из библиотеки."""
     imported_ids = []
     for deck_id in external_deck_ids:
         try:
-            d = import_deck(deck_id, user_id, mode=mode)
+            d = import_deck(deck_id, user_id, mode=mode, force_trash=force_trash)
+            if isinstance(d, dict) and d.get("status") == "in_trash":
+                continue
             if d:
-                imported_ids.append(d.id)
+                imported_ids.append(getattr(d, 'id', d))
         except Exception as err:
             logger.error(f"Error importing batch deck {deck_id}: {err}")
     return imported_ids
@@ -816,6 +897,39 @@ def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
     except Exception as e:
         logger.error(f"Error updating deck metadata {deck_id}: {e}")
         raise e
+
+
+def toggle_deck_learning(deck_id: int, user_id: int, is_learning: bool = None):
+    """Переключает или устанавливает статус 'Учу' (is_learning) для колоды."""
+    try:
+        from .collaborative_service import get_effective_user_role
+        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
+        if not deck:
+            return None
+        
+        role = get_effective_user_role(user_id, 'deck', deck_id)
+        if not role:
+            return None
+        
+        meta = {}
+        if deck.metadata:
+            try:
+                meta = json.loads(deck.metadata)
+            except Exception:
+                meta = {}
+        
+        current_status = bool(meta.get('is_learning', False))
+        new_status = not current_status if is_learning is None else bool(is_learning)
+        meta['is_learning'] = new_status
+        deck.metadata = json.dumps(meta)
+        deck.updated_at = datetime.datetime.now()
+        deck.save()
+        logger.info(f"Deck {deck_id} learning status set to {new_status} by user {user_id}")
+        return new_status
+    except Exception as e:
+        logger.error(f"Error toggling deck learning {deck_id}: {e}", exc_info=True)
+        raise e
+
 
 
 

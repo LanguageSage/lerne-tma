@@ -48,10 +48,15 @@ export const CardAudioPlayer = React.memo(({
   const autoPlay = useSettingsStore((s) => s.autoPlay);
   const setAutoPlay = useSettingsStore((s) => s.setAutoPlay);
 
+  const resolveAudioUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http') || url.startsWith('/api/') || url.startsWith('blob:') || url.startsWith('data:')) return url;
+    if (url.startsWith('audio/')) return `/api/media/${url}`;
+    return `/api/media/audio/${url}`;
+  };
+
   const rawUrl = (voicePicker?.previewUrl) || audioUrl;
-  const effectiveUrl = rawUrl
-    ? (rawUrl.startsWith('http') || rawUrl.startsWith('/api/') || rawUrl.startsWith('blob:') || rawUrl.startsWith('data:') ? rawUrl : `/api/media/${rawUrl}`)
-    : '';
+  const effectiveUrl = resolveAudioUrl(rawUrl);
   const isThisActive = currentUrl === effectiveUrl && audioState !== 'idle';
   const isPlaying = isThisActive && audioState === 'playing';
   const isLoading = (isThisActive && (audioState === 'loading' || isAudioLoading))
@@ -200,6 +205,57 @@ export const CardAudioPlayer = React.memo(({
           )}
 
 
+
+          {/* Quick Voice Picker Button on Pill */}
+          {voicePicker && voicePicker.voices.length > 0 && (
+            <div className="audio-player-voice-picker" style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className={`pill-btn-voice ${!voicePicker.isDefaultVoice ? 'custom' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowVoiceMenu(!showVoiceMenu);
+                  setShowSpeedMenu(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  borderRadius: '12px',
+                  background: !voicePicker.isDefaultVoice ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                  border: !voicePicker.isDefaultVoice ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                  color: !voicePicker.isDefaultVoice ? '#818cf8' : '#e2e8f0',
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                title="Выбрать голос"
+              >
+                <Mic2 size={12} />
+                <span>{selectedVoiceLabel?.label?.split(' ')[0] || selectedVoiceLabel?.label || 'Голос'}</span>
+                <span className="voice-gender-icon" style={{ fontSize: '0.7rem', opacity: 0.8 }}>
+                  {GENDER_ICON[selectedVoiceLabel?.gender] || ''}
+                </span>
+              </button>
+
+              {showVoiceMenu && (
+                <div className="audio-player-voice-dropdown glass" style={{ bottom: '100%', marginBottom: '6px' }}>
+                  {voicePicker.voices.map((v) => (
+                    <button
+                      key={v.value}
+                      type="button"
+                      className={`voice-option ${voicePicker.selectedVoice === v.value ? 'active' : ''}`}
+                      onClick={(e) => handleVoiceSelect(v, e)}
+                    >
+                      <span className="voice-option-gender">{GENDER_ICON[v.gender]}</span>
+                      <span>{v.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Playback Speed indicator */}
           <button

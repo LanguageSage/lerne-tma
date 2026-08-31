@@ -279,8 +279,10 @@ export const useAudio = (autoPlay, showToast) => {
         globalActiveStopCallback = null;
       }
       console.error("Audio play failed:", err);
-      if (err.name === "NotSupportedError" || err.name === "NotAllowedError") {
-        if (!autoPlay && showToast) showToast("Браузер заблокировал звук");
+      if (err.name === "NotAllowedError") {
+        if (!autoPlay && showToast) showToast("Браузер заблокировал автовоспроизведение");
+      } else if (err.name === "NotSupportedError") {
+        if (showToast) showToast("Ошибка аудио: файл не найден или поврежден");
       }
       if (onEndedCallback) onEndedCallback(false);
       return false;

@@ -11,7 +11,10 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+import logging
+logger = logging.getLogger(__name__)
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -19,7 +22,7 @@ from pydantic import BaseModel
 import peewee
 from peewee import fn
 
-from api import models, ai_service, services
+from api import models, ai_service
 
 app = FastAPI(title="Lerne TMA Admin Console", version="1.0.0")
 
@@ -89,10 +92,22 @@ class RegenerateDeckRequest(BaseModel):
     no_audio: bool = False
     sync_copies: bool = False
     voice: Optional[str] = "de-DE-KatjaNeural"
+    rate: Optional[str] = "+0%"
     limit: Optional[int] = None
     delay: float = 1.5
     prompt_id: Optional[str] = "preset_b1"
     native_lang: Optional[str] = "uk"
+    target_lang: Optional[str] = "de"
+    exclude_card_ids: Optional[List[int]] = None
+    exclude_range_str: Optional[str] = None
+
+class RegenerateAudioRequest(BaseModel):
+    voice: Optional[str] = "de-DE-KatjaNeural"
+    rate: Optional[str] = "+0%"
+    only_missing_audio: bool = False
+    sync_copies: bool = True
+    delay: float = 0.3
+    limit: Optional[int] = None
     exclude_card_ids: Optional[List[int]] = None
     exclude_range_str: Optional[str] = None
 
@@ -100,11 +115,12 @@ class RegenerateDeckRequest(BaseModel):
 # API Routes
 
 @app.get("/api/admin/prompts")
-def get_prompts(native_lang: Optional[str] = "uk"):
+def get_prompts(native_lang: Optional[str] = "uk", target_lang: Optional[str] = "de"):
     """Returns list of all available system and custom prompts with full instruction texts."""
     from api.services.language_service import get_system_presets
-    lang = (native_lang or "uk").lower().strip()
-    system_presets = get_system_presets(target_lang="de", native_lang=lang)
+    n_lang = (native_lang or "uk").lower().strip()
+    t_lang = (target_lang or "de").lower().strip()
+    system_presets = get_system_presets(target_lang=t_lang, native_lang=n_lang)
     
     prompts_list = []
     
@@ -114,6 +130,7 @@ def get_prompts(native_lang: Optional[str] = "uk"):
             "name": p["name"],
             "description": p["description"],
             "instruction": p.get("instruction", ""),
+            "target_lang": t_lang,
             "is_default": p["id"] == "preset_b1"
         })
 
@@ -126,12 +143,13 @@ def get_prompts(native_lang: Optional[str] = "uk"):
                 "name": f"⭐ {c.name or 'Кастомный промпт #' + str(c.id)}",
                 "description": c.description or "Пользовательский промпт из настроек",
                 "instruction": c.translation_prompt or c.context_prompt or "",
+                "target_lang": getattr(c, 'target_language', 'de') or t_lang,
                 "is_default": False
             })
     except Exception:
         pass
 
-    return {"prompts": prompts_list, "native_lang": lang}
+    return {"prompts": prompts_list, "native_lang": n_lang, "target_lang": t_lang}
 
 @app.get("/api/admin/users")
 def get_users(search: Optional[str] = None):
@@ -393,12 +411,15 @@ def get_deck_cards(deck_id: str):
 
     result = []
     for idx, c in enumerate(cards, 1):
+        has_aud = bool(c.audio_path and str(c.audio_path).strip())
         result.append({
             "id": c.id,
             "position": idx,
             "front": c.front_text or "",
             "back": c.back_text or "",
-            "has_context": bool(c.context and str(c.context).strip())
+            "has_context": bool(c.context and str(c.context).strip()),
+            "has_audio": has_aud,
+            "audio_path": c.audio_path or ""
         })
 
     return {"cards": result, "deck_name": deck.name, "total": len(result)}
@@ -641,35 +662,177 @@ def get_all_users_with_meta(search=None):
     return {"users": result}
 
 
-def sync_card_updates_to_matching_decks(source_deck, front_query, new_front, new_back, new_context, new_level=None):
-    """Propagates updated card content to all decks with the same name across all users and library templates."""
-    matching_decks = list(
+def save_audio_to_db_or_cloud(res_audio: str) -> Optional[str]:
+    """Ensures audio file bytes are stored in TMAMedia or returns cloud URL."""
+    if not res_audio:
+        return None
+    if res_audio.startswith("http"):
+        return res_audio
+    
+    filename = os.path.basename(res_audio)
+    if os.path.exists(res_audio):
+        try:
+            with open(res_audio, "rb") as f:
+                content = f.read()
+            models.TMAMedia.get_or_create(
+                filename=filename,
+                folder='audio',
+                defaults={'content': content}
+            )
+            try:
+                os.remove(res_audio)
+            except Exception:
+                pass
+        except Exception as e:
+            logger.error(f"Error saving audio to TMAMedia: {e}")
+    return filename
+
+
+def card_has_valid_audio(card) -> bool:
+    if not card.audio_path or not str(card.audio_path).strip():
+        return False
+    if card.audio_path.startswith("http"):
+        return True
+    filename = os.path.basename(card.audio_path)
+    try:
+        return models.TMAMedia.select(models.TMAMedia.id).where(
+            (models.TMAMedia.filename == filename) &
+            (models.TMAMedia.folder == 'audio')
+        ).exists()
+    except Exception:
+        return False
+
+
+def sync_card_audio_to_matching_decks(source_deck, front_query, audio_path):
+    """Propagates updated card audio_path to all decks with the same name across all users and library templates."""
+    clean_name = source_deck.name.replace("⭐ ", "").strip()
+    now = datetime.datetime.now()
+    
+    # 1. Sync to TMA user decks
+    matching_tma_decks = list(
         models.TMA_Deck.select().where(
-            (models.TMA_Deck.name == source_deck.name) &
-            (models.TMA_Deck.id != source_deck.id) &
+            (
+                (models.TMA_Deck.name == source_deck.name) |
+                (models.TMA_Deck.name == clean_name) |
+                (models.TMA_Deck.name == f"⭐ {clean_name}")
+            ) &
+            (models.TMA_Deck.id != getattr(source_deck, 'id', 0)) &
             (models.TMA_Deck.is_deleted == False)
         )
     )
-    synced_cards_count = 0
-    for d in matching_decks:
+    synced_count = 0
+    for d in matching_tma_decks:
         cards = list(models.TMA_Card.select().where(
             (models.TMA_Card.deck_id == d.id) &
             (models.TMA_Card.is_deleted == False) &
             (models.TMA_Card.front_text == front_query)
         ))
         for c in cards:
+            c.audio_path = audio_path
+            c.updated_at = now
+            c.save()
+            synced_count += 1
+
+    # 2. Sync to Library decks in models.Deck
+    matching_lib_decks = list(
+        models.Deck.select().where(
+            (
+                (models.Deck.name == source_deck.name) |
+                (models.Deck.name == clean_name) |
+                (models.Deck.name == f"⭐ {clean_name}")
+            ) &
+            (models.Deck.id != getattr(source_deck, 'id', 0)) &
+            (models.Deck.is_deleted == False)
+        )
+    )
+    for ld in matching_lib_decks:
+        cards = list(models.Card.select().where(
+            (models.Card.deck == ld) &
+            (models.Card.is_deleted == False) &
+            (models.Card.front_text == front_query)
+        ))
+        for c in cards:
+            c.audio_path = audio_path
+            c.updated_at = now
+            c.save()
+            synced_count += 1
+
+    total_matching_decks = len(matching_tma_decks) + len(matching_lib_decks)
+    return total_matching_decks, synced_count
+
+
+def sync_card_updates_to_matching_decks(source_deck, front_query, new_front, new_back, new_context, new_level=None, new_audio_path=None):
+    """Propagates updated card content to all decks with the same name across all users and library templates."""
+    clean_name = source_deck.name.replace("⭐ ", "").strip()
+    now = datetime.datetime.now()
+
+    # 1. Matching TMA user decks
+    matching_tma_decks = list(
+        models.TMA_Deck.select().where(
+            (
+                (models.TMA_Deck.name == source_deck.name) |
+                (models.TMA_Deck.name == clean_name) |
+                (models.TMA_Deck.name == f"⭐ {clean_name}")
+            ) &
+            (models.TMA_Deck.id != getattr(source_deck, 'id', 0)) &
+            (models.TMA_Deck.is_deleted == False)
+        )
+    )
+    synced_cards_count = 0
+    for d in matching_tma_decks:
+        cards = list(models.TMA_Card.select().where(
+            (models.TMA_Card.deck_id == d.id) &
+            (models.TMA_Card.is_deleted == False) &
+            ((models.TMA_Card.front_text == front_query) | (models.TMA_Card.front_text == new_front))
+        ))
+        for c in cards:
             c.front_text = new_front
             c.back_text = new_back
             c.context = new_context
+            if new_audio_path:
+                c.audio_path = new_audio_path
             if new_level:
                 curr_tags = c.tags or ""
                 cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1","A2","B1","B2","C1","C2"}])
                 c.tags = f"{cleaned},{new_level}".strip(",") if cleaned else new_level
-            c.updated_at = datetime.datetime.now()
+            c.updated_at = now
             c.save()
             synced_cards_count += 1
 
-    return len(matching_decks), synced_cards_count
+    # 2. Matching Library decks in models.Deck
+    matching_lib_decks = list(
+        models.Deck.select().where(
+            (
+                (models.Deck.name == source_deck.name) |
+                (models.Deck.name == clean_name) |
+                (models.Deck.name == f"⭐ {clean_name}")
+            ) &
+            (models.Deck.id != getattr(source_deck, 'id', 0)) &
+            (models.Deck.is_deleted == False)
+        )
+    )
+    for ld in matching_lib_decks:
+        cards = list(models.Card.select().where(
+            (models.Card.deck == ld) &
+            (models.Card.is_deleted == False) &
+            ((models.Card.front_text == front_query) | (models.Card.front_text == new_front))
+        ))
+        for c in cards:
+            c.front_text = new_front
+            c.back_text = new_back
+            c.context = new_context
+            if new_audio_path:
+                c.audio_path = new_audio_path
+            if new_level:
+                curr_tags = c.tags or ""
+                cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1","A2","B1","B2","C1","C2"}])
+                c.tags = f"{cleaned},{new_level}".strip(",") if cleaned else new_level
+            c.updated_at = now
+            c.save()
+            synced_cards_count += 1
+
+    total_decks = len(matching_tma_decks) + len(matching_lib_decks)
+    return total_decks, synced_cards_count
 
 
 async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
@@ -800,22 +963,26 @@ async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
                 card.updated_at = datetime.datetime.now()
                 card.save()
 
-                if options.sync_copies:
-                    d_count, c_count = sync_card_updates_to_matching_decks(deck, front, new_front, new_back, new_context, new_level)
-                    if c_count > 0:
-                        task_info["logs"].append(f"  ↪ 🔄 Синхронизировано с {d_count} другими колодами ({c_count} карточек)")
-
                 if not options.no_audio:
                     try:
                         from api.utils.audio import generate_audio
-                        res_audio = await generate_audio(new_front, voice=options.voice or "de-DE-KatjaNeural")
+                        res_audio = await generate_audio(new_front, voice=options.voice or "de-DE-KatjaNeural", rate=options.rate or "+0%")
                         if isinstance(res_audio, tuple):
                             res_audio = res_audio[0]
                         if res_audio:
-                            card.audio_path = os.path.basename(res_audio)
-                            card.save()
+                            saved_audio = save_audio_to_db_or_cloud(res_audio)
+                            if saved_audio:
+                                card.audio_path = saved_audio
+                                card.save()
                     except Exception as err:
                         task_info["logs"].append(f"  ⚠️ [TTS] Ошибка озвучки: {err}")
+
+                if options.sync_copies:
+                    d_count, c_count = sync_card_updates_to_matching_decks(
+                        deck, front, new_front, new_back, new_context, new_level, card.audio_path
+                    )
+                    if c_count > 0:
+                        task_info["logs"].append(f"  ↪ 🔄 Синхронизировано с {d_count} другими колодами ({c_count} карточек)")
 
             task_info["logs"].append(f"[{idx}/{len(cards)}] ✅ {new_front[:20]} -> {new_back[:20]}")
 
@@ -887,6 +1054,214 @@ def control_regeneration(deck_id: str, req: ControlRegenRequest):
         return {"status": "ok", "committed_count": count, "synced_count": sync_total}
 
     return {"status": "ok", "current_control": task_info.get("control"), "task_status": task_info.get("status")}
+
+
+VOICE_SAMPLE_PHRASES = {
+    "de": "Hallo! Ich lerne Deutsch mit der Lerne App. Wie geht es dir heute?",
+    "en": "Hello! I am learning languages with the Lerne App. How are you today?",
+    "nb": "Hei! Jeg lærer språk med Lerne App. Hvordan har du det i dag?",
+    "no": "Hei! Jeg lærer språk med Lerne App. Hvordan har du det i dag?",
+    "uk": "Привіт! Я вивчаю іноземні мови разом з додатком Lerne. Як твої справи?",
+    "ru": "Привет! Я изучаю иностранные языки вместе с приложением Lerne.",
+}
+
+@app.get("/api/admin/voice-preview")
+async def get_voice_preview(voice: str = Query("de-DE-KatjaNeural"), text: Optional[str] = Query(None), rate: Optional[str] = Query("+0%")):
+    """Generates on-the-fly voice preview audio for the chosen TTS voice and speed rate."""
+    clean_voice = voice.strip()
+    clean_rate = (rate or "+0%").strip()
+    if not clean_rate.startswith(("+", "-")):
+        clean_rate = f"+{clean_rate}"
+    if not clean_rate.endswith("%"):
+        clean_rate = f"{clean_rate}%"
+
+    if not text or not text.strip():
+        prefix = clean_voice[:2].lower()
+        phrase = VOICE_SAMPLE_PHRASES.get(prefix, "Hallo! Ich lerne Sprachen mit der Lerne App.")
+    else:
+        phrase = text.strip()
+
+    try:
+        import edge_tts
+        communicate = edge_tts.Communicate(phrase, clean_voice, rate=clean_rate)
+        audio_chunks = []
+        async for event in communicate.stream():
+            if event["type"] == "audio":
+                audio_chunks.append(event["data"])
+        
+        audio_bytes = b"".join(audio_chunks)
+        if not audio_bytes:
+            raise HTTPException(status_code=500, detail="Failed to synthesize voice preview")
+        
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={
+                "Cache-Control": "no-cache",
+                "Content-Disposition": f'inline; filename="preview_{clean_voice}.mp3"'
+            }
+        )
+    except Exception as e:
+        logger.error(f"Voice preview error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Voice preview error: {str(e)}")
+
+
+@app.get("/api/media/audio/{filename:path}")
+def get_admin_audio(filename: str):
+    """Serves audio files from TMAMedia or pending audio cache for admin preview."""
+    clean_name = os.path.basename(filename)
+    media = models.TMAMedia.get_or_none(
+        (models.TMAMedia.filename == clean_name) & 
+        (models.TMAMedia.folder == 'audio')
+    )
+    if media and media.content:
+        return Response(
+            content=bytes(media.content),
+            media_type="audio/mpeg",
+            headers={"Cache-Control": "public, max-age=604800"}
+        )
+    
+    # Check pending_audio folder on disk
+    local_path = os.path.join(project_root, "user_files", "pending_audio", clean_name)
+    if os.path.exists(local_path):
+        return FileResponse(local_path, media_type="audio/mpeg")
+        
+    raise HTTPException(status_code=404, detail="Audio file not found")
+
+
+async def run_audio_regeneration(deck_id: str, options: RegenerateAudioRequest):
+    global regen_tasks
+    task_info = regen_tasks.get(deck_id)
+    if not task_info:
+        return
+
+    deck, cards, is_lib = get_deck_and_cards(deck_id)
+    if not deck:
+        task_info["status"] = "failed"
+        task_info["logs"].append("❌ Ошибка: Колода не найдена")
+        return
+
+    # Process excluded card IDs and position range strings
+    excluded_pos = set()
+    if options.exclude_range_str:
+        parts = options.exclude_range_str.replace(" ", "").split(",")
+        for p in parts:
+            if not p:
+                continue
+            if "-" in p:
+                sub = p.split("-")
+                if len(sub) == 2 and sub[0].isdigit() and sub[1].isdigit():
+                    start_idx, end_idx = int(sub[0]), int(sub[1])
+                    for i in range(start_idx, end_idx + 1):
+                        excluded_pos.add(i)
+            elif p.isdigit():
+                excluded_pos.add(int(p))
+
+    ex_ids = set(options.exclude_card_ids or [])
+    
+    filtered_cards = []
+    skipped_count = 0
+
+    for idx, c in enumerate(cards, 1):
+        if c.id in ex_ids or idx in excluded_pos:
+            skipped_count += 1
+            continue
+        if options.only_missing_audio and card_has_valid_audio(c):
+            skipped_count += 1
+            continue
+        filtered_cards.append(c)
+
+    cards = filtered_cards
+
+    if skipped_count > 0:
+        task_info["logs"].append(f"🛡️ Пропущено карточек (исключения / уже с озвучкой): {skipped_count}")
+
+    if options.limit and options.limit > 0:
+        cards = cards[:options.limit]
+
+    task_info["total"] = len(cards)
+    task_info["status"] = "running"
+    task_info["control"] = "run"
+    task_info["voice"] = options.voice or "de-DE-KatjaNeural"
+    task_info["rate"] = options.rate or "+0%"
+    task_info["sync_copies"] = options.sync_copies
+    
+    voice_str = options.voice or "de-DE-KatjaNeural"
+    rate_str = options.rate or "+0%"
+    task_info["logs"].append(f"🎙️ Запуск генерации озвучки: {len(cards)} карточек (Голос: {voice_str}, Скорость: {rate_str})...")
+
+    from api.utils.audio import generate_audio
+
+    for idx, card in enumerate(cards, 1):
+        while task_info.get("control") == "pause":
+            task_info["status"] = "paused"
+            await asyncio.sleep(0.5)
+            
+        if task_info.get("control") == "stop":
+            task_info["status"] = "stopped"
+            task_info["logs"].append("🛑 Озвучивание остановлено пользователем.")
+            return
+
+        task_info["status"] = "running"
+        front = (card.front_text or "").strip()
+        if not front:
+            continue
+
+        task_info["processed"] = idx
+        task_info["current_card"] = front[:30]
+
+        try:
+            res_audio = await generate_audio(front, voice=voice_str, rate=rate_str)
+            if isinstance(res_audio, tuple):
+                res_audio = res_audio[0]
+
+            if res_audio:
+                saved_audio = save_audio_to_db_or_cloud(res_audio)
+                if saved_audio:
+                    card.audio_path = saved_audio
+                    card.updated_at = datetime.datetime.now()
+                    card.save()
+
+                    if options.sync_copies:
+                        d_count, c_count = sync_card_audio_to_matching_decks(deck, front, saved_audio)
+                        if c_count > 0:
+                            task_info["logs"].append(f"  ↪ 🔄 Аудио синхронизировано с {d_count} другими колодами ({c_count} карточек)")
+
+                    task_info["logs"].append(f"[{idx}/{len(cards)}] 🎙️ {front[:25]} -> {saved_audio}")
+                else:
+                    task_info["logs"].append(f"[{idx}/{len(cards)}] ❌ Не удалось сохранить аудио: {front[:20]}")
+            else:
+                task_info["logs"].append(f"[{idx}/{len(cards)}] ❌ Пустой результат TTS для: {front[:20]}")
+
+        except Exception as e:
+            task_info["logs"].append(f"[{idx}/{len(cards)}] ❌ Ошибка озвучки: {str(e)}")
+
+        if options.delay > 0:
+            await asyncio.sleep(options.delay)
+
+    task_info["status"] = "completed"
+    task_info["logs"].append("🎉 Генерация озвучки успешно завершена!")
+
+
+@app.post("/api/admin/decks/{deck_id}/regenerate-audio")
+def start_audio_regeneration_endpoint(deck_id: str, req: RegenerateAudioRequest, background_tasks: BackgroundTasks):
+    """Starts background audio regeneration for cards in the deck."""
+    global regen_tasks
+    regen_tasks[deck_id] = {
+        "status": "pending",
+        "control": "run",
+        "processed": 0,
+        "total": 0,
+        "current_card": "",
+        "logs": [],
+        "dry_run_results": [],
+        "is_dry_run": False,
+        "is_audio_only": True,
+        "voice": req.voice,
+        "start_time": time.time()
+    }
+    background_tasks.add_task(run_audio_regeneration, deck_id, req)
+    return {"status": "ok", "message": f"Audio regeneration queued for deck {deck_id}"}
 
 
 @app.post("/api/admin/decks/{deck_id}/regenerate")

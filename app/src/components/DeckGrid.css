@@ -350,6 +350,7 @@
   box-sizing: border-box;
   gap: 8px;
   border-radius: 0 0 20px 20px;
+  min-height: 48px;
 }
 
 .deck-footer-actions-left {
@@ -376,6 +377,7 @@
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
+  line-height: 1;
 }
 
 /* Bottom Tools Section (Foldable menu at the bottom) */
@@ -636,5 +638,256 @@
     border-radius: 0 0 20px 20px;
   }
 }
+
+/* Deck Filter Tabs (All vs Learning) */
+.deck-filter-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  margin-bottom: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.deck-filter-tab {
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deck-filter-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.deck-filter-tab.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(129, 140, 248, 0.15));
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
+}
+
+/* Learning Shortcuts Section (Сейчас усиленно учу) */
+.learning-shortcuts-section {
+  margin-bottom: 18px;
+  width: 100%;
+}
+
+.learning-shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+
+.learning-shortcuts-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+
+.flame-icon-pulse {
+  display: inline-block;
+  animation: flamePulse 2s ease-in-out infinite;
+  font-size: 1.1rem;
+}
+
+@keyframes flamePulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.6));
+  }
+  50% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.9));
+  }
+}
+
+.learning-count-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(249, 115, 22, 0.2);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  color: #fb923c;
+  padding: 1px 7px;
+  border-radius: 12px;
+}
+
+.learning-shortcuts-scroll-container {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 10px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.learning-shortcuts-scroll-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.learning-shortcuts-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.learning-shortcut-chip {
+  flex: 0 0 auto;
+  min-width: 170px;
+  max-width: 220px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.92));
+  border: 1.5px solid rgba(16, 185, 129, 0.4);
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 10px rgba(16, 185, 129, 0.15);
+  animation: learningChipGlow 3s ease-in-out infinite;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.learning-shortcut-chip.has-due-cards {
+  border-color: rgba(249, 115, 22, 0.55);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35), 0 0 12px rgba(249, 115, 22, 0.25);
+  animation: learningChipDueGlow 2.5s ease-in-out infinite;
+}
+
+@keyframes learningChipGlow {
+  0%, 100% {
+    border-color: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 8px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    border-color: rgba(52, 211, 153, 0.8);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 18px rgba(16, 185, 129, 0.45);
+  }
+}
+
+@keyframes learningChipDueGlow {
+  0%, 100% {
+    border-color: rgba(249, 115, 22, 0.5);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35), 0 0 8px rgba(249, 115, 22, 0.25);
+  }
+  50% {
+    border-color: rgba(251, 146, 60, 0.9);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(249, 115, 22, 0.55);
+  }
+}
+
+.shortcut-top-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.shortcut-deck-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.shortcut-badge-pulse {
+  font-size: 0.9rem;
+  color: #fb923c;
+}
+
+.shortcut-deck-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.shortcut-arrow {
+  color: rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+
+.shortcut-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.shortcut-due-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  padding: 2px 7px;
+  border-radius: 8px;
+}
+
+.shortcut-new-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  color: #818cf8;
+  padding: 2px 7px;
+  border-radius: 8px;
+}
+
+.shortcut-done-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 2px 7px;
+  border-radius: 8px;
+}
+
+.shortcut-folder-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 6px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-name-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
 
 
