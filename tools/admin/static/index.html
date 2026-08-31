@@ -1893,7 +1893,7 @@
         voice: selectedVoice,
         rate: selectedRate,
         only_missing_audio: onlyMissing,
-        sync_copies: document.getElementById('regen-sync-copies').checked,
+        sync_copies: document.getElementById('regen-sync-copies')?.checked || false,
         delay: 0.3
       };
 
@@ -1915,11 +1915,30 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(options)
         });
+
+        if (!res.ok) {
+          let errText = '';
+          try { const errData = await res.json(); errText = JSON.stringify(errData); } catch(_) { errText = await res.text().catch(() => ''); }
+          document.getElementById('ai-logs-container').innerHTML = `<div class="text-rose-400">❌ Сервер вернул ошибку ${res.status}: ${errText.substring(0, 200)}</div>`;
+          document.getElementById('ai-active-status-text').innerText = 'Статус: Ошибка запуска';
+          return;
+        }
+
         const data = await res.json();
+
+        if (!data.task_id) {
+          document.getElementById('ai-logs-container').innerHTML = `<div class="text-rose-400">❌ Сервер не вернул task_id. Ответ: ${JSON.stringify(data).substring(0, 200)}</div>`;
+          document.getElementById('ai-active-status-text').innerText = 'Статус: Ошибка — нет task_id';
+          return;
+        }
+
         activeBatchTaskId = data.task_id;
+        document.getElementById('ai-active-status-text').innerText = `Статус: Запущено (Task: ${data.task_id})`;
         startPollBatchRegenStatus(data.task_id);
       } catch (err) {
-        alert("Ошибка при запуске пакетной озвучки: " + err);
+        document.getElementById('ai-logs-container').innerHTML = `<div class="text-rose-400">❌ Ошибка запуска: ${err}</div>`;
+        document.getElementById('ai-active-status-text').innerText = 'Статус: Ошибка соединения';
+        console.error("startBatchAudioProcess error:", err);
       }
     }
 
@@ -1933,17 +1952,18 @@
       const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
 
+      // Use ?. (optional chaining) on all elements — some may be hidden/absent in batch mode
       const options = {
         deck_ids: stagedIds,
         dry_run: isDryRun,
-        only_empty: document.getElementById('regen-only-empty').checked,
-        only_no_context: document.getElementById('regen-only-no-context').checked,
-        no_audio: document.getElementById('regen-no-audio').checked,
-        sync_copies: document.getElementById('regen-sync-copies').checked,
+        only_empty: document.getElementById('regen-only-empty')?.checked || false,
+        only_no_context: document.getElementById('regen-only-no-context')?.checked || false,
+        no_audio: document.getElementById('regen-no-audio')?.checked || false,
+        sync_copies: document.getElementById('regen-sync-copies')?.checked || false,
         voice: selectedVoice,
         rate: selectedRate,
-        prompt_id: document.getElementById('regen-prompt-select').value || 'preset_b1',
-        native_lang: document.getElementById('regen-native-lang-select').value || 'uk',
+        prompt_id: document.getElementById('regen-prompt-select')?.value || 'preset_b1',
+        native_lang: document.getElementById('regen-native-lang-select')?.value || 'uk',
         target_lang: 'de',
         delay: 1.2
       };
@@ -1966,13 +1986,35 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(options)
         });
+
+        // Check HTTP status before parsing JSON
+        if (!res.ok) {
+          let errText = '';
+          try { const errData = await res.json(); errText = JSON.stringify(errData); } catch(_) { errText = await res.text().catch(() => ''); }
+          document.getElementById('ai-logs-container').innerHTML = `<div class="text-rose-400">❌ Сервер вернул ошибку ${res.status}: ${errText.substring(0, 200)}</div>`;
+          document.getElementById('ai-active-status-text').innerText = 'Статус: Ошибка запуска';
+          return;
+        }
+
         const data = await res.json();
+
+        // Guard: ensure we got a valid task_id
+        if (!data.task_id) {
+          document.getElementById('ai-logs-container').innerHTML = `<div class="text-rose-400">❌ Сервер не вернул task_id. Ответ: ${JSON.stringify(data).substring(0, 200)}</div>`;
+          document.getElementById('ai-active-status-text').innerText = 'Статус: Ошибка — нет task_id';
+          return;
+        }
+
         activeBatchTaskId = data.task_id;
+        document.getElementById('ai-active-status-text').innerText = `Статус: Запущено (Task: ${data.task_id})`;
         startPollBatchRegenStatus(data.task_id);
       } catch (err) {
-        alert("Ошибка при запуске пакетной генерации: " + err);
+        document.getElementById('ai-logs-container').innerHTML = `<div class="text-rose-400">❌ Ошибка запуска: ${err}</div>`;
+        document.getElementById('ai-active-status-text').innerText = 'Статус: Ошибка соединения';
+        console.error("startBatchAiProcess error:", err);
       }
     }
+
 
     async function controlActiveRegen(action) {
       if (isBatchStudioMode) {
