@@ -69,12 +69,16 @@ export const CardActionModal = ({
   const isAutoplayPaused = autoplayState === 'paused';
   const isAutoplayActive = isAutoplayPlaying || isAutoplayPaused;
 
+  const autoplayOrder = useSettingsStore(s => s.autoplayOrder);
+  const setAutoplayOrder = useSettingsStore(s => s.setAutoplayOrder);
   const autoplayFrontPause = useSettingsStore(s => s.autoplayFrontPause);
   const setAutoplayFrontPause = useSettingsStore(s => s.setAutoplayFrontPause);
   const autoplayBackPause = useSettingsStore(s => s.autoplayBackPause);
   const setAutoplayBackPause = useSettingsStore(s => s.setAutoplayBackPause);
-  const autoplayCardRepeat = useSettingsStore(s => s.autoplayCardRepeat);
-  const setAutoplayCardRepeat = useSettingsStore(s => s.setAutoplayCardRepeat);
+  const autoplayFrontRepeat = useSettingsStore(s => s.autoplayFrontRepeat);
+  const setAutoplayFrontRepeat = useSettingsStore(s => s.setAutoplayFrontRepeat);
+  const autoplayBackRepeat = useSettingsStore(s => s.autoplayBackRepeat);
+  const setAutoplayBackRepeat = useSettingsStore(s => s.setAutoplayBackRepeat);
   const ttsSpeed = useSettingsStore(s => s.ttsSpeed);
   const setTtsSpeed = useSettingsStore(s => s.setTtsSpeed);
   const ttsSpeedRu = useSettingsStore(s => s.ttsSpeedRu);
@@ -373,9 +377,29 @@ export const CardActionModal = ({
                   )}
                 </div>
 
+                {/* Autoplay Order Selector */}
+                <div className="autoplay-order-toggle" style={{ margin: '0 0 4px 0' }}>
+                  <button
+                    type="button"
+                    className={`autoplay-order-btn ${autoplayOrder === 'list' ? 'active' : ''}`}
+                    onClick={() => setAutoplayOrder('list')}
+                    title="Линейный перебор всех карточек колоды по порядку"
+                  >
+                    🔢 По списку
+                  </button>
+                  <button
+                    type="button"
+                    className={`autoplay-order-btn ${autoplayOrder === 'srs' ? 'active' : ''}`}
+                    onClick={() => setAutoplayOrder('srs')}
+                    title="Только карточки, требующие повторения на сегодня (SRS)"
+                  >
+                    🧠 По SRS
+                  </button>
+                </div>
+
                 <div className="autoplay-control-grid" style={{ marginTop: '5px' }}>
                   <label className="autoplay-field">
-                    <span>После фразы</span>
+                    <span>Пауза фразы</span>
                     <select
                       value={autoplayFrontPause}
                       onChange={(e) => setAutoplayFrontPause(e.target.value)}
@@ -387,7 +411,7 @@ export const CardActionModal = ({
                   </label>
 
                   <label className="autoplay-field">
-                    <span>После перевода</span>
+                    <span>Пауза перевода</span>
                     <select
                       value={autoplayBackPause}
                       onChange={(e) => setAutoplayBackPause(e.target.value)}
@@ -398,11 +422,23 @@ export const CardActionModal = ({
                     </select>
                   </label>
 
-                  <label className="autoplay-field" style={{ gridColumn: 'span 2' }}>
-                    <span>Повторов подряд</span>
+                  <label className="autoplay-field">
+                    <span>Повторов фразы</span>
                     <select
-                      value={autoplayCardRepeat}
-                      onChange={(e) => setAutoplayCardRepeat(e.target.value)}
+                      value={autoplayFrontRepeat}
+                      onChange={(e) => setAutoplayFrontRepeat(e.target.value)}
+                    >
+                      {PAUSE_OPTIONS.map((value) => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="autoplay-field">
+                    <span>Повторов перевода</span>
+                    <select
+                      value={autoplayBackRepeat}
+                      onChange={(e) => setAutoplayBackRepeat(e.target.value)}
                     >
                       {PAUSE_OPTIONS.map((value) => (
                         <option key={value} value={value}>{value}</option>

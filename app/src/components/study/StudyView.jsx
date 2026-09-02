@@ -243,10 +243,14 @@ export const StudyView = ({ startTutorial }) => {
     stopAudio();
     if (isAutoplayActive) {
       autoplay.cancelCurrent();
-      const cards = currentDeck?.id === 'duplicates' ? duplicateCards : deckCards;
-      const currentIndex = cards.findIndex(c => c.id === card?.id);
+      const activeQueue = (autoplay.autoplayCards && autoplay.autoplayCards.length > 0)
+        ? autoplay.autoplayCards
+        : (currentDeck?.id === 'duplicates' ? duplicateCards : deckCards);
+      const currentIndex = activeQueue.findIndex(c => String(c.id) === String(card?.id));
       if (currentIndex > 0) {
-        setCard(cards[currentIndex - 1]);
+        setCard(activeQueue[currentIndex - 1]);
+      } else if (autoplayLoop && activeQueue.length > 0) {
+        setCard(activeQueue[activeQueue.length - 1]);
       }
       return;
     }
@@ -257,12 +261,14 @@ export const StudyView = ({ startTutorial }) => {
     stopAudio();
     if (isAutoplayActive) {
       autoplay.cancelCurrent();
-      const cards = currentDeck?.id === 'duplicates' ? duplicateCards : deckCards;
-      const currentIndex = cards.findIndex(c => c.id === card?.id);
-      if (currentIndex < cards.length - 1) {
-        setCard(cards[currentIndex + 1]);
-      } else if (autoplayLoop && cards.length > 0) {
-        setCard(cards[0]);
+      const activeQueue = (autoplay.autoplayCards && autoplay.autoplayCards.length > 0)
+        ? autoplay.autoplayCards
+        : (currentDeck?.id === 'duplicates' ? duplicateCards : deckCards);
+      const currentIndex = activeQueue.findIndex(c => String(c.id) === String(card?.id));
+      if (currentIndex >= 0 && currentIndex < activeQueue.length - 1) {
+        setCard(activeQueue[currentIndex + 1]);
+      } else if (autoplayLoop && activeQueue.length > 0) {
+        setCard(activeQueue[0]);
       }
       return;
     }
@@ -489,14 +495,18 @@ export const StudyView = ({ startTutorial }) => {
 
             <StudyNavigation
               historyIndex={
-                currentDeck?.id === 'duplicates' 
+                isAutoplayActive && autoplay.autoplayCards && autoplay.autoplayCards.length > 0
+                  ? autoplay.autoplayCards.findIndex(c => String(c.id) === String(card?.id))
+                  : currentDeck?.id === 'duplicates' 
                   ? duplicateCards.findIndex(c => String(c.id) === String(card?.id)) 
                   : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => String(c.id) === String(card?.id)) !== -1)
                   ? deckCards.findIndex(c => String(c.id) === String(card?.id))
                   : historyIndex
               }
               totalCards={
-                currentDeck?.id === 'duplicates' 
+                isAutoplayActive && autoplay.autoplayCards && autoplay.autoplayCards.length > 0
+                  ? autoplay.autoplayCards.length
+                  : currentDeck?.id === 'duplicates' 
                   ? duplicateCards.length 
                   : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => String(c.id) === String(card?.id)) !== -1)
                   ? deckCards.length

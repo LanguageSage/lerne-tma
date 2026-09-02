@@ -101,12 +101,15 @@ const getInitialDesignState = () => {
 const getInitialStudyState = () => ({
   autoPlay: storage.get('lerne_autoplay') !== null ? storage.get('lerne_autoplay') === 'true' : false,
   autoShow: storage.get('lerne_autoshow') !== null ? storage.get('lerne_autoshow') === 'true' : false,
+  autoplayOrder: storage.get('lerne_autoplay_order') || 'list',
   autoplayFrontPause: storage.get('lerne_autoplay_front_pause') !== null ? Number(storage.get('lerne_autoplay_front_pause')) : 4,
   autoplayBackPause: storage.get('lerne_autoplay_back_pause') !== null ? Number(storage.get('lerne_autoplay_back_pause')) : 2,
+  autoplayFrontRepeat: storage.get('lerne_autoplay_front_repeat') !== null ? Number(storage.get('lerne_autoplay_front_repeat')) : (storage.get('lerne_autoplay_card_repeat') !== null ? Number(storage.get('lerne_autoplay_card_repeat')) : 1),
+  autoplayBackRepeat: storage.get('lerne_autoplay_back_repeat') !== null ? Number(storage.get('lerne_autoplay_back_repeat')) : (storage.get('lerne_autoplay_card_repeat') !== null ? Number(storage.get('lerne_autoplay_card_repeat')) : 1),
   autoplayCardRepeat: storage.get('lerne_autoplay_card_repeat') !== null ? Number(storage.get('lerne_autoplay_card_repeat')) : 1,
   ttsSpeed: storage.get('lerne_tts_speed') !== null ? Number(storage.get('lerne_tts_speed')) : 0,
   ttsSpeedRu: storage.get('lerne_tts_speed_ru') !== null ? Number(storage.get('lerne_tts_speed_ru')) : 0,
-  autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : false,
+  autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : true,
   autoplayForceFrontAudio: storage.get('lerne_autoplay_force_front_audio') !== null ? storage.get('lerne_autoplay_force_front_audio') === 'true' : false,
   autoplayForceBackAudio: storage.get('lerne_autoplay_force_back_audio') !== null ? storage.get('lerne_autoplay_force_back_audio') === 'true' : false,
   studyMode: (storage.get('lerne_study_mode') && storage.get('lerne_study_mode') !== 'turbo') ? storage.get('lerne_study_mode') : 'classic',
@@ -156,6 +159,10 @@ export const useSettingsStore = create((set, get) => {
       storage.set('lerne_autoshow', value);
       set({ autoShow: value });
     },
+    setAutoplayOrder: (value) => {
+      storage.set('lerne_autoplay_order', value);
+      set({ autoplayOrder: value });
+    },
     setAutoplayFrontPause: (value) => {
       storage.set('lerne_autoplay_front_pause', value);
       set({ autoplayFrontPause: Number(value) });
@@ -163,6 +170,14 @@ export const useSettingsStore = create((set, get) => {
     setAutoplayBackPause: (value) => {
       storage.set('lerne_autoplay_back_pause', value);
       set({ autoplayBackPause: Number(value) });
+    },
+    setAutoplayFrontRepeat: (value) => {
+      storage.set('lerne_autoplay_front_repeat', value);
+      set({ autoplayFrontRepeat: Number(value) });
+    },
+    setAutoplayBackRepeat: (value) => {
+      storage.set('lerne_autoplay_back_repeat', value);
+      set({ autoplayBackRepeat: Number(value) });
     },
     setAutoplayCardRepeat: (value) => {
       storage.set('lerne_autoplay_card_repeat', value);

@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 from .media import resolve_media_url, _build_media_exists_map
 from .utils import add_to_history
+from .cefr_metadata import get_cefr_metadata, merge_cefr_metadata, parse_card_metadata, serialize_card_metadata
 
 def save_card(data, user_id):
     """Сохраняет или обновляет карточку."""
@@ -113,6 +114,11 @@ def save_card(data, user_id):
             curr_tags = card.tags or ""
             if level_str not in curr_tags:
                 card.tags = f"{curr_tags},{level_str}".strip(",") if curr_tags else level_str
+
+    if 'metadata' in data:
+        card.metadata = serialize_card_metadata(parse_card_metadata(data.get('metadata')))
+    if data.get('cefr') is not None:
+        card.metadata = merge_cefr_metadata(card.metadata, data.get('cefr'))
 
     # Проверяем, не перепутаны ли стороны (меняем только если на лицевой кириллица, а на обороте непустая латиница)
     import re
@@ -241,9 +247,13 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         creator_avatar = creator.photo_url
 
     tags_val = get_val('tags', 'tags')
+    metadata = parse_card_metadata(get_val('metadata', 'metadata'))
+    cefr_metadata = get_cefr_metadata(metadata)
     level_label = None
 
-    if tags_val:
+    if cefr_metadata and cefr_metadata.get("level") in {"A1", "A2", "B1", "B2", "C1", "C2"}:
+        level_label = cefr_metadata.get("level")
+    elif tags_val:
         for lvl in ["A1", "A2", "B1", "B2", "C1", "C2"]:
             if lvl in str(tags_val).upper():
                 level_label = lvl
@@ -258,6 +268,8 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "context": get_val('context', 'context'),
         "tags": tags_val,
         "level": level_label,
+        "metadata": metadata,
+        "cefr": cefr_metadata,
         "audio_url": resolve_media_url(audio_path, "audio", exists_map=media_exists),
         "audio_back_url": resolve_media_url(audio_back_path, "audio", exists_map=media_exists),
         "image_url": resolve_media_url(image_path, "images", exists_map=media_exists),
@@ -302,6 +314,7 @@ def get_cards_for_study(deck_id: int, user_id: int):
             TMA_Card.video_front_path,
             TMA_Card.video_back_path,
             TMA_Card.tags,
+            TMA_Card.metadata,
             TMA_Card.card_type,
             TMA_Card.flag,
             TMA_Card.position,
