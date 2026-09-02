@@ -15,8 +15,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
     startSimulation,
     retakeMistakes,
     selectedLandCode,
-    resetToMenu,
-    examMode
+    resetToMenu
   } = useLidStore();
 
   const [activeMistakeModal, setActiveMistakeModal] = useState(null);

@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import rawQuestionsData from '../data/lidQuestions.json';
-import { getBundeslandByCode, BUNDESLAENDER } from '../data/bundeslaender';
 
 const STORAGE_LAND_KEY = 'lerne_lid_selected_land';
 const STORAGE_REMEMBER_KEY = 'lerne_lid_remember_land';

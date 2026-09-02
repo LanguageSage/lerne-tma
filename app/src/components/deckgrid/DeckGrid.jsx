@@ -30,6 +30,8 @@ import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBa
 import { SearchBar } from '../common/SearchBar';
 import { LearningShortcutsBar } from './LearningShortcutsBar';
 import { matchFolder, matchDeck } from '../../utils/search';
+import { isLidUser, isLidRootFolder, ensureLidStructureForUser } from '../../services/lidFolderManager';
+import { LidExamCardItem } from '../lid/LidExamCardItem';
 
 export const DeckGrid = ({ 
   startTutorial, 
@@ -59,9 +61,18 @@ export const DeckGrid = ({
 
   const { collaborators, onlineCount, isShared } = useCollaborativePresence('folder', activeFolderId, view === 'decks' && activeFolderId !== null);
 
+  // Auto-provision Leben in Deutschland folder and 16 empty decks for aruna27
+  React.useEffect(() => {
+    if (hasInitialized && isLidUser()) {
+      ensureLidStructureForUser();
+    }
+  }, [hasInitialized]);
+
   const currentFolders = React.useMemo(() => {
     return folders ? folders.filter(f => {
       if (f.parent_id !== activeFolderId) return false;
+      // LiD folder is exclusive to aruna27
+      if (isLidRootFolder(f) && !isLidUser()) return false;
       if (activeFolderId !== null) return true;
       return (f.target_language || 'de') === activeLanguage;
     }) : [];
@@ -326,27 +337,33 @@ export const DeckGrid = ({
               <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить первую колоду</button>
             </div>
           ) : isFolderEmpty ? (
-            <div className="empty-decks-state glass" style={{ gridColumn: '1 / -1', padding: '40px 20px', textAlign: 'center' }}>
-              {activeFolderId !== null ? (
-                <>
-                  <FolderOpen size={48} opacity={0.3} style={{ color: '#818cf8', marginBottom: 12, display: 'inline-block' }} />
-                  <h3>Эта папка пуста</h3>
-                  <p style={{ maxWidth: 300, margin: '8px auto 16px', fontSize: '0.85rem', color: '#94a3b8' }}>
-                    Создайте здесь новую колоду или подпапку!
-                  </p>
-                  <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить элемент</button>
-                </>
-              ) : (
-                <>
-                  <Layers size={48} opacity={0.3} style={{ marginBottom: 12, display: 'inline-block' }} />
-                  <h3>У вас пока нет колод на языке: {langInfo.name} {langInfo.flag}</h3>
-                  <p style={{ maxWidth: 360, margin: '8px auto 16px', fontSize: '0.9rem', color: '#94a3b8' }}>
-                    Нажмите "+", чтобы создать свою первую колоду для изучения {langInfo.label.toLowerCase()} языка.
-                  </p>
-                  <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить первую колоду ({langInfo.code.toUpperCase()})</button>
-                </>
-              )}
-            </div>
+            isLidRootFolder(activeFolder) ? (
+              <div className="reorder-group-list" style={{ gridColumn: '1 / -1', width: '100%' }}>
+                <LidExamCardItem />
+              </div>
+            ) : (
+              <div className="empty-decks-state glass" style={{ gridColumn: '1 / -1', padding: '40px 20px', textAlign: 'center' }}>
+                {activeFolderId !== null ? (
+                  <>
+                    <FolderOpen size={48} opacity={0.3} style={{ color: '#818cf8', marginBottom: 12, display: 'inline-block' }} />
+                    <h3>Эта папка пуста</h3>
+                    <p style={{ maxWidth: 300, margin: '8px auto 16px', fontSize: '0.85rem', color: '#94a3b8' }}>
+                      Создайте здесь новую колоду или подпапку!
+                    </p>
+                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить элемент</button>
+                  </>
+                ) : (
+                  <>
+                    <Layers size={48} opacity={0.3} style={{ marginBottom: 12, display: 'inline-block' }} />
+                    <h3>У вас пока нет колод на языке: {langInfo.name} {langInfo.flag}</h3>
+                    <p style={{ maxWidth: 360, margin: '8px auto 16px', fontSize: '0.9rem', color: '#94a3b8' }}>
+                      Нажмите "+", чтобы создать свою первую колоду для изучения {langInfo.label.toLowerCase()} языка.
+                    </p>
+                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить первую колоду ({langInfo.code.toUpperCase()})</button>
+                  </>
+                )}
+              </div>
+            )
           ) : deckSearchQuery.trim() && filteredFolders.length === 0 && filteredDecks.length === 0 ? (
             <div className="search-empty-state glass" style={{ gridColumn: '1 / -1' }}>
               <Search size={32} opacity={0.4} color="#818cf8" />
@@ -411,7 +428,7 @@ export const DeckGrid = ({
               )}
 
               {/* 2. Decks */}
-              {filteredDecks.length > 0 && (
+              {(filteredDecks.length > 0 || isLidRootFolder(activeFolder)) && (
                 <DndContext
                   sensors={sensors}
                   collisionDetection={customCollisionDetection}
@@ -423,6 +440,9 @@ export const DeckGrid = ({
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="reorder-group-list">
+                      {isLidRootFolder(activeFolder) && !deckSearchQuery.trim() && (
+                        <LidExamCardItem />
+                      )}
                       {filteredDecks.map((deck) => (
                         <DeckCardItem
                           key={`deck-${deck.id}`}

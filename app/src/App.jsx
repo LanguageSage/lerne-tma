@@ -19,6 +19,7 @@ import {
   LanguageSelectionModal, ImportModal, CollaboratorsModal, BatchCardModal 
 } from './components/modals';
 import { TutorialOverlay } from './components/TutorialOverlay';
+import { LidExamView } from './components/lid/LidExamView';
 
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
@@ -243,6 +244,8 @@ function AppContent() {
         return <DuplicateManager />;
       case 'trash':
         return <TrashManager />;
+      case 'lid_exam':
+        return <LidExamView />;
       case 'decks':
       default:
         return (

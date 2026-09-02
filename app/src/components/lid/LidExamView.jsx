@@ -350,7 +350,7 @@ export const LidExamView = () => {
       <BundeslandModal
         isOpen={isLandModalOpen}
         onClose={closeLandModal}
-        onConfirm={(code) => {
+        onConfirm={() => {
           closeLandModal();
           if (screen === 'menu') {
             // Land updated
