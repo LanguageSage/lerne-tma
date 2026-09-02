@@ -9,8 +9,20 @@ logger = logging.getLogger(__name__)
 from api.models import TMASetting
 from api.ai_clients import AIService
 
-def get_ai_config():
+_AI_CONFIG_CACHE = {"data": None, "ts": 0}
+_AI_CONFIG_CACHE_TTL = 60  # 60 seconds cache
+
+def invalidate_ai_config_cache():
+    """Invalidates the in-memory AI configuration cache."""
+    _AI_CONFIG_CACHE["data"] = None
+    _AI_CONFIG_CACHE["ts"] = 0
+
+def get_ai_config(force_refresh: bool = False):
     import os
+    now = time.time()
+    if not force_refresh and _AI_CONFIG_CACHE["data"] is not None and (now - _AI_CONFIG_CACHE["ts"] < _AI_CONFIG_CACHE_TTL):
+        return _AI_CONFIG_CACHE["data"]
+
     provider_rec = TMASetting.get_or_none(TMASetting.key == "AI_PROVIDER")
     provider = provider_rec.value if provider_rec and provider_rec.value != "default" else "google"
     
@@ -27,7 +39,10 @@ def get_ai_config():
         model_rec = TMASetting.get_or_none(TMASetting.key == "AI_MODEL")
     model = model_rec.value if model_rec else None
     
-    return provider, ai_key, model
+    config = (provider, ai_key, model)
+    _AI_CONFIG_CACHE["data"] = config
+    _AI_CONFIG_CACHE["ts"] = now
+    return config
 
 def extract_json_from_text(text: str, default_front: str) -> dict:
     clean_text = text.replace("END_JSON", "").strip()

@@ -268,6 +268,11 @@ def save_admin_settings(data: dict, user_id: int = Depends(get_user_id)):
                 s.value = str(v)
                 s.updated_at = now
                 s.save()
+        try:
+            from api import ai_service
+            ai_service.invalidate_ai_config_cache()
+        except Exception:
+            pass
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error saving settings: {e}")

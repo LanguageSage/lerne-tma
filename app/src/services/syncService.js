@@ -19,7 +19,7 @@ export const syncService = {
       const dirtyCards = await db.cards.where('is_dirty').equals(1).toArray();
       const dirtyProgress = await db.progress.where('is_dirty').equals(1).toArray();
 
-      logger_log(`Found dirty items: Folders=${dirtyFolders.length}, Decks=${dirtyDecks.length}, Cards=${dirtyCards.length}, Progress=${dirtyProgress.length}`);
+      console.log(`[Sync Service] Found dirty items: Folders=${dirtyFolders.length}, Decks=${dirtyDecks.length}, Cards=${dirtyCards.length}, Progress=${dirtyProgress.length}`);
 
       // Format payload for backend
       const payload = {
@@ -297,7 +297,3 @@ export const syncService = {
     }
   }
 };
-
-function logger_log(msg) {
-  console.log(`[Sync Service] ${msg}`);
-}

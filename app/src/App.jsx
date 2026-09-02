@@ -70,6 +70,7 @@ function AppContent() {
   const lastFolderIdRef = React.useRef(activeFolderId);
 
   const isAuthModalOpen = useUiStore(state => state.isAuthModalOpen);
+  const authModalTitle = useUiStore(state => state.authModalTitle);
   const isBatchModalOpen = useUiStore(state => state.isBatchModalOpen);
   const anyModalOpen = isSettingsOpen || isNewDeckModalOpen || isRenameModalOpen || isCardActionModalOpen || syncModalOpen || isAuthModalOpen || isBatchModalOpen;
 
@@ -439,9 +440,9 @@ function AppContent() {
       />
 
       <AuthRequiredModal
-        isOpen={useUiStore(s => s.isAuthModalOpen)}
+        isOpen={isAuthModalOpen}
         onClose={() => useUiStore.getState().setIsAuthModalOpen(false)}
-        title={useUiStore(s => s.authModalTitle)}
+        title={authModalTitle}
       />
 
       <LanguageSelectionModal />

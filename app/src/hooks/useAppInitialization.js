@@ -100,7 +100,11 @@ export const useAppInitialization = (checkStartParam) => {
 
     const USER_ID = getUserId();
     const params = new URLSearchParams(window.location.search);
-    if (params.get('admin') === '1' || USER_ID === 642478257) {
+    const adminIds = (import.meta.env.VITE_ADMIN_IDS || '642478257')
+      .split(',')
+      .map(id => Number(id.trim()))
+      .filter(Boolean);
+    if (params.get('admin') === '1' || (USER_ID && adminIds.includes(Number(USER_ID)))) {
       useSettingsStore.setState({ isAdmin: true });
     }
 

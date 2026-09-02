@@ -222,10 +222,6 @@ export const useAudio = (autoPlay, showToast) => {
       }
     };
 
-    audio.onended = () => {
-      if (animFrameId) cancelAnimationFrame(animFrameId);
-    };
-
     audio.onloadedmetadata = () => {
       if (audioRef.current === audio) {
         setDuration(audio.duration || 0);
@@ -233,6 +229,7 @@ export const useAudio = (autoPlay, showToast) => {
     };
 
     audio.onerror = () => {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
       setIsAudioLoading(false);
       setAudioState('idle');
       setCurrentUrl(null);
@@ -253,6 +250,7 @@ export const useAudio = (autoPlay, showToast) => {
     };
 
     audio.onended = () => {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
       setIsAudioLoading(false);
       setAudioState('idle');
       setCurrentTime(0);

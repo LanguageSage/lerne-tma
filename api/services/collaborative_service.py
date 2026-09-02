@@ -44,9 +44,6 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
         if key not in collabs_by_target:
             collabs_by_target[key] = []
         collabs_by_target[key].append(c)
-        if key not in collabs_by_target:
-            collabs_by_target[key] = []
-        collabs_by_target[key].append(c)
 
     role_memo = {}
     shared_memo = {}
