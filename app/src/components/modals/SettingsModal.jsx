@@ -17,17 +17,56 @@ import { RemindersTab } from '../settings/RemindersTab';
 export const SettingsModal = ({ userId, startTutorial }) => {
   const { isSettingsOpen, setIsSettingsOpen, settingsTab } = useUiStore();
   const { t } = useTranslation();
-  const [activeSettingsTab, setActiveSettingsTab] = useState(settingsTab || 'general');
-  const [customBackgrounds] = useState([]);
 
   const ADMIN_USER_ID = 642478257;
   const isAdmin = Number(userId) === ADMIN_USER_ID;
 
-  React.useEffect(() => {
-    if (isSettingsOpen && settingsTab) {
-      setActiveSettingsTab(settingsTab);
+  const getInitialTab = () => {
+    if (settingsTab) return settingsTab;
+    try {
+      const stored = localStorage.getItem('lerne_last_settings_tab');
+      if (stored && (stored !== 'ai' || isAdmin)) return stored;
+    } catch {
+      // ignore
     }
-  }, [isSettingsOpen, settingsTab]);
+    return 'general';
+  };
+
+  const [activeSettingsTab, setActiveSettingsTab] = useState(getInitialTab);
+  const [customBackgrounds] = useState([]);
+
+  const handleTabChange = (tab) => {
+    setActiveSettingsTab(tab);
+    try {
+      localStorage.setItem('lerne_last_settings_tab', tab);
+    } catch {
+      // ignore
+    }
+  };
+
+  React.useEffect(() => {
+    if (isSettingsOpen) {
+      if (settingsTab) {
+        setActiveSettingsTab(settingsTab);
+        try {
+          localStorage.setItem('lerne_last_settings_tab', settingsTab);
+        } catch {
+          // ignore
+        }
+      } else {
+        try {
+          const stored = localStorage.getItem('lerne_last_settings_tab');
+          if (stored && (stored !== 'ai' || isAdmin)) {
+            setActiveSettingsTab(stored);
+          } else {
+            setActiveSettingsTab('general');
+          }
+        } catch {
+          setActiveSettingsTab('general');
+        }
+      }
+    }
+  }, [isSettingsOpen, settingsTab, isAdmin]);
 
   React.useEffect(() => {
     if (!isAdmin && activeSettingsTab === 'ai') {
@@ -62,7 +101,7 @@ export const SettingsModal = ({ userId, startTutorial }) => {
                 id="settings-tab-select"
                 className="settings-dropdown-select glass"
                 value={activeSettingsTab}
-                onChange={(e) => setActiveSettingsTab(e.target.value)}
+                onChange={(e) => handleTabChange(e.target.value)}
               >
                 <option value="profile">👤 Профиль</option>
                 <option value="reminders">🔔 Напоминания бота</option>

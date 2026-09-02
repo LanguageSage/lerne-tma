@@ -373,9 +373,6 @@ export const CardForm = ({
             }}
             placeholder={t('creator.word_placeholder', 'Слово или фраза...')}
           />
-          <div style={{ fontSize: '0.72rem', opacity: 0.65, padding: '4px 10px 8px 10px', fontStyle: 'italic', zIndex: 3, position: 'relative' }}>
-            💡 Тренажёр: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '3px' }}>{'слово {*den|dem|der}'}</code> | Тест: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '3px' }}>{'*верный ответ'}</code>
-          </div>
           
           {(cardData.image_url || cardData.image_path) && (() => {
             const getDeckH = () => {

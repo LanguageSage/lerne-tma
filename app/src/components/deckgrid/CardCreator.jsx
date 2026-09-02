@@ -33,6 +33,7 @@ export const CardCreator = ({ startTutorial }) => {
     audio_url: '',
     image_path: '',
     image_url: '',
+    flag: 0,
     deck_id: initialDeckId,
     after_card_id: initialAfterCardId
   });
@@ -57,6 +58,7 @@ export const CardCreator = ({ startTutorial }) => {
         front: '',
         back: '',
         context: '',
+        flag: 0,
         deck_id: targetId,
         after_card_id: activeAfterCardId
       });

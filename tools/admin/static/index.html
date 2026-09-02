@@ -610,37 +610,6 @@
     </div>
   </div>
 
-  <!-- Floating Staged Decks Bottom Dock -->
-  <div id="staged-decks-dock" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[94%] glass bg-slate-900/95 border border-indigo-500/40 rounded-2xl p-3.5 shadow-2xl flex items-center justify-between gap-3 backdrop-blur-md transition-all">
-    <div class="flex items-center gap-3 min-w-0">
-      <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold text-lg shrink-0">
-        📦
-      </div>
-      <div class="min-w-0">
-        <div class="text-xs font-bold text-white flex items-center gap-2 truncate">
-          <span>Отложено: <b id="dock-staged-count" class="text-indigo-400 text-sm">0</b> колод</span>
-          <span class="text-slate-500">•</span>
-          <span id="dock-staged-cards" class="text-emerald-400 font-semibold text-xs">~0 карт.</span>
-        </div>
-        <div id="dock-staged-langs" class="text-[11px] text-slate-400 truncate">Пакетная перегенерация</div>
-      </div>
-    </div>
-    <div class="flex items-center gap-1.5 shrink-0">
-      <button onclick="openStagedDecksModal()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition" title="Открыть список">
-        📋 Список
-      </button>
-      <button onclick="clearStagedDecks()" class="px-2 py-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 text-xs rounded-xl transition" title="Очистить всю очередь">
-        <i data-lucide="trash-2" class="w-4 h-4"></i>
-      </button>
-      <button onclick="openBatchRegenStudio('audio')" class="px-2.5 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 text-xs font-bold rounded-xl flex items-center gap-1 transition">
-        <i data-lucide="mic" class="w-3.5 h-3.5"></i> Озвучка
-      </button>
-      <button onclick="openBatchRegenStudio('ai')" class="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-bold rounded-xl flex items-center gap-1 shadow-lg shadow-indigo-500/20 transition">
-        <i data-lucide="zap" class="w-3.5 h-3.5"></i> Массовая ИИ
-      </button>
-    </div>
-  </div>
-
   <!-- Modal: Staged Decks Drawer / Manager -->
   <div id="modal-staged-decks" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="glass max-w-2xl w-full p-6 rounded-2xl border border-slate-800 space-y-4">
@@ -866,28 +835,6 @@
       // Update Toolbar badge
       const toolbarCount = document.getElementById('toolbar-staged-count');
       if (toolbarCount) toolbarCount.innerText = count;
-
-      // Update Floating Dock
-      const dock = document.getElementById('staged-decks-dock');
-      const dockCount = document.getElementById('dock-staged-count');
-      const dockCards = document.getElementById('dock-staged-cards');
-      const dockLangs = document.getElementById('dock-staged-langs');
-
-      if (dock && dockCount && dockCards) {
-        dockCount.innerText = count;
-        dockCards.innerText = `~${totalCards} карт.`;
-        if (dockLangs) {
-          dockLangs.innerText = count > 0 
-            ? `Языки: ${Array.from(langs).join(', ') || 'DE'}` 
-            : 'Пакетная перегенерация';
-        }
-
-        if (count > 0) {
-          dock.classList.remove('hidden');
-        } else {
-          dock.classList.add('hidden');
-        }
-      }
 
       // Update modal stats
       const modalStatDecks = document.getElementById('modal-staged-stat-decks');

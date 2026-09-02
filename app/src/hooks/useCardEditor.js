@@ -69,7 +69,8 @@ export const useCardEditor = () => {
         audio_path: data.audio_path || cleanMedia(data.audio_url),
         audio_back_path: data.audio_back_path || cleanMedia(data.audio_back_url),
         video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
-        video_back_path: data.video_back_path || cleanMedia(data.video_back_url)
+        video_back_path: data.video_back_path || cleanMedia(data.video_back_url),
+        flag: data.flag !== undefined ? Number(data.flag) : 0
       };
       if (data.after_card_id) reqData.after_card_id = data.after_card_id;
 
