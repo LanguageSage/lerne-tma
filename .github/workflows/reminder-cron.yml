@@ -3,7 +3,7 @@ name: Trigger Telegram Reminders Cron
 on:
   schedule:
     # Запуск каждые 30 минут для точного срабатывания расписаний
-    - cron: '*/30 * * * *'
+    - cron: '7,37 * * * *'
   workflow_dispatch: # Возможность ручного запуска через вкладку Actions в GitHub
 
 jobs:
@@ -12,4 +12,5 @@ jobs:
     steps:
       - name: Ping TMA Reminders Endpoint
         run: |
-          curl -s -X POST https://tma-amber.vercel.app/api/bot/cron-reminders
+          curl --fail-with-body --show-error --location \
+            -X POST https://tma-amber.vercel.app/api/bot/cron-reminders
