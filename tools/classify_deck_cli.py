@@ -9,6 +9,7 @@ async def classify_deck(deck_id: int, target_lang: str = "de"):
     print("=" * 65)
     print(f"🎯 РАЗМЕТКА УРОВНЕЙ ДЛЯ КОЛОДЫ ID: {deck_id} (Язык: {target_lang.upper()})")
     print("=" * 65)
+    print(f"Профиль немецкого словаря: {os.environ.get('DE_VOCAB_PROFILE', 'base')}")
 
     if not models.tma_db.obj:
         models.initialize_database()
@@ -18,7 +19,7 @@ async def classify_deck(deck_id: int, target_lang: str = "de"):
         print(f"❌ Колода с ID {deck_id} не найдена!")
         return
 
-    print(f"Колода: "{deck.name}"")
+    print(f'Колода: "{deck.name}"')
     cards = list(models.TMA_Card.select().where(
         (models.TMA_Card.deck_id == deck_id) & (models.TMA_Card.is_deleted == False)
     ).order_by(models.TMA_Card.position.asc(), models.TMA_Card.id.asc()))
@@ -53,12 +54,19 @@ async def classify_deck(deck_id: int, target_lang: str = "de"):
             card.updated_at = now
             card.save()
 
-    print(f"\n✅ Колода "{deck.name}" успешно размечена! Обновлено {len(cards)} карточек.")
+    print(f'\n✅ Колода "{deck.name}" успешно размечена! Обновлено {len(cards)} карточек.')
     print("=" * 65)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Classify Single Deck by ID")
     parser.add_argument("deck_id", type=int, help="ID of the deck to classify")
     parser.add_argument("--lang", type=str, default="de", help="Target language (de, en, no)")
+    parser.add_argument(
+        "--vocab-profile",
+        choices=["base", "medium", "max"],
+        default=os.environ.get("DE_VOCAB_PROFILE", "base"),
+        help="German local vocabulary profile for rule classification",
+    )
     args = parser.parse_args()
+    os.environ["DE_VOCAB_PROFILE"] = args.vocab_profile
     asyncio.run(classify_deck(args.deck_id, args.lang))

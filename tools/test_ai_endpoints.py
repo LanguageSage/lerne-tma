@@ -37,6 +37,14 @@ async def run_tests():
         assert len(res_de) == 3
         print("  -> Немецкий язык:  PASSED ✅")
 
+        with patch("api.ai_service.get_ai_config", return_value=("google", None, None)):
+            res_local_fallback = await ai_service.classify_phrases_batch(
+                ["Ich lerne Deutsch, um in Deutschland zu arbeiten."],
+                "de",
+            )
+            assert res_local_fallback == ["B1"]
+            print("  -> Немецкий fallback без AI-модели: PASSED ✅")
+
         mock_chat.return_value = ('["A1", "B1", "B2"]', True)
         res_en = await ai_service.classify_phrases_batch(["Coffee", "Working for 5 years", "If I had known"], "en")
         assert len(res_en) == 3
@@ -59,7 +67,7 @@ async def run_tests():
         req = ClassifyBatchRequest(deck_id=deck.id, target_language="de")
         endpoint_res = await classify_cards_batch_endpoint(req, user_id=user_id)
         assert endpoint_res["status"] == "ok"
-        assert endpoint_res["updated_count"] == 3
+        assert endpoint_res["updated_count"] + endpoint_res["pending_background_count"] == 3
         print("  -> Эндпоинт пакетной классификации: PASSED ✅")
 
     print("\n" + "=" * 65)

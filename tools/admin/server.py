@@ -1,10 +1,12 @@
 import os
+import re
 import sys
 import json
 import asyncio
 import datetime
 import time
-from typing import List, Optional
+from collections import Counter, defaultdict
+from typing import Any, Dict, List, Optional
 
 # Add project root to sys.path
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -68,6 +70,8 @@ def get_admin_ui():
     return JSONResponse({"message": "Admin UI index.html not found"}, status_code=404)
 
 
+from tools.admin.services import task_manager
+
 # Pydantic Schemas
 class CreateDeckRequest(BaseModel):
     user_id: int
@@ -90,6 +94,7 @@ class RegenerateDeckRequest(BaseModel):
     only_empty: bool = False
     only_no_context: bool = False
     no_audio: bool = False
+    skip_completed: bool = False
     sync_copies: bool = False
     voice: Optional[str] = "de-DE-KatjaNeural"
     rate: Optional[str] = "+0%"
@@ -100,16 +105,19 @@ class RegenerateDeckRequest(BaseModel):
     target_lang: Optional[str] = "de"
     exclude_card_ids: Optional[List[int]] = None
     exclude_range_str: Optional[str] = None
+    start_card_idx: Optional[int] = None
 
 class RegenerateAudioRequest(BaseModel):
     voice: Optional[str] = "de-DE-KatjaNeural"
     rate: Optional[str] = "+0%"
     only_missing_audio: bool = False
+    skip_completed: bool = False
     sync_copies: bool = True
     delay: float = 0.3
     limit: Optional[int] = None
     exclude_card_ids: Optional[List[int]] = None
     exclude_range_str: Optional[str] = None
+    start_card_idx: Optional[int] = None
 
 class BatchRegenerateDeckRequest(BaseModel):
     deck_ids: List[str]
@@ -117,6 +125,7 @@ class BatchRegenerateDeckRequest(BaseModel):
     only_empty: bool = False
     only_no_context: bool = False
     no_audio: bool = False
+    skip_completed: bool = False
     sync_copies: bool = False
     voice: Optional[str] = "de-DE-KatjaNeural"
     rate: Optional[str] = "+0%"
@@ -125,21 +134,446 @@ class BatchRegenerateDeckRequest(BaseModel):
     native_lang: Optional[str] = "uk"
     target_lang: Optional[str] = "de"
     cards_per_deck_limit: Optional[int] = None
+    start_deck_idx: Optional[int] = None
+    start_card_idx: Optional[int] = None
 
 class BatchRegenerateAudioRequest(BaseModel):
     deck_ids: List[str]
     voice: Optional[str] = "de-DE-KatjaNeural"
     rate: Optional[str] = "+0%"
     only_missing_audio: bool = False
+    skip_completed: bool = False
     sync_copies: bool = True
     delay: float = 0.3
     cards_per_deck_limit: Optional[int] = None
+    start_deck_idx: Optional[int] = None
+    start_card_idx: Optional[int] = None
+
+class BulkCreateCardsRequest(BaseModel):
+    deck_id: Optional[str] = None
+    new_deck_name: Optional[str] = None
+    target_language: str = "de"
+    level: Optional[str] = None
+    topic: Optional[str] = None
+    user_id: Optional[int] = 0
+    is_default: bool = False
+    is_library: bool = False
+    phrases: List[str]
+    voice: Optional[str] = "de-DE-KatjaNeural"
+    rate: Optional[str] = "+0%"
+    generate_ai: bool = True
+    generate_audio: bool = True
+    sync_copies: bool = False
+    delay: float = 1.0
+    native_lang: Optional[str] = "uk"
+    prompt_id: Optional[str] = "preset_b1"
+    start_card_idx: Optional[int] = None
+
+class SuggestWordsRequest(BaseModel):
+    topic: str
+    level: Optional[str] = "A1"
+    count: Optional[int] = 20
+    target_lang: Optional[str] = "de"
+    native_lang: Optional[str] = "uk"
+
+class ResumeTaskRequest(BaseModel):
+    task_id: Optional[str] = None
+    start_deck_idx: Optional[int] = None
+    start_card_idx: Optional[int] = None
+
+class UpdateCardRequest(BaseModel):
+    front_text: Optional[str] = None
+    back_text: Optional[str] = None
+    context: Optional[str] = None
+    tags: Optional[str] = None
 
 class BatchSummaryRequest(BaseModel):
     deck_ids: List[str]
 
 class BatchControlRequest(BaseModel):
     action: str  # "pause", "resume", "stop", "commit_dry_run"
+
+
+class ClassificationRequest(BaseModel):
+    mode: str = "audit"  # "audit", "dry_run", "run"
+    lang: str = "de"
+    vocab_profile: str = "medium"
+    overwrite: bool = True
+    clear_uncertain_local: bool = False
+    include_library: bool = False
+    limit: Optional[int] = None
+    delay: float = 1.0
+
+
+VALID_CEFR_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
+CEFR_TAG_RE = re.compile(r"\b(A1|A2|B1|B2|C1|C2)\b", re.IGNORECASE)
+
+
+def extract_existing_cefr_level(tags_str: Optional[str]) -> Optional[str]:
+    if not tags_str:
+        return None
+    match = CEFR_TAG_RE.search(str(tags_str))
+    return match.group(1).upper() if match else None
+
+
+def replace_cefr_level(tags_str: Optional[str], level: str) -> str:
+    tags = str(tags_str or "")
+    cleaned = CEFR_TAG_RE.sub("", tags)
+    cleaned_parts = [part.strip() for part in cleaned.split(",") if part.strip()]
+    return ",".join([*cleaned_parts, level]) if cleaned_parts else level
+
+
+def remove_cefr_level(tags_str: Optional[str]) -> str:
+    tags = str(tags_str or "")
+    cleaned = CEFR_TAG_RE.sub("", tags)
+    return ",".join(part.strip() for part in cleaned.split(",") if part.strip())
+
+
+def empty_classification_status() -> Dict[str, Any]:
+    return {
+        "status": "idle",
+        "processed_cards": 0,
+        "total_cards": 0,
+        "processed_ai_chunks": 0,
+        "total_ai_chunks": 0,
+        "logs": [],
+    }
+
+
+def _level_counter_dict(counter: Counter) -> Dict[str, int]:
+    return {level: int(counter.get(level, 0)) for level in sorted(VALID_CEFR_LEVELS)}
+
+
+def _select_tma_cards_for_classification(req: ClassificationRequest) -> List[Dict[str, Any]]:
+    lang = (req.lang or "de").lower().strip()
+    query = (
+        models.TMA_Card
+        .select(models.TMA_Card.id, models.TMA_Card.front_text, models.TMA_Card.tags)
+        .join(models.TMA_Deck)
+        .where(models.TMA_Card.is_deleted == False)
+        .order_by(models.TMA_Card.id.asc())
+    )
+    if lang == "de":
+        query = query.where(
+            (models.TMA_Deck.target_language == "de") |
+            (models.TMA_Deck.target_language.is_null())
+        )
+    else:
+        query = query.where(models.TMA_Deck.target_language == lang)
+    if req.limit and req.limit > 0:
+        query = query.limit(req.limit)
+    return list(query.dicts())
+
+
+def _append_classification_log(task_info: Dict[str, Any], message: str) -> None:
+    task_info.setdefault("logs", []).append(message)
+    if len(task_info["logs"]) > 180:
+        task_info["logs"] = task_info["logs"][-180:]
+
+
+def _save_classification_task(task_id: str, task_info: Dict[str, Any]) -> None:
+    regen_tasks[task_id] = task_info
+    task_manager.save_task_checkpoint(task_info)
+
+
+async def run_classification_task(task_id: str, req: ClassificationRequest):
+    """Classifies CEFR tags for TMA cards using local rules first and AI for uncertain phrases."""
+    task_info = regen_tasks.get(task_id) or task_manager.get_task(task_id)
+    if not task_info:
+        return
+
+    mode = (req.mode or "audit").lower().strip()
+    lang = (req.lang or "de").lower().strip()
+    vocab_profile = (req.vocab_profile or "medium").lower().strip()
+    if mode not in {"audit", "dry_run", "run"}:
+        task_info["status"] = "failed"
+        _append_classification_log(task_info, f"Invalid classification mode: {mode}")
+        _save_classification_task(task_id, task_info)
+        return
+    if vocab_profile not in {"base", "medium", "max"}:
+        vocab_profile = "medium"
+
+    task_info.update({
+        "status": "running",
+        "control": "run",
+        "mode": mode,
+        "lang": lang,
+        "vocab_profile": vocab_profile,
+        "overwrite": req.overwrite,
+        "clear_uncertain_local": req.clear_uncertain_local,
+        "include_library": req.include_library,
+        "options": req.dict(),
+        "task_type": "classification",
+    })
+    _append_classification_log(task_info, f"CEFR classification started: mode={mode}, lang={lang}, vocab={vocab_profile}.")
+    _save_classification_task(task_id, task_info)
+
+    try:
+        os.environ["DE_VOCAB_PROFILE"] = vocab_profile
+
+        all_cards = _select_tma_cards_for_classification(req)
+        existing_level_counts = Counter()
+        cards_to_process: List[Dict[str, Any]] = []
+        skipped_tagged = 0
+
+        for card in all_cards:
+            existing_level = extract_existing_cefr_level(card.get("tags"))
+            if existing_level:
+                existing_level_counts[existing_level] += 1
+            if existing_level and not req.overwrite:
+                skipped_tagged += 1
+                continue
+            cards_to_process.append(card)
+
+        phrase_to_card_ids = defaultdict(list)
+        phrase_to_card_tags: Dict[int, Optional[str]] = {}
+        for card in cards_to_process:
+            phrase = (card.get("front_text") or "").strip()
+            if phrase:
+                phrase_to_card_ids[phrase].append(card["id"])
+                phrase_to_card_tags[card["id"]] = card.get("tags")
+
+        unique_phrases = list(phrase_to_card_ids.keys())
+        duplicate_saved = len(cards_to_process) - len(unique_phrases)
+        task_info.update({
+            "total_cards": len(cards_to_process),
+            "cards_scanned": len(all_cards),
+            "skipped_tagged": skipped_tagged,
+            "unique_phrases": len(unique_phrases),
+            "duplicate_saved": duplicate_saved,
+            "processed_cards": 0,
+            "existing_level_counts": _level_counter_dict(existing_level_counts),
+        })
+        _append_classification_log(
+            task_info,
+            f"Scanned {len(all_cards)} cards, processing {len(cards_to_process)} cards, {len(unique_phrases)} unique phrases."
+        )
+        _save_classification_task(task_id, task_info)
+
+        if not unique_phrases:
+            task_info["status"] = "completed"
+            _append_classification_log(task_info, "No cards require classification.")
+            _save_classification_task(task_id, task_info)
+            return
+
+        from api.services.classifier import classify_sentence_fast
+
+        phrase_to_level: Dict[str, Optional[str]] = {}
+        phrase_to_source: Dict[str, str] = {}
+        phrase_to_confidence: Dict[str, float] = {}
+        phrase_to_local_fallback: Dict[str, str] = {}
+        local_level_counts = Counter()
+        local_fallback_counts = Counter()
+        cleared_local_counts = Counter()
+        phrases_for_ai: List[str] = []
+
+        for idx, phrase in enumerate(unique_phrases, 1):
+            if task_info.get("control") == "stop":
+                task_info["status"] = "stopped"
+                _append_classification_log(task_info, "Classification stopped during local pass.")
+                _save_classification_task(task_id, task_info)
+                return
+            while task_info.get("control") == "pause":
+                task_info["status"] = "paused"
+                _save_classification_task(task_id, task_info)
+                await asyncio.sleep(0.5)
+            task_info["status"] = "running"
+
+            if lang == "de":
+                local = classify_sentence_fast(phrase, "de")
+                local_level = local.get("level", "A1")
+                local_conf = float(local.get("confidence", 0.0) or 0.0)
+                phrase_to_local_fallback[phrase] = local_level
+                if local_conf >= 0.80:
+                    phrase_to_level[phrase] = local_level
+                    phrase_to_source[phrase] = "local"
+                    phrase_to_confidence[phrase] = local_conf
+                    local_level_counts[local_level] += len(phrase_to_card_ids[phrase])
+                else:
+                    local_fallback_counts[local_level] += len(phrase_to_card_ids[phrase])
+                    if req.clear_uncertain_local:
+                        phrase_to_level[phrase] = None
+                        phrase_to_source[phrase] = "cleared"
+                        phrase_to_confidence[phrase] = local_conf
+                        cleared_local_counts["NO_LEVEL"] += len(phrase_to_card_ids[phrase])
+                    else:
+                        phrases_for_ai.append(phrase)
+            else:
+                phrases_for_ai.append(phrase)
+
+            if idx % 200 == 0 or idx == len(unique_phrases):
+                task_info["processed_cards"] = sum(len(phrase_to_card_ids[p]) for p in phrase_to_level)
+                task_info["local_unique"] = sum(1 for p in phrase_to_source if phrase_to_source[p] == "local")
+                task_info["ai_unique"] = len(phrases_for_ai)
+                _save_classification_task(task_id, task_info)
+
+        uncertain_cards = sum(len(phrase_to_card_ids[p]) for p in phrases_for_ai)
+        task_info.update({
+            "local_unique": sum(1 for p in phrase_to_source if phrase_to_source[p] == "local"),
+            "ai_unique": len(phrases_for_ai),
+            "ai_cards": uncertain_cards,
+            "cleared_unique": sum(1 for p in phrase_to_source if phrase_to_source[p] == "cleared"),
+            "cleared_cards": int(cleared_local_counts.get("NO_LEVEL", 0)),
+            "local_level_counts": _level_counter_dict(local_level_counts),
+            "local_fallback_counts": _level_counter_dict(local_fallback_counts),
+            "cleared_local_counts": dict(cleared_local_counts),
+        })
+        local_processed_cards = sum(
+            len(phrase_to_card_ids[phrase])
+            for phrase, source in phrase_to_source.items()
+            if source in {"local", "cleared"}
+        )
+        _append_classification_log(
+            task_info,
+            f"Local pass completed: {task_info['local_unique']} confident phrases, "
+            f"{task_info['cleared_unique']} cleared, {len(phrases_for_ai)} phrases need AI."
+        )
+
+        if mode == "audit":
+            audit_counts = Counter(local_level_counts)
+            audit_counts["NO_LEVEL"] = int(cleared_local_counts.get("NO_LEVEL", 0))
+            task_info["level_counts"] = {
+                **_level_counter_dict(audit_counts),
+                "NO_LEVEL": int(audit_counts.get("NO_LEVEL", 0)),
+            }
+            task_info["source_counts"] = {
+                "local": int(local_processed_cards - cleared_local_counts.get("NO_LEVEL", 0)),
+                "cleared": int(cleared_local_counts.get("NO_LEVEL", 0)),
+                "ai_pending": int(uncertain_cards),
+            }
+            task_info["status"] = "completed"
+            task_info["processed_cards"] = len(cards_to_process)
+            _append_classification_log(task_info, "Audit completed. AI calls and DB writes were skipped.")
+            _save_classification_task(task_id, task_info)
+            return
+
+        if phrases_for_ai:
+            chunk_size = 30
+            chunks = [phrases_for_ai[i:i + chunk_size] for i in range(0, len(phrases_for_ai), chunk_size)]
+            task_info["total_ai_chunks"] = len(chunks)
+            task_info["processed_ai_chunks"] = 0
+            _append_classification_log(task_info, f"AI fallback started: {len(chunks)} chunks.")
+            _save_classification_task(task_id, task_info)
+
+            for idx, chunk in enumerate(chunks, 1):
+                if task_info.get("control") == "stop":
+                    task_info["status"] = "stopped"
+                    _append_classification_log(task_info, "Classification stopped during AI fallback.")
+                    _save_classification_task(task_id, task_info)
+                    return
+                while task_info.get("control") == "pause":
+                    task_info["status"] = "paused"
+                    _save_classification_task(task_id, task_info)
+                    await asyncio.sleep(0.5)
+                task_info["status"] = "running"
+                task_info["current_card"] = f"AI chunk {idx}/{len(chunks)}"
+
+                try:
+                    levels = await ai_service.classify_phrases_batch(chunk, target_language=lang)
+                    for phrase, level in zip(chunk, levels):
+                        valid_level = level if level in VALID_CEFR_LEVELS else phrase_to_local_fallback.get(phrase, "A1")
+                        phrase_to_level[phrase] = valid_level
+                        phrase_to_source[phrase] = "ai"
+                        phrase_to_confidence[phrase] = 1.0
+                except Exception as err:
+                    _append_classification_log(task_info, f"AI chunk {idx} failed, local fallback used: {str(err)[:80]}")
+                    for phrase in chunk:
+                        phrase_to_level[phrase] = phrase_to_local_fallback.get(phrase, "A1")
+                        phrase_to_source[phrase] = "fallback"
+                        phrase_to_confidence[phrase] = 0.0
+
+                task_info["processed_ai_chunks"] = idx
+                task_info["processed_cards"] = min(
+                    len(cards_to_process),
+                    local_processed_cards + sum(
+                        len(phrase_to_card_ids[p]) for p in phrases_for_ai[:idx * chunk_size]
+                    )
+                )
+                _save_classification_task(task_id, task_info)
+                if req.delay > 0 and idx < len(chunks):
+                    await asyncio.sleep(req.delay)
+
+        level_counts = Counter()
+        source_counts = Counter()
+        classification_results = []
+        for phrase, card_ids in phrase_to_card_ids.items():
+            level = phrase_to_level.get(phrase, phrase_to_local_fallback.get(phrase, "A1"))
+            source = phrase_to_source.get(phrase, "fallback")
+            if level:
+                level_counts[level] += len(card_ids)
+            else:
+                level_counts["NO_LEVEL"] += len(card_ids)
+            source_counts[source] += len(card_ids)
+            if len(classification_results) < 80:
+                first_id = card_ids[0]
+                classification_results.append({
+                    "phrase": phrase,
+                    "card_id": first_id,
+                    "card_count": len(card_ids),
+                    "old_level": extract_existing_cefr_level(phrase_to_card_tags.get(first_id)),
+                    "new_level": level,
+                    "source": source,
+                    "confidence": round(phrase_to_confidence.get(phrase, 0.0), 2),
+                })
+
+        task_info.update({
+            "level_counts": {
+                **_level_counter_dict(level_counts),
+                "NO_LEVEL": int(level_counts.get("NO_LEVEL", 0)),
+            },
+            "source_counts": dict(source_counts),
+            "classification_results": classification_results,
+            "processed_cards": len(cards_to_process),
+        })
+
+        if mode == "dry_run":
+            task_info["status"] = "completed"
+            _append_classification_log(task_info, "Dry-run completed. No database changes were written.")
+            _save_classification_task(task_id, task_info)
+            return
+
+        try:
+            backup = create_full_db_backup()
+            task_info["backup_filename"] = backup.get("filename")
+            _append_classification_log(task_info, f"Backup created before DB update: {backup.get('filename')}.")
+        except Exception as backup_err:
+            task_info["status"] = "failed"
+            _append_classification_log(task_info, f"Backup failed, DB update cancelled: {backup_err}")
+            _save_classification_task(task_id, task_info)
+            return
+
+        tag_value_to_card_ids = defaultdict(list)
+        for phrase, card_ids in phrase_to_card_ids.items():
+            level = phrase_to_level.get(phrase, phrase_to_local_fallback.get(phrase, "A1"))
+            for card_id in card_ids:
+                if level:
+                    new_tags = replace_cefr_level(phrase_to_card_tags.get(card_id), level)
+                else:
+                    new_tags = remove_cefr_level(phrase_to_card_tags.get(card_id))
+                tag_value_to_card_ids[new_tags].append(card_id)
+
+        updated_total = 0
+        now = datetime.datetime.now()
+        with models.tma_db.atomic():
+            for new_tags, card_ids in tag_value_to_card_ids.items():
+                for idx in range(0, len(card_ids), 500):
+                    chunk = card_ids[idx:idx + 500]
+                    updated_total += (
+                        models.TMA_Card
+                        .update(tags=new_tags, updated_at=now)
+                        .where(models.TMA_Card.id << chunk)
+                        .execute()
+                    )
+
+        task_info["updated_cards"] = updated_total
+        task_info["status"] = "completed"
+        _append_classification_log(task_info, f"DB update completed: {updated_total} cards updated.")
+        _save_classification_task(task_id, task_info)
+    except Exception as err:
+        logger.error(f"Classification task failed: {err}", exc_info=True)
+        task_info["status"] = "failed"
+        _append_classification_log(task_info, f"Classification failed: {str(err)[:160]}")
+        _save_classification_task(task_id, task_info)
 
 
 
@@ -246,7 +680,7 @@ def get_users(search: Optional[str] = None):
 
 @app.get("/api/admin/decks")
 def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
-    """Returns all active decks in the database (including master library decks and user decks)."""
+    """Returns all active decks in the database with health statistics (missing audio/context)."""
     result = []
     
     # 1. Fetch Library Master Decks from models.Deck (when no user_id filter is set)
@@ -272,10 +706,34 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
             .group_by(models.Card.deck_id)
             .tuples()
         )
+        lib_missing_audio = dict(
+            models.Card.select(models.Card.deck_id, fn.COUNT(models.Card.id))
+            .where((models.Card.is_deleted == False) & ((models.Card.audio_path.is_null(True)) | (models.Card.audio_path == '')))
+            .group_by(models.Card.deck_id)
+            .tuples()
+        )
+        lib_missing_context = dict(
+            models.Card.select(models.Card.deck_id, fn.COUNT(models.Card.id))
+            .where((models.Card.is_deleted == False) & ((models.Card.context.is_null(True)) | (models.Card.context == '')))
+            .group_by(models.Card.deck_id)
+            .tuples()
+        )
 
         for d in lib_decks:
             c_count = lib_card_counts.get(d.id, 0)
+            m_audio = lib_missing_audio.get(d.id, 0)
+            m_ctx = lib_missing_context.get(d.id, 0)
             is_def = bool(getattr(d, 'is_default', False))
+            
+            if c_count == 0:
+                h_status = "empty"
+            elif m_ctx > 0:
+                h_status = "needs_ai"
+            elif m_audio > 0:
+                h_status = "needs_audio"
+            else:
+                h_status = "ready"
+
             result.append({
                 "id": f"lib_{d.id}",
                 "user_id": "Библиотека ⭐",
@@ -284,6 +742,9 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
                 "topic": d.topic,
                 "target_language": d.target_language or "de",
                 "card_count": c_count,
+                "missing_audio_count": m_audio,
+                "missing_context_count": m_ctx,
+                "health_status": h_status,
                 "created_at": str(d.created_at) if d.created_at else None,
                 "is_default": is_def,
                 "is_library": True
@@ -318,9 +779,23 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
         .group_by(models.TMA_Card.deck_id)
         .tuples()
     )
+    tma_missing_audio = dict(
+        models.TMA_Card.select(models.TMA_Card.deck_id, fn.COUNT(models.TMA_Card.id))
+        .where((models.TMA_Card.is_deleted == False) & ((models.TMA_Card.audio_path.is_null(True)) | (models.TMA_Card.audio_path == '')))
+        .group_by(models.TMA_Card.deck_id)
+        .tuples()
+    )
+    tma_missing_context = dict(
+        models.TMA_Card.select(models.TMA_Card.deck_id, fn.COUNT(models.TMA_Card.id))
+        .where((models.TMA_Card.is_deleted == False) & ((models.TMA_Card.context.is_null(True)) | (models.TMA_Card.context == '')))
+        .group_by(models.TMA_Card.deck_id)
+        .tuples()
+    )
 
     for d in tma_decks:
         c_count = tma_card_counts.get(d.id, 0)
+        m_audio = tma_missing_audio.get(d.id, 0)
+        m_ctx = tma_missing_context.get(d.id, 0)
         meta = {}
         try:
             meta = json.loads(d.metadata or "{}")
@@ -328,6 +803,16 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
             pass
 
         is_def = bool(meta.get("is_default", False))
+        
+        if c_count == 0:
+            h_status = "empty"
+        elif m_ctx > 0:
+            h_status = "needs_ai"
+        elif m_audio > 0:
+            h_status = "needs_audio"
+        else:
+            h_status = "ready"
+
         result.append({
             "id": d.id,
             "user_id": d.user_id,
@@ -336,6 +821,9 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
             "topic": d.topic,
             "target_language": d.target_language or "de",
             "card_count": c_count,
+            "missing_audio_count": m_audio,
+            "missing_context_count": m_ctx,
+            "health_status": h_status,
             "created_at": str(d.created_at) if d.created_at else None,
             "is_default": is_def,
             "is_library": False,
@@ -435,25 +923,161 @@ def get_deck_and_cards(deck_id_val):
 
 @app.get("/api/admin/decks/{deck_id}/cards")
 def get_deck_cards(deck_id: str):
-    """Returns list of all active cards in a deck for selection."""
+    """Returns list of all active cards in a deck with health status and deck summary for preview."""
     deck, cards, is_lib = get_deck_and_cards(deck_id)
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
 
     result = []
+    total = len(cards)
+    with_audio = 0
+    with_context = 0
+    fully_completed = 0
+
     for idx, c in enumerate(cards, 1):
-        has_aud = bool(c.audio_path and str(c.audio_path).strip())
+        has_aud = card_has_valid_audio(c)
+        has_ctx = bool(c.context and str(c.context).strip())
+        is_comp = card_is_fully_completed(c)
+
+        if has_aud:
+            with_audio += 1
+        if has_ctx:
+            with_context += 1
+        if is_comp:
+            fully_completed += 1
+
         result.append({
             "id": c.id,
             "position": idx,
             "front": c.front_text or "",
             "back": c.back_text or "",
-            "has_context": bool(c.context and str(c.context).strip()),
+            "context": c.context or "",
+            "tags": c.tags or "",
+            "has_context": has_ctx,
             "has_audio": has_aud,
+            "is_complete": is_comp,
             "audio_path": c.audio_path or ""
         })
 
-    return {"cards": result, "deck_name": deck.name, "total": len(result)}
+    audio_cov = round((with_audio / total * 100)) if total > 0 else 0
+    ctx_cov = round((with_context / total * 100)) if total > 0 else 0
+    comp_cov = round((fully_completed / total * 100)) if total > 0 else 0
+
+    meta = {}
+    try:
+        meta = json.loads(getattr(deck, 'metadata', '{}') or '{}')
+    except Exception:
+        pass
+
+    deck_info = {
+        "id": str(deck_id),
+        "name": deck.name,
+        "target_language": getattr(deck, 'target_language', 'de') or 'de',
+        "level": getattr(deck, 'level', None),
+        "topic": getattr(deck, 'topic', None),
+        "is_library": is_lib,
+        "user_id": getattr(deck, 'user_id', 0) if hasattr(deck, 'user_id') else "Библиотека ⭐",
+        "is_default": bool(meta.get("is_default", False)) if not is_lib else bool(getattr(deck, 'is_default', False)),
+        "card_count": total,
+        "with_audio_count": with_audio,
+        "missing_audio_count": total - with_audio,
+        "with_context_count": with_context,
+        "missing_context_count": total - with_context,
+        "fully_completed_count": fully_completed,
+        "audio_coverage_pct": audio_cov,
+        "context_coverage_pct": ctx_cov,
+        "completion_pct": comp_cov
+    }
+
+    return {"cards": result, "deck": deck_info, "total": total}
+
+
+@app.put("/api/admin/cards/{card_id}")
+def update_card_endpoint(card_id: int, req: UpdateCardRequest):
+    """Updates fields of a specific card (in TMA_Card or Card)."""
+    now = datetime.datetime.now()
+    tma_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+    if tma_card:
+        if req.front_text is not None:
+            tma_card.front_text = req.front_text
+        if req.back_text is not None:
+            tma_card.back_text = req.back_text
+        if req.context is not None:
+            tma_card.context = req.context
+        if req.tags is not None:
+            tma_card.tags = req.tags
+        tma_card.updated_at = now
+        tma_card.save()
+        return {"status": "ok", "card_id": card_id, "type": "tma"}
+
+    lib_card = models.Card.get_or_none(models.Card.id == card_id)
+    if lib_card:
+        if req.front_text is not None:
+            lib_card.front_text = req.front_text
+        if req.back_text is not None:
+            lib_card.back_text = req.back_text
+        if req.context is not None:
+            lib_card.context = req.context
+        if req.tags is not None:
+            lib_card.tags = req.tags
+        lib_card.updated_at = now
+        lib_card.save()
+        return {"status": "ok", "card_id": card_id, "type": "library"}
+
+    raise HTTPException(status_code=404, detail="Card not found")
+
+
+@app.delete("/api/admin/cards/{card_id}")
+def delete_card_endpoint(card_id: int):
+    """Soft deletes a card."""
+    now = datetime.datetime.now()
+    tma_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+    if tma_card:
+        tma_card.is_deleted = True
+        tma_card.updated_at = now
+        tma_card.save()
+        return {"status": "ok", "card_id": card_id}
+
+    lib_card = models.Card.get_or_none(models.Card.id == card_id)
+    if lib_card:
+        lib_card.is_deleted = True
+        lib_card.updated_at = now
+        lib_card.save()
+        return {"status": "ok", "card_id": card_id}
+
+    raise HTTPException(status_code=404, detail="Card not found")
+
+
+@app.post("/api/admin/cards/{card_id}/synthesize-audio")
+async def synthesize_single_card_audio(card_id: int, voice: Optional[str] = "de-DE-KatjaNeural", rate: Optional[str] = "+0%"):
+    """Synthesizes TTS audio for a single card on-the-fly and saves it."""
+    card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+    if not card:
+        card = models.Card.get_or_none(models.Card.id == card_id)
+
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    front = (card.front_text or "").strip()
+    if not front:
+        raise HTTPException(status_code=400, detail="Card front text is empty")
+
+    from api.utils.audio import generate_audio
+    res_audio = await generate_audio(front, voice=voice or "de-DE-KatjaNeural", rate=rate or "+0%")
+    if isinstance(res_audio, tuple):
+        res_audio = res_audio[0]
+
+    if not res_audio:
+        raise HTTPException(status_code=500, detail="TTS generation failed")
+
+    saved_audio = save_audio_to_db_or_cloud(res_audio)
+    if saved_audio:
+        card.audio_path = saved_audio
+        card.updated_at = datetime.datetime.now()
+        card.save()
+        return {"status": "ok", "card_id": card_id, "audio_path": saved_audio}
+
+    raise HTTPException(status_code=500, detail="Failed to save audio file")
 
 
 @app.delete("/api/admin/decks/{deck_id}")
@@ -529,6 +1153,13 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
             task_info["logs"].append(f"⚠️ Колода #{deck_id} не найдена, пропускаем")
             continue
 
+        if options.skip_completed:
+            before_len = len(cards)
+            cards = [c for c in cards if not card_is_fully_completed(c)]
+            skipped_comp = before_len - len(cards)
+            if skipped_comp > 0:
+                task_info["logs"].append(f"  🛡️ Пропущено полностью заполненных карточек: {skipped_comp} в «{deck.name}»")
+
         if options.only_empty:
             cards = [c for c in cards if not c.back_text or not c.context]
         if options.only_no_context:
@@ -543,6 +1174,11 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
             decks_to_process.append((deck_id, deck, cards, is_lib))
             total_cards_count += len(cards)
 
+    # Apply deck start index if resuming
+    start_d_idx = (options.start_deck_idx - 1) if (options.start_deck_idx and options.start_deck_idx > 1) else 0
+    if start_d_idx > 0 and start_d_idx < len(decks_to_process):
+        decks_to_process = decks_to_process[start_d_idx:]
+
     task_info["total_decks"] = len(decks_to_process)
     task_info["total_cards"] = total_cards_count
     task_info["status"] = "running"
@@ -552,6 +1188,8 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
     task_info["sync_copies"] = options.sync_copies
     task_info["voice"] = options.voice or "de-DE-KatjaNeural"
     task_info["no_audio"] = options.no_audio
+    task_info["options"] = options.dict()
+    task_info["task_type"] = "batch_ai"
 
     mode_str = "🧪 ТЕСТ (Dry-Run: по 2 карточки на колоду)" if options.dry_run else f"🚀 МАССОВАЯ ГЕНЕРАЦИЯ ({len(decks_to_process)} колод, {total_cards_count} карточек)"
     task_info["logs"].append(f"Запуск: {mode_str} (Голос: {options.voice or 'Default'})...")
@@ -566,7 +1204,7 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
 
     global_card_idx = 0
 
-    for d_idx, (deck_id, deck, cards, is_lib) in enumerate(decks_to_process, 1):
+    for d_idx, (deck_id, deck, cards, is_lib) in enumerate(decks_to_process, start_d_idx + 1):
         task_info["current_deck_id"] = str(deck_id)
         task_info["current_deck_name"] = deck.name
         task_info["processed_decks"] = d_idx - 1
@@ -577,14 +1215,20 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
 
         task_info["logs"].append(f"📦 [{d_idx}/{len(decks_to_process)}] Колода: «{deck.name}» (#{deck_id}) — {len(cards)} карточек...")
 
-        for c_idx, card in enumerate(cards, 1):
+        # Apply card start index for first resumed deck
+        start_c_idx = (options.start_card_idx - 1) if (d_idx == start_d_idx + 1 and options.start_card_idx and options.start_card_idx > 1) else 0
+        cards_slice = cards[start_c_idx:]
+
+        for c_idx, card in enumerate(cards_slice, start_c_idx + 1):
             while task_info.get("control") == "pause":
                 task_info["status"] = "paused"
+                task_manager.update_task_progress(task_id, status="paused")
                 await asyncio.sleep(0.5)
 
             if task_info.get("control") == "stop":
                 task_info["status"] = "stopped"
                 task_info["logs"].append("🛑 Пакетная перегенерация остановлена пользователем.")
+                task_manager.update_task_progress(task_id, status="stopped", log_msg="🛑 Остановлено пользователем")
                 return
 
             task_info["status"] = "running"
@@ -596,7 +1240,21 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
 
             # Update current_card BEFORE AI call so UI shows what's being processed
             global_card_idx += 1
+            task_info["processed_cards"] = global_card_idx
             task_info["current_card"] = f"⏳ [{c_idx}/{len(cards)}] {front[:30]}..."
+
+            task_manager.update_task_progress(
+                task_id,
+                status="running",
+                current_deck_idx=d_idx,
+                current_deck_id=str(deck_id),
+                current_deck_name=deck.name,
+                current_card_idx=c_idx,
+                current_card_id=card.id,
+                current_card_text=front,
+                processed_cards=global_card_idx,
+                processed_decks=d_idx - 1
+            )
 
             try:
                 res = await asyncio.wait_for(
@@ -610,22 +1268,18 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
                     timeout=90.0  # 90s hard timeout per card
                 )
             except asyncio.TimeoutError:
-                task_info["processed_cards"] = global_card_idx
                 task_info["current_card"] = f"[{c_idx}/{len(cards)}] {front[:30]}"
                 task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ⏰ Таймаут 90с: {front[:25]} — пропускаем")
                 if options.delay > 0:
                     await asyncio.sleep(min(options.delay, 0.5))
                 continue
             except Exception as e:
-                task_info["processed_cards"] = global_card_idx
                 task_info["current_card"] = f"[{c_idx}/{len(cards)}] {front[:30]}"
                 task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ❌ Исключение AI: {str(e)[:60]}")
                 if options.delay > 0:
                     await asyncio.sleep(min(options.delay, 0.5))
                 continue
 
-            # Update processed counter AFTER AI responds
-            task_info["processed_cards"] = global_card_idx
             task_info["current_card"] = f"[{c_idx}/{len(cards)}] {front[:30]}"
 
             if isinstance(res, dict) and "error" in res:
@@ -694,6 +1348,7 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
 
     task_info["status"] = "completed"
     task_info["logs"].append(f"🎉 Пакетная перегенерация {len(decks_to_process)} колод ({global_card_idx} карточек) успешно завершена!")
+    task_manager.update_task_progress(task_id, status="completed", log_msg="🎉 Завершено")
 
 
 async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAudioRequest):
@@ -713,6 +1368,13 @@ async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAud
             task_info["logs"].append(f"⚠️ Колода #{deck_id} не найдена, пропускаем")
             continue
 
+        if options.skip_completed:
+            before_len = len(cards)
+            cards = [c for c in cards if not card_is_fully_completed(c)]
+            skipped_comp = before_len - len(cards)
+            if skipped_comp > 0:
+                task_info["logs"].append(f"  🛡️ Пропущено полностью заполненных карточек: {skipped_comp} в «{deck.name}»")
+
         if options.only_missing_audio:
             cards = [c for c in cards if not card_has_valid_audio(c)]
 
@@ -723,6 +1385,10 @@ async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAud
             decks_to_process.append((deck_id, deck, cards, is_lib))
             total_cards_count += len(cards)
 
+    start_d_idx = (options.start_deck_idx - 1) if (options.start_deck_idx and options.start_deck_idx > 1) else 0
+    if start_d_idx > 0 and start_d_idx < len(decks_to_process):
+        decks_to_process = decks_to_process[start_d_idx:]
+
     task_info["total_decks"] = len(decks_to_process)
     task_info["total_cards"] = total_cards_count
     task_info["status"] = "running"
@@ -730,6 +1396,8 @@ async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAud
     task_info["voice"] = options.voice or "de-DE-KatjaNeural"
     task_info["rate"] = options.rate or "+0%"
     task_info["sync_copies"] = options.sync_copies
+    task_info["options"] = options.dict()
+    task_info["task_type"] = "batch_audio"
 
     voice_str = options.voice or "de-DE-KatjaNeural"
     rate_str = options.rate or "+0%"
@@ -737,21 +1405,26 @@ async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAud
 
     global_card_idx = 0
 
-    for d_idx, (deck_id, deck, cards, is_lib) in enumerate(decks_to_process, 1):
+    for d_idx, (deck_id, deck, cards, is_lib) in enumerate(decks_to_process, start_d_idx + 1):
         task_info["current_deck_id"] = str(deck_id)
         task_info["current_deck_name"] = deck.name
         task_info["processed_decks"] = d_idx - 1
 
         task_info["logs"].append(f"📦 [{d_idx}/{len(decks_to_process)}] Озвучка колоды: «{deck.name}» (#{deck_id}) — {len(cards)} карточек...")
 
-        for c_idx, card in enumerate(cards, 1):
+        start_c_idx = (options.start_card_idx - 1) if (d_idx == start_d_idx + 1 and options.start_card_idx and options.start_card_idx > 1) else 0
+        cards_slice = cards[start_c_idx:]
+
+        for c_idx, card in enumerate(cards_slice, start_c_idx + 1):
             while task_info.get("control") == "pause":
                 task_info["status"] = "paused"
+                task_manager.update_task_progress(task_id, status="paused")
                 await asyncio.sleep(0.5)
 
             if task_info.get("control") == "stop":
                 task_info["status"] = "stopped"
                 task_info["logs"].append("🛑 Пакетное озвучивание остановлено пользователем.")
+                task_manager.update_task_progress(task_id, status="stopped", log_msg="🛑 Остановлено")
                 return
 
             task_info["status"] = "running"
@@ -761,9 +1434,22 @@ async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAud
                 task_info["processed_cards"] = global_card_idx
                 continue
 
-            # Show what's being processed BEFORE the TTS call
             global_card_idx += 1
+            task_info["processed_cards"] = global_card_idx
             task_info["current_card"] = f"⏳ [{c_idx}/{len(cards)}] {front[:30]}..."
+
+            task_manager.update_task_progress(
+                task_id,
+                status="running",
+                current_deck_idx=d_idx,
+                current_deck_id=str(deck_id),
+                current_deck_name=deck.name,
+                current_card_idx=c_idx,
+                current_card_id=card.id,
+                current_card_text=front,
+                processed_cards=global_card_idx,
+                processed_decks=d_idx - 1
+            )
 
             try:
                 res_audio = await asyncio.wait_for(
@@ -773,8 +1459,6 @@ async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAud
                 if isinstance(res_audio, tuple):
                     res_audio = res_audio[0]
 
-                # Update counter AFTER TTS responds
-                task_info["processed_cards"] = global_card_idx
                 task_info["current_card"] = f"[{c_idx}/{len(cards)}] {front[:30]}"
 
                 if res_audio:
@@ -796,11 +1480,9 @@ async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAud
                     task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ❌ Пустой результат TTS: {front[:20]}")
 
             except asyncio.TimeoutError:
-                task_info["processed_cards"] = global_card_idx
                 task_info["current_card"] = f"[{c_idx}/{len(cards)}] {front[:30]}"
                 task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ⏰ Таймаут TTS 60с: {front[:25]} — пропускаем")
             except Exception as e:
-                task_info["processed_cards"] = global_card_idx
                 task_info["current_card"] = f"[{c_idx}/{len(cards)}] {front[:30]}"
                 task_info["logs"].append(f"  [{c_idx}/{len(cards)}] ❌ Ошибка TTS: {str(e)[:60]}")
 
@@ -811,6 +1493,413 @@ async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAud
 
     task_info["status"] = "completed"
     task_info["logs"].append(f"🎉 Пакетная озвучка {len(decks_to_process)} колод ({global_card_idx} карточек) успешно завершена!")
+    task_manager.update_task_progress(task_id, status="completed", log_msg="🎉 Завершено")
+
+
+async def run_bulk_card_creation(task_id: str, req: BulkCreateCardsRequest):
+    global regen_tasks
+    task_info = regen_tasks.get(task_id)
+    if not task_info:
+        return
+
+    # 1. Resolve or create Deck
+    deck = None
+    is_lib = False
+    if req.deck_id:
+        deck, _, is_lib = get_deck_and_cards(req.deck_id)
+        if not deck:
+            task_info["status"] = "failed"
+            task_info["logs"].append(f"❌ Колода #{req.deck_id} не найдена")
+            task_manager.save_task_checkpoint(task_info)
+            return
+    elif req.new_deck_name:
+        deck_name = req.new_deck_name.strip()
+        t_lang = req.target_language or "de"
+        lvl = req.level or "A1"
+        top = req.topic
+        u_id = req.user_id or 0
+
+        if req.is_library:
+            deck = models.Deck.create(
+                name=deck_name,
+                target_language=t_lang,
+                level=lvl,
+                topic=top,
+                is_deleted=False
+            )
+            is_lib = True
+            req.deck_id = f"lib_{deck.id}"
+            task_info["logs"].append(f"📁 Создана новая Библиотечная колода: «{deck.name}» (ID: lib_{deck.id})")
+        else:
+            meta = {"is_default": True} if req.is_default else {}
+            deck = models.TMA_Deck.create(
+                user_id=u_id,
+                name=deck_name,
+                target_language=t_lang,
+                level=lvl,
+                topic=top,
+                metadata=json.dumps(meta),
+                is_deleted=False
+            )
+            is_lib = False
+            req.deck_id = str(deck.id)
+            task_info["logs"].append(f"📁 Создана новая колода пользователя: «{deck.name}» (ID: #{deck.id})")
+            
+            if req.is_default:
+                all_users = list(models.TMAUser.select())
+                for u in all_users:
+                    if u.user_id != u_id:
+                        models.TMA_Deck.create(
+                            user_id=u.user_id,
+                            name=deck_name,
+                            target_language=t_lang,
+                            level=lvl,
+                            topic=top,
+                            metadata=json.dumps({"source_deck_id": deck.id, "is_default": True}),
+                            is_deleted=False
+                        )
+    else:
+        task_info["status"] = "failed"
+        task_info["logs"].append("❌ Не указан ID колоды и не задано имя для новой колоды")
+        task_manager.save_task_checkpoint(task_info)
+        return
+
+    clean_phrases = [p.strip() for p in req.phrases if p and p.strip()]
+    if not clean_phrases:
+        task_info["status"] = "completed"
+        task_info["logs"].append("⚠️ Список слов пуст. Карточки не созданы.")
+        task_manager.save_task_checkpoint(task_info)
+        return
+
+    start_idx = (req.start_card_idx - 1) if (req.start_card_idx and req.start_card_idx > 1) else 0
+    phrases_to_process = clean_phrases[start_idx:]
+
+    task_info["total_cards"] = len(clean_phrases)
+    task_info["total_decks"] = 1
+    task_info["current_deck_id"] = str(req.deck_id)
+    task_info["current_deck_name"] = deck.name
+    task_info["status"] = "running"
+    task_info["control"] = "run"
+    task_info["voice"] = req.voice or "de-DE-KatjaNeural"
+    task_info["rate"] = req.rate or "+0%"
+    task_info["options"] = req.dict()
+    task_info["task_type"] = "bulk_create"
+
+    task_info["logs"].append(f"🚀 Запуск массового добавления {len(phrases_to_process)} карточек в колоду «{deck.name}»...")
+
+    card_model = models.Card if is_lib else models.TMA_Card
+    deck_filter = (models.Card.deck == deck) if is_lib else (models.TMA_Card.deck_id == deck.id)
+    last_card = card_model.select().where(deck_filter & (card_model.is_deleted == False)).order_by(card_model.position.desc()).first()
+    curr_pos = (last_card.position or 0) if last_card else 0
+
+    target_lang = getattr(deck, 'target_language', 'de') or req.target_language or "de"
+    native_lang = req.native_lang or "uk"
+    user_id_val = getattr(deck, 'user_id', 0) if hasattr(deck, 'user_id') and isinstance(getattr(deck, 'user_id'), int) else 0
+    voice_str = req.voice or "de-DE-KatjaNeural"
+    rate_str = req.rate or "+0%"
+
+    global_c_idx = start_idx
+    created_count = 0
+
+    from api.utils.audio import generate_audio
+
+    for idx, phrase in enumerate(phrases_to_process, start_idx + 1):
+        while task_info.get("control") == "pause":
+            task_info["status"] = "paused"
+            task_manager.update_task_progress(task_id, status="paused")
+            await asyncio.sleep(0.5)
+
+        if task_info.get("control") == "stop":
+            task_info["status"] = "stopped"
+            task_info["logs"].append("🛑 Массовое добавление карточек остановлено пользователем.")
+            task_manager.update_task_progress(task_id, status="stopped", log_msg="🛑 Остановлено")
+            return
+
+        task_info["status"] = "running"
+        global_c_idx += 1
+        task_info["processed_cards"] = global_c_idx
+        task_info["current_card"] = f"⏳ [{idx}/{len(clean_phrases)}] {phrase[:30]}..."
+
+        new_front = phrase
+        new_back = ""
+        new_context = ""
+        new_level = req.level or getattr(deck, 'level', None)
+
+        if req.generate_ai:
+            try:
+                res = await asyncio.wait_for(
+                    ai_service.generate_card_fields(
+                        user_id=user_id_val,
+                        phrase=phrase,
+                        target_language=target_lang,
+                        native_language=native_lang,
+                        action_type="full_card"
+                    ),
+                    timeout=90.0
+                )
+                if isinstance(res, dict) and "error" not in res:
+                    new_front = res.get("front") or phrase
+                    new_back = res.get("back") or ""
+                    new_context = res.get("context") or ""
+                    if res.get("level"):
+                        new_level = res.get("level")
+                elif isinstance(res, dict) and "error" in res:
+                    task_info["logs"].append(f"  [{idx}/{len(clean_phrases)}] ⚠️ AI ошибка: {res['error'][:60]}")
+            except Exception as e:
+                task_info["logs"].append(f"  [{idx}/{len(clean_phrases)}] ⚠️ AI исключение: {str(e)[:60]}")
+
+        saved_audio = None
+        if req.generate_audio:
+            try:
+                res_audio = await asyncio.wait_for(
+                    generate_audio(new_front, voice=voice_str, rate=rate_str),
+                    timeout=60.0
+                )
+                if isinstance(res_audio, tuple):
+                    res_audio = res_audio[0]
+                if res_audio:
+                    saved_audio = save_audio_to_db_or_cloud(res_audio)
+            except Exception as err:
+                task_info["logs"].append(f"  [{idx}/{len(clean_phrases)}] ⚠️ TTS ошибка: {str(err)[:60]}")
+
+        curr_pos += 1
+        now = datetime.datetime.now()
+        if is_lib:
+            created_card = models.Card.create(
+                deck=deck,
+                front_text=new_front,
+                back_text=new_back,
+                context=new_context,
+                tags=new_level,
+                audio_path=saved_audio,
+                position=curr_pos,
+                is_deleted=False,
+                created_at=now,
+                updated_at=now
+            )
+        else:
+            created_card = models.TMA_Card.create(
+                deck_id=deck.id,
+                user_id=user_id_val,
+                front_text=new_front,
+                back_text=new_back,
+                context=new_context,
+                tags=new_level,
+                audio_path=saved_audio,
+                position=curr_pos,
+                is_deleted=False,
+                created_at=now,
+                updated_at=now
+            )
+        created_count += 1
+
+        if req.sync_copies:
+            try:
+                sync_card_updates_to_matching_decks(deck, phrase, new_front, new_back, new_context, new_level, saved_audio)
+            except Exception:
+                pass
+
+        task_info["current_card"] = f"[{idx}/{len(clean_phrases)}] {new_front[:30]}"
+        task_info["logs"].append(f"  [{idx}/{len(clean_phrases)}] ✅ «{new_front}» -> «{new_back}»")
+        
+        task_manager.update_task_progress(
+            task_id,
+            status="running",
+            current_deck_idx=1,
+            current_deck_id=str(req.deck_id),
+            current_deck_name=deck.name,
+            current_card_idx=idx,
+            current_card_id=created_card.id,
+            current_card_text=new_front,
+            processed_cards=global_c_idx,
+            processed_decks=1
+        )
+
+        if req.delay > 0:
+            await asyncio.sleep(req.delay)
+
+    task_info["status"] = "completed"
+    task_info["logs"].append(f"🎉 Массовое добавление завершено: успешно создано {created_count} карточек в колоде «{deck.name}»!")
+    task_manager.update_task_progress(task_id, status="completed", log_msg=f"🎉 Завершено ({created_count} карточек)")
+
+
+@app.post("/api/admin/cards/bulk-create")
+def start_bulk_card_creation_endpoint(req: BulkCreateCardsRequest, background_tasks: BackgroundTasks):
+    """Starts background bulk card creation + optional AI and TTS generation."""
+    global regen_tasks
+    if not req.phrases:
+        raise HTTPException(status_code=400, detail="Phrases list is empty")
+
+    task_id = f"bulk_create_{int(time.time())}"
+    task_data = {
+        "task_id": task_id,
+        "is_batch": True,
+        "task_type": "bulk_create",
+        "status": "pending",
+        "control": "run",
+        "total_decks": 1,
+        "processed_decks": 0,
+        "current_deck_id": str(req.deck_id or ""),
+        "current_deck_name": req.new_deck_name or "",
+        "total_cards": len(req.phrases),
+        "processed_cards": 0,
+        "current_card": "",
+        "logs": [],
+        "dry_run_results": [],
+        "is_dry_run": False,
+        "is_audio_only": False,
+        "voice": req.voice,
+        "options": req.dict(),
+        "start_time": time.time()
+    }
+    regen_tasks[task_id] = task_data
+    task_manager.register_task(task_id, task_data)
+    background_tasks.add_task(run_bulk_card_creation, task_id, req)
+    return {"status": "ok", "task_id": task_id, "total_cards": len(req.phrases), "message": "Bulk card creation started"}
+
+
+@app.post("/api/admin/cards/bulk-suggest-words")
+async def suggest_topic_words_endpoint(req: SuggestWordsRequest):
+    """Generates a list of words/phrases for a given topic and level using AI."""
+    topic = req.topic.strip()
+    if not topic:
+        raise HTTPException(status_code=400, detail="Topic cannot be empty")
+
+    count = max(5, min(req.count or 20, 60))
+    lvl = req.level or "A1"
+    target_lang = req.target_lang or "de"
+
+    system_prompt = (
+        f"You are an expert language teacher. Generate a clean list of exactly {count} essential vocabulary words "
+        f"and useful short phrases for the topic '{topic}' in target language '{target_lang}' appropriate for CEFR level {lvl}. "
+        f"Return ONLY a valid JSON array of strings, without explanations, markdown or extra text. Example format: [\"das Wort 1\", \"die Phrase 2\"]."
+    )
+
+    try:
+        from api.ai_service import get_ai_config, AIService
+        provider, ai_key, ai_model = get_ai_config()
+        if not ai_key and provider != "ollama":
+            return {"words": [f"{topic} - слово 1", f"{topic} - слово 2"], "count": 2, "topic": topic, "warning": "AI key not configured"}
+
+        client = AIService(provider=provider, api_key=ai_key)
+        resp, success = await client.chat_completion(
+            system_prompt=system_prompt,
+            user_message=f"Topic: {topic}, Level: {lvl}, Count: {count}",
+            model=ai_model
+        )
+
+        if success and resp:
+            cleaned = resp.strip()
+            if cleaned.startswith("```"):
+                lines = cleaned.split("\n")
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].startswith("```"):
+                    lines = lines[:-1]
+                cleaned = "\n".join(lines).strip()
+
+            import json as _j
+            words = _j.loads(cleaned)
+            if isinstance(words, list):
+                clean_words = [str(w).strip() for w in words if str(w).strip()]
+                return {"words": clean_words, "count": len(clean_words), "topic": topic}
+    except Exception as e:
+        logger.error(f"Error suggesting topic words: {e}")
+
+    return {
+        "words": [],
+        "count": 0,
+        "topic": topic,
+        "error": "Не удалось автоматически сгенерировать слова через ИИ. Введите слова вручную."
+    }
+
+
+@app.get("/api/admin/tasks/checkpoint")
+def get_task_checkpoint():
+    """Returns the last saved checkpoint state and whether it can be resumed."""
+    ckpt = task_manager.load_task_checkpoint()
+    if not ckpt:
+        return {"has_checkpoint": False, "checkpoint": None, "can_resume": False}
+
+    status = ckpt.get("status", "")
+    can_resume = status in ("paused", "stopped", "failed", "running")
+    return {
+        "has_checkpoint": True,
+        "can_resume": can_resume,
+        "checkpoint": ckpt
+    }
+
+
+@app.post("/api/admin/tasks/clear-checkpoint")
+def clear_task_checkpoint_endpoint():
+    """Clears saved checkpoint from disk."""
+    task_manager.clear_task_checkpoint()
+    return {"status": "ok", "message": "Checkpoint cleared"}
+
+
+@app.post("/api/admin/tasks/resume")
+def resume_task_endpoint(req: ResumeTaskRequest, background_tasks: BackgroundTasks):
+    """Resumes interrupted/stopped task from checkpoint or requested indices."""
+    global regen_tasks
+    ckpt = task_manager.load_task_checkpoint()
+    if not ckpt:
+        raise HTTPException(status_code=400, detail="No task checkpoint found to resume")
+
+    task_type = ckpt.get("task_type", "")
+    orig_options = ckpt.get("options", {})
+    start_d_idx = req.start_deck_idx or ckpt.get("current_deck_idx") or 1
+    start_c_idx = req.start_card_idx or ckpt.get("current_card_idx") or 1
+
+    task_id = f"resumed_{int(time.time())}"
+    task_info = dict(ckpt)
+    task_info["task_id"] = task_id
+    task_info["status"] = "running"
+    task_info["control"] = "run"
+    task_info["logs"] = list(ckpt.get("logs", []))
+    task_info["logs"].append(f"▶ Возобновление задачи с колоды #{start_d_idx} / карточки #{start_c_idx}...")
+    regen_tasks[task_id] = task_info
+    task_manager.register_task(task_id, task_info)
+
+    if task_type == "batch_ai":
+        opt_req = BatchRegenerateDeckRequest(**orig_options)
+        opt_req.start_deck_idx = start_d_idx
+        opt_req.start_card_idx = start_c_idx
+        background_tasks.add_task(run_batch_ai_regeneration, task_id, opt_req)
+    elif task_type == "batch_audio":
+        opt_req = BatchRegenerateAudioRequest(**orig_options)
+        opt_req.start_deck_idx = start_d_idx
+        opt_req.start_card_idx = start_c_idx
+        background_tasks.add_task(run_batch_audio_regeneration, task_id, opt_req)
+    elif task_type == "single_ai":
+        deck_id = ckpt.get("deck_id") or ckpt.get("current_deck_id")
+        opt_req = RegenerateDeckRequest(**orig_options)
+        opt_req.start_card_idx = start_c_idx
+        regen_tasks[deck_id] = task_info
+        background_tasks.add_task(run_ai_regeneration, deck_id, opt_req)
+    elif task_type == "single_audio":
+        deck_id = ckpt.get("deck_id") or ckpt.get("current_deck_id")
+        opt_req = RegenerateAudioRequest(**orig_options)
+        opt_req.start_card_idx = start_c_idx
+        regen_tasks[deck_id] = task_info
+        background_tasks.add_task(run_audio_regeneration, deck_id, opt_req)
+    elif task_type == "bulk_create":
+        opt_req = BulkCreateCardsRequest(**orig_options)
+        opt_req.start_card_idx = start_c_idx
+        background_tasks.add_task(run_bulk_card_creation, task_id, opt_req)
+    elif task_type == "classification":
+        opt_req = ClassificationRequest(**orig_options)
+        background_tasks.add_task(run_classification_task, task_id, opt_req)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported task type for resume: {task_type}")
+
+    return {
+        "status": "resumed",
+        "task_id": task_id,
+        "task_type": task_type,
+        "resumed_from_deck": start_d_idx,
+        "resumed_from_card": start_c_idx,
+        "message": "Task resumed successfully"
+    }
 
 
 @app.post("/api/admin/decks/batch/regenerate")
@@ -821,9 +1910,10 @@ def start_batch_regeneration(req: BatchRegenerateDeckRequest, background_tasks: 
         raise HTTPException(status_code=400, detail="No decks provided for batch regeneration")
 
     task_id = f"batch_ai_{int(time.time())}"
-    regen_tasks[task_id] = {
+    task_data = {
         "task_id": task_id,
         "is_batch": True,
+        "task_type": "batch_ai",
         "status": "pending",
         "control": "run",
         "total_decks": len(req.deck_ids),
@@ -838,8 +1928,11 @@ def start_batch_regeneration(req: BatchRegenerateDeckRequest, background_tasks: 
         "is_dry_run": req.dry_run,
         "is_audio_only": False,
         "voice": req.voice,
+        "options": req.dict(),
         "start_time": time.time()
     }
+    regen_tasks[task_id] = task_data
+    task_manager.register_task(task_id, task_data)
     background_tasks.add_task(run_batch_ai_regeneration, task_id, req)
     return {"status": "ok", "task_id": task_id, "total_decks": len(req.deck_ids), "message": "Batch AI regeneration started"}
 
@@ -852,9 +1945,10 @@ def start_batch_audio_regeneration(req: BatchRegenerateAudioRequest, background_
         raise HTTPException(status_code=400, detail="No decks provided for batch regeneration")
 
     task_id = f"batch_audio_{int(time.time())}"
-    regen_tasks[task_id] = {
+    task_data = {
         "task_id": task_id,
         "is_batch": True,
+        "task_type": "batch_audio",
         "status": "pending",
         "control": "run",
         "total_decks": len(req.deck_ids),
@@ -869,8 +1963,11 @@ def start_batch_audio_regeneration(req: BatchRegenerateAudioRequest, background_
         "is_dry_run": False,
         "is_audio_only": True,
         "voice": req.voice,
+        "options": req.dict(),
         "start_time": time.time()
     }
+    regen_tasks[task_id] = task_data
+    task_manager.register_task(task_id, task_data)
     background_tasks.add_task(run_batch_audio_regeneration, task_id, req)
     return {"status": "ok", "task_id": task_id, "total_decks": len(req.deck_ids), "message": "Batch audio regeneration started"}
 
@@ -879,7 +1976,7 @@ def start_batch_audio_regeneration(req: BatchRegenerateAudioRequest, background_
 def get_batch_regen_status(task_id: str):
     """Returns progress and logs of a batch regeneration task."""
     global regen_tasks
-    status_info = regen_tasks.get(task_id)
+    status_info = regen_tasks.get(task_id) or task_manager.get_task(task_id)
     if not status_info:
         return {"status": "idle", "processed_decks": 0, "total_decks": 0, "processed_cards": 0, "total_cards": 0, "logs": []}
     return status_info
@@ -889,7 +1986,7 @@ def get_batch_regen_status(task_id: str):
 def control_batch_regeneration(task_id: str, req: BatchControlRequest):
     """Controls running batch regeneration (pause, resume, stop) or commits dry-run results to DB."""
     global regen_tasks
-    task_info = regen_tasks.get(task_id)
+    task_info = regen_tasks.get(task_id) or task_manager.get_task(task_id)
     if not task_info:
         raise HTTPException(status_code=404, detail="Batch regeneration task not found")
 
@@ -898,14 +1995,17 @@ def control_batch_regeneration(task_id: str, req: BatchControlRequest):
         task_info["control"] = "pause"
         task_info["status"] = "paused"
         task_info["logs"].append("⏸ Пакетная перегенерация приостановлена.")
+        task_manager.update_task_progress(task_id, status="paused")
     elif action == "resume":
         task_info["control"] = "run"
         task_info["status"] = "running"
         task_info["logs"].append("▶ Пакетная перегенерация возобновлена.")
+        task_manager.update_task_progress(task_id, status="running")
     elif action == "stop":
         task_info["control"] = "stop"
         task_info["status"] = "stopped"
         task_info["logs"].append("🛑 Сигнал остановки отправлен.")
+        task_manager.update_task_progress(task_id, status="stopped")
     elif action == "commit_dry_run":
         results = task_info.get("dry_run_results", [])
         if not results:
@@ -938,12 +2038,99 @@ def control_batch_regeneration(task_id: str, req: BatchControlRequest):
 
         sync_msg = f" (и синхронизировано {sync_total} карточек у других колод)" if sync_total > 0 else ""
         task_info["logs"].append(f"💾 Результаты Dry-Run успешно записаны в БД для {count} карточек{sync_msg}!")
+        task_manager.save_task_checkpoint(task_info)
         return {"status": "ok", "committed_count": count, "synced_count": sync_total}
 
     return {"status": "ok", "current_control": task_info.get("control"), "task_status": task_info.get("status")}
 
 
+@app.post("/api/admin/classification/start")
+def start_classification(req: ClassificationRequest, background_tasks: BackgroundTasks):
+    """Starts a background CEFR classification audit, dry-run, or DB update."""
+    global regen_tasks
+    mode = (req.mode or "audit").lower().strip()
+    if mode not in {"audit", "dry_run", "run"}:
+        raise HTTPException(status_code=400, detail="Mode must be audit, dry_run, or run")
+    if (req.lang or "de").lower().strip() != "de" and mode == "audit":
+        raise HTTPException(status_code=400, detail="Only German local audit is supported right now")
 
+    task_id = f"classification_{int(time.time())}"
+    task_data = {
+        "task_id": task_id,
+        "is_batch": True,
+        "task_type": "classification",
+        "status": "pending",
+        "control": "run",
+        "mode": mode,
+        "lang": req.lang,
+        "vocab_profile": req.vocab_profile,
+        "overwrite": req.overwrite,
+        "clear_uncertain_local": req.clear_uncertain_local,
+        "include_library": req.include_library,
+        "cards_scanned": 0,
+        "total_cards": 0,
+        "processed_cards": 0,
+        "unique_phrases": 0,
+        "duplicate_saved": 0,
+        "local_unique": 0,
+        "ai_unique": 0,
+        "ai_cards": 0,
+        "processed_ai_chunks": 0,
+        "total_ai_chunks": 0,
+        "updated_cards": 0,
+        "cleared_unique": 0,
+        "cleared_cards": 0,
+        "current_card": "",
+        "logs": [],
+        "classification_results": [],
+        "level_counts": {},
+        "existing_level_counts": {},
+        "local_level_counts": {},
+        "local_fallback_counts": {},
+        "source_counts": {},
+        "options": req.dict(),
+        "start_time": time.time(),
+    }
+    regen_tasks[task_id] = task_data
+    task_manager.register_task(task_id, task_data)
+    background_tasks.add_task(run_classification_task, task_id, req)
+    return {"status": "ok", "task_id": task_id, "message": "Classification task started"}
+
+
+@app.get("/api/admin/classification/{task_id}/status")
+def get_classification_status(task_id: str):
+    """Returns progress and logs of a CEFR classification task."""
+    global regen_tasks
+    status_info = regen_tasks.get(task_id) or task_manager.get_task(task_id)
+    return status_info or empty_classification_status()
+
+
+@app.post("/api/admin/classification/{task_id}/control")
+def control_classification(task_id: str, req: BatchControlRequest):
+    """Pauses, resumes, or stops a CEFR classification task."""
+    global regen_tasks
+    task_info = regen_tasks.get(task_id) or task_manager.get_task(task_id)
+    if not task_info:
+        raise HTTPException(status_code=404, detail="Classification task not found")
+
+    action = (req.action or "").lower().strip()
+    if action == "pause":
+        task_info["control"] = "pause"
+        task_info["status"] = "paused"
+        _append_classification_log(task_info, "Classification paused.")
+    elif action == "resume":
+        task_info["control"] = "run"
+        task_info["status"] = "running"
+        _append_classification_log(task_info, "Classification resumed.")
+    elif action == "stop":
+        task_info["control"] = "stop"
+        task_info["status"] = "stopped"
+        _append_classification_log(task_info, "Stop signal sent.")
+    else:
+        raise HTTPException(status_code=400, detail="Action must be pause, resume, or stop")
+
+    _save_classification_task(task_id, task_info)
+    return {"status": "ok", "current_control": task_info.get("control"), "task_status": task_info.get("status")}
 
 
 @app.post("/api/admin/decks/{deck_id}/deduplicate")
@@ -1212,6 +2399,14 @@ def card_has_valid_audio(card) -> bool:
         return False
 
 
+def card_is_fully_completed(card) -> bool:
+    """Returns True if card has non-empty front, non-empty back, non-empty context, and valid audio."""
+    front = (getattr(card, 'front_text', '') or '').strip()
+    back = (getattr(card, 'back_text', '') or '').strip()
+    ctx = (getattr(card, 'context', '') or '').strip()
+    return bool(front and back and ctx and card_has_valid_audio(card))
+
+
 def sync_card_audio_to_matching_decks(source_deck, front_query, audio_path):
     """Propagates updated card audio_path to all decks with the same name across all users and library templates."""
     clean_name = source_deck.name.replace("⭐ ", "").strip()
@@ -1354,6 +2549,7 @@ async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
     if not deck:
         task_info["status"] = "failed"
         task_info["logs"].append("❌ Ошибка: Колода не найдена")
+        task_manager.save_task_checkpoint(task_info)
         return
 
     # Process excluded card IDs and position range strings
@@ -1388,6 +2584,13 @@ async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
     if skipped_count > 0:
         task_info["logs"].append(f"🛡️ Пропущено карточек по исключению: {skipped_count}")
 
+    if options.skip_completed:
+        before_len = len(cards)
+        cards = [c for c in cards if not card_is_fully_completed(c)]
+        skipped_comp = before_len - len(cards)
+        if skipped_comp > 0:
+            task_info["logs"].append(f"🛡️ Пропущено уже полностью заполненных карточек: {skipped_comp}")
+
     if options.only_empty:
         cards = [c for c in cards if not c.back_text or not c.context]
 
@@ -1400,6 +2603,10 @@ async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
     elif options.limit and options.limit > 0:
         cards = cards[:options.limit]
 
+    start_c_idx = (options.start_card_idx - 1) if (options.start_card_idx and options.start_card_idx > 1) else 0
+    if start_c_idx > 0 and start_c_idx < len(cards):
+        cards = cards[start_c_idx:]
+
     task_info["total"] = len(cards)
     task_info["status"] = "running"
     task_info["control"] = "run"
@@ -1408,6 +2615,11 @@ async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
     task_info["sync_copies"] = options.sync_copies
     task_info["voice"] = options.voice or "de-DE-KatjaNeural"
     task_info["no_audio"] = options.no_audio
+    task_info["options"] = options.dict()
+    task_info["task_type"] = "single_ai"
+    task_info["deck_id"] = str(deck_id)
+    task_info["current_deck_id"] = str(deck_id)
+    task_info["current_deck_name"] = deck.name
     
     mode_str = "🧪 ТЕСТ (3 карточки / Dry-Run)" if options.dry_run else f"🚀 ПОЛНАЯ ПЕРЕГЕНЕРАЦИЯ ({len(cards)} карточек)"
     task_info["logs"].append(f"Запуск: {mode_str} (Голос: {options.voice or 'Default'})...")
@@ -1416,15 +2628,16 @@ async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
     native_lang = options.native_lang or "uk"
     user_id_val = getattr(deck, 'user_id', 0)
 
-    for idx, card in enumerate(cards, 1):
-        # Check control actions
+    for idx, card in enumerate(cards, start_c_idx + 1):
         while task_info.get("control") == "pause":
             task_info["status"] = "paused"
+            task_manager.update_task_progress(deck_id, status="paused")
             await asyncio.sleep(0.5)
             
         if task_info.get("control") == "stop":
             task_info["status"] = "stopped"
             task_info["logs"].append("🛑 Процесс остановлен пользователем.")
+            task_manager.update_task_progress(deck_id, status="stopped", log_msg="🛑 Остановлено")
             return
 
         task_info["status"] = "running"
@@ -1434,6 +2647,19 @@ async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
 
         task_info["processed"] = idx
         task_info["current_card"] = front[:30]
+
+        task_manager.update_task_progress(
+            deck_id,
+            status="running",
+            current_deck_idx=1,
+            current_deck_id=str(deck_id),
+            current_deck_name=deck.name,
+            current_card_idx=idx,
+            current_card_id=card.id,
+            current_card_text=front,
+            processed_cards=idx,
+            processed_decks=1
+        )
 
         try:
             res = await ai_service.generate_card_fields(
@@ -1503,6 +2729,7 @@ async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
 
     task_info["status"] = "completed"
     task_info["logs"].append("🎉 Перегенерация успешно завершена!")
+    task_manager.update_task_progress(deck_id, status="completed", log_msg="🎉 Завершено")
 
 
 class ControlRegenRequest(BaseModel):
@@ -1513,7 +2740,7 @@ class ControlRegenRequest(BaseModel):
 def control_regeneration(deck_id: str, req: ControlRegenRequest):
     """Controls running regeneration (pause, resume, stop) or commits dry-run results to DB."""
     global regen_tasks
-    task_info = regen_tasks.get(deck_id)
+    task_info = regen_tasks.get(deck_id) or task_manager.get_task(deck_id)
     if not task_info:
         raise HTTPException(status_code=404, detail="Regeneration task not found")
 
@@ -1522,14 +2749,17 @@ def control_regeneration(deck_id: str, req: ControlRegenRequest):
         task_info["control"] = "pause"
         task_info["status"] = "paused"
         task_info["logs"].append("⏸ Перегенерация приостановлена.")
+        task_manager.update_task_progress(deck_id, status="paused")
     elif action == "resume":
         task_info["control"] = "run"
         task_info["status"] = "running"
         task_info["logs"].append("▶ Перегенерация возобновлена.")
+        task_manager.update_task_progress(deck_id, status="running")
     elif action == "stop":
         task_info["control"] = "stop"
         task_info["status"] = "stopped"
         task_info["logs"].append("🛑 Сигнал остановки отправлен.")
+        task_manager.update_task_progress(deck_id, status="stopped")
     elif action == "commit_dry_run":
         results = task_info.get("dry_run_results", [])
         if not results:
@@ -1560,6 +2790,7 @@ def control_regeneration(deck_id: str, req: ControlRegenRequest):
 
         sync_msg = f" (и синхронизировано {sync_total} карточек у других колод)" if sync_total > 0 else ""
         task_info["logs"].append(f"💾 Результаты Dry-Run успешно записаны в БД для {count} карточек{sync_msg}!")
+        task_manager.save_task_checkpoint(task_info)
         return {"status": "ok", "committed_count": count, "synced_count": sync_total}
 
     return {"status": "ok", "current_control": task_info.get("control"), "task_status": task_info.get("status")}
@@ -1648,6 +2879,7 @@ async def run_audio_regeneration(deck_id: str, options: RegenerateAudioRequest):
     if not deck:
         task_info["status"] = "failed"
         task_info["logs"].append("❌ Ошибка: Колода не найдена")
+        task_manager.save_task_checkpoint(task_info)
         return
 
     # Process excluded card IDs and position range strings
@@ -1675,6 +2907,9 @@ async def run_audio_regeneration(deck_id: str, options: RegenerateAudioRequest):
         if c.id in ex_ids or idx in excluded_pos:
             skipped_count += 1
             continue
+        if options.skip_completed and card_is_fully_completed(c):
+            skipped_count += 1
+            continue
         if options.only_missing_audio and card_has_valid_audio(c):
             skipped_count += 1
             continue
@@ -1688,12 +2923,21 @@ async def run_audio_regeneration(deck_id: str, options: RegenerateAudioRequest):
     if options.limit and options.limit > 0:
         cards = cards[:options.limit]
 
+    start_c_idx = (options.start_card_idx - 1) if (options.start_card_idx and options.start_card_idx > 1) else 0
+    if start_c_idx > 0 and start_c_idx < len(cards):
+        cards = cards[start_c_idx:]
+
     task_info["total"] = len(cards)
     task_info["status"] = "running"
     task_info["control"] = "run"
     task_info["voice"] = options.voice or "de-DE-KatjaNeural"
     task_info["rate"] = options.rate or "+0%"
     task_info["sync_copies"] = options.sync_copies
+    task_info["options"] = options.dict()
+    task_info["task_type"] = "single_audio"
+    task_info["deck_id"] = str(deck_id)
+    task_info["current_deck_id"] = str(deck_id)
+    task_info["current_deck_name"] = deck.name
     
     voice_str = options.voice or "de-DE-KatjaNeural"
     rate_str = options.rate or "+0%"
@@ -1701,14 +2945,16 @@ async def run_audio_regeneration(deck_id: str, options: RegenerateAudioRequest):
 
     from api.utils.audio import generate_audio
 
-    for idx, card in enumerate(cards, 1):
+    for idx, card in enumerate(cards, start_c_idx + 1):
         while task_info.get("control") == "pause":
             task_info["status"] = "paused"
+            task_manager.update_task_progress(deck_id, status="paused")
             await asyncio.sleep(0.5)
             
         if task_info.get("control") == "stop":
             task_info["status"] = "stopped"
             task_info["logs"].append("🛑 Озвучивание остановлено пользователем.")
+            task_manager.update_task_progress(deck_id, status="stopped", log_msg="🛑 Остановлено")
             return
 
         task_info["status"] = "running"
@@ -1718,6 +2964,19 @@ async def run_audio_regeneration(deck_id: str, options: RegenerateAudioRequest):
 
         task_info["processed"] = idx
         task_info["current_card"] = front[:30]
+
+        task_manager.update_task_progress(
+            deck_id,
+            status="running",
+            current_deck_idx=1,
+            current_deck_id=str(deck_id),
+            current_deck_name=deck.name,
+            current_card_idx=idx,
+            current_card_id=card.id,
+            current_card_text=front,
+            processed_cards=idx,
+            processed_decks=1
+        )
 
         try:
             res_audio = await generate_audio(front, voice=voice_str, rate=rate_str)
@@ -1750,13 +3009,17 @@ async def run_audio_regeneration(deck_id: str, options: RegenerateAudioRequest):
 
     task_info["status"] = "completed"
     task_info["logs"].append("🎉 Генерация озвучки успешно завершена!")
+    task_manager.update_task_progress(deck_id, status="completed", log_msg="🎉 Завершено")
 
 
 @app.post("/api/admin/decks/{deck_id}/regenerate-audio")
 def start_audio_regeneration_endpoint(deck_id: str, req: RegenerateAudioRequest, background_tasks: BackgroundTasks):
     """Starts background audio regeneration for cards in the deck."""
     global regen_tasks
-    regen_tasks[deck_id] = {
+    task_data = {
+        "deck_id": deck_id,
+        "task_id": deck_id,
+        "task_type": "single_audio",
         "status": "pending",
         "control": "run",
         "processed": 0,
@@ -1767,8 +3030,11 @@ def start_audio_regeneration_endpoint(deck_id: str, req: RegenerateAudioRequest,
         "is_dry_run": False,
         "is_audio_only": True,
         "voice": req.voice,
+        "options": req.dict(),
         "start_time": time.time()
     }
+    regen_tasks[deck_id] = task_data
+    task_manager.register_task(deck_id, task_data)
     background_tasks.add_task(run_audio_regeneration, deck_id, req)
     return {"status": "ok", "message": f"Audio regeneration queued for deck {deck_id}"}
 
@@ -1777,7 +3043,10 @@ def start_audio_regeneration_endpoint(deck_id: str, req: RegenerateAudioRequest,
 def start_regeneration(deck_id: str, req: RegenerateDeckRequest, background_tasks: BackgroundTasks):
     """Starts background AI regeneration of cards for the deck."""
     global regen_tasks
-    regen_tasks[deck_id] = {
+    task_data = {
+        "deck_id": deck_id,
+        "task_id": deck_id,
+        "task_type": "single_ai",
         "status": "pending",
         "control": "run",
         "processed": 0,
@@ -1786,8 +3055,11 @@ def start_regeneration(deck_id: str, req: RegenerateDeckRequest, background_task
         "logs": [],
         "dry_run_results": [],
         "is_dry_run": req.dry_run,
+        "options": req.dict(),
         "start_time": time.time()
     }
+    regen_tasks[deck_id] = task_data
+    task_manager.register_task(deck_id, task_data)
     background_tasks.add_task(run_ai_regeneration, deck_id, req)
     return {"status": "ok", "message": f"Regeneration queued for deck {deck_id}"}
 
@@ -1796,7 +3068,7 @@ def start_regeneration(deck_id: str, req: RegenerateDeckRequest, background_task
 def get_regen_status(deck_id: str):
     """Returns progress and logs of an active or recent regeneration task."""
     global regen_tasks
-    status_info = regen_tasks.get(deck_id)
+    status_info = regen_tasks.get(deck_id) or task_manager.get_task(deck_id)
     if not status_info:
         return {"status": "idle", "processed": 0, "total": 0, "logs": []}
     return status_info

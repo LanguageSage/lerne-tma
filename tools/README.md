@@ -45,9 +45,30 @@
   # Принудительно переразметить ВСЮ базу (даже если уровни уже есть)
   python tools/classify_all_cards.py --overwrite
 
+  # Оценить масштаб переразметки без вызовов ИИ и без записи в БД
+  python tools/classify_all_cards.py --audit-only --overwrite --lang de
+
+  # То же, но с расширенным немецким словарем
+  python tools/classify_all_cards.py --audit-only --overwrite --lang de --vocab-profile medium
+  python tools/classify_all_cards.py --audit-only --overwrite --lang de --vocab-profile max
+
   # Безопасный тестовый прогон без записи в базу (симуляция)
   python tools/classify_all_cards.py --dry-run --limit 30
+
+  # Найти карточки, где локальный немецкий классификатор не уверен, без AI и без записи
+  python tools/classify_all_cards.py --audit-only --overwrite --lang de --vocab-profile medium --clear-uncertain-local
+
+  # Удалить A1-C2 у карточек, где локальный классификатор не уверен; остальные теги сохраняются
+  python tools/classify_all_cards.py --overwrite --lang de --vocab-profile medium --clear-uncertain-local
   ```
+
+* **Профили немецкого словаря**:
+  * `base` — текущий маленький словарь.
+  * `medium` — расширенный словарь частотных слов из текущей базы.
+  * `max` — `medium` + дополнительные формы частых глаголов и прилагательных.
+  * Backend/CLI: `--vocab-profile medium|max`.
+  * Frontend/Vite: переменная сборки `VITE_DE_VOCAB_PROFILE=medium` или `VITE_DE_VOCAB_PROFILE=max`.
+  * Перегенерация файлов профилей: `python tools/build_de_vocab_profiles.py`.
 
 ---
 

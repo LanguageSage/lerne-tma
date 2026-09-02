@@ -4,7 +4,17 @@
  * Vocabulary level detector for German content words.
  */
 
-import vocabData from './data/vocab_de.json' with { type: 'json' };
+import vocabBase from './data/vocab_de.json' with { type: 'json' };
+import vocabMedium from './data/vocab_de_medium.json' with { type: 'json' };
+import vocabMax from './data/vocab_de_max.json' with { type: 'json' };
+
+const VOCAB_PROFILES = {
+  base: vocabBase,
+  medium: vocabMedium,
+  max: vocabMax,
+};
+const configuredProfile = (import.meta.env?.VITE_DE_VOCAB_PROFILE || 'base').toLowerCase().trim();
+const vocabData = VOCAB_PROFILES[configuredProfile] || VOCAB_PROFILES.base;
 
 const SKIP_WORDS = new Set([
   'der', 'die', 'das', 'ein', 'eine', 'einen', 'einem', 'einer', 'eines',
@@ -14,6 +24,7 @@ const SKIP_WORDS = new Set([
   'mir', 'dir', 'ihm', 'ihr', 'uns', 'euch',
   'mein', 'dein', 'sein', 'unser', 'euer',
   'meinen', 'meinem', 'meiner', 'meines',
+  'meine', 'deine', 'seine', 'ihre', 'ihren', 'ihnen', 'unserer', 'unsere',
   'dieser', 'diese', 'dieses', 'diesem', 'diesen',
   'in', 'an', 'auf', 'bei', 'mit', 'nach', 'seit', 'von', 'zu', 'aus',
   'um', 'für', 'durch', 'ohne', 'gegen', 'über', 'unter', 'neben',
@@ -23,12 +34,13 @@ const SKIP_WORDS = new Set([
   'sehr', 'viel', 'wenig', 'mehr', 'weniger', 'immer', 'manchmal',
   'ja', 'nein', 'hier', 'dort', 'da', 'heute', 'morgen', 'gestern',
   'jetzt', 'dann', 'so', 'wie', 'wo', 'wann', 'warum', 'was',
-  'wer', 'wen', 'wem', 'wessen',
+  'wer', 'wen', 'wem', 'wessen', 'welche', 'welches', 'etwas', 'nichts',
   'ist', 'sind', 'war', 'waren', 'bin', 'bist', 'seid',
   'hat', 'haben', 'habe', 'hast', 'habt', 'hatte', 'hatten',
   'wird', 'werden', 'wurde', 'wurden',
-  'kann', 'muss', 'will', 'soll', 'darf', 'mag',
-  'könnte', 'müsste', 'würde', 'hätte', 'wäre', 'möchte',
+  'kann', 'kannst', 'können', 'muss', 'musst', 'müssen', 'will', 'wollen',
+  'soll', 'darf', 'mag',
+  'könnte', 'könnten', 'müsste', 'würde', 'hätte', 'wäre', 'möchte', 'möchtest',
   'sein', 'machen', 'gehen', 'kommen', 'sehen', 'geben', 'nehmen',
   'sagen', 'stehen', 'liegen', 'laufen', 'fahren', 'schreiben',
   'lesen', 'trinken', 'essen', 'kaufen', 'lernen', 'spielen',

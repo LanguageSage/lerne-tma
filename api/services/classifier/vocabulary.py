@@ -7,24 +7,37 @@ inflected forms so no stemmer/lemmatizer is required.
 """
 
 import json
+import os
 import re
 from pathlib import Path
 
 # ─── Vocabulary loader ────────────────────────────────────────────────────────
 
-_VOCAB_CACHE: dict | None = None
+_VOCAB_CACHE: dict[str, dict] = {}
+_VOCAB_FILES = {
+    "base": "vocab_de.json",
+    "medium": "vocab_de_medium.json",
+    "max": "vocab_de_max.json",
+}
 
 
-def _load_vocab() -> dict:
-    global _VOCAB_CACHE
-    if _VOCAB_CACHE is None:
-        vocab_path = Path(__file__).parent / "data" / "vocab_de.json"
+def get_vocab_profile() -> str:
+    profile = os.environ.get("DE_VOCAB_PROFILE", "base").lower().strip()
+    return profile if profile in _VOCAB_FILES else "base"
+
+
+def _load_vocab(profile: str | None = None) -> dict:
+    profile = profile or get_vocab_profile()
+    if profile not in _VOCAB_CACHE:
+        vocab_path = Path(__file__).parent / "data" / _VOCAB_FILES[profile]
+        if not vocab_path.exists() and profile != "base":
+            vocab_path = Path(__file__).parent / "data" / _VOCAB_FILES["base"]
         if vocab_path.exists():
             with open(vocab_path, encoding="utf-8") as f:
-                _VOCAB_CACHE = json.load(f)
+                _VOCAB_CACHE[profile] = json.load(f)
         else:
-            _VOCAB_CACHE = {}
-    return _VOCAB_CACHE
+            _VOCAB_CACHE[profile] = {}
+    return _VOCAB_CACHE[profile]
 
 
 # ─── Common function words to skip during vocab lookup ───────────────────────
@@ -39,6 +52,7 @@ _SKIP_WORDS = frozenset({
     "mir", "dir", "ihm", "ihr", "uns", "euch",
     "mein", "dein", "sein", "unser", "euer",
     "meinen", "meinem", "meiner", "meines",
+    "meine", "deine", "seine", "ihre", "ihren", "ihnen", "unserer", "unsere",
     "dieser", "diese", "dieses", "diesem", "diesen",
     # Common prepositions
     "in", "an", "auf", "bei", "mit", "nach", "seit", "von", "zu", "aus",
@@ -50,13 +64,14 @@ _SKIP_WORDS = frozenset({
     "sehr", "viel", "wenig", "mehr", "weniger", "immer", "manchmal",
     "ja", "nein", "hier", "dort", "da", "heute", "morgen", "gestern",
     "jetzt", "dann", "so", "wie", "wo", "wann", "warum", "was",
-    "wer", "wen", "wem", "wessen",
+    "wer", "wen", "wem", "wessen", "welche", "welches", "etwas", "nichts",
     # Common auxiliary / modal verb forms (already handled in grammar rules)
     "ist", "sind", "war", "waren", "bin", "bist", "seid",
     "hat", "haben", "habe", "hast", "habt", "hatte", "hatten",
     "wird", "werden", "wurde", "wurden",
-    "kann", "kann", "muss", "will", "soll", "darf", "mag",
-    "könnte", "müsste", "würde", "hätte", "wäre", "möchte",
+    "kann", "kannst", "können", "muss", "musst", "müssen", "will", "wollen",
+    "soll", "darf", "mag",
+    "könnte", "könnten", "müsste", "würde", "hätte", "wäre", "möchte", "möchtest",
     # Ultra-common short verbs (A1 by definition)
     "sein", "machen", "gehen", "kommen", "sehen", "geben", "nehmen",
     "sagen", "stehen", "liegen", "laufen", "fahren", "schreiben",

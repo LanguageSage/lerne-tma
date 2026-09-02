@@ -11,6 +11,7 @@ Usage:
 """
 
 import os, sys, json, argparse, asyncio, datetime
+import re
 from collections import Counter, defaultdict
 
 sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
@@ -22,16 +23,30 @@ from api import models, ai_service
 from api.services.classifier import classify_sentence_fast
 
 VALID_LEVELS = {'A1', 'A2', 'B1', 'B2', 'C1', 'C2'}
+CEFR_TAG_RE = re.compile(r'\b(A1|A2|B1|B2|C1|C2)\b', re.IGNORECASE)
 CHECKPOINT_FILE = os.path.join(project_root, 'api', 'data', 'classification_progress.json')
 
 
 def extract_existing_level(tags_str: str):
     if not tags_str:
         return None
-    for lvl in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
-        if lvl in str(tags_str).upper():
-            return lvl
+    match = CEFR_TAG_RE.search(str(tags_str))
+    if match:
+        return match.group(1).upper()
     return None
+
+
+def replace_cefr_level(tags_str: str, level: str) -> str:
+    tags = str(tags_str or "")
+    cleaned = CEFR_TAG_RE.sub("", tags)
+    cleaned_parts = [part.strip() for part in cleaned.split(",") if part.strip()]
+    return ",".join([*cleaned_parts, level]) if cleaned_parts else level
+
+
+def remove_cefr_level(tags_str: str) -> str:
+    tags = str(tags_str or "")
+    cleaned = CEFR_TAG_RE.sub("", tags)
+    return ",".join(part.strip() for part in cleaned.split(",") if part.strip())
 
 
 def load_checkpoint():
@@ -60,13 +75,29 @@ async def main():
     parser.add_argument('--overwrite', action='store_true', help='Re-classify cards even if they already have a CEFR level')
     parser.add_argument('--limit', type=int, default=None, help='Limit number of cards to process')
     parser.add_argument('--dry-run', action='store_true', help='Perform classification without saving to DB')
-    parser.add_argument('--lang', type=str, default='de', help='Target language (default: de)')
+    parser.add_argument('--audit-only', action='store_true', help='Only estimate local/AI workload; no AI calls and no DB writes')
+    parser.add_argument(
+        '--clear-uncertain-local',
+        action='store_true',
+        help='Remove CEFR tag when local classifier confidence is below 0.80 instead of sending phrase to AI',
+    )
+    parser.add_argument('--lang', type=str, default='de', help='Target language to process (default: de)')
+    parser.add_argument(
+        '--vocab-profile',
+        choices=['base', 'medium', 'max'],
+        default=os.environ.get('DE_VOCAB_PROFILE', 'base'),
+        help='German local vocabulary profile for rule classification',
+    )
     parser.add_argument('--clear-cache', action='store_true', help='Ignore and delete existing checkpoint cache')
     args = parser.parse_args()
+    os.environ['DE_VOCAB_PROFILE'] = args.vocab_profile
 
     print('=' * 70, flush=True)
     print('🚀 ГЛОБАЛЬНАЯ РАЗМЕТКА УРОВНЕЙ СЛОЖНОСТИ (CEFR) ДЛЯ ВСЕЙ БАЗЫ', flush=True)
     print('=' * 70, flush=True)
+    print(f'  -> Профиль немецкого словаря: {args.vocab_profile}', flush=True)
+    if args.clear_uncertain_local:
+        print('  -> Неуверенная локальная оценка будет ОЧИЩАТЬ CEFR-тег вместо AI fallback.', flush=True)
 
     if args.clear_cache and os.path.exists(CHECKPOINT_FILE):
         try:
@@ -84,9 +115,19 @@ async def main():
     query = (
         models.TMA_Card
         .select(models.TMA_Card.id, models.TMA_Card.front_text, models.TMA_Card.tags)
+        .join(models.TMA_Deck)
         .where(models.TMA_Card.is_deleted == False)
         .order_by(models.TMA_Card.id.asc())
     )
+    lang = args.lang.lower().strip()
+    if lang == 'de':
+        query = query.where(
+            (models.TMA_Deck.target_language == 'de') |
+            (models.TMA_Deck.target_language.is_null())
+        )
+    else:
+        query = query.where(models.TMA_Deck.target_language == lang)
+
     if args.limit:
         query = query.limit(args.limit)
 
@@ -129,11 +170,16 @@ async def main():
     print(f'  -> Сэкономлено дубликатов: {saved_calls} ({saving_pct:.1f}% экономии!)', flush=True)
 
     phrase_to_level = load_checkpoint()
+    phrase_to_local_fallback = {}
 
     # Fast Local Rule Classification Pass
     print('\n[4/5] Шаг А: Быстрый локальный классификатор правил (< 1 сек)...', flush=True)
     local_hits = 0
+    local_clears = 0
     phrases_for_ai = []
+    local_level_counts = Counter()
+    local_fallback_counts = Counter()
+    local_clear_counts = Counter()
 
     for phrase in unique_phrases:
         if phrase in phrase_to_level:
@@ -141,17 +187,43 @@ async def main():
 
         if args.lang.lower() == 'de':
             res = classify_sentence_fast(phrase, 'de')
+            phrase_to_local_fallback[phrase] = res.get('level', 'A1')
             if res.get('confidence', 0.0) >= 0.80:
                 phrase_to_level[phrase] = res['level']
+                local_level_counts[res['level']] += len(phrase_to_card_ids[phrase])
                 local_hits += 1
+                continue
+            local_fallback_counts[res.get('level', 'A1')] += len(phrase_to_card_ids[phrase])
+            if args.clear_uncertain_local:
+                phrase_to_level[phrase] = None
+                local_clear_counts['NO_LEVEL'] += len(phrase_to_card_ids[phrase])
+                local_clears += 1
                 continue
 
         phrases_for_ai.append(phrase)
 
     print(f'  -> Размечено ЛОКАЛЬНО (0 API затрат): {local_hits} фраз', flush=True)
+    if args.clear_uncertain_local:
+        print(f'  -> CEFR будет очищен локально:          {local_clears} фраз', flush=True)
     print(f'  -> Отправляется в ИИ (неуверенные):   {len(phrases_for_ai)} фраз', flush=True)
 
-    save_checkpoint(phrase_to_level)
+    if args.audit_only:
+        uncertain_cards = sum(len(phrase_to_card_ids[p]) for p in phrases_for_ai)
+        print('\n[АУДИТ] Вызовы ИИ и запись в БД пропущены (--audit-only).', flush=True)
+        print(f'  -> Уверенно локально:       {local_hits} уникальных фраз', flush=True)
+        print(f'  -> Требуют AI-проверки:     {len(phrases_for_ai)} уникальных фраз / {uncertain_cards} карточек', flush=True)
+        if args.clear_uncertain_local:
+            print(f'  -> Будет очищен CEFR:       {local_clears} уникальных фраз / {local_clear_counts.get("NO_LEVEL", 0)} карточек', flush=True)
+        print('  -> Распределение уверенной локальной разметки:', flush=True)
+        for lvl in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
+            print(f'     {lvl}: {local_level_counts.get(lvl, 0)} карточек', flush=True)
+        print('  -> Локальный fallback для неуверенных фраз:', flush=True)
+        for lvl in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
+            print(f'     {lvl}: {local_fallback_counts.get(lvl, 0)} карточек', flush=True)
+        return
+
+    if not args.dry_run:
+        save_checkpoint(phrase_to_level)
 
     # AI Fallback Pass for remaining ambiguous phrases
     if phrases_for_ai:
@@ -168,11 +240,12 @@ async def main():
                     phrase_to_level[phrase] = valid_lvl
                 print(f'✅ Готово', flush=True)
             except Exception as err:
-                print(f'❌ Ошибка ({err}), fallback A1', flush=True)
+                print(f'❌ Ошибка ({err}), используем локальный fallback', flush=True)
                 for phrase in chunk:
-                    phrase_to_level[phrase] = 'A1'
+                    phrase_to_level[phrase] = phrase_to_local_fallback.get(phrase, 'A1')
 
-            save_checkpoint(phrase_to_level)
+            if not args.dry_run:
+                save_checkpoint(phrase_to_level)
             if idx < len(chunks) - 1:
                 await asyncio.sleep(1.0)
     else:
@@ -183,21 +256,32 @@ async def main():
     if args.dry_run:
         print('  -> [DRY-RUN] Симуляция: изменения НЕ внесены в БД.', flush=True)
     else:
-        level_to_card_ids = defaultdict(list)
+        level_to_card_updates = defaultdict(list)
         for phrase, card_ids in phrase_to_card_ids.items():
             lvl = phrase_to_level.get(phrase, 'A1')
-            level_to_card_ids[lvl].extend(card_ids)
+            for card_id in card_ids:
+                level_to_card_updates[lvl].append(card_id)
+
+        card_tags_by_id = {card['id']: card.get('tags') for card in cards_to_process}
+        tag_value_to_card_ids = defaultdict(list)
+        for lvl, c_ids in level_to_card_updates.items():
+            for card_id in c_ids:
+                if lvl:
+                    new_tags = replace_cefr_level(card_tags_by_id.get(card_id), lvl)
+                else:
+                    new_tags = remove_cefr_level(card_tags_by_id.get(card_id))
+                tag_value_to_card_ids[new_tags].append(card_id)
 
         now = datetime.datetime.now()
         updated_total = 0
         with models.tma_db.atomic():
-            for lvl, c_ids in level_to_card_ids.items():
+            for new_tags, c_ids in tag_value_to_card_ids.items():
                 ID_CHUNK = 500
                 for i in range(0, len(c_ids), ID_CHUNK):
                     sub_ids = c_ids[i:i + ID_CHUNK]
                     updated_count = (
                         models.TMA_Card
-                        .update(tags=lvl, updated_at=now)
+                        .update(tags=new_tags, updated_at=now)
                         .where(models.TMA_Card.id << sub_ids)
                         .execute()
                     )
@@ -215,7 +299,7 @@ async def main():
     level_counts = Counter()
     for phrase, card_ids in phrase_to_card_ids.items():
         lvl = phrase_to_level.get(phrase, 'A1')
-        level_counts[lvl] += len(card_ids)
+        level_counts[lvl or 'NO_LEVEL'] += len(card_ids)
 
     print('\n' + '=' * 70, flush=True)
     print('📊 ИТОГОВЫЙ ОТЧЕТ РАЗМЕТКИ ВСЕЙ БАЗЫ', flush=True)
@@ -227,6 +311,11 @@ async def main():
         pct = (count / max(1, len(cards_to_process))) * 100
         bar = '█' * min(30, int(pct / 100 * 30))
         print(f'  • {lvl}: {count:5d} карточек ({pct:5.1f}%) {bar}', flush=True)
+    if args.clear_uncertain_local:
+        count = level_counts.get('NO_LEVEL', 0)
+        pct = (count / max(1, len(cards_to_process))) * 100
+        bar = '█' * min(30, int(pct / 100 * 30))
+        print(f'  • NO_LEVEL: {count:5d} карточек ({pct:5.1f}%) {bar}', flush=True)
     print('=' * 70 + '\n', flush=True)
 
 

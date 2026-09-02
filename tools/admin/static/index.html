@@ -38,7 +38,7 @@
     </div>
 
     <!-- Tabs -->
-    <nav class="flex gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
+    <nav class="flex flex-wrap gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
       <button onclick="switchTab('users')" id="tab-users" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 bg-indigo-600 text-white shadow-md">
         <i data-lucide="users" class="w-4 h-4"></i> Пользователи
       </button>
@@ -47,6 +47,12 @@
       </button>
       <button onclick="switchTab('ai')" id="tab-ai" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
         <i data-lucide="sparkles" class="w-4 h-4"></i> ИИ Перегенерация
+      </button>
+      <button onclick="switchTab('bulk')" id="tab-bulk" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+        <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-400"></i> ➕ Массовое создание
+      </button>
+      <button onclick="switchTab('classification')" id="tab-classification" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+        <i data-lucide="tags" class="w-4 h-4 text-cyan-400"></i> CEFR классификация
       </button>
       <button onclick="switchTab('backups')" id="tab-backups" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
         <i data-lucide="hard-drive" class="w-4 h-4"></i> Бэкапы БД
@@ -83,19 +89,24 @@
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 class="text-xl font-bold text-white">Управление колодами</h2>
-          <p class="text-sm text-slate-400">Поиск, отбор колод в пакетную очередь, назначение дефолтных и раздача</p>
+          <p class="text-sm text-slate-400">Предосмотр, статус заполненности и озвучки, массовая обработка и назначение дефолтных</p>
         </div>
         <div class="flex flex-wrap gap-2 w-full md:w-auto items-center">
           <input type="text" id="deck-search" onkeyup="filterDecks()" placeholder="Поиск колоды (название, ID, язык)..." class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 w-full md:w-56">
           <button onclick="filterLibraryDecks()" class="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold rounded-lg border border-amber-500/30 flex items-center gap-1.5 shrink-0 transition">
             ⭐ Только Библиотека
           </button>
-          <button id="btn-stage-selected" onclick="stageSelectedDecks()" class="hidden px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg border border-indigo-400/30 flex items-center gap-1.5 shrink-0 transition shadow-md shadow-indigo-500/20">
-            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Отложить выбранные (<span id="selected-table-decks-count">0</span>)
-          </button>
-          <button onclick="openStagedDecksModal()" id="btn-toolbar-staged" class="px-3 py-2 bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 text-xs font-bold rounded-lg border border-indigo-500/40 flex items-center gap-1.5 shrink-0 transition shadow-sm">
-            <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-400"></i> Отложено: <span id="toolbar-staged-count" class="font-extrabold text-amber-300">0</span>
-          </button>
+          
+          <!-- Dynamic Batch Actions on Row Selection -->
+          <div id="deck-table-bulk-actions" class="hidden flex items-center gap-1.5">
+            <button onclick="startBatchFromSelection('ai')" class="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg border border-purple-400/30 flex items-center gap-1.5 shrink-0 transition shadow-md shadow-purple-500/20">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ✨ ИИ (<span class="selected-table-count">0</span>)
+            </button>
+            <button onclick="startBatchFromSelection('audio')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg border border-emerald-400/30 flex items-center gap-1.5 shrink-0 transition shadow-md shadow-emerald-500/20">
+              <i data-lucide="mic" class="w-3.5 h-3.5"></i> 🎙️ Озвучка (<span class="selected-table-count">0</span>)
+            </button>
+          </div>
+
           <button onclick="clearUserFilter()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 shrink-0">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Обновить
           </button>
@@ -130,13 +141,14 @@
               <th class="px-4 py-4">Владелец (ID)</th>
               <th class="px-4 py-4">Язык / Уровень</th>
               <th class="px-4 py-4">Карточек</th>
+              <th class="px-4 py-4">Статус готовности</th>
               <th class="px-4 py-4">Дефолтная</th>
               <th class="px-6 py-4 text-right">Действия</th>
             </tr>
           </thead>
           <tbody id="decks-table-body" class="divide-y divide-slate-800">
             <tr>
-              <td colspan="8" class="px-6 py-8 text-center text-slate-500">Загрузка колод...</td>
+              <td colspan="9" class="px-6 py-8 text-center text-slate-500">Загрузка колод...</td>
             </tr>
           </tbody>
         </table>
@@ -159,6 +171,30 @@
 
     <!-- Tab 3: AI Regeneration Studio (Full Page Workspace) -->
     <section id="content-ai" class="space-y-6 hidden">
+      <!-- Checkpoint / Resume Banner (Appears when active or stopped task is found) -->
+      <div id="ai-resume-checkpoint-banner" class="hidden bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
+            <i data-lucide="play-circle" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-white flex items-center gap-2">
+              <span>Прерванная задача найдена</span>
+              <span id="ckpt-banner-type-badge" class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30"></span>
+            </h4>
+            <p id="ckpt-banner-desc" class="text-xs text-amber-200/90 leading-tight">Колода: ..., карточка: ...</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+          <button onclick="clearSavedCheckpoint()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition">
+            ✕ Сбросить
+          </button>
+          <button onclick="resumeSavedCheckpoint()" id="btn-resume-checkpoint" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> ▶ Продолжить
+          </button>
+        </div>
+      </div>
+
       <!-- Breadcrumb & Deck Banner -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-md">
         <div class="flex items-center gap-3">
@@ -179,10 +215,7 @@
         </div>
 
         <div id="ai-batch-header-actions" class="hidden flex items-center gap-2">
-          <button onclick="openStagedDecksModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition">
-            <i data-lucide="list" class="w-3.5 h-3.5"></i> Список пакета (<span class="batch-total-decks-lbl">0</span>)
-          </button>
-          <button onclick="clearStagedDecksAndReturn()" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 flex items-center gap-1 transition">
+          <button onclick="clearBatchAndReturn()" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl border border-rose-500/30 flex items-center gap-1 transition">
             <i data-lucide="x" class="w-3.5 h-3.5"></i> Сбросить пакет
           </button>
         </div>
@@ -245,7 +278,6 @@
                     </button>
                   </div>
                   <select id="regen-voice-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500">
-                    <!-- Populated dynamically based on prompt / deck target language -->
                   </select>
                 </div>
 
@@ -276,7 +308,13 @@
             <div class="space-y-2 pt-2 border-t border-slate-800/80 text-xs">
               <label class="flex items-center gap-2.5 p-2.5 bg-emerald-950/30 rounded-xl border border-emerald-500/30 cursor-pointer hover:border-emerald-500/50">
                 <input type="checkbox" id="regen-sync-copies" checked class="w-4 h-4 text-emerald-500 rounded">
-                <span class="text-xs font-bold text-emerald-300">🔄 Синхронизировать с Библиотекой и всеми копиями пользователей</span>
+                <span class="text-xs font-bold text-emerald-300">🔄 Синхронизировать с Библиотекой и всеми копиями</span>
+              </label>
+
+              <!-- Skip Already Completed Filter -->
+              <label class="flex items-center gap-2.5 p-2 bg-indigo-950/40 rounded-xl border border-indigo-500/30 cursor-pointer hover:border-indigo-500/50">
+                <input type="checkbox" id="regen-skip-completed" class="w-4 h-4 text-indigo-500 rounded">
+                <span class="text-[11px] text-indigo-200 font-bold">🛡️ Пропускать уже заполненные (текст + контекст + аудио)</span>
               </label>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -478,9 +516,407 @@
         </div>
       </div>
     </section>
+
+    <!-- Tab 4: Bulk Card Creator (New Tab Workspace) -->
+    <section id="content-bulk" class="space-y-6 hidden">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-md">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-400"></i> Массовое создание карточек (Bulk Creator)
+          </h2>
+          <p class="text-xs text-slate-400">Быстрое добавление списков слов в существующие или новые колоды с авто-переводом и Edge-TTS озвучкой</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Col: Input & Topic Generator (6 cols) -->
+        <div class="lg:col-span-6 space-y-5">
+          <!-- Step 1: Target Deck -->
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
+              <i data-lucide="layers" class="w-4 h-4"></i> 1. Выбор колоды
+            </h3>
+
+            <div class="flex gap-4 text-xs font-semibold">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="bulk-deck-mode" value="existing" checked onchange="toggleBulkDeckMode()" class="text-indigo-600">
+                <span class="text-white">Существующая колода</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="bulk-deck-mode" value="new" onchange="toggleBulkDeckMode()" class="text-indigo-600">
+                <span class="text-white">Создать новую колоду</span>
+              </label>
+            </div>
+
+            <!-- Existing Deck Selector -->
+            <div id="bulk-existing-deck-box" class="space-y-1.5">
+              <label class="block text-xs font-bold text-slate-300">Выберите колоду назначения:</label>
+              <select id="bulk-target-deck-select" onchange="onBulkDeckSelectChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-indigo-500">
+                <option value="">Загрузка колод...</option>
+              </select>
+            </div>
+
+            <!-- New Deck Inputs (hidden by default) -->
+            <div id="bulk-new-deck-box" class="hidden space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Название новой колоды:</label>
+                <input type="text" id="bulk-new-deck-name" placeholder="Например: Немецкий B1: В аэропорту" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold">
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-300 mb-1">Изучаемый язык:</label>
+                  <select id="bulk-target-lang-select" onchange="onBulkTargetLangChange()" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-indigo-500">
+                    <option value="de" selected>🇩🇪 Немецкий (DE)</option>
+                    <option value="en">🇬🇧 Английский (EN)</option>
+                    <option value="nb">🇳🇴 Норвежский (NO)</option>
+                    <option value="uk">🇺🇦 Украинский (UK)</option>
+                    <option value="ru">🇷🇺 Русский (RU)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-300 mb-1">Уровень CEFR:</label>
+                  <select id="bulk-deck-level-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-indigo-500">
+                    <option value="A1">A1 — Начальный</option>
+                    <option value="A2">A2 — Базовый</option>
+                    <option value="B1" selected>B1 — Средний</option>
+                    <option value="B2">B2 — Продвинутый</option>
+                    <option value="C1">C1 — Профессиональный</option>
+                  </select>
+                </div>
+              </div>
+              <div class="flex gap-4 pt-1 text-xs">
+                <label class="flex items-center gap-2 cursor-pointer text-amber-300 font-semibold">
+                  <input type="checkbox" id="bulk-is-library-cb" class="w-4 h-4 text-amber-500 rounded">
+                  <span>⭐ Библиотечная колода</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-emerald-300 font-semibold">
+                  <input type="checkbox" id="bulk-is-default-cb" class="w-4 h-4 text-emerald-500 rounded">
+                  <span>★ Сделать дефолтной</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Words Input & AI Topic Generator -->
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
+              <h3 class="text-sm font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                <i data-lucide="file-text" class="w-4 h-4"></i> 2. Ввод слов или тема
+              </h3>
+              <span class="text-xs text-slate-400">Слов к добавлению: <b id="bulk-words-count" class="text-emerald-400 font-bold">0</b></span>
+            </div>
+
+            <!-- AI Topic Generator Strip -->
+            <div class="p-3 bg-indigo-950/30 rounded-xl border border-indigo-500/30 space-y-2">
+              <label class="block text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i> Авто-генерация слов по теме через ИИ:
+              </label>
+              <div class="flex gap-2">
+                <input type="text" id="bulk-suggest-topic-input" placeholder="Тема: Ресторан, Покупки, IT, Аренда жилья..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium">
+                <input type="number" id="bulk-suggest-count-input" value="20" min="5" max="60" class="w-16 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white font-mono text-center" title="Количество слов">
+                <button type="button" onclick="suggestTopicWords()" id="btn-bulk-suggest" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shrink-0 flex items-center gap-1">
+                  <span>🤖 Сгенерировать</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Textarea for Words -->
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">Список слов (по одному на строку или через запятую):</label>
+              <textarea id="bulk-phrases-textarea" oninput="onBulkPhrasesInput()" rows="8" placeholder="das Flugzeug&#10;der Reisepass&#10;die Bordkarte&#10;das Gepäck..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white font-mono leading-relaxed focus:outline-none focus:border-indigo-500"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Col: Generation Settings & Live Monitor (6 cols) -->
+        <div class="lg:col-span-6 space-y-5">
+          <!-- Step 3: AI & Voice Settings -->
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
+              <i data-lucide="sliders" class="w-4 h-4"></i> 3. Настройки генерации
+            </h3>
+
+            <div class="space-y-3">
+              <div class="grid grid-cols-2 gap-3">
+                <label class="flex items-center gap-2 p-2.5 bg-purple-950/30 rounded-xl border border-purple-500/30 cursor-pointer">
+                  <input type="checkbox" id="bulk-opt-ai" checked class="w-4 h-4 text-purple-500 rounded">
+                  <span class="text-xs font-bold text-purple-200">✨ Перевод + Контекст (ИИ)</span>
+                </label>
+                <label class="flex items-center gap-2 p-2.5 bg-emerald-950/30 rounded-xl border border-emerald-500/30 cursor-pointer">
+                  <input type="checkbox" id="bulk-opt-audio" checked class="w-4 h-4 text-emerald-500 rounded">
+                  <span class="text-xs font-bold text-emerald-200">🎙️ Озвучка (Edge-TTS)</span>
+                </label>
+              </div>
+
+              <!-- Voice selection -->
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <i data-lucide="mic" class="w-3.5 h-3.5 text-indigo-400"></i> Голос озвучки:
+                  </label>
+                  <button type="button" onclick="playBulkVoicePreview()" id="btn-bulk-voice-preview" class="text-[11px] font-bold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1 transition">
+                    <i data-lucide="volume-2" class="w-3.5 h-3.5 text-amber-400"></i> Тест голоса
+                  </button>
+                </div>
+                <select id="bulk-voice-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500">
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-300 mb-1">Скорость озвучки:</label>
+                  <select id="bulk-rate-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500">
+                    <option value="-15%">🐢 -15%</option>
+                    <option value="-10%">🚶 -10%</option>
+                    <option value="+0%" selected>⚡ +0% (Норма)</option>
+                    <option value="+10%">🏃 +10%</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-300 mb-1">Язык пояснений:</label>
+                  <select id="bulk-native-lang-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-indigo-500">
+                    <option value="uk" selected>🇺🇦 Українська</option>
+                    <option value="ru">🇷🇺 Русский</option>
+                    <option value="en">🇬🇧 English</option>
+                  </select>
+                </div>
+              </div>
+
+              <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer">
+                <input type="checkbox" id="bulk-sync-copies" checked class="w-4 h-4 text-emerald-500 rounded">
+                <span class="text-xs text-slate-300">🔄 Синхронизировать с Библиотекой и всеми копиями</span>
+              </label>
+            </div>
+
+            <button onclick="startBulkCardCreationProcess()" id="btn-start-bulk-create" class="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:opacity-95 text-white font-extrabold text-sm rounded-xl shadow-xl shadow-emerald-500/20 transition flex items-center justify-center gap-2">
+              <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Запустить создание и озвучку карточек
+            </button>
+          </div>
+
+          <!-- Step 4: Progress & Live Monitor -->
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center flex-wrap gap-3 border-b border-slate-800/80 pb-2.5">
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                  <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i> Мониторинг процесса
+                </h3>
+                <p id="bulk-active-status-text" class="text-xs text-slate-400">Статус: Готов</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="bulk-percent-badge" class="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold rounded-xl text-sm">0%</span>
+                <div class="flex gap-1">
+                  <button onclick="controlBulkCreation('pause')" class="px-2 py-1 bg-amber-600/20 text-amber-300 text-xs rounded-lg border border-amber-500/30">⏸</button>
+                  <button onclick="controlBulkCreation('resume')" class="px-2 py-1 bg-emerald-600/20 text-emerald-300 text-xs rounded-lg border border-emerald-500/30">▶</button>
+                  <button onclick="controlBulkCreation('stop')" class="px-2 py-1 bg-rose-600/20 text-rose-300 text-xs rounded-lg border border-rose-500/30">🛑</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-900 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-800">
+              <div id="bulk-progress-bar" class="bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 h-full rounded-full w-0 transition-all duration-300"></div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs text-slate-300">
+              <span id="bulk-current-card-badge" class="font-medium text-emerald-300 truncate"></span>
+              <span id="bulk-progress-count-badge" class="font-mono text-slate-400">0 / 0</span>
+            </div>
+
+            <div>
+              <div class="flex justify-between items-center text-xs text-slate-400 mb-1">
+                <span class="font-semibold uppercase text-[10px] text-slate-500">Лог массового добавления:</span>
+                <button type="button" onclick="document.getElementById('bulk-logs-container').innerHTML=''" class="text-[10px] hover:text-slate-200">Очистить</button>
+              </div>
+              <div id="bulk-logs-container" class="bg-slate-950 rounded-xl p-3 font-mono text-[11px] text-slate-300 h-44 overflow-y-auto space-y-1 border border-slate-900 select-text">
+                <div class="text-slate-500">Введите слова или тему и нажмите "Запустить".</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- Tab 4: Backups -->
+    <!-- Tab 5: CEFR Classification -->
+    <section id="content-classification" class="space-y-6 hidden">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white">CEFR классификация карточек</h2>
+          <p class="text-sm text-slate-400">Локальный классификатор сначала, ИИ только для неуверенных немецких фраз</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="startClassificationTask('audit')" class="px-4 py-2 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-200 text-sm font-bold rounded-xl border border-cyan-500/30 flex items-center gap-2 transition">
+            <i data-lucide="search-check" class="w-4 h-4"></i> Аудит
+          </button>
+          <button onclick="startClassificationTask('dry_run')" class="px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-200 text-sm font-bold rounded-xl border border-amber-500/30 flex items-center gap-2 transition">
+            <i data-lucide="flask-conical" class="w-4 h-4"></i> Dry-run
+          </button>
+          <button onclick="startClassificationTask('run')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold rounded-xl border border-rose-400/30 shadow-lg shadow-rose-500/20 flex items-center gap-2 transition">
+            <i data-lucide="database-zap" class="w-4 h-4"></i> Переразметить
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-4 space-y-5">
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2 border-b border-slate-800/80 pb-2.5">
+              <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Параметры
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Язык</label>
+                <select id="classification-lang-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-cyan-500">
+                  <option value="de" selected>de — Немецкий</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Немецкий словарь</label>
+                <select id="classification-vocab-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-cyan-500">
+                  <option value="base">base — минимальный</option>
+                  <option value="medium" selected>medium — средний</option>
+                  <option value="max">max — максимальный</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Лимит карточек</label>
+                <input id="classification-limit-input" type="number" min="1" placeholder="Пусто = вся база" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-cyan-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Пауза между AI пачками</label>
+                <input id="classification-delay-input" type="number" min="0" step="0.25" value="1" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-cyan-500">
+              </div>
+            </div>
+
+            <label class="flex items-start gap-3 bg-slate-950/70 border border-slate-800 rounded-xl p-3 cursor-pointer">
+              <input id="classification-overwrite-cb" type="checkbox" checked class="mt-0.5 w-4 h-4 text-cyan-600 rounded">
+              <span>
+                <span class="block text-xs font-bold text-white">Переразмечать существующие CEFR-теги</span>
+                <span class="block text-[11px] text-slate-400 leading-relaxed">Если выключить, карточки с A1-C2 будут пропущены.</span>
+              </span>
+            </label>
+
+            <label class="flex items-start gap-3 bg-slate-950/70 border border-amber-500/20 rounded-xl p-3 cursor-pointer">
+              <input id="classification-clear-uncertain-cb" type="checkbox" class="mt-0.5 w-4 h-4 text-amber-600 rounded">
+              <span>
+                <span class="block text-xs font-bold text-white">Очищать CEFR при неуверенной локальной оценке</span>
+                <span class="block text-[11px] text-slate-400 leading-relaxed">Фразы с confidence ниже 80% не пойдут в AI, а останутся без A1-C2.</span>
+              </span>
+            </label>
+
+            <label class="flex items-start gap-3 bg-slate-950/70 border border-slate-800 rounded-xl p-3 opacity-70 cursor-not-allowed">
+              <input id="classification-library-cb" type="checkbox" disabled class="mt-0.5 w-4 h-4 text-cyan-600 rounded">
+              <span>
+                <span class="block text-xs font-bold text-white">Библиотечные карточки</span>
+                <span class="block text-[11px] text-slate-400 leading-relaxed">Первый шаг работает с пользовательскими TMA-карточками.</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-3 shadow-xl">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i> Управление
+              </h3>
+              <span id="classification-status-badge" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[11px] font-bold border border-slate-700">idle</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="controlClassificationTask('pause')" class="flex-1 px-3 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-200 text-xs font-bold rounded-xl border border-amber-500/30 flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="pause" class="w-3.5 h-3.5"></i> Пауза
+              </button>
+              <button onclick="controlClassificationTask('resume')" class="flex-1 px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-200 text-xs font-bold rounded-xl border border-emerald-500/30 flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i> Продолжить
+              </button>
+              <button onclick="controlClassificationTask('stop')" class="flex-1 px-3 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-200 text-xs font-bold rounded-xl border border-rose-500/30 flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="square" class="w-3.5 h-3.5"></i> Стоп
+              </button>
+            </div>
+            <div class="space-y-2">
+              <div class="flex justify-between text-xs text-slate-400">
+                <span>Карточки</span>
+                <span id="classification-progress-text" class="font-mono text-cyan-300">0 / 0</span>
+              </div>
+              <div class="h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                <div id="classification-progress-bar" class="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 w-0 transition-all duration-300"></div>
+              </div>
+              <div class="flex justify-between text-xs text-slate-400">
+                <span>AI пачки</span>
+                <span id="classification-ai-progress-text" class="font-mono text-amber-300">0 / 0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-8 space-y-5">
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] uppercase font-bold text-slate-500">Сканировано</p>
+              <h3 id="classification-stat-scanned" class="text-2xl font-bold text-white mt-1">0</h3>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] uppercase font-bold text-slate-500">Уникальных фраз</p>
+              <h3 id="classification-stat-unique" class="text-2xl font-bold text-white mt-1">0</h3>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] uppercase font-bold text-slate-500">Локально уверенно</p>
+              <h3 id="classification-stat-local" class="text-2xl font-bold text-cyan-300 mt-1">0</h3>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] uppercase font-bold text-slate-500">Нужно AI</p>
+              <h3 id="classification-stat-ai" class="text-2xl font-bold text-amber-300 mt-1">0</h3>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] uppercase font-bold text-slate-500">Очищено CEFR</p>
+              <h3 id="classification-stat-cleared" class="text-2xl font-bold text-rose-300 mt-1">0</h3>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <div class="glass p-5 rounded-2xl border border-slate-800 shadow-xl">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2 mb-4">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 text-cyan-400"></i> Новое распределение
+              </h3>
+              <div id="classification-level-bars" class="space-y-2"></div>
+            </div>
+            <div class="glass p-5 rounded-2xl border border-slate-800 shadow-xl">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2 mb-4">
+                <i data-lucide="square-terminal" class="w-4 h-4 text-emerald-400"></i> Лог задачи
+              </h3>
+              <div id="classification-logs-container" class="bg-slate-950 border border-slate-900 rounded-xl p-3 h-60 overflow-y-auto font-mono text-[11px] text-slate-300 leading-relaxed">
+                <div class="text-slate-500">Запустите аудит или dry-run.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+            <div class="px-5 py-4 bg-slate-900/70 border-b border-slate-800 flex items-center justify-between">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="table-2" class="w-4 h-4 text-cyan-400"></i> Первые результаты
+              </h3>
+              <span id="classification-updated-badge" class="text-[11px] text-slate-400 font-mono">updated: 0</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950 text-slate-500 uppercase">
+                  <tr>
+                    <th class="px-4 py-3">Карточка</th>
+                    <th class="px-4 py-3">Фраза</th>
+                    <th class="px-4 py-3">Было</th>
+                    <th class="px-4 py-3">Стало</th>
+                    <th class="px-4 py-3">Источник</th>
+                    <th class="px-4 py-3">Дублей</th>
+                  </tr>
+                </thead>
+                <tbody id="classification-results-tbody" class="divide-y divide-slate-800">
+                  <tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">Результатов пока нет</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 6: Backups -->
     <section id="content-backups" class="space-y-6 hidden">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -569,6 +1005,149 @@
     </section>
 
   </main>
+
+  <!-- Modal: Interactive Deck Preview & Health Check -->
+  <div id="modal-deck-preview" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass max-w-5xl w-full max-h-[92vh] flex flex-col rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900/90">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+            <i data-lucide="layers" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 id="preview-deck-title" class="font-bold text-lg text-white">Название колоды</h3>
+              <span id="preview-deck-id-badge" class="font-mono text-xs text-slate-400">#0</span>
+              <span id="preview-deck-lib-badge" class="hidden px-2 py-0.5 bg-amber-500/10 text-amber-300 text-[10px] font-bold rounded border border-amber-500/20">Библиотека ⭐</span>
+            </div>
+            <p id="preview-deck-subtitle" class="text-xs text-slate-400">Язык: DE • Уровень: B1</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+          <button onclick="openCurrentDeckInTMA()" id="btn-open-in-tma" class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 transition">
+            <i data-lucide="smartphone" class="w-4 h-4"></i> 📱 Открыть в TMA
+          </button>
+          <button onclick="closeModal('modal-deck-preview')" class="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Health Status Strip -->
+      <div class="p-4 bg-slate-950/90 border-b border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="glass p-3 rounded-xl border border-slate-800 space-y-1">
+          <div class="flex justify-between text-xs text-slate-400 font-medium">
+            <span>Озвучка Edge-TTS:</span>
+            <span id="preview-stat-audio" class="font-bold text-emerald-400">0 / 0 (0%)</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+            <div id="preview-bar-audio" class="bg-emerald-500 h-full rounded-full w-0 transition-all duration-300"></div>
+          </div>
+        </div>
+
+        <div class="glass p-3 rounded-xl border border-slate-800 space-y-1">
+          <div class="flex justify-between text-xs text-slate-400 font-medium">
+            <span>Контекст / Пояснения:</span>
+            <span id="preview-stat-context" class="font-bold text-purple-400">0 / 0 (0%)</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+            <div id="preview-bar-context" class="bg-purple-500 h-full rounded-full w-0 transition-all duration-300"></div>
+          </div>
+        </div>
+
+        <div id="preview-health-verdict" class="glass p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+          <span class="font-bold text-slate-300">Статус колоды:</span>
+          <span id="preview-health-pill" class="px-2.5 py-1 font-bold rounded-lg text-[11px]">...</span>
+        </div>
+      </div>
+
+      <!-- Quick Actions & Search Bar -->
+      <div class="p-4 bg-slate-900/60 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="previewTriggerAiRegen()" class="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-bold rounded-xl border border-purple-500/30 flex items-center gap-1.5 transition">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ✨ В ИИ Студию
+          </button>
+          <button onclick="previewTriggerAudioRegen()" class="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold rounded-xl border border-emerald-500/30 flex items-center gap-1.5 transition">
+            <i data-lucide="mic" class="w-3.5 h-3.5"></i> 🎙️ Озвучить недостающие
+          </button>
+          <button onclick="previewOpenBulkAdd()" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-bold rounded-xl border border-indigo-500/30 flex items-center gap-1.5 transition">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> ➕ Добавить слова
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 w-full md:w-auto">
+          <input type="text" id="preview-cards-search" onkeyup="filterPreviewCards()" placeholder="Поиск по слову / переводу..." class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 w-full md:w-60">
+          <select id="preview-filter-select" onchange="filterPreviewCards()" class="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-white focus:outline-none">
+            <option value="all">Все карточки</option>
+            <option value="missing_audio">⚠️ Без озвучки</option>
+            <option value="missing_context">⚠️ Без контекста</option>
+            <option value="incomplete">⚠️ Неполные</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Cards Scrollable Table -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-2 select-text">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800 sticky top-0">
+            <tr>
+              <th class="w-10 px-3 py-2.5">#</th>
+              <th class="w-48 px-3 py-2.5">Слово (Front)</th>
+              <th class="w-20 px-3 py-2.5 text-center">Аудио</th>
+              <th class="w-48 px-3 py-2.5">Перевод (Back)</th>
+              <th class="px-3 py-2.5">Контекст / Примеры</th>
+              <th class="w-20 px-3 py-2.5">Уровень</th>
+              <th class="w-24 px-3 py-2.5 text-right">Действия</th>
+            </tr>
+          </thead>
+          <tbody id="preview-cards-tbody" class="divide-y divide-slate-800/60 font-sans">
+            <tr>
+              <td colspan="7" class="px-4 py-8 text-center text-slate-500">Загрузка карточек колоды...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Single Card -->
+  <div id="modal-edit-card" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass max-w-lg w-full p-6 rounded-2xl border border-slate-800 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="edit-3" class="w-4 h-4 text-indigo-400"></i> Редактирование карточки
+        </h3>
+        <button onclick="closeModal('modal-edit-card')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <input type="hidden" id="edit-card-id">
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Слово / Фраза (Front):</label>
+          <input type="text" id="edit-card-front" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Перевод (Back):</label>
+          <input type="text" id="edit-card-back" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Контекст / Пояснение / Грамматика:</label>
+          <textarea id="edit-card-context" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white font-sans focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">Теги / Уровень (A1, A2, B1...):</label>
+          <input type="text" id="edit-card-tags" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+        <button onclick="closeModal('modal-edit-card')" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl">Отмена</button>
+        <button onclick="saveCardEdit()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-md">Сохранить</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal: Assign Deck to Users -->
   <div id="modal-assign" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
@@ -679,6 +1258,8 @@
     let activeDeckTargetLang = 'de';
     let regenInterval = null;
     let batchRegenInterval = null;
+    let activeClassificationTaskId = null;
+    let classificationPollInterval = null;
 
     // Staged Decks State (Deck Staging Queue for Mass Batch Operations)
     let stagedDecks = {};
@@ -1039,13 +1620,15 @@
       loadStagedDecksFromStorage();
       updateStagingUI();
       renderVoiceOptions('de');
+      renderBulkVoiceOptions('de');
       loadUsers();
       loadDecks();
       startDecksAutoRefresh();
+      checkSavedCheckpoint();
     });
 
     function switchTab(tab) {
-      ['users', 'decks', 'ai', 'backups'].forEach(t => {
+      ['users', 'decks', 'ai', 'bulk', 'classification', 'backups'].forEach(t => {
         const contentEl = document.getElementById(`content-${t}`);
         if (contentEl) contentEl.classList.add('hidden');
         const btn = document.getElementById(`tab-${t}`);
@@ -1065,6 +1648,104 @@
 
       if (tab === 'backups') {
         loadBackups();
+      } else if (tab === 'bulk') {
+        initBulkCreator();
+      } else if (tab === 'ai') {
+        checkSavedCheckpoint();
+      } else if (tab === 'classification') {
+        lucide.createIcons();
+      }
+    }
+
+    async function checkSavedCheckpoint() {
+      try {
+        const res = await fetch('/api/admin/tasks/checkpoint');
+        const data = await res.json();
+        const banner = document.getElementById('ai-resume-checkpoint-banner');
+        if (!banner) return;
+
+        if (data.can_resume && data.checkpoint) {
+          const ckpt = data.checkpoint;
+          const typeBadge = document.getElementById('ckpt-banner-type-badge');
+          const descEl = document.getElementById('ckpt-banner-desc');
+          const resumeBtn = document.getElementById('btn-resume-checkpoint');
+
+          const typeName = ckpt.task_type === 'batch_ai' ? 'Массовый ИИ'
+            : ckpt.task_type === 'batch_audio' ? 'Массовая озвучка'
+            : ckpt.task_type === 'bulk_create' ? 'Массовое создание'
+            : ckpt.task_type === 'classification' ? 'CEFR классификация'
+            : ckpt.task_type === 'single_audio' ? 'Озвучка колоды' : 'ИИ Перегенерация';
+
+          if (typeBadge) typeBadge.innerText = typeName;
+          
+          let desc = '';
+          if (ckpt.task_type === 'classification') {
+            desc = `Режим: <b>${ckpt.mode || 'audit'}</b> • Словарь: <b>${ckpt.vocab_profile || 'medium'}</b>`;
+          } else {
+            desc = `Колода: <b>${ckpt.current_deck_name || ('#' + ckpt.current_deck_id)}</b>`;
+            if (ckpt.current_card) desc += ` • Карточка: <i>${ckpt.current_card}</i>`;
+          }
+          if (ckpt.processed_cards !== undefined) desc += ` (${ckpt.processed_cards}/${ckpt.total_cards || '?'})`;
+          if (descEl) descEl.innerHTML = desc;
+
+          const startIdx = (ckpt.current_card_index || 0) + 1;
+          if (resumeBtn) resumeBtn.innerHTML = `<i data-lucide="play" class="w-3.5 h-3.5"></i> ▶ Продолжить с №${startIdx}`;
+
+          banner.classList.remove('hidden');
+          lucide.createIcons();
+        } else {
+          banner.classList.add('hidden');
+        }
+      } catch (e) {
+        console.error("Checkpoint check error", e);
+      }
+    }
+
+    async function resumeSavedCheckpoint() {
+      const banner = document.getElementById('ai-resume-checkpoint-banner');
+      try {
+        const res = await fetch('/api/admin/tasks/resume', { method: 'POST' });
+        const data = await res.json();
+
+        if (data.status === 'resumed') {
+          banner.classList.add('hidden');
+          const taskId = data.task_id;
+          const taskType = data.task_type;
+
+          if (taskType.startsWith('batch_')) {
+            isBatchStudioMode = true;
+            activeBatchTaskId = taskId;
+            switchTab('ai');
+            startPollBatchRegenStatus(taskId);
+          } else if (taskType === 'bulk_create') {
+            activeBulkTaskId = taskId;
+            switchTab('bulk');
+            startPollBulkStatus(taskId);
+          } else if (taskType === 'classification') {
+            activeClassificationTaskId = taskId;
+            switchTab('classification');
+            startPollClassificationStatus(taskId);
+          } else {
+            isBatchStudioMode = false;
+            activeRegenDeckId = data.deck_id;
+            switchTab('ai');
+            startPollRegenStatus(data.deck_id);
+          }
+        } else {
+          alert("Не удалось возобновить задачу: " + (data.message || 'нет доступного чекпоинта'));
+        }
+      } catch (e) {
+        alert("Ошибка при возобновлении: " + e);
+      }
+    }
+
+    async function clearSavedCheckpoint() {
+      try {
+        await fetch('/api/admin/tasks/clear-checkpoint', { method: 'POST' });
+        const banner = document.getElementById('ai-resume-checkpoint-banner');
+        if (banner) banner.classList.add('hidden');
+      } catch (e) {
+        console.error("Clear checkpoint error", e);
       }
     }
 
@@ -1182,7 +1863,7 @@
       const tbody = document.getElementById('decks-table-body');
       
       if (total === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-slate-500">Колоды не найдены</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-8 text-center text-slate-500">Колоды не найдены</td></tr>`;
         document.getElementById('deck-pagination-info').innerText = 'Колод нет';
         document.getElementById('deck-page-indicator').innerText = 'Стр 1 из 1';
         document.getElementById('btn-deck-prev').disabled = true;
@@ -1193,14 +1874,20 @@
       const rows = pageDecks.map(d => {
         const isDef = d.is_default;
         const safeName = (d.name || "").replace(/'/g, "\\'");
-        const isStaged = isDeckStaged(d.id);
-        const stageBtn = isStaged
-          ? `<button onclick="toggleStageDeck('${d.id}')" title="Убрать из очереди массовой обработки" class="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold border border-emerald-500/40 rounded-lg text-xs transition shadow-sm inline-flex items-center gap-1">
-               <i data-lucide="check" class="w-3.5 h-3.5"></i> Отложена
-             </button>`
-          : `<button onclick="toggleStageDeck('${d.id}')" title="Добавить в очередь массовой обработки" class="px-2.5 py-1 bg-slate-800 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-200 border border-slate-700 hover:border-indigo-500/30 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1">
-               <i data-lucide="plus" class="w-3.5 h-3.5"></i> Отложить
-             </button>`;
+        
+        // Health badge
+        let healthBadge = '';
+        if (d.card_count === 0) {
+          healthBadge = '<span class="px-2 py-0.5 bg-slate-800 text-slate-400 font-medium rounded-md text-[11px]">⚪ Пустая</span>';
+        } else if (d.health_status === 'ready') {
+          healthBadge = '<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 font-bold rounded-md border border-emerald-500/20 text-[11px]">✅ Готова</span>';
+        } else if (d.health_status === 'needs_audio') {
+          healthBadge = `<span class="px-2 py-0.5 bg-amber-500/10 text-amber-300 font-bold rounded-md border border-amber-500/20 text-[11px]" title="${d.missing_audio_count} без озвучки">⚠️ ${d.missing_audio_count} без звука</span>`;
+        } else if (d.health_status === 'needs_ai') {
+          healthBadge = `<span class="px-2 py-0.5 bg-purple-500/10 text-purple-300 font-bold rounded-md border border-purple-500/20 text-[11px]" title="${d.missing_context_count} без контекста">⚠️ ${d.missing_context_count} без контекста</span>`;
+        } else {
+          healthBadge = '<span class="px-2 py-0.5 bg-slate-800 text-slate-400 rounded-md text-[11px]">Готова</span>';
+        }
 
         return `
           <tr class="hover:bg-slate-900/50 transition">
@@ -1208,7 +1895,11 @@
               <input type="checkbox" class="deck-row-checkbox w-4 h-4 text-indigo-600 rounded cursor-pointer" value="${d.id}" onchange="onDeckRowCheckboxChange()">
             </td>
             <td class="px-4 py-3.5 font-mono text-xs text-slate-400">#${d.id}</td>
-            <td class="px-6 py-3.5 font-bold text-white">${d.name}</td>
+            <td class="px-6 py-3.5 font-bold text-white">
+              <button onclick="openDeckPreviewModal('${d.id}', '${safeName}')" class="hover:text-indigo-400 transition text-left font-bold underline decoration-slate-700 hover:decoration-indigo-400">
+                ${d.name}
+              </button>
+            </td>
             <td class="px-4 py-3.5 text-xs font-mono text-slate-400">
               ${d.is_library ? '<span class="px-2 py-0.5 bg-amber-500/10 text-amber-300 font-bold rounded-md border border-amber-500/20">Библиотека ⭐</span>' : `
               <button onclick="viewUserDecks('${d.user_id}', 'ID: ${d.user_id}')" class="hover:text-indigo-400 underline decoration-indigo-500/50">
@@ -1221,26 +1912,31 @@
             </td>
             <td class="px-4 py-3.5 font-semibold">${d.card_count}</td>
             <td class="px-4 py-3.5">
+              ${healthBadge}
+            </td>
+            <td class="px-4 py-3.5">
               <button onclick="toggleDefaultDeck('${d.id}', ${!isDef})" class="px-2.5 py-1 text-xs font-semibold rounded-lg border transition ${isDef ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}">
                 ${isDef ? '★ Дефолтная' : '☆ Обычная'}
               </button>
             </td>
-            <td class="px-6 py-3.5 text-right space-x-1.5">
-              ${stageBtn}
-              <button onclick="deduplicateDeck('${d.id}', '${safeName}')" title="🧹 Очистить дубликаты карточек" class="px-2 py-1 text-amber-400 hover:bg-amber-500/10 rounded-lg text-xs transition">
-                <i data-lucide="sparkles" class="w-4 h-4 inline"></i>
+            <td class="px-6 py-3.5 text-right space-x-1">
+              <button onclick="openDeckPreviewModal('${d.id}', '${safeName}')" title="👁️ Предосмотр и проверка колоды" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition inline-flex items-center gap-1">
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
               </button>
-              <button onclick="openAssignModal('${d.id}', '${safeName}')" class="px-3 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/20">
-                👥 Раздать
+              <button onclick="openRegenModal('${d.id}', '${safeName}')" title="✨ ИИ Студия" class="px-2.5 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-semibold rounded-lg border border-purple-500/20 transition inline-flex items-center gap-1">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ИИ
               </button>
-              <button onclick="openRegenModal('${d.id}', '${safeName}')" class="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-medium rounded-lg border border-purple-500/20">
-                ✨ ИИ
+              <button onclick="openRegenModal('${d.id}', '${safeName}', 'audio')" title="🎙️ Озвучить колоду (TTS)" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/20 transition inline-flex items-center gap-1">
+                <i data-lucide="mic" class="w-3.5 h-3.5"></i> Звук
               </button>
-              <button onclick="openRegenModal('${d.id}', '${safeName}', 'audio')" title="🎙️ Озвучить колоду" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-medium rounded-lg border border-emerald-500/20">
-                🎙️ Озвучка
+              <button onclick="openAssignModal('${d.id}', '${safeName}')" title="👥 Раздать колоду" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/20 transition">
+                👥
+              </button>
+              <button onclick="deduplicateDeck('${d.id}', '${safeName}')" title="🧹 Очистить дубликаты" class="px-2 py-1 text-amber-400 hover:bg-amber-500/10 rounded-lg text-xs transition">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 inline"></i>
               </button>
               <button onclick="deleteDeck('${d.id}')" title="Удалить колоду" class="px-2 py-1 text-rose-400 hover:bg-rose-500/10 rounded-lg text-xs">
-                <i data-lucide="trash-2" class="w-4 h-4 inline"></i>
+                <i data-lucide="trash-2" class="w-3.5 h-3.5 inline"></i>
               </button>
             </td>
           </tr>
@@ -1255,6 +1951,49 @@
       document.getElementById('deck-page-indicator').innerText = `Стр ${currentDeckPage} из ${totalPages}`;
       document.getElementById('btn-deck-prev').disabled = (currentDeckPage <= 1);
       document.getElementById('btn-deck-next').disabled = (currentDeckPage >= totalPages);
+    }
+
+    function onDeckRowCheckboxChange() {
+      const checkedBoxes = document.querySelectorAll('.deck-row-checkbox:checked');
+      const count = checkedBoxes.length;
+      const actionsBar = document.getElementById('deck-table-bulk-actions');
+      document.querySelectorAll('.selected-table-count').forEach(el => el.innerText = count);
+      
+      if (actionsBar) {
+        if (count > 0) {
+          actionsBar.classList.remove('hidden');
+        } else {
+          actionsBar.classList.add('hidden');
+        }
+      }
+    }
+
+    function startBatchFromSelection(mode = 'ai') {
+      const checkedBoxes = document.querySelectorAll('.deck-row-checkbox:checked');
+      if (checkedBoxes.length === 0) {
+        alert("Выберите хотя бы одну колоду чекбоксом!");
+        return;
+      }
+
+      stagedDecks = {};
+      checkedBoxes.forEach(cb => {
+        const sId = String(cb.value);
+        const found = decksData.find(d => String(d.id) === sId);
+        if (found) {
+          stagedDecks[sId] = {
+            id: sId,
+            name: found.name || `Колода #${sId}`,
+            target_language: found.target_language || 'de',
+            level: found.level || '',
+            card_count: found.card_count || 0,
+            is_library: Boolean(found.is_library)
+          };
+        }
+      });
+
+      saveStagedDecksToStorage();
+      updateStagingUI();
+      openBatchRegenStudio(mode);
     }
 
     function changeDeckPage(delta) {
@@ -1284,7 +2023,7 @@
     async function toggleDefaultDeck(deckId, newDefault) {
       const msg = newDefault 
         ? 'Сделать колоду ДЕФОЛТНОЙ (стартовой для новых пользователей)?' 
-        : 'Снять отметку дефолтной колоды? (Колода останется у всех текущих пользователей и в Библиотеке, но перестанет выдаваться новым пользователям при регистрации)';
+        : 'Снять отметку дефолтной колоды?';
       if (!confirm(msg)) return;
 
       try {
@@ -1735,6 +2474,7 @@
       const uncheckedBoxes = document.querySelectorAll('.card-select-checkbox:not(:checked)');
       const excludedCardIds = Array.from(uncheckedBoxes).map(cb => parseInt(cb.value, 10));
       const onlyMissing = document.getElementById('regen-only-missing-audio')?.checked || false;
+      const skipCompleted = document.getElementById('regen-skip-completed')?.checked || false;
       const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
 
@@ -1742,6 +2482,7 @@
         voice: selectedVoice,
         rate: selectedRate,
         only_missing_audio: onlyMissing,
+        skip_completed: skipCompleted,
         sync_copies: document.getElementById('regen-sync-copies').checked,
         exclude_card_ids: excludedCardIds,
         exclude_range_str: document.getElementById('regen-exclude-range').value.trim() || null
@@ -1785,11 +2526,14 @@
       const excludedCardIds = Array.from(uncheckedBoxes).map(cb => parseInt(cb.value, 10));
       const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
+      const skipCompleted = document.getElementById('regen-skip-completed')?.checked || false;
 
       const options = {
         dry_run: isDryRun,
         only_empty: document.getElementById('regen-only-empty').checked,
         only_no_context: document.getElementById('regen-only-no-context').checked,
+        only_missing_audio: document.getElementById('regen-only-missing-audio')?.checked || false,
+        skip_completed: skipCompleted,
         no_audio: document.getElementById('regen-no-audio').checked,
         sync_copies: document.getElementById('regen-sync-copies').checked,
         voice: selectedVoice,
@@ -1827,11 +2571,12 @@
     async function startBatchAudioProcess() {
       const stagedIds = Object.keys(stagedDecks);
       if (stagedIds.length === 0) {
-        alert("В очереди нет отложенных колод!");
+        alert("В очереди нет выбранных колод!");
         return;
       }
 
       const onlyMissing = document.getElementById('regen-only-missing-audio')?.checked || false;
+      const skipCompleted = document.getElementById('regen-skip-completed')?.checked || false;
       const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
 
@@ -1840,6 +2585,7 @@
         voice: selectedVoice,
         rate: selectedRate,
         only_missing_audio: onlyMissing,
+        skip_completed: skipCompleted,
         sync_copies: document.getElementById('regen-sync-copies')?.checked || false,
         delay: 0.3
       };
@@ -1892,19 +2638,21 @@
     async function startBatchAiProcess(isDryRun) {
       const stagedIds = Object.keys(stagedDecks);
       if (stagedIds.length === 0) {
-        alert("В очереди нет отложенных колод!");
+        alert("В очереди нет выбранных колод!");
         return;
       }
 
       const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
+      const skipCompleted = document.getElementById('regen-skip-completed')?.checked || false;
 
-      // Use ?. (optional chaining) on all elements — some may be hidden/absent in batch mode
       const options = {
         deck_ids: stagedIds,
         dry_run: isDryRun,
         only_empty: document.getElementById('regen-only-empty')?.checked || false,
         only_no_context: document.getElementById('regen-only-no-context')?.checked || false,
+        only_missing_audio: document.getElementById('regen-only-missing-audio')?.checked || false,
+        skip_completed: skipCompleted,
         no_audio: document.getElementById('regen-no-audio')?.checked || false,
         sync_copies: document.getElementById('regen-sync-copies')?.checked || false,
         voice: selectedVoice,
@@ -1934,7 +2682,6 @@
           body: JSON.stringify(options)
         });
 
-        // Check HTTP status before parsing JSON
         if (!res.ok) {
           let errText = '';
           try { const errData = await res.json(); errText = JSON.stringify(errData); } catch(_) { errText = await res.text().catch(() => ''); }
@@ -1945,7 +2692,6 @@
 
         const data = await res.json();
 
-        // Guard: ensure we got a valid task_id
         if (!data.task_id) {
           document.getElementById('ai-logs-container').innerHTML = `<div class="text-rose-400">❌ Сервер не вернул task_id. Ответ: ${JSON.stringify(data).substring(0, 200)}</div>`;
           document.getElementById('ai-active-status-text').innerText = 'Статус: Ошибка — нет task_id';
@@ -2219,6 +2965,761 @@
         loadBackups();
       } catch (e) {
         alert("Ошибка при создании бэкапа!");
+      }
+    }
+
+    // ==========================================
+    // DECK PREVIEW & INTERACTIVE CARDS MANAGER
+    // ==========================================
+    let previewDeckId = null;
+    let previewDeckData = null;
+    let previewCardsList = [];
+
+    async function openDeckPreviewModal(deckId, deckName = '') {
+      previewDeckId = deckId;
+      const modal = document.getElementById('modal-deck-preview');
+      modal.classList.remove('hidden');
+
+      const titleEl = document.getElementById('preview-deck-title');
+      const idBadge = document.getElementById('preview-deck-id-badge');
+      const libBadge = document.getElementById('preview-deck-lib-badge');
+      const subtitleEl = document.getElementById('preview-deck-subtitle');
+      const tbody = document.getElementById('preview-cards-tbody');
+
+      if (titleEl) titleEl.innerText = deckName || `Колода #${deckId}`;
+      if (idBadge) idBadge.innerText = `#${deckId}`;
+      tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">Загрузка карточек колоды...</td></tr>';
+
+      try {
+        const res = await fetch(`/api/admin/decks/${deckId}/cards`);
+        const data = await res.json();
+        previewDeckData = data;
+        previewCardsList = data.cards || [];
+
+        const isLib = Boolean(data.deck_is_library || String(deckId).startsWith('lib_'));
+        if (libBadge) {
+          if (isLib) libBadge.classList.remove('hidden');
+          else libBadge.classList.add('hidden');
+        }
+
+        const lang = (data.target_language || 'de').toUpperCase();
+        const lvl = data.level || '';
+        if (subtitleEl) subtitleEl.innerText = `Язык: ${lang} • Уровень: ${lvl || 'Не указан'} • Владелец: ${data.user_id ? 'ID ' + data.user_id : 'Библиотека'}`;
+
+        // Health overview stats
+        const total = data.total_cards || previewCardsList.length || 0;
+        const withAudio = data.cards_with_audio || previewCardsList.filter(c => c.has_audio).length;
+        const withContext = data.cards_with_context || previewCardsList.filter(c => c.has_context).length;
+
+        const audioPct = total > 0 ? Math.round((withAudio / total) * 100) : 0;
+        const ctxPct = total > 0 ? Math.round((withContext / total) * 100) : 0;
+
+        document.getElementById('preview-stat-audio').innerText = `${withAudio} / ${total} (${audioPct}%)`;
+        document.getElementById('preview-bar-audio').style.width = `${audioPct}%`;
+
+        document.getElementById('preview-stat-context').innerText = `${withContext} / ${total} (${ctxPct}%)`;
+        document.getElementById('preview-bar-context').style.width = `${ctxPct}%`;
+
+        const healthPill = document.getElementById('preview-health-pill');
+        if (total === 0) {
+          healthPill.className = 'px-2.5 py-1 font-bold rounded-lg text-[11px] bg-slate-800 text-slate-400';
+          healthPill.innerText = '⚪ Пустая колода';
+        } else if (audioPct === 100 && ctxPct === 100) {
+          healthPill.className = 'px-2.5 py-1 font-bold rounded-lg text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+          healthPill.innerText = '✅ Полностью готова (100%)';
+        } else if (audioPct < 100 && ctxPct === 100) {
+          healthPill.className = 'px-2.5 py-1 font-bold rounded-lg text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/30';
+          healthPill.innerText = `⚠️ Требуется озвучка (${total - withAudio} без звука)`;
+        } else {
+          healthPill.className = 'px-2.5 py-1 font-bold rounded-lg text-[11px] bg-purple-500/20 text-purple-300 border border-purple-500/30';
+          healthPill.innerText = `⚠️ Требуется ИИ генерация (${total - withContext} без контекста)`;
+        }
+
+        renderPreviewCardsTable(previewCardsList);
+      } catch (err) {
+        console.error("Preview load error", err);
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-rose-400">Ошибка загрузки карточек колоды</td></tr>';
+      }
+    }
+
+    function renderPreviewCardsTable(cards) {
+      const tbody = document.getElementById('preview-cards-tbody');
+      if (!tbody) return;
+
+      if (!cards || cards.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">В этой выборке нет карточек</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = cards.map(c => {
+        const safeAudio = (c.audio_path || '').replace(/'/g, "\\'");
+        const safeFront = (c.front || '').replace(/'/g, "\\'");
+
+        let audioCell = '';
+        if (c.has_audio) {
+          audioCell = `
+            <button onclick="playAudioFile('${safeAudio}', event)" title="Воспроизвести озвучку" class="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg transition inline-flex items-center gap-1 font-bold text-[11px]">
+              <i data-lucide="volume-2" class="w-3.5 h-3.5"></i> ▶
+            </button>
+          `;
+        } else {
+          audioCell = `
+            <button onclick="synthesizeSingleCardAudio('${c.id}', '${safeFront}')" id="btn-synth-card-${c.id}" title="Сгенерировать озвучку Edge-TTS" class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-[10px] font-bold transition inline-flex items-center gap-1 border border-amber-500/30">
+              <i data-lucide="mic" class="w-3 h-3"></i> Озвучить
+            </button>
+          `;
+        }
+
+        return `
+          <tr class="hover:bg-slate-900/60 transition ${!c.is_complete ? 'bg-amber-950/10' : ''}">
+            <td class="px-3 py-2.5 font-mono text-slate-500 text-[11px]">#${c.position || c.id}</td>
+            <td class="px-3 py-2.5 font-bold text-white text-xs">${c.front || '<i class="text-slate-600">(пусто)</i>'}</td>
+            <td class="px-3 py-2.5 text-center">${audioCell}</td>
+            <td class="px-3 py-2.5 text-emerald-300 font-medium text-xs">${c.back || '<i class="text-slate-600">(нет перевода)</i>'}</td>
+            <td class="px-3 py-2.5 text-[11px] text-slate-300 font-sans leading-relaxed max-w-xs truncate" title="${(c.context || '').replace(/"/g, '&quot;')}">
+              ${c.context || '<span class="text-purple-400/80">⚠️ Нет контекста</span>'}
+            </td>
+            <td class="px-3 py-2.5 text-[10px] font-mono font-bold text-indigo-400">${c.tags || c.level || '—'}</td>
+            <td class="px-3 py-2.5 text-right space-x-1 whitespace-nowrap">
+              <button onclick="openCardEditModal('${c.id}')" title="Редактировать" class="p-1 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5 inline"></i>
+              </button>
+              <button onclick="deleteCard('${c.id}')" title="Удалить карточку" class="p-1 text-rose-400 hover:bg-rose-500/20 rounded transition">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5 inline"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function filterPreviewCards() {
+      const q = (document.getElementById('preview-cards-search')?.value || '').toLowerCase().trim();
+      const filterType = document.getElementById('preview-filter-select')?.value || 'all';
+
+      let filtered = previewCardsList;
+
+      if (filterType === 'missing_audio') {
+        filtered = filtered.filter(c => !c.has_audio);
+      } else if (filterType === 'missing_context') {
+        filtered = filtered.filter(c => !c.has_context);
+      } else if (filterType === 'incomplete') {
+        filtered = filtered.filter(c => !c.is_complete);
+      }
+
+      if (q) {
+        filtered = filtered.filter(c => 
+          (c.front && c.front.toLowerCase().includes(q)) ||
+          (c.back && c.back.toLowerCase().includes(q)) ||
+          (c.context && c.context.toLowerCase().includes(q))
+        );
+      }
+
+      renderPreviewCardsTable(filtered);
+    }
+
+    function openCurrentDeckInTMA() {
+      if (!previewDeckId) return;
+      window.open(`http://localhost:5173/?deck_id=${previewDeckId}`, '_blank');
+    }
+
+    async function synthesizeSingleCardAudio(cardId, frontText) {
+      const btn = document.getElementById(`btn-synth-card-${cardId}`);
+      if (btn) {
+        btn.innerHTML = `<span class="animate-spin inline-block text-[10px]">⏳</span>`;
+        btn.disabled = true;
+      }
+
+      try {
+        const res = await fetch(`/api/admin/cards/${cardId}/synthesize-audio`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ voice: 'de-DE-KatjaNeural', rate: '+0%' })
+        });
+        const data = await res.json();
+
+        if (data.status === 'success' && data.audio_path) {
+          playAudioFile(data.audio_path);
+          openDeckPreviewModal(previewDeckId, document.getElementById('preview-deck-title')?.innerText);
+        } else {
+          alert("Не удалось синтезировать озвучку: " + (data.message || 'ошибка'));
+        }
+      } catch (err) {
+        alert("Ошибка озвучки карточки: " + err);
+      }
+    }
+
+    function openCardEditModal(cardId) {
+      const card = previewCardsList.find(c => String(c.id) === String(cardId));
+      if (!card) return;
+
+      document.getElementById('edit-card-id').value = card.id;
+      document.getElementById('edit-card-front').value = card.front || '';
+      document.getElementById('edit-card-back').value = card.back || '';
+      document.getElementById('edit-card-context').value = card.context || '';
+      document.getElementById('edit-card-tags').value = card.tags || card.level || '';
+
+      document.getElementById('modal-edit-card').classList.remove('hidden');
+    }
+
+    async function saveCardEdit() {
+      const cardId = document.getElementById('edit-card-id').value;
+      const front = document.getElementById('edit-card-front').value.trim();
+      const back = document.getElementById('edit-card-back').value.trim();
+      const context = document.getElementById('edit-card-context').value.trim();
+      const tags = document.getElementById('edit-card-tags').value.trim();
+
+      try {
+        const res = await fetch(`/api/admin/cards/${cardId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ front, back, context, tags })
+        });
+        const data = await res.json();
+        closeModal('modal-edit-card');
+        openDeckPreviewModal(previewDeckId, document.getElementById('preview-deck-title')?.innerText);
+      } catch (err) {
+        alert("Ошибка при сохранении карточки: " + err);
+      }
+    }
+
+    async function deleteCard(cardId) {
+      if (!confirm(`Удалить карточку #${cardId}?`)) return;
+      try {
+        await fetch(`/api/admin/cards/${cardId}`, { method: 'DELETE' });
+        openDeckPreviewModal(previewDeckId, document.getElementById('preview-deck-title')?.innerText);
+        loadDecks();
+      } catch (err) {
+        alert("Ошибка при удалении карточки: " + err);
+      }
+    }
+
+    function previewTriggerAiRegen() {
+      const dId = previewDeckId;
+      const dName = document.getElementById('preview-deck-title')?.innerText || '';
+      closeModal('modal-deck-preview');
+      openRegenModal(dId, dName, 'ai');
+    }
+
+    function previewTriggerAudioRegen() {
+      const dId = previewDeckId;
+      const dName = document.getElementById('preview-deck-title')?.innerText || '';
+      closeModal('modal-deck-preview');
+      openRegenModal(dId, dName, 'audio');
+    }
+
+    function previewOpenBulkAdd() {
+      const dId = previewDeckId;
+      closeModal('modal-deck-preview');
+      switchTab('bulk');
+      const select = document.getElementById('bulk-target-deck-select');
+      if (select) select.value = String(dId);
+    }
+
+    // ==========================================
+    // BULK CARD CREATOR WORKSPACE
+    // ==========================================
+    let activeBulkTaskId = null;
+    let bulkPollInterval = null;
+
+    function initBulkCreator() {
+      const select = document.getElementById('bulk-target-deck-select');
+      if (select && decksData.length > 0) {
+        const prevVal = select.value;
+        select.innerHTML = '<option value="">-- Выберите колоду --</option>';
+        decksData.forEach(d => {
+          const isLib = d.is_library ? '⭐ ' : '';
+          select.innerHTML += `<option value="${d.id}">${isLib}${d.name} (${(d.target_language || 'de').toUpperCase()} • ${d.card_count} карт.)</option>`;
+        });
+        if (prevVal) select.value = prevVal;
+      }
+      renderBulkVoiceOptions('de');
+    }
+
+    function toggleBulkDeckMode() {
+      const mode = document.querySelector('input[name="bulk-deck-mode"]:checked').value;
+      const existBox = document.getElementById('bulk-existing-deck-box');
+      const newBox = document.getElementById('bulk-new-deck-box');
+
+      if (mode === 'new') {
+        existBox.classList.add('hidden');
+        newBox.classList.remove('hidden');
+      } else {
+        existBox.classList.remove('hidden');
+        newBox.classList.add('hidden');
+      }
+    }
+
+    function onBulkDeckSelectChange() {
+      const selVal = document.getElementById('bulk-target-deck-select').value;
+      const found = decksData.find(d => String(d.id) === String(selVal));
+      if (found && found.target_language) {
+        renderBulkVoiceOptions(found.target_language);
+      }
+    }
+
+    function onBulkTargetLangChange() {
+      const lang = document.getElementById('bulk-target-lang-select').value;
+      renderBulkVoiceOptions(lang);
+    }
+
+    function renderBulkVoiceOptions(targetLang = 'de') {
+      const select = document.getElementById('bulk-voice-select');
+      if (!select) return;
+
+      const langCode = (targetLang || 'de').toLowerCase().trim();
+      const groups = ADMIN_VOICES_BY_LANG[langCode] || ADMIN_VOICES_BY_LANG['de'];
+
+      select.innerHTML = '';
+      let defaultVoice = null;
+
+      groups.forEach(g => {
+        const optGroup = document.createElement('optgroup');
+        optGroup.label = g.group;
+        g.voices.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.value;
+          opt.textContent = `${v.value} (${v.label})`;
+          if (v.default) defaultVoice = v.value;
+          optGroup.appendChild(opt);
+        });
+        select.appendChild(optGroup);
+      });
+
+      if (defaultVoice) select.value = defaultVoice;
+    }
+
+    async function playBulkVoicePreview() {
+      const voice = document.getElementById('bulk-voice-select')?.value || 'de-DE-KatjaNeural';
+      const rate = document.getElementById('bulk-rate-select')?.value || '+0%';
+      const btn = document.getElementById('btn-bulk-voice-preview');
+
+      if (currentPreviewAudio) {
+        currentPreviewAudio.pause();
+        currentPreviewAudio = null;
+      }
+
+      if (btn) btn.innerHTML = `⏳ Превью...`;
+
+      try {
+        const url = `/api/admin/voice-preview?voice=${encodeURIComponent(voice)}&rate=${encodeURIComponent(rate)}&t=${Date.now()}`;
+        currentPreviewAudio = new Audio(url);
+        currentPreviewAudio.onplaying = () => { if (btn) btn.innerHTML = `🔊 Играет...`; };
+        currentPreviewAudio.onended = () => { if (btn) btn.innerHTML = `<i data-lucide="volume-2" class="w-3.5 h-3.5 text-amber-400"></i> Тест голоса`; lucide.createIcons(); };
+        currentPreviewAudio.onerror = () => { if (btn) btn.innerHTML = `Тест голоса`; };
+        await currentPreviewAudio.play();
+      } catch (e) {
+        console.error("Voice preview error", e);
+        if (btn) btn.innerHTML = `Тест голоса`;
+      }
+    }
+
+    function onBulkPhrasesInput() {
+      const raw = document.getElementById('bulk-phrases-textarea').value;
+      const phrases = raw.split(/[\n,;]+/).map(s => s.trim()).filter(s => s.length > 0);
+      document.getElementById('bulk-words-count').innerText = phrases.length;
+    }
+
+    async function suggestTopicWords() {
+      const topic = document.getElementById('bulk-suggest-topic-input').value.trim();
+      const count = parseInt(document.getElementById('bulk-suggest-count-input').value, 10) || 20;
+      const btn = document.getElementById('btn-bulk-suggest');
+
+      if (!topic) {
+        alert("Введите тему для генерации (например: Ресторан, Покупки, Путешествия)!");
+        return;
+      }
+
+      const mode = document.querySelector('input[name="bulk-deck-mode"]:checked').value;
+      let targetLang = 'de';
+      let level = 'B1';
+
+      if (mode === 'new') {
+        targetLang = document.getElementById('bulk-target-lang-select').value;
+        level = document.getElementById('bulk-deck-level-select').value;
+      } else {
+        const selId = document.getElementById('bulk-target-deck-select').value;
+        const deck = decksData.find(d => String(d.id) === String(selId));
+        if (deck) {
+          targetLang = deck.target_language || 'de';
+          level = deck.level || 'B1';
+        }
+      }
+
+      if (btn) {
+        btn.innerHTML = `<span class="animate-spin inline-block">⏳</span> Генерация...`;
+        btn.disabled = true;
+      }
+
+      try {
+        const res = await fetch('/api/admin/cards/bulk-suggest-words', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, level, target_lang: targetLang, count })
+        });
+        const data = await res.json();
+        const words = data.words || [];
+
+        if (words.length > 0) {
+          const textarea = document.getElementById('bulk-phrases-textarea');
+          const currentText = textarea.value.trim();
+          textarea.value = currentText ? `${currentText}\n${words.join('\n')}` : words.join('\n');
+          onBulkPhrasesInput();
+        } else {
+          alert("ИИ не вернул слова по этой теме. Попробуйте уточнить запрос.");
+        }
+      } catch (err) {
+        alert("Ошибка генерации списка слов: " + err);
+      } finally {
+        if (btn) {
+          btn.innerHTML = `<span>🤖 Сгенерировать</span>`;
+          btn.disabled = false;
+        }
+      }
+    }
+
+    async function startBulkCardCreationProcess() {
+      const mode = document.querySelector('input[name="bulk-deck-mode"]:checked').value;
+      const rawPhrases = document.getElementById('bulk-phrases-textarea').value;
+      const phrases = rawPhrases.split(/[\n,;]+/).map(s => s.trim()).filter(s => s.length > 0);
+
+      if (phrases.length === 0) {
+        alert("Введите хотя бы одно слово или сгенерируйте список по теме!");
+        return;
+      }
+
+      let deckId = null;
+      let newDeckName = null;
+      let targetLang = 'de';
+      let level = 'B1';
+      let isLib = false;
+      let isDef = false;
+
+      if (mode === 'existing') {
+        deckId = document.getElementById('bulk-target-deck-select').value;
+        if (!deckId) {
+          alert("Выберите существующую колоду назначения!");
+          return;
+        }
+        const found = decksData.find(d => String(d.id) === String(deckId));
+        if (found) targetLang = found.target_language || 'de';
+      } else {
+        newDeckName = document.getElementById('bulk-new-deck-name').value.trim();
+        if (!newDeckName) {
+          alert("Введите название для новой колоды!");
+          return;
+        }
+        targetLang = document.getElementById('bulk-target-lang-select').value;
+        level = document.getElementById('bulk-deck-level-select').value;
+        isLib = document.getElementById('bulk-is-library-cb').checked;
+        isDef = document.getElementById('bulk-is-default-cb').checked;
+      }
+
+      const generateAi = document.getElementById('bulk-opt-ai').checked;
+      const generateAudio = document.getElementById('bulk-opt-audio').checked;
+      const voice = document.getElementById('bulk-voice-select').value;
+      const rate = document.getElementById('bulk-rate-select').value;
+      const nativeLang = document.getElementById('bulk-native-lang-select').value;
+      const syncCopies = document.getElementById('bulk-sync-copies').checked;
+
+      const payload = {
+        deck_id: deckId,
+        new_deck_name: newDeckName,
+        target_lang: targetLang,
+        level: level,
+        is_library: isLib,
+        is_default: isDef,
+        phrases: phrases,
+        generate_ai: generateAi,
+        generate_audio: generateAudio,
+        voice: voice,
+        rate: rate,
+        native_lang: nativeLang,
+        sync_copies: syncCopies
+      };
+
+      if (!confirm(`Создать ${phrases.length} карточек с авто-переводом и озвучкой?`)) return;
+
+      document.getElementById('bulk-progress-bar').style.width = '0%';
+      document.getElementById('bulk-percent-badge').innerText = '0%';
+      document.getElementById('bulk-active-status-text').innerText = 'Статус: Запуск создания...';
+      document.getElementById('bulk-logs-container').innerHTML = `<div class="text-emerald-400">🚀 Запуск массового добавления ${phrases.length} слов...</div>`;
+
+      try {
+        const res = await fetch('/api/admin/cards/bulk-create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (data.task_id) {
+          activeBulkTaskId = data.task_id;
+          startPollBulkStatus(data.task_id);
+        } else {
+          alert("Не удалось запустить задачу: " + JSON.stringify(data));
+        }
+      } catch (err) {
+        alert("Ошибка запуска создания карточек: " + err);
+      }
+    }
+
+    function startPollBulkStatus(taskId) {
+      if (bulkPollInterval) clearInterval(bulkPollInterval);
+
+      bulkPollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/admin/cards/bulk/${taskId}/status`);
+          const data = await res.json();
+
+          const total = data.total_cards || 1;
+          const processed = data.processed_cards || 0;
+          const pct = Math.round((processed / total) * 100);
+
+          document.getElementById('bulk-progress-bar').style.width = `${pct}%`;
+          document.getElementById('bulk-percent-badge').innerText = `${pct}%`;
+          document.getElementById('bulk-progress-count-badge').innerText = `${processed} / ${total}`;
+          document.getElementById('bulk-active-status-text').innerText = `Статус: ${data.status.toUpperCase()} (${processed}/${total})`;
+
+          if (data.current_card) {
+            document.getElementById('bulk-current-card-badge').innerText = `• ${data.current_card}`;
+          }
+
+          const logsContainer = document.getElementById('bulk-logs-container');
+          logsContainer.innerHTML = (data.logs || []).map(l => `<div>${l}</div>`).join('');
+          logsContainer.scrollTop = logsContainer.scrollHeight;
+
+          if (data.status === 'completed' || data.status === 'failed' || data.status === 'stopped') {
+            clearInterval(bulkPollInterval);
+            loadDecks();
+          }
+        } catch (e) {
+          console.error("Bulk poll error", e);
+        }
+      }, 1000);
+    }
+
+    async function controlBulkCreation(action) {
+      if (!activeBulkTaskId) return;
+      try {
+        await fetch(`/api/admin/cards/bulk/${activeBulkTaskId}/control`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        });
+      } catch (e) {
+        console.error("Control bulk error", e);
+      }
+    }
+
+    // ==========================================
+    // CEFR CLASSIFICATION WORKSPACE
+    // ==========================================
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function collectClassificationOptions(mode) {
+      const limitRaw = document.getElementById('classification-limit-input')?.value;
+      const delayRaw = document.getElementById('classification-delay-input')?.value;
+      const limit = limitRaw ? parseInt(limitRaw, 10) : null;
+      const delay = delayRaw ? parseFloat(delayRaw) : 1;
+
+      return {
+        mode,
+        lang: document.getElementById('classification-lang-select')?.value || 'de',
+        vocab_profile: document.getElementById('classification-vocab-select')?.value || 'medium',
+        overwrite: Boolean(document.getElementById('classification-overwrite-cb')?.checked),
+        clear_uncertain_local: Boolean(document.getElementById('classification-clear-uncertain-cb')?.checked),
+        include_library: Boolean(document.getElementById('classification-library-cb')?.checked),
+        limit: Number.isFinite(limit) && limit > 0 ? limit : null,
+        delay: Number.isFinite(delay) && delay >= 0 ? delay : 1
+      };
+    }
+
+    async function startClassificationTask(mode) {
+      const options = collectClassificationOptions(mode);
+      const modeLabel = mode === 'audit' ? 'аудит без AI и записи'
+        : mode === 'dry_run' ? 'dry-run с AI без записи'
+        : 'полную переразметку с записью в БД';
+
+      if (mode === 'run' && !confirm('Запустить полную переразметку CEFR? Перед записью будет создан полный бэкап БД.')) {
+        return;
+      }
+      if (mode === 'run' && options.clear_uncertain_local && !confirm('Включена очистка CEFR при неуверенной локальной оценке. Такие карточки останутся без A1-C2 и не пойдут в AI. Продолжить?')) {
+        return;
+      }
+      const dryRunMsg = options.clear_uncertain_local
+        ? 'Запустить dry-run? Неуверенные локальные фразы будут помечены как CEFR-очистка, БД не изменится.'
+        : 'Запустить dry-run? Будут вызовы AI для неуверенных фраз, но БД не изменится.';
+      if (mode === 'dry_run' && !confirm(dryRunMsg)) {
+        return;
+      }
+
+      resetClassificationView();
+      document.getElementById('classification-logs-container').innerHTML = `<div class="text-cyan-300">Запуск: ${modeLabel}...</div>`;
+      document.getElementById('classification-status-badge').innerText = 'pending';
+
+      try {
+        const res = await fetch('/api/admin/classification/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(options)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.task_id) {
+          throw new Error(data.detail || data.message || 'сервер не вернул task_id');
+        }
+        activeClassificationTaskId = data.task_id;
+        startPollClassificationStatus(data.task_id);
+      } catch (err) {
+        document.getElementById('classification-status-badge').innerText = 'failed';
+        document.getElementById('classification-logs-container').innerHTML = `<div class="text-rose-400">Ошибка запуска: ${escapeHtml(err.message || err)}</div>`;
+      }
+    }
+
+    function resetClassificationView() {
+      document.getElementById('classification-progress-bar').style.width = '0%';
+      document.getElementById('classification-progress-text').innerText = '0 / 0';
+      document.getElementById('classification-ai-progress-text').innerText = '0 / 0';
+      document.getElementById('classification-stat-scanned').innerText = '0';
+      document.getElementById('classification-stat-unique').innerText = '0';
+      document.getElementById('classification-stat-local').innerText = '0';
+      document.getElementById('classification-stat-ai').innerText = '0';
+      document.getElementById('classification-stat-cleared').innerText = '0';
+      document.getElementById('classification-updated-badge').innerText = 'updated: 0';
+      document.getElementById('classification-level-bars').innerHTML = '';
+      document.getElementById('classification-results-tbody').innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">Результатов пока нет</td></tr>';
+    }
+
+    function startPollClassificationStatus(taskId) {
+      if (classificationPollInterval) clearInterval(classificationPollInterval);
+
+      classificationPollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/admin/classification/${taskId}/status`);
+          const data = await res.json();
+          renderClassificationStatus(data);
+
+          if (['completed', 'failed', 'stopped'].includes(data.status)) {
+            clearInterval(classificationPollInterval);
+            classificationPollInterval = null;
+            if (data.status === 'completed' && data.mode === 'run') {
+              loadDecks();
+            }
+          }
+        } catch (err) {
+          console.error('Classification poll error', err);
+        }
+      }, 1000);
+    }
+
+    function renderClassificationStatus(data) {
+      const total = data.total_cards || 0;
+      const processed = data.processed_cards || 0;
+      const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+
+      const badge = document.getElementById('classification-status-badge');
+      badge.innerText = data.status || 'idle';
+      badge.className = `px-2.5 py-1 rounded-lg text-[11px] font-bold border ${classificationStatusClass(data.status)}`;
+
+      document.getElementById('classification-progress-bar').style.width = `${pct}%`;
+      document.getElementById('classification-progress-text').innerText = `${processed} / ${total}`;
+      document.getElementById('classification-ai-progress-text').innerText = `${data.processed_ai_chunks || 0} / ${data.total_ai_chunks || 0}`;
+      document.getElementById('classification-stat-scanned').innerText = data.cards_scanned || 0;
+      document.getElementById('classification-stat-unique').innerText = data.unique_phrases || 0;
+      document.getElementById('classification-stat-local').innerText = data.local_unique || 0;
+      document.getElementById('classification-stat-ai').innerText = data.ai_unique || 0;
+      document.getElementById('classification-stat-cleared').innerText = data.cleared_cards || 0;
+      document.getElementById('classification-updated-badge').innerText = `updated: ${data.updated_cards || 0}`;
+
+      const logsContainer = document.getElementById('classification-logs-container');
+      logsContainer.innerHTML = (data.logs || []).map(line => `<div>${escapeHtml(line)}</div>`).join('') || '<div class="text-slate-500">Лог пуст</div>';
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+
+      const levels = Object.keys(data.level_counts || {}).length ? data.level_counts : (data.local_level_counts || {});
+      renderClassificationLevelBars(levels, total);
+      renderClassificationResults(data.classification_results || []);
+      lucide.createIcons();
+    }
+
+    function classificationStatusClass(status) {
+      if (status === 'completed') return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+      if (status === 'running') return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30';
+      if (status === 'paused') return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+      if (status === 'failed' || status === 'stopped') return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
+      return 'bg-slate-800 text-slate-300 border-slate-700';
+    }
+
+    function renderClassificationLevelBars(levelCounts, totalCards) {
+      const container = document.getElementById('classification-level-bars');
+      const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'NO_LEVEL'];
+      const maxTotal = Math.max(1, totalCards || levels.reduce((sum, lvl) => sum + (levelCounts[lvl] || 0), 0));
+
+      container.innerHTML = levels.map(level => {
+        const count = levelCounts[level] || 0;
+        const pct = Math.round((count / maxTotal) * 100);
+        return `
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-white">${level === 'NO_LEVEL' ? 'без CEFR' : level}</span>
+              <span class="font-mono text-slate-400">${count} (${pct}%)</span>
+            </div>
+            <div class="h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div class="h-full bg-cyan-500/80 rounded-full transition-all duration-300" style="width:${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderClassificationResults(results) {
+      const tbody = document.getElementById('classification-results-tbody');
+      if (!results.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">Результатов пока нет</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = results.map(item => `
+        <tr class="hover:bg-slate-900/60 transition">
+          <td class="px-4 py-3 font-mono text-slate-500">#${escapeHtml(item.card_id)}</td>
+          <td class="px-4 py-3 text-white font-semibold max-w-md truncate" title="${escapeHtml(item.phrase)}">${escapeHtml(item.phrase)}</td>
+          <td class="px-4 py-3">${classificationLevelPill(item.old_level || '—', 'slate')}</td>
+          <td class="px-4 py-3">${classificationLevelPill(item.new_level || '—', 'cyan')}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-md border text-[11px] font-bold ${item.source === 'local' ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30' : item.source === 'ai' ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-slate-800 text-slate-300 border-slate-700'}">
+              ${escapeHtml(item.source || 'fallback')} ${item.confidence !== undefined ? escapeHtml(item.confidence) : ''}
+            </span>
+          </td>
+          <td class="px-4 py-3 font-mono text-slate-400">${escapeHtml(item.card_count || 1)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function classificationLevelPill(level, tone = 'cyan') {
+      const cls = tone === 'cyan'
+        ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+        : 'bg-slate-800 text-slate-300 border-slate-700';
+      return `<span class="px-2 py-0.5 rounded-md border text-[11px] font-bold ${cls}">${escapeHtml(level)}</span>`;
+    }
+
+    async function controlClassificationTask(action) {
+      if (!activeClassificationTaskId) return;
+      try {
+        await fetch(`/api/admin/classification/${activeClassificationTaskId}/control`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        });
+      } catch (err) {
+        console.error('Classification control error', err);
       }
     }
 

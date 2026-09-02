@@ -272,7 +272,11 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             try:
                 from api.services.classifier import classify_sentence_fast
                 local_res = classify_sentence_fast(result["front"], target_lang)
-                result["level"] = local_res.get("level", "A1")
+                if local_res.get("confidence", 0.0) >= 0.80:
+                    result["level"] = local_res.get("level", "A1")
+                else:
+                    ai_levels = await classify_phrases_batch([result["front"]], target_lang)
+                    result["level"] = ai_levels[0] if ai_levels else local_res.get("level", "A1")
             except Exception as classify_err:
                 logger.warning(f"Local classifier in generate_card_fields warning: {classify_err}")
                 result["level"] = "A1"
@@ -446,6 +450,7 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
 
     # Step 1: Local rule-based pre-filter (German only)
     final_results  = ["A1"] * len(phrases)
+    local_fallback_results = ["A1"] * len(phrases)
     phrases_for_ai = []
     ai_indices     = []
 
@@ -457,6 +462,7 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
             local_hits = 0
             for i, phrase in enumerate(phrases):
                 local = classify_sentence_fast(phrase.strip(), "de")
+                local_fallback_results[i] = local.get("level", "A1")
                 if local.get("confidence", 0.0) >= 0.80:
                     final_results[i] = local["level"]
                     local_hits += 1
@@ -482,7 +488,9 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
     # Step 2: AI for uncertain / unsupported-language phrases
     provider, ai_key, ai_model = get_ai_config()
     if not ai_model or not ai_model.strip():
-        logger.warning("classify_phrases_batch: No AI model configured, returning default A1 for remaining.")
+        for i in ai_indices:
+            final_results[i] = local_fallback_results[i]
+        logger.warning("classify_phrases_batch: No AI model configured, returning local low-confidence fallback for remaining.")
         return final_results
 
     client     = AIService(provider=provider, api_key=ai_key)

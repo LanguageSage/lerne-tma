@@ -101,14 +101,15 @@ function hasPartizipII(textLower, tokens) {
 
 const A2_SUBORDINATORS = new Set(['weil', 'dass', 'ob', 'wenn', 'als']);
 const B1_SUBORDINATORS = new Set([
-  'obwohl', 'während', 'nachdem', 'bevor', 'seitdem',
+  'obwohl', 'nachdem', 'bevor', 'seitdem',
   'sodass', 'solange', 'sobald', 'indem', 'sofern', 'falls',
-  'vorausgesetzt', 'insofern', 'damit', 'da', 'seit', 'ehe',
+  'vorausgesetzt', 'insofern', 'ehe',
 ]);
+const AMBIGUOUS_B1_SUBORDINATORS = new Set(['da', 'damit', 'seit', 'während']);
 
 const B1_GENITIV = new Set([
   'wegen', 'aufgrund', 'mithilfe', 'anstelle', 'anlässlich',
-  'infolge', 'trotz', 'mangels', 'dank', 'kraft', 'laut',
+  'infolge', 'trotz', 'mangels', 'dank', 'kraft', 'laut', 'während',
 ]);
 
 const RELATIV_RE = /,\s*(?:(?:in|auf|an|mit|bei|über|unter|vor|hinter|nach|von|zu|durch|für|ohne|um|gegen|wegen|trotz)\s+)?(?:der|die|das|den|dem|denen|deren|dessen)\b/i;
@@ -117,9 +118,12 @@ const W_NEBENSATZ_RE = /,\s*(?:wie|wo|wohin|woher|wann|warum|weshalb|wieso|weswe
 const WORDEN_RE  = /\bworden\b/i;
 
 const B2_JE_DESTO  = /\bje\b[\s\S]{1,80}\b(?:desto|umso)\b/i;
-const B2_NICHT_NUR = /\bnicht\s+nur\b/i;
+const B2_NICHT_NUR = /\bnicht\s+nur\b[\s\S]{1,120}\bsondern\s+auch\b/i;
 const B2_SOWOHL   = /\bsowohl\b[\s\S]{1,80}\bals\s+auch\b/i;
 const B2_WEDER    = /\bweder\b[\s\S]{1,80}\bnoch\b/i;
+const B2_MODAL_PASSIV = /\b(?:muss|musst|müssen|müsst|soll|sollst|sollen|sollt|kann|kannst|können|könnt)\b[\s\S]{1,80}\b(?:ge[a-zäöüß]{3,}e?t|[a-zäöüß]{2,}ge[a-zäöüß]{2,}e?[nt]|[a-zäöüß]+iert|be[a-zäöüß]{3,}t|er[a-zäöüß]{3,}t|ver[a-zäöüß]{3,}t|ent[a-zäöüß]{3,}t)\b[\s\S]{0,40}\bwerden\b/i;
+const AMBIGUOUS_B1_SUBORD_RE = /(?:\b(?:da|damit|seit|während)\b[^,.!?]{1,120},|,\s*(?:da|damit|seit|während)\b)/i;
+const FUTUR_I_RE = /\b(?:werde|wirst|wird|werden|werdet)\b(?:(?!\b(?:gemacht|repariert|geschrieben|gebaut|bezahlt)\b)[\s\S]){1,80}\b[a-zäöüß]+en\b/i;
 
 const B1_INF_ADJECTIVES = new Set([
   'schwer', 'leicht', 'einfach', 'wichtig', 'möglich', 'unmöglich',
@@ -128,7 +132,7 @@ const B1_INF_ADJECTIVES = new Set([
 const B1_ADJ_ZU = /\b(?:schwer|leicht|einfach|wichtig|möglich|unmöglich|klar|interessant|schön|gut|hart|kompliziert|nützlich|nötig)\b[\s\S]{0,30}\bzu\b\s+[a-zäöüß]+en\b/i;
 
 const C1_SEIN_ZU     = /\b(?:ist|sind|war|waren|wäre|sei|wären)\b[\s\S]{0,40}\bzu\b\s+[a-zäöüß]+en\b/i;
-const C1_LASSEN_SICH = /\b(?:lässt|lassen|ließ|ließen)\b[\s\S]{0,40}\bsich\b/i;
+const C1_LASSEN_SICH = /\b(?:lässt|lassen|ließ|ließen)\b[\s\S]{0,40}\bsich\b[\s\S]{0,40}\b[a-zäöüß]+en\b/i;
 
 // Detectors
 function detectC1(text) {
@@ -138,6 +142,7 @@ function detectC1(text) {
 }
 
 function detectB2(text) {
+  if (B2_MODAL_PASSIV.test(text)) return { name: 'Modalpassiv', level: 'B2', confidence: 0.86 };
   if (B2_JE_DESTO.test(text))  return { name: 'je…desto Konstruktion', level: 'B2', confidence: 0.92 };
   if (B2_SOWOHL.test(text))    return { name: 'sowohl…als auch', level: 'B2', confidence: 0.90 };
   if (B2_WEDER.test(text))     return { name: 'weder…noch', level: 'B2', confidence: 0.90 };
@@ -168,6 +173,10 @@ function detectSubordinators(text, tokens) {
   }
   const b1 = tokens.find(t => B1_SUBORDINATORS.has(t));
   if (b1) return { name: `B1-Nebensatz (${b1})`, level: 'B1', confidence: 0.90 };
+  const ambiguous = tokens.find(t => AMBIGUOUS_B1_SUBORDINATORS.has(t));
+  if (ambiguous && AMBIGUOUS_B1_SUBORD_RE.test(text)) {
+    return { name: `B1-Nebensatz (${ambiguous})`, level: 'B1', confidence: 0.84 };
+  }
   const a2 = tokens.find(t => A2_SUBORDINATORS.has(t));
   if (a2) return { name: `A2-Nebensatz (${a2})`, level: 'A2', confidence: 0.88 };
   return null;
@@ -263,6 +272,9 @@ function detectTense(text, tokens) {
     if (!WORDEN_RE.test(tl)) {
       return [{ name: 'Perfekt (sein + Part.II)', level: 'A2', confidence: 0.85 }];
     }
+  }
+  if (FUTUR_I_RE.test(tl) && !hasPart) {
+    return [{ name: 'Futur I', level: 'B1', confidence: 0.82 }];
   }
   return [];
 }

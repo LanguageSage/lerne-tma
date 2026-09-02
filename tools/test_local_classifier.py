@@ -22,6 +22,7 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 from api.services.classifier import classify_sentence_fast
+from api.services.classifier.vocabulary import _VOCAB_CACHE
 
 # ─── Test cases: (phrase, expected_level) ─────────────────────────────────────
 
@@ -32,6 +33,7 @@ TEST_CASES = [
     ("Er kann schwimmen.",                                          "A1"),
     ("Ich lerne Deutsch jeden Tag.",                                "A1"),
     ("Sie wohnt in Berlin.",                                        "A1"),
+    ("Ich bin da.",                                                 "A1"),
     # ── A2 ──────────────────────────────────────────────────────────────────
     ("Ich habe das Passwort falsch eingegeben.",                    "A2"),
     ("Ich habe ein Buch gekauft.",                                  "A2"),
@@ -41,6 +43,7 @@ TEST_CASES = [
     ("Ich freue mich auf das Wochenende.",                          "A2"),
     ("Ich möchte einen Kaffee, bitte.",                             "A2"),
     ("Du hast das Passwort vergessen.",                             "A2"),
+    ("Lassen Sie sich Zeit.",                                       "A2"),
     # ── B1 ──────────────────────────────────────────────────────────────────
     ("Ich lerne Deutsch, um in Deutschland zu arbeiten.",           "B1"),
     ("Das Auto wird repariert.",                                    "B1"),
@@ -51,10 +54,13 @@ TEST_CASES = [
     ("Gut, wir machen es so, wie du denkst.",                       "B1"),
     ("Ich weiß nicht, wie das funktioniert.",                       "B1"),
     ("Er fragt, wo der Bahnhof ist.",                               "B1"),
+    ("Ich werde morgen Deutsch lernen.",                            "B1"),
+    ("Während des Regens bleiben wir zu Hause.",                    "B1"),
     # ── B2 ──────────────────────────────────────────────────────────────────
     ("Je mehr ich lerne, desto besser spreche ich.",                "B2"),
     ("Das Dokument ist verschlüsselt worden.",                      "B2"),
     ("Nicht nur Kinder, sondern auch Erwachsene lieben Spiele.",    "B2"),
+    ("Das Formular muss ausgefüllt werden.",                        "B2"),
     # ── C1 ──────────────────────────────────────────────────────────────────
     ("Das Problem ist zu lösen.",                                   "C1"),
     ("Das lässt sich leicht erklären.",                             "C1"),
@@ -127,6 +133,36 @@ def run_tests(threshold: float = 0.80):
     return failed == 0
 
 
+def run_vocab_profile_tests():
+    previous_profile = os.environ.get("DE_VOCAB_PROFILE")
+    try:
+        _VOCAB_CACHE.clear()
+
+        os.environ["DE_VOCAB_PROFILE"] = "base"
+        base = classify_sentence_fast("Der Hund schläft.", "de")
+
+        _VOCAB_CACHE.clear()
+        os.environ["DE_VOCAB_PROFILE"] = "medium"
+        medium = classify_sentence_fast("Der Hund schläft.", "de")
+
+        _VOCAB_CACHE.clear()
+        os.environ["DE_VOCAB_PROFILE"] = "max"
+        max_result = classify_sentence_fast("Das Team analysiert die Ergebnisse.", "de")
+
+        assert base["confidence"] < 0.80
+        assert medium["confidence"] >= 0.80
+        assert max_result["level"] == "B2"
+        print("\n✅ Vocabulary profile tests passed!")
+        return True
+    finally:
+        if previous_profile is None:
+            os.environ.pop("DE_VOCAB_PROFILE", None)
+        else:
+            os.environ["DE_VOCAB_PROFILE"] = previous_profile
+        _VOCAB_CACHE.clear()
+
+
 if __name__ == "__main__":
     success = run_tests()
+    success = run_vocab_profile_tests() and success
     sys.exit(0 if success else 1)

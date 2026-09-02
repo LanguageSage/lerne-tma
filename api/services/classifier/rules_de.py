@@ -157,16 +157,18 @@ def _has_partizip_ii(text_lower: str, tokens: list) -> bool:
 A2_SUBORDINATORS = frozenset({"weil", "dass", "ob", "wenn", "als"})
 
 B1_SUBORDINATORS = frozenset({
-    "obwohl", "während", "nachdem", "bevor", "seitdem",
+    "obwohl", "nachdem", "bevor", "seitdem",
     "sodass", "solange", "sobald", "indem", "sofern", "falls",
-    "vorausgesetzt", "insofern", "damit", "da", "seit", "ehe",
+    "vorausgesetzt", "insofern", "ehe",
 })
+
+AMBIGUOUS_B1_SUBORDINATORS = frozenset({"da", "damit", "seit", "während"})
 
 # ─── Genitiv prepositions (B1) ────────────────────────────────────────────────
 
 B1_GENITIV = frozenset({
     "wegen", "aufgrund", "mithilfe", "anstelle", "anlässlich",
-    "infolge", "trotz", "mangels", "dank", "kraft", "laut",
+    "infolge", "trotz", "mangels", "dank", "kraft", "laut", "während",
 })
 
 # ─── Regex patterns ───────────────────────────────────────────────────────────
@@ -191,9 +193,24 @@ _WORDEN_RE = re.compile(r'\bworden\b', re.IGNORECASE)
 
 # B2 double conjunctions
 _B2_JE_DESTO     = re.compile(r'\bje\b.{1,80}\b(?:desto|umso)\b', re.IGNORECASE | re.DOTALL)
-_B2_NICHT_NUR    = re.compile(r'\bnicht\s+nur\b', re.IGNORECASE)
+_B2_NICHT_NUR    = re.compile(r'\bnicht\s+nur\b.{1,120}\bsondern\s+auch\b', re.IGNORECASE | re.DOTALL)
 _B2_SOWOHL       = re.compile(r'\bsowohl\b.{1,80}\bals\s+auch\b', re.IGNORECASE | re.DOTALL)
 _B2_WEDER        = re.compile(r'\bweder\b.{1,80}\bnoch\b', re.IGNORECASE | re.DOTALL)
+_B2_MODAL_PASSIV = re.compile(
+    r'\b(?:muss|musst|müssen|müsst|soll|sollst|sollen|sollt|kann|kannst|können|könnt)\b'
+    r'.{1,80}\b(?:ge[a-zäöüß]{3,}e?t|[a-zäöüß]{2,}ge[a-zäöüß]{2,}e?[nt]|[a-zäöüß]+iert|'
+    r'be[a-zäöüß]{3,}t|er[a-zäöüß]{3,}t|ver[a-zäöüß]{3,}t|ent[a-zäöüß]{3,}t)\b'
+    r'.{0,40}\bwerden\b',
+    re.IGNORECASE | re.DOTALL
+)
+_AMBIGUOUS_B1_SUBORD_RE = re.compile(
+    r'(?:\b(?:da|damit|seit|während)\b[^,.!?]{1,120},|,\s*(?:da|damit|seit|während)\b)',
+    re.IGNORECASE | re.DOTALL
+)
+_FUTUR_I_RE = re.compile(
+    r'\b(?:werde|wirst|wird|werden|werdet)\b(?:(?!\b(?:gemacht|repariert|geschrieben|gebaut|bezahlt)\b).){1,80}\b[a-zäöüß]+en\b',
+    re.IGNORECASE | re.DOTALL
+)
 
 # B1 evaluation adjectives used with zu + Infinitiv ("schwer zu finden", "wichtig zu lernen", "möglich zu kommen")
 B1_INF_ADJECTIVES = frozenset({
@@ -214,7 +231,7 @@ _C1_SEIN_ZU = re.compile(
 
 # C1: sich lassen + Infinitiv ("Das lässt sich erklären")
 _C1_LASSEN_SICH = re.compile(
-    r'\b(?:lässt|lassen|ließ|ließen)\b.{0,40}\bsich\b',
+    r'\b(?:lässt|lassen|ließ|ließen)\b.{0,40}\bsich\b.{0,40}\b[a-zäöüß]+en\b',
     re.IGNORECASE | re.DOTALL
 )
 
@@ -232,6 +249,8 @@ def detect_c1(text: str) -> GrammarFeature | None:
 
 def detect_b2(text: str) -> GrammarFeature | None:
     """B2: je…desto, weder…noch, sowohl…als auch, nicht nur…sondern auch."""
+    if _B2_MODAL_PASSIV.search(text):
+        return GrammarFeature("Modalpassiv", "B2", 0.86)
     if _B2_JE_DESTO.search(text):
         return GrammarFeature("je…desto Konstruktion", "B2", 0.92)
     if _B2_SOWOHL.search(text):
@@ -272,6 +291,9 @@ def detect_subordinators(text: str, tokens: list) -> GrammarFeature | None:
     b1 = next((t for t in tokens if t in B1_SUBORDINATORS), None)
     if b1:
         return GrammarFeature(f"B1-Nebensatz ({b1})", "B1", 0.90)
+    ambiguous = next((t for t in tokens if t in AMBIGUOUS_B1_SUBORDINATORS), None)
+    if ambiguous and _AMBIGUOUS_B1_SUBORD_RE.search(text):
+        return GrammarFeature(f"B1-Nebensatz ({ambiguous})", "B1", 0.84)
     a2 = next((t for t in tokens if t in A2_SUBORDINATORS), None)
     if a2:
         return GrammarFeature(f"A2-Nebensatz ({a2})", "A2", 0.88)
@@ -401,6 +423,11 @@ def detect_tense(text: str, tokens: list) -> list:
         # Make sure 'worden' is not present (that's Passiv, handled separately)
         if not _WORDEN_RE.search(text_lower):
             return [GrammarFeature("Perfekt (sein + Part.II)", "A2", 0.85)]
+
+    # Futur I (werden + Infinitiv) — B1 in the app rubric.
+    # Run after passiv/perfect checks so "wird repariert" does not shadow passive.
+    if _FUTUR_I_RE.search(text_lower) and not _has_partizip_ii(text_lower, tokens):
+        return [GrammarFeature("Futur I", "B1", 0.82)]
 
     return []
 
