@@ -1,5 +1,22 @@
 import React, { useState } from 'react';
-import { motion, Reorder } from 'framer-motion';
+import { motion } from 'framer-motion';
+import {
+  DndContext,
+  closestCenter,
+  pointerWithin,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragOverlay
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
 import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Wrench, ChevronDown, Search } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -31,7 +48,7 @@ export const DeckGrid = ({
   const { 
     decks, folders, setCurrentDeck, fetchDeckCards, 
     handleSyncDeck, handleResetProgress, handleDeleteDeck, 
-    setDeckCards, togglePinDeck, reorderDecks,
+    setDeckCards, togglePinDeck,
     duplicateCards
   } = useDeckStore();
 
@@ -80,6 +97,72 @@ export const DeckGrid = ({
     if (!deckSearchQuery.trim()) return list;
     return list.filter(d => matchDeck(d, deckSearchQuery));
   }, [currentDecks, deckFilter, deckSearchQuery]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 4,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 120,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const [activeFolderDragId, setActiveFolderDragId] = useState(null);
+  const [activeDeckDragId, setActiveDeckDragId] = useState(null);
+
+  const handleFolderDragEnd = (event) => {
+    const { active, over } = event;
+    setActiveFolderDragId(null);
+    if (over && active.id !== over.id) {
+      const oldIndex = filteredFolders.findIndex(f => f.id === active.id);
+      const newIndex = filteredFolders.findIndex(f => f.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(filteredFolders, oldIndex, newIndex);
+        const orderedIds = newOrder.map(f => f.id);
+        useDeckStore.getState().reorderFolders(orderedIds);
+      }
+    }
+  };
+
+  const handleDeckDragEnd = (event) => {
+    const { active, over } = event;
+    setActiveDeckDragId(null);
+    if (over && active.id !== over.id) {
+      const oldIndex = filteredDecks.findIndex(d => d.id === active.id);
+      const newIndex = filteredDecks.findIndex(d => d.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(filteredDecks, oldIndex, newIndex);
+        const orderedIds = newOrder.map(d => d.id);
+        useDeckStore.getState().reorderDecks(orderedIds);
+      }
+    }
+  };
+
+  const customCollisionDetection = React.useCallback((args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions;
+    }
+    return closestCenter(args);
+  }, []);
+
+  const activeDeck = React.useMemo(() => {
+    if (!activeDeckDragId) return null;
+    return filteredDecks.find(d => d.id === activeDeckDragId);
+  }, [activeDeckDragId, filteredDecks]);
+
+  const activeFolderItem = React.useMemo(() => {
+    if (!activeFolderDragId) return null;
+    return filteredFolders.find(f => f.id === activeFolderDragId);
+  }, [activeFolderDragId, filteredFolders]);
 
   if (view !== 'decks') return null;
 
@@ -282,65 +365,105 @@ export const DeckGrid = ({
             <>
               {/* 1. Folders */}
               {filteredFolders.length > 0 && (
-                <Reorder.Group
-                  as="div"
-                  axis="y"
-                  values={filteredFolders}
-                  onReorder={(newOrder) => {
-                    if (!deckSearchQuery.trim()) {
-                      const orderedIds = newOrder.map(f => f.id);
-                      useDeckStore.getState().reorderFolders(orderedIds);
-                    }
-                  }}
-                  className="reorder-group-list"
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={customCollisionDetection}
+                  onDragStart={(e) => setActiveFolderDragId(e.active.id)}
+                  onDragEnd={handleFolderDragEnd}
                 >
-                  {filteredFolders.map((folder) => (
-                    <FolderCardItem
-                      key={`folder-${folder.id}`}
-                      folder={folder}
-                      setActiveFolderId={setActiveFolderId}
-                      decks={decks}
-                      folders={folders}
-                      showToast={showToast}
-                    />
-                  ))}
-                </Reorder.Group>
+                  <SortableContext
+                    items={filteredFolders.map(f => f.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="reorder-group-list">
+                      {filteredFolders.map((folder) => (
+                        <FolderCardItem
+                          key={`folder-${folder.id}`}
+                          folder={folder}
+                          setActiveFolderId={setActiveFolderId}
+                          decks={decks}
+                          folders={folders}
+                          showToast={showToast}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                  <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                    {activeFolderItem ? (
+                      <div 
+                        className="deck-card glass is-drag-overlay"
+                        style={{ 
+                          opacity: 0.95, 
+                          cursor: 'grabbing', 
+                          boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(254,208,67,0.5)',
+                          transform: 'scale(1.02)',
+                          padding: '16px',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        <div className="deck-info-row">
+                          <h3><span className="deck-title-text">{activeFolderItem.name}</span></h3>
+                        </div>
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
               )}
 
               {/* 2. Decks */}
               {filteredDecks.length > 0 && (
-                <Reorder.Group
-                  as="div"
-                  axis="y"
-                  values={filteredDecks}
-                  onReorder={(newOrder) => {
-                    if (!deckSearchQuery.trim()) {
-                      const orderedIds = newOrder.map(d => d.id);
-                      reorderDecks(orderedIds);
-                    }
-                  }}
-                  className="reorder-group-list"
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={customCollisionDetection}
+                  onDragStart={(e) => setActiveDeckDragId(e.active.id)}
+                  onDragEnd={handleDeckDragEnd}
                 >
-                  {filteredDecks.map((deck) => (
-                    <DeckCardItem
-                      key={deck.id}
-                      deck={deck}
-                      setCurrentDeck={setCurrentDeck}
-                      setDeckCards={setDeckCards}
-                      fetchDeckCards={fetchDeckCards}
-                      showToast={showToast}
-                      openSyncModal={openSyncModal}
-                      handleSyncDeck={handleSyncDeck}
-                      handleResetProgress={handleResetProgress}
-                      handleDeleteDeck={handleDeleteDeck}
-                      setDeckToRename={setDeckToRename}
-                      setIsRenameModalOpen={setIsRenameModalOpen}
-                      togglePinDeck={togglePinDeck}
-                      folders={folders}
-                      activeFolderColor={activeFolderColor}
-                    />
-                  ))}
-                </Reorder.Group>
+                  <SortableContext
+                    items={filteredDecks.map(d => d.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="reorder-group-list">
+                      {filteredDecks.map((deck) => (
+                        <DeckCardItem
+                          key={`deck-${deck.id}`}
+                          deck={deck}
+                          setCurrentDeck={setCurrentDeck}
+                          setDeckCards={setDeckCards}
+                          fetchDeckCards={fetchDeckCards}
+                          showToast={showToast}
+                          openSyncModal={openSyncModal}
+                          handleSyncDeck={handleSyncDeck}
+                          handleResetProgress={handleResetProgress}
+                          handleDeleteDeck={handleDeleteDeck}
+                          setDeckToRename={setDeckToRename}
+                          setIsRenameModalOpen={setIsRenameModalOpen}
+                          togglePinDeck={togglePinDeck}
+                          folders={folders}
+                          activeFolderColor={activeFolderColor}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                  <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                    {activeDeck ? (
+                      <div 
+                        className="deck-card glass is-drag-overlay"
+                        style={{ 
+                          opacity: 0.95, 
+                          cursor: 'grabbing', 
+                          boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(168,85,247,0.5)',
+                          transform: 'scale(1.02)',
+                          padding: '16px',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        <div className="deck-info-row">
+                          <h3><span className="deck-title-text">{activeDeck.name}</span></h3>
+                        </div>
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
               )}
             </>
           )}

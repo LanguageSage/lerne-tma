@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Reorder, useDragControls } from 'framer-motion';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users, Dumbbell } from 'lucide-react';
 
 import { useUiStore } from '../../store/useUiStore';
@@ -28,7 +29,6 @@ export const DeckCardItem = React.memo(({
   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
   const [menuPlacement, setMenuPlacement] = useState('bottom');
   const menuRef = useRef(null);
-  const dragControls = useDragControls();
 
   const toggleMenu = (e) => {
     e.stopPropagation();
@@ -226,14 +226,32 @@ export const DeckCardItem = React.memo(({
     deckStyle['--folder-color-bg-tint'] = `${activeFolderColor}14`;
   }
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({
+    id: deck.id,
+    animateLayoutChanges: () => false,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || undefined,
+    opacity: isDragging ? 0.35 : 1,
+    zIndex: isDragging ? 999 : undefined,
+    ...deckStyle
+  };
+
   return (
-    <Reorder.Item
-      value={deck}
-      dragListener={false}
-      dragControls={dragControls}
-      whileDrag={{ scale: 1.02, zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 25px rgba(168,85,247,0.4)' }}
-      className={`deck-card glass ${deck.is_pinned ? 'deck-pinned' : ''} ${deck.is_learning === false ? 'deck-learning-paused' : ''} ${deck.is_inbox ? 'deck-card-inbox' : ''} ${!deck.is_inbox ? 'deck-card-draggable' : ''} ${isMenuOpen ? 'has-open-menu' : ''}`}
-      style={deckStyle}
+    <div
+      ref={setNodeRef}
+      id={`deck-item-${deck.id}`}
+      className={`deck-card glass ${deck.is_pinned ? 'deck-pinned' : ''} ${deck.is_learning === false ? 'deck-learning-paused' : ''} ${deck.is_inbox ? 'deck-card-inbox' : ''} ${!deck.is_inbox ? 'deck-card-draggable' : ''} ${isMenuOpen ? 'has-open-menu' : ''} ${isDragging ? 'is-dragging' : ''}`}
+      style={style}
     >
       <div className="deck-main-action deck-main-action-with-stats" onClick={onMainAction}>
         <div className="deck-info-row">
@@ -288,7 +306,8 @@ export const DeckCardItem = React.memo(({
           {!deck.is_inbox ? (
             <div
               className="deck-drag-handle-bottom"
-              onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+              {...attributes}
+              {...listeners}
               onClick={(e) => e.stopPropagation()}
               title="Зажмите и потяните для перетаскивания колоды"
             >
@@ -558,6 +577,6 @@ export const DeckCardItem = React.memo(({
           </div>
         )}
       </div>
-    </Reorder.Item>
+    </div>
   );
 });

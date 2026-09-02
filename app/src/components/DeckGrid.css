@@ -888,6 +888,18 @@
   white-space: nowrap;
 }
 
+.deck-card.is-dragging {
+  opacity: 0.3 !important;
+  border-style: dashed !important;
+}
+
+.deck-card.is-drag-overlay {
+  z-index: 9999 !important;
+  border: 1px solid rgba(168, 85, 247, 0.6) !important;
+  background: rgba(30, 41, 59, 0.95) !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6), 0 0 25px rgba(168, 85, 247, 0.4) !important;
+}
+
 
 
 

@@ -1,7 +1,37 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export const CardBackground = ({ styleType = 'standard' }) => {
+export const CardBackground = ({ styleType = 'standard', isStatic = false }) => {
+  if (isStatic) {
+    switch (styleType) {
+      case 'mesh':
+        return <div className="card-bg-layer bg-mesh-static" style={{ background: 'radial-gradient(circle at 20% 30%, rgba(168,85,247,0.3) 0%, transparent 60%), radial-gradient(circle at 80% 80%, rgba(59,130,246,0.25) 0%, transparent 60%)' }} />;
+      case 'aurora':
+        return <div className="card-bg-layer bg-aurora-static" style={{ background: 'linear-gradient(135deg, rgba(56,189,248,0.15) 0%, rgba(168,85,247,0.25) 50%, rgba(236,72,153,0.15) 100%)' }} />;
+      case 'holographic':
+        return <div className="card-bg-layer bg-holo-static" style={{ background: 'linear-gradient(45deg, rgba(255,0,128,0.12), rgba(0,255,255,0.12), rgba(255,255,0,0.12))' }} />;
+      case 'liquid':
+      case 'liquid_sunset':
+      case 'liquid_ocean':
+      case 'liquid_cosmic':
+      case 'liquid_emerald':
+      case 'liquid_morning':
+        return <div className="card-bg-layer bg-liquid-static" style={{ background: 'radial-gradient(circle at 30% 30%, rgba(99,102,241,0.25) 0%, transparent 70%), radial-gradient(circle at 70% 70%, rgba(168,85,247,0.25) 0%, transparent 70%)' }} />;
+      case 'dark_obsidian':
+        return <div className="card-bg-layer bg-dark-obsidian" />;
+      case 'dark_minimal':
+        return <div className="card-bg-layer bg-dark-minimal" />;
+      case 'dark_midnight':
+        return <div className="card-bg-layer bg-dark-midnight" />;
+      case 'dark_emerald':
+        return <div className="card-bg-layer bg-dark-emerald" />;
+      case 'dark_mocha':
+        return <div className="card-bg-layer bg-dark-mocha" />;
+      default:
+        return <div className="card-bg-layer bg-standard" />;
+    }
+  }
+
   switch (styleType) {
     case 'mesh':
       return (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Reorder, useDragControls } from 'framer-motion';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Folder, GripHorizontal, MoreHorizontal, ChevronRight, Users } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -18,7 +19,6 @@ export const FolderCardItem = React.memo(({
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [menuPlacement, setMenuPlacement] = useState('bottom');
   const menuRef = useRef(null);
-  const dragControls = useDragControls();
 
   const toggleMenu = (e) => {
     e.stopPropagation();
@@ -121,14 +121,32 @@ export const FolderCardItem = React.memo(({
 
   const folderLang = folder.target_language || useLanguageStore.getState().activeLanguage || 'de';
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({
+    id: folder.id,
+    animateLayoutChanges: () => false,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || undefined,
+    opacity: isDragging ? 0.35 : 1,
+    zIndex: isDragging ? 999 : undefined,
+    ...folderStyle
+  };
+
   return (
-    <Reorder.Item
-      value={folder}
-      dragListener={false}
-      dragControls={dragControls}
-      whileDrag={{ scale: 1.02, zIndex: 100, boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 25px rgba(254,208,67,0.4)' }}
-      className={`deck-card glass folder-card-item ${isMenuOpen ? 'has-open-menu' : ''}`}
-      style={folderStyle}
+    <div
+      ref={setNodeRef}
+      id={`folder-item-${folder.id}`}
+      className={`deck-card glass folder-card-item ${isMenuOpen ? 'has-open-menu' : ''} ${isDragging ? 'is-dragging' : ''}`}
+      style={style}
     >
       <div className="deck-main-action" onClick={() => {
         if (folder.target_language && folder.target_language !== useLanguageStore.getState().activeLanguage) {
@@ -151,7 +169,8 @@ export const FolderCardItem = React.memo(({
         <div className="deck-footer-actions-left">
           <div
             className="deck-drag-handle-bottom"
-            onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+            {...attributes}
+            {...listeners}
             onClick={(e) => e.stopPropagation()}
             title="Зажмите и потяните для перетаскивания папки"
           >
@@ -278,6 +297,6 @@ export const FolderCardItem = React.memo(({
           </div>
         )}
       </div>
-    </Reorder.Item>
+    </div>
   );
 });

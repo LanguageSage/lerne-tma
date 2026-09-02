@@ -4,7 +4,6 @@ import './App.css';
 
 // Utils & Services
 import { getUserId, storage } from './utils/auth';
-import api from './services/api';
 import { disableClosingConfirmation, setupBackButton, hideBackButton } from './utils/platform';
 
 
@@ -32,6 +31,7 @@ import { useAutoImport } from './hooks/useAutoImport';
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useCardNavigation } from './hooks/useCardNavigation';
 import { useCollaborativeSync } from './hooks/useCollaborativeSync';
+import { useStudyNavigation } from './hooks/useStudyNavigation';
 
 import { LanguageProvider, useTranslation } from './i18n/i18nContext';
 import { getLocalizedTutorialSteps } from './i18n/tutorialSteps';
@@ -43,19 +43,20 @@ function AppContent() {
   const { isFirstLaunch, setIsFirstLaunch, nativeLanguage } = useTranslation();
 
   const { 
-    view, setView, isOpeningDeck, setIsOpeningDeck, 
+    view, setView, isOpeningDeck, 
     activeTutorial, setActiveTutorial, toast, isCardActionModalOpen, 
     setIsCardActionModalOpen, actionCard, loading 
   } = useUiStore();
   
   const { 
-    decks, folders, currentDeck, setCurrentDeck, 
+    decks, folders, currentDeck, 
     deckToSync, setSyncModalOpen, syncModalOpen, handleSyncDeck 
   } = useDeckStore();
 
   const { isFlipped } = useSessionStore();
-  const { fetchNextCard, handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
+  const { handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
+  const { startStudy, startStudyCard } = useStudyNavigation();
 
   const activeFolderId = useUiStore(state => state.activeFolderId);
   const setActiveFolderId = useUiStore(state => state.setActiveFolderId);
@@ -210,112 +211,6 @@ function AppContent() {
       container.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [view]);
-
-  const startStudy = async (deck) => {
-    setIsOpeningDeck(true);
-    try {
-      setCurrentDeck(deck);
-      useSessionStore.getState().resetSession();
-      const state = useDeckStore.getState();
-      const hasCards = state.currentDeck?.id === deck.id && state.deckCards && state.deckCards.length > 0;
-      if (deck.id === 'duplicates') {
-        await useDeckStore.getState().fetchDuplicates();
-      } else if (!hasCards) {
-        await useDeckStore.getState().fetchDeckCards(deck.id);
-      }
-
-      setView('study');
-      await fetchNextCard(deck.id, true);
-    } finally {
-      setIsOpeningDeck(false);
-    }
-  };
-
-  const startStudyCard = async (deck, cardId) => {
-    try {
-      setCurrentDeck(deck);
-      useSessionStore.getState().resetSession();
-      
-      const deckState = useDeckStore.getState();
-      let cards = deck.id === 'duplicates' ? (deckState.duplicateCards || []) : (deckState.deckCards || []);
-      let localCard = cards.find(c => String(c.id) === String(cardId));
-
-      // Fast path: card is already in memory -> instant transition (0ms delay)
-      if (localCard) {
-        useSessionStore.getState().addToHistory(localCard);
-        setView('study');
-        setIsOpeningDeck(false);
-
-        // Fetch fresh card details/intervals in background without blocking UI
-        api.get(`/study/card/${cardId}`).then((res) => {
-          if (res?.data) {
-            useSessionStore.getState().setCard(res.data);
-            const history = useSessionStore.getState().studyHistory;
-            if (history.length > 0) {
-              const updatedHistory = [...history];
-              updatedHistory[history.length - 1] = res.data;
-              useSessionStore.getState().setStudyHistory(updatedHistory);
-            }
-          }
-        }).catch((err) => {
-          console.warn("Background study card refresh:", err);
-        });
-        return;
-      }
-
-      // Fallback: card not in memory, fetch with loader
-      setIsOpeningDeck(true);
-      if (deck.id === 'duplicates') {
-        await useDeckStore.getState().fetchDuplicates();
-        cards = useDeckStore.getState().duplicateCards || [];
-      } else {
-        await useDeckStore.getState().fetchDeckCards(deck.id);
-        cards = useDeckStore.getState().deckCards || [];
-      }
-
-      localCard = cards.find(c => String(c.id) === String(cardId));
-      if (localCard) {
-        useSessionStore.getState().addToHistory(localCard);
-      }
-
-      setView('study');
-
-      try {
-        const res = await api.get(`/study/card/${cardId}`);
-        if (res?.data) {
-          if (localCard) {
-            useSessionStore.getState().setCard(res.data);
-            const history = useSessionStore.getState().studyHistory;
-            if (history.length > 0) {
-              const updatedHistory = [...history];
-              updatedHistory[history.length - 1] = res.data;
-              useSessionStore.getState().setStudyHistory(updatedHistory);
-            }
-          } else {
-            useSessionStore.getState().addToHistory(res.data);
-          }
-        }
-      } catch (apiErr) {
-        console.warn("api.get study card failed in startStudyCard:", apiErr);
-        if (!localCard) {
-          if (apiErr?.response?.status === 404) {
-            const { deckCards } = useDeckStore.getState();
-            useDeckStore.setState({ deckCards: (deckCards || []).filter(c => String(c.id) !== String(cardId)) });
-            useUiStore.getState().showToast("Карточка была удалена");
-            setView('cards');
-          } else {
-            useUiStore.getState().showToast("Не удалось загрузить данные с сервера");
-          }
-        }
-      }
-    } catch (err) {
-      console.error("startStudyCard Error:", err);
-      useUiStore.getState().showToast("Ошибка при открытии карточки");
-      setView('cards');
-    } finally {
-      setIsOpeningDeck(false);
-    }
-  };
 
   const finishTutorial = (context) => {
     storage.set(`lerne_tut_seen_${context}`, 'true');

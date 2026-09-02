@@ -1,5 +1,24 @@
 import React from 'react';
-import { motion, Reorder, useDragControls } from 'framer-motion';
+import { motion } from 'framer-motion';
+import {
+  DndContext,
+  closestCenter,
+  pointerWithin,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragOverlay
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { ChevronLeft, Plus, ListPlus, Settings, Play, RefreshCw, GripHorizontal, ExternalLink, Crop, Loader2, Search, ChevronDown, ChevronUp, MoreHorizontal, ChevronRight } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
@@ -24,12 +43,38 @@ import { SearchBar } from '../common/SearchBar';
 import { matchCard } from '../../utils/search';
 import { getSortedFolderTree, parseDeckMetadata, getResourceSrc } from '../../utils/deckUtils';
 
-const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, frontTypographyStyle, backTypographyStyle }) => {
+const DraggableCardItem = React.memo(({
+  c,
+  index,
+  currentDeck,
+  startStudyCard,
+  frontTypographyStyle,
+  backTypographyStyle,
+  cardBgFront,
+  previewCardLines
+}) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const cardBgFront = useSettingsStore(s => s.cardBgFront);
-  const previewCardLines = useSettingsStore(s => s.previewCardLines);
-  const dragControls = useDragControls();
   const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({
+    id: c.id,
+    animateLayoutChanges: () => false,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? 'none' : (transition || undefined),
+    opacity: isDragging ? 0.25 : 1,
+    zIndex: isDragging ? 999 : undefined,
+    ...flagStyle
+  };
 
   const isQuizCard = React.useMemo(() => c.card_type === 'quiz' || parseQuizData(c) !== null, [c]);
   const isTrainerCard = React.useMemo(() => c.card_type === 'trainer' || (!isQuizCard && /\{([^}]+)\}/.test(c.front || '')), [c, isQuizCard]);
@@ -63,23 +108,13 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, f
   const resolvedBgFront = React.useMemo(() => getResolvedStyle(cardBgFront, c.id), [cardBgFront, c.id]);
 
   return (
-    <Reorder.Item
-      key={c.id}
-      value={c}
-      as="div"
+    <div
+      ref={setNodeRef}
+      style={style}
       id={`card-item-${c.id}`}
-      className="card-item card-front glass card-item-draggable"
-      style={flagStyle}
-      dragListener={false}
-      dragControls={dragControls}
-      whileDrag={{
-        scale: 1.02,
-        boxShadow: "0 8px 30px rgba(0, 0, 0, 0.3)",
-        backgroundColor: "rgba(255, 255, 255, 0.08)",
-        cursor: "grabbing"
-      }}
+      className={`card-item card-front glass card-item-draggable ${isDragging ? 'is-dragging' : ''}`}
     >
-      <CardBackground styleType={resolvedBgFront} />
+      <CardBackground styleType={resolvedBgFront} isStatic={true} />
       <div 
         className="card-item-text"
         onClick={handleItemClick}
@@ -121,7 +156,8 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, f
         <div className="card-item-footer-left">
           <div 
             className="deck-drag-handle-bottom" 
-            onPointerDown={(e) => { e.stopPropagation(); dragControls.start(e); }}
+            {...attributes}
+            {...listeners}
             onClick={(e) => e.stopPropagation()}
             title="Зажмите и потяните для перетаскивания карточки"
           >
@@ -180,7 +216,7 @@ const DraggableCardItem = React.memo(({ c, index, currentDeck, startStudyCard, f
           />
         </div>
       </div>
-    </Reorder.Item>
+    </div>
   );
 });
 
@@ -197,6 +233,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const previewCardFontWeight = useSettingsStore(s => s.previewCardFontWeight);
   const previewCardFontStyle = useSettingsStore(s => s.previewCardFontStyle);
   const previewTextShadow = useSettingsStore(s => s.previewTextShadow);
+  const cardBgFront = useSettingsStore(s => s.cardBgFront);
+  const previewCardLines = useSettingsStore(s => s.previewCardLines);
   const previewCardTextAlign = useSettingsStore(s => s.previewCardTextAlign);
 
   const frontColor = previewCardTextColor || '#ffffff';
@@ -353,6 +391,56 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     if (!searchQuery.trim()) return deckCards;
     return deckCards.filter(c => matchCard(c, searchQuery));
   }, [deckCards, searchQuery]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 4,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 120,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const [activeCardId, setActiveCardId] = React.useState(null);
+
+  const handleDragStart = (event) => {
+    setActiveCardId(event.active.id);
+  };
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    setActiveCardId(null);
+    if (over && active.id !== over.id) {
+      const oldIndex = filteredCards.findIndex(item => item.id === active.id);
+      const newIndex = filteredCards.findIndex(item => item.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(filteredCards, oldIndex, newIndex);
+        const orderedIds = newOrder.map(c => c.id);
+        useDeckStore.getState().reorderCards(orderedIds);
+      }
+    }
+  };
+
+  const customCollisionDetection = React.useCallback((args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions;
+    }
+    return closestCenter(args);
+  }, []);
+
+  const activeCard = React.useMemo(() => {
+    if (!activeCardId) return null;
+    return filteredCards.find(c => c.id === activeCardId);
+  }, [activeCardId, filteredCards]);
 
   const getOriginalIndex = React.useCallback((cardId) => {
     if (!deckCards) return 0;
@@ -1024,30 +1112,56 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
               </button>
             </div>
           ) : (
-            <Reorder.Group
-              as="div"
-              axis="y"
-              values={filteredCards}
-              onReorder={(newOrder) => {
-                if (!searchQuery.trim()) {
-                  const orderedIds = newOrder.map(c => c.id);
-                  useDeckStore.getState().reorderCards(orderedIds);
-                }
-              }}
-              className="card-list"
+            <DndContext
+              sensors={sensors}
+              collisionDetection={customCollisionDetection}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
             >
-              {filteredCards.map((c, idx) => (
-                <DraggableCardItem 
-                  key={c.id} 
-                  c={c} 
-                  index={searchQuery.trim() ? getOriginalIndex(c.id) : idx}
-                  currentDeck={currentDeck} 
-                  startStudyCard={startStudyCard}
-                  frontTypographyStyle={frontTypographyStyle}
-                  backTypographyStyle={backTypographyStyle}
-                />
-              ))}
-            </Reorder.Group>
+              <SortableContext
+                items={filteredCards.map(c => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="card-list">
+                  {filteredCards.map((c, idx) => (
+                    <DraggableCardItem 
+                      key={c.id} 
+                      c={c} 
+                      index={searchQuery.trim() ? getOriginalIndex(c.id) : idx}
+                      currentDeck={currentDeck} 
+                      startStudyCard={startStudyCard}
+                      frontTypographyStyle={frontTypographyStyle}
+                      backTypographyStyle={backTypographyStyle}
+                      cardBgFront={cardBgFront}
+                      previewCardLines={previewCardLines}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+              <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                {activeCard ? (
+                  <div 
+                    className="card-item card-front glass is-drag-overlay" 
+                    style={{ 
+                      opacity: 0.95, 
+                      cursor: 'grabbing', 
+                      boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(168,85,247,0.5)',
+                      transform: 'scale(1.02)',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    <div className="front-min" style={{ ...frontTypographyStyle }}>
+                      {activeCard.front}
+                    </div>
+                    {activeCard.back && (
+                      <div className="back-min" style={{ ...backTypographyStyle, marginTop: '4px' }}>
+                        {activeCard.back}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           )}
         </div>
         

@@ -898,7 +898,7 @@ h1, h2, h3 {
   justify-content: center;
   cursor: grab;
   touch-action: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -914,7 +914,6 @@ h1, h2, h3 {
   color: #a855f7;
   background: rgba(168, 85, 247, 0.3);
   border-color: rgba(168, 85, 247, 0.6);
-  transform: scale(0.96);
 }
 
 /* Large Flag Badge styling (32px flag) */
