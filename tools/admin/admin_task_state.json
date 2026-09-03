@@ -9,8 +9,8 @@
   "current_deck_id": "1140",
   "current_deck_name": "Brandenburg",
   "total_cards": 460,
-  "processed_cards": 37,
-  "current_card": "Die Landeshauptstadt von Brandenburg heißt …\n\n*Potsdam\nCottbus\nFrankfurt (Oder)\nBrandenburg an der Havel",
+  "processed_cards": 38,
+  "current_card": "Wie nennt man den Regierungschef / die Regierungschefin in Brandenburg?\n\n*Ministerpräsident / Ministerpräsidentin\nErster Bürgermeister / Erste Bürgermeisterin\nRegierender Bürgermeister / Regierende Bürgermeisterin\nLandeshauptmann / Landeshauptfrau",
   "logs": [
     "Запуск: 🚀 МАССОВАЯ ГЕНЕРАЦИЯ (19 колод, 460 карточек) (Голос: de-DE-SeraphinaMultilingualNeural)...",
     "🛡️ Автобэкап базы данных успешно создан перед стартом пакета.",
@@ -89,7 +89,9 @@
     "    ↪ 🔄 Синхронизировано с 34 другими колодами (32 карт.)",
     "  [5/10] ✅ Welche Farben hat di -> Какие цвета имеет фл",
     "    ↪ 🔄 Синхронизировано с 34 другими колодами (34 карт.)",
-    "  [6/10] ✅ Wo können Sie sich i -> Где в Бранденбурге в"
+    "  [6/10] ✅ Wo können Sie sich i -> Где в Бранденбурге в",
+    "    ↪ 🔄 Синхронизировано с 34 другими колодами (34 карт.)",
+    "  [7/10] ✅ Die Landeshauptstadt -> Столица федеральной "
   ],
   "dry_run_results": [],
   "is_dry_run": false,
@@ -139,7 +141,7 @@
   "sync_copies": true,
   "no_audio": false,
   "current_deck_idx": 4,
-  "current_card_idx": 7,
-  "current_card_id": 158295,
-  "saved_at": 1788448292.2009869
+  "current_card_idx": 8,
+  "current_card_id": 158296,
+  "saved_at": 1788448315.4984398
 }
