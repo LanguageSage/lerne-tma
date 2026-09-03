@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, HelpCircle, Languages, Image as ImageIcon } from 'lucide-react';
+import { Check, X, HelpCircle, Languages, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
 
 export const LidQuestionCard = ({
@@ -13,17 +13,16 @@ export const LidQuestionCard = ({
 }) => {
   const [showTranslation, setShowTranslation] = useState(false);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [showExplanationForce, setShowExplanationForce] = useState(false);
 
   if (!question) return null;
 
   const isPractice = examMode === 'practice';
   const hasAnswered = Boolean(selectedAnswer);
   const isCorrect = hasAnswered ? (selectedAnswer === question.correctOption) : null;
+  const shouldRevealSolution = isPractice && (hasAnswered || showExplanationForce);
 
   const handleOptionClick = (optionId) => {
-    if (examMode === 'practice' && hasAnswered) {
-      // In practice mode, allow changing or reviewing
-    }
     triggerHaptic('selection');
     onSelectAnswer(question.id, optionId);
   };
@@ -67,7 +66,21 @@ export const LidQuestionCard = ({
 
       {/* Expanded Image Modal Overlay */}
       {isImageExpanded && question.image && (
-        <div className="modal-overlay" onClick={() => setIsImageExpanded(false)} style={{ zIndex: 11000 }}>
+        <div 
+          className="lid-modal-backdrop" 
+          onClick={() => setIsImageExpanded(false)} 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 13000,
+            padding: '16px'
+          }}
+        >
           <div className="lid-image-modal-card glass" onClick={(e) => e.stopPropagation()}>
             <img src={question.image} alt="Иллюстрация" className="lid-image-modal-img" />
             <button
@@ -96,17 +109,32 @@ export const LidQuestionCard = ({
           </motion.div>
         )}
 
-        {questionRuText && (
-          <button
-            type="button"
-            className={`lid-toggle-trans-btn ${showTranslation ? 'active' : ''}`}
-            onClick={() => setShowTranslation(!showTranslation)}
-            title="Показать / скрыть перевод"
-          >
-            <Languages size={13} />
-            <span>{showTranslation ? 'Скрыть перевод' : 'Перевод на русский'}</span>
-          </button>
-        )}
+        {/* Buttons Row: Translation & Reveal in Practice */}
+        <div className="lid-card-buttons-row">
+          {questionRuText && (
+            <button
+              type="button"
+              className={`lid-toggle-trans-btn ${showTranslation ? 'active' : ''}`}
+              onClick={() => setShowTranslation(!showTranslation)}
+              title="Показать / скрыть перевод"
+            >
+              <Languages size={13} />
+              <span>{showTranslation ? 'Скрыть перевод' : 'Перевод на русский'}</span>
+            </button>
+          )}
+
+          {isPractice && (
+            <button
+              type="button"
+              className={`lid-toggle-explain-btn ${showExplanationForce ? 'active' : ''}`}
+              onClick={() => setShowExplanationForce(!showExplanationForce)}
+              title="Показать правильный ответ и контекст"
+            >
+              {showExplanationForce ? <EyeOff size={13} /> : <Eye size={13} />}
+              <span>{showExplanationForce ? 'Скрыть ответ' : 'Показать ответ'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Options List A, B, C, D */}
@@ -118,7 +146,7 @@ export const LidQuestionCard = ({
           let optionStateClass = '';
           if (isSelected) optionStateClass += ' selected';
 
-          if (isPractice && hasAnswered) {
+          if (shouldRevealSolution) {
             if (isThisCorrect) {
               optionStateClass += ' correct-revealed';
             } else if (isSelected && !isThisCorrect) {
@@ -147,8 +175,8 @@ export const LidQuestionCard = ({
                 )}
               </div>
 
-              {/* Status Indicator Icon */}
-              {isPractice && hasAnswered && (
+              {/* Status Indicator Icon in Practice Mode */}
+              {shouldRevealSolution && (
                 <div className="lid-option-status-icon">
                   {isThisCorrect ? (
                     <div className="lid-status-correct">
@@ -168,24 +196,33 @@ export const LidQuestionCard = ({
 
       {/* Practice Mode Explanation Card */}
       <AnimatePresence>
-        {isPractice && hasAnswered && (
+        {shouldRevealSolution && (
           <motion.div
-            className={`lid-explanation-card glass ${isCorrect ? 'is-correct' : 'is-wrong'}`}
+            className={`lid-explanation-card glass ${
+              hasAnswered ? (isCorrect ? 'is-correct' : 'is-wrong') : 'is-revealed'
+            }`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
           >
             <div className="lid-explanation-header">
               <div className="lid-explanation-badge">
-                {isCorrect ? (
-                  <>
-                    <Check size={16} />
-                    <span>Правильно!</span>
-                  </>
+                {hasAnswered ? (
+                  isCorrect ? (
+                    <>
+                      <Check size={16} />
+                      <span>Правильно!</span>
+                    </>
+                  ) : (
+                    <>
+                      <X size={16} />
+                      <span>Неверно. Правильный ответ: {getOptionLetter(question.correctOption)}</span>
+                    </>
+                  )
                 ) : (
                   <>
-                    <X size={16} />
-                    <span>Неверно. Правильный ответ: {getOptionLetter(question.correctOption)}</span>
+                    <Eye size={16} />
+                    <span>Правильный ответ: {getOptionLetter(question.correctOption)}</span>
                   </>
                 )}
               </div>

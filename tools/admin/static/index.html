@@ -67,13 +67,19 @@
     <section id="content-users" class="space-y-6">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 class="text-xl font-bold text-white">Пользователи системы</h2>
-          <p class="text-sm text-slate-400">Кликните на карточку пользователя, чтобы увидеть все его колоды</p>
+          <div class="flex items-center gap-3">
+            <h2 class="text-xl font-bold text-white">Пользователи системы</h2>
+            <span id="users-stats-badge" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-slate-800 text-slate-300 border border-slate-700">Загрузка...</span>
+          </div>
+          <p class="text-sm text-slate-400">Сначала отображаются зарегистрированные пользователи с аватарками. Кликните для перехода к колодам.</p>
         </div>
-        <div class="flex gap-3 w-full md:w-auto">
-          <input type="text" id="user-search" onkeyup="filterUsers()" placeholder="Поиск пользователя (имя, @username, ID)..." class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 w-full md:w-80">
-          <button onclick="loadUsers()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm font-medium rounded-lg border border-slate-700 flex items-center gap-2 shrink-0">
-            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Обновить
+        <div class="flex flex-wrap gap-2.5 w-full md:w-auto items-center">
+          <input type="text" id="user-search" onkeyup="filterUsers()" placeholder="Поиск (имя, @username, ID)..." class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 w-full md:w-64">
+          <button onclick="cleanupGuestAccounts()" title="Удалить все гостевые/анонимные аккаунты" class="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-bold rounded-lg border border-rose-500/30 flex items-center gap-1.5 shrink-0 transition">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 🧹 Очистить гостей
+          </button>
+          <button onclick="loadUsers()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium rounded-lg border border-slate-700 flex items-center gap-1.5 shrink-0">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Обновить
           </button>
         </div>
       </div>
@@ -98,12 +104,18 @@
           </button>
           
           <!-- Dynamic Batch Actions on Row Selection -->
-          <div id="deck-table-bulk-actions" class="hidden flex items-center gap-1.5">
-            <button onclick="startBatchFromSelection('ai')" class="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg border border-purple-400/30 flex items-center gap-1.5 shrink-0 transition shadow-md shadow-purple-500/20">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ✨ ИИ (<span class="selected-table-count">0</span>)
+          <div id="deck-table-bulk-actions" class="hidden flex flex-wrap items-center gap-1.5">
+            <button onclick="startBatchFromSelection('context_only')" title="Сгенерировать только недостающий контекст без озвучки" class="px-3 py-2 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 text-xs font-bold rounded-lg border border-purple-500/40 flex items-center gap-1.5 shrink-0 transition shadow-sm">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i> ✨ Контекст (<span class="selected-table-count">0</span>)
             </button>
-            <button onclick="startBatchFromSelection('audio')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg border border-emerald-400/30 flex items-center gap-1.5 shrink-0 transition shadow-md shadow-emerald-500/20">
+            <button onclick="startBatchFromSelection('audio')" title="Синтезировать только недостающую озвучку (Edge-TTS)" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg border border-emerald-400/30 flex items-center gap-1.5 shrink-0 transition shadow-md shadow-emerald-500/20">
               <i data-lucide="mic" class="w-3.5 h-3.5"></i> 🎙️ Озвучка (<span class="selected-table-count">0</span>)
+            </button>
+            <button onclick="startBatchFromSelection('smart')" title="Умное дополнение: заполнить только недостающие контексты и звуки" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg border border-indigo-400/30 flex items-center gap-1.5 shrink-0 transition shadow-md shadow-indigo-500/20">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> 🛡️ ИИ + Звук (<span class="selected-table-count">0</span>)
+            </button>
+            <button onclick="startBatchFromSelection('ai')" title="Полная перегенерация всех карточек выбранных колод" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center gap-1.5 shrink-0 transition">
+              <i data-lucide="zap" class="w-3.5 h-3.5"></i> 🚀 Полная (<span class="selected-table-count">0</span>)
             </button>
           </div>
 
@@ -231,8 +243,44 @@
               <i data-lucide="sliders" class="w-4 h-4"></i> 1. Параметры генерации
             </h3>
 
+            <!-- Quick Mode Preset Selector -->
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <i data-lucide="sparkle" class="w-3.5 h-3.5 text-indigo-400"></i> Быстрый выбор задачи:
+              </label>
+              <div class="grid grid-cols-2 gap-2" id="studio-mode-presets-grid">
+                <button type="button" onclick="selectStudioPreset('context_only')" id="preset-card-context_only" class="p-2.5 rounded-xl border text-left transition flex flex-col justify-between group bg-slate-900 border-slate-800 hover:border-purple-500/50 cursor-pointer">
+                  <div class="flex items-center gap-1.5 font-bold text-xs text-purple-300">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i> Только контекст
+                  </div>
+                  <p class="text-[10px] text-slate-400 mt-1 leading-tight">Без озвучки, только для карточек без контекста</p>
+                </button>
+
+                <button type="button" onclick="selectStudioPreset('audio_only')" id="preset-card-audio_only" class="p-2.5 rounded-xl border text-left transition flex flex-col justify-between group bg-slate-900 border-slate-800 hover:border-emerald-500/50 cursor-pointer">
+                  <div class="flex items-center gap-1.5 font-bold text-xs text-emerald-300">
+                    <i data-lucide="mic" class="w-3.5 h-3.5 text-emerald-400"></i> Только озвучка
+                  </div>
+                  <p class="text-[10px] text-slate-400 mt-1 leading-tight">Синтез Edge-TTS для карточек без звука</p>
+                </button>
+
+                <button type="button" onclick="selectStudioPreset('smart_fill')" id="preset-card-smart_fill" class="p-2.5 rounded-xl border text-left transition flex flex-col justify-between group bg-slate-900 border-slate-800 hover:border-indigo-500/50 cursor-pointer">
+                  <div class="flex items-center gap-1.5 font-bold text-xs text-indigo-300">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-400"></i> Заполнить пробелы
+                  </div>
+                  <p class="text-[10px] text-slate-400 mt-1 leading-tight">Контекст + звук где не хватает, готовое не трогает</p>
+                </button>
+
+                <button type="button" onclick="selectStudioPreset('full_regen')" id="preset-card-full_regen" class="p-2.5 rounded-xl border text-left transition flex flex-col justify-between group bg-slate-900 border-slate-800 hover:border-blue-500/50 cursor-pointer">
+                  <div class="flex items-center gap-1.5 font-bold text-xs text-blue-300">
+                    <i data-lucide="zap" class="w-3.5 h-3.5 text-blue-400"></i> Полный перезапуск
+                  </div>
+                  <p class="text-[10px] text-slate-400 mt-1 leading-tight">Полная генерация всех карточек и звука с нуля</p>
+                </button>
+              </div>
+            </div>
+
             <!-- Language & Prompt Preset -->
-            <div class="space-y-3">
+            <div class="space-y-3 pt-1">
               <div>
                 <label class="block text-xs font-bold text-slate-300 mb-1 flex items-center gap-1.5">
                   <i data-lucide="globe" class="w-3.5 h-3.5 text-indigo-400"></i> Мова / Язык пояснений:
@@ -322,16 +370,16 @@
                   <input type="checkbox" id="regen-only-empty" class="w-3.5 h-3.5 text-indigo-600 rounded">
                   <span class="text-[11px] text-slate-300">Только пустые</span>
                 </label>
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
-                  <input type="checkbox" id="regen-only-no-context" class="w-3.5 h-3.5 text-indigo-600 rounded">
-                  <span class="text-[11px] text-slate-300">Только без контекста</span>
+                <label class="flex items-center gap-2 p-2 bg-purple-950/30 rounded-xl border border-purple-500/30 cursor-pointer hover:border-purple-500/50">
+                  <input type="checkbox" id="regen-only-no-context" class="w-3.5 h-3.5 text-purple-500 rounded">
+                  <span class="text-[11px] text-purple-200 font-bold">✨ Только без контекста</span>
                 </label>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <label class="flex items-center gap-2 p-2 bg-emerald-950/20 rounded-xl border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40">
                   <input type="checkbox" id="regen-only-missing-audio" class="w-3.5 h-3.5 text-emerald-500 rounded">
-                  <span class="text-[11px] text-emerald-300 font-medium">🎙️ Только без озвучки</span>
+                  <span class="text-[11px] text-emerald-300 font-bold">🎙️ Только без озвучки</span>
                 </label>
                 <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
                   <input type="checkbox" id="regen-no-audio" class="w-3.5 h-3.5 text-indigo-600 rounded">
@@ -342,32 +390,42 @@
 
             <!-- Single Deck Trigger Buttons -->
             <div id="single-deck-actions" class="pt-3 border-t border-slate-800/80 space-y-2.5">
+              <button onclick="startContextOnlyProcess()" id="btn-start-context-only" class="w-full py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-purple-500/20 transition">
+                <i data-lucide="sparkles" class="w-4 h-4"></i> ✨ Перегенерировать ТОЛЬКО контекст (ИИ)
+              </button>
+
               <button onclick="startAudioOnlyProcess()" id="btn-start-audio-only" class="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition">
                 <i data-lucide="mic" class="w-4 h-4"></i> 🎙️ Перегенерировать ТОЛЬКО озвучку (TTS)
               </button>
 
-              <button onclick="startAiProcess(true)" id="btn-start-dryrun" class="w-full py-2.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10 transition">
-                <i data-lucide="flask-conical" class="w-4 h-4"></i> 🧪 Запустить ТЕСТ (3 карточки / Dry-Run)
-              </button>
-
-              <button onclick="startAiProcess(false)" id="btn-start-full" class="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 transition">
-                <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Запустить ПОЛНУЮ генерацию всей колоды
-              </button>
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="startAiProcess(true)" id="btn-start-dryrun" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition">
+                  <i data-lucide="flask-conical" class="w-4 h-4 text-purple-400"></i> 🧪 Тест (3 карт.)
+                </button>
+                <button onclick="startAiProcess(false)" id="btn-start-full" class="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20 transition">
+                  <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Полная
+                </button>
+              </div>
             </div>
 
             <!-- Batch Multi-Deck Trigger Buttons (Visible in Batch Mode) -->
             <div id="batch-deck-actions" class="hidden pt-3 border-t border-slate-800/80 space-y-2.5">
+              <button onclick="startBatchContextOnlyProcess()" id="btn-start-batch-context" class="w-full py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-purple-500/20 transition">
+                <i data-lucide="sparkles" class="w-4 h-4"></i> ✨ Массово добавить ТОЛЬКО контекст (<span class="batch-total-decks-lbl">0</span> колод)
+              </button>
+
               <button onclick="startBatchAudioProcess()" id="btn-start-batch-audio" class="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition">
                 <i data-lucide="mic" class="w-4 h-4"></i> 🎙️ Массовая озвучка всех (<span class="batch-total-decks-lbl">0</span>) колод (TTS)
               </button>
 
-              <button onclick="startBatchAiProcess(true)" id="btn-start-batch-dryrun" class="w-full py-2.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10 transition">
-                <i data-lucide="flask-conical" class="w-4 h-4"></i> 🧪 ТЕСТ пакета (по 2 карточки на колоду / Dry-Run)
-              </button>
-
-              <button onclick="startBatchAiProcess(false)" id="btn-start-batch-full" class="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/20 transition">
-                <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Запустить МАССОВУЮ генерацию всех (<span class="batch-total-decks-lbl">0</span>) колод
-              </button>
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="startBatchAiProcess(true)" id="btn-start-batch-dryrun" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition">
+                  <i data-lucide="flask-conical" class="w-4 h-4 text-purple-400"></i> 🧪 Тест пакета
+                </button>
+                <button onclick="startBatchAiProcess(false)" id="btn-start-batch-full" class="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20 transition">
+                  <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Полная (<span class="batch-total-decks-lbl">0</span>)
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -983,8 +1041,8 @@
       </div>
 
       <!-- Backups Table -->
-      <div class="glass rounded-xl overflow-hidden">
-        <table class="w-full text-left text-sm text-slate-300">
+      <div class="glass rounded-xl overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300 min-w-[700px]">
           <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 uppercase text-xs">
             <tr>
               <th class="px-6 py-4">Файл бэкапа</th>
@@ -1066,11 +1124,14 @@
       <!-- Quick Actions & Search Bar -->
       <div class="p-4 bg-slate-900/60 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div class="flex flex-wrap items-center gap-2">
-          <button onclick="previewTriggerAiRegen()" class="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-bold rounded-xl border border-purple-500/30 flex items-center gap-1.5 transition">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ✨ В ИИ Студию
+          <button onclick="previewTriggerContextOnlyRegen()" id="btn-preview-ctx-regen" class="px-3.5 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 text-xs font-bold rounded-xl border border-purple-500/40 flex items-center gap-1.5 transition shadow-sm">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i> ✨ Догенерировать контекст (<span id="preview-missing-ctx-count">0</span>)
           </button>
-          <button onclick="previewTriggerAudioRegen()" class="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold rounded-xl border border-emerald-500/30 flex items-center gap-1.5 transition">
-            <i data-lucide="mic" class="w-3.5 h-3.5"></i> 🎙️ Озвучить недостающие
+          <button onclick="previewTriggerAudioOnlyRegen()" id="btn-preview-audio-regen" class="px-3.5 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 text-xs font-bold rounded-xl border border-emerald-500/40 flex items-center gap-1.5 transition shadow-sm">
+            <i data-lucide="mic" class="w-3.5 h-3.5 text-emerald-400"></i> 🎙️ Доозвучить (<span id="preview-missing-audio-count">0</span>)
+          </button>
+          <button onclick="previewTriggerAiRegen()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 flex items-center gap-1.5 transition">
+            <i data-lucide="settings-2" class="w-3.5 h-3.5"></i> В ИИ Студию
           </button>
           <button onclick="previewOpenBulkAdd()" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-bold rounded-xl border border-indigo-500/30 flex items-center gap-1.5 transition">
             <i data-lucide="plus" class="w-3.5 h-3.5"></i> ➕ Добавить слова
@@ -1704,10 +1765,14 @@
     async function resumeSavedCheckpoint() {
       const banner = document.getElementById('ai-resume-checkpoint-banner');
       try {
-        const res = await fetch('/api/admin/tasks/resume', { method: 'POST' });
+        const res = await fetch('/api/admin/tasks/resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
         const data = await res.json();
 
-        if (data.status === 'resumed') {
+        if (res.ok && data.status === 'resumed') {
           banner.classList.add('hidden');
           const taskId = data.task_id;
           const taskType = data.task_type;
@@ -1727,12 +1792,12 @@
             startPollClassificationStatus(taskId);
           } else {
             isBatchStudioMode = false;
-            activeRegenDeckId = data.deck_id;
+            activeRegenDeckId = data.deck_id || data.current_deck_id;
             switchTab('ai');
-            startPollRegenStatus(data.deck_id);
+            startPollRegenStatus(activeRegenDeckId);
           }
         } else {
-          alert("Не удалось возобновить задачу: " + (data.message || 'нет доступного чекпоинта'));
+          alert("Не удалось возобновить задачу: " + (data.detail || data.message || 'нет доступного чекпоинта'));
         }
       } catch (e) {
         alert("Ошибка при возобновлении: " + e);
@@ -1749,12 +1814,25 @@
       }
     }
 
+    let usersStats = { total: 0, registered: 0, guest: 0 };
+
     async function loadUsers(searchQuery = '') {
       try {
         const url = searchQuery ? `/api/admin/users?search=${encodeURIComponent(searchQuery)}` : '/api/admin/users';
         const res = await fetch(url);
         const data = await res.json();
         usersData = data.users || [];
+        usersStats = {
+          total: data.total_count || usersData.length,
+          registered: data.registered_count || 0,
+          guest: data.guest_count || 0
+        };
+
+        const badge = document.getElementById('users-stats-badge');
+        if (badge) {
+          badge.innerHTML = `<span class="text-emerald-400 font-bold">${usersStats.registered} зарег.</span> • <span class="text-slate-400">${usersStats.guest} гостей</span> (всего ${usersStats.total})`;
+        }
+
         renderUsersGrid(usersData);
       } catch (err) {
         console.error("Failed to load users", err);
@@ -1772,36 +1850,65 @@
 
       users.forEach(u => {
         const rawName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
-        const fullName = rawName || u.username || `User ${u.user_id}`;
+        const fullName = rawName || (u.username ? '@' + u.username : `User ${u.user_id}`);
         const initial = (u.first_name || u.username || 'U')[0].toUpperCase();
+        const isReg = u.is_registered;
+
+        // Avatar HTML
+        let avatarHtml = '';
+        if (u.photo_url) {
+          avatarHtml = `
+            <img src="${u.photo_url}" alt="${fullName}" class="w-12 h-12 rounded-xl object-cover border border-indigo-500/40 shadow-sm shrink-0" onerror="this.outerHTML='<div class=\\'w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center font-bold text-white text-base shadow-sm shrink-0\\'>${initial}</div>'">
+          `;
+        } else {
+          const bgGrad = isReg ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white' : 'bg-slate-800 text-slate-400 border border-slate-700';
+          avatarHtml = `
+            <div class="w-12 h-12 rounded-xl ${bgGrad} flex items-center justify-center font-bold text-base shadow-sm shrink-0">
+              ${isReg ? initial : '👻'}
+            </div>
+          `;
+        }
+
+        const typeBadge = isReg 
+          ? `<span class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">✅ Зарегистрирован</span>`
+          : `<span class="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-slate-800 text-slate-400 border border-slate-700">👻 Гость</span>`;
+
         grid.innerHTML += `
           <div onclick="viewUserDecks(${u.user_id}, '${fullName.replace(/'/g, "\\'")}')" 
-               class="glass p-5 rounded-2xl border border-slate-800 space-y-4 hover:border-indigo-500/50 hover:bg-slate-900/60 transition cursor-pointer group shadow-sm hover:shadow-indigo-500/10">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <div class="w-11 h-11 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400 text-base group-hover:scale-105 transition-transform">
-                  ${initial}
-                </div>
-                <div>
-                  <h4 class="font-bold text-white text-sm group-hover:text-indigo-300 transition-colors">${fullName}</h4>
-                  <p class="text-xs text-slate-400">${u.username ? '@' + u.username : 'no_username'} • ID: <span class="font-mono text-slate-300">${u.user_id}</span></p>
+               class="glass p-5 rounded-2xl border ${isReg ? 'border-slate-800 bg-slate-900/80 hover:border-indigo-500/60' : 'border-slate-800/60 bg-slate-950/60 hover:border-slate-700'} space-y-3.5 hover:bg-slate-900/90 transition cursor-pointer group shadow-sm relative overflow-hidden">
+            
+            <div class="flex items-start justify-between gap-2.5">
+              <div class="flex items-center gap-3 min-w-0">
+                ${avatarHtml}
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <h4 class="font-bold text-white text-sm group-hover:text-indigo-300 transition-colors truncate max-w-[170px]" title="${fullName}">${fullName}</h4>
+                  </div>
+                  <p class="text-xs text-slate-400 truncate mt-0.5">${u.username ? '@' + u.username : 'без юзернейма'} • ID: <span class="font-mono text-slate-300">${u.user_id}</span></p>
+                  <div class="mt-1">${typeBadge}</div>
                 </div>
               </div>
-              <i data-lucide="chevron-right" class="w-5 h-5 text-slate-600 group-hover:text-indigo-400 transition-colors"></i>
+
+              <!-- Delete single user button -->
+              <button onclick="deleteSingleUserPrompt(${u.user_id}, '${fullName.replace(/'/g, "\\'")}', event)" title="Удалить пользователя" class="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition shrink-0">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
             </div>
-            <div class="flex justify-between items-center text-xs pt-3 border-t border-slate-800/80">
+
+            <div class="flex justify-between items-center text-xs pt-2.5 border-t border-slate-800/80">
               <span class="text-slate-400">Колод в аккаунте:</span>
-              <span class="px-3 py-1 bg-indigo-500/10 text-indigo-400 font-bold rounded-lg border border-indigo-500/20 flex items-center gap-1.5">
+              <span class="px-2.5 py-1 bg-indigo-500/10 text-indigo-300 font-bold rounded-lg border border-indigo-500/20 flex items-center gap-1.5">
                 <i data-lucide="layers" class="w-3.5 h-3.5"></i> ${u.deck_count}
               </span>
             </div>
+
             ${u.last_activity ? `
-              <div class="text-[11px] text-slate-500 flex items-center gap-1.5 pt-1">
+              <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
                 <span>Активность: ${u.last_activity.split('.')[0]}</span>
               </div>
             ` : `
-              <div class="text-[11px] text-slate-600 flex items-center gap-1.5 pt-1">
+              <div class="text-[11px] text-slate-500 flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-slate-600 inline-block"></span>
                 <span>Визиты: Нет данных</span>
               </div>
@@ -1810,6 +1917,37 @@
         `;
       });
       lucide.createIcons();
+    }
+
+    async function cleanupGuestAccounts() {
+      if (!confirm("⚠️ Вы уверены, что хотите удалить ВСЕ гостевые (анонимные) аккаунты и их временные колоды?\n\nЗарегистрированные пользователи с реальными данными затронуты НЕ будут.")) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/users/guests', { method: 'DELETE' });
+        const data = await res.json();
+        alert(data.message || "Гостевые аккаунты успешно очищены!");
+        loadUsers();
+        loadDecks();
+      } catch (err) {
+        alert("Ошибка при очистке гостевых аккаунтов: " + err);
+      }
+    }
+
+    async function deleteSingleUserPrompt(userId, userName, event) {
+      if (event) event.stopPropagation();
+      if (!confirm(`⚠️ Удалить пользователя "${userName}" (ID: ${userId}) и ВСЕ его персональные колоды и прогресс?`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+        const data = await res.json();
+        alert(data.message || "Пользователь успешно удалён!");
+        loadUsers();
+        loadDecks();
+      } catch (err) {
+        alert("Ошибка при удалении пользователя: " + err);
+      }
     }
 
     function filterUsers() {
@@ -1875,18 +2013,38 @@
         const isDef = d.is_default;
         const safeName = (d.name || "").replace(/'/g, "\\'");
         
-        // Health badge
+        // Health badge (Interactive 1-click triggers)
         let healthBadge = '';
         if (d.card_count === 0) {
           healthBadge = '<span class="px-2 py-0.5 bg-slate-800 text-slate-400 font-medium rounded-md text-[11px]">⚪ Пустая</span>';
         } else if (d.health_status === 'ready') {
           healthBadge = '<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 font-bold rounded-md border border-emerald-500/20 text-[11px]">✅ Готова</span>';
         } else if (d.health_status === 'needs_audio') {
-          healthBadge = `<span class="px-2 py-0.5 bg-amber-500/10 text-amber-300 font-bold rounded-md border border-amber-500/20 text-[11px]" title="${d.missing_audio_count} без озвучки">⚠️ ${d.missing_audio_count} без звука</span>`;
+          healthBadge = `<button type="button" onclick="openRegenModal('${d.id}', '${safeName}', 'audio_only')" class="px-2 py-0.5 bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 font-bold rounded-md border border-amber-500/30 text-[11px] transition inline-flex items-center gap-1 cursor-pointer" title="Нажмите, чтобы быстро озвучить ${d.missing_audio_count} карточек">⚠️ ${d.missing_audio_count} без звука ▶</button>`;
         } else if (d.health_status === 'needs_ai') {
-          healthBadge = `<span class="px-2 py-0.5 bg-purple-500/10 text-purple-300 font-bold rounded-md border border-purple-500/20 text-[11px]" title="${d.missing_context_count} без контекста">⚠️ ${d.missing_context_count} без контекста</span>`;
+          healthBadge = `<button type="button" onclick="openRegenModal('${d.id}', '${safeName}', 'context_only')" class="px-2 py-0.5 bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 font-bold rounded-md border border-purple-500/30 text-[11px] transition inline-flex items-center gap-1 cursor-pointer" title="Нажмите, чтобы быстро сгенерировать контекст для ${d.missing_context_count} карточек">⚠️ ${d.missing_context_count} без контекста ✨</button>`;
         } else {
           healthBadge = '<span class="px-2 py-0.5 bg-slate-800 text-slate-400 rounded-md text-[11px]">Готова</span>';
+        }
+
+        // Owner Cell
+        let ownerCell = '';
+        if (d.is_library) {
+          ownerCell = `<span class="px-2.5 py-1 bg-amber-500/10 text-amber-300 font-bold rounded-lg border border-amber-500/20 text-xs inline-flex items-center gap-1">⭐ Библиотека</span>`;
+        } else {
+          const safeOwnerName = (d.user_name || `User ${d.user_id}`).replace(/'/g, "\\'");
+          const uInit = (d.user_name || 'U')[0].toUpperCase();
+          const avatarMini = d.user_photo 
+            ? `<img src="${d.user_photo}" class="w-5 h-5 rounded-full object-cover border border-indigo-500/40 inline-block shrink-0" onerror="this.outerHTML='<span class=\\'w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] inline-flex items-center justify-center shrink-0\\'>${uInit}</span>'">`
+            : `<span class="w-5 h-5 rounded-full ${d.user_is_guest ? 'bg-slate-800 text-slate-400' : 'bg-indigo-600 text-white'} font-bold text-[10px] inline-flex items-center justify-center shrink-0">${d.user_is_guest ? '👻' : uInit}</span>`;
+
+          ownerCell = `
+            <button onclick="viewUserDecks('${d.user_id}', '${safeOwnerName}')" title="Показать все колоды пользователя ${safeOwnerName} (ID: ${d.user_id})" class="hover:text-indigo-300 transition inline-flex items-center gap-1.5 text-xs text-left max-w-[180px] truncate group">
+              ${avatarMini}
+              <span class="font-medium text-slate-200 group-hover:underline truncate">${d.user_name || 'User #' + d.user_id}</span>
+              ${d.user_is_guest ? '<span class="text-[10px] text-slate-500">(гость)</span>' : ''}
+            </button>
+          `;
         }
 
         return `
@@ -1901,10 +2059,7 @@
               </button>
             </td>
             <td class="px-4 py-3.5 text-xs font-mono text-slate-400">
-              ${d.is_library ? '<span class="px-2 py-0.5 bg-amber-500/10 text-amber-300 font-bold rounded-md border border-amber-500/20">Библиотека ⭐</span>' : `
-              <button onclick="viewUserDecks('${d.user_id}', 'ID: ${d.user_id}')" class="hover:text-indigo-400 underline decoration-indigo-500/50">
-                ${d.user_id}
-              </button>`}
+              ${ownerCell}
             </td>
             <td class="px-4 py-3.5 text-xs">
               <span class="uppercase font-bold text-indigo-400">${d.target_language}</span>
@@ -1923,10 +2078,10 @@
               <button onclick="openDeckPreviewModal('${d.id}', '${safeName}')" title="👁️ Предосмотр и проверка колоды" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition inline-flex items-center gap-1">
                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
               </button>
-              <button onclick="openRegenModal('${d.id}', '${safeName}')" title="✨ ИИ Студия" class="px-2.5 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-semibold rounded-lg border border-purple-500/20 transition inline-flex items-center gap-1">
-                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ИИ
+              <button onclick="openRegenModal('${d.id}', '${safeName}', 'context_only')" title="✨ Догенерировать контекст" class="px-2.5 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-semibold rounded-lg border border-purple-500/20 transition inline-flex items-center gap-1">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Контекст
               </button>
-              <button onclick="openRegenModal('${d.id}', '${safeName}', 'audio')" title="🎙️ Озвучить колоду (TTS)" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/20 transition inline-flex items-center gap-1">
+              <button onclick="openRegenModal('${d.id}', '${safeName}', 'audio_only')" title="🎙️ Озвучить колоду (TTS)" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/20 transition inline-flex items-center gap-1">
                 <i data-lucide="mic" class="w-3.5 h-3.5"></i> Звук
               </button>
               <button onclick="openAssignModal('${d.id}', '${safeName}')" title="👥 Раздать колоду" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/20 transition">
@@ -2314,7 +2469,66 @@
       document.querySelectorAll('.card-select-checkbox').forEach(cb => cb.checked = checked);
     }
 
-    function openRegenModal(deckId, deckName, initialMode = 'ai') {
+    let activeStudioPreset = 'context_only';
+
+    function selectStudioPreset(presetKey) {
+      activeStudioPreset = presetKey;
+      const presets = ['context_only', 'audio_only', 'smart_fill', 'full_regen'];
+      
+      presets.forEach(p => {
+        const card = document.getElementById(`preset-card-${p}`);
+        if (!card) return;
+        if (p === presetKey) {
+          card.classList.remove('bg-slate-900', 'border-slate-800');
+          if (p === 'context_only') card.classList.add('bg-purple-950/60', 'border-purple-500', 'shadow-md', 'shadow-purple-500/20');
+          else if (p === 'audio_only') card.classList.add('bg-emerald-950/60', 'border-emerald-500', 'shadow-md', 'shadow-emerald-500/20');
+          else if (p === 'smart_fill') card.classList.add('bg-indigo-950/60', 'border-indigo-500', 'shadow-md', 'shadow-indigo-500/20');
+          else card.classList.add('bg-blue-950/60', 'border-blue-500', 'shadow-md', 'shadow-blue-500/20');
+        } else {
+          card.classList.remove(
+            'bg-purple-950/60', 'border-purple-500', 'shadow-purple-500/20',
+            'bg-emerald-950/60', 'border-emerald-500', 'shadow-emerald-500/20',
+            'bg-indigo-950/60', 'border-indigo-500', 'shadow-indigo-500/20',
+            'bg-blue-950/60', 'border-blue-500', 'shadow-blue-500/20', 'shadow-md'
+          );
+          card.classList.add('bg-slate-900', 'border-slate-800');
+        }
+      });
+
+      const chkEmpty = document.getElementById('regen-only-empty');
+      const chkNoContext = document.getElementById('regen-only-no-context');
+      const chkMissingAudio = document.getElementById('regen-only-missing-audio');
+      const chkNoAudio = document.getElementById('regen-no-audio');
+      const chkSkipCompleted = document.getElementById('regen-skip-completed');
+
+      if (presetKey === 'context_only') {
+        if (chkEmpty) chkEmpty.checked = false;
+        if (chkNoContext) chkNoContext.checked = true;
+        if (chkMissingAudio) chkMissingAudio.checked = false;
+        if (chkNoAudio) chkNoAudio.checked = true;
+        if (chkSkipCompleted) chkSkipCompleted.checked = false;
+      } else if (presetKey === 'audio_only') {
+        if (chkEmpty) chkEmpty.checked = false;
+        if (chkNoContext) chkNoContext.checked = false;
+        if (chkMissingAudio) chkMissingAudio.checked = true;
+        if (chkNoAudio) chkNoAudio.checked = false;
+        if (chkSkipCompleted) chkSkipCompleted.checked = false;
+      } else if (presetKey === 'smart_fill') {
+        if (chkEmpty) chkEmpty.checked = false;
+        if (chkNoContext) chkNoContext.checked = true;
+        if (chkMissingAudio) chkMissingAudio.checked = true;
+        if (chkNoAudio) chkNoAudio.checked = false;
+        if (chkSkipCompleted) chkSkipCompleted.checked = true;
+      } else if (presetKey === 'full_regen') {
+        if (chkEmpty) chkEmpty.checked = false;
+        if (chkNoContext) chkNoContext.checked = false;
+        if (chkMissingAudio) chkMissingAudio.checked = false;
+        if (chkNoAudio) chkNoAudio.checked = false;
+        if (chkSkipCompleted) chkSkipCompleted.checked = false;
+      }
+    }
+
+    function openRegenModal(deckId, deckName, initialMode = 'context_only') {
       isBatchStudioMode = false;
       activeRegenDeckId = deckId;
       switchTab('ai');
@@ -2334,9 +2548,17 @@
       const title = deck ? deck.name : deckName || '#' + deckId;
       activeDeckTargetLang = (deck && deck.target_language) ? deck.target_language : 'de';
 
-      document.getElementById('ai-active-deck-title').innerText = initialMode === 'audio' 
+      let normalizedPreset = 'context_only';
+      if (initialMode === 'audio' || initialMode === 'audio_only') normalizedPreset = 'audio_only';
+      else if (initialMode === 'context_only') normalizedPreset = 'context_only';
+      else if (initialMode === 'smart' || initialMode === 'smart_fill') normalizedPreset = 'smart_fill';
+      else if (initialMode === 'full' || initialMode === 'full_regen' || initialMode === 'ai') normalizedPreset = 'full_regen';
+
+      selectStudioPreset(normalizedPreset);
+
+      document.getElementById('ai-active-deck-title').innerText = normalizedPreset === 'audio_only' 
         ? `🎙️ Озвучивание: ${title}` 
-        : `✨ ИИ Студия: ${title}`;
+        : (normalizedPreset === 'context_only' ? `✨ Генерация контекста: ${title}` : `🚀 ИИ Студия: ${title}`);
       document.getElementById('ai-active-deck-subtitle').innerText = `ID колоды: #${deckId} • Язык: ${activeDeckTargetLang.toUpperCase()}`;
 
       // Reset studio progress and previews
@@ -2347,16 +2569,18 @@
       document.getElementById('ai-current-card-badge').innerText = '';
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('dryrun-cards-grid').innerHTML = '';
-      document.getElementById('ai-logs-container').innerHTML = initialMode === 'audio'
+      document.getElementById('ai-logs-container').innerHTML = normalizedPreset === 'audio_only'
         ? '<div class="text-emerald-400">Готов к генерации озвучки. Выберите голос, скорость и нажмите "Перегенерировать ТОЛЬКО озвучку".</div>'
-        : '<div class="text-slate-500">Готов к запуску. Выберите режим "Тест", "Озвучка" или "Полная генерация".</div>';
+        : (normalizedPreset === 'context_only'
+          ? '<div class="text-purple-300">Готов к генерации контекста. Нажмите "Перегенерировать ТОЛЬКО контекст (ИИ)". Озвучка затрагиваться не будет.</div>'
+          : '<div class="text-slate-400">Готов к запуску. Выберите задачу в блоке "Быстрый выбор задачи" или настройте чекбоксы вручную.</div>');
 
       renderVoiceOptions(activeDeckTargetLang);
       loadPrompts(null, activeDeckTargetLang);
       loadDeckCardsForSelector(deckId);
     }
 
-    async function openBatchRegenStudio(initialMode = 'ai') {
+    async function openBatchRegenStudio(initialMode = 'context_only') {
       const stagedIds = Object.keys(stagedDecks);
       if (stagedIds.length === 0) {
         alert("В очереди нет отложенных колод! Сначала найдите и отложите колоды через поиск.");
@@ -2378,10 +2602,20 @@
       document.getElementById('single-progress-bar-container').classList.add('hidden');
       document.getElementById('batch-progress-bar-container').classList.remove('hidden');
 
-      document.getElementById('ai-active-deck-title').innerText = initialMode === 'audio'
+      let normalizedPreset = 'context_only';
+      if (initialMode === 'audio' || initialMode === 'audio_only') normalizedPreset = 'audio_only';
+      else if (initialMode === 'context_only') normalizedPreset = 'context_only';
+      else if (initialMode === 'smart' || initialMode === 'smart_fill') normalizedPreset = 'smart_fill';
+      else if (initialMode === 'full' || initialMode === 'full_regen' || initialMode === 'ai') normalizedPreset = 'full_regen';
+
+      selectStudioPreset(normalizedPreset);
+
+      document.getElementById('ai-active-deck-title').innerText = normalizedPreset === 'audio_only'
         ? `🎙️ Пакетное озвучивание: ${stagedIds.length} отложенных колод`
-        : `📦✨ Массовая ИИ Студия: ${stagedIds.length} отложенных колод`;
-      document.getElementById('ai-active-deck-subtitle').innerText = `Массовая генерация для всех колод из очереди`;
+        : (normalizedPreset === 'context_only' 
+          ? `✨ Пакетное дополнение контекста: ${stagedIds.length} отложенных колод` 
+          : `📦✨ Массовая ИИ Студия: ${stagedIds.length} отложенных колод`);
+      document.getElementById('ai-active-deck-subtitle').innerText = `Массовая обработка для всех колод из очереди`;
 
       // Reset studio progress and previews
       document.getElementById('ai-batch-decks-bar').style.width = '0%';
@@ -2394,9 +2628,11 @@
       document.getElementById('ai-current-card-badge').innerText = '';
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('dryrun-cards-grid').innerHTML = '';
-      document.getElementById('ai-logs-container').innerHTML = initialMode === 'audio'
-        ? `<div class="text-emerald-400">Готов к пакетному озвучиванию ${stagedIds.length} колод. Нажмите "Массовая озвучка всех колод (TTS)".</div>`
-        : `<div class="text-indigo-400">Готов к массовой генерации ${stagedIds.length} колод. Выберите "ТЕСТ пакета" или "Запустить МАССОВУЮ генерацию".</div>`;
+      document.getElementById('ai-logs-container').innerHTML = normalizedPreset === 'audio_only'
+        ? `<div class="text-emerald-400">Готов к пакетному озвучиванию ${stagedIds.length} колод. Нажмите "Массовая озвучка всех (${stagedIds.length}) колод (TTS)".</div>`
+        : (normalizedPreset === 'context_only'
+          ? `<div class="text-purple-300">Готов к пакетному добавлению контекста для ${stagedIds.length} колод. Нажмите "Массово добавить ТОЛЬКО контекст".</div>`
+          : `<div class="text-indigo-400">Готов к массовой генерации ${stagedIds.length} колод. Выберите "ТЕСТ пакета" или "Запустить МАССОВУЮ генерацию".</div>`);
 
       renderVoiceOptions('de');
       loadPrompts(null, 'de');
@@ -2435,6 +2671,7 @@
                 <span class="uppercase font-semibold text-indigo-400">${d.target_language || 'DE'}</span>
                 <span>•</span>
                 <span class="text-slate-200">${d.card_count} карточек</span>
+                ${d.missing_context_count > 0 ? `<span class="text-purple-400">• ${d.missing_context_count} без контекста</span>` : ''}
                 ${d.missing_audio_count > 0 ? `<span class="text-amber-400">• ${d.missing_audio_count} без аудио</span>` : ''}
               </div>
             </div>
@@ -2462,6 +2699,33 @@
       renderDecksTable(libraryDecks, true);
       document.getElementById('user-filter-name').innerText = `⭐ Колоды Библиотеки (${libraryDecks.length})`;
       document.getElementById('user-filter-banner').classList.remove('hidden');
+    }
+
+    async function startContextOnlyProcess() {
+      selectStudioPreset('context_only');
+      if (!activeRegenDeckId) {
+        alert("Сначала выберите колоду!");
+        return;
+      }
+      const deck = decksData.find(d => String(d.id) === String(activeRegenDeckId));
+      const deckTitle = deck ? deck.name : '#' + activeRegenDeckId;
+      if (!confirm(`Запустить генерацию ТОЛЬКО контекста (ИИ) для колоды "${deckTitle}"?\n\n• Обрабатываются только карточки БЕЗ контекста\n• Озвучка затрагиваться НЕ будет`)) {
+        return;
+      }
+      await startAiProcess(false);
+    }
+
+    async function startBatchContextOnlyProcess() {
+      selectStudioPreset('context_only');
+      const stagedIds = Object.keys(stagedDecks);
+      if (stagedIds.length === 0) {
+        alert("В очереди нет выбранных колод!");
+        return;
+      }
+      if (!confirm(`Запустить МАССОВОЕ добавление ТОЛЬКО контекста для ${stagedIds.length} колод?\n\n• Будут обработаны только карточки БЕЗ контекста\n• Озвучка затрагиваться НЕ будет`)) {
+        return;
+      }
+      await startBatchAiProcess(false);
     }
 
     async function startAudioOnlyProcess() {
@@ -2914,22 +3178,32 @@
         }
 
         backups.forEach(b => {
-          const detailStr = b.deck_name ? `Колода: <b>${b.deck_name}</b> (${b.card_count || 0} карт.)` : (b.card_count ? `Содержит: ${b.card_count} элементов` : 'Снимок файлов');
+          const detailStr = b.deck_name ? `Колода: <b>${b.deck_name}</b> (${b.card_count || 0} карт.)` : (b.card_count ? `Содержит: ${b.card_count} элементов` : 'Снимок базы/файлов');
+          const sizeStr = b.size_mb >= 1 ? `${b.size_mb} MB` : `${b.size_kb} KB`;
+          const folderName = b.folder ? `<div class="text-[10px] text-slate-500 truncate max-w-[220px]" title="${b.folder}">${b.folder}</div>` : '';
           tbody.innerHTML += `
             <tr class="hover:bg-slate-900/50 transition">
-              <td class="px-6 py-4 font-mono text-xs font-semibold text-white">${b.filename}</td>
+              <td class="px-6 py-4 font-mono text-xs font-semibold text-white">
+                <div>${b.filename}</div>
+                ${folderName}
+              </td>
               <td class="px-6 py-4 text-xs">
-                <span class="px-2.5 py-1 text-xs font-semibold rounded-lg border ${b.type === 'Полная БД' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}">
+                <span class="px-2.5 py-1 text-xs font-semibold rounded-lg border ${b.type === 'Полная БД' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : (b.type === 'Снимок карточек' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20')}">
                   ${b.type}
                 </span>
               </td>
               <td class="px-6 py-4 text-xs text-slate-300">${detailStr}</td>
-              <td class="px-6 py-4 text-xs font-mono text-slate-400">${b.size_kb} KB</td>
+              <td class="px-6 py-4 text-xs font-mono text-slate-400">${sizeStr}</td>
               <td class="px-6 py-4 text-xs text-slate-400">${b.created_at}</td>
-              <td class="px-6 py-4 text-right">
-                <a href="/api/admin/backups/download/${encodeURIComponent(b.filename)}" download class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/20 inline-flex items-center gap-1.5 transition">
-                  <i data-lucide="download" class="w-3.5 h-3.5"></i> Скачать
-                </a>
+              <td class="px-6 py-4 text-right whitespace-nowrap">
+                <div class="inline-flex items-center gap-2">
+                  <a href="/api/admin/backups/download/${encodeURIComponent(b.filename)}?folder=${encodeURIComponent(b.folder || '')}" download class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/20 inline-flex items-center gap-1.5 transition">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i> Скачать
+                  </a>
+                  <button onclick="deleteBackupFile('${encodeURIComponent(b.filename)}', '${encodeURIComponent(b.folder || '')}')" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-medium rounded-lg border border-rose-500/20 inline-flex items-center gap-1.5 transition">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Удалить
+                  </button>
+                </div>
               </td>
             </tr>
           `;
@@ -2937,6 +3211,28 @@
         lucide.createIcons();
       } catch (e) {
         console.error("Failed to load backups", e);
+      }
+    }
+
+    async function deleteBackupFile(encodedFilename, encodedFolder) {
+      const filename = decodeURIComponent(encodedFilename);
+      const folder = decodeURIComponent(encodedFolder);
+      if (!confirm(`Вы действительно хотите удалить бэкап?\n\nФайл: ${filename}\nПапка: ${folder || 'по умолчанию'}`)) {
+        return;
+      }
+      try {
+        const folderParam = folder ? `?folder=${encodeURIComponent(folder)}` : '';
+        const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}${folderParam}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (res.ok) {
+          loadBackups();
+        } else {
+          alert(`Ошибка при удалении: ${data.detail || 'Не удалось удалить файл'}`);
+        }
+      } catch (e) {
+        alert(`Ошибка при удалении бэкапа: ${e.message}`);
       }
     }
 
@@ -2961,7 +3257,7 @@
       try {
         const res = await fetch('/api/admin/backups/create', { method: 'POST' });
         const data = await res.json();
-        alert(`Полная резервная копия успешно создана!\nФайл: ${data.filename}\nКарточек: ${data.cards_count}, Колод: ${data.decks_count}, Пользователей: ${data.users_count}`);
+        alert(`Полная резервная копия успешно создана!\nФайл: ${data.filename}\nПапка: ${data.folder || 'по умолчанию'}\nКарточек: ${data.cards_count}, Колод: ${data.decks_count}, Пользователей: ${data.users_count}`);
         loadBackups();
       } catch (e) {
         alert("Ошибка при создании бэкапа!");
@@ -3010,6 +3306,13 @@
         const total = data.total_cards || previewCardsList.length || 0;
         const withAudio = data.cards_with_audio || previewCardsList.filter(c => c.has_audio).length;
         const withContext = data.cards_with_context || previewCardsList.filter(c => c.has_context).length;
+        const missingAudioCount = Math.max(0, total - withAudio);
+        const missingContextCount = Math.max(0, total - withContext);
+
+        const missingAudioLbl = document.getElementById('preview-missing-audio-count');
+        const missingCtxLbl = document.getElementById('preview-missing-ctx-count');
+        if (missingAudioLbl) missingAudioLbl.innerText = missingAudioCount;
+        if (missingCtxLbl) missingCtxLbl.innerText = missingContextCount;
 
         const audioPct = total > 0 ? Math.round((withAudio / total) * 100) : 0;
         const ctxPct = total > 0 ? Math.round((withContext / total) * 100) : 0;
@@ -3029,10 +3332,10 @@
           healthPill.innerText = '✅ Полностью готова (100%)';
         } else if (audioPct < 100 && ctxPct === 100) {
           healthPill.className = 'px-2.5 py-1 font-bold rounded-lg text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/30';
-          healthPill.innerText = `⚠️ Требуется озвучка (${total - withAudio} без звука)`;
+          healthPill.innerText = `⚠️ Требуется озвучка (${missingAudioCount} без звука)`;
         } else {
           healthPill.className = 'px-2.5 py-1 font-bold rounded-lg text-[11px] bg-purple-500/20 text-purple-300 border border-purple-500/30';
-          healthPill.innerText = `⚠️ Требуется ИИ генерация (${total - withContext} без контекста)`;
+          healthPill.innerText = `⚠️ Требуется ИИ генерация (${missingContextCount} без контекста)`;
         }
 
         renderPreviewCardsTable(previewCardsList);
@@ -3196,18 +3499,25 @@
       }
     }
 
+    function previewTriggerContextOnlyRegen() {
+      const dId = previewDeckId;
+      const dName = document.getElementById('preview-deck-title')?.innerText || '';
+      closeModal('modal-deck-preview');
+      openRegenModal(dId, dName, 'context_only');
+    }
+
+    function previewTriggerAudioOnlyRegen() {
+      const dId = previewDeckId;
+      const dName = document.getElementById('preview-deck-title')?.innerText || '';
+      closeModal('modal-deck-preview');
+      openRegenModal(dId, dName, 'audio_only');
+    }
+
     function previewTriggerAiRegen() {
       const dId = previewDeckId;
       const dName = document.getElementById('preview-deck-title')?.innerText || '';
       closeModal('modal-deck-preview');
-      openRegenModal(dId, dName, 'ai');
-    }
-
-    function previewTriggerAudioRegen() {
-      const dId = previewDeckId;
-      const dName = document.getElementById('preview-deck-title')?.innerText || '';
-      closeModal('modal-deck-preview');
-      openRegenModal(dId, dName, 'audio');
+      openRegenModal(dId, dName, 'full_regen');
     }
 
     function previewOpenBulkAdd() {

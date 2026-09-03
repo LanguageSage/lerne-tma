@@ -66,7 +66,11 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 def get_admin_ui():
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
-        return FileResponse(index_path)
+        resp = FileResponse(index_path)
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
     return JSONResponse({"message": "Admin UI index.html not found"}, status_code=404)
 
 
@@ -93,6 +97,7 @@ class RegenerateDeckRequest(BaseModel):
     dry_run: bool = False
     only_empty: bool = False
     only_no_context: bool = False
+    only_missing_audio: bool = False
     no_audio: bool = False
     skip_completed: bool = False
     sync_copies: bool = False
@@ -124,6 +129,7 @@ class BatchRegenerateDeckRequest(BaseModel):
     dry_run: bool = False
     only_empty: bool = False
     only_no_context: bool = False
+    only_missing_audio: bool = False
     no_audio: bool = False
     skip_completed: bool = False
     sync_copies: bool = False
@@ -616,9 +622,10 @@ def get_prompts(native_lang: Optional[str] = "uk", target_lang: Optional[str] = 
 
     return {"prompts": prompts_list, "native_lang": n_lang, "target_lang": t_lang}
 
+
 @app.get("/api/admin/users")
 def get_users(search: Optional[str] = None):
-    """Returns list of users with their deck counts."""
+    """Returns list of users with their deck counts, sorted so registered users are first."""
     query = models.TMAUser.select()
     if search:
         s = search.strip()
@@ -631,7 +638,7 @@ def get_users(search: Optional[str] = None):
                 (models.TMAUser.last_name.contains(s))
             )
     
-    users = list(query.order_by(models.TMAUser.created_at.desc()))
+    users = list(query)
     
     # Collect deck counts per user in 1 SQL query
     user_deck_counts = dict(
@@ -645,37 +652,156 @@ def get_users(search: Optional[str] = None):
     existing_uids = set([u.user_id for u in users])
     missing_uids = deck_user_ids - existing_uids
 
-    result = []
+    registered_users = []
+    guest_users = []
+
     for u in users:
         deck_count = user_deck_counts.get(u.user_id, 0)
         last_act = u.updated_at or u.created_at
-        result.append({
+        is_guest = bool(getattr(u, 'is_guest', False))
+        is_registered = (not is_guest) and bool((u.first_name or u.username) and u.user_id > 0)
+        
+        user_data = {
             "id": u.user_id,
             "user_id": u.user_id,
             "username": u.username or "",
             "first_name": u.first_name or "",
             "last_name": u.last_name or "",
+            "photo_url": getattr(u, 'photo_url', '') or "",
+            "is_guest": is_guest,
+            "is_registered": is_registered,
             "created_at": str(u.created_at) if u.created_at else None,
             "last_activity": str(last_act) if last_act else None,
             "deck_count": deck_count
-        })
+        }
+        
+        if is_registered:
+            registered_users.append(user_data)
+        else:
+            guest_users.append(user_data)
         
     for m_uid in missing_uids:
         if search and search.strip().isdigit() and int(search.strip()) != m_uid:
             continue
         deck_count = user_deck_counts.get(m_uid, 0)
-        result.append({
+        guest_users.append({
             "id": m_uid,
             "user_id": m_uid,
             "username": f"user_{m_uid}",
             "first_name": f"User {m_uid}",
             "last_name": "",
+            "photo_url": "",
+            "is_guest": True,
+            "is_registered": False,
             "created_at": None,
             "last_activity": None,
             "deck_count": deck_count
         })
         
-    return {"users": result}
+    # Sort registered users: most recently active / created first
+    registered_users.sort(key=lambda x: x["last_activity"] or x["created_at"] or "", reverse=True)
+    # Sort guest users: most recent first
+    guest_users.sort(key=lambda x: x["last_activity"] or x["created_at"] or "", reverse=True)
+
+    sorted_result = registered_users + guest_users
+
+    return {
+        "users": sorted_result,
+        "total_count": len(sorted_result),
+        "registered_count": len(registered_users),
+        "guest_count": len(guest_users)
+    }
+
+
+@app.delete("/api/admin/users/guests")
+@app.post("/api/admin/users/cleanup-guests")
+def cleanup_guest_accounts():
+    """Removes all guest and anonymous accounts along with their temporary decks, cards and progress."""
+    try:
+        # Find guest users
+        guest_users = list(models.TMAUser.select().where(models.TMAUser.is_guest == True))
+        guest_user_ids = [u.user_id for u in guest_users]
+        
+        # Also find guest linked sessions
+        guest_sessions = list(models.TMALinkedSession.select().where(models.TMALinkedSession.guest_id.is_null(False)))
+        for s in guest_sessions:
+            if s.guest_id not in guest_user_ids:
+                guest_user_ids.append(s.guest_id)
+
+        if not guest_user_ids:
+            return {"status": "success", "message": "Гостевые аккаунты не найдены", "deleted_users_count": 0, "deleted_decks_count": 0}
+
+        deleted_decks_count = 0
+        deleted_cards_count = 0
+
+        with models.tma_db.atomic():
+            # Find decks of guest users
+            guest_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id << guest_user_ids)]
+            if guest_deck_ids:
+                deleted_cards_count = models.TMA_Card.delete().where(models.TMA_Card.deck_id << guest_deck_ids).execute()
+                deleted_decks_count = models.TMA_Deck.delete().where(models.TMA_Deck.id << guest_deck_ids).execute()
+
+            # Delete progress & review history
+            models.TMAProgress.delete().where(models.TMAProgress.user_id << guest_user_ids).execute()
+            models.TMAReviewHistory.delete().where(models.TMAReviewHistory.user_id << guest_user_ids).execute()
+            
+            # Delete custom prompts
+            models.TMACustomPrompt.delete().where(models.TMACustomPrompt.user_id << guest_user_ids).execute()
+            models.TMAUserPrompt.delete().where(models.TMAUserPrompt.user_id << guest_user_ids).execute()
+
+            # Delete linked sessions
+            models.TMALinkedSession.delete().where((models.TMALinkedSession.guest_id << guest_user_ids) | (models.TMALinkedSession.telegram_id << guest_user_ids)).execute()
+
+            # Delete users
+            deleted_users_count = models.TMAUser.delete().where(models.TMAUser.user_id << guest_user_ids).execute()
+
+        logger.info(f"Cleaned up {deleted_users_count} guest users and {deleted_decks_count} decks")
+        return {
+            "status": "success",
+            "message": f"Удалено {deleted_users_count} гостевых аккаунтов, {deleted_decks_count} колод и {deleted_cards_count} карточек",
+            "deleted_users_count": deleted_users_count,
+            "deleted_decks_count": deleted_decks_count,
+            "deleted_cards_count": deleted_cards_count
+        }
+    except Exception as e:
+        logger.error(f"Failed to cleanup guest accounts: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка при очистке гостевых аккаунтов: {str(e)}")
+
+
+@app.delete("/api/admin/users/{user_id}")
+def delete_single_user(user_id: int):
+    """Deletes a specific user and all their personal decks, cards, and data."""
+    try:
+        with models.tma_db.atomic():
+            # Find and delete user's decks and cards
+            user_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id)]
+            deleted_cards = 0
+            deleted_decks = 0
+            if user_deck_ids:
+                deleted_cards = models.TMA_Card.delete().where(models.TMA_Card.deck_id << user_deck_ids).execute()
+                deleted_decks = models.TMA_Deck.delete().where(models.TMA_Deck.id << user_deck_ids).execute()
+
+            # Delete progress & review history
+            models.TMAProgress.delete().where(models.TMAProgress.user_id == user_id).execute()
+            models.TMAReviewHistory.delete().where(models.TMAReviewHistory.user_id == user_id).execute()
+
+            # Delete prompts
+            models.TMACustomPrompt.delete().where(models.TMACustomPrompt.user_id == user_id).execute()
+            models.TMAUserPrompt.delete().where(models.TMAUserPrompt.user_id == user_id).execute()
+
+            # Delete sessions
+            models.TMALinkedSession.delete().where((models.TMALinkedSession.guest_id == user_id) | (models.TMALinkedSession.telegram_id == user_id)).execute()
+
+            # Delete user
+            models.TMAUser.delete().where(models.TMAUser.user_id == user_id).execute()
+
+        return {
+            "status": "success",
+            "message": f"Пользователь #{user_id} удалён ({deleted_decks} колод, {deleted_cards} карточек)"
+        }
+    except Exception as e:
+        logger.error(f"Failed to delete user {user_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка при удалении пользователя: {str(e)}")
 
 
 @app.get("/api/admin/decks")
@@ -737,6 +863,10 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
             result.append({
                 "id": f"lib_{d.id}",
                 "user_id": "Библиотека ⭐",
+                "user_name": "Библиотека ⭐",
+                "user_username": "",
+                "user_photo": "",
+                "user_is_guest": False,
                 "name": d.name,
                 "level": d.level,
                 "topic": d.topic,
@@ -792,6 +922,13 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
         .tuples()
     )
 
+    # Fetch user profiles for display in batch
+    tma_uids = list(set([d.user_id for d in tma_decks if d.user_id]))
+    user_map = {}
+    if tma_uids:
+        for u in models.TMAUser.select().where(models.TMAUser.user_id << tma_uids):
+            user_map[u.user_id] = u
+
     for d in tma_decks:
         c_count = tma_card_counts.get(d.id, 0)
         m_audio = tma_missing_audio.get(d.id, 0)
@@ -813,9 +950,26 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
         else:
             h_status = "ready"
 
+        u_obj = user_map.get(d.user_id)
+        if u_obj:
+            raw_name = f"{u_obj.first_name or ''} {u_obj.last_name or ''}".strip()
+            user_display_name = raw_name or (f"@{u_obj.username}" if u_obj.username else f"User {d.user_id}")
+            user_photo = getattr(u_obj, 'photo_url', '') or ""
+            user_username = u_obj.username or ""
+            user_is_guest = bool(getattr(u_obj, 'is_guest', False))
+        else:
+            user_display_name = f"User {d.user_id}"
+            user_photo = ""
+            user_username = ""
+            user_is_guest = True
+
         result.append({
             "id": d.id,
             "user_id": d.user_id,
+            "user_name": user_display_name,
+            "user_username": user_username,
+            "user_photo": user_photo,
+            "user_is_guest": user_is_guest,
             "name": d.name,
             "level": d.level,
             "topic": d.topic,
@@ -1838,7 +1992,7 @@ def clear_task_checkpoint_endpoint():
 
 
 @app.post("/api/admin/tasks/resume")
-def resume_task_endpoint(req: ResumeTaskRequest, background_tasks: BackgroundTasks):
+def resume_task_endpoint(background_tasks: BackgroundTasks, req: Optional[ResumeTaskRequest] = None):
     """Resumes interrupted/stopped task from checkpoint or requested indices."""
     global regen_tasks
     ckpt = task_manager.load_task_checkpoint()
@@ -1847,8 +2001,8 @@ def resume_task_endpoint(req: ResumeTaskRequest, background_tasks: BackgroundTas
 
     task_type = ckpt.get("task_type", "")
     orig_options = ckpt.get("options", {})
-    start_d_idx = req.start_deck_idx or ckpt.get("current_deck_idx") or 1
-    start_c_idx = req.start_card_idx or ckpt.get("current_card_idx") or 1
+    start_d_idx = (req.start_deck_idx if req else None) or ckpt.get("current_deck_idx") or 1
+    start_c_idx = (req.start_card_idx if req else None) or ckpt.get("current_card_idx") or 1
 
     task_id = f"resumed_{int(time.time())}"
     task_info = dict(ckpt)
@@ -3098,65 +3252,120 @@ def save_admin_config(data):
     except Exception:
         pass
 
+def get_effective_backup_dir() -> str:
+    """Returns the effective backup directory (custom if configured and accessible, else default project backups folder)."""
+    cfg = load_admin_config()
+    custom_dir = cfg.get("custom_backup_dir", "").strip()
+    if custom_dir:
+        try:
+            os.makedirs(custom_dir, exist_ok=True)
+            if os.path.exists(custom_dir):
+                return custom_dir
+        except Exception as e:
+            logger.warning(f"Could not use custom backup dir '{custom_dir}': {e}")
+    default_dir = os.path.join(project_root, "backups")
+    os.makedirs(default_dir, exist_ok=True)
+    return default_dir
+
+
+def get_all_backup_search_dirs() -> List[str]:
+    """Returns all directories to search for backup files without duplicates."""
+    cfg = load_admin_config()
+    custom_dir = cfg.get("custom_backup_dir", "").strip()
+
+    dirs = [
+        os.path.join(project_root, "backups"),
+        os.path.join(project_root, "api", "data", "backups"),
+        os.path.join(project_root, "..", "data"),
+    ]
+    if custom_dir:
+        dirs.insert(0, custom_dir)
+        dirs.append(os.path.join(custom_dir, "backups"))
+
+    valid_dirs = []
+    seen = set()
+    for d in dirs:
+        try:
+            norm = os.path.normpath(os.path.abspath(d))
+            if norm not in seen and os.path.exists(norm) and os.path.isdir(norm):
+                seen.add(norm)
+                valid_dirs.append(norm)
+        except Exception:
+            pass
+    return valid_dirs
+
+
 @app.get("/api/admin/backups")
 def get_backups():
     """Lists all backup files in system backup folders and custom folder."""
     cfg = load_admin_config()
     custom_dir = cfg.get("custom_backup_dir", "").strip()
-
-    search_dirs = [
-        os.path.join(project_root, "api", "data", "backups"),
-        os.path.join(project_root, "backups")
-    ]
-    if custom_dir and os.path.exists(custom_dir):
-        search_dirs.append(custom_dir)
+    search_dirs = get_all_backup_search_dirs()
 
     backup_files = []
+    seen_paths = set()
     total_bytes = 0
 
     for d in search_dirs:
-        if not os.path.exists(d):
-            continue
-        for fname in os.listdir(d):
-            if fname.endswith((".json", ".db", ".sql")):
-                fpath = os.path.join(d, fname)
-                try:
-                    stat = os.stat(fpath)
-                    size = stat.st_size
-                    total_bytes += size
-                    mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
+        try:
+            for fname in os.listdir(d):
+                if fname.endswith((".json", ".db", ".sql")):
+                    fpath = os.path.normpath(os.path.join(d, fname))
+                    if fpath in seen_paths or not os.path.isfile(fpath):
+                        continue
+                    seen_paths.add(fpath)
 
-                    b_type = "Снимок колоды" if "deck_" in fname else "Полная БД"
-                    card_count = None
-                    deck_name = None
+                    try:
+                        stat = os.stat(fpath)
+                        size = stat.st_size
+                        total_bytes += size
+                        mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
 
-                    if fname.endswith(".json") and size < 10000000:
-                        try:
-                            with open(fpath, "r", encoding="utf-8") as jf:
-                                jdata = json.load(jf)
-                                if isinstance(jdata, dict):
-                                    if "cards_count" in jdata:
-                                        card_count = jdata["cards_count"]
-                                    if "deck" in jdata and "name" in jdata["deck"]:
-                                        deck_name = jdata["deck"]["name"]
-                                    elif "cards" in jdata:
-                                        card_count = len(jdata["cards"])
-                        except Exception:
-                            pass
+                        if fname.startswith("deck_"):
+                            b_type = "Снимок колоды"
+                        elif fname.startswith("cards_backup_"):
+                            b_type = "Снимок карточек"
+                        elif "supabase" in fname:
+                            b_type = "Supabase дамп"
+                        elif fname.endswith(".db"):
+                            b_type = "SQLite БД"
+                        else:
+                            b_type = "Полная БД"
 
-                    backup_files.append({
-                        "filename": fname,
-                        "folder": d,
-                        "filepath": fpath,
-                        "size_kb": round(size / 1024, 1),
-                        "size_mb": round(size / (1024 * 1024), 2),
-                        "type": b_type,
-                        "card_count": card_count,
-                        "deck_name": deck_name,
-                        "created_at": mtime.strftime("%Y-%m-%d %H:%M:%S")
-                    })
-                except Exception:
-                    pass
+                        card_count = None
+                        deck_name = None
+
+                        if fname.endswith(".json") and size < 15000000:
+                            try:
+                                with open(fpath, "r", encoding="utf-8") as jf:
+                                    jdata = json.load(jf)
+                                    if isinstance(jdata, dict):
+                                        if "cards_count" in jdata:
+                                            card_count = jdata["cards_count"]
+                                        if "deck" in jdata and "name" in jdata["deck"]:
+                                            deck_name = jdata["deck"]["name"]
+                                        elif "cards" in jdata and isinstance(jdata["cards"], list):
+                                            card_count = len(jdata["cards"])
+                                    elif isinstance(jdata, list):
+                                        card_count = len(jdata)
+                            except Exception:
+                                pass
+
+                        backup_files.append({
+                            "filename": fname,
+                            "folder": d,
+                            "filepath": fpath,
+                            "size_kb": round(size / 1024, 1),
+                            "size_mb": round(size / (1024 * 1024), 2),
+                            "type": b_type,
+                            "card_count": card_count,
+                            "deck_name": deck_name,
+                            "created_at": mtime.strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     backup_files.sort(key=lambda x: x["created_at"], reverse=True)
 
@@ -3186,13 +3395,12 @@ def save_backup_settings(req: BackupSettingsRequest):
 
 @app.post("/api/admin/backups/create")
 def create_full_db_backup():
-    """Creates a full JSON snapshot of all database tables."""
+    """Creates a full JSON snapshot of all database tables in the configured backup directory."""
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     fname = f"full_db_backup_{timestamp}.json"
     
-    backup_dir = os.path.join(project_root, "backups")
-    os.makedirs(backup_dir, exist_ok=True)
-    fpath = os.path.join(backup_dir, fname)
+    target_dir = get_effective_backup_dir()
+    fpath = os.path.join(target_dir, fname)
 
     users = [u.__data__ for u in models.TMAUser.select()]
     for u in users:
@@ -3230,20 +3438,11 @@ def create_full_db_backup():
     with open(fpath, "w", encoding="utf-8") as f:
         json.dump(dump_data, f, ensure_ascii=False, indent=2)
 
-    cfg = load_admin_config()
-    custom_dir = cfg.get("custom_backup_dir", "").strip()
-    if custom_dir and os.path.exists(custom_dir):
-        custom_fpath = os.path.join(custom_dir, fname)
-        try:
-            with open(custom_fpath, "w", encoding="utf-8") as cf:
-                json.dump(dump_data, cf, ensure_ascii=False, indent=2)
-        except Exception:
-            pass
-
     return {
         "status": "ok",
         "filename": fname,
         "filepath": fpath,
+        "folder": target_dir,
         "users_count": len(users),
         "decks_count": len(decks),
         "cards_count": len(cards)
@@ -3251,24 +3450,52 @@ def create_full_db_backup():
 
 
 @app.get("/api/admin/backups/download/{filename}")
-def download_backup_file(filename: str):
+def download_backup_file(filename: str, folder: Optional[str] = Query(None)):
     """Serves a backup file for downloading."""
-    cfg = load_admin_config()
-    custom_dir = cfg.get("custom_backup_dir", "").strip()
-
-    search_dirs = [
-        os.path.join(project_root, "api", "data", "backups"),
-        os.path.join(project_root, "backups")
-    ]
-    if custom_dir and os.path.exists(custom_dir):
-        search_dirs.append(custom_dir)
+    search_dirs = [folder] if folder else get_all_backup_search_dirs()
 
     for d in search_dirs:
-        fp = os.path.join(d, filename)
-        if os.path.exists(fp):
+        if not d or not os.path.exists(d):
+            continue
+        fp = os.path.normpath(os.path.join(d, filename))
+        if os.path.exists(fp) and os.path.isfile(fp):
             return FileResponse(fp, filename=filename)
 
     raise HTTPException(status_code=404, detail="Backup file not found")
+
+
+@app.delete("/api/admin/backups/{filename}")
+def delete_backup_file(filename: str, folder: Optional[str] = Query(None)):
+    """Deletes a specified backup file from backup directory."""
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid backup filename")
+
+    search_dirs = [folder] if folder else get_all_backup_search_dirs()
+    deleted = []
+
+    for d in search_dirs:
+        if not d or not os.path.exists(d):
+            continue
+        fp = os.path.normpath(os.path.join(d, filename))
+        norm_dir = os.path.normpath(d)
+        if not fp.startswith(norm_dir):
+            continue
+        if os.path.exists(fp) and os.path.isfile(fp):
+            try:
+                os.remove(fp)
+                deleted.append(fp)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to delete {filename}: {str(e)}")
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Backup file not found to delete")
+
+    return {
+        "status": "ok",
+        "deleted_filename": filename,
+        "deleted_paths": deleted,
+        "count": len(deleted)
+    }
 
 
 if __name__ == "__main__":

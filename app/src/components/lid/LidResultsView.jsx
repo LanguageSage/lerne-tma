@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   CheckCircle2, XCircle, RotateCcw, Award, Clock, 
-  MapPin, ChevronRight, AlertTriangle, ArrowLeft, BookOpen, Sparkles, X 
+  MapPin, ChevronRight, AlertTriangle, ArrowLeft, BookOpen, Sparkles, X, ListFilter, HelpCircle 
 } from 'lucide-react';
 import { useLidStore } from '../../store/useLidStore';
 import { getBundeslandByCode } from '../../data/bundeslaender';
@@ -12,17 +12,39 @@ import { ConfettiBurst } from '../common/ConfettiBurst';
 export const LidResultsView = ({ onBackToMenu }) => {
   const {
     getResults,
+    ticket,
+    answers,
     startSimulation,
     retakeMistakes,
     selectedLandCode,
     resetToMenu
   } = useLidStore();
 
-  const [activeMistakeModal, setActiveMistakeModal] = useState(null);
+  const [filterTab, setFilterTab] = useState('all'); // 'all' | 'mistakes' | 'correct'
+  const [activeModalIndex, setActiveModalIndex] = useState(null); // index in current filtered list
 
   const results = getResults();
   const { score, total, percent, isPassed, timeSpent, mistakes } = results;
   const stateInfo = getBundeslandByCode(selectedLandCode);
+
+  // Build full list of all 33 questions with user answer & correctness
+  const allQuestionItems = (ticket || []).map((q, idx) => {
+    const userAnswer = answers[q.id] || null;
+    const isCorrect = userAnswer === q.correctOption;
+    return {
+      question: { ...q, examIndex: idx + 1 },
+      userAnswer,
+      correctOption: q.correctOption,
+      isCorrect,
+      isSkipped: !userAnswer
+    };
+  });
+
+  const filteredItems = allQuestionItems.filter((item) => {
+    if (filterTab === 'mistakes') return !item.isCorrect;
+    if (filterTab === 'correct') return item.isCorrect;
+    return true;
+  });
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -31,6 +53,8 @@ export const LidResultsView = ({ onBackToMenu }) => {
   };
 
   const getOptionLetter = (id) => id?.toUpperCase();
+
+  const activeModalItem = activeModalIndex !== null ? filteredItems[activeModalIndex] : null;
 
   return (
     <div className="lid-results-view">
@@ -42,6 +66,27 @@ export const LidResultsView = ({ onBackToMenu }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
+        {/* Top Window Header */}
+        <div className="lid-menu-header glass" style={{ marginBottom: 4 }}>
+          <button
+            type="button"
+            className="lid-back-btn"
+            onClick={() => {
+              resetToMenu();
+              if (onBackToMenu) onBackToMenu();
+            }}
+            title="Назад в меню"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div className="lid-menu-title-wrap">
+            <h2 className="lid-menu-title" style={{ fontSize: '1.2rem' }}>Результаты экзамена</h2>
+            <span className="lid-menu-subtitle">
+              Leben in Deutschland • {stateInfo?.nameDe || 'Федеральная земля'}
+            </span>
+          </div>
+        </div>
+
         {/* Top Header Card */}
         <div className={`lid-results-card glass ${isPassed ? 'status-passed' : 'status-failed'}`}>
           <div className="lid-results-status-badge">
@@ -105,69 +150,103 @@ export const LidResultsView = ({ onBackToMenu }) => {
           </div>
         </div>
 
-        {/* Mistakes List Section */}
+        {/* Question Review Section with Filter Tabs */}
         <div className="lid-mistakes-section">
           <div className="lid-section-header">
             <div className="lid-section-title-wrap">
-              {mistakes.length > 0 ? (
-                <>
-                  <AlertTriangle size={18} className="lid-alert-icon" />
-                  <h3 className="lid-section-title">
-                    Список ошибок ({mistakes.length} из {total})
-                  </h3>
-                </>
-              ) : (
-                <>
-                  <Sparkles size={18} color="#eab308" />
-                  <h3 className="lid-section-title">Идеальный результат!</h3>
-                </>
-              )}
+              <ListFilter size={18} className="lid-alert-icon" />
+              <h3 className="lid-section-title">
+                Карточки экзамена ({allQuestionItems.length})
+              </h3>
             </div>
-            {mistakes.length > 0 && (
-              <span className="lid-section-hint">
-                Нажмите на карточку для разбора
-              </span>
-            )}
+            <span className="lid-section-hint">
+              Нажмите на любую карточку для подробного изучения
+            </span>
           </div>
 
-          {mistakes.length === 0 ? (
+          {/* Filter Tabs */}
+          <div className="lid-results-filter-tabs">
+            <button
+              type="button"
+              className={`lid-filter-tab ${filterTab === 'all' ? 'active' : ''}`}
+              onClick={() => setFilterTab('all')}
+            >
+              <span>Все ({allQuestionItems.length})</span>
+            </button>
+            <button
+              type="button"
+              className={`lid-filter-tab mistakes ${filterTab === 'mistakes' ? 'active' : ''}`}
+              onClick={() => setFilterTab('mistakes')}
+            >
+              <span>Ошибки ({mistakes.length})</span>
+            </button>
+            <button
+              type="button"
+              className={`lid-filter-tab correct ${filterTab === 'correct' ? 'active' : ''}`}
+              onClick={() => setFilterTab('correct')}
+            >
+              <span>Правильные ({score})</span>
+            </button>
+          </div>
+
+          {/* Cards List */}
+          {filteredItems.length === 0 ? (
             <div className="lid-perfect-score-card glass">
-              <div className="lid-perfect-badge">🏆 100%</div>
-              <h4>Вы ответили правильно на все 33 вопроса!</h4>
-              <p>Отличная подготовка к официальному экзамену BAMF Leben in Deutschland.</p>
+              <Sparkles size={32} color="#eab308" />
+              <h4>В этой категории нет карточек</h4>
             </div>
           ) : (
             <div className="lid-mistake-cards-list">
-              {mistakes.map((m, idx) => {
-                const { question, userAnswer, correctOption } = m;
+              {filteredItems.map((item, idx) => {
+                const { question, userAnswer, correctOption, isCorrect, isSkipped } = item;
                 const userChoiceLetter = userAnswer ? getOptionLetter(userAnswer) : '—';
                 const correctChoiceLetter = getOptionLetter(correctOption);
 
                 const correctOptObj = question.options?.find(o => o.id === correctOption);
                 const userOptObj = question.options?.find(o => o.id === userAnswer);
 
+                let cardStatusClass = isCorrect ? 'is-correct' : isSkipped ? 'is-skipped' : 'is-wrong';
+
                 return (
                   <motion.div
-                    key={`mistake-item-${question.id || idx}`}
-                    className="lid-mistake-card-item glass"
-                    onClick={() => setActiveMistakeModal(m)}
+                    key={`result-card-item-${question.id || idx}`}
+                    className={`lid-mistake-card-item glass ${cardStatusClass}`}
+                    onClick={() => setActiveModalIndex(idx)}
                     whileHover={{ scale: 1.01, y: -1 }}
                     whileTap={{ scale: 0.985 }}
                   >
                     <div className="lid-mistake-left">
-                      <div className="lid-mistake-q-badge">
-                        <span>№{question.examIndex || (idx + 1)}</span>
+                      <div className={`lid-mistake-q-badge ${cardStatusClass}`}>
+                        <span>№{question.examIndex}</span>
                       </div>
                       <div className="lid-mistake-texts">
                         <div className="lid-mistake-category">{question.category}</div>
                         <div className="lid-mistake-q-title">{question.question}</div>
+                        
                         <div className="lid-mistake-ans-comparison">
-                          <span className="lid-user-ans-tag">
-                            <X size={12} /> Ваш ответ: {userChoiceLetter} {userOptObj ? `(${userOptObj.text})` : ''}
-                          </span>
-                          <span className="lid-correct-ans-tag">
-                            <CheckCircle2 size={12} /> Правильно: {correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
-                          </span>
+                          {isCorrect ? (
+                            <span className="lid-correct-ans-tag">
+                              <CheckCircle2 size={13} /> Ответ правильный: {correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
+                            </span>
+                          ) : isSkipped ? (
+                            <>
+                              <span className="lid-skipped-ans-tag">
+                                <HelpCircle size={13} /> Ответ не выбран
+                              </span>
+                              <span className="lid-correct-ans-tag">
+                                <CheckCircle2 size={13} /> Правильно: {correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="lid-user-ans-tag">
+                                <X size={13} /> Ваш ответ: {userChoiceLetter} {userOptObj ? `(${userOptObj.text})` : ''}
+                              </span>
+                              <span className="lid-correct-ans-tag">
+                                <CheckCircle2 size={13} /> Правильно: {correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -218,11 +297,17 @@ export const LidResultsView = ({ onBackToMenu }) => {
         </div>
       </motion.div>
 
-      {/* Modal for detail of chosen mistake card */}
-      {activeMistakeModal && (
+      {/* Modal for full detail of chosen question card */}
+      {activeModalItem && (
         <LidMistakeDetailModal
-          mistakeItem={activeMistakeModal}
-          onClose={() => setActiveMistakeModal(null)}
+          item={activeModalItem}
+          currentIndex={activeModalIndex + 1}
+          totalItems={filteredItems.length}
+          hasPrev={activeModalIndex > 0}
+          hasNext={activeModalIndex < filteredItems.length - 1}
+          onPrev={() => setActiveModalIndex(Math.max(0, activeModalIndex - 1))}
+          onNext={() => setActiveModalIndex(Math.min(filteredItems.length - 1, activeModalIndex + 1))}
+          onClose={() => setActiveModalIndex(null)}
         />
       )}
     </div>

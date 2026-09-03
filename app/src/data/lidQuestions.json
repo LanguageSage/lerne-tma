@@ -12251,17 +12251,796 @@
       "translationRu": null
     },
     {
-      "id": "lid_BB_1",
-      "num": "BB-1",
+      "id": "lid_BW_1",
+      "num": "BW-1",
       "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Welches Wappen gehört zum Bundesland Brandenburg?",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Welches Wappen gehört zum Bundesland Baden-Württemberg?",
+      "options": [
+        {
+          "id": "a",
+          "text": "2",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "4",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "1",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "3",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Die Frage bezieht sich auf deutsche Bundesländer und ihre offiziellen Wappen. Jedes Bundesland hat ein eigenes, historisch geprägtes Wappen mit bestimmten Symbolen, Farben und Motiven. In der Aufgabe werden mehrere nummerierte Abbildungen von Wappen gezeigt. Ziel ist es, das richtige Wappen zu identifizieren, das zum Bundesland Baden-Württemberg gehört. Dafür sind Kenntnisse über das Aussehen des Landeswappens sowie der Vergleich mit anderen möglichen Wappen hilfreich.",
+      "image": "/lid_images/qbw1.18061c05.jpeg",
+      "translationRu": {
+        "question": "Какой герб принадлежит земле Баден-Вюртемберг?",
+        "a": "2",
+        "b": "4",
+        "c": "1",
+        "d": "3",
+        "context": "Вопрос касается германских федеративных земель и их официальных гербонов. Каждая федеральная земля имеет свой собственный, исторически оформленный герб с определёнными символами, цветами и мотивами. В задании показаны несколько пронумерованных изображений гербов. Цель — определить правильный герб, который принадлежит земле Баден-Вюртемберг. Знание внешнего вида герба штата и сравнение с другими возможными гербами полезны для этого."
+      }
+    },
+    {
+      "id": "lid_BW_2",
+      "num": "BW-2",
+      "block": "state",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Welches ist ein Landkreis in Baden-Württemberg?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Neckar-Odenwald-Kreis",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Nordfriesland",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Altötting",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Mecklenburgische Seenplatte",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Die folgende Frage bezieht sich auf die geografische Einteilung Deutschlands. Deutschland ist in Bundesländer, Regierungsbezirke und Landkreise unterteilt. Gesucht wird ein Landkreis, der zum Bundesland Baden-Württemberg gehört. Die Antwortmöglichkeiten nennen verschiedene Landkreise, die jeweils in unterschiedlichen Regionen oder Bundesländern liegen. Um die richtige Antwort zu finden, ist Grundwissen über die deutschen Bundesländer und ihre jeweiligen Landkreise hilfreich.",
+      "image": null,
+      "translationRu": {
+        "question": "Какой район является частью Баден-Вюртемберга?",
+        "a": "Край Неккар-Оденвальд",
+        "b": "Северная Фрисландия",
+        "c": "Альтёттинг",
+        "d": "Мекленбургский озёрный край",
+        "context": "Следующий вопрос касается географического деления Германии. Германия разделена на федеральные земли, административные округа и сельские районы. Рассматривается округ, входящий в состав земли Баден-Вюртемберг. Варианты на ответы предоставляются разными округами, каждый из которых расположен в разных регионах или федеральных штатах. Чтобы найти правильный ответ, полезны базовые знания о германских федеральных землях и их соответствующих округах."
+      }
+    },
+    {
+      "id": "lid_BW_3",
+      "num": "BW-3",
+      "block": "state",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Für wie viele Jahre wird der Landtag in Baden-Württemberg\n                  gewählt?",
+      "options": [
+        {
+          "id": "a",
+          "text": "6",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "5",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Сколько лет будет работать парламент земли в Баден-Вюртемберге?\n                  Избран?",
+        "a": "6",
+        "b": "3",
+        "c": "5",
+        "d": "4",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_BW_4",
+      "num": "BW-4",
+      "block": "state",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Ab welchem Alter darf man in Baden-Württemberg bei\n                  Kommunalwahlen wählen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "16",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "18",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "20",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "14",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "С какого возраста можно участвовать в Баден-Вюртемберге\n                  Голосовать на местных выборах?",
+        "a": "16",
+        "b": "18",
+        "c": "20",
+        "d": "14",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_BW_5",
+      "num": "BW-5",
+      "block": "state",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Welche Farben hat die Landesflagge von Baden-Württemberg?",
+      "options": [
+        {
+          "id": "a",
+          "text": "grün-weiß-rot",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "weiß-blau",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "blau-weiß-rot",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "schwarz-gold",
+          "isCorrect": true
+        }
+      ],
+      "correctOption": "d",
+      "context": "Die Frage bezieht sich auf das Wissen über deutsche Bundesländer und ihre Symbole. Baden-Württemberg ist eines der 16 Bundesländer Deutschlands und besitzt wie jedes Bundesland eine eigene Landesflagge. In einem Multiple-Choice-Format werden verschiedene Farbkombinationen angeboten. Um die richtige Antwort zu wählen, sollte man die Flaggen deutscher Bundesländer kennen oder sich mit deutscher Geografie und Heraldik auskennen.",
+      "image": null,
+      "translationRu": {
+        "question": "Каких цветов имеет государственный флаг Баден-Вюртемберга?",
+        "a": "зелёный-белый-красный",
+        "b": "бело-синий",
+        "c": "синий-белый-красный",
+        "d": "Чёрно-золотой",
+        "context": "Вопрос касается знания германских федеративных земель и их символов. Баден-Вюртемберг — одна из 16 федеральных земель Германии и, как и каждая федеральная земля, имеет свой собственный государственный флаг. В формате с несколькими вариантами выбора предлагаются различные цветовые комбинации. Чтобы выбрать правильный ответ, необходимо знать флаги немецких земель или быть знакомым с географией и геральдикой Германии."
+      }
+    },
+    {
+      "id": "lid_BW_6",
+      "num": "BW-6",
+      "block": "state",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Wo können Sie sich in Baden-Württemberg über politische Themen\n                  informieren?",
+      "options": [
+        {
+          "id": "a",
+          "text": "bei der Landeszentrale für politische Bildung",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "beim Ordnungsamt der Gemeinde",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "bei den Kirchen",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "bei der Verbraucherzentrale",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Где можно узнать о политических вопросах в Баден-Вюртемберге?\n                  ?",
+        "a": "в Государственном агентстве по гражданскому образованию",
+        "b": "в Управлении общественного порядка муниципалитета",
+        "c": "В церквях",
+        "d": "в Центре консультирования потребителей",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_BW_7",
+      "num": "BW-7",
+      "block": "state",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Die Landeshauptstadt von Baden-Württemberg heißt ...",
+      "options": [
+        {
+          "id": "a",
+          "text": "Mannheim",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "Stuttgart",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "Heidelberg",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Karlsruhe",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Die Frage bezieht sich auf die politischen und geografischen Strukturen der deutschen Bundesländer. Baden-Württemberg ist eines der 16 Bundesländer Deutschlands und hat eine festgelegte Landeshauptstadt, in der Regierung und Parlament ihren Sitz haben. Die Antwortmöglichkeiten nennen bekannte Städte des Bundeslandes, von denen nur eine die Hauptstadt ist.",
+      "image": null,
+      "translationRu": {
+        "question": "Столица земли Баден-Вюртемберг называется ...",
+        "a": "Мангейм",
+        "b": "Штутгарт",
+        "c": "Гейдельберг",
+        "d": "Карлсруэ",
+        "context": "Вопрос касается политических и географических структур германских федеративных земель. Баден-Вюртемберг — одна из 16 федеральных земель Германии и имеет назначенную столицу земли, в которой расположены свои места правительства и парламента. В ответах называются известные города штата, из которых только один является столицей."
+      }
+    },
+    {
+      "id": "lid_BW_8",
+      "num": "BW-8",
+      "block": "state",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Welches Bundesland ist Baden-Württemberg?",
       "options": [
         {
           "id": "a",
           "text": "1",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "2",
           "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Die Frage stammt aus einem Multiple-Choice-Test zur deutschen Geografie. Auf einer Abbildung oder Liste sind die Bundesländer Deutschlands mit den Zahlen 1 bis 4 gekennzeichnet. Anhand dieser Nummern soll erkannt werden, welche Zahl dem Bundesland Baden-Württemberg entspricht. Ziel ist es, Kenntnisse über die Lage und Einordnung der Bundesländer zu prüfen.",
+      "image": "/lid_images/qbw8.27ed57e1.jpeg",
+      "translationRu": {
+        "question": "Какая земля относится к Баден-Вюртембергу?",
+        "a": "1",
+        "b": "2",
+        "c": "3",
+        "d": "4",
+        "context": "Вопрос возникает из теста с несколькими вариантами ответа по немецкой географии. На рисунке или списке федеральные земли Германии отмечены номерами от 1 до 4. Эти числа используются для определения, какое число соответствует земле Баден-Вюртемберг. Цель — проверить знания о ситуации и классификации федеральных земель."
+      }
+    },
+    {
+      "id": "lid_BW_9",
+      "num": "BW-9",
+      "block": "state",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Wie nennt man den Regierungschef / die Regierungschefin in\n                  Baden-Württemberg?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Bürgermeister / Bürgermeisterin",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "Ministerpräsident / Ministerpräsidentin",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "Premierminister / Premierministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Erster Minister / Erste Ministerin",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Как вы называете главу правительства в\n                  Баден-Вюртемберг?",
+        "a": "Мэр",
+        "b": "Премьер-министр",
+        "c": "Премьер-министр",
+        "d": "Первый министр",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_BW_10",
+      "num": "BW-10",
+      "block": "state",
+      "stateCode": "BW",
+      "category": "Landesbezogene Fragen (Baden-Württemberg)",
+      "question": "Welchen Minister / welche Ministerin hat Baden-Württemberg\n                  nicht?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Finanzminister / Finanzministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "Innenminister / Innenministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Außenminister / Außenministerin",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "Justizminister / Justizministerin",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Какой министр у Баден-Вюртемберга?\n                  Не так ли?",
+        "a": "Министр финансов",
+        "b": "Министр внутренних дел",
+        "c": "Министр иностранных дел",
+        "d": "Министр юстиции",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_BY_1",
+      "num": "BY-1",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Welches Wappen gehört zum Freistaat Bayern?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "2",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "In dieser Aufgabe sehen Sie mehrere nummerierte Abbildungen von Wappen. Jedes Wappen gehört zu einem anderen deutschen Bundesland oder einer historischen Region. Ihre Aufgabe ist es, anhand der typischen Symbole, Farben und Muster das offizielle Wappen des Freistaats Bayern zu erkennen. Wählen Sie die Nummer aus, die dem bayerischen Landeswappen entspricht.",
+      "image": "/lid_images/qby1.378f8193.jpeg",
+      "translationRu": {
+        "question": "Какой герб принадлежит Свободному государству Бавария?",
+        "a": "1",
+        "b": "2",
+        "c": "3",
+        "d": "4",
+        "context": "В этом задании вы увидите несколько пронумерованных изображений гербов (пронумерованных изображений). Каждый герб принадлежит отдельному немецкому государству или историческому региону. Их задача — признать официальный герб Свободного государства Бавария на основе типичных символов, цветов и узоров. Выберите номер, соответствующий гербу баварского государства."
+      }
+    },
+    {
+      "id": "lid_BY_2",
+      "num": "BY-2",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Welches ist ein Landkreis in Bayern?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Altötting",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Prignitz",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Nordfriesland",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Rhein-Sieg-Kreis",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Die Frage bezieht sich auf Verwaltungsregionen in Deutschland. Deutschland ist in Bundesländer gegliedert, die wiederum in Landkreise oder kreisfreie Städte unterteilt sind. Bayern ist eines der 16 Bundesländer, und es gibt mehrere Landkreise innerhalb dieses Bundeslandes. Die Antwortmöglichkeiten nennen verschiedene Regionen, von denen einige in anderen Bundesländern liegen. Ziel ist es zu erkennen, welche der genannten Optionen ein Landkreis im Bundesland Bayern ist.",
+      "image": null,
+      "translationRu": {
+        "question": "Какой район является Баварией?",
+        "a": "Альтёттинг",
+        "b": "Пригниц",
+        "c": "Северная Фрисландия",
+        "d": "Район Рейн-Зиг",
+        "context": "Вопрос касается административных регионов Германии. Германия разделена на федеральные земли, которые, в свою очередь, делятся на округа или независимые города. Бавария — одна из 16 федеральных земель, и в её земле есть несколько округов. Варианты ответов называют различные регионы, некоторые из которых расположены в других федеральных землях. Цель — определить, какой из упомянутых вариантов является районом в земле Бавария."
+      }
+    },
+    {
+      "id": "lid_BY_3",
+      "num": "BY-3",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Für wie viele Jahre wird der Landtag in Bayern gewählt?",
+      "options": [
+        {
+          "id": "a",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "4",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "5",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "6",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "In Deutschland sind die Länder eigene politische Einheiten mit eigenen Parlamenten, den sogenannten Landtagen. Diese Parlamente werden in regelmäßigen Abständen von den Bürgerinnen und Bürgern gewählt. Die Dauer einer Wahlperiode ist dabei gesetzlich festgelegt und kann sich von Bundesland zu Bundesland unterscheiden. Die Frage bezieht sich speziell auf den Bayerischen Landtag und die Länge seiner Legislaturperiode.",
+      "image": null,
+      "translationRu": {
+        "question": "Сколько лет будет избираться земельный парламент в Баварии?",
+        "a": "3",
+        "b": "4",
+        "c": "5",
+        "d": "6",
+        "context": "В Германии земли — это собственные политические образования со своими парламентами, так называемыми земельными парламентами. Эти парламенты избираются с регулярными интервалами гражданами. Продолжительность избирательного периода устанавливается законом и может различаться от штата к штату. Вопрос касается конкретно баварского земельного парламента и продолжительности его законодательного периода."
+      }
+    },
+    {
+      "id": "lid_BY_4",
+      "num": "BY-4",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Ab welchem Alter darf man in Bayern bei Kommunalwahlen wählen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "14",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "16",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "18",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "20",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "In Deutschland gelten für Wahlen unterschiedliche gesetzliche Regelungen, die sich je nach Wahlart und Bundesland unterscheiden können. Besonders bei Kommunalwahlen haben einige Bundesländer das Wahlalter abgesenkt, um jüngeren Menschen politische Mitbestimmung zu ermöglichen. Die folgende Frage bezieht sich speziell auf die Altersgrenze für das aktive Wahlrecht bei Kommunalwahlen im Bundesland Bayern.",
+      "image": null,
+      "translationRu": {
+        "question": "С какого возраста можно голосовать на местных выборах в Баварии?",
+        "a": "14",
+        "b": "16",
+        "c": "18",
+        "d": "20",
+        "context": "В Германии к выборам действуют различные правовые нормы, которые могут различаться в зависимости от типа выборов и федеральной земли. Особенно на местных выборах некоторые федеральные штаты понизили возраст голосования, чтобы молодые люди могли участвовать в политике. Следующий вопрос касается конкретно возрастного ограничения для права голоса на местных выборах в земле Бавария."
+      }
+    },
+    {
+      "id": "lid_BY_5",
+      "num": "BY-5",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Welche Farben hat die Landesflagge von Bayern?",
+      "options": [
+        {
+          "id": "a",
+          "text": "weiß-blau",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "schwarz-gelb",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "blau-weiß-rot",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "grün-weiß-rot",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Die Frage bezieht sich auf Wissen über deutsche Bundesländer und ihre offiziellen Symbole. Besonders Landesflaggen sind ein wichtiger Teil der regionalen Identität und Geschichte. In Deutschland hat jedes Bundesland eigene Farben und Flaggen, die oft aus historischen Wappen oder Traditionen entstanden sind. Um die richtige Antwort zu finden, sollte man sich mit den Symbolen des Freistaats Bayern und seinen typischen Farben auskennen.",
+      "image": null,
+      "translationRu": {
+        "question": "Каких цветов имеет государственный флаг Баварии?",
+        "a": "бело-синий",
+        "b": "чёрно-жёлтый",
+        "c": "синий-белый-красный",
+        "d": "зелёный-белый-красный",
+        "context": "Вопрос касается знаний о немецких государствах и их официальных символах. Национальные флаги, в частности, являются важной частью региональной идентичности и истории. В Германии у каждой земли есть свои цвета и флаги, которые часто происходят из исторических гербов или традиций. Чтобы найти правильный ответ, вам следует ознакомиться с символами Свободного государства Бавария и её типичными цветами."
+      }
+    },
+    {
+      "id": "lid_BY_6",
+      "num": "BY-6",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Wo können Sie sich in Bayern über politische Themen\n                  informieren?",
+      "options": [
+        {
+          "id": "a",
+          "text": "bei den Kirchen",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "beim Ordnungsamt der Gemeinde",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "bei der Landeszentrale für politische Bildung",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "bei der Verbraucherzentrale",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Где можно узнать о политических вопросах в Баварии\n                  ?",
+        "a": "В церквях",
+        "b": "в Управлении общественного порядка муниципалитета",
+        "c": "в Государственном агентстве по гражданскому образованию",
+        "d": "в Центре консультирования потребителей",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_BY_7",
+      "num": "BY-7",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Die Landeshauptstadt von Bayern heißt ...",
+      "options": [
+        {
+          "id": "a",
+          "text": "Nürnberg",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "München",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "Regensburg",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Ingolstadt",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Die Frage stammt aus dem Bereich Geografie und Allgemeinwissen über Deutschland. Sie bezieht sich auf die deutschen Bundesländer und deren politische Zentren. „Landeshauptstadt“ bezeichnet die Stadt, in der die Regierung eines Bundeslandes ihren Sitz hat. Bayern ist eines der 16 Bundesländer Deutschlands, und mehrere bedeutende Städte stehen zur Auswahl.",
+      "image": null,
+      "translationRu": {
+        "question": "Столица земли Баварии называется ...",
+        "a": "Нюрнберг",
+        "b": "Мюнхен",
+        "c": "Регенсбург",
+        "d": "Ингольштадт",
+        "context": "Вопрос возникает из области географии и общих знаний о Германии. Он относится к германским федеративным землям и их политическим центрам. «Столица штата» относится к городу, в котором расположено правительство федеральной земли. Бавария — одна из 16 федеральных земель Германии, и здесь есть несколько значимых городов на выбор."
+      }
+    },
+    {
+      "id": "lid_BY_8",
+      "num": "BY-8",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Wie nennt man den Regierungschef / die Regierungschefin in\n                  Bayern?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Ministerpräsident / Ministerpräsidentin",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Bürgermeister / Bürgermeisterin",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Premierminister / Premierministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Erster Minister / Erste Ministerin",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Как вы называете главу правительства в\n                  Бавария?",
+        "a": "Премьер-министр",
+        "b": "Мэр",
+        "c": "Премьер-министр",
+        "d": "Первый министр",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_BY_9",
+      "num": "BY-9",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Welchen Minister / welche Ministerin hat Bayern nicht?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Außenminister / Außenministerin",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Innenminister / Innenministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Finanzminister / Finanzministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Justizminister / Justizministerin",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "In Deutschland haben die Bundesländer eigene Landesregierungen mit verschiedenen Ministerien. Diese sind jedoch nicht identisch mit den Ministerien auf Bundesebene. Während bestimmte Ressorts wie Inneres, Finanzen oder Justiz typischerweise von den Ländern selbst verwaltet werden, liegen andere Aufgabenbereiche ausschließlich in der Zuständigkeit des Bundes. Um die Frage zu verstehen, sollte man wissen, welche Ministerien ein Bundesland wie Bayern haben kann und welche nicht.",
+      "image": null,
+      "translationRu": {
+        "question": "Какого министра нет в Баварии?",
+        "a": "Министр иностранных дел",
+        "b": "Министр внутренних дел",
+        "c": "Министр финансов",
+        "d": "Министр юстиции",
+        "context": "В Германии федеральные земли имеют собственные правительства земель с разными министерствами. Однако они не идентичны министерствам на федеральном уровне. В то время как некоторые министерства, такие как Министерство внутренних дел, финансов или юстиции, обычно администрируются самими землями, другие области ответственности полностью находятся в ведении федерального правительства. Чтобы понять вопрос, нужно знать, какие министерства могут быть в такой стране, как Бавария, а какие — нет."
+      }
+    },
+    {
+      "id": "lid_BY_10",
+      "num": "BY-10",
+      "block": "state",
+      "stateCode": "BY",
+      "category": "Landesbezogene Fragen (Bayern)",
+      "question": "Welches Bundesland ist Bayern?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1",
+          "isCorrect": false
         },
         {
           "id": "b",
@@ -12276,60 +13055,19 @@
         {
           "id": "d",
           "text": "4",
-          "isCorrect": false
+          "isCorrect": true
         }
       ],
-      "correctOption": "a",
-      "context": "In einem Quiz werden mehrere Wappen mit Nummern angezeigt. Die Aufgabe besteht darin, das richtige Wappen einem deutschen Bundesland zuzuordnen. Dafür ist Grundwissen über die Symbole der Bundesländer hilfreich. Besonders sollte man das Wappen von Brandenburg kennen, das durch seinen roten Adler gekennzeichnet ist. Man soll entscheiden, welche der nummerierten Abbildungen dazu passt.",
-      "image": "/lid_images/qbb1.706c4d3c.jpeg",
+      "correctOption": "d",
+      "context": "In diesem Kontext geht es um Grundwissen zur politischen Geografie Deutschlands. Die Frage prüft, ob man weiß, wie die 16 Bundesländer eingeordnet oder nummeriert sind. Anhand der Antwortmöglichkeiten soll das richtige Bundesland Bayern identifiziert werden.",
+      "image": "/lid_images/qby10.eaddc2be.jpeg",
       "translationRu": {
-        "question": "Какой герб принадлежит земле Бранденбург?",
+        "question": "Какое государство относится к Баварии?",
         "a": "1",
         "b": "2",
         "c": "3",
         "d": "4",
-        "context": "В викторине показываются несколько гербов с номерами. Задача состоит в том, чтобы присвоить немецкому государству правильный герб. Базовые знания о символах федеральных земель полезны для этого. В частности, вам следует знать герб Бранденбурга, который отличается красным орлом. Вам нужно решить, какая из пронумерованных иллюстраций подойдёт под это."
-      }
-    },
-    {
-      "id": "lid_BB_2",
-      "num": "BB-2",
-      "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Welches ist ein Landkreis in Brandenburg?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Amberg-Sulzbach",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Rhein-Sieg-Kreis",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Prignitz",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Vogtlandkreis",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Die Frage bezieht sich auf die Verwaltungsstruktur Deutschlands. Deutschland ist in Bundesländer gegliedert, die wiederum aus Landkreisen und kreisfreien Städten bestehen. Brandenburg ist ein Bundesland im Osten Deutschlands. In der Multiple-Choice-Frage werden verschiedene Landkreise genannt, die zu unterschiedlichen Bundesländern gehören können. Ziel ist es, den Landkreis zu erkennen, der zum Bundesland Brandenburg zählt, im Unterschied zu Landkreisen aus anderen Regionen Deutschlands.",
-      "image": null,
-      "translationRu": {
-        "question": "Какой район является Бранденбургом?",
-        "a": "Амберг-Сульцбах",
-        "b": "Район Рейн-Зиг",
-        "c": "Пригниц",
-        "d": "Vogtlandkreis",
-        "context": "Вопрос касается административной структуры Германии. Германия разделена на федеральные земли, которые, в свою очередь, состоят из сельских округов и независимых городов. Бранденбург — федеральная земля на востоке Германии. В вопросе с выбором выбора называются разные округа, которые могут принадлежать разным федеральным землям. Цель — выделить район, который относится к земле Бранденбург, в отличие от районов других регионов Германии."
+        "context": "В этом контексте основное внимание уделяется базовым знаниям политической географии Германии. Вопрос проверяет, знаете ли вы, как классифицируются или нумеруются 16 федеральных земель. Исходя из вариантов ответов, необходимо определить правильное государство Бавария."
       }
     },
     {
@@ -12374,88 +13112,6 @@
       }
     },
     {
-      "id": "lid_BB_3",
-      "num": "BB-3",
-      "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Für wie viele Jahre wird der Landtag in Brandenburg gewählt?",
-      "options": [
-        {
-          "id": "a",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "4",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "5",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "6",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Die Frage bezieht sich auf das parlamentarische System des Bundeslandes Brandenburg. Der Landtag ist das Landesparlament und wird in regelmäßigen Abständen gewählt. Je nach Bundesland unterscheiden sich die Wahlperioden der Landtage. Die Aufgabe prüft das Wissen über die Dauer einer Legislaturperiode in Brandenburg und bietet mehrere Antwortmöglichkeiten zur Auswahl an.",
-      "image": null,
-      "translationRu": {
-        "question": "Сколько лет будет избираться земельный парламент в Бранденбурге?",
-        "a": "3",
-        "b": "4",
-        "c": "5",
-        "d": "6",
-        "context": "Вопрос касается парламентской системы федеральной земли Бранденбург. Государственный парламент является государственным парламентом и избирается с регулярными интервалами. Избирательные периоды в парламентах штатов различаются в зависимости от федеральной земли. Задание проверяет знания о длительности законодательного срока в Бранденбурге и предлагает несколько возможных ответов на выбор."
-      }
-    },
-    {
-      "id": "lid_BB_4",
-      "num": "BB-4",
-      "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Ab welchem Alter darf man in Brandenburg bei Kommunalwahlen\n                  wählen?",
-      "options": [
-        {
-          "id": "a",
-          "text": "14",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "16",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "18",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "20",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "С какого возраста можно голосовать на местных выборах в Бранденбурге?\n                  ?",
-        "a": "14",
-        "b": "16",
-        "c": "18",
-        "d": "20",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
       "id": "lid_BE_2",
       "num": "BE-2",
       "block": "state",
@@ -12494,252 +13150,6 @@
         "c": "Мекленбургский озёрный край",
         "d": "Альтона",
         "context": "Вопрос касается административной структуры Германии. Берлин разделён на несколько районов, которые представляют собой особую форму муниципального управления. Варианты ответов содержат разные географические названия: некоторые из них — берлинские округа, другие — округа или округа в других федеральных землях или городах. Цель — определить район, который фактически принадлежит Берлину."
-      }
-    },
-    {
-      "id": "lid_BB_5",
-      "num": "BB-5",
-      "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Die Landeshauptstadt von Brandenburg heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Potsdam",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "Cottbus",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Brandenburg an der Havel",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Frankfurt (Oder)",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Potsdam ist die Landeshauptstadt und bevölkerungsreichste Stadt des Landes Brandenburg.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Бранденбург является …",
-        "a": "Потсдам",
-        "b": "Котбус",
-        "c": "Бранденбург-на-Хафеле",
-        "d": "Франкфурт (Одер)",
-        "context": "Потсдам является столицей и самым крупным городом федеральной земли Бранденбург."
-      }
-    },
-    {
-      "id": "lid_BB_6",
-      "num": "BB-6",
-      "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Die Landeshauptstadt von Brandenburg heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Potsdam",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "Cottbus",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Brandenburg an der Havel",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Frankfurt (Oder)",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Potsdam ist die Landeshauptstadt und bevölkerungsreichste Stadt des Landes Brandenburg.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Бранденбург является …",
-        "a": "Потсдам",
-        "b": "Котбус",
-        "c": "Бранденбург-на-Хафеле",
-        "d": "Франкфурт (Одер)",
-        "context": "Потсдам является столицей и самым крупным городом федеральной земли Бранденбург."
-      }
-    },
-    {
-      "id": "lid_BB_7",
-      "num": "BB-7",
-      "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Die Landeshauptstadt von Brandenburg heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Potsdam",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "Cottbus",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Brandenburg an der Havel",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Frankfurt (Oder)",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Potsdam ist die Landeshauptstadt und bevölkerungsreichste Stadt des Landes Brandenburg.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Бранденбург является …",
-        "a": "Потсдам",
-        "b": "Котбус",
-        "c": "Бранденбург-на-Хафеле",
-        "d": "Франкфурт (Одер)",
-        "context": "Потсдам является столицей и самым крупным городом федеральной земли Бранденбург."
-      }
-    },
-    {
-      "id": "lid_BB_8",
-      "num": "BB-8",
-      "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Die Landeshauptstadt von Brandenburg heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Potsdam",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "Cottbus",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Brandenburg an der Havel",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Frankfurt (Oder)",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Potsdam ist die Landeshauptstadt und bevölkerungsreichste Stadt des Landes Brandenburg.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Бранденбург является …",
-        "a": "Потсдам",
-        "b": "Котбус",
-        "c": "Бранденбург-на-Хафеле",
-        "d": "Франкфурт (Одер)",
-        "context": "Потсдам является столицей и самым крупным городом федеральной земли Бранденбург."
-      }
-    },
-    {
-      "id": "lid_BB_9",
-      "num": "BB-9",
-      "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Die Landeshauptstadt von Brandenburg heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Potsdam",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "Cottbus",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Brandenburg an der Havel",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Frankfurt (Oder)",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Potsdam ist die Landeshauptstadt und bevölkerungsreichste Stadt des Landes Brandenburg.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Бранденбург является …",
-        "a": "Потсдам",
-        "b": "Котбус",
-        "c": "Бранденбург-на-Хафеле",
-        "d": "Франкфурт (Одер)",
-        "context": "Потсдам является столицей и самым крупным городом федеральной земли Бранденбург."
-      }
-    },
-    {
-      "id": "lid_BB_10",
-      "num": "BB-10",
-      "block": "state",
-      "stateCode": "BB",
-      "category": "Landesbezogene Fragen (Brandenburg)",
-      "question": "Die Landeshauptstadt von Brandenburg heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Potsdam",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "Cottbus",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Brandenburg an der Havel",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Frankfurt (Oder)",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Potsdam ist die Landeshauptstadt und bevölkerungsreichste Stadt des Landes Brandenburg.",
-      "image": "/lid_images/qbb10.7926742d.jpeg",
-      "translationRu": {
-        "question": "Столицей земли Бранденбург является …",
-        "a": "Потсдам",
-        "b": "Котбус",
-        "c": "Бранденбург-на-Хафеле",
-        "d": "Франкфурт (Одер)",
-        "context": "Потсдам является столицей и самым крупным городом федеральной земли Бранденбург."
       }
     },
     {
@@ -13071,176 +13481,94 @@
       }
     },
     {
-      "id": "lid_BW_1",
-      "num": "BW-1",
+      "id": "lid_BB_1",
+      "num": "BB-1",
       "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Welches Wappen gehört zum Bundesland Baden-Württemberg?",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Welches Wappen gehört zum Bundesland Brandenburg?",
       "options": [
         {
           "id": "a",
-          "text": "2",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "4",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
           "text": "1",
           "isCorrect": true
         },
         {
-          "id": "d",
-          "text": "3",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Die Frage bezieht sich auf deutsche Bundesländer und ihre offiziellen Wappen. Jedes Bundesland hat ein eigenes, historisch geprägtes Wappen mit bestimmten Symbolen, Farben und Motiven. In der Aufgabe werden mehrere nummerierte Abbildungen von Wappen gezeigt. Ziel ist es, das richtige Wappen zu identifizieren, das zum Bundesland Baden-Württemberg gehört. Dafür sind Kenntnisse über das Aussehen des Landeswappens sowie der Vergleich mit anderen möglichen Wappen hilfreich.",
-      "image": "/lid_images/qbw1.18061c05.jpeg",
-      "translationRu": {
-        "question": "Какой герб принадлежит земле Баден-Вюртемберг?",
-        "a": "2",
-        "b": "4",
-        "c": "1",
-        "d": "3",
-        "context": "Вопрос касается германских федеративных земель и их официальных гербонов. Каждая федеральная земля имеет свой собственный, исторически оформленный герб с определёнными символами, цветами и мотивами. В задании показаны несколько пронумерованных изображений гербов. Цель — определить правильный герб, который принадлежит земле Баден-Вюртемберг. Знание внешнего вида герба штата и сравнение с другими возможными гербами полезны для этого."
-      }
-    },
-    {
-      "id": "lid_BW_2",
-      "num": "BW-2",
-      "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Welches ist ein Landkreis in Baden-Württemberg?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Neckar-Odenwald-Kreis",
-          "isCorrect": true
-        },
-        {
           "id": "b",
-          "text": "Nordfriesland",
+          "text": "2",
           "isCorrect": false
         },
         {
           "id": "c",
-          "text": "Altötting",
+          "text": "3",
           "isCorrect": false
         },
         {
           "id": "d",
-          "text": "Mecklenburgische Seenplatte",
+          "text": "4",
           "isCorrect": false
         }
       ],
       "correctOption": "a",
-      "context": "Die folgende Frage bezieht sich auf die geografische Einteilung Deutschlands. Deutschland ist in Bundesländer, Regierungsbezirke und Landkreise unterteilt. Gesucht wird ein Landkreis, der zum Bundesland Baden-Württemberg gehört. Die Antwortmöglichkeiten nennen verschiedene Landkreise, die jeweils in unterschiedlichen Regionen oder Bundesländern liegen. Um die richtige Antwort zu finden, ist Grundwissen über die deutschen Bundesländer und ihre jeweiligen Landkreise hilfreich.",
-      "image": null,
+      "context": "Das Wappen Brandenburgs zeigt auf weißem (silbernem) Schild einen nach rechts blickenden roten Adler (Märkischer Adler) mit goldenen Krallen und Schnabel.",
+      "image": "/lid_images/qbb1.706c4d3c.jpeg",
       "translationRu": {
-        "question": "Какой район является частью Баден-Вюртемберга?",
-        "a": "Край Неккар-Оденвальд",
-        "b": "Северная Фрисландия",
-        "c": "Альтёттинг",
-        "d": "Мекленбургский озёрный край",
-        "context": "Следующий вопрос касается географического деления Германии. Германия разделена на федеральные земли, административные округа и сельские районы. Рассматривается округ, входящий в состав земли Баден-Вюртемберг. Варианты на ответы предоставляются разными округами, каждый из которых расположен в разных регионах или федеральных штатах. Чтобы найти правильный ответ, полезны базовые знания о германских федеральных землях и их соответствующих округах."
-      }
-    },
-    {
-      "id": "lid_BY_1",
-      "num": "BY-1",
-      "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Welches Wappen gehört zum Freistaat Bayern?",
-      "options": [
-        {
-          "id": "a",
-          "text": "1",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "2",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "4",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "In dieser Aufgabe sehen Sie mehrere nummerierte Abbildungen von Wappen. Jedes Wappen gehört zu einem anderen deutschen Bundesland oder einer historischen Region. Ihre Aufgabe ist es, anhand der typischen Symbole, Farben und Muster das offizielle Wappen des Freistaats Bayern zu erkennen. Wählen Sie die Nummer aus, die dem bayerischen Landeswappen entspricht.",
-      "image": "/lid_images/qby1.378f8193.jpeg",
-      "translationRu": {
-        "question": "Какой герб принадлежит Свободному государству Бавария?",
+        "question": "Какой герб принадлежит федеральной земле Бранденбург?",
         "a": "1",
         "b": "2",
         "c": "3",
         "d": "4",
-        "context": "В этом задании вы увидите несколько пронумерованных изображений гербов (пронумерованных изображений). Каждый герб принадлежит отдельному немецкому государству или историческому региону. Их задача — признать официальный герб Свободного государства Бавария на основе типичных символов, цветов и узоров. Выберите номер, соответствующий гербу баварского государства."
+        "context": "Герб Бранденбурга представляет собой красный бранденбургский орёл на белом щите с золотыми когтями и клювом."
       }
     },
     {
-      "id": "lid_BY_2",
-      "num": "BY-2",
+      "id": "lid_BB_2",
+      "num": "BB-2",
       "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Welches ist ein Landkreis in Bayern?",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Welches ist ein Landkreis in Brandenburg?",
       "options": [
         {
           "id": "a",
-          "text": "Altötting",
+          "text": "Prignitz",
           "isCorrect": true
         },
         {
           "id": "b",
-          "text": "Prignitz",
+          "text": "Rhein-Sieg-Kreis",
           "isCorrect": false
         },
         {
           "id": "c",
-          "text": "Nordfriesland",
+          "text": "Vogtlandkreis",
           "isCorrect": false
         },
         {
           "id": "d",
-          "text": "Rhein-Sieg-Kreis",
+          "text": "Ammerland",
           "isCorrect": false
         }
       ],
       "correctOption": "a",
-      "context": "Die Frage bezieht sich auf Verwaltungsregionen in Deutschland. Deutschland ist in Bundesländer gegliedert, die wiederum in Landkreise oder kreisfreie Städte unterteilt sind. Bayern ist eines der 16 Bundesländer, und es gibt mehrere Landkreise innerhalb dieses Bundeslandes. Die Antwortmöglichkeiten nennen verschiedene Regionen, von denen einige in anderen Bundesländern liegen. Ziel ist es zu erkennen, welche der genannten Optionen ein Landkreis im Bundesland Bayern ist.",
+      "context": "Der Landkreis Prignitz liegt im Nordwesten von Brandenburg. Die anderen genannten Landkreise gehören zu anderen Bundesländern (z.B. NRW, Sachsen, Niedersachsen).",
       "image": null,
       "translationRu": {
-        "question": "Какой район является Баварией?",
-        "a": "Альтёттинг",
-        "b": "Пригниц",
-        "c": "Северная Фрисландия",
-        "d": "Район Рейн-Зиг",
-        "context": "Вопрос касается административных регионов Германии. Германия разделена на федеральные земли, которые, в свою очередь, делятся на округа или независимые города. Бавария — одна из 16 федеральных земель, и в её земле есть несколько округов. Варианты ответов называют различные регионы, некоторые из которых расположены в других федеральных землях. Цель — определить, какой из упомянутых вариантов является районом в земле Бавария."
+        "question": "Какой район (Landkreis) находится в Бранденбурге?",
+        "a": "Пригниц",
+        "b": "Район Рейн-Зиг",
+        "c": "Фогтланд",
+        "d": "Аммерланд",
+        "context": "Район Пригниц расположен на северо-западе Бранденбурга."
       }
     },
     {
-      "id": "lid_BY_3",
-      "num": "BY-3",
+      "id": "lid_BB_3",
+      "num": "BB-3",
       "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Für wie viele Jahre wird der Landtag in Bayern gewählt?",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Für wie viele Jahre wird der Landtag in Brandenburg gewählt?",
       "options": [
         {
           "id": "a",
@@ -13264,65 +13592,24 @@
         }
       ],
       "correctOption": "c",
-      "context": "In Deutschland sind die Länder eigene politische Einheiten mit eigenen Parlamenten, den sogenannten Landtagen. Diese Parlamente werden in regelmäßigen Abständen von den Bürgerinnen und Bürgern gewählt. Die Dauer einer Wahlperiode ist dabei gesetzlich festgelegt und kann sich von Bundesland zu Bundesland unterscheiden. Die Frage bezieht sich speziell auf den Bayerischen Landtag und die Länge seiner Legislaturperiode.",
+      "context": "Die Wahlperiode des Landtages Brandenburg beträgt fünf Jahre.",
       "image": null,
       "translationRu": {
-        "question": "Сколько лет будет избираться земельный парламент в Баварии?",
+        "question": "На сколько лет избирается ландтаг в Бранденбурге?",
         "a": "3",
         "b": "4",
         "c": "5",
         "d": "6",
-        "context": "В Германии земли — это собственные политические образования со своими парламентами, так называемыми земельными парламентами. Эти парламенты избираются с регулярными интервалами гражданами. Продолжительность избирательного периода устанавливается законом и может различаться от штата к штату. Вопрос касается конкретно баварского земельного парламента и продолжительности его законодательного периода."
+        "context": "Срок полномочий ландтага Бранденбурга составляет 5 лет."
       }
     },
     {
-      "id": "lid_BW_3",
-      "num": "BW-3",
+      "id": "lid_BB_4",
+      "num": "BB-4",
       "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Für wie viele Jahre wird der Landtag in Baden-Württemberg\n                  gewählt?",
-      "options": [
-        {
-          "id": "a",
-          "text": "6",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "5",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "4",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "Сколько лет будет работать парламент земли в Баден-Вюртемберге?\n                  Избран?",
-        "a": "6",
-        "b": "3",
-        "c": "5",
-        "d": "4",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_BY_4",
-      "num": "BY-4",
-      "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Ab welchem Alter darf man in Bayern bei Kommunalwahlen wählen?",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Ab welchem Alter darf man in Brandenburg bei Kommunalwahlen wählen?",
       "options": [
         {
           "id": "a",
@@ -13332,12 +13619,12 @@
         {
           "id": "b",
           "text": "16",
-          "isCorrect": false
+          "isCorrect": true
         },
         {
           "id": "c",
           "text": "18",
-          "isCorrect": true
+          "isCorrect": false
         },
         {
           "id": "d",
@@ -13345,148 +13632,66 @@
           "isCorrect": false
         }
       ],
-      "correctOption": "c",
-      "context": "In Deutschland gelten für Wahlen unterschiedliche gesetzliche Regelungen, die sich je nach Wahlart und Bundesland unterscheiden können. Besonders bei Kommunalwahlen haben einige Bundesländer das Wahlalter abgesenkt, um jüngeren Menschen politische Mitbestimmung zu ermöglichen. Die folgende Frage bezieht sich speziell auf die Altersgrenze für das aktive Wahlrecht bei Kommunalwahlen im Bundesland Bayern.",
+      "correctOption": "b",
+      "context": "In Brandenburg dürfen Jugendliche bereits ab dem vollendeten 16. Lebensjahr an Kommunalwahlen und Landtagswahlen teilnehmen.",
       "image": null,
       "translationRu": {
-        "question": "С какого возраста можно голосовать на местных выборах в Баварии?",
+        "question": "С какого возраста разрешено голосовать на коммунальных выборах в Бранденбурге?",
         "a": "14",
         "b": "16",
         "c": "18",
         "d": "20",
-        "context": "В Германии к выборам действуют различные правовые нормы, которые могут различаться в зависимости от типа выборов и федеральной земли. Особенно на местных выборах некоторые федеральные штаты понизили возраст голосования, чтобы молодые люди могли участвовать в политике. Следующий вопрос касается конкретно возрастного ограничения для права голоса на местных выборах в земле Бавария."
+        "context": "В Бранденбурге активное избирательное право на коммунальных и земельных выборах наступает с 16 лет."
       }
     },
     {
-      "id": "lid_BW_4",
-      "num": "BW-4",
+      "id": "lid_BB_5",
+      "num": "BB-5",
       "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Ab welchem Alter darf man in Baden-Württemberg bei\n                  Kommunalwahlen wählen?",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Welche Farben hat die Landesflagge von Brandenburg?",
       "options": [
         {
           "id": "a",
-          "text": "16",
+          "text": "rot-weiß",
           "isCorrect": true
         },
         {
           "id": "b",
-          "text": "18",
+          "text": "blau-weiß-rot",
           "isCorrect": false
         },
         {
           "id": "c",
-          "text": "20",
+          "text": "weiß-blau",
           "isCorrect": false
         },
         {
           "id": "d",
-          "text": "14",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "С какого возраста можно участвовать в Баден-Вюртемберге\n                  Голосовать на местных выборах?",
-        "a": "16",
-        "b": "18",
-        "c": "20",
-        "d": "14",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_BY_5",
-      "num": "BY-5",
-      "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Welche Farben hat die Landesflagge von Bayern?",
-      "options": [
-        {
-          "id": "a",
-          "text": "weiß-blau",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
           "text": "schwarz-gelb",
           "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "blau-weiß-rot",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "grün-weiß-rot",
-          "isCorrect": false
         }
       ],
       "correctOption": "a",
-      "context": "Die Frage bezieht sich auf Wissen über deutsche Bundesländer und ihre offiziellen Symbole. Besonders Landesflaggen sind ein wichtiger Teil der regionalen Identität und Geschichte. In Deutschland hat jedes Bundesland eigene Farben und Flaggen, die oft aus historischen Wappen oder Traditionen entstanden sind. Um die richtige Antwort zu finden, sollte man sich mit den Symbolen des Freistaats Bayern und seinen typischen Farben auskennen.",
+      "context": "Die Landesflagge von Brandenburg besteht aus zwei gleich breiten Querstreifen in den Landesfarben Rot und Weiß.",
       "image": null,
       "translationRu": {
-        "question": "Каких цветов имеет государственный флаг Баварии?",
-        "a": "бело-синий",
-        "b": "чёрно-жёлтый",
-        "c": "синий-белый-красный",
-        "d": "зелёный-белый-красный",
-        "context": "Вопрос касается знаний о немецких государствах и их официальных символах. Национальные флаги, в частности, являются важной частью региональной идентичности и истории. В Германии у каждой земли есть свои цвета и флаги, которые часто происходят из исторических гербов или традиций. Чтобы найти правильный ответ, вам следует ознакомиться с символами Свободного государства Бавария и её типичными цветами."
+        "question": "Каких цветов флаг федеральной земли Бранденбург?",
+        "a": "красно-белый",
+        "b": "сине-бело-красный",
+        "c": "бело-синий",
+        "d": "чёрно-жёлтый",
+        "context": "Флаг Бранденбурга состоит из двух горизонтальных полос: красной и белой."
       }
     },
     {
-      "id": "lid_BW_5",
-      "num": "BW-5",
+      "id": "lid_BB_6",
+      "num": "BB-6",
       "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Welche Farben hat die Landesflagge von Baden-Württemberg?",
-      "options": [
-        {
-          "id": "a",
-          "text": "grün-weiß-rot",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "weiß-blau",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "blau-weiß-rot",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "schwarz-gold",
-          "isCorrect": true
-        }
-      ],
-      "correctOption": "d",
-      "context": "Die Frage bezieht sich auf das Wissen über deutsche Bundesländer und ihre Symbole. Baden-Württemberg ist eines der 16 Bundesländer Deutschlands und besitzt wie jedes Bundesland eine eigene Landesflagge. In einem Multiple-Choice-Format werden verschiedene Farbkombinationen angeboten. Um die richtige Antwort zu wählen, sollte man die Flaggen deutscher Bundesländer kennen oder sich mit deutscher Geografie und Heraldik auskennen.",
-      "image": null,
-      "translationRu": {
-        "question": "Каких цветов имеет государственный флаг Баден-Вюртемберга?",
-        "a": "зелёный-белый-красный",
-        "b": "бело-синий",
-        "c": "синий-белый-красный",
-        "d": "Чёрно-золотой",
-        "context": "Вопрос касается знания германских федеративных земель и их символов. Баден-Вюртемберг — одна из 16 федеральных земель Германии и, как и каждая федеральная земля, имеет свой собственный государственный флаг. В формате с несколькими вариантами выбора предлагаются различные цветовые комбинации. Чтобы выбрать правильный ответ, необходимо знать флаги немецких земель или быть знакомым с географией и геральдикой Германии."
-      }
-    },
-    {
-      "id": "lid_BW_6",
-      "num": "BW-6",
-      "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Wo können Sie sich in Baden-Württemberg über politische Themen\n                  informieren?",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Wo können Sie sich in Brandenburg über politische Themen informieren?",
       "options": [
         {
           "id": "a",
@@ -13495,285 +13700,80 @@
         },
         {
           "id": "b",
-          "text": "beim Ordnungsamt der Gemeinde",
+          "text": "beim Ordnungsamt",
           "isCorrect": false
         },
         {
           "id": "c",
-          "text": "bei den Kirchen",
+          "text": "bei der Verbraucherzentrale",
           "isCorrect": false
         },
         {
           "id": "d",
-          "text": "bei der Verbraucherzentrale",
+          "text": "beim Amtsgericht",
           "isCorrect": false
         }
       ],
       "correctOption": "a",
-      "context": "Wichtige Frage für das Leben in Deutschland",
+      "context": "Die Brandenburgische Landeszentrale für politische Bildung bietet umfassende Informationen und Publikationen zu politischen Themen.",
       "image": null,
       "translationRu": {
-        "question": "Где можно узнать о политических вопросах в Баден-Вюртемберге?\n                  ?",
-        "a": "в Государственном агентстве по гражданскому образованию",
-        "b": "в Управлении общественного порядка муниципалитета",
-        "c": "В церквях",
-        "d": "в Центре консультирования потребителей",
-        "context": "Важный вопрос для жизни в Германии"
+        "question": "Где в Бранденбурге можно получить информацию по политическим вопросам?",
+        "a": "в земельном центре политического образования (Landeszentrale für politische Bildung)",
+        "b": "в ведомстве правопорядка (Ordnungsamt)",
+        "c": "в обществе защиты прав потребителей",
+        "d": "в участковом суде",
+        "context": "Земельный центр политического образования — главный государственный источник информации по политическим и гражданским вопросам."
       }
     },
     {
-      "id": "lid_BW_7",
-      "num": "BW-7",
+      "id": "lid_BB_7",
+      "num": "BB-7",
       "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Die Landeshauptstadt von Baden-Württemberg heißt ...",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Die Landeshauptstadt von Brandenburg heißt …",
       "options": [
         {
           "id": "a",
-          "text": "Mannheim",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Stuttgart",
+          "text": "Potsdam",
           "isCorrect": true
         },
         {
-          "id": "c",
-          "text": "Heidelberg",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Karlsruhe",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Die Frage bezieht sich auf die politischen und geografischen Strukturen der deutschen Bundesländer. Baden-Württemberg ist eines der 16 Bundesländer Deutschlands und hat eine festgelegte Landeshauptstadt, in der Regierung und Parlament ihren Sitz haben. Die Antwortmöglichkeiten nennen bekannte Städte des Bundeslandes, von denen nur eine die Hauptstadt ist.",
-      "image": null,
-      "translationRu": {
-        "question": "Столица земли Баден-Вюртемберг называется ...",
-        "a": "Мангейм",
-        "b": "Штутгарт",
-        "c": "Гейдельберг",
-        "d": "Карлсруэ",
-        "context": "Вопрос касается политических и географических структур германских федеративных земель. Баден-Вюртемберг — одна из 16 федеральных земель Германии и имеет назначенную столицу земли, в которой расположены свои места правительства и парламента. В ответах называются известные города штата, из которых только один является столицей."
-      }
-    },
-    {
-      "id": "lid_BW_8",
-      "num": "BW-8",
-      "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Welches Bundesland ist Baden-Württemberg?",
-      "options": [
-        {
-          "id": "a",
-          "text": "1",
-          "isCorrect": false
-        },
-        {
           "id": "b",
-          "text": "2",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "4",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Die Frage stammt aus einem Multiple-Choice-Test zur deutschen Geografie. Auf einer Abbildung oder Liste sind die Bundesländer Deutschlands mit den Zahlen 1 bis 4 gekennzeichnet. Anhand dieser Nummern soll erkannt werden, welche Zahl dem Bundesland Baden-Württemberg entspricht. Ziel ist es, Kenntnisse über die Lage und Einordnung der Bundesländer zu prüfen.",
-      "image": "/lid_images/qbw8.27ed57e1.jpeg",
-      "translationRu": {
-        "question": "Какая земля относится к Баден-Вюртембергу?",
-        "a": "1",
-        "b": "2",
-        "c": "3",
-        "d": "4",
-        "context": "Вопрос возникает из теста с несколькими вариантами ответа по немецкой географии. На рисунке или списке федеральные земли Германии отмечены номерами от 1 до 4. Эти числа используются для определения, какое число соответствует земле Баден-Вюртемберг. Цель — проверить знания о ситуации и классификации федеральных земель."
-      }
-    },
-    {
-      "id": "lid_BW_9",
-      "num": "BW-9",
-      "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Wie nennt man den Regierungschef / die Regierungschefin in\n                  Baden-Württemberg?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Bürgermeister / Bürgermeisterin",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Ministerpräsident / Ministerpräsidentin",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "Premierminister / Premierministerin",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Erster Minister / Erste Ministerin",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "Как вы называете главу правительства в\n                  Баден-Вюртемберг?",
-        "a": "Мэр",
-        "b": "Премьер-министр",
-        "c": "Премьер-министр",
-        "d": "Первый министр",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_BW_10",
-      "num": "BW-10",
-      "block": "state",
-      "stateCode": "BW",
-      "category": "Landesbezogene Fragen (Baden-Württemberg)",
-      "question": "Welchen Minister / welche Ministerin hat Baden-Württemberg\n                  nicht?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Finanzminister / Finanzministerin",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Innenminister / Innenministerin",
+          "text": "Cottbus",
           "isCorrect": false
         },
         {
           "id": "c",
-          "text": "Außenminister / Außenministerin",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Justizminister / Justizministerin",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "Какой министр у Баден-Вюртемберга?\n                  Не так ли?",
-        "a": "Министр финансов",
-        "b": "Министр внутренних дел",
-        "c": "Министр иностранных дел",
-        "d": "Министр юстиции",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_BY_6",
-      "num": "BY-6",
-      "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Wo können Sie sich in Bayern über politische Themen\n                  informieren?",
-      "options": [
-        {
-          "id": "a",
-          "text": "bei den Kirchen",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "beim Ordnungsamt der Gemeinde",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "bei der Landeszentrale für politische Bildung",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "bei der Verbraucherzentrale",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "Где можно узнать о политических вопросах в Баварии\n                  ?",
-        "a": "В церквях",
-        "b": "в Управлении общественного порядка муниципалитета",
-        "c": "в Государственном агентстве по гражданскому образованию",
-        "d": "в Центре консультирования потребителей",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_BY_7",
-      "num": "BY-7",
-      "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Die Landeshauptstadt von Bayern heißt ...",
-      "options": [
-        {
-          "id": "a",
-          "text": "Nürnberg",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "München",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "Regensburg",
+          "text": "Frankfurt (Oder)",
           "isCorrect": false
         },
         {
           "id": "d",
-          "text": "Ingolstadt",
+          "text": "Brandenburg an der Havel",
           "isCorrect": false
         }
       ],
-      "correctOption": "b",
-      "context": "Die Frage stammt aus dem Bereich Geografie und Allgemeinwissen über Deutschland. Sie bezieht sich auf die deutschen Bundesländer und deren politische Zentren. „Landeshauptstadt“ bezeichnet die Stadt, in der die Regierung eines Bundeslandes ihren Sitz hat. Bayern ist eines der 16 Bundesländer Deutschlands, und mehrere bedeutende Städte stehen zur Auswahl.",
+      "correctOption": "a",
+      "context": "Potsdam ist die bevölkerungsreichste Stadt und die Landeshauptstadt des Landes Brandenburg.",
       "image": null,
       "translationRu": {
-        "question": "Столица земли Баварии называется ...",
-        "a": "Нюрнберг",
-        "b": "Мюнхен",
-        "c": "Регенсбург",
-        "d": "Ингольштадт",
-        "context": "Вопрос возникает из области географии и общих знаний о Германии. Он относится к германским федеративным землям и их политическим центрам. «Столица штата» относится к городу, в котором расположено правительство федеральной земли. Бавария — одна из 16 федеральных земель Германии, и здесь есть несколько значимых городов на выбор."
+        "question": "Столица федеральной земли Бранденбург называется …",
+        "a": "Потсдам",
+        "b": "Котбус",
+        "c": "Франкфурт-на-Одере",
+        "d": "Бранденбург-на-Хафеле",
+        "context": "Потсдам — официальная столица земли Бранденбург."
       }
     },
     {
-      "id": "lid_BY_8",
-      "num": "BY-8",
+      "id": "lid_BB_8",
+      "num": "BB-8",
       "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Wie nennt man den Regierungschef / die Regierungschefin in\n                  Bayern?",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Wie nennt man den Regierungschef / die Regierungschefin in Brandenburg?",
       "options": [
         {
           "id": "a",
@@ -13782,39 +13782,39 @@
         },
         {
           "id": "b",
-          "text": "Bürgermeister / Bürgermeisterin",
+          "text": "Erster Bürgermeister / Erste Bürgermeisterin",
           "isCorrect": false
         },
         {
           "id": "c",
-          "text": "Premierminister / Premierministerin",
+          "text": "Regierender Bürgermeister / Regierende Bürgermeisterin",
           "isCorrect": false
         },
         {
           "id": "d",
-          "text": "Erster Minister / Erste Ministerin",
+          "text": "Landeshauptmann / Landeshauptfrau",
           "isCorrect": false
         }
       ],
       "correctOption": "a",
-      "context": "Wichtige Frage für das Leben in Deutschland",
+      "context": "Der Regierungschef in einem Flächenland wie Brandenburg heißt Ministerpräsident / Ministerpräsidentin.",
       "image": null,
       "translationRu": {
-        "question": "Как вы называете главу правительства в\n                  Бавария?",
-        "a": "Премьер-министр",
-        "b": "Мэр",
-        "c": "Премьер-министр",
-        "d": "Первый министр",
-        "context": "Важный вопрос для жизни в Германии"
+        "question": "Как называется глава правительства в Бранденбурге?",
+        "a": "премьер-министр (Ministerpräsident / Ministerpräsidentin)",
+        "b": "первый бургомистр",
+        "c": "правящий бургомистр",
+        "d": "глава земли",
+        "context": "Главой правительства земли Бранденбург является премьер-министр (Ministerpräsident)."
       }
     },
     {
-      "id": "lid_BY_9",
-      "num": "BY-9",
+      "id": "lid_BB_9",
+      "num": "BB-9",
       "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Welchen Minister / welche Ministerin hat Bayern nicht?",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Welchen Minister / welche Ministerin hat Brandenburg nicht?",
       "options": [
         {
           "id": "a",
@@ -13823,39 +13823,39 @@
         },
         {
           "id": "b",
-          "text": "Innenminister / Innenministerin",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
           "text": "Finanzminister / Finanzministerin",
           "isCorrect": false
         },
         {
-          "id": "d",
+          "id": "c",
           "text": "Justizminister / Justizministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Innenminister / Innenministerin",
           "isCorrect": false
         }
       ],
       "correctOption": "a",
-      "context": "In Deutschland haben die Bundesländer eigene Landesregierungen mit verschiedenen Ministerien. Diese sind jedoch nicht identisch mit den Ministerien auf Bundesebene. Während bestimmte Ressorts wie Inneres, Finanzen oder Justiz typischerweise von den Ländern selbst verwaltet werden, liegen andere Aufgabenbereiche ausschließlich in der Zuständigkeit des Bundes. Um die Frage zu verstehen, sollte man wissen, welche Ministerien ein Bundesland wie Bayern haben kann und welche nicht.",
+      "context": "Die Außenpolitik ist Sache des Bundes, weshalb Bundesländer kein eigenes Außenministerium haben.",
       "image": null,
       "translationRu": {
-        "question": "Какого министра нет в Баварии?",
-        "a": "Министр иностранных дел",
-        "b": "Министр внутренних дел",
-        "c": "Министр финансов",
-        "d": "Министр юстиции",
-        "context": "В Германии федеральные земли имеют собственные правительства земель с разными министерствами. Однако они не идентичны министерствам на федеральном уровне. В то время как некоторые министерства, такие как Министерство внутренних дел, финансов или юстиции, обычно администрируются самими землями, другие области ответственности полностью находятся в ведении федерального правительства. Чтобы понять вопрос, нужно знать, какие министерства могут быть в такой стране, как Бавария, а какие — нет."
+        "question": "Какого министра нет в правительстве Бранденбурга?",
+        "a": "министра иностранных дел (Außenminister)",
+        "b": "министра финансов",
+        "c": "министра юстиции",
+        "d": "министра внутренних дел",
+        "context": "Внешняя политика находится в исключительной компетенции федерального правительства Германии."
       }
     },
     {
-      "id": "lid_BY_10",
-      "num": "BY-10",
+      "id": "lid_BB_10",
+      "num": "BB-10",
       "block": "state",
-      "stateCode": "BY",
-      "category": "Landesbezogene Fragen (Bayern)",
-      "question": "Welches Bundesland ist Bayern?",
+      "stateCode": "BB",
+      "category": "Landesbezogene Fragen (Brandenburg)",
+      "question": "Welches Bundesland ist Brandenburg?",
       "options": [
         {
           "id": "a",
@@ -13870,24 +13870,24 @@
         {
           "id": "c",
           "text": "3",
-          "isCorrect": false
+          "isCorrect": true
         },
         {
           "id": "d",
           "text": "4",
-          "isCorrect": true
+          "isCorrect": false
         }
       ],
-      "correctOption": "d",
-      "context": "In diesem Kontext geht es um Grundwissen zur politischen Geografie Deutschlands. Die Frage prüft, ob man weiß, wie die 16 Bundesländer eingeordnet oder nummeriert sind. Anhand der Antwortmöglichkeiten soll das richtige Bundesland Bayern identifiziert werden.",
-      "image": "/lid_images/qby10.eaddc2be.jpeg",
+      "correctOption": "c",
+      "context": "Auf der Karte sehen Sie die Umrisse Deutschlands. Brandenburg umschließt die Bundeshauptstadt Berlin im Nordosten der Republik.",
+      "image": "/lid_images/qbb10.7926742d.jpeg",
       "translationRu": {
-        "question": "Какое государство относится к Баварии?",
+        "question": "Какая федеральная земля является Бранденбургом на карте?",
         "a": "1",
         "b": "2",
         "c": "3",
         "d": "4",
-        "context": "В этом контексте основное внимание уделяется базовым знаниям политической географии Германии. Вопрос проверяет, знаете ли вы, как классифицируются или нумеруются 16 федеральных земель. Исходя из вариантов ответов, необходимо определить правильное государство Бавария."
+        "context": "На карте Бранденбург окружает столицу Берлин на северо-востоке Германии."
       }
     },
     {
@@ -13973,129 +13973,6 @@
       }
     },
     {
-      "id": "lid_HE_1",
-      "num": "HE-1",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Welches Wappen gehört zum Bundesland Hessen?",
-      "options": [
-        {
-          "id": "a",
-          "text": "1",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "2",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "4",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Im Rahmen eines Quiz oder einer Lernaufgabe zur deutschen Staatskunde sollen Kenntnisse über die Bundesländer überprüft werden. Jedes Bundesland in Deutschland besitzt ein eigenes Wappen mit spezifischen Symbolen und Farben. Die Teilnehmenden sehen mehrere Abbildungen von Wappen und müssen erkennen, welches davon dem Bundesland Hessen zugeordnet ist. Die Auswahl erfolgt über nummerierte Optionen, von denen nur eine korrekt ist.",
-      "image": "/lid_images/qhs1.a1d732b7.jpeg",
-      "translationRu": {
-        "question": "Какой герб принадлежит земле Гессен?",
-        "a": "1",
-        "b": "2",
-        "c": "3",
-        "d": "4",
-        "context": "В рамках викторины или учебного задания по немецкому гражданскому образованию проверяется знание федеральных земель. Каждая земля Германии имеет свой собственный герб с определёнными символами и цветами. Участники видят несколько изображений гербов и должны определить, какой из них относится к земле Гессен. Выбор осуществляется с помощью пронумерованных вариантов, верный только один."
-      }
-    },
-    {
-      "id": "lid_HH_1",
-      "num": "HH-1",
-      "block": "state",
-      "stateCode": "HH",
-      "category": "Landesbezogene Fragen (Hamburg)",
-      "question": "Welches Wappen gehört zur Freien und Hansestadt Hamburg?",
-      "options": [
-        {
-          "id": "a",
-          "text": "1",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "2",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "4",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Die Frage bezieht sich auf die Erkennung von offiziellen Hoheitszeichen deutscher Städte. Die Freie und Hansestadt Hamburg besitzt ein eigenes Wappen, das ihre Geschichte, ihren Status als Stadtstaat und ihre Bedeutung als Hafenstadt widerspiegelt. In der Aufgabe werden mehrere Abbildungen von Wappen gezeigt, und es gilt zu entscheiden, welches davon zu Hamburg gehört. Kenntnisse über deutsche Städtewappen oder visuelle Merkmale können dabei helfen.",
-      "image": "/lid_images/qhb1.ec3ac9e3.jpeg",
-      "translationRu": {
-        "question": "Какой герб принадлежит Свободному и Ганзейскому городу Гамбургу?",
-        "a": "1",
-        "b": "2",
-        "c": "3",
-        "d": "4",
-        "context": "Вопрос касается признания официальных эмблем немецких городов. Свободный и ганзейский город Гамбург имеет собственный герб, отражающий его историю, статус города-государства и его значение как портового города. В задании показаны несколько изображений гербов и необходимо определить, какой из них принадлежит Гамбургу. Знание немецких городов или визуальных особенностей может помочь."
-      }
-    },
-    {
-      "id": "lid_HE_2",
-      "num": "HE-2",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Welches ist ein Landkreis in Hessen?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Main-Taunus-Kreis",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "Prignitz",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Ammerland",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Altötting",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Die Frage bezieht sich auf die Verwaltungsstruktur Deutschlands. Deutschland ist in Bundesländer gegliedert, die wiederum aus Landkreisen und kreisfreien Städten bestehen. Hessen ist eines dieser Bundesländer. Um die richtige Antwort zu finden, muss man wissen, welcher der genannten Kreise tatsächlich in Hessen liegt und welche zu anderen Bundesländern gehören.",
-      "image": null,
-      "translationRu": {
-        "question": "Какой район в Гессене?",
-        "a": "Главное-Таунус-Крайс",
-        "b": "Пригниц",
-        "c": "Аммерланд",
-        "d": "Альтёттинг",
-        "context": "Вопрос касается административной структуры Германии. Германия разделена на федеральные земли, которые, в свою очередь, состоят из сельских округов и независимых городов. Гессен — одна из таких федеральных земель. Чтобы найти правильный ответ, нужно знать, какие из упомянутых районов действительно находятся в Гессене, а какие — к другим федеральным землям."
-      }
-    },
-    {
       "id": "lid_HB_3",
       "num": "HB-3",
       "block": "state",
@@ -14134,170 +14011,6 @@
         "c": "5",
         "d": "6",
         "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_HH_2",
-      "num": "HH-2",
-      "block": "state",
-      "stateCode": "HH",
-      "category": "Landesbezogene Fragen (Hamburg)",
-      "question": "Welches ist ein Bezirk von Hamburg?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Pankow",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Altona",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "Mecklenburgische Seenplatte",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Hemelingen",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Die Frage bezieht sich auf die Verwaltungsstruktur in Deutschland. Große Städte wie Hamburg sind in sogenannte Bezirke eingeteilt, die Teil der Stadtverwaltung sind. Andere Antwortmöglichkeiten gehören zu unterschiedlichen Bundesländern oder Städten, etwa zu Berlin, Bremen oder Mecklenburg‑Vorpommern. Mit diesem Wissen soll erkannt werden, welches der genannten Gebiete tatsächlich ein Bezirk der Stadt Hamburg ist.",
-      "image": null,
-      "translationRu": {
-        "question": "Какой из них является районом Гамбурга?",
-        "a": "Панкоу",
-        "b": "Альтона",
-        "c": "Мекленбургский озёрный край",
-        "d": "Хемелинген",
-        "context": "Вопрос касается административной структуры в Германии. Крупные города, такие как Гамбург, делятся на так называемые районы, которые входят в состав городской администрации. Другие возможные ответы относятся к разным федеральным землям или городам, таким как Берлин, Бремен или Мекленбург-Передняя Померания. С этими знаниями можно определить, какой из упомянутых районов на самом деле является районом города Гамбург."
-      }
-    },
-    {
-      "id": "lid_HH_3",
-      "num": "HH-3",
-      "block": "state",
-      "stateCode": "HH",
-      "category": "Landesbezogene Fragen (Hamburg)",
-      "question": "Für wie viele Jahre wird das Landesparlament in Hamburg\n                  gewählt?",
-      "options": [
-        {
-          "id": "a",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "4",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "5",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "6",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "Сколько лет будет работать парламент земли в Гамбурге?\n                  Избран?",
-        "a": "3",
-        "b": "4",
-        "c": "5",
-        "d": "6",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_HH_4",
-      "num": "HH-4",
-      "block": "state",
-      "stateCode": "HH",
-      "category": "Landesbezogene Fragen (Hamburg)",
-      "question": "Ab welchem Alter darf man in Hamburg bei Kommunalwahlen (Wahl\n                  der Bezirksversammlungen) wählen?",
-      "options": [
-        {
-          "id": "a",
-          "text": "14",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "16",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "18",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "20",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "С какого возраста разрешено голосовать на местных выборах в Гамбурге (выборы)\n                  районных собраний)?",
-        "a": "14",
-        "b": "16",
-        "c": "18",
-        "d": "20",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_HE_3",
-      "num": "HE-3",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Für wie viele Jahre wird der Landtag in Hessen gewählt?",
-      "options": [
-        {
-          "id": "a",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "4",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "5",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "6",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Der Landtag ist das Landesparlament eines deutschen Bundeslandes und wird in regelmäßigen Abständen von den Bürgerinnen und Bürgern gewählt. Die Wahlperiode bestimmt, wie lange die Abgeordneten ihr Mandat ausüben, bevor eine neue Wahl stattfindet. In den verschiedenen Bundesländern kann sich die Dauer dieser Legislaturperiode unterscheiden. Um politisches Grundwissen zu überprüfen, wird gefragt, wie viele Jahre die Wahlperiode des Hessischen Landtags beträgt.",
-      "image": null,
-      "translationRu": {
-        "question": "Сколько лет будет избираться земельный парламент в Гессене?",
-        "a": "3",
-        "b": "4",
-        "c": "5",
-        "d": "6",
-        "context": "Ландтаг — это земельный парламент федеральной земли Германии, избираемый с регулярными интервалами гражданами. Избирательный период определяет, как долго члены парламента будут исполнять свой мандат перед проведением новых выборов. Продолжительность этого законодательного периода может различаться в разных федеральных землях. Для проверки базовых политических знаний вопрос в том, сколько лет длится избирательный период парламента земли Гессен."
       }
     },
     {
@@ -14588,6 +14301,170 @@
       }
     },
     {
+      "id": "lid_HH_1",
+      "num": "HH-1",
+      "block": "state",
+      "stateCode": "HH",
+      "category": "Landesbezogene Fragen (Hamburg)",
+      "question": "Welches Wappen gehört zur Freien und Hansestadt Hamburg?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "2",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Die Frage bezieht sich auf die Erkennung von offiziellen Hoheitszeichen deutscher Städte. Die Freie und Hansestadt Hamburg besitzt ein eigenes Wappen, das ihre Geschichte, ihren Status als Stadtstaat und ihre Bedeutung als Hafenstadt widerspiegelt. In der Aufgabe werden mehrere Abbildungen von Wappen gezeigt, und es gilt zu entscheiden, welches davon zu Hamburg gehört. Kenntnisse über deutsche Städtewappen oder visuelle Merkmale können dabei helfen.",
+      "image": "/lid_images/qhb1.ec3ac9e3.jpeg",
+      "translationRu": {
+        "question": "Какой герб принадлежит Свободному и Ганзейскому городу Гамбургу?",
+        "a": "1",
+        "b": "2",
+        "c": "3",
+        "d": "4",
+        "context": "Вопрос касается признания официальных эмблем немецких городов. Свободный и ганзейский город Гамбург имеет собственный герб, отражающий его историю, статус города-государства и его значение как портового города. В задании показаны несколько изображений гербов и необходимо определить, какой из них принадлежит Гамбургу. Знание немецких городов или визуальных особенностей может помочь."
+      }
+    },
+    {
+      "id": "lid_HH_2",
+      "num": "HH-2",
+      "block": "state",
+      "stateCode": "HH",
+      "category": "Landesbezogene Fragen (Hamburg)",
+      "question": "Welches ist ein Bezirk von Hamburg?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Pankow",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "Altona",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "Mecklenburgische Seenplatte",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Hemelingen",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Die Frage bezieht sich auf die Verwaltungsstruktur in Deutschland. Große Städte wie Hamburg sind in sogenannte Bezirke eingeteilt, die Teil der Stadtverwaltung sind. Andere Antwortmöglichkeiten gehören zu unterschiedlichen Bundesländern oder Städten, etwa zu Berlin, Bremen oder Mecklenburg‑Vorpommern. Mit diesem Wissen soll erkannt werden, welches der genannten Gebiete tatsächlich ein Bezirk der Stadt Hamburg ist.",
+      "image": null,
+      "translationRu": {
+        "question": "Какой из них является районом Гамбурга?",
+        "a": "Панкоу",
+        "b": "Альтона",
+        "c": "Мекленбургский озёрный край",
+        "d": "Хемелинген",
+        "context": "Вопрос касается административной структуры в Германии. Крупные города, такие как Гамбург, делятся на так называемые районы, которые входят в состав городской администрации. Другие возможные ответы относятся к разным федеральным землям или городам, таким как Берлин, Бремен или Мекленбург-Передняя Померания. С этими знаниями можно определить, какой из упомянутых районов на самом деле является районом города Гамбург."
+      }
+    },
+    {
+      "id": "lid_HH_3",
+      "num": "HH-3",
+      "block": "state",
+      "stateCode": "HH",
+      "category": "Landesbezogene Fragen (Hamburg)",
+      "question": "Für wie viele Jahre wird das Landesparlament in Hamburg\n                  gewählt?",
+      "options": [
+        {
+          "id": "a",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "4",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "5",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "6",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Сколько лет будет работать парламент земли в Гамбурге?\n                  Избран?",
+        "a": "3",
+        "b": "4",
+        "c": "5",
+        "d": "6",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_HH_4",
+      "num": "HH-4",
+      "block": "state",
+      "stateCode": "HH",
+      "category": "Landesbezogene Fragen (Hamburg)",
+      "question": "Ab welchem Alter darf man in Hamburg bei Kommunalwahlen (Wahl\n                  der Bezirksversammlungen) wählen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "14",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "16",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "18",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "20",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "С какого возраста разрешено голосовать на местных выборах в Гамбурге (выборы)\n                  районных собраний)?",
+        "a": "14",
+        "b": "16",
+        "c": "18",
+        "d": "20",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
       "id": "lid_HH_5",
       "num": "HH-5",
       "block": "state",
@@ -14626,293 +14503,6 @@
         "c": "синий-белый-красный",
         "d": "зелёный-белый-красный",
         "context": "Следующий вопрос касается германских федеративных земель и их официальных символов. У каждого штата свой флаг с определёнными цветами, имеющими историческое и культурное значение. Чтобы найти правильный ответ, полезны базовые знания о флагах немецких городов или стран, особенно о городе Гамбург."
-      }
-    },
-    {
-      "id": "lid_HE_4",
-      "num": "HE-4",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Die Landeshauptstadt von Hessen heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Kassel",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Frankfurt am Main",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Wiesbaden",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Darmstadt",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wiesbaden ist die Landeshauptstadt des deutschen Landes Hessen.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Гессен является …",
-        "a": "Кассель",
-        "b": "Франкфурт-на-Майне",
-        "c": "Висбаден",
-        "d": "Дармштадт",
-        "context": "Висбаден является столицей федеральной земли Гессен."
-      }
-    },
-    {
-      "id": "lid_HE_5",
-      "num": "HE-5",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Die Landeshauptstadt von Hessen heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Kassel",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Frankfurt am Main",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Wiesbaden",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Darmstadt",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wiesbaden ist die Landeshauptstadt des deutschen Landes Hessen.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Гессен является …",
-        "a": "Кассель",
-        "b": "Франкфурт-на-Майне",
-        "c": "Висбаден",
-        "d": "Дармштадт",
-        "context": "Висбаден является столицей федеральной земли Гессен."
-      }
-    },
-    {
-      "id": "lid_HE_6",
-      "num": "HE-6",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Die Landeshauptstadt von Hessen heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Kassel",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Frankfurt am Main",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Wiesbaden",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Darmstadt",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wiesbaden ist die Landeshauptstadt des deutschen Landes Hessen.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Гессен является …",
-        "a": "Кассель",
-        "b": "Франкфурт-на-Майне",
-        "c": "Висбаден",
-        "d": "Дармштадт",
-        "context": "Висбаден является столицей федеральной земли Гессен."
-      }
-    },
-    {
-      "id": "lid_HE_7",
-      "num": "HE-7",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Die Landeshauptstadt von Hessen heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Kassel",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Frankfurt am Main",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Wiesbaden",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Darmstadt",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wiesbaden ist die Landeshauptstadt des deutschen Landes Hessen.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Гессен является …",
-        "a": "Кассель",
-        "b": "Франкфурт-на-Майне",
-        "c": "Висбаден",
-        "d": "Дармштадт",
-        "context": "Висбаден является столицей федеральной земли Гессен."
-      }
-    },
-    {
-      "id": "lid_HE_8",
-      "num": "HE-8",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Die Landeshauptstadt von Hessen heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Kassel",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Frankfurt am Main",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Wiesbaden",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Darmstadt",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wiesbaden ist die Landeshauptstadt des deutschen Landes Hessen.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Гессен является …",
-        "a": "Кассель",
-        "b": "Франкфурт-на-Майне",
-        "c": "Висбаден",
-        "d": "Дармштадт",
-        "context": "Висбаден является столицей федеральной земли Гессен."
-      }
-    },
-    {
-      "id": "lid_HE_9",
-      "num": "HE-9",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Die Landeshauptstadt von Hessen heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Kassel",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Frankfurt am Main",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Wiesbaden",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Darmstadt",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wiesbaden ist die Landeshauptstadt des deutschen Landes Hessen.",
-      "image": null,
-      "translationRu": {
-        "question": "Столицей земли Гессен является …",
-        "a": "Кассель",
-        "b": "Франкфурт-на-Майне",
-        "c": "Висбаден",
-        "d": "Дармштадт",
-        "context": "Висбаден является столицей федеральной земли Гессен."
-      }
-    },
-    {
-      "id": "lid_HE_10",
-      "num": "HE-10",
-      "block": "state",
-      "stateCode": "HE",
-      "category": "Landesbezogene Fragen (Hessen)",
-      "question": "Die Landeshauptstadt von Hessen heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Kassel",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Frankfurt am Main",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Wiesbaden",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Darmstadt",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wiesbaden ist die Landeshauptstadt des deutschen Landes Hessen.",
-      "image": "/lid_images/qhs10.da672a59.jpeg",
-      "translationRu": {
-        "question": "Столицей земли Гессен является …",
-        "a": "Кассель",
-        "b": "Франкфурт-на-Майне",
-        "c": "Висбаден",
-        "d": "Дармштадт",
-        "context": "Висбаден является столицей федеральной земли Гессен."
       }
     },
     {
@@ -15118,6 +14708,416 @@
         "c": "3",
         "d": "4",
         "context": "В Германии страна разделена на 16 федеральных земель. Помимо так называемых территориальных государств, существуют также города-государства. Города-государства — это города, которые одновременно образуют собственное федеральное государство и не имеют другой верхней государственной администрации. Эти специальные федеральные штаты включают лишь несколько крупных городов. Вопрос направлен на проверку, известно ли, какую роль играет Гамбург в этой федеральной системе."
+      }
+    },
+    {
+      "id": "lid_HE_1",
+      "num": "HE-1",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Welches Wappen gehört zum Bundesland Hessen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "2",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Das Landeswappen von Hessen zeigt im blauen Schild einen rot-weiß gestreiften Löwen (Hessenlöwe) mit goldener Krone.",
+      "image": "/lid_images/qhs1.a1d732b7.jpeg",
+      "translationRu": {
+        "question": "Какой герб принадлежит федеральной земле Гессен?",
+        "a": "1",
+        "b": "2",
+        "c": "3",
+        "d": "4",
+        "context": "Герб Гессена представляет собой красно-белого полосатого льва на синем щите."
+      }
+    },
+    {
+      "id": "lid_HE_2",
+      "num": "HE-2",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Welches ist ein Landkreis in Hessen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Main-Taunus-Kreis",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Nordfriesland",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Altötting",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Demmin",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Der Main-Taunus-Kreis ist ein Landkreis in Hessen (Region Frankfurt/Rhein-Main).",
+      "image": null,
+      "translationRu": {
+        "question": "Какой район (Landkreis) находится в Гессене?",
+        "a": "Майн-Таунус (Main-Taunus-Kreis)",
+        "b": "Северная Фрисландия",
+        "c": "Альтёттинг",
+        "d": "Деммин",
+        "context": "Район Майн-Таунус расположен в федеральной земле Гессен."
+      }
+    },
+    {
+      "id": "lid_HE_3",
+      "num": "HE-3",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Für wie viele Jahre wird der Landtag in Hessen gewählt?",
+      "options": [
+        {
+          "id": "a",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "4",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "5",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "6",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Der Hessische Landtag wird auf fünf Jahre gewählt.",
+      "image": null,
+      "translationRu": {
+        "question": "На сколько лет избирается ландтаг в Гессене?",
+        "a": "3",
+        "b": "4",
+        "c": "5",
+        "d": "6",
+        "context": "Избирательный период ландтага Гессена составляет 5 лет."
+      }
+    },
+    {
+      "id": "lid_HE_4",
+      "num": "HE-4",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Ab welchem Alter darf man in Hessen bei Kommunalwahlen wählen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "16",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "18",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "20",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "21",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "In Hessen darf man bei Kommunalwahlen ab 18 Jahren wählen.",
+      "image": null,
+      "translationRu": {
+        "question": "С какого возраста разрешено голосовать на коммунальных выборах в Гессене?",
+        "a": "16",
+        "b": "18",
+        "c": "20",
+        "d": "21",
+        "context": "В Гессене право голоса на коммунальных выборах наступает с 18 лет."
+      }
+    },
+    {
+      "id": "lid_HE_5",
+      "num": "HE-5",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Welche Farben hat die Landesflagge von Hessen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "rot-weiß",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "weiß-blau",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "schwarz-rot-gold",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "blau-weiß-rot",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Die Landesfarben von Hessen sind Rot und Weiß.",
+      "image": null,
+      "translationRu": {
+        "question": "Каких цветов флаг федеральной земли Гессен?",
+        "a": "красно-белый",
+        "b": "бело-синий",
+        "c": "чёрно-красно-золотой",
+        "d": "сине-бело-красный",
+        "context": "Флаг Гессена состоит из двух горизонтальных полос: красной и белой."
+      }
+    },
+    {
+      "id": "lid_HE_6",
+      "num": "HE-6",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Wo können Sie sich in Hessen über politische Themen informieren?",
+      "options": [
+        {
+          "id": "a",
+          "text": "bei der Landeszentrale für politische Bildung",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "beim Gewerbeamt",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "bei der Agentur für Arbeit",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "beim Standesamt",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Die Hessische Landeszentrale für politische Bildung (HLZ) ist die offizielle staatliche Anlaufstelle für politische Bildung in Hessen.",
+      "image": null,
+      "translationRu": {
+        "question": "Где в Гессене можно получить информацию по политическим вопросам?",
+        "a": "в земельном центре политического образования (Landeszentrale für politische Bildung)",
+        "b": "в ведомстве предпринимательства (Gewerbeamt)",
+        "c": "в агентстве по трудоустройству",
+        "d": "в ЗАГСе",
+        "context": "Земельный центр политического образования Гессена информирует граждан о демократии и политике."
+      }
+    },
+    {
+      "id": "lid_HE_7",
+      "num": "HE-7",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Die Landeshauptstadt von Hessen heißt …",
+      "options": [
+        {
+          "id": "a",
+          "text": "Wiesbaden",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Frankfurt am Main",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Kassel",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Darmstadt",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Die Landeshauptstadt von Hessen ist Wiesbaden (Frankfurt am Main ist die größte Stadt des Landes).",
+      "image": null,
+      "translationRu": {
+        "question": "Столица федеральной земли Гессен называется …",
+        "a": "Висбаден",
+        "b": "Франкфурт-на-Майне",
+        "c": "Кассель",
+        "d": "Дармштадт",
+        "context": "Столицей Гессена является город Висбаден."
+      }
+    },
+    {
+      "id": "lid_HE_8",
+      "num": "HE-8",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Wie nennt man den Regierungschef / die Regierungschefin in Hessen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Ministerpräsident / Ministerpräsidentin",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Erster Bürgermeister / Erste Bürgermeisterin",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Regierender Bürgermeister / Regierende Bürgermeisterin",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Landeshauptmann",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Der Regierungschef des Landes Hessen ist der Ministerpräsident / die Ministerpräsidentin.",
+      "image": null,
+      "translationRu": {
+        "question": "Как называется глава правительства в Гессене?",
+        "a": "премьер-министр (Ministerpräsident / Ministerpräsidentin)",
+        "b": "первый бургомистр",
+        "c": "правящий бургомистр",
+        "d": "глава земли",
+        "context": "Главой правительства земли Гессен является премьер-министр."
+      }
+    },
+    {
+      "id": "lid_HE_9",
+      "num": "HE-9",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Welchen Minister / welche Ministerin hat Hessen nicht?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Außenminister / Außenministerin",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Finanzminister / Finanzministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Justizminister / Justizministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Kultusminister / Kultusministerin",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Bundesländer unterhalten kein Außenministerium, da Außenpolitik Bundessache ist.",
+      "image": null,
+      "translationRu": {
+        "question": "Какого министра нет в правительстве Гессена?",
+        "a": "министра иностранных дел (Außenminister)",
+        "b": "министра финансов",
+        "c": "министра юстиции",
+        "d": "министра образования и культуры",
+        "context": "Министерство иностранных дел существует только на общефедеральном уровне."
+      }
+    },
+    {
+      "id": "lid_HE_10",
+      "num": "HE-10",
+      "block": "state",
+      "stateCode": "HE",
+      "category": "Landesbezogene Fragen (Hessen)",
+      "question": "Welches Bundesland ist Hessen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "2",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Hessen liegt in der Mitte der Bundesrepublik Deutschland.",
+      "image": "/lid_images/qhs10.da672a59.jpeg",
+      "translationRu": {
+        "question": "Какая федеральная земля является Гессеном на карте?",
+        "a": "1",
+        "b": "2",
+        "c": "3",
+        "d": "4",
+        "context": "Гессен расположен в центральной части Германии."
       }
     },
     {
@@ -16761,47 +16761,6 @@
       }
     },
     {
-      "id": "lid_SH_1",
-      "num": "SH-1",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Welches Wappen gehört zum Bundesland Schleswig-Holstein?",
-      "options": [
-        {
-          "id": "a",
-          "text": "1",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "2",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "3",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "4",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "In dieser Frage geht es um die Erkennung von Landeswappen in Deutschland. Dir werden mehrere nummerierte Abbildungen von Wappen gezeigt. Deine Aufgabe ist es, anhand typischer Symbole und Farben das Wappen zu identifizieren, das zum Bundesland Schleswig-Holstein gehört. Schleswig-Holstein hat ein charakteristisches Wappen mit historischen Elementen, die auf seine Geschichte und Lage hinweisen. Wähle die Nummer aus, die dieses Wappen korrekt darstellt.",
-      "image": "/lid_images/qsh1.c4be2a60.jpeg",
-      "translationRu": {
-        "question": "Какой герб принадлежит федеральной земле Шлезвиг-Гольштейн?",
-        "a": "1",
-        "b": "2",
-        "c": "3",
-        "d": "4",
-        "context": "Этот вопрос касается признания государственных гербов в Германии. Вам покажут несколько пронумерованных изображений гербов с номерами. Ваша задача — определить герб, который относится к земле Шлезвиг-Гольштейн, на основе типичных символов и цветов. Шлезвиг-Гольштейн имеет характерный герб с историческими элементами, указывающими на его историю и местоположение. Выберите номер, который правильно отражает эту эмблему."
-      }
-    },
-    {
       "id": "lid_SL_1",
       "num": "SL-1",
       "block": "state",
@@ -16840,47 +16799,6 @@
         "c": "3",
         "d": "4",
         "context": "Вопрос касается гербов германских федеративных земель. Зрителю показывают несколько пронумерованных гербов (1–4). Задача состоит в том, чтобы присвоить правильный герб государству Саарланд. Для этого нужно знать типичные геральдические символы Саара или сравнивать их с другими федеральными землями."
-      }
-    },
-    {
-      "id": "lid_SH_2",
-      "num": "SH-2",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Welches ist ein Landkreis in Schleswig-Holstein?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Nordfriesland",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "Mecklenburgische Seenplatte",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Rhein-Sieg-Kreis",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Ammerland",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Deutschland ist in Bundesländer und diese wiederum in Landkreise eingeteilt. Jeder Landkreis gehört genau zu einem Bundesland. Schleswig-Holstein liegt im Norden Deutschlands zwischen Nord- und Ostsee. Die Frage prüft, ob man weiß, welcher der genannten Landkreise zu Schleswig-Holstein gehört und welche eher anderen Bundesländern wie Mecklenburg-Vorpommern, Nordrhein-Westfalen oder Niedersachsen zuzuordnen sind.",
-      "image": null,
-      "translationRu": {
-        "question": "Какой район является в Шлезвиг-Гольштейне?",
-        "a": "Северная Фрисландия",
-        "b": "Мекленбургский озёрный край",
-        "c": "Район Рейн-Зиг",
-        "d": "Аммерланд",
-        "context": "Германия разделена на федеральные земли, которые, в свою очередь, делятся на округа. Каждый округ принадлежит ровно одному федеральному штату. Шлезвиг-Гольштейн расположен на севере Германии, между Северным и Балтийским морями. Вопрос заключается в том, известно ли, какие из упомянутых округов принадлежат Шлезвиг-Гольштейну, а какие чаще относятся к другим федеральным землям, таким как Мекленбург-Передняя Померания, Северный Рейн-Вестфалия или Нижняя Саксония."
       }
     },
     {
@@ -16966,47 +16884,6 @@
       }
     },
     {
-      "id": "lid_SN_1",
-      "num": "SN-1",
-      "block": "state",
-      "stateCode": "SN",
-      "category": "Landesbezogene Fragen (Sachsen)",
-      "question": "Welches Wappen gehört zum Freistaat Sachsen?",
-      "options": [
-        {
-          "id": "a",
-          "text": "1",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "2",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "4",
-          "isCorrect": true
-        }
-      ],
-      "correctOption": "d",
-      "context": "In dieser Aufgabe geht es um Landeswappen der deutschen Bundesländer. Dir werden mehrere Wappen mit den Nummern 1 bis 4 angezeigt. Jedes Wappen gehört zu einem anderen Bundesland. Deine Aufgabe ist es, das Wappen zu erkennen, das dem Freistaat Sachsen zugeordnet ist, und die entsprechende Nummer auszuwählen. Kenntnisse über Symbole, Farben und typische Merkmale des sächsischen Wappens helfen bei der richtigen Entscheidung.",
-      "image": "/lid_images/qss1.71aaeb78.jpeg",
-      "translationRu": {
-        "question": "Какой герб принадлежит Свободной земле Саксония?",
-        "a": "1",
-        "b": "2",
-        "c": "3",
-        "d": "4",
-        "context": "Эта задача посвящена гербам германских федеративных земель. Вам покажут несколько гербов с номерами от 1 до 4. Каждый герб принадлежит отдельной федеральной земле. Ваша задача — распознать герб, присвоенный Свободной земле Саксонии, и выбрать соответствующий номер. Знание символов, цветов и типичных особенностей саксонского герба поможет вам принять правильное решение."
-      }
-    },
-    {
       "id": "lid_SL_4",
       "num": "SL-4",
       "block": "state",
@@ -17045,416 +16922,6 @@
         "c": "16",
         "d": "20",
         "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_SH_3",
-      "num": "SH-3",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Für wie viele Jahre wird der Landtag in Schleswig-Holstein\n                  gewählt?",
-      "options": [
-        {
-          "id": "a",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "4",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "5",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "6",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "Сколько лет будет работать парламент земли в Шлезвиг-Гольштейне?\n                  Избран?",
-        "a": "3",
-        "b": "4",
-        "c": "5",
-        "d": "6",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_SN_2",
-      "num": "SN-2",
-      "block": "state",
-      "stateCode": "SN",
-      "category": "Landesbezogene Fragen (Sachsen)",
-      "question": "Welches ist ein Landkreis in Sachsen?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Altötting",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Nordfriesland",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Vogtlandkreis",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Uckermark",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Die folgende Frage bezieht sich auf die deutschen Bundesländer und deren Verwaltungseinheiten. In Deutschland sind Landkreise wichtige regionale Verwaltungseinheiten, die jeweils zu einem bestimmten Bundesland gehören. Sachsen ist eines dieser Bundesländer. Um die richtige Antwort zu finden, ist es hilfreich zu wissen, welche der genannten Landkreise tatsächlich im Bundesland Sachsen liegt und welche zu anderen Bundesländern gehören.",
-      "image": null,
-      "translationRu": {
-        "question": "Какой район является в Саксонии?",
-        "a": "Альтёттинг",
-        "b": "Северная Фрисландия",
-        "c": "Vogtlandkreis",
-        "d": "Уккермарк",
-        "context": "Следующий вопрос касается германских федеративных земель и их административных единиц. В Германии сельские районы являются важными региональными административными единицами, каждая из которых принадлежит определённой федеральной земле. Саксония — одна из таких федеральных земель. Чтобы найти правильный ответ, полезно знать, какие из упомянутых районов действительно находятся в земле Саксония, а какие — к другим федеральным землям."
-      }
-    },
-    {
-      "id": "lid_SH_4",
-      "num": "SH-4",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Ab welchem Alter darf man in Schleswig-Holstein bei\n                  Kommunalwahlen wählen?",
-      "options": [
-        {
-          "id": "a",
-          "text": "14",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "18",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "16",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "20",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "С какого возраста это разрешено?\n                  Голосовать на местных выборах?",
-        "a": "14",
-        "b": "18",
-        "c": "16",
-        "d": "20",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_SH_5",
-      "num": "SH-5",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Welche Farben hat die Landesflagge von Schleswig-Holstein?",
-      "options": [
-        {
-          "id": "a",
-          "text": "weiß-blau",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "grün-weiß-rot",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "blau-weiß-rot",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "weiß-rot",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Die folgende Frage bezieht sich auf ein deutsches Bundesland im Norden des Landes. Um sie richtig zu beantworten, sind Grundkenntnisse über deutsche Landesflaggen hilfreich. Jede Landesflagge hat bestimmte Farben, die oft historische oder kulturelle Bedeutung haben. Die Frage prüft, ob man weiß, welche Farben offiziell zur Flagge von Schleswig-Holstein gehören.",
-      "image": null,
-      "translationRu": {
-        "question": "Каких цветов имеет государственный флаг Шлезвиг-Гольштейна?",
-        "a": "бело-синий",
-        "b": "зелёный-белый-красный",
-        "c": "синий-белый-красный",
-        "d": "бело-красный",
-        "context": "Следующий вопрос касается немецкого государства на севере страны. Чтобы правильно ответить на них, полезно иметь базовые знания о национальных флагах Германии. Каждый флаг страны имеет определённые цвета, которые часто имеют историческое или культурное значение. Вопрос проверяет, знаете ли вы, какие цвета официально принадлежат флагу Шлезвиг-Гольштейна."
-      }
-    },
-    {
-      "id": "lid_SH_6",
-      "num": "SH-6",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Wo können Sie sich in Schleswig-Holstein über politische\n                  Themen informieren?",
-      "options": [
-        {
-          "id": "a",
-          "text": "beim Ordnungsamt der Gemeinde",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "beim / bei der Landesbeauftragten für politische Bildung",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "bei den Kirchen",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "bei der Verbraucherzentrale",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "Где можно узнать о политических вопросах в Шлезвиг-Гольштейне?\n                  Информировать темы?",
-        "a": "в Управлении общественного порядка муниципалитета",
-        "b": "с комиссаром штата по гражданскому образованию",
-        "c": "В церквях",
-        "d": "в Центре консультирования потребителей",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_SH_7",
-      "num": "SH-7",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Die Landeshauptstadt von Schleswig-Holstein heißt …",
-      "options": [
-        {
-          "id": "a",
-          "text": "Lübeck",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Kiel",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "Flensburg",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Husum",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Deutschland besteht aus verschiedenen Bundesländern, und jedes hat eine eigene Landeshauptstadt, in der Regierung und Verwaltung ihren Sitz haben. Schleswig-Holstein liegt im Norden Deutschlands zwischen Nord- und Ostsee. Die folgende Frage prüft das grundlegende geografische Wissen darüber, welche Stadt die politische Hauptstadt dieses Bundeslandes ist.",
-      "image": null,
-      "translationRu": {
-        "question": "Столица земли Шлезвиг-Гольштейн называется ...",
-        "a": "Любек",
-        "b": "Киль",
-        "c": "Фленсбург",
-        "d": "Хусум",
-        "context": "Германия состоит из различных федеральных земель, каждая из которых имеет свою столицу земли, в которой расположены штабы правительства и администрации. Шлезвиг-Гольштейн расположен на севере Германии, между Северным и Балтийским морями. Следующий вопрос проверяет базовые географические знания о том, какой город является политической столицей этого штата."
-      }
-    },
-    {
-      "id": "lid_SH_8",
-      "num": "SH-8",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Welches Bundesland ist Schleswig-Holstein?",
-      "options": [
-        {
-          "id": "a",
-          "text": "1",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "2",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "4",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "In dieser Aufgabe geht es um die geografische Einordnung deutscher Bundesländer. Auf einer Abbildung oder Karte sind mehrere Regionen mit den Zahlen 1 bis 4 markiert. Du sollst erkennen, welche dieser markierten Regionen das Bundesland Schleswig-Holstein darstellt. Schleswig-Holstein liegt im Norden Deutschlands zwischen der Nordsee und der Ostsee und grenzt an Dänemark. Wähle die Zahl aus, die dieser Region entspricht.",
-      "image": "/lid_images/qsh8.442d7ed7.jpeg",
-      "translationRu": {
-        "question": "Какая федеральная земля относится к Шлезвиг-Гольштейну?",
-        "a": "1",
-        "b": "2",
-        "c": "3",
-        "d": "4",
-        "context": "Данная задача посвящена географической классификации германских федеративных земель. На иллюстрации или карте несколько регионов отмечены цифрами от 1 до 4. Вы должны узнать, какой из этих отмеченных регионов представляет землю Шлезвиг-Гольштейн. Шлезвиг-Гольштейн расположен на севере Германии между Северным и Балтийским морями и граничит с Данией. Выберите число, соответствующее этой области."
-      }
-    },
-    {
-      "id": "lid_SH_9",
-      "num": "SH-9",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Wie nennt man den Regierungschef / die Regierungschefin in\n                  Schleswig-Holstein?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Ministerpräsident / Ministerpräsidentin",
-          "isCorrect": true
-        },
-        {
-          "id": "b",
-          "text": "Bürgermeister / Bürgermeisterin",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Erster Minister / Erste Ministerin",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Premierminister / Premierministerin",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "a",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "Как вы называете главу правительства в\n                  Шлезвиг-Гольштейн?",
-        "a": "Премьер-министр",
-        "b": "Мэр",
-        "c": "Первый министр",
-        "d": "Премьер-министр",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_SH_10",
-      "num": "SH-10",
-      "block": "state",
-      "stateCode": "SH",
-      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
-      "question": "Welchen Minister / welche Ministerin hat Schleswig-Holstein\n                  nicht?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Innenminister / Innenministerin",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Außenminister / Außenministerin",
-          "isCorrect": true
-        },
-        {
-          "id": "c",
-          "text": "Justizminister / Justizministerin",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "Finanzminister / Finanzministerin",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "b",
-      "context": "Wichtige Frage für das Leben in Deutschland",
-      "image": null,
-      "translationRu": {
-        "question": "Какой министр у Шлезвиг-Гольштейна?\n                  Не так ли?",
-        "a": "Министр внутренних дел",
-        "b": "Министр иностранных дел",
-        "c": "Министр юстиции",
-        "d": "Министр финансов",
-        "context": "Важный вопрос для жизни в Германии"
-      }
-    },
-    {
-      "id": "lid_ST_1",
-      "num": "ST-1",
-      "block": "state",
-      "stateCode": "ST",
-      "category": "Landesbezogene Fragen (Sachsen-Anhalt)",
-      "question": "Welches Wappen gehört zum Bundesland Sachsen-Anhalt?",
-      "options": [
-        {
-          "id": "a",
-          "text": "1",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "2",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "3",
-          "isCorrect": false
-        },
-        {
-          "id": "d",
-          "text": "4",
-          "isCorrect": true
-        }
-      ],
-      "correctOption": "d",
-      "context": "In einem Quiz zu den deutschen Bundesländern werden verschiedene Wappen gezeigt. Jedes Wappen ist mit einer Nummer versehen (1 bis 4). Deine Aufgabe ist es, anhand deiner Kenntnisse über die Symbole der Bundesländer das richtige Wappen dem Bundesland Sachsen-Anhalt zuzuordnen. Wähle die Nummer, die zum offiziellen Landeswappen von Sachsen-Anhalt gehört.",
-      "image": "/lid_images/qsa1.1e4245dd.jpeg",
-      "translationRu": {
-        "question": "Какой герб относится к федеральной земле Саксония-Анхальт?",
-        "a": "1",
-        "b": "2",
-        "c": "3",
-        "d": "4",
-        "context": "В викторине о федеральных землях Германии показываются различные гербы. Каждый герб сопровождается номером (от 1 до 4). Ваша задача — присвоить правильный герб земле Саксония-Анхальт на основе ваших знаний о символах федеральных земель. Выберите номер, принадлежащий официальному гербу Саксонии-Анхальт."
       }
     },
     {
@@ -17704,6 +17171,88 @@
       }
     },
     {
+      "id": "lid_SN_1",
+      "num": "SN-1",
+      "block": "state",
+      "stateCode": "SN",
+      "category": "Landesbezogene Fragen (Sachsen)",
+      "question": "Welches Wappen gehört zum Freistaat Sachsen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "2",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": true
+        }
+      ],
+      "correctOption": "d",
+      "context": "In dieser Aufgabe geht es um Landeswappen der deutschen Bundesländer. Dir werden mehrere Wappen mit den Nummern 1 bis 4 angezeigt. Jedes Wappen gehört zu einem anderen Bundesland. Deine Aufgabe ist es, das Wappen zu erkennen, das dem Freistaat Sachsen zugeordnet ist, und die entsprechende Nummer auszuwählen. Kenntnisse über Symbole, Farben und typische Merkmale des sächsischen Wappens helfen bei der richtigen Entscheidung.",
+      "image": "/lid_images/qss1.71aaeb78.jpeg",
+      "translationRu": {
+        "question": "Какой герб принадлежит Свободной земле Саксония?",
+        "a": "1",
+        "b": "2",
+        "c": "3",
+        "d": "4",
+        "context": "Эта задача посвящена гербам германских федеративных земель. Вам покажут несколько гербов с номерами от 1 до 4. Каждый герб принадлежит отдельной федеральной земле. Ваша задача — распознать герб, присвоенный Свободной земле Саксонии, и выбрать соответствующий номер. Знание символов, цветов и типичных особенностей саксонского герба поможет вам принять правильное решение."
+      }
+    },
+    {
+      "id": "lid_SN_2",
+      "num": "SN-2",
+      "block": "state",
+      "stateCode": "SN",
+      "category": "Landesbezogene Fragen (Sachsen)",
+      "question": "Welches ist ein Landkreis in Sachsen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Altötting",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "Nordfriesland",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Vogtlandkreis",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "Uckermark",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Die folgende Frage bezieht sich auf die deutschen Bundesländer und deren Verwaltungseinheiten. In Deutschland sind Landkreise wichtige regionale Verwaltungseinheiten, die jeweils zu einem bestimmten Bundesland gehören. Sachsen ist eines dieser Bundesländer. Um die richtige Antwort zu finden, ist es hilfreich zu wissen, welche der genannten Landkreise tatsächlich im Bundesland Sachsen liegt und welche zu anderen Bundesländern gehören.",
+      "image": null,
+      "translationRu": {
+        "question": "Какой район является в Саксонии?",
+        "a": "Альтёттинг",
+        "b": "Северная Фрисландия",
+        "c": "Vogtlandkreis",
+        "d": "Уккермарк",
+        "context": "Следующий вопрос касается германских федеративных земель и их административных единиц. В Германии сельские районы являются важными региональными административными единицами, каждая из которых принадлежит определённой федеральной земле. Саксония — одна из таких федеральных земель. Чтобы найти правильный ответ, полезно знать, какие из упомянутых районов действительно находятся в земле Саксония, а какие — к другим федеральным землям."
+      }
+    },
+    {
       "id": "lid_SN_3",
       "num": "SN-3",
       "block": "state",
@@ -17742,47 +17291,6 @@
         "c": "5",
         "d": "6",
         "context": "Контекст: Вопрос касается политической системы Свободной земли Саксония в Германии. Государственный парламент является государственным парламентом и переизбирается с регулярными интервалами. Вопрос касается продолжительности законодательного периода, то есть количества лет, на которые избираются члены саксонского земельного парламента."
-      }
-    },
-    {
-      "id": "lid_ST_2",
-      "num": "ST-2",
-      "block": "state",
-      "stateCode": "ST",
-      "category": "Landesbezogene Fragen (Sachsen-Anhalt)",
-      "question": "Welches ist ein Landkreis in Sachsen-Anhalt?",
-      "options": [
-        {
-          "id": "a",
-          "text": "Uckermark",
-          "isCorrect": false
-        },
-        {
-          "id": "b",
-          "text": "Ammerland",
-          "isCorrect": false
-        },
-        {
-          "id": "c",
-          "text": "Börde",
-          "isCorrect": true
-        },
-        {
-          "id": "d",
-          "text": "Altötting",
-          "isCorrect": false
-        }
-      ],
-      "correctOption": "c",
-      "context": "Die Frage bezieht sich auf die Verwaltungsstruktur Deutschlands. Deutschland ist in Bundesländer unterteilt, die wiederum aus Landkreisen und kreisfreien Städten bestehen. Sachsen-Anhalt ist eines dieser Bundesländer und besitzt mehrere eigene Landkreise. In der Aufgabe werden verschiedene Landkreise genannt, die unterschiedlichen Bundesländern zugeordnet sein können. Ziel ist es, den Landkreis zu erkennen, der tatsächlich im Bundesland Sachsen-Anhalt liegt.",
-      "image": null,
-      "translationRu": {
-        "question": "Какой район в Саксонии-Анхальт?",
-        "a": "Уккермарк",
-        "b": "Аммерланд",
-        "c": "Бёрде",
-        "d": "Альтёттинг",
-        "context": "Вопрос касается административной структуры Германии. Германия разделена на федеральные земли, которые, в свою очередь, состоят из сельских округов и независимых городов. Саксония-Анхальт — одна из таких федеральных земель и имеет несколько собственных округов. Задание называет разные округа, которые могут быть назначены разным федеральным землям. Цель — определить район, который фактически расположен в земле Саксония-Анхальт."
       }
     },
     {
@@ -18070,6 +17578,88 @@
         "c": "Министр юстиции",
         "d": "Министр внутренних дел",
         "context": "В Германии политическая ответственность разделена между федеральным правительством и федеральными землями. Каждая федеральная земля, например Саксония, имеет собственное правительство земли с разными министерствами для определённых областей ответственности. Однако не все области политики находятся в ведении правительств штатов; Некоторые из них полностью находятся на федеральном правительстве. Чтобы ответить на вопрос, нужно знать, какие министерства обычно существуют на уровне штатов, а какие задачи выполняются только на федеральном уровне."
+      }
+    },
+    {
+      "id": "lid_ST_1",
+      "num": "ST-1",
+      "block": "state",
+      "stateCode": "ST",
+      "category": "Landesbezogene Fragen (Sachsen-Anhalt)",
+      "question": "Welches Wappen gehört zum Bundesland Sachsen-Anhalt?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "2",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": true
+        }
+      ],
+      "correctOption": "d",
+      "context": "In einem Quiz zu den deutschen Bundesländern werden verschiedene Wappen gezeigt. Jedes Wappen ist mit einer Nummer versehen (1 bis 4). Deine Aufgabe ist es, anhand deiner Kenntnisse über die Symbole der Bundesländer das richtige Wappen dem Bundesland Sachsen-Anhalt zuzuordnen. Wähle die Nummer, die zum offiziellen Landeswappen von Sachsen-Anhalt gehört.",
+      "image": "/lid_images/qsa1.1e4245dd.jpeg",
+      "translationRu": {
+        "question": "Какой герб относится к федеральной земле Саксония-Анхальт?",
+        "a": "1",
+        "b": "2",
+        "c": "3",
+        "d": "4",
+        "context": "В викторине о федеральных землях Германии показываются различные гербы. Каждый герб сопровождается номером (от 1 до 4). Ваша задача — присвоить правильный герб земле Саксония-Анхальт на основе ваших знаний о символах федеральных земель. Выберите номер, принадлежащий официальному гербу Саксонии-Анхальт."
+      }
+    },
+    {
+      "id": "lid_ST_2",
+      "num": "ST-2",
+      "block": "state",
+      "stateCode": "ST",
+      "category": "Landesbezogene Fragen (Sachsen-Anhalt)",
+      "question": "Welches ist ein Landkreis in Sachsen-Anhalt?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Uckermark",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "Ammerland",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Börde",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "Altötting",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Die Frage bezieht sich auf die Verwaltungsstruktur Deutschlands. Deutschland ist in Bundesländer unterteilt, die wiederum aus Landkreisen und kreisfreien Städten bestehen. Sachsen-Anhalt ist eines dieser Bundesländer und besitzt mehrere eigene Landkreise. In der Aufgabe werden verschiedene Landkreise genannt, die unterschiedlichen Bundesländern zugeordnet sein können. Ziel ist es, den Landkreis zu erkennen, der tatsächlich im Bundesland Sachsen-Anhalt liegt.",
+      "image": null,
+      "translationRu": {
+        "question": "Какой район в Саксонии-Анхальт?",
+        "a": "Уккермарк",
+        "b": "Аммерланд",
+        "c": "Бёрде",
+        "d": "Альтёттинг",
+        "context": "Вопрос касается административной структуры Германии. Германия разделена на федеральные земли, которые, в свою очередь, состоят из сельских округов и независимых городов. Саксония-Анхальт — одна из таких федеральных земель и имеет несколько собственных округов. Задание называет разные округа, которые могут быть назначены разным федеральным землям. Цель — определить район, который фактически расположен в земле Саксония-Анхальт."
       }
     },
     {
@@ -18398,6 +17988,416 @@
         "c": "Министр иностранных дел",
         "d": "Министр юстиции",
         "context": "В Германии политика разделена между федеральным правительством и федеральными землями. Каждая федеральная земля, такая как Саксония-Анхальт, имеет собственное правительство земли с определёнными министерствами, например, финансов, внутренних дел или юстиции. Однако другие области политики полностью находятся в ведении федерального правительства. Чтобы правильно понять вопрос, необходимо знать, какие задачи обычно выполняются на уровне штатов, а какие — нет."
+      }
+    },
+    {
+      "id": "lid_SH_1",
+      "num": "SH-1",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Welches Wappen gehört zum Bundesland Schleswig-Holstein?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "2",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "3",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "In dieser Frage geht es um die Erkennung von Landeswappen in Deutschland. Dir werden mehrere nummerierte Abbildungen von Wappen gezeigt. Deine Aufgabe ist es, anhand typischer Symbole und Farben das Wappen zu identifizieren, das zum Bundesland Schleswig-Holstein gehört. Schleswig-Holstein hat ein charakteristisches Wappen mit historischen Elementen, die auf seine Geschichte und Lage hinweisen. Wähle die Nummer aus, die dieses Wappen korrekt darstellt.",
+      "image": "/lid_images/qsh1.c4be2a60.jpeg",
+      "translationRu": {
+        "question": "Какой герб принадлежит федеральной земле Шлезвиг-Гольштейн?",
+        "a": "1",
+        "b": "2",
+        "c": "3",
+        "d": "4",
+        "context": "Этот вопрос касается признания государственных гербов в Германии. Вам покажут несколько пронумерованных изображений гербов с номерами. Ваша задача — определить герб, который относится к земле Шлезвиг-Гольштейн, на основе типичных символов и цветов. Шлезвиг-Гольштейн имеет характерный герб с историческими элементами, указывающими на его историю и местоположение. Выберите номер, который правильно отражает эту эмблему."
+      }
+    },
+    {
+      "id": "lid_SH_2",
+      "num": "SH-2",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Welches ist ein Landkreis in Schleswig-Holstein?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Nordfriesland",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Mecklenburgische Seenplatte",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Rhein-Sieg-Kreis",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Ammerland",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Deutschland ist in Bundesländer und diese wiederum in Landkreise eingeteilt. Jeder Landkreis gehört genau zu einem Bundesland. Schleswig-Holstein liegt im Norden Deutschlands zwischen Nord- und Ostsee. Die Frage prüft, ob man weiß, welcher der genannten Landkreise zu Schleswig-Holstein gehört und welche eher anderen Bundesländern wie Mecklenburg-Vorpommern, Nordrhein-Westfalen oder Niedersachsen zuzuordnen sind.",
+      "image": null,
+      "translationRu": {
+        "question": "Какой район является в Шлезвиг-Гольштейне?",
+        "a": "Северная Фрисландия",
+        "b": "Мекленбургский озёрный край",
+        "c": "Район Рейн-Зиг",
+        "d": "Аммерланд",
+        "context": "Германия разделена на федеральные земли, которые, в свою очередь, делятся на округа. Каждый округ принадлежит ровно одному федеральному штату. Шлезвиг-Гольштейн расположен на севере Германии, между Северным и Балтийским морями. Вопрос заключается в том, известно ли, какие из упомянутых округов принадлежат Шлезвиг-Гольштейну, а какие чаще относятся к другим федеральным землям, таким как Мекленбург-Передняя Померания, Северный Рейн-Вестфалия или Нижняя Саксония."
+      }
+    },
+    {
+      "id": "lid_SH_3",
+      "num": "SH-3",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Für wie viele Jahre wird der Landtag in Schleswig-Holstein\n                  gewählt?",
+      "options": [
+        {
+          "id": "a",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "4",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "5",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "6",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Сколько лет будет работать парламент земли в Шлезвиг-Гольштейне?\n                  Избран?",
+        "a": "3",
+        "b": "4",
+        "c": "5",
+        "d": "6",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_SH_4",
+      "num": "SH-4",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Ab welchem Alter darf man in Schleswig-Holstein bei\n                  Kommunalwahlen wählen?",
+      "options": [
+        {
+          "id": "a",
+          "text": "14",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "18",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "16",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "20",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "С какого возраста это разрешено?\n                  Голосовать на местных выборах?",
+        "a": "14",
+        "b": "18",
+        "c": "16",
+        "d": "20",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_SH_5",
+      "num": "SH-5",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Welche Farben hat die Landesflagge von Schleswig-Holstein?",
+      "options": [
+        {
+          "id": "a",
+          "text": "weiß-blau",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "grün-weiß-rot",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "blau-weiß-rot",
+          "isCorrect": true
+        },
+        {
+          "id": "d",
+          "text": "weiß-rot",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "c",
+      "context": "Die folgende Frage bezieht sich auf ein deutsches Bundesland im Norden des Landes. Um sie richtig zu beantworten, sind Grundkenntnisse über deutsche Landesflaggen hilfreich. Jede Landesflagge hat bestimmte Farben, die oft historische oder kulturelle Bedeutung haben. Die Frage prüft, ob man weiß, welche Farben offiziell zur Flagge von Schleswig-Holstein gehören.",
+      "image": null,
+      "translationRu": {
+        "question": "Каких цветов имеет государственный флаг Шлезвиг-Гольштейна?",
+        "a": "бело-синий",
+        "b": "зелёный-белый-красный",
+        "c": "синий-белый-красный",
+        "d": "бело-красный",
+        "context": "Следующий вопрос касается немецкого государства на севере страны. Чтобы правильно ответить на них, полезно иметь базовые знания о национальных флагах Германии. Каждый флаг страны имеет определённые цвета, которые часто имеют историческое или культурное значение. Вопрос проверяет, знаете ли вы, какие цвета официально принадлежат флагу Шлезвиг-Гольштейна."
+      }
+    },
+    {
+      "id": "lid_SH_6",
+      "num": "SH-6",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Wo können Sie sich in Schleswig-Holstein über politische\n                  Themen informieren?",
+      "options": [
+        {
+          "id": "a",
+          "text": "beim Ordnungsamt der Gemeinde",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "beim / bei der Landesbeauftragten für politische Bildung",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "bei den Kirchen",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "bei der Verbraucherzentrale",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Где можно узнать о политических вопросах в Шлезвиг-Гольштейне?\n                  Информировать темы?",
+        "a": "в Управлении общественного порядка муниципалитета",
+        "b": "с комиссаром штата по гражданскому образованию",
+        "c": "В церквях",
+        "d": "в Центре консультирования потребителей",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_SH_7",
+      "num": "SH-7",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Die Landeshauptstadt von Schleswig-Holstein heißt …",
+      "options": [
+        {
+          "id": "a",
+          "text": "Lübeck",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "Kiel",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "Flensburg",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Husum",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Deutschland besteht aus verschiedenen Bundesländern, und jedes hat eine eigene Landeshauptstadt, in der Regierung und Verwaltung ihren Sitz haben. Schleswig-Holstein liegt im Norden Deutschlands zwischen Nord- und Ostsee. Die folgende Frage prüft das grundlegende geografische Wissen darüber, welche Stadt die politische Hauptstadt dieses Bundeslandes ist.",
+      "image": null,
+      "translationRu": {
+        "question": "Столица земли Шлезвиг-Гольштейн называется ...",
+        "a": "Любек",
+        "b": "Киль",
+        "c": "Фленсбург",
+        "d": "Хусум",
+        "context": "Германия состоит из различных федеральных земель, каждая из которых имеет свою столицу земли, в которой расположены штабы правительства и администрации. Шлезвиг-Гольштейн расположен на севере Германии, между Северным и Балтийским морями. Следующий вопрос проверяет базовые географические знания о том, какой город является политической столицей этого штата."
+      }
+    },
+    {
+      "id": "lid_SH_8",
+      "num": "SH-8",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Welches Bundesland ist Schleswig-Holstein?",
+      "options": [
+        {
+          "id": "a",
+          "text": "1",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "2",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "3",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "4",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "In dieser Aufgabe geht es um die geografische Einordnung deutscher Bundesländer. Auf einer Abbildung oder Karte sind mehrere Regionen mit den Zahlen 1 bis 4 markiert. Du sollst erkennen, welche dieser markierten Regionen das Bundesland Schleswig-Holstein darstellt. Schleswig-Holstein liegt im Norden Deutschlands zwischen der Nordsee und der Ostsee und grenzt an Dänemark. Wähle die Zahl aus, die dieser Region entspricht.",
+      "image": "/lid_images/qsh8.442d7ed7.jpeg",
+      "translationRu": {
+        "question": "Какая федеральная земля относится к Шлезвиг-Гольштейну?",
+        "a": "1",
+        "b": "2",
+        "c": "3",
+        "d": "4",
+        "context": "Данная задача посвящена географической классификации германских федеративных земель. На иллюстрации или карте несколько регионов отмечены цифрами от 1 до 4. Вы должны узнать, какой из этих отмеченных регионов представляет землю Шлезвиг-Гольштейн. Шлезвиг-Гольштейн расположен на севере Германии между Северным и Балтийским морями и граничит с Данией. Выберите число, соответствующее этой области."
+      }
+    },
+    {
+      "id": "lid_SH_9",
+      "num": "SH-9",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Wie nennt man den Regierungschef / die Regierungschefin in\n                  Schleswig-Holstein?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Ministerpräsident / Ministerpräsidentin",
+          "isCorrect": true
+        },
+        {
+          "id": "b",
+          "text": "Bürgermeister / Bürgermeisterin",
+          "isCorrect": false
+        },
+        {
+          "id": "c",
+          "text": "Erster Minister / Erste Ministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Premierminister / Premierministerin",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "a",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Как вы называете главу правительства в\n                  Шлезвиг-Гольштейн?",
+        "a": "Премьер-министр",
+        "b": "Мэр",
+        "c": "Первый министр",
+        "d": "Премьер-министр",
+        "context": "Важный вопрос для жизни в Германии"
+      }
+    },
+    {
+      "id": "lid_SH_10",
+      "num": "SH-10",
+      "block": "state",
+      "stateCode": "SH",
+      "category": "Landesbezogene Fragen (Schleswig-Holstein)",
+      "question": "Welchen Minister / welche Ministerin hat Schleswig-Holstein\n                  nicht?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Innenminister / Innenministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "b",
+          "text": "Außenminister / Außenministerin",
+          "isCorrect": true
+        },
+        {
+          "id": "c",
+          "text": "Justizminister / Justizministerin",
+          "isCorrect": false
+        },
+        {
+          "id": "d",
+          "text": "Finanzminister / Finanzministerin",
+          "isCorrect": false
+        }
+      ],
+      "correctOption": "b",
+      "context": "Wichtige Frage für das Leben in Deutschland",
+      "image": null,
+      "translationRu": {
+        "question": "Какой министр у Шлезвиг-Гольштейна?\n                  Не так ли?",
+        "a": "Министр внутренних дел",
+        "b": "Министр иностранных дел",
+        "c": "Министр юстиции",
+        "d": "Министр финансов",
+        "context": "Важный вопрос для жизни в Германии"
       }
     },
     {

@@ -34,7 +34,15 @@ def is_rate_limit_error(error_str: str) -> bool:
 
 def ensure_backup(deck: models.TMA_Deck, cards: list) -> str:
     """Creates a local JSON backup of all cards before regeneration."""
-    backup_dir = os.path.join(project_root, "api", "data", "backups")
+    cfg_path = os.path.join(project_root, "tools", "admin", "admin_config.json")
+    custom_dir = None
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                custom_dir = json.load(f).get("custom_backup_dir", "").strip()
+        except Exception:
+            pass
+    backup_dir = custom_dir if (custom_dir and os.path.exists(custom_dir)) else os.path.join(project_root, "backups")
     os.makedirs(backup_dir, exist_ok=True)
     
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
