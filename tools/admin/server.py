@@ -47,15 +47,6 @@ regen_tasks = {}
 def startup_db():
     if not models.tma_db.obj:
         models.initialize_database()
-    
-    def _open_browser():
-        time.sleep(1.2)
-        try:
-            webbrowser.open("http://127.0.0.1:8050")
-        except Exception:
-            pass
-
-    threading.Thread(target=_open_browser, daemon=True).start()
 
 # Serve static admin UI
 static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -198,6 +189,16 @@ class BatchSummaryRequest(BaseModel):
 
 class BatchControlRequest(BaseModel):
     action: str  # "pause", "resume", "stop", "commit_dry_run"
+
+class BatchDeleteUsersRequest(BaseModel):
+    user_ids: List[int]
+
+class BackupItem(BaseModel):
+    filename: str
+    folder: Optional[str] = None
+
+class BatchDeleteBackupsRequest(BaseModel):
+    backups: List[BackupItem]
 
 
 class ClassificationRequest(BaseModel):
@@ -802,6 +803,51 @@ def delete_single_user(user_id: int):
     except Exception as e:
         logger.error(f"Failed to delete user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка при удалении пользователя: {str(e)}")
+
+
+@app.post("/api/admin/users/batch-delete")
+def batch_delete_users(req: BatchDeleteUsersRequest):
+    """Deletes multiple selected users and all their associated decks, cards, and data."""
+    if not req.user_ids:
+        raise HTTPException(status_code=400, detail="No user IDs provided for deletion")
+
+    try:
+        user_ids = list(set(req.user_ids))
+        deleted_users_count = 0
+        deleted_decks_count = 0
+        deleted_cards_count = 0
+
+        with models.tma_db.atomic():
+            # Find and delete user's decks and cards
+            user_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id << user_ids)]
+            if user_deck_ids:
+                deleted_cards_count = models.TMA_Card.delete().where(models.TMA_Card.deck_id << user_deck_ids).execute()
+                deleted_decks_count = models.TMA_Deck.delete().where(models.TMA_Deck.id << user_deck_ids).execute()
+
+            # Delete progress & review history
+            models.TMAProgress.delete().where(models.TMAProgress.user_id << user_ids).execute()
+            models.TMAReviewHistory.delete().where(models.TMAReviewHistory.user_id << user_ids).execute()
+
+            # Delete prompts
+            models.TMACustomPrompt.delete().where(models.TMACustomPrompt.user_id << user_ids).execute()
+            models.TMAUserPrompt.delete().where(models.TMAUserPrompt.user_id << user_ids).execute()
+
+            # Delete sessions
+            models.TMALinkedSession.delete().where((models.TMALinkedSession.guest_id << user_ids) | (models.TMALinkedSession.telegram_id << user_ids)).execute()
+
+            # Delete users
+            deleted_users_count = models.TMAUser.delete().where(models.TMAUser.user_id << user_ids).execute()
+
+        return {
+            "status": "success",
+            "message": f"Удалено {deleted_users_count} пользователей, {deleted_decks_count} колод, {deleted_cards_count} карточек",
+            "deleted_users_count": deleted_users_count,
+            "deleted_decks_count": deleted_decks_count,
+            "deleted_cards_count": deleted_cards_count
+        }
+    except Exception as e:
+        logger.error(f"Failed to batch delete users {req.user_ids}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка при массовом удалении пользователей: {str(e)}")
 
 
 @app.get("/api/admin/decks")
@@ -3495,6 +3541,45 @@ def delete_backup_file(filename: str, folder: Optional[str] = Query(None)):
         "deleted_filename": filename,
         "deleted_paths": deleted,
         "count": len(deleted)
+    }
+
+
+@app.post("/api/admin/backups/batch-delete")
+def batch_delete_backups(req: BatchDeleteBackupsRequest):
+    """Deletes multiple selected backup files."""
+    if not req.backups:
+        raise HTTPException(status_code=400, detail="No backup files provided for deletion")
+
+    search_dirs = get_all_backup_search_dirs()
+    deleted = []
+    errors = []
+
+    for item in req.backups:
+        fn = item.filename
+        if not fn or ".." in fn or "/" in fn or "\\" in fn:
+            errors.append(f"Invalid filename: {fn}")
+            continue
+
+        dirs_to_check = [item.folder] if item.folder else search_dirs
+        for d in dirs_to_check:
+            if not d or not os.path.exists(d):
+                continue
+            fp = os.path.normpath(os.path.join(d, fn))
+            norm_dir = os.path.normpath(d)
+            if not fp.startswith(norm_dir):
+                continue
+            if os.path.exists(fp) and os.path.isfile(fp):
+                try:
+                    os.remove(fp)
+                    deleted.append(fp)
+                except Exception as e:
+                    errors.append(f"Failed to delete {fn}: {str(e)}")
+
+    return {
+        "status": "ok",
+        "deleted_count": len(deleted),
+        "deleted_paths": deleted,
+        "errors": errors
     }
 
 
