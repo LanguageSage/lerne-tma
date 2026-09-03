@@ -66,6 +66,8 @@ export const ProfileTab = ({ userId }) => {
             setUserProfile(res.data.user);
             localStorage.setItem('lerne_user_id', res.data.user_id);
             localStorage.setItem('lerne_user_profile', JSON.stringify(res.data.user));
+            localStorage.removeItem('lerne_last_sync_time');
+            localStorage.removeItem('lerne_last_sync_user_id');
             showToast("Аккаунт успешно привязан!", "success");
             
             setTimeout(() => {

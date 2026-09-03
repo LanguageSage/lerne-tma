@@ -263,6 +263,15 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
     since_dt = parse_iso_datetime(since) if since else datetime.datetime.min
 
     try:
+        # Ensure starter decks exist for new/uninitialized users
+        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+        if not user or not getattr(user, 'default_decks_initialized', False):
+            try:
+                from .decks import ensure_starter_decks
+                ensure_starter_decks(user_id)
+            except Exception as e:
+                logger.warning(f"Failed to auto-ensure starter decks during sync pull: {e}")
+
         folders = models.TMA_Folder.select().where(
             (models.TMA_Folder.user_id == user_id) &
             (models.TMA_Folder.updated_at > since_dt)
@@ -292,7 +301,7 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
                 "color": f.color,
                 "target_language": getattr(f, 'target_language', 'de') or 'de',
                 "is_deleted": bool(f.is_deleted),
-                "is_pinned": bool(f.is_pinned),
+                "is_pinned": bool(getattr(f, 'is_pinned', False)),
                 "position": int(getattr(f, 'position', 0) or 0),
                 "created_at": f.created_at.isoformat() if f.created_at else None,
                 "updated_at": f.updated_at.isoformat() if f.updated_at else None
@@ -306,9 +315,10 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
                 "name": d.name,
                 "level": d.level or "",
                 "topic": d.topic or "",
+                "target_language": getattr(d, 'target_language', 'de') or 'de',
                 "is_deleted": bool(d.is_deleted),
                 "is_inbox": bool(d.is_inbox),
-                "is_pinned": bool(d.is_pinned),
+                "is_pinned": bool(getattr(d, 'is_pinned', False)),
                 "position": int(d.position or 0),
                 "folder_id": d.folder_id,
                 "created_at": d.created_at.isoformat() if d.created_at else None,

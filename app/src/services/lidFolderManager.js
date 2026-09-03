@@ -7,15 +7,12 @@ import api from './api';
 export const LID_FOLDER_NAME = 'Leben in Deutschland';
 
 /**
- * Checks if current user is aruna27
+ * Checks if current user has access to LiD (all active users)
  */
 export const isLidUser = () => {
   try {
     const profile = getUserProfile();
-    if (!profile) return false;
-    const username = (profile.username || '').toLowerCase();
-    const firstName = (profile.first_name || '').toLowerCase();
-    return username === 'aruna27' || firstName === 'aruna27' || profile.user_id === 121;
+    return Boolean(profile && profile.user_id);
   } catch {
     return false;
   }

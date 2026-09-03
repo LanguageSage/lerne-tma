@@ -10,7 +10,7 @@ import { ImageEditorModal } from './ImageEditorModal';
 import { useDeckStore } from '../../store/useDeckStore';
 import { FlagPicker } from './FlagPicker';
 import { CardLevelBadge } from './CardLevelBadge';
-import { updateCardLevelTags } from '../../utils/levelUtils';
+import { buildCefrMetaFromClassifierResult, buildManualCefrMeta, updateCardLevelTags } from '../../utils/levelUtils';
 import { classifySentenceFast } from '../../services/classifier';
 import { triggerHaptic } from '../../utils/platform';
 
@@ -122,6 +122,7 @@ export const CardForm = ({
         manual_level: false,
         reason: res.reason,
         reason_short: res.reason_short,
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level: newLevel }, 'local'),
         tags: updateCardLevelTags(prev?.tags, newLevel)
       }));
 
@@ -146,6 +147,7 @@ export const CardForm = ({
       manual_level: true,
       reason: 'Установлен вручную пользователем',
       reason_short: 'вручную',
+      cefr: buildManualCefrMeta(selectedLevel),
       tags: updateCardLevelTags(prev?.tags, selectedLevel)
     }));
 

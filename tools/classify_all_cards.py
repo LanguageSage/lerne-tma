@@ -20,6 +20,12 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from api import models, ai_service
+from api.services.cefr_metadata import (
+    build_ai_cefr_payload,
+    build_cleared_cefr_payload,
+    build_local_cefr_payload,
+    merge_cefr_metadata,
+)
 from api.services.classifier import classify_sentence_fast
 
 VALID_LEVELS = {'A1', 'A2', 'B1', 'B2', 'C1', 'C2'}
@@ -114,7 +120,7 @@ async def main():
     print('\n[2/5] Сканирование карточек в базе данных...', flush=True)
     query = (
         models.TMA_Card
-        .select(models.TMA_Card.id, models.TMA_Card.front_text, models.TMA_Card.tags)
+        .select(models.TMA_Card.id, models.TMA_Card.front_text, models.TMA_Card.tags, models.TMA_Card.metadata)
         .join(models.TMA_Deck)
         .where(models.TMA_Card.is_deleted == False)
         .order_by(models.TMA_Card.id.asc())
@@ -170,6 +176,7 @@ async def main():
     print(f'  -> Сэкономлено дубликатов: {saved_calls} ({saving_pct:.1f}% экономии!)', flush=True)
 
     phrase_to_level = load_checkpoint()
+    phrase_to_cefr_payload = {}
     phrase_to_local_fallback = {}
 
     # Fast Local Rule Classification Pass
@@ -190,12 +197,14 @@ async def main():
             phrase_to_local_fallback[phrase] = res.get('level', 'A1')
             if res.get('confidence', 0.0) >= 0.80:
                 phrase_to_level[phrase] = res['level']
+                phrase_to_cefr_payload[phrase] = build_local_cefr_payload(res, source='local')
                 local_level_counts[res['level']] += len(phrase_to_card_ids[phrase])
                 local_hits += 1
                 continue
             local_fallback_counts[res.get('level', 'A1')] += len(phrase_to_card_ids[phrase])
             if args.clear_uncertain_local:
                 phrase_to_level[phrase] = None
+                phrase_to_cefr_payload[phrase] = build_cleared_cefr_payload(res)
                 local_clear_counts['NO_LEVEL'] += len(phrase_to_card_ids[phrase])
                 local_clears += 1
                 continue
@@ -238,11 +247,14 @@ async def main():
                 for phrase, lvl in zip(chunk, levels):
                     valid_lvl = lvl if lvl in VALID_LEVELS else 'A1'
                     phrase_to_level[phrase] = valid_lvl
+                    phrase_to_cefr_payload[phrase] = build_ai_cefr_payload(valid_lvl)
                 print(f'✅ Готово', flush=True)
             except Exception as err:
                 print(f'❌ Ошибка ({err}), используем локальный fallback', flush=True)
                 for phrase in chunk:
-                    phrase_to_level[phrase] = phrase_to_local_fallback.get(phrase, 'A1')
+                    fallback_level = phrase_to_local_fallback.get(phrase, 'A1')
+                    phrase_to_level[phrase] = fallback_level
+                    phrase_to_cefr_payload[phrase] = build_ai_cefr_payload(fallback_level, source='fallback')
 
             if not args.dry_run:
                 save_checkpoint(phrase_to_level)
@@ -256,32 +268,32 @@ async def main():
     if args.dry_run:
         print('  -> [DRY-RUN] Симуляция: изменения НЕ внесены в БД.', flush=True)
     else:
-        level_to_card_updates = defaultdict(list)
+        card_tags_by_id = {card['id']: card.get('tags') for card in cards_to_process}
+        card_metadata_by_id = {card['id']: card.get('metadata') for card in cards_to_process}
+        card_update_groups = defaultdict(list)
         for phrase, card_ids in phrase_to_card_ids.items():
             lvl = phrase_to_level.get(phrase, 'A1')
+            cefr_payload = phrase_to_cefr_payload.get(phrase)
+            if not cefr_payload:
+                cefr_payload = build_ai_cefr_payload(lvl, source='checkpoint') if lvl else build_cleared_cefr_payload()
             for card_id in card_ids:
-                level_to_card_updates[lvl].append(card_id)
-
-        card_tags_by_id = {card['id']: card.get('tags') for card in cards_to_process}
-        tag_value_to_card_ids = defaultdict(list)
-        for lvl, c_ids in level_to_card_updates.items():
-            for card_id in c_ids:
                 if lvl:
                     new_tags = replace_cefr_level(card_tags_by_id.get(card_id), lvl)
                 else:
                     new_tags = remove_cefr_level(card_tags_by_id.get(card_id))
-                tag_value_to_card_ids[new_tags].append(card_id)
+                new_metadata = merge_cefr_metadata(card_metadata_by_id.get(card_id), cefr_payload)
+                card_update_groups[(new_tags, new_metadata)].append(card_id)
 
         now = datetime.datetime.now()
         updated_total = 0
         with models.tma_db.atomic():
-            for new_tags, c_ids in tag_value_to_card_ids.items():
+            for (new_tags, new_metadata), c_ids in card_update_groups.items():
                 ID_CHUNK = 500
                 for i in range(0, len(c_ids), ID_CHUNK):
                     sub_ids = c_ids[i:i + ID_CHUNK]
                     updated_count = (
                         models.TMA_Card
-                        .update(tags=new_tags, updated_at=now)
+                        .update(tags=new_tags, metadata=new_metadata, updated_at=now)
                         .where(models.TMA_Card.id << sub_ids)
                         .execute()
                     )

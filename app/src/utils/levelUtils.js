@@ -4,6 +4,7 @@
 
 const CEFR_ORDER = { "A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6 };
 const CEFR_TAG_RE = /\b(A1|A2|B1|B2|C1|C2)\b/gi;
+const CEFR_LEVELS = new Set(["A1", "A2", "B1", "B2", "C1", "C2"]);
 
 const LEVEL_CONFIG = {
   A1: { color: "#4ade80", bgColor: "rgba(74, 222, 128, 0.14)", borderColor: "rgba(74, 222, 128, 0.3)" },
@@ -24,10 +25,55 @@ export const updateCardLevelTags = (currentTags, newLevel) => {
   return cleaned ? `${cleaned},${newLevel}` : newLevel;
 };
 
+export const getSavedCefr = (card) => {
+  if (!card) return null;
+  if (card.cefr && typeof card.cefr === 'object') return card.cefr;
+
+  let metadata = card.metadata;
+  if (!metadata) return null;
+  if (typeof metadata === 'string') {
+    try {
+      metadata = JSON.parse(metadata);
+    } catch {
+      return null;
+    }
+  }
+  return metadata?.cefr && typeof metadata.cefr === 'object' ? metadata.cefr : null;
+};
+
+export const buildCefrMetaFromClassifierResult = (result, source = 'local') => {
+  if (!result) return null;
+  const level = result.level ? String(result.level).toUpperCase().trim() : null;
+  return {
+    level: CEFR_LEVELS.has(level) ? level : null,
+    source,
+    confidence: typeof result.confidence === 'number' ? Math.max(0, Math.min(1, Number(result.confidence.toFixed(3)))) : undefined,
+    reason: result.reason || null,
+    reason_short: result.reason_short || null,
+    grammar_features: Array.isArray(result.grammar_features) ? result.grammar_features : undefined,
+    vocabulary_features: Array.isArray(result.vocabulary_features) ? result.vocabulary_features : undefined,
+    classifier_version: source === 'local' ? 'de-local-rules-v1' : undefined,
+    classified_at: new Date().toISOString()
+  };
+};
+
+export const buildManualCefrMeta = (level) => {
+  const normalized = level ? String(level).toUpperCase().trim() : null;
+  return {
+    level: CEFR_LEVELS.has(normalized) ? normalized : null,
+    source: 'manual',
+    confidence: 1,
+    reason: 'Установлен вручную пользователем',
+    reason_short: 'вручную',
+    classified_at: new Date().toISOString()
+  };
+};
+
 export const getLevelInfo = (card) => {
   if (!card) return null;
 
-  let levelStr = card.level;
+  const savedCefr = getSavedCefr(card);
+  let levelStr = savedCefr?.level || card.level;
 
   // Fallback to tags if level string is missing or needs extraction
   if (!levelStr && card.tags) {

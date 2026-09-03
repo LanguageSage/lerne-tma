@@ -1,4 +1,37 @@
-# Exclude local admin tools and launchers from Vercel deployment
+# Exclude local admin tools and launchers
 tools/
-tools/admin/
 run_admin.bat
+run_dev.bat
+run_tma.ps1
+check_db_status.bat
+clean_run.bat
+*.bat
+*.ps1
+
+# Backups and local cache
+backups/
+user_files/
+.git-rewrite/
+scratch/
+api/scratch/
+
+# Android mobile build
+android/
+
+# Python Virtual Environments & Caches
+venv/
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# AI & IDE metadata
+.gemini/
+.agent/
+.agents/
+.vscode/
+.idea/
+docs/

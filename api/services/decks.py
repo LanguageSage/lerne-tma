@@ -34,16 +34,34 @@ def ensure_starter_decks(user_id: int, target_language: str = None):
             for lib_deck in default_decks:
                 tma_deck = next((d for d in existing_decks if d.name == lib_deck.name), None)
                 if not tma_deck:
-                    import_deck(lib_deck.id, user_id)
+                    tma_deck = import_deck(lib_deck.id, user_id)
                     imported_any = True
                     logger.info(f"Auto-imported default deck '{lib_deck.name}' for user {user_id}")
                 else:
                     # If deck exists but has 0 cards, populate its cards
                     cards_exist = TMA_Card.select().where((TMA_Card.deck_id == tma_deck.id) & (TMA_Card.is_deleted == False)).exists()
                     if not cards_exist:
-                        import_deck(lib_deck.id, user_id, mode='merge', local_deck_id=tma_deck.id)
+                        tma_deck = import_deck(lib_deck.id, user_id, mode='merge', local_deck_id=tma_deck.id)
                         imported_any = True
                         logger.info(f"Populated cards for empty default deck '{lib_deck.name}' for user {user_id}")
+
+                # Attach to folder if lib_deck has folder_name in metadata
+                if isinstance(tma_deck, TMA_Deck) and getattr(lib_deck, 'metadata', None):
+                    try:
+                        m = json.loads(lib_deck.metadata) if isinstance(lib_deck.metadata, str) else (lib_deck.metadata or {})
+                        f_name = m.get('folder_name')
+                        if f_name:
+                            f_color = m.get('folder_color', '#6366f1')
+                            user_folder, _ = TMA_Folder.get_or_create(
+                                user_id=user_id,
+                                name=f_name,
+                                defaults={'color': f_color, 'target_language': getattr(lib_deck, 'target_language', 'de') or 'de'}
+                            )
+                            if getattr(tma_deck, 'folder_id', None) != user_folder.id:
+                                tma_deck.folder = user_folder
+                                tma_deck.save()
+                    except Exception as e:
+                        logger.warning(f"Failed to attach default deck to folder for user {user_id}: {e}")
 
         if not user.default_decks_initialized or imported_any:
             user.default_decks_initialized = True

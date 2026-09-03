@@ -72,6 +72,8 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
             setUserProfile(tgUser);
             storage.set('lerne_user_id', tgUser.user_id);
             storage.set('lerne_user_profile', JSON.stringify(tgUser));
+            storage.remove('lerne_last_sync_time');
+            storage.remove('lerne_last_sync_user_id');
             setIsAccountDeleted(false);
             showToast("Успешный вход через Telegram!", "success");
             

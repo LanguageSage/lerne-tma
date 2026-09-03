@@ -71,6 +71,8 @@ export const GuestBanner = () => {
             setUserProfile(newProfile);
             localStorage.setItem('lerne_user_id', newProfile.user_id);
             localStorage.setItem('lerne_user_profile', JSON.stringify(newProfile));
+            localStorage.removeItem('lerne_last_sync_time');
+            localStorage.removeItem('lerne_last_sync_user_id');
             
             // Reload page to fetch decks and settings for the real user
             setTimeout(() => {

@@ -8,7 +8,7 @@ import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { useStudySession } from './useStudySession';
 import { classifySentenceFast } from '../services/classifier';
-import { updateCardLevelTags } from '../utils/levelUtils';
+import { buildCefrMetaFromClassifierResult, buildManualCefrMeta, getSavedCefr, updateCardLevelTags } from '../utils/levelUtils';
 
 export const useCardEditor = () => {
   const { fetchDecks, fetchDeckCards } = useDeckStore();
@@ -44,12 +44,16 @@ export const useCardEditor = () => {
 
       let finalLevel = data.level;
       let finalTags = data.tags;
-      if (!data.manual_level && frontText) {
+      let finalCefr = getSavedCefr(data);
+      if (data.manual_level && finalLevel) {
+        finalCefr = buildManualCefrMeta(finalLevel);
+      } else if (!data.manual_level && frontText) {
         try {
           const res = classifySentenceFast(frontText, 'de');
           if (res && res.level) {
             finalLevel = res.level;
             finalTags = updateCardLevelTags(finalTags, res.level);
+            finalCefr = buildCefrMetaFromClassifierResult(res, 'local');
           }
         } catch {
           // ignore
@@ -72,6 +76,7 @@ export const useCardEditor = () => {
         video_back_path: data.video_back_path || cleanMedia(data.video_back_url),
         flag: data.flag !== undefined ? Number(data.flag) : 0
       };
+      if (finalCefr) reqData.cefr = finalCefr;
       if (data.after_card_id) reqData.after_card_id = data.after_card_id;
 
       const res = await api.post('/cards/save', reqData);

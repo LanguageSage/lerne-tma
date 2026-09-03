@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Clock, CheckCircle, ArrowLeft, ArrowRight, Flag, 
-  MapPin, RefreshCw, AlertCircle, Sparkles, BookOpen, ShieldCheck, Check 
+  Clock, ArrowLeft, ArrowRight, 
+  MapPin, RefreshCw, BookOpen, ShieldCheck, Check 
 } from 'lucide-react';
 import { useLidStore } from '../../store/useLidStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -14,7 +14,7 @@ import { LidResultsView } from './LidResultsView';
 import './LidExam.css';
 
 export const LidExamView = () => {
-  const { setView } = useUiStore();
+  const { setView, showToast } = useUiStore();
   const {
     screen,
     examMode,
@@ -37,8 +37,6 @@ export const LidExamView = () => {
     resetToMenu
   } = useLidStore();
 
-  const [isFinishConfirmOpen, setIsFinishConfirmOpen] = useState(false);
-
   // Timer interval
   useEffect(() => {
     let interval = null;
@@ -52,11 +50,10 @@ export const LidExamView = () => {
     };
   }, [isTimerActive, tickTimer]);
 
-  const stateInfo = getBundeslandByCode(selectedLandCode || 'BY');
+  const stateInfo = selectedLandCode ? getBundeslandByCode(selectedLandCode) : null;
   const currentQ = questions[currentQuestionIndex];
   const totalQ = questions.length;
   const answeredCount = Object.keys(answers).length;
-  const unansweredCount = totalQ - answeredCount;
 
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -66,18 +63,16 @@ export const LidExamView = () => {
 
   const handleStartExamFlow = (mode) => {
     if (!selectedLandCode) {
-      openLandModal(false);
+      showToast('Пожалуйста, выберите федеральную землю для экзамена', 'warning');
+      useLidStore.getState().setPendingExamMode(mode);
+      openLandModal(true);
     } else {
       startSimulation(mode);
     }
   };
 
   const handleFinishClick = () => {
-    if (examMode === 'exam' && unansweredCount > 0) {
-      setIsFinishConfirmOpen(true);
-    } else {
-      finishSimulation();
-    }
+    finishSimulation();
   };
 
   const handleBackToDecks = () => {
@@ -115,32 +110,71 @@ export const LidExamView = () => {
           </div>
 
           {/* Current Bundesland Card */}
-          <div className="lid-selected-land-banner glass">
-            <div className="lid-land-banner-left">
-              <div className="lid-land-banner-icon">
-                <span>{stateInfo?.symbol || '🇩🇪'}</span>
-              </div>
-              <div className="lid-land-banner-info">
-                <div className="lid-land-banner-label">Ваша земля для теста:</div>
-                <div className="lid-land-banner-name">
-                  {stateInfo?.nameDe} <span className="lid-ru-sub">({stateInfo?.nameRu})</span>
+          {selectedLandCode && stateInfo ? (
+            <div className="lid-selected-land-banner glass" onClick={() => openLandModal(true)}>
+              <div className="lid-land-banner-left">
+                <div className="lid-land-banner-icon">
+                  <span>{stateInfo?.symbol || '🇩🇪'}</span>
                 </div>
-                <div className="lid-land-banner-capital">
-                  <MapPin size={12} />
-                  <span>Столица: {stateInfo?.capital}</span>
+                <div className="lid-land-banner-info">
+                  <div className="lid-land-banner-label">Ваша земля для теста:</div>
+                  <div className="lid-land-banner-name">
+                    {stateInfo?.nameDe} <span className="lid-ru-sub">({stateInfo?.nameRu})</span>
+                  </div>
+                  <div className="lid-land-banner-capital">
+                    <MapPin size={12} />
+                    <span>Столица: {stateInfo?.capital}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              type="button"
-              className="btn btn-secondary lid-btn-change-land-sm"
+              <button
+                type="button"
+                className="btn btn-secondary lid-btn-change-land-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openLandModal(true);
+                }}
+              >
+                <RefreshCw size={14} />
+                <span>Сменить землю</span>
+              </button>
+            </div>
+          ) : (
+            <div 
+              className="lid-selected-land-banner glass lid-land-banner-unselected"
               onClick={() => openLandModal(true)}
             >
-              <RefreshCw size={14} />
-              <span>Сменить землю</span>
-            </button>
-          </div>
+              <div className="lid-land-banner-left">
+                <div className="lid-land-flag-unselected">
+                  <MapPin size={22} color="#facc15" />
+                </div>
+                <div className="lid-land-banner-info">
+                  <div className="lid-land-banner-label" style={{ color: '#facc15' }}>
+                    ⚠️ Земля не выбрана
+                  </div>
+                  <div className="lid-land-banner-name">
+                    Выберите землю
+                  </div>
+                  <div className="lid-land-banner-capital">
+                    <span>3 региональных вопроса войдут в билет</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="lid-btn-choose-land-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openLandModal(true);
+                }}
+              >
+                <span>Выбрать землю</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          )}
 
           {/* Exam Rules Pill */}
           <div className="lid-rules-banner glass">
@@ -236,8 +270,8 @@ export const LidExamView = () => {
               <button
                 type="button"
                 className="lid-exam-exit-btn"
-                onClick={() => setIsFinishConfirmOpen(true)}
-                title="Прервать"
+                onClick={() => resetToMenu()}
+                title="Назад в меню"
               >
                 <ArrowLeft size={18} />
               </button>
@@ -352,55 +386,8 @@ export const LidExamView = () => {
         onClose={closeLandModal}
         onConfirm={() => {
           closeLandModal();
-          if (screen === 'menu') {
-            // Land updated
-          }
         }}
       />
-
-      {/* Finish / Exit Confirmation Modal */}
-      {isFinishConfirmOpen && (
-        <div className="modal-overlay" onClick={() => setIsFinishConfirmOpen(false)} style={{ zIndex: 12000 }}>
-          <motion.div
-            className="lid-confirm-modal glass"
-            onClick={(e) => e.stopPropagation()}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-          >
-            <div className="lid-confirm-icon-wrap">
-              <AlertCircle size={32} color="#f59e0b" />
-            </div>
-            <h3 className="lid-confirm-title">
-              {screen === 'running' ? 'Завершить экзамен?' : 'Прервать тестирование?'}
-            </h3>
-            <p className="lid-confirm-desc">
-              {unansweredCount > 0
-                ? `Вы ответили на ${answeredCount} из ${totalQ} вопросов. Осталось неотвеченных: ${unansweredCount}. Завершить сейчас?`
-                : 'Вы ответили на все 33 вопроса. Готовы увидеть результаты?'}
-            </p>
-            <div className="lid-confirm-actions">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setIsFinishConfirmOpen(false)}
-              >
-                Продолжить тест
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary lid-btn-danger"
-                onClick={() => {
-                  setIsFinishConfirmOpen(false);
-                  finishSimulation();
-                }}
-              >
-                Завершить
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
     </div>
   );
 };

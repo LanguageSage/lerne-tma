@@ -6,6 +6,7 @@ import datetime
 import asyncio
 from api import ai_service, models, services
 from api.dependencies.auth import get_user_id
+from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload, merge_cefr_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,7 @@ async def enrich_batch_cards(request: EnrichBatchRequest, user_id: int = Depends
                     "context": c.get("context", ""),
                     "tags": c.get("tags") or c.get("level", "A1"),
                     "level": c.get("level", "A1"),
+                    "cefr": c.get("cefr") or build_ai_cefr_payload(c.get("level", "A1")),
                     "card_type": c.get("card_type", "quiz"),
                     "source": "ai_batch_quiz"
                 })
@@ -172,6 +174,7 @@ async def generate_batch_cards(request: BatchRequest, user_id: int = Depends(get
                         back_text=card_data.get("back", ""),
                         context=card_data.get("context", ""),
                         tags=card_tags,
+                        metadata=merge_cefr_metadata(None, card_data.get("cefr") or build_ai_cefr_payload(card_level)) if card_level else None,
                         source="ai_batch",
                         position=card_pos,
                         created_at=datetime.datetime.now(),
@@ -187,6 +190,7 @@ async def generate_batch_cards(request: BatchRequest, user_id: int = Depends(get
                         "context": new_c.context,
                         "level": card_level,
                         "tags": new_c.tags,
+                        "cefr": card_data.get("cefr") or (build_ai_cefr_payload(card_level) if card_level else None),
                         "position": card_pos
                     })
                     # Schedule background audio generation (non-blocking)
@@ -197,6 +201,7 @@ async def generate_batch_cards(request: BatchRequest, user_id: int = Depends(get
             if detect_level and idx < len(levels):
                 card_data["level"] = levels[idx]
                 card_data["tags"] = levels[idx]
+                card_data["cefr"] = build_ai_cefr_payload(levels[idx])
 
     return res
 
@@ -225,6 +230,7 @@ async def _async_bg_classify_ai(cards_data: list, target_language: str = "de"):
                     cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1", "A2", "B1", "B2", "C1", "C2"}])
                     new_tags = f"{cleaned},{lvl}".strip(",") if cleaned else lvl
                     card.tags = new_tags
+                    card.metadata = merge_cefr_metadata(card.metadata, build_ai_cefr_payload(lvl))
                     card.updated_at = datetime.datetime.now()
                     card.save()
         logger.info(f"_async_bg_classify_ai: finished background AI classification for {len(cards_data)} cards.")
@@ -271,6 +277,7 @@ async def classify_cards_batch_endpoint(request: ClassifyBatchRequest, user_id: 
                 cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1", "A2", "B1", "B2", "C1", "C2"}])
                 new_tags = f"{cleaned},{lvl}".strip(",") if cleaned else lvl
                 card.tags = new_tags
+                card.metadata = merge_cefr_metadata(card.metadata, build_local_cefr_payload(local_res))
                 card.updated_at = datetime.datetime.now()
                 card.save()
                 updated_cards.append({
@@ -279,6 +286,7 @@ async def classify_cards_batch_endpoint(request: ClassifyBatchRequest, user_id: 
                     "front": card.front_text,
                     "level": lvl,
                     "tags": new_tags,
+                    "cefr": build_local_cefr_payload(local_res),
                     "source": "local_rules"
                 })
             else:

@@ -12,7 +12,7 @@ import { ConfettiBurst } from '../common/ConfettiBurst';
 export const LidResultsView = ({ onBackToMenu }) => {
   const {
     getResults,
-    ticket,
+    questions,
     answers,
     startSimulation,
     retakeMistakes,
@@ -28,7 +28,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
   const stateInfo = getBundeslandByCode(selectedLandCode);
 
   // Build full list of all 33 questions with user answer & correctness
-  const allQuestionItems = (ticket || []).map((q, idx) => {
+  const allQuestionItems = (questions || []).map((q, idx) => {
     const userAnswer = answers[q.id] || null;
     const isCorrect = userAnswer === q.correctOption;
     return {

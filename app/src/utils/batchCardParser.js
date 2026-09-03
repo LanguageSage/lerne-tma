@@ -1,4 +1,5 @@
 import { classifySentenceFast } from '../services/classifier/index.js';
+import { buildCefrMetaFromClassifierResult } from './levelUtils.js';
 
 /**
  * Parses batch text formatted with '---' or newlines into structured cards.
@@ -44,6 +45,7 @@ export function parseBatchCardsText(rawText) {
       }
 
       const res = classifySentenceFast(block, 'de');
+      const level = res.level || 'A1';
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
         front: block,
@@ -52,10 +54,11 @@ export function parseBatchCardsText(rawText) {
         back_text: extractedAnswer,
         context: '',
         card_type: 'trainer',
-        level: res.level || 'A1',
+        level,
         reason: res.reason,
         reason_short: res.reason_short,
-        tags: res.level || 'A1'
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
+        tags: level
       });
       continue;
     }
@@ -102,6 +105,7 @@ export function parseBatchCardsText(rawText) {
 
       const formattedFront = `${questionText}\n\n${optionLines.join('\n')}`;
       const res = classifySentenceFast(questionText, 'de');
+      const level = res.level || 'B1';
 
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
@@ -111,10 +115,11 @@ export function parseBatchCardsText(rawText) {
         back_text: cleanCorrectAnswer || 'Правильный ответ',
         context: '',
         card_type: 'quiz',
-        level: res.level || 'B1',
+        level,
         reason: res.reason,
         reason_short: res.reason_short,
-        tags: res.level || 'B1'
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
+        tags: level
       });
       continue;
     }
@@ -124,6 +129,7 @@ export function parseBatchCardsText(rawText) {
       const front = lines[0];
       const back = lines.slice(1).join('\n');
       const res = classifySentenceFast(front, 'de');
+      const level = res.level || 'A1';
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
         front,
@@ -132,10 +138,11 @@ export function parseBatchCardsText(rawText) {
         back_text: back,
         context: '',
         card_type: 'standard',
-        level: res.level || 'A1',
+        level,
         reason: res.reason,
         reason_short: res.reason_short,
-        tags: res.level || 'A1'
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
+        tags: level
       });
     } else if (lines.length === 1) {
       const line = lines[0];
@@ -151,6 +158,7 @@ export function parseBatchCardsText(rawText) {
         [front, back] = line.split(';');
       }
       const res = classifySentenceFast(front, 'de');
+      const level = res.level || 'A1';
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
         front: front.trim(),
@@ -159,10 +167,11 @@ export function parseBatchCardsText(rawText) {
         back_text: back.trim(),
         context: '',
         card_type: 'standard',
-        level: res.level || 'A1',
+        level,
         reason: res.reason,
         reason_short: res.reason_short,
-        tags: res.level || 'A1'
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
+        tags: level
       });
     }
   }

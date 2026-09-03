@@ -17,6 +17,8 @@ export const useLidStore = create((set, get) => ({
   rememberLandChoice: localStorage.getItem(STORAGE_REMEMBER_KEY) === 'true',
   isLandModalOpen: false,
   isLandChangeMode: false,
+  pendingExamMode: null, // 'exam' | 'practice' | null
+  setPendingExamMode: (mode) => set({ pendingExamMode: mode }),
 
   // Exam flow
   examMode: 'exam', // 'exam' | 'practice'
@@ -38,7 +40,7 @@ export const useLidStore = create((set, get) => ({
   },
 
   closeLandModal: () => {
-    set({ isLandModalOpen: false, isLandChangeMode: false });
+    set({ isLandModalOpen: false, isLandChangeMode: false, pendingExamMode: null });
   },
 
   selectLand: (code, remember = true) => {
@@ -49,12 +51,17 @@ export const useLidStore = create((set, get) => ({
       localStorage.removeItem(STORAGE_LAND_KEY);
       localStorage.setItem(STORAGE_REMEMBER_KEY, 'false');
     }
+    const pending = get().pendingExamMode;
     set({
       selectedLandCode: code,
       rememberLandChoice: remember,
       isLandModalOpen: false,
-      isLandChangeMode: false
+      isLandChangeMode: false,
+      pendingExamMode: null
     });
+    if (pending) {
+      get().startSimulation(pending, code);
+    }
   },
 
   // Generates 33 random questions: 10 from 1-100, 10 from 101-200, 10 from 201-300, 3 from selected Bundesland
@@ -84,10 +91,13 @@ export const useLidStore = create((set, get) => ({
   },
 
   // Start Exam or Practice Mode
-  startSimulation: (mode = 'exam') => {
-    const { selectedLandCode, generateExamTicket } = get();
-    const targetLand = selectedLandCode || 'BY';
-    const ticket = generateExamTicket(targetLand);
+  startSimulation: (mode = 'exam', customLand = null) => {
+    const targetLand = customLand || get().selectedLandCode;
+    if (!targetLand) {
+      set({ isLandModalOpen: true, isLandChangeMode: true, pendingExamMode: mode });
+      return;
+    }
+    const ticket = get().generateExamTicket(targetLand);
 
     set({
       examMode: mode,
@@ -98,7 +108,8 @@ export const useLidStore = create((set, get) => ({
       timeRemaining: 3600,
       timeSpent: 0,
       isTimerActive: true,
-      selectedMistakeCard: null
+      selectedMistakeCard: null,
+      pendingExamMode: null
     });
   },
 

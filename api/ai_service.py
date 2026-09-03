@@ -271,15 +271,23 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         if detect_level and result and "front" in result and not result.get("level"):
             try:
                 from api.services.classifier import classify_sentence_fast
+                from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload
                 local_res = classify_sentence_fast(result["front"], target_lang)
                 if local_res.get("confidence", 0.0) >= 0.80:
                     result["level"] = local_res.get("level", "A1")
+                    result["cefr"] = build_local_cefr_payload(local_res)
                 else:
                     ai_levels = await classify_phrases_batch([result["front"]], target_lang)
                     result["level"] = ai_levels[0] if ai_levels else local_res.get("level", "A1")
+                    result["cefr"] = build_ai_cefr_payload(result["level"])
             except Exception as classify_err:
                 logger.warning(f"Local classifier in generate_card_fields warning: {classify_err}")
                 result["level"] = "A1"
+                from api.services.cefr_metadata import build_ai_cefr_payload
+                result["cefr"] = build_ai_cefr_payload("A1", source="fallback")
+        elif result and result.get("level") and not result.get("cefr"):
+            from api.services.cefr_metadata import build_ai_cefr_payload
+            result["cefr"] = build_ai_cefr_payload(result.get("level"), reason=result.get("reason"))
 
         return result
         
@@ -631,8 +639,10 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
                             if generated_item.get("context"):
                                 merged["context"] = generated_item["context"]
                             if generated_item.get("level"):
+                                from api.services.cefr_metadata import build_ai_cefr_payload
                                 merged["level"] = generated_item["level"]
                                 merged["tags"] = generated_item["level"]
+                                merged["cefr"] = build_ai_cefr_payload(generated_item["level"])
                             merged["card_type"] = generated_item.get("card_type") or original_card.get("card_type") or "quiz"
                             enriched_cards.append(merged)
                     else:

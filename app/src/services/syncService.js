@@ -11,6 +11,24 @@ export const syncService = {
     console.log("[Sync Service] Starting synchronization...");
 
     const userId = getUserId();
+    const lastSyncUserId = localStorage.getItem('lerne_last_sync_user_id');
+    if (lastSyncUserId && String(lastSyncUserId) !== String(userId)) {
+      console.log(`[Sync Service] User switched from ${lastSyncUserId} to ${userId}. Resetting sync cache.`);
+      localStorage.removeItem('lerne_last_sync_time');
+      try {
+        await db.transaction('rw', [db.folders, db.decks, db.cards, db.progress], async () => {
+          await db.folders.clear();
+          await db.decks.clear();
+          await db.cards.clear();
+          await db.progress.clear();
+        });
+      } catch (e) {
+        console.warn("[Sync Service] Error clearing local cache on user switch:", e);
+      }
+    }
+    if (userId) {
+      localStorage.setItem('lerne_last_sync_user_id', String(userId));
+    }
 
     try {
       // 1. Gather dirty items from local database
@@ -41,6 +59,7 @@ export const syncService = {
           level: d.level || null,
           topic: d.topic || null,
           is_deleted: !!d.is_deleted,
+          is_inbox: !!d.is_inbox,
           is_pinned: !!d.is_pinned,
           position: d.position || 0,
           folder_id: d.folder_id || null,
@@ -58,9 +77,10 @@ export const syncService = {
           audio_back_path: c.audio_back_path || null,
           video_front_path: c.video_front_path || null,
           video_back_path: c.video_back_path || null,
-          is_deleted: !!c.is_deleted,
-          flag: c.flag || 0,
+          tags: c.tags || '[]',
+          card_type: c.card_type || 'translation',
           position: c.position || 0,
+          is_deleted: !!c.is_deleted,
           created_at: c.created_at,
           updated_at: c.updated_at
         })),
@@ -71,7 +91,6 @@ export const syncService = {
           ease_factor: p.ease_factor,
           repetitions: p.repetitions,
           lapses: p.lapses,
-          step_index: p.step_index,
           next_review: p.next_review,
           last_reviewed: p.last_reviewed,
           created_at: p.created_at,
@@ -79,13 +98,16 @@ export const syncService = {
         }))
       };
 
-      // 2. Push local changes to the server
+      // 2. Push local changes to server
+      const hasDirty = dirtyFolders.length > 0 || dirtyDecks.length > 0 || dirtyCards.length > 0 || dirtyProgress.length > 0;
       let mappings = { folders: {}, decks: {}, cards: {} };
-      if (dirtyFolders.length > 0 || dirtyDecks.length > 0 || dirtyCards.length > 0 || dirtyProgress.length > 0) {
-        // Use direct Axios bypass config or bypass checking
+      if (hasDirty) {
+        console.log("[Sync Service] Pushing changes to server...");
         const pushRes = await api.post('/sync/push', payload);
         if (pushRes.data && pushRes.data.status === 'success') {
           mappings = pushRes.data.mappings || { folders: {}, decks: {}, cards: {} };
+        } else if (pushRes.data) {
+          console.warn("[Sync Service] Push responded with error:", pushRes.data);
         }
       }
 
@@ -99,14 +121,13 @@ export const syncService = {
           folder.is_dirty = 0;
           await db.folders.put(folder);
         }
-        // Update any local deck foreign keys pointing to this temp folder ID
         const decksToUpdate = await db.decks.where('folder_id').equals(tempId).toArray();
         for (const d of decksToUpdate) {
           await db.decks.update(d.id, { folder_id: realId });
         }
       }
 
-      // Apply deck ID mappings (replace negative temp IDs with real server IDs)
+      // Apply deck ID mappings
       for (const [tempIdStr, realId] of Object.entries(mappings.decks || {})) {
         const tempId = parseInt(tempIdStr, 10);
         const deck = await db.decks.get(tempId);
@@ -116,14 +137,13 @@ export const syncService = {
           deck.is_dirty = 0;
           await db.decks.put(deck);
         }
-        // Update any local card foreign keys pointing to this temp deck ID
         const cardsToUpdate = await db.cards.where('deck_id').equals(tempId).toArray();
         for (const c of cardsToUpdate) {
           await db.cards.update(c.id, { deck_id: realId });
         }
       }
 
-      // Apply card ID mappings (replace negative temp IDs with real server IDs)
+      // Apply card ID mappings
       for (const [tempIdStr, realId] of Object.entries(mappings.cards || {})) {
         const tempId = parseInt(tempIdStr, 10);
         const card = await db.cards.get(tempId);
@@ -133,7 +153,6 @@ export const syncService = {
           card.is_dirty = 0;
           await db.cards.put(card);
         }
-        // Update any progress records pointing to this temp card ID
         const progress = await db.progress.get([tempId, userId]);
         if (progress) {
           await db.progress.delete([tempId, userId]);
@@ -143,7 +162,7 @@ export const syncService = {
         }
       }
 
-      // Reset is_dirty for already positive ID items that were successfully pushed
+      // Mark dirty items as clean
       const folderIdsPushed = dirtyFolders.filter(f => f.id >= 0).map(f => f.id);
       if (folderIdsPushed.length > 0) {
         await db.folders.where('id').anyOf(folderIdsPushed).modify({ is_dirty: 0 });
@@ -187,6 +206,9 @@ export const syncService = {
                 id: f.id,
                 user_id: userId,
                 name: f.name,
+                parent_id: f.parent_id || null,
+                color: f.color || null,
+                target_language: f.target_language || 'de',
                 is_deleted: f.is_deleted ? 1 : 0,
                 is_pinned: f.is_pinned ? 1 : 0,
                 position: f.position || 0,
@@ -210,6 +232,7 @@ export const syncService = {
                 name: d.name,
                 level: d.level,
                 topic: d.topic,
+                target_language: d.target_language || 'de',
                 is_deleted: d.is_deleted ? 1 : 0,
                 is_inbox: d.is_inbox ? 1 : 0,
                 is_pinned: d.is_pinned ? 1 : 0,

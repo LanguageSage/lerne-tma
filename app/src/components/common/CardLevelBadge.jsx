@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { getLevelInfo } from '../../utils/levelUtils';
+import { getLevelInfo, getSavedCefr } from '../../utils/levelUtils';
 import { classifySentenceFast } from '../../services/classifier';
 
 const CEFR_DESCRIPTIONS = {
@@ -29,16 +29,29 @@ export const CardLevelBadge = ({
   }
 
   const frontText = (card?.front_text || card?.front || '').trim();
-  const isManual = Boolean(card?.manual_level || card?.is_manual_level || card?.reason_short === 'вручную' || card?.reason === 'Установлен вручную');
+  const savedCefr = getSavedCefr(card);
+  const isManual = Boolean(
+    card?.manual_level ||
+    card?.is_manual_level ||
+    savedCefr?.source === 'manual' ||
+    card?.reason_short === 'вручную' ||
+    card?.reason === 'Установлен вручную'
+  );
 
   const { info, reasonShort, fullReason } = useMemo(() => {
+    if (savedCefr?.source === 'cleared' && !savedCefr?.level) {
+      return { info: null, reasonShort: null, fullReason: null };
+    }
+
     let computedInfo = null;
     let localClassified = null;
 
     if (isManual) {
-      computedInfo = getLevelInfo(card);
+      computedInfo = getLevelInfo({ ...(card || {}), level: card?.level || savedCefr?.level });
     } else {
-      if (frontText) {
+      if (savedCefr?.level) {
+        computedInfo = getLevelInfo({ level: savedCefr.level });
+      } else if (frontText && !card?.reason && !card?.reason_short) {
         try {
           const res = classifySentenceFast(frontText, 'de');
           if (res && res.level) {
@@ -57,15 +70,15 @@ export const CardLevelBadge = ({
     if (!computedInfo) return { info: null, reasonShort: null, fullReason: null };
 
     const rShort = isManual 
-      ? (card?.reason_short || 'вручную') 
-      : (localClassified?.reason_short || card?.reason_short || null);
+      ? (card?.reason_short || savedCefr?.reason_short || 'вручную') 
+      : (card?.reason_short || savedCefr?.reason_short || localClassified?.reason_short || null);
       
     const fReason = isManual 
-      ? (card?.reason || 'Установлено вручную') 
-      : (localClassified?.reason || card?.reason || (rShort ? rShort : CEFR_DESCRIPTIONS[computedInfo.level] || null));
+      ? (card?.reason || savedCefr?.reason || 'Установлено вручную') 
+      : (card?.reason || savedCefr?.reason || localClassified?.reason || (rShort ? rShort : CEFR_DESCRIPTIONS[computedInfo.level] || null));
 
     return { info: computedInfo, reasonShort: rShort, fullReason: fReason };
-  }, [card, frontText, isManual]);
+  }, [card, frontText, isManual, savedCefr]);
 
   if (!info) return null;
 

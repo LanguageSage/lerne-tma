@@ -1,20 +1,17 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Award, ArrowRight, Sparkles, Clock, Layers, ShieldCheck, CheckCircle } from 'lucide-react';
+import { Award, ArrowRight, Sparkles, Clock, Layers, ShieldCheck } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useLidStore } from '../../store/useLidStore';
 
 export const LidExamCardItem = () => {
   const { setView } = useUiStore();
-  const { openLandModal, selectedLandCode, resetToMenu } = useLidStore();
+  const { resetToMenu } = useLidStore();
 
   const handleOpenExamSimulator = (e) => {
     e.stopPropagation();
     resetToMenu();
     setView('lid_exam');
-    if (!selectedLandCode) {
-      openLandModal(false);
-    }
   };
 
   return (

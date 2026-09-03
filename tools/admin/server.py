@@ -25,6 +25,12 @@ import peewee
 from peewee import fn
 
 from api import models, ai_service
+from api.services.cefr_metadata import (
+    build_ai_cefr_payload,
+    build_cleared_cefr_payload,
+    build_local_cefr_payload,
+    merge_cefr_metadata,
+)
 
 app = FastAPI(title="Lerne TMA Admin Console", version="1.0.0")
 
@@ -78,9 +84,17 @@ class CreateDeckRequest(BaseModel):
 
 class AssignDeckRequest(BaseModel):
     user_ids: List[int]
-    mode: str = "copy"  # "copy" or "collaborate"
+    mode: str = "copy"  # "copy", "collaborate", "library", "default_all"
 
 class SetDefaultDeckRequest(BaseModel):
+    is_default: bool
+    copy_to_existing: bool = True
+
+class AssignFolderRequest(BaseModel):
+    user_ids: List[int]
+    mode: str = "copy"  # "copy" or "default_all"
+
+class SetDefaultFolderRequest(BaseModel):
     is_default: bool
     copy_to_existing: bool = True
 
@@ -133,6 +147,7 @@ class BatchRegenerateDeckRequest(BaseModel):
     cards_per_deck_limit: Optional[int] = None
     start_deck_idx: Optional[int] = None
     start_card_idx: Optional[int] = None
+    exclude_card_ids: Optional[List[int]] = None
 
 class BatchRegenerateAudioRequest(BaseModel):
     deck_ids: List[str]
@@ -145,6 +160,7 @@ class BatchRegenerateAudioRequest(BaseModel):
     cards_per_deck_limit: Optional[int] = None
     start_deck_idx: Optional[int] = None
     start_card_idx: Optional[int] = None
+    exclude_card_ids: Optional[List[int]] = None
 
 class BulkCreateCardsRequest(BaseModel):
     deck_id: Optional[str] = None
@@ -255,7 +271,7 @@ def _select_tma_cards_for_classification(req: ClassificationRequest) -> List[Dic
     lang = (req.lang or "de").lower().strip()
     query = (
         models.TMA_Card
-        .select(models.TMA_Card.id, models.TMA_Card.front_text, models.TMA_Card.tags)
+        .select(models.TMA_Card.id, models.TMA_Card.front_text, models.TMA_Card.tags, models.TMA_Card.metadata)
         .join(models.TMA_Deck)
         .where(models.TMA_Card.is_deleted == False)
         .order_by(models.TMA_Card.id.asc())
@@ -334,11 +350,13 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
 
         phrase_to_card_ids = defaultdict(list)
         phrase_to_card_tags: Dict[int, Optional[str]] = {}
+        phrase_to_card_metadata: Dict[int, Optional[str]] = {}
         for card in cards_to_process:
             phrase = (card.get("front_text") or "").strip()
             if phrase:
                 phrase_to_card_ids[phrase].append(card["id"])
                 phrase_to_card_tags[card["id"]] = card.get("tags")
+                phrase_to_card_metadata[card["id"]] = card.get("metadata")
 
         unique_phrases = list(phrase_to_card_ids.keys())
         duplicate_saved = len(cards_to_process) - len(unique_phrases)
@@ -368,6 +386,7 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
         phrase_to_level: Dict[str, Optional[str]] = {}
         phrase_to_source: Dict[str, str] = {}
         phrase_to_confidence: Dict[str, float] = {}
+        phrase_to_cefr_payload: Dict[str, Dict[str, Any]] = {}
         phrase_to_local_fallback: Dict[str, str] = {}
         local_level_counts = Counter()
         local_fallback_counts = Counter()
@@ -395,6 +414,7 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
                     phrase_to_level[phrase] = local_level
                     phrase_to_source[phrase] = "local"
                     phrase_to_confidence[phrase] = local_conf
+                    phrase_to_cefr_payload[phrase] = build_local_cefr_payload(local, source="local")
                     local_level_counts[local_level] += len(phrase_to_card_ids[phrase])
                 else:
                     local_fallback_counts[local_level] += len(phrase_to_card_ids[phrase])
@@ -402,6 +422,7 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
                         phrase_to_level[phrase] = None
                         phrase_to_source[phrase] = "cleared"
                         phrase_to_confidence[phrase] = local_conf
+                        phrase_to_cefr_payload[phrase] = build_cleared_cefr_payload(local)
                         cleared_local_counts["NO_LEVEL"] += len(phrase_to_card_ids[phrase])
                     else:
                         phrases_for_ai.append(phrase)
@@ -482,12 +503,15 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
                         phrase_to_level[phrase] = valid_level
                         phrase_to_source[phrase] = "ai"
                         phrase_to_confidence[phrase] = 1.0
+                        phrase_to_cefr_payload[phrase] = build_ai_cefr_payload(valid_level)
                 except Exception as err:
                     _append_classification_log(task_info, f"AI chunk {idx} failed, local fallback used: {str(err)[:80]}")
                     for phrase in chunk:
-                        phrase_to_level[phrase] = phrase_to_local_fallback.get(phrase, "A1")
+                        fallback_level = phrase_to_local_fallback.get(phrase, "A1")
+                        phrase_to_level[phrase] = fallback_level
                         phrase_to_source[phrase] = "fallback"
                         phrase_to_confidence[phrase] = 0.0
+                        phrase_to_cefr_payload[phrase] = build_ai_cefr_payload(fallback_level, source="fallback")
 
                 task_info["processed_ai_chunks"] = idx
                 task_info["processed_cards"] = min(
@@ -506,6 +530,9 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
         for phrase, card_ids in phrase_to_card_ids.items():
             level = phrase_to_level.get(phrase, phrase_to_local_fallback.get(phrase, "A1"))
             source = phrase_to_source.get(phrase, "fallback")
+            cefr_payload = phrase_to_cefr_payload.get(phrase)
+            if not cefr_payload:
+                cefr_payload = build_ai_cefr_payload(level, source=source) if level else build_cleared_cefr_payload()
             if level:
                 level_counts[level] += len(card_ids)
             else:
@@ -521,6 +548,8 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
                     "new_level": level,
                     "source": source,
                     "confidence": round(phrase_to_confidence.get(phrase, 0.0), 2),
+                    "reason": cefr_payload.get("reason"),
+                    "reason_short": cefr_payload.get("reason_short"),
                 })
 
         task_info.update({
@@ -549,25 +578,30 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
             _save_classification_task(task_id, task_info)
             return
 
-        tag_value_to_card_ids = defaultdict(list)
+        card_update_groups = defaultdict(list)
         for phrase, card_ids in phrase_to_card_ids.items():
             level = phrase_to_level.get(phrase, phrase_to_local_fallback.get(phrase, "A1"))
+            source = phrase_to_source.get(phrase, "fallback")
+            cefr_payload = phrase_to_cefr_payload.get(phrase)
+            if not cefr_payload:
+                cefr_payload = build_ai_cefr_payload(level, source=source) if level else build_cleared_cefr_payload()
             for card_id in card_ids:
                 if level:
                     new_tags = replace_cefr_level(phrase_to_card_tags.get(card_id), level)
                 else:
                     new_tags = remove_cefr_level(phrase_to_card_tags.get(card_id))
-                tag_value_to_card_ids[new_tags].append(card_id)
+                new_metadata = merge_cefr_metadata(phrase_to_card_metadata.get(card_id), cefr_payload)
+                card_update_groups[(new_tags, new_metadata)].append(card_id)
 
         updated_total = 0
         now = datetime.datetime.now()
         with models.tma_db.atomic():
-            for new_tags, card_ids in tag_value_to_card_ids.items():
+            for (new_tags, new_metadata), card_ids in card_update_groups.items():
                 for idx in range(0, len(card_ids), 500):
                     chunk = card_ids[idx:idx + 500]
                     updated_total += (
                         models.TMA_Card
-                        .update(tags=new_tags, updated_at=now)
+                        .update(tags=new_tags, metadata=new_metadata, updated_at=now)
                         .where(models.TMA_Card.id << chunk)
                         .execute()
                     )
@@ -771,20 +805,26 @@ def cleanup_guest_accounts():
 
 @app.delete("/api/admin/users/{user_id}")
 def delete_single_user(user_id: int):
-    """Deletes a specific user and all their personal decks, cards, and data."""
+    """Deletes a specific user and all their personal decks, cards, folders, and data."""
     try:
+        deleted_cards = 0
+        deleted_decks = 0
+        deleted_folders = 0
         with models.tma_db.atomic():
             # Find and delete user's decks and cards
             user_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id)]
-            deleted_cards = 0
-            deleted_decks = 0
             if user_deck_ids:
                 deleted_cards = models.TMA_Card.delete().where(models.TMA_Card.deck_id << user_deck_ids).execute()
                 deleted_decks = models.TMA_Deck.delete().where(models.TMA_Deck.id << user_deck_ids).execute()
 
-            # Delete progress & review history
+            # Delete user's folders
+            deleted_folders = models.TMA_Folder.delete().where(models.TMA_Folder.user_id == user_id).execute()
+
+            # Delete progress, review history, collaborators, feedback
             models.TMAProgress.delete().where(models.TMAProgress.user_id == user_id).execute()
             models.TMAReviewHistory.delete().where(models.TMAReviewHistory.user_id == user_id).execute()
+            models.TMA_Collaborator.delete().where((models.TMA_Collaborator.user_id == user_id) | (models.TMA_Collaborator.added_by == user_id)).execute()
+            models.TMAFeedback.delete().where(models.TMAFeedback.user_id == user_id).execute()
 
             # Delete prompts
             models.TMACustomPrompt.delete().where(models.TMACustomPrompt.user_id == user_id).execute()
@@ -798,7 +838,7 @@ def delete_single_user(user_id: int):
 
         return {
             "status": "success",
-            "message": f"Пользователь #{user_id} удалён ({deleted_decks} колод, {deleted_cards} карточек)"
+            "message": f"Пользователь #{user_id} удалён ({deleted_decks} колод, {deleted_folders} папок, {deleted_cards} карточек)"
         }
     except Exception as e:
         logger.error(f"Failed to delete user {user_id}: {e}", exc_info=True)
@@ -807,15 +847,27 @@ def delete_single_user(user_id: int):
 
 @app.post("/api/admin/users/batch-delete")
 def batch_delete_users(req: BatchDeleteUsersRequest):
-    """Deletes multiple selected users and all their associated decks, cards, and data."""
+    """Deletes multiple selected users and all their associated decks, cards, folders, and data."""
     if not req.user_ids:
-        raise HTTPException(status_code=400, detail="No user IDs provided for deletion")
+        raise HTTPException(status_code=400, detail="Не указаны ID пользователей для удаления")
 
     try:
-        user_ids = list(set(req.user_ids))
+        raw_ids = req.user_ids
+        clean_user_ids = []
+        for uid in raw_ids:
+            try:
+                clean_user_ids.append(int(uid))
+            except (ValueError, TypeError):
+                pass
+        
+        user_ids = list(set(clean_user_ids))
+        if not user_ids:
+            raise HTTPException(status_code=400, detail="Не найдено корректных числовых ID пользователей")
+
         deleted_users_count = 0
         deleted_decks_count = 0
         deleted_cards_count = 0
+        deleted_folders_count = 0
 
         with models.tma_db.atomic():
             # Find and delete user's decks and cards
@@ -824,9 +876,14 @@ def batch_delete_users(req: BatchDeleteUsersRequest):
                 deleted_cards_count = models.TMA_Card.delete().where(models.TMA_Card.deck_id << user_deck_ids).execute()
                 deleted_decks_count = models.TMA_Deck.delete().where(models.TMA_Deck.id << user_deck_ids).execute()
 
-            # Delete progress & review history
+            # Delete user's folders
+            deleted_folders_count = models.TMA_Folder.delete().where(models.TMA_Folder.user_id << user_ids).execute()
+
+            # Delete progress, review history, collaborators, feedback
             models.TMAProgress.delete().where(models.TMAProgress.user_id << user_ids).execute()
             models.TMAReviewHistory.delete().where(models.TMAReviewHistory.user_id << user_ids).execute()
+            models.TMA_Collaborator.delete().where((models.TMA_Collaborator.user_id << user_ids) | (models.TMA_Collaborator.added_by << user_ids)).execute()
+            models.TMAFeedback.delete().where(models.TMAFeedback.user_id << user_ids).execute()
 
             # Delete prompts
             models.TMACustomPrompt.delete().where(models.TMACustomPrompt.user_id << user_ids).execute()
@@ -840,11 +897,14 @@ def batch_delete_users(req: BatchDeleteUsersRequest):
 
         return {
             "status": "success",
-            "message": f"Удалено {deleted_users_count} пользователей, {deleted_decks_count} колод, {deleted_cards_count} карточек",
+            "message": f"Удалено {deleted_users_count} пользователей, {deleted_decks_count} колод, {deleted_folders_count} папок, {deleted_cards_count} карточек",
             "deleted_users_count": deleted_users_count,
             "deleted_decks_count": deleted_decks_count,
+            "deleted_folders_count": deleted_folders_count,
             "deleted_cards_count": deleted_cards_count
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to batch delete users {req.user_ids}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка при массовом удалении пользователей: {str(e)}")
@@ -1347,11 +1407,16 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
     decks_to_process = []
     total_cards_count = 0
 
+    excluded_cards_set = set(options.exclude_card_ids or [])
+
     for deck_id in options.deck_ids:
         deck, cards, is_lib = get_deck_and_cards(deck_id)
         if not deck:
             task_info["logs"].append(f"⚠️ Колода #{deck_id} не найдена, пропускаем")
             continue
+
+        if excluded_cards_set:
+            cards = [c for c in cards if c.id not in excluded_cards_set]
 
         if options.skip_completed:
             before_len = len(cards)
@@ -1562,11 +1627,16 @@ async def run_batch_audio_regeneration(task_id: str, options: BatchRegenerateAud
     decks_to_process = []
     total_cards_count = 0
 
+    excluded_cards_set = set(options.exclude_card_ids or [])
+
     for deck_id in options.deck_ids:
         deck, cards, is_lib = get_deck_and_cards(deck_id)
         if not deck:
             task_info["logs"].append(f"⚠️ Колода #{deck_id} не найдена, пропускаем")
             continue
+
+        if excluded_cards_set:
+            cards = [c for c in cards if c.id not in excluded_cards_set]
 
         if options.skip_completed:
             before_len = len(cards)
@@ -2367,10 +2437,13 @@ def deduplicate_deck_cards(deck_id: str):
 
 @app.post("/api/admin/decks/{deck_id}/set-default")
 def set_default_deck(deck_id: str, req: SetDefaultDeckRequest):
-    """Marks deck as default and optionally distributes copies to all users."""
+    """Marks deck as default (starter for new users) and optionally distributes copies to all existing users."""
     deck, cards, is_lib = get_deck_and_cards(deck_id)
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
+
+    clean_name = deck.name.replace("⭐ ", "").strip()
+    now = datetime.datetime.now()
 
     if is_lib:
         deck.is_default = req.is_default
@@ -2385,51 +2458,111 @@ def set_default_deck(deck_id: str, req: SetDefaultDeckRequest):
         deck.metadata = json.dumps(meta)
         deck.save()
 
+        # Also sync/update in models.Deck (Master Library) so ensure_starter_decks will find it for all new users!
+        lib_deck = models.Deck.get_or_none(
+            (models.Deck.is_deleted == False) &
+            ((models.Deck.name == deck.name) | (models.Deck.name == clean_name) | (models.Deck.name == f"⭐ {clean_name}"))
+        )
+        if req.is_default:
+            if not lib_deck:
+                lib_deck = models.Deck.create(
+                    name=clean_name,
+                    target_language=getattr(deck, 'target_language', 'de') or 'de',
+                    level=getattr(deck, 'level', None),
+                    topic=getattr(deck, 'topic', None),
+                    is_default=True,
+                    created_at=now,
+                    updated_at=now
+                )
+                for c in cards:
+                    models.Card.create(
+                        deck=lib_deck,
+                        front_text=c.front_text,
+                        back_text=c.back_text,
+                        context=c.context,
+                        tags=c.tags,
+                        audio_path=c.audio_path,
+                        audio_back_path=c.audio_back_path,
+                        card_type=getattr(c, 'card_type', 'translation'),
+                        source=getattr(c, 'source', '') or "",
+                        created_at=now,
+                        updated_at=now
+                    )
+            else:
+                lib_deck.is_default = True
+                lib_deck.updated_at = now
+                lib_deck.save()
+        else:
+            if lib_deck:
+                lib_deck.is_default = False
+                lib_deck.save()
+
     copied_count = 0
     if req.is_default and req.copy_to_existing:
-        all_users = models.TMAUser.select()
+        all_users = list(models.TMAUser.select())
         for u in all_users:
             if not hasattr(deck, 'user_id') or u.user_id != getattr(deck, 'user_id', None):
                 existing = models.TMA_Deck.get_or_none(
                     (models.TMA_Deck.user_id == u.user_id) & 
                     (models.TMA_Deck.is_deleted == False) &
-                    (models.TMA_Deck.name == deck.name)
+                    ((models.TMA_Deck.name == deck.name) | (models.TMA_Deck.name == clean_name))
                 )
                 if not existing:
                     new_deck = models.TMA_Deck.create(
                         user_id=u.user_id,
-                        name=deck.name,
-                        target_language=deck.target_language,
-                        level=deck.level,
-                        topic=deck.topic,
+                        name=clean_name if not is_lib else deck.name,
+                        target_language=getattr(deck, 'target_language', 'de') or 'de',
+                        level=getattr(deck, 'level', None),
+                        topic=getattr(deck, 'topic', None),
                         metadata=json.dumps({"source_deck_id": deck.id, "is_default": True})
                     )
-                    for c in cards:
-                        models.TMA_Card.create(
+                    card_objs = [
+                        models.TMA_Card(
                             deck=new_deck,
-                            front_text=c.front_text,
-                            back_text=c.back_text,
-                            context=c.context,
-                            tags=c.tags,
-                            audio_path=c.audio_path,
-                            audio_back_path=c.audio_back_path,
-                            card_type=getattr(c, 'card_type', 'translation'),
-                            creator_id=getattr(deck, 'user_id', 0)
+                            front_text=c.front_text or "",
+                            back_text=c.back_text or "",
+                            context=c.context or "",
+                            tags=c.tags or "[]",
+                            audio_path=c.audio_path or "",
+                            audio_back_path=c.audio_back_path or "",
+                            card_type=getattr(c, 'card_type', 'translation') or 'translation',
+                            source=getattr(c, 'source', 'default') or 'default',
+                            creator_id=getattr(deck, 'user_id', 0),
+                            created_at=now,
+                            updated_at=now
                         )
+                        for c in cards
+                    ]
+                    if card_objs:
+                        models.TMA_Card.bulk_create(card_objs, batch_size=200)
                     copied_count += 1
 
-    return {"status": "ok", "is_default": req.is_default, "copied_to_users": copied_count}
+    msg = f"Колода '{clean_name}' теперь дефолтная (добавлена в Библиотеку для всех новых пользователей)!"
+    if req.copy_to_existing:
+        msg += f" И успешно добавлена {copied_count} существующим пользователям."
+    elif not req.is_default:
+        msg = f"Отметка дефолтной снята с колоды '{clean_name}'."
+
+    return {"status": "ok", "is_default": req.is_default, "copied_to_users": copied_count, "message": msg}
 
 
 @app.post("/api/admin/decks/{deck_id}/assign")
 def assign_deck(deck_id: str, req: AssignDeckRequest):
-    """Assigns deck to a specific list of user IDs or saves to Master Library."""
+    """Assigns deck to a specific list of user IDs, saves to Master Library, or sets as default for all."""
     deck, cards, is_lib = get_deck_and_cards(deck_id)
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
 
     processed_users = 0
     clean_name = deck.name.replace("⭐ ", "").strip()
+
+    if req.mode == "default_all":
+        res = set_default_deck(deck_id, SetDefaultDeckRequest(is_default=True, copy_to_existing=True))
+        return {
+            "status": "ok", 
+            "mode": "default_all", 
+            "message": f"Колода '{clean_name}' сделана дефолтной для ВСЕХ пользователей! Добавлена в Библиотеку (для будущих новых пользователей) и скопирована {res.get('copied_to_users', 0)} существующим пользователям."
+        }
 
     if req.mode == "library":
         # Search for existing master deck in models.Deck
@@ -2509,21 +2642,307 @@ def assign_deck(deck_id: str, req: AssignDeckRequest):
                 topic=deck.topic,
                 metadata=json.dumps({"assigned_from_deck_id": deck.id})
             )
-            for c in cards:
-                models.TMA_Card.create(
+            card_objs = [
+                models.TMA_Card(
                     deck=new_deck,
-                    front_text=c.front_text,
-                    back_text=c.back_text,
-                    context=c.context,
-                    tags=c.tags,
-                    audio_path=c.audio_path,
-                    audio_back_path=c.audio_back_path,
-                    card_type=c.card_type,
-                    creator_id=deck.user_id
+                    front_text=c.front_text or "",
+                    back_text=c.back_text or "",
+                    context=c.context or "",
+                    tags=c.tags or "[]",
+                    audio_path=c.audio_path or "",
+                    audio_back_path=c.audio_back_path or "",
+                    card_type=getattr(c, 'card_type', 'translation') or 'translation',
+                    source=getattr(c, 'source', 'assigned') or 'assigned',
+                    creator_id=getattr(deck, 'user_id', 0),
+                    created_at=now,
+                    updated_at=now
                 )
+                for c in cards
+            ]
+            if card_objs:
+                models.TMA_Card.bulk_create(card_objs, batch_size=200)
             processed_users += 1
 
     return {"status": "ok", "mode": req.mode, "users_processed": processed_users}
+
+
+@app.get("/api/admin/folders")
+def get_admin_folders():
+    """Returns all TMA folders with user info, deck counts, and default status."""
+    from collections import defaultdict
+    from peewee import fn
+
+    folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
+    users_map = {u.user_id: u for u in models.TMAUser.select()}
+    
+    # Batch load card counts by deck_id in 1 query
+    card_counts = dict(
+        models.TMA_Card.select(models.TMA_Card.deck_id, fn.COUNT(models.TMA_Card.id))
+        .where(models.TMA_Card.is_deleted == False)
+        .group_by(models.TMA_Card.deck_id)
+        .tuples()
+    )
+
+    # Batch load all decks in folders in 1 query
+    all_decks = list(models.TMA_Deck.select().where((models.TMA_Deck.folder.is_null(False)) & (models.TMA_Deck.is_deleted == False)))
+    decks_by_folder = defaultdict(list)
+    for d in all_decks:
+        decks_by_folder[d.folder_id].append(d)
+
+    result = []
+    for f in folders:
+        if f.name == "📥 Входящие":
+            continue
+        u = users_map.get(f.user_id)
+        user_name = f"User #{f.user_id}"
+        user_photo = None
+        user_is_guest = False
+        if u:
+            user_name = f"{u.first_name or ''} {u.last_name or ''}".strip() or (f"@{u.username}" if u.username else f"User #{f.user_id}")
+            user_photo = u.photo_url
+            user_is_guest = bool(getattr(u, 'is_guest', False) or str(f.user_id).startswith('999999'))
+
+        decks = decks_by_folder.get(f.id, [])
+        total_cards = 0
+        all_default = len(decks) > 0
+        for d in decks:
+            total_cards += card_counts.get(d.id, 0)
+            meta = {}
+            try: meta = json.loads(d.metadata or "{}")
+            except Exception: pass
+            if not meta.get("is_default", False):
+                all_default = False
+
+        result.append({
+            "id": f.id,
+            "name": f.name,
+            "color": f.color or "#6366f1",
+            "target_language": f.target_language or "de",
+            "user_id": f.user_id,
+            "user_name": user_name,
+            "user_photo": user_photo,
+            "user_is_guest": user_is_guest,
+            "deck_count": len(decks),
+            "cards_count": total_cards,
+            "is_default": all_default,
+            "decks": [{"id": d.id, "name": d.name} for d in decks]
+        })
+    return {"folders": result}
+
+
+@app.post("/api/admin/folders/{folder_id}/set-default")
+def set_default_folder(folder_id: int, req: SetDefaultFolderRequest):
+    """Marks all decks in a folder as default, syncs them to Master Library, and optionally copies to all existing users."""
+    folder = models.TMA_Folder.get_or_none((models.TMA_Folder.id == folder_id) & (models.TMA_Folder.is_deleted == False))
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+
+    decks = list(models.TMA_Deck.select().where((models.TMA_Deck.folder == folder) & (models.TMA_Deck.is_deleted == False)))
+    if not decks and req.is_default:
+        raise HTTPException(status_code=400, detail="В этой папке нет активных колод!")
+
+    now = datetime.datetime.now()
+    all_users = list(models.TMAUser.select())
+    copied_users_count = 0
+
+    for d in decks:
+        cards = list(models.TMA_Card.select().where((models.TMA_Card.deck == d) & (models.TMA_Card.is_deleted == False)))
+        clean_name = d.name.replace("⭐ ", "").strip()
+        
+        # 1. Update deck metadata
+        meta = {}
+        try: meta = json.loads(d.metadata or "{}")
+        except Exception: pass
+        meta["is_default"] = req.is_default
+        meta["folder_name"] = folder.name
+        meta["folder_color"] = folder.color or "#6366f1"
+        d.metadata = json.dumps(meta)
+        d.save()
+
+        # 2. Sync to Master Library (models.Deck) with folder metadata for new users
+        lib_deck = models.Deck.get_or_none(
+            (models.Deck.is_deleted == False) &
+            ((models.Deck.name == d.name) | (models.Deck.name == clean_name) | (models.Deck.name == f"⭐ {clean_name}"))
+        )
+        if req.is_default:
+            lib_meta = {"folder_name": folder.name, "folder_color": folder.color or "#6366f1"}
+            if not lib_deck:
+                lib_deck = models.Deck.create(
+                    name=clean_name,
+                    target_language=d.target_language or 'de',
+                    level=d.level,
+                    topic=d.topic,
+                    is_default=True,
+                    metadata=json.dumps(lib_meta),
+                    created_at=now,
+                    updated_at=now
+                )
+                card_objs = [
+                    models.Card(
+                        deck=lib_deck,
+                        front_text=c.front_text or "",
+                        back_text=c.back_text or "",
+                        context=c.context or "",
+                        tags=c.tags or "[]",
+                        audio_path=c.audio_path or "",
+                        audio_back_path=c.audio_back_path or "",
+                        card_type=getattr(c, 'card_type', 'translation') or 'translation',
+                        source=getattr(c, 'source', 'library') or 'library',
+                        created_at=now,
+                        updated_at=now
+                    )
+                    for c in cards
+                ]
+                if card_objs:
+                    models.Card.bulk_create(card_objs, batch_size=200)
+            else:
+                lib_deck.is_default = True
+                lib_deck.metadata = json.dumps(lib_meta)
+                lib_deck.updated_at = now
+                lib_deck.save()
+        else:
+            if lib_deck:
+                lib_deck.is_default = False
+                lib_deck.save()
+
+    # 3. Copy folder and its decks to existing users if requested
+    if req.is_default and req.copy_to_existing:
+        for u in all_users:
+            if u.user_id == folder.user_id:
+                continue
+            user_folder, _ = models.TMA_Folder.get_or_create(
+                user_id=u.user_id,
+                name=folder.name,
+                defaults={
+                    "color": folder.color or "#6366f1",
+                    "target_language": folder.target_language or "de",
+                    "created_at": now,
+                    "updated_at": now
+                }
+            )
+            user_got_new_decks = False
+            for d in decks:
+                clean_name = d.name.replace("⭐ ", "").strip()
+                cards = list(models.TMA_Card.select().where((models.TMA_Card.deck == d) & (models.TMA_Card.is_deleted == False)))
+                existing = models.TMA_Deck.get_or_none(
+                    (models.TMA_Deck.user_id == u.user_id) &
+                    (models.TMA_Deck.is_deleted == False) &
+                    ((models.TMA_Deck.name == d.name) | (models.TMA_Deck.name == clean_name))
+                )
+                if not existing:
+                    new_d = models.TMA_Deck.create(
+                        user_id=u.user_id,
+                        folder=user_folder,
+                        name=clean_name,
+                        target_language=d.target_language,
+                        level=d.level,
+                        topic=d.topic,
+                        metadata=json.dumps({"source_deck_id": d.id, "folder_name": folder.name, "is_default": True}),
+                        created_at=now,
+                        updated_at=now
+                    )
+                    card_objs = [
+                        models.TMA_Card(
+                            deck=new_d,
+                            front_text=c.front_text or "",
+                            back_text=c.back_text or "",
+                            context=c.context or "",
+                            tags=c.tags or "[]",
+                            audio_path=c.audio_path or "",
+                            audio_back_path=c.audio_back_path or "",
+                            card_type=getattr(c, 'card_type', 'translation') or 'translation',
+                            source=getattr(c, 'source', 'default') or 'default',
+                            creator_id=folder.user_id,
+                            created_at=now,
+                            updated_at=now
+                        )
+                        for c in cards
+                    ]
+                    if card_objs:
+                        models.TMA_Card.bulk_create(card_objs, batch_size=200)
+                    user_got_new_decks = True
+            if user_got_new_decks:
+                copied_users_count += 1
+
+    action_word = "сделана дефолтной" if req.is_default else "снята с дефолтных"
+    msg = f"Папка '{folder.name}' ({len(decks)} колод) {action_word}!"
+    if req.copy_to_existing and req.is_default:
+        msg += f" Добавлена в Библиотеку для новых пользователей и скопирована {copied_users_count} существующим пользователям."
+
+    return {
+        "status": "ok",
+        "is_default": req.is_default,
+        "folder_name": folder.name,
+        "decks_count": len(decks),
+        "copied_to_users": copied_users_count,
+        "message": msg
+    }
+
+
+@app.post("/api/admin/folders/{folder_id}/assign")
+def assign_folder(folder_id: int, req: AssignFolderRequest):
+    """Copies entire folder and all its decks to specific users."""
+    folder = models.TMA_Folder.get_or_none((models.TMA_Folder.id == folder_id) & (models.TMA_Folder.is_deleted == False))
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+
+    if req.mode == "default_all":
+        return set_default_folder(folder_id, SetDefaultFolderRequest(is_default=True, copy_to_existing=True))
+
+    decks = list(models.TMA_Deck.select().where((models.TMA_Deck.folder == folder) & (models.TMA_Deck.is_deleted == False)))
+    now = datetime.datetime.now()
+    processed_users = 0
+
+    for uid in req.user_ids:
+        user_folder, _ = models.TMA_Folder.get_or_create(
+            user_id=uid,
+            name=folder.name,
+            defaults={
+                "color": folder.color or "#6366f1",
+                "target_language": folder.target_language or "de",
+                "created_at": now,
+                "updated_at": now
+            }
+        )
+        for d in decks:
+            cards = list(models.TMA_Card.select().where((models.TMA_Card.deck == d) & (models.TMA_Card.is_deleted == False)))
+            new_d = models.TMA_Deck.create(
+                user_id=uid,
+                folder=user_folder,
+                name=d.name,
+                target_language=d.target_language,
+                level=d.level,
+                topic=d.topic,
+                metadata=json.dumps({"assigned_from_deck_id": d.id}),
+                created_at=now,
+                updated_at=now
+            )
+            card_objs = [
+                models.TMA_Card(
+                    deck=new_d,
+                    front_text=c.front_text or '',
+                    back_text=c.back_text or '',
+                    context=c.context or '',
+                    tags=c.tags or '[]',
+                    audio_path=c.audio_path or '',
+                    audio_back_path=c.audio_back_path or '',
+                    card_type=getattr(c, 'card_type', 'translation') or 'translation',
+                    source=getattr(c, 'source', 'assigned') or 'assigned',
+                    creator_id=folder.user_id,
+                    created_at=now,
+                    updated_at=now
+                )
+                for c in cards
+            ]
+            if card_objs:
+                models.TMA_Card.bulk_create(card_objs, batch_size=200)
+        processed_users += 1
+
+    return {
+        "status": "ok",
+        "users_processed": processed_users,
+        "message": f"Папка '{folder.name}' ({len(decks)} колод) успешно скопирована {processed_users} пользователям!"
+    }
 
 
 def get_all_users_with_meta(search=None):
@@ -3583,6 +4002,16 @@ def batch_delete_backups(req: BatchDeleteBackupsRequest):
     }
 
 
+def _open_browser():
+    time.sleep(1.2)
+    try:
+        webbrowser.open("http://127.0.0.1:8050")
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     import uvicorn
+    threading.Thread(target=_open_browser, daemon=True).start()
     uvicorn.run("tools.admin.server:app", host="127.0.0.1", port=8050, reload=True)
+
