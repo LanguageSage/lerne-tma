@@ -76,5 +76,9 @@ export const useUiStore = create((set) => ({
 
   isBatchModalOpen: false,
   setIsBatchModalOpen: (isOpen) => set({ isBatchModalOpen: isOpen }),
+
+  importShareId: null,
+  setImportShareId: (shareId) => set({ importShareId: shareId }),
+  clearImportShareId: () => set({ importShareId: null }),
 }));
 

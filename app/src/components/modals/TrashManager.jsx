@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, RotateCcw, ArrowLeft, Layers, FileText, CheckCircle, RefreshCw } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
+import { navigateUp } from '../../utils/navigation';
 import '../TrashManager.css';
 
 export const TrashManager = () => {
@@ -10,7 +11,7 @@ export const TrashManager = () => {
   const [restoringId, setRestoringId] = useState(null);
   const [clearing, setClearing] = useState(false);
   
-  const { setView, showToast } = useUiStore();
+  const { showToast } = useUiStore();
   const { trashItems, fetchTrash, restoreTrashDeck, restoreTrashCard, clearTrash } = useDeckStore();
 
   useEffect(() => {
@@ -69,13 +70,7 @@ export const TrashManager = () => {
       <div className="trash-header">
         <button 
           className="trash-back-btn" 
-          onClick={() => {
-            if (window.history.state?.view === 'trash') {
-              window.history.back();
-            } else {
-              setView('decks');
-            }
-          }}
+          onClick={navigateUp}
           title="Назад"
           aria-label="Назад"
         >

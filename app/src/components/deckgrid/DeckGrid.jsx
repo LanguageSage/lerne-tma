@@ -32,6 +32,7 @@ import { LearningShortcutsBar } from './LearningShortcutsBar';
 import { matchFolder, matchDeck } from '../../utils/search';
 import { isLidUser, isLidRootFolder, ensureLidStructureForUser } from '../../services/lidFolderManager';
 import { LidExamCardItem } from '../lid/LidExamCardItem';
+import { navigateUp } from '../../utils/navigation';
 
 export const DeckGrid = ({ 
   startTutorial, 
@@ -206,15 +207,7 @@ export const DeckGrid = ({
             showToast(`Язык изменен на ${useLanguageStore.getState().getLanguageInfo().name}`, 'info');
           }}
           activeFolderId={activeFolderId}
-          onFolderBack={() => {
-            const activeFolder = folders?.find(f => f.id === activeFolderId);
-            const parentId = activeFolder ? (activeFolder.parent_id || null) : null;
-            if (window.history.state?.folderId === activeFolderId) {
-              window.history.back();
-            } else {
-              setActiveFolderId(parentId);
-            }
-          }}
+          onFolderBack={navigateUp}
           isSearchOpen={isSearchOpen}
           onToggleSearch={() => {
             setIsSearchOpen(prev => {

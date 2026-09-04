@@ -17,6 +17,7 @@ import { useAutoplay } from '../../hooks/useAutoplay';
 import { useCardNavigation } from '../../hooks/useCardNavigation';
 import { useSessionVoice } from '../../hooks/useSessionVoice';
 import { MediaPicker } from '../common/MediaPicker';
+import { navigateUp } from '../../utils/navigation';
 
 // Sub-components
 import { StudyHeader } from './StudyHeader';
@@ -28,9 +29,9 @@ import { StudyCard } from './StudyCard';
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
 export const StudyView = ({ startTutorial }) => {
-  const { view, setView, loading, setIsSettingsOpen, showToast } = useUiStore();
+  const { view, loading, setIsSettingsOpen, showToast } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
-  const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, setIsLearningMore, autoplayState } = useSessionStore();
+  const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, setIsLearningMore, autoplayState } = useSessionStore();
   const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
@@ -362,22 +363,7 @@ export const StudyView = ({ startTutorial }) => {
           deckName={currentDeck?.name}
           isTrainerDeck={Boolean(currentDeck?.is_trainer || (deckCards && deckCards.length > 0 && deckCards.every(c => /\{([^}]+)\}/.test(c.front || ''))))}
           card={card}
-          onBack={() => { 
-            autoplay.stop();
-            if (card?.id) {
-              if (currentDeck?.id === 'duplicates') {
-                useDeckStore.getState().setLastDuplicateCardId(card.id);
-              } else {
-                useUiStore.getState().setLastSelectedCardId(card.id);
-              }
-            }
-            setCard(null); 
-            if (window.history.state?.view === 'study') {
-              window.history.back();
-            } else {
-              setView(currentDeck?.id === 'duplicates' ? 'duplicates' : 'cards');
-            }
-          }}
+          onBack={navigateUp}
           onOpenCreator={() => openCreator(currentDeck?.id, 'study', card?.id)}
           onStartTutorial={() => startTutorial(isFlipped ? 'study_back' : 'study')}
           onOpenEditor={() => openEditor(currentDeck?.id === 'duplicates' ? card.deck_id : currentDeck?.id, card, 'study')}
@@ -542,22 +528,15 @@ export const StudyView = ({ startTutorial }) => {
               )}
             </div>
           </div>
-        ) : (
+        ) : (isSessionFinished || apiError) ? (
           <StudyFinished
             apiError={apiError}
-            onGoToDecks={() => {
-              useSessionStore.getState().resetSession();
-              if (window.history.state?.view === 'study') {
-                window.history.back();
-              } else {
-                setView('cards');
-              }
-            }}
+            onGoToDecks={navigateUp}
             onLearnMore={handleLearnMore}
-            onSyncDeck={() => handleSyncDeck(currentDeck.id)}
+            onSyncDeck={() => handleSyncDeck(currentDeck?.id)}
             onResetProgress={handleResetProgressConfirmed}
           />
-        )}
+        ) : null}
       </motion.div>
     </div>
   );

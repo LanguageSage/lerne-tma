@@ -8,6 +8,7 @@ import { useSessionStore } from '../../store/useSessionStore';
 import { useCardNavigation } from '../../hooks/useCardNavigation';
 import { useCardActions } from '../../hooks/useCardActions';
 import { stripMarkdown } from '../../utils/text';
+import { navigateUp } from '../../utils/navigation';
 
 export const DuplicateManager = () => {
   const { setView, setIsOpeningDeck } = useUiStore();
@@ -28,11 +29,7 @@ export const DuplicateManager = () => {
   }, [lastDuplicateCardId]);
 
   const handleBack = () => {
-    if (window.history.state?.view === 'duplicates') {
-      window.history.back();
-    } else {
-      setView('decks');
-    }
+    navigateUp();
   };
 
   const onShow = async () => {

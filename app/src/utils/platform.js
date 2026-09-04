@@ -148,6 +148,17 @@ export const setupBackButton = (onClickCallback) => {
   };
 };
 
+export const showBackButton = () => {
+  try {
+    const tg = window.Telegram?.WebApp?.BackButton;
+    if (tg) {
+      tg.show();
+    }
+  } catch {
+    // Ignore error
+  }
+};
+
 export const hideBackButton = () => {
   try {
     const tg = window.Telegram?.WebApp?.BackButton;

@@ -1,7 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
+import { useUiStore } from '../store/useUiStore';
 
 export const useAutoImport = () => {
-  const [importShareId, setImportShareId] = useState(null);
+  const importShareId = useUiStore(state => state.importShareId);
+  const setImportShareId = useUiStore(state => state.setImportShareId);
+  const clearImportShareId = useUiStore(state => state.clearImportShareId);
   const lastProcessedParam = useRef(null);
 
   const checkStartParam = () => {
@@ -58,17 +61,12 @@ export const useAutoImport = () => {
     }
   };
 
-
-  const clearImportShareId = () => {
-    setImportShareId(null);
-    // Keep lastProcessedParam.current populated to prevent visibilitychange loops
-  };
-
   useEffect(() => {
     const timer = setTimeout(() => {
       checkStartParam();
     }, 0);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 

@@ -46,21 +46,22 @@ export const applyFuzz = (interval) => {
  * Formats interval number for display
  */
 export const formatInterval = (value, isDays = false) => {
+  const prefix = "через ";
   if (!isDays) {
     if (value < 60) {
-      return `${Math.round(value)} мин`;
+      return `${prefix}${Math.round(value)} мин`;
     }
     const hours = value / 60;
-    if (hours < 24) return `${Math.round(hours)} ч`;
-    return `${Math.round(hours / 24)} дн`;
+    if (hours < 24) return `${prefix}${Math.round(hours)} ч`;
+    return `${prefix}${Math.round(hours / 24)} дн`;
   } else {
-    if (value < 1) return '<1 дн';
-    if (value < 30) return `${Math.round(value)} дн`;
+    if (value < 1) return `${prefix}<1 дн`;
+    if (value < 30) return `${prefix}${Math.round(value)} дн`;
     const months = value / 30.0;
     if (months < 12) {
-      return months % 1 !== 0 ? `${months.toFixed(1)} мес` : `${Math.round(months)} мес`;
+      return months % 1 !== 0 ? `${prefix}${months.toFixed(1)} мес` : `${prefix}${Math.round(months)} мес`;
     }
-    return `${(value / 365.0).toFixed(1)} г.`;
+    return `${prefix}${(value / 365.0).toFixed(1)} г.`;
   }
 };
 
@@ -114,8 +115,8 @@ const calcReviewNextState = (progress, grade, applyFuzzFlag = false) => {
     };
   } else if (grade === 1) { // Hard
     const newEf = Math.max(MINIMUM_EASE_FACTOR, ef - 0.15);
-    let newInt = Math.round(Math.max(interval + 1, interval * HARD_MULTIPLIER));
-    if (applyFuzzFlag) newInt = applyFuzz(newInt);
+    let newInt = interval <= 1 ? 1 : Math.max(interval, Math.round(interval * HARD_MULTIPLIER));
+    if (applyFuzzFlag && newInt >= 3) newInt = applyFuzz(newInt);
     return {
       queue: 'review',
       interval: newInt,
@@ -125,9 +126,10 @@ const calcReviewNextState = (progress, grade, applyFuzzFlag = false) => {
     };
   } else if (grade === 2) { // Good
     const dueBonus = Math.min(daysSinceDue / 2, interval * 0.5);
-    let newInt = Math.round(Math.max(interval + 1, (interval + dueBonus) * ef));
+    const baseHard = interval <= 1 ? 1 : Math.max(interval, Math.round(interval * HARD_MULTIPLIER));
+    let newInt = Math.max(baseHard + 1, Math.ceil((interval + dueBonus) * ef));
     const newEf = ef < INITIAL_EASE_FACTOR ? Math.min(MAXIMUM_EASE_FACTOR, ef + 0.02) : ef;
-    if (applyFuzzFlag) newInt = applyFuzz(newInt);
+    if (applyFuzzFlag && newInt >= 3) newInt = applyFuzz(newInt);
     return {
       queue: 'review',
       interval: newInt,
@@ -137,9 +139,11 @@ const calcReviewNextState = (progress, grade, applyFuzzFlag = false) => {
     };
   } else { // Easy (grade === 3)
     const dueBonus = Math.min(daysSinceDue, interval * 1.0);
-    let newInt = Math.round(Math.max(interval + 2, (interval + dueBonus) * ef * EASY_MULTIPLIER));
+    const baseHard = interval <= 1 ? 1 : Math.max(interval, Math.round(interval * HARD_MULTIPLIER));
+    const baseGood = Math.max(baseHard + 1, Math.ceil((interval + Math.min(daysSinceDue / 2, interval * 0.5)) * ef));
+    let newInt = Math.max(baseGood + 1, Math.ceil((interval + dueBonus) * ef * EASY_MULTIPLIER));
     const newEf = Math.min(MAXIMUM_EASE_FACTOR, ef + 0.15);
-    if (applyFuzzFlag) newInt = applyFuzz(newInt);
+    if (applyFuzzFlag && newInt >= 3) newInt = applyFuzz(newInt);
     return {
       queue: 'review',
       interval: newInt,

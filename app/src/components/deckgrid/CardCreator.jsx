@@ -11,10 +11,11 @@ import { useAudio } from '../../hooks/useAudio';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 import { useTranslation } from '../../i18n/i18nContext';
+import { navigateUp } from '../../utils/navigation';
 
 export const CardCreator = ({ startTutorial }) => {
   const { t } = useTranslation();
-  const { view, setView, setIsSettingsOpen, editorSourceView } = useUiStore();
+  const { view, setIsSettingsOpen } = useUiStore();
   const { currentDeck } = useDeckStore();
   const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
   const { playAudio } = useAudio();
@@ -39,11 +40,7 @@ export const CardCreator = ({ startTutorial }) => {
   });
 
   const handleBack = () => {
-    if (window.history.state?.view === 'creator') {
-      window.history.back();
-    } else {
-      setView(editorSourceView || 'cards');
-    }
+    navigateUp();
   };
 
   const [animDone, setAnimDone] = useState(false);

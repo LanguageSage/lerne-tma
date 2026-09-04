@@ -11,9 +11,10 @@ import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/car
 
 import { StudyCardTrainer } from './StudyCardTrainer';
 import { TrainerFinished } from './TrainerFinished';
+import { navigateUp } from '../../utils/navigation';
 
 export const TrainerView = () => {
-  const { setView, showToast } = useUiStore();
+  const { showToast } = useUiStore();
   const { currentDeck, deckCards, fetchDeckCards } = useDeckStore();
 
   const autoPlay = useSettingsStore(s => s.autoPlay);
@@ -164,13 +165,7 @@ export const TrainerView = () => {
             elapsedSeconds={trainerElapsedSeconds}
             onRetryWrong={handleRetryWrong}
             onRestart={handleRestart}
-            onGoToDecks={() => {
-              if (window.history.state?.view === 'trainer') {
-                window.history.back();
-              } else {
-                setView('cards');
-              }
-            }}
+            onGoToDecks={navigateUp}
           />
         </div>
       </div>
@@ -193,14 +188,7 @@ export const TrainerView = () => {
       }}>
         <button
           className="back-btn btn-header-back"
-          onClick={() => {
-            stopAudio();
-            if (window.history.state?.view === 'trainer') {
-              window.history.back();
-            } else {
-              setView('cards');
-            }
-          }}
+          onClick={navigateUp}
           title="Вернуться к колоде"
           aria-label="Вернуться к колоде"
           style={{

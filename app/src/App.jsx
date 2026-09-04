@@ -4,7 +4,8 @@ import './App.css';
 
 // Utils & Services
 import { getUserId, storage } from './utils/auth';
-import { disableClosingConfirmation, setupBackButton, hideBackButton } from './utils/platform';
+import { disableClosingConfirmation, setupBackButton, hideBackButton, showBackButton } from './utils/platform';
+import { navigateUp } from './utils/navigation';
 
 
 // Components
@@ -27,6 +28,7 @@ import { TUTORIAL_STEPS } from './constants/appConstants';
 import { useUiStore } from './store/useUiStore';
 import { useDeckStore } from './store/useDeckStore';
 import { useSessionStore } from './store/useSessionStore';
+import { useLanguageStore } from './store/useLanguageStore';
 import { useCardActions } from './hooks/useCardActions';
 import { useAutoImport } from './hooks/useAutoImport';
 import { useAppInitialization } from './hooks/useAppInitialization';
@@ -60,13 +62,13 @@ function AppContent() {
   const { startStudy, startStudyCard } = useStudyNavigation();
 
   const activeFolderId = useUiStore(state => state.activeFolderId);
-  const setActiveFolderId = useUiStore(state => state.setActiveFolderId);
   const isSettingsOpen = useUiStore(state => state.isSettingsOpen);
   const isNewDeckModalOpen = useUiStore(state => state.isNewDeckModalOpen);
   const isRenameModalOpen = useUiStore(state => state.isRenameModalOpen);
 
   // Sync state with history and Telegram BackButton
   const isPopStateRef = React.useRef(false);
+  const lastLevelRef = React.useRef(0);
   const lastModalOpenRef = React.useRef(false);
   const lastViewRef = React.useRef(view);
   const lastFolderIdRef = React.useRef(activeFolderId);
@@ -74,120 +76,100 @@ function AppContent() {
   const isAuthModalOpen = useUiStore(state => state.isAuthModalOpen);
   const authModalTitle = useUiStore(state => state.authModalTitle);
   const isBatchModalOpen = useUiStore(state => state.isBatchModalOpen);
-  const anyModalOpen = isSettingsOpen || isNewDeckModalOpen || isRenameModalOpen || isCardActionModalOpen || syncModalOpen || isAuthModalOpen || isBatchModalOpen;
+  const isCollaboratorsModalOpen = useUiStore(state => state.isCollaboratorsModalOpen);
+  const importShareId = useUiStore(state => state.importShareId);
+  const isLanguageModalOpen = useLanguageStore(state => state.isLanguageModalOpen);
+
+  const anyModalOpen = Boolean(
+    isSettingsOpen ||
+    isNewDeckModalOpen ||
+    isRenameModalOpen ||
+    isCardActionModalOpen ||
+    syncModalOpen ||
+    isAuthModalOpen ||
+    isBatchModalOpen ||
+    isCollaboratorsModalOpen ||
+    isLanguageModalOpen ||
+    importShareId
+  );
 
   // 1. Setup popstate listener and native back button onClick callback on mount
   useEffect(() => {
     disableClosingConfirmation();
     
     // Replace initial state with root decks view
-    window.history.replaceState({ view: 'decks', folderId: null }, '');
+    window.history.replaceState({ level: 0, view: 'decks', folderId: null }, '');
 
-    const handlePopState = (event) => {
-      const state = event.state;
-      if (state) {
-        isPopStateRef.current = true;
-        
-        // If a modal was open, close it and prevent changing the view
-        const uiState = useUiStore.getState();
-        const deckState = useDeckStore.getState();
-        const wasModalOpen = uiState.isSettingsOpen || uiState.isNewDeckModalOpen || uiState.isRenameModalOpen || uiState.isCardActionModalOpen || uiState.isAuthModalOpen || uiState.isBatchModalOpen || deckState.syncModalOpen;
-        
-        if (wasModalOpen) {
-          uiState.setIsSettingsOpen(false);
-          uiState.setIsNewDeckModalOpen(false);
-          uiState.setIsRenameModalOpen(false);
-          uiState.setIsCardActionModalOpen(false);
-          uiState.setIsAuthModalOpen(false);
-          uiState.setIsBatchModalOpen(false);
-          deckState.setSyncModalOpen(false);
-          lastModalOpenRef.current = false;
-        } else {
-          // No modal was open -> change view/folder
-          const currentView = uiState.view;
-          const session = useSessionStore.getState();
-
-          // If leaving study or trainer, clean up autoplay and preserve scroll target
-          if (currentView === 'study' || currentView === 'trainer') {
-            session.stopAutoplay?.();
-            if (session.card?.id) {
-              uiState.setLastSelectedCardId(session.card.id);
-            }
-          }
-
-          let targetView = state.view || 'decks';
-          // Safety guard: If returning to 'study' or 'trainer' via popstate, but session has no card loaded,
-          // route to 'cards' (if currentDeck is set) or 'decks' to prevent showing StudyFinished unexpectedly.
-          if ((targetView === 'study' || targetView === 'trainer') && !session.card) {
-            targetView = deckState.currentDeck ? 'cards' : 'decks';
-          }
-
-          setView(targetView);
-          setActiveFolderId(state.folderId ?? null);
-        }
-        
-        setTimeout(() => {
-          isPopStateRef.current = false;
-        }, 50);
-      } else {
-        // Popped past root in browser or null state
-        window.history.replaceState({ view: 'decks', folderId: null }, '');
-        setView('decks');
-        setActiveFolderId(null);
+    const handlePopState = () => {
+      isPopStateRef.current = true;
+      const didNavigate = navigateUp();
+      if (!didNavigate) {
+        window.history.replaceState({ level: 0, view: 'decks', folderId: null }, '');
       }
+      setTimeout(() => {
+        isPopStateRef.current = false;
+      }, 50);
     };
 
     window.addEventListener('popstate', handlePopState);
     
     const cleanupBackButton = setupBackButton(() => {
-      window.history.back();
+      navigateUp();
     });
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
       cleanupBackButton();
     };
-  }, [setView, setActiveFolderId]);
+  }, []);
 
-  // 2. Push history state on view/folder/modal transitions and sync BackButton visibility
+  // 2. Push history state on hierarchy depth increase and sync BackButton visibility
   useEffect(() => {
+    // Calculate current hierarchy level
+    const currentLevel = anyModalOpen 
+      ? 4 
+      : (view === 'study' || view === 'trainer' || view === 'editor' || view === 'creator') 
+      ? 3 
+      : (view === 'cards' || view === 'duplicates' || view === 'trash') 
+      ? 2 
+      : (activeFolderId !== null) 
+      ? 1 
+      : 0;
+
     if (isPopStateRef.current) {
+      lastLevelRef.current = currentLevel;
       lastViewRef.current = view;
       lastFolderIdRef.current = activeFolderId;
       lastModalOpenRef.current = anyModalOpen;
       return;
     }
 
-    if (anyModalOpen && !lastModalOpenRef.current) {
-      // Modal opened -> push state
-      window.history.pushState({ view, folderId: activeFolderId, modalOpen: true }, '');
-    } else if (!anyModalOpen && lastModalOpenRef.current) {
-      // Modal closed
-      if (view !== lastViewRef.current) {
-        // View changed while modal closed (e.g. "Редактировать" set view to 'editor')
-        window.history.replaceState({ view, folderId: activeFolderId }, '');
-      } else {
-        // Modal closed without view change -> remove modal history state
+    const prevLevel = lastLevelRef.current;
+    if (currentLevel > prevLevel) {
+      // Navigated down the hierarchy -> push state
+      window.history.pushState({ level: currentLevel, view, folderId: activeFolderId, modalOpen: anyModalOpen }, '');
+    } else if (currentLevel < prevLevel) {
+      // Navigated up via UI button -> sync browser history if needed
+      if (window.history.state?.level > currentLevel) {
         window.history.back();
       }
-    } else if (view !== lastViewRef.current || activeFolderId !== lastFolderIdRef.current) {
-      // View or folder changed -> push state
-      window.history.pushState({ view, folderId: activeFolderId }, '');
     }
 
+    lastLevelRef.current = currentLevel;
     lastModalOpenRef.current = anyModalOpen;
     lastViewRef.current = view;
     lastFolderIdRef.current = activeFolderId;
 
-    // Sync BackButton visibility
-    const isRoot = view === 'decks' && activeFolderId === null && !anyModalOpen;
-    if (isRoot) {
+    // Sync BackButton visibility: hidden only on root level
+    if (currentLevel === 0) {
       hideBackButton();
+    } else {
+      showBackButton();
     }
   }, [view, activeFolderId, anyModalOpen]);
 
   // Custom hooks for initialization and import logic
-  const { importShareId, clearImportShareId, checkStartParam } = useAutoImport();
+  const { clearImportShareId, checkStartParam } = useAutoImport();
   useAppInitialization(checkStartParam);
   useCollaborativeSync(); // Real-time background sync for collaborative folders
   

@@ -1577,7 +1577,10 @@
 .lid-modal-card {
   width: 92%;
   max-width: 520px;
-  max-height: 85vh;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  box-sizing: border-box;
   border-radius: 20px;
   background: rgba(15, 23, 42, 0.94);
   backdrop-filter: blur(20px);
@@ -1594,6 +1597,7 @@
   justify-content: space-between;
   padding: 16px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .lid-modal-title-wrap {
@@ -1753,7 +1757,9 @@
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
-  max-height: calc(85vh - 70px);
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
 }
 
 .lid-search-box {
@@ -1764,6 +1770,7 @@
   border-radius: 10px;
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .lid-search-icon {
@@ -1791,9 +1798,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
-  max-height: 320px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-right: 2px;
+  flex: 1;
+  min-height: 0;
 }
 
 .lid-land-item {

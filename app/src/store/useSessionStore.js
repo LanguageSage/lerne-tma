@@ -9,12 +9,14 @@ export const useSessionStore = create((set, get) => ({
   editingCard: null,
   editorSourceView: 'cards', // 'cards' | 'study'
   isLearningMore: false,
+  isSessionFinished: false,
   autoplayState: 'stopped', // 'stopped' | 'playing' | 'paused'
   startAutoplayFn: null,
   stopAutoplayFn: null,
   pauseAutoplayFn: null,
   resumeAutoplayFn: null,
 
+  setIsSessionFinished: (val) => set({ isSessionFinished: val }),
   setIsLearningMore: (val) => set({ isLearningMore: val }),
   setAutoplayState: (autoplayState) => set({ autoplayState }),
   pauseAutoplay: () => set({ autoplayState: 'paused' }),
@@ -100,6 +102,7 @@ export const useSessionStore = create((set, get) => ({
       isFlipped: false,
       apiError: null,
       isLearningMore: false,
+      isSessionFinished: false,
       autoplayState: 'stopped'
     });
   }

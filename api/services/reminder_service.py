@@ -10,7 +10,7 @@ except ImportError:
     InlineKeyboardMarkup = None
     WebAppInfo = None
 
-from peewee import fn
+from peewee import fn, Case, JOIN
 from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAUser, TMASetting, tma_db
 
 logger = logging.getLogger(__name__)
@@ -58,10 +58,15 @@ def save_user_reminder_settings(user_id: int, settings: dict) -> bool:
 def get_user_due_summary(user_id: int) -> dict:
     """
     Рассчитывает количество карточек к повторению по SRS только для активных колод (is_learning == True).
+    Разбивает на 3 категории:
+    🔴 due: срочные к повторению сегодня (queue == 'review' and next_review <= now)
+    🟡 learning: на закреплении в текущем цикле (queue in ['learning', 'relearning'])
+    🔵 new: новые карточки, которые ни разу не запускались
     """
     now = datetime.datetime.now()
     summary = {
         "total_due": 0,
+        "total_learning": 0,
         "total_new": 0,
         "total_active_decks": 0,
         "deck_details": []
@@ -90,63 +95,49 @@ def get_user_due_summary(user_id: int) -> dict:
 
         active_deck_ids = [d.id for d in active_decks]
 
-        # 1. Считаем созревшие карточки к повторению (queue in learning/review/relearning and next_review <= now)
-        due_query = (TMAProgress
-                     .select(TMA_Card.deck_id, fn.COUNT(TMAProgress.id))
-                     .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
-                     .where(
-                         (TMAProgress.user_id == user_id) &
-                         (TMA_Card.deck_id << active_deck_ids) &
-                         (TMA_Card.is_deleted == False) &
-                         (TMAProgress.queue != 'new') &
-                         (TMAProgress.next_review <= now)
-                     )
-                     .group_by(TMA_Card.deck_id)
-                     .tuples())
+        # Подсчет статистики через оптимизированный Case / Join
+        tracked_case = Case(None, [(TMAProgress.queue != 'new', 1)], None)
+        learning_case = Case(None, [(TMAProgress.queue << ['learning', 'relearning'], 1)], None)
+        due_case = Case(None, [((TMAProgress.queue == 'review') & (TMAProgress.next_review <= now), 1)], None)
 
-        due_map = {deck_id: count for deck_id, count in due_query}
+        counts_query = (TMA_Card
+                        .select(
+                            TMA_Card.deck_id,
+                            fn.COUNT(TMA_Card.id).alias('total'),
+                            fn.COUNT(tracked_case).alias('tracked'),
+                            fn.COUNT(learning_case).alias('learning'),
+                            fn.COUNT(due_case).alias('due')
+                        )
+                        .join(TMAProgress, JOIN.LEFT_OUTER, on=(
+                            (TMAProgress.card_id == TMA_Card.id) & (TMAProgress.user_id == user_id)
+                        ))
+                        .where(
+                            (TMA_Card.deck_id << active_deck_ids) &
+                            (TMA_Card.is_deleted == False)
+                        )
+                        .group_by(TMA_Card.deck_id)
+                        .dicts())
 
-        # 2. Считаем общее количество карточек в каждой колоде
-        cards_query = (TMA_Card
-                       .select(TMA_Card.deck_id, fn.COUNT(TMA_Card.id))
-                       .where(
-                           (TMA_Card.deck_id << active_deck_ids) &
-                           (TMA_Card.is_deleted == False)
-                       )
-                       .group_by(TMA_Card.deck_id)
-                       .tuples())
-
-        total_cards_map = {deck_id: count for deck_id, count in cards_query}
-
-        # 3. Считаем уже изученные карточки
-        tracked_query = (TMAProgress
-                         .select(TMA_Card.deck_id, fn.COUNT(TMAProgress.id))
-                         .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
-                         .where(
-                             (TMAProgress.user_id == user_id) &
-                             (TMA_Card.deck_id << active_deck_ids) &
-                             (TMA_Card.is_deleted == False) &
-                             (TMAProgress.queue != 'new')
-                         )
-                         .group_by(TMA_Card.deck_id)
-                         .tuples())
-
-        tracked_map = {deck_id: count for deck_id, count in tracked_query}
+        counts_map = {row['deck_id']: row for row in counts_query}
 
         for d in active_decks:
-            due = due_map.get(d.id, 0)
-            total = total_cards_map.get(d.id, 0)
-            tracked = tracked_map.get(d.id, 0)
+            c = counts_map.get(d.id, {})
+            total = int(c.get('total') or 0)
+            tracked = int(c.get('tracked') or 0)
+            learning = int(c.get('learning') or 0)
+            due = int(c.get('due') or 0)
             new_cards = max(0, total - tracked)
 
             summary["total_due"] += due
+            summary["total_learning"] += learning
             summary["total_new"] += new_cards
 
-            if due > 0 or new_cards > 0:
+            if due > 0 or learning > 0 or new_cards > 0:
                 summary["deck_details"].append({
                     "id": d.id,
                     "name": d.name,
                     "due": due,
+                    "learning": learning,
                     "new": new_cards,
                     "total": total
                 })
@@ -168,33 +159,44 @@ def plural_cards(n: int) -> str:
 
 
 def format_reminder_message(first_name: str, summary: dict, is_test: bool = False) -> str:
-    """Формирует понятный текст уведомления для Telegram."""
+    """Формирует понятный текст уведомления для Telegram с ярлыками и 3 цветами."""
     safe_name = html.escape(first_name or "друг")
     total_due = summary.get("total_due", 0)
+    total_learning = summary.get("total_learning", 0)
     total_new = summary.get("total_new", 0)
     deck_details = summary.get("deck_details", [])
 
     prefix = "⚡ <b>Тестовое напоминание Lerne</b>\n\n" if is_test else ""
 
-    if total_due > 0:
-        text = prefix
-        text += f"Привет, {safe_name}! В колодах, которые вы учите, сегодня нужно повторить:\n\n"
+    text = prefix
+    text += f"Привет, {safe_name}! Напоминание по колодам, за которыми вы следите:\n\n"
+
+    if deck_details:
         for item in deck_details:
-            if item["due"] > 0:
-                text += f"📚 <b>{html.escape(item['name'])}</b>\n"
-                text += f"└ {plural_cards(item['due'])} к повторению\n\n"
-        text += "Нажмите кнопку ниже, чтобы запустить тренировку! 🚀"
-    elif total_new > 0:
-        text = prefix
-        text += f"Привет, {safe_name}! В колодах, которые вы учите, сегодня доступно:\n\n"
-        for item in deck_details:
-            if item["new"] > 0:
-                text += f"📚 <b>{html.escape(item['name'])}</b>\n"
-                text += f"└ {plural_cards(item['new'])} новых для изучения\n\n"
-        text += "Хотите пройти новые карточки прямо сейчас? 👇"
+            name = html.escape(item.get("name", "Колода"))
+            due = item.get("due", 0)
+            learning = item.get("learning", 0)
+            new_cards = item.get("new", 0)
+
+            text += f"📚 <b>{name}</b>\n"
+            sub_lines = []
+            if due > 0:
+                sub_lines.append(f"  🔴 {plural_cards(due)} к повторению (сегодня)")
+            if learning > 0:
+                sub_lines.append(f"  🟡 {plural_cards(learning)} на закреплении")
+            if new_cards > 0:
+                sub_lines.append(f"  🔵 {plural_cards(new_cards)} новых")
+            if not sub_lines:
+                sub_lines.append("  ✅ Все карточки пройдены!")
+            text += "\n".join(sub_lines) + "\n\n"
+
+        text += (
+            f"<b>Итого на сегодня:</b>\n"
+            f"🔴 Повторить: <b>{total_due}</b> | 🟡 Закрепить: <b>{total_learning}</b> | 🔵 Новых: <b>{total_new}</b>\n\n"
+            f"Нажмите кнопку ниже, чтобы начать! 🚀"
+        )
     else:
-        text = prefix
-        text += f"Привет, {safe_name}! В ваших изучаемых колодах все карточки на сегодня успешно пройдены. Отличный прогресс! 🎉\n\n"
+        text += "В ваших изучаемых колодах все карточки на сегодня успешно пройдены. Отличный прогресс! 🎉\n\n"
         text += "Возвращайтесь в любое удобное время! 🚀"
 
     return text

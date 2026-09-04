@@ -67,20 +67,21 @@ def get_next_intervals(progress) -> dict[int, str]:
     return res
 
 def format_interval(value, is_days=False):
+    prefix = "через "
     if not is_days:
         if value < 60: 
-            if value != int(value): return f"{round(value, 1)} мин"
-            return f"{int(value)} мин"
+            if value != int(value): return f"{prefix}{round(value, 1)} мин"
+            return f"{prefix}{int(value)} мин"
         hours = value / 60
-        if hours < 24: return f"{int(hours)} ч"
-        return f"{int(hours/24)} дн"
+        if hours < 24: return f"{prefix}{int(hours)} ч"
+        return f"{prefix}{int(hours/24)} дн"
     else:
-        if value < 1: return "<1 дн"
-        if value < 30: return f"{int(value)} дн"
+        if value < 1: return f"{prefix}<1 дн"
+        if value < 30: return f"{prefix}{int(value)} дн"
         months = value / 30.0
         if months < 12: 
-            return f"{months:.1f} мес" if months % 1 != 0 else f"{int(months)} мес"
-        return f"{value/365.0:.1f} г."
+            return f"{prefix}{months:.1f} мес" if months % 1 != 0 else f"{prefix}{int(months)} мес"
+        return f"{prefix}{value/365.0:.1f} г."
 
 def review_card(progress, grade: int):
     """Обновляет объект progress на основе оценки с применением fuzzing и защиты от ease hell."""
@@ -148,26 +149,37 @@ def _calc_review_next_state(progress, grade, now, apply_fuzz_flag=False):
         
     elif grade == 1: # Hard
         new_ef = max(MINIMUM_EASE_FACTOR, ef - 0.15)
-        new_int = round(max(interval + 1, interval * HARD_MULTIPLIER))
-        if apply_fuzz_flag:
+        # Для карточек с интервалом 1 день Hard = 1 день (повтор завтра), без неоправданного скачка
+        if interval <= 1:
+            new_int = 1
+        else:
+            new_int = max(interval, round(interval * HARD_MULTIPLIER))
+        if apply_fuzz_flag and new_int >= 3:
             new_int = apply_fuzz(new_int)
         return ('review', new_int, None, new_ef, lapses)
         
     elif grade == 2: # Good
         # Учет задержки (days_since_due/2) с защитой от взрывного роста
         due_bonus = min(days_since_due / 2, interval * 0.5)
-        new_int = round(max(interval + 1, (interval + due_bonus) * ef))
+        # Определение базового интервала Hard для гарантии строгого неравенства
+        base_hard = 1 if interval <= 1 else max(interval, round(interval * HARD_MULTIPLIER))
+        # Округление вверх (math.ceil) исключает коллизию banker's rounding 2.5 -> 2
+        calculated_int = math.ceil((interval + due_bonus) * ef)
+        new_int = max(base_hard + 1, calculated_int)
         # Небольшое восстановление Ease Factor при хороших ответах если он был занижен
         new_ef = min(MAXIMUM_EASE_FACTOR, ef + 0.02) if ef < INITIAL_EASE_FACTOR else ef
-        if apply_fuzz_flag:
+        if apply_fuzz_flag and new_int >= 3:
             new_int = apply_fuzz(new_int)
         return ('review', new_int, None, new_ef, lapses)
         
     else: # Easy
         due_bonus = min(float(days_since_due), interval * 1.0)
-        new_int = round(max(interval + 2, (interval + due_bonus) * ef * EASY_MULTIPLIER))
+        base_hard = 1 if interval <= 1 else max(interval, round(interval * HARD_MULTIPLIER))
+        base_good = max(base_hard + 1, math.ceil((interval + (min(days_since_due / 2, interval * 0.5))) * ef))
+        calculated_int = math.ceil((interval + due_bonus) * ef * EASY_MULTIPLIER)
+        new_int = max(base_good + 1, calculated_int)
         new_ef = min(MAXIMUM_EASE_FACTOR, ef + 0.15)
-        if apply_fuzz_flag:
+        if apply_fuzz_flag and new_int >= 3:
             new_int = apply_fuzz(new_int)
         return ('review', new_int, None, new_ef, lapses)
 

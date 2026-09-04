@@ -36,6 +36,7 @@ export const useStudySession = () => {
         }
 
         if (!nextDuplicateCard) {
+          session.setIsSessionFinished(true);
           session.setCard(null);
         } else {
           const res = await api.get(`/study/card/${nextDuplicateCard.id}`);
@@ -74,6 +75,7 @@ export const useStudySession = () => {
           }
         } else if (!isFirst && !session.isLearningMore && currentCard) {
           // Reached end of sequential deckCards traversal! End session cleanly to show summary screen
+          session.setIsSessionFinished(true);
           session.setCard(null);
         } else {
           // Fetch from SRS when starting session (isFirst), or in learn_more mode (early review by next_review asc)
@@ -89,6 +91,7 @@ export const useStudySession = () => {
             session.setApiError(res.data.error);
             session.setCard(null);
           } else if (res.data.finished) {
+            session.setIsSessionFinished(true);
             session.setCard(null);
           } else {
             const newCard = res.data;
@@ -126,6 +129,7 @@ export const useStudySession = () => {
       });
 
       if (res.data.finished) {
+        session.setIsSessionFinished(true);
         session.setCard(null);
       } else {
         const nextCard = res.data;

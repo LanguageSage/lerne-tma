@@ -28,6 +28,7 @@ import { useCardNavigation } from '../../hooks/useCardNavigation';
 import { UserProfileBadge } from '../common/UserBadge';
 import { DeckMediaModal } from '../modals/DeckMediaModal';
 import { ImageEditorModal } from '../common/ImageEditorModal';
+import { navigateUp } from '../../utils/navigation';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 
 import { CardBackground } from '../common/CardBackground';
@@ -577,13 +578,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
         <div className="header-compact header-compact-sticky">
           <button 
             className="back-btn" 
-            onClick={() => {
-              if (window.history.state?.view === 'cards') {
-                window.history.back();
-              } else {
-                setView('decks');
-              }
-            }}
+            onClick={navigateUp}
             title="Назад"
             aria-label="Назад"
           >

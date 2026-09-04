@@ -8,9 +8,10 @@ import { useSessionStore } from '../../store/useSessionStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useAudio } from '../../hooks/useAudio';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { navigateUp } from '../../utils/navigation';
 
 export const CardEditor = ({ startTutorial }) => {
-  const { view, setView, setIsSettingsOpen, editorSourceView } = useUiStore();
+  const { view, setIsSettingsOpen } = useUiStore();
   const { editingCard, setEditingCard } = useSessionStore();
   const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
   const { playAudio } = useAudio();
@@ -55,11 +56,7 @@ export const CardEditor = ({ startTutorial }) => {
   };
 
   const handleBack = () => {
-    if (window.history.state?.view === 'editor') {
-      window.history.back();
-    } else {
-      setView(editorSourceView || 'cards');
-    }
+    navigateUp();
   };
 
   const handleSave = () => {
