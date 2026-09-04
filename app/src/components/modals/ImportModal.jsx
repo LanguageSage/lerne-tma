@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, AlertCircle, Inbox, BookOpen, Folder, Check, ExternalLink } from 'lucide-react';
+import { X, Download, AlertCircle, Inbox, BookOpen, Folder, Check, ExternalLink, Sparkles, ChevronDown, ChevronUp, RefreshCw, Copy } from 'lucide-react';
 import api from '../../services/api';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -14,6 +14,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const [error, setError] = useState(null);
   const [shareInfo, setShareInfo] = useState(null);
   const [conflict, setConflict] = useState(null);
+  const [showMoreActions, setShowMoreActions] = useState(false);
   
   const { fetchDecks, decks, folders } = useDeckStore();
   const { showToast } = useUiStore();
@@ -21,10 +22,60 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const isCollab = shareId && shareId.startsWith('collab_');
   const cleanShareId = shareId ? shareId.replace('collab_', '') : '';
 
-  const isAlreadyAccessible = isCollab && shareInfo && (
-    (shareInfo.type === 'deck' && decks.some(d => d.id === shareInfo.id)) ||
-    (shareInfo.type === 'folder' && folders.some(f => f.id === shareInfo.id))
+  const cleanName = (str) => (str || '').replace('⭐ ', '').trim().toLowerCase();
+
+  const comparison = shareInfo?.comparison;
+  const isServerExists = Boolean(comparison?.already_exists);
+  const hasUpdates = Boolean(comparison?.has_updates);
+  const newDecksCount = comparison?.new_decks_count || 0;
+  const newCardsCount = comparison?.new_cards_count || 0;
+
+  const existingFolder = shareInfo && (shareInfo.type === 'folder' || (isCollab && shareInfo.decks_count !== undefined))
+    ? folders.find(f => f.id === shareInfo.id || (comparison?.existing_id && f.id === comparison.existing_id) || cleanName(f.name) === cleanName(shareInfo.name))
+    : null;
+
+  const existingDeck = shareInfo && (shareInfo.type === 'deck')
+    ? decks.find(d => d.id === shareInfo.id || (comparison?.existing_id && d.id === comparison.existing_id) || cleanName(d.name) === cleanName(shareInfo.name))
+    : null;
+
+  const isAlreadyAccessible = Boolean(
+    (isCollab && shareInfo && (
+      (shareInfo.type === 'deck' && decks.some(d => d.id === shareInfo.id)) ||
+      (shareInfo.type === 'folder' && folders.some(f => f.id === shareInfo.id))
+    )) ||
+    isServerExists ||
+    existingFolder || 
+    existingDeck
   );
+
+  const handleOpenExisting = async () => {
+    const targetLang = shareInfo?.target_language || existingFolder?.target_language || existingDeck?.target_language || 'de';
+    const activeLang = useLanguageStore.getState().activeLanguage;
+
+    if (targetLang && targetLang !== activeLang) {
+      await useLanguageStore.getState().setLanguage(targetLang);
+    }
+
+    const folderId = existingFolder?.id || (comparison?.type === 'folder' ? comparison.existing_id : null) || (isFolder ? shareInfo?.id : null);
+    const deckId = existingDeck?.id || (comparison?.type === 'deck' ? comparison.existing_id : null) || (!isFolder && !isCard ? shareInfo?.id : null);
+
+    if (folderId) {
+      useUiStore.getState().setActiveFolderId(folderId);
+      useUiStore.getState().setView('decks');
+      showToast(`Папка «${existingFolder?.name || shareInfo?.name || ''}» открыта!`, 'info');
+    } else if (deckId) {
+      const foundDeck = existingDeck || decks.find(d => d.id === deckId);
+      if (foundDeck) {
+        useDeckStore.getState().setCurrentDeck(foundDeck);
+      }
+      useUiStore.getState().setView('study');
+      showToast(`Колода «${existingDeck?.name || shareInfo?.name || ''}» открыта!`, 'info');
+    } else {
+      useUiStore.getState().setView('decks');
+    }
+
+    onClose?.();
+  };
 
   useEffect(() => {
     if (!shareId) return;
@@ -81,6 +132,14 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   };
 
   const handleImport = async (resolution = null) => {
+    if (resolution === 'cancel') {
+      setConflict(null);
+      onClose?.();
+      return;
+    }
+    if (isAlreadyAccessible && !resolution) {
+      return handleOpenExisting();
+    }
     if (isCollab && !resolution) {
       return handleJoin();
     }
@@ -102,11 +161,24 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
 
         const itemName = res.data.name || res.data.deck_name || res.data.folder_name || shareInfo?.name || '';
         let msg = 'Элемент успешно добавлен!';
-        if (res.data.type === 'folder') msg = `Папка «${itemName}» добавлена!`;
+        if (resolution === 'merge') {
+          if (res.data.type === 'folder') {
+            msg = `Обновлено! Добавлено колод: ${res.data.decks_added ?? 0}, карт: ${res.data.cards_added ?? 0}`;
+          } else {
+            msg = `Обновлено! Добавлено новых карт: ${res.data.cards_added ?? 0}`;
+          }
+        } else if (res.data.type === 'folder') msg = `Папка «${itemName}» добавлена!`;
         else if (res.data.type === 'deck') msg = `Колода «${itemName}» добавлена!`;
         else if (res.data.type === 'card') msg = `Карточка добавлена в «📥 Входящие»!`;
         
         showToast(msg, 'success');
+
+        if (res.data.type === 'folder') {
+          const targetFolderId = res.data.new_folder_id || existingFolder?.id || (comparison?.type === 'folder' ? comparison.existing_id : null);
+          if (targetFolderId) {
+            useUiStore.getState().setActiveFolderId(targetFolderId);
+          }
+        }
 
         try {
           const activeLang = useLanguageStore.getState().activeLanguage;
@@ -329,24 +401,59 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                     display: 'flex', flexDirection: 'column', gap: 8, width: '100%', boxSizing: 'border-box'
                   }}>
                     {isAlreadyAccessible ? (
-                      <div style={{
-                        background: 'rgba(59, 130, 246, 0.15)',
-                        border: '1px solid rgba(59, 130, 246, 0.3)',
-                        borderRadius: 14,
-                        padding: '10px 14px',
-                        color: '#93c5fd',
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                        width: '100%',
-                        boxSizing: 'border-box'
-                      }}>
-                        <Check size={18} />
-                        <span>У вас уже есть доступ к этой {isFolder ? 'папке' : 'колоде'}!</span>
-                      </div>
+                      hasUpdates ? (
+                        <div style={{
+                          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)',
+                          border: '1px solid rgba(168, 85, 247, 0.4)',
+                          borderRadius: 14,
+                          padding: '12px 14px',
+                          color: '#e2e8f0',
+                          textAlign: 'left',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#c084fc', marginBottom: 4 }}>
+                            <Sparkles size={18} />
+                            <strong style={{ fontSize: '0.88rem' }}>Доступны обновления</strong>
+                          </div>
+                          <div style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.4 }}>
+                            {isFolder ? (
+                              <span>
+                                В папке появились новые материалы:{' '}
+                                {newDecksCount > 0 && <strong style={{ color: '#c084fc' }}>+{newDecksCount} колод </strong>}
+                                {newCardsCount > 0 && <strong style={{ color: '#c084fc' }}>+{newCardsCount} карт.</strong>}
+                              </span>
+                            ) : (
+                              <span>
+                                В колоде появились новые карточки:{' '}
+                                <strong style={{ color: '#c084fc' }}>+{newCardsCount} карт.</strong>
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 4 }}>
+                            Прогресс ранее изученных карточек сохранится.
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{
+                          background: 'rgba(16, 185, 129, 0.12)',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          borderRadius: 14,
+                          padding: '12px 14px',
+                          color: '#a7f3d0',
+                          textAlign: 'left',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#34d399', marginBottom: 4 }}>
+                            <Check size={18} />
+                            <strong style={{ fontSize: '0.88rem' }}>У вас уже есть эта {isFolder ? 'папка' : 'колода'}</strong>
+                          </div>
+                          <div style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.4 }}>
+                            Все материалы синхронизированы, версия актуальна.
+                          </div>
+                        </div>
+                      )
                     ) : (
                       <div style={{
                         display: 'flex', alignItems: 'center', gap: 12,
@@ -451,7 +558,61 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-                  {isInsideTelegram ? (
+                  {isAlreadyAccessible ? (
+                    hasUpdates ? (
+                      /* Updates available: Primary action is Update, secondary is Just open */
+                      <>
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => handleImport('merge')}
+                          disabled={importing}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            width: '100%', padding: '14px', fontSize: '0.96rem', fontWeight: 700,
+                            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
+                          }}
+                        >
+                          <RefreshCw size={18} className={importing ? 'spin' : ''} />
+                          <span>
+                            {importing ? 'Обновление...' : `🔄 Обновить (${newDecksCount > 0 ? `+${newDecksCount} к.` : `+${newCardsCount} шт.`})`}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={handleOpenExisting}
+                          disabled={importing}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            width: '100%', padding: '12px 14px', fontSize: '0.88rem',
+                            background: 'rgba(255, 255, 255, 0.06)', borderColor: 'rgba(255, 255, 255, 0.14)', color: '#cbd5e1'
+                          }}
+                        >
+                          <Folder size={16} />
+                          <span>📂 Просто открыть мою версию</span>
+                        </button>
+                      </>
+                    ) : (
+                      /* Up to date: Primary action is Open */
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleOpenExisting}
+                        disabled={importing}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          width: '100%', padding: '14px', fontSize: '0.96rem', fontWeight: 700,
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)'
+                        }}
+                      >
+                        <Folder size={18} />
+                        <span>📂 Открыть {isFolder ? 'папку' : 'колоду'}</span>
+                      </button>
+                    )
+                  ) : (
+                    /* Not yet in user's library: Add / Import */
                     <>
                       <button
                         className="btn btn-primary"
@@ -462,38 +623,111 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                           width: '100%', padding: '14px', fontSize: '0.96rem', fontWeight: 700
                         }}
                       >
-                        {isAlreadyAccessible ? <ExternalLink size={18} /> : <Download size={18} />}
-                        {importing ? 'Загрузка...' : (isAlreadyAccessible ? 'Открыть в Telegram' : (isCollab ? 'Присоединиться в Telegram' : '🚀 Учить в Telegram'))}
+                        <Download size={18} />
+                        <span>
+                          {importing ? 'Загрузка...' : (isCollab ? (isInsideTelegram ? 'Присоединиться в Telegram' : 'Присоединиться') : (isInsideTelegram ? '🚀 Учить в Telegram' : `📥 Добавить ${isFolder ? 'папку' : 'колоду'}`))}
+                        </span>
                       </button>
 
+                      {isInsideTelegram && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={handleOpenInBrowser}
+                          disabled={loading || importing || !shareInfo}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            width: '100%', padding: '12px 14px', fontSize: '0.88rem',
+                            background: 'rgba(255, 255, 255, 0.06)', borderColor: 'rgba(255, 255, 255, 0.14)', color: '#cbd5e1'
+                          }}
+                        >
+                          <ExternalLink size={16} />
+                          <span>🌍 Учить в браузере (Safari / Chrome)</span>
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {/* Collapsible "Другие действия" dropdown */}
+                  {isAlreadyAccessible && !isCard && (
+                    <div style={{ width: '100%', marginTop: 4 }}>
                       <button
                         type="button"
-                        className="btn btn-secondary"
-                        onClick={handleOpenInBrowser}
-                        disabled={loading || importing || !shareInfo}
+                        onClick={() => setShowMoreActions(prev => !prev)}
                         style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                          width: '100%', padding: '12px 14px', fontSize: '0.88rem',
-                          background: 'rgba(255, 255, 255, 0.06)', borderColor: 'rgba(255, 255, 255, 0.14)', color: '#cbd5e1'
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          width: '100%', padding: '8px', background: 'transparent',
+                          border: 'none', color: '#94a3b8', fontSize: '0.82rem', cursor: 'pointer'
                         }}
                       >
-                        <ExternalLink size={16} />
-                        <span>🌍 Учить в браузере (Safari / Chrome)</span>
+                        <span>⚙️ Другие действия</span>
+                        {showMoreActions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </button>
-                    </>
-                  ) : (
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => handleImport()}
-                      disabled={loading || importing || !shareInfo}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                        width: '100%', padding: '14px', fontSize: '0.96rem', fontWeight: 700
-                      }}
-                    >
-                      {isAlreadyAccessible ? <ExternalLink size={18} /> : <Download size={18} />}
-                      {importing ? 'Загрузка...' : (isAlreadyAccessible ? 'Открыть колоду' : (isCollab ? 'Присоединиться' : '📥 Добавить колоду'))}
-                    </button>
+
+                      {showMoreActions && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          style={{
+                            display: 'flex', flexDirection: 'column', gap: 8,
+                            marginTop: 6, padding: '10px', background: 'rgba(255,255,255,0.03)',
+                            borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)'
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => handleImport('copy')}
+                            disabled={importing}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                              padding: '10px 12px', fontSize: '0.82rem', width: '100%'
+                            }}
+                          >
+                            <Copy size={14} />
+                            <span>➕ Создать отдельную копию</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => {
+                              if (window.confirm('Вы уверены? Старые карточки в этой колоде/папке будут заменены новыми.')) {
+                                handleImport('replace');
+                              }
+                            }}
+                            disabled={importing}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                              padding: '10px 12px', fontSize: '0.82rem', width: '100%',
+                              color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.2)',
+                              background: 'rgba(239, 68, 68, 0.06)'
+                            }}
+                          >
+                            <RefreshCw size={14} />
+                            <span>⚠️ Полностью заменить</span>
+                          </button>
+
+                          {isInsideTelegram && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={handleOpenInBrowser}
+                              disabled={importing}
+                              style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                padding: '10px 12px', fontSize: '0.82rem', width: '100%',
+                                color: '#94a3b8'
+                              }}
+                            >
+                              <ExternalLink size={14} />
+                              <span>🌍 Открыть в браузере</span>
+                            </button>
+                          )}
+                        </motion.div>
+                      )}
+                    </div>
                   )}
 
                   <button 

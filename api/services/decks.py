@@ -32,7 +32,11 @@ def ensure_starter_decks(user_id: int, target_language: str = None):
         imported_any = False
         with tma_db.atomic():
             for lib_deck in default_decks:
-                tma_deck = next((d for d in existing_decks if d.name == lib_deck.name), None)
+                clean_lib_name = lib_deck.name.replace("⭐ ", "").strip()
+                tma_deck = next(
+                    (d for d in existing_decks if d.name == lib_deck.name or d.name == clean_lib_name or d.name.replace("⭐ ", "").strip() == clean_lib_name),
+                    None
+                )
                 if not tma_deck:
                     tma_deck = import_deck(lib_deck.id, user_id)
                     imported_any = True
@@ -52,11 +56,21 @@ def ensure_starter_decks(user_id: int, target_language: str = None):
                         f_name = m.get('folder_name')
                         if f_name:
                             f_color = m.get('folder_color', '#6366f1')
-                            user_folder, _ = TMA_Folder.get_or_create(
-                                user_id=user_id,
-                                name=f_name,
-                                defaults={'color': f_color, 'target_language': getattr(lib_deck, 'target_language', 'de') or 'de'}
+                            user_folder = TMA_Folder.get_or_none(
+                                (TMA_Folder.user_id == user_id) &
+                                (TMA_Folder.name == f_name) &
+                                (TMA_Folder.parent.is_null()) &
+                                (TMA_Folder.is_deleted == False)
                             )
+                            if not user_folder:
+                                user_folder = TMA_Folder.create(
+                                    user_id=user_id,
+                                    name=f_name,
+                                    color=f_color,
+                                    target_language=getattr(lib_deck, 'target_language', 'de') or 'de',
+                                    created_at=datetime.datetime.now(),
+                                    updated_at=datetime.datetime.now()
+                                )
                             if getattr(tma_deck, 'folder_id', None) != user_folder.id:
                                 tma_deck.folder = user_folder
                                 tma_deck.save()
@@ -210,13 +224,18 @@ def get_active_decks(user_id: int, folder_map: dict = None):
             all_folders = list(TMA_Folder.select().where(TMA_Folder.is_deleted == False))
             folder_map = {f.id: f for f in all_folders}
 
-        # 1. Убеждаемся, что дефолтные колоды импортированы только для новых пользователей
+        # 1. Убеждаемся, что дефолтные колоды и папки импортированы
         try:
-            user = TMAUser.get_or_none(TMAUser.user_id == user_id)
-            if not user or not user.default_decks_initialized:
-                ensure_starter_decks(user_id)
+            ensure_starter_decks(user_id)
         except Exception:
             pass
+
+        # Update folder_map in case ensure_starter_decks created folders
+        if folder_map is not None:
+            user_folders = list(TMA_Folder.select().where((TMA_Folder.user_id == user_id) & (TMA_Folder.is_deleted == False)))
+            for uf in user_folders:
+                if uf.id not in folder_map:
+                    folder_map[uf.id] = uf
         
         # 2. Получаем все доступные пользователю колоды (собственные и расшаренные)
         from .collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, get_batch_collaborative_info

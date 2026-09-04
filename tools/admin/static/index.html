@@ -395,76 +395,38 @@
 
             <!-- Checkboxes Filter & Sync -->
             <div class="space-y-2 pt-2 border-t border-slate-800/80 text-xs">
-              <label class="flex items-center gap-2.5 p-2.5 bg-emerald-950/30 rounded-xl border border-emerald-500/30 cursor-pointer hover:border-emerald-500/50">
+              <label class="flex items-center gap-2.5 p-2.5 bg-emerald-950/30 rounded-xl border border-emerald-500/30 cursor-pointer hover:border-emerald-500/50 transition">
                 <input type="checkbox" id="regen-sync-copies" checked class="w-4 h-4 text-emerald-500 rounded">
                 <span class="text-xs font-bold text-emerald-300">🔄 Синхронизировать с Библиотекой и всеми копиями</span>
               </label>
 
               <!-- Skip Already Completed Filter -->
-              <label class="flex items-center gap-2.5 p-2 bg-indigo-950/40 rounded-xl border border-indigo-500/30 cursor-pointer hover:border-indigo-500/50">
+              <label class="flex items-center gap-2.5 p-2 bg-indigo-950/40 rounded-xl border border-indigo-500/30 cursor-pointer hover:border-indigo-500/50 transition">
                 <input type="checkbox" id="regen-skip-completed" class="w-4 h-4 text-indigo-500 rounded">
                 <span class="text-[11px] text-indigo-200 font-bold">🛡️ Пропускать уже заполненные (текст + контекст + аудио)</span>
               </label>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
-                  <input type="checkbox" id="regen-only-empty" class="w-3.5 h-3.5 text-indigo-600 rounded">
-                  <span class="text-[11px] text-slate-300">Только пустые</span>
-                </label>
-                <label class="flex items-center gap-2 p-2 bg-purple-950/30 rounded-xl border border-purple-500/30 cursor-pointer hover:border-purple-500/50">
-                  <input type="checkbox" id="regen-only-no-context" class="w-3.5 h-3.5 text-purple-500 rounded">
-                  <span class="text-[11px] text-purple-200 font-bold">✨ Только без контекста</span>
-                </label>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label class="flex items-center gap-2 p-2 bg-emerald-950/20 rounded-xl border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40">
-                  <input type="checkbox" id="regen-only-missing-audio" class="w-3.5 h-3.5 text-emerald-500 rounded">
-                  <span class="text-[11px] text-emerald-300 font-bold">🎙️ Только без озвучки</span>
-                </label>
-                <label class="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
-                  <input type="checkbox" id="regen-no-audio" class="w-3.5 h-3.5 text-indigo-600 rounded">
-                  <span class="text-[11px] text-slate-300">Отключить TTS (при ИИ)</span>
-                </label>
-              </div>
             </div>
 
             <!-- Single Deck Trigger Buttons -->
-            <div id="single-deck-actions" class="pt-3 border-t border-slate-800/80 space-y-2.5">
-              <button onclick="startContextOnlyProcess()" id="btn-start-context-only" class="w-full py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-purple-500/20 transition">
-                <i data-lucide="sparkles" class="w-4 h-4"></i> ✨ Перегенерировать ТОЛЬКО контекст (ИИ)
-              </button>
-
-              <button onclick="startAudioOnlyProcess()" id="btn-start-audio-only" class="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition">
-                <i data-lucide="mic" class="w-4 h-4"></i> 🎙️ Перегенерировать ТОЛЬКО озвучку (TTS)
-              </button>
-
+            <div id="single-deck-actions" class="pt-3 border-t border-slate-800/80">
               <div class="grid grid-cols-2 gap-2">
-                <button onclick="startAiProcess(true)" id="btn-start-dryrun" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition">
+                <button onclick="startAiProcess(true)" id="btn-start-dryrun" class="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition">
                   <i data-lucide="flask-conical" class="w-4 h-4 text-purple-400"></i> 🧪 Тест (3 карт.)
                 </button>
-                <button onclick="startAiProcess(false)" id="btn-start-full" class="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20 transition">
-                  <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Полная
+                <button onclick="startAiProcess(false)" id="btn-start-full" class="py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20 transition">
+                  <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Запустить генерацию
                 </button>
               </div>
             </div>
 
             <!-- Batch Multi-Deck Trigger Buttons (Visible in Batch Mode) -->
-            <div id="batch-deck-actions" class="hidden pt-3 border-t border-slate-800/80 space-y-2.5">
-              <button onclick="startBatchContextOnlyProcess()" id="btn-start-batch-context" class="w-full py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-purple-500/20 transition">
-                <i data-lucide="sparkles" class="w-4 h-4"></i> ✨ Массово добавить ТОЛЬКО контекст (<span class="batch-total-decks-lbl">0</span> колод)
-              </button>
-
-              <button onclick="startBatchAudioProcess()" id="btn-start-batch-audio" class="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:opacity-95 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition">
-                <i data-lucide="mic" class="w-4 h-4"></i> 🎙️ Массовая озвучка всех (<span class="batch-total-decks-lbl">0</span>) колод (TTS)
-              </button>
-
+            <div id="batch-deck-actions" class="hidden pt-3 border-t border-slate-800/80">
               <div class="grid grid-cols-2 gap-2">
-                <button onclick="startBatchAiProcess(true)" id="btn-start-batch-dryrun" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition">
+                <button onclick="startBatchAiProcess(true)" id="btn-start-batch-dryrun" class="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition">
                   <i data-lucide="flask-conical" class="w-4 h-4 text-purple-400"></i> 🧪 Тест пакета
                 </button>
-                <button onclick="startBatchAiProcess(false)" id="btn-start-batch-full" class="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20 transition">
-                  <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Полная (<span class="batch-total-decks-lbl">0</span>)
+                <button onclick="startBatchAiProcess(false)" id="btn-start-batch-full" class="py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20 transition">
+                  <i data-lucide="zap" class="w-4 h-4"></i> 🚀 Запустить пакетную (<span class="batch-total-decks-lbl">0</span>)
                 </button>
               </div>
             </div>
@@ -598,6 +560,22 @@
               <div id="ai-logs-container" class="bg-slate-950 p-3.5 rounded-xl font-mono text-xs text-slate-300 h-44 overflow-y-auto space-y-1 border border-slate-900">
                 <div class="text-slate-600">Логи перегенерации будут отображаться здесь...</div>
               </div>
+            </div>
+
+            <!-- Failed Cards Action Banner -->
+            <div id="ai-failed-actions-banner" class="hidden p-3.5 bg-amber-950/40 border border-amber-500/40 rounded-xl flex items-center justify-between flex-wrap gap-3 shadow-lg">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 bg-amber-500/20 text-amber-400 rounded-lg">
+                  <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <div id="ai-failed-count-title" class="text-xs font-bold text-amber-200">Обнаружены карточки с ошибками / неполные (0 шт.)</div>
+                  <div class="text-[11px] text-amber-400/80">Вы можете перегенерировать только эти карточки в 1 клик по логам</div>
+                </div>
+              </div>
+              <button onclick="retryFailedCardsFromTask()" id="btn-retry-failed-cards" class="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 🔄 Перегенерировать ошибки
+              </button>
             </div>
 
             <!-- Dry-Run Results Visual Previewer -->
@@ -1950,6 +1928,18 @@
       ]
     };
 
+    function getDefaultVoiceForLang(targetLang = 'de') {
+      const langCode = (targetLang || 'de').toLowerCase().trim();
+      const groups = ADMIN_VOICES_BY_LANG[langCode] || ADMIN_VOICES_BY_LANG['de'];
+      let def = null;
+      groups.forEach(g => {
+        g.voices.forEach(v => {
+          if (v.default && !def) def = v.value;
+        });
+      });
+      return def || 'de-DE-KatjaNeural';
+    }
+
     function renderVoiceOptions(targetLang = 'de', currentVoiceToKeep = null) {
       const select = document.getElementById('regen-voice-select');
       if (!select) return;
@@ -1960,8 +1950,14 @@
       const prevValue = currentVoiceToKeep || select.value;
       select.innerHTML = '';
 
+      // First Option: No Audio (Text and AI context only)
+      const optNoAudio = document.createElement('option');
+      optNoAudio.value = 'none';
+      optNoAudio.textContent = '🔇 Без озвучки (только текст и контекст)';
+      select.appendChild(optNoAudio);
+
       let defaultVoice = null;
-      let hasPrevValue = false;
+      let hasPrevValue = (prevValue === 'none');
 
       groups.forEach(g => {
         const optGroup = document.createElement('optgroup');
@@ -3353,6 +3349,10 @@
     async function playVoicePreview() {
       const voiceSelect = document.getElementById('regen-voice-select');
       const voice = voiceSelect ? voiceSelect.value : 'de-DE-KatjaNeural';
+      if (voice === 'none') {
+        alert("Выбран режим 'Без озвучки'. Для прослушивания превью выберите один из голосов в списке.");
+        return;
+      }
       const rateSelect = document.getElementById('regen-rate-select');
       const rate = rateSelect ? rateSelect.value : '+0%';
       const btn = document.getElementById('btn-voice-preview');
@@ -3479,35 +3479,26 @@
         }
       });
 
-      const chkEmpty = document.getElementById('regen-only-empty');
-      const chkNoContext = document.getElementById('regen-only-no-context');
-      const chkMissingAudio = document.getElementById('regen-only-missing-audio');
-      const chkNoAudio = document.getElementById('regen-no-audio');
+      const voiceSelect = document.getElementById('regen-voice-select');
       const chkSkipCompleted = document.getElementById('regen-skip-completed');
 
       if (presetKey === 'context_only') {
-        if (chkEmpty) chkEmpty.checked = false;
-        if (chkNoContext) chkNoContext.checked = true;
-        if (chkMissingAudio) chkMissingAudio.checked = false;
-        if (chkNoAudio) chkNoAudio.checked = true;
-        if (chkSkipCompleted) chkSkipCompleted.checked = false;
+        if (voiceSelect) voiceSelect.value = 'none';
+        if (chkSkipCompleted) chkSkipCompleted.checked = true;
       } else if (presetKey === 'audio_only') {
-        if (chkEmpty) chkEmpty.checked = false;
-        if (chkNoContext) chkNoContext.checked = false;
-        if (chkMissingAudio) chkMissingAudio.checked = true;
-        if (chkNoAudio) chkNoAudio.checked = false;
-        if (chkSkipCompleted) chkSkipCompleted.checked = false;
+        if (voiceSelect && voiceSelect.value === 'none') {
+          voiceSelect.value = getDefaultVoiceForLang(activeDeckTargetLang || 'de');
+        }
+        if (chkSkipCompleted) chkSkipCompleted.checked = true;
       } else if (presetKey === 'smart_fill') {
-        if (chkEmpty) chkEmpty.checked = false;
-        if (chkNoContext) chkNoContext.checked = true;
-        if (chkMissingAudio) chkMissingAudio.checked = true;
-        if (chkNoAudio) chkNoAudio.checked = false;
+        if (voiceSelect && voiceSelect.value === 'none') {
+          voiceSelect.value = getDefaultVoiceForLang(activeDeckTargetLang || 'de');
+        }
         if (chkSkipCompleted) chkSkipCompleted.checked = true;
       } else if (presetKey === 'full_regen') {
-        if (chkEmpty) chkEmpty.checked = false;
-        if (chkNoContext) chkNoContext.checked = false;
-        if (chkMissingAudio) chkMissingAudio.checked = false;
-        if (chkNoAudio) chkNoAudio.checked = false;
+        if (voiceSelect && voiceSelect.value === 'none') {
+          voiceSelect.value = getDefaultVoiceForLang(activeDeckTargetLang || 'de');
+        }
         if (chkSkipCompleted) chkSkipCompleted.checked = false;
       }
     }
@@ -3719,28 +3710,31 @@
         return;
       }
 
+      const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
+      if (selectedVoice === 'none') {
+        alert("Для перегенерации озвучки необходимо выбрать голос в списке!");
+        return;
+      }
+
       const uncheckedBoxes = document.querySelectorAll('.card-select-checkbox:not(:checked)');
       const excludedCardIds = Array.from(uncheckedBoxes).map(cb => parseInt(cb.value, 10));
-      const onlyMissing = document.getElementById('regen-only-missing-audio')?.checked || false;
       const skipCompleted = document.getElementById('regen-skip-completed')?.checked || false;
-      const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
 
       const options = {
         voice: selectedVoice,
         rate: selectedRate,
-        only_missing_audio: onlyMissing,
+        only_missing_audio: false,
         skip_completed: skipCompleted,
-        sync_copies: document.getElementById('regen-sync-copies').checked,
+        sync_copies: document.getElementById('regen-sync-copies')?.checked ?? true,
         exclude_card_ids: excludedCardIds,
-        exclude_range_str: document.getElementById('regen-exclude-range').value.trim() || null
+        exclude_range_str: document.getElementById('regen-exclude-range')?.value.trim() || null
       };
 
       const deck = decksData.find(d => String(d.id) === String(activeRegenDeckId));
       const deckTitle = deck ? deck.name : '#' + activeRegenDeckId;
-      const modeDesc = onlyMissing ? 'для карточек БЕЗ озвучки' : 'для ВСЕХ выбранных карточек';
 
-      if (!confirm(`Запустить перегенерацию ТОЛЬКО озвучки ${modeDesc}?\nКолода: "${deckTitle}"\nГолос: ${selectedVoice}\nСкорость: ${selectedRate}\n\nТексты, переводы и контексты затронуты НЕ будут.`)) {
+      if (!confirm(`Запустить перегенерацию ТОЛЬКО озвучки?\nКолода: "${deckTitle}"\nГолос: ${selectedVoice}\nСкорость: ${selectedRate}\n\nТексты, переводы и контексты затронуты НЕ будут.`)) {
         return;
       }
 
@@ -3775,32 +3769,30 @@
       const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
       const skipCompleted = document.getElementById('regen-skip-completed')?.checked || false;
+      const isNoAudio = (selectedVoice === 'none');
 
       const options = {
         dry_run: isDryRun,
-        only_empty: document.getElementById('regen-only-empty').checked,
-        only_no_context: document.getElementById('regen-only-no-context').checked,
-        only_missing_audio: document.getElementById('regen-only-missing-audio')?.checked || false,
         skip_completed: skipCompleted,
-        no_audio: document.getElementById('regen-no-audio').checked,
-        sync_copies: document.getElementById('regen-sync-copies').checked,
+        no_audio: isNoAudio,
+        sync_copies: document.getElementById('regen-sync-copies')?.checked ?? true,
         voice: selectedVoice,
         rate: selectedRate,
-        prompt_id: document.getElementById('regen-prompt-select').value || 'preset_b1',
-        native_lang: document.getElementById('regen-native-lang-select').value || 'uk',
+        prompt_id: document.getElementById('regen-prompt-select')?.value || 'preset_b1',
+        native_lang: document.getElementById('regen-native-lang-select')?.value || 'uk',
         target_lang: activeDeckTargetLang || 'de',
         exclude_card_ids: excludedCardIds,
-        exclude_range_str: document.getElementById('regen-exclude-range').value.trim() || null
+        exclude_range_str: document.getElementById('regen-exclude-range')?.value.trim() || null
       };
 
       if (!isDryRun) {
-        if (!confirm(`Вы действительно хотите запустить ПОЛНУЮ генерацию карточек в боевую БД?`)) return;
+        if (!confirm(`Вы действительно хотите запустить генерацию карточек в боевую БД?`)) return;
       }
 
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('ai-progress-bar').style.width = '0%';
       document.getElementById('ai-percent-badge').innerText = '0%';
-      document.getElementById('ai-active-status-text').innerText = `Запуск ${isDryRun ? 'Теста' : 'Полной генерации'}...`;
+      document.getElementById('ai-active-status-text').innerText = `Запуск ${isDryRun ? 'Теста' : 'генерации'}...`;
       document.getElementById('ai-logs-container').innerHTML = `<div class="text-indigo-400">Инициализация ${isDryRun ? 'Dry-Run Теста (3 карточки)' : 'боевой генерации'}...</div>`;
 
       try {
@@ -3823,24 +3815,27 @@
         return;
       }
 
-      const onlyMissing = document.getElementById('regen-only-missing-audio')?.checked || false;
-      const skipCompleted = document.getElementById('regen-skip-completed')?.checked || false;
       const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
+      if (selectedVoice === 'none') {
+        alert("Для пакетного озвучивания необходимо выбрать голос в списке!");
+        return;
+      }
+
+      const skipCompleted = document.getElementById('regen-skip-completed')?.checked || false;
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
 
       const options = {
         deck_ids: stagedIds,
         voice: selectedVoice,
         rate: selectedRate,
-        only_missing_audio: onlyMissing,
+        only_missing_audio: false,
         skip_completed: skipCompleted,
-        sync_copies: document.getElementById('regen-sync-copies')?.checked || false,
+        sync_copies: document.getElementById('regen-sync-copies')?.checked ?? true,
         delay: 0.3,
         exclude_card_ids: Array.from(globalBatchExcludedCards)
       };
 
-      const modeDesc = onlyMissing ? 'для карточек БЕЗ озвучки' : 'для ВСЕХ карточек';
-      if (!confirm(`Запустить МАССОВОЕ озвучивание (TTS) ${modeDesc} для ${stagedIds.length} колод?\nГолос: ${selectedVoice}\nСкорость: ${selectedRate}`)) {
+      if (!confirm(`Запустить МАССОВОЕ озвучивание (TTS) для ${stagedIds.length} колод?\nГолос: ${selectedVoice}\nСкорость: ${selectedRate}`)) {
         return;
       }
 
@@ -3894,16 +3889,14 @@
       const selectedVoice = document.getElementById('regen-voice-select')?.value || 'de-DE-KatjaNeural';
       const selectedRate = document.getElementById('regen-rate-select')?.value || '+0%';
       const skipCompleted = document.getElementById('regen-skip-completed')?.checked || false;
+      const isNoAudio = (selectedVoice === 'none');
 
       const options = {
         deck_ids: stagedIds,
         dry_run: isDryRun,
-        only_empty: document.getElementById('regen-only-empty')?.checked || false,
-        only_no_context: document.getElementById('regen-only-no-context')?.checked || false,
-        only_missing_audio: document.getElementById('regen-only-missing-audio')?.checked || false,
         skip_completed: skipCompleted,
-        no_audio: document.getElementById('regen-no-audio')?.checked || false,
-        sync_copies: document.getElementById('regen-sync-copies')?.checked || false,
+        no_audio: isNoAudio,
+        sync_copies: document.getElementById('regen-sync-copies')?.checked ?? true,
         voice: selectedVoice,
         rate: selectedRate,
         prompt_id: document.getElementById('regen-prompt-select')?.value || 'preset_b1',
@@ -4134,6 +4127,18 @@
             }
           }
 
+          const failedBanner = document.getElementById('ai-failed-actions-banner');
+          const failedCountTitle = document.getElementById('ai-failed-count-title');
+          const failedIds = data.failed_card_ids || [];
+
+          if (failedIds.length > 0) {
+            if (failedBanner) failedBanner.classList.remove('hidden');
+            if (failedCountTitle) failedCountTitle.innerText = `⚠️ Обнаружены карточки с ошибками / неполные (${failedIds.length} шт.)`;
+            lucide.createIcons();
+          } else if (data.status === 'completed' && failedBanner) {
+            failedBanner.classList.add('hidden');
+          }
+
           if (data.status === 'completed' || data.status === 'failed' || data.status === 'stopped') {
             clearInterval(batchRegenInterval);
           }
@@ -4141,6 +4146,43 @@
           console.error("Batch poll status error", e);
         }
       }, 1000);
+    }
+
+    async function retryFailedCardsFromTask(customTaskId = null) {
+      const taskId = customTaskId || activeBatchTaskId;
+      try {
+        const btn = document.getElementById('btn-retry-failed-cards');
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Запуск...`;
+        }
+
+        const res = await fetch('/api/admin/tasks/retry-failed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task_id: taskId })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.status === 'ok') {
+          activeBatchTaskId = data.task_id;
+          isBatchStudioMode = true;
+          document.getElementById('ai-failed-actions-banner')?.classList.add('hidden');
+          document.getElementById('ai-active-status-text').innerText = `Статус: Повторная генерация ${data.cards_count} ошибок...`;
+          startPollBatchRegenStatus(data.task_id);
+        } else {
+          alert("Не удалось запустить повтор: " + (data.detail || data.message || 'нет карточек для повтора'));
+        }
+      } catch (err) {
+        alert("Ошибка при повторе: " + err);
+      } finally {
+        const btn = document.getElementById('btn-retry-failed-cards');
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 🔄 Перегенерировать ошибки`;
+          lucide.createIcons();
+        }
+      }
     }
 
     async function loadBackups() {

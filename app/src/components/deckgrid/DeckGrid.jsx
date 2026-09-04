@@ -71,8 +71,6 @@ export const DeckGrid = ({
   const currentFolders = React.useMemo(() => {
     return folders ? folders.filter(f => {
       if (f.parent_id !== activeFolderId) return false;
-      // LiD folder is exclusive to aruna27
-      if (isLidRootFolder(f) && !isLidUser()) return false;
       if (activeFolderId !== null) return true;
       return (f.target_language || 'de') === activeLanguage;
     }) : [];

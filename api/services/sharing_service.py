@@ -345,19 +345,24 @@ class SharingService:
                     existing_folder.target_language = folder_lang
                     existing_folder.save()
                     target_folder = existing_folder
+                    # Cleanly delete old decks and cards in existing_folder
+                    old_deck_ids = [d.id for d in TMA_Deck.select(TMA_Deck.id).where((TMA_Deck.folder == existing_folder) & (TMA_Deck.is_deleted == False))]
+                    if old_deck_ids:
+                        TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id << old_deck_ids).execute()
+                        TMA_Deck.update(is_deleted=True, updated_at=now).where(TMA_Deck.id << old_deck_ids).execute()
                 elif resolution == 'merge' and existing_folder:
                     target_folder = existing_folder
                 else:
                     target_folder = TMA_Folder.create(
                         user_id=user_id,
-                        name=source_folder.name,
+                        name=f"{source_folder.name} (Копия)" if existing_folder else source_folder.name,
                         color=source_folder.color,
                         target_language=folder_lang,
                         created_at=now,
                         updated_at=now
                     )
 
-                # Helper to recursively copy subfolders and decks
+                # Helper to recursively copy subfolders and decks without duplicates
                 def copy_folder_contents(src_f, dest_f):
                     decks_added = 0
                     cards_added = 0
@@ -365,39 +370,65 @@ class SharingService:
                     # 1. Copy decks in src_f
                     src_decks = TMA_Deck.select().where((TMA_Deck.folder == src_f) & (TMA_Deck.is_deleted == False))
                     for s_deck in src_decks:
-                        dest_deck = TMA_Deck.create(
-                            user_id=user_id,
-                            name=s_deck.name,
-                            level=s_deck.level,
-                            topic=s_deck.topic,
-                            target_language=folder_lang,
-                            folder_id=dest_f.id,
-                            metadata=s_deck.metadata,
-                            created_at=now,
-                            updated_at=now
+                        dest_deck = TMA_Deck.get_or_none(
+                            (TMA_Deck.user_id == user_id) &
+                            (TMA_Deck.folder == dest_f) &
+                            (TMA_Deck.name == s_deck.name) &
+                            (TMA_Deck.is_deleted == False)
                         )
-                        decks_added += 1
-                        s_cards = list(TMA_Card.select().where((TMA_Card.deck == s_deck) & (TMA_Card.is_deleted == False)).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()))
-                        cards_added += SharingService._clone_cards_batch(
-                            source_cards=s_cards,
-                            target_deck=dest_deck,
-                            source_tag=f"shared_folder:{source_folder.share_id}",
-                            creator_id=source_folder.user_id,
-                            now=now
+                        if not dest_deck:
+                            dest_deck = TMA_Deck.create(
+                                user_id=user_id,
+                                name=s_deck.name,
+                                level=s_deck.level,
+                                topic=s_deck.topic,
+                                target_language=folder_lang,
+                                folder_id=dest_f.id,
+                                metadata=s_deck.metadata,
+                                created_at=now,
+                                updated_at=now
+                            )
+                            decks_added += 1
+                        
+                        existing_pairs = set(
+                            (c.front_text or "", c.back_text or "")
+                            for c in TMA_Card.select(TMA_Card.front_text, TMA_Card.back_text)
+                            .where((TMA_Card.deck == dest_deck) & (TMA_Card.is_deleted == False))
                         )
+                        s_cards = list(
+                            TMA_Card.select()
+                            .where((TMA_Card.deck == s_deck) & (TMA_Card.is_deleted == False))
+                            .order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
+                        )
+                        cards_to_copy = [c for c in s_cards if (c.front_text or "", c.back_text or "") not in existing_pairs]
+                        if cards_to_copy:
+                            cards_added += SharingService._clone_cards_batch(
+                                source_cards=cards_to_copy,
+                                target_deck=dest_deck,
+                                source_tag=f"shared_folder:{source_folder.share_id}",
+                                creator_id=source_folder.user_id,
+                                now=now
+                            )
 
                     # 2. Copy child subfolders
                     src_subfolders = TMA_Folder.select().where((TMA_Folder.parent == src_f) & (TMA_Folder.is_deleted == False))
                     for s_sub in src_subfolders:
-                        dest_sub = TMA_Folder.create(
-                            user_id=user_id,
-                            name=s_sub.name,
-                            parent_id=dest_f.id,
-                            color=s_sub.color,
-                            target_language=folder_lang,
-                            created_at=now,
-                            updated_at=now
+                        dest_sub = TMA_Folder.get_or_none(
+                            (TMA_Folder.user_id == user_id) &
+                            (TMA_Folder.parent == dest_f) &
+                            (TMA_Folder.name == s_sub.name) &
+                            (TMA_Folder.is_deleted == False)
                         )
+                        if not dest_sub:
+                            dest_sub = TMA_Folder.create(
+                                user_id=user_id,
+                                name=s_sub.name,
+                                parent_id=dest_f.id,
+                                color=s_sub.color,
+                                target_language=folder_lang,
+                                created_at=now,
+                                updated_at=now
+                            )
                         sub_decks, sub_cards = copy_folder_contents(s_sub, dest_sub)
                         decks_added += sub_decks
                         cards_added += sub_cards

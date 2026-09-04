@@ -1,5 +1,6 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Body, Request
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Body, Request, Header
 from fastapi.responses import HTMLResponse, Response
 
 from api.models import TMAUser, TMA_Deck, TMA_Card, TMA_Folder, TMAMedia
@@ -63,10 +64,17 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
 
 
 @router.get("/share/info/{share_id}")
-def get_share_info(share_id: str):
-    """Gets public info about a shared item for preview."""
+def get_share_info(share_id: str, x_user_id: Optional[str] = Header(None)):
+    """Gets public info about a shared item with fast user comparison."""
     is_collab = share_id.startswith("collab_")
     clean_id = share_id.replace("collab_", "").strip()
+
+    uid = None
+    if x_user_id:
+        try:
+            uid = int(x_user_id)
+        except Exception:
+            pass
 
     if clean_id.startswith("d_"):
         deck = TMA_Deck.get_or_none((TMA_Deck.share_id == clean_id) & (TMA_Deck.is_deleted == False))
@@ -75,6 +83,40 @@ def get_share_info(share_id: str):
             
         creator = TMAUser.get_or_none(TMAUser.user_id == deck.user_id)
         cards_count = TMA_Card.select().where((TMA_Card.deck == deck) & (TMA_Card.is_deleted == False)).count()
+
+        comparison = {
+            "already_exists": False,
+            "existing_id": None,
+            "has_updates": False,
+            "new_cards_count": 0,
+            "my_cards_count": 0
+        }
+        if uid:
+            clean_deck_name = deck.name.replace("⭐ ", "").strip()
+            existing_deck = TMA_Deck.get_or_none(
+                (TMA_Deck.user_id == uid) &
+                (TMA_Deck.is_deleted == False) &
+                ((TMA_Deck.name == deck.name) | (TMA_Deck.name == clean_deck_name))
+            )
+            if existing_deck:
+                my_cards_count = TMA_Card.select().where((TMA_Card.deck == existing_deck) & (TMA_Card.is_deleted == False)).count()
+                my_pairs = set(
+                    (c.front_text or "", c.back_text or "") for c in TMA_Card.select(TMA_Card.front_text, TMA_Card.back_text).where(
+                        (TMA_Card.deck == existing_deck) & (TMA_Card.is_deleted == False)
+                    )
+                )
+                src_cards = list(TMA_Card.select(TMA_Card.front_text, TMA_Card.back_text).where(
+                    (TMA_Card.deck == deck) & (TMA_Card.is_deleted == False)
+                ))
+                missing_cards = sum(1 for c in src_cards if (c.front_text or "", c.back_text or "") not in my_pairs)
+                comparison = {
+                    "already_exists": True,
+                    "existing_id": existing_deck.id,
+                    "has_updates": missing_cards > 0,
+                    "new_cards_count": missing_cards,
+                    "my_cards_count": my_cards_count
+                }
+
         return {
             "type": "deck",
             "id": deck.id,
@@ -85,7 +127,8 @@ def get_share_info(share_id: str):
             "cards_count": cards_count,
             "creator_name": creator.username or creator.first_name if creator else "Unknown",
             "creator_avatar": creator.photo_url if creator else None,
-            "is_collab": is_collab
+            "is_collab": is_collab,
+            "comparison": comparison
         }
     elif clean_id.startswith("f_"):
         folder = TMA_Folder.get_or_none((TMA_Folder.share_id == clean_id) & (TMA_Folder.is_deleted == False))
@@ -95,6 +138,47 @@ def get_share_info(share_id: str):
         creator = TMAUser.get_or_none(TMAUser.user_id == folder.user_id)
         decks_count = TMA_Deck.select().where((TMA_Deck.folder == folder) & (TMA_Deck.is_deleted == False)).count()
         cards_count = TMA_Card.select().join(TMA_Deck).where((TMA_Deck.folder == folder) & (TMA_Card.is_deleted == False) & (TMA_Deck.is_deleted == False)).count()
+
+        comparison = {
+            "already_exists": False,
+            "existing_id": None,
+            "has_updates": False,
+            "new_decks_count": 0,
+            "new_cards_count": 0,
+            "my_decks_count": 0,
+            "my_cards_count": 0
+        }
+        if uid:
+            clean_f_name = folder.name.replace("⭐ ", "").strip()
+            existing_folder = TMA_Folder.get_or_none(
+                (TMA_Folder.user_id == uid) &
+                (TMA_Folder.parent.is_null()) &
+                (TMA_Folder.is_deleted == False) &
+                ((TMA_Folder.name == folder.name) | (TMA_Folder.name == clean_f_name))
+            )
+            if existing_folder:
+                my_decks = list(TMA_Deck.select().where((TMA_Deck.folder == existing_folder) & (TMA_Deck.is_deleted == False)))
+                my_deck_names = {d.name.replace("⭐ ", "").strip() for d in my_decks}
+                my_deck_ids = [d.id for d in my_decks]
+                my_cards_count = 0
+                if my_deck_ids:
+                    my_cards_count = TMA_Card.select().where((TMA_Card.deck_id << my_deck_ids) & (TMA_Card.is_deleted == False)).count()
+
+                src_decks = list(TMA_Deck.select().where((TMA_Deck.folder == folder) & (TMA_Deck.is_deleted == False)))
+                src_deck_names = {d.name.replace("⭐ ", "").strip() for d in src_decks}
+                missing_decks = [name for name in src_deck_names if name not in my_deck_names]
+                new_cards_count = max(0, cards_count - my_cards_count)
+
+                comparison = {
+                    "already_exists": True,
+                    "existing_id": existing_folder.id,
+                    "has_updates": len(missing_decks) > 0 or new_cards_count > 0,
+                    "new_decks_count": len(missing_decks),
+                    "new_cards_count": new_cards_count,
+                    "my_decks_count": len(my_decks),
+                    "my_cards_count": my_cards_count
+                }
+
         return {
             "type": "folder",
             "id": folder.id,
@@ -105,7 +189,8 @@ def get_share_info(share_id: str):
             "cards_count": cards_count,
             "creator_name": creator.username or creator.first_name if creator else "Unknown",
             "creator_avatar": creator.photo_url if creator else None,
-            "is_collab": is_collab
+            "is_collab": is_collab,
+            "comparison": comparison
         }
     elif clean_id.startswith("c_"):
         card = TMA_Card.get_or_none((TMA_Card.share_id == clean_id) & (TMA_Card.is_deleted == False))

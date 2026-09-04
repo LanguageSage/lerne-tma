@@ -74,8 +74,14 @@ export const useAppInitialization = (checkStartParam) => {
       if (document.visibilityState === 'visible') {
         console.log("App became visible, re-checking parameters...");
         setTimeout(checkStartParam, 500);
-        if (isOfflineMode() && navigator.onLine) {
-          syncService.sync().catch(e => console.error("Visibility sync failed:", e));
+        if (navigator.onLine) {
+          if (isOfflineMode()) {
+            syncService.sync().catch(e => console.error("Visibility sync failed:", e));
+          } else {
+            // Fresh reload of decks and folders when returning to Telegram Mini App
+            useDeckStore.getState().fetchDecks();
+            useDeckStore.getState().fetchFolders();
+          }
         }
       }
     };

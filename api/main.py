@@ -148,6 +148,13 @@ app.include_router(collaborative.router, prefix="/api")
 @app.get("/api/init")
 def get_init_data(user_id: int = Depends(get_user_id)):
     """Returns all initial data needed by the app in a single request."""
+    # 1. Ensure starter/default decks and folders are provisioned for this user FIRST
+    try:
+        services.ensure_starter_decks(user_id)
+    except Exception as e:
+        logger.error(f"Error ensuring starter decks for user {user_id} in /api/init: {e}")
+
+    # 2. Build folder_map AFTER ensuring starter decks so newly created folders are included
     all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
     folder_map = {f.id: f for f in all_folders}
 
