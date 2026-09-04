@@ -99,6 +99,86 @@ export const StudyView = ({ startTutorial }) => {
     currentUrl, currentTime, duration, playbackRate,
   ]);
 
+  const queueStats = React.useMemo(() => {
+    if (card?.deck_stats && typeof card.deck_stats === 'object') {
+      return {
+        new: card.deck_stats.new ?? 0,
+        due: card.deck_stats.due ?? 0,
+        learning: card.deck_stats.learning ?? 0
+      };
+    }
+
+    if (deckCards && deckCards.length > 0) {
+      const now = new Date();
+      let newCount = 0;
+      let learningCount = 0;
+      let dueCount = 0;
+
+      deckCards.forEach(c => {
+        const q = c.queue || 'new';
+        if (q === 'new') {
+          newCount++;
+        } else if (q === 'learning' || q === 'relearning') {
+          learningCount++;
+        } else if (q === 'review') {
+          if (!c.next_review || new Date(c.next_review) <= now) {
+            dueCount++;
+          }
+        }
+      });
+
+      return {
+        new: newCount,
+        due: dueCount,
+        learning: learningCount
+      };
+    }
+
+    return {
+      new: currentDeck?.stats?.new ?? 0,
+      due: currentDeck?.stats?.due ?? 0,
+      learning: currentDeck?.stats?.learning ?? 0
+    };
+  }, [card?.deck_stats, deckCards, currentDeck?.stats]);
+
+  const currentCardSrsStatus = React.useMemo(() => {
+    if (!card) return null;
+    const queue = card.queue || 'new';
+    if (queue === 'learning' || queue === 'relearning') {
+      const step = (card.step_index || 0) + 1;
+      return {
+        label: `🟡 На закреплении (шаг ${step})`,
+        title: 'Карточка на этапе краткосрочного закрепления',
+        style: {
+          background: 'rgba(234, 179, 8, 0.18)',
+          color: '#fde047',
+          border: '1px solid rgba(234, 179, 8, 0.35)'
+        }
+      };
+    }
+    if (queue === 'review') {
+      const days = card.interval || 1;
+      return {
+        label: `🔴 К повторению (интервал ${days} дн)`,
+        title: 'Настал срок интервального повторения карточки',
+        style: {
+          background: 'rgba(239, 68, 68, 0.18)',
+          color: '#fca5a5',
+          border: '1px solid rgba(239, 68, 68, 0.35)'
+        }
+      };
+    }
+    return {
+      label: '🔵 Новая карточка',
+      title: 'Карточка открывается впервые',
+      style: {
+        background: 'rgba(59, 130, 246, 0.18)',
+        color: '#93c5fd',
+        border: '1px solid rgba(59, 130, 246, 0.35)'
+      }
+    };
+  }, [card]);
+
   const autoplay = useAutoplay({ card, playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock });
   const isAutoplayActive = autoplayState === 'playing' || autoplayState === 'paused';
 
@@ -509,23 +589,55 @@ export const StudyView = ({ startTutorial }) => {
             />
 
             <div className="card-actions-row-study">
-              <CardActionButton 
-                card={card} 
-                size={22} 
-                className="btn-card-action-trigger" 
-                stopDrag={false}
-              />
+              <div className="card-actions-left">
+                <CardActionButton 
+                  card={card} 
+                  size={22} 
+                  className="btn-card-action-trigger" 
+                  stopDrag={false}
+                />
+              </div>
 
-              {currentDeck?.id === 'duplicates' && (
-                <button
-                  className="btn-card-action-trigger"
-                  onClick={onDeleteDuplicate}
-                  title="Удалить дубликат"
-                  style={{ marginRight: '10px', color: '#ef4444' }}
-                >
-                  <Trash2 size={22} />
-                </button>
-              )}
+              {/* Center Column: Anki-style Queue Counter + Current Card SRS Status Underneath */}
+              <div className="study-queue-center-col">
+                <div className="anki-queue-counter" title="Очередь колоды: Новые (синий), К повторению сегодня (красный), На закреплении (желтый)">
+                  <div className="anki-pill pill-new" title="Новые карточки (еще не изучались)">
+                    <span className="anki-dot dot-blue" />
+                    <span className="anki-count">{queueStats.new}</span>
+                  </div>
+                  <div className="anki-pill pill-due" title="Срочные к повторению сегодня">
+                    <span className="anki-dot dot-red" />
+                    <span className="anki-count">{queueStats.due}</span>
+                  </div>
+                  <div className="anki-pill pill-learning" title="На закреплении в текущей сессии">
+                    <span className="anki-dot dot-yellow" />
+                    <span className="anki-count">{queueStats.learning}</span>
+                  </div>
+                </div>
+
+                {currentCardSrsStatus && (
+                  <div
+                    className="current-card-srs-badge"
+                    title={currentCardSrsStatus.title}
+                    style={currentCardSrsStatus.style}
+                  >
+                    <span>{currentCardSrsStatus.label}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="card-actions-right">
+                {currentDeck?.id === 'duplicates' && (
+                  <button
+                    className="btn-card-action-trigger"
+                    onClick={onDeleteDuplicate}
+                    title="Удалить дубликат"
+                    style={{ color: '#ef4444' }}
+                  >
+                    <Trash2 size={22} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ) : (isSessionFinished || apiError) ? (

@@ -172,6 +172,7 @@ def format_reminder_message(first_name: str, summary: dict, is_test: bool = Fals
     text += f"Привет, {safe_name}! Напоминание по колодам, за которыми вы следите:\n\n"
 
     if deck_details:
+        has_any_work = (total_due + total_learning + total_new) > 0
         for item in deck_details:
             name = html.escape(item.get("name", "Колода"))
             due = item.get("due", 0)
@@ -179,22 +180,19 @@ def format_reminder_message(first_name: str, summary: dict, is_test: bool = Fals
             new_cards = item.get("new", 0)
 
             text += f"📚 <b>{name}</b>\n"
-            sub_lines = []
-            if due > 0:
-                sub_lines.append(f"  🔴 {plural_cards(due)} к повторению (сегодня)")
-            if learning > 0:
-                sub_lines.append(f"  🟡 {plural_cards(learning)} на закреплении")
-            if new_cards > 0:
-                sub_lines.append(f"  🔵 {plural_cards(new_cards)} новых")
-            if not sub_lines:
-                sub_lines.append("  ✅ Все карточки пройдены!")
-            text += "\n".join(sub_lines) + "\n\n"
+            if due > 0 or learning > 0 or new_cards > 0:
+                text += f"   🔴 {due} повторить | 🟡 {learning} закрепить | 🔵 {new_cards} новых\n\n"
+            else:
+                text += "   ✅ Все карточки пройдены!\n\n"
 
-        text += (
-            f"<b>Итого на сегодня:</b>\n"
-            f"🔴 Повторить: <b>{total_due}</b> | 🟡 Закрепить: <b>{total_learning}</b> | 🔵 Новых: <b>{total_new}</b>\n\n"
-            f"Нажмите кнопку ниже, чтобы начать! 🚀"
-        )
+        if has_any_work:
+            text += (
+                f"<b>Итого на сегодня:</b>\n"
+                f"🔴 Повторить: <b>{total_due}</b> | 🟡 Закрепить: <b>{total_learning}</b> | 🔵 Новых: <b>{total_new}</b>\n\n"
+                f"Нажмите кнопку ниже, чтобы начать! 🚀"
+            )
+        else:
+            text += "Все карточки на сегодня успешно пройдены. Отличный прогресс! 🎉\n\nВозвращайтесь в любое удобное время! 🚀"
     else:
         text += "В ваших изучаемых колодах все карточки на сегодня успешно пройдены. Отличный прогресс! 🎉\n\n"
         text += "Возвращайтесь в любое удобное время! 🚀"

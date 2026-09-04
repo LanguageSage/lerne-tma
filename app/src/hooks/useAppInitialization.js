@@ -177,6 +177,24 @@ export const useAppInitialization = (checkStartParam) => {
         }
         if (data.settings) setAdminSettings(data.settings);
         if (data.prompts) setUserPrompts(data.prompts);
+
+        if (data.user_info && data.user_info.user_id) {
+          const current = useUiStore.getState().userProfile || {};
+          const sUser = data.user_info;
+          const validCachedName = sUser.first_name && sUser.first_name !== 'Пользователь' ? sUser.first_name : null;
+          const validLocalName = current.first_name && current.first_name !== 'Пользователь' ? current.first_name : null;
+          const resolvedName = validLocalName || validCachedName || sUser.username || current.username || null;
+          const resolvedPhoto = current.photo_url || sUser.photo_url || null;
+
+          const restoredProfile = {
+            ...current,
+            ...sUser,
+            first_name: resolvedName,
+            photo_url: resolvedPhoto,
+            is_guest: Boolean(sUser.is_guest)
+          };
+          setUserProfile(restoredProfile);
+        }
       }
     } catch (e) {
       console.error("Failed to load cached init data:", e);
@@ -235,6 +253,25 @@ export const useAppInitialization = (checkStartParam) => {
       setAdminSettings(res.data.settings);
       setUserPrompts(res.data.prompts);
 
+      if (res.data.user_info && res.data.user_info.user_id) {
+        const sUser = res.data.user_info;
+        const current = useUiStore.getState().userProfile || {};
+        const validLocalName = current.first_name && current.first_name !== 'Пользователь' ? current.first_name : null;
+        const validServerName = sUser.first_name && sUser.first_name !== 'Пользователь' ? sUser.first_name : null;
+        const fallbackName = validServerName || validLocalName || sUser.username || current.username || null;
+
+        const mergedProfile = {
+          ...current,
+          ...sUser,
+          first_name: fallbackName,
+          photo_url: sUser.photo_url || current.photo_url || null,
+          is_guest: Boolean(sUser.is_guest)
+        };
+
+        setUserProfile(mergedProfile);
+        storage.set('lerne_user_profile', JSON.stringify(mergedProfile));
+      }
+
       if (res.data.user_info?.has_selected_language || res.data.user_info?.active_language) {
         const { useLanguageStore } = await import('../store/useLanguageStore');
         useLanguageStore.getState().syncLanguageFromExternal(
@@ -289,8 +326,12 @@ export const useAppInitialization = (checkStartParam) => {
       const { useLanguageStore } = await import('../store/useLanguageStore');
       const langState = useLanguageStore.getState();
 
+      const validFirstName = (currentProfile.first_name && currentProfile.first_name !== 'Пользователь') 
+        ? currentProfile.first_name 
+        : undefined;
+
       const syncPayload = {
-        first_name: currentProfile.first_name && currentProfile.first_name !== 'Пользователь' ? currentProfile.first_name : (currentProfile.first_name || undefined),
+        first_name: validFirstName,
         last_name: currentProfile.last_name || undefined,
         username: currentProfile.username || undefined,
         photo_url: currentProfile.photo_url || undefined,

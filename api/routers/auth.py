@@ -49,11 +49,9 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
         if data.active_language: user.active_language = data.active_language
         if data.native_language: user.native_language = data.native_language
         
-        # Clean up legacy "Пользователь" if we have a real username or first_name
-        if (not user.first_name or user.first_name == "Пользователь") and user.username:
-            user.first_name = user.username
-        elif user.first_name == "Пользователь" and not data.first_name:
-            user.first_name = None
+        # Clean up legacy "Пользователь" if present
+        if user.first_name == "Пользователь":
+            user.first_name = user.username or None
         
         # Protect has_selected_language: if DB is already True, do NOT overwrite with False from cold start
         if data.has_selected_language is True:
@@ -164,7 +162,7 @@ def check_session(guest_id: int):
             "user_id": session.telegram_id,
             "user": {
                 "user_id": user.user_id if user else session.telegram_id,
-                "first_name": (user.first_name or user.username or "Пользователь") if user else "Пользователь",
+                "first_name": (user.first_name if (user.first_name and user.first_name != "Пользователь") else (user.username or None)) if user else None,
                 "last_name": user.last_name if user else None,
                 "username": user.username if user else None,
                 "photo_url": user.photo_url if user else None,

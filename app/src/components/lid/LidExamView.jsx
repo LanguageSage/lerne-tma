@@ -352,6 +352,15 @@ export const LidExamView = () => {
               <span>Назад</span>
             </button>
 
+            {/* Official BAMF Question Number in Practice Mode: center between Назад and Далее */}
+            <div className="lid-nav-bamf-num-center">
+              {examMode === 'practice' && answers[currentQ?.id] && currentQ?.bamfNumber ? (
+                <div className="lid-nav-bamf-num-badge" title="Номер вопроса">
+                  <span>{currentQ.bamfNumber}</span>
+                </div>
+              ) : null}
+            </div>
+
             {currentQuestionIndex < totalQ - 1 ? (
               <button
                 type="button"

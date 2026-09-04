@@ -348,6 +348,7 @@ export const StudyCard = React.memo(({
                     background: 'rgba(239, 68, 68, 0.2)',
                     color: '#fca5a5',
                     border: '1px solid rgba(239, 68, 68, 0.4)',
+                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
                     marginBottom: '12px',
                     alignSelf: 'center'
                   }}
@@ -620,6 +621,7 @@ export const StudyCard = React.memo(({
                     background: 'rgba(239, 68, 68, 0.2)',
                     color: '#fca5a5',
                     border: '1px solid rgba(239, 68, 68, 0.4)',
+                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
                     marginBottom: '12px',
                     alignSelf: 'center'
                   }}

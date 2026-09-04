@@ -67,21 +67,20 @@ def get_next_intervals(progress) -> dict[int, str]:
     return res
 
 def format_interval(value, is_days=False):
-    prefix = "через "
     if not is_days:
         if value < 60: 
-            if value != int(value): return f"{prefix}{round(value, 1)} мин"
-            return f"{prefix}{int(value)} мин"
+            if value != int(value): return f"{round(value, 1)} мин"
+            return f"{int(value)} мин"
         hours = value / 60
-        if hours < 24: return f"{prefix}{int(hours)} ч"
-        return f"{prefix}{int(hours/24)} дн"
+        if hours < 24: return f"{int(hours)} ч"
+        return f"{int(hours/24)} дн"
     else:
-        if value < 1: return f"{prefix}<1 дн"
-        if value < 30: return f"{prefix}{int(value)} дн"
+        if value < 1: return "<1 дн"
+        if value < 30: return f"{int(value)} дн"
         months = value / 30.0
         if months < 12: 
-            return f"{prefix}{months:.1f} мес" if months % 1 != 0 else f"{prefix}{int(months)} мес"
-        return f"{prefix}{value/365.0:.1f} г."
+            return f"{months:.1f} мес" if months % 1 != 0 else f"{int(months)} мес"
+        return f"{value/365.0:.1f} г."
 
 def review_card(progress, grade: int):
     """Обновляет объект progress на основе оценки с применением fuzzing и защиты от ease hell."""

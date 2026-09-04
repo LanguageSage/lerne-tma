@@ -1,5 +1,8 @@
 import { create } from 'zustand';
-import rawQuestionsData from '../data/lidQuestions.json';
+import api from '../services/api';
+import { db } from '../services/localDb';
+import { transformCardToExamQuestion } from '../utils/lidCardAdapter';
+import { getBundeslandByCode } from '../data/bundeslaender';
 
 const STORAGE_LAND_KEY = 'lerne_lid_selected_land';
 const STORAGE_REMEMBER_KEY = 'lerne_lid_remember_land';
@@ -23,6 +26,7 @@ export const useLidStore = create((set, get) => ({
   // Exam flow
   examMode: 'exam', // 'exam' | 'practice'
   screen: 'menu', // 'menu' | 'running' | 'results'
+  isLoadingTicket: false,
   currentQuestionIndex: 0,
   questions: [],
   answers: {}, // { [questionId]: optionId ('a'|'b'|'c'|'d') }
@@ -64,53 +68,85 @@ export const useLidStore = create((set, get) => ({
     }
   },
 
-  // Generates 33 random questions: 10 from 1-100, 10 from 101-200, 10 from 201-300, 3 from selected Bundesland
-  generateExamTicket: (stateCode) => {
-    const allQuestions = rawQuestionsData.questions || [];
+  // Generates 33 random questions from real cards: 10 from Block 1, 10 from Block 2, 10 from Block 3, 3 from Bundesland
+  generateExamTicket: async (stateCode) => {
     const targetState = stateCode || get().selectedLandCode || 'BY';
 
-    const block1 = allQuestions.filter(q => q.block === 1);
-    const block2 = allQuestions.filter(q => q.block === 2);
-    const block3 = allQuestions.filter(q => q.block === 3);
-    const stateQuestions = allQuestions.filter(
-      q => q.block === 'state' && q.stateCode?.toUpperCase() === targetState?.toUpperCase()
-    );
+    // 1. Try fetching from fast server endpoint
+    try {
+      const res = await api.get('/lid/ticket', { params: { state_code: targetState } });
+      if (res.data?.cards && res.data.cards.length > 0) {
+        return res.data.cards.map((c, idx) => transformCardToExamQuestion(c, idx + 1));
+      }
+    } catch (err) {
+      console.warn('Could not fetch LiD ticket from API, falling back to local DB:', err);
+    }
 
-    const picked1 = pickRandom(block1, 10);
-    const picked2 = pickRandom(block2, 10);
-    const picked3 = pickRandom(block3, 10);
-    const pickedState = pickRandom(stateQuestions, 3);
+    // 2. Fallback: Local Dexie DB
+    try {
+      const stateInfo = getBundeslandByCode(targetState);
+      const stateName = stateInfo?.nameDe || 'Bayern';
 
-    // Combine into 33 questions with assigned ticket index (1..33)
-    const combined = [...picked1, ...picked2, ...picked3, ...pickedState].map((q, idx) => ({
-      ...q,
-      examIndex: idx + 1
-    }));
+      const allDecks = await db.decks.toArray();
+      const b1Deck = allDecks.find(d => d.name && (d.name.startsWith('1.') || d.name.toLowerCase().includes('politik')));
+      const b2Deck = allDecks.find(d => d.name && (d.name.startsWith('2.') || d.name.toLowerCase().includes('geschichte')));
+      const b3Deck = allDecks.find(d => d.name && (d.name.startsWith('3.') || d.name.toLowerCase().includes('mensch')));
+      const stDeck = allDecks.find(d => d.name && d.name.toLowerCase() === stateName.toLowerCase());
 
-    return combined;
+      const getDeckCards = async (deck) => {
+        if (!deck) return [];
+        return await db.cards.where('deck_id').equals(deck.id).and(c => !c.is_deleted).toArray();
+      };
+
+      const [c1, c2, c3, cs] = await Promise.all([
+        getDeckCards(b1Deck),
+        getDeckCards(b2Deck),
+        getDeckCards(b3Deck),
+        getDeckCards(stDeck)
+      ]);
+
+      const picked1 = pickRandom(c1, 10).map(c => ({ ...c, deck_name: b1Deck?.name }));
+      const picked2 = pickRandom(c2, 10).map(c => ({ ...c, deck_name: b2Deck?.name }));
+      const picked3 = pickRandom(c3, 10).map(c => ({ ...c, deck_name: b3Deck?.name }));
+      const pickedState = pickRandom(cs, 3).map(c => ({ ...c, deck_name: stDeck?.name }));
+
+      const combined = [...picked1, ...picked2, ...picked3, ...pickedState];
+      return combined.map((c, idx) => transformCardToExamQuestion(c, idx + 1));
+    } catch (localErr) {
+      console.error('Local fallback for LiD ticket failed:', localErr);
+      return [];
+    }
   },
 
   // Start Exam or Practice Mode
-  startSimulation: (mode = 'exam', customLand = null) => {
+  startSimulation: async (mode = 'exam', customLand = null) => {
     const targetLand = customLand || get().selectedLandCode;
     if (!targetLand) {
       set({ isLandModalOpen: true, isLandChangeMode: true, pendingExamMode: mode });
       return;
     }
-    const ticket = get().generateExamTicket(targetLand);
 
-    set({
-      examMode: mode,
-      screen: 'running',
-      questions: ticket,
-      answers: {},
-      currentQuestionIndex: 0,
-      timeRemaining: 3600,
-      timeSpent: 0,
-      isTimerActive: true,
-      selectedMistakeCard: null,
-      pendingExamMode: null
-    });
+    set({ isLoadingTicket: true });
+    try {
+      const ticket = await get().generateExamTicket(targetLand);
+
+      set({
+        examMode: mode,
+        screen: 'running',
+        questions: ticket,
+        answers: {},
+        currentQuestionIndex: 0,
+        timeRemaining: 3600,
+        timeSpent: 0,
+        isTimerActive: true,
+        selectedMistakeCard: null,
+        pendingExamMode: null,
+        isLoadingTicket: false
+      });
+    } catch (e) {
+      console.error('Error starting simulation:', e);
+      set({ isLoadingTicket: false });
+    }
   },
 
   // Retake only the missed questions in practice mode

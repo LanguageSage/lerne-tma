@@ -1,6 +1,7 @@
 import os
 import logging
 import datetime
+import urllib.parse
 from fastapi import APIRouter, Request, Header, Depends, HTTPException
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application
@@ -18,6 +19,20 @@ RAW_CHANNEL = os.getenv("REQUIRED_CHANNEL", "LerneDeutsch287").replace("@", "")
 CHANNEL_ID = f"@{RAW_CHANNEL}"
 # Всегда используем продакшн URL для ссылок в боте, локальная переменная TMA_LINK для разработки
 TMA_URL = "https://tma-amber.vercel.app"
+
+def make_browser_url(base_url: str, user, extra_param: str = None) -> str:
+    """Генерирует надежный URL для открытия в браузере с сохранением профиля."""
+    uid = getattr(user, "id", None) or getattr(user, "user_id", None)
+    params = {"user_id": uid}
+    if getattr(user, "first_name", None):
+        params["first_name"] = user.first_name
+    if getattr(user, "last_name", None):
+        params["last_name"] = user.last_name
+    if getattr(user, "username", None):
+        params["username"] = user.username
+    if extra_param:
+        params["tgWebAppStartParam"] = extra_param
+    return f"{base_url}/?{urllib.parse.urlencode(params)}"
 
 # Инициализация приложения PTB (без запуска polling)
 ptb_app = Application.builder().token(TOKEN).build() if TOKEN else None
@@ -104,7 +119,7 @@ async def start_handler(update: Update, context):
                         "Теперь можешь вернуться в браузер — твой прогресс уже перенесен! 🚀"
                     )
                     keyboard = InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}/?user_id={user.id}")]
+                        [InlineKeyboardButton("🌍 Открыть в браузере", url=make_browser_url(TMA_URL, user))]
                     ])
                     await safe_send_reply(update, text, reply_markup=keyboard)
                     return
@@ -118,7 +133,7 @@ async def start_handler(update: Update, context):
                 "Нажми на кнопку ниже, чтобы войти в приложение в браузере:"
             )
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🌍 Открыть в браузере", url=f"{TMA_URL}/?user_id={user.id}")]
+                [InlineKeyboardButton("🌍 Открыть в браузере", url=make_browser_url(TMA_URL, user))]
             ])
             await safe_send_reply(update, text, reply_markup=keyboard)
             return
@@ -179,7 +194,7 @@ async def start_handler(update: Update, context):
                 f"Вам отправили {item_desc}.\n\n"
                 "Нажмите кнопку ниже, чтобы открыть её и начать учить! 👇"
             )
-            browser_url = f"{TMA_URL}/?user_id={user.id}&tgWebAppStartParam={share_id}"
+            browser_url = make_browser_url(TMA_URL, user, extra_param=share_id)
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🚀 Открыть колоду", url=browser_url)],
                 [InlineKeyboardButton("📢 Наш Telegram-канал", url=f"https://t.me/{RAW_CHANNEL}")]
@@ -193,7 +208,7 @@ async def start_handler(update: Update, context):
             "Нажмите кнопку ниже, чтобы начать обучение в браузере! 👇"
         )
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚀 Начать учить в браузере", url=f"{TMA_URL}/?user_id={user.id}")],
+            [InlineKeyboardButton("🚀 Начать учить в браузере", url=make_browser_url(TMA_URL, user))],
             [InlineKeyboardButton("📢 Наш Telegram-канал", url=f"https://t.me/{RAW_CHANNEL}")]
         ])
         

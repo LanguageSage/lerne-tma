@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Check, HelpCircle, Languages, AlertCircle, 
-  CheckCircle2, ChevronLeft, ChevronRight, Image as ImageIcon 
+  CheckCircle2, ChevronLeft, ChevronRight, Image as ImageIcon, Volume2 
 } from 'lucide-react';
+import { LidCardBreakdown } from './LidCardBreakdown';
 
 export const LidMistakeDetailModal = ({ 
   item, 
@@ -17,10 +18,92 @@ export const LidMistakeDetailModal = ({
 }) => {
   const [showTranslation, setShowTranslation] = useState(true);
   const [isZoomedImage, setIsZoomedImage] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioRef = useRef(null);
+
+  const [cardImageHeight, setCardImageHeight] = useState(() => {
+    try {
+      const saved = localStorage.getItem('lerne_lid_image_height');
+      return saved ? Math.max(60, Math.min(800, parseInt(saved, 10))) : 200;
+    } catch { return 200; }
+  });
+
+  const question = item?.question;
+  const [fallbackQuestionId, setFallbackQuestionId] = useState(null);
+  const rawImage = question?.image || null;
+  const isFallback = fallbackQuestionId === question?.id;
+  const imgSrc = isFallback && rawImage?.startsWith('/lid_images/')
+    ? `/api/media/images/${rawImage.replace('/lid_images/', '')}`
+    : rawImage;
+
+  const handleImgError = useCallback(() => {
+    if (question?.id) {
+      setFallbackQuestionId(question.id);
+    }
+  }, [question]);
+
+  const startCardImageResize = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startY = e.touches ? e.touches[0].clientY : e.clientY;
+    const startH = cardImageHeight;
+    const onMove = (ev) => {
+      const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      const newH = Math.max(60, Math.min(800, startH + (clientY - startY)));
+      setCardImageHeight(newH);
+    };
+    const onUp = (ev) => {
+      const clientY = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
+      const finalH = Math.max(60, Math.min(800, startH + (clientY - startY)));
+      try {
+        localStorage.setItem('lerne_lid_image_height', String(Math.round(finalH)));
+      } catch { /* ignore */ }
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+  }, [cardImageHeight]);
+
+  // Stop audio on item change
+  useEffect(() => {
+    queueMicrotask(() => {
+      setIsPlayingAudio(false);
+    });
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+  }, [item?.question?.id]);
+
+  const handleToggleAudio = () => {
+    const url = item?.question?.audioUrl || item?.question?.audio_path;
+    if (!url) return;
+
+    if (!audioRef.current) {
+      const audio = new Audio(url);
+      audio.onended = () => setIsPlayingAudio(false);
+      audio.onerror = () => setIsPlayingAudio(false);
+      audioRef.current = audio;
+    }
+
+    if (isPlayingAudio) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+    } else {
+      audioRef.current.play()
+        .then(() => setIsPlayingAudio(true))
+        .catch(() => setIsPlayingAudio(false));
+    }
+  };
 
   if (!item) return null;
 
-  const { question, userAnswer, correctOption } = item;
+  const { userAnswer, correctOption } = item;
   const ruTrans = question?.translationRu;
   const isCorrect = userAnswer === correctOption;
   const isSkipped = !userAnswer;
@@ -81,26 +164,78 @@ export const LidMistakeDetailModal = ({
 
           <div className="lid-mistake-modal-body">
             {/* Optional Image */}
-            {question.image && (
-              <div className="lid-mistake-image-box" onClick={() => setIsZoomedImage(!isZoomedImage)}>
-                <img 
-                  src={question.image} 
-                  alt="Иллюстрация к вопросу" 
-                  className="lid-mistake-img" 
-                  style={{ cursor: 'pointer' }}
-                />
-                <div className="lid-img-zoom-hint">
-                  <ImageIcon size={12} />
-                  <span>{isZoomedImage ? 'Уменьшить' : 'Нажмите для увеличения'}</span>
+            {imgSrc && (
+              <>
+                <div 
+                  className="lid-mistake-image-box" 
+                  style={{ height: isZoomedImage ? 'auto' : `${cardImageHeight}px`, maxHeight: isZoomedImage ? '500px' : 'none' }}
+                  onClick={() => setIsZoomedImage(!isZoomedImage)}
+                >
+                  <img 
+                    src={imgSrc} 
+                    alt="Иллюстрация к вопросу" 
+                    className="lid-mistake-img" 
+                    style={{ cursor: 'pointer', height: isZoomedImage ? 'auto' : '100%', maxHeight: isZoomedImage ? '500px' : 'none' }}
+                    onError={handleImgError}
+                  />
+                  <div className="lid-img-zoom-hint">
+                    <ImageIcon size={12} />
+                    <span>{isZoomedImage ? 'Уменьшить' : 'Нажмите для увеличения'}</span>
+                  </div>
                 </div>
-              </div>
+                {/* Interactive Resize Handle */}
+                <div
+                  onMouseDown={startCardImageResize}
+                  onTouchStart={startCardImageResize}
+                  title="Потяните, чтобы изменить высоту картинки"
+                  style={{
+                    height: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'ns-resize',
+                    margin: '2px 0 10px 0',
+                    userSelect: 'none',
+                    touchAction: 'none',
+                    flexShrink: 0
+                  }}
+                >
+                  <div 
+                    style={{
+                      width: '40px',
+                      height: '4px',
+                      borderRadius: '2px',
+                      background: 'rgba(168, 85, 247, 0.45)',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.9)'}
+                    onMouseOut={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.45)'}
+                  />
+                </div>
+              </>
             )}
 
             {/* Question Text */}
             <div className="lid-mistake-question-box glass">
-              <h4 className="lid-mistake-question-de">{question.question}</h4>
-              {showTranslation && ruTrans?.question && (
-                <p className="lid-mistake-question-ru">{ruTrans.question}</p>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                <h4 className="lid-mistake-question-de" style={{ margin: 0, flex: 1 }}>{question.question}</h4>
+                {(question.audioUrl || question.audio_path) && (
+                  <button
+                    type="button"
+                    className={`lid-btn-audio-pill ${isPlayingAudio ? 'playing' : ''}`}
+                    onClick={handleToggleAudio}
+                    title="Озвучить вопрос"
+                    style={{ flexShrink: 0 }}
+                  >
+                    <Volume2 size={13} />
+                    <span>{isPlayingAudio ? 'Пауза' : 'Озвучить'}</span>
+                  </button>
+                )}
+              </div>
+              {showTranslation && (ruTrans?.question || question.cardBack) && (
+                <p className="lid-mistake-question-ru" style={{ marginTop: '8px' }}>
+                  {ruTrans?.question || question.cardBack.split('\n\n')[0]}
+                </p>
               )}
             </div>
 
@@ -121,8 +256,8 @@ export const LidMistakeDetailModal = ({
                     </div>
                     <div className="lid-mistake-opt-content">
                       <div className="lid-mistake-opt-text">{opt.text}</div>
-                      {showTranslation && ruTrans?.[opt.id] && (
-                        <div className="lid-mistake-opt-trans">{ruTrans[opt.id]}</div>
+                      {showTranslation && (opt.translationRu || ruTrans?.[opt.id]) && (
+                        <div className="lid-mistake-opt-trans">{opt.translationRu || ruTrans[opt.id]}</div>
                       )}
                     </div>
                     <div className="lid-mistake-opt-status">
@@ -144,18 +279,12 @@ export const LidMistakeDetailModal = ({
               })}
             </div>
 
-            {/* Context & Explanation */}
-            {question.context && (
-              <div className="lid-mistake-context-box glass">
-                <div className="lid-context-title">
-                  <HelpCircle size={15} />
-                  <span>Пояснение:</span>
-                </div>
-                <p className="lid-context-de">{question.context}</p>
-                {ruTrans?.context && (
-                  <p className="lid-context-ru">{ruTrans.context}</p>
-                )}
-              </div>
+            {/* Real Card Breakdown */}
+            {(question.cardContext || question.context || ruTrans?.context) && (
+              <LidCardBreakdown
+                context={question.cardContext || question.context}
+                ruContext={ruTrans?.context}
+              />
             )}
           </div>
 

@@ -1,24 +1,40 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { User } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import api from '../../services/api';
 import './UserBadge.css';
 
 export const UserProfileBadge = () => {
   const { userProfile, openSettings } = useUiStore();
+  const [imgError, setImgError] = useState(false);
   
   if (!userProfile) return null;
 
   const { first_name, last_name, username, photo_url, is_guest } = userProfile;
   
-  const displayName = (first_name && first_name !== 'Пользователь') 
-    ? first_name 
-    : (username ? `@${username}` : (is_guest ? 'Гость' : 'Мой профиль'));
+  const validName = (first_name && first_name !== 'Пользователь') ? first_name : null;
+  const displayName = validName 
+    ? validName 
+    : (username ? `@${username}` : (is_guest ? 'Гость' : 'Профиль'));
 
   const getInitials = () => {
-    const f = displayName ? displayName[0] : '';
-    const l = last_name ? last_name[0] : '';
-    return (f + l).toUpperCase() || 'G';
+    if (validName) {
+      const parts = validName.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      if (last_name) {
+        return (validName[0] + last_name[0]).toUpperCase();
+      }
+      return validName.slice(0, 2).toUpperCase();
+    }
+    if (username) {
+      return username.slice(0, 2).toUpperCase();
+    }
+    return null;
   };
+
+  const initials = getInitials();
 
   return (
     <div 
@@ -27,17 +43,22 @@ export const UserProfileBadge = () => {
       title={is_guest ? "Настроить профиль" : "Ваш профиль"}
     >
       <div className="avatar-wrapper">
-        {photo_url ? (
-          <img src={photo_url} alt="Avatar" className="user-avatar" />
+        {photo_url && !imgError ? (
+          <img 
+            src={photo_url} 
+            alt="Avatar" 
+            className="user-avatar" 
+            onError={() => setImgError(true)} 
+          />
         ) : (
           <div className="avatar-placeholder">
-            {getInitials()}
+            {initials ? initials : <User size={16} />}
           </div>
         )}
       </div>
       <div className="user-info">
         <span className="user-name">{displayName}</span>
-        {(is_guest && !first_name) && <span className="guest-label">Guest Mode</span>}
+        {(is_guest && !validName) && <span className="guest-label">Guest Mode</span>}
       </div>
     </div>
   );

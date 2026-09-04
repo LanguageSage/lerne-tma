@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Send, BarChart2, Sparkles, Link as LinkIcon, Copy, ExternalLink, Trash2, LogOut } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -11,16 +11,30 @@ import { resetUserSession, getUserId } from '../../utils/auth';
 
 export const ProfileTab = ({ userId }) => {
   const { userProfile, setUserProfile, showToast } = useUiStore();
-  const [name, setName] = useState(userProfile?.first_name || '');
+  const validInitialName = (userProfile?.first_name && userProfile.first_name !== 'Пользователь') 
+    ? userProfile.first_name 
+    : '';
+  const [name, setName] = useState(validInitialName);
   const [email, setEmail] = useState(userProfile?.email || '');
   const [phone, setPhone] = useState(userProfile?.phone || '');
   const [isSaving, setIsSaving] = useState(false);
   const [srsStatsOpen, setSrsStatsOpen] = useState(false);
 
+  useEffect(() => {
+    if (userProfile?.first_name && userProfile.first_name !== 'Пользователь') {
+      setName(userProfile.first_name);
+    }
+    if (userProfile?.email) setEmail(userProfile.email);
+    if (userProfile?.phone) setPhone(userProfile.phone);
+  }, [userProfile]);
+
   const currentUserId = userId || userProfile?.user_id || getUserId();
+  const validAccountName = (userProfile?.first_name && userProfile.first_name !== 'Пользователь') 
+    ? userProfile.first_name 
+    : '';
   const accountParam = userProfile?.username 
     ? `&account=${userProfile.username}` 
-    : (userProfile?.first_name ? `&account=${encodeURIComponent(userProfile.first_name)}` : '');
+    : (validAccountName ? `&account=${encodeURIComponent(validAccountName)}` : '');
   const personalLink = currentUserId ? `${window.location.origin}/?user_id=${currentUserId}${accountParam}` : '';
 
   const handleSave = async () => {

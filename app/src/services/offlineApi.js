@@ -2,6 +2,42 @@ import { db } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId } from '../utils/auth';
 
+const getOfflineDeckStats = async (deckId, userId) => {
+  try {
+    const cards = await db.cards.where('deck_id').equals(deckId).filter(c => !c.is_deleted).toArray();
+    const allProgress = await db.progress.where('user_id').equals(userId).toArray();
+    const progressMap = new Map(allProgress.map(p => [p.card_id, p]));
+    const now = new Date();
+    let newCount = 0;
+    let learningCount = 0;
+    let dueCount = 0;
+
+    cards.forEach(c => {
+      const p = progressMap.get(c.id);
+      const q = p?.queue || 'new';
+      if (q === 'new') {
+        newCount++;
+      } else if (q === 'learning' || q === 'relearning') {
+        learningCount++;
+      } else if (q === 'review') {
+        if (!p?.next_review || new Date(p.next_review) <= now) {
+          dueCount++;
+        }
+      }
+    });
+
+    return {
+      total: cards.length,
+      new: newCount,
+      learning: learningCount,
+      due: dueCount
+    };
+  } catch (err) {
+    console.warn("getOfflineDeckStats failed:", err);
+    return { total: 0, new: 0, learning: 0, due: 0 };
+  }
+};
+
 export const offlineApi = {
   async handle(method, rawUrl, data = null) {
     const url = rawUrl.replace(/\?.*$/, ''); // Strip query params
@@ -43,6 +79,7 @@ export const offlineApi = {
       const card = await db.cards.get(isNaN(numId) ? cardId : numId);
       if (card) {
         const progress = await db.progress.get([card.id, userId]);
+        const deckStats = await getOfflineDeckStats(card.deck_id, userId);
         return {
           data: {
             id: card.id,
@@ -59,7 +96,8 @@ export const offlineApi = {
             is_leech: isLeech(progress?.lapses || 0),
             lapses: progress?.lapses || 0,
             queue: progress?.queue || 'new',
-            interval: progress?.interval || 0
+            interval: progress?.interval || 0,
+            deck_stats: deckStats
           }
         };
       }
@@ -150,7 +188,8 @@ export const offlineApi = {
           is_leech: isLeech(nextCardProgress?.lapses || 0),
           lapses: nextCardProgress?.lapses || 0,
           queue: nextCardProgress?.queue || 'new',
-          interval: nextCardProgress?.interval || 0
+          interval: nextCardProgress?.interval || 0,
+          deck_stats: await getOfflineDeckStats(nextCard.deck_id, userId)
         }
       };
     }

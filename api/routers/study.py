@@ -101,7 +101,8 @@ async def _card_to_response(card, progress, user_id: int):
         "flag": int(getattr(card, 'flag', 0) or 0),
         "deck_id": card.deck_id,
         "deck_name": deck.name if deck else None,
-        "deck_metadata": deck_metadata
+        "deck_metadata": deck_metadata,
+        "deck_stats": services.get_deck_stats_counts(user_id, card.deck_id)
     }
 
 @router.get("/study/stats")

@@ -46,22 +46,21 @@ export const applyFuzz = (interval) => {
  * Formats interval number for display
  */
 export const formatInterval = (value, isDays = false) => {
-  const prefix = "через ";
   if (!isDays) {
     if (value < 60) {
-      return `${prefix}${Math.round(value)} мин`;
+      return `${Math.round(value)} мин`;
     }
     const hours = value / 60;
-    if (hours < 24) return `${prefix}${Math.round(hours)} ч`;
-    return `${prefix}${Math.round(hours / 24)} дн`;
+    if (hours < 24) return `${Math.round(hours)} ч`;
+    return `${Math.round(hours / 24)} дн`;
   } else {
-    if (value < 1) return `${prefix}<1 дн`;
-    if (value < 30) return `${prefix}${Math.round(value)} дн`;
+    if (value < 1) return `<1 дн`;
+    if (value < 30) return `${Math.round(value)} дн`;
     const months = value / 30.0;
     if (months < 12) {
-      return months % 1 !== 0 ? `${prefix}${months.toFixed(1)} мес` : `${prefix}${Math.round(months)} мес`;
+      return months % 1 !== 0 ? `${months.toFixed(1)} мес` : `${Math.round(months)} мес`;
     }
-    return `${prefix}${(value / 365.0).toFixed(1)} г.`;
+    return `${(value / 365.0).toFixed(1)} г.`;
   }
 };
 

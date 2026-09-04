@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Check, X, HelpCircle, Languages, Image as ImageIcon, 
-  RotateCw, RotateCcw, Eye, Sparkles, BookOpen, CheckCircle2 
+  RotateCw, RotateCcw, Eye, Sparkles, BookOpen, CheckCircle2, Volume2 
 } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
+import { LidCardBreakdown } from './LidCardBreakdown';
 
 export const LidQuestionCard = ({
   question,
@@ -17,14 +18,90 @@ export const LidQuestionCard = ({
   const [isFlipped, setIsFlipped] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioRef = useRef(null);
+
+  const [cardImageHeight, setCardImageHeight] = useState(() => {
+    try {
+      const saved = localStorage.getItem('lerne_lid_image_height');
+      return saved ? Math.max(60, Math.min(800, parseInt(saved, 10))) : 200;
+    } catch { return 200; }
+  });
+
+  const [fallbackQuestionId, setFallbackQuestionId] = useState(null);
+  const rawImage = question?.image || null;
+  const isFallback = fallbackQuestionId === question?.id;
+  const imgSrc = isFallback && rawImage?.startsWith('/lid_images/')
+    ? `/api/media/images/${rawImage.replace('/lid_images/', '')}`
+    : rawImage;
+
+  const handleImgError = useCallback(() => {
+    if (question?.id) {
+      setFallbackQuestionId(question.id);
+    }
+  }, [question]);
+
+  const startCardImageResize = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startY = e.touches ? e.touches[0].clientY : e.clientY;
+    const startH = cardImageHeight;
+    const onMove = (ev) => {
+      const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      const newH = Math.max(60, Math.min(800, startH + (clientY - startY)));
+      setCardImageHeight(newH);
+    };
+    const onUp = (ev) => {
+      const clientY = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
+      const finalH = Math.max(60, Math.min(800, startH + (clientY - startY)));
+      try {
+        localStorage.setItem('lerne_lid_image_height', String(Math.round(finalH)));
+      } catch { /* ignore */ }
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+  }, [cardImageHeight]);
 
   // Reset flipped and translation states when moving to a different question
   useEffect(() => {
     queueMicrotask(() => {
       setIsFlipped(false);
       setShowTranslation(false);
+      setIsPlayingAudio(false);
     });
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
   }, [question?.id]);
+
+  const handleToggleAudio = (e) => {
+    if (e) e.stopPropagation();
+    const url = question?.audioUrl || question?.audio_path;
+    if (!url) return;
+
+    if (!audioRef.current) {
+      const audio = new Audio(url);
+      audio.onended = () => setIsPlayingAudio(false);
+      audio.onerror = () => setIsPlayingAudio(false);
+      audioRef.current = audio;
+    }
+
+    if (isPlayingAudio) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+    } else {
+      audioRef.current.play()
+        .then(() => setIsPlayingAudio(true))
+        .catch(() => setIsPlayingAudio(false));
+    }
+  };
 
   if (!question) return null;
 
@@ -46,13 +123,13 @@ export const LidQuestionCard = ({
   const getOptionLetter = (id) => (id || '').toUpperCase();
 
   const ruTrans = question.translationRu || {};
-  const questionRuText = ruTrans.question;
+  const questionRuText = ruTrans.question || (question.cardBack ? question.cardBack.split('\n\n')[0] : '');
   const correctOptObj = question.options?.find(o => o.id === question.correctOption);
 
   return (
     <div className="lid-question-container lid-flip-card-perspective">
       {/* Expanded Image Modal Overlay (shared) */}
-      {isImageExpanded && question.image && (
+      {isImageExpanded && imgSrc && (
         <div 
           className="lid-modal-backdrop" 
           onClick={() => setIsImageExpanded(false)} 
@@ -69,7 +146,7 @@ export const LidQuestionCard = ({
           }}
         >
           <div className="lid-image-modal-card glass" onClick={(e) => e.stopPropagation()}>
-            <img src={question.image} alt="Иллюстрация" className="lid-image-modal-img" />
+            <img src={imgSrc} alt="Иллюстрация" className="lid-image-modal-img" onError={handleImgError} />
             <button
               type="button"
               className="btn btn-secondary lid-image-modal-close"
@@ -104,24 +181,60 @@ export const LidQuestionCard = ({
               </div>
             </div>
 
-            {/* Optional Image */}
-            {question.image && (
-              <div className="lid-question-image-wrapper">
-                <img
-                  src={question.image}
-                  alt={`Иллюстрация к вопросу ${examIndex}`}
-                  className="lid-question-image"
-                  onClick={() => setIsImageExpanded(!isImageExpanded)}
-                />
-                <button
-                  type="button"
-                  className="lid-image-expand-btn"
-                  onClick={() => setIsImageExpanded(!isImageExpanded)}
-                  title="Увеличить изображение"
+            {/* Optional Image with Interactive Height Resize */}
+            {imgSrc && (
+              <>
+                <div 
+                  className="lid-question-image-wrapper"
+                  style={{ height: `${cardImageHeight}px`, maxHeight: 'none' }}
                 >
-                  <ImageIcon size={14} />
-                </button>
-              </div>
+                  <img
+                    src={imgSrc}
+                    alt={`Иллюстрация к вопросу ${examIndex}`}
+                    className="lid-question-image"
+                    style={{ height: '100%', maxHeight: 'none' }}
+                    onClick={() => setIsImageExpanded(!isImageExpanded)}
+                    onError={handleImgError}
+                  />
+                  <button
+                    type="button"
+                    className="lid-image-expand-btn"
+                    onClick={() => setIsImageExpanded(!isImageExpanded)}
+                    title="Увеличить изображение"
+                  >
+                    <ImageIcon size={14} />
+                  </button>
+                </div>
+                {/* Interactive Resize Handle (как в карточках изучения) */}
+                <div
+                  onMouseDown={startCardImageResize}
+                  onTouchStart={startCardImageResize}
+                  title="Потяните, чтобы изменить высоту картинки"
+                  style={{
+                    height: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'ns-resize',
+                    margin: '2px 0 10px 0',
+                    userSelect: 'none',
+                    touchAction: 'none',
+                    flexShrink: 0
+                  }}
+                >
+                  <div 
+                    style={{
+                      width: '40px',
+                      height: '4px',
+                      borderRadius: '2px',
+                      background: 'rgba(168, 85, 247, 0.45)',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.9)'}
+                    onMouseOut={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.45)'}
+                  />
+                </div>
+              </>
             )}
 
             {/* Question Text Box */}
@@ -150,6 +263,18 @@ export const LidQuestionCard = ({
                   >
                     <Languages size={13} />
                     <span>{showTranslation ? 'Скрыть перевод' : 'Перевод на русский'}</span>
+                  </button>
+                )}
+
+                {(question.audioUrl || question.audio_path) && (
+                  <button
+                    type="button"
+                    className={`lid-btn-audio-pill ${isPlayingAudio ? 'playing' : ''}`}
+                    onClick={handleToggleAudio}
+                    title="Прослушать вопрос на немецком"
+                  >
+                    <Volume2 size={13} />
+                    <span>{isPlayingAudio ? 'Пауза' : 'Озвучить'}</span>
                   </button>
                 )}
 
@@ -184,7 +309,7 @@ export const LidQuestionCard = ({
                   }
                 }
 
-                const optRuText = ruTrans?.[opt.id];
+                const optRuText = opt.translationRu || ruTrans?.[opt.id];
 
                 return (
                   <motion.button
@@ -275,14 +400,28 @@ export const LidQuestionCard = ({
                 <span>Обратная сторона • Вопрос {examIndex}/{totalQuestions}</span>
               </div>
 
-              <button
-                type="button"
-                className="lid-btn-return-front"
-                onClick={handleFlipCard}
-              >
-                <RotateCcw size={14} />
-                <span>Лицевая сторона</span>
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {(question.audioUrl || question.audio_path) && (
+                  <button
+                    type="button"
+                    className={`lid-btn-audio-pill ${isPlayingAudio ? 'playing' : ''}`}
+                    onClick={handleToggleAudio}
+                    title="Прослушать вопрос на немецком"
+                  >
+                    <Volume2 size={13} />
+                    <span>{isPlayingAudio ? 'Пауза' : 'Озвучить'}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="lid-btn-return-front"
+                  onClick={handleFlipCard}
+                >
+                  <RotateCcw size={14} />
+                  <span>Лицевая сторона</span>
+                </button>
+              </div>
             </div>
 
             {/* Question Summary Box */}
@@ -294,19 +433,51 @@ export const LidQuestionCard = ({
                   <strong>Перевод: </strong>{questionRuText}
                 </div>
               )}
-              {question.image && (
-                <div 
-                  className="lid-question-image-wrapper" 
-                  style={{ maxHeight: '160px', marginTop: '6px', cursor: 'pointer' }}
-                  onClick={() => setIsImageExpanded(true)}
-                >
-                  <img
-                    src={question.image}
-                    alt="Иллюстрация"
-                    className="lid-question-image"
-                    style={{ maxHeight: '150px' }}
-                  />
-                </div>
+              {imgSrc && (
+                <>
+                  <div 
+                    className="lid-question-image-wrapper" 
+                    style={{ height: `${cardImageHeight}px`, maxHeight: 'none', marginTop: '6px', cursor: 'pointer' }}
+                    onClick={() => setIsImageExpanded(true)}
+                  >
+                    <img
+                      src={imgSrc}
+                      alt="Иллюстрация"
+                      className="lid-question-image"
+                      style={{ height: '100%', maxHeight: 'none' }}
+                      onError={handleImgError}
+                    />
+                  </div>
+                  {/* Resize Handle */}
+                  <div
+                    onMouseDown={startCardImageResize}
+                    onTouchStart={startCardImageResize}
+                    title="Потяните, чтобы изменить высоту картинки"
+                    style={{
+                      height: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'ns-resize',
+                      margin: '2px 0 10px 0',
+                      userSelect: 'none',
+                      touchAction: 'none',
+                      flexShrink: 0
+                    }}
+                  >
+                    <div 
+                      style={{
+                        width: '40px',
+                        height: '4px',
+                        borderRadius: '2px',
+                        background: 'rgba(168, 85, 247, 0.45)',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.9)'}
+                      onMouseOut={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.45)'}
+                    />
+                  </div>
+                </>
               )}
             </div>
 
@@ -335,7 +506,7 @@ export const LidQuestionCard = ({
               <div className="lid-back-options-title">Все варианты ответа:</div>
               {question.options.map((opt) => {
                 const isThisCorrect = opt.id === question.correctOption;
-                const optRu = ruTrans?.[opt.id];
+                const optRu = opt.translationRu || ruTrans?.[opt.id];
                 return (
                   <div
                     key={`back-opt-${opt.id}`}
@@ -359,25 +530,11 @@ export const LidQuestionCard = ({
               })}
             </div>
 
-            {/* Explanation & Context Box */}
-            {(ruTrans.context || question.context) && (
-              <div className="lid-back-explanation-box">
-                <div className="lid-back-explanation-title">
-                  <HelpCircle size={15} />
-                  <span>Пояснение к вопросу (BAMF):</span>
-                </div>
-                {ruTrans.context && (
-                  <p className="lid-back-expl-ru">
-                    {ruTrans.context}
-                  </p>
-                )}
-                {question.context && (
-                  <p className="lid-back-expl-de" style={{ opacity: 0.85, fontSize: '0.85rem' }}>
-                    <strong>DE: </strong>{question.context}
-                  </p>
-                )}
-              </div>
-            )}
+            {/* Real Card Breakdown (Full lesson: 🎯 Объяснение, 📖 Словарный запас, 💡 Грамматика) */}
+            <LidCardBreakdown
+              context={question.cardContext || question.context}
+              ruContext={ruTrans?.context}
+            />
 
             {/* Bottom Return Button */}
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '6px' }}>

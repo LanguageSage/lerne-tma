@@ -27,14 +27,16 @@
 .header-top-row {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 500;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0 0 0.25rem 0;
   padding: 2px 0 4px 0;
   gap: 10px;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: none;
@@ -323,12 +325,108 @@
 .card-actions-row-study {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   width: 100%;
   max-width: 380px;
-  margin-top: 4px;
+  margin-top: 6px;
   position: relative;
-  gap: 8px;
+  padding: 0 4px;
+}
+
+.card-actions-left,
+.card-actions-right {
+  display: flex;
+  align-items: center;
+  width: 42px;
+  height: 42px;
+}
+
+.card-actions-left {
+  justify-content: flex-start;
+}
+
+.card-actions-right {
+  justify-content: flex-end;
+}
+
+.study-queue-center-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.anki-queue-counter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 5px 14px;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  user-select: none;
+}
+
+.current-card-srs-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  user-select: none;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.anki-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: default;
+}
+
+.anki-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-blue {
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+}
+
+.dot-red {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+.dot-yellow {
+  background: #eab308;
+  box-shadow: 0 0 6px rgba(234, 179, 8, 0.6);
+}
+
+.pill-new .anki-count {
+  color: #93c5fd;
+}
+
+.pill-due .anki-count {
+  color: #fca5a5;
+}
+
+.pill-learning .anki-count {
+  color: #fde047;
 }
 
 .btn-card-action-trigger {

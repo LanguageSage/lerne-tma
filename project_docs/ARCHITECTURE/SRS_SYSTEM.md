@@ -85,21 +85,40 @@ stateDiagram-v2
   * `ease_factor = max(1.3, ease_factor)`.
 
 #### 2. Оценка 1: `Hard` (Трудно)
-* **Интервал:** `new_interval = round(max(interval + 1, interval * 1.15))`.
+* **Интервал:**
+  * Для 1-дневной карточки (`interval <= 1`): `new_interval = 1` день (повтор завтра, без неоправданного перескока).
+  * Для остальных: `new_interval = max(interval, round(interval * HARD_MULTIPLIER))`.
 * **Ease factor:** `ease_factor = max(1.3, ease_factor - 0.15)`.
-* Применяется Fuzzing.
+* Применяется Fuzzing (только для интервалов $\ge 3$ дней).
 
 #### 3. Оценка 2: `Good` (Хорошо)
 * **Учет задержки:** `due_bonus = min(days_since_due / 2, interval * 0.5)`.
-* **Интервал:** `new_interval = round(max(interval + 1, (interval + due_bonus) * ease_factor))`.
+* **Интервал:** `new_interval = max(hard_interval + 1, math.ceil((interval + due_bonus) * ease_factor))`.
+  * *Округление вверх (`math.ceil`)* устраняет коллизию banker's rounding `round(2.5) -> 2`.
+  * Строго гарантируется, что `good_interval > hard_interval` (для 1-дневной карточки: `Hard = 1 день`, `Good = 3 дня`).
 * **Ease Recovery:** Если `ease_factor < 2.5`, он слегка восстанавливается: `ease_factor = min(3.0, ease_factor + 0.02)`.
-* Применяется Fuzzing.
+* Применяется Fuzzing (для интервалов $\ge 3$ дней).
 
 #### 4. Оценка 3: `Easy` (Легко)
 * **Учет задержки:** `due_bonus = min(days_since_due, interval * 1.0)`.
-* **Интервал:** `new_interval = round(max(interval + 2, (interval + due_bonus) * ease_factor * 1.30))`.
+* **Интервал:** `new_interval = max(good_interval + 1, math.ceil((interval + due_bonus) * ease_factor * 1.30))`.
+  * Строго гарантируется, что `easy_interval > good_interval` (для 1-дневной карточки: `Easy = 4 дня`).
 * **Ease Recovery:** `ease_factor = min(3.0, ease_factor + 0.15)`.
-* Применяется Fuzzing.
+* Применяется Fuzzing (для интервалов $\ge 3$ дней).
+
+---
+
+### 🎨 Трёхцветная система очередей (Anki-Style Tri-Color Queues)
+
+Система классифицирует карточки на 3 понятных потока:
+1. 🔵 **Синий (Новые карточки / New):** Карточки, которые еще ни разу не запускались в изучение (`queue == 'new'`).
+2. 🔴 **Красный (Срочные к повторению / Due today):** Карточки из долговременной памяти (`queue == 'review'`), чей назначенный интервал истек к сегодняшнему дню (`next_review <= now`).
+3. 🟡 **Желтый (На закреплении / Learning):** Карточки, находящиеся в краткосрочных шагах текущего урока (`queue in ['learning', 'relearning']`).
+
+#### Где это отображается:
+* **В Telegram-боте:** подробный отчёт с ярлыками изучаемых колод и раскладкой по цветам 🔴 🟡 🔵.
+* **На карточке в режиме обучения (`StudyCard.jsx`):** верхний бейдж текущего статуса (например, 🔴 *К повторению сегодня (день 1)* или 🔵 *Новая карточка*).
+* **В нижней панели под карточкой (`StudyView.jsx`):** живой Anki-счетчик оставшихся карточек в текущей колоде (`🔵 X` `🔴 Y` `🟡 Z`), обновляющийся в реальном времени.
 
 ---
 

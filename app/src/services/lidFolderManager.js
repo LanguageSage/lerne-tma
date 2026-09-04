@@ -1,8 +1,6 @@
 import { getUserProfile } from '../utils/auth';
 import { useDeckStore } from '../store/useDeckStore';
 import { BUNDESLAENDER } from '../data/bundeslaender';
-import lidQuestionsData from '../data/lidQuestions.json';
-import api from './api';
 
 export const LID_FOLDER_NAME = 'Leben in Deutschland';
 
@@ -27,7 +25,7 @@ export const isLidRootFolder = (folder) => {
 };
 
 /**
- * Ensures 'Leben in Deutschland' folder and 16 Bundesland decks populated with 10 cards each exist for aruna27
+ * Ensures 'Leben in Deutschland' folder and 16 Bundesland decks exist for user
  */
 export const ensureLidStructureForUser = async () => {
   if (!isLidUser()) return;
@@ -72,54 +70,6 @@ export const ensureLidStructureForUser = async () => {
 
   if (hasCreatedNew) {
     await deckState.fetchDecks(true);
-    currentChildDecks = (useDeckStore.getState().decks || []).filter(d => d.folder_id === rootLidFolder.id);
-  }
-
-  // 3. Populate cards for any empty state decks
-  const allQuestions = lidQuestionsData.questions || [];
-  let hasPopulatedCards = false;
-
-  for (const land of BUNDESLAENDER) {
-    const targetDeck = currentChildDecks.find(d => d.name.toLowerCase() === land.nameDe.toLowerCase());
-    const cardCount = targetDeck?.cards_count ?? targetDeck?.stats?.total ?? 0;
-
-    if (targetDeck && cardCount === 0) {
-      const stateQuestions = allQuestions.filter(
-        q => q.block === 'state' && q.stateCode?.toUpperCase() === land.code.toUpperCase()
-      );
-
-      if (stateQuestions.length > 0) {
-        const payloadCards = stateQuestions.map(q => {
-          const optionsText = q.options.map(opt => {
-            return opt.id === q.correctOption ? `*${opt.text}` : opt.text;
-          }).join('\n');
-
-          const front = `${q.question}\n\n${optionsText}`;
-          const backRu = q.translationRu?.question || '';
-          const contextNote = q.context ? `\n\n💡 ${q.context}` : '';
-          const back = `${backRu}${contextNote}`.trim();
-
-          return {
-            deck_id: targetDeck.id,
-            front,
-            back,
-            card_type: 'quiz',
-            level: 'B1',
-            media_url: q.image || null
-          };
-        });
-
-        try {
-          await api.post('/cards/bulk-save', { cards: payloadCards });
-          hasPopulatedCards = true;
-        } catch (err) {
-          console.warn(`Could not bulk save cards for ${land.nameDe}:`, err);
-        }
-      }
-    }
-  }
-
-  if (hasPopulatedCards) {
-    await deckState.fetchDecks(true);
   }
 };
+

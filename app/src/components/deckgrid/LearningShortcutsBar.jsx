@@ -1,12 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Flame, Layers, ChevronRight, Sparkles, Folder } from 'lucide-react';
+import { Layers, ChevronRight } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 
 export const LearningShortcutsBar = ({
   learningDecks = [],
-  folders = [],
   setCurrentDeck,
   fetchDeckCards
 }) => {
@@ -36,11 +35,10 @@ export const LearningShortcutsBar = ({
 
       <div className="learning-shortcuts-scroll-container">
         {learningDecks.map((deck) => {
-          const parentFolder = deck.folder_id && folders 
-            ? folders.find(f => f.id === deck.folder_id) 
-            : null;
           const dueCount = deck.stats?.due || 0;
+          const learningCount = deck.stats?.learning || 0;
           const newCount = deck.stats?.new || 0;
+          const hasCardsToStudy = dueCount > 0 || learningCount > 0 || newCount > 0;
 
           return (
             <motion.div
@@ -65,33 +63,24 @@ export const LearningShortcutsBar = ({
               </div>
 
               <div className="shortcut-bottom-row">
-                {dueCount > 0 ? (
-                  <span className="shortcut-due-badge">
-                    <Flame size={11} />
-                    <span>{dueCount} повторить</span>
-                  </span>
-                ) : newCount > 0 ? (
-                  <span className="shortcut-new-badge">
-                    <Sparkles size={11} />
-                    <span>{newCount} новых</span>
-                  </span>
+                {hasCardsToStudy ? (
+                  <div className="shortcut-srs-counters">
+                    <span className="shortcut-srs-pill pill-due" title="К повторению сегодня">
+                      <span className="anki-dot dot-red" />
+                      <span className="srs-count-val">{dueCount}</span>
+                    </span>
+                    <span className="shortcut-srs-pill pill-learning" title="На закреплении">
+                      <span className="anki-dot dot-yellow" />
+                      <span className="srs-count-val">{learningCount}</span>
+                    </span>
+                    <span className="shortcut-srs-pill pill-new" title="Новые карточки">
+                      <span className="anki-dot dot-blue" />
+                      <span className="srs-count-val">{newCount}</span>
+                    </span>
+                  </div>
                 ) : (
                   <span className="shortcut-done-badge">
                     <span>✓ Повторено</span>
-                  </span>
-                )}
-
-                {parentFolder && (
-                  <span 
-                    className="shortcut-folder-tag"
-                    title={`В папке: ${parentFolder.name}`}
-                    style={{
-                      color: parentFolder.color || '#94a3b8',
-                      borderColor: parentFolder.color ? `${parentFolder.color}40` : 'rgba(255,255,255,0.1)'
-                    }}
-                  >
-                    <Folder size={10} />
-                    <span className="folder-name-truncate">{parentFolder.name}</span>
                   </span>
                 )}
               </div>

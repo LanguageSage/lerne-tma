@@ -4,7 +4,7 @@ import logging
 import json
 from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia
 from .. import srs
-from peewee import fn, JOIN
+from peewee import fn, JOIN, Case
 from functools import lru_cache
 
 logger = logging.getLogger(__name__)
@@ -649,5 +649,47 @@ def bulk_save_cards(cards_data: list, user_id: int) -> list:
             except Exception as item_err:
                 logger.error(f"Error saving batch card: {item_err}, data: {item}")
     return saved_cards
+
+
+def get_deck_stats_counts(user_id: int, deck_id: int) -> dict:
+    """Подсчитывает живое распределение карточек колоды: new, due (сегодня), learning, total."""
+    try:
+        now = datetime.datetime.now()
+        tracked_case = Case(None, [(TMAProgress.queue != 'new', 1)], None)
+        learning_case = Case(None, [(TMAProgress.queue << ['learning', 'relearning'], 1)], None)
+        due_case = Case(None, [((TMAProgress.queue == 'review') & (TMAProgress.next_review <= now), 1)], None)
+
+        row = (TMA_Card
+               .select(
+                   fn.COUNT(TMA_Card.id).alias('total'),
+                   fn.COUNT(tracked_case).alias('tracked'),
+                   fn.COUNT(learning_case).alias('learning'),
+                   fn.COUNT(due_case).alias('due')
+               )
+               .join(TMAProgress, JOIN.LEFT_OUTER, on=(
+                   (TMAProgress.card_id == TMA_Card.id) & (TMAProgress.user_id == user_id)
+               ))
+               .where(
+                   (TMA_Card.deck_id == deck_id) & 
+                   (TMA_Card.is_deleted == False)
+               )
+               .dicts()
+               .first())
+
+        if not row:
+            return {"total": 0, "new": 0, "learning": 0, "due": 0}
+
+        total = int(row.get('total') or 0)
+        tracked = int(row.get('tracked') or 0)
+        return {
+            "total": total,
+            "new": max(0, total - tracked),
+            "learning": int(row.get('learning') or 0),
+            "due": int(row.get('due') or 0)
+        }
+    except Exception as e:
+        logger.error(f"Error calculating deck stats for deck {deck_id}: {e}")
+        return {"total": 0, "new": 0, "learning": 0, "due": 0}
+
 
 

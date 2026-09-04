@@ -91,10 +91,25 @@ export const getUserProfile = () => {
     if (urlIdStr) {
       const urlId = parseUserId(urlIdStr);
       if (urlId !== null) {
-        const firstNameParam = params.get('first_name') || params.get('account') || 'Пользователь';
-        const lastNameParam = params.get('last_name') || null;
-        const usernameParam = params.get('username') || null;
-        const photoParam = params.get('photo') || null;
+        let existing = null;
+        const savedProfileRaw = storage.get('lerne_user_profile');
+        if (savedProfileRaw) {
+          try {
+            const parsed = JSON.parse(savedProfileRaw);
+            if (parsed && parsed.user_id === urlId) {
+              existing = parsed;
+            }
+          } catch { /* ignore */ }
+        }
+
+        const rawFirstName = params.get('first_name') || params.get('account');
+        const validRawName = (rawFirstName && rawFirstName !== 'Пользователь') ? rawFirstName : null;
+        const validExistingName = (existing?.first_name && existing.first_name !== 'Пользователь') ? existing.first_name : null;
+        const firstNameParam = validRawName || validExistingName || null;
+
+        const lastNameParam = params.get('last_name') || existing?.last_name || null;
+        const usernameParam = params.get('username') || existing?.username || null;
+        const photoParam = params.get('photo') || params.get('photo_url') || existing?.photo_url || null;
         
         const profile = { 
           user_id: urlId, 
@@ -102,7 +117,7 @@ export const getUserProfile = () => {
           last_name: lastNameParam,
           username: usernameParam,
           photo_url: photoParam,
-          is_guest: false 
+          is_guest: existing ? Boolean(existing.is_guest) : false 
         };
         storage.set('lerne_user_id', urlId);
         storage.set('lerne_user_profile', JSON.stringify(profile));
@@ -115,7 +130,13 @@ export const getUserProfile = () => {
     if (savedProfile) {
       try {
         const p = JSON.parse(savedProfile);
-        if (p && p.user_id) return p;
+        if (p && p.user_id) {
+          if (p.first_name === 'Пользователь') {
+            p.first_name = null;
+            storage.set('lerne_user_profile', JSON.stringify(p));
+          }
+          return p;
+        }
       } catch { /* ignore */ }
     }
 
