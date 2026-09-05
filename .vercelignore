@@ -21,11 +21,16 @@ user_files/
 .git-rewrite/
 scratch/
 api/scratch/
+test-results/
+playwright-report/
 
-# Android mobile build & root configs
+# Android mobile build & local build artifacts
 android/
 capacitor.config.json
 node_modules/
+dist/
+app/dist/
+build/
 
 # Python Virtual Environments & Caches
 venv/

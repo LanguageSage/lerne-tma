@@ -1,9 +1,8 @@
 import { create } from 'zustand';
 import api from '../services/api';
 import { db } from '../services/localDb';
-import { transformCardToExamQuestion, transformJsonQuestionToExamQuestion } from '../utils/lidCardAdapter';
+import { transformCardToExamQuestion } from '../utils/lidCardAdapter';
 import { getBundeslandByCode } from '../data/bundeslaender';
-import lidQuestionsData from '../data/lidQuestions.json' with { type: 'json' };
 import { useUiStore } from './useUiStore';
 
 const STORAGE_LAND_KEY = 'lerne_lid_selected_land';
@@ -72,9 +71,8 @@ export const useLidStore = create((set, get) => ({
 
   // Generates 33 random questions: 10 Block 1, 10 Block 2, 10 Block 3, 3 Bundesland
   // Strategy:
-  // 1. Try fast server endpoint
-  // 2. Try local Dexie DB
-  // 3. Fall back to bundled 460-question catalog (guarantees 100% offline uptime, never blank screen)
+  // 1. Fetch from server endpoint /lid/ticket (with automatic master decks fallback)
+  // 2. Local Dexie DB fallback (when offline with synced cards)
   generateExamTicket: async (stateCode) => {
     const targetState = (stateCode || get().selectedLandCode || 'BY').toUpperCase();
 
@@ -125,27 +123,6 @@ export const useLidStore = create((set, get) => ({
       }
     } catch (localErr) {
       console.warn('Local Dexie ticket query failed:', localErr);
-    }
-
-    // 3. Guaranteed Local Fallback: Bundled 460-question catalog (100% offline & reliable)
-    try {
-      const allQ = lidQuestionsData.questions || [];
-      const b1 = allQ.filter(q => q.block === 1 || (q.category && q.category.includes('Politik')));
-      const b2 = allQ.filter(q => q.block === 2 || (q.category && q.category.includes('Geschichte')));
-      const b3 = allQ.filter(q => q.block === 3 || (q.category && q.category.includes('Mensch')));
-      const st = allQ.filter(q => q.stateCode && q.stateCode.toUpperCase() === targetState);
-
-      const picked1 = pickRandom(b1, 10);
-      const picked2 = pickRandom(b2, 10);
-      const picked3 = pickRandom(b3, 10);
-      const pickedSt = pickRandom(st.length > 0 ? st : allQ.filter(q => q.stateCode === 'BY'), 3);
-
-      const combined = [...picked1, ...picked2, ...picked3, ...pickedSt];
-      if (combined.length > 0) {
-        return combined.map((q, idx) => transformJsonQuestionToExamQuestion(q, idx + 1));
-      }
-    } catch (jsonErr) {
-      console.error('Local JSON LiD ticket generation failed:', jsonErr);
     }
 
     return [];

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/lid", tags=["lid"])
 
-_LID_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'tools', 'lidQuestions.json'))
+_LID_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'app', 'src', 'data', 'lidTranslations.json'))
 _LID_TRANSLATIONS_LOOKUP = {}
 
 def _load_lid_translations():
@@ -23,13 +23,11 @@ def _load_lid_translations():
         try:
             with open(_LID_DATA_PATH, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                for q in data.get('questions', []):
-                    tr = q.get('translationRu')
-                    if tr:
-                        key = norm(q.get('question', ''))
-                        _LID_TRANSLATIONS_LOOKUP[key] = tr
-                        if len(key) >= 25:
-                            _LID_TRANSLATIONS_LOOKUP[key[:25]] = tr
+                for key, tr in data.items():
+                    norm_k = norm(key)
+                    _LID_TRANSLATIONS_LOOKUP[norm_k] = tr
+                    if len(norm_k) >= 25:
+                        _LID_TRANSLATIONS_LOOKUP[norm_k[:25]] = tr
         except Exception as e:
             logger.warning(f"Could not load LiD translations in router: {e}")
 
