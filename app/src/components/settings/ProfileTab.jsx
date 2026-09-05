@@ -5,12 +5,11 @@ import { useDeckStore } from '../../store/useDeckStore';
 import api from '../../services/api';
 import { isOfflineMode, db } from '../../services/localDb';
 import { syncService } from '../../services/syncService';
-import { SrsStatsModal } from '../study/SrsStatsModal';
 import { openExternalLink, closeApp } from '../../utils/platform';
 import { resetUserSession, getUserId } from '../../utils/auth';
 
 export const ProfileTab = ({ userId }) => {
-  const { userProfile, setUserProfile, showToast } = useUiStore();
+  const { userProfile, setUserProfile, showToast, setSettingsTab } = useUiStore();
   const validInitialName = (userProfile?.first_name && userProfile.first_name !== 'Пользователь') 
     ? userProfile.first_name 
     : '';
@@ -18,7 +17,6 @@ export const ProfileTab = ({ userId }) => {
   const [email, setEmail] = useState(userProfile?.email || '');
   const [phone, setPhone] = useState(userProfile?.phone || '');
   const [isSaving, setIsSaving] = useState(false);
-  const [srsStatsOpen, setSrsStatsOpen] = useState(false);
 
   useEffect(() => {
     if (userProfile?.first_name && userProfile.first_name !== 'Пользователь') {
@@ -157,25 +155,29 @@ export const ProfileTab = ({ userId }) => {
           {isSaving ? "Сохранение..." : "Сохранить изменения"}
         </button>
 
-        {/* SRS Analytics Section */}
-        <div className="link-telegram-section glass" style={{ marginTop: '16px', border: '1px solid rgba(168, 85, 247, 0.3)', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(59, 130, 246, 0.04))' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BarChart2 size={18} color="#a855f7" />
-              Статистика памяти (SRS)
+        {/* SRS Analytics Shortcut */}
+        <div className="link-telegram-section glass" style={{ marginTop: '16px', border: '1px solid rgba(168, 85, 247, 0.25)', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(59, 130, 246, 0.03))' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+              <BarChart2 size={16} color="#a855f7" />
+              Статистика памяти и SRS
             </h4>
-            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc', fontWeight: 600 }}>SM-2 PRO</span>
+            <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', fontWeight: 600 }}>Вкладка SRS</span>
           </div>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 12px 0' }}>
-            Анализ удержания памяти, распределение зрелости карточек и прогноз повторений на 7 дней.
+          <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: '0 0 10px 0' }}>
+            Статистика долгосрочной памяти, прогноз повторений и расширенные настройки интервалов доступны в отдельной вкладке.
           </p>
           <button
+            type="button"
             className="btn btn-primary"
-            style={{ width: '100%', background: 'linear-gradient(135deg, #a855f7, #6366f1)', border: 'none' }}
-            onClick={() => setSrsStatsOpen(true)}
+            style={{ width: '100%', background: 'linear-gradient(135deg, #a855f7, #6366f1)', border: 'none', padding: '8px 12px', fontSize: '0.82rem' }}
+            onClick={() => {
+              setSettingsTab('srs');
+              try { localStorage.setItem('lerne_last_settings_tab', 'srs'); } catch { /* ignore */ }
+            }}
           >
-            <Sparkles size={16} style={{ marginRight: '6px' }} />
-            Открыть аналитику SRS
+            <Sparkles size={14} style={{ marginRight: '6px' }} />
+            Перейти в раздел SRS
           </button>
         </div>
 
@@ -370,8 +372,6 @@ export const ProfileTab = ({ userId }) => {
           </div>
         </div>
       </div>
-
-      <SrsStatsModal isOpen={srsStatsOpen} onClose={() => setSrsStatsOpen(false)} />
     </div>
   );
 };

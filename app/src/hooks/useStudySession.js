@@ -107,7 +107,7 @@ export const useStudySession = () => {
     setLoading(false);
   }, [setLoading, prefetchMedia]);
 
-  const submitGrade = useCallback(async (grade) => {
+  const submitGrade = useCallback(async (grade, isExtended = false) => {
     const session = useSessionStore.getState();
     const { currentDeck } = useDeckStore.getState();
     
@@ -125,6 +125,7 @@ export const useStudySession = () => {
         card_id: gradedCardId,
         deck_id: currentDeck.id,
         grade,
+        is_extended: Boolean(isExtended),
         learn_more: session.isLearningMore
       });
 

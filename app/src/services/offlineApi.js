@@ -113,7 +113,8 @@ export const offlineApi = {
       return result({ ...await cardView(db, card, userId), deck_stats: await deckStats(db, card.deck_id, userId) });
     }
     if (m === 'post' && ['/study/grade', '/study/duplicates/grade'].includes(url)) {
-      if (![0, 1, 2, 3].includes(body.grade)) throw new Error('Некорректная оценка');
+      const allowedGrades = body.is_extended ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6, 7];
+      if (!allowedGrades.includes(body.grade)) throw new Error('Некорректная оценка');
       const id = Number(body.card_id);
       const card = await db.cards.get(id);
       if (!card || card.is_deleted) notFound();
@@ -121,7 +122,7 @@ export const offlineApi = {
         const progress = await db.progress.get([id, userId]) || {
           card_id: id, user_id: userId, queue: 'new', ease_factor: 2.5, interval: 0, lapses: 0, repetitions: 0,
         };
-        await db.progress.put({ ...calculateCardReview(progress, body.grade), ...dirtyFields() });
+        await db.progress.put({ ...calculateCardReview(progress, body.grade, Boolean(body.is_extended)), ...dirtyFields() });
       });
       const nextParams = new URLSearchParams({ exclude_ids: String(id), learn_more: String(!!body.learn_more) });
       return nextCard(db, card.deck_id, userId, nextParams);

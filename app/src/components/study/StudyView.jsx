@@ -26,8 +26,6 @@ import { GradeButtons } from './GradeButtons';
 import { StudyFinished } from './StudyFinished';
 import { StudyCard } from './StudyCard';
 
-const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
-
 export const StudyView = ({ startTutorial }) => {
   const { view, loading, setIsSettingsOpen, showToast, setView, setActiveFolderId } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
@@ -198,7 +196,6 @@ export const StudyView = ({ startTutorial }) => {
   const sessionVoice = useSessionVoice();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
-  const googleReturnTimerRef = useRef(null);
   const previousAutoplayStateRef = useRef(autoplayState);
   const suppressLegacyAutoplayCardRef = useRef(null);
   const lastAutoplayedCardRef = useRef(null);
@@ -270,34 +267,7 @@ export const StudyView = ({ startTutorial }) => {
     }
   }, [card?.id, historyIndex, studyMode, randomEnabledModes, activeRandomMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (view !== 'study' || !card) return;
 
-    const openPickerAfterGoogle = () => {
-      const googleOpenedAt = Number(sessionStorage.getItem(OPEN_PICKER_AFTER_GOOGLE) || 0);
-      if (!googleOpenedAt) return;
-
-      const elapsed = Date.now() - googleOpenedAt;
-      if (elapsed < 1200) {
-        clearTimeout(googleReturnTimerRef.current);
-        googleReturnTimerRef.current = setTimeout(openPickerAfterGoogle, 1200 - elapsed);
-        return;
-      }
-
-      sessionStorage.removeItem(OPEN_PICKER_AFTER_GOOGLE);
-      setIsImagePickerOpen(true);
-    };
-
-    openPickerAfterGoogle();
-    window.addEventListener('focus', openPickerAfterGoogle);
-    document.addEventListener('visibilitychange', openPickerAfterGoogle);
-
-    return () => {
-      clearTimeout(googleReturnTimerRef.current);
-      window.removeEventListener('focus', openPickerAfterGoogle);
-      document.removeEventListener('visibilitychange', openPickerAfterGoogle);
-    };
-  }, [view, card?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
   const getResolvedStyle = (settingStyle, cardId) => {
@@ -426,9 +396,9 @@ export const StudyView = ({ startTutorial }) => {
         <GradeButtons 
           card={card} 
           loading={loading} 
-          onGrade={(grade) => {
+          onGrade={(grade, isExtended) => {
             stopAudio();
-            submitGrade(grade);
+            submitGrade(grade, isExtended);
           }} 
         />
       )}

@@ -13,6 +13,7 @@ import { AITab } from '../settings/AITab';
 import { PromptsTab } from '../settings/PromptsTab';
 import { ProfileTab } from '../settings/ProfileTab';
 import { RemindersTab } from '../settings/RemindersTab';
+import { SrsTab } from '../settings/SrsTab';
 
 export const SettingsModal = ({ userId, startTutorial }) => {
   const { isSettingsOpen, setIsSettingsOpen, settingsTab } = useUiStore();
@@ -104,6 +105,7 @@ export const SettingsModal = ({ userId, startTutorial }) => {
                 onChange={(e) => handleTabChange(e.target.value)}
               >
                 <option value="profile">👤 Профиль</option>
+                <option value="srs">🧠 SRS (Интервалы и память)</option>
                 <option value="reminders">🔔 Напоминания бота</option>
                 <option value="general">⚙️ {t('settings.tab_general', 'Общие настройки')}</option>
                 <option value="design">🎨 {t('settings.tab_design', 'Дизайн')}</option>
@@ -115,6 +117,7 @@ export const SettingsModal = ({ userId, startTutorial }) => {
 
             <div className="settings-content scrollable">
               {activeSettingsTab === 'profile' && <ProfileTab userId={userId} />}
+              {activeSettingsTab === 'srs' && <SrsTab />}
               {activeSettingsTab === 'reminders' && <RemindersTab />}
               {activeSettingsTab === 'general' && <GeneralTab userId={userId} />}
               {activeSettingsTab === 'design' && (

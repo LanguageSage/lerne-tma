@@ -118,6 +118,7 @@ const getInitialStudyState = () => ({
   randomEnabledModes: storage.get('lerne_random_enabled_modes')
     ? JSON.parse(storage.get('lerne_random_enabled_modes')).filter(m => m !== 'turbo')
     : ['classic', 'reverse', 'cloze', 'puzzle', 'speak'],
+  srsExtendedGrades: storage.get('lerne_srs_extended_grades') !== null ? storage.get('lerne_srs_extended_grades') === 'true' : false,
   isAdmin: false,
 });
 
@@ -206,6 +207,10 @@ export const useSettingsStore = create((set, get) => {
     setVoiceBack: (value) => {
       storage.set('lerne_voice_back', value);
       set({ voiceBack: value });
+    },
+    setSrsExtendedGrades: (value) => {
+      storage.set('lerne_srs_extended_grades', value);
+      set({ srsExtendedGrades: Boolean(value) });
     },
 
     // --- Design Settings & Setters ---

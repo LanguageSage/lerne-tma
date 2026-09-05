@@ -681,6 +681,51 @@
 .grade-buttons-floating .grade-2 { color: #ffffff !important; background: #059669 !important; border-color: #10b981 !important; }
 .grade-buttons-floating .grade-3 { color: #ffffff !important; background: #2563eb !important; border-color: #3b82f6 !important; }
 
+/* 8-Grade Extended Buttons Scale */
+.grade-buttons-floating.grade-buttons-extended {
+  gap: 4px;
+  padding: 6px 6px;
+  max-width: 480px;
+  width: 100%;
+}
+
+.grade-buttons-floating.grade-buttons-extended .btn-grade-ext {
+  flex: 1;
+  max-width: 48px;
+  min-width: 32px;
+  height: 44px !important;
+  padding: 2px 1px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.grade-buttons-floating.grade-buttons-extended .grade-num {
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.grade-buttons-floating.grade-buttons-extended .grade-val {
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  letter-spacing: -0.2px;
+}
+
+.grade-buttons-floating .grade-ext-0 { color: #ffffff !important; background: #dc2626 !important; border-color: #ef4444 !important; }
+.grade-buttons-floating .grade-ext-1 { color: #ffffff !important; background: #ea580c !important; border-color: #f97316 !important; }
+.grade-buttons-floating .grade-ext-2 { color: #ffffff !important; background: #d97706 !important; border-color: #f59e0b !important; }
+.grade-buttons-floating .grade-ext-3 { color: #ffffff !important; background: #65a30d !important; border-color: #84cc16 !important; }
+.grade-buttons-floating .grade-ext-4 { color: #ffffff !important; background: #059669 !important; border-color: #10b981 !important; }
+.grade-buttons-floating .grade-ext-5 { color: #ffffff !important; background: #0891b2 !important; border-color: #06b6d4 !important; }
+.grade-buttons-floating .grade-ext-6 { color: #ffffff !important; background: #2563eb !important; border-color: #3b82f6 !important; }
+.grade-buttons-floating .grade-ext-7 { color: #ffffff !important; background: #7c3aed !important; border-color: #8b5cf6 !important; }
+
 /* Active/Hover State */
 .grade-buttons-floating .btn-grade:active,
 .grade-buttons-floating .btn-grade:hover {

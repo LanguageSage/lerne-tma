@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Camera, Search, X } from 'lucide-react';
+import { Upload, Camera, Search, ClipboardPaste, X } from 'lucide-react';
 import { ImageEditorModal } from './ImageEditorModal';
+import { useUiStore } from '../../store/useUiStore';
 
 export const MediaPicker = ({ 
   isOpen, 
@@ -96,6 +97,66 @@ export const MediaPicker = ({
     setEditingFile(file);
   };
 
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (navigator.clipboard?.read) {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          const imageType = item.types.find(t => t.startsWith('image/'));
+          if (imageType) {
+            const blob = await item.getType(imageType);
+            const ext = imageType.split('/')[1] || 'png';
+            const file = new File([blob], `clipboard_${Date.now()}.${ext}`, { type: imageType });
+            handleSelectFile(file);
+            return;
+          }
+        }
+      }
+      if (navigator.clipboard?.readText) {
+        const text = (await navigator.clipboard.readText() || '').trim();
+        if (/^https?:\/\/.*\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(text) || /^data:image\//i.test(text)) {
+          try {
+            const res = await fetch(text);
+            const blob = await res.blob();
+            if (blob.type.startsWith('image/')) {
+              const file = new File([blob], `pasted_${Date.now()}.png`, { type: blob.type });
+              handleSelectFile(file);
+              return;
+            }
+          } catch {
+            // Ignored
+          }
+        }
+      }
+      useUiStore.getState().showToast('В буфере обмена нет картинки. Скопируйте изображение и попробуйте снова.', 'info');
+    } catch (err) {
+      console.warn('Clipboard read failed:', err);
+      useUiStore.getState().showToast('Не удалось получить доступ к буферу. Вы можете нажать Ctrl+V.', 'info');
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen || isCameraOpen || editingFile) return;
+
+    const handleWindowPaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            handleSelectFile(file);
+            return;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, [isOpen, isCameraOpen, editingFile]);
+
   return (
     <>
       <AnimatePresence>
@@ -131,6 +192,7 @@ export const MediaPicker = ({
                   className="image-picker-tile"
                   onClick={() => galleryInputRef.current?.click()}
                   disabled={loading}
+                  title="Выбрать картинку из памяти устройства"
                 >
                   <Upload size={24} color="#c084fc" />
                   <span>Галерея</span>
@@ -140,22 +202,30 @@ export const MediaPicker = ({
                   className="image-picker-tile"
                   onClick={openCamera}
                   disabled={loading}
+                  title="Сделать снимок с камеры"
                 >
                   <Camera size={24} color="#38bdf8" />
                   <span>Камера</span>
+                </button>
+                <button
+                  type="button"
+                  className="image-picker-tile"
+                  onClick={handlePasteFromClipboard}
+                  disabled={loading}
+                  title="Вставить скопированную картинку из буфера обмена (или Ctrl+V)"
+                >
+                  <ClipboardPaste size={24} color="#fbbf24" />
+                  <span>Из буфера</span>
                 </button>
                 <a
                   href={googleImageUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="image-picker-tile image-picker-tile-wide"
-                  onClick={() => {
-                    sessionStorage.setItem('lerne_open_picker_after_google', String(Date.now()));
-                    onClose();
-                  }}
+                  className="image-picker-tile"
+                  title="Открыть поиск картинок Google в новой вкладке"
                 >
-                  <Search size={22} color="#34d399" />
-                  <span>Поиск в Google</span>
+                  <Search size={24} color="#34d399" />
+                  <span>Поиск Google</span>
                 </a>
               </div>
               <input

@@ -186,7 +186,7 @@ async def get_study_stats(user_id: int = Depends(get_user_id)):
         )
 
         total_reviews = len(reviews_30d)
-        success_reviews = sum(1 for r in reviews_30d if r.rating in [2, 3])
+        success_reviews = sum(1 for r in reviews_30d if (r.rating in [2, 3] if r.rating <= 3 else r.rating >= 4))
         retention_rate = round((success_reviews / total_reviews * 100), 1) if total_reviews > 0 else 85.0
 
         day_names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
@@ -265,7 +265,12 @@ async def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool 
 async def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
     async def run_grade():
         logger.info(f"submit_grade: User {user_id}, Data: {data}")
-        services.update_card_progress(data['card_id'], user_id, data['grade'])
+        services.update_card_progress(
+            data['card_id'], 
+            user_id, 
+            data['grade'], 
+            is_extended=bool(data.get('is_extended', False))
+        )
         logger.info("submit_grade: Progress updated successfully")
         
         learn_more = data.get('learn_more', False)
@@ -311,7 +316,12 @@ async def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depend
 @router.post("/study/duplicates/grade")
 async def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
     """Сохранение оценки для дубликата и переход к следующему."""
-    services.update_card_progress(data['card_id'], user_id, data['grade'])
+    services.update_card_progress(
+        data['card_id'], 
+        user_id, 
+        data['grade'], 
+        is_extended=bool(data.get('is_extended', False))
+    )
     card, progress = services.get_next_duplicate_card(user_id)
     if not card:
         return {"finished": True}
