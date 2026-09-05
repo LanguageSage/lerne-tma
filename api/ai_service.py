@@ -6,8 +6,16 @@ import asyncio
 
 logger = logging.getLogger(__name__)
 
-from api.models import TMASetting
+from api.models import TMASetting, TMACustomPrompt
 from api.ai_clients import AIService
+# Service imports — no circular dependency since none of these import ai_service
+from api.services.language_service import (
+    get_prompt_for_phrase, get_language_config, get_native_config,
+    build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt,
+    build_trainer_prompt, build_quiz_prompt, get_cefr_rubric
+)
+from api.services.input_parser import parse_user_input, parse_ai_json_response, parse_ai_batch_json_response
+from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload
 
 _AI_CONFIG_CACHE = {"data": None, "ts": 0}
 _AI_CONFIG_CACHE_TTL = 60  # 60 seconds cache

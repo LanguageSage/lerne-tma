@@ -10,7 +10,7 @@ from functools import lru_cache
 logger = logging.getLogger(__name__)
 
 from .media import resolve_media_url, _build_media_exists_map
-from .utils import add_to_history
+from .utils import add_to_history, resolve_deck_metadata
 from .cefr_metadata import get_cefr_metadata, merge_cefr_metadata, parse_card_metadata, serialize_card_metadata
 
 def save_card(data, user_id):
@@ -48,12 +48,11 @@ def save_card(data, user_id):
     target_deck_id = card.deck_id or deck_id
     if target_deck_id:
         from .collaborative_service import get_effective_user_role
-        from fastapi import HTTPException
         role = get_effective_user_role(user_id, 'deck', target_deck_id)
         if role == 'viewer':
-            raise HTTPException(status_code=403, detail="У вас роль Слушателя (только чтение). Изменение карточек доступно Редакторам и Владельцу.")
+            raise PermissionError("У вас роль Слушателя (только чтение). Изменение карточек доступно Редакторам и Владельцу.")
         elif role is None and card.id:
-            raise HTTPException(status_code=403, detail="Нет прав на изменение этой карточки.")
+            raise PermissionError("Нет прав на изменение этой карточки.")
     
     # Обновляем только если передано (используем get с проверкой наличия ключа, чтобы позволить пустые строки)
 
@@ -505,30 +504,7 @@ def format_card_for_study(card: TMA_Card, user_id: int):
     deck_name = deck.name if deck else (card.get('deck_name') if isinstance(card, dict) else getattr(card, 'deck_name', None))
     res["deck_name"] = deck_name or "Без колоды"
     
-    import json
-    deck_metadata = {"resources": []}
-    if deck and getattr(deck, 'metadata', None):
-        try:
-            deck_metadata = json.loads(deck.metadata)
-        except Exception: pass
-    
-    resolved_resources = []
-    for r in deck_metadata.get('resources', []):
-        res_type = r.get('type')
-        path = r.get('path')
-        url = r.get('url')
-        if path:
-            if res_type == 'image':
-                url = resolve_media_url(path, 'images')
-            elif res_type == 'audio':
-                url = resolve_media_url(path, 'audio')
-            elif res_type == 'video':
-                url = resolve_media_url(path, 'videos')
-        item = {**r}
-        if url:
-            item['url'] = url
-        resolved_resources.append(item)
-    deck_metadata['resources'] = resolved_resources
+    deck_metadata = resolve_deck_metadata(deck)
     
     res["deck_metadata"] = deck_metadata
     return res

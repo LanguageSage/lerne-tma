@@ -9,7 +9,7 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
-from .utils import merge_tags, add_to_history
+from .utils import merge_tags, add_to_history, resolve_deck_metadata
 from .media import resolve_media_url
 
 STARTER_DECK_NAMES = [
@@ -117,12 +117,11 @@ def create_deck(name: str, user_id: int, folder_id: int = None, target_language:
     try:
         if folder_id:
             from .collaborative_service import get_effective_user_role
-            from fastapi import HTTPException
             role = get_effective_user_role(user_id, 'folder', folder_id)
             if role == 'viewer':
-                raise HTTPException(status_code=403, detail="У вас роль Слушателя (только чтение). Создавать колоды в этой папке может только Редактор или Владелец.")
+                raise PermissionError("У вас роль Слушателя (только чтение). Создавать колоды в этой папке может только Редактор или Владелец.")
             elif role is None:
-                raise HTTPException(status_code=403, detail="Родительская папка не найдена или нет доступа")
+                raise PermissionError("Родительская папка не найдена или нет доступа")
 
         meta_dict = {"resources": [], "is_learning": False}
         deck = TMA_Deck.create(
@@ -136,6 +135,8 @@ def create_deck(name: str, user_id: int, folder_id: int = None, target_language:
         )
         return deck
 
+    except PermissionError:
+        raise
     except Exception as e:
         logger.error(f"Error in create_deck: {e}")
         raise e
@@ -326,32 +327,7 @@ def get_active_decks(user_id: int, folder_map: dict = None):
                 elif ext_deck.updated_at and d.updated_at and ext_deck.updated_at > d.updated_at:
                     has_updates = True
 
-            # Parse and resolve metadata resources
-            raw_metadata = getattr(d, 'metadata', None)
-            parsed_metadata = {"resources": []}
-            if raw_metadata:
-                try:
-                    parsed_metadata = json.loads(raw_metadata)
-                except Exception:
-                    pass
-            
-            resolved_resources = []
-            for res in parsed_metadata.get('resources', []):
-                res_type = res.get('type')
-                path = res.get('path')
-                url = res.get('url')
-                if path:
-                    if res_type == 'image':
-                        url = resolve_media_url(path, 'images')
-                    elif res_type == 'audio':
-                        url = resolve_media_url(path, 'audio')
-                    elif res_type == 'video':
-                        url = resolve_media_url(path, 'videos')
-                item = {**res}
-                if url:
-                    item['url'] = url
-                resolved_resources.append(item)
-            parsed_metadata['resources'] = resolved_resources
+            parsed_metadata = resolve_deck_metadata(d)
 
             collab_meta = deck_collab_map.get(d.id, {})
             role = collab_meta.get('role', 'owner' if d.user_id == user_id else None)
@@ -512,16 +488,10 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                 local_deck.updated_at = datetime.datetime.now()
                 local_deck.save()
 
-            ph = '?' if 'sqlite' in str(type(getattr(tma_db, 'obj', None))).lower() else '%s'
-            sql = f"""
-                INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                SELECT {ph}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported as copy"]'
-                FROM card WHERE deck_id = {ph} AND is_deleted = false
-            """
-            tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
+            _bulk_copy_cards_from_library(local_deck.id, external_deck_id, "Imported as copy")
             _save_source_library_id(local_deck, external_deck_id)
             return local_deck
-            
+
         elif mode == 'replace':
             if local_deck_id:
                 local_deck = TMA_Deck.get_by_id(local_deck_id)
@@ -542,27 +512,19 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                 local_deck.is_deleted = False
             local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
             
-            # Delete old cards
+            # Delete old cards and progress before replacing
             card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == local_deck.id)]
             if card_ids:
                 TMAProgress.delete().where(TMAProgress.card_id << card_ids).execute()
                 TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
-                
-            # Insert all cards
-            ph = '?' if 'sqlite' in str(type(getattr(tma_db, 'obj', None))).lower() else '%s'
-            sql = f"""
-                INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                SELECT {ph}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported via replace"]'
-                FROM card WHERE deck_id = {ph} AND is_deleted = false
-            """
-            tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
-            
+
+            _bulk_copy_cards_from_library(local_deck.id, external_deck_id, "Imported via replace")
             local_deck.updated_at = datetime.datetime.now()
             _save_source_library_id(local_deck, external_deck_id)
             local_deck.save()
             return local_deck
             
-        else: # merge
+        else:  # merge
             if local_deck_id:
                 local_deck = TMA_Deck.get_by_id(local_deck_id)
             else:
@@ -598,23 +560,14 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     TMAProgress.delete().where(TMAProgress.card_id << card_ids).execute()
                     TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
 
-                try:
-                    ph = '?' if 'sqlite' in str(type(getattr(tma_db, 'obj', None))).lower() else '%s'
-                    sql = f"""
-                        INSERT INTO tma_card (deck_id, front_text, back_text, context, image_path, audio_path, card_type, is_deleted, source, topics, metadata, tags, created_at, updated_at, history)
-                        SELECT {ph}, COALESCE(front_text, ''), COALESCE(back_text, ''), COALESCE(context, ''), COALESCE(image_path, ''), COALESCE(audio_path, ''), 'translation', false, 'library', '[]', COALESCE(metadata, '{{}}'), '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '["Imported from library"]'
-                        FROM card WHERE deck_id = {ph} AND is_deleted = false
-                    """
-                    tma_db.execute_sql(sql, (local_deck.id, external_deck_id))
-                    local_deck.updated_at = datetime.datetime.now()
-                    _save_source_library_id(local_deck, external_deck_id)
-                    local_deck.save()
-                    logger.info(f"FAST IMPORT MERGE: Deck '{local_deck.name}' cards copied in single SQL query")
-                    return local_deck
-                except Exception as sql_err:
-                    logger.warning(f"Fast SQL import merge skipped ({sql_err}), falling back to ORM merge...")
+                _bulk_copy_cards_from_library(local_deck.id, external_deck_id, "Imported from library")
+                local_deck.updated_at = datetime.datetime.now()
+                _save_source_library_id(local_deck, external_deck_id)
+                local_deck.save()
+                logger.info(f"FAST IMPORT MERGE: Deck '{local_deck.name}' cards copied via ORM bulk insert")
+                return local_deck
 
-            # Update existing cards & insert new ones
+            # Update existing cards & insert new ones (incremental merge)
             remote_cards = list(Card.select().where((Card.deck_id == external_deck_id) & (Card.is_deleted == False)))
             local_cards = {c.front_text: c for c in TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)}
             
@@ -671,6 +624,43 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
         error_msg = f"CRITICAL ERROR in import_deck: {e}"
         logger.error(error_msg, exc_info=True)
         raise Exception(error_msg)
+
+
+def _bulk_copy_cards_from_library(local_deck_id: int, external_deck_id: int, history_note: str = "Imported from library"):
+    """Copies all active cards from a library deck into a TMA deck using ORM bulk insert.
+    Replaces the old raw SQL INSERT-SELECT that required dialect-specific placeholders.
+    """
+    ext_cards = list(Card.select(
+        Card.front_text, Card.back_text, Card.context,
+        Card.image_path, Card.audio_path, Card.metadata
+    ).where((Card.deck_id == external_deck_id) & (Card.is_deleted == False)))
+
+    if not ext_cards:
+        return 0
+
+    now = datetime.datetime.now()
+    rows = [{
+        'deck_id': local_deck_id,
+        'front_text': c.front_text or '',
+        'back_text': c.back_text or '',
+        'context': c.context or '',
+        'image_path': c.image_path or '',
+        'audio_path': c.audio_path or '',
+        'card_type': 'translation',
+        'is_deleted': False,
+        'source': 'library',
+        'topics': '[]',
+        'metadata': c.metadata or '{}',
+        'tags': '[]',
+        'created_at': now,
+        'updated_at': now,
+        'history': add_to_history('[]', history_note)
+    } for c in ext_cards]
+
+    with tma_db.atomic():
+        for i in range(0, len(rows), 100):
+            TMA_Card.insert_many(rows[i:i+100]).execute()
+    return len(rows)
 
 
 def _save_source_library_id(local_deck, external_deck_id: int):

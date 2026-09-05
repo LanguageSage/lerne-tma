@@ -24,8 +24,11 @@ def create_deck(data: dict, user_id: int = Depends(get_user_id)):
     if user and user.is_guest:
         raise HTTPException(status_code=403, detail="Для создания колод требуется авторизация через Telegram.")
     deck_type = data.get('deck_type', 'standard')
-    deck = services.create_deck(data.get('name'), user_id, data.get('folder_id'), data.get('target_language', 'de'), deck_type=deck_type)
-    return {"status": "success", "id": deck.id}
+    try:
+        deck = services.create_deck(data.get('name'), user_id, data.get('folder_id'), data.get('target_language', 'de'), deck_type=deck_type)
+        return {"status": "success", "id": deck.id}
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 @router.post("/{deck_id}/move")
 def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):

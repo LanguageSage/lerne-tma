@@ -28,6 +28,8 @@ async def save_card(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=400, detail="Could not save card. Check logs.")
     except HTTPException:
         raise
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         logger.error(f"Router save_card error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
