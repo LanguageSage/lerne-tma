@@ -29,7 +29,7 @@ import { StudyCard } from './StudyCard';
 const OPEN_PICKER_AFTER_GOOGLE = 'lerne_open_picker_after_google';
 
 export const StudyView = ({ startTutorial }) => {
-  const { view, loading, setIsSettingsOpen, showToast } = useUiStore();
+  const { view, loading, setIsSettingsOpen, showToast, setView, setActiveFolderId } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
   const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, setIsLearningMore, autoplayState } = useSessionStore();
   const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard } = useCardActions();
@@ -643,6 +643,13 @@ export const StudyView = ({ startTutorial }) => {
         ) : (isSessionFinished || apiError) ? (
           <StudyFinished
             apiError={apiError}
+            onGoHome={() => {
+              stopAudio?.();
+              useSessionStore.getState().stopAutoplay?.();
+              useSessionStore.getState().resetSession();
+              setActiveFolderId(null);
+              setView('decks');
+            }}
             onGoToDecks={navigateUp}
             onLearnMore={handleLearnMore}
             onSyncDeck={() => handleSyncDeck(currentDeck?.id)}

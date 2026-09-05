@@ -58,7 +58,7 @@ function AppContent() {
 
   const { isFlipped } = useSessionStore();
   const { handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
-  const { openEditor, openCreator } = useCardNavigation();
+  const { openEditor } = useCardNavigation();
   const { startStudy, startStudyCard } = useStudyNavigation();
 
   const activeFolderId = useUiStore(state => state.activeFolderId);
@@ -316,7 +316,6 @@ function AppContent() {
         onToggleLearn={handleToggleLearn}
         onShare={handleShareCard}
         onEdit={(c) => openEditor(c.deck_id || currentDeck?.id, c, view)}
-        onInsertBelow={(c) => openCreator(c.deck_id || currentDeck?.id, view, c.id)}
         onStartAutoplay={async (c) => {
           if (view === 'study') {
             const { startAutoplayFn } = useSessionStore.getState();

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Move, Copy, Trash2, Edit2, Settings2, PlusCircle, Play, Square, Pause, RotateCw } from 'lucide-react';
+import { X, Move, Copy, Trash2, Edit2, Settings2, Play, Square, Pause, RotateCw } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -57,7 +57,6 @@ export const CardActionModal = ({
   onDelete,
   onShare,
   onEdit,
-  onInsertBelow,
   onStartAutoplay
 }) => {
   const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy' | 'autoplay'
@@ -247,21 +246,6 @@ export const CardActionModal = ({
                     <div className="action-menu-text">
                       <strong>Редактировать</strong>
                       <span>Изменить содержимое карточки</span>
-                    </div>
-                  </button>
-                )}
-
-                {onInsertBelow && (
-                  <button 
-                    className="action-menu-item" 
-                    onClick={() => { onInsertBelow(card); onClose(); }}
-                  >
-                    <div className="action-menu-icon" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
-                      <PlusCircle size={20} />
-                    </div>
-                    <div className="action-menu-text">
-                      <strong>Вставить карточку ниже</strong>
-                      <span>Создать карточку сразу после этой</span>
                     </div>
                   </button>
                 )}

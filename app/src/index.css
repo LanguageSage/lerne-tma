@@ -544,7 +544,7 @@ h1, h2, h3 {
 
 .card-preview-container {
   isolation: isolate;
-  contain: paint layout;
+  contain: layout;
   transform: translateZ(0);
 }
 

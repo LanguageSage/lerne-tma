@@ -192,189 +192,70 @@ export const CardForm = ({
       />
 
       {/* Toolbar / Header Actions */}
-      <div className="form-toolbar" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginBottom: '12px' }}>
+      <div className="form-toolbar">
         <button
           type="button"
-          className="form-toolbar-btn"
+          className="form-toolbar-btn btn-image"
           onClick={() => setIsImagePickerOpen(true)}
           title="Добавить картинку"
         >
-          <ImageIcon size={22} />
+          <ImageIcon size={18} />
+          <span>Картинка</span>
         </button>
         <button 
           type="button"
-          className="form-toolbar-btn" 
+          className="form-toolbar-btn btn-audio" 
           onClick={() => onGenerateAudio(cardData, setCardData, playAudio)}
           disabled={loading}
           title="Озвучить"
         >
-          <Volume2 size={22} />
+          {loading ? <RefreshCw size={18} className="spin" /> : <Volume2 size={18} />}
+          <span>{loading ? 'Озвучивание...' : 'Озвучить'}</span>
         </button>
       </div>
 
       <div className="form-group">
-        <div id="tut-creator-front" className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
+        <div 
+          id="tut-creator-front" 
+          className="card-preview-container glass" 
+          style={{ 
+            position: 'relative', 
+            borderRadius: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '130px'
+          }}
+        >
           <CardBackground styleType={resolvedBgFront} />
           
-          {/* Level Badge + Manual Override Controls */}
-          <div style={{ position: 'absolute', bottom: '10px', left: '10px', zIndex: 15, pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div 
-              style={{
-                opacity: isClassifyingLevel ? 0 : 1,
-                transform: isClassifyingLevel ? 'scale(0.8)' : 'scale(1)',
-                transition: 'opacity 0.25s ease, transform 0.25s ease',
-                pointerEvents: isClassifyingLevel ? 'none' : 'auto'
+          <div className="card-preview-body" style={{ padding: '12px 14px 4px 14px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
+            <textarea 
+              ref={frontRef}
+              className="textarea-preview textarea-front-preview"
+              autoFocus={isCreator}
+              value={cardData.front || ''} 
+              onChange={(e) => {
+                setCardData({...cardData, front: e.target.value});
               }}
-              title="Нажмите для автоматического пересчета уровня"
-            >
-              <CardLevelBadge 
-                card={cardData} 
-                size="sm" 
-                onClick={handleReclassifyLevel} 
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsLevelPickerOpen(!isLevelPickerOpen);
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
               }}
-              title="Ручная смена уровня CEFR"
-              style={{
-                background: 'rgba(255, 255, 255, 0.12)',
-                border: '1px solid rgba(255, 255, 255, 0.22)',
-                borderRadius: '8px',
-                color: 'rgba(255, 255, 255, 0.85)',
-                padding: '2px 7px',
-                fontSize: '0.68rem',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                cursor: 'pointer',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-                lineHeight: 1.2
+              style={{ 
+                fontFamily: cardFont, 
+                fontWeight: cardFontWeight, 
+                fontStyle: cardFontStyle,
+                color: cardTextColor,
+                fontSize: `${cardFontSize}rem`,
+                textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                textAlign: cardTextAlign || 'center',
+                overflow: 'hidden',
+                height: 'auto',
+                minHeight: '80px'
               }}
-            >
-              <SlidersHorizontal size={11} />
-              <span>Правка</span>
-            </button>
-
-            {isLevelPickerOpen && (
-              <div
-                ref={pickerRef}
-                style={{
-                  position: 'absolute',
-                  bottom: '36px',
-                  left: '0',
-                  background: 'rgba(24, 24, 27, 0.96)',
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
-                  borderRadius: '12px',
-                  padding: '6px',
-                  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.55)',
-                  backdropFilter: 'blur(16px)',
-                  WebkitBackdropFilter: 'blur(16px)',
-                  zIndex: 50,
-                  minWidth: '185px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px'
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div style={{ fontSize: '0.68rem', color: 'rgba(255, 255, 255, 0.55)', padding: '2px 6px', fontWeight: 600 }}>
-                  Уровень сложности:
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => handleSelectManualLevel('auto')}
-                  style={{
-                    background: !cardData.manual_level ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
-                    border: !cardData.manual_level ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                    color: !cardData.manual_level ? '#a5b4fc' : 'rgba(255, 255, 255, 0.85)',
-                    borderRadius: '6px',
-                    padding: '4px 8px',
-                    fontSize: '0.74rem',
-                    fontWeight: 600,
-                    textAlign: 'left',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <span>⚡ Авто (распознать)</span>
-                  {!cardData.manual_level && <Check size={12} color="#a5b4fc" />}
-                </button>
-
-                <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
-
-                {[
-                  { lvl: 'A1', label: '🟢 A1 (Начальный)' },
-                  { lvl: 'A2', label: '🔵 A2 (Базовый)' },
-                  { lvl: 'B1', label: '🔹 B1 (Средний)' },
-                  { lvl: 'B2', label: '🟣 B2 (Выше среднего)' },
-                  { lvl: 'C1', label: '🔮 C1 (Продвинутый)' },
-                  { lvl: 'C2', label: '🟠 C2 (В совершенстве)' }
-                ].map(({ lvl, label }) => {
-                  const isSelected = cardData.manual_level && cardData.level === lvl;
-                  return (
-                    <button
-                      key={lvl}
-                      type="button"
-                      onClick={() => handleSelectManualLevel(lvl)}
-                      style={{
-                        background: isSelected ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
-                        border: isSelected ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid transparent',
-                        color: isSelected ? '#fff' : 'rgba(255, 255, 255, 0.8)',
-                        borderRadius: '6px',
-                        padding: '4px 8px',
-                        fontSize: '0.72rem',
-                        fontWeight: isSelected ? 700 : 500,
-                        textAlign: 'left',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <span>{label}</span>
-                      {isSelected && <Check size={12} color="#4ade80" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+              placeholder={t('creator.word_placeholder', 'Слово или фраза...')}
+            />
           </div>
-          <textarea 
-            ref={frontRef}
-            className="textarea-preview textarea-front-preview"
-            autoFocus={isCreator}
-            value={cardData.front || ''} 
-            onChange={(e) => {
-              setCardData({...cardData, front: e.target.value});
-            }}
-            onInput={(e) => {
-              e.target.style.height = 'auto';
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
-            style={{ 
-              fontFamily: cardFont, 
-              fontWeight: cardFontWeight, 
-              fontStyle: cardFontStyle,
-              color: cardTextColor,
-              fontSize: `${cardFontSize}rem`,
-              textShadow: getTextShadow(cardTextShadow, cardTextColor),
-              textAlign: cardTextAlign || 'center',
-              overflow: 'hidden',
-              height: 'auto',
-              minHeight: '100px'
-            }}
-            placeholder={t('creator.word_placeholder', 'Слово или фраза...')}
-          />
           
           {(cardData.image_url || cardData.image_path) && (() => {
             const getDeckH = () => {
@@ -464,15 +345,177 @@ export const CardForm = ({
             );
           })()}
 
-          {(cardData.audio_path || cardData.audio_url) && (
-            <button 
-              type="button"
-              className="audio-btn-corner" 
-              onClick={(e) => { e.stopPropagation(); playAudio(cardData.audio_url || `/api/media/${cardData.audio_path}`); }}
-            >
-              <Volume2 size={24} />
-            </button>
-          )}
+          {/* Dedicated Footer: Level Badge + Manual Override Controls + Audio Button */}
+          <div 
+            className="card-preview-footer"
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              padding: '6px 12px 10px 12px',
+              position: 'relative', 
+              zIndex: 15, 
+              pointerEvents: 'auto',
+              gap: '8px',
+              marginTop: 'auto'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', flexWrap: 'wrap' }}>
+              <div 
+                style={{
+                  opacity: isClassifyingLevel ? 0 : 1,
+                  transform: isClassifyingLevel ? 'scale(0.8)' : 'scale(1)',
+                  transition: 'opacity 0.25s ease, transform 0.25s ease',
+                  pointerEvents: isClassifyingLevel ? 'none' : 'auto'
+                }}
+                title="Нажмите для автоматического пересчета уровня"
+              >
+                <CardLevelBadge 
+                  card={cardData} 
+                  size="sm" 
+                  onClick={handleReclassifyLevel} 
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsLevelPickerOpen(!isLevelPickerOpen);
+                }}
+                title="Ручная смена уровня CEFR"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  border: '1px solid rgba(255, 255, 255, 0.22)',
+                  borderRadius: '8px',
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  padding: '2px 7px',
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  lineHeight: 1.2
+                }}
+              >
+                <SlidersHorizontal size={11} />
+                <span>Правка</span>
+              </button>
+
+              {isLevelPickerOpen && (
+                <div
+                  ref={pickerRef}
+                  style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 6px)',
+                    left: '0',
+                    background: 'rgba(24, 24, 27, 0.96)',
+                    border: '1px solid rgba(255, 255, 255, 0.18)',
+                    borderRadius: '12px',
+                    padding: '6px',
+                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.55)',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    zIndex: 50,
+                    minWidth: '185px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '3px'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div style={{ fontSize: '0.68rem', color: 'rgba(255, 255, 255, 0.55)', padding: '2px 6px', fontWeight: 600 }}>
+                    Уровень сложности:
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => handleSelectManualLevel('auto')}
+                    style={{
+                      background: !cardData.manual_level ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                      border: !cardData.manual_level ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
+                      color: !cardData.manual_level ? '#a5b4fc' : 'rgba(255, 255, 255, 0.85)',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      fontSize: '0.74rem',
+                      fontWeight: 600,
+                      textAlign: 'left',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span>⚡ Авто (распознать)</span>
+                    {!cardData.manual_level && <Check size={12} color="#a5b4fc" />}
+                  </button>
+
+                  <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
+
+                  {[
+                    { lvl: 'A1', label: '🟢 A1 (Начальный)' },
+                    { lvl: 'A2', label: '🔵 A2 (Базовый)' },
+                    { lvl: 'B1', label: '🔹 B1 (Средний)' },
+                    { lvl: 'B2', label: '🟣 B2 (Выше среднего)' },
+                    { lvl: 'C1', label: '🔮 C1 (Продвинутый)' },
+                    { lvl: 'C2', label: '🟠 C2 (В совершенстве)' }
+                  ].map(({ lvl, label }) => {
+                    const isSelected = cardData.manual_level && cardData.level === lvl;
+                    return (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => handleSelectManualLevel(lvl)}
+                        style={{
+                          background: isSelected ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+                          border: isSelected ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid transparent',
+                          color: isSelected ? '#fff' : 'rgba(255, 255, 255, 0.8)',
+                          borderRadius: '6px',
+                          padding: '4px 8px',
+                          fontSize: '0.72rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          textAlign: 'left',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <span>{label}</span>
+                        {isSelected && <Check size={12} color="#4ade80" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {(cardData.audio_path || cardData.audio_url) && (
+              <button 
+                type="button"
+                className="audio-btn-corner" 
+                onClick={(e) => { e.stopPropagation(); playAudio(cardData.audio_url || `/api/media/${cardData.audio_path}`); }}
+                title="Озвучить"
+                style={{
+                  position: 'static',
+                  margin: 0,
+                  width: '36px',
+                  height: '36px',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '50%',
+                  flexShrink: 0
+                }}
+              >
+                <Volume2 size={18} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -610,67 +653,76 @@ export const CardForm = ({
       </div>
 
       <div className="form-group">
-        <div className="card-preview-container glass" style={{ position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
+        <div 
+          className="card-preview-container glass" 
+          style={{ 
+            position: 'relative', 
+            borderRadius: '12px', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            minHeight: '130px' 
+          }}
+        >
           <CardBackground styleType={resolvedBgBack} />
           
-          <textarea 
-            ref={backRef}
-            className="textarea-preview textarea-back-preview"
-            value={cardData.back || ''} 
-            onChange={(e) => {
-              setCardData({...cardData, back: e.target.value});
-            }}
-            onInput={(e) => {
-              e.target.style.height = 'auto';
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
-            style={{ 
-              fontFamily: cardFont, 
-              fontWeight: cardFontWeight, 
-              fontStyle: cardFontStyle,
-              color: cardTextColor,
-              fontSize: `${cardFontSize}rem`,
-              textShadow: getTextShadow(cardTextShadow, cardTextColor),
-              textAlign: cardTextAlign || 'center',
-              overflow: 'hidden',
-              height: 'auto',
-              minHeight: '100px'
-            }}
-            placeholder={t('creator.back', 'Перевод...')}
-          />
-          
-          {(cardData.context || isCreator) && (
-             <>
-               <div style={{ width: '90%', height: '4px', background: 'rgba(255,255,255,0.7)', margin: '20px auto', borderRadius: '2px', position: 'relative', zIndex: 10, display: 'block' }}></div>
-               <textarea 
-                 ref={contextRef}
-                 className="context-textarea textarea-preview textarea-context-preview"
-                 value={cardData.context || ''} 
-                 onChange={(e) => {
-                   setCardData({...cardData, context: e.target.value});
-                 }}
-                 onInput={(e) => {
-                   e.target.style.height = 'auto';
-                   e.target.style.height = `${e.target.scrollHeight}px`;
-                 }}
-                 style={{ 
-                   fontFamily: contextFont, 
-                   fontSize: `${contextFontSize}rem`,
-                   color: contextTextColor,
-                   fontWeight: contextFontWeight,
-                   fontStyle: contextFontStyle,
-                   textShadow: getContextShadow(contextTextShadow, contextTextColor),
-                   textAlign: contextTextAlign || 'left',
-                   overflow: 'hidden',
-                   height: 'auto',
-                   minHeight: '100px'
-                 }}
-                 placeholder={t('creator.context', 'Примеры, грамматика...')}
-               />
-             </>
-          )}
-
-
+          <div className="card-preview-body" style={{ padding: '12px 14px 12px 14px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
+            <textarea 
+              ref={backRef}
+              className="textarea-preview textarea-back-preview"
+              value={cardData.back || ''} 
+              onChange={(e) => {
+                setCardData({...cardData, back: e.target.value});
+              }}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              style={{ 
+                fontFamily: cardFont, 
+                fontWeight: cardFontWeight, 
+                fontStyle: cardFontStyle,
+                color: cardTextColor,
+                fontSize: `${cardFontSize}rem`,
+                textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                textAlign: cardTextAlign || 'center',
+                overflow: 'hidden',
+                height: 'auto',
+                minHeight: '80px'
+              }}
+              placeholder={t('creator.back', 'Перевод...')}
+            />
+            
+            {(cardData.context || isCreator) && (
+               <>
+                 <div style={{ width: '90%', height: '4px', background: 'rgba(255,255,255,0.7)', margin: '16px auto', borderRadius: '2px', position: 'relative', zIndex: 10, display: 'block' }}></div>
+                 <textarea 
+                   ref={contextRef}
+                   className="context-textarea textarea-preview textarea-context-preview"
+                   value={cardData.context || ''} 
+                   onChange={(e) => {
+                     setCardData({...cardData, context: e.target.value});
+                   }}
+                   onInput={(e) => {
+                     e.target.style.height = 'auto';
+                     e.target.style.height = `${e.target.scrollHeight}px`;
+                   }}
+                   style={{ 
+                     fontFamily: contextFont, 
+                     fontSize: `${contextFontSize}rem`,
+                     color: contextTextColor,
+                     fontWeight: contextFontWeight,
+                     fontStyle: contextFontStyle,
+                     textShadow: getContextShadow(contextTextShadow, contextTextColor),
+                     textAlign: contextTextAlign || 'left',
+                     overflow: 'hidden',
+                     height: 'auto',
+                     minHeight: '80px'
+                   }}
+                   placeholder={t('creator.context', 'Примеры, грамматика...')}
+                 />
+               </>
+            )}
+          </div>
         </div>
       </div>
 

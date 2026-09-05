@@ -8,6 +8,7 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { getSpeechLocaleForLang } from '../../constants/languageConstants';
 import { getCardStyle } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
+import { stopGlobalAudio } from '../../hooks/useAudio';
 
 
 export const StudyCardSpeech = React.memo(({
@@ -15,6 +16,7 @@ export const StudyCardSpeech = React.memo(({
   onFlip,
   loading,
   playAudio,
+  stopAudio,
   isAudioLoading,
   isAutoplayActive,
   styles = {}
@@ -162,6 +164,12 @@ export const StudyCardSpeech = React.memo(({
       return;
     }
 
+    // Stop any playing audio immediately so mic does not catch speaker audio
+    try {
+      stopAudio?.();
+      stopGlobalAudio();
+    } catch { /* ignore */ }
+
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch { /* ignore */ }
     }
@@ -265,6 +273,12 @@ export const StudyCardSpeech = React.memo(({
     e?.stopPropagation();
     e?.preventDefault();
     if (speechSuccessRef.current) return;
+
+    // Immediately stop and interrupt any previously played audio
+    try {
+      stopAudio?.();
+      stopGlobalAudio();
+    } catch { /* ignore */ }
 
     if (isListening) {
       stopSpeechRecognition(e);

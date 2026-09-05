@@ -9,6 +9,13 @@ if (window.Telegram?.WebApp) {
   console.log("Telegram WebApp initialized in main.jsx");
 }
 
+// Handle chunk load errors caused by new deployments / stale caches
+window.addEventListener('vite:preloadError', (event) => {
+  console.warn('Vite preload error detected, reloading page...', event);
+  event.preventDefault();
+  window.location.reload();
+});
+
 createRoot(document.getElementById('root')).render(
   <ErrorBoundary>
     <App />

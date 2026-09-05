@@ -62,6 +62,27 @@ export const stopBackgroundAudioLock = () => {
 let globalActiveAudio = null;
 let globalActiveStopCallback = null;
 
+export const stopGlobalAudio = () => {
+  if (globalActiveStopCallback) {
+    try {
+      globalActiveStopCallback();
+    } catch { /* ignore */ }
+  }
+  if (globalActiveAudio) {
+    try {
+      globalActiveAudio.pause();
+      globalActiveAudio.currentTime = 0;
+      globalActiveAudio.src = '';
+    } catch { /* ignore */ }
+    globalActiveAudio = null;
+  }
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch { /* ignore */ }
+  }
+};
+
 export const useAudio = (autoPlay, showToast) => {
   const audioRef = useRef(null);
   const playAudioRef = useRef(null);

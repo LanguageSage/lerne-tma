@@ -566,6 +566,7 @@ export const StudyCard = React.memo(({
                   onFlip={onFlip}
                   loading={loading}
                   playAudio={playAudio}
+                  stopAudio={audioControls?.stopAudio}
                   isAudioLoading={isAudioLoading}
                   isAutoplayActive={isAutoplayActive}
                   styles={styles}
