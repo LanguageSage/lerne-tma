@@ -100,6 +100,7 @@ MIGRATIONS = [
     (72, "ALTER TABLE tma_user ADD COLUMN has_selected_language BOOLEAN DEFAULT false", 'tma'),
     (73, "ALTER TABLE tma_user ADD COLUMN native_language TEXT DEFAULT 'uk'", 'tma'),
     (74, "ALTER TABLE tma_folder ADD COLUMN position INTEGER DEFAULT 0", 'tma'),
+    (75, "CREATE TABLE IF NOT EXISTS tma_offline_batch (key VARCHAR(255) PRIMARY KEY, payload_hash VARCHAR(64) NOT NULL, response TEXT NOT NULL DEFAULT '', created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)", 'tma'),
 ]
 
 

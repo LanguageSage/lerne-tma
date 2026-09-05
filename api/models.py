@@ -22,7 +22,7 @@ def create_all_tables():
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, TMAFeedback, TMAUser, TMALinkedSession,
             LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt,
-            TMA_Collaborator
+            TMA_Collaborator, TMAOfflineBatch
         ]
         tma_db.create_tables(models_to_create, safe=True)
         _tables_created = True
@@ -165,6 +165,16 @@ class TMASetting(BaseModel):
     updated_at = DateTimeField(default=datetime.datetime.now, null=True)
     class Meta:
         table_name = 'tmasetting'
+
+
+class TMAOfflineBatch(BaseModel):
+    key = CharField(primary_key=True)
+    payload_hash = CharField()
+    response = TextField(default='')
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = 'tma_offline_batch'
 
 class TMAMedia(BaseModel):
     id = AutoField()

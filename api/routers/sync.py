@@ -1,6 +1,7 @@
 import logging
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from uuid import UUID
 from typing import List, Optional
 
 from api.dependencies.auth import get_user_id
@@ -75,6 +76,37 @@ class PushRequest(BaseModel):
     progress: List[SyncProgressItem] = []
 
 
+class OfflineDeckItem(SyncDeckItem):
+    target_language: str = 'de'
+    metadata: Optional[str] = None
+
+
+class OfflineCardItem(SyncCardItem):
+    tags: Optional[str] = None
+    metadata: Optional[str] = None
+    card_type: str = 'standard'
+
+
+class OfflinePushRequest(BaseModel):
+    request_id: UUID
+    folders: List[SyncFolderItem] = Field(default_factory=list)
+    decks: List[OfflineDeckItem] = Field(default_factory=list)
+    cards: List[OfflineCardItem] = Field(default_factory=list)
+    progress: List[SyncProgressItem] = Field(default_factory=list)
+
+
+@router.post('/v2/push')
+def push_offline_changes(request: OfflinePushRequest, user_id: int = Depends(get_user_id)) -> dict:
+    from api.services.offline_sync import push_offline
+    return push_offline(request, user_id)
+
+
+@router.get('/v2/pull')
+def pull_offline_changes(user_id: int = Depends(get_user_id)) -> dict:
+    from api.services.offline_sync import pull_offline
+    return pull_offline(user_id)
+
+
 # --- Endpoints ---
 
 @router.post("/push")
@@ -94,4 +126,3 @@ def collab_pull_changes(since: Optional[str] = None, user_id: int = Depends(get_
     """Returns collaborative changes from ALL participants in shared folders since the given timestamp.
     Used for real-time sync polling: cards, decks, folders changed by any collaborator."""
     return execute_collab_pull(since, user_id)
-

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
-import { db } from '../services/localDb';
+import { db, isOfflineMode } from '../services/localDb';
 
 const POLL_INTERVAL_MS = 15000; // 15 seconds
 
@@ -144,7 +144,7 @@ export const useCollaborativeSync = () => {
   }, []);
 
   const poll = useCallback(async () => {
-    if (isRunningRef.current) return;
+    if (isRunningRef.current || isOfflineMode()) return;
     isRunningRef.current = true;
     try {
       const params = lastSyncRef.current ? { since: lastSyncRef.current } : {};

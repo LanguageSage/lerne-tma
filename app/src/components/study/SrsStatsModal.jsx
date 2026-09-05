@@ -46,7 +46,7 @@ export const SrsStatsModal = ({ isOpen, onClose }) => {
   const youngCount = stats?.young_cards || 0;
   const matureCount = stats?.mature_cards || 0;
   const leechCount = stats?.leech_cards || 0;
-  const retention = stats?.retention_rate ?? 85.0;
+  const retention = stats?.retention_rate;
   const forecast = stats?.forecast_7d || [];
 
   const newPct = total > 0 ? (newCount / total) * 100 : 0;
@@ -104,9 +104,9 @@ export const SrsStatsModal = ({ isOpen, onClose }) => {
                       <span className="srs-metric-label">Retention Rate</span>
                       <TrendingUp size={16} color="#4ade80" />
                     </div>
-                    <div className="srs-metric-val">{retention}%</div>
+                    <div className="srs-metric-val">{retention == null ? '-' : `${retention}%`}</div>
                     <div className="srs-metric-sub">
-                      {retention >= 90 ? '🌟 Отличное удержание' : retention >= 80 ? '✅ Оптимальный темп' : '⚠️ Рекомендуется чаще повторять'}
+                      {retention == null ? 'Нет данных' : retention >= 90 ? '🌟 Отличное удержание' : retention >= 80 ? '✅ Оптимальный темп' : '⚠️ Рекомендуется чаще повторять'}
                     </div>
                   </div>
 

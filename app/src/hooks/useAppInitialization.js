@@ -7,6 +7,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { DESIGN_PRESETS } from '../constants/appConstants';
 import { isOfflineMode } from '../services/localDb';
 import { syncService } from '../services/syncService';
+import { remapOfflineUi, refreshOfflineUi } from '../services/offlineUi';
 
 const SETTINGS_VERSION = '6';
 
@@ -26,7 +27,7 @@ export const useAppInitialization = (checkStartParam) => {
       setUserProfile(profile);
 
       // Instant UI restore from cache if available (synchronous)
-      loadCachedInitData();
+      if (!isOfflineMode()) loadCachedInitData();
 
       // CloudStorage language restoration in background (non-blocking)
       (async () => {
@@ -96,6 +97,8 @@ export const useAppInitialization = (checkStartParam) => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleOnline);
+    window.addEventListener('lerne:ids-remapped', remapOfflineUi);
+    window.addEventListener('lerne:synced', refreshOfflineUi);
 
     // Periodic background sync every 60 seconds
     const syncInterval = setInterval(() => {
@@ -127,6 +130,8 @@ export const useAppInitialization = (checkStartParam) => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('lerne:ids-remapped', remapOfflineUi);
+      window.removeEventListener('lerne:synced', refreshOfflineUi);
       clearInterval(syncInterval);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

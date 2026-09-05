@@ -1,30 +1,20 @@
 import axios from 'axios';
 import { getUserId } from '../utils/auth';
-import { isOfflineMode } from './localDb';
+import { isOfflineMode, resolveLocalRequest, prepareLocalDb } from './localDb';
 import { offlineApi } from './offlineApi';
+import { API_BASE_URL } from './apiConfig';
 
-const getBaseURL = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  if (typeof window !== 'undefined') {
-    if (window.Capacitor || window.location.protocol === 'capacitor:' || window.location.protocol === 'file:') {
-      return 'https://tma-amber.vercel.app/api';
-    }
-  }
-  return '/api';
-};
-
-const baseURL = getBaseURL();
+const baseURL = API_BASE_URL;
 
 const axiosInstance = axios.create({
   baseURL: baseURL,
+  timeout: 15000,
 });
 
 // Добавляем X-User-ID ко всем запросам автоматически и отключаем кэширование GET-запросов
 axiosInstance.interceptors.request.use((config) => {
   const userId = getUserId();
-  if (userId) {
+  if (userId && !config.headers['X-User-ID']) {
     config.headers['X-User-ID'] = userId;
   }
   if (config.method && config.method.toLowerCase() === 'get') {
@@ -39,6 +29,12 @@ const api = new Proxy(axiosInstance, {
   get(target, propKey, receiver) {
     if (['get', 'post', 'put', 'delete', 'patch'].includes(propKey)) {
       return async (url, ...args) => {
+        if (isOfflineMode()) {
+          await prepareLocalDb();
+          const resolved = await resolveLocalRequest(url, args[0]);
+          url = resolved.url;
+          if (args.length) args[0] = resolved.body;
+        }
         const isOfflineEndpoint = 
           url.startsWith('/decks') || 
           url.startsWith('/folders') ||
@@ -53,13 +49,27 @@ const api = new Proxy(axiosInstance, {
           try {
             return await offlineApi.handle(propKey, url, ...args);
           } catch (err) {
-            console.warn(`[Offline Mode Request Failed] ${propKey.toUpperCase()} ${url}:`, err);
+            if (err.code !== 'OFFLINE_UNSUPPORTED' || !navigator.onLine) throw err;
           }
         }
 
         // Try online server request first
         try {
-          return await Reflect.get(target, propKey, receiver).call(target, url, ...args);
+          const needsRefresh = isOfflineMode() && isOfflineEndpoint && propKey !== 'get';
+          if (needsRefresh) {
+            const { syncService } = await import('./syncService');
+            const synced = await syncService.sync();
+            if (!synced.success) throw new Error(synced.reason);
+            const resolved = await resolveLocalRequest(url, args[0]);
+            url = resolved.url;
+            if (args.length) args[0] = resolved.body;
+          }
+          const response = await Reflect.get(target, propKey, receiver).call(target, url, ...args);
+          if (needsRefresh) {
+            const { syncService } = await import('./syncService');
+            await syncService.sync();
+          }
+          return response;
         } catch (networkErr) {
           // Automatic fallback to local Dexie DB when network is disconnected or server unavailable
           const isNetworkFailure = 
@@ -89,5 +99,4 @@ const api = new Proxy(axiosInstance, {
 });
 
 export default api;
-
-
+export { axiosInstance as networkApi };
