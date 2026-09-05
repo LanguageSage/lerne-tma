@@ -13,6 +13,29 @@ from .media import resolve_media_url, _build_media_exists_map
 from .utils import add_to_history, resolve_deck_metadata
 from .cefr_metadata import get_cefr_metadata, merge_cefr_metadata, parse_card_metadata, serialize_card_metadata
 
+def cleanup_unreferenced_audio(filename: str):
+    """Удаляет аудиофайл из TMAMedia, если на него больше не ссылается ни одна карточка."""
+    if not filename:
+        return
+    clean_name = str(filename).replace('/api/media/audio/', '').replace('audio/', '').strip()
+    if not clean_name:
+        return
+    try:
+        refs_count = TMA_Card.select(TMA_Card.id).where(
+            ((TMA_Card.audio_path == clean_name) | (TMA_Card.audio_path == f"/api/media/audio/{clean_name}") |
+             (TMA_Card.audio_back_path == clean_name) | (TMA_Card.audio_back_path == f"/api/media/audio/{clean_name}")) &
+            (TMA_Card.is_deleted == False)
+        ).count()
+        if refs_count == 0:
+            deleted = TMAMedia.delete().where(
+                (TMAMedia.filename == clean_name) & (TMAMedia.folder == 'audio')
+            ).execute()
+            if deleted:
+                logger.info(f"Deleted unreferenced audio from TMAMedia: {clean_name}")
+    except Exception as e:
+        logger.warning(f"Failed to cleanup unreferenced audio {clean_name}: {e}")
+
+
 def save_card(data, user_id):
     """Сохраняет или обновляет карточку."""
     logger.info(f"Saving card for user {user_id}. Data: {data}")
@@ -58,6 +81,8 @@ def save_card(data, user_id):
 
     old_front = card.front_text
     old_back = card.back_text
+    old_audio_path = card.audio_path
+    old_audio_back_path = card.audio_back_path
 
     if 'front' in data or 'front_text' in data:
         new_front = data.get('front') if 'front' in data else data.get('front_text')
@@ -70,6 +95,8 @@ def save_card(data, user_id):
         elif 'audio_path' in data:
             card.audio_path = data.get('audio_path')
         card.front_text = new_front
+    elif 'audio_path' in data:
+        card.audio_path = data.get('audio_path')
         
     if 'back' in data or 'back_text' in data:
         new_back = data.get('back') if 'back' in data else data.get('back_text')
@@ -82,6 +109,8 @@ def save_card(data, user_id):
         elif 'audio_back_path' in data:
             card.audio_back_path = data.get('audio_back_path')
         card.back_text = new_back
+    elif 'audio_back_path' in data:
+        card.audio_back_path = data.get('audio_back_path')
         
     if 'context' in data:
         card.context = data.get('context')
@@ -174,6 +203,11 @@ def save_card(data, user_id):
         card.history = add_to_history(card.history, "Edited manually")
     
     card.save()
+    if old_audio_path and card.audio_path != old_audio_path:
+        cleanup_unreferenced_audio(old_audio_path)
+    if old_audio_back_path and card.audio_back_path != old_audio_back_path:
+        cleanup_unreferenced_audio(old_audio_back_path)
+
     if card.deck_id:
         from .collaborative_service import touch_deck_and_parent_folders
         touch_deck_and_parent_folders(card.deck_id)

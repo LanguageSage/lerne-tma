@@ -203,6 +203,23 @@ export const useLidStore = create((set, get) => ({
     }));
   },
 
+  updateQuestionAudio: (questionId, { audio_path, audio_url }) => {
+    set((state) => ({
+      questions: state.questions.map((q) => {
+        if (q.id === questionId) {
+          const resolvedUrl = audio_url || `/api/media/audio/${audio_path}`;
+          return {
+            ...q,
+            audio_path,
+            audioUrl: resolvedUrl,
+            rawCard: q.rawCard ? { ...q.rawCard, audio_path, audio_url: resolvedUrl } : q.rawCard
+          };
+        }
+        return q;
+      })
+    }));
+  },
+
   tickTimer: () => {
     const { timeRemaining, isTimerActive, finishSimulation } = get();
     if (!isTimerActive) return;

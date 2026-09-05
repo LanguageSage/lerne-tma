@@ -11,6 +11,9 @@ import { BundeslandModal } from './BundeslandModal';
 import { LidQuestionNavigator } from './LidQuestionNavigator';
 import { LidQuestionCard } from './LidQuestionCard';
 import { LidResultsView } from './LidResultsView';
+import { useAudio } from '../../hooks/useAudio';
+import { useVoicePicker } from '../../hooks/useVoicePicker';
+import { CardAudioPlayer } from '../study/CardAudioPlayer';
 import './LidExam.css';
 
 export const LidExamView = () => {
@@ -36,6 +39,25 @@ export const LidExamView = () => {
     finishSimulation,
     resetToMenu
   } = useLidStore();
+
+  // Audio playback and voice picker for practice mode
+  const audioControls = useAudio(false);
+  const voicePicker = useVoicePicker('de');
+  const stopAudio = audioControls.stopAudio;
+  const setPreviewUrl = voicePicker.setPreviewUrl;
+
+  // Stop audio and reset preview when changing questions
+  useEffect(() => {
+    stopAudio?.();
+    setPreviewUrl?.(null);
+  }, [currentQuestionIndex, stopAudio, setPreviewUrl]);
+
+  // Stop audio when leaving the running simulation
+  useEffect(() => {
+    if (screen !== 'running') {
+      stopAudio?.();
+    }
+  }, [screen, stopAudio]);
 
   // Timer interval
   useEffect(() => {
@@ -381,6 +403,30 @@ export const LidExamView = () => {
               </button>
             )}
           </div>
+
+          {/* Floating Audio Player in Practice Mode */}
+          {examMode === 'practice' && currentQ && (
+            <CardAudioPlayer
+              audioUrl={currentQ.audioUrl || currentQ.audio_path}
+              playAudio={audioControls.playAudio}
+              pauseAudio={audioControls.pauseAudio}
+              resumeAudio={audioControls.resumeAudio}
+              togglePlayPause={audioControls.togglePlayPause}
+              stopAudio={audioControls.stopAudio}
+              seekAudio={audioControls.seekAudio}
+              setPlaybackSpeed={audioControls.setPlaybackSpeed}
+              audioState={audioControls.audioState}
+              currentUrl={audioControls.currentUrl}
+              currentTime={audioControls.currentTime}
+              duration={audioControls.duration}
+              playbackRate={audioControls.playbackRate}
+              isAudioLoading={audioControls.isAudioLoading}
+              voicePicker={voicePicker}
+              cardText={currentQ.question}
+              cardId={currentQ.id}
+              wrapperClassName="lid-exam-audio-wrapper"
+            />
+          )}
         </div>
       )}
 

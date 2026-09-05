@@ -39,7 +39,9 @@ export const CardAudioPlayer = React.memo(({
 
   disabled = false,
   className = '',
-  style = {}
+  style = {},
+  wrapperClassName = '',
+  wrapperStyle = {}
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
@@ -142,7 +144,7 @@ export const CardAudioPlayer = React.memo(({
   if (!effectiveUrl) {
     if (!voicePicker || !cardText || !cardId) return null;
     return createPortal(
-      <div className="card-audio-floating-wrapper">
+      <div className={`card-audio-floating-wrapper ${wrapperClassName}`} style={wrapperStyle}>
         <div
           className={`card-audio-floating-pill glass ${className}`}
           style={{ ...style, gap: '8px', padding: '6px 12px' }}
@@ -180,7 +182,7 @@ export const CardAudioPlayer = React.memo(({
   // ── COLLAPSED FLOATING PILL STATE ──────────────────────────────────────────
   if (isCollapsed) {
     return createPortal(
-      <div className="card-audio-floating-wrapper">
+      <div className={`card-audio-floating-wrapper ${wrapperClassName}`} style={wrapperStyle}>
         <div
           className={`card-audio-floating-pill glass ${isPlaying ? 'playing' : ''} ${className}`}
           style={style}
@@ -246,7 +248,7 @@ export const CardAudioPlayer = React.memo(({
 
   // ── EXPANDED FULL PLAYER STATE ────────────────────────────────────────────
   return createPortal(
-    <div className="card-audio-floating-wrapper">
+    <div className={`card-audio-floating-wrapper ${wrapperClassName}`} style={wrapperStyle}>
       <div
         className={`card-audio-player-bar floating-expanded glass ${isThisActive ? 'active' : ''} ${className}`}
         style={style}
@@ -306,14 +308,14 @@ export const CardAudioPlayer = React.memo(({
                 className={`audio-player-btn-regenerate ${voicePicker.isGenerating ? 'loading' : ''}`}
                 onClick={cardId ? handleRegenerateAndSave : handleGeneratePreview}
                 disabled={voicePicker.isGenerating || !cardText}
-                title={cardId ? "Перегенерировать и сохранить озвучку карточки" : "Озвучить выбранным голосом"}
+                title={cardId ? "Перезаписать озвучку выбранным голосом" : "Озвучить выбранным голосом"}
               >
                 {voicePicker.isGenerating ? (
                   <RefreshCw size={12} className="spin" />
                 ) : (
                   <RefreshCw size={12} />
                 )}
-                <span>{voicePicker.isGenerating ? 'Генерирую…' : cardId ? 'Сохранить голос' : 'Прослушать'}</span>
+                <span>{voicePicker.isGenerating ? 'Генерирую…' : cardId ? 'Перезаписать' : 'Прослушать'}</span>
               </button>
             )}
 

@@ -53,6 +53,29 @@ async def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/{card_id}")
+@router.patch("/{card_id}")
+async def update_card(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
+    try:
+        from api import models
+        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+        if user and user.is_guest:
+            raise HTTPException(status_code=403, detail="Для создания и изменения карточек требуется авторизация.")
+        data_to_save = dict(data) if data else {}
+        data_to_save['id'] = card_id
+        card = services.save_card(data_to_save, user_id)
+        if card:
+            return services.format_card_for_study(card, user_id)
+        raise HTTPException(status_code=400, detail="Could not update card.")
+    except HTTPException:
+        raise
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"Router update_card error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.delete("/{card_id}")
 def delete_card(card_id: int, user_id: int = Depends(get_user_id)):
     if services.delete_card(card_id, user_id):

@@ -121,6 +121,12 @@ def clear_trash(user_id: int):
         ))
         deck_ids = [d.id for d in deleted_decks]
 
+        # Собираем аудио удаляемых карточек
+        audios_to_check = set()
+        for c in deleted_cards:
+            if c.audio_path: audios_to_check.add(c.audio_path)
+            if c.audio_back_path: audios_to_check.add(c.audio_back_path)
+
         with tma_db.atomic():
             # Удаляем прогресс и карточки
             if card_ids:
@@ -129,7 +135,11 @@ def clear_trash(user_id: int):
 
             # Удаляем карточки удаленных колод (если какие-то остались)
             if deck_ids:
-                remaining_cards = list(TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id << deck_ids))
+                remaining_cards = list(TMA_Card.select(TMA_Card.id, TMA_Card.audio_path, TMA_Card.audio_back_path).where(TMA_Card.deck_id << deck_ids))
+                for c in remaining_cards:
+                    if c.audio_path: audios_to_check.add(c.audio_path)
+                    if c.audio_back_path: audios_to_check.add(c.audio_back_path)
+
                 rem_card_ids = [c.id for c in remaining_cards]
                 if rem_card_ids:
                     TMAProgress.delete().where(TMAProgress.card_id << rem_card_ids).execute()
@@ -137,6 +147,11 @@ def clear_trash(user_id: int):
 
                 # Удаляем сами колоды
                 TMA_Deck.delete().where(TMA_Deck.id << deck_ids).execute()
+
+        # Очищаем осиротевшие аудиофайлы из TMAMedia
+        from .cards import cleanup_unreferenced_audio
+        for audio_file in audios_to_check:
+            cleanup_unreferenced_audio(audio_file)
 
         logger.info(f"Cleared trash for user {user_id}: {len(card_ids)} cards, {len(deck_ids)} decks removed.")
         return True

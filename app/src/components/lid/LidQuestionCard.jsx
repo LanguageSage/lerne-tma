@@ -266,7 +266,7 @@ export const LidQuestionCard = ({
                   </button>
                 )}
 
-                {(question.audioUrl || question.audio_path) && (
+                {!isPractice && (question.audioUrl || question.audio_path) && (
                   <button
                     type="button"
                     className={`lid-btn-audio-pill ${isPlayingAudio ? 'playing' : ''}`}

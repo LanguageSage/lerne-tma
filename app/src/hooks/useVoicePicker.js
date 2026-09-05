@@ -145,6 +145,20 @@ export const useVoicePicker = (
       const boundaries = res.data?.word_boundaries || null;
 
       if (url && path) {
+        const { useUiStore } = await import('../store/useUiStore');
+        const { useSessionStore } = await import('../store/useSessionStore');
+        const sessionCard = useSessionStore.getState().card?.id === cardId ? useSessionStore.getState().card : null;
+        const currentPath = isBack ? sessionCard?.audio_back_path : sessionCard?.audio_path;
+        const cleanP = (p) => (p || '').replace('/api/media/audio/', '').replace('audio/', '').trim();
+
+        // Smart check: if card already uses this exact audio file, don't re-save
+        if (sessionCard && currentPath && cleanP(currentPath) === cleanP(path)) {
+          useUiStore.getState().showToast('Этот голос уже используется для карточки', 'info');
+          setPreviewUrl(url);
+          setWordBoundaries(boundaries);
+          return url;
+        }
+
         const updatePayload = isBack ? { audio_back_path: path } : { audio_path: path };
         await api.put(`/cards/${cardId}`, updatePayload);
 
@@ -154,6 +168,29 @@ export const useVoicePicker = (
           updateCardLocal(cardId, isBack ? { audio_back_url: url, audio_back_path: path } : { audio_url: url, audio_path: path });
         }
 
+        if (useSessionStore.getState().card?.id === cardId) {
+          useSessionStore.getState().setCard({
+            ...useSessionStore.getState().card,
+            ...(isBack ? { audio_back_url: url, audio_back_path: path } : { audio_url: url, audio_path: path })
+          });
+        }
+
+        try {
+          const { useLidStore } = await import('../store/useLidStore');
+          const updateQuestionAudio = useLidStore.getState().updateQuestionAudio;
+          if (updateQuestionAudio) {
+            updateQuestionAudio(cardId, { audio_path: path, audio_url: url });
+          }
+        } catch { /* ignore */ }
+
+        try {
+          const { db } = await import('../services/localDb');
+          if (db?.cards) {
+            await db.cards.update(cardId, isBack ? { audio_back_path: path } : { audio_path: path });
+          }
+        } catch { /* ignore */ }
+
+        useUiStore.getState().showToast('Озвучка обновлена', 'success');
         setPreviewUrl(url);
         setWordBoundaries(boundaries);
       }
