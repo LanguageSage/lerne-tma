@@ -45,7 +45,12 @@
     "reverse_cards": "🔄 Reverse (Translation → Target)",
     "link": "Personal link:",
     "copied": "Link copied!",
-    "copy": "Copy link"
+    "copy": "Copy link",
+    "search_placeholder": "Search decks and folders...",
+    "breadcrumb_home": "Home",
+    "filter_all": "All ({{count}})",
+    "filter_learning": "🎯 Studying ({{count}})",
+    "loading": "Loading decks..."
   },
   "settings": {
     "title": "Settings",

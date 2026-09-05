@@ -21,6 +21,7 @@ import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Wrench, Chev
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
+import { useTranslation } from '../../i18n/i18nContext';
 import { ImportModal } from '../modals/ImportModal';
 import { DeckGridHeader } from './DeckGridHeader';
 import { DeckCardItem } from './DeckCardItem';
@@ -38,6 +39,7 @@ export const DeckGrid = ({
   startTutorial, 
   openSyncModal
 }) => {
+  const { t } = useTranslation();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [deckSearchQuery, setDeckSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -224,7 +226,7 @@ export const DeckGrid = ({
             <SearchBar
               value={deckSearchQuery}
               onChange={setDeckSearchQuery}
-              placeholder="Поиск по колодам и папкам..."
+              placeholder={t('decks.search_placeholder', 'Поиск по колодам и папкам...')}
               color="indigo"
               wrapperClassName="deck-search-wrapper"
               autoFocus={true}
@@ -253,7 +255,7 @@ export const DeckGrid = ({
               onClick={() => setActiveFolderId(null)}
               style={{ cursor: 'pointer', color: activeFolderColor, fontWeight: 600 }}
             >
-              Главная
+              {t('decks.breadcrumb_home', 'Главная')}
             </span>
             {getBreadcrumbs().map((b, i, arr) => (
               <React.Fragment key={b.id}>
@@ -301,14 +303,14 @@ export const DeckGrid = ({
               className={`deck-filter-tab ${deckFilter === 'all' ? 'active' : ''}`}
               onClick={() => setDeckFilter('all')}
             >
-              <span>Все ({currentDecks.length})</span>
+              <span>{t('decks.filter_all', { count: currentDecks.length }, `Все (${currentDecks.length})`)}</span>
             </button>
             <button 
               type="button"
               className={`deck-filter-tab ${deckFilter === 'learning' ? 'active' : ''}`}
               onClick={() => setDeckFilter('learning')}
             >
-              <span>🎯 Учу ({learningCount})</span>
+              <span>{t('decks.filter_learning', { count: learningCount }, `🎯 Учу (${learningCount})`)}</span>
             </button>
           </div>
         )}
@@ -317,7 +319,7 @@ export const DeckGrid = ({
           {(!hasInitialized || loading) && currentFolders.length === 0 && currentDecks.length === 0 ? (
             <div className="empty-decks-state glass">
               <RefreshCw size={48} className="spin" color="#a855f7" />
-              <h3>Идет загрузка колод...</h3>
+              <h3>{t('decks.loading', 'Идет загрузка колод...')}</h3>
               <p>Пожалуйста, подождите немного.</p>
             </div>
           ) : (decks.length === 0 && folders.length === 0) ? (
