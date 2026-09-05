@@ -128,22 +128,47 @@ def get_exam_ticket(
     b3 = next((d for d in user_decks if d.name.startswith('3.') or 'mensch' in d.name.lower()), None)
     st = next((d for d in user_decks if d.name.lower() == target_state.lower()), None)
 
-    # Fallback to master decks if any are missing in this user's folder
-    if not (b1 and b2 and b3 and st):
-        master_decks = find_user_decks(MASTER_UID)
-        if not b1:
-            b1 = next((d for d in master_decks if d.name.startswith('1.') or 'politik' in d.name.lower()), None)
-        if not b2:
-            b2 = next((d for d in master_decks if d.name.startswith('2.') or 'geschichte' in d.name.lower()), None)
-        if not b3:
-            b3 = next((d for d in master_decks if d.name.startswith('3.') or 'mensch' in d.name.lower()), None)
-        if not st:
-            st = next((d for d in master_decks if d.name.lower() == target_state.lower()), None)
+    def get_cards(deck):
+        if not deck:
+            return []
+        return list(models.TMA_Card.select().where(models.TMA_Card.deck == deck, models.TMA_Card.is_deleted == False))
 
-    c1 = list(models.TMA_Card.select().where(models.TMA_Card.deck == b1, models.TMA_Card.is_deleted == False)) if b1 else []
-    c2 = list(models.TMA_Card.select().where(models.TMA_Card.deck == b2, models.TMA_Card.is_deleted == False)) if b2 else []
-    c3 = list(models.TMA_Card.select().where(models.TMA_Card.deck == b3, models.TMA_Card.is_deleted == False)) if b3 else []
-    cs = list(models.TMA_Card.select().where(models.TMA_Card.deck == st, models.TMA_Card.is_deleted == False)) if st else []
+    c1 = get_cards(b1)
+    c2 = get_cards(b2)
+    c3 = get_cards(b3)
+    cs = get_cards(st)
+
+    # Fallback to master decks if any are missing or empty in this user's folder
+    if len(c1) < 10 or len(c2) < 10 or len(c3) < 10 or len(cs) < 3:
+        master_decks = find_user_decks(MASTER_UID)
+        if len(c1) < 10:
+            for d in master_decks:
+                if d.name.startswith('1.') or 'politik' in d.name.lower():
+                    cards = get_cards(d)
+                    if len(cards) >= 10:
+                        b1, c1 = d, cards
+                        break
+        if len(c2) < 10:
+            for d in master_decks:
+                if d.name.startswith('2.') or 'geschichte' in d.name.lower():
+                    cards = get_cards(d)
+                    if len(cards) >= 10:
+                        b2, c2 = d, cards
+                        break
+        if len(c3) < 10:
+            for d in master_decks:
+                if d.name.startswith('3.') or 'mensch' in d.name.lower():
+                    cards = get_cards(d)
+                    if len(cards) >= 10:
+                        b3, c3 = d, cards
+                        break
+        if len(cs) < 3:
+            for d in master_decks:
+                if d.name.lower() == target_state.lower():
+                    cards = get_cards(d)
+                    if len(cards) >= 3:
+                        st, cs = d, cards
+                        break
 
     picked_b1 = random.sample(c1, min(len(c1), 10))
     picked_b2 = random.sample(c2, min(len(c2), 10))

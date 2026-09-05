@@ -613,14 +613,26 @@ export const StudyView = ({ startTutorial }) => {
         ) : (isSessionFinished || apiError) ? (
           <StudyFinished
             apiError={apiError}
-            onGoHome={() => {
+            onGoHome={async () => {
               stopAudio?.();
               useSessionStore.getState().stopAutoplay?.();
               useSessionStore.getState().resetSession();
+              const deck = useDeckStore.getState().currentDeck;
+              if (deck && deck.id !== 'duplicates' && !deck.is_learning) {
+                try {
+                  await useDeckStore.getState().toggleDeckLearning(deck.id, true);
+                } catch (e) {
+                  console.warn('Auto toggle learning on finish error:', e);
+                }
+              }
+              useDeckStore.getState().fetchDecks(true).catch(console.error);
               setActiveFolderId(null);
               setView('decks');
             }}
-            onGoToDecks={navigateUp}
+            onGoToDecks={() => {
+              useDeckStore.getState().fetchDecks(true).catch(console.error);
+              navigateUp();
+            }}
             onLearnMore={handleLearnMore}
             onSyncDeck={() => handleSyncDeck(currentDeck?.id)}
             onResetProgress={handleResetProgressConfirmed}

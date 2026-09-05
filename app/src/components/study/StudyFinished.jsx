@@ -3,6 +3,7 @@ import { CheckCircle } from 'lucide-react';
 import { useTranslation } from '../../i18n/i18nContext';
 import { useUiStore } from '../../store/useUiStore';
 import { useSessionStore } from '../../store/useSessionStore';
+import { useDeckStore } from '../../store/useDeckStore';
 
 export const StudyFinished = ({
   apiError,
@@ -14,12 +15,21 @@ export const StudyFinished = ({
 }) => {
   const { t } = useTranslation();
 
-  const handleOk = () => {
+  const handleOk = async () => {
     if (onGoHome) {
-      onGoHome();
+      await onGoHome();
     } else {
       useSessionStore.getState().stopAutoplay?.();
       useSessionStore.getState().resetSession();
+      const deck = useDeckStore.getState().currentDeck;
+      if (deck && deck.id !== 'duplicates' && !deck.is_learning) {
+        try {
+          await useDeckStore.getState().toggleDeckLearning(deck.id, true);
+        } catch (e) {
+          console.warn('Auto toggle learning error:', e);
+        }
+      }
+      useDeckStore.getState().fetchDecks(true).catch(console.error);
       useUiStore.getState().setActiveFolderId(null);
       useUiStore.getState().setView('decks');
     }

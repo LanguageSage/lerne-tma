@@ -172,3 +172,74 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
   };
 };
 
+/**
+ * Transforms a static JSON question from lidQuestions.json into the exam question schema with shuffled choices.
+ */
+export const transformJsonQuestionToExamQuestion = (q, examIndex = 1, { shuffle = true } = {}) => {
+  if (!q) return null;
+
+  const rawOptions = Array.isArray(q.options) ? q.options : [];
+  const origLetters = ['a', 'b', 'c', 'd', 'e', 'f'];
+
+  const pairs = rawOptions.map((opt, idx) => ({
+    origId: opt.id || origLetters[idx] || String(idx + 1),
+    text: opt.text || '',
+    isCorrect: Boolean(opt.isCorrect || opt.id === q.correctOption),
+    textRu: (q.translationRu && opt.id && q.translationRu[opt.id]) || ''
+  }));
+
+  const shuffledPairs = shuffle ? [...pairs].sort(() => Math.random() - 0.5) : [...pairs];
+
+  const options = [];
+  let correctOption = 'a';
+  const translationRu = {
+    question: q.translationRu?.question || '',
+    context: q.translationRu?.context || ''
+  };
+
+  shuffledPairs.forEach((pair, idx) => {
+    const optId = origLetters[idx] || String(idx + 1);
+    if (pair.isCorrect) {
+      correctOption = optId;
+    }
+
+    options.push({
+      id: optId,
+      text: pair.text,
+      translationRu: pair.textRu,
+      isCorrect: pair.isCorrect,
+      origId: pair.origId
+    });
+
+    if (pair.textRu) {
+      translationRu[optId] = pair.textRu;
+    }
+  });
+
+  return {
+    id: q.id,
+    examIndex,
+    category: q.category || 'Leben in Deutschland',
+    question: q.question,
+    options,
+    correctOption,
+    cardBack: q.cardBack || '',
+    cardContext: q.cardContext || q.context || '',
+    context: q.context || '',
+    audioUrl: q.audioUrl || '',
+    image: q.image || null,
+    translationRu,
+    bamfNumber: q.num || null,
+    rawCard: {
+      id: q.id,
+      front_text: q.question,
+      back_text: q.cardBack,
+      context: q.cardContext || q.context,
+      audio_url: q.audioUrl,
+      image_path: q.image,
+      translationRu
+    }
+  };
+};
+
+

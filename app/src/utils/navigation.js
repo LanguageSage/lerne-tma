@@ -76,13 +76,12 @@ export const navigateUp = () => {
   }
 
   // 3b. LiD Exam View -> If in exam/results, return to LiD menu; if at menu, return to Decks
-  if (uiState.view === 'lid') {
+  if (uiState.view === 'lid_exam' || uiState.view === 'lid') {
     if (lidState && lidState.screen !== 'menu' && lidState.resetToMenu) {
       lidState.resetToMenu();
       return true;
     }
     uiState.setView('decks');
-    uiState.setActiveFolderId(null);
     return true;
   }
 

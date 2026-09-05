@@ -89,21 +89,111 @@ def ensure_starter_decks(user_id: int, target_language: str = None):
 
 
 def merge_guest_data(guest_id: int, target_user_id: int):
-    """Переносит колоды, папки, карточки и прогресс от guest_id к target_user_id."""
+    """Переносит колоды, папки, карточки и прогресс от guest_id к target_user_id,
+    предотвращая дублирование системных папок («Входящие», «Leben in Deutschland») и колод."""
     if not guest_id or not target_user_id or guest_id == target_user_id:
         return False
     try:
         logger.info(f"MERGING GUEST DATA: guest_id={guest_id} -> target_user_id={target_user_id}")
         now = datetime.datetime.now()
         with tma_db.atomic():
-            # 1. Update folders
-            TMA_Folder.update(user_id=target_user_id, updated_at=now).where(TMA_Folder.user_id == guest_id).execute()
-            # 2. Update decks
-            TMA_Deck.update(user_id=target_user_id, updated_at=now).where(TMA_Deck.user_id == guest_id).execute()
-            # 3. Update cards creator_id
+            # 1. Загружаем активные папки целевого пользователя
+            target_folders = list(TMA_Folder.select().where(
+                (TMA_Folder.user_id == target_user_id) & (TMA_Folder.is_deleted == False)
+            ))
+            # Маппинг целевых папок: (name, parent_id) -> folder
+            target_folder_map = {(f.name.strip(), f.parent_id): f for f in target_folders}
+
+            # Папки гостя
+            guest_folders = list(TMA_Folder.select().where(TMA_Folder.user_id == guest_id))
+            folder_id_remap = {}
+
+            for gf in guest_folders:
+                key = (gf.name.strip(), gf.parent_id)
+                # Если папка - «📥 Входящие» или «Leben in Deutschland» или уже существует у пользователя
+                matching_target = target_folder_map.get(key)
+                if not matching_target and gf.name.strip() in ("📥 Входящие", "Leben in Deutschland"):
+                    # Ищем любую активную корневую с таким именем
+                    matching_target = next((f for f in target_folders if f.name.strip() == gf.name.strip() and f.parent_id is None), None)
+
+                if matching_target:
+                    folder_id_remap[gf.id] = matching_target.id
+                    # Удаляем дубликат гостевой папки
+                    gf.delete_instance()
+                else:
+                    # Уникальная пользовательская папка гостя - переводим на целевого пользователя
+                    gf.user_id = target_user_id
+                    gf.updated_at = now
+                    gf.save()
+
+            # 2. Обработка колод гостя
+            guest_decks = list(TMA_Deck.select().where(TMA_Deck.user_id == guest_id))
+            target_decks = list(TMA_Deck.select().where(
+                (TMA_Deck.user_id == target_user_id) & (TMA_Deck.is_deleted == False)
+            ))
+            target_deck_map = {(d.name.strip(), d.folder_id): d for d in target_decks}
+
+            for gd in guest_decks:
+                # Перенаправляем folder_id, если папка смерджена
+                target_folder_id = folder_id_remap.get(gd.folder_id, gd.folder_id)
+                
+                # Проверяем, системная ли колода «Входящие»
+                if gd.is_inbox or gd.name.strip() == "📥 Входящие карточки":
+                    target_inbox_deck = next((d for d in target_decks if d.is_inbox or d.name.strip() == "📥 Входящие карточки"), None)
+                    if target_inbox_deck:
+                        # Переносим карточки из гостевых входящих во входящие пользователя
+                        TMA_Card.update(deck_id=target_inbox_deck.id, creator_id=target_user_id, updated_at=now).where(TMA_Card.deck_id == gd.id).execute()
+                        gd.delete_instance()
+                        continue
+
+                # Проверяем, есть ли уже такая колода у пользователя в той же папке
+                matching_deck = target_deck_map.get((gd.name.strip(), target_folder_id))
+                if matching_deck:
+                    # Если у пользователя в колоде 0 карточек, а у гостя есть — переносим карточки
+                    target_card_count = TMA_Card.select().where((TMA_Card.deck_id == matching_deck.id) & (TMA_Card.is_deleted == False)).count()
+                    guest_cards = list(TMA_Card.select().where((TMA_Card.deck_id == gd.id) & (TMA_Card.is_deleted == False)))
+                    
+                    if guest_cards:
+                        if target_card_count == 0:
+                            TMA_Card.update(deck_id=matching_deck.id, creator_id=target_user_id, updated_at=now).where(TMA_Card.deck_id == gd.id).execute()
+                        else:
+                            # Переносим только те карточки гостя, которых еще нет в целевой колоде
+                            existing_fronts = {c.front_text.strip() for c in TMA_Card.select(TMA_Card.front_text).where((TMA_Card.deck_id == matching_deck.id) & (TMA_Card.is_deleted == False))}
+                            for gc in guest_cards:
+                                if gc.front_text.strip() not in existing_fronts:
+                                    gc.deck_id = matching_deck.id
+                                    gc.creator_id = target_user_id
+                                    gc.updated_at = now
+                                    gc.save()
+                                else:
+                                    # Дубликат карточки — удаляем
+                                    TMAProgress.delete().where(TMAProgress.card_id == gc.id).execute()
+                                    gc.delete_instance()
+
+                    # Удаляем дублирующую колоду гостя
+                    gd.delete_instance()
+                else:
+                    # Уникальная колода гостя — переводим на пользователя
+                    gd.user_id = target_user_id
+                    gd.folder_id = target_folder_id
+                    gd.updated_at = now
+                    gd.save()
+
+            # 3. Update remaining cards creator_id
             TMA_Card.update(creator_id=target_user_id, updated_at=now).where(TMA_Card.creator_id == guest_id).execute()
-            # 4. Update progress
-            TMAProgress.update(user_id=target_user_id).where(TMAProgress.user_id == guest_id).execute()
+
+            # 4. Update progress safely without unique constraint violations
+            guest_progresses = list(TMAProgress.select().where(TMAProgress.user_id == guest_id))
+            if guest_progresses:
+                target_card_ids = set(p.card_id for p in TMAProgress.select(TMAProgress.card_id).where(TMAProgress.user_id == target_user_id))
+                for gp in guest_progresses:
+                    if gp.card_id in target_card_ids:
+                        # У пользователя уже есть свой прогресс по этой карточке — удаляем гостевой
+                        gp.delete_instance()
+                    else:
+                        gp.user_id = target_user_id
+                        gp.save()
+
         logger.info(f"MERGED GUEST DATA SUCCESSFULLY for guest_id={guest_id} -> {target_user_id}")
         return True
     except Exception as e:

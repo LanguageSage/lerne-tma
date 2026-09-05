@@ -80,8 +80,26 @@ def ensure_inbox_folder(user_id: int, target_language: str = 'de') -> TMA_Folder
     return inbox_folder
 
 def create_folder(name: str, user_id: int, parent_id: int = None, color: str = None, target_language: str = 'de'):
-    """Создает новую папку для пользователя."""
+    """Создает новую папку для пользователя, предотвращая дублирование системных папок."""
     try:
+        clean_name = (name or '').strip()
+        lang = (target_language or 'de').lower().strip()
+
+        # Защита от дублирования папки «📥 Входящие»
+        if clean_name == "📥 Входящие":
+            return ensure_inbox_folder(user_id, target_language=lang)
+
+        # Защита от дублирования папки «Leben in Deutschland»
+        if clean_name == "Leben in Deutschland" and parent_id is None:
+            existing_lid = TMA_Folder.get_or_none(
+                (TMA_Folder.user_id == user_id) &
+                (TMA_Folder.name == "Leben in Deutschland") &
+                (TMA_Folder.parent.is_null()) &
+                (TMA_Folder.is_deleted == False)
+            )
+            if existing_lid:
+                return existing_lid
+
         if parent_id is not None:
             from .collaborative_service import get_effective_user_role
             from fastapi import HTTPException
@@ -94,10 +112,10 @@ def create_folder(name: str, user_id: int, parent_id: int = None, color: str = N
 
         folder = TMA_Folder.create(
             user_id=user_id,
-            name=name,
+            name=clean_name,
             parent_id=parent_id,
             color=color,
-            target_language=target_language or 'de',
+            target_language=lang,
             created_at=datetime.datetime.now(),
             updated_at=datetime.datetime.now()
         )
@@ -181,7 +199,13 @@ def delete_folder(folder_id: int, user_id: int):
         if not folder:
             return False
         if folder.name == "📥 Входящие":
-            raise ValueError("Нельзя удалить папку Входящие")
+            active_inbox_count = TMA_Folder.select().where(
+                (TMA_Folder.user_id == user_id) &
+                (TMA_Folder.name == "📥 Входящие") &
+                (TMA_Folder.is_deleted == False)
+            ).count()
+            if active_inbox_count <= 1:
+                raise ValueError("Нельзя удалить основную папку Входящие")
             
         # Переносим колоды на уровень выше (parent_id текущей папки)
         TMA_Deck.update(folder_id=folder.parent_id, updated_at=datetime.datetime.now()).where(

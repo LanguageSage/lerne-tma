@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Check, X, HelpCircle, Languages, Image as ImageIcon, 
-  RotateCw, RotateCcw, Eye, Sparkles, BookOpen, CheckCircle2, Volume2 
+  Check, X, Languages, Image as ImageIcon, 
+  RotateCw, RotateCcw, CheckCircle2, Volume2 
 } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
 import { LidCardBreakdown } from './LidCardBreakdown';
@@ -83,6 +83,7 @@ export const LidQuestionCard = ({
 
   const handleToggleAudio = (e) => {
     if (e) e.stopPropagation();
+    if (!isPractice) return;
     const url = question?.audioUrl || question?.audio_path;
     if (!url) return;
 
@@ -240,7 +241,7 @@ export const LidQuestionCard = ({
             {/* Question Text Box */}
             <div className="lid-question-text-box glass">
               <h3 className="lid-question-text">{question.question}</h3>
-              {showTranslation && questionRuText && (
+              {isPractice && showTranslation && questionRuText && (
                 <motion.div
                   className="lid-question-translation"
                   initial={{ opacity: 0, height: 0 }}
@@ -252,33 +253,21 @@ export const LidQuestionCard = ({
                 </motion.div>
               )}
 
-              {/* Toolbar Row */}
-              <div className="lid-card-actions-toolbar">
-                {questionRuText && (
-                  <button
-                    type="button"
-                    className={`lid-toggle-trans-btn ${showTranslation ? 'active' : ''}`}
-                    onClick={() => setShowTranslation(!showTranslation)}
-                    title="Показать / скрыть перевод вопроса"
-                  >
-                    <Languages size={13} />
-                    <span>{showTranslation ? 'Скрыть перевод' : 'Перевод на русский'}</span>
-                  </button>
-                )}
+              {/* Toolbar Row: only available in practice mode (exam mode has no audio, translation, or card flip) */}
+              {isPractice && (
+                <div className="lid-card-actions-toolbar">
+                  {questionRuText && (
+                    <button
+                      type="button"
+                      className={`lid-toggle-trans-btn ${showTranslation ? 'active' : ''}`}
+                      onClick={() => setShowTranslation(!showTranslation)}
+                      title="Показать / скрыть перевод вопроса"
+                    >
+                      <Languages size={13} />
+                      <span>{showTranslation ? 'Скрыть перевод' : 'Перевод на русский'}</span>
+                    </button>
+                  )}
 
-                {!isPractice && (question.audioUrl || question.audio_path) && (
-                  <button
-                    type="button"
-                    className={`lid-btn-audio-pill ${isPlayingAudio ? 'playing' : ''}`}
-                    onClick={handleToggleAudio}
-                    title="Прослушать вопрос на немецком"
-                  >
-                    <Volume2 size={13} />
-                    <span>{isPlayingAudio ? 'Пауза' : 'Озвучить'}</span>
-                  </button>
-                )}
-
-                {isPractice && (
                   <button
                     type="button"
                     className="lid-btn-flip-card"
@@ -288,8 +277,8 @@ export const LidQuestionCard = ({
                     <RotateCw size={13} />
                     <span>Обратная сторона карточки</span>
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Options List A, B, C, D */}
@@ -325,7 +314,7 @@ export const LidQuestionCard = ({
 
                     <div className="lid-option-content">
                       <span className="lid-option-text">{opt.text}</span>
-                      {showTranslation && optRuText && (
+                      {isPractice && showTranslation && optRuText && (
                         <span className="lid-option-trans-text">{optRuText}</span>
                       )}
                     </div>
@@ -401,7 +390,7 @@ export const LidQuestionCard = ({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {(question.audioUrl || question.audio_path) && (
+                {isPractice && (question.audioUrl || question.audio_path) && (
                   <button
                     type="button"
                     className={`lid-btn-audio-pill ${isPlayingAudio ? 'playing' : ''}`}

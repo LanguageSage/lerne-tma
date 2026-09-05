@@ -144,7 +144,7 @@ function AppContent() {
     }
 
     const isSubView = (view === 'study' || view === 'trainer' || view === 'editor' || view === 'creator');
-    const isDeckView = (view === 'cards' || view === 'duplicates' || view === 'trash' || view === 'lid');
+    const isDeckView = (view === 'cards' || view === 'duplicates' || view === 'trash' || view === 'lid' || view === 'lid_exam');
     const currentLevel = anyModalOpen 
       ? (isSubView ? folderDepth + 3 : isDeckView ? folderDepth + 2 : folderDepth + 1)
       : isSubView 

@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import api from '../services/api';
 import { db } from '../services/localDb';
-import { transformCardToExamQuestion } from '../utils/lidCardAdapter';
+import { transformCardToExamQuestion, transformJsonQuestionToExamQuestion } from '../utils/lidCardAdapter';
 import { getBundeslandByCode } from '../data/bundeslaender';
+import lidQuestionsData from '../data/lidQuestions.json' with { type: 'json' };
+import { useUiStore } from './useUiStore';
 
 const STORAGE_LAND_KEY = 'lerne_lid_selected_land';
 const STORAGE_REMEMBER_KEY = 'lerne_lid_remember_land';
@@ -68,21 +70,28 @@ export const useLidStore = create((set, get) => ({
     }
   },
 
-  // Generates 33 random questions from real cards: 10 from Block 1, 10 from Block 2, 10 from Block 3, 3 from Bundesland
+  // Generates 33 random questions: 10 Block 1, 10 Block 2, 10 Block 3, 3 Bundesland
+  // Strategy:
+  // 1. Try fast server endpoint
+  // 2. Try local Dexie DB
+  // 3. Fall back to bundled 460-question catalog (guarantees 100% offline uptime, never blank screen)
   generateExamTicket: async (stateCode) => {
-    const targetState = stateCode || get().selectedLandCode || 'BY';
+    const targetState = (stateCode || get().selectedLandCode || 'BY').toUpperCase();
 
     // 1. Try fetching from fast server endpoint
     try {
-      const res = await api.get('/lid/ticket', { params: { state_code: targetState } });
-      if (res.data?.cards && res.data.cards.length > 0) {
+      const res = await api.get('/lid/ticket', { 
+        params: { state_code: targetState },
+        timeout: 5000 
+      });
+      if (res.data?.cards && res.data.cards.length >= 33) {
         return res.data.cards.map((c, idx) => transformCardToExamQuestion(c, idx + 1));
       }
     } catch (err) {
-      console.warn('Could not fetch LiD ticket from API, falling back to local DB:', err);
+      console.warn('Could not fetch LiD ticket from API, falling back to local data:', err);
     }
 
-    // 2. Fallback: Local Dexie DB
+    // 2. Fallback: Local Dexie DB (if user has cards cached)
     try {
       const stateInfo = getBundeslandByCode(targetState);
       const stateName = stateInfo?.nameDe || 'Bayern';
@@ -105,17 +114,41 @@ export const useLidStore = create((set, get) => ({
         getDeckCards(stDeck)
       ]);
 
-      const picked1 = pickRandom(c1, 10).map(c => ({ ...c, deck_name: b1Deck?.name }));
-      const picked2 = pickRandom(c2, 10).map(c => ({ ...c, deck_name: b2Deck?.name }));
-      const picked3 = pickRandom(c3, 10).map(c => ({ ...c, deck_name: b3Deck?.name }));
-      const pickedState = pickRandom(cs, 3).map(c => ({ ...c, deck_name: stDeck?.name }));
+      if (c1.length >= 10 && c2.length >= 10 && c3.length >= 10 && cs.length >= 3) {
+        const picked1 = pickRandom(c1, 10).map(c => ({ ...c, deck_name: b1Deck?.name }));
+        const picked2 = pickRandom(c2, 10).map(c => ({ ...c, deck_name: b2Deck?.name }));
+        const picked3 = pickRandom(c3, 10).map(c => ({ ...c, deck_name: b3Deck?.name }));
+        const pickedState = pickRandom(cs, 3).map(c => ({ ...c, deck_name: stDeck?.name }));
 
-      const combined = [...picked1, ...picked2, ...picked3, ...pickedState];
-      return combined.map((c, idx) => transformCardToExamQuestion(c, idx + 1));
+        const combined = [...picked1, ...picked2, ...picked3, ...pickedState];
+        return combined.map((c, idx) => transformCardToExamQuestion(c, idx + 1));
+      }
     } catch (localErr) {
-      console.error('Local fallback for LiD ticket failed:', localErr);
-      return [];
+      console.warn('Local Dexie ticket query failed:', localErr);
     }
+
+    // 3. Guaranteed Local Fallback: Bundled 460-question catalog (100% offline & reliable)
+    try {
+      const allQ = lidQuestionsData.questions || [];
+      const b1 = allQ.filter(q => q.block === 1 || (q.category && q.category.includes('Politik')));
+      const b2 = allQ.filter(q => q.block === 2 || (q.category && q.category.includes('Geschichte')));
+      const b3 = allQ.filter(q => q.block === 3 || (q.category && q.category.includes('Mensch')));
+      const st = allQ.filter(q => q.stateCode && q.stateCode.toUpperCase() === targetState);
+
+      const picked1 = pickRandom(b1, 10);
+      const picked2 = pickRandom(b2, 10);
+      const picked3 = pickRandom(b3, 10);
+      const pickedSt = pickRandom(st.length > 0 ? st : allQ.filter(q => q.stateCode === 'BY'), 3);
+
+      const combined = [...picked1, ...picked2, ...picked3, ...pickedSt];
+      if (combined.length > 0) {
+        return combined.map((q, idx) => transformJsonQuestionToExamQuestion(q, idx + 1));
+      }
+    } catch (jsonErr) {
+      console.error('Local JSON LiD ticket generation failed:', jsonErr);
+    }
+
+    return [];
   },
 
   // Start Exam or Practice Mode
@@ -129,6 +162,13 @@ export const useLidStore = create((set, get) => ({
     set({ isLoadingTicket: true });
     try {
       const ticket = await get().generateExamTicket(targetLand);
+
+      if (!ticket || ticket.length === 0) {
+        console.error('Failed to generate LiD ticket: empty result');
+        useUiStore.getState().showToast('Не удалось загрузить вопросы экзамена. Попробуйте еще раз.', 'error');
+        set({ isLoadingTicket: false });
+        return;
+      }
 
       set({
         examMode: mode,
@@ -145,6 +185,7 @@ export const useLidStore = create((set, get) => ({
       });
     } catch (e) {
       console.error('Error starting simulation:', e);
+      useUiStore.getState().showToast('Произошла ошибка при составлении билета', 'error');
       set({ isLoadingTicket: false });
     }
   },

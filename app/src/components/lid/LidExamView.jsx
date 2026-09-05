@@ -21,6 +21,7 @@ export const LidExamView = () => {
   const {
     screen,
     examMode,
+    isLoadingTicket,
     currentQuestionIndex,
     questions,
     answers,
@@ -52,12 +53,12 @@ export const LidExamView = () => {
     setPreviewUrl?.(null);
   }, [currentQuestionIndex, stopAudio, setPreviewUrl]);
 
-  // Stop audio when leaving the running simulation
+  // Stop audio when leaving the running simulation or in exam mode
   useEffect(() => {
-    if (screen !== 'running') {
+    if (screen !== 'running' || examMode !== 'practice') {
       stopAudio?.();
     }
-  }, [screen, stopAudio]);
+  }, [screen, examMode, stopAudio]);
 
   // Timer interval
   useEffect(() => {
@@ -233,6 +234,7 @@ export const LidExamView = () => {
               <ul className="lid-mode-features">
                 <li>⏱️ Строгий таймер 60 минут</li>
                 <li>🔒 Ответы скрыты до завершения билета</li>
+                <li>🚫 Без озвучки и перевода (условия реального теста)</li>
                 <li>🔄 Свободный возврат и смена вариантов (1..33)</li>
                 <li>📊 Итоговый балл (🟢 СДАНО / 🔴 НЕ СДАНО) и разбор ошибок</li>
               </ul>
@@ -263,9 +265,9 @@ export const LidExamView = () => {
               <h3 className="lid-mode-title">Режим тренировки (Practice Mode)</h3>
               <ul className="lid-mode-features">
                 <li>⏱️ Таймер 60 минут</li>
+                <li>🔊 Озвучка вопросов и перевод на русский</li>
                 <li>💡 Мгновенная подсветка правильного ответа</li>
-                <li>📖 Подробные объяснения и перевод под вопросом</li>
-                <li>🎯 Тренировочный темп без стресса</li>
+                <li>📖 Подробные объяснения и разбор на обороте</li>
               </ul>
               <button
                 type="button"
@@ -281,6 +283,56 @@ export const LidExamView = () => {
             </motion.div>
           </div>
         </motion.div>
+      )}
+
+      {/* Loading Ticket Overlay */}
+      {isLoadingTicket && (
+        <div className="lid-ticket-loading-overlay glass" style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(9, 13, 22, 0.85)',
+          backdropFilter: 'blur(10px)',
+          padding: '20px'
+        }}>
+          <RefreshCw size={40} className="spin" color="#38bdf8" />
+          <h3 style={{ marginTop: 16, marginBottom: 6, color: '#f8fafc', fontSize: '1.2rem', fontWeight: 700 }}>
+            Формирование билета...
+          </h3>
+          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0, textAlign: 'center' }}>
+            Подбираем 33 официальных вопроса экзамена BAMF
+          </p>
+        </div>
+      )}
+
+      {/* Defensive fallback if screen is running but questions are empty */}
+      {screen === 'running' && (!currentQ || totalQ === 0) && !isLoadingTicket && (
+        <div className="lid-error-state glass" style={{ 
+          padding: '36px 20px', 
+          textAlign: 'center', 
+          marginTop: 40, 
+          borderRadius: 20,
+          background: 'rgba(30, 41, 59, 0.7)',
+          border: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
+          <h3 style={{ color: '#f87171', marginBottom: 8, fontSize: '1.2rem' }}>Не удалось загрузить вопросы</h3>
+          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 20, maxWidth: 320, margin: '0 auto 20px' }}>
+            Произошла задержка при получении вопросов. Нажмите кнопку ниже, чтобы вернуться в меню.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => resetToMenu()}
+            style={{ margin: '0 auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px' }}
+          >
+            <ArrowLeft size={16} />
+            <span>Вернуться в меню</span>
+          </button>
+        </div>
       )}
 
       {/* 2. Running Simulation Screen */}
