@@ -7,6 +7,8 @@ description: Standardized evaluation and verification loop for Lerne TMA to elim
 
 Use this skill whenever generating or modifying codebase features, running refactoring, or verifying PRs in Lerne TMA.
 
+---
+
 ## Verification Checklist
 
 1. **Frontend Verification (`/app`)**:
@@ -20,4 +22,3 @@ Use this skill whenever generating or modifying codebase features, running refac
 3. **Runtime & Log Inspection**:
    - Inspect `api.log`, `api-dev.log`, or test execution outputs.
    - Ensure no unhandled promise rejections, CORS errors, or unhandled exceptions.
-

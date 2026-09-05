@@ -7,12 +7,16 @@ description: PostgreSQL / Supabase and Peewee ORM migration & data management gu
 
 This skill ensures data integrity, schema consistency, and efficient query execution for Lerne TMA.
 
-## Tech Stack
+---
+
+## 1. Tech Stack
 - **Database**: PostgreSQL / Supabase (Cloud & Production)
-- **ORM**: Peewee ORM (`/api/models.py` or `/api/db.py`)
+- **ORM**: Peewee ORM (`/api/models.py`, `/api/database.py`)
 - **Scripts**: `apply_indexes.py`, `check_db.py`, `inspect_db_deep.py`
 
-## Guidelines & Best Practices
+---
+
+## 2. Guidelines & Best Practices
 
 1. **Schema Migrations**:
    - Use idempotent SQL/Python migration scripts (`apply_indexes.py` or explicit Peewee migrations).
@@ -27,4 +31,4 @@ This skill ensures data integrity, schema consistency, and efficient query execu
    - Ensure indexing on foreign keys (`user_id`, `deck_id`) and search columns (`word`, `next_review_at`).
 
 4. **Offline & Client Sync Alignment**:
-   - Align Peewee model fields with IndexedDB (Dexie.js in `/app`) schemas to ensure smooth bidirectional synchronization.
+   - Align Peewee model fields with IndexedDB (Dexie.js in `/app/src/services/localDb.js`) schemas to ensure smooth bidirectional synchronization.
