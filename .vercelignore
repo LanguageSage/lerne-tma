@@ -1,5 +1,6 @@
-# Exclude local admin tools and launchers
+# Exclude local admin tools, scripts, and launchers
 tools/
+scripts/
 run_admin.bat
 run_dev.bat
 run_tma.ps1
@@ -7,6 +8,12 @@ check_db_status.bat
 clean_run.bat
 *.bat
 *.ps1
+*.lnk
+
+# Documentation
+docs/
+project_docs/
+reports/
 
 # Backups and local cache
 backups/
@@ -15,8 +22,10 @@ user_files/
 scratch/
 api/scratch/
 
-# Android mobile build
+# Android mobile build & root configs
 android/
+capacitor.config.json
+node_modules/
 
 # Python Virtual Environments & Caches
 venv/
@@ -25,8 +34,9 @@ __pycache__/
 **/__pycache__/
 *.pyc
 
-# Logs
+# Logs and media leftovers
 *.log
+*.mp3
 
 # AI & IDE metadata
 .gemini/
@@ -34,4 +44,3 @@ __pycache__/
 .agents/
 .vscode/
 .idea/
-docs/

@@ -23,7 +23,7 @@ try {
 
     # 3. Dependencies
     Write-Host "[ ] [2/4] Installing dependencies..."
-    & "venv/Scripts/python.exe" -m pip install -r requirements.txt
+    & "venv/Scripts/python.exe" -m pip install -r api/requirements.txt
     Write-Host "[+] Python libraries ready."
 
     # 4. Frontend

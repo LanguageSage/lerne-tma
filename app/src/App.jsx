@@ -68,6 +68,7 @@ function AppContent() {
 
   // Sync state with history and Telegram BackButton
   const isPopStateRef = React.useRef(false);
+  const ignoreNextPopStateRef = React.useRef(false);
   const lastLevelRef = React.useRef(0);
   const lastModalOpenRef = React.useRef(false);
   const lastViewRef = React.useRef(view);
@@ -101,6 +102,10 @@ function AppContent() {
     window.history.replaceState({ level: 0, view: 'decks', folderId: null }, '');
 
     const handlePopState = () => {
+      if (ignoreNextPopStateRef.current) {
+        ignoreNextPopStateRef.current = false;
+        return;
+      }
       isPopStateRef.current = true;
       const didNavigate = navigateUp();
       if (!didNavigate) {
@@ -125,16 +130,28 @@ function AppContent() {
 
   // 2. Push history state on hierarchy depth increase and sync BackButton visibility
   useEffect(() => {
-    // Calculate current hierarchy level
+    // Helper to calculate folder depth in hierarchy
+    let folderDepth = 0;
+    if (activeFolderId) {
+      let curr = activeFolderId;
+      const visited = new Set();
+      while (curr && !visited.has(curr)) {
+        visited.add(curr);
+        folderDepth++;
+        const folder = folders?.find(f => f.id === curr);
+        curr = folder?.parent_id;
+      }
+    }
+
+    const isSubView = (view === 'study' || view === 'trainer' || view === 'editor' || view === 'creator');
+    const isDeckView = (view === 'cards' || view === 'duplicates' || view === 'trash' || view === 'lid');
     const currentLevel = anyModalOpen 
-      ? 4 
-      : (view === 'study' || view === 'trainer' || view === 'editor' || view === 'creator') 
-      ? 3 
-      : (view === 'cards' || view === 'duplicates' || view === 'trash') 
-      ? 2 
-      : (activeFolderId !== null) 
-      ? 1 
-      : 0;
+      ? (isSubView ? folderDepth + 3 : isDeckView ? folderDepth + 2 : folderDepth + 1)
+      : isSubView 
+      ? folderDepth + 2 
+      : isDeckView 
+      ? folderDepth + 1 
+      : folderDepth;
 
     if (isPopStateRef.current) {
       lastLevelRef.current = currentLevel;
@@ -149,8 +166,9 @@ function AppContent() {
       // Navigated down the hierarchy -> push state
       window.history.pushState({ level: currentLevel, view, folderId: activeFolderId, modalOpen: anyModalOpen }, '');
     } else if (currentLevel < prevLevel) {
-      // Navigated up via UI button -> sync browser history if needed
+      // Navigated up via UI button or BackButton -> sync browser history if needed without re-triggering navigateUp
       if (window.history.state?.level > currentLevel) {
+        ignoreNextPopStateRef.current = true;
         window.history.back();
       }
     }
@@ -166,7 +184,7 @@ function AppContent() {
     } else {
       showBackButton();
     }
-  }, [view, activeFolderId, anyModalOpen]);
+  }, [view, activeFolderId, anyModalOpen, folders]);
 
   // Custom hooks for initialization and import logic
   const { clearImportShareId, checkStartParam } = useAutoImport();

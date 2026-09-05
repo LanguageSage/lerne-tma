@@ -2,6 +2,12 @@
   "name": "lerne-tma",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "cap": "cap",
+    "cap:sync": "cap sync android",
+    "cap:open": "cap open android",
+    "build:android": "cd app && npm run build && cd .. && npx cap sync android"
+  },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",

@@ -2,12 +2,13 @@ import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useLanguageStore } from '../store/useLanguageStore';
+import { useLidStore } from '../store/useLidStore';
 
 /**
  * Navigates strictly ONE level up in the application hierarchy:
  * - Level 4 (Modals): Closes the active modal, stays on current view.
- * - Level 3 (Study / Trainer / Editor / Creator): Exits to Deck Cards list or Duplicates.
- * - Level 2 (Cards / Duplicates / Trash): Exits to Decks view.
+ * - Level 3 (Study / Trainer / Editor / Creator / LiD Exam): Exits to Deck Cards list, Duplicates, or LiD menu.
+ * - Level 2 (Cards / Duplicates / Trash / LiD Menu): Exits to Decks view (in containing folder or root).
  * - Level 1 (Decks in subfolder): Exits to parent folder or root.
  * - Level 0 (Root decks): At top level.
  * 
@@ -18,6 +19,7 @@ export const navigateUp = () => {
   const deckState = useDeckStore.getState();
   const session = useSessionStore.getState();
   const langState = useLanguageStore.getState();
+  const lidState = useLidStore?.getState?.();
 
   // 1. Any Modal Open -> Close modal
   const isAnyModalOpen = Boolean(
@@ -30,7 +32,9 @@ export const navigateUp = () => {
     uiState.isCollaboratorsModalOpen ||
     uiState.importShareId ||
     deckState.syncModalOpen ||
-    langState.isLanguageModalOpen
+    langState.isLanguageModalOpen ||
+    lidState?.isLandModalOpen ||
+    lidState?.selectedMistakeCard
   );
 
   if (isAnyModalOpen) {
@@ -44,6 +48,8 @@ export const navigateUp = () => {
     uiState.clearImportShareId();
     deckState.setSyncModalOpen(false);
     langState.setLanguageModalOpen(false);
+    if (lidState?.isLandModalOpen && lidState?.closeLandModal) lidState.closeLandModal();
+    if (lidState?.selectedMistakeCard && lidState?.setSelectedMistakeCard) lidState.setSelectedMistakeCard(null);
     return true;
   }
 
@@ -69,8 +75,24 @@ export const navigateUp = () => {
     return true;
   }
 
-  // 4. Cards list, Duplicates, or Trash -> Return to Decks grid
+  // 3b. LiD Exam View -> If in exam/results, return to LiD menu; if at menu, return to Decks
+  if (uiState.view === 'lid') {
+    if (lidState && lidState.screen !== 'menu' && lidState.resetToMenu) {
+      lidState.resetToMenu();
+      return true;
+    }
+    uiState.setView('decks');
+    uiState.setActiveFolderId(null);
+    return true;
+  }
+
+  // 4. Cards list, Duplicates, or Trash -> Return to Decks grid (into parent folder if cards in folder)
   if (uiState.view === 'cards' || uiState.view === 'duplicates' || uiState.view === 'trash') {
+    if (uiState.view === 'cards' && deckState.currentDeck?.folder_id) {
+      uiState.setActiveFolderId(deckState.currentDeck.folder_id);
+    } else if (uiState.view === 'duplicates' || uiState.view === 'trash') {
+      uiState.setActiveFolderId(null);
+    }
     uiState.setView('decks');
     return true;
   }

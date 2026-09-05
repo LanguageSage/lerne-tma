@@ -1,8 +1,3 @@
-# TMA Diagnostics
-check_db_status.bat
-api/scratch/
-debug_output.txt
-audio_debug.log
 
 # C extensions
 *.so
@@ -155,9 +150,10 @@ cython_debug/
 *.log
 audio_debug.log
 debug_output.txt
+reorg_output.txt
 api/debug_api.txt
-debug_test.bat
 scratch/
+api/scratch/
 .agent/
 node_modules/
 user_files/
@@ -167,14 +163,11 @@ api/data/media/pending_images/
 # images tracked explicitly so they deploy to Vercel
 
 .DS_Store
-
 .vercel
 
 *.mp3
-audio_debug.log
-debug_output.txt
-api/debug_api.txt
-reorg_output.txt
+*.lnk
+
 __pycache__/
 **/__pycache__/
 *.pyc
