@@ -45,16 +45,24 @@ const USER_ID = getUserId();
 function AppContent() {
   const { isFirstLaunch, setIsFirstLaunch, nativeLanguage } = useTranslation();
 
-  const { 
-    view, setView, isOpeningDeck, 
-    activeTutorial, setActiveTutorial, toast, isCardActionModalOpen, 
-    setIsCardActionModalOpen, actionCard, loading 
-  } = useUiStore();
-  
-  const { 
-    decks, folders, currentDeck, 
-    deckToSync, setSyncModalOpen, syncModalOpen, handleSyncDeck 
-  } = useDeckStore();
+  const view = useUiStore(state => state.view);
+  const setView = useUiStore(state => state.setView);
+  const isOpeningDeck = useUiStore(state => state.isOpeningDeck);
+  const activeTutorial = useUiStore(state => state.activeTutorial);
+  const setActiveTutorial = useUiStore(state => state.setActiveTutorial);
+  const toast = useUiStore(state => state.toast);
+  const isCardActionModalOpen = useUiStore(state => state.isCardActionModalOpen);
+  const setIsCardActionModalOpen = useUiStore(state => state.setIsCardActionModalOpen);
+  const actionCard = useUiStore(state => state.actionCard);
+  const loading = useUiStore(state => state.loading);
+
+  const decks = useDeckStore(state => state.decks);
+  const folders = useDeckStore(state => state.folders);
+  const currentDeck = useDeckStore(state => state.currentDeck);
+  const deckToSync = useDeckStore(state => state.deckToSync);
+  const setSyncModalOpen = useDeckStore(state => state.setSyncModalOpen);
+  const syncModalOpen = useDeckStore(state => state.syncModalOpen);
+  const handleSyncDeck = useDeckStore(state => state.handleSyncDeck);
 
   const { isFlipped } = useSessionStore();
   const { handleMoveCard, handleCopyCard, handleDeleteCard, handleToggleLearn, handleShareCard } = useCardActions();
@@ -266,14 +274,13 @@ function AppContent() {
       {renderView()}
 
       {/* Overlays and Modals */}
-      <CardCreator startTutorial={startTutorial} />
-      <CardEditor startTutorial={startTutorial} />
-      <BatchCardModal />
-      <DeckModals />
-      <RenameDeckModal />
-      <CollaboratorsModal />
-      <SettingsModal userId={USER_ID} startTutorial={startTutorial} />
-
+      {view === 'creator' && <CardCreator startTutorial={startTutorial} />}
+      {view === 'editor' && <CardEditor startTutorial={startTutorial} />}
+      {isBatchModalOpen && <BatchCardModal />}
+      {isNewDeckModalOpen && <DeckModals />}
+      {isRenameModalOpen && <RenameDeckModal />}
+      {isCollaboratorsModalOpen && <CollaboratorsModal />}
+      {isSettingsOpen && <SettingsModal userId={USER_ID} startTutorial={startTutorial} />}
       
       {importShareId && (
         <ImportModal
@@ -286,74 +293,82 @@ function AppContent() {
         />
       )}
       
-      <SyncModal
-        isOpen={syncModalOpen}
-        onClose={() => setSyncModalOpen(false)}
-        deck={deckToSync}
-        onSync={(mode) => handleSyncDeck(deckToSync?.id, mode)}
-        loading={loading}
-      />
+      {syncModalOpen && (
+        <SyncModal
+          isOpen={syncModalOpen}
+          onClose={() => setSyncModalOpen(false)}
+          deck={deckToSync}
+          onSync={(mode) => handleSyncDeck(deckToSync?.id, mode)}
+          loading={loading}
+        />
+      )}
 
-      <TutorialOverlay
-        isOpen={!!activeTutorial}
-        steps={getLocalizedTutorialSteps(nativeLanguage, activeTutorial)}
-        onFinish={() => finishTutorial(activeTutorial)}
-        onSkip={() => finishTutorial(activeTutorial)}
-        isFlipped={isFlipped}
-      />
+      {activeTutorial && (
+        <TutorialOverlay
+          isOpen={!!activeTutorial}
+          steps={getLocalizedTutorialSteps(nativeLanguage, activeTutorial)}
+          onFinish={() => finishTutorial(activeTutorial)}
+          onSkip={() => finishTutorial(activeTutorial)}
+          isFlipped={isFlipped}
+        />
+      )}
 
-
-
-      <CardActionModal
-        isOpen={isCardActionModalOpen}
-        onClose={() => setIsCardActionModalOpen(false)}
-        card={actionCard}
-        decks={decks}
-        folders={folders}
-        onMove={handleMoveCard}
-        onCopy={handleCopyCard}
-        onDelete={(c) => handleDeleteCard(c.id, true)}
-        onToggleLearn={handleToggleLearn}
-        onShare={handleShareCard}
-        onEdit={(c) => openEditor(c.deck_id || currentDeck?.id, c, view)}
-        onStartAutoplay={async (c) => {
-          if (view === 'study') {
-            const { startAutoplayFn } = useSessionStore.getState();
-            if (startAutoplayFn) {
-              startAutoplayFn();
+      {isCardActionModalOpen && (
+        <CardActionModal
+          isOpen={isCardActionModalOpen}
+          onClose={() => setIsCardActionModalOpen(false)}
+          card={actionCard}
+          decks={decks}
+          folders={folders}
+          onMove={handleMoveCard}
+          onCopy={handleCopyCard}
+          onDelete={(c) => handleDeleteCard(c.id, true)}
+          onToggleLearn={handleToggleLearn}
+          onShare={handleShareCard}
+          onEdit={(c) => openEditor(c.deck_id || currentDeck?.id, c, view)}
+          onStartAutoplay={async (c) => {
+            if (view === 'study') {
+              const { startAutoplayFn } = useSessionStore.getState();
+              if (startAutoplayFn) {
+                startAutoplayFn();
+              }
+            } else {
+              const targetDeck = decks.find(d => d.id === c?.deck_id) || currentDeck;
+              if (targetDeck && c?.id) {
+                await startStudyCard(targetDeck, c.id);
+                setTimeout(() => {
+                  const { startAutoplayFn } = useSessionStore.getState();
+                  if (startAutoplayFn) startAutoplayFn();
+                }, 400);
+              }
             }
-          } else {
-            const targetDeck = decks.find(d => d.id === c?.deck_id) || currentDeck;
-            if (targetDeck && c?.id) {
-              await startStudyCard(targetDeck, c.id);
-              setTimeout(() => {
-                const { startAutoplayFn } = useSessionStore.getState();
-                if (startAutoplayFn) startAutoplayFn();
-              }, 400);
-            }
-          }
-        }}
-        loading={loading}
-      />
+          }}
+          loading={loading}
+        />
+      )}
 
-      <AuthRequiredModal
-        isOpen={isAuthModalOpen}
-        onClose={() => useUiStore.getState().setIsAuthModalOpen(false)}
-        title={authModalTitle}
-      />
+      {isAuthModalOpen && (
+        <AuthRequiredModal
+          isOpen={isAuthModalOpen}
+          onClose={() => useUiStore.getState().setIsAuthModalOpen(false)}
+          title={authModalTitle}
+        />
+      )}
 
-      <LanguageSelectionModal />
-      <LanguageWelcomeModal 
-        isOpen={isFirstLaunch} 
-        onComplete={() => {
-          setIsFirstLaunch(false);
-          storage.set('lerne_welcome_seen', 'true');
-          setTimeout(() => {
-            setActiveTutorial('welcome');
-          }, 350);
-        }}
-        onClose={() => setIsFirstLaunch(false)} 
-      />
+      {isLanguageModalOpen && <LanguageSelectionModal />}
+      {isFirstLaunch && (
+        <LanguageWelcomeModal 
+          isOpen={isFirstLaunch} 
+          onComplete={() => {
+            setIsFirstLaunch(false);
+            storage.set('lerne_welcome_seen', 'true');
+            setTimeout(() => {
+              setActiveTutorial('welcome');
+            }, 350);
+          }}
+          onClose={() => setIsFirstLaunch(false)} 
+        />
+      )}
 
       <Toast toast={toast} />
       <GlobalLoader isVisible={isOpeningDeck} />

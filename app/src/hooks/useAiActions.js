@@ -77,7 +77,6 @@ export const useAiActions = () => {
     const data = targetData || session.editingCard;
     if (!data || !data.front) return;
 
-    setLoading(true);
     const targetLang = data.target_language || useLanguageStore.getState().activeLanguage || 'de';
     const hasRussian = /[а-яА-Я]/.test(data.front);
     const langToSpeak = hasRussian ? (useLanguageStore.getState().nativeLanguage || 'ru') : targetLang;
@@ -86,8 +85,6 @@ export const useAiActions = () => {
     const textToSpeak = hasRussian ? data.back : data.front;
 
     if (!textToSpeak) {
-      showToast("Заполните текст для озвучки");
-      setLoading(false);
       return;
     }
 
@@ -116,7 +113,6 @@ export const useAiActions = () => {
       console.error(err);
       showToast(`Ошибка генерации аудио: ${err.response?.data?.detail || err.message}`);
     }
-    setLoading(false);
   };
 
   const stopAiGeneration = () => {

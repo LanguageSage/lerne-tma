@@ -78,10 +78,6 @@ export const DeckCardItem = React.memo(({
   }, [isCopyMenuOpen]);
 
   const onMainAction = () => {
-    const currentId = useDeckStore.getState().currentDeck?.id;
-    if (currentId !== deck.id) {
-      useDeckStore.setState({ deckCards: [], cardsLoading: true });
-    }
     setCurrentDeck(deck);
     useUiStore.getState().setCardsScrollTop(0);
     useUiStore.getState().setLastSelectedCardId(null);

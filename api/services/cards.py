@@ -46,14 +46,17 @@ def save_card(data, user_id):
     except (ValueError, TypeError):
         card_id = None
     
+    is_new = not bool(card_id)
     if card_id:
         card = TMA_Card.get_or_none(TMA_Card.id == card_id)
         if not card:
             logger.warning(f"Card {card_id} not found, creating new.")
             card = TMA_Card()
+            is_new = True
     else:
         card = TMA_Card()
         card.creator_id = user_id
+    card._is_new = is_new
         
     raw_deck_id = data.get('deck_id')
     try:
@@ -69,13 +72,19 @@ def save_card(data, user_id):
         card.deck_id = inbox.id
 
     target_deck_id = card.deck_id or deck_id
+    cached_deck = None
     if target_deck_id:
-        from .collaborative_service import get_effective_user_role
-        role = get_effective_user_role(user_id, 'deck', target_deck_id)
+        cached_deck = TMA_Deck.get_or_none(TMA_Deck.id == target_deck_id)
+        if cached_deck and cached_deck.user_id == user_id:
+            role = 'owner'
+        else:
+            from .collaborative_service import get_effective_user_role
+            role = get_effective_user_role(user_id, 'deck', target_deck_id)
         if role == 'viewer':
             raise PermissionError("У вас роль Слушателя (только чтение). Изменение карточек доступно Редакторам и Владельцу.")
         elif role is None and card.id:
             raise PermissionError("Нет прав на изменение этой карточки.")
+    card._cached_deck = cached_deck
     
     # Обновляем только если передано (используем get с проверкой наличия ключа, чтобы позволить пустые строки)
 
@@ -202,15 +211,16 @@ def save_card(data, user_id):
     if not data.get('silent'):
         card.history = add_to_history(card.history, "Edited manually")
     
-    card.save()
-    if old_audio_path and card.audio_path != old_audio_path:
-        cleanup_unreferenced_audio(old_audio_path)
-    if old_audio_back_path and card.audio_back_path != old_audio_back_path:
-        cleanup_unreferenced_audio(old_audio_back_path)
+    with tma_db.atomic():
+        card.save()
+        if old_audio_path and card.audio_path != old_audio_path:
+            cleanup_unreferenced_audio(old_audio_path)
+        if old_audio_back_path and card.audio_back_path != old_audio_back_path:
+            cleanup_unreferenced_audio(old_audio_back_path)
 
-    if card.deck_id:
-        from .collaborative_service import touch_deck_and_parent_folders
-        touch_deck_and_parent_folders(card.deck_id)
+        if card.deck_id:
+            from .collaborative_service import touch_deck_and_parent_folders
+            touch_deck_and_parent_folders(card.deck_id, deck_obj=cached_deck)
     logger.info(f"Card {card.id} saved successfully")
     return card
 
@@ -276,12 +286,17 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
     creator_name = None
     creator_avatar = None
     if creator:
-        creator_name = creator.username or creator.first_name
-        creator_avatar = creator.photo_url
+        if isinstance(creator, dict):
+            creator_name = creator.get('username') or creator.get('first_name')
+            creator_avatar = creator.get('photo_url')
+        else:
+            creator_name = creator.username or creator.first_name
+            creator_avatar = creator.photo_url
 
     tags_val = get_val('tags', 'tags')
-    metadata = parse_card_metadata(get_val('metadata', 'metadata'))
-    cefr_metadata = get_cefr_metadata(metadata)
+    raw_meta = get_val('metadata', 'metadata')
+    metadata = parse_card_metadata(raw_meta)
+    cefr_metadata = metadata.get("cefr") if isinstance(metadata, dict) and isinstance(metadata.get("cefr"), dict) else None
     level_label = None
 
     if cefr_metadata and cefr_metadata.get("level") in {"A1", "A2", "B1", "B2", "C1", "C2"}:
@@ -291,6 +306,11 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
             if lvl in str(tags_val).upper():
                 level_label = lvl
                 break
+
+    get_p = lambda k: p.get(k) if isinstance(p, dict) else getattr(p, k, None) if p else None
+    lapses = get_p('lapses') or 0
+    queue = get_p('queue') or "new"
+    interval = get_p('interval') or 0
 
     result = {
         "id": get_val('id', 'id'),
@@ -308,7 +328,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "image_url": resolve_media_url(image_path, "images", exists_map=media_exists),
         "video_front_url": resolve_media_url(video_front, "videos", exists_map=media_exists),
         "video_back_url": resolve_media_url(video_back, "videos", exists_map=media_exists),
-        "image_path": audio_path if False else image_path, # keep variables used
+        "image_path": image_path,
         "audio_path": audio_path,
         "audio_back_path": audio_back_path,
         "video_front_path": video_front,
@@ -316,17 +336,17 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "flag": int(get_val('flag', 'flag') or 0),
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
-        "is_leech": srs.is_leech(getattr(p, 'lapses', 0) if p else 0),
-        "lapses": getattr(p, 'lapses', 0) if p else 0,
-        "queue": getattr(p, 'queue', 'new') if p else "new",
-        "interval": getattr(p, 'interval', 0) if p else 0
+        "is_leech": srs.is_leech(lapses),
+        "lapses": lapses,
+        "queue": queue,
+        "interval": interval
     }
 
     if include_intervals:
         result["intervals"] = srs.get_next_intervals(p)
     else:
-        nr = getattr(p, 'next_review', None) if p else None
-        result["next_review"] = nr.isoformat() if nr else None
+        nr = get_p('next_review')
+        result["next_review"] = nr.isoformat() if hasattr(nr, 'isoformat') else (str(nr) if nr else None)
         
     return result
 
@@ -373,24 +393,30 @@ def get_cards_for_study(deck_id: int, user_id: int):
             if not cards:
                 return []
 
-        # Получаем прогресс через JOIN с TMA_Card по deck_id, избегая передачи тысяч параметров
-        progress_query = (TMAProgress.select(
-                              TMAProgress.card_id,
-                              TMAProgress.queue,
-                              TMAProgress.interval,
-                              TMAProgress.lapses,
-                              TMAProgress.next_review
-                          )
-                          .join(TMA_Card, on=(TMAProgress.card_id == TMA_Card.id))
-                          .where(TMAProgress.user_id == user_id, TMA_Card.deck_id == deck_id))
-        progress_map = {p.card_id: p for p in progress_query}
+        # Получаем прогресс напрямую по ID карточек через уникальный индекс (user_id, card_id) в формате dict
+        card_ids = [c['id'] for c in cards]
+        progress_map = {}
+        if card_ids:
+            for i in range(0, len(card_ids), 500):
+                chunk = card_ids[i:i+500]
+                chunk_query = (TMAProgress.select(
+                                  TMAProgress.card_id,
+                                  TMAProgress.queue,
+                                  TMAProgress.interval,
+                                  TMAProgress.lapses,
+                                  TMAProgress.next_review
+                              )
+                              .where((TMAProgress.user_id == user_id) & (TMAProgress.card_id << chunk))
+                              .dicts())
+                for p in chunk_query:
+                    progress_map[p['card_id']] = p
         
         creator_ids = list(set([c.get('creator_id') for c in cards if c.get('creator_id')]))
         creators = {}
         if creator_ids:
             from ..models import TMAUser
-            for u in TMAUser.select(TMAUser.user_id, TMAUser.username, TMAUser.first_name, TMAUser.photo_url).where(TMAUser.user_id << creator_ids):
-                creators[u.user_id] = u
+            for u in TMAUser.select(TMAUser.user_id, TMAUser.username, TMAUser.first_name, TMAUser.photo_url).where(TMAUser.user_id << creator_ids).dicts():
+                creators[u['user_id']] = u
         
         result = []
         for c in cards:
@@ -511,20 +537,23 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
         return {"error": str(e)}, None
 
 
-def format_card_for_study(card: TMA_Card, user_id: int):
+def format_card_for_study(card: TMA_Card, user_id: int, deck_obj = None):
     """Форматирует карту для StudyView (с URL и интервалами)."""
-    progress = TMAProgress.get_or_none(
-        TMAProgress.card_id == card.id,
-        TMAProgress.user_id == user_id
-    )
+    is_new = getattr(card, '_is_new', False)
+    progress = None
+    if not is_new and hasattr(card, 'id') and card.id:
+        progress = TMAProgress.get_or_none(
+            TMAProgress.card_id == card.id,
+            TMAProgress.user_id == user_id
+        )
     
     res = _build_card_dict(card, p=progress, include_intervals=True)
     
     # ⚠️ CRITICAL STABILITY GUARANTEE: DO NOT ALTER OR REMOVE DECK RESOLUTION LOGIC.
     # Safely handle both model objects (TMA_Card) and dictionaries (.dicts()) without throwing AttributeError.
-    deck = None
+    deck = deck_obj or getattr(card, '_cached_deck', None)
     deck_id = card.get('deck_id') if isinstance(card, dict) else getattr(card, 'deck_id', None)
-    if not isinstance(card, dict):
+    if not deck and not isinstance(card, dict):
         try:
             deck = getattr(card, 'deck', None)
         except Exception:

@@ -690,28 +690,36 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
     }
 
 
-def touch_deck_and_parent_folders(deck_id: int):
+def touch_deck_and_parent_folders(deck_id: int, deck_obj = None):
     """
     Updates updated_at timestamp on a deck AND recursively updates all parent TMA_Folder timestamps.
     This guarantees that live sync detects card edits/deletions when a user is in Folder view ('Диалоги').
     """
-    if not deck_id:
+    if not deck_id and not deck_obj:
         return
     now = datetime.datetime.now()
-    deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == deck_id)
+    deck = deck_obj or models.TMA_Deck.get_or_none(models.TMA_Deck.id == deck_id)
     if not deck:
         return
 
-    models.TMA_Deck.update(updated_at=now).where(models.TMA_Deck.id == deck_id).execute()
+    target_id = deck.id if hasattr(deck, 'id') else deck_id
+    models.TMA_Deck.update(updated_at=now).where(models.TMA_Deck.id == target_id).execute()
 
-    current_folder_id = deck.folder_id
+    current_folder_id = getattr(deck, 'folder_id', None)
+    if not current_folder_id:
+        return
+
+    folder_ids = []
     visited = set()
     while current_folder_id and current_folder_id not in visited:
         visited.add(current_folder_id)
+        folder_ids.append(current_folder_id)
         folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == current_folder_id)
         if not folder:
             break
-        models.TMA_Folder.update(updated_at=now).where(models.TMA_Folder.id == current_folder_id).execute()
         current_folder_id = folder.parent_id
+
+    if folder_ids:
+        models.TMA_Folder.update(updated_at=now).where(models.TMA_Folder.id << folder_ids).execute()
 
 

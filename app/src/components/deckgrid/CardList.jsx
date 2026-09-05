@@ -393,6 +393,17 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     return deckCards.filter(c => matchCard(c, searchQuery));
   }, [deckCards, searchQuery]);
 
+  const [visibleCount, setVisibleCount] = React.useState(40);
+
+  React.useEffect(() => {
+    setVisibleCount(40);
+  }, [currentDeck?.id, searchQuery]);
+
+  const renderedCards = React.useMemo(() => {
+    if (searchQuery.trim()) return filteredCards;
+    return filteredCards.slice(0, visibleCount);
+  }, [filteredCards, searchQuery, visibleCount]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -524,7 +535,11 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
 
   React.useEffect(() => {
     if (view === 'cards' && currentDeck?.id) {
-      useDeckStore.getState().fetchDeckCards(currentDeck.id);
+      const state = useDeckStore.getState();
+      const hasCards = (state.deckCards && state.deckCards.length > 0) || (state.cardsByDeck[currentDeck.id]?.length > 0);
+      if (!hasCards) {
+        state.fetchDeckCards(currentDeck.id);
+      }
     }
   }, [view, currentDeck?.id]);
 
@@ -539,13 +554,16 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
 
     const handleScroll = () => {
       setCardsScrollTop(container.scrollTop);
+      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 350) {
+        setVisibleCount(prev => (prev < filteredCards.length ? prev + 30 : prev));
+      }
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       container.removeEventListener('scroll', handleScroll);
     };
-  }, [view, cardsScrollTop, setCardsScrollTop]);
+  }, [view, cardsScrollTop, setCardsScrollTop, filteredCards.length]);
 
   React.useEffect(() => {
     if (lastSelectedCardId && view === 'cards') {
@@ -1114,11 +1132,11 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={filteredCards.map(c => c.id)}
+                items={renderedCards.map(c => c.id)}
                 strategy={verticalListSortingStrategy}
               >
                 <div className="card-list">
-                  {filteredCards.map((c, idx) => (
+                  {renderedCards.map((c, idx) => (
                     <DraggableCardItem 
                       key={c.id} 
                       c={c} 
@@ -1131,6 +1149,11 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                       previewCardLines={previewCardLines}
                     />
                   ))}
+                  {visibleCount < filteredCards.length && !searchQuery.trim() && (
+                    <div style={{ textAlign: 'center', padding: '12px 0', opacity: 0.6, fontSize: '0.8rem', color: '#c084fc', userSelect: 'none' }}>
+                      Показано {renderedCards.length} из {filteredCards.length} (прокрутите вниз для загрузки)
+                    </div>
+                  )}
                 </div>
               </SortableContext>
               <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>

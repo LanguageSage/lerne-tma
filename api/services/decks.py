@@ -23,6 +23,8 @@ STARTER_DECK_NAMES = [
 def ensure_starter_decks(user_id: int, target_language: str = None):
     try:
         user, _ = TMAUser.get_or_create(user_id=user_id)
+        if getattr(user, 'default_decks_initialized', False):
+            return True
 
         existing_decks = list(TMA_Deck.select().where((TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)))
         existing_names = {d.name for d in existing_decks}

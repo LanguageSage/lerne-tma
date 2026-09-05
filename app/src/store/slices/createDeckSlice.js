@@ -11,6 +11,7 @@ export const createDeckSlice = (set, get) => ({
   decks: getInitialCachedData().decks,
   currentDeck: null,
   deckCards: [],
+  cardsByDeck: {},
   duplicateCards: [],
   lastDuplicateCardId: null,
   syncModalOpen: false,
@@ -27,19 +28,33 @@ export const createDeckSlice = (set, get) => ({
     if (deck?.id) {
       storage.set('lerne_current_deck_id', String(deck.id));
     }
-    if (!prevDeck || prevDeck.id !== deck?.id) {
+    const cached = deck?.id ? get().cardsByDeck[deck.id] : null;
+    if (cached && cached.length > 0) {
+      set({ currentDeck: deck, deckCards: cached, cardsLoading: false });
+    } else if (!prevDeck || prevDeck.id !== deck?.id) {
       set({ currentDeck: deck, deckCards: [], cardsLoading: true });
     } else {
       set({ currentDeck: deck });
     }
   },
 
-  setDeckCards: (cards) => set({ deckCards: cards }),
+  setDeckCards: (cards) => {
+    const currentId = get().currentDeck?.id;
+    set((prev) => ({
+      deckCards: cards,
+      cardsByDeck: currentId ? { ...prev.cardsByDeck, [currentId]: cards } : prev.cardsByDeck
+    }));
+  },
   updateCardLocal: (cardId, fields) => {
-    const { deckCards, duplicateCards } = get();
+    const { deckCards, duplicateCards, currentDeck, cardsByDeck } = get();
     const updated = (deckCards || []).map(c => String(c.id) === String(cardId) ? { ...c, ...fields } : c);
     const updatedDuplicates = (duplicateCards || []).map(c => String(c.id) === String(cardId) ? { ...c, ...fields } : c);
-    set({ deckCards: updated, duplicateCards: updatedDuplicates });
+    const currentId = currentDeck?.id;
+    set({
+      deckCards: updated,
+      duplicateCards: updatedDuplicates,
+      cardsByDeck: currentId ? { ...cardsByDeck, [currentId]: updated } : cardsByDeck
+    });
   },
   setDuplicateCards: (cards) => set({ duplicateCards: cards }),
   setLastDuplicateCardId: (id) => set({ lastDuplicateCardId: id }),
@@ -91,9 +106,10 @@ export const createDeckSlice = (set, get) => ({
 
     const state = get();
     const isSameDeck = state.currentDeck?.id === deckId;
-    const hasCards = state.deckCards && state.deckCards.length > 0;
+    const cached = state.cardsByDeck[deckId];
+    const hasCards = (isSameDeck && state.deckCards && state.deckCards.length > 0) || (cached && cached.length > 0);
     
-    if (forceLoading || !isSameDeck || !hasCards) {
+    if (forceLoading || (!hasCards && !isSameDeck)) {
       set({ cardsLoading: true });
     }
 
@@ -104,8 +120,15 @@ export const createDeckSlice = (set, get) => ({
           try {
             const endpoint = `/decks/${deckId}/cards`;
             const res = await api.get(endpoint);
-            set({ deckCards: res.data });
-            return res.data;
+            const newCards = res.data || [];
+            set((prev) => ({
+              deckCards: prev.currentDeck?.id === deckId ? newCards : prev.deckCards,
+              cardsByDeck: {
+                ...prev.cardsByDeck,
+                [deckId]: newCards
+              }
+            }));
+            return newCards;
           } catch (err) {
             lastError = err;
             if (attempt < attempts) {
@@ -403,7 +426,11 @@ export const createDeckSlice = (set, get) => ({
       updated[pos] = { ...item, position: posMap.get(item.id) };
     });
 
-    set({ deckCards: updated });
+    const currentId = get().currentDeck?.id;
+    set((prev) => ({
+      deckCards: updated,
+      cardsByDeck: currentId ? { ...prev.cardsByDeck, [currentId]: updated } : prev.cardsByDeck
+    }));
 
     if (cardReorderTimeout) {
       clearTimeout(cardReorderTimeout);

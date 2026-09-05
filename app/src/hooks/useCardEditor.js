@@ -119,14 +119,37 @@ export const useCardEditor = () => {
         } else {
           nextCards.push(savedCard);
         }
-        useDeckStore.setState({ deckCards: nextCards });
-      }
 
-      const updatedDeck = useDeckStore.getState().decks.find(d => d.id === finalDeckId) || currentDeck;
-      if (updatedDeck) {
-        fetchDeckCards(updatedDeck.id).catch(err => console.warn('Background deck cards refresh:', err));
+        const currentDeckState = useDeckStore.getState();
+        const targetDeckId = finalDeckId || currentDeckState.currentDeck?.id;
+        const updatedCardsByDeck = targetDeckId
+          ? { ...currentDeckState.cardsByDeck, [targetDeckId]: nextCards }
+          : currentDeckState.cardsByDeck;
+
+        const isNewCard = !data.id;
+        const updatedDecks = isNewCard && targetDeckId
+          ? (currentDeckState.decks || []).map(d => {
+              if (d.id === targetDeckId) {
+                const oldStats = d.stats || { total: 0, new: 0, learning: 0, due: 0 };
+                return {
+                  ...d,
+                  stats: {
+                    ...oldStats,
+                    total: (oldStats.total || 0) + 1,
+                    new: (oldStats.new || 0) + 1
+                  }
+                };
+              }
+              return d;
+            })
+          : currentDeckState.decks;
+
+        useDeckStore.setState({
+          deckCards: nextCards,
+          cardsByDeck: updatedCardsByDeck,
+          decks: updatedDecks
+        });
       }
-      fetchDecks(true).catch(err => console.warn('Background decks refresh:', err));
 
       const sourceView = ui.editorSourceView || 'cards';
       session.setEditingCard(null);
@@ -179,10 +202,34 @@ export const useCardEditor = () => {
       
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
-      const { currentDeck, deckCards } = useDeckStore.getState();
+      const { currentDeck, deckCards, cardsByDeck, decks } = useDeckStore.getState();
 
       const updatedDeckCards = (deckCards || []).filter(c => String(c.id) !== String(cardId));
-      useDeckStore.setState({ deckCards: updatedDeckCards });
+      const targetDeckId = currentDeck?.id;
+      const updatedCardsByDeck = targetDeckId
+        ? { ...cardsByDeck, [targetDeckId]: updatedDeckCards }
+        : cardsByDeck;
+      const updatedDecks = targetDeckId
+        ? (decks || []).map(d => {
+            if (d.id === targetDeckId) {
+              const oldStats = d.stats || { total: 1, new: 0, learning: 0, due: 0 };
+              return {
+                ...d,
+                stats: {
+                  ...oldStats,
+                  total: Math.max(0, (oldStats.total || 1) - 1)
+                }
+              };
+            }
+            return d;
+          })
+        : decks;
+
+      useDeckStore.setState({
+        deckCards: updatedDeckCards,
+        cardsByDeck: updatedCardsByDeck,
+        decks: updatedDecks
+      });
 
       session.removeCardFromSession(cardId);
       
@@ -196,11 +243,6 @@ export const useCardEditor = () => {
           }
         }
       }
-
-      if (currentDeck && currentDeck.id && currentDeck.id !== 'duplicates') {
-        fetchDeckCards(currentDeck.id).catch(err => console.warn('Refresh deck cards failed:', err));
-      }
-      fetchDecks(true).catch(err => console.warn('Refresh decks failed:', err));
     } catch (err) {
       console.error('Delete Card Error:', err);
       showToast("Ошибка при удалении");
