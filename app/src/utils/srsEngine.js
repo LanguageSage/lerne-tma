@@ -71,151 +71,58 @@ export const getLearning8States = (progress) => {
   const steps = progress.queue !== 'relearning' ? LEARNING_STEPS : RELEARN_STEPS;
   const stepIdx = progress.step_index || 0;
   const nextQueue = progress.queue === 'new' ? 'learning' : progress.queue;
+  const hardInt = steps[1] || steps[0] * 2;
 
-  const baseAgain = { queue: nextQueue, interval: steps[0], stepIndex: 0, isDays: false };
-  const baseHard = { queue: nextQueue, interval: steps[1] || steps[0] * 2, stepIndex: stepIdx, isDays: false };
-  const baseGood = { queue: 'review', interval: GRADUATING_INTERVAL_GOOD, stepIndex: null, isDays: true };
-  const baseEasy = { queue: 'review', interval: GRADUATING_INTERVAL_EASY, stepIndex: null, isDays: true };
-
-  const state0 = baseAgain; // 1: Again (5m)
-  const state1 = { queue: nextQueue, interval: Math.round((steps[0] + (steps[1] || steps[0] * 2)) / 2), stepIndex: 0, isDays: false }; // 2: ~8m
-  const state2 = baseHard;  // 3: Hard (10m)
-  const state3 = { queue: 'review', interval: 1, stepIndex: null, isDays: true }; // 4: 1d
-  const state4 = baseGood;  // 5: Good (1d)
-  const state5 = { queue: 'review', interval: 2, stepIndex: null, isDays: true }; // 6: 2d
-  const state6 = baseEasy;  // 7: Easy (3d)
-  const state7 = { queue: 'review', interval: Math.max(4, Math.round(GRADUATING_INTERVAL_EASY * 1.6)), stepIndex: null, isDays: true }; // 8: 5d
-
-  return [state0, state1, state2, state3, state4, state5, state6, state7];
+  return [
+    { queue: nextQueue, interval: steps[0], stepIndex: 0, isDays: false },
+    { queue: nextQueue, interval: Math.round((steps[0] + hardInt) / 2), stepIndex: 0, isDays: false },
+    { queue: nextQueue, interval: hardInt, stepIndex: stepIdx, isDays: false },
+    { queue: 'review', interval: 1, stepIndex: null, isDays: true },
+    { queue: 'review', interval: GRADUATING_INTERVAL_GOOD, stepIndex: null, isDays: true },
+    { queue: 'review', interval: 2, stepIndex: null, isDays: true },
+    { queue: 'review', interval: GRADUATING_INTERVAL_EASY, stepIndex: null, isDays: true },
+    { queue: 'review', interval: Math.max(4, Math.round(GRADUATING_INTERVAL_EASY * 1.6)), stepIndex: null, isDays: true }
+  ];
 };
 
-/**
- * Calculates 8 dynamic states for review cards
- */
 export const getReview8States = (progress, applyFuzzFlag = false) => {
   const ef = progress.ease_factor || INITIAL_EASE_FACTOR;
   const interval = progress.interval || 1;
   const lapses = progress.lapses || 0;
 
-  // Calculate overdue delay (days_since_due)
   let daysSinceDue = 0;
   if (progress.next_review) {
     const nextDate = new Date(progress.next_review);
     const now = new Date();
     if (nextDate < now) {
-      daysSinceDue = Math.max(0, Math.floor((now.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24)));
+      daysSinceDue = Math.max(0, Math.floor((now.getTime() - nextDate.getTime()) / 86400000));
     }
   }
 
-  // 1. Base Again (Btn 1)
-  const easePenalty = daysSinceDue > 7 ? 0.15 : 0.20;
-  const efAgain = Math.max(MINIMUM_EASE_FACTOR, ef - easePenalty);
-  const state0 = {
-    queue: 'relearning',
-    interval: RELEARN_STEPS[0],
-    stepIndex: 0,
-    easeFactor: efAgain,
-    lapses: lapses + 1,
-    isDays: false
-  };
-
-  // 2. Base Hard (Btn 3)
-  const efHard = Math.max(MINIMUM_EASE_FACTOR, ef - 0.15);
+  // 4 Core Anchor Calculations
+  const efAgain = Math.max(MINIMUM_EASE_FACTOR, ef - (daysSinceDue > 7 ? 0.15 : 0.20));
   let intHard = interval <= 1 ? 1 : Math.max(interval, Math.round(interval * HARD_MULTIPLIER));
-  if (applyFuzzFlag && intHard >= 3) intHard = applyFuzz(intHard);
-  const state2 = {
-    queue: 'review',
-    interval: intHard,
-    stepIndex: null,
-    easeFactor: efHard,
-    lapses,
-    isDays: true
-  };
+  let intGood = Math.max(intHard + 1, Math.ceil((interval + Math.min(daysSinceDue / 2, interval * 0.5)) * ef));
+  let intEasy = Math.max(intGood + 1, Math.ceil((interval + Math.min(daysSinceDue, interval)) * ef * EASY_MULTIPLIER));
 
-  // 3. Base Good (Btn 5)
-  const dueBonus = Math.min(daysSinceDue / 2, interval * 0.5);
-  const baseHard = interval <= 1 ? 1 : Math.max(interval, Math.round(interval * HARD_MULTIPLIER));
-  let intGood = Math.max(baseHard + 1, Math.ceil((interval + dueBonus) * ef));
-  const efGood = ef < INITIAL_EASE_FACTOR ? Math.min(MAXIMUM_EASE_FACTOR, ef + 0.02) : ef;
-  if (applyFuzzFlag && intGood >= 3) intGood = applyFuzz(intGood);
-  const state4 = {
-    queue: 'review',
-    interval: intGood,
-    stepIndex: null,
-    easeFactor: efGood,
-    lapses,
-    isDays: true
-  };
+  if (applyFuzzFlag) {
+    if (intHard >= 3) intHard = applyFuzz(intHard);
+    if (intGood >= 3) intGood = applyFuzz(intGood);
+    if (intEasy >= 3) intEasy = applyFuzz(intEasy);
+  }
 
-  // 4. Base Easy (Btn 7)
-  const dueBonusEasy = Math.min(daysSinceDue, interval * 1.0);
-  const baseGood = Math.max(baseHard + 1, Math.ceil((interval + Math.min(daysSinceDue / 2, interval * 0.5)) * ef));
-  let intEasy = Math.max(baseGood + 1, Math.ceil((interval + dueBonusEasy) * ef * EASY_MULTIPLIER));
-  const efEasy = Math.min(MAXIMUM_EASE_FACTOR, ef + 0.15);
-  if (applyFuzzFlag && intEasy >= 3) intEasy = applyFuzz(intEasy);
-  const state6 = {
-    queue: 'review',
-    interval: intEasy,
-    stepIndex: null,
-    easeFactor: efEasy,
-    lapses,
-    isDays: true
-  };
+  const intMid = (low, high) => Math.max(low + 1, Math.min(high - 1, Math.round((low + high) / 2)));
 
-  // Intermediate states:
-  // Btn 2: Between Again (minutes) and Hard (intHard days)
-  let intBetweenAgainHard = Math.max(1, Math.round(intHard / 2));
-  const efBetweenAgainHard = Math.max(MINIMUM_EASE_FACTOR, ef - 0.18);
-  const state1 = {
-    queue: 'review',
-    interval: intBetweenAgainHard,
-    stepIndex: null,
-    easeFactor: efBetweenAgainHard,
-    lapses: lapses + 1,
-    isDays: true
-  };
-
-  // Btn 4: Between Hard and Good
-  let intBetweenHardGood = Math.round((intHard + intGood) / 2);
-  if (intBetweenHardGood <= intHard) intBetweenHardGood = intHard + 1;
-  if (intBetweenHardGood >= intGood && intGood > intHard + 1) intBetweenHardGood = intGood - 1;
-  const efBetweenHardGood = Math.max(MINIMUM_EASE_FACTOR, ef - 0.06);
-  const state3 = {
-    queue: 'review',
-    interval: intBetweenHardGood,
-    stepIndex: null,
-    easeFactor: efBetweenHardGood,
-    lapses,
-    isDays: true
-  };
-
-  // Btn 6: Between Good and Easy
-  let intBetweenGoodEasy = Math.round((intGood + intEasy) / 2);
-  if (intBetweenGoodEasy <= intGood) intBetweenGoodEasy = intGood + 1;
-  if (intBetweenGoodEasy >= intEasy && intEasy > intGood + 1) intBetweenGoodEasy = intEasy - 1;
-  const efBetweenGoodEasy = Math.min(MAXIMUM_EASE_FACTOR, ef + 0.08);
-  const state5 = {
-    queue: 'review',
-    interval: intBetweenGoodEasy,
-    stepIndex: null,
-    easeFactor: efBetweenGoodEasy,
-    lapses,
-    isDays: true
-  };
-
-  // Btn 8: Beyond Easy (Mastery)
-  let intSuperEasy = Math.max(intEasy + 2, Math.round(intEasy * 1.45));
-  const efSuperEasy = Math.min(MAXIMUM_EASE_FACTOR, ef + 0.22);
-  const state7 = {
-    queue: 'review',
-    interval: intSuperEasy,
-    stepIndex: null,
-    easeFactor: efSuperEasy,
-    lapses,
-    isDays: true
-  };
-
-  return [state0, state1, state2, state3, state4, state5, state6, state7];
+  return [
+    { queue: 'relearning', interval: RELEARN_STEPS[0], stepIndex: 0, easeFactor: efAgain, lapses: lapses + 1, isDays: false },
+    { queue: 'review', interval: Math.max(1, Math.round(intHard / 2)), stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses: lapses + 1, isDays: true },
+    { queue: 'review', interval: intHard, stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.15), lapses, isDays: true },
+    { queue: 'review', interval: intMid(intHard, intGood), stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.06), lapses, isDays: true },
+    { queue: 'review', interval: intGood, stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + (ef < INITIAL_EASE_FACTOR ? 0.02 : 0)), lapses, isDays: true },
+    { queue: 'review', interval: intMid(intGood, intEasy), stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + 0.08), lapses, isDays: true },
+    { queue: 'review', interval: intEasy, stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + 0.15), lapses, isDays: true },
+    { queue: 'review', interval: Math.max(intEasy + 2, Math.round(intEasy * 1.45)), stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + 0.22), lapses, isDays: true },
+  ];
 };
 
 /**

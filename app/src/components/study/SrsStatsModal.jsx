@@ -4,14 +4,12 @@ import { X, Sparkles, TrendingUp, Calendar, AlertTriangle, Award, Clock } from '
 import api from '../../services/api';
 import './SrsStatsModal.css';
 
-export const SrsStatsModal = ({ isOpen, onClose }) => {
+export const SrsStatsDashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!isOpen) return;
-
     let isMounted = true;
 
     api.get('/study/stats')
@@ -36,9 +34,7 @@ export const SrsStatsModal = ({ isOpen, onClose }) => {
     return () => {
       isMounted = false;
     };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
+  }, []);
 
   const total = stats?.total_cards || 0;
   const newCount = stats?.new_cards || 0;
@@ -56,47 +52,26 @@ export const SrsStatsModal = ({ isOpen, onClose }) => {
 
   const maxForecastCount = Math.max(1, ...forecast.map(f => f.count));
 
-  return (
-    <AnimatePresence>
-      <div className="srs-modal-overlay" onClick={onClose}>
-        <motion.div
-          className="srs-modal-container glass"
-          initial={{ opacity: 0, scale: 0.92, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.92, y: 20 }}
-          transition={{ duration: 0.25 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="srs-modal-header">
-            <div className="srs-title-wrapper">
-              <div className="srs-icon-badge">
-                <Sparkles size={20} color="#a855f7" />
-              </div>
-              <div>
-                <h3>Статистика памяти (SRS)</h3>
-                <p>Эффективность интервального повторения</p>
-              </div>
-            </div>
-            <button className="srs-close-btn" onClick={onClose}>
-              <X size={20} />
-            </button>
-          </div>
+  if (loading) {
+    return (
+      <div className="srs-loading-state">
+        <div className="srs-spinner" />
+        <p>Анализируем прогресс интервалов...</p>
+      </div>
+    );
+  }
 
-          {/* Body */}
-          <div className="srs-modal-body">
-            {loading ? (
-              <div className="srs-loading-state">
-                <div className="srs-spinner" />
-                <p>Анализируем прогресс интервалов...</p>
-              </div>
-            ) : error ? (
-              <div className="srs-error-state">
-                <AlertTriangle size={32} color="#ef4444" />
-                <p>{error}</p>
-              </div>
-            ) : (
-              <>
+  if (error) {
+    return (
+      <div className="srs-error-state">
+        <AlertTriangle size={32} color="#ef4444" />
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
                 {/* Top Metrics Row */}
                 <div className="srs-metrics-grid">
                   <div className="srs-metric-card primary">
@@ -219,11 +194,44 @@ export const SrsStatsModal = ({ isOpen, onClose }) => {
                     </div>
                   </div>
                 )}
-              </>
-            )}
+    </>
+  );
+};
+
+export const SrsStatsModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <div className="srs-modal-overlay" onClick={onClose}>
+        <motion.div
+          className="srs-modal-container glass"
+          initial={{ opacity: 0, scale: 0.92, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.92, y: 20 }}
+          transition={{ duration: 0.25 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="srs-modal-header">
+            <div className="srs-title-wrapper">
+              <div className="srs-icon-badge">
+                <Sparkles size={20} color="#a855f7" />
+              </div>
+              <div>
+                <h3>Статистика памяти (SRS)</h3>
+                <p>Эффективность интервального повторения</p>
+              </div>
+            </div>
+            <button className="srs-close-btn" onClick={onClose}>
+              <X size={20} />
+            </button>
+          </div>
+          <div className="srs-modal-body">
+            <SrsStatsDashboard />
           </div>
         </motion.div>
       </div>
     </AnimatePresence>
   );
 };
+
