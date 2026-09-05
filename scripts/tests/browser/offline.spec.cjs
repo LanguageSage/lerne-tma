@@ -73,82 +73,126 @@ test('offline CRUD, due scheduling, restart and persistent progress', async ({ p
 
 test('lost response retries identical durable batch after restart', async ({ page, context }) => {
   await harness(page, context);
+  await page.route('**/api/sync/v2/push', async route => {
+    await route.abort('failed');
+  });
   const pending = await page.evaluate(async () => {
     const deck = (await api.post('/decks', { name: 'Retry' })).data;
     await api.post('/cards/save', { deck_id: deck.id, front: 'x', back: 'y' });
-    network.defaults.adapter = async () => { throw new Error('Connection lost after server commit'); };
     const result = await sync.sync();
     return { result, batch: await getDb().syncState.get('pending') };
   });
   expect(pending.result.success).toBe(false);
+  expect(pending.batch?.request_id).toBeTruthy();
+
   await page.reload();
   await loadModules(page);
-  const retried = await page.evaluate(async () => {
-    let sent;
-    network.defaults.adapter = async config => {
-      if (config.method === 'post') {
-        sent = JSON.parse(config.data);
-        return { data: { status: 'error' }, status: 200, headers: {}, config };
-      }
-      throw new Error('Must not pull after failed push');
-    };
-    const result = await sync.sync();
-    return { result, sent, dirty: await getDb().cards.where('is_dirty').equals(1).count() };
+
+  let sent;
+  await page.route('**/api/sync/v2/push', async route => {
+    sent = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'error' }) });
   });
+
+  const retried = await page.evaluate(async () => {
+    const result = await sync.sync();
+    return { result, dirty: await getDb().cards.where('is_dirty').equals(1).count() };
+  });
+
   expect(retried.result.success).toBe(false);
-  expect(retried.sent.request_id).toBe(pending.batch.request_id);
+  expect(sent?.request_id).toBe(pending.batch.request_id);
   expect(retried.dirty).toBe(1);
 });
 
 test('edits during push survive acknowledgement and stale pull', async ({ page, context }) => {
   await harness(page, context);
-  const state = await page.evaluate(async () => {
+  let releasePush;
+  const pushStarted = new Promise(resolve => {
+    page.route('**/api/sync/v2/push', async route => {
+      resolve();
+      await new Promise(r => { releasePush = r; });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'success', mappings: { folders: {}, decks: {}, cards: {} } }),
+      });
+    });
+  });
+
+  await page.route('**/api/sync/v2/pull*', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        server_time: new Date().toISOString(),
+        folders: [],
+        decks: [{ id: 10, name: 'Deck', user_id: 1 }],
+        cards: [{ id: 20, deck_id: 10, front_text: 'Sent', back_text: 'Back' }],
+        progress: [],
+      }),
+    });
+  });
+
+  await page.evaluate(async () => {
     await getDb().decks.put({ id: 10, name: 'Deck', user_id: 1 });
     await getDb().cards.put({ id: 20, deck_id: 10, front_text: 'Original', back_text: 'Back' });
     await api.post('/cards/save', { card_id: 20, deck_id: 10, front: 'Sent' });
-    let release;
-    let started;
-    const arrived = new Promise(resolve => { started = resolve; });
-    network.defaults.adapter = async config => {
-      if (config.method === 'post') {
-        started();
-        await new Promise(resolve => { release = resolve; });
-        return { data: { status: 'success', mappings: { folders: {}, decks: {}, cards: {} } }, config };
-      }
-      return { data: { ...snapshot, decks: [{ id: 10, name: 'Deck', user_id: 1 }], cards: [{ id: 20, deck_id: 10, front_text: 'Sent', back_text: 'Back' }] }, config };
-    };
-    const syncing = sync.sync();
-    await arrived;
-    await api.post('/cards/save', { card_id: 20, deck_id: 10, front: 'Edited during request' });
-    release();
-    const result = await syncing;
-    return { result, card: await getDb().cards.get(20) };
   });
-  expect(state.result.success).toBe(true);
-  expect(state.card).toMatchObject({ front_text: 'Edited during request', is_dirty: 1 });
+
+  const syncPromise = page.evaluate(async () => sync.sync());
+  await pushStarted;
+  await page.evaluate(async () => {
+    await api.post('/cards/save', { card_id: 20, deck_id: 10, front: 'Edited during request' });
+  });
+  releasePush();
+  const syncResult = await syncPromise;
+  expect(syncResult.success).toBe(true);
+
+  const card = await page.evaluate(async () => getDb().cards.get(20));
+  expect(card).toMatchObject({ front_text: 'Edited during request', is_dirty: 1 });
 });
 
 test('ID remapping preserves nested references and progress', async ({ page, context }) => {
   await harness(page, context);
-  const state = await page.evaluate(async () => {
+  const ids = await page.evaluate(async () => {
     const parent = (await api.post('/folders', { name: 'Parent' })).data;
     const child = (await api.post('/folders', { name: 'Child', parent_id: parent.id })).data;
     const deck = (await api.post('/decks', { name: 'Deck', folder_id: child.id })).data;
     const card = (await api.post('/cards/save', { deck_id: deck.id, front: 'x', back: 'y' })).data;
     await api.post('/study/grade', { card_id: card.id, deck_id: deck.id, grade: 0 });
-    network.defaults.adapter = async config => {
-      if (config.method === 'post') {
-        return { config, data: { status: 'success', mappings: {
-          folders: { [parent.id]: 10, [child.id]: 11 }, decks: { [deck.id]: 12 }, cards: { [card.id]: 13 },
-        } } };
-      }
-      // Stop before pull, to inspect the acknowledged local transaction.
-      throw new Error('Pull unavailable');
-    };
-    await sync.sync();
-    return { folders: await getDb().folders.toArray(), decks: await getDb().decks.toArray(),
-      cards: await getDb().cards.toArray(), progress: await getDb().progress.toArray(), pending: await getDb().syncState.get('pending') };
+    return { parent: parent.id, child: child.id, deck: deck.id, card: card.id };
   });
+
+  await page.route('**/api/sync/v2/push', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        mappings: {
+          folders: { [ids.parent]: 10, [ids.child]: 11 },
+          decks: { [ids.deck]: 12 },
+          cards: { [ids.card]: 13 },
+        },
+      }),
+    });
+  });
+
+  await page.route('**/api/sync/v2/pull*', async route => {
+    await route.abort('failed');
+  });
+
+  await page.evaluate(async () => sync.sync());
+
+  const state = await page.evaluate(async () => ({
+    folders: await getDb().folders.toArray(),
+    decks: await getDb().decks.toArray(),
+    cards: await getDb().cards.toArray(),
+    progress: await getDb().progress.toArray(),
+    pending: await getDb().syncState.get('pending'),
+  }));
+
   expect(state.folders.find(f => f.id === 11).parent_id).toBe(10);
   expect(state.decks[0]).toMatchObject({ id: 12, folder_id: 11 });
   expect(state.cards[0]).toMatchObject({ id: 13, deck_id: 12 });
