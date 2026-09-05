@@ -14,7 +14,15 @@ export const stripMarkdown = (text) => {
     .trim();
 };
 
-const GERMAN_NUMBER_MAP = [
+const GERMAN_SPEECH_MAP = [
+  // Common spoken abbreviations
+  [/\bz\s*\.?\s*b(?:\.|\b)/gi, ' zum beispiel '],
+  [/\bd\s*\.?\s*h(?:\.|\b)/gi, ' das heisst '],
+  [/\bu\s*\.\s*a(?:\.|\b)/gi, ' unter anderem '],
+  [/\b(?:u\s*\.\s*s\s*\.\s*w|usw)\.?(?:\.|\b)/gi, ' und so weiter '],
+  [/\bbzw\.?(?:\.|\b)/gi, ' beziehungsweise '],
+
+  // Symbols & Numbers
   [/%/g, ' prozent '],
   [/€/g, ' euro '],
   [/\$/g, ' dollar '],
@@ -27,7 +35,7 @@ const GERMAN_NUMBER_MAP = [
   [/\b60\b/g, 'sechzig'],
   [/\b50\b/g, 'fünfzig'],
   [/\b40\b/g, 'vierzig'],
-  [/\b30\b/g, 'dreißig'],
+  [/\b30\b/g, 'dreissig'],
   [/\b20\b/g, 'zwanzig'],
   [/\b19\b/g, 'neunzehn'],
   [/\b18\b/g, 'achtzehn'],
@@ -56,13 +64,13 @@ export const normalizeSpeechText = (text, lang = 'de') => {
   let str = stripMarkdown(text).toLowerCase();
 
   if ((lang || 'de').toLowerCase() === 'de') {
-    // Normalize Eszett for speech matching (dreißig <-> dreissig)
-    str = str.replace(/ß/g, "ss");
-
-    // Expand numbers & symbols to German words
-    GERMAN_NUMBER_MAP.forEach(([regex, replacement]) => {
+    // Expand abbreviations, numbers & symbols to German words
+    GERMAN_SPEECH_MAP.forEach(([regex, replacement]) => {
       str = str.replace(regex, replacement);
     });
+
+    // Normalize Eszett for speech matching (dreißig <-> dreissig, das heißt <-> das heisst)
+    str = str.replace(/ß/g, "ss");
   }
 
   // Remove punctuation
@@ -71,4 +79,5 @@ export const normalizeSpeechText = (text, lang = 'de') => {
 };
 
 export const normalizeGermanSpeechText = (text) => normalizeSpeechText(text, 'de');
+
 

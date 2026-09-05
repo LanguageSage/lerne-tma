@@ -36,9 +36,10 @@ export const createDeckSlice = (set, get) => ({
 
   setDeckCards: (cards) => set({ deckCards: cards }),
   updateCardLocal: (cardId, fields) => {
-    const { deckCards } = get();
-    const updated = deckCards.map(c => c.id === cardId ? { ...c, ...fields } : c);
-    set({ deckCards: updated });
+    const { deckCards, duplicateCards } = get();
+    const updated = (deckCards || []).map(c => String(c.id) === String(cardId) ? { ...c, ...fields } : c);
+    const updatedDuplicates = (duplicateCards || []).map(c => String(c.id) === String(cardId) ? { ...c, ...fields } : c);
+    set({ deckCards: updated, duplicateCards: updatedDuplicates });
   },
   setDuplicateCards: (cards) => set({ duplicateCards: cards }),
   setLastDuplicateCardId: (id) => set({ lastDuplicateCardId: id }),

@@ -147,7 +147,8 @@ export const useVoicePicker = (
       if (url && path) {
         const { useUiStore } = await import('../store/useUiStore');
         const { useSessionStore } = await import('../store/useSessionStore');
-        const sessionCard = useSessionStore.getState().card?.id === cardId ? useSessionStore.getState().card : null;
+        const sessionState = useSessionStore.getState();
+        const sessionCard = String(sessionState.card?.id) === String(cardId) ? sessionState.card : null;
         const currentPath = isBack ? sessionCard?.audio_back_path : sessionCard?.audio_path;
         const cleanP = (p) => (p || '').replace('/api/media/audio/', '').replace('audio/', '').trim();
 
@@ -162,17 +163,31 @@ export const useVoicePicker = (
         const updatePayload = isBack ? { audio_back_path: path } : { audio_path: path };
         await api.put(`/cards/${cardId}`, updatePayload);
 
+        const cardPatch = isBack
+          ? { audio_back_url: url, audio_back_path: path }
+          : { audio_url: url, audio_path: path };
+
+        // 1. Update session store: BOTH current card and all matching entries in studyHistory!
+        if (sessionState.updateCardInSession) {
+          sessionState.updateCardInSession(cardId, cardPatch);
+        } else {
+          if (sessionState.card && String(sessionState.card.id) === String(cardId)) {
+            sessionState.setCard({ ...sessionState.card, ...cardPatch });
+          }
+          if (sessionState.studyHistory) {
+            sessionState.setStudyHistory(
+              sessionState.studyHistory.map(item =>
+                item && String(item.id) === String(cardId) ? { ...item, ...cardPatch } : item
+              )
+            );
+          }
+        }
+
+        // 2. Update deck cards list in useDeckStore
         const { useDeckStore } = await import('../store/useDeckStore');
         const updateCardLocal = useDeckStore.getState().updateCardLocal;
         if (updateCardLocal) {
-          updateCardLocal(cardId, isBack ? { audio_back_url: url, audio_back_path: path } : { audio_url: url, audio_path: path });
-        }
-
-        if (useSessionStore.getState().card?.id === cardId) {
-          useSessionStore.getState().setCard({
-            ...useSessionStore.getState().card,
-            ...(isBack ? { audio_back_url: url, audio_back_path: path } : { audio_url: url, audio_path: path })
-          });
+          updateCardLocal(cardId, cardPatch);
         }
 
         try {

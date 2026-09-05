@@ -32,6 +32,18 @@ export const useSessionStore = create((set, get) => ({
   setCard: (updater) => set((state) => ({ 
     card: typeof updater === 'function' ? updater(state.card) : (updater ? { ...updater } : null) 
   })),
+  updateCardInSession: (cardId, patch) => set((state) => {
+    const updatedCard = state.card && String(state.card.id) === String(cardId)
+      ? { ...state.card, ...patch }
+      : state.card;
+    const updatedHistory = state.studyHistory.map((item) => (
+      item && String(item.id) === String(cardId) ? { ...item, ...patch } : item
+    ));
+    return {
+      card: updatedCard,
+      studyHistory: updatedHistory
+    };
+  }),
   setStudyHistory: (history) => set({ studyHistory: history }),
   setHistoryIndex: (index) => set({ historyIndex: index }),
   setIsFlipped: (isFlipped) => set({ isFlipped }),
