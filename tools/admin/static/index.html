@@ -100,6 +100,9 @@
           <button onclick="cleanupGuestAccounts()" title="Удалить все гостевые/анонимные аккаунты" class="px-3.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-bold rounded-lg border border-rose-500/30 flex items-center gap-1.5 shrink-0 transition">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 🧹 Очистить гостей
           </button>
+          <button onclick="purgeDeletedItems()" title="Окончательно удалить все элементы из корзины (папки, колоды, карточки с флагом удалён)" class="px-3.5 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-bold rounded-lg border border-rose-500/40 flex items-center gap-1.5 shrink-0 transition">
+            <i data-lucide="trash" class="w-3.5 h-3.5"></i> 🗑️ Очистить удалённые
+          </button>
           <button onclick="loadUsers()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium rounded-lg border border-slate-700 flex items-center gap-1.5 shrink-0">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Обновить
           </button>
@@ -142,6 +145,9 @@
           </button>
           <button onclick="openFoldersModal()" class="px-3 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-bold rounded-lg border border-indigo-500/30 flex items-center gap-1.5 shrink-0 transition">
             <i data-lucide="folder" class="w-3.5 h-3.5 text-indigo-400"></i> 📁 Папки (<span id="folders-count-btn">...</span>)
+          </button>
+          <button onclick="purgeDeletedItems()" title="Окончательно удалить все элементы из корзины (папки, колоды, карточки с флагом удалён)" class="px-3 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-bold rounded-lg border border-rose-500/40 flex items-center gap-1.5 shrink-0 transition">
+            <i data-lucide="trash" class="w-3.5 h-3.5"></i> 🗑️ Очистить удалённые
           </button>
           
           <!-- Dynamic Batch Actions on Row Selection -->
@@ -2379,6 +2385,21 @@
       }
     }
 
+    async function purgeDeletedItems() {
+      if (!confirm("⚠️ Вы действительно хотите окончательно очистить все элементы, находящиеся в корзине (папки, колоды и карточки с флагом удалён)?\n\nЭто действие безвозвратно удалит удалённые записи из базы данных.")) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/purge-deleted', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || "Удалённые элементы успешно очищены!");
+        loadDecks();
+        loadUsers();
+      } catch (err) {
+        alert("Ошибка при очистке корзины: " + err);
+      }
+    }
+
     async function deleteSingleUserPrompt(userId, userName, event) {
       if (event) event.stopPropagation();
       const checkedCount = document.querySelectorAll('.user-select-cb:checked').length;
@@ -3789,6 +3810,9 @@
         if (!confirm(`Вы действительно хотите запустить генерацию карточек в боевую БД?`)) return;
       }
 
+      stopDryRunAudio();
+      lastSingleDryRunKey = '';
+      lastBatchDryRunKey = '';
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('ai-progress-bar').style.width = '0%';
       document.getElementById('ai-percent-badge').innerText = '0%';
@@ -3839,6 +3863,9 @@
         return;
       }
 
+      stopDryRunAudio();
+      lastSingleDryRunKey = '';
+      lastBatchDryRunKey = '';
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('ai-batch-decks-bar').style.width = '0%';
       document.getElementById('ai-batch-cards-bar').style.width = '0%';
@@ -3911,6 +3938,9 @@
         return;
       }
 
+      stopDryRunAudio();
+      lastSingleDryRunKey = '';
+      lastBatchDryRunKey = '';
       document.getElementById('dryrun-preview-section').classList.add('hidden');
       document.getElementById('ai-batch-decks-bar').style.width = '0%';
       document.getElementById('ai-batch-cards-bar').style.width = '0%';
@@ -3979,12 +4009,156 @@
           });
           const data = await res.json();
           if (action === 'commit_dry_run') {
+            stopDryRunAudio();
             alert(data.message || `Успешно сохранено ${data.committed_count} карточек в БД!`);
             document.getElementById('dryrun-preview-section').classList.add('hidden');
           }
         } catch (e) {
           console.error("Regen control error", e);
         }
+      }
+    }
+
+    let currentDryRunAudio = null;
+    let currentPlayingDryRunIndex = null;
+    let currentPlayingDryRunBtn = null;
+    let lastSingleDryRunKey = '';
+    let lastBatchDryRunKey = '';
+
+    function stopDryRunAudio() {
+      if (currentDryRunAudio) {
+        currentDryRunAudio.pause();
+        currentDryRunAudio = null;
+      }
+      if (currentPlayingDryRunBtn) {
+        setDryRunBtnState(currentPlayingDryRunBtn, false);
+        currentPlayingDryRunBtn = null;
+      }
+      currentPlayingDryRunIndex = null;
+    }
+
+    function setDryRunBtnState(btn, isPlaying) {
+      if (!btn) return;
+      if (isPlaying) {
+        btn.className = "dryrun-audio-btn px-2.5 py-1.5 bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0 shadow-sm mt-0.5";
+        btn.innerHTML = `<i data-lucide="square" class="w-3.5 h-3.5 animate-pulse"></i> <span>Стоп</span>`;
+      } else {
+        btn.className = "dryrun-audio-btn px-2.5 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0 shadow-sm mt-0.5";
+        btn.innerHTML = `<i data-lucide="volume-2" class="w-3.5 h-3.5"></i> <span>Озвучка</span>`;
+      }
+      if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+      }
+    }
+
+    async function playDryRunCard(index, btn) {
+      const card = window.currentDryRunResults && window.currentDryRunResults[index];
+      if (!card || !card.front) return;
+
+      if (currentPlayingDryRunIndex === index) {
+        stopDryRunAudio();
+        return;
+      }
+
+      stopDryRunAudio();
+
+      currentPlayingDryRunIndex = index;
+      currentPlayingDryRunBtn = btn;
+      setDryRunBtnState(btn, true);
+
+      let url;
+      if (card.audio_path && card.audio_path.trim()) {
+        const ap = card.audio_path.trim();
+        url = ap.startsWith('http') ? ap : `/api/media/audio/${encodeURIComponent(ap)}?t=${Date.now()}`;
+      } else {
+        const voiceSelect = document.getElementById('regen-voice-select');
+        const voice = (voiceSelect && voiceSelect.value !== 'none') ? voiceSelect.value : (card.voice || 'de-DE-KatjaNeural');
+        const rateSelect = document.getElementById('regen-rate-select');
+        const rate = rateSelect ? rateSelect.value : (card.rate || '+0%');
+        url = `/api/admin/voice-preview?voice=${encodeURIComponent(voice)}&rate=${encodeURIComponent(rate)}&text=${encodeURIComponent(card.front)}&t=${Date.now()}`;
+      }
+
+      currentDryRunAudio = new Audio(url);
+      currentDryRunAudio.onended = () => {
+        stopDryRunAudio();
+      };
+      currentDryRunAudio.onerror = (e) => {
+        console.error("Dry-run audio playback error", e);
+        stopDryRunAudio();
+        alert("Не удалось воспроизвести озвучку для тестовой карточки.");
+      };
+
+      try {
+        await currentDryRunAudio.play();
+      } catch (err) {
+        console.error("Audio play failed", err);
+        stopDryRunAudio();
+      }
+    }
+
+    function renderDryRunCards(results, isBatch = false) {
+      const cardsGrid = document.getElementById('dryrun-cards-grid');
+      if (!cardsGrid) return;
+      window.currentDryRunResults = results || [];
+
+      const esc = typeof escapeHtml === 'function' ? escapeHtml : (v => String(v ?? ''));
+
+      cardsGrid.innerHTML = (results || []).map((c, i) => {
+        const isPlaying = (currentPlayingDryRunIndex === i);
+        const hasAudio = !!(c.audio_path && c.audio_path.trim());
+        const safeDeckName = c.deck_name ? esc(c.deck_name) : (c.deck_id ? '#' + esc(c.deck_id) : '');
+        return `
+          <div class="glass p-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 space-y-2.5 shadow-lg">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+              <div>
+                <span class="font-bold text-xs uppercase text-indigo-400">
+                  ${isBatch ? `Тест #${i + 1}` : `Тестовая карточка #${i + 1} (ID: ${esc(c.card_id)})`}
+                </span>
+                ${isBatch && safeDeckName ? `
+                  <span class="text-xs text-slate-300 font-semibold ml-2">📦 ${safeDeckName}</span>
+                ` : ''}
+              </div>
+              <div class="flex items-center gap-1.5">
+                ${hasAudio ? `
+                  <span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 rounded border border-emerald-500/30 inline-flex items-center gap-1" title="Аудио сгенерировано">
+                    <i data-lucide="check" class="w-3 h-3"></i> Аудио готово
+                  </span>
+                ` : ''}
+                ${c.level ? `
+                  <span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30">${esc(c.level)}</span>
+                ` : ''}
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+              <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-start gap-2">
+                <div class="min-w-0 flex-1">
+                  <div class="text-[10px] font-semibold text-slate-500 uppercase">Лицевая сторона (Front):</div>
+                  <div class="text-white font-bold text-sm mt-0.5 break-words">${esc(c.front || '')}</div>
+                </div>
+                ${c.front ? `
+                  <button type="button" onclick="playDryRunCard(${i}, this)" id="btn-dryrun-audio-${i}" title="Прослушать озвучку" class="dryrun-audio-btn px-2.5 py-1.5 ${isPlaying ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500/50' : 'bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 hover:text-white border-indigo-500/30'} border rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0 shadow-sm mt-0.5">
+                    <i data-lucide="${isPlaying ? 'square' : 'volume-2'}" class="w-3.5 h-3.5 ${isPlaying ? 'animate-pulse' : ''}"></i>
+                    <span>${isPlaying ? 'Стоп' : 'Озвучка'}</span>
+                  </button>
+                ` : ''}
+              </div>
+              <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <div class="text-[10px] font-semibold text-slate-500 uppercase">Обратная сторона (Back):</div>
+                <div class="text-emerald-300 font-semibold text-sm mt-0.5 break-words">${esc(c.back || '')}</div>
+              </div>
+            </div>
+            ${c.context ? `
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs leading-relaxed text-slate-200">
+                <div class="text-[10px] font-semibold text-indigo-400 uppercase mb-1">Сгенерированный контекст / Грамматика / Примеры:</div>
+                <div class="whitespace-pre-wrap font-sans text-slate-300 text-[11px]">${esc(c.context)}</div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
       }
     }
 
@@ -4013,35 +4187,13 @@
           logsContainer.scrollTop = logsContainer.scrollHeight;
 
           const previewSec = document.getElementById('dryrun-preview-section');
-          const cardsGrid = document.getElementById('dryrun-cards-grid');
 
           if (data.is_dry_run && data.dry_run_results && data.dry_run_results.length > 0) {
             if (previewSec) previewSec.classList.remove('hidden');
-            if (cardsGrid) {
-              cardsGrid.innerHTML = data.dry_run_results.map((c, i) => `
-                <div class="glass p-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 space-y-2.5 shadow-lg">
-                  <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                    <span class="font-bold text-xs uppercase text-indigo-400">Тестовая карточка #${i + 1} (ID: ${c.card_id})</span>
-                    ${c.level ? `<span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30">${c.level}</span>` : ''}
-                  </div>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
-                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                      <div class="text-[10px] font-semibold text-slate-500 uppercase">Лицевая сторона (Front):</div>
-                      <div class="text-white font-bold text-sm mt-0.5">${c.front || ''}</div>
-                    </div>
-                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                      <div class="text-[10px] font-semibold text-slate-500 uppercase">Обратная сторона (Back):</div>
-                      <div class="text-emerald-300 font-semibold text-sm mt-0.5">${c.back || ''}</div>
-                    </div>
-                  </div>
-                  ${c.context ? `
-                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs leading-relaxed text-slate-200">
-                      <div class="text-[10px] font-semibold text-indigo-400 uppercase mb-1">Сгенерированный контекст / Грамматика / Примеры:</div>
-                      <div class="whitespace-pre-wrap font-sans text-slate-300 text-[11px]">${c.context}</div>
-                    </div>
-                  ` : ''}
-                </div>
-              `).join('');
+            const dryRunKey = JSON.stringify(data.dry_run_results.map(c => [c.card_id, c.audio_path || '', c.front || '']));
+            if (dryRunKey !== lastSingleDryRunKey) {
+              lastSingleDryRunKey = dryRunKey;
+              renderDryRunCards(data.dry_run_results, false);
             }
           }
 
@@ -4092,38 +4244,13 @@
 
           // Render Dry Run preview cards grouped by deck
           const previewSec = document.getElementById('dryrun-preview-section');
-          const cardsGrid = document.getElementById('dryrun-cards-grid');
 
           if (data.is_dry_run && data.dry_run_results && data.dry_run_results.length > 0) {
             if (previewSec) previewSec.classList.remove('hidden');
-            if (cardsGrid) {
-              cardsGrid.innerHTML = data.dry_run_results.map((c, i) => `
-                <div class="glass p-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 space-y-2.5 shadow-lg">
-                  <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                    <div>
-                      <span class="font-bold text-xs uppercase text-indigo-400">Тест #${i + 1}</span>
-                      <span class="text-xs text-slate-300 font-semibold ml-2">📦 ${c.deck_name || '#' + c.deck_id}</span>
-                    </div>
-                    ${c.level ? `<span class="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30">${c.level}</span>` : ''}
-                  </div>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
-                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                      <div class="text-[10px] font-semibold text-slate-500 uppercase">Лицевая сторона (Front):</div>
-                      <div class="text-white font-bold text-sm mt-0.5">${c.front || ''}</div>
-                    </div>
-                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                      <div class="text-[10px] font-semibold text-slate-500 uppercase">Обратная сторона (Back):</div>
-                      <div class="text-emerald-300 font-semibold text-sm mt-0.5">${c.back || ''}</div>
-                    </div>
-                  </div>
-                  ${c.context ? `
-                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs leading-relaxed text-slate-200">
-                      <div class="text-[10px] font-semibold text-indigo-400 uppercase mb-1">Контекст / Грамматика:</div>
-                      <div class="whitespace-pre-wrap font-sans text-slate-300 text-[11px]">${c.context}</div>
-                    </div>
-                  ` : ''}
-                </div>
-              `).join('');
+            const dryRunKey = JSON.stringify(data.dry_run_results.map(c => [c.card_id, c.deck_id, c.audio_path || '', c.front || '']));
+            if (dryRunKey !== lastBatchDryRunKey) {
+              lastBatchDryRunKey = dryRunKey;
+              renderDryRunCards(data.dry_run_results, true);
             }
           }
 

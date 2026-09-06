@@ -192,8 +192,19 @@ def move_folder(folder_id: int, parent_id: int, user_id: int):
         logger.error(f"Error moving folder {folder_id} to parent {parent_id}: {e}")
         raise e
 
+def get_descendant_folder_ids(folder_id: int, user_id: int) -> list:
+    """Рекурсивно находит ID всех подпапок для указанной папки."""
+    descendants = []
+    direct_children = list(TMA_Folder.select(TMA_Folder.id).where(
+        (TMA_Folder.parent_id == folder_id) & (TMA_Folder.user_id == user_id)
+    ))
+    for child in direct_children:
+        descendants.append(child.id)
+        descendants.extend(get_descendant_folder_ids(child.id, user_id))
+    return descendants
+
 def delete_folder(folder_id: int, user_id: int):
-    """Мягко удаляет папку, перенося её дочерние колоды и подпапки на уровень выше."""
+    """Каскадно мягко удаляет папку, её подпапки и все колоды внутри них в корзину."""
     try:
         folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
         if not folder:
@@ -206,20 +217,27 @@ def delete_folder(folder_id: int, user_id: int):
             ).count()
             if active_inbox_count <= 1:
                 raise ValueError("Нельзя удалить основную папку Входящие")
-            
-        # Переносим колоды на уровень выше (parent_id текущей папки)
-        TMA_Deck.update(folder_id=folder.parent_id, updated_at=datetime.datetime.now()).where(
-            (TMA_Deck.folder_id == folder_id) & (TMA_Deck.user_id == user_id)
-        ).execute()
-        
-        # Переносим подпапки на уровень выше
-        TMA_Folder.update(parent_id=folder.parent_id, updated_at=datetime.datetime.now()).where(
-            (TMA_Folder.parent_id == folder_id) & (TMA_Folder.user_id == user_id)
-        ).execute()
 
-        folder.is_deleted = True
-        folder.updated_at = datetime.datetime.now()
-        folder.save()
+        now = datetime.datetime.now()
+        descendant_ids = get_descendant_folder_ids(folder_id, user_id)
+        all_target_folder_ids = [folder_id] + descendant_ids
+
+        with tma_db.atomic():
+            # Мягко удаляем все колоды внутри удаляемой папки и её подпапок (сохраняя folder_id!)
+            TMA_Deck.update(is_deleted=True, updated_at=now).where(
+                (TMA_Deck.folder_id << all_target_folder_ids) & (TMA_Deck.user_id == user_id)
+            ).execute()
+
+            # Мягко удаляем саму папку и все её подпапки (сохраняя parent_id!)
+            TMA_Folder.update(is_deleted=True, updated_at=now).where(
+                (TMA_Folder.id << all_target_folder_ids) & (TMA_Folder.user_id == user_id)
+            ).execute()
+
+        if folder.share_id:
+            filename = f"preview_{folder.share_id}.png"
+            TMAMedia.delete().where((TMAMedia.filename == filename) & (TMAMedia.folder == 'previews')).execute()
+
+        logger.info(f"Cascade soft-deleted folder {folder_id} ({len(descendant_ids)} subfolders) and its decks for user {user_id}")
         return True
     except Exception as e:
         logger.error(f"Error deleting folder {folder_id}: {e}", exc_info=True)

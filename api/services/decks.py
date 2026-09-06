@@ -46,7 +46,7 @@ def get_lid_deck_position(name: str) -> int:
     return 99
 
 def deduplicate_lid_folders(user_id: int):
-    """Гарантирует, что у пользователя ровно одна папка 'Leben in Deutschland' и 19 колод в правильном порядке."""
+    """Гарантирует, что у пользователя ровно одна папка 'Leben in Deutschland' и её колоды имеют правильный канонический порядок."""
     try:
         lid_folders = list(TMA_Folder.select().where(
             (TMA_Folder.user_id == user_id) &
@@ -64,13 +64,13 @@ def deduplicate_lid_folders(user_id: int):
             key=lambda f: TMA_Deck.select().where((TMA_Deck.folder == f) & (TMA_Deck.is_deleted == False)).count()
         )
 
-        # Удаляем любые лишние дубликаты папок и их дублирующие колоды
+        now = datetime.datetime.now()
+        # Удаляем любые лишние дубликаты папок и их дублирующие колоды (каскадно)
         for f in lid_folders:
             if f.id != best_folder.id:
-                for dd in TMA_Deck.select().where(TMA_Deck.folder == f):
-                    dd.is_deleted = True
-                    dd.save()
+                TMA_Deck.update(is_deleted=True, updated_at=now).where(TMA_Deck.folder == f).execute()
                 f.is_deleted = True
+                f.updated_at = now
                 f.save()
                 logger.info(f"Cleaned up duplicate LiD folder {f.id} for user {user_id}")
 
@@ -512,7 +512,7 @@ def get_active_decks(user_id: int, folder_map: dict = None):
 
             deck_folder_id = getattr(d, 'folder_id', None)
             if deck_folder_id and deck_folder_id not in accessible_folder_ids:
-                deck_folder_id = None
+                continue
 
             result.append({
                 "id": d.id,

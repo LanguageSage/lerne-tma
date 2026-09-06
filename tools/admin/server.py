@@ -814,7 +814,75 @@ def cleanup_guest_accounts():
         }
     except Exception as e:
         logger.error(f"Failed to cleanup guest accounts: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка при очистке гостевых аккаунтов: {str(e)}")
+@app.post("/api/admin/purge-deleted")
+def purge_deleted_items():
+    """Permanently purges all soft-deleted items (is_deleted == True) across folders, decks, and cards."""
+    try:
+        purged_cards = 0
+        purged_decks = 0
+        purged_folders = 0
+        purged_lib_cards = 0
+        purged_lib_decks = 0
+
+        with models.tma_db.atomic():
+            # 1. Purge soft-deleted cards and their SRS progress
+            del_card_ids = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.is_deleted == True)]
+            if del_card_ids:
+                models.TMAProgress.delete().where(models.TMAProgress.card_id << del_card_ids).execute()
+                models.TMAReviewHistory.delete().where(models.TMAReviewHistory.card_id << del_card_ids).execute()
+                purged_cards = models.TMA_Card.delete().where(models.TMA_Card.id << del_card_ids).execute()
+
+            # 2. Also delete any cards belonging to soft-deleted decks
+            del_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.is_deleted == True)]
+            if del_deck_ids:
+                child_card_ids = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.deck_id << del_deck_ids)]
+                if child_card_ids:
+                    models.TMAProgress.delete().where(models.TMAProgress.card_id << child_card_ids).execute()
+                    models.TMAReviewHistory.delete().where(models.TMAReviewHistory.card_id << child_card_ids).execute()
+                    purged_cards += models.TMA_Card.delete().where(models.TMA_Card.id << child_card_ids).execute()
+                
+                models.TMA_Collaborator.delete().where((models.TMA_Collaborator.target_type == 'deck') & (models.TMA_Collaborator.target_id << del_deck_ids)).execute()
+                purged_decks = models.TMA_Deck.delete().where(models.TMA_Deck.id << del_deck_ids).execute()
+
+            # 3. Purge soft-deleted folders
+            del_folder_ids = [f.id for f in models.TMA_Folder.select(models.TMA_Folder.id).where(models.TMA_Folder.is_deleted == True)]
+            if del_folder_ids:
+                rem_decks = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.folder_id << del_folder_ids)]
+                if rem_decks:
+                    rem_cards = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.deck_id << rem_decks)]
+                    if rem_cards:
+                        models.TMAProgress.delete().where(models.TMAProgress.card_id << rem_cards).execute()
+                        models.TMAReviewHistory.delete().where(models.TMAReviewHistory.card_id << rem_cards).execute()
+                        purged_cards += models.TMA_Card.delete().where(models.TMA_Card.id << rem_cards).execute()
+                    models.TMA_Collaborator.delete().where((models.TMA_Collaborator.target_type == 'deck') & (models.TMA_Collaborator.target_id << rem_decks)).execute()
+                    purged_decks += models.TMA_Deck.delete().where(models.TMA_Deck.id << rem_decks).execute()
+
+                models.TMA_Collaborator.delete().where((models.TMA_Collaborator.target_type == 'folder') & (models.TMA_Collaborator.target_id << del_folder_ids)).execute()
+                # Clear self-referencing parent_id before deleting folders to avoid FK conflicts
+                models.TMA_Folder.update(parent_id=None).where(models.TMA_Folder.id << del_folder_ids).execute()
+                purged_folders = models.TMA_Folder.delete().where(models.TMA_Folder.id << del_folder_ids).execute()
+
+            # 4. Purge library deleted cards & decks
+            del_lib_decks = [d.id for d in models.Deck.select(models.Deck.id).where(models.Deck.is_deleted == True)]
+            if del_lib_decks:
+                purged_lib_cards += models.Card.delete().where(models.Card.deck_id << del_lib_decks).execute()
+                purged_lib_decks += models.Deck.delete().where(models.Deck.id << del_lib_decks).execute()
+
+            purged_lib_cards += models.Card.delete().where(models.Card.is_deleted == True).execute()
+
+        total_cards = purged_cards + purged_lib_cards
+        total_decks = purged_decks + purged_lib_decks
+        logger.info(f"Purged deleted items: {purged_folders} folders, {total_decks} decks, {total_cards} cards")
+        return {
+            "status": "success",
+            "message": f"Очищено {purged_folders} папок, {total_decks} колод и {total_cards} карточек",
+            "purged_folders": purged_folders,
+            "purged_decks": total_decks,
+            "purged_cards": total_cards
+        }
+    except Exception as e:
+        logger.error(f"Failed to purge deleted items: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка при очистке удалённых элементов: {str(e)}")
 
 
 @app.delete("/api/admin/users/{user_id}")
@@ -1596,6 +1664,18 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
                 new_level = res.get("level")
 
                 if options.dry_run:
+                    test_audio_path = None
+                    if not options.no_audio and options.voice and str(options.voice).lower() not in ("none", "off", "no", "disabled", ""):
+                        try:
+                            from api.utils.audio import generate_audio
+                            res_audio = await generate_audio(new_front, voice=options.voice, rate=options.rate or "+0%")
+                            if isinstance(res_audio, tuple):
+                                res_audio = res_audio[0]
+                            if res_audio:
+                                test_audio_path = save_audio_to_db_or_cloud(res_audio)
+                        except Exception as err:
+                            task_info["logs"].append(f"    ⚠️ [TTS] Ошибка озвучки теста: {err}")
+
                     task_info["dry_run_results"].append({
                         "deck_id": str(deck_id),
                         "deck_name": deck.name,
@@ -1603,7 +1683,10 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
                         "front": new_front,
                         "back": new_back,
                         "context": new_context,
-                        "level": new_level
+                        "level": new_level,
+                        "audio_path": test_audio_path,
+                        "voice": options.voice,
+                        "rate": options.rate
                     })
                 else:
                     card.front_text = new_front
@@ -2431,6 +2514,8 @@ def control_batch_regeneration(task_id: str, req: BatchControlRequest):
                 card.front_text = item["front"]
                 card.back_text = item["back"]
                 card.context = item["context"]
+                if item.get("audio_path"):
+                    card.audio_path = item["audio_path"]
                 if item.get("level"):
                     curr_tags = card.tags or ""
                     cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1","A2","B1","B2","C1","C2"}])
@@ -2440,7 +2525,7 @@ def control_batch_regeneration(task_id: str, req: BatchControlRequest):
                 count += 1
 
                 if task_info.get("sync_copies") and deck:
-                    _, sc = sync_card_updates_to_matching_decks(deck, orig_front, item["front"], item["back"], item["context"], item.get("level"))
+                    _, sc = sync_card_updates_to_matching_decks(deck, orig_front, item["front"], item["back"], item["context"], item.get("level"), card.audio_path)
                     sync_total += sc
 
         sync_msg = f" (и синхронизировано {sync_total} карточек у других колод)" if sync_total > 0 else ""
@@ -3457,12 +3542,27 @@ async def run_ai_regeneration(deck_id: str, options: RegenerateDeckRequest):
             new_level = res.get("level")
 
             if options.dry_run:
+                test_audio_path = None
+                if not options.no_audio and options.voice and str(options.voice).lower() not in ("none", "off", "no", "disabled", ""):
+                    try:
+                        from api.utils.audio import generate_audio
+                        res_audio = await generate_audio(new_front, voice=options.voice or "de-DE-KatjaNeural", rate=options.rate or "+0%")
+                        if isinstance(res_audio, tuple):
+                            res_audio = res_audio[0]
+                        if res_audio:
+                            test_audio_path = save_audio_to_db_or_cloud(res_audio)
+                    except Exception as err:
+                        task_info["logs"].append(f"  ⚠️ [TTS] Ошибка озвучки теста: {err}")
+
                 task_info["dry_run_results"].append({
                     "card_id": card.id,
                     "front": new_front,
                     "back": new_back,
                     "context": new_context,
-                    "level": new_level
+                    "level": new_level,
+                    "audio_path": test_audio_path,
+                    "voice": options.voice or "de-DE-KatjaNeural",
+                    "rate": options.rate or "+0%"
                 })
             else:
                 card.front_text = new_front
@@ -3553,6 +3653,8 @@ def control_regeneration(deck_id: str, req: ControlRegenRequest):
                 card.front_text = item["front"]
                 card.back_text = item["back"]
                 card.context = item["context"]
+                if item.get("audio_path"):
+                    card.audio_path = item["audio_path"]
                 if item.get("level"):
                     curr_tags = card.tags or ""
                     cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1","A2","B1","B2","C1","C2"}])
@@ -3562,7 +3664,7 @@ def control_regeneration(deck_id: str, req: ControlRegenRequest):
                 count += 1
 
                 if task_info.get("sync_copies") and deck:
-                    _, sc = sync_card_updates_to_matching_decks(deck, orig_front, item["front"], item["back"], item["context"], item.get("level"))
+                    _, sc = sync_card_updates_to_matching_decks(deck, orig_front, item["front"], item["back"], item["context"], item.get("level"), card.audio_path)
                     sync_total += sc
 
         sync_msg = f" (и синхронизировано {sync_total} карточек у других колод)" if sync_total > 0 else ""
@@ -3585,7 +3687,13 @@ VOICE_SAMPLE_PHRASES = {
 @app.get("/api/admin/voice-preview")
 async def get_voice_preview(voice: str = Query("de-DE-KatjaNeural"), text: Optional[str] = Query(None), rate: Optional[str] = Query("+0%")):
     """Generates on-the-fly voice preview audio for the chosen TTS voice and speed rate."""
+    from api.utils.audio import SUPPORTED_VOICES, _prepare_tts_text
+
     clean_voice = voice.strip()
+    clean_voice = SUPPORTED_VOICES.get(clean_voice, clean_voice)
+    if not clean_voice or clean_voice.lower() in ("none", "off", "no", "disabled", ""):
+        clean_voice = "de-DE-KatjaNeural"
+
     clean_rate = (rate or "+0%").strip()
     if not clean_rate.startswith(("+", "-")):
         clean_rate = f"+{clean_rate}"
@@ -3596,7 +3704,7 @@ async def get_voice_preview(voice: str = Query("de-DE-KatjaNeural"), text: Optio
         prefix = clean_voice[:2].lower()
         phrase = VOICE_SAMPLE_PHRASES.get(prefix, "Hallo! Ich lerne Sprachen mit der Lerne App.")
     else:
-        phrase = text.strip()
+        phrase = _prepare_tts_text(text) or text.strip()
 
     try:
         import edge_tts

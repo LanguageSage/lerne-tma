@@ -105,9 +105,9 @@ export const FolderCardItem = React.memo(({
   const handleDelete = (e) => {
     e.stopPropagation();
     setIsMenuOpen(false);
-    if (window.confirm(tr("Удалить папку? Колоды внутри папки останутся и переместятся на верхний уровень."))) {
+    if (window.confirm(tr("Удалить папку? Папка и все колоды внутри неё будут перемещены в корзину."))) {
       useDeckStore.getState().deleteFolder(folder.id);
-      showToast(tr("Папка удалена"), "success");
+      showToast(tr("Папка перемещена в корзину"), "success");
     }
   };
 
