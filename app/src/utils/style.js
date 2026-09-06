@@ -1,3 +1,5 @@
+import { CARD_LIST_BG_PRESETS } from '../constants/appConstants';
+
 export const getTextShadow = (effect, color) => {
   switch (effect) {
     case 'shadow':
@@ -39,4 +41,38 @@ export const getResolvedStyle = (settingStyle, cardId) => {
   if (!cardId) return 'standard';
   const sum = cardId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
   return availableStyles[sum % availableStyles.length];
+};
+
+export const getCardListBgStyle = (previewCardBg = 'dark_obsidian') => {
+  const preset = CARD_LIST_BG_PRESETS.find(p => p.id === previewCardBg);
+  if (preset) {
+    return {
+      className: preset.bgClass,
+      style: {
+        '--card-list-accent': preset.accent,
+        '--card-list-hover-border': `${preset.accent}66`,
+      }
+    };
+  }
+
+  if (previewCardBg === 'dark_obsidian' || previewCardBg === 'dark_minimal' || 
+      previewCardBg === 'dark_midnight' || previewCardBg === 'dark_emerald' || 
+      previewCardBg === 'dark_mocha') {
+    return {
+      className: `bg-${previewCardBg.replace('_', '-')}`,
+      style: {
+        '--card-list-accent': '#38bdf8',
+        '--card-list-hover-border': 'rgba(56, 189, 248, 0.4)',
+      }
+    };
+  }
+
+  return {
+    className: '',
+    style: {
+      background: previewCardBg || '#1e293b',
+      '--card-list-accent': '#38bdf8',
+      '--card-list-hover-border': 'rgba(56, 189, 248, 0.4)',
+    }
+  };
 };

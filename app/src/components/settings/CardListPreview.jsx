@@ -2,11 +2,10 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { GripHorizontal, MoreHorizontal } from 'lucide-react';
-import { CardBackground } from '../common/CardBackground';
-import { getTextShadow } from '../../utils/style';
+import { getTextShadow, getCardListBgStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-export const CardListPreview = ({ styleType = 'standard' }) => {
+export const CardListPreview = () => {
   useInterfaceLocale();
   const {
     previewCardFont,
@@ -19,8 +18,10 @@ export const CardListPreview = ({ styleType = 'standard' }) => {
     previewTextShadow,
     previewCardTextAlign,
     previewCardLines,
+    previewCardBg,
   } = useSettingsStore();
 
+  const cardListBg = getCardListBgStyle(previewCardBg || 'dark_obsidian');
   const frontShadow = getTextShadow(previewTextShadow, previewCardTextColor || '#ffffff');
   const backShadow = getTextShadow(previewTextShadow, previewBackTextColor || '#cbd5e1');
 
@@ -50,17 +51,16 @@ export const CardListPreview = ({ styleType = 'standard' }) => {
       }}
     >
       <div 
-        className="card-item card-front glass"
+        className={`card-item card-front glass ${cardListBg.className}`}
         style={{
           margin: 0,
           position: 'relative',
           overflow: 'hidden',
           cursor: 'default',
-          userSelect: 'none'
+          userSelect: 'none',
+          ...cardListBg.style
         }}
       >
-        <CardBackground styleType={styleType} />
-
         <div className="card-item-text" style={{ position: 'relative', zIndex: 1 }}>
           <div 
             className="front-min"

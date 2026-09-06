@@ -31,7 +31,8 @@ export const DEFAULT_DESIGN_SETTINGS = {
   previewCardFontStyle: 'normal',
   previewTextShadow: 'none',
   previewCardTextAlign: 'left',
-  previewCardLines: 3
+  previewCardLines: 3,
+  previewCardBg: 'dark_obsidian'
 };
 
 export const DESIGN_STORAGE_MAP = {
@@ -63,6 +64,7 @@ export const DESIGN_STORAGE_MAP = {
   previewTextShadow: 'lerne_preview_text_shadow',
   previewCardTextAlign: 'lerne_preview_card_text_align',
   previewCardLines: 'lerne_preview_card_lines',
+  previewCardBg: 'lerne_preview_card_bg',
 };
 
 const DESIGN_STORAGE_VERSION = '2026_08_emerald_final_v4';

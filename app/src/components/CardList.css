@@ -30,24 +30,56 @@
   top: 15%;
   height: 70%;
   width: 3.5px;
-  background: linear-gradient(to bottom, #a855f7, #6366f1);
+  background: var(--card-list-accent, linear-gradient(to bottom, #38bdf8, #818cf8));
   border-radius: 0 4px 4px 0;
-  opacity: 0.6;
+  opacity: 0.7;
   transition: opacity 0.25s ease, background 0.25s ease;
   z-index: 10;
   pointer-events: none;
 }
 
 .card-item:hover {
-  border-color: rgba(168, 85, 247, 0.45);
-  box-shadow: 0 12px 28px rgba(168, 85, 247, 0.2), 0 6px 16px rgba(0, 0, 0, 0.35);
+  border-color: var(--card-list-hover-border, rgba(56, 189, 248, 0.4));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
 .card-item:hover::before {
   height: 85%;
   top: 7.5%;
   opacity: 1;
-  background: linear-gradient(to bottom, #c084fc, #818cf8);
+}
+
+/* Card List Background Presets */
+.card-item.bg-dark-obsidian {
+  background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%);
+}
+
+.card-item.bg-dark-minimal {
+  background: linear-gradient(180deg, #18181b 0%, #09090b 100%);
+}
+
+.card-item.bg-dark-midnight {
+  background: radial-gradient(ellipse at top, #0f1d3a 0%, #070d1e 65%, #020617 100%);
+}
+
+.card-item.bg-dark-emerald {
+  background: radial-gradient(ellipse at top, #06281e 0%, #021a13 60%, #010d0a 100%);
+}
+
+.card-item.bg-dark-mocha {
+  background: radial-gradient(ellipse at top, #24160f 0%, #150c07 60%, #0a0503 100%);
+}
+
+.card-item.bg-cardlist-emerald {
+  background: radial-gradient(ellipse at top left, #064e3b 0%, #06281e 50%, #021a13 100%);
+}
+
+.card-item.bg-cardlist-ocean {
+  background: radial-gradient(ellipse at top left, #0c4a6e 0%, #0f1d3a 50%, #020617 100%);
+}
+
+.card-item.bg-cardlist-sunset {
+  background: radial-gradient(ellipse at top left, #451a03 0%, #24160f 50%, #0a0503 100%);
 }
 
 .card-item-draggable {

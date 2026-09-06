@@ -7,7 +7,7 @@ import { TypographyPreview } from './TypographyPreview';
 import { CardListPreview } from './CardListPreview';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
-import { DESIGN_PRESETS } from '../../constants/appConstants';
+import { DESIGN_PRESETS, CARD_LIST_BG_PRESETS } from '../../constants/appConstants';
 import api from '../../services/api';
 
 const PRESET_COLORS = [
@@ -65,6 +65,7 @@ export const DesignTab = () => {
     previewTextShadow, setPreviewTextShadow,
     previewCardTextAlign, setPreviewCardTextAlign,
     previewCardLines, setPreviewCardLines,
+    previewCardBg, setPreviewCardBg,
     syncPreviewFromCard,
     applyDesignPreset,
     saveUserDesign,
@@ -705,7 +706,99 @@ export const DesignTab = () => {
         </div>
         <p className="field-hint" style={{ marginBottom: '10px' }}>{tr("Индивидуальная настройка шрифтов и цветов для карточек в общем списке")}{' '}</p>
 
-        <CardListPreview styleType={cardBgFront} />
+        <CardListPreview />
+
+        {/* Card List Background Selector */}
+        <div className="form-group" style={{ marginBottom: '16px' }}>
+          <label>{tr("Фон карточек в списке")}</label>
+          <select 
+            value={CARD_LIST_BG_PRESETS.some(p => p.id === previewCardBg) ? previewCardBg : 'custom'} 
+            onChange={e => {
+              if (e.target.value !== 'custom') {
+                setPreviewCardBg(e.target.value);
+              }
+            }}
+            style={{ width: '100%', marginTop: '6px', marginBottom: '8px' }}
+          >
+            <option disabled>{tr("── Готовые пресеты ──")}</option>
+            {CARD_LIST_BG_PRESETS.map(preset => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+            <option value="custom">{tr("🎨 Свой цвет / палитра")}</option>
+          </select>
+
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            flexWrap: 'wrap', 
+            padding: '10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            alignItems: 'center'
+          }}>
+            {PRESET_COLORS.map(color => {
+              const isSelected = previewCardBg?.toLowerCase() === color.toLowerCase();
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setPreviewCardBg(color)}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    border: isSelected ? '2.5px solid #38bdf8' : '1px solid rgba(255,255,255,0.2)',
+                    cursor: 'pointer',
+                    padding: 0,
+                    flexShrink: 0,
+                    boxShadow: isSelected ? '0 0 10px rgba(56,189,248,0.6)' : 'none',
+                    transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  title={color === '#ffffff' ? tr('Белый') : color}
+                />
+              );
+            })}
+
+            <label 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'conic-gradient(from 0deg, red, yellow, lime, aqua, blue, magenta, red)',
+                cursor: 'pointer',
+                border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                flexShrink: 0,
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              title={tr("Выбрать свой цвет (спектр)")}
+            >
+              <input 
+                type="color" 
+                value={previewCardBg?.startsWith('#') ? previewCardBg : '#1e293b'} 
+                onChange={e => setPreviewCardBg(e.target.value)}
+                style={{
+                  position: 'absolute',
+                  top: '-50%',
+                  left: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  opacity: 0,
+                  cursor: 'pointer'
+                }}
+              />
+            </label>
+          </div>
+        </div>
 
         {/* Front text color in preview */}
         <div className="form-group" style={{ marginBottom: '15px' }}>

@@ -33,13 +33,12 @@ import { ImageEditorModal } from '../common/ImageEditorModal';
 import { navigateUp } from '../../utils/navigation';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 
-import { CardBackground } from '../common/CardBackground';
 import { getFlagStyle } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 import { parseQuizData } from '../../utils/quizParser';
-import { getTextShadow, getResolvedStyle } from '../../utils/style';
+import { getTextShadow, getCardListBgStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
@@ -53,7 +52,7 @@ const DraggableCardItem = React.memo(({
   startStudyCard,
   frontTypographyStyle,
   backTypographyStyle,
-  cardBgFront,
+  cardListBg,
   previewCardLines
 }) => {
   useInterfaceLocale();
@@ -109,16 +108,13 @@ const DraggableCardItem = React.memo(({
     startStudyCard(currentDeck, c.id);
   };
 
-  const resolvedBgFront = React.useMemo(() => getResolvedStyle(cardBgFront, c.id), [cardBgFront, c.id]);
-
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, ...cardListBg?.style }}
       id={`card-item-${c.id}`}
-      className={`card-item card-front glass card-item-draggable ${isDragging ? 'is-dragging' : ''}`}
+      className={`card-item card-front glass ${cardListBg?.className || ''} card-item-draggable ${isDragging ? 'is-dragging' : ''}`}
     >
-      <CardBackground styleType={resolvedBgFront} isStatic={true} />
       <div 
         className="card-item-text"
         onClick={handleItemClick}
@@ -234,7 +230,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const previewCardFontWeight = useSettingsStore(s => s.previewCardFontWeight);
   const previewCardFontStyle = useSettingsStore(s => s.previewCardFontStyle);
   const previewTextShadow = useSettingsStore(s => s.previewTextShadow);
-  const cardBgFront = useSettingsStore(s => s.cardBgFront);
+  const previewCardBg = useSettingsStore(s => s.previewCardBg);
+  const cardListBg = React.useMemo(() => getCardListBgStyle(previewCardBg), [previewCardBg]);
   const previewCardLines = useSettingsStore(s => s.previewCardLines);
   const previewCardTextAlign = useSettingsStore(s => s.previewCardTextAlign);
 
@@ -1141,7 +1138,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       startStudyCard={startStudyCard}
                       frontTypographyStyle={frontTypographyStyle}
                       backTypographyStyle={backTypographyStyle}
-                      cardBgFront={cardBgFront}
+                      cardListBg={cardListBg}
                       previewCardLines={previewCardLines}
                     />
                   ))}
@@ -1153,13 +1150,14 @@ export const CardList = ({ startStudy, startStudyCard }) => {
               <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
                 {activeCard ? (
                   <div 
-                    className="card-item card-front glass is-drag-overlay" 
+                    className={`card-item card-front glass ${cardListBg?.className || ''} is-drag-overlay`} 
                     style={{ 
                       opacity: 0.95, 
                       cursor: 'grabbing', 
-                      boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(168,85,247,0.5)',
+                      boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(56,189,248,0.35)',
                       transform: 'scale(1.02)',
-                      pointerEvents: 'none'
+                      pointerEvents: 'none',
+                      ...cardListBg?.style
                     }}
                   >
                     <div className="front-min" style={{ ...frontTypographyStyle }}>

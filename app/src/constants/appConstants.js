@@ -47,6 +47,17 @@ export const TUTORIAL_STEPS = {
   ]
 };
 
+export const CARD_LIST_BG_PRESETS = [
+  { id: 'dark_obsidian', get label() { return tr("Строгий графит 🖤"); }, bgClass: 'bg-dark-obsidian', accent: '#38bdf8' },
+  { id: 'dark_minimal', get label() { return tr("Минимализм 🌑"); }, bgClass: 'bg-dark-minimal', accent: '#94a3b8' },
+  { id: 'dark_midnight', get label() { return tr("Полуночный синий 🌌"); }, bgClass: 'bg-dark-midnight', accent: '#60a5fa' },
+  { id: 'dark_emerald', get label() { return tr("Тёмный изумруд 🌿"); }, bgClass: 'bg-dark-emerald', accent: '#34d399' },
+  { id: 'dark_mocha', get label() { return tr("Тёмный мокко ☕"); }, bgClass: 'bg-dark-mocha', accent: '#fb923c' },
+  { id: 'emerald_soft', get label() { return tr("Изумрудный поток 🍃"); }, bgClass: 'bg-cardlist-emerald', accent: '#10b981' },
+  { id: 'ocean_soft', get label() { return tr("Океанический бриз 🌊"); }, bgClass: 'bg-cardlist-ocean', accent: '#38bdf8' },
+  { id: 'sunset_soft', get label() { return tr("Тёплый закат 🌅"); }, bgClass: 'bg-cardlist-sunset', accent: '#f59e0b' },
+];
+
 export const DESIGN_PRESETS = [
   {
     id: 'strict_dark',
@@ -68,7 +79,8 @@ export const DESIGN_PRESETS = [
       contextFontStyle: 'normal',
       contextTextAlign: 'left',
       cardTextShadow: 'none',
-      contextTextShadow: 'none'
+      contextTextShadow: 'none',
+      previewCardBg: 'dark_obsidian'
     }
   },
   {
@@ -91,7 +103,8 @@ export const DESIGN_PRESETS = [
       contextFontStyle: 'normal',
       contextTextAlign: 'left',
       cardTextShadow: 'none',
-      contextTextShadow: 'none'
+      contextTextShadow: 'none',
+      previewCardBg: 'dark_minimal'
     }
   },
   {
@@ -114,7 +127,8 @@ export const DESIGN_PRESETS = [
       contextFontStyle: 'normal',
       contextTextAlign: 'left',
       cardTextShadow: 'glow',
-      contextTextShadow: 'none'
+      contextTextShadow: 'none',
+      previewCardBg: 'dark_midnight'
     }
   },
   {
@@ -137,7 +151,8 @@ export const DESIGN_PRESETS = [
       contextFontStyle: 'normal',
       contextTextAlign: 'left',
       cardTextShadow: 'none',
-      contextTextShadow: 'none'
+      contextTextShadow: 'none',
+      previewCardBg: 'dark_emerald'
     }
   },
   {
@@ -170,7 +185,8 @@ export const DESIGN_PRESETS = [
       previewCardFontStyle: 'normal',
       previewTextShadow: 'none',
       previewCardTextAlign: 'left',
-      previewCardLines: 3
+      previewCardLines: 3,
+      previewCardBg: 'dark_emerald'
     }
   },
   {
@@ -193,7 +209,8 @@ export const DESIGN_PRESETS = [
       contextFontStyle: 'normal',
       contextTextAlign: 'left',
       cardTextShadow: 'glow',
-      contextTextShadow: 'none'
+      contextTextShadow: 'none',
+      previewCardBg: 'dark_midnight'
     }
   },
   {
@@ -209,7 +226,8 @@ export const DESIGN_PRESETS = [
       contextTextColor: '#ffffff',
       contextFontSize: 1.1,
       cardTextShadow: 'glow',
-      contextTextShadow: 'shadow'
+      contextTextShadow: 'shadow',
+      previewCardBg: 'dark_midnight'
     }
   },
   {
@@ -229,7 +247,8 @@ export const DESIGN_PRESETS = [
       contextFontWeight: '400',
       contextFontStyle: 'normal',
       cardTextShadow: 'glass',
-      contextTextShadow: 'outline'
+      contextTextShadow: 'outline',
+      previewCardBg: 'sunset_soft'
     }
   },
   {
@@ -249,7 +268,8 @@ export const DESIGN_PRESETS = [
       cardFontWeight: "600",
       cardFontStyle: "normal",
       contextFontWeight: "400",
-      contextFontStyle: "italic"
+      contextFontStyle: "italic",
+      previewCardBg: 'dark_obsidian'
     }
   },
   {
@@ -265,7 +285,8 @@ export const DESIGN_PRESETS = [
       contextTextColor: '#94a3b8',
       contextFontSize: 1.1,
       cardTextShadow: 'shadow',
-      contextTextShadow: 'none'
+      contextTextShadow: 'none',
+      previewCardBg: 'ocean_soft'
     }
   }
 ];

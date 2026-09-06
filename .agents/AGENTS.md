@@ -19,12 +19,13 @@ Welcome to the **Lerne TMA (Telegram Mini App)** repository. This project is con
 
 ## Repository Structure & AI Harness Layers
 
+- **`.agents/ARCHITECTURE.md`**: Architectural map and intent-to-code trace matrix. **Consult first** to immediately locate where to find issues and make changes.
 - **`.agents/rules/`**: Declarative engineering constraints, offline mode rules, architecture boundaries, and safety guardrails.
 - **`.agents/skills/`**: Operational cheatsheets and reusable workflows (`lean-code`, `fastapi-backend`, `tma-ui`, `db-mgmt`, `ai-harness-eval`).
 
 ## Agent Loop Workflow
 
-1. **Context Alignment & Reconnaissance**: Search the codebase (`grep_search`, `find_by_name`) to identify existing components, hooks, stores, and endpoints before writing new ones. Do not guess variable names or API contracts.
+1. **Context Alignment & Reconnaissance**: Consult `.agents/ARCHITECTURE.md` to locate the target subsystem. Then search the codebase (`grep_search`, `find_by_name`) to verify existing components, hooks, stores, and endpoints before writing new ones. Do not guess variable names or API contracts.
 2. **Specification & Plan**: For non-trivial changes, outline an implementation plan with explicit verification steps.
 3. **Autonomous Execution**: Make surgical edits using tool declarations. Favor minimal diffs over large file rewrites.
 4. **Diff Self-Review**: Review your own changes for duplicate logic, unused imports, redundant state, or unnecessary wrappers before proceeding.
