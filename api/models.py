@@ -220,7 +220,7 @@ class TMAUser(BaseModel):
     active_language = CharField(default='de', null=True)
     native_language = CharField(default='uk', null=True)
     has_selected_language = BooleanField(default=False)
-    is_guest = BooleanField(default=False)
+    is_guest = BooleanField(default=True)
     default_decks_initialized = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)

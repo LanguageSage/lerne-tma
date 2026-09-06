@@ -193,6 +193,8 @@ def get_init_data(user_id: int = Depends(get_user_id)):
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
         if user:
             clean_first_name = user.first_name if (user.first_name and user.first_name != "Пользователь") else (user.username or None)
+            has_identity = bool(clean_first_name or user.username)
+            is_guest = bool(user.is_guest) if has_identity else True
             user_info = {
                 "user_id": user.user_id,
                 "first_name": clean_first_name,
@@ -200,7 +202,7 @@ def get_init_data(user_id: int = Depends(get_user_id)):
                 "username": user.username,
                 "photo_url": user.photo_url,
                 "phone": user.phone,
-                "is_guest": bool(user.is_guest),
+                "is_guest": is_guest,
                 "active_language": user.active_language or "de",
                 "native_language": getattr(user, 'native_language', None) or "uk",
                 "has_selected_language": bool(user.has_selected_language)

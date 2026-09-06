@@ -134,8 +134,12 @@ export const getUserProfile = () => {
         if (p && p.user_id) {
           if (p.first_name === 'Пользователь') {
             p.first_name = null;
-            storage.set('lerne_user_profile', JSON.stringify(p));
           }
+          const hasIdentity = Boolean(p.first_name || p.username);
+          if (!hasIdentity) {
+            p.is_guest = true;
+          }
+          storage.set('lerne_user_profile', JSON.stringify(p));
           return p;
         }
       } catch { /* ignore */ }
