@@ -146,10 +146,11 @@ def update_user_language(data: UserLanguageSchema, user_id: int = Depends(get_us
 def create_session(guest_id: int):
     """Creates a pending auth session for polling."""
     session, created = TMALinkedSession.get_or_create(guest_id=guest_id)
-    session.is_confirmed = False
-    session.telegram_id = None
-    session.created_at = datetime.datetime.now()
-    session.save()
+    if not (session.is_confirmed and session.telegram_id):
+        session.is_confirmed = False
+        session.telegram_id = None
+        session.created_at = datetime.datetime.now()
+        session.save()
     return {"status": "ok", "guest_id": guest_id}
 
 @router.get("/auth/session/{guest_id}")

@@ -43,9 +43,16 @@ export const useAuthStore = create((set, get) => ({
     const botUrl = `https://t.me/LerneDeutsch287_bot?start=link_${guestId}`;
 
     try {
-      await api.post(`/auth/session?guest_id=${guestId}`);
-      try { sessionStorage.setItem('lerne_pending_guest_id', String(guestId)); } catch { /* ignore */ }
+      try {
+        sessionStorage.setItem('lerne_pending_guest_id', String(guestId));
+        storage.set('lerne_pending_guest_id', String(guestId));
+      } catch { /* ignore */ }
       set({ isPolling: true, pendingGuestId: String(guestId), authError: null });
+
+      // Register session in background without blocking opening the bot
+      api.post(`/auth/session?guest_id=${guestId}`).catch((e) => {
+        console.warn("Background auth session init notice:", e);
+      });
 
       // Start polling
       if (pollingInterval) clearInterval(pollingInterval);
@@ -79,7 +86,15 @@ export const useAuthStore = create((set, get) => ({
   checkPendingSession: async (targetGuestId = null) => {
     let guestId = targetGuestId || get().pendingGuestId;
     if (!guestId) {
-      try { guestId = sessionStorage.getItem('lerne_pending_guest_id'); } catch { /* ignore */ }
+      try {
+        guestId = sessionStorage.getItem('lerne_pending_guest_id') || storage.get('lerne_pending_guest_id');
+      } catch { /* ignore */ }
+    }
+    if (!guestId) {
+      const currentProfile = get().userProfile || getUserProfile();
+      if (currentProfile?.is_guest && currentProfile?.user_id) {
+        guestId = currentProfile.user_id;
+      }
     }
     if (!guestId) return false;
 
@@ -87,7 +102,10 @@ export const useAuthStore = create((set, get) => ({
       const res = await api.get(`/auth/session/${guestId}`);
       if (res.data?.status === 'completed' && res.data?.user) {
         const newUser = res.data.user;
-        try { sessionStorage.removeItem('lerne_pending_guest_id'); } catch { /* ignore */ }
+        try {
+          sessionStorage.removeItem('lerne_pending_guest_id');
+          storage.remove('lerne_pending_guest_id');
+        } catch { /* ignore */ }
         if (pollingInterval) {
           clearInterval(pollingInterval);
           pollingInterval = null;
@@ -172,16 +190,20 @@ export const useAuthStore = create((set, get) => ({
     visibilityListenerAttached = true;
 
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' || !document.hidden) {
         let pending = null;
-        try { pending = sessionStorage.getItem('lerne_pending_guest_id'); } catch { /* ignore */ }
-        if (pending || get().pendingGuestId || get().userProfile?.is_guest) {
-          get().checkPendingSession();
+        try {
+          pending = sessionStorage.getItem('lerne_pending_guest_id') || storage.get('lerne_pending_guest_id');
+        } catch { /* ignore */ }
+        const currentProfile = get().userProfile || getUserProfile();
+        if (pending || get().pendingGuestId || currentProfile?.is_guest) {
+          get().checkPendingSession(pending);
         }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('resume', handleVisibility);
     window.addEventListener('focus', handleVisibility);
   }
 }));

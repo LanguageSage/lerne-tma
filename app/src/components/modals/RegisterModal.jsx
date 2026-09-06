@@ -5,22 +5,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Mail, Phone, Send, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import api from '../../services/api';
-import { getUserId, storage } from '../../utils/auth';
+import { storage } from '../../utils/auth';
 
 export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
   useInterfaceLocale();
   const { setUserProfile, showToast, setIsAccountDeleted } = useUiStore();
   const { fetchDecks } = useDeckStore();
+  const { isPolling, startTelegramLinking } = useAuthStore();
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isPolling, setIsPolling] = useState(false);
-
-  const currentUserId = getUserId();
-  const botLink = `https://t.me/LerneDeutsch287_bot?start=link_${currentUserId}`;
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
@@ -59,42 +57,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
-  const handleTelegramLink = async () => {
-    if (isPolling) return;
-    try {
-      await api.post(`/auth/session?guest_id=${currentUserId}`);
-      setIsPolling(true);
 
-      const interval = setInterval(async () => {
-        try {
-          const res = await api.get(`/auth/session/${currentUserId}`);
-          if (res.data.status === 'completed') {
-            clearInterval(interval);
-            setIsPolling(false);
-            const tgUser = res.data.user;
-            setUserProfile(tgUser);
-            storage.set('lerne_user_id', tgUser.user_id);
-            storage.set('lerne_user_profile', JSON.stringify(tgUser));
-            storage.remove('lerne_last_sync_time');
-            storage.remove('lerne_last_sync_user_id');
-            setIsAccountDeleted(false);
-            showToast(tr("Успешный вход через Telegram!"), "success");
-            
-            setTimeout(() => {
-              window.location.reload();
-            }, 600);
-          }
-        } catch { /* ignore */ }
-      }, 2000);
-
-      setTimeout(() => {
-        clearInterval(interval);
-        setIsPolling(false);
-      }, 120000);
-    } catch {
-      showToast(tr("Не удалось запустить привязку"), "error");
-    }
-  };
 
   return (
     <AnimatePresence>
@@ -203,23 +166,20 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
               </div>
 
               {/* Telegram Link Option */}
-              <a
-                href={botLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleTelegramLink}
+              <button
+                type="button"
+                onClick={startTelegramLinking}
                 className={`btn btn-secondary ${isPolling ? 'polling' : ''}`}
                 style={{
                   width: '100%', padding: '12px', borderRadius: 14,
                   fontSize: '0.88rem', fontWeight: 600,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  background: 'rgba(34, 158, 217, 0.12)', borderColor: 'rgba(34, 158, 217, 0.3)', color: '#38bdf8',
-                  textDecoration: 'none'
+                  background: 'rgba(34, 158, 217, 0.12)', borderColor: 'rgba(34, 158, 217, 0.3)', color: '#38bdf8'
                 }}
               >
                 <Send size={16} />
                 <span>{isPolling ? tr("Ожидание в Telegram...") : tr("Войти через Telegram в 1 клик")}</span>
-              </a>
+              </button>
             </form>
           </motion.div>
         </div>

@@ -70,15 +70,16 @@ import html
 
 async def safe_send_reply(update: Update, text_html: str, reply_markup=None):
     """Отправляет сообщение пользователю с HTML-разметкой, с автоматическим фоллбэком при ошибке."""
-    if not update.message:
+    message = update.effective_message
+    if not message:
         return
     try:
-        await update.message.reply_text(text_html, reply_markup=reply_markup, parse_mode="HTML")
+        await message.reply_text(text_html, reply_markup=reply_markup, parse_mode="HTML")
     except Exception as e:
         logger.warning(f"Failed to reply with HTML parse_mode: {e}. Retrying plain text.")
-        plain_text = text_html.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
+        plain_text = text_html.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "").replace("<code>", "").replace("</code>", "")
         try:
-            await update.message.reply_text(plain_text, reply_markup=reply_markup)
+            await message.reply_text(plain_text, reply_markup=reply_markup)
         except Exception as e2:
             logger.error(f"Failed to send plain text reply: {e2}")
 
@@ -102,39 +103,38 @@ async def start_handler(update: Update, context):
             try:
                 guest_id = int(args[0].replace("link_", ""))
                 from api.models import TMALinkedSession
-                session = TMALinkedSession.get_or_none(TMALinkedSession.guest_id == guest_id)
-                if session:
-                    session.telegram_id = user.id
-                    session.is_confirmed = True
-                    session.save()
-                    
-                    from api import services
-                    services.merge_guest_data(guest_id, user.id)
-                    
-                    logger.info(f"Auth Session Linked: guest={guest_id} -> user={user.id} ({user.first_name})")
-                    
-                    text = (
-                        f"✅ <b>Вход в аккаунт подтвержден!</b>\n\n"
-                        f"Привет, {first_name}! Мы связали ваш профиль.\n\n"
-                        "📱 <b>Если вы открывали ссылку из мобильного приложения (APK):</b>\n"
-                        "Просто переключитесь обратно в приложение Lerne — вы уже авторизованы! 🚀\n\n"
-                        "🌍 <b>Если вы в браузере:</b>\n"
-                        "Нажмите кнопку ниже:"
-                    )
-                    keyboard = InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🌍 Открыть в браузере", url=make_browser_url(TMA_URL, user))],
-                        [InlineKeyboardButton("🔑 Получить код для входа", callback_data="get_login_code")]
-                    ])
-                    await safe_send_reply(update, text, reply_markup=keyboard)
-                    return
-            except Exception as e:
-                logger.error(f"Error linking session: {e}")
+                session, _ = TMALinkedSession.get_or_create(guest_id=guest_id)
+                session.telegram_id = user.id
+                session.is_confirmed = True
+                session.save()
                 
-            # Fallback if session not found or error
+                from api import services
+                services.merge_guest_data(guest_id, user.id)
+                
+                logger.info(f"Auth Session Linked: guest={guest_id} -> user={user.id} ({user.first_name})")
+                
+                text = (
+                    f"✅ <b>Вход в аккаунт подтверждён!</b>\n\n"
+                    f"Привет, {first_name}! Мы связали ваш Telegram-аккаунт.\n\n"
+                    "📱 <b>Если вы открывали ссылку из приложения (APK):</b>\n"
+                    "Просто переключитесь обратно в приложение Lerne — вход выполнится автоматически! 🚀\n\n"
+                    "🌍 <b>Если вы в браузере:</b>\n"
+                    "Нажмите кнопку ниже:"
+                )
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🌍 Открыть в браузере", url=make_browser_url(TMA_URL, user))],
+                    [InlineKeyboardButton("🔑 Код для ручного входа", callback_data="get_login_code")]
+                ])
+                await safe_send_reply(update, text, reply_markup=keyboard)
+                return
+            except Exception as e:
+                logger.error(f"Error linking session: {e}", exc_info=True)
+                
+            # Fallback if error parsing guest_id
             text = (
-                f"🔗 <b>Вход в аккаунт подтвержден!</b>\n\n"
+                f"🔗 <b>Вход в аккаунт подтверждён!</b>\n\n"
                 f"Привет, {first_name}! Мы нашли ваш Telegram-профиль.\n\n"
-                "📱 Если вы в приложении Lerne — просто вернитесь в него или используйте код входа.\n"
+                "📱 Если вы в приложении Lerne — просто вернитесь в него или получите код ниже 👇\n"
                 "🌍 Если вы в браузере — нажмите кнопку ниже:"
             )
             keyboard = InlineKeyboardMarkup([
