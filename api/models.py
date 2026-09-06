@@ -20,7 +20,7 @@ def create_all_tables():
         run_migrations(tma_db, lerne_db)
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
-            TMAMedia, TMAFeedback, TMAUser, TMALinkedSession,
+            TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, TMAAuthCode,
             LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt,
             TMA_Collaborator, TMAOfflineBatch
         ]
@@ -243,6 +243,15 @@ class TMALinkedSession(BaseModel):
     created_at = DateTimeField(default=datetime.datetime.now)
     class Meta:
         table_name = 'tma_linked_session'
+
+class TMAAuthCode(BaseModel):
+    id = AutoField()
+    code = CharField(max_length=10, unique=True, index=True)
+    user_id = BigIntegerField(index=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    is_used = BooleanField(default=False)
+    class Meta:
+        table_name = 'tma_auth_code'
 
 class LibraryCategory(Model):
     id = AutoField()

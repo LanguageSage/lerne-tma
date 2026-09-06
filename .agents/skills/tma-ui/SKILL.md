@@ -1,34 +1,28 @@
 ---
 name: tma-ui
-description: UI/UX design patterns, mobile viewport rules, Telegram Mini App integration, and Framer Motion animation guidelines for Lerne TMA frontend.
+description: Build Lerne TMA React interfaces with Telegram viewport integration, accessible controls, localized text, and complete interaction states.
 ---
 
-# Telegram Mini App UI/UX Skill (Lerne TMA)
+# Lerne TMA interface
 
-Use this skill when developing, refactoring, or polishing user interfaces, animations, and styles in `/app`.
+## Application environment
 
----
+- Follow the existing visual system, shared components, Telegram theme variables, and lucide-react icon conventions.
+- Respect safe areas, dynamic viewport height, the on-screen keyboard, and bottom navigation. Check affected screens at narrow mobile widths.
+- Coordinate Telegram MainButton, BackButton, and haptics with existing handlers and cleanup. Preserve standalone behavior where supported.
+- Keep transient state local and shared navigation or entities in their owning store. Read [reuse guidance](../lean-code/SKILL.md) when changing boundaries.
 
-## 1. Telegram Mini App Environment & Viewport
-- **Safe Areas & Viewport**: Always respect mobile Telegram header, bottom navigation safe areas, and dynamic viewport heights (`100dvh` / `tg-viewport`).
-- **Telegram Native Components**: Coordinate with Telegram WebApp MainButton, BackButton, and HapticFeedback where applicable.
-- **Touch-Friendly Target Sizes**: Ensure interactive buttons and card tap zones are at least 44x44px with immediate visual feedback (`:active` states, subtle scale).
+## Complete interactions
 
----
+- Handle loading, empty results, failure, success, and retry where applicable. Prevent unintended duplicate submissions and retain useful input on failure.
+- Use semantic controls and accessible names, including icon buttons. Support keyboard navigation, visible focus, modal focus management, and readable contrast.
+- Aim for touch targets of at least 44 by 44 CSS pixels. Check long labels, larger text, and overflow across affected languages.
+- Route new interface text through the existing translation mechanism, including toasts, errors, placeholders, and accessible labels. Preserve interpolation parameters.
+- Distinguish interface language, learning language, and user content. Do not translate user content as interface copy.
+- Give missing translations and failed requests deliberate fallback behavior. Hiding a crash with an error boundary does not fix its cause.
 
-## 2. Visual Hierarchy & Theme
-- **Color Palette & Dark Mode**: Respect Telegram theme variables (`var(--tg-theme-bg-color)`, `var(--tg-theme-text-color)`) with vibrant accent colors for decks and levels.
-- **High Contrast**: Ensure clear readability of language learning text, transcriptions, and translation cards.
-- **Icons**: Use `lucide-react` consistently across all buttons and headers. Keep icon sizes uniform (`16px`, `20px`, `24px`).
+## Motion and verification
 
----
+Use existing Framer Motion patterns when useful. Prefer transform and opacity; assess layout animation costs when needed instead of prohibiting them universally. Respect reduced-motion preferences and avoid making operation completion depend on animation.
 
-## 3. Motion & Micro-Interactions
-- **Framer Motion**: Use `framer-motion` for study view card flips, swipe gestures, modal slide-ins, and completion overlays (`AnimatePresence`).
-- **Performance**: Animate only `transform` and `opacity` to maintain smooth 60fps animations on mobile devices. Avoid animating `height` or `margin` directly.
-
----
-
-## 4. Component Structure & State
-- **Transient vs Global State**: Keep ephemeral UI state (dropdown open, input focus, hover) in local React `useState`. Route global navigation and active modals through `useUiStore`.
-- **Modals**: Keep modal dialogs modular and lazy-load heavy sub-screens if necessary.
+Use [verification guidance](../ai-harness-eval/SKILL.md). Inspect changed layouts and interaction states when a runnable environment is available; report what was not exercised.

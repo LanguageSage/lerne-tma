@@ -1,34 +1,30 @@
 ---
 name: db-mgmt
-description: PostgreSQL / Supabase and Peewee ORM migration & data management guidance for Lerne TMA.
+description: Change Lerne TMA PostgreSQL and Peewee schemas, data mutations, or Dexie synchronization with transaction integrity, compatible migrations, and recovery checks.
 ---
 
-# Database Management Skill (Lerne TMA)
+# Data management for Lerne TMA
 
-This skill ensures data integrity, schema consistency, and efficient query execution for Lerne TMA.
+## Identify storage and ownership
 
----
+Read `api/database.py`, affected models in `api/models.py`, and migration conventions in `api/migrations.py`. Database proxies may resolve to the same database; verify configuration without exposing credentials.
 
-## 1. Tech Stack
-- **Database**: PostgreSQL / Supabase (Cloud & Production)
-- **ORM**: Peewee ORM (`/api/models.py`, `/api/database.py`)
-- **Scripts**: `apply_indexes.py`, `check_db.py`, `inspect_db_deep.py`
+For offline data, inspect `app/src/services/localDb.js`, `offlineApi.js`, and `syncService.js`. Trace identifiers, ownership, schema versions, and queued operations across client and server.
 
----
+## Mutations and synchronization
 
-## 2. Guidelines & Best Practices
+- Use transactions for related writes that must succeed or fail together. Keep connection and transaction handling in the same thread/context.
+- Database transactions cannot atomically include browser storage or external services. Define recovery from partial success using existing retry or reconciliation mechanisms.
+- Preserve queued local changes. Check duplicates, conflicts, retry behavior, and deletion propagation when those paths change.
+- Prefer database constraints for relevant uniqueness and referential invariants; application prechecks can race. Translate constraint failures into expected API errors.
+- Check query patterns before adding indexes, including write cost and migration impact.
 
-1. **Schema Migrations**:
-   - Use idempotent SQL/Python migration scripts (`apply_indexes.py` or explicit Peewee migrations).
-   - Never run raw `DROP TABLE` commands in production without prior database snapshot/backup in Supabase.
+## Migrations
 
-2. **Connection & Pooling Safety**:
-   - Use proper connection lifecycle management for FastAPI endpoints (connect on request, close on response or use pooled connections).
-   - Keep `.env` credentials secure (`SUPABASE_URL`, `DATABASE_URL`).
+- Distinguish schema migrations from one-off data repairs. Follow migration tracking conventions; make reruns safe through tracking or idempotence as appropriate.
+- Account for existing rows, nulls, duplicates, defaults, and older clients before introducing constraints or removing fields.
+- Validate against a disposable database or authorized test copy. Inspect configuration first; an environment file does not establish that data is safe to modify.
+- For material data transformations, verify counts and invariants before and after, and define rollback or forward recovery. Do not promise reversibility without a concrete method.
+- Destructive live operations need explicit authorization and a verified recovery path. A backup alone does not authorize deletion.
 
-3. **Query Optimization**:
-   - Avoid N+1 query problems in Peewee; use `.prefetch()` or `.join()` for nested relations (e.g. User -> Decks -> Cards).
-   - Ensure indexing on foreign keys (`user_id`, `deck_id`) and search columns (`word`, `next_review_at`).
-
-4. **Offline & Client Sync Alignment**:
-   - Align Peewee model fields with IndexedDB (Dexie.js in `/app/src/services/localDb.js`) schemas to ensure smooth bidirectional synchronization.
+Use [verification guidance](../ai-harness-eval/SKILL.md). Report whether a migration was prepared, tested, or applied, and in which environment.

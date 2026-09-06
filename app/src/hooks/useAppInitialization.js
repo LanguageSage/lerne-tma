@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { getUserId, getUserProfile, storage, cloudStorage } from '../utils/auth';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { DESIGN_PRESETS } from '../constants/appConstants';
@@ -66,6 +67,7 @@ export const useAppInitialization = (checkStartParam) => {
     };
 
     init();
+    useAuthStore.getState().initListeners();
 
     // Check start param on mount
     checkStartParam();
@@ -73,7 +75,8 @@ export const useAppInitialization = (checkStartParam) => {
     // Listen for visibility changes
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log("App became visible, re-checking parameters...");
+        console.log("App became visible, re-checking parameters and auth...");
+        useAuthStore.getState().checkPendingSession();
         setTimeout(checkStartParam, 500);
         if (navigator.onLine) {
           if (isOfflineMode()) {
@@ -150,35 +153,16 @@ export const useAppInitialization = (checkStartParam) => {
       const cachedRaw = storage.get('lerne_init_cache');
       if (cachedRaw) {
         const data = JSON.parse(cachedRaw);
-        const { setDecks, setFolders, setCurrentDeck } = useDeckStore.getState();
-        if (data.decks && data.decks.length > 0) {
-          setDecks(data.decks);
+        const { setDecksAndFolders, setCurrentDeck } = useDeckStore.getState();
+        if ((data.decks && data.decks.length > 0) || (data.folders && data.folders.length > 0)) {
+          setDecksAndFolders(data.decks || [], data.folders || []);
           const savedDeckId = storage.get('lerne_current_deck_id');
-          if (savedDeckId) {
+          if (savedDeckId && data.decks) {
             const cachedCurrent = data.decks.find(d => String(d.id) === String(savedDeckId));
             if (cachedCurrent) {
               setCurrentDeck(cachedCurrent);
             }
           }
-        }
-        if (data.folders && Array.isArray(data.folders)) {
-          const sortedFolders = [...data.folders];
-          const storedFolderOrderStr = localStorage.getItem('lerne_folder_order');
-          const storedOrder = storedFolderOrderStr ? JSON.parse(storedFolderOrderStr) : null;
-          sortedFolders.sort((a, b) => {
-            if (storedOrder && Array.isArray(storedOrder)) {
-              const idxA = storedOrder.indexOf(a.id);
-              const idxB = storedOrder.indexOf(b.id);
-              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-              if (idxA !== -1) return -1;
-              if (idxB !== -1) return 1;
-            }
-            const aPos = a.position ?? 0;
-            const bPos = b.position ?? 0;
-            if (aPos !== bPos) return aPos - bPos;
-            return a.id - b.id;
-          });
-          setFolders(sortedFolders);
         }
         if (data.settings) setAdminSettings(data.settings);
         if (data.prompts) setUserPrompts(data.prompts);
@@ -226,35 +210,18 @@ export const useAppInitialization = (checkStartParam) => {
   };
 
   const fetchInitData = async () => {
-    const { setDecks, setFolders, fetchDuplicates } = useDeckStore.getState();
+    const { setDecksAndFolders, fetchDuplicates } = useDeckStore.getState();
     const currentDecks = useDeckStore.getState().decks;
-    if (!currentDecks || currentDecks.length === 0) {
+    const currentFolders = useDeckStore.getState().folders;
+    if ((!currentDecks || currentDecks.length === 0) && (!currentFolders || currentFolders.length === 0)) {
       useUiStore.setState({ loading: true });
     }
+    useDeckStore.setState({ isFetchingDecks: true });
     try {
       const res = await requestWithRetry(() => api.get('/init'), 'Init data load');
       const freshDecks = res.data.decks || [];
-      setDecks(freshDecks);
-      if (res.data.folders) {
-        const freshFolders = [...res.data.folders];
-        const storedFolderOrderStr = localStorage.getItem('lerne_folder_order');
-        const storedOrder = storedFolderOrderStr ? JSON.parse(storedFolderOrderStr) : null;
-        freshFolders.sort((a, b) => {
-          if (storedOrder && Array.isArray(storedOrder)) {
-            const idxA = storedOrder.indexOf(a.id);
-            const idxB = storedOrder.indexOf(b.id);
-            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if (idxA !== -1) return -1;
-            if (idxB !== -1) return 1;
-          }
-          const aPos = a.position ?? 0;
-          const bPos = b.position ?? 0;
-          if (aPos !== bPos) return aPos - bPos;
-          return a.id - b.id;
-        });
-        setFolders(freshFolders);
-        res.data.folders = freshFolders;
-      }
+      const freshFolders = res.data.folders || [];
+      setDecksAndFolders(freshDecks, freshFolders);
       setAdminSettings(res.data.settings);
       setUserPrompts(res.data.prompts);
 
@@ -322,6 +289,7 @@ export const useAppInitialization = (checkStartParam) => {
         showToast("Ошибка загрузки данных.");
       }
     } finally {
+      useDeckStore.setState({ isFetchingDecks: false });
       useUiStore.setState({ loading: false, hasInitialized: true });
     }
   };

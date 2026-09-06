@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
-import api from '../../services/api';
+import { useAuthStore } from '../../store/useAuthStore';
 import './UserBadge.css';
 
 export const UserProfileBadge = () => {
@@ -65,55 +65,16 @@ export const UserProfileBadge = () => {
 };
 
 export const GuestBanner = () => {
-  const { userProfile, setUserProfile } = useUiStore();
-  const [isPolling, setIsPolling] = React.useState(false);
+  const { userProfile } = useUiStore();
+  const { 
+    isPolling, 
+    checkPendingSession 
+  } = useAuthStore();
   
   if (!userProfile?.is_guest) return null;
 
-  const botLink = `https://t.me/LerneDeutsch287_bot?start=link_${userProfile?.user_id}`;
-  
-  const startPolling = async () => {
-    if (isPolling) return;
-    
-    try {
-      // Create session on backend
-      await api.post(`/auth/session?guest_id=${userProfile.user_id}`);
-      setIsPolling(true);
-      
-      const interval = setInterval(async () => {
-        try {
-          const res = await api.get(`/auth/session/${userProfile.user_id}`);
-          if (res.data.status === 'completed') {
-            clearInterval(interval);
-            setIsPolling(false);
-            
-            // Update profile
-            const newProfile = res.data.user;
-            setUserProfile(newProfile);
-            localStorage.setItem('lerne_user_id', newProfile.user_id);
-            localStorage.setItem('lerne_user_profile', JSON.stringify(newProfile));
-            localStorage.removeItem('lerne_last_sync_time');
-            localStorage.removeItem('lerne_last_sync_user_id');
-            
-            // Reload page to fetch decks and settings for the real user
-            setTimeout(() => {
-              window.location.reload();
-            }, 500);
-          }
-        } catch (e) {
-          console.error("Polling error:", e);
-        }
-      }, 2000);
-      
-      // Cleanup after 2 minutes
-      setTimeout(() => {
-        clearInterval(interval);
-        setIsPolling(false);
-      }, 120000);
-      
-    } catch (e) {
-      console.error("Failed to start session:", e);
-    }
+  const handleOpenAuthModal = () => {
+    useUiStore.getState().setIsAuthModalOpen(true, "Вход в аккаунт");
   };
 
   return (
@@ -122,18 +83,29 @@ export const GuestBanner = () => {
         <span className="icon">{isPolling ? "⌛" : "⚠️"}</span>
         <p>
           {isPolling 
-            ? "Ожидание подтверждения в Telegram... Пожалуйста, нажмите кнопку 'Старт' в боте."
-            : "Вы вошли как гость. Чтобы сохранить прогресс навсегда, откройте приложение в Telegram."}
+            ? "Ожидание подтверждения в боте... Нажмите кнопку «Старт» в Telegram и вернитесь сюда."
+            : "Вы вошли как гость. Авторизуйтесь через Telegram или по 6-значному коду, чтобы сохранить колоды!"}
         </p>
-        <a 
-          href={botLink} 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          className={`banner-btn ${isPolling ? 'polling' : ''}`}
-          onClick={startPolling}
-        >
-          {isPolling ? "Открыто в Telegram" : "Открыть в Telegram"}
-        </a>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {isPolling ? (
+            <button
+              type="button"
+              className="banner-btn"
+              onClick={() => checkPendingSession()}
+              style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none' }}
+            >
+              Я подтвердил
+            </button>
+          ) : (
+            <button 
+              type="button"
+              className="banner-btn"
+              onClick={handleOpenAuthModal}
+            >
+              Войти в аккаунт
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

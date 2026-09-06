@@ -115,11 +115,15 @@ async def start_handler(update: Update, context):
                     
                     text = (
                         f"✅ <b>Вход в аккаунт подтвержден!</b>\n\n"
-                        f"Привет, {first_name}! Мы связали твой профиль.\n\n"
-                        "Теперь можешь вернуться в браузер — твой прогресс уже перенесен! 🚀"
+                        f"Привет, {first_name}! Мы связали ваш профиль.\n\n"
+                        "📱 <b>Если вы открывали ссылку из мобильного приложения (APK):</b>\n"
+                        "Просто переключитесь обратно в приложение Lerne — вы уже авторизованы! 🚀\n\n"
+                        "🌍 <b>Если вы в браузере:</b>\n"
+                        "Нажмите кнопку ниже:"
                     )
                     keyboard = InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🌍 Открыть в браузере", url=make_browser_url(TMA_URL, user))]
+                        [InlineKeyboardButton("🌍 Открыть в браузере", url=make_browser_url(TMA_URL, user))],
+                        [InlineKeyboardButton("🔑 Получить код для входа", callback_data="get_login_code")]
                     ])
                     await safe_send_reply(update, text, reply_markup=keyboard)
                     return
@@ -129,11 +133,13 @@ async def start_handler(update: Update, context):
             # Fallback if session not found or error
             text = (
                 f"🔗 <b>Вход в аккаунт подтвержден!</b>\n\n"
-                f"Привет, {first_name}! Мы нашли твой Telegram-профиль.\n\n"
-                "Нажми на кнопку ниже, чтобы войти в приложение в браузере:"
+                f"Привет, {first_name}! Мы нашли ваш Telegram-профиль.\n\n"
+                "📱 Если вы в приложении Lerne — просто вернитесь в него или используйте код входа.\n"
+                "🌍 Если вы в браузере — нажмите кнопку ниже:"
             )
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🌍 Открыть в браузере", url=make_browser_url(TMA_URL, user))]
+                [InlineKeyboardButton("🌍 Открыть в браузере", url=make_browser_url(TMA_URL, user))],
+                [InlineKeyboardButton("🔑 Получить код для входа", callback_data="get_login_code")]
             ])
             await safe_send_reply(update, text, reply_markup=keyboard)
             return
@@ -205,16 +211,56 @@ async def start_handler(update: Update, context):
         text = (
             f"🌟 <b>Здравствуйте, {first_name}! Добро пожаловать в Lerne!</b>\n\n"
             "Это пространство для эффективного изучения немецкого языка с помощью ИИ. 🇩🇪\n\n"
-            "Нажмите кнопку ниже, чтобы начать обучение в браузере! 👇"
+            "Нажмите кнопку ниже, чтобы начать обучение в браузере или получить код для входа: 👇"
         )
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🚀 Начать учить в браузере", url=make_browser_url(TMA_URL, user))],
+            [InlineKeyboardButton("🔑 Код для входа в приложение", callback_data="get_login_code")],
             [InlineKeyboardButton("📢 Наш Telegram-канал", url=f"https://t.me/{RAW_CHANNEL}")]
         ])
         
         await safe_send_reply(update, text, reply_markup=keyboard)
     except Exception as e:
         logger.error(f"Error handling /start command: {e}", exc_info=True)
+
+def generate_user_login_code(user_id: int) -> str:
+    """Генерирует 6-значный одноразовый код для входа на любом устройстве."""
+    import random
+    from api.models import TMAAuthCode
+    TMAAuthCode.update(is_used=True).where(
+        (TMAAuthCode.user_id == user_id) & (TMAAuthCode.is_used == False)
+    ).execute()
+    code = f"{random.randint(100000, 999999)}"
+    for _ in range(10):
+        if not TMAAuthCode.select().where((TMAAuthCode.code == code) & (TMAAuthCode.is_used == False)).exists():
+            break
+        code = f"{random.randint(100000, 999999)}"
+    TMAAuthCode.create(
+        code=code,
+        user_id=user_id,
+        created_at=datetime.datetime.now(),
+        is_used=False
+    )
+    return code
+
+async def code_handler(update: Update, context):
+    """Команда /code для быстрого получения кода авторизации."""
+    try:
+        user = update.effective_user
+        if not user:
+            return
+        await save_tma_user(user)
+        code = generate_user_login_code(user.id)
+        formatted_code = f"{code[:3]} {code[3:]}"
+        text = (
+            f"🔑 <b>Ваш код для входа в Lerne:</b>\n\n"
+            f"<code>{formatted_code}</code> <i>(нажмите, чтобы скопировать)</i>\n\n"
+            f"⏳ Код действует <b>15 минут</b>.\n"
+            f"Введите эти 6 цифр в приложении на телефоне (Android APK), компьютере или в браузере для мгновенного входа в свой аккаунт!"
+        )
+        await safe_send_reply(update, text)
+    except Exception as e:
+        logger.error(f"Error in code_handler: {e}", exc_info=True)
 
 async def callback_handler(update: Update, context):
     try:
@@ -226,6 +272,18 @@ async def callback_handler(update: Update, context):
         if user:
             await save_tma_user(user)
         
+        if query and query.data == "get_login_code":
+            code = generate_user_login_code(user.id)
+            formatted_code = f"{code[:3]} {code[3:]}"
+            text = (
+                f"🔑 <b>Ваш код для входа в Lerne:</b>\n\n"
+                f"<code>{formatted_code}</code> <i>(нажмите, чтобы скопировать)</i>\n\n"
+                f"⏳ Код действует <b>15 минут</b>.\n"
+                f"Введите его в приложении на телефоне или в браузере для мгновенного входа!"
+            )
+            await safe_send_reply(update, text)
+            return
+
         if query and query.data == "check_and_open":
             try:
                 await query.edit_message_text(
@@ -244,6 +302,7 @@ async def callback_handler(update: Update, context):
 if ptb_app:
     from telegram.ext import CommandHandler, CallbackQueryHandler
     ptb_app.add_handler(CommandHandler("start", start_handler))
+    ptb_app.add_handler(CommandHandler("code", code_handler))
     ptb_app.add_handler(CallbackQueryHandler(callback_handler))
 
 # --- Webhook Endpoint ---

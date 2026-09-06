@@ -54,7 +54,7 @@ export const DeckGrid = ({
     decks, folders, setCurrentDeck, fetchDeckCards, 
     handleSyncDeck, handleResetProgress, handleDeleteDeck, 
     setDeckCards, togglePinDeck,
-    duplicateCards
+    duplicateCards, isFetchingDecks
   } = useDeckStore();
 
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
@@ -192,7 +192,8 @@ export const DeckGrid = ({
 
   const activeFolder = folders?.find(f => f.id === activeFolderId);
   const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
-  const isFolderEmpty = currentFolders.length === 0 && currentDecks.length === 0;
+  const isInitialLoading = !hasInitialized || loading || (isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0);
+  const isFolderEmpty = !isInitialLoading && !isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0;
 
   return (
     <div className="view-decks">
@@ -316,13 +317,13 @@ export const DeckGrid = ({
         )}
 
         <div id="tut-deck-list" className="deck-grid">
-          {(!hasInitialized || loading) && currentFolders.length === 0 && currentDecks.length === 0 ? (
+          {isInitialLoading ? (
             <div className="empty-decks-state glass">
               <RefreshCw size={48} className="spin" color="#a855f7" />
               <h3>{t('decks.loading', 'Идет загрузка колод...')}</h3>
               <p>Пожалуйста, подождите немного.</p>
             </div>
-          ) : (decks.length === 0 && folders.length === 0) ? (
+          ) : (!isFetchingDecks && decks.length === 0 && folders.length === 0) ? (
             <div className="empty-decks-state glass">
               <Layers size={48} opacity={0.3} />
               <h3>У вас пока нет колод</h3>

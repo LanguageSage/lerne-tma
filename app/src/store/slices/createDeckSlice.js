@@ -1,6 +1,6 @@
 import api from '../../services/api';
 import { storage } from '../../utils/auth';
-import { getInitialCachedData, saveToInitCache } from './initCacheHelper';
+import { getInitialCachedData, saveToInitCache, sortFolders } from './initCacheHelper';
 
 let reorderTimeout = null;
 let cardReorderTimeout = null;
@@ -17,10 +17,26 @@ export const createDeckSlice = (set, get) => ({
   syncModalOpen: false,
   deckToSync: null,
   cardsLoading: false,
+  isFetchingDecks: false,
 
   setDecks: (decks) => {
     set({ decks });
     saveToInitCache({ decks });
+  },
+
+  setDecksAndFolders: (decks, folders) => {
+    const state = get();
+    const sortedFolders = sortFolders(folders);
+    const updatedCurrentDeck = state.currentDeck 
+      ? decks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
+      : null;
+    set({ 
+      decks, 
+      folders: sortedFolders, 
+      currentDeck: updatedCurrentDeck,
+      isFetchingDecks: false 
+    });
+    saveToInitCache({ decks, folders: sortedFolders });
   },
 
   setCurrentDeck: (deck) => {
@@ -74,18 +90,38 @@ export const createDeckSlice = (set, get) => ({
     const { decks } = get();
     if (!force && decks.length > 0) return;
     
+    set({ isFetchingDecks: true });
     let lastError;
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
-        const res = await api.get('/decks');
-        const newDecks = res.data || [];
-        const state = get();
-        const updatedCurrentDeck = state.currentDeck 
-          ? newDecks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
-          : null;
-        set({ decks: newDecks, currentDeck: updatedCurrentDeck });
         if (force) {
-          get().fetchFolders();
+          const [decksRes, foldersRes] = await Promise.all([
+            api.get('/decks'),
+            api.get('/folders')
+          ]);
+          const newDecks = decksRes.data || [];
+          const sortedFolders = sortFolders(foldersRes.data || []);
+          const state = get();
+          const updatedCurrentDeck = state.currentDeck 
+            ? newDecks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
+            : null;
+
+          set({ 
+            decks: newDecks, 
+            folders: sortedFolders, 
+            currentDeck: updatedCurrentDeck,
+            isFetchingDecks: false 
+          });
+          saveToInitCache({ decks: newDecks, folders: sortedFolders });
+        } else {
+          const res = await api.get('/decks');
+          const newDecks = res.data || [];
+          const state = get();
+          const updatedCurrentDeck = state.currentDeck 
+            ? newDecks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
+            : null;
+          set({ decks: newDecks, currentDeck: updatedCurrentDeck, isFetchingDecks: false });
+          saveToInitCache({ decks: newDecks });
         }
         return;
       } catch (err) {
@@ -95,6 +131,7 @@ export const createDeckSlice = (set, get) => ({
         }
       }
     }
+    set({ isFetchingDecks: false });
     console.error('Fetch Decks Error:', lastError);
     throw lastError;
   },

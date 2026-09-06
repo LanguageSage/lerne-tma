@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Send, BarChart2, Sparkles, Link as LinkIcon, Copy, ExternalLink, Trash2, LogOut } from 'lucide-react';
+import { User, Mail, Send, BarChart2, Sparkles, Link as LinkIcon, Copy, ExternalLink, Trash2, LogOut, KeyRound } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import api from '../../services/api';
 import { isOfflineMode, db } from '../../services/localDb';
@@ -58,43 +59,11 @@ export const ProfileTab = ({ userId }) => {
     }
   };
 
-  const [isPolling, setIsPolling] = useState(false);
-  const botLink = `https://t.me/LerneDeutsch287_bot?start=link_${currentUserId}`;
-  
-  const startPolling = async () => {
-    if (isPolling) return;
-    if (!currentUserId) return;
-    
-    try {
-      await api.post(`/auth/session?guest_id=${currentUserId}`);
-      setIsPolling(true);
-      
-      const interval = setInterval(async () => {
-        try {
-          const res = await api.get(`/auth/session/${userProfile.user_id}`);
-          if (res.data.status === 'completed') {
-            clearInterval(interval);
-            setIsPolling(false);
-            setUserProfile(res.data.user);
-            localStorage.setItem('lerne_user_id', res.data.user_id);
-            localStorage.setItem('lerne_user_profile', JSON.stringify(res.data.user));
-            localStorage.removeItem('lerne_last_sync_time');
-            localStorage.removeItem('lerne_last_sync_user_id');
-            showToast("Аккаунт успешно привязан!", "success");
-            
-            setTimeout(() => {
-              window.location.reload();
-            }, 800);
-          }
-        } catch { /* ignore */ }
-      }, 2000);
-      
-      setTimeout(() => {
-        clearInterval(interval);
-        setIsPolling(false);
-      }, 120000);
-    } catch { /* ignore */ }
-  };
+  const { 
+    isPolling, 
+    startTelegramLinking, 
+    checkPendingSession 
+  } = useAuthStore();
 
   return (
     <div className="profile-tab">
@@ -260,17 +229,35 @@ export const ProfileTab = ({ userId }) => {
 
         {userProfile?.is_guest && (
           <div className="link-telegram-section glass">
-            <h4>Синхронизация</h4>
-            <p>Чтобы ваш прогресс был доступен на всех устройствах, используйте нашего бота.</p>
-            <a 
-              href={botLink} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className={`btn btn-telegram ${isPolling ? 'polling' : ''}`}
-              onClick={startPolling}
-            >
-              <Send size={16} /> {isPolling ? "Ожидание..." : "Привязать Telegram"}
-            </a>
+            <h4>Синхронизация аккаунта</h4>
+            <p>Чтобы ваш прогресс и колоды сохранялись навсегда, привяжите Telegram или войдите по коду.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+              <button 
+                type="button"
+                className={`btn btn-telegram ${isPolling ? 'polling' : ''}`}
+                onClick={startTelegramLinking}
+              >
+                <Send size={16} /> {isPolling ? "Ожидание подтверждения..." : "Привязать через Telegram"}
+              </button>
+              {isPolling && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => checkPendingSession()}
+                  style={{ fontSize: '0.85rem' }}
+                >
+                  Я подтвердил в боте
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => useUiStore.getState().setIsAuthModalOpen(true, "Вход в аккаунт")}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: '0.85rem' }}
+              >
+                <KeyRound size={15} /> Войти по 6-значному коду
+              </button>
+            </div>
           </div>
         )}
 

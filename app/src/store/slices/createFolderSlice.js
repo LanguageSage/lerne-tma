@@ -1,5 +1,5 @@
 import api from '../../services/api';
-import { getInitialCachedData, saveToInitCache } from './initCacheHelper';
+import { getInitialCachedData, saveToInitCache, sortFolders } from './initCacheHelper';
 
 let folderReorderTimeout = null;
 
@@ -7,31 +7,17 @@ export const createFolderSlice = (set, get) => ({
   folders: getInitialCachedData().folders,
 
   setFolders: (folders) => {
-    set({ folders });
-    saveToInitCache({ folders });
+    const sorted = sortFolders(folders);
+    set({ folders: sorted });
+    saveToInitCache({ folders: sorted });
   },
 
   fetchFolders: async () => {
     try {
       const res = await api.get('/folders');
-      const folders = res.data || [];
-      const storedOrderStr = localStorage.getItem('lerne_folder_order');
-      const storedOrder = storedOrderStr ? JSON.parse(storedOrderStr) : null;
-      folders.sort((a, b) => {
-        if (storedOrder && Array.isArray(storedOrder)) {
-          const idxA = storedOrder.indexOf(a.id);
-          const idxB = storedOrder.indexOf(b.id);
-          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-          if (idxA !== -1) return -1;
-          if (idxB !== -1) return 1;
-        }
-        const aPos = a.position ?? 0;
-        const bPos = b.position ?? 0;
-        if (aPos !== bPos) return aPos - bPos;
-        return a.id - b.id;
-      });
-      set({ folders });
-      saveToInitCache({ folders });
+      const sorted = sortFolders(res.data || []);
+      set({ folders: sorted });
+      saveToInitCache({ folders: sorted });
     } catch (err) {
       console.error('Fetch Folders Error:', err);
     }

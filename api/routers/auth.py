@@ -3,7 +3,7 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from api.models import TMAUser, TMALinkedSession
+from api.models import TMAUser, TMALinkedSession, TMAAuthCode
 from api.dependencies.auth import get_user_id
 
 router = APIRouter(tags=["auth"])
@@ -25,6 +25,13 @@ class UserLanguageSchema(BaseModel):
     active_language: Optional[str] = None
     native_language: Optional[str] = None
     has_selected_language: bool = True
+
+class CodeVerifySchema(BaseModel):
+    code: str
+    guest_id: Optional[int] = None
+
+class CodeGenerateSchema(BaseModel):
+    user_id: int
 
 @router.post("/auth/sync")
 def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
@@ -172,6 +179,90 @@ def check_session(guest_id: int):
         }
     
     return {"status": "pending"}
+
+@router.post("/auth/code/generate")
+def generate_auth_code(data: CodeGenerateSchema):
+    """Generates a 6-digit one-time code for account login (valid for 15 minutes)."""
+    import random
+    from api.models import TMAAuthCode, TMAUser
+    
+    user = TMAUser.get_or_none(TMAUser.user_id == data.user_id)
+    if not user:
+        user = TMAUser.create(user_id=data.user_id, is_guest=False)
+    
+    # Invalidate previous unused codes for this user
+    TMAAuthCode.update(is_used=True).where(
+        (TMAAuthCode.user_id == data.user_id) & (TMAAuthCode.is_used == False)
+    ).execute()
+    
+    code = f"{random.randint(100000, 999999)}"
+    for _ in range(10):
+        if not TMAAuthCode.select().where((TMAAuthCode.code == code) & (TMAAuthCode.is_used == False)).exists():
+            break
+        code = f"{random.randint(100000, 999999)}"
+        
+    auth_code = TMAAuthCode.create(
+        code=code,
+        user_id=data.user_id,
+        created_at=datetime.datetime.now(),
+        is_used=False
+    )
+    return {"status": "ok", "code": auth_code.code, "expires_in_minutes": 15}
+
+@router.post("/auth/code/verify")
+def verify_auth_code(data: CodeVerifySchema):
+    """Verifies a 6-digit one-time code entered by user in APK or Web."""
+    from api.models import TMAAuthCode, TMAUser
+    from api import services
+    
+    raw_code = (data.code or "").replace(" ", "").replace("-", "").strip()
+    if not raw_code.isdigit() or len(raw_code) != 6:
+        raise HTTPException(status_code=400, detail="Код должен состоять из 6 цифр")
+    
+    record = TMAAuthCode.get_or_none(
+        (TMAAuthCode.code == raw_code) & (TMAAuthCode.is_used == False)
+    )
+    if not record:
+        raise HTTPException(status_code=400, detail="Неверный или уже использованный код")
+    
+    # Check expiration (15 minutes)
+    now = datetime.datetime.now()
+    if (now - record.created_at).total_seconds() > 900:
+        record.is_used = True
+        record.save()
+        raise HTTPException(status_code=400, detail="Срок действия кода истек (15 минут). Запросите новый код в боте командой /code")
+    
+    # Mark code as used
+    record.is_used = True
+    record.save()
+    
+    target_user_id = record.user_id
+    # Merge guest data if guest_id was provided and differs from target user_id
+    if data.guest_id and data.guest_id != target_user_id:
+        try:
+            services.merge_guest_data(data.guest_id, target_user_id)
+        except Exception as e:
+            logger.error(f"Error merging guest data during code verify: {e}")
+            
+    user = TMAUser.get_or_none(TMAUser.user_id == target_user_id)
+    clean_first_name = (user.first_name if (user and user.first_name and user.first_name != "Пользователь") else (user.username if user else None)) or None
+
+    return {
+        "status": "ok",
+        "user_id": target_user_id,
+        "user": {
+            "user_id": target_user_id,
+            "first_name": clean_first_name,
+            "last_name": user.last_name if user else None,
+            "username": user.username if user else None,
+            "photo_url": user.photo_url if user else None,
+            "phone": user.phone if user else None,
+            "is_guest": False,
+            "active_language": user.active_language if user else "de",
+            "native_language": getattr(user, 'native_language', None) if user else "uk",
+            "has_selected_language": bool(user.has_selected_language) if user else True
+        }
+    }
 
 @router.delete("/auth/account")
 def delete_account(user_id: int = Depends(get_user_id)):
