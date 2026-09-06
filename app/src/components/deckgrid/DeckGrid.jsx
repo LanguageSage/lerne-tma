@@ -33,7 +33,7 @@ import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBa
 import { SearchBar } from '../common/SearchBar';
 import { LearningShortcutsBar } from './LearningShortcutsBar';
 import { matchFolder, matchDeck, getScopedFolders, getScopedDecks } from '../../utils/search';
-import { isLidUser, isLidRootFolder, ensureLidStructureForUser } from '../../services/lidFolderManager';
+import { isLidRootFolder } from '../../services/lidFolderManager';
 import { LidExamCardItem } from '../lid/LidExamCardItem';
 import { navigateUp } from '../../utils/navigation';
 import api from '../../services/api';
@@ -68,13 +68,6 @@ export const DeckGrid = ({
 
 
   const { collaborators, onlineCount, isShared } = useCollaborativePresence('folder', activeFolderId, view === 'decks' && activeFolderId !== null);
-
-  // Auto-provision Leben in Deutschland folder and 16 empty decks for aruna27
-  React.useEffect(() => {
-    if (hasInitialized && isLidUser()) {
-      ensureLidStructureForUser();
-    }
-  }, [hasInitialized]);
 
   const isSearchActive = Boolean(deckSearchQuery.trim());
 

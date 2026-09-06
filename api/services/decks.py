@@ -20,11 +20,91 @@ STARTER_DECK_NAMES = [
     "⭐ [B1] Hören: Alltagsdialoge / Аудирование: диалоги"
 ]
 
+BUNDESLAENDER_CANONICAL_ORDER = [
+    "Baden-Württemberg", "Bayern", "Berlin", "Brandenburg", "Bremen", "Hamburg",
+    "Hessen", "Mecklenburg-Vorpommern", "Niedersachsen", "Nordrhein-Westfalen",
+    "Rheinland-Pfalz", "Saarland", "Sachsen", "Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen"
+]
+
+def get_lid_deck_position(name: str) -> int:
+    """Возвращает канонический порядковый номер колоды в папке 'Leben in Deutschland':
+    0: 1. Politik in der Demokratie (1–100)
+    1: 2. Geschichte und Verantwortung (101–200)
+    2: 3. Mensch und Gesellschaft (201–300)
+    3..18: 16 федеральных земель в алфавитном порядке
+    """
+    clean = (name or "").strip().replace("⭐ ", "")
+    if clean.startswith("1. Politik") or "Politik in der Demokratie" in clean:
+        return 0
+    if clean.startswith("2. Geschichte") or "Geschichte und Verantwortung" in clean:
+        return 1
+    if clean.startswith("3. Mensch") or "Mensch und Gesellschaft" in clean:
+        return 2
+    for i, land in enumerate(BUNDESLAENDER_CANONICAL_ORDER):
+        if clean == land:
+            return 3 + i
+    return 99
+
+def deduplicate_lid_folders(user_id: int):
+    """Гарантирует, что у пользователя ровно одна папка 'Leben in Deutschland' и 19 колод в правильном порядке."""
+    try:
+        lid_folders = list(TMA_Folder.select().where(
+            (TMA_Folder.user_id == user_id) &
+            (TMA_Folder.name == "Leben in Deutschland") &
+            (TMA_Folder.parent.is_null()) &
+            (TMA_Folder.is_deleted == False)
+        ).order_by(TMA_Folder.id.asc()))
+
+        if not lid_folders:
+            return None
+
+        # Выбираем лучшую папку с наибольшим числом активных колод
+        best_folder = max(
+            lid_folders, 
+            key=lambda f: TMA_Deck.select().where((TMA_Deck.folder == f) & (TMA_Deck.is_deleted == False)).count()
+        )
+
+        # Удаляем любые лишние дубликаты папок и их дублирующие колоды
+        for f in lid_folders:
+            if f.id != best_folder.id:
+                for dd in TMA_Deck.select().where(TMA_Deck.folder == f):
+                    dd.is_deleted = True
+                    dd.save()
+                f.is_deleted = True
+                f.save()
+                logger.info(f"Cleaned up duplicate LiD folder {f.id} for user {user_id}")
+
+        # Проставляем строгий канонический порядок колод внутри главной папки
+        decks = list(TMA_Deck.select().where((TMA_Deck.folder == best_folder) & (TMA_Deck.is_deleted == False)))
+        seen_positions = set()
+        for d in decks:
+            p = get_lid_deck_position(d.name)
+            if p != 99:
+                if p in seen_positions:
+                    # Если внутри одной папки оказалась дублирующая колода с тем же именем
+                    d.is_deleted = True
+                    d.save()
+                    continue
+                seen_positions.add(p)
+                if d.position != p:
+                    d.position = p
+                    d.save()
+
+        return best_folder
+    except Exception as e:
+        logger.error(f"Error deduplicating LiD folders for user {user_id}: {e}", exc_info=True)
+        return None
+
 def ensure_starter_decks(user_id: int, target_language: str = None):
     try:
         user, _ = TMAUser.get_or_create(user_id=user_id)
         if getattr(user, 'default_decks_initialized', False):
+            deduplicate_lid_folders(user_id)
             return True
+
+        # Немедленно ставим флаг, предотвращая параллельный запуск повторного импорта
+        user.default_decks_initialized = True
+        user.save()
 
         existing_decks = list(TMA_Deck.select().where((TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)))
         existing_names = {d.name for d in existing_decks}
@@ -75,13 +155,16 @@ def ensure_starter_decks(user_id: int, target_language: str = None):
                                 )
                             if getattr(tma_deck, 'folder_id', None) != user_folder.id:
                                 tma_deck.folder = user_folder
-                                tma_deck.save()
+                            
+                            # Привязываем каноническую позицию
+                            if f_name == "Leben in Deutschland":
+                                tma_deck.position = get_lid_deck_position(tma_deck.name)
+                            tma_deck.save()
                     except Exception as e:
                         logger.warning(f"Failed to attach default deck to folder for user {user_id}: {e}")
 
-        if not user.default_decks_initialized or imported_any:
-            user.default_decks_initialized = True
-            user.save()
+        # Упорядочиваем и дедуплицируем LiD папки
+        deduplicate_lid_folders(user_id)
 
         return True
     except Exception as e:
@@ -320,6 +403,7 @@ def get_active_decks(user_id: int, folder_map: dict = None):
         # 1. Убеждаемся, что дефолтные колоды и папки импортированы
         try:
             ensure_starter_decks(user_id)
+            deduplicate_lid_folders(user_id)
         except Exception:
             pass
 
@@ -344,7 +428,7 @@ def get_active_decks(user_id: int, folder_map: dict = None):
 
         decks = list(TMA_Deck.select().where(
             (TMA_Deck.id << list(accessible_deck_ids)) & (TMA_Deck.is_deleted == False)
-        ).order_by(TMA_Deck.is_pinned.desc(), TMA_Deck.is_inbox.desc(), TMA_Deck.position.asc(), TMA_Deck.id.desc()))
+        ).order_by(TMA_Deck.is_pinned.desc(), TMA_Deck.is_inbox.desc(), TMA_Deck.position.asc(), TMA_Deck.id.asc()))
 
         # Check if inbox exists in decks, if not ensure and reload
         if not any(getattr(d, 'is_inbox', False) for d in decks):
@@ -352,7 +436,7 @@ def get_active_decks(user_id: int, folder_map: dict = None):
             accessible_deck_ids = get_user_accessible_deck_ids(user_id, folder_map=folder_map)
             decks = list(TMA_Deck.select().where(
                 (TMA_Deck.id << list(accessible_deck_ids)) & (TMA_Deck.is_deleted == False)
-            ).order_by(TMA_Deck.is_pinned.desc(), TMA_Deck.is_inbox.desc(), TMA_Deck.position.asc(), TMA_Deck.id.desc()))
+            ).order_by(TMA_Deck.is_pinned.desc(), TMA_Deck.is_inbox.desc(), TMA_Deck.position.asc(), TMA_Deck.id.asc()))
 
         if not decks:
             logger.warning(f"No decks found for user {user_id}")

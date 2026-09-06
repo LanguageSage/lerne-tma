@@ -46,3 +46,26 @@ export const sortFolders = (rawFolders) => {
   });
   return sorted;
 };
+
+export const sortDecks = (rawDecks) => {
+  if (!rawDecks || !Array.isArray(rawDecks)) return [];
+  const sorted = [...rawDecks];
+  sorted.sort((a, b) => {
+    const aPinned = a.is_pinned ? 1 : 0;
+    const bPinned = b.is_pinned ? 1 : 0;
+    if (aPinned !== bPinned) return bPinned - aPinned;
+
+    const aInbox = a.is_inbox ? 1 : 0;
+    const bInbox = b.is_inbox ? 1 : 0;
+    if (aInbox !== bInbox) return bInbox - aInbox;
+
+    const aPos = a.position ?? 0;
+    const bPos = b.position ?? 0;
+    if (aPos !== bPos) return aPos - bPos;
+
+    return (a.id || 0) - (b.id || 0);
+  });
+  return sorted;
+};
+
+

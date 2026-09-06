@@ -1,6 +1,6 @@
 import api from '../../services/api';
 import { storage } from '../../utils/auth';
-import { getInitialCachedData, saveToInitCache, sortFolders } from './initCacheHelper';
+import { getInitialCachedData, saveToInitCache, sortFolders, sortDecks } from './initCacheHelper';
 
 let reorderTimeout = null;
 let cardReorderTimeout = null;
@@ -20,23 +20,25 @@ export const createDeckSlice = (set, get) => ({
   isFetchingDecks: false,
 
   setDecks: (decks) => {
-    set({ decks });
-    saveToInitCache({ decks });
+    const sortedDecks = sortDecks(decks);
+    set({ decks: sortedDecks });
+    saveToInitCache({ decks: sortedDecks });
   },
 
   setDecksAndFolders: (decks, folders) => {
     const state = get();
     const sortedFolders = sortFolders(folders);
+    const sortedDecks = sortDecks(decks);
     const updatedCurrentDeck = state.currentDeck 
-      ? decks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
+      ? sortedDecks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
       : null;
     set({ 
-      decks, 
+      decks: sortedDecks, 
       folders: sortedFolders, 
       currentDeck: updatedCurrentDeck,
       isFetchingDecks: false 
     });
-    saveToInitCache({ decks, folders: sortedFolders });
+    saveToInitCache({ decks: sortedDecks, folders: sortedFolders });
   },
 
   setCurrentDeck: (deck) => {
@@ -99,7 +101,7 @@ export const createDeckSlice = (set, get) => ({
             api.get('/decks'),
             api.get('/folders')
           ]);
-          const newDecks = decksRes.data || [];
+          const newDecks = sortDecks(decksRes.data || []);
           const sortedFolders = sortFolders(foldersRes.data || []);
           const state = get();
           const updatedCurrentDeck = state.currentDeck 
@@ -115,7 +117,7 @@ export const createDeckSlice = (set, get) => ({
           saveToInitCache({ decks: newDecks, folders: sortedFolders });
         } else {
           const res = await api.get('/decks');
-          const newDecks = res.data || [];
+          const newDecks = sortDecks(res.data || []);
           const state = get();
           const updatedCurrentDeck = state.currentDeck 
             ? newDecks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
