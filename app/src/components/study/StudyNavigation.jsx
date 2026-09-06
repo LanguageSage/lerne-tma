@@ -4,8 +4,8 @@ import React from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCw, Square } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => { useInterfaceLocale(); return (index + 1); });
-const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => { useInterfaceLocale(); return (-50 + index * 5); });
+const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
+const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => -50 + index * 5);
 
 export const StudyNavigation = ({
   historyIndex,

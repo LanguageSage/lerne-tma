@@ -9,8 +9,8 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { FlagPicker } from '../common/FlagPicker';
 
-const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => { useInterfaceLocale(); return (index + 1); });
-const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => { useInterfaceLocale(); return (-50 + index * 5); });
+const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
+const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => -50 + index * 5);
 
 const getSortedFolderAndDeckTree = (foldersList, decksList, expandedFolders) => {
   const result = [];
