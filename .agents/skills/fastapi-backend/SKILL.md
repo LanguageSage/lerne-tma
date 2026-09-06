@@ -23,5 +23,6 @@ Inspect `api/main.py`, affected `api/routers/` and `api/services/` modules, and 
 - Check whether timeouts or repeated requests can duplicate data or external work. Reuse existing idempotency mechanisms where applicable.
 - Bound external requests with timeouts. Retry only safe operations and relevant transient failures. Inspect existing TTS and image caching before adding generation.
 - Evaluate query counts for list endpoints. Use joins or prefetching for demonstrated N+1 patterns while preserving permissions and result semantics.
+- When adding a new router, service, or changing subsystem architecture, update the corresponding rows in `.agents/ARCHITECTURE.md`.
 
 Use [verification guidance](../ai-harness-eval/SKILL.md), including relevant failure paths. Syntax checks do not validate contracts or authorization.

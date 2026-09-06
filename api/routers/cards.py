@@ -1,4 +1,5 @@
 import asyncio
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 import logging
 
@@ -109,6 +110,26 @@ def reorder_cards(data: dict, user_id: int = Depends(get_user_id)):
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Error reordering cards: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/search")
+def search_cards(
+    q: str = "",
+    folder_id: Optional[int] = None,
+    target_language: Optional[str] = "de",
+    limit: int = 60,
+    user_id: int = Depends(get_user_id)
+):
+    try:
+        return services.search_all_in_scope(
+            user_id=user_id,
+            query=q,
+            folder_id=folder_id,
+            target_language=target_language,
+            limit=limit
+        )
+    except Exception as e:
+        logger.error(f"Error in search_cards router: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

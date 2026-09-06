@@ -727,8 +727,69 @@ def get_deck_stats_counts(user_id: int, deck_id: int) -> dict:
             "due": int(row.get('due') or 0)
         }
     except Exception as e:
-        logger.error(f"Error calculating deck stats for deck {deck_id}: {e}")
         return {"total": 0, "new": 0, "learning": 0, "due": 0}
+
+
+import unicodedata
+
+def _norm(text: str) -> str:
+    if not text:
+        return ""
+    t = unicodedata.normalize('NFD', str(text).lower())
+    t = ''.join(c for c in t if unicodedata.category(c) != 'Mn')
+    return t.replace('ß', 'ss').replace('ä', 'a').replace('ö', 'o').replace('ü', 'u').strip()
+
+def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_language: str = 'de', limit: int = 60):
+    """Сквозной поиск по папкам, колодам и карточкам (front/back) в области видимости."""
+    from .folders import get_active_folders
+    from .decks import get_active_decks
+    from ..models import TMA_Folder, TMA_Card
+
+    q = (query or '').strip()
+    if not q:
+        return {"folders": [], "decks": [], "cards": []}
+
+    qn = _norm(q)
+    match_fn = lambda s: bool(s and (q.lower() in str(s).lower() or qn in _norm(s)))
+    lang = (target_language or 'de').lower().strip()
+
+    all_folders = get_active_folders(user_id)
+    all_decks = get_active_decks(user_id)
+
+    if folder_id:
+        f_map = {f.id: getattr(f, 'parent_id', None) for f in TMA_Folder.select(TMA_Folder.id, TMA_Folder.parent).where(TMA_Folder.is_deleted == False)}
+        scope_ids, q_ids = {int(folder_id)}, [int(folder_id)]
+        while q_ids:
+            curr = q_ids.pop(0)
+            kids = [fid for fid, pid in f_map.items() if pid == curr and fid not in scope_ids]
+            scope_ids.update(kids)
+            q_ids.extend(kids)
+        scoped_folders = [f for f in all_folders if f.get('id') in scope_ids and f.get('id') != int(folder_id)]
+        scoped_decks = [d for d in all_decks if d.get('folder_id') in scope_ids]
+    else:
+        scoped_folders = [f for f in all_folders if (f.get('target_language') or 'de') == lang]
+        scoped_decks = [d for d in all_decks if (d.get('target_language') or 'de') == lang]
+
+    matched_folders = [f for f in scoped_folders if match_fn(f.get('name'))]
+    matched_decks = [d for d in scoped_decks if match_fn(d.get('name')) or match_fn(d.get('topic'))]
+
+    deck_map = {d['id']: d for d in scoped_decks}
+    matched_cards = []
+    if deck_map:
+        cards_q = TMA_Card.select().where(TMA_Card.deck_id.in_(list(deck_map.keys())), TMA_Card.is_deleted == False)
+        for c in cards_q:
+            if match_fn(c.front_text) or match_fn(c.back_text):
+                meta = parse_card_metadata(c.metadata) or {}
+                matched_cards.append({
+                    "id": c.id, "front": c.front_text, "back": c.back_text, "context": c.context or '',
+                    "level": meta.get('cefr', {}).get('level') if isinstance(meta, dict) else None,
+                    "deck_id": c.deck_id, "deck_name": deck_map[c.deck_id]['name'],
+                    "folder_id": deck_map[c.deck_id].get('folder_id')
+                })
+                if len(matched_cards) >= limit:
+                    break
+
+    return {"folders": matched_folders, "decks": matched_decks, "cards": matched_cards}
 
 
 

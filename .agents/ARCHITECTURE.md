@@ -23,6 +23,7 @@
 | **Корзина (Trash)** | `TrashManager.jsx` | `useDeckStore.js` (`createTrashSlice.js`) | `trash.py` | `trash.py` | `is_deleted=True` (Soft delete) |
 | **Авторизация & Сессия TMA** | `main.jsx`, `App.jsx` | `useAuthStore.js`, `services/telegram.js` | `auth.py`, `dependencies/auth.py` | Telegram `initData` hmac validation | `TMAUser`, `TMALinkedSession` |
 | **Настройки & Профиль** | `settings/SettingsView.jsx` | `useSettingsStore.js` | `settings.py` | `reminder_service.py` | `TMASetting` |
+| **Сквозной поиск (Search)** | `common/SearchBar.jsx`, `deckgrid/DeckGrid.jsx` | `search.js`, `offlineApi.js` | `cards.py` (`/search`) | `cards.py` (`search_all_in_scope`) | `TMA_Card`, `TMA_Deck`, `TMA_Folder` |
 
 ---
 

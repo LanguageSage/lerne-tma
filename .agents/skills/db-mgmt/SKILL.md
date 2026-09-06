@@ -18,6 +18,7 @@ For offline data, inspect `app/src/services/localDb.js`, `offlineApi.js`, and `s
 - Preserve queued local changes. Check duplicates, conflicts, retry behavior, and deletion propagation when those paths change.
 - Prefer database constraints for relevant uniqueness and referential invariants; application prechecks can race. Translate constraint failures into expected API errors.
 - Check query patterns before adding indexes, including write cost and migration impact.
+- When creating new Peewee models in `api/models.py` or new Dexie tables in `app/src/services/localDb.js`, update the schema mappings in `.agents/ARCHITECTURE.md`.
 
 ## Migrations
 

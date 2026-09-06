@@ -11,6 +11,7 @@ description: Build Lerne TMA React interfaces with Telegram viewport integration
 - Respect safe areas, dynamic viewport height, the on-screen keyboard, and bottom navigation. Check affected screens at narrow mobile widths.
 - Coordinate Telegram MainButton, BackButton, and haptics with existing handlers and cleanup. Preserve standalone behavior where supported.
 - Keep transient state local and shared navigation or entities in their owning store. Read [reuse guidance](../lean-code/SKILL.md) when changing boundaries.
+- When adding a new major view, feature directory under `components/`, or new store slice, record it in `.agents/ARCHITECTURE.md`.
 
 ## Complete interactions
 

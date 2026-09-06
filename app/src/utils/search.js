@@ -39,25 +39,101 @@ export const matchesSearchQuery = (target, query) => {
 };
 
 /**
- * Matches a flashcard against a search query across front, back, context, notes, and tags.
+ * Matches a flashcard against a search query across front and back (translation).
+ * Context search is excluded by default as requested.
  *
  * @param {object} card - The card object.
  * @param {string} query - The search query.
+ * @param {object} [options] - Search options.
+ * @param {boolean} [options.includeContext=false] - Whether to search inside context/example sentences.
  * @returns {boolean} True if card matches query.
  */
-export const matchCard = (card, query) => {
+export const matchCard = (card, query, { includeContext = false } = {}) => {
   if (!query || !query.trim()) return true;
   if (!card) return false;
 
-  const fields = [
-    card.front,
-    card.back,
-    card.context,
-    card.notes,
-    card.tags ? (Array.isArray(card.tags) ? card.tags.join(' ') : card.tags) : ''
-  ];
+  const frontText = card.front || card.front_text;
+  const backText = card.back || card.back_text;
 
-  return fields.some(field => matchesSearchQuery(field, query));
+  if (matchesSearchQuery(frontText, query) || matchesSearchQuery(backText, query)) {
+    return true;
+  }
+
+  if (includeContext && matchesSearchQuery(card.context, query)) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Returns an array containing the rootFolderId and all its recursive subfolder IDs.
+ *
+ * @param {Array} folders - All folders list.
+ * @param {number|null} rootFolderId - The parent folder ID.
+ * @returns {Array<number>} Array of folder IDs in scope.
+ */
+export const getFolderDescendantIds = (folders, rootFolderId) => {
+  if (!rootFolderId) return [];
+  if (!folders || !Array.isArray(folders)) return [rootFolderId];
+
+  const descendants = [rootFolderId];
+  const toCheck = [rootFolderId];
+
+  while (toCheck.length > 0) {
+    const currentId = toCheck.shift();
+    for (const f of folders) {
+      const parentId = f.parent_id;
+      if (parentId === currentId && !descendants.includes(f.id)) {
+        descendants.push(f.id);
+        toCheck.push(f.id);
+      }
+    }
+  }
+
+  return descendants;
+};
+
+/**
+ * Returns all decks within the active scope (either all decks in targetLanguage,
+ * or decks inside activeFolderId and its descendant subfolders).
+ *
+ * @param {Array} decks - All decks.
+ * @param {Array} folders - All folders.
+ * @param {number|null} activeFolderId - Current active folder ID or null for root.
+ * @param {string} targetLanguage - Active target language (e.g. 'de').
+ * @returns {Array} Decks within scope.
+ */
+export const getScopedDecks = (decks, folders, activeFolderId, targetLanguage = 'de') => {
+  if (!decks || !Array.isArray(decks)) return [];
+  const lang = (targetLanguage || 'de').toLowerCase();
+
+  if (activeFolderId !== null && activeFolderId !== undefined) {
+    const scopeFolderIds = new Set(getFolderDescendantIds(folders, activeFolderId));
+    return decks.filter(d => scopeFolderIds.has(d.folder_id));
+  }
+
+  return decks.filter(d => (d.target_language || 'de').toLowerCase() === lang);
+};
+
+/**
+ * Returns all folders within the active scope.
+ *
+ * @param {Array} folders - All folders.
+ * @param {number|null} activeFolderId - Current active folder ID or null for root.
+ * @param {string} targetLanguage - Active target language (e.g. 'de').
+ * @returns {Array} Folders within scope.
+ */
+export const getScopedFolders = (folders, activeFolderId, targetLanguage = 'de') => {
+  if (!folders || !Array.isArray(folders)) return [];
+  const lang = (targetLanguage || 'de').toLowerCase();
+
+  if (activeFolderId !== null && activeFolderId !== undefined) {
+    const scopeFolderIds = new Set(getFolderDescendantIds(folders, activeFolderId));
+    return folders.filter(f => scopeFolderIds.has(f.id) && f.id !== activeFolderId);
+  }
+
+  return folders.filter(f => (f.target_language || 'de').toLowerCase() === lang);
 };
 
 /**

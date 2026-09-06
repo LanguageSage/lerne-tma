@@ -3,6 +3,7 @@ import { prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId, getUserProfile } from '../utils/auth';
 import { localMediaURL } from './mediaCache';
+import { matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 
 export const dirtyFields = () => ({
   is_dirty: 1, local_revision: crypto.randomUUID(), updated_at: new Date().toISOString(),
@@ -100,6 +101,53 @@ export const offlineApi = {
       if (url === '/decks') return result(decks);
       if (url === '/folders') return result(folders);
       return result({ decks, folders, settings: {}, prompts: {}, user_info: getUserProfile() });
+    }
+    if (m === 'get' && url === '/cards/search') {
+      const q = params.get('q') || '';
+      const rawFolderId = params.get('folder_id');
+      const folderId = rawFolderId !== null && rawFolderId !== undefined && rawFolderId !== '' ? Number(rawFolderId) : null;
+      const targetLang = params.get('target_language') || localStorage.getItem('lerne_target_language') || 'de';
+      const limit = Number(params.get('limit')) || 60;
+
+      const allFolders = await db.folders.filter(f => !f.is_deleted).toArray();
+      const allDecks = await db.decks.filter(d => !d.is_deleted).toArray();
+
+      const scopedFolders = getScopedFolders(allFolders, folderId, targetLang);
+      const scopedDecks = getScopedDecks(allDecks, allFolders, folderId, targetLang);
+
+      const matchedFolders = scopedFolders.filter(f => matchFolder(f, q));
+      const matchedDecks = scopedDecks.filter(d => matchDeck(d, q));
+
+      const deckIds = new Set(scopedDecks.map(d => d.id));
+      const deckNameMap = new Map(scopedDecks.map(d => [d.id, d.name]));
+      const deckFolderMap = new Map(scopedDecks.map(d => [d.id, d.folder_id]));
+
+      const matchedCards = [];
+      if (deckIds.size > 0 && q.trim()) {
+        const allCards = await db.cards.filter(c => !c.is_deleted && deckIds.has(c.deck_id)).toArray();
+        for (const c of allCards) {
+          if (matchCard(c, q)) {
+            const meta = jsonObject(c.metadata);
+            matchedCards.push({
+              id: c.id,
+              front: c.front_text || c.front,
+              back: c.back_text || c.back,
+              context: c.context || '',
+              level: c.level || meta?.cefr?.level,
+              deck_id: c.deck_id,
+              deck_name: deckNameMap.get(c.deck_id) || '',
+              folder_id: deckFolderMap.get(c.deck_id)
+            });
+            if (matchedCards.length >= limit) break;
+          }
+        }
+      }
+
+      return result({
+        folders: matchedFolders,
+        decks: matchedDecks,
+        cards: matchedCards
+      });
     }
     let match = url.match(/^\/decks\/(-?\d+)\/(cards|next)$/);
     if (m === 'get' && match) {

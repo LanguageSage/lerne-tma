@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Wrench, ChevronDown, Search } from 'lucide-react';
+import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Wrench, ChevronDown, Search, Loader2 } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
@@ -32,10 +32,11 @@ import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 import { SearchBar } from '../common/SearchBar';
 import { LearningShortcutsBar } from './LearningShortcutsBar';
-import { matchFolder, matchDeck } from '../../utils/search';
+import { matchFolder, matchDeck, getScopedFolders, getScopedDecks } from '../../utils/search';
 import { isLidUser, isLidRootFolder, ensureLidStructureForUser } from '../../services/lidFolderManager';
 import { LidExamCardItem } from '../lid/LidExamCardItem';
 import { navigateUp } from '../../utils/navigation';
+import api from '../../services/api';
 
 export const DeckGrid = ({ 
   startTutorial, 
@@ -46,6 +47,8 @@ export const DeckGrid = ({
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [deckSearchQuery, setDeckSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchedCards, setSearchedCards] = useState([]);
+  const [isSearchingCards, setIsSearchingCards] = useState(false);
 
   const { 
     view, loading, hasInitialized, setIsNewDeckModalOpen, setIsSettingsOpen, 
@@ -74,6 +77,58 @@ export const DeckGrid = ({
     }
   }, [hasInitialized]);
 
+  const isSearchActive = Boolean(deckSearchQuery.trim());
+
+  // Debounced search for cards across active scope
+  React.useEffect(() => {
+    if (!deckSearchQuery.trim()) {
+      setSearchedCards([]);
+      setIsSearchingCards(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsSearchingCards(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get('/cards/search', {
+          params: {
+            q: deckSearchQuery.trim(),
+            folder_id: activeFolderId,
+            target_language: activeLanguage
+          }
+        });
+        if (isMounted) {
+          setSearchedCards(res.data?.cards || []);
+          setIsSearchingCards(false);
+        }
+      } catch (err) {
+        console.error('Search cards error:', err);
+        if (isMounted) {
+          setSearchedCards([]);
+          setIsSearchingCards(false);
+        }
+      }
+    }, 180);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [deckSearchQuery, activeFolderId, activeLanguage]);
+
+  const handleSelectSearchedCard = (card) => {
+    const targetDeck = decks?.find(d => d.id === card.deck_id);
+    if (targetDeck) {
+      setCurrentDeck(targetDeck);
+      useUiStore.getState().setCardsScrollTop(0);
+      useUiStore.getState().setLastSelectedCardId(card.id);
+      useUiStore.getState().setView('cards');
+      fetchDeckCards(targetDeck.id);
+    }
+  };
+
   const currentFolders = React.useMemo(() => {
     return folders ? folders.filter(f => {
       if (f.parent_id !== activeFolderId) return false;
@@ -90,6 +145,16 @@ export const DeckGrid = ({
     }) : [];
   }, [decks, activeFolderId, activeLanguage]);
 
+  const scopedFolders = React.useMemo(() => {
+    if (!isSearchActive) return currentFolders;
+    return getScopedFolders(folders, activeFolderId, activeLanguage);
+  }, [isSearchActive, currentFolders, folders, activeFolderId, activeLanguage]);
+
+  const scopedDecks = React.useMemo(() => {
+    if (!isSearchActive) return currentDecks;
+    return getScopedDecks(decks, folders, activeFolderId, activeLanguage);
+  }, [isSearchActive, currentDecks, decks, folders, activeFolderId, activeLanguage]);
+
   const allActiveLearningDecks = React.useMemo(() => {
     if (!decks) return [];
     return decks.filter(d => (d.target_language || 'de') === activeLanguage && Boolean(d.is_learning) && !d.is_inbox && !d.is_deleted);
@@ -100,18 +165,20 @@ export const DeckGrid = ({
   }, [currentDecks]);
 
   const filteredFolders = React.useMemo(() => {
-    if (!deckSearchQuery.trim()) return currentFolders;
-    return currentFolders.filter(f => matchFolder(f, deckSearchQuery));
-  }, [currentFolders, deckSearchQuery]);
+    if (!isSearchActive) return currentFolders;
+    return scopedFolders.filter(f => matchFolder(f, deckSearchQuery));
+  }, [isSearchActive, currentFolders, scopedFolders, deckSearchQuery]);
 
   const filteredDecks = React.useMemo(() => {
-    let list = currentDecks;
-    if (deckFilter === 'learning') {
+    let list = scopedDecks;
+    if (!isSearchActive && deckFilter === 'learning') {
       list = list.filter(d => Boolean(d.is_learning));
     }
-    if (!deckSearchQuery.trim()) return list;
+    if (!isSearchActive) return list;
     return list.filter(d => matchDeck(d, deckSearchQuery));
-  }, [currentDecks, deckFilter, deckSearchQuery]);
+  }, [isSearchActive, scopedDecks, deckFilter, deckSearchQuery]);
+
+  const totalSearchResultsCount = filteredFolders.length + filteredDecks.length + searchedCards.length;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -230,8 +297,9 @@ export const DeckGrid = ({
             <SearchBar
               value={deckSearchQuery}
               onChange={setDeckSearchQuery}
-              placeholder={t('decks.search_placeholder', 'Поиск по колодам и папкам...')}
+              placeholder={t('decks.search_placeholder', 'Поиск по папкам, колодам и карточкам...')}
               color="indigo"
+              count={isSearchActive ? totalSearchResultsCount : undefined}
               wrapperClassName="deck-search-wrapper"
               autoFocus={true}
               onClear={() => setDeckSearchQuery('')}
@@ -326,6 +394,117 @@ export const DeckGrid = ({
               <h3>{t('decks.loading', 'Идет загрузка колод...')}</h3>
               <p>{tr("Пожалуйста, подождите немного.")}</p>
             </div>
+          ) : isSearchActive ? (
+            <div className="search-results-container" style={{ gridColumn: '1 / -1', width: '100%' }}>
+              {/* 1. Папки (Folders first) */}
+              {filteredFolders.length > 0 && (
+                <div className="search-section">
+                  <div className="search-section-header">
+                    <span>{t('decks.search_section_folders', 'Папки')}</span>
+                    <span className="search-section-count">{filteredFolders.length}</span>
+                  </div>
+                  <div className="reorder-group-list">
+                    {filteredFolders.map((folder) => (
+                      <FolderCardItem
+                        key={`search-folder-${folder.id}`}
+                        folder={folder}
+                        setActiveFolderId={(id) => {
+                          setActiveFolderId(id);
+                          setDeckSearchQuery('');
+                        }}
+                        decks={decks}
+                        folders={folders}
+                        showToast={showToast}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Колоды (Decks second) */}
+              {filteredDecks.length > 0 && (
+                <div className="search-section">
+                  <div className="search-section-header">
+                    <span>{t('decks.search_section_decks', 'Колоды')}</span>
+                    <span className="search-section-count">{filteredDecks.length}</span>
+                  </div>
+                  <div className="reorder-group-list">
+                    {filteredDecks.map((deck) => (
+                      <DeckCardItem
+                        key={`search-deck-${deck.id}`}
+                        deck={deck}
+                        setCurrentDeck={setCurrentDeck}
+                        setDeckCards={setDeckCards}
+                        fetchDeckCards={fetchDeckCards}
+                        showToast={showToast}
+                        openSyncModal={openSyncModal}
+                        handleSyncDeck={handleSyncDeck}
+                        handleResetProgress={handleResetProgress}
+                        handleDeleteDeck={handleDeleteDeck}
+                        setDeckToRename={setDeckToRename}
+                        setIsRenameModalOpen={setIsRenameModalOpen}
+                        togglePinDeck={togglePinDeck}
+                        folders={folders}
+                        activeFolderColor={activeFolderColor}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Карточки (Cards third) */}
+              {(searchedCards.length > 0 || isSearchingCards) && (
+                <div className="search-section">
+                  <div className="search-section-header">
+                    <span>{t('decks.search_section_cards', 'Карточки')}</span>
+                    {isSearchingCards ? (
+                      <Loader2 size={13} className="spin" style={{ color: '#a5b4fc' }} />
+                    ) : (
+                      <span className="search-section-count">{searchedCards.length}</span>
+                    )}
+                  </div>
+                  <div className="search-cards-list">
+                    {searchedCards.map((c) => (
+                      <div
+                        key={`searched-card-${c.id}`}
+                        className="search-card-result-item glass"
+                        onClick={() => handleSelectSearchedCard(c)}
+                      >
+                        <div className="search-card-result-main">
+                          <div className="search-card-result-front">{c.front}</div>
+                          <div className="search-card-result-back">{c.back}</div>
+                        </div>
+                        <div className="search-card-result-meta">
+                          {c.level ? (
+                            <span className="search-card-level-tag">{c.level}</span>
+                          ) : <span />}
+                          <span className="search-card-deck-tag">
+                            📁 {c.deck_name || t('decks.deck', 'Колода')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state when nothing is found across folders, decks and cards */}
+              {!isSearchingCards && filteredFolders.length === 0 && filteredDecks.length === 0 && searchedCards.length === 0 && (
+                <div className="search-empty-state glass" style={{ gridColumn: '1 / -1' }}>
+                  <Search size={32} opacity={0.4} color="#818cf8" />
+                  <h3>{t('decks.search_empty_title', 'Ничего не найдено')}</h3>
+                  <p>{t('decks.search_empty_desc', 'По запросу «{{query}}» ничего не найдено', { query: deckSearchQuery })}</p>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    style={{ padding: '8px 16px', fontSize: '0.85rem', marginTop: '4px' }}
+                    onClick={() => setDeckSearchQuery('')}
+                  >
+                    {t('decks.search_clear', 'Сбросить поиск')}
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (!isFetchingDecks && decks.length === 0 && folders.length === 0) ? (
             <div className="empty-decks-state glass">
               <Layers size={48} opacity={0.3} />
@@ -357,22 +536,10 @@ export const DeckGrid = ({
                 )}
               </div>
             )
-          ) : deckSearchQuery.trim() && filteredFolders.length === 0 && filteredDecks.length === 0 ? (
-            <div className="search-empty-state glass" style={{ gridColumn: '1 / -1' }}>
-              <Search size={32} opacity={0.4} color="#818cf8" />
-              <h3>{tr("Колоды не найдены")}</h3>
-              <p>{tr("По запросу «")}{deckSearchQuery}{tr("» ничего не найдено")}</p>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                style={{ padding: '8px 16px', fontSize: '0.85rem', marginTop: '4px' }}
-                onClick={() => setDeckSearchQuery('')}
-              >{tr("Сбросить поиск")}{' '}</button>
-            </div>
           ) : (
             <>
               {/* 1. Folders */}
-              {filteredFolders.length > 0 && (
+              {currentFolders.length > 0 && (
                 <DndContext
                   sensors={sensors}
                   collisionDetection={customCollisionDetection}
@@ -380,11 +547,11 @@ export const DeckGrid = ({
                   onDragEnd={handleFolderDragEnd}
                 >
                   <SortableContext
-                    items={filteredFolders.map(f => f.id)}
+                    items={currentFolders.map(f => f.id)}
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="reorder-group-list">
-                      {filteredFolders.map((folder) => (
+                      {currentFolders.map((folder) => (
                         <FolderCardItem
                           key={`folder-${folder.id}`}
                           folder={folder}
@@ -462,7 +629,7 @@ export const DeckGrid = ({
                         style={{ 
                           opacity: 0.95, 
                           cursor: 'grabbing', 
-                          boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(168,85,247,0.5)',
+                          boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(168,85,247,0.4)',
                           transform: 'scale(1.02)',
                           padding: '16px',
                           pointerEvents: 'none'
