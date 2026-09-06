@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { create } from 'zustand';
 import api from '../services/api';
 import { db } from '../services/localDb';
@@ -142,7 +143,7 @@ export const useLidStore = create((set, get) => ({
 
       if (!ticket || ticket.length === 0) {
         console.error('Failed to generate LiD ticket: empty result');
-        useUiStore.getState().showToast('Не удалось загрузить вопросы экзамена. Попробуйте еще раз.', 'error');
+        useUiStore.getState().showToast(tr("Не удалось загрузить вопросы экзамена. Попробуйте еще раз."), 'error');
         set({ isLoadingTicket: false });
         return;
       }
@@ -162,7 +163,7 @@ export const useLidStore = create((set, get) => ({
       });
     } catch (e) {
       console.error('Error starting simulation:', e);
-      useUiStore.getState().showToast('Произошла ошибка при составлении билета', 'error');
+      useUiStore.getState().showToast(tr("Произошла ошибка при составлении билета"), 'error');
       set({ isLoadingTicket: false });
     }
   },

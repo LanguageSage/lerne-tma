@@ -1,11 +1,12 @@
+import { tr } from '../i18n/locale';
 import { create } from 'zustand';
 import { cloudStorage } from '../utils/auth';
 import api from '../services/api';
 
 export const SUPPORTED_LANGUAGES = [
-  { code: 'de', name: 'Deutsch', flag: '🇩🇪', label: 'Немецкий', desc: 'Изучение грамматики, артиклей der/die/das и падежей' },
-  { code: 'en', name: 'English', flag: '🇬🇧', label: 'Английский', desc: 'Изучение разговорных фраз, времён и фразовых глаголов' },
-  { code: 'no', name: 'Norsk', flag: '🇳🇴', label: 'Норвежский', desc: 'Изучение слов, родов en/ei/et и конструкций Bokmål' },
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪', get label() { return tr("Немецкий"); }, get desc() { return tr("Изучение грамматики, артиклей der/die/das и падежей"); } },
+  { code: 'en', name: 'English', flag: '🇬🇧', get label() { return tr("Английский"); }, get desc() { return tr("Изучение разговорных фраз, времён и фразовых глаголов"); } },
+  { code: 'no', name: 'Norsk', flag: '🇳🇴', get label() { return tr("Норвежский"); }, get desc() { return tr("Изучение слов, родов en/ei/et и конструкций Bokmål"); } },
 ];
 
 const INITIAL_LANG = localStorage.getItem('lerne_target_language') || 'de';

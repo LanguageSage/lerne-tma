@@ -1,7 +1,10 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { FLAG_COLORS } from '../../constants/cardFlags';
 
-export const FlagPicker = ({ value = 0, onChange, size = 30, label = "ЦВЕТОВАЯ МЕТКА (ФЛАГ)" }) => {
+export const FlagPicker = ({ value = 0, onChange, size = 30, label = tr("ЦВЕТОВАЯ МЕТКА (ФЛАГ)") }) => {
+  useInterfaceLocale();
   return (
     <div className="flag-picker-container" style={{ marginTop: '10px', marginBottom: '10px', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.05)' }}>
       {label && (

@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, RefreshCw, UserPlus, LogOut } from 'lucide-react';
@@ -7,6 +9,7 @@ import { RegisterModal } from '../modals/RegisterModal';
 import { storage } from '../../utils/auth';
 
 export const AccountDeletedScreen = () => {
+  useInterfaceLocale();
   const { isAccountDeleted, setIsAccountDeleted, setUserProfile, showToast } = useUiStore();
   const { fetchDecks } = useDeckStore();
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
@@ -25,7 +28,7 @@ export const AccountDeletedScreen = () => {
     const newGuestId = Math.floor(100000000 + Math.random() * 900000000);
     const guestProfile = {
       user_id: newGuestId,
-      first_name: 'Пользователь',
+      first_name: tr("Пользователь"),
       is_guest: true
     };
     storage.set('lerne_user_id', newGuestId);
@@ -33,7 +36,7 @@ export const AccountDeletedScreen = () => {
     setUserProfile(guestProfile);
 
     setIsAccountDeleted(false);
-    showToast("Начата новая гостевая сессия", "info");
+    showToast(tr("Начата новая гостевая сессия"), "info");
 
     try {
       await fetchDecks(true);
@@ -105,12 +108,8 @@ export const AccountDeletedScreen = () => {
             </div>
 
             {/* Title & Subtitle */}
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', margin: '0 0 8px 0' }}>
-              Ваш аккаунт и данные успешно удалены
-            </h2>
-            <p style={{ fontSize: '0.88rem', color: '#94a3b8', margin: '0 0 24px 0', lineHeight: 1.45 }}>
-              Все колоды, карточки, папки и прогресс обучения были безвозвратно стёрты с сервера.
-            </p>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', margin: '0 0 8px 0' }}>{tr("Ваш аккаунт и данные успешно удалены")}{' '}</h2>
+            <p style={{ fontSize: '0.88rem', color: '#94a3b8', margin: '0 0 24px 0', lineHeight: 1.45 }}>{tr("Все колоды, карточки, папки и прогресс обучения были безвозвратно стёрты с сервера.")}{' '}</p>
 
             {closedMessage && (
               <div style={{
@@ -121,9 +120,7 @@ export const AccountDeletedScreen = () => {
                 color: '#93c5fd',
                 fontSize: '0.84rem',
                 marginBottom: 16
-              }}>
-                Вкладка готова к закрытию. Вы можете закрыть это окно браузера вручную.
-              </div>
+              }}>{tr("Вкладка готова к закрытию. Вы можете закрыть это окно браузера вручную.")}{' '}</div>
             )}
 
             {/* Actions list */}
@@ -150,7 +147,7 @@ export const AccountDeletedScreen = () => {
                 }}
               >
                 <UserPlus size={18} />
-                <span>Зарегистрироваться / Настроить профиль</span>
+                <span>{tr("Зарегистрироваться / Настроить профиль")}</span>
               </button>
 
               {/* Option 2: Start Clean as Guest */}
@@ -175,7 +172,7 @@ export const AccountDeletedScreen = () => {
                 }}
               >
                 <RefreshCw size={16} />
-                <span>Начать заново как гость (без регистрации)</span>
+                <span>{tr("Начать заново как гость (без регистрации)")}</span>
               </button>
 
               {/* Option 3: Close app */}
@@ -198,7 +195,7 @@ export const AccountDeletedScreen = () => {
                 }}
               >
                 <LogOut size={14} />
-                <span>Закрыть приложение</span>
+                <span>{tr("Закрыть приложение")}</span>
               </button>
             </div>
           </motion.div>

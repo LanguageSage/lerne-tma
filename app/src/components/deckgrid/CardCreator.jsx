@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Plus, Settings } from 'lucide-react';
@@ -14,6 +16,7 @@ import { useTranslation } from '../../i18n/i18nContext';
 import { navigateUp } from '../../utils/navigation';
 
 export const CardCreator = ({ startTutorial }) => {
+  useInterfaceLocale();
   const { t } = useTranslation();
   const { view, setIsSettingsOpen } = useUiStore();
   const { currentDeck } = useDeckStore();
@@ -111,7 +114,7 @@ export const CardCreator = ({ startTutorial }) => {
           <button className="back-btn" onClick={handleBack}><ChevronLeft size={24} /></button>
           <h2>{t('creator.title', 'Новая карточка')}</h2>
           <div className="header-actions">
-            <button className="header-action-btn" disabled={true} title="Добавить карточку">
+            <button className="header-action-btn" disabled={true} title={tr("Добавить карточку")}>
               <Plus size={22} />
             </button>
             <HelpButton onClick={() => startTutorial('creator')} />

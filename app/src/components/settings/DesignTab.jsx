@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
@@ -34,6 +36,7 @@ const PRESET_COLORS = [
 ];
 
 export const DesignTab = () => {
+  useInterfaceLocale();
   const {
     cardBgFront, setCardBgFront,
     cardBgBack, setCardBgBack,
@@ -82,47 +85,47 @@ export const DesignTab = () => {
       await api.post('/media/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      showToast("Фон загружен", "success");
+      showToast(tr("Фон загружен"), "success");
       // Refresh backgrounds
       const res = await api.get('/media/backgrounds');
       setCustomBackgrounds(res.data);
     } catch {
-      showToast("Ошибка загрузки фона");
+      showToast(tr("Ошибка загрузки фона"));
     }
   };
 
   return (
     <motion.div id="tut-settings-design" key="design" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
-      <h3>Внешний вид карточек</h3>
+      <h3>{tr("Внешний вид карточек")}</h3>
 
       <div className="custom-bg-manager glass" style={{ marginBottom: '18px', padding: '14px' }}>
         <div className="form-group" style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '0.88rem', color: '#94a3b8', marginBottom: '6px' }}>Готовая тема оформления</label>
+          <label style={{ fontSize: '0.88rem', color: '#94a3b8', marginBottom: '6px' }}>{tr("Готовая тема оформления")}</label>
           <select 
             value="" 
             onChange={(e) => {
               const preset = DESIGN_PRESETS.find(p => p.id === e.target.value);
               if (preset) {
                 applyDesignPreset(preset);
-                showToast(`Применена тема: ${preset.name}`, 'success');
+                showToast(tr("Применена тема: {{p0}}", { p0: preset.name }), 'success');
               }
             }}
             style={{ width: '100%' }}
           >
-            <option value="" disabled>✨ Выберите готовую тему...</option>
-            <optgroup label="── Строгие тёмные темы ──">
-              <option value="strict_dark">Строгий тёмный 🖤</option>
-              <option value="strict_minimal">Минимализм 🌑</option>
-              <option value="strict_midnight">Полуночный 🌌</option>
-              <option value="strict_emerald">Тёмный изумруд 🌿</option>
+            <option value="" disabled>{tr("✨ Выберите готовую тему...")}</option>
+            <optgroup label={tr("── Строгие тёмные темы ──")}>
+              <option value="strict_dark">{tr("Строгий тёмный 🖤")}</option>
+              <option value="strict_minimal">{tr("Минимализм 🌑")}</option>
+              <option value="strict_midnight">{tr("Полуночный 🌌")}</option>
+              <option value="strict_emerald">{tr("Тёмный изумруд 🌿")}</option>
             </optgroup>
-            <optgroup label="── Цветные и анимированные ──">
+            <optgroup label={tr("── Цветные и анимированные ──")}>
               <option value="lerne_2026">Lerne 2026 ✨</option>
-              <option value="premium">Премиум 💎</option>
-              <option value="aurora">Сияние 🌌</option>
-              <option value="morning_sea">Утреннее море 🌊</option>
-              <option value="cyberpunk">Киберпанк 🤖</option>
-              <option value="deep_ocean">Океан 🌊</option>
+              <option value="premium">{tr("Премиум 💎")}</option>
+              <option value="aurora">{tr("Сияние 🌌")}</option>
+              <option value="morning_sea">{tr("Утреннее море 🌊")}</option>
+              <option value="cyberpunk">{tr("Киберпанк 🤖")}</option>
+              <option value="deep_ocean">{tr("Океан 🌊")}</option>
             </optgroup>
           </select>
         </div>
@@ -148,61 +151,53 @@ export const DesignTab = () => {
                 previewTextShadow, previewCardTextAlign, previewCardLines
               };
               navigator.clipboard.writeText(JSON.stringify(config, null, 2));
-              showToast('Конфигурация темы скопирована!', 'success');
+              showToast(tr("Конфигурация темы скопирована!"), 'success');
             }}
-            title="Скопировать настройки в буфер"
-          >
-            📋 Копия
-          </button>
+            title={tr("Скопировать настройки в буфер")}
+          >{tr("📋 Копия")}{' '}</button>
           <button 
             className="btn-secondary btn-tiny"
             style={{ fontSize: '0.78rem', color: '#f3f4f6', borderColor: 'rgba(255,255,255,0.1)', padding: '8px 4px' }}
             onClick={() => {
               resetDesign();
-              showToast('Дизайн сброшен по умолчанию', 'success');
+              showToast(tr("Дизайн сброшен по умолчанию"), 'success');
             }}
-            title="Сбросить дизайн к стандартному"
-          >
-            🧹 Сброс
-          </button>
+            title={tr("Сбросить дизайн к стандартному")}
+          >{tr("🧹 Сброс")}{' '}</button>
           <button 
             className="btn-secondary btn-tiny"
             style={{ fontSize: '0.78rem', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.2)', padding: '8px 4px' }}
             onClick={() => {
               saveUserDesign();
-              showToast('Мой пресет сохранен!', 'success');
+              showToast(tr("Мой пресет сохранен!"), 'success');
             }}
-            title="Сохранить текущие настройки как мой пресет"
-          >
-            💾 Мой
-          </button>
+            title={tr("Сохранить текущие настройки как мой пресет")}
+          >{tr("💾 Мой")}{' '}</button>
           {userDesign && (
             <button 
               className="btn-secondary btn-tiny"
               style={{ fontSize: '0.78rem', color: '#34d399', borderColor: 'rgba(52,211,153,0.2)', padding: '8px 4px' }}
               onClick={() => {
                 applyUserDesign();
-                showToast('Мой пресет применен!', 'success');
+                showToast(tr("Мой пресет применен!"), 'success');
               }}
-              title="Применить сохраненный пресет"
-            >
-              👤 Мой
-            </button>
+              title={tr("Применить сохраненный пресет")}
+            >{tr("👤 Мой")}{' '}</button>
           )}
         </div>
       </div>
 
       <div className="form-group" style={{ marginBottom: '15px' }}>
-        <label>Фон (Лицевая сторона)</label>
+        <label>{tr("Фон (Лицевая сторона)")}</label>
         <select value={cardBgFront} onChange={e => setCardBgFront(e.target.value)}>
-          <option value="auto">🎲 Случайный фон (Авто)</option>
-          <option disabled>── Строгие тёмные ──</option>
-          <option value="dark_obsidian">Строгий графит 🖤</option>
-          <option value="dark_minimal">Минимализм 🌑</option>
-          <option value="dark_midnight">Полуночный синий 🌌</option>
-          <option value="dark_emerald">Тёмный изумруд 🌿</option>
-          <option value="dark_mocha">Тёмный мокко ☕</option>
-          <option disabled>── Живые градиенты ──</option>
+          <option value="auto">{tr("🎲 Случайный фон (Авто)")}</option>
+          <option disabled>{tr("── Строгие тёмные ──")}</option>
+          <option value="dark_obsidian">{tr("Строгий графит 🖤")}</option>
+          <option value="dark_minimal">{tr("Минимализм 🌑")}</option>
+          <option value="dark_midnight">{tr("Полуночный синий 🌌")}</option>
+          <option value="dark_emerald">{tr("Тёмный изумруд 🌿")}</option>
+          <option value="dark_mocha">{tr("Тёмный мокко ☕")}</option>
+          <option disabled>{tr("── Живые градиенты ──")}</option>
           <option value="standard">Standard Glass</option>
           <option value="mesh">Celestial Mesh</option>
           <option value="aurora">Aurora Waves</option>
@@ -210,16 +205,16 @@ export const DesignTab = () => {
           <option value="liquid">Liquid Flow 💧</option>
           <option value="liquid_sunset">Sunset Flow 🌅</option>
           <option value="liquid_ocean">Ocean Flow 🌊</option>
-          <option value="liquid_morning">Утреннее море 🌅</option>
+          <option value="liquid_morning">{tr("Утреннее море 🌅")}</option>
           <option value="liquid_cosmic">Cosmic Flow 🌌</option>
           <option value="liquid_emerald">Emerald Flow 🌿</option>
-          <option disabled>── Видео фоны ──</option>
-          <option value="video_aquarium">Видео: Аквариум 🐠</option>
-          <option value="video_space">Видео: Космос 🌌</option>
-          <option value="video_nature">Видео: Природа 🌿</option>
+          <option disabled>{tr("── Видео фоны ──")}</option>
+          <option value="video_aquarium">{tr("Видео: Аквариум 🐠")}</option>
+          <option value="video_space">{tr("Видео: Космос 🌌")}</option>
+          <option value="video_nature">{tr("Видео: Природа 🌿")}</option>
           {customBackgrounds && customBackgrounds.length > 0 && (
             <>
-              <option disabled>── Мои фоны ──</option>
+              <option disabled>{tr("── Мои фоны ──")}</option>
               {customBackgrounds.map(bg => (
                 <option key={bg.filename} value={`custom_${bg.filename}`}>
                   {bg.filename}
@@ -231,16 +226,16 @@ export const DesignTab = () => {
       </div>
 
       <div className="form-group">
-        <label>Фон (Обратная сторона)</label>
+        <label>{tr("Фон (Обратная сторона)")}</label>
         <select value={cardBgBack} onChange={e => setCardBgBack(e.target.value)}>
-          <option value="auto">🎲 Случайный фон (Авто)</option>
-          <option disabled>── Строгие тёмные ──</option>
-          <option value="dark_obsidian">Строгий графит 🖤</option>
-          <option value="dark_minimal">Минимализм 🌑</option>
-          <option value="dark_midnight">Полуночный синий 🌌</option>
-          <option value="dark_emerald">Тёмный изумруд 🌿</option>
-          <option value="dark_mocha">Тёмный мокко ☕</option>
-          <option disabled>── Живые градиенты ──</option>
+          <option value="auto">{tr("🎲 Случайный фон (Авто)")}</option>
+          <option disabled>{tr("── Строгие тёмные ──")}</option>
+          <option value="dark_obsidian">{tr("Строгий графит 🖤")}</option>
+          <option value="dark_minimal">{tr("Минимализм 🌑")}</option>
+          <option value="dark_midnight">{tr("Полуночный синий 🌌")}</option>
+          <option value="dark_emerald">{tr("Тёмный изумруд 🌿")}</option>
+          <option value="dark_mocha">{tr("Тёмный мокко ☕")}</option>
+          <option disabled>{tr("── Живые градиенты ──")}</option>
           <option value="standard">Standard Glass</option>
           <option value="mesh">Celestial Mesh</option>
           <option value="aurora">Aurora Waves</option>
@@ -248,16 +243,16 @@ export const DesignTab = () => {
           <option value="liquid">Liquid Flow 💧</option>
           <option value="liquid_sunset">Sunset Flow 🌅</option>
           <option value="liquid_ocean">Ocean Flow 🌊</option>
-          <option value="liquid_morning">Утреннее море 🌅</option>
+          <option value="liquid_morning">{tr("Утреннее море 🌅")}</option>
           <option value="liquid_cosmic">Cosmic Flow 🌌</option>
           <option value="liquid_emerald">Emerald Flow 🌿</option>
-          <option disabled>── Видео фоны ──</option>
-          <option value="video_aquarium">Видео: Аквариум 🐠</option>
-          <option value="video_space">Видео: Космос 🌌</option>
-          <option value="video_nature">Видео: Природа 🌿</option>
+          <option disabled>{tr("── Видео фоны ──")}</option>
+          <option value="video_aquarium">{tr("Видео: Аквариум 🐠")}</option>
+          <option value="video_space">{tr("Видео: Космос 🌌")}</option>
+          <option value="video_nature">{tr("Видео: Природа 🌿")}</option>
           {customBackgrounds && customBackgrounds.length > 0 && (
             <>
-              <option disabled>── Мои фоны ──</option>
+              <option disabled>{tr("── Мои фоны ──")}</option>
               {customBackgrounds.map(bg => (
                 <option key={bg.filename} value={`custom_${bg.filename}`}>
                   {bg.filename}
@@ -269,12 +264,12 @@ export const DesignTab = () => {
       </div>
 
       <div className="custom-bg-manager glass" style={{ marginTop: '20px', padding: '15px' }}>
-        <h4 style={{ margin: '0 0 10px 0' }}>Предпросмотр (Лицевая сторона)</h4>
+        <h4 style={{ margin: '0 0 10px 0' }}>{tr("Предпросмотр (Лицевая сторона)")}</h4>
         <TypographyPreview styleType={cardBgFront} showContext={false} />
         
         {/* Color Palette directly below Front Preview */}
         <div className="form-group" style={{ marginBottom: '15px' }}>
-          <label>Цвет текста (Лицевая сторона)</label>
+          <label>{tr("Цвет текста (Лицевая сторона)")}</label>
           <div style={{ 
             display: 'flex', 
             gap: '8px', 
@@ -307,7 +302,7 @@ export const DesignTab = () => {
                     transform: isSelected ? 'scale(1.15)' : 'scale(1)',
                     transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
-                  title={color === '#ffffff' ? 'Белый' : color}
+                  title={color === '#ffffff' ? tr("Белый") : color}
                 />
               );
             })}
@@ -329,7 +324,7 @@ export const DesignTab = () => {
                 position: 'relative',
                 overflow: 'hidden'
               }}
-              title="Выбрать свой цвет (спектр)"
+              title={tr("Выбрать свой цвет (спектр)")}
             >
               <input 
                 type="color" 
@@ -349,35 +344,35 @@ export const DesignTab = () => {
           </div>
 
           <div style={{ marginTop: '8px' }}>
-            <label style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '4px', display: 'block' }}>Эффект свечения / тени</label>
+            <label style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '4px', display: 'block' }}>{tr("Эффект свечения / тени")}</label>
             <select 
               value={cardTextShadow} 
               onChange={e => setCardTextShadow(e.target.value)}
               style={{ width: '100%' }}
             >
-              <option value="none">Без эффектов</option>
-              <option value="shadow">Мягкая тень</option>
-              <option value="glow">Свечение ✨</option>
-              <option value="neon">Неон 🌈</option>
-              <option value="outline">Контур ✏️</option>
-              <option value="glass">Стекло 🧊</option>
+              <option value="none">{tr("Без эффектов")}</option>
+              <option value="shadow">{tr("Мягкая тень")}</option>
+              <option value="glow">{tr("Свечение ✨")}</option>
+              <option value="neon">{tr("Неон 🌈")}</option>
+              <option value="outline">{tr("Контур ✏️")}</option>
+              <option value="glass">{tr("Стекло 🧊")}</option>
             </select>
           </div>
         </div>
 
         <div className="form-group" style={{ marginBottom: '15px' }}>
-          <label>Шрифт</label>
+          <label>{tr("Шрифт")}</label>
           <select value={cardFont} onChange={e => setCardFont(e.target.value)}>
-            <option value="Inter">Inter (Стандарт)</option>
-            <option value="Outfit">Outfit (Современный)</option>
-            <option value="Montserrat">Montserrat (Акцентный)</option>
-            <option value="Playfair Display">Playfair (Элегантный)</option>
-            <option value="Roboto">Roboto (Техничный)</option>
-            <option value="Caveat">Caveat (Рукописный)</option>
-            <option value="Pacifico">Pacifico (Курсивный)</option>
-            <option value="Oswald">Oswald (Строгий)</option>
-            <option value="Lobster">Lobster (Декоративный)</option>
-            <option value="Comfortaa">Comfortaa (Круглый)</option>
+            <option value="Inter">{tr("Inter (Стандарт)")}</option>
+            <option value="Outfit">{tr("Outfit (Современный)")}</option>
+            <option value="Montserrat">{tr("Montserrat (Акцентный)")}</option>
+            <option value="Playfair Display">{tr("Playfair (Элегантный)")}</option>
+            <option value="Roboto">{tr("Roboto (Техничный)")}</option>
+            <option value="Caveat">{tr("Caveat (Рукописный)")}</option>
+            <option value="Pacifico">{tr("Pacifico (Курсивный)")}</option>
+            <option value="Oswald">{tr("Oswald (Строгий)")}</option>
+            <option value="Lobster">{tr("Lobster (Декоративный)")}</option>
+            <option value="Comfortaa">{tr("Comfortaa (Круглый)")}</option>
           </select>
           <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
             <button 
@@ -385,21 +380,21 @@ export const DesignTab = () => {
               onClick={() => setCardFontWeight(cardFontWeight === '700' ? '400' : '700')}
               style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: cardFontWeight === '700' ? 'rgba(168,85,247,0.2)' : '' }}
             >
-              <b>Ж</b>
+              <b>{tr("Ж")}</b>
             </button>
             <button 
               className={`btn-secondary btn-tiny ${cardFontStyle === 'italic' ? 'active' : ''}`}
               onClick={() => setCardFontStyle(cardFontStyle === 'italic' ? 'normal' : 'italic')}
               style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: cardFontStyle === 'italic' ? 'rgba(168,85,247,0.2)' : '' }}
             >
-              <i>К</i>
+              <i>{tr("К")}</i>
             </button>
           </div>
         </div>
 
         <div className="form-group" style={{ marginTop: '10px' }}>
           <div className="label-with-value">
-            <label>Размер</label>
+            <label>{tr("Размер")}</label>
             <span className="value-badge">{cardFontSize}rem</span>
           </div>
           <input 
@@ -412,7 +407,7 @@ export const DesignTab = () => {
           />
         </div>
         <div className="form-group" style={{ marginTop: '12px' }}>
-          <label>Выравнивание текста (Лицевая сторона)</label>
+          <label>{tr("Выравнивание текста (Лицевая сторона)")}</label>
           <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
             <button
               type="button"
@@ -431,7 +426,7 @@ export const DesignTab = () => {
               }}
             >
               <AlignLeft size={16} />
-              <span>Слева</span>
+              <span>{tr("Слева")}</span>
             </button>
             <button
               type="button"
@@ -450,7 +445,7 @@ export const DesignTab = () => {
               }}
             >
               <AlignCenter size={16} />
-              <span>Центр</span>
+              <span>{tr("Центр")}</span>
             </button>
             <button
               type="button"
@@ -469,23 +464,21 @@ export const DesignTab = () => {
               }}
             >
               <AlignRight size={16} />
-              <span>Справа</span>
+              <span>{tr("Справа")}</span>
             </button>
           </div>
         </div>
       </div>
 
       <div className="custom-bg-manager glass" style={{ marginTop: '15px', padding: '15px' }}>
-        <h4 style={{ margin: '0 0 10px 0' }}>Предпросмотр (Обратная сторона)</h4>
+        <h4 style={{ margin: '0 0 10px 0' }}>{tr("Предпросмотр (Обратная сторона)")}</h4>
         <TypographyPreview styleType={cardBgBack} showContext={true} />
 
         {/* Single Color Palette directly below Back Preview */}
         <div className="form-group" style={{ marginBottom: '15px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-            <label style={{ margin: 0 }}>Цвет перевода (Обратная сторона)</label>
-            <span style={{ fontSize: '0.78rem', color: '#a78bfa', background: 'rgba(168,85,247,0.12)', padding: '2px 6px', borderRadius: '6px', border: '1px solid rgba(168,85,247,0.25)' }}>
-              Контекст адаптируется 🪄
-            </span>
+            <label style={{ margin: 0 }}>{tr("Цвет перевода (Обратная сторона)")}</label>
+            <span style={{ fontSize: '0.78rem', color: '#a78bfa', background: 'rgba(168,85,247,0.12)', padding: '2px 6px', borderRadius: '6px', border: '1px solid rgba(168,85,247,0.25)' }}>{tr("Контекст адаптируется 🪄")}{' '}</span>
           </div>
 
           <div style={{ 
@@ -524,7 +517,7 @@ export const DesignTab = () => {
                     transform: isSelected ? 'scale(1.15)' : 'scale(1)',
                     transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
-                  title={color === '#ffffff' ? 'Белый' : color}
+                  title={color === '#ffffff' ? tr("Белый") : color}
                 />
               );
             })}
@@ -546,7 +539,7 @@ export const DesignTab = () => {
                 position: 'relative',
                 overflow: 'hidden'
               }}
-              title="Выбрать свой цвет (спектр)"
+              title={tr("Выбрать свой цвет (спектр)")}
             >
               <input 
                 type="color" 
@@ -570,18 +563,18 @@ export const DesignTab = () => {
         </div>
 
         <div className="form-group" style={{ marginBottom: '15px' }}>
-          <label>Шрифт контекста и примеров</label>
+          <label>{tr("Шрифт контекста и примеров")}</label>
           <select value={contextFont} onChange={e => setContextFont(e.target.value)}>
-            <option value="Inter">Inter (Стандарт)</option>
-            <option value="Outfit">Outfit (Современный)</option>
-            <option value="Montserrat">Montserrat (Акцентный)</option>
-            <option value="Playfair Display">Playfair (Элегантный)</option>
-            <option value="Roboto">Roboto (Техничный)</option>
-            <option value="Caveat">Caveat (Рукописный)</option>
-            <option value="Pacifico">Pacifico (Курсивный)</option>
-            <option value="Oswald">Oswald (Строгий)</option>
-            <option value="Lobster">Lobster (Декоративный)</option>
-            <option value="Comfortaa">Comfortaa (Круглый)</option>
+            <option value="Inter">{tr("Inter (Стандарт)")}</option>
+            <option value="Outfit">{tr("Outfit (Современный)")}</option>
+            <option value="Montserrat">{tr("Montserrat (Акцентный)")}</option>
+            <option value="Playfair Display">{tr("Playfair (Элегантный)")}</option>
+            <option value="Roboto">{tr("Roboto (Техничный)")}</option>
+            <option value="Caveat">{tr("Caveat (Рукописный)")}</option>
+            <option value="Pacifico">{tr("Pacifico (Курсивный)")}</option>
+            <option value="Oswald">{tr("Oswald (Строгий)")}</option>
+            <option value="Lobster">{tr("Lobster (Декоративный)")}</option>
+            <option value="Comfortaa">{tr("Comfortaa (Круглый)")}</option>
           </select>
           <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
             <button 
@@ -589,35 +582,35 @@ export const DesignTab = () => {
               onClick={() => setContextFontWeight(contextFontWeight === '700' ? '400' : '700')}
               style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: contextFontWeight === '700' ? 'rgba(168,85,247,0.2)' : '' }}
             >
-              <b>Ж</b>
+              <b>{tr("Ж")}</b>
             </button>
             <button 
               className={`btn-secondary btn-tiny ${contextFontStyle === 'italic' ? 'active' : ''}`}
               onClick={() => setContextFontStyle(contextFontStyle === 'italic' ? 'normal' : 'italic')}
               style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: contextFontStyle === 'italic' ? 'rgba(168,85,247,0.2)' : '' }}
             >
-              <i>К</i>
+              <i>{tr("К")}</i>
             </button>
           </div>
         </div>
 
         <div className="form-group" style={{ marginBottom: '14px' }}>
-          <label>Эффект тени контекста</label>
+          <label>{tr("Эффект тени контекста")}</label>
           <select 
             value={contextTextShadow} 
             onChange={e => setContextTextShadow(e.target.value)}
             style={{ width: '100%', marginTop: '6px' }}
           >
-            <option value="none">Без эффектов</option>
-            <option value="shadow">Мягкая тень</option>
-            <option value="glow">Свечение ✨</option>
-            <option value="neon">Неон 🌈</option>
-            <option value="outline">Контур ✏️</option>
+            <option value="none">{tr("Без эффектов")}</option>
+            <option value="shadow">{tr("Мягкая тень")}</option>
+            <option value="glow">{tr("Свечение ✨")}</option>
+            <option value="neon">{tr("Неон 🌈")}</option>
+            <option value="outline">{tr("Контур ✏️")}</option>
           </select>
         </div>
         <div className="form-group" style={{ marginTop: '10px' }}>
           <div className="label-with-value">
-            <label>Размер</label>
+            <label>{tr("Размер")}</label>
             <span className="value-badge">{contextFontSize}rem</span>
           </div>
           <input 
@@ -630,7 +623,7 @@ export const DesignTab = () => {
           />
         </div>
         <div className="form-group" style={{ marginTop: '12px' }}>
-          <label>Выравнивание текста (Обратная сторона)</label>
+          <label>{tr("Выравнивание текста (Обратная сторона)")}</label>
           <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
             <button
               type="button"
@@ -649,7 +642,7 @@ export const DesignTab = () => {
               }}
             >
               <AlignLeft size={16} />
-              <span>Слева</span>
+              <span>{tr("Слева")}</span>
             </button>
             <button
               type="button"
@@ -668,7 +661,7 @@ export const DesignTab = () => {
               }}
             >
               <AlignCenter size={16} />
-              <span>Центр</span>
+              <span>{tr("Центр")}</span>
             </button>
             <button
               type="button"
@@ -687,7 +680,7 @@ export const DesignTab = () => {
               }}
             >
               <AlignRight size={16} />
-              <span>Справа</span>
+              <span>{tr("Справа")}</span>
             </button>
           </div>
         </div>
@@ -696,29 +689,27 @@ export const DesignTab = () => {
       {/* ── CARD LIST PREVIEW TYPOGRAPHY SECTION ── */}
       <div className="custom-bg-manager glass" style={{ marginTop: '20px', padding: '15px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-          <h4 style={{ margin: 0 }}>Список карточек (Превью)</h4>
+          <h4 style={{ margin: 0 }}>{tr("Список карточек (Превью)")}</h4>
           <button
             type="button"
             className="btn-secondary btn-tiny"
             style={{ fontSize: '0.78rem', color: '#c084fc', borderColor: 'rgba(168,85,247,0.3)', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
             onClick={() => {
               syncPreviewFromCard();
-              showToast('Стиль скопирован из карточки!', 'success');
+              showToast(tr("Стиль скопирован из карточки!"), 'success');
             }}
-            title="Скопировать цвета и шрифт из настроек основной карточки"
+            title={tr("Скопировать цвета и шрифт из настроек основной карточки")}
           >
-            <span>🪄 Скопировать из карточки</span>
+            <span>{tr("🪄 Скопировать из карточки")}</span>
           </button>
         </div>
-        <p className="field-hint" style={{ marginBottom: '10px' }}>
-          Индивидуальная настройка шрифтов и цветов для карточек в общем списке
-        </p>
+        <p className="field-hint" style={{ marginBottom: '10px' }}>{tr("Индивидуальная настройка шрифтов и цветов для карточек в общем списке")}{' '}</p>
 
         <CardListPreview styleType={cardBgFront} />
 
         {/* Front text color in preview */}
         <div className="form-group" style={{ marginBottom: '15px' }}>
-          <label>Цвет текста (Лицевая сторона списка)</label>
+          <label>{tr("Цвет текста (Лицевая сторона списка)")}</label>
           <div style={{ 
             display: 'flex', 
             gap: '8px', 
@@ -751,7 +742,7 @@ export const DesignTab = () => {
                     transform: isSelected ? 'scale(1.15)' : 'scale(1)',
                     transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
-                  title={color === '#ffffff' ? 'Белый' : color}
+                  title={color === '#ffffff' ? tr("Белый") : color}
                 />
               );
             })}
@@ -772,7 +763,7 @@ export const DesignTab = () => {
                 position: 'relative',
                 overflow: 'hidden'
               }}
-              title="Выбрать свой цвет (спектр)"
+              title={tr("Выбрать свой цвет (спектр)")}
             >
               <input 
                 type="color" 
@@ -794,7 +785,7 @@ export const DesignTab = () => {
 
         {/* Back translation text color in preview */}
         <div className="form-group" style={{ marginBottom: '15px' }}>
-          <label>Цвет перевода (Обратная сторона списка)</label>
+          <label>{tr("Цвет перевода (Обратная сторона списка)")}</label>
           <div style={{ 
             display: 'flex', 
             gap: '8px', 
@@ -827,7 +818,7 @@ export const DesignTab = () => {
                     transform: isSelected ? 'scale(1.15)' : 'scale(1)',
                     transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
-                  title={color === '#ffffff' ? 'Белый' : color}
+                  title={color === '#ffffff' ? tr("Белый") : color}
                 />
               );
             })}
@@ -848,7 +839,7 @@ export const DesignTab = () => {
                 position: 'relative',
                 overflow: 'hidden'
               }}
-              title="Выбрать свой цвет (спектр)"
+              title={tr("Выбрать свой цвет (спектр)")}
             >
               <input 
                 type="color" 
@@ -870,18 +861,18 @@ export const DesignTab = () => {
 
         {/* Font Selection */}
         <div className="form-group" style={{ marginBottom: '15px' }}>
-          <label>Шрифт списка</label>
+          <label>{tr("Шрифт списка")}</label>
           <select value={previewCardFont} onChange={e => setPreviewCardFont(e.target.value)}>
-            <option value="Comfortaa">Comfortaa (Круглый)</option>
-            <option value="Inter">Inter (Стандарт)</option>
-            <option value="Outfit">Outfit (Современный)</option>
-            <option value="Montserrat">Montserrat (Акцентный)</option>
-            <option value="Playfair Display">Playfair (Элегантный)</option>
-            <option value="Roboto">Roboto (Техничный)</option>
-            <option value="Caveat">Caveat (Рукописный)</option>
-            <option value="Pacifico">Pacifico (Курсивный)</option>
-            <option value="Oswald">Oswald (Строгий)</option>
-            <option value="Lobster">Lobster (Декоративный)</option>
+            <option value="Comfortaa">{tr("Comfortaa (Круглый)")}</option>
+            <option value="Inter">{tr("Inter (Стандарт)")}</option>
+            <option value="Outfit">{tr("Outfit (Современный)")}</option>
+            <option value="Montserrat">{tr("Montserrat (Акцентный)")}</option>
+            <option value="Playfair Display">{tr("Playfair (Элегантный)")}</option>
+            <option value="Roboto">{tr("Roboto (Техничный)")}</option>
+            <option value="Caveat">{tr("Caveat (Рукописный)")}</option>
+            <option value="Pacifico">{tr("Pacifico (Курсивный)")}</option>
+            <option value="Oswald">{tr("Oswald (Строгий)")}</option>
+            <option value="Lobster">{tr("Lobster (Декоративный)")}</option>
           </select>
           <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
             <button 
@@ -890,7 +881,7 @@ export const DesignTab = () => {
               onClick={() => setPreviewCardFontWeight(previewCardFontWeight === '700' ? '400' : '700')}
               style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: previewCardFontWeight === '700' ? 'rgba(168,85,247,0.2)' : '' }}
             >
-              <b>Ж</b>
+              <b>{tr("Ж")}</b>
             </button>
             <button 
               type="button"
@@ -898,32 +889,32 @@ export const DesignTab = () => {
               onClick={() => setPreviewCardFontStyle(previewCardFontStyle === 'italic' ? 'normal' : 'italic')}
               style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: previewCardFontStyle === 'italic' ? 'rgba(168,85,247,0.2)' : '' }}
             >
-              <i>К</i>
+              <i>{tr("К")}</i>
             </button>
           </div>
         </div>
 
         {/* Text Shadow */}
         <div className="form-group" style={{ marginBottom: '14px' }}>
-          <label>Эффект свечения / тени в списке</label>
+          <label>{tr("Эффект свечения / тени в списке")}</label>
           <select 
             value={previewTextShadow} 
             onChange={e => setPreviewTextShadow(e.target.value)}
             style={{ width: '100%', marginTop: '6px' }}
           >
-            <option value="none">Без эффектов (Максимальная чёткость)</option>
-            <option value="shadow">Мягкая тень</option>
-            <option value="glow">Свечение ✨</option>
-            <option value="neon">Неон 🌈</option>
-            <option value="outline">Контур ✏️</option>
-            <option value="glass">Стекло 🧊</option>
+            <option value="none">{tr("Без эффектов (Максимальная чёткость)")}</option>
+            <option value="shadow">{tr("Мягкая тень")}</option>
+            <option value="glow">{tr("Свечение ✨")}</option>
+            <option value="neon">{tr("Неон 🌈")}</option>
+            <option value="outline">{tr("Контур ✏️")}</option>
+            <option value="glass">{tr("Стекло 🧊")}</option>
           </select>
         </div>
 
         {/* Font size sliders */}
         <div className="form-group" style={{ marginTop: '10px' }}>
           <div className="label-with-value">
-            <label>Размер лицевой стороны</label>
+            <label>{tr("Размер лицевой стороны")}</label>
             <span className="value-badge">{previewCardFontSize}rem</span>
           </div>
           <input 
@@ -938,7 +929,7 @@ export const DesignTab = () => {
 
         <div className="form-group" style={{ marginTop: '10px' }}>
           <div className="label-with-value">
-            <label>Размер перевода</label>
+            <label>{tr("Размер перевода")}</label>
             <span className="value-badge">{previewBackFontSize}rem</span>
           </div>
           <input 
@@ -953,7 +944,7 @@ export const DesignTab = () => {
 
         {/* Alignment */}
         <div className="form-group" style={{ marginTop: '12px' }}>
-          <label>Выравнивание текста в списке</label>
+          <label>{tr("Выравнивание текста в списке")}</label>
           <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
             <button
               type="button"
@@ -972,7 +963,7 @@ export const DesignTab = () => {
               }}
             >
               <AlignLeft size={16} />
-              <span>Слева</span>
+              <span>{tr("Слева")}</span>
             </button>
             <button
               type="button"
@@ -991,7 +982,7 @@ export const DesignTab = () => {
               }}
             >
               <AlignCenter size={16} />
-              <span>Центр</span>
+              <span>{tr("Центр")}</span>
             </button>
             <button
               type="button"
@@ -1010,25 +1001,23 @@ export const DesignTab = () => {
               }}
             >
               <AlignRight size={16} />
-              <span>Справа</span>
+              <span>{tr("Справа")}</span>
             </button>
           </div>
         </div>
 
         {/* Number of lines */}
         <div className="form-group" style={{ marginTop: '14px' }}>
-          <label>Количество строк текста в списке карточек</label>
-          <p className="field-hint" style={{ marginTop: '2px', marginBottom: '8px' }}>
-            Сколько строк текста показывать до сворачивания карточки в списке
-          </p>
+          <label>{tr("Количество строк текста в списке карточек")}</label>
+          <p className="field-hint" style={{ marginTop: '2px', marginBottom: '8px' }}>{tr("Сколько строк текста показывать до сворачивания карточки в списке")}{' '}</p>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
             {[
-              { val: 1, label: '1 строка' },
-              { val: 2, label: '2 строки (стандарт)' },
-              { val: 3, label: '3 строки' },
-              { val: 4, label: '4 строки' },
-              { val: 5, label: '5 строк' },
-              { val: 0, label: '∞ Без ограничений' },
+              { val: 1, label: tr("1 строка") },
+              { val: 2, label: tr("2 строки (стандарт)") },
+              { val: 3, label: tr("3 строки") },
+              { val: 4, label: tr("4 строки") },
+              { val: 5, label: tr("5 строк") },
+              { val: 0, label: tr("∞ Без ограничений") },
             ].map(item => {
               const isActive = (previewCardLines === undefined && item.val === 2) || previewCardLines === item.val;
               return (
@@ -1056,8 +1045,8 @@ export const DesignTab = () => {
       </div>
 
       <div className="custom-bg-manager glass" style={{ marginTop: '20px', padding: '15px' }}>
-        <h4 style={{ margin: '0 0 10px 0' }}>Загрузить свой видео-фон</h4>
-        <p className="field-hint">Загрузите MP4 видео, которое будет проигрываться за карточкой</p>
+        <h4 style={{ margin: '0 0 10px 0' }}>{tr("Загрузить свой видео-фон")}</h4>
+        <p className="field-hint">{tr("Загрузите MP4 видео, которое будет проигрываться за карточкой")}</p>
         <input 
           type="file" 
           accept="video/mp4" 

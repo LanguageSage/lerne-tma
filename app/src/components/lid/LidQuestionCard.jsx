@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -15,6 +17,7 @@ export const LidQuestionCard = ({
   selectedAnswer = null,
   onSelectAnswer
 }) => {
+  useInterfaceLocale();
   const [isFlipped, setIsFlipped] = useState(false);
   const [showTranslation, setShowTranslation] = useState(false);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
@@ -147,14 +150,12 @@ export const LidQuestionCard = ({
           }}
         >
           <div className="lid-image-modal-card glass" onClick={(e) => e.stopPropagation()}>
-            <img src={imgSrc} alt="Иллюстрация" className="lid-image-modal-img" onError={handleImgError} />
+            <img src={imgSrc} alt={tr("Иллюстрация")} className="lid-image-modal-img" onError={handleImgError} />
             <button
               type="button"
               className="btn btn-secondary lid-image-modal-close"
               onClick={() => setIsImageExpanded(false)}
-            >
-              Закрыть
-            </button>
+            >{tr("Закрыть")}{' '}</button>
           </div>
         </div>
       )}
@@ -175,7 +176,7 @@ export const LidQuestionCard = ({
             {/* Top Meta: Number & Category */}
             <div className="lid-question-meta-row">
               <div className="lid-q-number-badge">
-                <span>Вопрос {examIndex} из {totalQuestions}</span>
+                <span>{tr("Вопрос")}{' '}{examIndex}{' '}{tr("из")}{' '}{totalQuestions}</span>
               </div>
               <div className="lid-q-category-pill" title={question.category}>
                 <span>{question.category}</span>
@@ -191,7 +192,7 @@ export const LidQuestionCard = ({
                 >
                   <img
                     src={imgSrc}
-                    alt={`Иллюстрация к вопросу ${examIndex}`}
+                    alt={tr("Иллюстрация к вопросу {{p0}}", { p0: examIndex })}
                     className="lid-question-image"
                     style={{ height: '100%', maxHeight: 'none' }}
                     onClick={() => setIsImageExpanded(!isImageExpanded)}
@@ -201,7 +202,7 @@ export const LidQuestionCard = ({
                     type="button"
                     className="lid-image-expand-btn"
                     onClick={() => setIsImageExpanded(!isImageExpanded)}
-                    title="Увеличить изображение"
+                    title={tr("Увеличить изображение")}
                   >
                     <ImageIcon size={14} />
                   </button>
@@ -210,7 +211,7 @@ export const LidQuestionCard = ({
                 <div
                   onMouseDown={startCardImageResize}
                   onTouchStart={startCardImageResize}
-                  title="Потяните, чтобы изменить высоту картинки"
+                  title={tr("Потяните, чтобы изменить высоту картинки")}
                   style={{
                     height: '14px',
                     display: 'flex',
@@ -261,10 +262,10 @@ export const LidQuestionCard = ({
                       type="button"
                       className={`lid-toggle-trans-btn ${showTranslation ? 'active' : ''}`}
                       onClick={() => setShowTranslation(!showTranslation)}
-                      title="Показать / скрыть перевод вопроса"
+                      title={tr("Показать / скрыть перевод вопроса")}
                     >
                       <Languages size={13} />
-                      <span>{showTranslation ? 'Скрыть перевод' : 'Перевод на русский'}</span>
+                      <span>{showTranslation ? tr("Скрыть перевод") : tr("Перевод на русский")}</span>
                     </button>
                   )}
 
@@ -272,10 +273,10 @@ export const LidQuestionCard = ({
                     type="button"
                     className="lid-btn-flip-card"
                     onClick={handleFlipCard}
-                    title="Перевернуть карточку и посмотреть разбор"
+                    title={tr("Перевернуть карточку и посмотреть разбор")}
                   >
                     <RotateCw size={13} />
-                    <span>Обратная сторона карточки</span>
+                    <span>{tr("Обратная сторона карточки")}</span>
                   </button>
                 </div>
               )}
@@ -349,12 +350,12 @@ export const LidQuestionCard = ({
                   {isCorrect ? (
                     <>
                       <CheckCircle2 size={18} />
-                      <span>Верно! Ответ: {getOptionLetter(question.correctOption)}</span>
+                      <span>{tr("Верно! Ответ:")}{' '}{getOptionLetter(question.correctOption)}</span>
                     </>
                   ) : (
                     <>
                       <X size={18} />
-                      <span>Неверно. Правильный: {getOptionLetter(question.correctOption)}</span>
+                      <span>{tr("Неверно. Правильный:")}{' '}{getOptionLetter(question.correctOption)}</span>
                     </>
                   )}
                 </div>
@@ -365,7 +366,7 @@ export const LidQuestionCard = ({
                   onClick={handleFlipCard}
                 >
                   <RotateCw size={13} />
-                  <span>Разбор на обороте</span>
+                  <span>{tr("Разбор на обороте")}</span>
                 </button>
               </motion.div>
             )}
@@ -386,7 +387,7 @@ export const LidQuestionCard = ({
             <div className="lid-back-top-bar">
               <div className="lid-back-mode-badge">
                 <RotateCw size={14} />
-                <span>Обратная сторона • Вопрос {examIndex}/{totalQuestions}</span>
+                <span>{tr("Обратная сторона • Вопрос")}{' '}{examIndex}/{totalQuestions}</span>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -395,10 +396,10 @@ export const LidQuestionCard = ({
                     type="button"
                     className={`lid-btn-audio-pill ${isPlayingAudio ? 'playing' : ''}`}
                     onClick={handleToggleAudio}
-                    title="Прослушать вопрос на немецком"
+                    title={tr("Прослушать вопрос на немецком")}
                   >
                     <Volume2 size={13} />
-                    <span>{isPlayingAudio ? 'Пауза' : 'Озвучить'}</span>
+                    <span>{isPlayingAudio ? tr("Пауза") : tr("Озвучить")}</span>
                   </button>
                 )}
 
@@ -408,18 +409,18 @@ export const LidQuestionCard = ({
                   onClick={handleFlipCard}
                 >
                   <RotateCcw size={14} />
-                  <span>Лицевая сторона</span>
+                  <span>{tr("Лицевая сторона")}</span>
                 </button>
               </div>
             </div>
 
             {/* Question Summary Box */}
             <div className="lid-back-question-card glass">
-              <div className="lid-back-q-label">Вопрос (Frage):</div>
+              <div className="lid-back-q-label">{tr("Вопрос (Frage):")}</div>
               <h3 className="lid-back-q-text-de">{question.question}</h3>
               {questionRuText && (
                 <div className="lid-back-q-text-ru">
-                  <strong>Перевод: </strong>{questionRuText}
+                  <strong>{tr("Перевод:")}{' '}</strong>{questionRuText}
                 </div>
               )}
               {imgSrc && (
@@ -431,7 +432,7 @@ export const LidQuestionCard = ({
                   >
                     <img
                       src={imgSrc}
-                      alt="Иллюстрация"
+                      alt={tr("Иллюстрация")}
                       className="lid-question-image"
                       style={{ height: '100%', maxHeight: 'none' }}
                       onError={handleImgError}
@@ -441,7 +442,7 @@ export const LidQuestionCard = ({
                   <div
                     onMouseDown={startCardImageResize}
                     onTouchStart={startCardImageResize}
-                    title="Потяните, чтобы изменить высоту картинки"
+                    title={tr("Потяните, чтобы изменить высоту картинки")}
                     style={{
                       height: '14px',
                       display: 'flex',
@@ -474,7 +475,7 @@ export const LidQuestionCard = ({
             <div className="lid-back-correct-hero">
               <div className="lid-back-correct-header">
                 <CheckCircle2 size={16} />
-                <span>Правильный ответ: Вариант {getOptionLetter(question.correctOption)}</span>
+                <span>{tr("Правильный ответ: Вариант")}{' '}{getOptionLetter(question.correctOption)}</span>
               </div>
               {correctOptObj && (
                 <>
@@ -492,7 +493,7 @@ export const LidQuestionCard = ({
 
             {/* All Options Full Breakdown */}
             <div className="lid-back-options-box glass">
-              <div className="lid-back-options-title">Все варианты ответа:</div>
+              <div className="lid-back-options-title">{tr("Все варианты ответа:")}</div>
               {question.options.map((opt) => {
                 const isThisCorrect = opt.id === question.correctOption;
                 const optRu = opt.translationRu || ruTrans?.[opt.id];
@@ -534,7 +535,7 @@ export const LidQuestionCard = ({
                 onClick={handleFlipCard}
               >
                 <RotateCcw size={16} />
-                <span>← Вернуться к вопросу</span>
+                <span>{tr("← Вернуться к вопросу")}</span>
               </button>
             </div>
           </motion.div>

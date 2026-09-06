@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -10,8 +12,9 @@ export const ImageEditorModal = ({
   onClose,
   imageSrc,
   onSave,
-  title = "Редактирование фото"
+  title = tr("Редактирование фото")
 }) => {
+  useInterfaceLocale();
   const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
   const [flipH, setFlipH] = useState(false);
   const [flipV, setFlipV] = useState(false);
@@ -333,7 +336,7 @@ export const ImageEditorModal = ({
               type="button"
               className="image-picker-close"
               onClick={onClose}
-              title="Закрыть"
+              title={tr("Закрыть")}
             >
               <X size={18} />
             </button>
@@ -362,7 +365,7 @@ export const ImageEditorModal = ({
             </div>
 
             <div className="canvas-drag-hint">
-              <span>Перетаскивайте фото или щипком меняйте масштаб</span>
+              <span>{tr("Перетаскивайте фото или щипком меняйте масштаб")}</span>
             </div>
           </div>
 
@@ -373,7 +376,7 @@ export const ImageEditorModal = ({
                 type="button"
                 className="btn-editor-action"
                 onClick={handleRotateLeft}
-                title="Повернуть против часовой (-90°)"
+                title={tr("Повернуть против часовой (-90°)")}
               >
                 <RotateCcw size={18} />
                 <span>-90°</span>
@@ -382,7 +385,7 @@ export const ImageEditorModal = ({
                 type="button"
                 className="btn-editor-action"
                 onClick={handleRotateRight}
-                title="Повернуть по часовой (+90°)"
+                title={tr("Повернуть по часовой (+90°)")}
               >
                 <RotateCw size={18} />
                 <span>+90°</span>
@@ -391,7 +394,7 @@ export const ImageEditorModal = ({
                 type="button"
                 className={`btn-editor-action ${flipH ? 'active' : ''}`}
                 onClick={handleFlipH}
-                title="Отразить по горизонтали"
+                title={tr("Отразить по горизонтали")}
               >
                 <FlipHorizontal size={18} />
               </button>
@@ -399,7 +402,7 @@ export const ImageEditorModal = ({
                 type="button"
                 className={`btn-editor-action ${flipV ? 'active' : ''}`}
                 onClick={handleFlipV}
-                title="Отразить по вертикали"
+                title={tr("Отразить по вертикали")}
               >
                 <FlipVertical size={18} />
               </button>
@@ -407,7 +410,7 @@ export const ImageEditorModal = ({
                 type="button"
                 className="btn-editor-action"
                 onClick={resetTransforms}
-                title="Сбросить все изменения"
+                title={tr("Сбросить все изменения")}
               >
                 <RefreshCw size={18} />
               </button>
@@ -420,7 +423,7 @@ export const ImageEditorModal = ({
               type="button"
               className="btn-zoom"
               onClick={() => handleZoomChange(zoom - 0.2)}
-              title="Уменьшить"
+              title={tr("Уменьшить")}
             >
               <ZoomOut size={16} />
             </button>
@@ -437,7 +440,7 @@ export const ImageEditorModal = ({
               type="button"
               className="btn-zoom"
               onClick={() => handleZoomChange(zoom + 0.2)}
-              title="Увеличить"
+              title={tr("Увеличить")}
             >
               <ZoomIn size={16} />
             </button>
@@ -446,7 +449,7 @@ export const ImageEditorModal = ({
 
           {/* Toolbar 3: Aspect Ratio selector */}
           <div className="image-editor-ratios">
-            <span className="ratio-label">Формат:</span>
+            <span className="ratio-label">{tr("Формат:")}</span>
             {['1:1', '4:3', '16:9', 'free'].map((ratio) => (
               <button
                 key={ratio}
@@ -454,19 +457,16 @@ export const ImageEditorModal = ({
                 className={`btn-ratio ${aspectRatio === ratio ? 'active' : ''}`}
                 onClick={() => setAspectRatio(ratio)}
               >
-                {ratio === 'free' ? 'Свободный' : ratio}
+                {ratio === 'free' ? tr("Свободный") : ratio}
               </button>
             ))}
           </div>
 
           {/* Footer Actions */}
           <div className="image-editor-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>
-              Отмена
-            </button>
+            <button type="button" className="btn-secondary" onClick={onClose}>{tr("Отмена")}{' '}</button>
             <button type="button" className="btn btn-primary" onClick={handleApply}>
-              <Check size={18} /> Применить
-            </button>
+              <Check size={18} />{' '}{tr("Применить")}{' '}</button>
           </div>
         </motion.div>
       </motion.div>

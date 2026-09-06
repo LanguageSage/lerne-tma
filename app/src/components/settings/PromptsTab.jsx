@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Edit2, Check, Plus, ArrowLeft, Lightbulb } from 'lucide-react';
@@ -8,6 +10,7 @@ import api from '../../services/api';
 
 
 export const PromptsTab = () => {
+  useInterfaceLocale();
   const { showToast } = useUiStore();
   const { activeLanguage, getLanguageInfo } = useLanguageStore();
   const langInfo = getLanguageInfo();
@@ -45,7 +48,7 @@ export const PromptsTab = () => {
       }
     } catch (err) {
       console.error("fetchPrompts error:", err);
-      showToast("Ошибка загрузки промптов", "error");
+      showToast(tr("Ошибка загрузки промптов"), "error");
     } finally {
       setLoading(false);
     }
@@ -70,17 +73,17 @@ export const PromptsTab = () => {
         if (activeCategoryTab === 'exam') setActiveExamPromptId(null);
         else if (activeCategoryTab === 'trainer') setActiveTrainerPromptId(null);
         else setActiveStandardPromptId(null);
-        showToast("Активирован промпт по умолчанию", "success");
+        showToast(tr("Активирован промпт по умолчанию"), "success");
       } else {
         await api.post(`/user/prompts/${promptId}/activate`, { target_language: activeLanguage, prompt_type: activeCategoryTab });
         if (activeCategoryTab === 'exam') setActiveExamPromptId(promptId);
         else if (activeCategoryTab === 'trainer') setActiveTrainerPromptId(promptId);
         else setActiveStandardPromptId(promptId);
-        showToast("Промпт активирован", "success");
+        showToast(tr("Промпт активирован"), "success");
       }
       fetchPrompts();
     } catch {
-      showToast("Не удалось активировать промпт");
+      showToast(tr("Не удалось активировать промпт"));
     }
   };
 
@@ -88,26 +91,26 @@ export const PromptsTab = () => {
     try {
       await api.post(`/user/prompts/preset/${presetId}/activate`, { target_language: activeLanguage });
       fetchPrompts();
-      showToast("Системный промпт активирован", "success");
+      showToast(tr("Системный промпт активирован"), "success");
     } catch {
-      showToast("Не удалось активировать пресет");
+      showToast(tr("Не удалось активировать пресет"));
     }
   };
 
   const handleDelete = async (promptId) => {
-    if (!window.confirm("Удалить этот промпт?")) return;
+    if (!window.confirm(tr("Удалить этот промпт?"))) return;
     try {
       await api.delete(`/user/prompts/${promptId}`);
-      showToast("Промпт успешно удален", "success");
+      showToast(tr("Промпт успешно удален"), "success");
       fetchPrompts();
     } catch {
-      showToast("Не удалось удалить промпт");
+      showToast(tr("Не удалось удалить промпт"));
     }
   };
 
   const handleSavePrompt = async () => {
     if (!editingPrompt.name || !editingPrompt.name.trim()) {
-      showToast("Укажите название промпта");
+      showToast(tr("Укажите название промпта"));
       return;
     }
     const mainText = editingPrompt.instruction || editingPrompt.translation_prompt || editingPrompt.context_prompt || '';
@@ -129,11 +132,11 @@ export const PromptsTab = () => {
         target_language: activeLanguage,
         prompt_type: editingPrompt.prompt_type || activeCategoryTab
       });
-      showToast(editingPrompt.id ? "Промпт обновлен" : "Промпт создан", "success");
+      showToast(editingPrompt.id ? tr("Промпт обновлен") : tr("Промпт создан"), "success");
       setEditingPrompt(null);
       fetchPrompts();
     } catch {
-      showToast("Ошибка сохранения промпта");
+      showToast(tr("Ошибка сохранения промпта"));
     }
   };
 
@@ -145,10 +148,10 @@ export const PromptsTab = () => {
       const examPreset = systemPresets.find(p => p.id === 'preset_exam');
       activeTranslation = examPreset 
         ? (examPreset.instruction || examPreset.translation_prompt || '') 
-        : `Создавай экзаменационные карточки с выбором вариантов ответа (Multiple Choice) с [*] и [ ] на лицевой стороне и точным переводом с грамматическим разбором без примеров на обороте.`;
+        : tr("Создавай экзаменационные карточки с выбором вариантов ответа (Multiple Choice) с [*] и [ ] на лицевой стороне и точным переводом с грамматическим разбором без примеров на обороте.", {  });
       activeContext = activeTranslation;
     } else if (activeCategoryTab === 'trainer') {
-      activeTranslation = `Генерируй карточки для изучения грамматики языка ${langInfo.name}. Оборачивай проверяемую грамматическую форму в фигурные скобки {слово} в предложении на лицевой стороне (например: Ich sehe {den} Hund). На обратной стороне напиши подробный и развернутый грамматический разбор правила.`;
+      activeTranslation = tr("Генерируй карточки для изучения грамматики языка {{p0}}. Оборачивай проверяемую грамматическую форму в фигурные скобки {слово} в предложении на лицевой стороне (например: Ich sehe {den} Hund). На обратной стороне напиши подробный и развернутый грамматический разбор правила.", { p0: langInfo.name });
       activeContext = activeTranslation;
     } else if (currentActivePromptId !== null) {
       const active = promptsList.find(p => p.id === currentActivePromptId);
@@ -159,8 +162,8 @@ export const PromptsTab = () => {
     }
 
     const defaultTitle = activeCategoryTab === 'exam' 
-      ? `Экзаменационный промпт (${langInfo.label})` 
-      : (activeCategoryTab === 'trainer' ? `Грамматический промпт (${langInfo.label})` : `Мой промпт (${langInfo.label})`);
+      ? tr("Экзаменационный промпт ({{p0}})", { p0: langInfo.label }) 
+      : (activeCategoryTab === 'trainer' ? tr("Грамматический промпт ({{p0}})", { p0: langInfo.label }) : tr("Мой промпт ({{p0}})", { p0: langInfo.label }));
 
     setEditingPrompt({
       id: null,
@@ -181,7 +184,7 @@ export const PromptsTab = () => {
             <ArrowLeft size={16} />
           </button>
           <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>{editingPrompt.id ? "Редактирование" : "Создание промпта"} ({langInfo.label})</span>
+            <span>{editingPrompt.id ? tr("Редактирование") : tr("Создание промпта")} ({langInfo.label})</span>
             {renderFlag(langInfo.code, 18)}
           </h3>
         </div>
@@ -198,28 +201,26 @@ export const PromptsTab = () => {
         }}>
           <Lightbulb size={20} style={{ color: '#38bdf8', flexShrink: 0, marginTop: '2px' }} />
           <div style={{ fontSize: '0.85rem', lineHeight: '1.4', color: '#e2e8f0' }}>
-            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Инструкция для ИИ ({langInfo.name})</strong>
-            Задайте правила разбора слов, грамматики и примеры для {langInfo.label.toLowerCase()} языка.
-          </div>
+            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>{tr("Инструкция для ИИ (")}{langInfo.name})</strong>{tr("Задайте правила разбора слов, грамматики и примеры для")}{' '}{langInfo.label.toLowerCase()}{' '}{tr("языка.")}{' '}</div>
         </div>
         
         <div className="form-group">
-          <label>Название шаблона</label>
+          <label>{tr("Название шаблона")}</label>
           <input 
             type="text" 
             value={editingPrompt.name} 
             onChange={e => setEditingPrompt({ ...editingPrompt, name: e.target.value })} 
-            placeholder={`Например: Промпт B1 (${langInfo.label})`} 
+            placeholder={tr("Например: Промпт B1 ({{p0}})", { p0: langInfo.label })} 
           />
         </div>
 
         {!editingPrompt.isSplit ? (
           <div className="form-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <label style={{ margin: 0 }}>Инструкция для ИИ</label>
+              <label style={{ margin: 0 }}>{tr("Инструкция для ИИ")}</label>
               {systemPresets.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Заполнить уровнем:</span>
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{tr("Заполнить уровнем:")}</span>
                   {systemPresets.map(preset => (
                     <button
                       key={preset.id}
@@ -239,7 +240,7 @@ export const PromptsTab = () => {
                 </div>
               )}
             </div>
-            <p className="field-hint">Правила разбора слов, разбора грамматики и количество примеров в создаваемой карточке</p>
+            <p className="field-hint">{tr("Правила разбора слов, разбора грамматики и количество примеров в создаваемой карточке")}</p>
             <textarea 
               value={editingPrompt.instruction || editingPrompt.translation_prompt || ''} 
               onChange={e => setEditingPrompt({ 
@@ -249,7 +250,7 @@ export const PromptsTab = () => {
                 context_prompt: e.target.value 
               })} 
               rows={6} 
-              placeholder="объясни слова с переводом на русский и подробно грамматику, затем 3 примера..."
+              placeholder={tr("объясни слова с переводом на русский и подробно грамматику, затем 3 примера...")}
             />
             <div style={{ marginTop: '8px' }}>
               <button 
@@ -262,32 +263,30 @@ export const PromptsTab = () => {
                   translation_prompt: editingPrompt.translation_prompt || editingPrompt.instruction,
                   context_prompt: editingPrompt.context_prompt || editingPrompt.instruction
                 })}
-              >
-                ⚙️ Раздельные инструкции для {langInfo.label.toLowerCase()} и русского
-              </button>
+              >{tr("⚙️ Раздельные инструкции для")}{' '}{langInfo.label.toLowerCase()}{' '}{tr("и русского")}{' '}</button>
             </div>
           </div>
         ) : (
           <>
             <div className="form-group">
-              <label>Инструкции при вводе на {langInfo.label.toLowerCase()} языке</label>
-              <p className="field-hint">Правила разбора {langInfo.label.toLowerCase()} слова</p>
+              <label>{tr("Инструкции при вводе на")}{' '}{langInfo.label.toLowerCase()}{' '}{tr("языке")}</label>
+              <p className="field-hint">{tr("Правила разбора")}{' '}{langInfo.label.toLowerCase()}{' '}{tr("слова")}</p>
               <textarea 
                 value={editingPrompt.translation_prompt} 
                 onChange={e => setEditingPrompt({ ...editingPrompt, translation_prompt: e.target.value })} 
                 rows={4} 
-                placeholder={`Инструкция при вводе ${langInfo.label.toLowerCase()} слова...`}
+                placeholder={tr("Инструкция при вводе {{p0}} слова...", { p0: langInfo.label.toLowerCase() })}
               />
             </div>
 
             <div className="form-group" style={{ marginTop: '15px' }}>
-              <label>Инструкции при вводе на русском (для перевода на {langInfo.label.toLowerCase()})</label>
-              <p className="field-hint">Правила перевода и разбора русского слова</p>
+              <label>{tr("Инструкции при вводе на русском (для перевода на")}{' '}{langInfo.label.toLowerCase()})</label>
+              <p className="field-hint">{tr("Правила перевода и разбора русского слова")}</p>
               <textarea 
                 value={editingPrompt.context_prompt} 
                 onChange={e => setEditingPrompt({ ...editingPrompt, context_prompt: e.target.value })} 
                 rows={4} 
-                placeholder="Инструкция при вводе русского слова..."
+                placeholder={tr("Инструкция при вводе русского слова...")}
               />
             </div>
 
@@ -301,16 +300,14 @@ export const PromptsTab = () => {
                   isSplit: false,
                   instruction: editingPrompt.translation_prompt || editingPrompt.context_prompt || editingPrompt.instruction
                 })}
-              >
-                ← Объединить в единую инструкцию
-              </button>
+              >{tr("← Объединить в единую инструкцию")}{' '}</button>
             </div>
           </>
         )}
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-          <button className="btn btn-primary btn-small" style={{ flex: 1 }} onClick={handleSavePrompt}>Сохранить</button>
-          <button className="btn btn-secondary btn-small" style={{ flex: 1 }} onClick={() => setEditingPrompt(null)}>Отмена</button>
+          <button className="btn btn-primary btn-small" style={{ flex: 1 }} onClick={handleSavePrompt}>{tr("Сохранить")}</button>
+          <button className="btn btn-secondary btn-small" style={{ flex: 1 }} onClick={() => setEditingPrompt(null)}>{tr("Отмена")}</button>
         </div>
       </motion.div>
     );
@@ -320,12 +317,11 @@ export const PromptsTab = () => {
     <motion.div key="prompts-list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="settings-section">
       <div className="section-header-with-btn">
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>Промпты ({langInfo.label})</span>
+          <span>{tr("Промпты (")}{langInfo.label})</span>
           {renderFlag(langInfo.code, 18)}
         </h3>
         <button className="btn btn-primary btn-tiny" onClick={handleCreateNew}>
-          <Plus size={14} /> Создать промпт
-        </button>
+          <Plus size={14} />{' '}{tr("Создать промпт")}{' '}</button>
       </div>
 
       {/* Category Tabs: Standard Vocabulary vs Grammar Trainer vs Exam Test */}
@@ -345,9 +341,7 @@ export const PromptsTab = () => {
             cursor: 'pointer',
             transition: 'all 0.2s ease-in-out'
           }}
-        >
-          📖 Перевод
-        </button>
+        >{tr("📖 Перевод")}{' '}</button>
         <button
           type="button"
           onClick={() => setActiveCategoryTab('trainer')}
@@ -363,9 +357,7 @@ export const PromptsTab = () => {
             cursor: 'pointer',
             transition: 'all 0.2s ease-in-out'
           }}
-        >
-          🎯 Тренажёр
-        </button>
+        >{tr("🎯 Тренажёр")}{' '}</button>
         <button
           type="button"
           onClick={() => setActiveCategoryTab('exam')}
@@ -381,17 +373,15 @@ export const PromptsTab = () => {
             cursor: 'pointer',
             transition: 'all 0.2s ease-in-out'
           }}
-        >
-          📝 Тесты
-        </button>
+        >{tr("📝 Тесты")}{' '}</button>
       </div>
 
       <p className="field-hint" style={{ marginBottom: '15px' }}>
         {activeCategoryTab === 'exam'
-          ? `Инструкции ИИ для экзаменационных тестов с выбором ответа [*] / [ ] и подробным разбором.`
+          ? tr("Инструкции ИИ для экзаменационных тестов с выбором ответа [*] / [ ] и подробным разбором.", {  })
           : (activeCategoryTab === 'trainer' 
-              ? `Инструкции ИИ для авто-создания карточек-тренажеров со скобками {слово} и подробным разбором правил.`
-              : `Персональные и стандартные промпты для изучения слов и фраз ${langInfo.label.toLowerCase()} языка.`
+              ? tr("Инструкции ИИ для авто-создания карточек-тренажеров со скобками {слово} и подробным разбором правил.", {  })
+              : tr("Персональные и стандартные промпты для изучения слов и фраз {{p0}} языка.", { p0: langInfo.label.toLowerCase() })
             )
         }
       </p>
@@ -404,8 +394,7 @@ export const PromptsTab = () => {
           textTransform: 'uppercase', 
           letterSpacing: '0.5px', 
           marginTop: '5px' 
-        }}>
-          Системные пресеты ({activeCategoryTab === 'exam' ? 'Экзамен' : (activeCategoryTab === 'trainer' ? 'Тренажёр' : langInfo.name)})
+        }}>{tr("Системные пресеты (")}{activeCategoryTab === 'exam' ? tr("Экзамен") : (activeCategoryTab === 'trainer' ? tr("Тренажёр") : langInfo.name)})
         </div>
 
         {systemPresets.filter(p => (p.prompt_type || 'standard') === activeCategoryTab).map(preset => {
@@ -472,12 +461,9 @@ export const PromptsTab = () => {
                     gap: '4px', 
                     padding: '4px 8px' 
                   }}>
-                    <Check size={14} /> Активен
-                  </span>
+                    <Check size={14} />{' '}{tr("Активен")}{' '}</span>
                 ) : (
-                  <button className="btn-secondary btn-tiny" onClick={() => handleActivatePreset(preset.id)}>
-                    Активировать
-                  </button>
+                  <button className="btn-secondary btn-tiny" onClick={() => handleActivatePreset(preset.id)}>{tr("Активировать")}{' '}</button>
                 )}
 
                 <button 
@@ -487,7 +473,7 @@ export const PromptsTab = () => {
                     const textContent = preset.instruction || preset.translation_prompt || preset.context_prompt || '';
                     setEditingPrompt({
                       id: null,
-                      name: `${preset.name} (Копия)`,
+                      name: tr("{{p0}} (Копия)", { p0: preset.name }),
                       instruction: textContent,
                       translation_prompt: textContent,
                       context_prompt: textContent,
@@ -495,7 +481,7 @@ export const PromptsTab = () => {
                       prompt_type: preset.prompt_type || activeCategoryTab
                     });
                   }}
-                  title="Создать копию и настроить"
+                  title={tr("Создать копию и настроить")}
                 >
                   <Edit2 size={12} />
                 </button>
@@ -506,8 +492,7 @@ export const PromptsTab = () => {
 
         {promptsList.filter(p => (p.prompt_type || 'standard') === activeCategoryTab).length > 0 && (
           <>
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '15px' }}>
-              Мои промпты ({activeCategoryTab === 'trainer' ? 'Тренажёр' : langInfo.label})
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '15px' }}>{tr("Мои промпты (")}{activeCategoryTab === 'trainer' ? tr("Тренажёр") : langInfo.label})
             </div>
             {promptsList.filter(p => (p.prompt_type || 'standard') === activeCategoryTab).map(p => {
               const isCustomActive = currentActivePromptId === p.id;
@@ -529,13 +514,9 @@ export const PromptsTab = () => {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {isCustomActive ? (
-                      <button className="btn-secondary btn-tiny" style={{ opacity: 0.7 }} onClick={() => handleActivate(null)}>
-                        Деактивировать
-                      </button>
+                      <button className="btn-secondary btn-tiny" style={{ opacity: 0.7 }} onClick={() => handleActivate(null)}>{tr("Деактивировать")}{' '}</button>
                     ) : (
-                      <button className="btn-secondary btn-tiny" onClick={() => handleActivate(p.id)}>
-                        Активировать
-                      </button>
+                      <button className="btn-secondary btn-tiny" onClick={() => handleActivate(p.id)}>{tr("Активировать")}{' '}</button>
                     )}
                     <button 
                       className="btn-secondary btn-tiny" 

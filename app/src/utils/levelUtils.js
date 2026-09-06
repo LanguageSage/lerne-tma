@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 /**
  * Helper utilities for formatting and styling card CEFR levels (A1 - C2).
  */
@@ -63,8 +64,8 @@ export const buildManualCefrMeta = (level) => {
     level: CEFR_LEVELS.has(normalized) ? normalized : null,
     source: 'manual',
     confidence: 1,
-    reason: 'Установлен вручную пользователем',
-    reason_short: 'вручную',
+    reason: tr("Установлен вручную пользователем"),
+    reason_short: tr("вручную"),
     classified_at: new Date().toISOString()
   };
 };

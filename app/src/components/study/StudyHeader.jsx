@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { ChevronLeft, Edit2, Settings, Plus, Palette } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
@@ -13,9 +15,8 @@ export const StudyHeader = ({
   onOpenEditor,
   onOpenSettings,
   isTrainerDeck = false,
-}) => (
-  <div className="header-compact">
-    <button className="back-btn" onClick={onBack} title="Назад" aria-label="Назад">
+}) => { useInterfaceLocale(); return (<div className="header-compact">
+    <button className="back-btn" onClick={onBack} title={tr("Назад")} aria-label={tr("Назад")}>
       <ChevronLeft size={24} />
     </button>
     <div className="header-study-info" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -33,9 +34,7 @@ export const StudyHeader = ({
           alignItems: 'center',
           gap: '3px',
           flexShrink: 0
-        }}>
-          🏋️ Тренажер
-        </span>
+        }}>{tr("🏋️ Тренажер")}{' '}</span>
       )}
     </div>
     <div className="header-actions">
@@ -48,7 +47,7 @@ export const StudyHeader = ({
         className="header-action-btn"
         onClick={onOpenEditor}
         disabled={!card}
-        title="Редактировать"
+        title={tr("Редактировать")}
       >
         <Edit2 size={22} />
       </button>
@@ -57,7 +56,7 @@ export const StudyHeader = ({
         id="tut-study-design"
         className="header-action-btn design-btn"
         onClick={() => useUiStore.getState().openSettings('design')}
-        title="Дизайн карточек"
+        title={tr("Дизайн карточек")}
         style={{ color: '#c084fc' }}
       >
         <Palette size={22} />
@@ -67,7 +66,7 @@ export const StudyHeader = ({
         id="tut-study-settings"
         className="header-action-btn settings-btn"
         onClick={onOpenSettings}
-        title="Настройки"
+        title={tr("Настройки")}
       >
         <Settings size={22} />
       </button>
@@ -76,10 +75,9 @@ export const StudyHeader = ({
         id="tut-study-add-card"
         className="header-action-btn study-add-card-btn"
         onClick={onOpenCreator}
-        title="Добавить карточку"
+        title={tr("Добавить карточку")}
       >
         <Plus size={22} />
       </button>
     </div>
-  </div>
-);
+  </div>); };

@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -18,6 +20,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 
 export const RemindersTab = () => {
+  useInterfaceLocale();
   const { 
     reminderSettings, 
     fetchReminderSettings, 
@@ -66,14 +69,14 @@ export const RemindersTab = () => {
     try {
       await saveReminderSettings(updated);
     } catch {
-      showToast('Ошибка сохранения настроек', 'error');
+      showToast(tr("Ошибка сохранения настроек"), 'error');
     }
   };
 
   const handleToggleEnabled = async (checked) => {
     const updated = { ...localSettings, enabled: checked };
     await handleUpdate(updated);
-    showToast(checked ? '🔔 Напоминания бота включены' : '🔕 Напоминания отключены', 'info');
+    showToast(checked ? tr("🔔 Напоминания бота включены") : tr("🔕 Напоминания отключены"), 'info');
   };
 
   const handleFrequencyChange = async (freq) => {
@@ -94,7 +97,7 @@ export const RemindersTab = () => {
 
     const updated = { ...localSettings, frequency: freq, times: newTimes };
     await handleUpdate(updated);
-    showToast('Режим напоминаний обновлен', 'success');
+    showToast(tr("Режим напоминаний обновлен"), 'success');
   };
 
   const handleTimeChange = async (index, newTime) => {
@@ -113,19 +116,19 @@ export const RemindersTab = () => {
     const newTimes = [...currentTimes, nextTimeStr].sort();
     const updated = { ...localSettings, frequency: 'custom', times: newTimes };
     await handleUpdate(updated);
-    showToast('Добавлено новое время', 'info');
+    showToast(tr("Добавлено новое время"), 'info');
   };
 
   const handleRemoveTime = async (index) => {
     const currentTimes = [...(localSettings.times || [])];
     if (currentTimes.length <= 1) {
-      showToast('Должно остаться хотя бы одно время', 'warning');
+      showToast(tr("Должно остаться хотя бы одно время"), 'warning');
       return;
     }
     currentTimes.splice(index, 1);
     const updated = { ...localSettings, frequency: 'custom', times: currentTimes };
     await handleUpdate(updated);
-    showToast('Время удалено', 'info');
+    showToast(tr("Время удалено"), 'info');
   };
 
   const handleTestSend = async () => {
@@ -133,24 +136,24 @@ export const RemindersTab = () => {
     try {
       const res = await sendTestReminder();
       if (res?.status === 'success') {
-        showToast('🚀 Напоминание отправлено в Telegram!', 'success');
+        showToast(tr("🚀 Напоминание отправлено в Telegram!"), 'success');
       } else {
-        showToast(res?.message || 'Не удалось отправить напоминание', 'error');
+        showToast(res?.message || tr("Не удалось отправить напоминание"), 'error');
       }
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Ошибка отправки тестового напоминания', 'error');
+      showToast(err?.response?.data?.detail || tr("Ошибка отправки тестового напоминания"), 'error');
     } finally {
       setIsSendingTest(false);
     }
   };
 
   const frequencies = [
-    { id: 'hourly', label: 'Каждый час', desc: 'В дневное время (активная учеба)', icon: Zap, color: '#f59e0b' },
-    { id: 'five_times', label: '5 раз в день', desc: '09:00, 12:00, 15:00, 18:00, 21:00', icon: Layers, color: '#ec4899' },
-    { id: 'three_times', label: '3 раза в день', desc: 'Утро, день и вечер', icon: Clock, color: '#8b5cf6' },
-    { id: 'twice_daily', label: '2 раза в день', desc: 'Утро и вечер (стандарт)', icon: Check, color: '#38bdf8' },
-    { id: 'daily', label: '1 раз в день', desc: 'Одно напоминание в день', icon: Bell, color: '#34d399' },
-    { id: 'custom', label: 'Свой график', desc: 'Настроить любое время вручную', icon: Plus, color: '#a855f7' }
+    { id: 'hourly', label: tr("Каждый час"), desc: tr("В дневное время (активная учеба)"), icon: Zap, color: '#f59e0b' },
+    { id: 'five_times', label: tr("5 раз в день"), desc: '09:00, 12:00, 15:00, 18:00, 21:00', icon: Layers, color: '#ec4899' },
+    { id: 'three_times', label: tr("3 раза в день"), desc: tr("Утро, день и вечер"), icon: Clock, color: '#8b5cf6' },
+    { id: 'twice_daily', label: tr("2 раза в день"), desc: tr("Утро и вечер (стандарт)"), icon: Check, color: '#38bdf8' },
+    { id: 'daily', label: tr("1 раз в день"), desc: tr("Одно напоминание в день"), icon: Bell, color: '#34d399' },
+    { id: 'custom', label: tr("Свой график"), desc: tr("Настроить любое время вручную"), icon: Plus, color: '#a855f7' }
   ];
 
   return (
@@ -161,19 +164,17 @@ export const RemindersTab = () => {
       exit={{ opacity: 0, x: -10 }} 
       className="settings-section"
     >
-      <h3>🔔 Напоминания Telegram-бота</h3>
-      <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '16px' }}>
-        Бот автоматически проверяет ваш прогресс по SRS и присылает напоминания прямо в Telegram.
-      </p>
+      <h3>{tr("🔔 Напоминания Telegram-бота")}</h3>
+      <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '16px' }}>{tr("Бот автоматически проверяет ваш прогресс по SRS и присылает напоминания прямо в Telegram.")}{' '}</p>
 
       {/* Main Switch */}
       <div className="settings-row" style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '14px', marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Bell size={20} color={localSettings.enabled ? '#34d399' : '#94a3b8'} />
           <div>
-            <div style={{ fontWeight: 600, color: '#ffffff' }}>Включить напоминания</div>
+            <div style={{ fontWeight: 600, color: '#ffffff' }}>{tr("Включить напоминания")}</div>
             <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-              {localSettings.enabled ? 'Бот отслеживает активные колоды' : 'Уведомления отключены'}
+              {localSettings.enabled ? tr("Бот отслеживает активные колоды") : tr("Уведомления отключены")}
             </div>
           </div>
         </div>
@@ -190,9 +191,7 @@ export const RemindersTab = () => {
       {localSettings.enabled && (
         <>
           {/* Frequency Options */}
-          <h4 style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '10px', marginTop: '16px' }}>
-            Частота напоминаний
-          </h4>
+          <h4 style={{ fontSize: '0.9rem', color: '#cbd5e1', marginBottom: '10px', marginTop: '16px' }}>{tr("Частота напоминаний")}{' '}</h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '18px' }}>
             {frequencies.map(f => {
               const Icon = f.icon;
@@ -238,9 +237,7 @@ export const RemindersTab = () => {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <Zap size={16} color="#f59e0b" />
-                <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#fef3c7' }}>
-                  Дневные часы для ежечасных напоминаний:
-                </span>
+                <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#fef3c7' }}>{tr("Дневные часы для ежечасных напоминаний:")}{' '}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -260,7 +257,7 @@ export const RemindersTab = () => {
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>До</span>
+                  <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>{tr("До")}</span>
                   <input 
                     type="time" 
                     value={localSettings.hourly_end || '22:00'} 
@@ -282,8 +279,7 @@ export const RemindersTab = () => {
             <div style={{ marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <h4 style={{ fontSize: '0.9rem', color: '#cbd5e1', margin: 0 }}>
-                  <Clock size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
-                  Время отправки ({localSettings.times?.length || 0})
+                  <Clock size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />{tr("Время отправки (")}{localSettings.times?.length || 0})
                 </h4>
                 <button
                   type="button"
@@ -303,7 +299,7 @@ export const RemindersTab = () => {
                   }}
                 >
                   <Plus size={13} />
-                  <span>Добавить время</span>
+                  <span>{tr("Добавить время")}</span>
                 </button>
               </div>
               
@@ -338,8 +334,7 @@ export const RemindersTab = () => {
                           color: '#94a3b8'
                         }}>
                           {idx + 1}
-                        </span>
-                        Напоминание {idx + 1}:
+                        </span>{tr("Напоминание")}{' '}{idx + 1}:
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input 
@@ -369,7 +364,7 @@ export const RemindersTab = () => {
                               display: 'flex',
                               alignItems: 'center'
                             }}
-                            title="Удалить это время"
+                            title={tr("Удалить это время")}
                           >
                             <Trash2 size={15} />
                           </button>
@@ -398,8 +393,8 @@ export const RemindersTab = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Globe size={18} color="#38bdf8" />
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>Часовой пояс</div>
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Для точной отправки по вашему времени</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>{tr("Часовой пояс")}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{tr("Для точной отправки по вашему времени")}</div>
                 </div>
               </div>
               <select
@@ -417,7 +412,7 @@ export const RemindersTab = () => {
               >
                 {Array.from({ length: 27 }, (_, i) => i - 12).map(tz => (
                   <option key={tz} value={tz}>
-                    UTC{tz >= 0 ? `+${tz}` : tz} {tz === 3 ? '(МСК / Киев / Стамбул)' : (tz === 1 ? '(Берлин / Париж)' : (tz === 2 ? '(Хельсинки)' : ''))}
+                    UTC{tz >= 0 ? `+${tz}` : tz} {tz === 3 ? tr("(МСК / Киев / Стамбул)") : (tz === 1 ? tr("(Берлин / Париж)") : (tz === 2 ? tr("(Хельсинки)") : ''))}
                   </option>
                 ))}
               </select>
@@ -428,8 +423,8 @@ export const RemindersTab = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Moon size={18} color="#a855f7" />
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>Тихий режим (Ночь)</div>
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Не присылать с 23:00 до 07:00</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>{tr("Тихий режим (Ночь)")}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{tr("Не присылать с 23:00 до 07:00")}</div>
                 </div>
               </div>
               <label className="switch">
@@ -447,8 +442,8 @@ export const RemindersTab = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ShieldAlert size={18} color="#34d399" />
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>Только созревшие карточки</div>
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Не напоминать, если созревших карточек 0</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>{tr("Только созревшие карточки")}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{tr("Не напоминать, если созревших карточек 0")}</div>
                 </div>
               </div>
               <label className="switch">
@@ -473,8 +468,7 @@ export const RemindersTab = () => {
             marginBottom: '20px'
           }}>
             <Sparkles size={18} color="#38bdf8" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
-              Бот напоминает <b>только по активным колодам</b> (со статусом <b>«✓ Учу»</b>).
+            <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>{tr("Бот напоминает")}{' '}<b>{tr("только по активным колодам")}</b>{' '}{tr("(со статусом")}{' '}<b>{tr("«✓ Учу»")}</b>).
             </div>
           </div>
         </>
@@ -506,11 +500,9 @@ export const RemindersTab = () => {
           }}
         >
           <Send size={16} />
-          <span>{isSendingTest ? 'Отправка...' : '⚡ Протестировать напоминание сейчас'}</span>
+          <span>{isSendingTest ? tr("Отправка...") : tr("⚡ Протестировать напоминание сейчас")}</span>
         </button>
-        <p style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', marginTop: '8px' }}>
-          Бот мгновенно пришлет актуальный расчет созревших карточек в Telegram.
-        </p>
+        <p style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', marginTop: '8px' }}>{tr("Бот мгновенно пришлет актуальный расчет созревших карточек в Telegram.")}{' '}</p>
       </div>
     </motion.div>
   );

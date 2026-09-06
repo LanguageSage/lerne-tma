@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Layers, RefreshCw, Folder, Star, CheckSquare, Square, Check, Copy, RotateCcw, Search, Trash2 } from 'lucide-react';
@@ -8,6 +10,7 @@ import { SearchBar } from '../common/SearchBar';
 import { matchesSearchQuery } from '../../utils/search';
 
 export const DeckModals = () => {
+  useInterfaceLocale();
   const { isNewDeckModalOpen, setIsNewDeckModalOpen, loading, setLoading, showToast, activeFolderId } = useUiStore();
   const {
     decks: userDecks,
@@ -54,9 +57,9 @@ export const DeckModals = () => {
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
       setNewDeckName('');
-      showToast('Колода создана', 'success');
+      showToast(tr("Колода создана"), 'success');
     } catch {
-      showToast('Ошибка при создании колоды');
+      showToast(tr("Ошибка при создании колоды"));
     } finally {
       setLoading(false);
     }
@@ -70,9 +73,9 @@ export const DeckModals = () => {
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
       setNewFolderName('');
-      showToast('Папка создана', 'success');
+      showToast(tr("Папка создана"), 'success');
     } catch {
-      showToast('Ошибка при создании папки');
+      showToast(tr("Ошибка при создании папки"));
     } finally {
       setLoading(false);
     }
@@ -87,7 +90,7 @@ export const DeckModals = () => {
       setLibrarySearchQuery('');
       setDeckModalMode('import');
     } catch {
-      showToast('Ошибка при загрузке колод');
+      showToast(tr("Ошибка при загрузке колод"));
     } finally {
       setIsImportLoading(false);
     }
@@ -100,7 +103,7 @@ export const DeckModals = () => {
       if (res?.status === 'in_trash') {
         setTrashConflictTarget({
           deckId,
-          name: res.name || res.deck_name || 'Колода',
+          name: res.name || res.deck_name || tr("Колода"),
           mode
         });
         return;
@@ -109,9 +112,9 @@ export const DeckModals = () => {
       setDeckModalMode('choice');
       setDuplicateDeckTarget(null);
       setTrashConflictTarget(null);
-      showToast('Колода добавлена', 'success');
+      showToast(tr("Колода добавлена"), 'success');
     } catch {
-      showToast('Ошибка импорта');
+      showToast(tr("Ошибка импорта"));
     } finally {
       setLoading(false);
     }
@@ -125,9 +128,9 @@ export const DeckModals = () => {
       setIsNewDeckModalOpen(false);
       setDeckModalMode('choice');
       setSelectedDeckIds([]);
-      showToast(`Импортировано колод: ${selectedDeckIds.length}`, 'success');
+      showToast(tr("Импортировано колод: {{p0}}", { p0: selectedDeckIds.length }), 'success');
     } catch {
-      showToast('Ошибка массового импорта');
+      showToast(tr("Ошибка массового импорта"));
     } finally {
       setLoading(false);
     }
@@ -180,7 +183,7 @@ export const DeckModals = () => {
   const groupedExternalDecks = useMemo(() => {
     const groups = {};
     filteredExternalDecks.forEach(d => {
-      let path = 'Разное (Без категории)';
+      let path = tr("Разное (Без категории)");
       if (d.category_id) {
         const p = getCategoryPath(d.category_id);
         if (p) path = p;
@@ -227,9 +230,9 @@ export const DeckModals = () => {
         >
           <div className="settings-header" style={{ marginBottom: 16, flexShrink: 0 }}>
             <h2>
-              {deckModalMode === 'choice' ? 'Добавить элемент' : 
-               deckModalMode === 'create' ? 'Новая колода' : 
-               deckModalMode === 'create_folder' ? 'Новая папка' : 'Импорт из Lerne'}
+              {deckModalMode === 'choice' ? tr("Добавить элемент") : 
+               deckModalMode === 'create' ? tr("Новая колода") : 
+               deckModalMode === 'create_folder' ? tr("Новая папка") : tr("Импорт из Lerne")}
             </h2>
             <button className="close-btn" onClick={resetAndClose}><X size={24} /></button>
           </div>
@@ -240,26 +243,24 @@ export const DeckModals = () => {
                 <button className="btn btn-primary btn-full choice-btn" onClick={() => {
                   if (useUiStore.getState().userProfile?.is_guest) {
                     setIsNewDeckModalOpen(false);
-                    useUiStore.getState().setIsAuthModalOpen(true, "Для создания колод войдите через Telegram");
+                    useUiStore.getState().setIsAuthModalOpen(true, tr("Для создания колод войдите через Telegram"));
                     return;
                   }
                   setDeckModalMode('create');
                 }}>
-                  <Plus size={20} /> Создать колоду
-                </button>
+                  <Plus size={20} />{' '}{tr("Создать колоду")}{' '}</button>
                 <button className="btn btn-primary btn-full choice-btn" onClick={() => {
                   if (useUiStore.getState().userProfile?.is_guest) {
                     setIsNewDeckModalOpen(false);
-                    useUiStore.getState().setIsAuthModalOpen(true, "Для создания папок войдите через Telegram");
+                    useUiStore.getState().setIsAuthModalOpen(true, tr("Для создания папок войдите через Telegram"));
                     return;
                   }
                   setDeckModalMode('create_folder');
                 }} style={{ background: '#4f46e5' }}>
-                  <Folder size={20} /> Создать папку
-                </button>
+                  <Folder size={20} />{' '}{tr("Создать папку")}{' '}</button>
                 <button className="btn-secondary btn-full choice-btn" onClick={handleFetchExternal} disabled={isImportLoading}>
                   {isImportLoading ? <RefreshCw size={20} className="spin" /> : <Layers size={20} />} 
-                  {isImportLoading ? ' Загрузка...' : ' Из Библиотеки'}
+                  {isImportLoading ? tr(" Загрузка...") : tr(" Из Библиотеки")}
                 </button>
               </div>
             )}
@@ -267,13 +268,13 @@ export const DeckModals = () => {
             {deckModalMode === 'create' && (
               <>
                 <div className="form-group">
-                  <label>Название колоды</label>
-                  <input autoFocus placeholder="Введите название..." value={newDeckName} onChange={e => setNewDeckName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
+                  <label>{tr("Название колоды")}</label>
+                  <input autoFocus placeholder={tr("Введите название...")} value={newDeckName} onChange={e => setNewDeckName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
                 </div>
 
                 <div className="modal-footer-actions" style={{ marginTop: '16px' }}>
-                  <button className="btn btn-primary btn-full" onClick={handleCreate} disabled={loading}>Создать</button>
-                  <button className="btn-secondary btn-full" onClick={() => setDeckModalMode('choice')}>Назад</button>
+                  <button className="btn btn-primary btn-full" onClick={handleCreate} disabled={loading}>{tr("Создать")}</button>
+                  <button className="btn-secondary btn-full" onClick={() => setDeckModalMode('choice')}>{tr("Назад")}</button>
                 </div>
               </>
             )}
@@ -281,12 +282,12 @@ export const DeckModals = () => {
             {deckModalMode === 'create_folder' && (
               <>
                 <div className="form-group">
-                  <label>Название папки</label>
-                  <input autoFocus placeholder="Введите название..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateFolder()} />
+                  <label>{tr("Название папки")}</label>
+                  <input autoFocus placeholder={tr("Введите название...")} value={newFolderName} onChange={e => setNewFolderName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateFolder()} />
                 </div>
                 <div className="modal-footer-actions">
-                  <button className="btn btn-primary btn-full" onClick={handleCreateFolder} disabled={loading}>Создать</button>
-                  <button className="btn-secondary btn-full" onClick={() => setDeckModalMode('choice')}>Назад</button>
+                  <button className="btn btn-primary btn-full" onClick={handleCreateFolder} disabled={loading}>{tr("Создать")}</button>
+                  <button className="btn-secondary btn-full" onClick={() => setDeckModalMode('choice')}>{tr("Назад")}</button>
                 </div>
               </>
             )}
@@ -298,7 +299,7 @@ export const DeckModals = () => {
                     value={librarySearchQuery}
                     onChange={setLibrarySearchQuery}
                     onClear={() => setLibrarySearchQuery('')}
-                    placeholder="Поиск по библиотеке колод..."
+                    placeholder={tr("Поиск по библиотеке колод...")}
                     color="purple"
                     count={filteredExternalDecks.length}
                     total={externalDecks?.length || 0}
@@ -307,20 +308,18 @@ export const DeckModals = () => {
 
                 <div className="import-list scrollable">
                   {(externalDecks || []).length === 0 ? (
-                    <p style={{ textAlign: 'center', color: '#9ca3af', padding: '24px 0' }}>Колоды не найдены</p>
+                    <p style={{ textAlign: 'center', color: '#9ca3af', padding: '24px 0' }}>{tr("Колоды не найдены")}</p>
                   ) : filteredExternalDecks.length === 0 ? (
                     <div className="search-empty-state glass" style={{ margin: '16px 0', padding: '24px 16px' }}>
                       <Search size={28} opacity={0.4} color="#a855f7" />
-                      <h3>Ничего не найдено</h3>
-                      <p>По запросу «{librarySearchQuery}» колод в библиотеке не нашлось</p>
+                      <h3>{tr("Ничего не найдено")}</h3>
+                      <p>{tr("По запросу «")}{librarySearchQuery}{tr("» колод в библиотеке не нашлось")}</p>
                       <button 
                         type="button" 
                         className="btn btn-secondary" 
                         style={{ padding: '6px 14px', fontSize: '0.82rem', marginTop: '4px' }}
                         onClick={() => setLibrarySearchQuery('')}
-                      >
-                        Сбросить поиск
-                      </button>
+                      >{tr("Сбросить поиск")}{' '}</button>
                     </div>
                   ) : (
                     Object.entries(groupedExternalDecks).map(([categoryName, categoryDecks]) => {
@@ -363,7 +362,7 @@ export const DeckModals = () => {
                             }}
                           >
                             {isAllCatSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-                            <span>{isAllCatSelected ? 'Снять выбор' : 'Выбрать все'}</span>
+                            <span>{isAllCatSelected ? tr("Снять выбор") : tr("Выбрать все")}</span>
                           </button>
                         </div>
 
@@ -392,7 +391,7 @@ export const DeckModals = () => {
                                 <div
                                   style={{ padding: '4px', display: 'flex', alignItems: 'center', color: isSelected ? '#a855f7' : '#6b7280' }}
                                   onClick={(e) => toggleDeckSelection(d.id, e)}
-                                  title="Выбрать для пакетного импорта"
+                                  title={tr("Выбрать для пакетного импорта")}
                                 >
                                   {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
                                 </div>
@@ -414,13 +413,12 @@ export const DeckModals = () => {
                                         alignItems: 'center',
                                         gap: '2px'
                                       }}>
-                                        <Check size={10} /> Уже у вас
-                                      </span>
+                                        <Check size={10} />{' '}{tr("Уже у вас")}{' '}</span>
                                     )}
                                   </div>
                                   <div className="import-item-footer">
                                     <span>{d.topic}</span>
-                                    {d.cards_count !== undefined && <span className="import-card-count">{d.cards_count} карт</span>}
+                                    {d.cards_count !== undefined && <span className="import-card-count">{d.cards_count}{' '}{tr("карт")}</span>}
                                   </div>
                                 </div>
 
@@ -444,7 +442,7 @@ export const DeckModals = () => {
                                       }}
                                       onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
                                       onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                      title={d.is_default ? "Сделать обычной" : "Сделать по умолчанию"}
+                                      title={d.is_default ? tr("Сделать обычной") : tr("Сделать по умолчанию")}
                                     >
                                       <Star size={20} fill={d.is_default ? "#f59e0b" : "none"} />
                                     </button>
@@ -457,7 +455,7 @@ export const DeckModals = () => {
                                           alignItems: 'center', 
                                           padding: '4px' 
                                         }}
-                                        title="Колода по умолчанию"
+                                        title={tr("Колода по умолчанию")}
                                       >
                                         <Star size={20} fill="#f59e0b" />
                                       </div>
@@ -483,7 +481,7 @@ export const DeckModals = () => {
                                       justifyContent: 'center',
                                       color: 'inherit'
                                     }}
-                                    title={owned ? "Параметры импорта" : "Импортировать колоду"}
+                                    title={owned ? tr("Параметры импорта") : tr("Импортировать колоду")}
                                   >
                                     <Plus size={16} />
                                   </button>
@@ -505,16 +503,13 @@ export const DeckModals = () => {
                       disabled={loading}
                       style={{ background: 'linear-gradient(135deg, #a855f7, #6366f1)' }}
                     >
-                      {loading ? <RefreshCw size={18} className="spin" /> : <Plus size={18} />}
-                      Импортировать выбранные ({selectedDeckIds.length})
+                      {loading ? <RefreshCw size={18} className="spin" /> : <Plus size={18} />}{tr("Импортировать выбранные (")}{selectedDeckIds.length})
                     </button>
                   )}
                   <button className="btn-secondary btn-full" onClick={() => {
                     setLibrarySearchQuery('');
                     setDeckModalMode('choice');
-                  }}>
-                    Назад
-                  </button>
+                  }}>{tr("Назад")}{' '}</button>
                 </div>
               </div>
               </>
@@ -537,12 +532,8 @@ export const DeckModals = () => {
               style={{ maxWidth: 400, width: '90%', padding: '20px', margin: 'auto' }}
               onClick={e => e.stopPropagation()}
             >
-              <h3 style={{ marginTop: 0, marginBottom: '8px', fontSize: '1.1rem' }}>
-                Колода уже есть у вас
-              </h3>
-              <p style={{ fontSize: '0.85rem', color: '#9ca3af', marginBottom: '16px' }}>
-                Колода <strong>«{duplicateDeckTarget.deck?.name}»</strong> уже содержится в вашей коллекции. Выберите действие:
-              </p>
+              <h3 style={{ marginTop: 0, marginBottom: '8px', fontSize: '1.1rem' }}>{tr("Колода уже есть у вас")}{' '}</h3>
+              <p style={{ fontSize: '0.85rem', color: '#9ca3af', marginBottom: '16px' }}>{tr("Колода")}{' '}<strong>«{duplicateDeckTarget.deck?.name}»</strong>{' '}{tr("уже содержится в вашей коллекции. Выберите действие:")}{' '}</p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                 <button
@@ -561,8 +552,8 @@ export const DeckModals = () => {
                 >
                   <RefreshCw size={18} style={{ color: '#a855f7', flexShrink: 0 }} />
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Обновить (Merge)</div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Добавить новые карточки, сохранив прогресс</div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{tr("Обновить (Merge)")}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{tr("Добавить новые карточки, сохранив прогресс")}</div>
                   </div>
                 </button>
 
@@ -582,8 +573,8 @@ export const DeckModals = () => {
                 >
                   <Copy size={18} style={{ color: '#38bdf8', flexShrink: 0 }} />
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Создать копию (Copy)</div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Импортировать как «{duplicateDeckTarget.deck?.name} (v2)»</div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{tr("Создать копию (Copy)")}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{tr("Импортировать как «")}{duplicateDeckTarget.deck?.name} (v2)»</div>
                   </div>
                 </button>
 
@@ -603,8 +594,8 @@ export const DeckModals = () => {
                 >
                   <RotateCcw size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Перезаписать (Replace)</div>
-                    <div style={{ fontSize: '0.75rem', color: '#ef4444' }}>Сбросить и заменить все карточки на библиотечные</div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{tr("Перезаписать (Replace)")}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#ef4444' }}>{tr("Сбросить и заменить все карточки на библиотечные")}</div>
                   </div>
                 </button>
               </div>
@@ -614,15 +605,11 @@ export const DeckModals = () => {
                   className="btn btn-primary btn-full"
                   onClick={() => handleImportSingle(duplicateDeckTarget.deck.id, duplicateDeckTarget.mode)}
                   disabled={loading}
-                >
-                  Выполнить
-                </button>
+                >{tr("Выполнить")}{' '}</button>
                 <button
                   className="btn-secondary btn-full"
                   onClick={() => setDuplicateDeckTarget(null)}
-                >
-                  Отмена
-                </button>
+                >{tr("Отмена")}{' '}</button>
               </div>
             </motion.div>
           </div>
@@ -645,14 +632,10 @@ export const DeckModals = () => {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', color: '#f59e0b' }}>
                 <Trash2 size={24} style={{ flexShrink: 0 }} />
-                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#f8fafc' }}>
-                  Колода в корзине
-                </h3>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#f8fafc' }}>{tr("Колода в корзине")}{' '}</h3>
               </div>
 
-              <p style={{ fontSize: '0.9rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '20px' }}>
-                У вас такая колода (<strong>«{trashConflictTarget.name}»</strong>) уже есть в корзине. Колода из корзины будет удалена.
-              </p>
+              <p style={{ fontSize: '0.9rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '20px' }}>{tr("У вас такая колода (")}<strong>«{trashConflictTarget.name}»</strong>{tr(") уже есть в корзине. Колода из корзины будет удалена.")}{' '}</p>
 
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
@@ -660,15 +643,11 @@ export const DeckModals = () => {
                   onClick={() => handleImportSingle(trashConflictTarget.deckId, trashConflictTarget.mode, true)}
                   disabled={loading}
                   style={{ background: 'linear-gradient(135deg, #a855f7, #6366f1)' }}
-                >
-                  ОК
-                </button>
+                >{tr("ОК")}{' '}</button>
                 <button
                   className="btn-secondary btn-full"
                   onClick={() => setTrashConflictTarget(null)}
-                >
-                  Отмена
-                </button>
+                >{tr("Отмена")}{' '}</button>
               </div>
             </motion.div>
           </div>

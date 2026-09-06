@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { useCallback } from 'react';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
@@ -115,16 +116,16 @@ export function useStudyNavigation() {
           if (apiErr?.response?.status === 404) {
             const { deckCards } = useDeckStore.getState();
             useDeckStore.setState({ deckCards: (deckCards || []).filter(c => String(c.id) !== String(cardId)) });
-            showToast("Карточка была удалена");
+            showToast(tr("Карточка была удалена"));
             setView('cards');
           } else {
-            showToast("Не удалось загрузить данные с сервера");
+            showToast(tr("Не удалось загрузить данные с сервера"));
           }
         }
       }
     } catch (err) {
       console.error("startStudyCard Error:", err);
-      showToast("Ошибка при открытии карточки");
+      showToast(tr("Ошибка при открытии карточки"));
       setView('cards');
     } finally {
       setIsOpeningDeck(false);

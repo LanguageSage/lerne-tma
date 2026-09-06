@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -24,6 +26,7 @@ export const DeckCardItem = React.memo(({
   folders,
   activeFolderColor
 }) => {
+  useInterfaceLocale();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
@@ -91,11 +94,11 @@ export const DeckCardItem = React.memo(({
     try {
       const result = await useDeckStore.getState().handleShareDeck(deck.id);
       if (result.success) {
-        if (result.type === 'copy') showToast('Ссылка скопирована!', 'success');
-        else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
+        if (result.type === 'copy') showToast(tr("Ссылка скопирована!"), 'success');
+        else if (result.type === 'telegram') showToast(tr("Открываем Telegram Share..."), 'success');
       }
     } catch {
-      showToast('Ошибка при создании ссылки', 'error');
+      showToast(tr("Ошибка при создании ссылки"), 'error');
     }
   };
 
@@ -119,16 +122,16 @@ export const DeckCardItem = React.memo(({
   const handleReset = async (e) => {
     e.stopPropagation();
     setIsMenuOpen(false);
-    if (window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) {
+    if (window.confirm(tr("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?"))) {
       try {
         await handleResetProgress(deck.id);
         const session = useSessionStore.getState();
         if (session.card && session.card.deck_id === deck.id) {
           session.resetSession();
         }
-        showToast("Прогресс успешно сброшен", "success");
+        showToast(tr("Прогресс успешно сброшен"), "success");
       } catch {
-        showToast("Ошибка при сбросе прогресса");
+        showToast(tr("Ошибка при сбросе прогресса"));
       }
     }
   };
@@ -139,12 +142,12 @@ export const DeckCardItem = React.memo(({
       const nextStatus = !deck.is_learning;
       await useDeckStore.getState().toggleDeckLearning(deck.id, nextStatus);
       if (nextStatus) {
-        showToast(`🔥 Колода «${deck.name}» добавлена в изучаемые`, 'success');
+        showToast(tr("🔥 Колода «{{p0}}» добавлена в изучаемые", { p0: deck.name }), 'success');
       } else {
-        showToast(`Колода «${deck.name}» убрана из изучаемых`, 'info');
+        showToast(tr("Колода «{{p0}}» убрана из изучаемых", { p0: deck.name }), 'info');
       }
     } catch {
-      showToast('Ошибка при смене статуса колоды', 'error');
+      showToast(tr("Ошибка при смене статуса колоды"), 'error');
     }
   };
 
@@ -152,7 +155,7 @@ export const DeckCardItem = React.memo(({
   const handleDelete = (e) => {
     e.stopPropagation();
     setIsMenuOpen(false);
-    if (window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) {
+    if (window.confirm(tr("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?"))) {
       handleDeleteDeck(deck.id);
     }
   };
@@ -160,7 +163,7 @@ export const DeckCardItem = React.memo(({
   const handleReclassifyDeck = async (e) => {
     e.stopPropagation();
     setIsMenuOpen(false);
-    showToast('Обновление уровней колоды...', 'info');
+    showToast(tr("Обновление уровней колоды..."), 'info');
     try {
       const response = await fetch('/api/cards/classify-batch', {
         method: 'POST',
@@ -170,12 +173,12 @@ export const DeckCardItem = React.memo(({
       if (response.ok) {
         const data = await response.json();
         if (fetchDeckCards) fetchDeckCards(deck.id);
-        showToast(`✨ Уровни карточек обновлены! (${data.updated_count || 0} шт.)`, 'success');
+        showToast(tr("✨ Уровни карточек обновлены! ({{p0}} шт.)", { p0: data.updated_count || 0 }), 'success');
       } else {
-        showToast('Ошибка при переклассификации');
+        showToast(tr("Ошибка при переклассификации"));
       }
     } catch {
-      showToast('Ошибка сети при переклассификации');
+      showToast(tr("Ошибка сети при переклассификации"));
     }
   };
 
@@ -183,9 +186,9 @@ export const DeckCardItem = React.memo(({
     e.stopPropagation();
     try {
       await togglePinDeck(deck.id);
-      showToast(deck.is_pinned ? 'Колода откреплена' : 'Колода закреплена', 'success');
+      showToast(deck.is_pinned ? tr("Колода откреплена") : tr("Колода закреплена"), 'success');
     } catch {
-      showToast('Ошибка при закреплении колоды', 'error');
+      showToast(tr("Ошибка при закреплении колоды"), 'error');
     }
   };
 
@@ -195,9 +198,9 @@ export const DeckCardItem = React.memo(({
     setIsMoveMenuOpen(false);
     try {
       await useDeckStore.getState().moveDeckToFolder(deck.id, folderId);
-      showToast("Колода перемещена", "success");
+      showToast(tr("Колода перемещена"), "success");
     } catch {
-      showToast("Ошибка при перемещении колоды", "error");
+      showToast(tr("Ошибка при перемещении колоды"), "error");
     }
   };
 
@@ -207,9 +210,9 @@ export const DeckCardItem = React.memo(({
     setIsCopyMenuOpen(false);
     try {
       await useDeckStore.getState().copyDeckToFolder(deck.id, folderId);
-      showToast("Колода скопирована", "success");
+      showToast(tr("Колода скопирована"), "success");
     } catch {
-      showToast("Ошибка при копировании колоды", "error");
+      showToast(tr("Ошибка при копировании колоды"), "error");
     }
   };
 
@@ -269,7 +272,7 @@ export const DeckCardItem = React.memo(({
                 type="button"
                 className={`pin-deck-btn ${deck.is_pinned ? 'pinned' : ''}`}
                 onClick={handlePin}
-                title={deck.is_pinned ? "Открепить колоду" : "Закрепить колоду"}
+                title={deck.is_pinned ? tr("Открепить колоду") : tr("Закрепить колоду")}
               >
                 <Pin size={16} />
               </button>
@@ -280,19 +283,19 @@ export const DeckCardItem = React.memo(({
         <div className="deck-stats-container">
           <div className="deck-stat-item">
             <span className="deck-stat-value total">{deck.stats.total}</span>
-            <span className="deck-stat-label">всего</span>
+            <span className="deck-stat-label">{tr("всего")}</span>
           </div>
           <div className="deck-stat-item">
             <span className="deck-stat-value new">{deck.stats.new}</span>
-            <span className="deck-stat-label">новые</span>
+            <span className="deck-stat-label">{tr("новые")}</span>
           </div>
           <div className="deck-stat-item">
             <span className="deck-stat-value learning">{deck.stats.learning}</span>
-            <span className="deck-stat-label">изучаю</span>
+            <span className="deck-stat-label">{tr("изучаю")}</span>
           </div>
           <div className="deck-stat-item">
             <span className="deck-stat-value due">{deck.stats.due}</span>
-            <span className="deck-stat-label">повторить</span>
+            <span className="deck-stat-label">{tr("повторить")}</span>
           </div>
         </div>
       </div>
@@ -305,22 +308,20 @@ export const DeckCardItem = React.memo(({
               {...attributes}
               {...listeners}
               onClick={(e) => e.stopPropagation()}
-              title="Зажмите и потяните для перетаскивания колоды"
+              title={tr("Зажмите и потяните для перетаскивания колоды")}
             >
               <GripHorizontal size={20} />
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>
-                📥 Входящие
-              </span>
+              <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>{tr("📥 Входящие")}{' '}</span>
             </div>
           )}
 
           {!deck.is_inbox && (
             <div 
               className="deck-flag-badge-inline"
-              title={`Язык: ${(deck.target_language || 'de').toUpperCase()}`}
+              title={tr("Язык: {{p0}}", { p0: (deck.target_language || 'de').toUpperCase() })}
             >
               {renderFlag(deck.target_language || 'de', 26)}
             </div>
@@ -331,21 +332,19 @@ export const DeckCardItem = React.memo(({
               type="button"
               className={`deck-learning-action-btn ${deck.is_learning ? 'active' : 'inactive'}`}
               onClick={handleToggleLearning}
-              title={deck.is_learning ? "Колода в активном изучении (бот напоминает). Нажмите, чтобы отключить" : "Нажмите, чтобы включить колоду в изучение"}
+              title={deck.is_learning ? tr("Колода в активном изучении (бот напоминает). Нажмите, чтобы отключить") : tr("Нажмите, чтобы включить колоду в изучение")}
             >
               <span className={`learning-btn-icon ${deck.is_learning ? 'pulse' : ''}`}>
                 {deck.is_learning ? '🔥' : '🎯'}
               </span>
               <span className="learning-btn-text">
-                {deck.is_learning ? 'Учу' : 'Учить'}
+                {deck.is_learning ? tr("Учу") : tr("Учить")}
               </span>
             </button>
           )}
 
           {deck.is_inbox && deck.stats.total > 0 && (
-            <span style={{ fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>
-              новые
-            </span>
+            <span style={{ fontSize: '0.7rem', background: 'rgba(99,102,241,0.3)', color: '#818cf8', padding: '2px 7px', borderRadius: 6, fontWeight: 700 }}>{tr("новые")}{' '}</span>
           )}
 
           {!deck.is_inbox && deck.is_trainer && (
@@ -366,7 +365,7 @@ export const DeckCardItem = React.memo(({
               }}
             >
               <span>🏋️</span>
-              <span>Тренажёр</span>
+              <span>{tr("Тренажёр")}</span>
             </span>
           )}
 
@@ -376,7 +375,7 @@ export const DeckCardItem = React.memo(({
             return (
               <span 
                 className="deck-folder-shortcut-badge"
-                title={`Папка: ${parent.name}`}
+                title={tr("Папка: {{p0}}", { p0: parent.name })}
                 style={{ 
                   fontSize: '0.68rem', 
                   background: parent.color ? `${parent.color}22` : 'rgba(255, 255, 255, 0.06)', 
@@ -402,7 +401,7 @@ export const DeckCardItem = React.memo(({
 
           {deck.is_shared && (
             <div 
-              title="Совместный доступ"
+              title={tr("Совместный доступ")}
               onClick={(e) => {
                 e.stopPropagation();
                 useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: deck.id, name: deck.name });
@@ -431,7 +430,7 @@ export const DeckCardItem = React.memo(({
           <button 
             className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
             onClick={toggleMenu}
-            title="Опции колоды"
+            title={tr("Опции колоды")}
           >
             <MoreHorizontal size={18} />
             {deck.has_updates && !deck.is_inbox && (
@@ -449,7 +448,7 @@ export const DeckCardItem = React.memo(({
                 useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: deck.id, name: deck.name });
                 useUiStore.getState().setIsCollaboratorsModalOpen(true);
               }}>
-                <span>👥 Совместный доступ</span>
+                <span>{tr("👥 Совместный доступ")}</span>
               </button>
             )}
 
@@ -458,26 +457,26 @@ export const DeckCardItem = React.memo(({
                 setIsMenuOpen(false);
                 handleToggleLearning(e);
               }}>
-                <span>{deck.is_learning ? '⏸ Отключить напоминания (Не учу)' : '🔥 Включить в изучение (Учить)'}</span>
+                <span>{deck.is_learning ? tr("⏸ Отключить напоминания (Не учу)") : tr("🔥 Включить в изучение (Учить)")}</span>
               </button>
             )}
 
             {!deck.is_inbox && (
               <button className="dropdown-item" onClick={handleShare}>
-                <span>🔗 Поделиться</span>
+                <span>{tr("🔗 Поделиться")}</span>
               </button>
             )}
 
 
             {!deck.is_inbox && (
               <button className="dropdown-item" onClick={handleSync}>
-                <span>🔄 {deck.has_updates ? '❗️ Обновить' : 'Обновить'}</span>
+                <span>🔄 {deck.has_updates ? tr("❗️ Обновить") : tr("Обновить")}</span>
               </button>
             )}
 
             {!deck.is_inbox && (
               <button className="dropdown-item" onClick={handleRename}>
-                <span>✍️ Переименовать</span>
+                <span>{tr("✍️ Переименовать")}</span>
               </button>
             )}
 
@@ -490,7 +489,7 @@ export const DeckCardItem = React.memo(({
                     setIsMoveMenuOpen(!isMoveMenuOpen);
                   }}
                 >
-                  <span>📁 Переместить в</span>
+                  <span>{tr("📁 Переместить в")}</span>
                   <ChevronRight 
                     size={14} 
                     style={{ 
@@ -506,7 +505,7 @@ export const DeckCardItem = React.memo(({
                       className={`dropdown-sub-item ${deck.folder_id === null ? 'current' : ''}`}
                       onClick={(e) => handleMoveToFolder(e, null)}
                     >
-                      <span>Без папки (Главная)</span>
+                      <span>{tr("Без папки (Главная)")}</span>
                     </button>
                     {getSortedFolderTree(folders || []).map(f => (
                       <button 
@@ -528,7 +527,7 @@ export const DeckCardItem = React.memo(({
                     setIsCopyMenuOpen(!isCopyMenuOpen);
                   }}
                 >
-                  <span>📋 Скопировать в</span>
+                  <span>{tr("📋 Скопировать в")}</span>
                   <ChevronRight 
                     size={14} 
                     style={{ 
@@ -544,7 +543,7 @@ export const DeckCardItem = React.memo(({
                       className={`dropdown-sub-item ${deck.folder_id === null ? 'current' : ''}`}
                       onClick={(e) => handleCopyToFolder(e, null)}
                     >
-                      <span>Без папки (Главная)</span>
+                      <span>{tr("Без папки (Главная)")}</span>
                     </button>
                     {getSortedFolderTree(folders || []).map(f => (
                       <button 
@@ -560,13 +559,13 @@ export const DeckCardItem = React.memo(({
                 )}
 
                 <button className="dropdown-item" onClick={handleReclassifyDeck}>
-                  <span>✨ Обновить CEFR-уровни</span>
+                  <span>{tr("✨ Обновить CEFR-уровни")}</span>
                 </button>
                 <button className="dropdown-item warning" onClick={handleReset}>
-                  <span>🧹 Сбросить прогресс</span>
+                  <span>{tr("🧹 Сбросить прогресс")}</span>
                 </button>
                 <button className="dropdown-item danger" onClick={handleDelete}>
-                  <span>🗑️ Удалить колоду</span>
+                  <span>{tr("🗑️ Удалить колоду")}</span>
                 </button>
               </>
             )}

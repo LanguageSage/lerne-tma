@@ -1,9 +1,11 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCw, Square } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
-const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => -50 + index * 5);
+const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => { useInterfaceLocale(); return (index + 1); });
+const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => { useInterfaceLocale(); return (-50 + index * 5); });
 
 export const StudyNavigation = ({
   historyIndex,
@@ -17,6 +19,7 @@ export const StudyNavigation = ({
   onAutoplayPause,
   onAutoplayResume
 }) => {
+  useInterfaceLocale();
   const isPlaying = autoplayState === 'playing';
   const isPaused = autoplayState === 'paused';
   const isAutoplayOpen = isPlaying || isPaused;
@@ -55,15 +58,15 @@ export const StudyNavigation = ({
             className="nav-arrow-btn"
             onClick={onBack}
             disabled={isBackDisabled}
-            title="Предыдущая карточка"
+            title={tr("Предыдущая карточка")}
           >
             <ChevronLeft size={38} strokeWidth={3} />
           </button>
-          <span className="nav-arrow-subtext">предыдущая карточка</span>
+          <span className="nav-arrow-subtext">{tr("предыдущая карточка")}</span>
         </div>
 
         <div className="nav-counter-wrapper">
-          <div className="nav-card-counter" title={`Карточка ${currentNumber}${total > 0 ? ` из ${total}` : ''}`}>
+          <div className="nav-card-counter" title={tr("Карточка {{p0}}{{p1}}", { p0: currentNumber, p1: total > 0 ? tr(" из {{p0}}", { p0: total }) : '' })}>
             <span className="nav-card-current">{currentNumber}</span>
             {total > 0 && (
               <>
@@ -79,17 +82,17 @@ export const StudyNavigation = ({
             className="nav-arrow-btn"
             onClick={onNext}
             disabled={isNextDisabled}
-            title="Следующая карточка"
+            title={tr("Следующая карточка")}
           >
             <ChevronRight size={38} strokeWidth={3} />
           </button>
-          <span className="nav-arrow-subtext">следующая карточка</span>
+          <span className="nav-arrow-subtext">{tr("следующая карточка")}</span>
         </div>
       </div>
 
       {isAutoplayOpen && (
         <div className="autoplay-controls">
-          <div className="autoplay-status">{autoplayStatus || (isPaused ? 'Пауза' : 'Авто-режим активен')}</div>
+          <div className="autoplay-status">{autoplayStatus || (isPaused ? tr("Пауза") : tr("Авто-режим активен"))}</div>
 
           {/* Order Switcher: List vs SRS */}
           <div className="autoplay-order-toggle">
@@ -97,18 +100,14 @@ export const StudyNavigation = ({
               type="button"
               className={`autoplay-order-btn ${autoplayOrder === 'list' ? 'active' : ''}`}
               onClick={() => setAutoplayOrder('list')}
-              title="Линейный перебор всех карточек колоды по порядку"
-            >
-              🔢 По списку
-            </button>
+              title={tr("Линейный перебор всех карточек колоды по порядку")}
+            >{tr("🔢 По списку")}{' '}</button>
             <button
               type="button"
               className={`autoplay-order-btn ${autoplayOrder === 'srs' ? 'active' : ''}`}
               onClick={() => setAutoplayOrder('srs')}
-              title="Только карточки, требующие повторения на сегодня (SRS)"
-            >
-              🧠 По SRS
-            </button>
+              title={tr("Только карточки, требующие повторения на сегодня (SRS)")}
+            >{tr("🧠 По SRS")}{' '}</button>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', width: '100%' }}>
@@ -116,51 +115,51 @@ export const StudyNavigation = ({
               className={`autoplay-pause-btn ${isPaused ? 'is-paused' : ''}`}
               type="button"
               onClick={isPaused ? onAutoplayResume : onAutoplayPause}
-              title={isPaused ? 'Продолжить авто-режим' : 'Поставить авто-режим на паузу'}
+              title={isPaused ? tr("Продолжить авто-режим") : tr("Поставить авто-режим на паузу")}
             >
               {isPaused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
-              <span>{isPaused ? 'Продолжить' : 'Пауза'}</span>
+              <span>{isPaused ? tr("Продолжить") : tr("Пауза")}</span>
             </button>
 
             <button
               className="autoplay-pause-btn"
               type="button"
               onClick={onAutoplayStop}
-              title="Остановить авто-режим"
+              title={tr("Остановить авто-режим")}
               style={{ borderColor: 'rgba(248, 113, 113, 0.4)', background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5' }}
             >
               <Square size={16} fill="currentColor" />
-              <span>Стоп</span>
+              <span>{tr("Стоп")}</span>
             </button>
           </div>
 
           <div className="autoplay-control-grid">
             <label className="autoplay-field">
-              <span>Пауза фразы</span>
+              <span>{tr("Пауза фразы")}</span>
               <select
                 value={autoplayFrontPause}
                 onChange={(e) => setAutoplayFrontPause(e.target.value)}
               >
                 {PAUSE_OPTIONS.map((value) => (
-                  <option key={value} value={value}>{value}с</option>
+                  <option key={value} value={value}>{value}{tr("с")}</option>
                 ))}
               </select>
             </label>
 
             <label className="autoplay-field">
-              <span>Пауза перевода</span>
+              <span>{tr("Пауза перевода")}</span>
               <select
                 value={autoplayBackPause}
                 onChange={(e) => setAutoplayBackPause(e.target.value)}
               >
                 {PAUSE_OPTIONS.map((value) => (
-                  <option key={value} value={value}>{value}с</option>
+                  <option key={value} value={value}>{value}{tr("с")}</option>
                 ))}
               </select>
             </label>
 
             <label className="autoplay-field">
-              <span>Повторов фразы</span>
+              <span>{tr("Повторов фразы")}</span>
               <select
                 value={autoplayFrontRepeat}
                 onChange={(e) => setAutoplayFrontRepeat(e.target.value)}
@@ -172,7 +171,7 @@ export const StudyNavigation = ({
             </label>
 
             <label className="autoplay-field">
-              <span>Повторов перевода</span>
+              <span>{tr("Повторов перевода")}</span>
               <select
                 value={autoplayBackRepeat}
                 onChange={(e) => setAutoplayBackRepeat(e.target.value)}
@@ -220,7 +219,7 @@ export const StudyNavigation = ({
               checked={autoplayLoop}
               onChange={(e) => setAutoplayLoop(e.target.checked)}
             />
-            <span>Повторять колоду</span>
+            <span>{tr("Повторять колоду")}</span>
           </label>
 
           <label className="autoplay-loop">
@@ -229,7 +228,7 @@ export const StudyNavigation = ({
               checked={autoplayForceFrontAudio}
               onChange={(e) => setAutoplayForceFrontAudio(e.target.checked)}
             />
-            <span><RotateCw size={14} /> Генерировать фразу заново</span>
+            <span><RotateCw size={14} />{' '}{tr("Генерировать фразу заново")}</span>
           </label>
 
           <label className="autoplay-loop">
@@ -238,7 +237,7 @@ export const StudyNavigation = ({
               checked={autoplayForceBackAudio}
               onChange={(e) => setAutoplayForceBackAudio(e.target.checked)}
             />
-            <span><RotateCw size={14} /> Генерировать перевод заново</span>
+            <span><RotateCw size={14} />{' '}{tr("Генерировать перевод заново")}</span>
           </label>
         </div>
       )}

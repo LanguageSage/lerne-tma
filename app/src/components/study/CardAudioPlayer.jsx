@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, Pause, Square, Volume2, RefreshCw, Mic2, ChevronUp, ChevronDown } from 'lucide-react';
@@ -43,6 +45,7 @@ export const CardAudioPlayer = React.memo(({
   wrapperClassName = '',
   wrapperStyle = {}
 }) => {
+  useInterfaceLocale();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
@@ -156,14 +159,14 @@ export const CardAudioPlayer = React.memo(({
             onClick={handleRegenerateAndSave}
             disabled={disabled || isLoading}
             style={{ width: 'auto', padding: '0 8px', borderRadius: '12px', gap: '4px', display: 'flex', alignItems: 'center' }}
-            title="Сгенерировать и сохранить озвучку"
+            title={tr("Сгенерировать и сохранить озвучку")}
           >
             {isLoading ? (
               <RefreshCw size={14} className="spin" />
             ) : (
               <Volume2 size={14} />
             )}
-            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Озвучить</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{tr("Озвучить")}</span>
           </button>
         </div>
       </div>,
@@ -177,7 +180,7 @@ export const CardAudioPlayer = React.memo(({
 
   const selectedVoiceLabel = voicePicker?.selectedVoice
     ? voicePicker?.voices.find((v) => v.value === voicePicker?.selectedVoice)
-    : { value: null, label: 'Оригинал', gender: 's' };
+    : { value: null, label: tr("Оригинал"), gender: 's' };
 
   // ── COLLAPSED FLOATING PILL STATE ──────────────────────────────────────────
   if (isCollapsed) {
@@ -194,7 +197,7 @@ export const CardAudioPlayer = React.memo(({
             className="pill-btn-play"
             onClick={handlePlayPauseClick}
             disabled={disabled || isLoading}
-            title={isPlaying ? 'Пауза' : 'Воспроизвести'}
+            title={isPlaying ? tr("Пауза") : tr("Воспроизвести")}
           >
             {isLoading ? (
               <RefreshCw size={16} className="spin" />
@@ -222,7 +225,7 @@ export const CardAudioPlayer = React.memo(({
               const nextIdx = (speeds.indexOf(playbackRate) + 1) % speeds.length;
               setPlaybackSpeed?.(speeds[nextIdx]);
             }}
-            title="Скорость"
+            title={tr("Скорость")}
           >
             {playbackRate}x
           </button>
@@ -235,7 +238,7 @@ export const CardAudioPlayer = React.memo(({
               e.stopPropagation();
               setIsCollapsed(false);
             }}
-            title="Раскрыть плеер"
+            title={tr("Раскрыть плеер")}
           >
             <ChevronUp size={16} />
           </button>
@@ -267,7 +270,7 @@ export const CardAudioPlayer = React.memo(({
                     setShowVoiceMenu(!showVoiceMenu);
                     setShowSpeedMenu(false);
                   }}
-                  title="Выбрать голос"
+                  title={tr("Выбрать голос")}
                 >
                   <Mic2 size={12} />
                   <span>{selectedVoiceLabel?.label || '…'}</span>
@@ -284,7 +287,7 @@ export const CardAudioPlayer = React.memo(({
                       onClick={(e) => handleVoiceSelect({ value: null }, e)}
                     >
                       <span className="voice-option-gender">🔊</span>
-                      <span>Оригинал</span>
+                      <span>{tr("Оригинал")}</span>
                     </button>
                     {voicePicker.voices.map((v) => (
                       <button
@@ -308,21 +311,21 @@ export const CardAudioPlayer = React.memo(({
                 className={`audio-player-btn-regenerate ${voicePicker.isGenerating ? 'loading' : ''}`}
                 onClick={cardId ? handleRegenerateAndSave : handleGeneratePreview}
                 disabled={voicePicker.isGenerating || !cardText}
-                title={cardId ? "Перезаписать озвучку выбранным голосом" : "Озвучить выбранным голосом"}
+                title={cardId ? tr("Перезаписать озвучку выбранным голосом") : tr("Озвучить выбранным голосом")}
               >
                 {voicePicker.isGenerating ? (
                   <RefreshCw size={12} className="spin" />
                 ) : (
                   <RefreshCw size={12} />
                 )}
-                <span>{voicePicker.isGenerating ? 'Генерирую…' : cardId ? 'Перезаписать' : 'Прослушать'}</span>
+                <span>{voicePicker.isGenerating ? tr("Генерирую…") : cardId ? tr("Перезаписать") : tr("Прослушать")}</span>
               </button>
             )}
 
             <label
               className="audio-player-autoplay-label"
               onClick={(e) => e.stopPropagation()}
-              title="Автоматическое воспроизведение аудио при открытии карточки"
+              title={tr("Автоматическое воспроизведение аудио при открытии карточки")}
             >
               <input
                 type="checkbox"
@@ -330,7 +333,7 @@ export const CardAudioPlayer = React.memo(({
                 checked={autoPlay}
                 onChange={(e) => setAutoPlay(e.target.checked)}
               />
-              <span className="audio-player-autoplay-text">Автовоспроизведение</span>
+              <span className="audio-player-autoplay-text">{tr("Автовоспроизведение")}</span>
             </label>
           </div>
 
@@ -343,7 +346,7 @@ export const CardAudioPlayer = React.memo(({
               setShowSpeedMenu(false);
               setShowVoiceMenu(false);
             }}
-            title="Свернуть"
+            title={tr("Свернуть")}
           >
             <ChevronDown size={18} />
           </button>
@@ -357,7 +360,7 @@ export const CardAudioPlayer = React.memo(({
             className={`audio-player-btn-main ${isPlaying ? 'playing' : ''}`}
             onClick={handlePlayPauseClick}
             disabled={disabled || isLoading}
-            title={isPlaying ? 'Пауза' : 'Воспроизвести'}
+            title={isPlaying ? tr("Пауза") : tr("Воспроизвести")}
           >
             {isLoading ? (
               <RefreshCw size={20} className="spin" />
@@ -374,7 +377,7 @@ export const CardAudioPlayer = React.memo(({
               type="button"
               className="audio-player-btn-stop"
               onClick={handleStopClick}
-              title="Остановить"
+              title={tr("Остановить")}
             >
               <Square size={16} />
             </button>
@@ -410,7 +413,7 @@ export const CardAudioPlayer = React.memo(({
                 setShowSpeedMenu(!showSpeedMenu);
                 setShowVoiceMenu(false);
               }}
-              title="Скорость воспроизведения"
+              title={tr("Скорость воспроизведения")}
             >
               {playbackRate}x
             </button>

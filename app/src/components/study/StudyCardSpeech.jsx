@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RefreshCw, Eye, Volume2, Mic, Check, AlertCircle, Sparkles, Sliders } from 'lucide-react';
 import { stripMarkdown, normalizeSpeechText } from '../../utils/text';
@@ -21,6 +23,7 @@ export const StudyCardSpeech = React.memo(({
   isAutoplayActive,
   styles = {}
 }) => {
+  useInterfaceLocale();
   const [isListening, setIsListening] = useState(false);
   const [recognizedText, setRecognizedText] = useState("");
   const [speechError, setSpeechError] = useState("");
@@ -160,7 +163,7 @@ export const StudyCardSpeech = React.memo(({
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setSpeechError("Ваш девайс не поддерживает распознавание голоса.");
+      setSpeechError(tr("Ваш девайс не поддерживает распознавание голоса."));
       return;
     }
 
@@ -201,9 +204,9 @@ export const StudyCardSpeech = React.memo(({
       rec.onerror = (err) => {
         console.error("Speech Error:", err);
         if (err.error === 'not-allowed') {
-          setSpeechError("Нет доступа к микрофону.");
+          setSpeechError(tr("Нет доступа к микрофону."));
         } else if (err.error !== 'no-speech' && err.error !== 'aborted') {
-          setSpeechError("Ошибка распознавания. Попробуйте еще раз.");
+          setSpeechError(tr("Ошибка распознавания. Попробуйте еще раз."));
         }
         setIsListening(false);
       };
@@ -264,7 +267,7 @@ export const StudyCardSpeech = React.memo(({
       recognitionRef.current = rec;
       rec.start();
     } catch {
-      setSpeechError("Ошибка при запуске микрофона.");
+      setSpeechError(tr("Ошибка при запуске микрофона."));
       setIsListening(false);
     }
   };
@@ -306,7 +309,7 @@ export const StudyCardSpeech = React.memo(({
 
       {/* Accuracy Threshold Selector */}
       <div className="speak-threshold-selector" onClick={e => e.stopPropagation()}>
-        <span className="threshold-label"><Sliders size={14} /> Точность:</span>
+        <span className="threshold-label"><Sliders size={14} />{' '}{tr("Точность:")}</span>
         {[50, 75, 85, 100].map(val => (
           <button
             key={val}
@@ -347,7 +350,7 @@ export const StudyCardSpeech = React.memo(({
               className="btn-speak-audio"
               disabled={loading || isAutoplayActive}
               onClick={(e) => { e.stopPropagation(); if (!isAutoplayActive && playAudio) playAudio(card.audio_url); }}
-              title="Озвучить карточку"
+              title={tr("Озвучить карточку")}
             >
               {isAudioLoading ? (
                 card.audio_is_generating ? (
@@ -362,7 +365,7 @@ export const StudyCardSpeech = React.memo(({
           )}
         </div>
         <p className="mic-help-label">
-          {isListening ? "Слушаю... Произнесите фразу или нажмите для проверки" : "Нажмите на микрофон для записи"}
+          {isListening ? tr("Слушаю... Произнесите фразу или нажмите для проверки") : tr("Нажмите на микрофон для записи")}
         </p>
       </div>
 
@@ -377,7 +380,7 @@ export const StudyCardSpeech = React.memo(({
             width: '100%'
           }}
         >
-          <span style={{ fontSize: '0.85rem', opacity: 0.75, color: '#cbd5e1', marginBottom: '4px' }}>Вы сказали:</span>
+          <span style={{ fontSize: '0.85rem', opacity: 0.75, color: '#cbd5e1', marginBottom: '4px' }}>{tr("Вы сказали:")}</span>
           <div style={{
             fontFamily: cardFont,
             color: cardTextColor,
@@ -418,7 +421,7 @@ export const StudyCardSpeech = React.memo(({
         }}
       >
         <Eye size={18} />
-        <span>Показать ответ</span>
+        <span>{tr("Показать ответ")}</span>
       </button>
     </div>
   );

@@ -1,16 +1,19 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Star } from 'lucide-react';
 import api from '../../services/api';
 
 export const FeedbackTab = ({ showToast }) => {
+  useInterfaceLocale();
   const [message, setMessage] = useState('');
   const [rating, setRating] = useState(0);
   const [isSending, setIsSending] = useState(false);
 
   const handleSubmit = async () => {
     if (!message.trim()) {
-      showToast("Пожалуйста, введите сообщение");
+      showToast(tr("Пожалуйста, введите сообщение"));
       return;
     }
 
@@ -20,12 +23,12 @@ export const FeedbackTab = ({ showToast }) => {
         message,
         rating: rating > 0 ? rating : null
       });
-      showToast("Спасибо за ваш отзыв!", "success");
+      showToast(tr("Спасибо за ваш отзыв!"), "success");
       setMessage('');
       setRating(0);
     } catch (err) {
       console.error(err);
-      showToast("Не удалось отправить отзыв. Попробуйте позже.");
+      showToast(tr("Не удалось отправить отзыв. Попробуйте позже."));
     } finally {
       setIsSending(false);
     }
@@ -38,13 +41,11 @@ export const FeedbackTab = ({ showToast }) => {
       exit={{ opacity: 0, x: -10 }} 
       className="settings-section feedback-tab"
     >
-      <h3>Обратная связь</h3>
-      <p style={{ fontSize: '0.9rem', opacity: 0.8, marginBottom: '20px' }}>
-        Ваше мнение очень важно для развития проекта. Расскажите, что вам нравится или что стоит улучшить.
-      </p>
+      <h3>{tr("Обратная связь")}</h3>
+      <p style={{ fontSize: '0.9rem', opacity: 0.8, marginBottom: '20px' }}>{tr("Ваше мнение очень важно для развития проекта. Расскажите, что вам нравится или что стоит улучшить.")}{' '}</p>
 
       <div className="form-group">
-        <label>Оцените приложение</label>
+        <label>{tr("Оцените приложение")}</label>
         <div className="star-rating" style={{ display: 'flex', gap: '8px', margin: '10px 0' }}>
           {[1, 2, 3, 4, 5].map((star) => (
             <Star 
@@ -62,11 +63,11 @@ export const FeedbackTab = ({ showToast }) => {
       </div>
 
       <div className="form-group">
-        <label>Ваше сообщение</label>
+        <label>{tr("Ваше сообщение")}</label>
         <textarea 
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Напишите здесь всё, что думаете..."
+          placeholder={tr("Напишите здесь всё, что думаете...")}
           style={{ minHeight: '120px' }}
         />
       </div>
@@ -76,19 +77,14 @@ export const FeedbackTab = ({ showToast }) => {
         onClick={handleSubmit} 
         disabled={isSending || !message.trim()}
       >
-        {isSending ? 'Отправка...' : (
+        {isSending ? tr("Отправка...") : (
           <>
-            <Send size={18} style={{ marginRight: '8px' }} />
-            Отправить отзыв
-          </>
+            <Send size={18} style={{ marginRight: '8px' }} />{tr("Отправить отзыв")}{' '}</>
         )}
       </button>
 
       <div style={{ marginTop: '30px', padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', fontSize: '0.85rem' }}>
-        <strong>💡 Подсказка:</strong> В текущей версии для тестирования используется общая модель 
-        <span style={{ color: 'var(--accent-primary)', fontWeight: 'bold' }}> Gemini 3 Flash Preview</span>. 
-        Вам не нужно вводить свой API ключ.
-      </div>
+        <strong>{tr("💡 Подсказка:")}</strong>{' '}{tr("В текущей версии для тестирования используется общая модель")}{' '}<span style={{ color: 'var(--accent-primary)', fontWeight: 'bold' }}> Gemini 3 Flash Preview</span>{tr(". Вам не нужно вводить свой API ключ.")}{' '}</div>
     </motion.div>
   );
 };

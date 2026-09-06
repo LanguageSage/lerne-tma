@@ -1,3 +1,5 @@
+import { tr } from '../i18n/locale';
+import { getInterfaceLanguage, setInterfaceLanguage, normalizeInterfaceLanguage } from '../i18n/locale';
 import { useEffect } from 'react';
 import { getUserId, getUserProfile, storage, cloudStorage } from '../utils/auth';
 import api from '../services/api';
@@ -43,8 +45,8 @@ export const useAppInitialization = (checkStartParam) => {
             const { useLanguageStore } = await import('../store/useLanguageStore');
             useLanguageStore.getState().syncLanguageFromExternal(cloudLang, true);
           }
-          if (cloudNativeSel === 'true' && cloudNativeLang) {
-            localStorage.setItem('native_language', cloudNativeLang);
+          if (!localStorage.getItem('native_language') && cloudNativeSel === 'true' && cloudNativeLang) {
+            setInterfaceLanguage(cloudNativeLang);
             localStorage.setItem('native_language_selected', 'true');
           }
         } catch (e) {
@@ -210,6 +212,7 @@ export const useAppInitialization = (checkStartParam) => {
   };
 
   const fetchInitData = async () => {
+    const languageAtStart = getInterfaceLanguage();
     const { setDecksAndFolders, fetchDuplicates } = useDeckStore.getState();
     const currentDecks = useDeckStore.getState().decks;
     const currentFolders = useDeckStore.getState().folders;
@@ -252,10 +255,10 @@ export const useAppInitialization = (checkStartParam) => {
         );
       }
 
-      if (res.data.user_info?.native_language) {
-        localStorage.setItem('native_language', res.data.user_info.native_language);
+      if (res.data.user_info?.native_language && getInterfaceLanguage() === languageAtStart) {
+        setInterfaceLanguage(res.data.user_info.native_language);
         localStorage.setItem('native_language_selected', 'true');
-        cloudStorage.set('lerne_native_language', res.data.user_info.native_language);
+        cloudStorage.set('lerne_native_language', normalizeInterfaceLanguage(res.data.user_info.native_language) || 'uk');
         cloudStorage.set('lerne_native_language_selected', 'true');
       }
 
@@ -286,7 +289,7 @@ export const useAppInitialization = (checkStartParam) => {
       console.error("Init Data Error:", err);
       const decksNow = useDeckStore.getState().decks;
       if (!decksNow || decksNow.length === 0) {
-        showToast("Ошибка загрузки данных.");
+        showToast(tr("Ошибка загрузки данных."));
       }
     } finally {
       useDeckStore.setState({ isFetchingDecks: false });
@@ -295,6 +298,7 @@ export const useAppInitialization = (checkStartParam) => {
   };
 
   const syncProfile = async (currentProfile) => {
+    const languageAtStart = getInterfaceLanguage();
     try {
       const { useLanguageStore } = await import('../store/useLanguageStore');
       const langState = useLanguageStore.getState();
@@ -343,10 +347,10 @@ export const useAppInitialization = (checkStartParam) => {
           );
         }
 
-        if (mergedProfile.native_language) {
-          localStorage.setItem('native_language', mergedProfile.native_language);
+        if (mergedProfile.native_language && getInterfaceLanguage() === languageAtStart) {
+          setInterfaceLanguage(mergedProfile.native_language);
           localStorage.setItem('native_language_selected', 'true');
-          cloudStorage.set('lerne_native_language', mergedProfile.native_language);
+          cloudStorage.set('lerne_native_language', normalizeInterfaceLanguage(mergedProfile.native_language) || 'uk');
           cloudStorage.set('lerne_native_language_selected', 'true');
         }
       }

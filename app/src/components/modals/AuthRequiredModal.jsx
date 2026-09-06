@@ -1,10 +1,13 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Send, KeyRound, RefreshCw, ExternalLink } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { openExternalLink } from '../../utils/platform';
 
-export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в аккаунт" }) => {
+export const AuthRequiredModal = ({ isOpen, onClose, title = tr("Вход в аккаунт") }) => {
+  useInterfaceLocale();
   const [tab, setTab] = useState('telegram'); // 'telegram' | 'code'
   const [inputCode, setInputCode] = useState('');
   
@@ -73,9 +76,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в акк
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>
-              Авторизация
-            </span>
+            <span style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>{tr("Авторизация")}{' '}</span>
             <button className="close-btn" onClick={onClose}><X size={20} /></button>
           </div>
 
@@ -144,16 +145,13 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в акк
                 transition: 'all 0.2s ease'
               }}
             >
-              <KeyRound size={14} /> Ввести код
-            </button>
+              <KeyRound size={14} />{' '}{tr("Ввести код")}{' '}</button>
           </div>
 
           {/* Tab 1: Telegram 1-click */}
           {tab === 'telegram' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <p style={{ fontSize: '0.88rem', color: '#94a3b8', lineHeight: 1.5, margin: '0 0 4px' }}>
-                Войдите через Telegram-бота, чтобы сохранять колоды и прогресс на всех устройствах.
-              </p>
+              <p style={{ fontSize: '0.88rem', color: '#94a3b8', lineHeight: 1.5, margin: '0 0 4px' }}>{tr("Войдите через Telegram-бота, чтобы сохранять колоды и прогресс на всех устройствах.")}{' '}</p>
 
               {isPolling && (
                 <div style={{
@@ -170,9 +168,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в акк
                   textAlign: 'left'
                 }}>
                   <RefreshCw size={18} className="spin" color="#c084fc" style={{ flexShrink: 0 }} />
-                  <span>
-                    Ожидание подтверждения... После нажатия «Старт» в боте вернитесь в приложение — вход выполнится автоматически!
-                  </span>
+                  <span>{tr("Ожидание подтверждения... После нажатия «Старт» в боте вернитесь в приложение — вход выполнится автоматически!")}{' '}</span>
                 </div>
               )}
 
@@ -184,7 +180,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в акк
                   padding: '13px', borderRadius: 14, fontWeight: 600, fontSize: '0.95rem'
                 }}
               >
-                <Send size={18} /> {isPolling ? "Открыть бота снова" : "Войти через Telegram"}
+                <Send size={18} /> {isPolling ? tr("Открыть бота снова") : tr("Войти через Telegram")}
               </button>
 
               {isPolling && (
@@ -193,9 +189,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в акк
                   className="btn btn-secondary btn-full"
                   onClick={handleManualCheck}
                   style={{ padding: '11px', borderRadius: 14, fontSize: '0.85rem' }}
-                >
-                  Я подтвердил, войти
-                </button>
+                >{tr("Я подтвердил, войти")}{' '}</button>
               )}
             </div>
           )}
@@ -203,9 +197,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в акк
           {/* Tab 2: 6-digit Code */}
           {tab === 'code' && (
             <form onSubmit={handleVerifyCode} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <p style={{ fontSize: '0.88rem', color: '#94a3b8', lineHeight: 1.4, margin: '0 0 2px' }}>
-                Получите 6-значный код в боте командой <code style={{ color: '#c084fc', background: 'rgba(168,85,247,0.15)', padding: '2px 6px', borderRadius: 6 }}>/code</code> и введите его ниже:
-              </p>
+              <p style={{ fontSize: '0.88rem', color: '#94a3b8', lineHeight: 1.4, margin: '0 0 2px' }}>{tr("Получите 6-значный код в боте командой")}{' '}<code style={{ color: '#c084fc', background: 'rgba(168,85,247,0.15)', padding: '2px 6px', borderRadius: 6 }}>/code</code>{' '}{tr("и введите его ниже:")}{' '}</p>
 
               <div style={{ margin: '8px 0' }}>
                 <input
@@ -251,12 +243,10 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в акк
               >
                 {isVerifyingCode ? (
                   <>
-                    <RefreshCw size={18} className="spin" /> Проверяем код...
-                  </>
+                    <RefreshCw size={18} className="spin" />{' '}{tr("Проверяем код...")}{' '}</>
                 ) : (
                   <>
-                    <KeyRound size={18} /> Войти по коду
-                  </>
+                    <KeyRound size={18} />{' '}{tr("Войти по коду")}{' '}</>
                 )}
               </button>
 
@@ -276,8 +266,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в акк
                   padding: '6px'
                 }}
               >
-                <ExternalLink size={13} /> Открыть бота для получения кода
-              </button>
+                <ExternalLink size={13} />{' '}{tr("Открыть бота для получения кода")}{' '}</button>
             </form>
           )}
 
@@ -286,9 +275,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = "Вход в акк
             className="btn-secondary btn-full" 
             onClick={onClose}
             style={{ marginTop: 8, padding: '11px', borderRadius: 14, fontSize: '0.85rem' }}
-          >
-            Позже
-          </button>
+          >{tr("Позже")}{' '}</button>
         </motion.div>
       </div>
     </AnimatePresence>

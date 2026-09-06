@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
@@ -6,6 +8,7 @@ import { useUiStore } from '../../store/useUiStore';
 import api from '../../services/api';
 
 export const AITab = () => {
+  useInterfaceLocale();
   const { adminSettings, updateAdminSetting } = useSettingsStore();
   const { showToast } = useUiStore();
   const [availableModels, setAvailableModels] = useState([]);
@@ -24,7 +27,7 @@ export const AITab = () => {
       });
       setAvailableModels(res.data);
     } catch {
-      showToast("Ошибка загрузки моделей");
+      showToast(tr("Ошибка загрузки моделей"));
     } finally {
       setIsFetchingModels(false);
     }
@@ -34,9 +37,9 @@ export const AITab = () => {
     const settings = useSettingsStore.getState().adminSettings;
     try {
       await api.post('/admin/settings', settings);
-      showToast("Настройки сохранены", "success");
+      showToast(tr("Настройки сохранены"), "success");
     } catch {
-      showToast("Ошибка сохранения настроек");
+      showToast(tr("Ошибка сохранения настроек"));
     }
   };
 
@@ -46,14 +49,14 @@ export const AITab = () => {
        const res = await api.get('/settings/test-ai');
        setTestResults(res.data);
        if (res.data.status === 'ok') {
-         showToast("Все ключи проверены: соединение установлено!", "success");
+         showToast(tr("Все ключи проверены: соединение установлено!"), "success");
        } else if (res.data.status === 'warning') {
-         showToast("Часть ключей работает, некоторые вызывают ошибки", "warning");
+         showToast(tr("Часть ключей работает, некоторые вызывают ошибки"), "warning");
        } else {
-         showToast(`Ошибка проверки: ${res.data.error || 'Сбой соединения'}`);
+         showToast(tr("Ошибка проверки: {{p0}}", { p0: res.data.error || tr("Сбой соединения") }));
        }
      } catch {
-       showToast("Ошибка соединения при проверке");
+       showToast(tr("Ошибка соединения при проверке"));
      } finally {
        setIsTesting(false);
      }
@@ -75,7 +78,7 @@ export const AITab = () => {
       keys.unshift(rawKeyToPromote);
       const newStr = keys.join('\n');
       updateAdminSetting('GOOGLE_API_KEY', newStr);
-      showToast("Ключ перемещён на 1-е место (основной). Сохраните настройки!", "info");
+      showToast(tr("Ключ перемещён на 1-е место (основной). Сохраните настройки!"), "info");
     }
   };
 
@@ -97,28 +100,27 @@ export const AITab = () => {
   return (
     <motion.div key="ai" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section admin-section">
       <div className="section-header-with-btn">
-        <h3>Настройки ИИ</h3>
+        <h3>{tr("Настройки ИИ")}</h3>
         <button className="btn-secondary btn-tiny" onClick={testAiConnection} disabled={isTesting}>
-          {isTesting ? 'Проверка...' : 'Проверить соединение'}
+          {isTesting ? tr("Проверка...") : tr("Проверить соединение")}
         </button>
       </div>
 
       <div className="info-banner" style={{ marginBottom: '15px', padding: '10px', background: 'rgba(52, 152, 219, 0.1)', borderLeft: '4px solid #3498db', borderRadius: '4px', fontSize: '0.85rem' }}>
-        <strong>ℹ️ Облачный режим:</strong> Для работы без ПК используйте Gemini, Groq или OpenRouter.
-      </div>
+        <strong>{tr("ℹ️ Облачный режим:")}</strong>{' '}{tr("Для работы без ПК используйте Gemini, Groq или OpenRouter.")}{' '}</div>
 
       <div className="form-group">
-        <label>Провайдер</label>
+        <label>{tr("Провайдер")}</label>
         <select value={adminSettings.AI_PROVIDER || 'default'} onChange={e => {
           updateAdminSetting('AI_PROVIDER', e.target.value);
           updateAdminSetting('DEFAULT_MODEL', '');
           setTestResults(null);
         }}>
-          <option value="default">По умолчанию (Lerne Shared)</option>
-          <option value="groq">Groq (Очень быстро / Бесплатно)</option>
-          <option value="google">Google Gemini (Бесплатно / Надежно)</option>
-          <option value="openrouter">OpenRouter (Много моделей)</option>
-          <option value="ollama">Ollama (Ваш сервер/ПК)</option>
+          <option value="default">{tr("По умолчанию (Lerne Shared)")}</option>
+          <option value="groq">{tr("Groq (Очень быстро / Бесплатно)")}</option>
+          <option value="google">{tr("Google Gemini (Бесплатно / Надежно)")}</option>
+          <option value="openrouter">{tr("OpenRouter (Много моделей)")}</option>
+          <option value="ollama">{tr("Ollama (Ваш сервер/ПК)")}</option>
         </select>
       </div>
 
@@ -145,7 +147,7 @@ export const AITab = () => {
 
       {adminSettings.AI_PROVIDER === 'google' && (
         <div className="form-group">
-          <label>Google Gemini API Keys (можно несколько)</label>
+          <label>{tr("Google Gemini API Keys (можно несколько)")}</label>
           <textarea 
             rows={3}
             value={adminSettings.GOOGLE_API_KEY || ''} 
@@ -153,29 +155,25 @@ export const AITab = () => {
               updateAdminSetting('GOOGLE_API_KEY', e.target.value);
               setTestResults(null);
             }} 
-            placeholder="AIzaSy...&#10;AIzaSy... (укажите каждый ключ с новой строки или через запятую)" 
+            placeholder={tr("AIzaSy...\nAIzaSy... (укажите каждый ключ с новой строки или через запятую)")} 
             style={{ width: '100%', minHeight: '70px', resize: 'vertical', fontSize: '0.85rem', padding: '8px' }}
           />
-          <small style={{ color: '#8e8e93', fontSize: '0.75rem', marginTop: '4px', display: 'block', lineHeight: '1.4' }}>
-            💡 Вы можете вставить несколько API-ключей Google (своего аккаунта, семьи или коллег). Как только у одного ключа заканчивается лимит (Quota / 429), система автоматически переключится на следующий ключ.
-          </small>
+          <small style={{ color: '#8e8e93', fontSize: '0.75rem', marginTop: '4px', display: 'block', lineHeight: '1.4' }}>{tr("💡 Вы можете вставить несколько API-ключей Google (своего аккаунта, семьи или коллег). Как только у одного ключа заканчивается лимит (Quota / 429), система автоматически переключится на следующий ключ.")}{' '}</small>
 
           {testResults && testResults.keys && testResults.keys.length > 0 && (
             <div style={{ marginTop: '10px', background: 'rgba(255, 255, 255, 0.05)', padding: '10px', borderRadius: '6px', fontSize: '0.8rem' }}>
-              <strong style={{ display: 'block', marginBottom: '6px' }}>🔍 Результаты проверки ключей:</strong>
+              <strong style={{ display: 'block', marginBottom: '6px' }}>{tr("🔍 Результаты проверки ключей:")}</strong>
               {testResults.keys.map((k, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '8px', padding: '4px 0', borderBottom: i < testResults.keys.length - 1 ? '1px dashed rgba(255,255,255,0.1)' : 'none' }}>
                   <span>
-                    {k.status === 'ok' ? '🟢' : '🔴'} Ключ #{k.index} ({k.key_masked}): <span style={{ opacity: 0.85, color: k.status === 'ok' ? '#2ecc71' : '#e74c3c' }}>{k.message}</span>
+                    {k.status === 'ok' ? '🟢' : '🔴'}{' '}{tr("Ключ #")}{k.index} ({k.key_masked}): <span style={{ opacity: 0.85, color: k.status === 'ok' ? '#2ecc71' : '#e74c3c' }}>{k.message}</span>
                   </span>
                   {i > 0 && (
                     <button 
                       className="btn-secondary btn-tiny"
                       onClick={() => makeKeyPrimary(k.key_raw)}
-                      title="Переместить этот ключ на первое место (сделать основным)"
-                    >
-                      Сделать 1-м
-                    </button>
+                      title={tr("Переместить этот ключ на первое место (сделать основным)")}
+                    >{tr("Сделать 1-м")}{' '}</button>
                   )}
                 </div>
               ))}
@@ -186,16 +184,14 @@ export const AITab = () => {
 
       {getApiKeyLink() && (
         <div style={{ marginTop: '-8px', marginBottom: '15px' }}>
-          <a href={getApiKeyLink()} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: '#3498db', textDecoration: 'none' }}>
-            🔗 Получить бесплатный API ключ
-          </a>
+          <a href={getApiKeyLink()} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: '#3498db', textDecoration: 'none' }}>{tr("🔗 Получить бесплатный API ключ")}{' '}</a>
         </div>
       )}
       
       {adminSettings.AI_PROVIDER !== 'default' && (
         <div className="form-group">
           <div className="label-with-value">
-            <label>Модель</label>
+            <label>{tr("Модель")}</label>
             <button className="btn-secondary btn-tiny" onClick={fetchModels} disabled={isFetchingModels}>
               {isFetchingModels ? '...' : <RefreshCw size={12} />}
             </button>
@@ -212,20 +208,20 @@ export const AITab = () => {
                 }
               }}
             >
-              <option value="">Выберите модель...</option>
+              <option value="">{tr("Выберите модель...")}</option>
               {availableModels.map(m => (
                 <option key={m} value={m}>
                   {m.includes(':free') ? `🎁 ${m}` : m}
                 </option>
               ))}
-              <option value="custom">-- Ввести вручную --</option>
+              <option value="custom">{tr("-- Ввести вручную --")}</option>
             </select>
             {( !availableModels.includes(adminSettings.DEFAULT_MODEL) || adminSettings.DEFAULT_MODEL === '' ) && (
               <input 
                 style={{marginTop: '8px'}}
                 value={adminSettings.DEFAULT_MODEL || ''} 
                 onChange={e => updateAdminSetting('DEFAULT_MODEL', e.target.value)} 
-                placeholder="Название модели вручную..." 
+                placeholder={tr("Название модели вручную...")} 
               />
             )}
           </div>
@@ -234,10 +230,8 @@ export const AITab = () => {
       {/* AI Detect Level Toggle */}
       <div className="form-group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.08)', margin: '15px 0' }}>
         <div style={{ paddingRight: '15px' }}>
-          <label style={{ margin: 0, fontWeight: 600, display: 'block' }}>Определять уровень сложности (CEFR)</label>
-          <span style={{ fontSize: '0.75rem', opacity: 0.7, display: 'block', marginTop: '2px' }}>
-            Автоматически определять A1–C2 для новых карточек с помощью ИИ
-          </span>
+          <label style={{ margin: 0, fontWeight: 600, display: 'block' }}>{tr("Определять уровень сложности (CEFR)")}</label>
+          <span style={{ fontSize: '0.75rem', opacity: 0.7, display: 'block', marginTop: '2px' }}>{tr("Автоматически определять A1–C2 для новых карточек с помощью ИИ")}{' '}</span>
         </div>
         <input 
           type="checkbox"
@@ -248,7 +242,7 @@ export const AITab = () => {
       </div>
 
       <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-        <button className="btn btn-primary btn-small" style={{ flex: 1 }} onClick={saveAdminSettings}>Сохранить</button>
+        <button className="btn btn-primary btn-small" style={{ flex: 1 }} onClick={saveAdminSettings}>{tr("Сохранить")}</button>
       </div>
     </motion.div>
   );

@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { create } from 'zustand';
 import api from '../services/api';
 import { getUserProfile, getUserId, storage } from '../utils/auth';
@@ -21,7 +22,7 @@ export const useAuthStore = create((set, get) => ({
 
   setAuthModalOpen: (isOpen, tab = 'telegram') => {
     set({ authModalOpen: isOpen, authModalTab: tab, authError: null });
-    useUiStore.getState().setIsAuthModalOpen(isOpen, tab === 'code' ? "Вход по коду" : "Вход в аккаунт");
+    useUiStore.getState().setIsAuthModalOpen(isOpen, tab === 'code' ? tr("Вход по коду") : tr("Вход в аккаунт"));
   },
 
   setAuthModalTab: (tab) => set({ authModalTab: tab, authError: null }),
@@ -69,7 +70,7 @@ export const useAuthStore = create((set, get) => ({
       openExternalLink(botUrl);
     } catch (err) {
       console.error("Failed to initiate Telegram link session:", err);
-      useUiStore.getState().showToast("Не удалось подключиться к Telegram", "error");
+      useUiStore.getState().showToast(tr("Не удалось подключиться к Telegram"), "error");
       set({ isPolling: false });
     }
   },
@@ -99,7 +100,7 @@ export const useAuthStore = create((set, get) => ({
         storage.remove('lerne_last_sync_user_id');
         storage.remove('lerne_init_cache');
 
-        useUiStore.getState().showToast(`Добро пожаловать, ${newUser.first_name || 'друг'}!`, "success");
+        useUiStore.getState().showToast(tr("Добро пожаловать, {{p0}}!", { p0: newUser.first_name || tr("друг") }), "success");
 
         // Reload fresh decks & folders for newly authenticated user
         try {
@@ -119,7 +120,7 @@ export const useAuthStore = create((set, get) => ({
   loginWithCode: async (code) => {
     const cleanCode = (code || '').replace(/\s+/g, '').replace(/-/g, '').trim();
     if (!cleanCode || cleanCode.length !== 6 || !/^\d+$/.test(cleanCode)) {
-      const msg = "Код должен состоять из 6 цифр";
+      const msg = tr("Код должен состоять из 6 цифр");
       set({ authError: msg });
       return { success: false, error: msg };
     }
@@ -144,7 +145,7 @@ export const useAuthStore = create((set, get) => ({
         storage.remove('lerne_last_sync_user_id');
         storage.remove('lerne_init_cache');
 
-        useUiStore.getState().showToast(`Вход выполнен! Привет, ${user.first_name || 'друг'}!`, "success");
+        useUiStore.getState().showToast(tr("Вход выполнен! Привет, {{p0}}!", { p0: user.first_name || tr("друг") }), "success");
 
         // Refresh decks & folders for newly authenticated user
         try {
@@ -154,12 +155,12 @@ export const useAuthStore = create((set, get) => ({
 
         return { success: true, user };
       } else {
-        const msg = res.data?.message || "Неверный код";
+        const msg = res.data?.message || tr("Неверный код");
         set({ isVerifyingCode: false, authError: msg });
         return { success: false, error: msg };
       }
     } catch (err) {
-      const msg = err.response?.data?.detail || "Ошибка проверки кода. Проверьте код или запросите новый в боте.";
+      const msg = err.response?.data?.detail || tr("Ошибка проверки кода. Проверьте код или запросите новый в боте.");
       set({ isVerifyingCode: false, authError: msg });
       return { success: false, error: msg };
     }

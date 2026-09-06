@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 const storage = {
   get: (key) => {
     try { return localStorage.getItem(key); } catch { return null; }
@@ -41,7 +42,7 @@ export const resetUserSession = () => {
     localStorage.clear();
     sessionStorage.clear();
     const newId = Math.floor(100000000 + Math.random() * 900000000);
-    const profile = { user_id: newId, is_guest: true, first_name: 'Гость' };
+    const profile = { user_id: newId, is_guest: true, first_name: tr("Гость") };
     storage.set('lerne_user_id', newId);
     storage.set('lerne_user_profile', JSON.stringify(profile));
     window.location.href = window.location.origin + window.location.pathname;

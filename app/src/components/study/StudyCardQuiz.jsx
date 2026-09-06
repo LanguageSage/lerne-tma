@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, XCircle, Check, Eye } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
@@ -13,6 +15,7 @@ export const StudyCardQuiz = ({
   renderAudioPlayer,
   styles = {}
 }) => {
+  useInterfaceLocale();
   const [selectedOptionId, setSelectedOptionId] = useState(null);
   const [isChecked, setIsChecked] = useState(false);
   const [isCorrect, setIsCorrect] = useState(null);
@@ -260,9 +263,7 @@ export const StudyCardQuiz = ({
               : 'none'
           }}
         >
-          <Check size={20} />
-          Проверить
-        </button>
+          <Check size={20} />{tr("Проверить")}{' '}</button>
       )}
 
       {/* Result Banner after Check */}
@@ -278,7 +279,7 @@ export const StudyCardQuiz = ({
           textAlign: 'center',
           marginTop: '6px'
         }}>
-          {isCorrect ? '✅ Правильно!' : '❌ Неправильно! Смотри разбор на обороте.'}
+          {isCorrect ? tr("✅ Правильно!") : tr("❌ Неправильно! Смотри разбор на обороте.")}
         </div>
       )}
 
@@ -294,7 +295,7 @@ export const StudyCardQuiz = ({
           }}
         >
           <Eye size={18} />
-          <span>Показать ответ</span>
+          <span>{tr("Показать ответ")}</span>
         </button>
       </div>
     </div>

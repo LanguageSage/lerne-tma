@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { useRef, useCallback } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
@@ -139,7 +140,7 @@ export const useStudySession = () => {
       }
     } catch (err) {
       console.error("SubmitGrade Error:", err);
-      showToast(`Ошибка при сохранении оценки: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка при сохранении оценки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     } finally {
       gradingRef.current = false;
       setLoading(false);

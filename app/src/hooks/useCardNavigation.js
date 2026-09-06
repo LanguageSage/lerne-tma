@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { cleanMedia } from '../utils/media';
@@ -15,7 +16,7 @@ export const useCardNavigation = () => {
 
   const openEditor = (deckId, cardToEdit = null, source = 'cards') => {
     if (userProfile?.is_guest) {
-      setIsAuthModalOpen(true, "Для редактирования карточек войдите через Telegram");
+      setIsAuthModalOpen(true, tr("Для редактирования карточек войдите через Telegram"));
       return;
     }
     captureScroll();
@@ -47,7 +48,7 @@ export const useCardNavigation = () => {
 
   const openCreator = (deckId, source = 'cards', afterCardId = null) => {
     if (userProfile?.is_guest) {
-      setIsAuthModalOpen(true, "Для создания карточек войдите через Telegram");
+      setIsAuthModalOpen(true, tr("Для создания карточек войдите через Telegram"));
       return;
     }
     captureScroll();

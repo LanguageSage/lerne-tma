@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Eye } from 'lucide-react';
@@ -13,6 +15,7 @@ export const StudyCardPuzzle = React.memo(({
   playAudio,
   styles = {}
 }) => {
+  useInterfaceLocale();
   const [selectedPuzzles, setSelectedPuzzles] = useState([]);
   const [activeDragId, setActiveDragId] = useState(null);
   const [hoverIndex, setHoverIndex] = useState(null);
@@ -129,7 +132,7 @@ export const StudyCardPuzzle = React.memo(({
         }}
       >
         {selectedPuzzles.length === 0 ? (
-          <span className="puzzle-placeholder">Нажимайте слова ниже, чтобы собрать фразу</span>
+          <span className="puzzle-placeholder">{tr("Нажимайте слова ниже, чтобы собрать фразу")}</span>
         ) : (
           <>
             {selectedPuzzles.map((w, idx) => {
@@ -292,7 +295,7 @@ export const StudyCardPuzzle = React.memo(({
         }}
       >
         <Eye size={18} />
-        <span>Показать ответ</span>
+        <span>{tr("Показать ответ")}</span>
       </button>
 
       {/* Drag Arrow SVG Overlay */}

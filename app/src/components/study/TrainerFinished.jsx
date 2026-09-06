@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { Trophy, CheckCircle2, RotateCcw, ArrowLeft, Clock, Target, AlertTriangle } from 'lucide-react';
 import { useTranslation } from '../../i18n/i18nContext';
@@ -11,6 +13,7 @@ export const TrainerFinished = ({
   onRestart,
   onGoToDecks
 }) => {
+  useInterfaceLocale();
   const { t } = useTranslation();
 
   const scorePercentage = totalCards > 0 ? Math.round((correctFirstTry / totalCards) * 100) : 0;
@@ -62,8 +65,7 @@ export const TrainerFinished = ({
             {scorePercentage}%
           </div>
           <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '2px' }}>
-            {correctFirstTry} из {totalCards} с 1-й попытки
-          </div>
+            {correctFirstTry}{' '}{tr("из")}{' '}{totalCards}{' '}{tr("с 1-й попытки")}{' '}</div>
         </div>
 
         <div className="stat-card glass" style={{ padding: '14px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
@@ -73,9 +75,7 @@ export const TrainerFinished = ({
           <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#a855f7' }}>
             {formatTime(elapsedSeconds)}
           </div>
-          <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '2px' }}>
-            мин:сек
-          </div>
+          <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '2px' }}>{tr("мин:сек")}{' '}</div>
         </div>
       </div>
 
@@ -93,9 +93,7 @@ export const TrainerFinished = ({
           color: '#f87171'
         }}>
           <AlertTriangle size={18} style={{ flexShrink: 0 }} />
-          <div style={{ textAlign: 'left' }}>
-            Ошибок: <strong>{wrongCount}</strong>. Рекомендуется повторить эти карточки!
-          </div>
+          <div style={{ textAlign: 'left' }}>{tr("Ошибок:")}{' '}<strong>{wrongCount}</strong>{tr(". Рекомендуется повторить эти карточки!")}{' '}</div>
         </div>
       )}
 

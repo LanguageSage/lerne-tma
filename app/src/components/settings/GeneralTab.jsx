@@ -1,9 +1,12 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 
 export const GeneralTab = ({ userId }) => {
+  useInterfaceLocale();
   const { autoPlay, setAutoPlay, autoShow, setAutoShow } = useSettingsStore();
   const { t } = useTranslation();
 
@@ -16,7 +19,7 @@ export const GeneralTab = ({ userId }) => {
       exit={{ opacity: 0, x: -10 }} 
       className="settings-section"
     >
-      <h3>Обучение</h3>
+      <h3>{tr("Обучение")}</h3>
       <div className="settings-row">
         <span>{t('settings.auto_sound')}</span>
         <label className="switch">

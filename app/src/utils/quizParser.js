@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { stripMarkdown } from './text.js';
 
 const cleanPunctuation = (str) => {
@@ -105,7 +106,7 @@ export const parseQuizData = (card) => {
 
   return {
     isQuiz: true,
-    question: cleanPunctuation(stripMarkdown(rawQuestion)) || 'Выберите правильный ответ:',
+    question: cleanPunctuation(stripMarkdown(rawQuestion)) || tr("Выберите правильный ответ:"),
     options: shuffledOptions,
     correctAnswerId: correctOption.id,
     correctAnswerText: correctOption.text

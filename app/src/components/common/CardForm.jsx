@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, MessageSquare, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
@@ -26,6 +28,7 @@ export const CardForm = ({
   playAudio,
   isCreator = false
 }) => {
+  useInterfaceLocale();
   const { t } = useTranslation();
   const { 
     cardFont, cardTextColor, cardFontWeight, cardFontStyle, cardFontSize, cardTextShadow, cardTextAlign,
@@ -128,7 +131,7 @@ export const CardForm = ({
 
       setIsClassifyingLevel(false);
       triggerHaptic('success');
-      showToast(`Уровень определен: ${newLevel} (${res.reason_short || res.reason})`, 'success');
+      showToast(tr("Уровень определен: {{p0}} ({{p1}})", { p0: newLevel, p1: res.reason_short || res.reason }), 'success');
     }, 1000);
   };
 
@@ -145,13 +148,13 @@ export const CardForm = ({
       ...prev,
       level: selectedLevel,
       manual_level: true,
-      reason: 'Установлен вручную пользователем',
-      reason_short: 'вручную',
+      reason: tr("Установлен вручную пользователем"),
+      reason_short: tr("вручную"),
       cefr: buildManualCefrMeta(selectedLevel),
       tags: updateCardLevelTags(prev?.tags, selectedLevel)
     }));
 
-    showToast(`Уровень установлен: ${selectedLevel} (вручную)`, 'info');
+    showToast(tr("Уровень установлен: {{p0}} (вручную)", { p0: selectedLevel }), 'info');
   };
 
   if (!cardData) return null;
@@ -161,7 +164,7 @@ export const CardForm = ({
       
       {isCreator && (
         <div className="form-group" style={{ marginBottom: '8px' }}>
-          <label className="sub-label" style={{ marginBottom: '4px', fontSize: '0.75rem', opacity: 0.7 }}>ВЫБЕРИТЕ КОЛОДУ</label>
+          <label className="sub-label" style={{ marginBottom: '4px', fontSize: '0.75rem', opacity: 0.7 }}>{tr("ВЫБЕРИТЕ КОЛОДУ")}</label>
           <select 
             className="form-input" 
             value={cardData.deck_id || ''} 
@@ -177,7 +180,7 @@ export const CardForm = ({
               fontWeight: '500'
             }}
           >
-            <option value="" disabled style={{ background: '#1e293b', color: '#ffffff' }}>-- Выберите колоду --</option>
+            <option value="" disabled style={{ background: '#1e293b', color: '#ffffff' }}>{tr("-- Выберите колоду --")}</option>
             {decks.map(d => (
               <option key={d.id} value={d.id} style={{ background: '#1e293b', color: '#ffffff' }}>{d.name}</option>
             ))}
@@ -197,20 +200,20 @@ export const CardForm = ({
           type="button"
           className="form-toolbar-btn btn-image"
           onClick={() => setIsImagePickerOpen(true)}
-          title="Добавить картинку"
+          title={tr("Добавить картинку")}
         >
           <ImageIcon size={18} />
-          <span>Картинка</span>
+          <span>{tr("Картинка")}</span>
         </button>
         <button 
           type="button"
           className="form-toolbar-btn btn-audio" 
           onClick={() => onGenerateAudio(cardData, setCardData, playAudio)}
           disabled={loading}
-          title="Озвучить"
+          title={tr("Озвучить")}
         >
           {loading ? <RefreshCw size={18} className="spin" /> : <Volume2 size={18} />}
-          <span>{loading ? 'Озвучивание...' : 'Озвучить'}</span>
+          <span>{loading ? tr("Озвучивание...") : tr("Озвучить")}</span>
         </button>
       </div>
 
@@ -304,7 +307,7 @@ export const CardForm = ({
                       e.stopPropagation();
                       setIsEditingExistingImage(true);
                     }}
-                    title="Повернуть / Кадрировать"
+                    title={tr("Повернуть / Кадрировать")}
                   >
                     <RotateCw size={18} />
                   </button>
@@ -315,7 +318,7 @@ export const CardForm = ({
                       e.stopPropagation();
                       setCardData({...cardData, image_path: '', image_url: ''});
                     }}
-                    title="Убрать картинку"
+                    title={tr("Убрать картинку")}
                   >
                     <X size={20} />
                   </button>
@@ -324,7 +327,7 @@ export const CardForm = ({
                 {/* Image height slider — visible when card has an image */}
                 <div style={{ margin: '0 10px 10px 10px', zIndex: 3, position: 'relative' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.07)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
-                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>Высота</span>
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>{tr("Высота")}</span>
                     <input
                       type="range"
                       min={60}
@@ -368,7 +371,7 @@ export const CardForm = ({
                   transition: 'opacity 0.25s ease, transform 0.25s ease',
                   pointerEvents: isClassifyingLevel ? 'none' : 'auto'
                 }}
-                title="Нажмите для автоматического пересчета уровня"
+                title={tr("Нажмите для автоматического пересчета уровня")}
               >
                 <CardLevelBadge 
                   card={cardData} 
@@ -383,7 +386,7 @@ export const CardForm = ({
                   e.stopPropagation();
                   setIsLevelPickerOpen(!isLevelPickerOpen);
                 }}
-                title="Ручная смена уровня CEFR"
+                title={tr("Ручная смена уровня CEFR")}
                 style={{
                   background: 'rgba(255, 255, 255, 0.12)',
                   border: '1px solid rgba(255, 255, 255, 0.22)',
@@ -402,7 +405,7 @@ export const CardForm = ({
                 }}
               >
                 <SlidersHorizontal size={11} />
-                <span>Правка</span>
+                <span>{tr("Правка")}</span>
               </button>
 
               {isLevelPickerOpen && (
@@ -427,9 +430,7 @@ export const CardForm = ({
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div style={{ fontSize: '0.68rem', color: 'rgba(255, 255, 255, 0.55)', padding: '2px 6px', fontWeight: 600 }}>
-                    Уровень сложности:
-                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'rgba(255, 255, 255, 0.55)', padding: '2px 6px', fontWeight: 600 }}>{tr("Уровень сложности:")}{' '}</div>
                   
                   <button
                     type="button"
@@ -449,19 +450,19 @@ export const CardForm = ({
                       cursor: 'pointer'
                     }}
                   >
-                    <span>⚡ Авто (распознать)</span>
+                    <span>{tr("⚡ Авто (распознать)")}</span>
                     {!cardData.manual_level && <Check size={12} color="#a5b4fc" />}
                   </button>
 
                   <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
 
                   {[
-                    { lvl: 'A1', label: '🟢 A1 (Начальный)' },
-                    { lvl: 'A2', label: '🔵 A2 (Базовый)' },
-                    { lvl: 'B1', label: '🔹 B1 (Средний)' },
-                    { lvl: 'B2', label: '🟣 B2 (Выше среднего)' },
-                    { lvl: 'C1', label: '🔮 C1 (Продвинутый)' },
-                    { lvl: 'C2', label: '🟠 C2 (В совершенстве)' }
+                    { lvl: 'A1', label: tr("🟢 A1 (Начальный)") },
+                    { lvl: 'A2', label: tr("🔵 A2 (Базовый)") },
+                    { lvl: 'B1', label: tr("🔹 B1 (Средний)") },
+                    { lvl: 'B2', label: tr("🟣 B2 (Выше среднего)") },
+                    { lvl: 'C1', label: tr("🔮 C1 (Продвинутый)") },
+                    { lvl: 'C2', label: tr("🟠 C2 (В совершенстве)") }
                   ].map(({ lvl, label }) => {
                     const isSelected = cardData.manual_level && cardData.level === lvl;
                     return (
@@ -498,7 +499,7 @@ export const CardForm = ({
                 type="button"
                 className="audio-btn-corner" 
                 onClick={(e) => { e.stopPropagation(); playAudio(cardData.audio_url || `/api/media/${cardData.audio_path}`); }}
-                title="Озвучить"
+                title={tr("Озвучить")}
                 style={{
                   position: 'static',
                   margin: 0,
@@ -529,19 +530,19 @@ export const CardForm = ({
         if (hasClozeBraces) {
           dynamicAction = {
             id: 'explain_rule',
-            label: '📖 Правило',
+            label: tr("📖 Правило"),
             icon: BookOpen
           };
         } else if (hasQuizStar) {
           dynamicAction = {
             id: 'full_card',
-            label: '📝 Разбор теста',
+            label: tr("📝 Разбор теста"),
             icon: BookOpen
           };
         } else if (hasParentheses) {
           dynamicAction = {
             id: 'custom_directive',
-            label: '💬 Только просьбу',
+            label: tr("💬 Только просьбу"),
             icon: MessageSquare
           };
         }
@@ -558,7 +559,7 @@ export const CardForm = ({
                 style={{ flex: 1, background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}
               >
                 <X size={18} />
-                <span>Отменить</span>
+                <span>{tr("Отменить")}</span>
               </button>
             ) : (
               <>
@@ -605,7 +606,7 @@ export const CardForm = ({
 
       <div className="media-edit-group" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
          <div className="form-group" style={{ flex: 1 }}>
-            <label className="sub-label">Видео (Лицо)</label>
+            <label className="sub-label">{tr("Видео (Лицо)")}</label>
             {(cardData.video_front_url || cardData.video_front_path) && (
               <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
                 <video src={cardData.video_front_url || `/api/media/${cardData.video_front_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -623,12 +624,11 @@ export const CardForm = ({
               </div>
             )}
             <button type="button" className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
-              <Upload size={14} /> Выбрать
-            </button>
+              <Upload size={14} />{' '}{tr("Выбрать")}{' '}</button>
             <input ref={videoFrontRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], cardData, setCardData, 'front')} />
          </div>
          <div className="form-group" style={{ flex: 1 }}>
-            <label className="sub-label">Видео (Оборот)</label>
+            <label className="sub-label">{tr("Видео (Оборот)")}</label>
             {(cardData.video_back_url || cardData.video_back_path) && (
               <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
                 <video src={cardData.video_back_url || `/api/media/${cardData.video_back_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -646,8 +646,7 @@ export const CardForm = ({
               </div>
             )}
             <button type="button" className="btn-secondary btn-tiny" onClick={() => videoBackRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
-              <Upload size={14} /> Выбрать
-            </button>
+              <Upload size={14} />{' '}{tr("Выбрать")}{' '}</button>
             <input ref={videoBackRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], cardData, setCardData, 'back')} />
          </div>
       </div>
@@ -743,7 +742,7 @@ export const CardForm = ({
           setIsEditingExistingImage(false);
           uploadCreatorImage(editedFile, cardData, setCardData);
         }}
-        title="Редактировать картинку"
+        title={tr("Редактировать картинку")}
       />
     </div>
   );

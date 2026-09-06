@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -16,6 +18,7 @@ import { RemindersTab } from '../settings/RemindersTab';
 import { SrsTab } from '../settings/SrsTab';
 
 export const SettingsModal = ({ userId, startTutorial }) => {
+  useInterfaceLocale();
   const { isSettingsOpen, setIsSettingsOpen, settingsTab } = useUiStore();
   const { t } = useTranslation();
 
@@ -97,16 +100,16 @@ export const SettingsModal = ({ userId, startTutorial }) => {
             </div>
 
             <div className="settings-dropdown-container">
-              <label htmlFor="settings-tab-select" className="settings-dropdown-label">Раздел настроек:</label>
+              <label htmlFor="settings-tab-select" className="settings-dropdown-label">{tr("Раздел настроек:")}</label>
               <select
                 id="settings-tab-select"
                 className="settings-dropdown-select glass"
                 value={activeSettingsTab}
                 onChange={(e) => handleTabChange(e.target.value)}
               >
-                <option value="profile">👤 Профиль</option>
-                <option value="srs">🧠 SRS (Интервалы и память)</option>
-                <option value="reminders">🔔 Напоминания бота</option>
+                <option value="profile">{tr("👤 Профиль")}</option>
+                <option value="srs">{tr("🧠 SRS (Интервалы и память)")}</option>
+                <option value="reminders">{tr("🔔 Напоминания бота")}</option>
                 <option value="general">⚙️ {t('settings.tab_general', 'Общие настройки')}</option>
                 <option value="design">🎨 {t('settings.tab_design', 'Дизайн')}</option>
                 <option value="voice">🗣 {t('settings.tab_voice', 'Озвучка')}</option>

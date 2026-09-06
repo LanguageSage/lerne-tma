@@ -1,3 +1,4 @@
+import { tr } from '../../i18n/locale';
 import React from 'react';
 
 export class ErrorBoundary extends React.Component {
@@ -44,10 +45,8 @@ export class ErrorBoundary extends React.Component {
             padding: '28px 24px',
             boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
           }}>
-            <h3 style={{ color: '#f87171', marginBottom: 12 }}>Что-то пошло не так</h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 20, lineHeight: 1.5 }}>
-              Произошла непредвиденная ошибка интерфейса. Нажмите кнопку ниже для перезагрузки приложения.
-            </p>
+            <h3 style={{ color: '#f87171', marginBottom: 12 }}>{tr("Что-то пошло не так")}</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 20, lineHeight: 1.5 }}>{tr("Произошла непредвиденная ошибка интерфейса. Нажмите кнопку ниже для перезагрузки приложения.")}{' '}</p>
             <button
               onClick={this.handleReload}
               style={{
@@ -60,9 +59,7 @@ export class ErrorBoundary extends React.Component {
                 fontWeight: 700,
                 cursor: 'pointer'
               }}
-            >
-              Перезагрузить приложение
-            </button>
+            >{tr("Перезагрузить приложение")}{' '}</button>
           </div>
         </div>
       );

@@ -5,31 +5,19 @@ import ruTranslations from './locales/ru.json';
 import enTranslations from './locales/en.json';
 import { cloudStorage } from '../utils/auth';
 import api from '../services/api';
+import { setInterfaceLanguage, normalizeInterfaceLanguage, tr } from './locale';
+import { useInterfaceLocale } from './useInterfaceLocale';
 
 const TRANSLATIONS = {
   uk: ukTranslations,
   ru: ruTranslations,
-  en: enTranslations,
-  no: enTranslations
+  en: enTranslations
 };
 
 const LanguageContext = createContext();
 
 export function LanguageProvider({ children }) {
-  const [nativeLanguage, setNativeLanguage] = useState(() => {
-    const saved = localStorage.getItem('native_language');
-    if (saved && TRANSLATIONS[saved]) return saved;
-
-    // Telegram WebApp auto detect fallback
-    const tgLang = window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
-    if (tgLang && tgLang.startsWith('uk')) return 'uk';
-    if (tgLang && tgLang.startsWith('ru')) return 'ru';
-    if (tgLang && tgLang.startsWith('en')) return 'en';
-
-    // Default to Ukrainian
-    return 'uk';
-  });
-
+  const nativeLanguage = useInterfaceLocale();
   const [isFirstLaunch, setIsFirstLaunch] = useState(() => {
     const nativeDone = localStorage.getItem('native_language_selected') === 'true';
     const targetDone = localStorage.getItem('lerne_has_selected_language') === 'true';
@@ -38,16 +26,17 @@ export function LanguageProvider({ children }) {
 
   // 1. Restore native language from Telegram CloudStorage on mount if missing in LocalStorage
   useEffect(() => {
+    const savedAtStart = localStorage.getItem('native_language');
     const restoreFromCloud = async () => {
       try {
-        const [cloudSel, cloudLang, cloudTargetSel] = await Promise.all([
+        const [cloudSel, rawCloudLang, cloudTargetSel] = await Promise.all([
           cloudStorage.get('lerne_native_language_selected'),
           cloudStorage.get('lerne_native_language'),
           cloudStorage.get('lerne_has_selected_language')
         ]);
-        if (cloudSel === 'true' && cloudLang && TRANSLATIONS[cloudLang]) {
-          setNativeLanguage(cloudLang);
-          localStorage.setItem('native_language', cloudLang);
+        const cloudLang = normalizeInterfaceLanguage(rawCloudLang);
+        if (!savedAtStart && !localStorage.getItem('native_language') && cloudSel === 'true' && cloudLang) {
+          setInterfaceLanguage(cloudLang);
           localStorage.setItem('native_language_selected', 'true');
         }
         if (cloudSel === 'true' && cloudTargetSel === 'true') {
@@ -61,13 +50,18 @@ export function LanguageProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('native_language', nativeLanguage);
+    const previous = localStorage.getItem('native_language');
+    setInterfaceLanguage(nativeLanguage);
+    if (previous && previous !== nativeLanguage) {
+      cloudStorage.set('lerne_native_language', nativeLanguage);
+      api.post('/user/language', { native_language: nativeLanguage }).catch(() => {});
+    }
   }, [nativeLanguage]);
 
   const changeNativeLanguage = useCallback((code, markCompleted = false) => {
-    if (TRANSLATIONS[code]) {
-      setNativeLanguage(code);
-      localStorage.setItem('native_language', code);
+    code = normalizeInterfaceLanguage(code);
+    if (code) {
+      setInterfaceLanguage(code);
       cloudStorage.set('lerne_native_language', code);
 
       if (markCompleted) {
@@ -84,9 +78,9 @@ export function LanguageProvider({ children }) {
   }, []);
 
   const syncNativeLanguageFromExternal = useCallback((code, selected = true) => {
-    if (TRANSLATIONS[code]) {
-      setNativeLanguage(code);
-      localStorage.setItem('native_language', code);
+    code = normalizeInterfaceLanguage(code);
+    if (code) {
+      setInterfaceLanguage(code);
       cloudStorage.set('lerne_native_language', code);
       if (selected) {
         localStorage.setItem('native_language_selected', 'true');
@@ -115,7 +109,7 @@ export function LanguageProvider({ children }) {
       if (current && current[key] !== undefined) {
         current = current[key];
       } else {
-        current = fallback || path;
+        current = tr(fallback || path, null, nativeLanguage);
         break;
       }
     }

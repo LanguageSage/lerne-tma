@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import api from '../services/api';
 import { VOICES_BY_LANG, getTtsVoiceForLang } from '../constants/languageConstants';
@@ -88,7 +89,7 @@ export const useVoicePicker = (
       }
       return url || null;
     } catch (err) {
-      const msg = err?.response?.data?.detail || err.message || 'Ошибка генерации';
+      const msg = err?.response?.data?.detail || err.message || tr("Ошибка генерации");
       setGenerateError(msg);
       console.error('[useVoicePicker] generate failed:', msg);
       return null;
@@ -154,7 +155,7 @@ export const useVoicePicker = (
 
         // Smart check: if card already uses this exact audio file, don't re-save
         if (sessionCard && currentPath && cleanP(currentPath) === cleanP(path)) {
-          useUiStore.getState().showToast('Этот голос уже используется для карточки', 'info');
+          useUiStore.getState().showToast(tr("Этот голос уже используется для карточки"), 'info');
           setPreviewUrl(url);
           setWordBoundaries(boundaries);
           return url;
@@ -205,13 +206,13 @@ export const useVoicePicker = (
           }
         } catch { /* ignore */ }
 
-        useUiStore.getState().showToast('Озвучка обновлена', 'success');
+        useUiStore.getState().showToast(tr("Озвучка обновлена"), 'success');
         setPreviewUrl(url);
         setWordBoundaries(boundaries);
       }
       return url || null;
     } catch (err) {
-      const msg = err?.response?.data?.detail || err.message || 'Ошибка генерации и сохранения';
+      const msg = err?.response?.data?.detail || err.message || tr("Ошибка генерации и сохранения");
       setGenerateError(msg);
       console.error('[useVoicePicker] generateAndSaveToCard failed:', msg);
       return null;

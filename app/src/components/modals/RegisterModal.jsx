@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Mail, Phone, Send, Sparkles, CheckCircle2 } from 'lucide-react';
@@ -7,6 +9,7 @@ import api from '../../services/api';
 import { getUserId, storage } from '../../utils/auth';
 
 export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
+  useInterfaceLocale();
   const { setUserProfile, showToast, setIsAccountDeleted } = useUiStore();
   const { fetchDecks } = useDeckStore();
   
@@ -22,7 +25,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
   const handleSubmit = async (e) => {
     e?.preventDefault();
     if (!name.trim()) {
-      showToast("Пожалуйста, введите ваше имя", "error");
+      showToast(tr("Пожалуйста, введите ваше имя"), "error");
       return;
     }
 
@@ -42,7 +45,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
         storage.set('lerne_user_id', newProfile.user_id);
         
         setIsAccountDeleted(false);
-        showToast("Профиль успешно создан!", "success");
+        showToast(tr("Профиль успешно создан!"), "success");
         
         await fetchDecks(true);
         onSuccess?.();
@@ -50,7 +53,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
       }
     } catch (err) {
       console.error("Registration error:", err);
-      showToast("Ошибка при создании профиля", "error");
+      showToast(tr("Ошибка при создании профиля"), "error");
     } finally {
       setLoading(false);
     }
@@ -75,7 +78,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
             storage.remove('lerne_last_sync_time');
             storage.remove('lerne_last_sync_user_id');
             setIsAccountDeleted(false);
-            showToast("Успешный вход через Telegram!", "success");
+            showToast(tr("Успешный вход через Telegram!"), "success");
             
             setTimeout(() => {
               window.location.reload();
@@ -89,7 +92,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
         setIsPolling(false);
       }, 120000);
     } catch {
-      showToast("Не удалось запустить привязку", "error");
+      showToast(tr("Не удалось запустить привязку"), "error");
     }
   };
 
@@ -115,9 +118,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
                 }}>
                   <Sparkles size={20} color="#a855f7" />
                 </div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'white' }}>
-                  Создание профиля
-                </h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'white' }}>{tr("Создание профиля")}{' '}</h2>
               </div>
               <button className="close-btn" onClick={onClose}>
                 <X size={20} />
@@ -125,19 +126,16 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 4px 0', lineHeight: 1.4 }}>
-                Укажите данные для сохранения личного прогресса и доступа с любого устройства.
-              </p>
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 4px 0', lineHeight: 1.4 }}>{tr("Укажите данные для сохранения личного прогресса и доступа с любого устройства.")}{' '}</p>
 
               {/* Name */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: '#cbd5e1', marginBottom: 6 }}>
-                  <User size={14} color="#818cf8" /> Ваше имя *
-                </label>
+                  <User size={14} color="#818cf8" />{' '}{tr("Ваше имя *")}{' '}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Как к вам обращаться"
+                  placeholder={tr("Как к вам обращаться")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   style={{
@@ -151,8 +149,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
               {/* Email */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: '#cbd5e1', marginBottom: 6 }}>
-                  <Mail size={14} color="#818cf8" /> Email (электронная почта)
-                </label>
+                  <Mail size={14} color="#818cf8" />{' '}{tr("Email (электронная почта)")}{' '}</label>
                 <input
                   type="email"
                   placeholder="example@mail.com"
@@ -169,8 +166,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
               {/* Phone */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: '#cbd5e1', marginBottom: 6 }}>
-                  <Phone size={14} color="#818cf8" /> Телефон (опционально)
-                </label>
+                  <Phone size={14} color="#818cf8" />{' '}{tr("Телефон (опционально)")}{' '}</label>
                 <input
                   type="tel"
                   placeholder="+7 (900) 000-00-00"
@@ -196,13 +192,13 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
                 }}
               >
                 <CheckCircle2 size={18} />
-                <span>{loading ? "Сохранение..." : "Создать аккаунт и начать"}</span>
+                <span>{loading ? tr("Сохранение...") : tr("Создать аккаунт и начать")}</span>
               </button>
 
               {/* Divider */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0' }}>
                 <div style={{ flex: 1, height: 1, background: 'rgba(255, 255, 255, 0.1)' }} />
-                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>ИЛИ</span>
+                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>{tr("ИЛИ")}</span>
                 <div style={{ flex: 1, height: 1, background: 'rgba(255, 255, 255, 0.1)' }} />
               </div>
 
@@ -222,7 +218,7 @@ export const RegisterModal = ({ isOpen, onClose, onSuccess }) => {
                 }}
               >
                 <Send size={16} />
-                <span>{isPolling ? "Ожидание в Telegram..." : "Войти через Telegram в 1 клик"}</span>
+                <span>{isPolling ? tr("Ожидание в Telegram...") : tr("Войти через Telegram в 1 клик")}</span>
               </a>
             </form>
           </motion.div>

@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { prepareLocalDb, getNextTempId } from './localDb';
 import { networkApi } from './api';
 import { getUserId } from '../utils/auth';
@@ -85,7 +86,7 @@ async function acknowledge(db, batch, mappings) {
 
 async function applySnapshot(db, data, userId) {
   if (data.status !== 'success' || !entities.every(name => Array.isArray(data[name]))) {
-    throw new Error('Некорректный ответ синхронизации');
+    throw new Error(tr("Некорректный ответ синхронизации"));
   }
   await db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
     for (const name of entities) {
@@ -117,7 +118,7 @@ export const syncService = {
   },
   async runSync() {
     if (this.isSyncing) return { success: false, reason: 'Already syncing' };
-    if (!navigator.onLine) return { success: false, reason: 'Нет подключения к интернету' };
+    if (!navigator.onLine) return { success: false, reason: tr("Нет подключения к интернету") };
     this.isSyncing = true;
     const userId = getUserId();
     const options = { headers: { 'X-User-ID': String(userId) } };
@@ -127,11 +128,11 @@ export const syncService = {
       const batch = await pendingBatch(db, userId);
       if (batch) {
         const response = await networkApi.post('/sync/v2/push', payloadFor(batch), options);
-        if (response.data?.status !== 'success' || !response.data.mappings) throw new Error('Сервер не подтвердил сохранение изменений');
+        if (response.data?.status !== 'success' || !response.data.mappings) throw new Error(tr("Сервер не подтвердил сохранение изменений"));
         mappings = response.data.mappings;
         for (const name of ['folders', 'decks', 'cards']) {
           for (const item of batch[name].filter(item => item.id < 0)) {
-            if (!(mappings[name]?.[String(item.id)] > 0)) throw new Error('Сервер не вернул идентификатор новой записи');
+            if (!(mappings[name]?.[String(item.id)] > 0)) throw new Error(tr("Сервер не вернул идентификатор новой записи"));
           }
         }
         await acknowledge(db, batch, mappings);
@@ -147,7 +148,7 @@ export const syncService = {
       return { success: true, server_time: response.data.server_time };
     } catch (error) {
       const reason = error.response?.status === 404
-        ? 'Сервер ещё не обновлён для офлайн-синхронизации. Данные сохранены на устройстве.'
+        ? tr("Сервер ещё не обновлён для офлайн-синхронизации. Данные сохранены на устройстве.")
         : error.response?.data?.detail || error.message;
       console.warn('[Sync]', reason);
       return { success: false, reason };

@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -81,7 +82,7 @@ export const useCardEditor = () => {
 
       const res = await api.post('/cards/save', reqData);
 
-      showToast("Карточка сохранена", "success");
+      showToast(tr("Карточка сохранена"), "success");
       
       const { deckCards } = useDeckStore.getState();
       let savedCard = (res?.data && res.data.id) ? res.data : data;
@@ -187,18 +188,18 @@ export const useCardEditor = () => {
     } catch (err) {
       console.error(err);
       const detail = err.response?.data?.detail || err.message;
-      showToast(`Ошибка сохранения: ${detail}`, "error");
+      showToast(tr("Ошибка сохранения: {{p0}}", { p0: detail }), "error");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteCard = async (cardId, skipConfirm = false) => {
-    if (!skipConfirm && !window.confirm("Удалить эту карточку?")) return;
+    if (!skipConfirm && !window.confirm(tr("Удалить эту карточку?"))) return;
     setLoading(true);
     try {
       await api.delete(`/cards/${cardId}`);
-      showToast("Карточка удалена", "success");
+      showToast(tr("Карточка удалена"), "success");
       
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
@@ -245,7 +246,7 @@ export const useCardEditor = () => {
       }
     } catch (err) {
       console.error('Delete Card Error:', err);
-      showToast("Ошибка при удалении");
+      showToast(tr("Ошибка при удалении"));
     } finally {
       setLoading(false);
     }
@@ -265,7 +266,7 @@ export const useCardEditor = () => {
         video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
         video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url)
       });
-      showToast("Карточка перемещена", "success");
+      showToast(tr("Карточка перемещена"), "success");
       
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
@@ -292,7 +293,7 @@ export const useCardEditor = () => {
       }
       fetchDecks(true);
     } catch (err) {
-      showToast(`Ошибка при перемещении: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка при перемещении: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     }
     setLoading(false);
   };
@@ -312,14 +313,14 @@ export const useCardEditor = () => {
         video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url),
         allow_duplicate: true
       });
-      showToast("Карточка скопирована", "success");
+      showToast(tr("Карточка скопирована"), "success");
       const { currentDeck } = useDeckStore.getState();
       if (currentDeck && currentDeck.id === targetDeckId) {
         fetchDeckCards(currentDeck.id);
       }
       fetchDecks(true);
     } catch (err) {
-      showToast(`Ошибка при копировании: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка при копировании: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     }
     setLoading(false);
   };
@@ -340,18 +341,18 @@ export const useCardEditor = () => {
       const isMobile = isTelegram() || isNative();
       if (isMobile) setLoading(true);
 
-      const title = targetCard.front || 'Карточка Lerne';
+      const title = targetCard.front || tr("Карточка Lerne");
       const text = `${targetCard.front || ''} — ${targetCard.back || ''}`;
       
       const shareData = {
-        title: `Учи слово в Lerne: ${title}`,
-        text: `Изучай немецкий язык с карточкой: "${text}"`,
+        title: tr("Учи слово в Lerne: {{p0}}", { p0: title }),
+        text: tr("Изучай немецкий язык с карточкой: \"{{p0}}\"", { p0: text }),
         url: link
       };
 
       if (!isMobile && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         await navigator.clipboard.writeText(link);
-        showToast("Ссылка скопирована!", "success");
+        showToast(tr("Ссылка скопирована!"), "success");
         return { success: true, type: 'copy' };
       }
 
@@ -366,13 +367,13 @@ export const useCardEditor = () => {
           link
         });
         if (result.type === 'copy') {
-          showToast("Ссылка скопирована!", "success");
+          showToast(tr("Ссылка скопирована!"), "success");
         }
         if (isMobile) setLoading(false);
         return result;
       }
     } catch {
-      showToast("Ошибка при создании ссылки", "error");
+      showToast(tr("Ошибка при создании ссылки"), "error");
     } finally {
       setLoading(false);
     }
@@ -392,9 +393,9 @@ export const useCardEditor = () => {
       useDeckStore.setState(state => ({
         deckCards: state.deckCards.map(c => c.id === targetCard.id ? { ...c, flag: updatedCard.flag } : c)
       }));
-      showToast(flag ? "Метка установлена" : "Метка снята", "success");
+      showToast(flag ? tr("Метка установлена") : tr("Метка снята"), "success");
     } catch {
-      showToast("Ошибка при установке метки");
+      showToast(tr("Ошибка при установке метки"));
     }
   };
 

@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -17,6 +19,7 @@ import { CardAudioPlayer } from '../study/CardAudioPlayer';
 import './LidExam.css';
 
 export const LidExamView = () => {
+  useInterfaceLocale();
   const { setView, showToast } = useUiStore();
   const {
     screen,
@@ -86,7 +89,7 @@ export const LidExamView = () => {
 
   const handleStartExamFlow = (mode) => {
     if (!selectedLandCode) {
-      showToast('Пожалуйста, выберите федеральную землю для экзамена', 'warning');
+      showToast(tr("Пожалуйста, выберите федеральную землю для экзамена"), 'warning');
       useLidStore.getState().setPendingExamMode(mode);
       openLandModal(true);
     } else {
@@ -119,16 +122,14 @@ export const LidExamView = () => {
               type="button"
               className="lid-back-btn"
               onClick={handleBackToDecks}
-              title="Назад к колодам"
+              title={tr("Назад к колодам")}
             >
               <ArrowLeft size={20} />
             </button>
             <div className="lid-menu-title-wrap">
               <span className="lid-hero-flag">🇩🇪</span>
               <h2 className="lid-menu-title">Leben in Deutschland</h2>
-              <span className="lid-menu-subtitle">
-                Официальный симулятор экзамена BAMF
-              </span>
+              <span className="lid-menu-subtitle">{tr("Официальный симулятор экзамена BAMF")}{' '}</span>
             </div>
           </div>
 
@@ -140,13 +141,13 @@ export const LidExamView = () => {
                   <span>{stateInfo?.symbol || '🇩🇪'}</span>
                 </div>
                 <div className="lid-land-banner-info">
-                  <div className="lid-land-banner-label">Ваша земля для теста:</div>
+                  <div className="lid-land-banner-label">{tr("Ваша земля для теста:")}</div>
                   <div className="lid-land-banner-name">
                     {stateInfo?.nameDe} <span className="lid-ru-sub">({stateInfo?.nameRu})</span>
                   </div>
                   <div className="lid-land-banner-capital">
                     <MapPin size={12} />
-                    <span>Столица: {stateInfo?.capital}</span>
+                    <span>{tr("Столица:")}{' '}{stateInfo?.capital}</span>
                   </div>
                 </div>
               </div>
@@ -160,7 +161,7 @@ export const LidExamView = () => {
                 }}
               >
                 <RefreshCw size={14} />
-                <span>Сменить землю</span>
+                <span>{tr("Сменить землю")}</span>
               </button>
             </div>
           ) : (
@@ -173,14 +174,10 @@ export const LidExamView = () => {
                   <MapPin size={22} color="#facc15" />
                 </div>
                 <div className="lid-land-banner-info">
-                  <div className="lid-land-banner-label" style={{ color: '#facc15' }}>
-                    ⚠️ Земля не выбрана
-                  </div>
-                  <div className="lid-land-banner-name">
-                    Выберите землю
-                  </div>
+                  <div className="lid-land-banner-label" style={{ color: '#facc15' }}>{tr("⚠️ Земля не выбрана")}{' '}</div>
+                  <div className="lid-land-banner-name">{tr("Выберите землю")}{' '}</div>
                   <div className="lid-land-banner-capital">
-                    <span>3 региональных вопроса войдут в билет</span>
+                    <span>{tr("3 региональных вопроса войдут в билет")}</span>
                   </div>
                 </div>
               </div>
@@ -193,7 +190,7 @@ export const LidExamView = () => {
                   openLandModal(true);
                 }}
               >
-                <span>Выбрать землю</span>
+                <span>{tr("Выбрать землю")}</span>
                 <ArrowRight size={14} />
               </button>
             </div>
@@ -203,17 +200,17 @@ export const LidExamView = () => {
           <div className="lid-rules-banner glass">
             <div className="lid-rule-item">
               <span className="lid-rule-val">33</span>
-              <span className="lid-rule-lbl">вопроса</span>
+              <span className="lid-rule-lbl">{tr("вопроса")}</span>
             </div>
             <div className="lid-rule-divider" />
             <div className="lid-rule-item">
               <span className="lid-rule-val">60:00</span>
-              <span className="lid-rule-lbl">таймер</span>
+              <span className="lid-rule-lbl">{tr("таймер")}</span>
             </div>
             <div className="lid-rule-divider" />
             <div className="lid-rule-item">
               <span className="lid-rule-val">17 / 33</span>
-              <span className="lid-rule-lbl">порог сдачи</span>
+              <span className="lid-rule-lbl">{tr("порог сдачи")}</span>
             </div>
           </div>
 
@@ -228,15 +225,15 @@ export const LidExamView = () => {
             >
               <div className="lid-mode-badge exam">
                 <ShieldCheck size={16} />
-                <span>Реальный экзамен</span>
+                <span>{tr("Реальный экзамен")}</span>
               </div>
-              <h3 className="lid-mode-title">Режим экзамена (Exam Mode)</h3>
+              <h3 className="lid-mode-title">{tr("Режим экзамена (Exam Mode)")}</h3>
               <ul className="lid-mode-features">
-                <li>⏱️ Строгий таймер 60 минут</li>
-                <li>🔒 Ответы скрыты до завершения билета</li>
-                <li>🚫 Без озвучки и перевода (условия реального теста)</li>
-                <li>🔄 Свободный возврат и смена вариантов (1..33)</li>
-                <li>📊 Итоговый балл (🟢 СДАНО / 🔴 НЕ СДАНО) и разбор ошибок</li>
+                <li>{tr("⏱️ Строгий таймер 60 минут")}</li>
+                <li>{tr("🔒 Ответы скрыты до завершения билета")}</li>
+                <li>{tr("🚫 Без озвучки и перевода (условия реального теста)")}</li>
+                <li>{tr("🔄 Свободный возврат и смена вариантов (1..33)")}</li>
+                <li>{tr("📊 Итоговый балл (🟢 СДАНО / 🔴 НЕ СДАНО) и разбор ошибок")}</li>
               </ul>
               <button
                 type="button"
@@ -246,7 +243,7 @@ export const LidExamView = () => {
                   handleStartExamFlow('exam');
                 }}
               >
-                <span>Начать экзамен</span>
+                <span>{tr("Начать экзамен")}</span>
                 <ArrowRight size={18} />
               </button>
             </motion.div>
@@ -260,14 +257,14 @@ export const LidExamView = () => {
             >
               <div className="lid-mode-badge practice">
                 <BookOpen size={16} />
-                <span>Обучение</span>
+                <span>{tr("Обучение")}</span>
               </div>
-              <h3 className="lid-mode-title">Режим тренировки (Practice Mode)</h3>
+              <h3 className="lid-mode-title">{tr("Режим тренировки (Practice Mode)")}</h3>
               <ul className="lid-mode-features">
-                <li>⏱️ Таймер 60 минут</li>
-                <li>🔊 Озвучка вопросов и перевод на русский</li>
-                <li>💡 Мгновенная подсветка правильного ответа</li>
-                <li>📖 Подробные объяснения и разбор на обороте</li>
+                <li>{tr("⏱️ Таймер 60 минут")}</li>
+                <li>{tr("🔊 Озвучка вопросов и перевод на русский")}</li>
+                <li>{tr("💡 Мгновенная подсветка правильного ответа")}</li>
+                <li>{tr("📖 Подробные объяснения и разбор на обороте")}</li>
               </ul>
               <button
                 type="button"
@@ -277,7 +274,7 @@ export const LidExamView = () => {
                   handleStartExamFlow('practice');
                 }}
               >
-                <span>Начать тренировку</span>
+                <span>{tr("Начать тренировку")}</span>
                 <ArrowRight size={18} />
               </button>
             </motion.div>
@@ -300,12 +297,8 @@ export const LidExamView = () => {
           padding: '20px'
         }}>
           <RefreshCw size={40} className="spin" color="#38bdf8" />
-          <h3 style={{ marginTop: 16, marginBottom: 6, color: '#f8fafc', fontSize: '1.2rem', fontWeight: 700 }}>
-            Формирование билета...
-          </h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0, textAlign: 'center' }}>
-            Подбираем 33 официальных вопроса экзамена BAMF
-          </p>
+          <h3 style={{ marginTop: 16, marginBottom: 6, color: '#f8fafc', fontSize: '1.2rem', fontWeight: 700 }}>{tr("Формирование билета...")}{' '}</h3>
+          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0, textAlign: 'center' }}>{tr("Подбираем 33 официальных вопроса экзамена BAMF")}{' '}</p>
         </div>
       )}
 
@@ -319,10 +312,8 @@ export const LidExamView = () => {
           background: 'rgba(30, 41, 59, 0.7)',
           border: '1px solid rgba(255, 255, 255, 0.1)'
         }}>
-          <h3 style={{ color: '#f87171', marginBottom: 8, fontSize: '1.2rem' }}>Не удалось загрузить вопросы</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 20, maxWidth: 320, margin: '0 auto 20px' }}>
-            Произошла задержка при получении вопросов. Нажмите кнопку ниже, чтобы вернуться в меню.
-          </p>
+          <h3 style={{ color: '#f87171', marginBottom: 8, fontSize: '1.2rem' }}>{tr("Не удалось загрузить вопросы")}</h3>
+          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 20, maxWidth: 320, margin: '0 auto 20px' }}>{tr("Произошла задержка при получении вопросов. Нажмите кнопку ниже, чтобы вернуться в меню.")}{' '}</p>
           <button
             type="button"
             className="btn btn-primary"
@@ -330,7 +321,7 @@ export const LidExamView = () => {
             style={{ margin: '0 auto', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px' }}
           >
             <ArrowLeft size={16} />
-            <span>Вернуться в меню</span>
+            <span>{tr("Вернуться в меню")}</span>
           </button>
         </div>
       )}
@@ -345,12 +336,12 @@ export const LidExamView = () => {
                 type="button"
                 className="lid-exam-exit-btn"
                 onClick={() => resetToMenu()}
-                title="Назад в меню"
+                title={tr("Назад в меню")}
               >
                 <ArrowLeft size={18} />
               </button>
               <div className="lid-exam-mode-tag">
-                {examMode === 'exam' ? '📝 Экзамен' : '🎓 Тренировка'}
+                {examMode === 'exam' ? tr("📝 Экзамен") : tr("🎓 Тренировка")}
               </div>
             </div>
 
@@ -365,15 +356,12 @@ export const LidExamView = () => {
               type="button"
               className="btn btn-primary lid-btn-finish-exam"
               onClick={handleFinishClick}
-            >
-              Завершить
-            </button>
+            >{tr("Завершить")}{' '}</button>
           </div>
 
           {/* Progress bar info */}
           <div className="lid-exam-progress-bar-row">
-            <span className="lid-progress-answered">
-              Отвечено: <strong>{answeredCount}</strong> из {totalQ}
+            <span className="lid-progress-answered">{tr("Отвечено:")}{' '}<strong>{answeredCount}</strong>{' '}{tr("из")}{' '}{totalQ}
             </span>
             <div className="lid-progress-track">
               <div
@@ -423,13 +411,13 @@ export const LidExamView = () => {
               onClick={prevQuestion}
             >
               <ArrowLeft size={16} />
-              <span>Назад</span>
+              <span>{tr("Назад")}</span>
             </button>
 
             {/* Official BAMF Question Number in Practice Mode: center between Назад and Далее */}
             <div className="lid-nav-bamf-num-center">
               {examMode === 'practice' && answers[currentQ?.id] && currentQ?.bamfNumber ? (
-                <div className="lid-nav-bamf-num-badge" title="Номер вопроса">
+                <div className="lid-nav-bamf-num-badge" title={tr("Номер вопроса")}>
                   <span>{currentQ.bamfNumber}</span>
                 </div>
               ) : null}
@@ -441,7 +429,7 @@ export const LidExamView = () => {
                 className="btn btn-primary lid-nav-next-btn"
                 onClick={nextQuestion}
               >
-                <span>Далее</span>
+                <span>{tr("Далее")}</span>
                 <ArrowRight size={16} />
               </button>
             ) : (
@@ -450,7 +438,7 @@ export const LidExamView = () => {
                 className="btn btn-primary lid-nav-submit-btn"
                 onClick={handleFinishClick}
               >
-                <span>Завершить тест</span>
+                <span>{tr("Завершить тест")}</span>
                 <Check size={16} />
               </button>
             )}

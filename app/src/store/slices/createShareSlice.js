@@ -1,3 +1,4 @@
+import { tr } from '../../i18n/locale';
 import api from '../../services/api';
 import { getPublicShareUrl, executeShare } from '../../utils/share';
 
@@ -19,13 +20,13 @@ export const createShareSlice = (set, get) => ({
       if (res.data.status === 'ok') {
         const link = getPublicShareUrl(res.data.share_id);
         const deck = get().decks.find(d => d.id === targetId || d.id === deckId);
-        const deckName = deck?.name || 'Колода';
+        const deckName = deck?.name || tr("Колода");
         const cardCount = deck?.stats?.total || deck?.cards_count || '';
         const level = deck?.level ? ` • ${deck.level}` : '';
-        const text = `🇩🇪 Делюсь с тобой колодой «${deckName}»${cardCount ? ` (${cardCount} карточек${level})` : ''} в Lerne.\nНажми ссылку и кнопку «Старт», чтобы открыть её в браузере:`;
+        const text = tr("🇩🇪 Делюсь с тобой колодой «{{p0}}»{{p1}} в Lerne.\nНажми ссылку и кнопку «Старт», чтобы открыть её в браузере:", { p0: deckName, p1: cardCount ? tr(" ({{p0}} карточек{{p1}})", { p0: cardCount, p1: level }) : '' });
 
         return await executeShare({
-          title: `Колода «${deckName}» в Lerne`,
+          title: tr("Колода «{{p0}}» в Lerne", { p0: deckName }),
           text,
           link
         });
@@ -54,11 +55,11 @@ export const createShareSlice = (set, get) => ({
       if (res.data.status === 'ok') {
         const link = getPublicShareUrl(res.data.share_id);
         const folder = get().folders.find(f => f.id === targetId || f.id === folderId);
-        const folderName = folder?.name || 'Папка';
-        const text = `🇩🇪 Делюсь с тобой папкой «${folderName}» в Lerne.\nНажми ссылку и кнопку «Старт», чтобы открыть её в браузере:`;
+        const folderName = folder?.name || tr("Папка");
+        const text = tr("🇩🇪 Делюсь с тобой папкой «{{p0}}» в Lerne.\nНажми ссылку и кнопку «Старт», чтобы открыть её в браузере:", { p0: folderName });
 
         return await executeShare({
-          title: `Папка «${folderName}» в Lerne`,
+          title: tr("Папка «{{p0}}» в Lerne", { p0: folderName }),
           text,
           link
         });

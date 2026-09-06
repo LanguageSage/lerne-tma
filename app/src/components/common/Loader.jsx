@@ -1,8 +1,11 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export const GlobalLoader = ({ isVisible, message = "Загрузка данных..." }) => {
+export const GlobalLoader = ({ isVisible, message = tr("Загрузка данных...") }) => {
+  useInterfaceLocale();
   return (
     <AnimatePresence>
       {isVisible && (

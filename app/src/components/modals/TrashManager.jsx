@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, RotateCcw, ArrowLeft, Layers, FileText, CheckCircle, RefreshCw } from 'lucide-react';
@@ -7,6 +9,7 @@ import { navigateUp } from '../../utils/navigation';
 import '../TrashManager.css';
 
 export const TrashManager = () => {
+  useInterfaceLocale();
   const [activeTab, setActiveTab] = useState('decks'); // 'decks' | 'cards'
   const [restoringId, setRestoringId] = useState(null);
   const [clearing, setClearing] = useState(false);
@@ -22,9 +25,9 @@ export const TrashManager = () => {
     setRestoringId(`deck-${deckId}`);
     try {
       await restoreTrashDeck(deckId);
-      showToast('Колода успешно восстановлена!', 'success');
+      showToast(tr("Колода успешно восстановлена!"), 'success');
     } catch {
-      showToast('Ошибка при восстановлении колоды');
+      showToast(tr("Ошибка при восстановлении колоды"));
     } finally {
       setRestoringId(null);
     }
@@ -34,24 +37,24 @@ export const TrashManager = () => {
     setRestoringId(`card-${cardId}`);
     try {
       await restoreTrashCard(cardId);
-      showToast('Карточка успешно восстановлена!', 'success');
+      showToast(tr("Карточка успешно восстановлена!"), 'success');
     } catch {
-      showToast('Ошибка при восстановлении карточки');
+      showToast(tr("Ошибка при восстановлении карточки"));
     } finally {
       setRestoringId(null);
     }
   };
 
   const handleClearTrash = async () => {
-    if (!window.confirm('Вы уверены, что хотите окончательно удалить все элементы из корзины? Это действие необратимо!')) {
+    if (!window.confirm(tr("Вы уверены, что хотите окончательно удалить все элементы из корзины? Это действие необратимо!"))) {
       return;
     }
     setClearing(true);
     try {
       await clearTrash();
-      showToast('Корзина успешно очищена', 'success');
+      showToast(tr("Корзина успешно очищена"), 'success');
     } catch {
-      showToast('Ошибка при очистке корзины');
+      showToast(tr("Ошибка при очистке корзины"));
     } finally {
       setClearing(false);
     }
@@ -71,14 +74,13 @@ export const TrashManager = () => {
         <button 
           className="trash-back-btn" 
           onClick={navigateUp}
-          title="Назад"
-          aria-label="Назад"
+          title={tr("Назад")}
+          aria-label={tr("Назад")}
         >
-          <ArrowLeft size={18} /> Назад к колодам
-        </button>
+          <ArrowLeft size={18} />{' '}{tr("Назад к колодам")}{' '}</button>
         <div className="trash-title">
           <Trash2 size={24} color="#f87171" />
-          <h1>Корзина</h1>
+          <h1>{tr("Корзина")}</h1>
         </div>
         <button 
           className="trash-clear-btn" 
@@ -86,7 +88,7 @@ export const TrashManager = () => {
           disabled={isEmpty || clearing}
         >
           {clearing ? <RefreshCw size={16} className="spin" /> : <Trash2 size={16} />}
-          <span>Очистить корзину</span>
+          <span>{tr("Очистить корзину")}</span>
         </button>
       </div>
 
@@ -96,14 +98,14 @@ export const TrashManager = () => {
           onClick={() => setActiveTab('decks')}
         >
           <Layers size={18} />
-          <span>Колоды ({decks.length})</span>
+          <span>{tr("Колоды (")}{decks.length})</span>
         </button>
         <button 
           className={`trash-tab ${activeTab === 'cards' ? 'active' : ''}`}
           onClick={() => setActiveTab('cards')}
         >
           <FileText size={18} />
-          <span>Карточки ({cards.length})</span>
+          <span>{tr("Карточки (")}{cards.length})</span>
         </button>
       </div>
 
@@ -119,8 +121,8 @@ export const TrashManager = () => {
             {decks.length === 0 ? (
               <div className="trash-empty" style={{ gridColumn: '1 / -1' }}>
                 <Layers size={48} opacity={0.3} />
-                <h3>Удаленных колод нет</h3>
-                <p>Колоды, которые вы удалите, появятся здесь для возможности восстановления.</p>
+                <h3>{tr("Удаленных колод нет")}</h3>
+                <p>{tr("Колоды, которые вы удалите, появятся здесь для возможности восстановления.")}</p>
               </div>
             ) : (
               decks.map((deck) => (
@@ -129,8 +131,7 @@ export const TrashManager = () => {
                     <h3>{deck.name}</h3>
                     {deck.topic && <div className="trash-card-meta">📁 {deck.topic}</div>}
                     <div className="trash-card-meta" style={{ marginTop: 8 }}>
-                      🃏 {deck.cards_count} карточек
-                    </div>
+                      🃏 {deck.cards_count}{' '}{tr("карточек")}{' '}</div>
                   </div>
                   <div className="trash-card-actions">
                     <button 
@@ -141,7 +142,7 @@ export const TrashManager = () => {
                       {restoringId === `deck-${deck.id}` ? (
                         <RefreshCw size={16} className="spin" />
                       ) : (
-                        <><RotateCcw size={16} /> Восстановить</>
+                        <><RotateCcw size={16} />{' '}{tr("Восстановить")}</>
                       )}
                     </button>
                   </div>
@@ -160,8 +161,8 @@ export const TrashManager = () => {
             {cards.length === 0 ? (
               <div className="trash-empty" style={{ gridColumn: '1 / -1' }}>
                 <FileText size={48} opacity={0.3} />
-                <h3>Удаленных карточек нет</h3>
-                <p>Отдельные карточки, которые вы удалите, появятся здесь.</p>
+                <h3>{tr("Удаленных карточек нет")}</h3>
+                <p>{tr("Отдельные карточки, которые вы удалите, появятся здесь.")}</p>
               </div>
             ) : (
               cards.map((card) => (
@@ -186,7 +187,7 @@ export const TrashManager = () => {
                       {restoringId === `card-${card.id}` ? (
                         <RefreshCw size={16} className="spin" />
                       ) : (
-                        <><RotateCcw size={16} /> Восстановить</>
+                        <><RotateCcw size={16} />{' '}{tr("Восстановить")}</>
                       )}
                     </button>
                   </div>

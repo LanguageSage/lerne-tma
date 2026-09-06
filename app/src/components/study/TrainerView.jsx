@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Clock, Target, Folder, Eye } from 'lucide-react';
 
@@ -14,6 +16,7 @@ import { TrainerFinished } from './TrainerFinished';
 import { navigateUp } from '../../utils/navigation';
 
 export const TrainerView = () => {
+  useInterfaceLocale();
   const { showToast } = useUiStore();
   const { currentDeck, deckCards, fetchDeckCards } = useDeckStore();
 
@@ -189,8 +192,8 @@ export const TrainerView = () => {
         <button
           className="back-btn btn-header-back"
           onClick={navigateUp}
-          title="Вернуться к колоде"
-          aria-label="Вернуться к колоде"
+          title={tr("Вернуться к колоде")}
+          aria-label={tr("Вернуться к колоде")}
           style={{
             gap: '6px',
             padding: '8px 14px',
@@ -199,7 +202,7 @@ export const TrainerView = () => {
           }}
         >
           <ArrowLeft size={18} />
-          <span>Колода</span>
+          <span>{tr("Колода")}</span>
         </button>
 
         {/* Center: Live Timer and Accuracy Pill */}
@@ -337,9 +340,7 @@ export const TrainerView = () => {
                     marginBottom: '14px',
                     textAlign: 'center'
                   }}>
-                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Перевод
-                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tr("Перевод")}{' '}</div>
                     <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#4ade80', whiteSpace: 'pre-wrap', ...backCardStyle }}>
                       {stripMarkdown(currentCard.back)}
                     </div>
@@ -382,9 +383,7 @@ export const TrainerView = () => {
                         cursor: 'pointer'
                       }}
                       onClick={handleNextCard}
-                    >
-                      Дальше →
-                    </button>
+                    >{tr("Дальше →")}{' '}</button>
 
                     <button
                       type="button"
@@ -402,7 +401,7 @@ export const TrainerView = () => {
                       onClick={() => setIsFlipped(false)}
                     >
                       <Eye size={15} />
-                      <span>Вернуться к заданию</span>
+                      <span>{tr("Вернуться к заданию")}</span>
                     </button>
                   </div>
                 </div>

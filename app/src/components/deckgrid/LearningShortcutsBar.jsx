@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Layers, ChevronRight } from 'lucide-react';
@@ -9,6 +11,7 @@ export const LearningShortcutsBar = ({
   setCurrentDeck,
   fetchDeckCards
 }) => {
+  useInterfaceLocale();
   if (!learningDecks || learningDecks.length === 0) return null;
 
   const handleOpenDeck = (deck) => {
@@ -28,7 +31,7 @@ export const LearningShortcutsBar = ({
       <div className="learning-shortcuts-header">
         <div className="learning-shortcuts-title">
           <span className="flame-icon-pulse">🔥</span>
-          <span className="title-text">Сейчас усиленно учу</span>
+          <span className="title-text">{tr("Сейчас усиленно учу")}</span>
           <span className="learning-count-pill">{learningDecks.length}</span>
         </div>
       </div>
@@ -65,22 +68,22 @@ export const LearningShortcutsBar = ({
               <div className="shortcut-bottom-row">
                 {hasCardsToStudy ? (
                   <div className="shortcut-srs-counters">
-                    <span className="shortcut-srs-pill pill-due" title="К повторению сегодня">
+                    <span className="shortcut-srs-pill pill-due" title={tr("К повторению сегодня")}>
                       <span className="anki-dot dot-red" />
                       <span className="srs-count-val">{dueCount}</span>
                     </span>
-                    <span className="shortcut-srs-pill pill-learning" title="На закреплении">
+                    <span className="shortcut-srs-pill pill-learning" title={tr("На закреплении")}>
                       <span className="anki-dot dot-yellow" />
                       <span className="srs-count-val">{learningCount}</span>
                     </span>
-                    <span className="shortcut-srs-pill pill-new" title="Новые карточки">
+                    <span className="shortcut-srs-pill pill-new" title={tr("Новые карточки")}>
                       <span className="anki-dot dot-blue" />
                       <span className="srs-count-val">{newCount}</span>
                     </span>
                   </div>
                 ) : (
                   <span className="shortcut-done-badge">
-                    <span>✓ Повторено</span>
+                    <span>{tr("✓ Повторено")}</span>
                   </span>
                 )}
               </div>

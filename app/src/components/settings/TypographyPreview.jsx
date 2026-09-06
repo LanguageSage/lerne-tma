@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { CardBackground } from '../common/CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
@@ -5,6 +7,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { getHarmonizedContextColor } from '../../utils/cardStyles';
 
 export const TypographyPreview = ({ styleType = 'standard', showContext = true }) => {
+  useInterfaceLocale();
   const {
     cardFont, cardTextColor, cardFontSize, cardTextShadow, cardFontWeight, cardFontStyle, cardTextAlign,
     backTextColor,
@@ -45,7 +48,7 @@ export const TypographyPreview = ({ styleType = 'standard', showContext = true }
           textAlign: showContext ? (contextTextAlign || 'left') : (cardTextAlign || 'center'),
           marginBottom: showContext ? '10px' : '0'
         }}>
-          {showContext ? 'Перевод фразы' : 'Sample Phrase'}
+          {showContext ? tr("Перевод фразы") : 'Sample Phrase'}
         </div>
         {showContext && (
           <div style={{ 
@@ -57,9 +60,7 @@ export const TypographyPreview = ({ styleType = 'standard', showContext = true }
             fontStyle: contextFontStyle,
             textAlign: contextTextAlign || 'left',
             opacity: 0.95
-          }}>
-            Пример контекста и предложения
-          </div>
+          }}>{tr("Пример контекста и предложения")}{' '}</div>
         )}
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { useRef, useCallback, useEffect, useState } from 'react';
 
 let isLockActive = false;
@@ -28,9 +29,9 @@ export const startBackgroundAudioLock = () => {
 
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: 'Авторежим Lerne',
+        title: tr("Авторежим Lerne"),
         artist: 'Lerne TMA',
-        album: 'Режим изучения'
+        album: tr("Режим изучения")
       });
     }
 
@@ -265,7 +266,7 @@ export const useAudio = (autoPlay, showToast) => {
         console.warn(`Audio load failed, retrying once for: ${url}`);
         setTimeout(() => playAudioRef.current?.(url, onEndedCallback), 1000);
       } else {
-        if (showToast) showToast("Ошибка аудио: файл не найден или поврежден");
+        if (showToast) showToast(tr("Ошибка аудио: файл не найден или поврежден"));
         if (onEndedCallback) onEndedCallback(false);
       }
     };
@@ -299,9 +300,9 @@ export const useAudio = (autoPlay, showToast) => {
       }
       console.error("Audio play failed:", err);
       if (err.name === "NotAllowedError") {
-        if (!autoPlay && showToast) showToast("Браузер заблокировал автовоспроизведение");
+        if (!autoPlay && showToast) showToast(tr("Браузер заблокировал автовоспроизведение"));
       } else if (err.name === "NotSupportedError") {
-        if (showToast) showToast("Ошибка аудио: файл не найден или поврежден");
+        if (showToast) showToast(tr("Ошибка аудио: файл не найден или поврежден"));
       }
       if (onEndedCallback) onEndedCallback(false);
       return false;

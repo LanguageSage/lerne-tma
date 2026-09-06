@@ -1,3 +1,4 @@
+import { tr } from '../../i18n/locale';
 /**
  * app/src/services/classifier/scorer.js
  *
@@ -55,19 +56,19 @@ export function calculateResult(phrase, grammarFeatures, vocabResult) {
 
   const reasons = [];
   if (gReasons.length > 0) reasons.push(...gReasons);
-  if (vMatching.length > 0) reasons.push(`Словарь: ${vMatching.join(', ')}`);
+  if (vMatching.length > 0) reasons.push(tr("Словарь: {{p0}}", { p0: vMatching.join(', ') }));
 
   let reason = '';
   let reasonShort = '';
 
   if (reasons.length === 0) {
-    reason = overallLevel === 'A1' ? 'Präsens (базовая фраза)' : `Уровень ${overallLevel}`;
+    reason = overallLevel === 'A1' ? tr("Präsens (базовая фраза)") : tr("Уровень {{p0}}", { p0: overallLevel });
     reasonShort = overallLevel === 'A1' ? 'Präsens' : overallLevel;
   } else {
     const dedup = Array.from(new Set(reasons));
     reason = dedup.join(' | ');
 
-    const primary = gReasons.length > 0 ? gReasons[0] : (vMatching.length > 0 ? `Словарь (${vMatching[0]})` : overallLevel);
+    const primary = gReasons.length > 0 ? gReasons[0] : (vMatching.length > 0 ? tr("Словарь ({{p0}})", { p0: vMatching[0] }) : overallLevel);
     const shortMap = {
       'Modalsatz (so, wie)': 'so, wie',
       'Perfekt (haben + Part.II)': 'Perfekt (haben)',

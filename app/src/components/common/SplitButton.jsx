@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, ChevronDown, MessageSquare, RefreshCw } from 'lucide-react';
 
@@ -6,15 +8,16 @@ export const SplitButton = ({
   onOptionClick,
   loading = false,
   disabled = false,
-  mainLabel = 'Сгенерировать ИИ',
+  mainLabel = tr("Сгенерировать ИИ"),
   options = [
     {
       id: 'custom_directive',
-      label: '💬 Выполнить только просьбу / вопрос',
+      label: tr("💬 Выполнить только просьбу / вопрос"),
       icon: MessageSquare
     }
   ]
 }) => {
+  useInterfaceLocale();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -63,7 +66,7 @@ export const SplitButton = ({
         className={`split-btn-arrow ${isOpen ? 'active' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
         disabled={loading || disabled}
-        aria-label="Больше действий ИИ"
+        aria-label={tr("Больше действий ИИ")}
       >
         <ChevronDown size={14} />
       </button>

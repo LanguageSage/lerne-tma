@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Eye, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +17,7 @@ export const StudyCardTrainer = React.memo(({
   styles = {},
   isPureTrainerMode = false
 }) => {
+  useInterfaceLocale();
   const [selectedOptions, setSelectedOptions] = useState({}); // { gapId: chosenOption }
   const [activeGapId, setActiveGapId] = useState(null);
   const [isChecked, setIsChecked] = useState(false);
@@ -178,7 +181,7 @@ export const StudyCardTrainer = React.memo(({
               boxShadow: isActive ? '0 0 16px rgba(168, 85, 247, 0.8)' : undefined,
               verticalAlign: 'baseline'
             }}
-            title={isChecked ? undefined : `Пропуск #${gap.id + 1}`}
+            title={isChecked ? undefined : tr("Пропуск #{{p0}}", { p0: gap.id + 1 })}
           >
             <span>{badgeLabel}</span>
           </motion.span>
@@ -247,7 +250,7 @@ export const StudyCardTrainer = React.memo(({
           fontWeight: 600
         }}>
           <Sparkles size={13} />
-          <span>Варианты для пропуска #{currentActiveGapId + 1} из {gaps.length}</span>
+          <span>{tr("Варианты для пропуска #")}{currentActiveGapId + 1}{' '}{tr("из")}{' '}{gaps.length}</span>
         </div>
       )}
 
@@ -363,7 +366,7 @@ export const StudyCardTrainer = React.memo(({
               handleCheck();
             }}
           >
-            {allGapsFilled ? 'Проверить ответы' : `Выберите вариант (${filledCount}/${gaps.length})`}
+            {allGapsFilled ? tr("Проверить ответы") : tr("Выберите вариант ({{p0}}/{{p1}})", { p0: filledCount, p1: gaps.length })}
           </button>
         ) : isPureTrainerMode ? (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
@@ -387,9 +390,7 @@ export const StudyCardTrainer = React.memo(({
                 e.stopPropagation();
                 handleNext();
               }}
-            >
-              Дальше →
-            </button>
+            >{tr("Дальше →")}{' '}</button>
           </div>
         ) : null}
 
@@ -420,7 +421,7 @@ export const StudyCardTrainer = React.memo(({
           }}
         >
           <Eye size={15} style={{ color: '#c084fc' }} />
-          <span>Показать перевод</span>
+          <span>{tr("Показать перевод")}</span>
         </button>
       </div>
     </div>

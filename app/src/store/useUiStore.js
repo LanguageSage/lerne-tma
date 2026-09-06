@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { create } from 'zustand';
 
 export const useUiStore = create((set) => ({
@@ -63,8 +64,8 @@ export const useUiStore = create((set) => ({
   setUserProfile: (profile) => set({ userProfile: profile }),
 
   isAuthModalOpen: false,
-  authModalTitle: 'Требуется авторизация',
-  setIsAuthModalOpen: (isOpen, title = 'Требуется авторизация') => set({ isAuthModalOpen: isOpen, authModalTitle: title }),
+  authModalTitle: tr("Требуется авторизация"),
+  setIsAuthModalOpen: (isOpen, title = tr("Требуется авторизация")) => set({ isAuthModalOpen: isOpen, authModalTitle: title }),
   
   activeFolderId: null,
   setActiveFolderId: (id) => set({ activeFolderId: id }),

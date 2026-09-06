@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useRef, useEffect } from 'react';
 import { Check, X } from 'lucide-react';
 
@@ -8,6 +10,7 @@ export const LidQuestionNavigator = ({
   examMode = 'exam',
   onSelectIndex
 }) => {
+  useInterfaceLocale();
   const containerRef = useRef(null);
 
   // Auto-scroll to active index
@@ -43,7 +46,7 @@ export const LidQuestionNavigator = ({
               type="button"
               className={`lid-nav-btn ${statusClass}`}
               onClick={() => onSelectIndex(idx)}
-              title={`Вопрос ${idx + 1}`}
+              title={tr("Вопрос {{p0}}", { p0: idx + 1 })}
             >
               <span className="lid-nav-num">{idx + 1}</span>
               {isPractice && isAnswered && (

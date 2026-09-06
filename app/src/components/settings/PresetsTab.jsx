@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
@@ -10,20 +12,21 @@ export const PresetsTab = ({
   applyPreset, 
   deletePreset 
 }) => {
+  useInterfaceLocale();
   return (
     <motion.div key="presets" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
-      <h3>Управление пресетами</h3>
+      <h3>{tr("Управление пресетами")}</h3>
       <div className="preset-save-box glass">
         <input 
-          placeholder="Имя нового пресета..." 
+          placeholder={tr("Имя нового пресета...")} 
           value={newPresetName} 
           onChange={e => setNewPresetName(e.target.value)} 
         />
-        <button className="btn btn-primary btn-small" onClick={saveCurrentAsPreset}>Сохранить текущие</button>
+        <button className="btn btn-primary btn-small" onClick={saveCurrentAsPreset}>{tr("Сохранить текущие")}</button>
       </div>
       
       <div className="presets-list scrollable">
-        {presets.length === 0 ? <p className="hint">Нет сохраненных пресетов</p> : 
+        {presets.length === 0 ? <p className="hint">{tr("Нет сохраненных пресетов")}</p> : 
           presets.map((p, idx) => (
             <div key={idx} className="preset-item glass">
               <div className="preset-info">
@@ -31,7 +34,7 @@ export const PresetsTab = ({
                 <span>{p.settings?.AI_PROVIDER} | {p.settings?.DEFAULT_MODEL?.split('/').pop()}</span>
               </div>
               <div className="preset-actions">
-                <button className="apply-btn" onClick={() => applyPreset(p)}>Применить</button>
+                <button className="apply-btn" onClick={() => applyPreset(p)}>{tr("Применить")}</button>
                 <button className="delete-btn-minimal" onClick={() => deletePreset(idx)}><Trash2 size={14} /></button>
               </div>
             </div>

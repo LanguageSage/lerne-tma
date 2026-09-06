@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -6,6 +8,7 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { getSortedFolderTree } from '../../utils/deckUtils';
 
 export const RenameDeckModal = () => {
+  useInterfaceLocale();
   const { isRenameModalOpen, setIsRenameModalOpen, deckToRename, showToast, loading, setLoading } = useUiStore();
   const { renameDeck, moveDeckToFolder, folders } = useDeckStore();
   
@@ -24,7 +27,7 @@ export const RenameDeckModal = () => {
   const handleSave = async () => {
     const trimmedName = deckName.trim();
     if (!trimmedName) {
-      showToast('Название не может быть пустым');
+      showToast(tr("Название не может быть пустым"));
       return;
     }
 
@@ -40,9 +43,9 @@ export const RenameDeckModal = () => {
       }
 
       setIsRenameModalOpen(false);
-      showToast('Настройки сохранены', 'success');
+      showToast(tr("Настройки сохранены"), 'success');
     } catch {
-      showToast('Ошибка при сохранении настроек');
+      showToast(tr("Ошибка при сохранении настроек"));
     } finally {
       setLoading(false);
     }
@@ -62,7 +65,7 @@ export const RenameDeckModal = () => {
           onClick={e => e.stopPropagation()}
         >
           <div className="settings-header">
-            <h2>Настройки колоды</h2>
+            <h2>{tr("Настройки колоды")}</h2>
             <button 
               className="close-btn" 
               onClick={() => setIsRenameModalOpen(false)}
@@ -74,10 +77,10 @@ export const RenameDeckModal = () => {
           
           <div className="settings-content">
             <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label>Название колоды</label>
+              <label>{tr("Название колоды")}</label>
               <input 
                 autoFocus 
-                placeholder="Введите название..." 
+                placeholder={tr("Введите название...")} 
                 value={deckName} 
                 onChange={e => setDeckName(e.target.value)} 
                 onKeyDown={e => e.key === 'Enter' && handleSave()}
@@ -86,7 +89,7 @@ export const RenameDeckModal = () => {
             </div>
 
             <div className="form-group" style={{ marginBottom: '20px' }}>
-              <label>Папка</label>
+              <label>{tr("Папка")}</label>
               <select 
                 value={folderId || ''} 
                 onChange={e => setFolderId(e.target.value ? Number(e.target.value) : null)}
@@ -102,7 +105,7 @@ export const RenameDeckModal = () => {
                   fontSize: '0.9rem'
                 }}
               >
-                <option value="">Без папки (Главный экран)</option>
+                <option value="">{tr("Без папки (Главный экран)")}</option>
                 {getSortedFolderTree(folders || []).map(f => (
                   <option key={f.id} value={f.id}>{f.displayName}</option>
                 ))}
@@ -114,16 +117,12 @@ export const RenameDeckModal = () => {
                 className="btn btn-primary btn-full" 
                 onClick={handleSave} 
                 disabled={loading}
-              >
-                Сохранить
-              </button>
+              >{tr("Сохранить")}{' '}</button>
               <button 
                 className="btn-secondary btn-full" 
                 onClick={() => setIsRenameModalOpen(false)}
                 disabled={loading}
-              >
-                Отмена
-              </button>
+              >{tr("Отмена")}{' '}</button>
             </div>
           </div>
         </motion.div>

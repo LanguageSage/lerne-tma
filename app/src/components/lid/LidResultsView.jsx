@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -10,6 +12,7 @@ import { LidMistakeDetailModal } from './LidMistakeDetailModal';
 import { ConfettiBurst } from '../common/ConfettiBurst';
 
 export const LidResultsView = ({ onBackToMenu }) => {
+  useInterfaceLocale();
   const {
     getResults,
     questions,
@@ -49,7 +52,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins} мин ${secs < 10 ? '0' : ''}${secs} сек`;
+    return tr("{{p0}} мин {{p1}}{{p2}} сек", { p0: mins, p1: secs < 10 ? '0' : '', p2: secs });
   };
 
   const getOptionLetter = (id) => id?.toUpperCase();
@@ -75,14 +78,14 @@ export const LidResultsView = ({ onBackToMenu }) => {
               resetToMenu();
               if (onBackToMenu) onBackToMenu();
             }}
-            title="Назад в меню"
+            title={tr("Назад в меню")}
           >
             <ArrowLeft size={20} />
           </button>
           <div className="lid-menu-title-wrap">
-            <h2 className="lid-menu-title" style={{ fontSize: '1.2rem' }}>Результаты экзамена</h2>
+            <h2 className="lid-menu-title" style={{ fontSize: '1.2rem' }}>{tr("Результаты экзамена")}</h2>
             <span className="lid-menu-subtitle">
-              Leben in Deutschland • {stateInfo?.nameDe || 'Федеральная земля'}
+              Leben in Deutschland • {stateInfo?.nameDe || tr("Федеральная земля")}
             </span>
           </div>
         </div>
@@ -100,12 +103,12 @@ export const LidResultsView = ({ onBackToMenu }) => {
               </div>
             )}
             <h2 className="lid-results-title">
-              {isPassed ? '🟢 ЭКЗАМЕН СДАН' : '🔴 ЭКЗАМЕН НЕ СДАН'}
+              {isPassed ? tr("🟢 ЭКЗАМЕН СДАН") : tr("🔴 ЭКЗАМЕН НЕ СДАН")}
             </h2>
             <p className="lid-results-sub">
               {isPassed
-                ? 'Поздравляем! Вы успешно преодолели порог сдачи экзамена.'
-                : 'К сожалению, порог в 17 правильных ответов не достигнут.'}
+                ? tr("Поздравляем! Вы успешно преодолели порог сдачи экзамена.")
+                : tr("К сожалению, порог в 17 правильных ответов не достигнут.")}
             </p>
           </div>
 
@@ -116,7 +119,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
               <span className="lid-score-total">/ {total}</span>
             </div>
             <div className="lid-score-percent-badge">
-              <span>{percent}% правильных ответов</span>
+              <span>{percent}{tr("% правильных ответов")}</span>
             </div>
           </div>
 
@@ -125,8 +128,8 @@ export const LidResultsView = ({ onBackToMenu }) => {
             <div className="lid-meta-card glass">
               <Award size={16} className="lid-meta-icon" />
               <div className="lid-meta-text">
-                <span className="lid-meta-val">17 из 33</span>
-                <span className="lid-meta-lbl">Порог сдачи</span>
+                <span className="lid-meta-val">{tr("17 из 33")}</span>
+                <span className="lid-meta-lbl">{tr("Порог сдачи")}</span>
               </div>
             </div>
 
@@ -134,7 +137,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
               <Clock size={16} className="lid-meta-icon" />
               <div className="lid-meta-text">
                 <span className="lid-meta-val">{formatTime(timeSpent)}</span>
-                <span className="lid-meta-lbl">Затрачено времени</span>
+                <span className="lid-meta-lbl">{tr("Затрачено времени")}</span>
               </div>
             </div>
 
@@ -143,7 +146,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
                 <MapPin size={16} className="lid-meta-icon" />
                 <div className="lid-meta-text">
                   <span className="lid-meta-val">{stateInfo.nameDe}</span>
-                  <span className="lid-meta-lbl">Федеральная земля</span>
+                  <span className="lid-meta-lbl">{tr("Федеральная земля")}</span>
                 </div>
               </div>
             )}
@@ -155,13 +158,10 @@ export const LidResultsView = ({ onBackToMenu }) => {
           <div className="lid-section-header">
             <div className="lid-section-title-wrap">
               <ListFilter size={18} className="lid-alert-icon" />
-              <h3 className="lid-section-title">
-                Карточки экзамена ({allQuestionItems.length})
+              <h3 className="lid-section-title">{tr("Карточки экзамена (")}{allQuestionItems.length})
               </h3>
             </div>
-            <span className="lid-section-hint">
-              Нажмите на любую карточку для подробного изучения
-            </span>
+            <span className="lid-section-hint">{tr("Нажмите на любую карточку для подробного изучения")}{' '}</span>
           </div>
 
           {/* Filter Tabs */}
@@ -171,21 +171,21 @@ export const LidResultsView = ({ onBackToMenu }) => {
               className={`lid-filter-tab ${filterTab === 'all' ? 'active' : ''}`}
               onClick={() => setFilterTab('all')}
             >
-              <span>Все ({allQuestionItems.length})</span>
+              <span>{tr("Все (")}{allQuestionItems.length})</span>
             </button>
             <button
               type="button"
               className={`lid-filter-tab mistakes ${filterTab === 'mistakes' ? 'active' : ''}`}
               onClick={() => setFilterTab('mistakes')}
             >
-              <span>Ошибки ({mistakes.length})</span>
+              <span>{tr("Ошибки (")}{mistakes.length})</span>
             </button>
             <button
               type="button"
               className={`lid-filter-tab correct ${filterTab === 'correct' ? 'active' : ''}`}
               onClick={() => setFilterTab('correct')}
             >
-              <span>Правильные ({score})</span>
+              <span>{tr("Правильные (")}{score})</span>
             </button>
           </div>
 
@@ -193,7 +193,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
           {filteredItems.length === 0 ? (
             <div className="lid-perfect-score-card glass">
               <Sparkles size={32} color="#eab308" />
-              <h4>В этой категории нет карточек</h4>
+              <h4>{tr("В этой категории нет карточек")}</h4>
             </div>
           ) : (
             <div className="lid-mistake-cards-list">
@@ -226,24 +226,23 @@ export const LidResultsView = ({ onBackToMenu }) => {
                         <div className="lid-mistake-ans-comparison">
                           {isCorrect ? (
                             <span className="lid-correct-ans-tag">
-                              <CheckCircle2 size={13} /> Ответ правильный: {correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
+                              <CheckCircle2 size={13} />{' '}{tr("Ответ правильный:")}{' '}{correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
                             </span>
                           ) : isSkipped ? (
                             <>
                               <span className="lid-skipped-ans-tag">
-                                <HelpCircle size={13} /> Ответ не выбран
-                              </span>
+                                <HelpCircle size={13} />{' '}{tr("Ответ не выбран")}{' '}</span>
                               <span className="lid-correct-ans-tag">
-                                <CheckCircle2 size={13} /> Правильно: {correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
+                                <CheckCircle2 size={13} />{' '}{tr("Правильно:")}{' '}{correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
                               </span>
                             </>
                           ) : (
                             <>
                               <span className="lid-user-ans-tag">
-                                <X size={13} /> Ваш ответ: {userChoiceLetter} {userOptObj ? `(${userOptObj.text})` : ''}
+                                <X size={13} />{' '}{tr("Ваш ответ:")}{' '}{userChoiceLetter} {userOptObj ? `(${userOptObj.text})` : ''}
                               </span>
                               <span className="lid-correct-ans-tag">
-                                <CheckCircle2 size={13} /> Правильно: {correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
+                                <CheckCircle2 size={13} />{' '}{tr("Правильно:")}{' '}{correctChoiceLetter} {correctOptObj ? `(${correctOptObj.text})` : ''}
                               </span>
                             </>
                           )}
@@ -269,7 +268,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
             onClick={() => startSimulation('exam')}
           >
             <RotateCcw size={18} />
-            <span>Пройти заново (новый билет)</span>
+            <span>{tr("Пройти заново (новый билет)")}</span>
           </button>
 
           {mistakes.length > 0 && (
@@ -279,7 +278,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
               onClick={retakeMistakes}
             >
               <BookOpen size={18} />
-              <span>Повторить {mistakes.length} {mistakes.length === 1 ? 'ошибку' : 'ошибок'} в тренировке</span>
+              <span>{tr("Повторить")}{' '}{mistakes.length} {mistakes.length === 1 ? tr("ошибку") : tr("ошибок")}{' '}{tr("в тренировке")}</span>
             </button>
           )}
 
@@ -292,7 +291,7 @@ export const LidResultsView = ({ onBackToMenu }) => {
             }}
           >
             <ArrowLeft size={18} />
-            <span>Вернуться в меню</span>
+            <span>{tr("Вернуться в меню")}</span>
           </button>
         </div>
       </motion.div>

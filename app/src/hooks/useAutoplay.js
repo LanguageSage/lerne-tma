@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
@@ -156,13 +157,13 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     if (existingUrl && !hasWrongBackAudio && !forceGenerate) return existingUrl;
     if (!text?.trim()) return null;
 
-    setStatus(isBack ? 'Генерируем перевод' : 'Генерируем фразу');
+    setStatus(isBack ? tr("Генерируем перевод") : tr("Генерируем фразу"));
     let generated;
     try {
       generated = await api.post('/media/generate-audio', { text, lang, rate, voice });
     } catch (err) {
       console.error('Audio generation failed:', err);
-      showToast?.(`Не удалось сгенерировать ${isBack ? 'перевод' : 'фразу'}: ${err.response?.data?.detail || err.message}`);
+      showToast?.(tr("Не удалось сгенерировать {{p0}}: {{p1}}", { p0: isBack ? tr("перевод") : tr("фразу"), p1: err.response?.data?.detail || err.message }));
       return null;
     }
     if (!isCurrentRun(runId)) return null;
@@ -280,21 +281,21 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
       // --- 1. FRONT SIDE REPEAT CYCLE ---
       for (let i = 1; i <= frontRepeats; i++) {
         if (!isCurrentRun(runId)) return;
-        const repeatPrefix = frontRepeats > 1 ? `[Фраза ${i}/${frontRepeats}] ` : '';
+        const repeatPrefix = frontRepeats > 1 ? tr("[Фраза {{p0}}/{{p1}}] ", { p0: i, p1: frontRepeats }) : '';
 
-        setStatus(`${repeatPrefix}Озвучиваем фразу`);
+        setStatus(tr("{{p0}}Озвучиваем фразу", { p0: repeatPrefix }));
         if ('mediaSession' in navigator) {
           navigator.mediaSession.metadata = new MediaMetadata({
             title: stripMarkdown(targetCard.front || ''),
-            artist: `Lerne TMA (Фраза${frontRepeats > 1 ? ` ${i}/${frontRepeats}` : ''})`,
-            album: useDeckStore.getState().currentDeck?.name || 'Режим изучения'
+            artist: tr("Lerne TMA (Фраза{{p0}})", { p0: frontRepeats > 1 ? ` ${i}/${frontRepeats}` : '' }),
+            album: useDeckStore.getState().currentDeck?.name || tr("Режим изучения")
           });
         }
         const frontUrl = await ensureAudio(targetCard, 'front', runId);
         if (frontUrl) await waitForAudio(frontUrl, runId);
         if (!isCurrentRun(runId)) return;
 
-        setStatus(`${repeatPrefix}Пауза ${settings.autoplayFrontPause}с`);
+        setStatus(tr("{{p0}}Пауза {{p1}}с", { p0: repeatPrefix, p1: settings.autoplayFrontPause }));
         const afterFrontPause = await wait(settings.autoplayFrontPause, runId);
         if (!afterFrontPause) return;
       }
@@ -305,22 +306,22 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
       session.setIsFlipped(true);
       for (let i = 1; i <= backRepeats; i++) {
         if (!isCurrentRun(runId)) return;
-        const repeatPrefix = backRepeats > 1 ? `[Перевод ${i}/${backRepeats}] ` : '';
+        const repeatPrefix = backRepeats > 1 ? tr("[Перевод {{p0}}/{{p1}}] ", { p0: i, p1: backRepeats }) : '';
 
-        setStatus(`${repeatPrefix}Озвучиваем перевод`);
+        setStatus(tr("{{p0}}Озвучиваем перевод", { p0: repeatPrefix }));
         const latestCard = useSessionStore.getState().card || targetCard;
         if ('mediaSession' in navigator) {
           navigator.mediaSession.metadata = new MediaMetadata({
             title: stripMarkdown(latestCard.back || ''),
-            artist: `Lerne TMA (Перевод${backRepeats > 1 ? ` ${i}/${backRepeats}` : ''})`,
-            album: useDeckStore.getState().currentDeck?.name || 'Режим изучения'
+            artist: tr("Lerne TMA (Перевод{{p0}})", { p0: backRepeats > 1 ? ` ${i}/${backRepeats}` : '' }),
+            album: useDeckStore.getState().currentDeck?.name || tr("Режим изучения")
           });
         }
         const backUrl = await ensureAudio(latestCard, 'back', runId);
         if (backUrl) await waitForAudio(backUrl, runId);
         if (!isCurrentRun(runId)) return;
 
-        setStatus(`${repeatPrefix}Пауза ${settings.autoplayBackPause}с`);
+        setStatus(tr("{{p0}}Пауза {{p1}}с", { p0: repeatPrefix, p1: settings.autoplayBackPause }));
         const afterBackPause = await wait(settings.autoplayBackPause, runId);
         if (!afterBackPause) return;
       }
@@ -332,7 +333,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     } catch (err) {
       console.error('Autoplay error:', err);
       if (isCurrentRun(runId)) {
-        showToast?.(`Ошибка авто-режима: ${err.response?.data?.detail || err.message}`);
+        showToast?.(tr("Ошибка авто-режима: {{p0}}", { p0: err.response?.data?.detail || err.message }));
         useSessionStore.getState().stopAutoplay();
         stopAudio();
         setStatus('');
@@ -358,11 +359,11 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     prepareAutoplayCards().then((cards) => {
       if (!cards || !cards.length) {
         if (settings.autoplayOrder === 'srs') {
-          showToast?.('На сегодня нет карточек для повторения по SRS');
-          setStatus('На сегодня нет карточек по SRS');
+          showToast?.(tr("На сегодня нет карточек для повторения по SRS"));
+          setStatus(tr("На сегодня нет карточек по SRS"));
         } else {
-          showToast?.('В колоде нет доступных карточек');
-          setStatus('Нет карточек в колоде');
+          showToast?.(tr("В колоде нет доступных карточек"));
+          setStatus(tr("Нет карточек в колоде"));
         }
         stopAudio();
         stopBackgroundLock?.();
@@ -398,7 +399,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     clearTimer();
     stopAudio();
     stopBackgroundLock?.();
-    setStatus('Пауза');
+    setStatus(tr("Пауза"));
     useSessionStore.getState().pauseAutoplay();
   }, [clearTimer, stopAudio, stopBackgroundLock]);
 

@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Plus, Settings, X } from 'lucide-react';
@@ -11,6 +13,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { navigateUp } from '../../utils/navigation';
 
 export const CardEditor = ({ startTutorial }) => {
+  useInterfaceLocale();
   const { view, setIsSettingsOpen } = useUiStore();
   const { editingCard, setEditingCard } = useSessionStore();
   const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
@@ -74,16 +77,16 @@ export const CardEditor = ({ startTutorial }) => {
       >
         <div className="header-compact">
           <button className="back-btn" onClick={handleBack}><ChevronLeft size={24} /></button>
-          <h2>Правка карточки</h2>
+          <h2>{tr("Правка карточки")}</h2>
           <div className="header-actions">
-            <button className="header-action-btn" disabled={true} title="Добавить карточку">
+            <button className="header-action-btn" disabled={true} title={tr("Добавить карточку")}>
               <Plus size={22} />
             </button>
             <HelpButton onClick={() => startTutorial('editor')} />
             <button 
               className="header-action-btn settings-btn" 
               onClick={() => setIsSettingsOpen(true)}
-              title="Настройки"
+              title={tr("Настройки")}
             >
               <Settings size={22} />
             </button>

@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -39,6 +41,7 @@ export const DeckGrid = ({
   startTutorial, 
   openSyncModal
 }) => {
+  useInterfaceLocale();
   const { t } = useTranslation();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [deckSearchQuery, setDeckSearchQuery] = useState('');
@@ -207,7 +210,7 @@ export const DeckGrid = ({
           setIsNewDeckModalOpen={setIsNewDeckModalOpen}
           setIsSettingsOpen={setIsSettingsOpen}
           onLanguageChange={() => {
-            showToast(`Язык изменен на ${useLanguageStore.getState().getLanguageInfo().name}`, 'info');
+            showToast(tr("Язык изменен на {{p0}}", { p0: useLanguageStore.getState().getLanguageInfo().name }), 'info');
           }}
           activeFolderId={activeFolderId}
           onFolderBack={navigateUp}
@@ -321,14 +324,14 @@ export const DeckGrid = ({
             <div className="empty-decks-state glass">
               <RefreshCw size={48} className="spin" color="#a855f7" />
               <h3>{t('decks.loading', 'Идет загрузка колод...')}</h3>
-              <p>Пожалуйста, подождите немного.</p>
+              <p>{tr("Пожалуйста, подождите немного.")}</p>
             </div>
           ) : (!isFetchingDecks && decks.length === 0 && folders.length === 0) ? (
             <div className="empty-decks-state glass">
               <Layers size={48} opacity={0.3} />
-              <h3>У вас пока нет колод</h3>
-              <p>Нажмите "+", чтобы создать свою или импортировать из библиотеки.</p>
-              <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить первую колоду</button>
+              <h3>{tr("У вас пока нет колод")}</h3>
+              <p>{tr("Нажмите \"+\", чтобы создать свою или импортировать из библиотеки.")}</p>
+              <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду")}</button>
             </div>
           ) : isFolderEmpty ? (
             isLidRootFolder(activeFolder) ? (
@@ -340,20 +343,16 @@ export const DeckGrid = ({
                 {activeFolderId !== null ? (
                   <>
                     <FolderOpen size={48} opacity={0.3} style={{ color: '#818cf8', marginBottom: 12, display: 'inline-block' }} />
-                    <h3>Эта папка пуста</h3>
-                    <p style={{ maxWidth: 300, margin: '8px auto 16px', fontSize: '0.85rem', color: '#94a3b8' }}>
-                      Создайте здесь новую колоду или подпапку!
-                    </p>
-                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить элемент</button>
+                    <h3>{tr("Эта папка пуста")}</h3>
+                    <p style={{ maxWidth: 300, margin: '8px auto 16px', fontSize: '0.85rem', color: '#94a3b8' }}>{tr("Создайте здесь новую колоду или подпапку!")}{' '}</p>
+                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить элемент")}</button>
                   </>
                 ) : (
                   <>
                     <Layers size={48} opacity={0.3} style={{ marginBottom: 12, display: 'inline-block' }} />
-                    <h3>У вас пока нет колод на языке: {langInfo.name} {langInfo.flag}</h3>
-                    <p style={{ maxWidth: 360, margin: '8px auto 16px', fontSize: '0.9rem', color: '#94a3b8' }}>
-                      Нажмите "+", чтобы создать свою первую колоду для изучения {langInfo.label.toLowerCase()} языка.
-                    </p>
-                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>Добавить первую колоду ({langInfo.code.toUpperCase()})</button>
+                    <h3>{tr("У вас пока нет колод на языке:")}{' '}{langInfo.name} {langInfo.flag}</h3>
+                    <p style={{ maxWidth: 360, margin: '8px auto 16px', fontSize: '0.9rem', color: '#94a3b8' }}>{tr("Нажмите \"+\", чтобы создать свою первую колоду для изучения")}{' '}{langInfo.label.toLowerCase()}{' '}{tr("языка.")}{' '}</p>
+                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду (")}{langInfo.code.toUpperCase()})</button>
                   </>
                 )}
               </div>
@@ -361,16 +360,14 @@ export const DeckGrid = ({
           ) : deckSearchQuery.trim() && filteredFolders.length === 0 && filteredDecks.length === 0 ? (
             <div className="search-empty-state glass" style={{ gridColumn: '1 / -1' }}>
               <Search size={32} opacity={0.4} color="#818cf8" />
-              <h3>Колоды не найдены</h3>
-              <p>По запросу «{deckSearchQuery}» ничего не найдено</p>
+              <h3>{tr("Колоды не найдены")}</h3>
+              <p>{tr("По запросу «")}{deckSearchQuery}{tr("» ничего не найдено")}</p>
               <button 
                 type="button" 
                 className="btn btn-secondary" 
                 style={{ padding: '8px 16px', fontSize: '0.85rem', marginTop: '4px' }}
                 onClick={() => setDeckSearchQuery('')}
-              >
-                Сбросить поиск
-              </button>
+              >{tr("Сбросить поиск")}{' '}</button>
             </div>
           ) : (
             <>
@@ -492,7 +489,7 @@ export const DeckGrid = ({
             >
               <div className="bottom-tools-toggle-left">
                 <Wrench size={18} className="tools-icon" />
-                <span>Инструменты и служебные разделы</span>
+                <span>{tr("Инструменты и служебные разделы")}</span>
                 {(duplicateCards?.length || 0) > 0 && (
                   <span className="tools-badge-total">
                     {duplicateCards.length}
@@ -515,8 +512,8 @@ export const DeckGrid = ({
                         <Copy size={18} />
                       </div>
                       <div className="tools-item-text">
-                        <span className="tools-item-title duplicate-text">Управление дубликатами</span>
-                        <span className="tools-item-desc">Повторяющиеся карточки в разных колодах</span>
+                        <span className="tools-item-title duplicate-text">{tr("Управление дубликатами")}</span>
+                        <span className="tools-item-desc">{tr("Повторяющиеся карточки в разных колодах")}</span>
                       </div>
                     </div>
                     <span className="tools-item-badge duplicate">{duplicateCards.length}</span>
@@ -536,11 +533,11 @@ export const DeckGrid = ({
                       <Trash2 size={18} />
                     </div>
                     <div className="tools-item-text">
-                      <span className="tools-item-title trash-text">Корзина</span>
-                      <span className="tools-item-desc">Удаленные колоды и карточки (восстановление)</span>
+                      <span className="tools-item-title trash-text">{tr("Корзина")}</span>
+                      <span className="tools-item-desc">{tr("Удаленные колоды и карточки (восстановление)")}</span>
                     </div>
                   </div>
-                  <span className="tools-item-badge trash">Хранилище</span>
+                  <span className="tools-item-badge trash">{tr("Хранилище")}</span>
                 </button>
               </div>
             )}

@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { CheckCircle } from 'lucide-react';
 import { useTranslation } from '../../i18n/i18nContext';
@@ -13,6 +15,7 @@ export const StudyFinished = ({
   onSyncDeck,
   onResetProgress,
 }) => {
+  useInterfaceLocale();
   const { t } = useTranslation();
 
   const handleOk = async () => {
@@ -71,8 +74,7 @@ export const StudyFinished = ({
         <div
           className="api-error-box glass"
           style={{ color: '#f87171', padding: '10px', margin: '10px 0', border: '1px solid #ef4444', width: '100%', borderRadius: '10px' }}
-        >
-          Ошибка сервера: {apiError}
+        >{tr("Ошибка сервера:")}{' '}{apiError}
         </div>
       )}
 
@@ -106,25 +108,19 @@ export const StudyFinished = ({
           className="btn btn-secondary"
           onClick={onLearnMore}
           style={{ fontSize: '1.05rem', fontWeight: '600', padding: '13px 20px', borderRadius: '12px' }}
-        >
-          Учить еще
-        </button>
+        >{tr("Учить еще")}{' '}</button>
 
         <button
           className="btn btn-secondary"
           onClick={onSyncDeck}
           style={{ fontSize: '1.05rem', fontWeight: '600', padding: '13px 20px', borderRadius: '12px' }}
-        >
-          Обновить данные
-        </button>
+        >{tr("Обновить данные")}{' '}</button>
 
         <button
           className="btn btn-secondary"
           onClick={onResetProgress}
           style={{ fontSize: '1.05rem', fontWeight: '600', padding: '13px 20px', borderRadius: '12px' }}
-        >
-          Сбросить прогресс
-        </button>
+        >{tr("Сбросить прогресс")}{' '}</button>
       </div>
     </div>
   );

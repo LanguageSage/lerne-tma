@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { useRef } from 'react';
 import axios from 'axios';
 import api from '../services/api';
@@ -24,7 +25,7 @@ export const useAiActions = () => {
     const textToSpeak = hasRussian ? c.back : c.front;
 
     if (!textToSpeak) {
-      showToast("Нет текста для озвучки");
+      showToast(tr("Нет текста для озвучки"));
       setLoading(false);
       return;
     }
@@ -63,11 +64,11 @@ export const useAiActions = () => {
         }
       }
 
-      showToast("Озвучка добавлена!", "success");
+      showToast(tr("Озвучка добавлена!"), "success");
       if (playAudioFn) playAudioFn(res.data.url);
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка генерации: ${err.response?.data?.detail || err.message}`, "error");
+      showToast(tr("Ошибка генерации: {{p0}}", { p0: err.response?.data?.detail || err.message }), "error");
     }
     setLoading(false);
   };
@@ -107,11 +108,11 @@ export const useAiActions = () => {
         session.setEditingCard({ ...session.editingCard, ...update });
       }
 
-      showToast("Аудио сгенерировано", "success");
+      showToast(tr("Аудио сгенерировано"), "success");
       if (playAudioFn) playAudioFn(res.data.url);
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка генерации аудио: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка генерации аудио: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     }
   };
 
@@ -120,7 +121,7 @@ export const useAiActions = () => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       setLoading(false);
-      showToast("Генерация остановлена", "info");
+      showToast(tr("Генерация остановлена"), "info");
     }
   };
 
@@ -138,7 +139,7 @@ export const useAiActions = () => {
     while (attempt < maxRetries) {
       attempt++;
       if (attempt > 1) {
-        showToast(`Попытка ${attempt}${lastError ? ` (${lastError})` : ""}...`, "info");
+        showToast(tr("Попытка {{p0}}{{p1}}...", { p0: attempt, p1: lastError ? ` (${lastError})` : "" }), "info");
       }
 
       try {
@@ -160,7 +161,7 @@ export const useAiActions = () => {
               continue;
             }
           }
-          showToast(`Ошибка ИИ: ${res.data.error}`);
+          showToast(tr("Ошибка ИИ: {{p0}}", { p0: res.data.error }));
           setLoading(false);
           abortControllerRef.current = null;
           return null;
@@ -182,7 +183,7 @@ export const useAiActions = () => {
             ...session.editingCard,
             context: updatedCtx
           });
-          showToast(actionType === 'explain_rule' ? "Правило добавлено в Контекст!" : "Ответ добавлен в Контекст!", "success");
+          showToast(actionType === 'explain_rule' ? tr("Правило добавлено в Контекст!") : tr("Ответ добавлен в Контекст!"), "success");
         } else {
           session.setEditingCard({
             ...session.editingCard,
@@ -190,7 +191,7 @@ export const useAiActions = () => {
             back: res.data.back || session.editingCard?.back,
             context: res.data.context || session.editingCard?.context
           });
-          showToast("Готово! Проверьте поля.", "success");
+          showToast(tr("Готово! Проверьте поля."), "success");
         }
         
         ui.setIsAiWizardOpen(false);
@@ -210,9 +211,9 @@ export const useAiActions = () => {
 
         const detail = err.response?.data?.detail || err.message;
         if (err.message === 'Network Error') {
-          showToast("Ошибка сети: проверьте соединение");
+          showToast(tr("Ошибка сети: проверьте соединение"));
         } else {
-          showToast(`Ошибка ИИ: ${detail}`);
+          showToast(tr("Ошибка ИИ: {{p0}}", { p0: detail }));
         }
       }
     }
@@ -252,11 +253,11 @@ export const useAiActions = () => {
       abortControllerRef.current = null;
 
       if (res.data.error) {
-        showToast(`Ошибка пакетной генерации: ${res.data.error}`);
+        showToast(tr("Ошибка пакетной генерации: {{p0}}", { p0: res.data.error }));
         return null;
       }
 
-      showToast(`Успешно сгенерировано карточек: ${res.data.generated_count || res.data.cards?.length || 0}`, 'success');
+      showToast(tr("Успешно сгенерировано карточек: {{p0}}", { p0: res.data.generated_count || res.data.cards?.length || 0 }), 'success');
       return res.data;
     } catch (err) {
       setLoading(false);
@@ -265,7 +266,7 @@ export const useAiActions = () => {
         return null;
       }
       const detail = err.response?.data?.detail || err.message;
-      showToast(`Ошибка ИИ: ${detail}`);
+      showToast(tr("Ошибка ИИ: {{p0}}", { p0: detail }));
       return null;
     }
   };

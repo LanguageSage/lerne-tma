@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -16,6 +18,7 @@ export const LidMistakeDetailModal = ({
   currentIndex = 1,
   totalItems = 33
 }) => {
+  useInterfaceLocale();
   const [showTranslation, setShowTranslation] = useState(true);
   const [isZoomedImage, setIsZoomedImage] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -150,14 +153,13 @@ export const LidMistakeDetailModal = ({
               </div>
               <div>
                 <h3 className="lid-modal-title">
-                  {isCorrect ? 'Правильный ответ' : isSkipped ? 'Вопрос без ответа' : 'Разбор ошибки'}
+                  {isCorrect ? tr("Правильный ответ") : isSkipped ? tr("Вопрос без ответа") : tr("Разбор ошибки")}
                 </h3>
-                <p className="lid-modal-subtitle">
-                  Вопрос {currentIndex} из {totalItems} • {question.category}
+                <p className="lid-modal-subtitle">{tr("Вопрос")}{' '}{currentIndex}{' '}{tr("из")}{' '}{totalItems} • {question.category}
                 </p>
               </div>
             </div>
-            <button className="lid-modal-close-btn" onClick={onClose} aria-label="Закрыть">
+            <button className="lid-modal-close-btn" onClick={onClose} aria-label={tr("Закрыть")}>
               <X size={20} />
             </button>
           </div>
@@ -173,21 +175,21 @@ export const LidMistakeDetailModal = ({
                 >
                   <img 
                     src={imgSrc} 
-                    alt="Иллюстрация к вопросу" 
+                    alt={tr("Иллюстрация к вопросу")} 
                     className="lid-mistake-img" 
                     style={{ cursor: 'pointer', height: isZoomedImage ? 'auto' : '100%', maxHeight: isZoomedImage ? '500px' : 'none' }}
                     onError={handleImgError}
                   />
                   <div className="lid-img-zoom-hint">
                     <ImageIcon size={12} />
-                    <span>{isZoomedImage ? 'Уменьшить' : 'Нажмите для увеличения'}</span>
+                    <span>{isZoomedImage ? tr("Уменьшить") : tr("Нажмите для увеличения")}</span>
                   </div>
                 </div>
                 {/* Interactive Resize Handle */}
                 <div
                   onMouseDown={startCardImageResize}
                   onTouchStart={startCardImageResize}
-                  title="Потяните, чтобы изменить высоту картинки"
+                  title={tr("Потяните, чтобы изменить высоту картинки")}
                   style={{
                     height: '14px',
                     display: 'flex',
@@ -224,11 +226,11 @@ export const LidMistakeDetailModal = ({
                     type="button"
                     className={`lid-btn-audio-pill ${isPlayingAudio ? 'playing' : ''}`}
                     onClick={handleToggleAudio}
-                    title="Озвучить вопрос"
+                    title={tr("Озвучить вопрос")}
                     style={{ flexShrink: 0 }}
                   >
                     <Volume2 size={13} />
-                    <span>{isPlayingAudio ? 'Пауза' : 'Озвучить'}</span>
+                    <span>{isPlayingAudio ? tr("Пауза") : tr("Озвучить")}</span>
                   </button>
                 )}
               </div>
@@ -264,13 +266,13 @@ export const LidMistakeDetailModal = ({
                       {isCorrectChoice && (
                         <span className="lid-status-tag correct">
                           <Check size={14} />
-                          <span>Правильный ответ</span>
+                          <span>{tr("Правильный ответ")}</span>
                         </span>
                       )}
                       {isUserChoice && !isCorrectChoice && (
                         <span className="lid-status-tag wrong">
                           <X size={14} />
-                          <span>Ваш ответ</span>
+                          <span>{tr("Ваш ответ")}</span>
                         </span>
                       )}
                     </div>
@@ -296,19 +298,19 @@ export const LidMistakeDetailModal = ({
                 className="btn btn-secondary lid-modal-nav-btn"
                 onClick={onPrev}
                 disabled={!hasPrev}
-                title="Предыдущий вопрос"
+                title={tr("Предыдущий вопрос")}
               >
                 <ChevronLeft size={16} />
-                <span>Назад</span>
+                <span>{tr("Назад")}</span>
               </button>
               <button
                 type="button"
                 className="btn btn-secondary lid-modal-nav-btn"
                 onClick={onNext}
                 disabled={!hasNext}
-                title="Следующий вопрос"
+                title={tr("Следующий вопрос")}
               >
-                <span>Вперед</span>
+                <span>{tr("Вперед")}</span>
                 <ChevronRight size={16} />
               </button>
             </div>
@@ -320,11 +322,9 @@ export const LidMistakeDetailModal = ({
                 onClick={() => setShowTranslation(!showTranslation)}
               >
                 <Languages size={15} />
-                <span>{showTranslation ? 'Скрыть перевод' : 'Перевод'}</span>
+                <span>{showTranslation ? tr("Скрыть перевод") : tr("Перевод")}</span>
               </button>
-              <button type="button" className="btn btn-primary" onClick={onClose}>
-                Закрыть
-              </button>
+              <button type="button" className="btn btn-primary" onClick={onClose}>{tr("Закрыть")}{' '}</button>
             </div>
           </div>
         </motion.div>

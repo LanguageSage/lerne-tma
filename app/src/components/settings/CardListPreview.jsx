@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { GripHorizontal, MoreHorizontal } from 'lucide-react';
 import { CardBackground } from '../common/CardBackground';
@@ -5,6 +7,7 @@ import { getTextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 export const CardListPreview = ({ styleType = 'standard' }) => {
+  useInterfaceLocale();
   const {
     previewCardFont,
     previewCardTextColor,
@@ -92,9 +95,7 @@ export const CardListPreview = ({ styleType = 'standard' }) => {
               borderTop: '1px dashed rgba(255, 255, 255, 0.08)',
               ...clampStyle
             }}
-          >
-            Добрый день! Как ваши дела сегодня? Очень рад с вами познакомиться.
-          </div>
+          >{tr("Добрый день! Как ваши дела сегодня? Очень рад с вами познакомиться.")}{' '}</div>
         </div>
 
         <div className="card-item-footer" style={{ marginTop: '8px', position: 'relative', zIndex: 1 }}>
@@ -113,9 +114,7 @@ export const CardListPreview = ({ styleType = 'standard' }) => {
               border: '1px solid rgba(56, 189, 248, 0.3)', 
               borderRadius: '6px', 
               padding: '2px 6px' 
-            }}>
-              Уровень 1
-            </span>
+            }}>{tr("Уровень 1")}{' '}</span>
           </div>
 
           <div className="card-item-footer-right" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>

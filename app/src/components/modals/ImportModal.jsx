@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, AlertCircle, Inbox, BookOpen, Folder, Check, ExternalLink, Sparkles, ChevronDown, ChevronUp, RefreshCw, Copy } from 'lucide-react';
@@ -9,6 +11,7 @@ import { SUPPORTED_TARGET_LANGUAGES } from '../../constants/languageConstants';
 import { getUserId } from '../../utils/auth';
 
 export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
+  useInterfaceLocale();
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState(null);
@@ -62,14 +65,14 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
     if (folderId) {
       useUiStore.getState().setActiveFolderId(folderId);
       useUiStore.getState().setView('decks');
-      showToast(`Папка «${existingFolder?.name || shareInfo?.name || ''}» открыта!`, 'info');
+      showToast(tr("Папка «{{p0}}» открыта!", { p0: existingFolder?.name || shareInfo?.name || '' }), 'info');
     } else if (deckId) {
       const foundDeck = existingDeck || decks.find(d => d.id === deckId);
       if (foundDeck) {
         useDeckStore.getState().setCurrentDeck(foundDeck);
       }
       useUiStore.getState().setView('study');
-      showToast(`Колода «${existingDeck?.name || shareInfo?.name || ''}» открыта!`, 'info');
+      showToast(tr("Колода «{{p0}}» открыта!", { p0: existingDeck?.name || shareInfo?.name || '' }), 'info');
     } else {
       useUiStore.getState().setView('decks');
     }
@@ -87,7 +90,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
         setShareInfo(res.data);
       } catch (err) {
         console.error("Error fetching share info:", err);
-        setError("Ссылка недействительна или была удалена.");
+        setError(tr("Ссылка недействительна или была удалена."));
       } finally {
         setLoading(false);
       }
@@ -113,19 +116,19 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
 
       if (res?.already_had_access) {
         if (res.is_owner) {
-          showToast(`Вы являетесь владельцем «${res.name || 'элемента'}»`, 'info');
+          showToast(tr("Вы являетесь владельцем «{{p0}}»", { p0: res.name || tr("элемента") }), 'info');
         } else {
-          showToast(`У вас уже есть доступ к «${res.name || 'элементу'}»!`, 'info');
+          showToast(tr("У вас уже есть доступ к «{{p0}}»!", { p0: res.name || tr("элементу") }), 'info');
         }
       } else {
-        showToast(`Вы присоединились к «${res.name || 'элементу'}»!`, 'success');
+        showToast(tr("Вы присоединились к «{{p0}}»!", { p0: res.name || tr("элементу") }), 'success');
       }
 
       onImportSuccess?.();
 
     } catch (err) {
       console.error("Error joining collaborative item:", err);
-      setError("Не удалось присоединиться к совместной папке/колоде.");
+      setError(tr("Не удалось присоединиться к совместной папке/колоде."));
     } finally {
       setImporting(false);
     }
@@ -160,16 +163,16 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
         const langObj = SUPPORTED_TARGET_LANGUAGES.find(l => l.code === targetLang) || { name: targetLang.toUpperCase(), flag: '🌐' };
 
         const itemName = res.data.name || res.data.deck_name || res.data.folder_name || shareInfo?.name || '';
-        let msg = 'Элемент успешно добавлен!';
+        let msg = tr("Элемент успешно добавлен!");
         if (resolution === 'merge') {
           if (res.data.type === 'folder') {
-            msg = `Обновлено! Добавлено колод: ${res.data.decks_added ?? 0}, карт: ${res.data.cards_added ?? 0}`;
+            msg = tr("Обновлено! Добавлено колод: {{p0}}, карт: {{p1}}", { p0: res.data.decks_added ?? 0, p1: res.data.cards_added ?? 0 });
           } else {
-            msg = `Обновлено! Добавлено новых карт: ${res.data.cards_added ?? 0}`;
+            msg = tr("Обновлено! Добавлено новых карт: {{p0}}", { p0: res.data.cards_added ?? 0 });
           }
-        } else if (res.data.type === 'folder') msg = `Папка «${itemName}» добавлена!`;
-        else if (res.data.type === 'deck') msg = `Колода «${itemName}» добавлена!`;
-        else if (res.data.type === 'card') msg = `Карточка добавлена в «📥 Входящие»!`;
+        } else if (res.data.type === 'folder') msg = tr("Папка «{{p0}}» добавлена!", { p0: itemName });
+        else if (res.data.type === 'deck') msg = tr("Колода «{{p0}}» добавлена!", { p0: itemName });
+        else if (res.data.type === 'card') msg = tr("Карточка добавлена в «📥 Входящие»!", {  });
         
         showToast(msg, 'success');
 
@@ -184,7 +187,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
           const activeLang = useLanguageStore.getState().activeLanguage;
           if (targetLang && targetLang !== activeLang) {
             await useLanguageStore.getState().setLanguage(targetLang);
-            showToast(`Переключено на язык ${langObj.flag} ${langObj.name}`, 'info');
+            showToast(tr("Переключено на язык {{p0}} {{p1}}", { p0: langObj.flag, p1: langObj.name }), 'info');
           } else {
             await fetchDecks(true);
           }
@@ -205,7 +208,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
       }
     } catch (err) {
       console.error("Error during import:", err);
-      setError(err?.response?.data?.detail || "Произошла ошибка при импорте.");
+      setError(err?.response?.data?.detail || tr("Произошла ошибка при импорте."));
     } finally {
       setImporting(false);
     }
@@ -217,7 +220,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     const user = useUiStore.getState().userProfile;
     const currentUserId = tgUser?.id || user?.user_id || getUserId();
-    const firstName = tgUser?.first_name || user?.first_name || 'Пользователь';
+    const firstName = tgUser?.first_name || user?.first_name || tr("Пользователь");
     const lastName = tgUser?.last_name || user?.last_name || '';
     const username = tgUser?.username || user?.username || '';
     const photoUrl = tgUser?.photo_url || user?.photo_url || '';
@@ -244,7 +247,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
     } else {
       window.open(browserUrl, '_blank');
     }
-    showToast("Открываем в браузере...", "info");
+    showToast(tr("Открываем в браузере..."), "info");
     onClose?.();
   };
 
@@ -285,7 +288,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
           {/* Header */}
           <div className="settings-header" style={{ marginBottom: 14, flexShrink: 0 }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'white' }}>
-              {conflict ? 'Разрешение конфликта' : (isFolder ? 'Добавить папку' : (isCard ? 'Добавить карточку' : 'Добавить колоду'))}
+              {conflict ? tr("Разрешение конфликта") : (isFolder ? tr("Добавить папку") : (isCard ? tr("Добавить карточку") : tr("Добавить колоду")))}
             </h2>
             <button className="close-btn" onClick={onClose}>
               <X size={20} />
@@ -294,7 +297,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
 
           <div className="settings-content scrollable" style={{ textAlign: 'center', padding: '4px 2px', flex: 1, minHeight: 0 }}>
             {loading ? (
-              <div style={{ padding: '20px', color: '#94a3b8' }}>Загрузка...</div>
+              <div style={{ padding: '20px', color: '#94a3b8' }}>{tr("Загрузка...")}</div>
             ) : error ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#fca5a5', padding: '16px 0' }}>
                 <AlertCircle size={40} />
@@ -303,7 +306,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
             ) : !shareInfo ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: '#fca5a5', padding: '16px 0' }}>
                 <AlertCircle size={40} />
-                <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.4 }}>Не удалось получить информацию по вашей ссылке</p>
+                <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.4 }}>{tr("Не удалось получить информацию по вашей ссылке")}</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
@@ -338,8 +341,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                           {shareInfo.creator_name.charAt(0)}
                         </div>
                     }
-                    <span style={{ fontSize: '0.82rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      От: <strong style={{ color: 'white' }}>{shareInfo.creator_name}</strong>
+                    <span style={{ fontSize: '0.82rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tr("От:")}{' '}<strong style={{ color: 'white' }}>{shareInfo.creator_name}</strong>
                     </span>
                   </div>
                 )}
@@ -348,15 +350,14 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                 <div style={{ width: '100%' }}>
                   <p style={{ color: '#818cf8', fontSize: '0.92rem', fontWeight: 600, marginBottom: 4 }}>
                     {isCollab 
-                      ? `Приглашение в совместный доступ:` 
-                      : `Вам отправили ${isFolder ? 'папку с колодами' : (isCard ? 'карточку' : 'колоду')}:`}
+                      ? tr("Приглашение в совместный доступ:", {  }) 
+                      : tr("Вам отправили {{p0}}:", { p0: isFolder ? tr("папку с колодами") : (isCard ? tr("карточку") : tr("колоду")) })}
                   </p>
                   <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'white', margin: 0, wordBreak: 'break-word' }}>
                     {isCard ? shareInfo.front_text : shareInfo.name}
                   </h3>
                   {isFolder && (
-                    <p style={{ color: '#64748b', fontSize: '0.82rem', marginTop: 4, marginBottom: 0 }}>
-                      Колод: {shareInfo.decks_count || 0} • Карточек: {shareInfo.cards_count || 0}
+                    <p style={{ color: '#64748b', fontSize: '0.82rem', marginTop: 4, marginBottom: 0 }}>{tr("Колод:")}{' '}{shareInfo.decks_count || 0}{' '}{tr("• Карточек:")}{' '}{shareInfo.cards_count || 0}
                     </p>
                   )}
                   {!isFolder && !isCard && shareInfo.level && (
@@ -371,7 +372,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                     fontSize: '0.82rem', color: '#e2e8f0', marginTop: 8
                   }}>
                     <span>{langObj.flag}</span>
-                    <span>Язык: <strong>{langObj.name}</strong></span>
+                    <span>{tr("Язык:")}{' '}<strong>{langObj.name}</strong></span>
                   </div>
                 </div>
 
@@ -383,14 +384,14 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#facc15', marginBottom: 6 }}>
                       <AlertCircle size={18} />
-                      <strong style={{ fontSize: '0.88rem' }}>Обнаружен дубликат</strong>
+                      <strong style={{ fontSize: '0.88rem' }}>{tr("Обнаружен дубликат")}</strong>
                     </div>
                     <p style={{ fontSize: '0.82rem', color: '#e2e8f0', margin: 0, lineHeight: 1.4 }}>
                       {isFolder
-                        ? `Папка «${conflict.name}» в языке ${langObj.flag} ${langObj.name} уже существует. Что сделать?`
+                        ? tr("Папка «{{p0}}» в языке {{p1}} {{p2}} уже существует. Что сделать?", { p0: conflict.name, p1: langObj.flag, p2: langObj.name })
                         : (isCard 
-                          ? `Карточка уже существует в колоде <${conflict.existing_deck_name}>. Что сделать?`
-                          : `Колода с названием <${conflict.name}> в языке ${langObj.flag} ${langObj.name} уже существует. Что сделать?`
+                          ? tr("Карточка уже существует в колоде <{{p0}}>. Что сделать?", { p0: conflict.existing_deck_name })
+                          : tr("Колода с названием <{{p0}}> в языке {{p1}} {{p2}} уже существует. Что сделать?", { p0: conflict.name, p1: langObj.flag, p2: langObj.name })
                         )
                       }
                     </p>
@@ -414,25 +415,21 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#c084fc', marginBottom: 4 }}>
                             <Sparkles size={18} />
-                            <strong style={{ fontSize: '0.88rem' }}>Доступны обновления</strong>
+                            <strong style={{ fontSize: '0.88rem' }}>{tr("Доступны обновления")}</strong>
                           </div>
                           <div style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.4 }}>
                             {isFolder ? (
-                              <span>
-                                В папке появились новые материалы:{' '}
-                                {newDecksCount > 0 && <strong style={{ color: '#c084fc' }}>+{newDecksCount} колод </strong>}
-                                {newCardsCount > 0 && <strong style={{ color: '#c084fc' }}>+{newCardsCount} карт.</strong>}
+                              <span>{tr("В папке появились новые материалы:")}{' '}
+                                {newDecksCount > 0 && <strong style={{ color: '#c084fc' }}>+{newDecksCount}{' '}{tr("колод")}{' '}</strong>}
+                                {newCardsCount > 0 && <strong style={{ color: '#c084fc' }}>+{newCardsCount}{' '}{tr("карт.")}</strong>}
                               </span>
                             ) : (
-                              <span>
-                                В колоде появились новые карточки:{' '}
-                                <strong style={{ color: '#c084fc' }}>+{newCardsCount} карт.</strong>
+                              <span>{tr("В колоде появились новые карточки:")}{' '}
+                                <strong style={{ color: '#c084fc' }}>+{newCardsCount}{' '}{tr("карт.")}</strong>
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 4 }}>
-                            Прогресс ранее изученных карточек сохранится.
-                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 4 }}>{tr("Прогресс ранее изученных карточек сохранится.")}{' '}</div>
                         </div>
                       ) : (
                         <div style={{
@@ -447,11 +444,9 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#34d399', marginBottom: 4 }}>
                             <Check size={18} />
-                            <strong style={{ fontSize: '0.88rem' }}>У вас уже есть эта {isFolder ? 'папка' : 'колода'}</strong>
+                            <strong style={{ fontSize: '0.88rem' }}>{tr("У вас уже есть эта")}{' '}{isFolder ? tr("папка") : tr("колода")}</strong>
                           </div>
-                          <div style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.4 }}>
-                            Все материалы синхронизированы, версия актуальна.
-                          </div>
+                          <div style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.4 }}>{tr("Все материалы синхронизированы, версия актуальна.")}{' '}</div>
                         </div>
                       )
                     ) : (
@@ -465,10 +460,10 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                         <div style={{ fontSize: '0.85rem', color: '#e2e8f0', textAlign: 'left', lineHeight: 1.35 }}>
                           <span>
                             {isFolder
-                              ? `Папка добавится в ваш список (${langObj.flag} ${langObj.name})`
+                              ? tr("Папка добавится в ваш список ({{p0}} {{p1}})", { p0: langObj.flag, p1: langObj.name })
                               : (isCard
-                                ? `Попадёт во «📥 Входящие» (${langObj.flag} ${langObj.name})`
-                                : `Добавится в раздел языка: ${langObj.flag} ${langObj.name}`)}
+                                ? tr("Попадёт во «📥 Входящие» ({{p0}} {{p1}})", { p0: langObj.flag, p1: langObj.name })
+                                : tr("Добавится в раздел языка: {{p0}} {{p1}}", { p0: langObj.flag, p1: langObj.name }))}
                           </span>
                         </div>
                       </div>
@@ -486,9 +481,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                     className="btn btn-secondary" 
                     onClick={onClose}
                     style={{ width: '100%', padding: '12px' }}
-                  >
-                    Закрыть
-                  </button>
+                  >{tr("Закрыть")}{' '}</button>
                 </div>
               ) : conflict ? (
                 <div className="choice-grid" style={{ width: '100%' }}>
@@ -499,25 +492,19 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                         onClick={() => handleImport('replace')}
                         disabled={importing}
                         style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', width: '100%', padding: '12px 16px' }}
-                      >
-                        🔄 Заменить (удалить старую)
-                      </button>
+                      >{tr("🔄 Заменить (удалить старую)")}{' '}</button>
                       <button 
                         className="btn btn-secondary choice-btn" 
                         onClick={() => handleImport('add')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px' }}
-                      >
-                        ➕ Оставить обе (добавить копию)
-                      </button>
+                      >{tr("➕ Оставить обе (добавить копию)")}{' '}</button>
                       <button 
                         className="btn btn-primary choice-btn" 
                         onClick={() => handleImport('skip')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px' }}
-                      >
-                        ❌ Пропустить (не добавлять)
-                      </button>
+                      >{tr("❌ Пропустить (не добавлять)")}{' '}</button>
                     </>
                   ) : (
                     <>
@@ -526,33 +513,25 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                         onClick={() => handleImport('replace')}
                         disabled={importing}
                         style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', width: '100%', padding: '12px 16px' }}
-                      >
-                        🔄 Заменить (удалить старые карточки)
-                      </button>
+                      >{tr("🔄 Заменить (удалить старые карточки)")}{' '}</button>
                       <button 
                         className="btn btn-secondary choice-btn" 
                         onClick={() => handleImport('merge')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px' }}
-                      >
-                        🔀 Объединить (добавить только новые)
-                      </button>
+                      >{tr("🔀 Объединить (добавить только новые)")}{' '}</button>
                       <button 
                         className="btn btn-secondary choice-btn" 
                         onClick={() => handleImport('copy')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px' }}
-                      >
-                        📂 Создать новую колоду-копию
-                      </button>
+                      >{tr("📂 Создать новую колоду-копию")}{' '}</button>
                       <button 
                         className="btn btn-primary choice-btn" 
                         onClick={() => handleImport('cancel')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px', background: 'rgba(255, 255, 255, 0.05)', color: 'white', borderColor: 'rgba(255, 255, 255, 0.1)' }}
-                      >
-                        ❌ Отмена
-                      </button>
+                      >{tr("❌ Отмена")}{' '}</button>
                     </>
                   )}
                 </div>
@@ -575,7 +554,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                         >
                           <RefreshCw size={18} className={importing ? 'spin' : ''} />
                           <span>
-                            {importing ? 'Обновление...' : `🔄 Обновить (${newDecksCount > 0 ? `+${newDecksCount} к.` : `+${newCardsCount} шт.`})`}
+                            {importing ? tr("Обновление...") : tr("🔄 Обновить ({{p0}})", { p0: newDecksCount > 0 ? tr("+{{p0}} к.", { p0: newDecksCount }) : tr("+{{p0}} шт.", { p0: newCardsCount }) })}
                           </span>
                         </button>
 
@@ -591,7 +570,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                           }}
                         >
                           <Folder size={16} />
-                          <span>📂 Просто открыть мою версию</span>
+                          <span>{tr("📂 Просто открыть мою версию")}</span>
                         </button>
                       </>
                     ) : (
@@ -608,7 +587,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                         }}
                       >
                         <Folder size={18} />
-                        <span>📂 Открыть {isFolder ? 'папку' : 'колоду'}</span>
+                        <span>{tr("📂 Открыть")}{' '}{isFolder ? tr("папку") : tr("колоду")}</span>
                       </button>
                     )
                   ) : (
@@ -625,7 +604,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                       >
                         <Download size={18} />
                         <span>
-                          {importing ? 'Загрузка...' : (isCollab ? (isInsideTelegram ? 'Присоединиться в Telegram' : 'Присоединиться') : (isInsideTelegram ? '🚀 Учить в Telegram' : `📥 Добавить ${isFolder ? 'папку' : 'колоду'}`))}
+                          {importing ? tr("Загрузка...") : (isCollab ? (isInsideTelegram ? tr("Присоединиться в Telegram") : tr("Присоединиться")) : (isInsideTelegram ? tr("🚀 Учить в Telegram") : tr("📥 Добавить {{p0}}", { p0: isFolder ? tr("папку") : tr("колоду") })))}
                         </span>
                       </button>
 
@@ -642,7 +621,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                           }}
                         >
                           <ExternalLink size={16} />
-                          <span>🌍 Учить в браузере (Safari / Chrome)</span>
+                          <span>{tr("🌍 Учить в браузере (Safari / Chrome)")}</span>
                         </button>
                       )}
                     </>
@@ -660,7 +639,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                           border: 'none', color: '#94a3b8', fontSize: '0.82rem', cursor: 'pointer'
                         }}
                       >
-                        <span>⚙️ Другие действия</span>
+                        <span>{tr("⚙️ Другие действия")}</span>
                         {showMoreActions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </button>
 
@@ -686,14 +665,14 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                             }}
                           >
                             <Copy size={14} />
-                            <span>➕ Создать отдельную копию</span>
+                            <span>{tr("➕ Создать отдельную копию")}</span>
                           </button>
 
                           <button
                             type="button"
                             className="btn btn-secondary"
                             onClick={() => {
-                              if (window.confirm('Вы уверены? Старые карточки в этой колоде/папке будут заменены новыми.')) {
+                              if (window.confirm(tr("Вы уверены? Старые карточки в этой колоде/папке будут заменены новыми."))) {
                                 handleImport('replace');
                               }
                             }}
@@ -706,7 +685,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                             }}
                           >
                             <RefreshCw size={14} />
-                            <span>⚠️ Полностью заменить</span>
+                            <span>{tr("⚠️ Полностью заменить")}</span>
                           </button>
 
                           {isInsideTelegram && (
@@ -722,7 +701,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                               }}
                             >
                               <ExternalLink size={14} />
-                              <span>🌍 Открыть в браузере</span>
+                              <span>{tr("🌍 Открыть в браузере")}</span>
                             </button>
                           )}
                         </motion.div>
@@ -738,9 +717,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                       background: 'none', border: 'none', color: '#64748b',
                       fontSize: '0.82rem', padding: '6px', cursor: 'pointer'
                     }}
-                  >
-                    Отмена
-                  </button>
+                  >{tr("Отмена")}{' '}</button>
                 </div>
               )}
             </div>

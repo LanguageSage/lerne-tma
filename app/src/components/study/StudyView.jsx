@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Trash2, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
@@ -27,6 +29,7 @@ import { StudyFinished } from './StudyFinished';
 import { StudyCard } from './StudyCard';
 
 export const StudyView = ({ startTutorial }) => {
+  useInterfaceLocale();
   const { view, loading, setIsSettingsOpen, showToast, setView, setActiveFolderId } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
   const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, setIsLearningMore, autoplayState } = useSessionStore();
@@ -145,8 +148,8 @@ export const StudyView = ({ startTutorial }) => {
     if (queue === 'learning' || queue === 'relearning') {
       const step = (card.step_index || 0) + 1;
       return {
-        label: `🟡 На закреплении (шаг ${step})`,
-        title: 'Карточка на этапе краткосрочного закрепления',
+        label: tr("🟡 На закреплении (шаг {{p0}})", { p0: step }),
+        title: tr("Карточка на этапе краткосрочного закрепления"),
         style: {
           background: 'rgba(234, 179, 8, 0.18)',
           color: '#fde047',
@@ -157,8 +160,8 @@ export const StudyView = ({ startTutorial }) => {
     if (queue === 'review') {
       const days = card.interval || 1;
       return {
-        label: `🔴 К повторению (интервал ${days} дн)`,
-        title: 'Настал срок интервального повторения карточки',
+        label: tr("🔴 К повторению (интервал {{p0}} дн)", { p0: days }),
+        title: tr("Настал срок интервального повторения карточки"),
         style: {
           background: 'rgba(239, 68, 68, 0.18)',
           color: '#fca5a5',
@@ -167,8 +170,8 @@ export const StudyView = ({ startTutorial }) => {
       };
     }
     return {
-      label: '🔵 Новая карточка',
-      title: 'Карточка открывается впервые',
+      label: tr("🔵 Новая карточка"),
+      title: tr("Карточка открывается впервые"),
       style: {
         background: 'rgba(59, 130, 246, 0.18)',
         color: '#93c5fd',
@@ -208,12 +211,12 @@ export const StudyView = ({ startTutorial }) => {
 
   const onDeleteDuplicate = async (e) => {
     e.stopPropagation();
-    if (window.confirm('Удалить этот дубликат?')) {
+    if (window.confirm(tr("Удалить этот дубликат?"))) {
       try {
         await handleDeleteCard(card.id, true);
         fetchDuplicates(); // Update the list in background
       } catch {
-        showToast('Ошибка при удалении');
+        showToast(tr("Ошибка при удалении"));
       }
     }
   };
@@ -369,21 +372,21 @@ export const StudyView = ({ startTutorial }) => {
       playAudio(patch.audio_back_url);
     } catch (err) {
       console.error('Back audio generation failed:', err);
-      showToast(`Не удалось сгенерировать перевод: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Не удалось сгенерировать перевод: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     }
   };
 
   const handleResetProgressConfirmed = async () => {
-    if (window.confirm('Вы уверены, что хотите сбросить прогресс этой колоды? Все ваши успехи будут обнулены.')) {
+    if (window.confirm(tr("Вы уверены, что хотите сбросить прогресс этой колоды? Все ваши успехи будут обнулены."))) {
       try {
         await handleResetProgress(currentDeck.id);
-        showToast('Прогресс успешно сброшен', 'success');
+        showToast(tr("Прогресс успешно сброшен"), 'success');
         
         useSessionStore.getState().resetSession();
         await useDeckStore.getState().fetchDeckCards(currentDeck.id);
         await fetchNextCard(currentDeck.id, true, []);
       } catch {
-        showToast('Ошибка при сбросе прогресса');
+        showToast(tr("Ошибка при сбросе прогресса"));
       }
     }
   };
@@ -433,7 +436,7 @@ export const StudyView = ({ startTutorial }) => {
         {loading && !card ? (
           <div className="finished-view glass">
             <RefreshCw size={48} className="spin" color="#a855f7" />
-            <h3>Загрузка карточек...</h3>
+            <h3>{tr("Загрузка карточек...")}</h3>
           </div>
         ) : card ? (
           <div className="study-flow">
@@ -448,7 +451,7 @@ export const StudyView = ({ startTutorial }) => {
 
             {/* Study Mode Selector Dropdown */}
             <div className="study-mode-dropdown-container">
-              <span className="study-mode-dropdown-label">Режим:</span>
+              <span className="study-mode-dropdown-label">{tr("Режим:")}</span>
               <select
                 className="study-mode-select glass"
                 value={studyMode}
@@ -458,25 +461,25 @@ export const StudyView = ({ startTutorial }) => {
                   setIsFlipped(false); // Reset card face on mode swap
                 }}
               >
-                <option value="classic">🃏 Карточки (Немецкий → Русский)</option>
-                <option value="reverse">🔄 Перевод (Русский → Немецкий)</option>
-                <option value="cloze">📝 Выбор слова (Пропуски)</option>
-                <option value="puzzle">🧩 Конструктор (Сборка фразы)</option>
-                <option value="speak">🗣 Произношение (Голос)</option>
-                <option value="random">🎲 Случайный выбор (Рандом)</option>
+                <option value="classic">{tr("🃏 Карточки (Немецкий → Русский)")}</option>
+                <option value="reverse">{tr("🔄 Перевод (Русский → Немецкий)")}</option>
+                <option value="cloze">{tr("📝 Выбор слова (Пропуски)")}</option>
+                <option value="puzzle">{tr("🧩 Конструктор (Сборка фразы)")}</option>
+                <option value="speak">{tr("🗣 Произношение (Голос)")}</option>
+                <option value="random">{tr("🎲 Случайный выбор (Рандом)")}</option>
               </select>
             </div>
 
             {studyMode === 'random' && (
               <div className="random-mode-config glass">
-                <div className="random-config-title">Случайные режимы в пуле 🎲</div>
+                <div className="random-config-title">{tr("Случайные режимы в пуле 🎲")}</div>
                 <div className="random-config-grid">
                   {[
-                    { key: 'classic', label: '🃏 Карточки' },
-                    { key: 'reverse', label: '🔄 Перевод' },
-                    { key: 'cloze', label: '📝 Выбор слова' },
-                    { key: 'puzzle', label: '🧩 Конструктор' },
-                    { key: 'speak', label: '🗣 Произношение' }
+                    { key: 'classic', label: tr("🃏 Карточки") },
+                    { key: 'reverse', label: tr("🔄 Перевод") },
+                    { key: 'cloze', label: tr("📝 Выбор слова") },
+                    { key: 'puzzle', label: tr("🧩 Конструктор") },
+                    { key: 'speak', label: tr("🗣 Произношение") }
                   ].map(({ key, label }) => {
                     const isChecked = (randomEnabledModes || []).includes(key);
                     return (
@@ -570,16 +573,16 @@ export const StudyView = ({ startTutorial }) => {
 
               {/* Center Column: Anki-style Queue Counter + Current Card SRS Status Underneath */}
               <div className="study-queue-center-col">
-                <div className="anki-queue-counter" title="Очередь колоды: Новые (синий), К повторению сегодня (красный), На закреплении (желтый)">
-                  <div className="anki-pill pill-new" title="Новые карточки (еще не изучались)">
+                <div className="anki-queue-counter" title={tr("Очередь колоды: Новые (синий), К повторению сегодня (красный), На закреплении (желтый)")}>
+                  <div className="anki-pill pill-new" title={tr("Новые карточки (еще не изучались)")}>
                     <span className="anki-dot dot-blue" />
                     <span className="anki-count">{queueStats.new}</span>
                   </div>
-                  <div className="anki-pill pill-due" title="Срочные к повторению сегодня">
+                  <div className="anki-pill pill-due" title={tr("Срочные к повторению сегодня")}>
                     <span className="anki-dot dot-red" />
                     <span className="anki-count">{queueStats.due}</span>
                   </div>
-                  <div className="anki-pill pill-learning" title="На закреплении в текущей сессии">
+                  <div className="anki-pill pill-learning" title={tr("На закреплении в текущей сессии")}>
                     <span className="anki-dot dot-yellow" />
                     <span className="anki-count">{queueStats.learning}</span>
                   </div>
@@ -601,7 +604,7 @@ export const StudyView = ({ startTutorial }) => {
                   <button
                     className="btn-card-action-trigger"
                     onClick={onDeleteDuplicate}
-                    title="Удалить дубликат"
+                    title={tr("Удалить дубликат")}
                     style={{ color: '#ef4444' }}
                   >
                     <Trash2 size={22} />

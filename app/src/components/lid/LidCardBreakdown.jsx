@@ -1,7 +1,10 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { Target, BookOpen, Lightbulb, HelpCircle } from 'lucide-react';
 
 export const LidCardBreakdown = ({ context, ruContext = null, className = '' }) => {
+  useInterfaceLocale();
   if (!context && !ruContext) return null;
 
   // Helper to render markdown bold **text**
@@ -47,7 +50,7 @@ export const LidCardBreakdown = ({ context, ruContext = null, className = '' }) 
         if (!sections.length && !current) {
           current = {
             emoji: '🎯',
-            title: 'Объяснение',
+            title: tr("Объяснение"),
             content: [line]
           };
         }
@@ -101,7 +104,7 @@ export const LidCardBreakdown = ({ context, ruContext = null, className = '' }) 
     <div className={`lid-card-breakdown-container ${className}`}>
       <div className="lid-breakdown-header">
         <span className="lid-breakdown-header-icon">🎓</span>
-        <span className="lid-breakdown-header-title">Подробный разбор карточки</span>
+        <span className="lid-breakdown-header-title">{tr("Подробный разбор карточки")}</span>
       </div>
 
       {sections.length > 0 ? (
@@ -159,7 +162,7 @@ export const LidCardBreakdown = ({ context, ruContext = null, className = '' }) 
         <div className="lid-breakdown-card general">
           <div className="lid-breakdown-badge general">
             <HelpCircle size={15} color="#38bdf8" />
-            <span>Разбор и контекст</span>
+            <span>{tr("Разбор и контекст")}</span>
           </div>
           <div className="lid-breakdown-body">
             <p className="lid-breakdown-paragraph" style={{ whiteSpace: 'pre-line' }}>
@@ -174,7 +177,7 @@ export const LidCardBreakdown = ({ context, ruContext = null, className = '' }) 
         <div className="lid-breakdown-card bamf-note">
           <div className="lid-breakdown-badge general">
             <HelpCircle size={14} color="#94a3b8" />
-            <span>Справка BAMF</span>
+            <span>{tr("Справка BAMF")}</span>
           </div>
           <p className="lid-breakdown-paragraph" style={{ fontSize: '0.85rem', opacity: 0.9 }}>
             {ruContext}

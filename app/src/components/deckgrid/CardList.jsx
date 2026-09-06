@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -54,6 +56,7 @@ const DraggableCardItem = React.memo(({
   cardBgFront,
   previewCardLines
 }) => {
+  useInterfaceLocale();
   const [isExpanded, setIsExpanded] = React.useState(false);
   const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
 
@@ -145,9 +148,9 @@ const DraggableCardItem = React.memo(({
               e.stopPropagation();
               setIsExpanded(prev => !prev);
             }}
-            title={isExpanded ? "Свернуть текст" : "Развернуть полный текст"}
+            title={isExpanded ? tr("Свернуть текст") : tr("Развернуть полный текст")}
           >
-            <span>{isExpanded ? 'Свернуть' : 'ещё...'}</span>
+            <span>{isExpanded ? tr("Свернуть") : tr("ещё...")}</span>
             {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         )}
@@ -160,7 +163,7 @@ const DraggableCardItem = React.memo(({
             {...attributes}
             {...listeners}
             onClick={(e) => e.stopPropagation()}
-            title="Зажмите и потяните для перетаскивания карточки"
+            title={tr("Зажмите и потяните для перетаскивания карточки")}
           >
             <GripHorizontal size={20} />
           </div>
@@ -179,9 +182,7 @@ const DraggableCardItem = React.memo(({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '2px'
-            }}>
-              ☑️ Тест
-            </span>
+            }}>{tr("☑️ Тест")}{' '}</span>
           )}
 
           {isTrainerCard && (
@@ -196,9 +197,7 @@ const DraggableCardItem = React.memo(({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '2px'
-            }}>
-              🏋️ Тренажер
-            </span>
+            }}>{tr("🏋️ Тренажер")}{' '}</span>
           )}
         </div>
 
@@ -222,6 +221,7 @@ const DraggableCardItem = React.memo(({
 });
 
 export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
+  useInterfaceLocale();
   const { t } = useTranslation();
   const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck, deckCards, cardsLoading, folders, handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
@@ -298,11 +298,11 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     try {
       const result = await useDeckStore.getState().handleShareDeck(currentDeck.id);
       if (result.success) {
-        if (result.type === 'copy') showToast('Ссылка скопирована!', 'success');
-        else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
+        if (result.type === 'copy') showToast(tr("Ссылка скопирована!"), 'success');
+        else if (result.type === 'telegram') showToast(tr("Открываем Telegram Share..."), 'success');
       }
     } catch {
-      showToast('Ошибка при создании ссылки', 'error');
+      showToast(tr("Ошибка при создании ссылки"), 'error');
     }
   };
 
@@ -322,12 +322,12 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const handleReset = async (e) => {
     e?.stopPropagation();
     setIsDeckMenuOpen(false);
-    if (window.confirm("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?")) {
+    if (window.confirm(tr("Это сбросит весь прогресс обучения по этой колоде. Вы уверены?"))) {
       try {
         await handleResetProgress(currentDeck.id);
-        showToast("Прогресс успешно сброшен", "success");
+        showToast(tr("Прогресс успешно сброшен"), "success");
       } catch {
-        showToast("Ошибка при сбросе прогресса");
+        showToast(tr("Ошибка при сбросе прогресса"));
       }
     }
   };
@@ -335,7 +335,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const handleDelete = (e) => {
     e?.stopPropagation();
     setIsDeckMenuOpen(false);
-    if (window.confirm("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?")) {
+    if (window.confirm(tr("Вы уверены, что хотите полностью удалить эту колоду и весь прогресс?"))) {
       handleDeleteDeck(currentDeck.id);
       setView('decks');
     }
@@ -344,7 +344,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
   const handleReclassifyDeck = async (e) => {
     e?.stopPropagation();
     setIsDeckMenuOpen(false);
-    showToast('Обновление уровней колоды...', 'info');
+    showToast(tr("Обновление уровней колоды..."), 'info');
     try {
       const response = await fetch('/api/cards/classify-batch', {
         method: 'POST',
@@ -354,12 +354,12 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
       if (response.ok) {
         const data = await response.json();
         useDeckStore.getState().fetchDeckCards(currentDeck.id);
-        showToast(`✨ Уровни карточек обновлены! (${data.updated_count || 0} шт.)`, 'success');
+        showToast(tr("✨ Уровни карточек обновлены! ({{p0}} шт.)", { p0: data.updated_count || 0 }), 'success');
       } else {
-        showToast('Ошибка при переклассификации');
+        showToast(tr("Ошибка при переклассификации"));
       }
     } catch {
-      showToast('Ошибка сети при переклассификации');
+      showToast(tr("Ошибка сети при переклассификации"));
     }
   };
 
@@ -369,9 +369,9 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     setIsMoveMenuOpen(false);
     try {
       await useDeckStore.getState().moveDeckToFolder(currentDeck.id, folderId);
-      showToast("Колода перемещена", "success");
+      showToast(tr("Колода перемещена"), "success");
     } catch {
-      showToast("Ошибка при перемещении колоды", "error");
+      showToast(tr("Ошибка при перемещении колоды"), "error");
     }
   };
 
@@ -381,9 +381,9 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
     setIsCopyMenuOpen(false);
     try {
       await useDeckStore.getState().copyDeckToFolder(currentDeck.id, folderId);
-      showToast("Колода скопирована", "success");
+      showToast(tr("Колода скопирована"), "success");
     } catch {
-      showToast("Ошибка при копировании колоды", "error");
+      showToast(tr("Ошибка при копировании колоды"), "error");
     }
   };
 
@@ -597,8 +597,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           <button 
             className="back-btn" 
             onClick={navigateUp}
-            title="Назад"
-            aria-label="Назад"
+            title={tr("Назад")}
+            aria-label={tr("Назад")}
           >
             <ChevronLeft size={24} />
           </button>
@@ -608,7 +608,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             <button 
               className="header-action-btn" 
               onClick={() => setIsBatchModalOpen(true)} 
-              title="Пакетная генерация карточек"
+              title={tr("Пакетная генерация карточек")}
             >
               <ListPlus size={22} />
             </button>
@@ -624,7 +624,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                   return !prev;
                 });
               }}
-              title="Поиск карточек"
+              title={tr("Поиск карточек")}
               style={{
                 color: (isSearchOpen || searchQuery) ? '#c084fc' : 'currentColor',
                 background: (isSearchOpen || searchQuery) ? 'rgba(168, 85, 247, 0.2)' : undefined,
@@ -638,7 +638,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             <button 
               className="header-action-btn settings-btn" 
               onClick={() => setIsSettingsOpen(true)}
-              title="Настройки"
+              title={tr("Настройки")}
             >
               <Settings size={22} />
             </button>
@@ -651,7 +651,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                   e.stopPropagation();
                   setIsDeckMenuOpen(prev => !prev);
                 }}
-                title="Опции колоды"
+                title={tr("Опции колоды")}
                 style={{
                   color: isDeckMenuOpen ? '#c084fc' : 'currentColor',
                   background: isDeckMenuOpen ? 'rgba(168, 85, 247, 0.2)' : undefined,
@@ -676,12 +676,12 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                     setIsDeckMenuOpen(false);
                     setIsMediaModalOpen(true);
                   }}>
-                    <span>📎 Ресурсы колоды</span>
+                    <span>{tr("📎 Ресурсы колоды")}</span>
                   </button>
 
                   {!currentDeck?.is_inbox && (
                     <button className="dropdown-item" onClick={handleRename}>
-                      <span>✍️ Переименовать</span>
+                      <span>{tr("✍️ Переименовать")}</span>
                     </button>
                   )}
 
@@ -691,19 +691,19 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                       useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: currentDeck.id, name: currentDeck.name });
                       useUiStore.getState().setIsCollaboratorsModalOpen(true);
                     }}>
-                      <span>👥 Совместный доступ</span>
+                      <span>{tr("👥 Совместный доступ")}</span>
                     </button>
                   )}
 
                   {!currentDeck?.is_inbox && (
                     <button className="dropdown-item" onClick={handleShare}>
-                      <span>🔗 Поделиться</span>
+                      <span>{tr("🔗 Поделиться")}</span>
                     </button>
                   )}
 
                   {!currentDeck?.is_inbox && (
                     <button className="dropdown-item" onClick={handleSync}>
-                      <span>🔄 {currentDeck?.has_updates ? '❗️ Обновить' : 'Обновить'}</span>
+                      <span>🔄 {currentDeck?.has_updates ? tr("❗️ Обновить") : tr("Обновить")}</span>
                     </button>
                   )}
 
@@ -716,7 +716,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                           setIsMoveMenuOpen(prev => !prev);
                         }}
                       >
-                        <span>📁 Переместить в</span>
+                        <span>{tr("📁 Переместить в")}</span>
                         <ChevronRight 
                           size={14} 
                           style={{ 
@@ -732,7 +732,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             className={`dropdown-sub-item ${currentDeck?.folder_id === null ? 'current' : ''}`}
                             onClick={(e) => handleMoveToFolder(e, null)}
                           >
-                            <span>Без папки (Главная)</span>
+                            <span>{tr("Без папки (Главная)")}</span>
                           </button>
                           {getSortedFolderTree(folders || []).map(f => (
                             <button 
@@ -754,7 +754,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                           setIsCopyMenuOpen(prev => !prev);
                         }}
                       >
-                        <span>📋 Скопировать в</span>
+                        <span>{tr("📋 Скопировать в")}</span>
                         <ChevronRight 
                           size={14} 
                           style={{ 
@@ -770,7 +770,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             className={`dropdown-sub-item ${currentDeck?.folder_id === null ? 'current' : ''}`}
                             onClick={(e) => handleCopyToFolder(e, null)}
                           >
-                            <span>Без папки (Главная)</span>
+                            <span>{tr("Без папки (Главная)")}</span>
                           </button>
                           {getSortedFolderTree(folders || []).map(f => (
                             <button 
@@ -786,13 +786,13 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                       )}
 
                       <button className="dropdown-item" onClick={handleReclassifyDeck}>
-                        <span>✨ Обновить CEFR-уровни</span>
+                        <span>{tr("✨ Обновить CEFR-уровни")}</span>
                       </button>
                       <button className="dropdown-item warning" onClick={handleReset}>
-                        <span>🧹 Сбросить прогресс</span>
+                        <span>{tr("🧹 Сбросить прогресс")}</span>
                       </button>
                       <button className="dropdown-item danger" onClick={handleDelete}>
-                        <span>🗑️ Удалить колоду</span>
+                        <span>{tr("🗑️ Удалить колоду")}</span>
                       </button>
                     </>
                   )}
@@ -848,7 +848,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '1.05rem', fontWeight: 700, color: '#ffffff' }}>
               <Play size={20} fill="currentColor" />
-              <span>Учить колоду ({deckCards?.length || 0})</span>
+              <span>{tr("Учить колоду (")}{deckCards?.length || 0})</span>
             </div>
             <div style={{ 
               fontSize: '1.05rem', 
@@ -931,10 +931,10 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             }}
                             onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.85)'}
                             onMouseOut={e => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)'}
-                            title="Редактировать изображение списка"
+                            title={tr("Редактировать изображение списка")}
                           >
                             <Crop size={13} />
-                            <span>Изменить</span>
+                            <span>{tr("Изменить")}</span>
                           </button>
 
                           {deckImages.length > 1 && (
@@ -958,7 +958,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                         <div
                           onMouseDown={startResizeDrag}
                           onTouchStart={startResizeDrag}
-                          title="Потяни чтобы изменить высоту"
+                          title={tr("Потяни чтобы изменить высоту")}
                           style={{
                             height: '14px',
                             display: 'flex',
@@ -1001,9 +1001,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                             boxSizing: 'border-box'
                           }}
                         >
-                          <span style={{ fontSize: '0.78rem', color: '#e2e8f0', fontWeight: 500 }}>
-                            Показывать картинку в каждой карточке
-                          </span>
+                          <span style={{ fontSize: '0.78rem', color: '#e2e8f0', fontWeight: 500 }}>{tr("Показывать картинку в каждой карточке")}{' '}</span>
                           <input
                             type="checkbox"
                             checked={img.show_in_cards !== false}
@@ -1081,8 +1079,8 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
               <div className="cards-loading-state glass">
                 <RefreshCw size={32} className="spin" color="#a855f7" />
-                <h3>Загрузка карточек...</h3>
-                <p>Получаем список карточек из базы данных</p>
+                <h3>{tr("Загрузка карточек...")}</h3>
+                <p>{tr("Получаем список карточек из базы данных")}</p>
               </div>
               {[1, 2, 3].map(idx => (
                 <div key={idx} className="card-item glass card-skeleton" style={{ opacity: 0.6 }}>
@@ -1100,15 +1098,13 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
             </div>
           ) : deckCards.length === 0 ? (
             <div className="empty-cards-state glass">
-              <h3>В этой колоде пока нет карточек</h3>
-              <p>Нажмите на "+" в правом верхнем углу или на кнопку ниже, чтобы создать свою первую карточку.</p>
+              <h3>{tr("В этой колоде пока нет карточек")}</h3>
+              <p>{tr("Нажмите на \"+\" в правом верхнем углу или на кнопку ниже, чтобы создать свою первую карточку.")}</p>
               <button 
                 className="btn btn-primary" 
                 style={{ marginTop: '10px' }} 
                 onClick={() => openCreator(currentDeck?.id)}
-              >
-                Создать карточку
-              </button>
+              >{tr("Создать карточку")}{' '}</button>
             </div>
           ) : filteredCards.length === 0 ? (
             <div className="search-empty-state glass">
@@ -1150,9 +1146,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
                     />
                   ))}
                   {visibleCount < filteredCards.length && !searchQuery.trim() && (
-                    <div style={{ textAlign: 'center', padding: '12px 0', opacity: 0.6, fontSize: '0.8rem', color: '#c084fc', userSelect: 'none' }}>
-                      Показано {renderedCards.length} из {filteredCards.length} (прокрутите вниз для загрузки)
-                    </div>
+                    <div style={{ textAlign: 'center', padding: '12px 0', opacity: 0.6, fontSize: '0.8rem', color: '#c084fc', userSelect: 'none' }}>{tr("Показано")}{' '}{renderedCards.length}{' '}{tr("из")}{' '}{filteredCards.length}{' '}{tr("(прокрутите вниз для загрузки)")}{' '}</div>
                   )}
                 </div>
               </SortableContext>
@@ -1205,7 +1199,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
               await uploadDeckResource(editedFile, 'image', currentDeck.id, editingDeckImgIndex);
             }
           }}
-          title="Настройка фото списка"
+          title={tr("Настройка фото списка")}
         />
       </motion.div>
     </div>

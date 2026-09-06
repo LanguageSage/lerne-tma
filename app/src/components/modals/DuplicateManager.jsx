@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Trash2, Edit2, Share2, Copy, Inbox, Layers, BookOpen } from 'lucide-react';
@@ -11,6 +13,7 @@ import { stripMarkdown } from '../../utils/text';
 import { navigateUp } from '../../utils/navigation';
 
 export const DuplicateManager = () => {
+  useInterfaceLocale();
   const { setView, setIsOpeningDeck } = useUiStore();
   const { duplicateCards, fetchDuplicates, setCurrentDeck, lastDuplicateCardId, setLastDuplicateCardId } = useDeckStore();
   const { openEditor } = useCardNavigation();
@@ -35,7 +38,7 @@ export const DuplicateManager = () => {
   const onShow = async () => {
     setIsOpeningDeck(true);
     try {
-      setCurrentDeck({ id: 'duplicates', name: 'Дубликаты' });
+      setCurrentDeck({ id: 'duplicates', name: tr("Дубликаты") });
       setView('study');
       useSessionStore.getState().resetSession();
       await fetchNextCard('duplicates', true);
@@ -49,7 +52,7 @@ export const DuplicateManager = () => {
     setIsOpeningDeck(true);
     try {
       setLastDuplicateCardId(card.id);
-      setCurrentDeck({ id: 'duplicates', name: 'Дубликаты' });
+      setCurrentDeck({ id: 'duplicates', name: tr("Дубликаты") });
       setView('study');
       useSessionStore.getState().addToHistory(card);
       
@@ -68,7 +71,7 @@ export const DuplicateManager = () => {
 
   const onDelete = async (e, cardId) => {
     e.stopPropagation();
-    if (window.confirm('Вы уверены, что хотите удалить этот дубликат?')) {
+    if (window.confirm(tr("Вы уверены, что хотите удалить этот дубликат?"))) {
       await handleDeleteCard(cardId, true);
       fetchDuplicates();
     }
@@ -94,12 +97,10 @@ export const DuplicateManager = () => {
     <div className="view-duplicates">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="view">
         <div className="header-compact header-compact-sticky">
-          <button className="back-btn" onClick={handleBack} title="Назад" aria-label="Назад"><ChevronLeft size={24} /></button>
+          <button className="back-btn" onClick={handleBack} title={tr("Назад")} aria-label={tr("Назад")}><ChevronLeft size={24} /></button>
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <h2 style={{ marginBottom: 2 }}>Дубликаты</h2>
-            <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>
-              Найдено {duplicateCards.length} карточек ({Object.keys(groups).length} групп)
-            </p>
+            <h2 style={{ marginBottom: 2 }}>{tr("Дубликаты")}</h2>
+            <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>{tr("Найдено")}{' '}{duplicateCards.length}{' '}{tr("карточек (")}{Object.keys(groups).length}{' '}{tr("групп)")}{' '}</p>
           </div>
           <button 
             className="btn btn-primary btn-tiny" 
@@ -107,8 +108,7 @@ export const DuplicateManager = () => {
             disabled={duplicateCards.length === 0}
             style={{ padding: '6px 12px' }}
           >
-            <BookOpen size={16} /> Показать
-          </button>
+            <BookOpen size={16} />{' '}{tr("Показать")}{' '}</button>
         </div>
 
         <div className="duplicate-list-container" style={{ padding: '0 16px 80px' }}>
@@ -122,7 +122,7 @@ export const DuplicateManager = () => {
             }}>
               <div className="group-header" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Copy size={16} color="#818cf8" />
-                <strong style={{ color: '#818cf8', fontSize: '0.9rem' }}>Группа: {stripMarkdown(front)}</strong>
+                <strong style={{ color: '#818cf8', fontSize: '0.9rem' }}>{tr("Группа:")}{' '}{stripMarkdown(front)}</strong>
               </div>
 
               <div className="cards-stack" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -140,7 +140,7 @@ export const DuplicateManager = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: '0.75rem' }}>
                         <Layers size={12} />
-                        <span>Из колоды: </span>
+                        <span>{tr("Из колоды:")}{' '}</span>
                         <strong style={{ color: '#e2e8f0' }}>{card.deck_name}</strong>
                       </div>
                       <div className="item-actions" style={{ display: 'flex', gap: 8 }}>
@@ -160,7 +160,7 @@ export const DuplicateManager = () => {
           {duplicateCards.length === 0 && (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
               <Inbox size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
-              <p>Дубликаты не найдены. Всё чисто!</p>
+              <p>{tr("Дубликаты не найдены. Всё чисто!")}</p>
             </div>
           )}
         </div>

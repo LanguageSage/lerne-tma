@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -15,6 +17,7 @@ export const FolderCardItem = React.memo(({
   folders,
   showToast
 }) => {
+  useInterfaceLocale();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [menuPlacement, setMenuPlacement] = useState('bottom');
@@ -67,23 +70,23 @@ export const FolderCardItem = React.memo(({
     try {
       const result = await useDeckStore.getState().handleShareFolder(folder.id);
       if (result.success) {
-        if (result.type === 'copy') showToast('Ссылка на папку скопирована!', 'success');
-        else if (result.type === 'telegram') showToast('Открываем Telegram Share...', 'success');
-        else if (result.type === 'share') showToast('Папка отправлена!', 'success');
+        if (result.type === 'copy') showToast(tr("Ссылка на папку скопирована!"), 'success');
+        else if (result.type === 'telegram') showToast(tr("Открываем Telegram Share..."), 'success');
+        else if (result.type === 'share') showToast(tr("Папка отправлена!"), 'success');
       }
     } catch (err) {
       console.error("Error sharing folder:", err);
-      showToast("Ошибка при создании ссылки на папку", "error");
+      showToast(tr("Ошибка при создании ссылки на папку"), "error");
     }
   };
 
   const handleRename = (e) => {
     e.stopPropagation();
     setIsMenuOpen(false);
-    const newName = window.prompt("Введите новое название папки:", folder.name);
+    const newName = window.prompt(tr("Введите новое название папки:"), folder.name);
     if (newName && newName.trim()) {
       useDeckStore.getState().renameFolder(folder.id, newName.trim());
-      showToast("Папка переименована", "success");
+      showToast(tr("Папка переименована"), "success");
     }
   };
 
@@ -93,18 +96,18 @@ export const FolderCardItem = React.memo(({
     setIsMoveMenuOpen(false);
     try {
       await useDeckStore.getState().moveFolder(folder.id, parentId);
-      showToast("Папка перемещена", "success");
+      showToast(tr("Папка перемещена"), "success");
     } catch {
-      showToast("Ошибка при перемещении папки", "error");
+      showToast(tr("Ошибка при перемещении папки"), "error");
     }
   };
 
   const handleDelete = (e) => {
     e.stopPropagation();
     setIsMenuOpen(false);
-    if (window.confirm("Удалить папку? Колоды внутри папки останутся и переместятся на верхний уровень.")) {
+    if (window.confirm(tr("Удалить папку? Колоды внутри папки останутся и переместятся на верхний уровень."))) {
       useDeckStore.getState().deleteFolder(folder.id);
-      showToast("Папка удалена", "success");
+      showToast(tr("Папка удалена"), "success");
     }
   };
 
@@ -172,14 +175,14 @@ export const FolderCardItem = React.memo(({
             {...attributes}
             {...listeners}
             onClick={(e) => e.stopPropagation()}
-            title="Зажмите и потяните для перетаскивания папки"
+            title={tr("Зажмите и потяните для перетаскивания папки")}
           >
             <GripHorizontal size={20} />
           </div>
 
           <div 
             className="deck-flag-badge-inline"
-            title={`Язык: ${folderLang.toUpperCase()}`}
+            title={tr("Язык: {{p0}}", { p0: folderLang.toUpperCase() })}
           >
             {renderFlag(folderLang, 26)}
           </div>
@@ -195,12 +198,12 @@ export const FolderCardItem = React.memo(({
             display: 'inline-flex',
             alignItems: 'center'
           }}>
-            {totalDecksCount} {totalDecksCount === 1 ? 'колода' : totalDecksCount > 1 && totalDecksCount < 5 ? 'колоды' : 'колод'}
+            {totalDecksCount} {totalDecksCount === 1 ? tr("колода") : totalDecksCount > 1 && totalDecksCount < 5 ? tr("колоды") : tr("колод")}
           </span>
 
           {folder.is_shared && (
             <div 
-              title="Совместный доступ"
+              title={tr("Совместный доступ")}
               onClick={(e) => {
                 e.stopPropagation();
                 useUiStore.getState().setCollaboratorsTarget({ type: 'folder', id: folder.id, name: folder.name });
@@ -229,7 +232,7 @@ export const FolderCardItem = React.memo(({
           <button 
             className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
             onClick={toggleMenu}
-            title="Опции папки"
+            title={tr("Опции папки")}
           >
             <MoreHorizontal size={18} />
           </button>
@@ -243,13 +246,13 @@ export const FolderCardItem = React.memo(({
               useUiStore.getState().setCollaboratorsTarget({ type: 'folder', id: folder.id, name: folder.name });
               useUiStore.getState().setIsCollaboratorsModalOpen(true);
             }}>
-              <span>👥 Совместный доступ</span>
+              <span>{tr("👥 Совместный доступ")}</span>
             </button>
             <button className="dropdown-item" onClick={handleShare}>
-              <span>🔗 Поделиться содержимым</span>
+              <span>{tr("🔗 Поделиться содержимым")}</span>
             </button>
             <button className="dropdown-item" onClick={handleRename}>
-              <span>✍️ Переименовать</span>
+              <span>{tr("✍️ Переименовать")}</span>
             </button>
 
             
@@ -260,7 +263,7 @@ export const FolderCardItem = React.memo(({
                 setIsMoveMenuOpen(!isMoveMenuOpen);
               }}
             >
-              <span>📁 Переместить в</span>
+              <span>{tr("📁 Переместить в")}</span>
               <ChevronRight 
                 size={14} 
                 style={{ 
@@ -276,7 +279,7 @@ export const FolderCardItem = React.memo(({
                   className={`dropdown-sub-item ${folder.parent_id === null ? 'current' : ''}`}
                   onClick={(e) => handleMove(e, null)}
                 >
-                  <span>Без папки (Главная)</span>
+                  <span>{tr("Без папки (Главная)")}</span>
                 </button>
                 {validTargetFolders.map(f => (
                   <button 
@@ -292,7 +295,7 @@ export const FolderCardItem = React.memo(({
             )}
 
             <button className="dropdown-item danger" onClick={handleDelete}>
-              <span>🗑️ Удалить папку</span>
+              <span>{tr("🗑️ Удалить папку")}</span>
             </button>
           </div>
         )}

@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Layers, Loader2, CheckCircle2, AlertCircle, FileText, Check, Zap } from 'lucide-react';
@@ -11,6 +13,7 @@ import { parseBatchCardsText } from '../../utils/batchCardParser';
 import api from '../../services/api';
 
 export const BatchCardModal = () => {
+  useInterfaceLocale();
   const { isBatchModalOpen, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck } = useDeckStore();
   const { runBatchAiGenerator } = useCardActions();
@@ -102,7 +105,7 @@ export const BatchCardModal = () => {
   // ── 1. Batch AI Generator (Plain phrase list) ──────────────────────────────
   const handleAiGenerate = async () => {
     if (lineCount === 0) {
-      showToast('Введите хотя бы одну фразу для генерации', 'error');
+      showToast(tr("Введите хотя бы одну фразу для генерации"), 'error');
       return;
     }
 
@@ -126,7 +129,7 @@ export const BatchCardModal = () => {
   // ── 2. AI Quiz/Card Enrichment (Generates explanations & translations) ─────
   const handleAiEnrichImport = async () => {
     if (parsedCards.length === 0) {
-      showToast('Не удалось распознать карточки в тексте. Проверьте разделители (---)', 'error');
+      showToast(tr("Не удалось распознать карточки в тексте. Проверьте разделители (---)"), 'error');
       return;
     }
 
@@ -159,10 +162,10 @@ export const BatchCardModal = () => {
       setGeneratedCards(cardsList);
       await updateLocalStores(cardsList);
 
-      showToast(`ИИ успешно сгенерировал ответы для ${cardsList.length} карточек!`, 'success');
+      showToast(tr("ИИ успешно сгенерировал ответы для {{p0}} карточек!", { p0: cardsList.length }), 'success');
     } catch (err) {
       console.error('AI enrich error:', err);
-      showToast(`Ошибка генерации ИИ: ${err.response?.data?.detail || err.message}`, 'error');
+      showToast(tr("Ошибка генерации ИИ: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');
     } finally {
       setIsProcessing(false);
       setProcessingMode('');
@@ -172,7 +175,7 @@ export const BatchCardModal = () => {
   // ── 3. Direct Fast Import (Quizzes, Trainers, Standard without AI) ─────────
   const handleDirectImport = async () => {
     if (parsedCards.length === 0) {
-      showToast('Не удалось распознать карточки в тексте. Проверьте разделители (---)', 'error');
+      showToast(tr("Не удалось распознать карточки в тексте. Проверьте разделители (---)"), 'error');
       return;
     }
 
@@ -202,10 +205,10 @@ export const BatchCardModal = () => {
       setGeneratedCards(savedCardsList);
       await updateLocalStores(savedCardsList);
 
-      showToast(`Успешно добавлено ${savedCardsList.length} карточек!`, 'success');
+      showToast(tr("Успешно добавлено {{p0}} карточек!", { p0: savedCardsList.length }), 'success');
     } catch (err) {
       console.error('Bulk save error:', err);
-      showToast(`Ошибка импорта: ${err.response?.data?.detail || err.message}`, 'error');
+      showToast(tr("Ошибка импорта: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');
     } finally {
       setIsProcessing(false);
       setProcessingMode('');
@@ -255,11 +258,9 @@ export const BatchCardModal = () => {
                 <Layers size={22} color="#c084fc" />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'white', margin: 0 }}>
-                  Массовое создание карточек
-                </h3>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'white', margin: 0 }}>{tr("Массовое создание карточек")}{' '}</h3>
                 <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                  {currentDeck ? `Колода: ${currentDeck.name}` : 'Импорт тестов и карточек'}
+                  {currentDeck ? tr("Колода: {{p0}}", { p0: currentDeck.name }) : tr("Импорт тестов и карточек")}
                 </span>
               </div>
             </div>
@@ -300,7 +301,7 @@ export const BatchCardModal = () => {
                 }}
               >
                 <FileText size={15} />
-                <span>Импорт тестов (---)</span>
+                <span>{tr("Импорт тестов (---)")}</span>
               </button>
 
               <button
@@ -324,7 +325,7 @@ export const BatchCardModal = () => {
                 }}
               >
                 <Sparkles size={15} />
-                <span>Генерация ИИ</span>
+                <span>{tr("Генерация ИИ")}</span>
               </button>
             </div>
           )}
@@ -335,8 +336,7 @@ export const BatchCardModal = () => {
               activeTab === 'import' ? (
                 /* ── TAB 1: Direct Text Import ── */
                 <>
-                  <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
-                    Вставьте готовые тесты или карточки, разделённые строкой <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>---</code>. Правильный вариант ответа в тесте отметьте звёздочкой <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#4ade80' }}>*</code>.
+                  <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>{tr("Вставьте готовые тесты или карточки, разделённые строкой")}{' '}<code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>---</code>{tr(". Правильный вариант ответа в тесте отметьте звёздочкой")}{' '}<code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#4ade80' }}>*</code>.
                   </p>
 
                   <div style={{ position: 'relative' }}>
@@ -367,25 +367,24 @@ export const BatchCardModal = () => {
                       marginTop: 6, fontSize: '0.8rem', color: parsedCards.length > 0 ? '#4ade80' : '#94a3b8'
                     }}>
                       <span>
-                        {parsedCards.length === 0 ? 'Вставьте текст с разделителями ---' : (
+                        {parsedCards.length === 0 ? tr("Вставьте текст с разделителями ---") : (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             <Check size={14} color="#4ade80" />
-                            <strong>Распознано: {parsedCards.length} карточек</strong>
-                            {quizCount > 0 && <span style={{ color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '1px 5px', borderRadius: 4 }}>☑️ {quizCount} тестов</span>}
-                            {trainerCount > 0 && <span style={{ color: '#c084fc', background: 'rgba(168,85,247,0.15)', padding: '1px 5px', borderRadius: 4 }}>🏋️ {trainerCount} тренаж.</span>}
-                            {standardCount > 0 && <span style={{ color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4 }}>📖 {standardCount} обычн.</span>}
+                            <strong>{tr("Распознано:")}{' '}{parsedCards.length}{' '}{tr("карточек")}</strong>
+                            {quizCount > 0 && <span style={{ color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '1px 5px', borderRadius: 4 }}>☑️ {quizCount}{' '}{tr("тестов")}</span>}
+                            {trainerCount > 0 && <span style={{ color: '#c084fc', background: 'rgba(168,85,247,0.15)', padding: '1px 5px', borderRadius: 4 }}>🏋️ {trainerCount}{' '}{tr("тренаж.")}</span>}
+                            {standardCount > 0 && <span style={{ color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4 }}>📖 {standardCount}{' '}{tr("обычн.")}</span>}
                           </span>
                         )}
                       </span>
-                      <span style={{ opacity: 0.7 }}>Без лимитов</span>
+                      <span style={{ opacity: 0.7 }}>{tr("Без лимитов")}</span>
                     </div>
                   </div>
 
                   {/* Live Preview of parsed cards */}
                   {parsedCards.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '200px', overflowY: 'auto', paddingRight: 4, marginTop: 4 }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' }}>
-                        Предпросмотр ({parsedCards.length}):
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' }}>{tr("Предпросмотр (")}{parsedCards.length}):
                       </span>
                       {parsedCards.map((card, idx) => (
                         <div key={idx} style={{
@@ -400,14 +399,10 @@ export const BatchCardModal = () => {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                               {card.card_type === 'quiz' && (
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>
-                                  ☑️ Тест
-                                </span>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>{tr("☑️ Тест")}{' '}</span>
                               )}
                               {card.card_type === 'trainer' && (
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>
-                                  🏋️ Тренажер
-                                </span>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>{tr("🏋️ Тренажер")}{' '}</span>
                               )}
                               <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {card.front.split('\n')[0]}
@@ -429,9 +424,7 @@ export const BatchCardModal = () => {
               ) : (
                 /* ── TAB 2: AI Batch Generation ── */
                 <>
-                  <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
-                    Вставьте список слов или выражений (по одному на строку). ИИ автоматически сгенерирует переводы, контекст и определит уровень языка CEFR.
-                  </p>
+                  <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>{tr("Вставьте список слов или выражений (по одному на строку). ИИ автоматически сгенерирует переводы, контекст и определит уровень языка CEFR.")}{' '}</p>
 
                   <div style={{ position: 'relative' }}>
                     <textarea
@@ -458,9 +451,9 @@ export const BatchCardModal = () => {
                       marginTop: 6, fontSize: '0.8rem', color: isOverLimit ? '#f87171' : '#94a3b8'
                     }}>
                       <span>
-                        {lineCount === 0 ? 'Введите список фраз' : `Обнаружено строк: ${lineCount}`}
+                        {lineCount === 0 ? tr("Введите список фраз") : tr("Обнаружено строк: {{p0}}", { p0: lineCount })}
                       </span>
-                      <span>Лимит: до 30 строк</span>
+                      <span>{tr("Лимит: до 30 строк")}</span>
                     </div>
                   </div>
 
@@ -472,7 +465,7 @@ export const BatchCardModal = () => {
                       color: '#fca5a5', fontSize: '0.82rem'
                     }}>
                       <AlertCircle size={16} />
-                      <span>Будет обработано первые 30 строк за один запрос.</span>
+                      <span>{tr("Будет обработано первые 30 строк за один запрос.")}</span>
                     </div>
                   )}
                 </>
@@ -482,7 +475,7 @@ export const BatchCardModal = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#4ade80', fontWeight: 600, fontSize: '0.95rem' }}>
                   <CheckCircle2 size={20} />
-                  <span>Успешно добавлено карточек: {generatedCards.length}</span>
+                  <span>{tr("Успешно добавлено карточек:")}{' '}{generatedCards.length}</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '350px', overflowY: 'auto', paddingRight: 4 }}>
@@ -499,14 +492,10 @@ export const BatchCardModal = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                           {card.card_type === 'quiz' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>
-                              ☑️ Тест
-                            </span>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>{tr("☑️ Тест")}{' '}</span>
                           )}
                           {card.card_type === 'trainer' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>
-                              🏋️ Тренажер
-                            </span>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>{tr("🏋️ Тренажер")}{' '}</span>
                           )}
                           <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {(card.front_text || card.front || '').split('\n')[0]}
@@ -533,9 +522,7 @@ export const BatchCardModal = () => {
                   onClick={handleClose}
                   disabled={isProcessing}
                   style={{ padding: '10px 18px', borderRadius: 12 }}
-                >
-                  Отмена
-                </button>
+                >{tr("Отмена")}{' '}</button>
 
                 {activeTab === 'import' ? (
                   <>
@@ -543,7 +530,7 @@ export const BatchCardModal = () => {
                       className="btn btn-secondary"
                       onClick={handleDirectImport}
                       disabled={isProcessing || parsedCards.length === 0}
-                      title="Мгновенно сохранить карточки без вызова ИИ"
+                      title={tr("Мгновенно сохранить карточки без вызова ИИ")}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
                         padding: '10px 14px', borderRadius: 12, fontSize: '0.86rem'
@@ -554,14 +541,14 @@ export const BatchCardModal = () => {
                       ) : (
                         <Zap size={16} />
                       )}
-                      <span>⚡ Быстро</span>
+                      <span>{tr("⚡ Быстро")}</span>
                     </button>
 
                     <button
                       className="btn btn-primary"
                       onClick={handleAiEnrichImport}
                       disabled={isProcessing || parsedCards.length === 0}
-                      title="ИИ найдет правильный ответ, переведет вопрос и составит подробное объяснение"
+                      title={tr("ИИ найдет правильный ответ, переведет вопрос и составит подробное объяснение")}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '10px 20px', borderRadius: 12, fontWeight: 600,
@@ -570,13 +557,11 @@ export const BatchCardModal = () => {
                     >
                       {isProcessing && processingMode === 'ai_enrich' ? (
                         <>
-                          <Loader2 size={18} className="spin" />
-                          Генерация ИИ ({parsedCards.length})...
+                          <Loader2 size={18} className="spin" />{tr("Генерация ИИ (")}{parsedCards.length})...
                         </>
                       ) : (
                         <>
-                          <Sparkles size={18} />
-                          Сгенерировать с ИИ ({parsedCards.length})
+                          <Sparkles size={18} />{tr("Сгенерировать с ИИ (")}{parsedCards.length})
                         </>
                       )}
                     </button>
@@ -593,13 +578,11 @@ export const BatchCardModal = () => {
                   >
                     {isProcessing && processingMode === 'ai' ? (
                       <>
-                        <Loader2 size={18} className="spin" />
-                        Генерация ({effectiveCount})...
+                        <Loader2 size={18} className="spin" />{tr("Генерация (")}{effectiveCount})...
                       </>
                     ) : (
                       <>
-                        <Sparkles size={18} />
-                        Сгенерировать ({effectiveCount})
+                        <Sparkles size={18} />{tr("Сгенерировать (")}{effectiveCount})
                       </>
                     )}
                   </button>
@@ -610,9 +593,7 @@ export const BatchCardModal = () => {
                 className="btn btn-primary btn-full"
                 onClick={handleDone}
                 style={{ padding: '12px', borderRadius: 12, fontWeight: 600 }}
-              >
-                Готово
-              </button>
+              >{tr("Готово")}{' '}</button>
             )}
           </div>
         </motion.div>

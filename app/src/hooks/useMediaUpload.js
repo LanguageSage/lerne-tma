@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -11,7 +12,7 @@ export const useMediaUpload = () => {
   const uploadImageFile = async (file) => {
     if (!file) return null;
     if (!file.type?.startsWith('image/')) {
-      showToast("Выберите файл изображения");
+      showToast(tr("Выберите файл изображения"));
       return null;
     }
 
@@ -32,11 +33,11 @@ export const useMediaUpload = () => {
           image_path: uploaded.path,
           image_url: uploaded.url
         });
-        showToast("Картинка добавлена", "success");
+        showToast(tr("Картинка добавлена"), "success");
       }
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка загрузки картинки: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка загрузки картинки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     } finally {
       setLoading(false);
     }
@@ -69,11 +70,11 @@ export const useMediaUpload = () => {
         const img = new Image();
         img.src = uploaded.url;
 
-        showToast("Картинка добавлена", "success");
+        showToast(tr("Картинка добавлена"), "success");
       }
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка загрузки картинки: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка загрузки картинки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     } finally {
       setLoading(false);
     }
@@ -90,11 +91,11 @@ export const useMediaUpload = () => {
           image_path: uploaded.path,
           image_url: uploaded.url
         });
-        showToast("Картинка добавлена", "success");
+        showToast(tr("Картинка добавлена"), "success");
       }
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка загрузки картинки: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка загрузки картинки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     } finally {
       setLoading(false);
     }
@@ -142,11 +143,11 @@ export const useMediaUpload = () => {
           });
         }
         
-        showToast(`Видео (${side === 'front' ? 'лицо' : 'оборот'}) добавлено`, "success");
+        showToast(tr("Видео ({{p0}}) добавлено", { p0: side === 'front' ? tr("лицо") : tr("оборот") }), "success");
       }
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка загрузки видео: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка загрузки видео: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     } finally {
       setLoading(false);
     }
@@ -161,12 +162,12 @@ export const useMediaUpload = () => {
       const res = await api.post('/media/upload-background', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      showToast("Фон загружен", "success");
+      showToast(tr("Фон загружен"), "success");
       if (fetchBackgroundsFn) fetchBackgroundsFn();
       return res.data;
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка загрузки фона: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка загрузки фона: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     } finally {
       setLoading(false);
     }
@@ -191,11 +192,11 @@ export const useMediaUpload = () => {
           [fieldName]: res.data.path,
           [urlName]: res.data.url
         });
-        showToast(`Видео (${side === 'front' ? 'лицо' : 'оборот'}) добавлено`, "success");
+        showToast(tr("Видео ({{p0}}) добавлено", { p0: side === 'front' ? tr("лицо") : tr("оборот") }), "success");
       }
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка загрузки видео: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка загрузки видео: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     } finally {
       setLoading(false);
     }
@@ -235,7 +236,7 @@ export const useMediaUpload = () => {
           type,
           path: res.data.path,
           url: res.data.url,
-          title: file.name || (type === 'image' ? 'Картинка' : type === 'audio' ? 'Аудио' : 'Видео')
+          title: file.name || (type === 'image' ? tr("Картинка") : type === 'audio' ? tr("Аудио") : tr("Видео"))
         };
 
         let updatedResources = [...metadata.resources];
@@ -258,13 +259,13 @@ export const useMediaUpload = () => {
         const newMetadata = { ...metadata, resources: updatedResources };
 
         const updatedMeta = await store.updateDeckMetadata(deckId, newMetadata);
-        showToast(replaceIndex >= 0 ? "Ресурс обновлен" : "Файл добавлен в ресурсы колоды", "success");
+        showToast(replaceIndex >= 0 ? tr("Ресурс обновлен") : tr("Файл добавлен в ресурсы колоды"), "success");
         return updatedMeta;
       }
       return null;
     } catch (err) {
       console.error(err);
-      showToast(`Ошибка загрузки: ${err.response?.data?.detail || err.message}`);
+      showToast(tr("Ошибка загрузки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
       return null;
     } finally {
       setLoading(false);

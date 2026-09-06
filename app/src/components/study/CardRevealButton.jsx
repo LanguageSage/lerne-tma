@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { Eye } from 'lucide-react';
 
@@ -5,7 +7,8 @@ import { Eye } from 'lucide-react';
  * Shared CardRevealButton component.
  * Replaces duplicated reveal button JSX across StudyCard, StudyCardTrainer, StudyCardPuzzle, StudyCardSpeech.
  */
-const CardRevealButton = React.memo(({ onClick, label = "Показать ответ", icon: CustomIcon = Eye, style = {} }) => {
+const CardRevealButton = React.memo(({ onClick, label = tr("Показать ответ"), icon: CustomIcon = Eye, style = {} }) => {
+  useInterfaceLocale();
   return (
     <button
       onClick={(e) => {

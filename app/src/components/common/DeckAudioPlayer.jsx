@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
@@ -9,6 +11,7 @@ import { Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-r
  * @param {'compact' | 'full'} variant - 'compact' = collapsible (StudyView), 'full' = always expanded (CardList)
  */
 const DeckAudioPlayer = React.memo(({ url, title, variant = 'full' }) => {
+  useInterfaceLocale();
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -180,7 +183,7 @@ const DeckAudioPlayer = React.memo(({ url, title, variant = 'full' }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
             <Music size={16} className={isPlaying ? "pulse-animation" : ""} style={{ color: '#38bdf8', flexShrink: 0 }} />
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {title || 'Аудио колоды'}
+              {title || tr("Аудио колоды")}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -255,11 +258,9 @@ const DeckAudioPlayer = React.memo(({ url, title, variant = 'full' }) => {
         onEnded={() => setIsPlaying(false)}
       />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-        <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Аудиоматериал
-        </span>
+        <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tr("Аудиоматериал")}{' '}</span>
         <span style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
-          {title || 'Запись'}
+          {title || tr("Запись")}
         </span>
       </div>
       {renderControls()}

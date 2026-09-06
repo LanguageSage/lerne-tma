@@ -1,14 +1,16 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useMemo } from 'react';
 import { getLevelInfo, getSavedCefr } from '../../utils/levelUtils';
 import { classifySentenceFast } from '../../services/classifier';
 
 const CEFR_DESCRIPTIONS = {
-  A1: 'Начальный уровень (Beginner)',
-  A2: 'Базовый уровень (Elementary)',
-  B1: 'Средний уровень (Intermediate)',
-  B2: 'Выше среднего (Upper Intermediate)',
-  C1: 'Продвинутый уровень (Advanced)',
-  C2: 'В совершенстве (Proficient)'
+  get A1() { return tr("Начальный уровень (Beginner)"); },
+  get A2() { return tr("Базовый уровень (Elementary)"); },
+  get B1() { return tr("Средний уровень (Intermediate)"); },
+  get B2() { return tr("Выше среднего (Upper Intermediate)"); },
+  get C1() { return tr("Продвинутый уровень (Advanced)"); },
+  get C2() { return tr("В совершенстве (Proficient)"); }
 };
 
 export const CardLevelBadge = ({
@@ -19,6 +21,7 @@ export const CardLevelBadge = ({
   onClick = null,
   defaultExpanded = false
 }) => {
+  useInterfaceLocale();
   const currentCardKey = `${card?.id || ''}-${card?.front || card?.front_text || ''}-${defaultExpanded}`;
   const [prevCardKey, setPrevCardKey] = useState(currentCardKey);
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -70,11 +73,11 @@ export const CardLevelBadge = ({
     if (!computedInfo) return { info: null, reasonShort: null, fullReason: null };
 
     const rShort = isManual 
-      ? (card?.reason_short || savedCefr?.reason_short || 'вручную') 
+      ? (card?.reason_short || savedCefr?.reason_short || tr("вручную")) 
       : (card?.reason_short || savedCefr?.reason_short || localClassified?.reason_short || null);
       
     const fReason = isManual 
-      ? (card?.reason || savedCefr?.reason || 'Установлено вручную') 
+      ? (card?.reason || savedCefr?.reason || tr("Установлено вручную")) 
       : (card?.reason || savedCefr?.reason || localClassified?.reason || (rShort ? rShort : CEFR_DESCRIPTIONS[computedInfo.level] || null));
 
     return { info: computedInfo, reasonShort: rShort, fullReason: fReason };
@@ -90,8 +93,8 @@ export const CardLevelBadge = ({
   const badgeTextColor = textColor || info.color;
   const detailedExplanation = fullReason || reasonShort || CEFR_DESCRIPTIONS[info.level] || '';
   const tooltipText = isExpanded
-    ? 'Нажмите, чтобы скрыть объяснение'
-    : (detailedExplanation ? `Уровень: ${info.level} (кликните для объяснения)` : `Уровень языка: ${info.level}`);
+    ? tr("Нажмите, чтобы скрыть объяснение")
+    : (detailedExplanation ? tr("Уровень: {{p0}} (кликните для объяснения)", { p0: info.level }) : tr("Уровень языка: {{p0}}", { p0: info.level }));
 
   const handleClick = (e) => {
     e.stopPropagation();

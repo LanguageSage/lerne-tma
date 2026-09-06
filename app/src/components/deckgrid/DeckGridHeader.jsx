@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { Plus, Settings, ChevronLeft, Search } from 'lucide-react';
 import { UserProfileBadge } from '../common/UserBadge';
@@ -17,6 +19,7 @@ export const DeckGridHeader = ({
   onToggleSearch,
   hasSearchQuery
 }) => {
+  useInterfaceLocale();
   const { t } = useTranslation();
 
   return (
@@ -28,7 +31,7 @@ export const DeckGridHeader = ({
               className="back-btn" 
               onClick={onFolderBack}
               title={t('common.back', 'Назад')}
-              aria-label="Назад"
+              aria-label={tr("Назад")}
             >
               <ChevronLeft size={24} />
             </button>
@@ -48,7 +51,7 @@ export const DeckGridHeader = ({
           <button 
             className={`header-action-btn search-toggle-btn ${isSearchOpen ? 'active' : ''}`} 
             onClick={onToggleSearch}
-            title="Поиск колод и папок"
+            title={tr("Поиск колод и папок")}
             style={{
               color: (isSearchOpen || hasSearchQuery) ? '#818cf8' : 'currentColor',
               background: (isSearchOpen || hasSearchQuery) ? 'rgba(129, 140, 248, 0.2)' : undefined,

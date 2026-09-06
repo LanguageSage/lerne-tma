@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { Search, X } from 'lucide-react';
 import { useTranslation } from '../../i18n/i18nContext';
@@ -21,6 +23,7 @@ export const SearchBar = ({
   color = 'purple',
   inputRef
 }) => {
+  useInterfaceLocale();
   const { t } = useTranslation();
 
   const handleInputChange = (e) => {
@@ -59,7 +62,7 @@ export const SearchBar = ({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
-          aria-label={placeholder || 'Поиск'}
+          aria-label={placeholder || tr("Поиск")}
         />
         {isQueryActive && (
           <button
@@ -67,7 +70,7 @@ export const SearchBar = ({
             className="card-search-clear"
             onClick={handleClear}
             title={t('cards.search_clear', 'Очистить')}
-            aria-label="Очистить поиск"
+            aria-label={tr("Очистить поиск")}
           >
             <X size={13} />
           </button>
@@ -77,7 +80,7 @@ export const SearchBar = ({
       {showMeta && (
         <div className="card-search-meta">
           <span>
-            {countLabel || t('cards.search_found', { count, total }) || `Найдено: ${count} из ${total}`}
+            {countLabel || t('cards.search_found', { count, total }) || tr("Найдено: {{p0}} из {{p1}}", { p0: count, p1: total })}
           </span>
           <span className="card-search-badge">
             {count} / {total}

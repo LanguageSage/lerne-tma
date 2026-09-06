@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Move, Copy, Trash2, Edit2, Settings2, Play, Square, Pause, RotateCw } from 'lucide-react';
@@ -7,8 +9,8 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { FlagPicker } from '../common/FlagPicker';
 
-const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
-const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => -50 + index * 5);
+const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => { useInterfaceLocale(); return (index + 1); });
+const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => { useInterfaceLocale(); return (-50 + index * 5); });
 
 const getSortedFolderAndDeckTree = (foldersList, decksList, expandedFolders) => {
   const result = [];
@@ -59,6 +61,7 @@ export const CardActionModal = ({
   onEdit,
   onStartAutoplay
 }) => {
+  useInterfaceLocale();
   const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy' | 'autoplay'
   const [expandedFolders, setExpandedFolders] = React.useState({});
   const { handleSetCardFlag } = useCardActions();
@@ -163,9 +166,9 @@ export const CardActionModal = ({
 
           <div className="settings-header" style={{ marginBottom: '16px', flexShrink: 0 }}>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>
-              {mode === 'main' ? 'Управление карточкой' : 
-               mode === 'move' ? 'Переместить' : 
-               mode === 'copy' ? 'Копировать' : 'Режим «Авто»'}
+              {mode === 'main' ? tr("Управление карточкой") : 
+               mode === 'move' ? tr("Переместить") : 
+               mode === 'copy' ? tr("Копировать") : tr("Режим «Авто»")}
             </h2>
             <button className="close-btn" onClick={onClose} style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
               <X size={20} />
@@ -188,10 +191,10 @@ export const CardActionModal = ({
                   </div>
                   <div className="action-menu-text">
                     <strong style={{ color: isAutoplayActive ? '#f87171' : undefined }}>
-                      {isAutoplayActive ? 'Режим «Авто» (Активен)' : 'Режим «Авто»'}
+                      {isAutoplayActive ? tr("Режим «Авто» (Активен)") : tr("Режим «Авто»")}
                     </strong>
                     <span>
-                      {isAutoplayActive ? 'Остановить или настроить параметры' : 'Автоматическое воспроизведение карточек'}
+                      {isAutoplayActive ? tr("Остановить или настроить параметры") : tr("Автоматическое воспроизведение карточек")}
                     </span>
                   </div>
                 </button>
@@ -204,8 +207,8 @@ export const CardActionModal = ({
                     <Move size={20} />
                   </div>
                   <div className="action-menu-text">
-                    <strong>Переместить</strong>
-                    <span>Перенести в другую колоду</span>
+                    <strong>{tr("Переместить")}</strong>
+                    <span>{tr("Перенести в другую колоду")}</span>
                   </div>
                 </button>
                 
@@ -217,8 +220,8 @@ export const CardActionModal = ({
                     <Copy size={20} />
                   </div>
                   <div className="action-menu-text">
-                    <strong>Копировать</strong>
-                    <span>Создать дубликат в другой колоде</span>
+                    <strong>{tr("Копировать")}</strong>
+                    <span>{tr("Создать дубликат в другой колоде")}</span>
                   </div>
                 </button>
                 
@@ -230,8 +233,8 @@ export const CardActionModal = ({
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                   </div>
                   <div className="action-menu-text">
-                    <strong>Поделиться</strong>
-                    <span>Отправить ссылку в Telegram</span>
+                    <strong>{tr("Поделиться")}</strong>
+                    <span>{tr("Отправить ссылку в Telegram")}</span>
                   </div>
                 </button>
                 
@@ -244,8 +247,8 @@ export const CardActionModal = ({
                       <Edit2 size={20} />
                     </div>
                     <div className="action-menu-text">
-                      <strong>Редактировать</strong>
-                      <span>Изменить содержимое карточки</span>
+                      <strong>{tr("Редактировать")}</strong>
+                      <span>{tr("Изменить содержимое карточки")}</span>
                     </div>
                   </button>
                 )}
@@ -268,8 +271,8 @@ export const CardActionModal = ({
                     <Trash2 size={20} />
                   </div>
                   <div className="action-menu-text">
-                    <strong style={{ color: '#ef4444' }}>Удалить карточку</strong>
-                    <span>Это действие нельзя отменить</span>
+                    <strong style={{ color: '#ef4444' }}>{tr("Удалить карточку")}</strong>
+                    <span>{tr("Это действие нельзя отменить")}</span>
                   </div>
                 </button>
               </div>
@@ -304,7 +307,7 @@ export const CardActionModal = ({
                       }}
                     >
                       <Play size={20} fill="currentColor" />
-                      <span>Запустить авто-режим</span>
+                      <span>{tr("Запустить авто-режим")}</span>
                     </button>
                   ) : (
                     <div style={{ display: 'flex', gap: '10px' }}>
@@ -330,7 +333,7 @@ export const CardActionModal = ({
                         }}
                       >
                         {isAutoplayPaused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
-                        <span>{isAutoplayPaused ? 'Продолжить' : 'Пауза'}</span>
+                        <span>{isAutoplayPaused ? tr("Продолжить") : tr("Пауза")}</span>
                       </button>
 
                       <button
@@ -355,7 +358,7 @@ export const CardActionModal = ({
                         }}
                       >
                         <Square size={16} fill="currentColor" />
-                        <span>Остановить</span>
+                        <span>{tr("Остановить")}</span>
                       </button>
                     </div>
                   )}
@@ -367,47 +370,43 @@ export const CardActionModal = ({
                     type="button"
                     className={`autoplay-order-btn ${autoplayOrder === 'list' ? 'active' : ''}`}
                     onClick={() => setAutoplayOrder('list')}
-                    title="Линейный перебор всех карточек колоды по порядку"
-                  >
-                    🔢 По списку
-                  </button>
+                    title={tr("Линейный перебор всех карточек колоды по порядку")}
+                  >{tr("🔢 По списку")}{' '}</button>
                   <button
                     type="button"
                     className={`autoplay-order-btn ${autoplayOrder === 'srs' ? 'active' : ''}`}
                     onClick={() => setAutoplayOrder('srs')}
-                    title="Только карточки, требующие повторения на сегодня (SRS)"
-                  >
-                    🧠 По SRS
-                  </button>
+                    title={tr("Только карточки, требующие повторения на сегодня (SRS)")}
+                  >{tr("🧠 По SRS")}{' '}</button>
                 </div>
 
                 <div className="autoplay-control-grid" style={{ marginTop: '5px' }}>
                   <label className="autoplay-field">
-                    <span>Пауза фразы</span>
+                    <span>{tr("Пауза фразы")}</span>
                     <select
                       value={autoplayFrontPause}
                       onChange={(e) => setAutoplayFrontPause(e.target.value)}
                     >
                       {PAUSE_OPTIONS.map((value) => (
-                        <option key={value} value={value}>{value}с</option>
+                        <option key={value} value={value}>{value}{tr("с")}</option>
                       ))}
                     </select>
                   </label>
 
                   <label className="autoplay-field">
-                    <span>Пауза перевода</span>
+                    <span>{tr("Пауза перевода")}</span>
                     <select
                       value={autoplayBackPause}
                       onChange={(e) => setAutoplayBackPause(e.target.value)}
                     >
                       {PAUSE_OPTIONS.map((value) => (
-                        <option key={value} value={value}>{value}с</option>
+                        <option key={value} value={value}>{value}{tr("с")}</option>
                       ))}
                     </select>
                   </label>
 
                   <label className="autoplay-field">
-                    <span>Повторов фразы</span>
+                    <span>{tr("Повторов фразы")}</span>
                     <select
                       value={autoplayFrontRepeat}
                       onChange={(e) => setAutoplayFrontRepeat(e.target.value)}
@@ -419,7 +418,7 @@ export const CardActionModal = ({
                   </label>
 
                   <label className="autoplay-field">
-                    <span>Повторов перевода</span>
+                    <span>{tr("Повторов перевода")}</span>
                     <select
                       value={autoplayBackRepeat}
                       onChange={(e) => setAutoplayBackRepeat(e.target.value)}
@@ -468,7 +467,7 @@ export const CardActionModal = ({
                       checked={autoplayLoop}
                       onChange={(e) => setAutoplayLoop(e.target.checked)}
                     />
-                    <span>Повторять колоду</span>
+                    <span>{tr("Повторять колоду")}</span>
                   </label>
 
                   <label className="autoplay-loop">
@@ -477,7 +476,7 @@ export const CardActionModal = ({
                       checked={autoplayForceFrontAudio}
                       onChange={(e) => setAutoplayForceFrontAudio(e.target.checked)}
                     />
-                    <span><RotateCw size={14} /> Генерировать фразу заново</span>
+                    <span><RotateCw size={14} />{' '}{tr("Генерировать фразу заново")}</span>
                   </label>
 
                   <label className="autoplay-loop">
@@ -486,7 +485,7 @@ export const CardActionModal = ({
                       checked={autoplayForceBackAudio}
                       onChange={(e) => setAutoplayForceBackAudio(e.target.checked)}
                     />
-                    <span><RotateCw size={14} /> Генерировать перевод заново</span>
+                    <span><RotateCw size={14} />{' '}{tr("Генерировать перевод заново")}</span>
                   </label>
                 </div>
 
@@ -494,16 +493,14 @@ export const CardActionModal = ({
                   className="btn-secondary btn-full" 
                   onClick={() => setMode('main')} 
                   style={{ height: '46px', marginTop: '6px', borderRadius: '14px' }}
-                >
-                  Назад
-                </button>
+                >{tr("Назад")}{' '}</button>
               </div>
             )}
 
             {(mode === 'move' || mode === 'copy') && (
               <div className="deck-selector-list scrollable" style={{ maxHeight: '350px', overflowY: 'auto' }}>
                 <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '15px' }}>
-                  {mode === 'move' ? 'Выберите колоду для переноса:' : 'Выберите колоду для копирования:'}
+                  {mode === 'move' ? tr("Выберите колоду для переноса:") : tr("Выберите колоду для копирования:")}
                 </p>
                 {getSortedFolderAndDeckTree(folders || [], decks || [], expandedFolders).map((item, index) => {
                   if (item.type === 'folder') {
@@ -554,14 +551,14 @@ export const CardActionModal = ({
                           <strong style={{ fontSize: '0.95rem', color: 'white' }}>
                             {item.name}
                           </strong>
-                          <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>{item.totalCards} карт</span>
+                          <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>{item.totalCards}{' '}{tr("карт")}</span>
                         </div>
                         {mode === 'move' ? <Move size={14} style={{ opacity: 0.3 }} /> : <Copy size={14} style={{ opacity: 0.3 }} />}
                       </button>
                     );
                   }
                 })}
-                <button className="btn-secondary btn-full mt-2" onClick={() => setMode('main')} style={{ height: '50px', marginTop: '15px' }}>Назад</button>
+                <button className="btn-secondary btn-full mt-2" onClick={() => setMode('main')} style={{ height: '50px', marginTop: '15px' }}>{tr("Назад")}</button>
               </div>
             )}
           </div>
@@ -572,6 +569,7 @@ export const CardActionModal = ({
 };
 
 export const CardActionButton = ({ card, size = 16, className = "", stopDrag = false }) => {
+  useInterfaceLocale();
   const { setActionCard, setIsCardActionModalOpen, setLastSelectedCardId, setCardsScrollTop } = useUiStore();
 
   const handleClick = (e) => {
@@ -592,7 +590,7 @@ export const CardActionButton = ({ card, size = 16, className = "", stopDrag = f
       className={className}
       onPointerDown={stopDrag ? (e) => e.stopPropagation() : undefined}
       onClick={handleClick}
-      title="Действия с карточкой"
+      title={tr("Действия с карточкой")}
     >
       <Settings2 size={size} />
     </div>

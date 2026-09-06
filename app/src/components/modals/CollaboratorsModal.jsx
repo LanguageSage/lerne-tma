@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, UserPlus, Link, Copy, Check, Trash2, Send, Trophy, Sparkles } from 'lucide-react';
@@ -8,6 +10,7 @@ import { executeShare } from '../../utils/share';
 import api from '../../services/api';
 
 export const CollaboratorsModal = () => {
+  useInterfaceLocale();
   const { isCollaboratorsModalOpen, setIsCollaboratorsModalOpen, collaboratorsTarget, showToast } = useUiStore();
   const { fetchDecks, fetchFolders } = useDeckStore();
   const { fetchCollaborators, addCollaborator, updateCollaboratorRole, removeCollaborator, removeAllCollaborators, fetchGroupProgress } = useCollaborativeStore();
@@ -46,7 +49,7 @@ export const CollaboratorsModal = () => {
       setUserRole(data.user_role || 'viewer');
     } catch (err) {
       console.error("Error loading collaborators:", err);
-      showToast("Ошибка загрузки соавторов");
+      showToast(tr("Ошибка загрузки соавторов"));
     } finally {
       setLoading(false);
     }
@@ -83,11 +86,11 @@ export const CollaboratorsModal = () => {
     if (!inviteLink) return;
     try {
       await executeShare({
-        title: `Совместный доступ: «${targetName}»`,
-        text: `Присоединяйся к совместному обучению в Lerne!`,
+        title: tr("Совместный доступ: «{{p0}}»", { p0: targetName }),
+        text: tr("Присоединяйся к совместному обучению в Lerne!", {  }),
         link: inviteLink
       });
-      showToast("Открываем окно отправки Telegram...", "info");
+      showToast(tr("Открываем окно отправки Telegram..."), "info");
     } catch (err) {
       console.error("Error sending share link:", err);
     }
@@ -97,7 +100,7 @@ export const CollaboratorsModal = () => {
     if (!inviteLink) return;
     navigator.clipboard.writeText(inviteLink);
     setCopiedLink(true);
-    showToast("Ссылка приглашения скопирована!", "success");
+    showToast(tr("Ссылка приглашения скопирована!"), "success");
     setTimeout(() => setCopiedLink(false), 3000);
   };
 
@@ -107,13 +110,13 @@ export const CollaboratorsModal = () => {
     setAddingUser(true);
     try {
       await addCollaborator(targetType, targetId, userIdentifier.trim(), 'viewer');
-      showToast("Участник добавлен (Только чтение)", "success");
+      showToast(tr("Участник добавлен (Только чтение)"), "success");
       setUserIdentifier('');
       await loadCollaboratorsData();
       await fetchDecks(true);
       await fetchFolders();
     } catch (err) {
-      const msg = err.response?.data?.detail || "Не удалось добавить пользователя";
+      const msg = err.response?.data?.detail || tr("Не удалось добавить пользователя");
       showToast(msg, "error");
     } finally {
       setAddingUser(false);
@@ -123,13 +126,13 @@ export const CollaboratorsModal = () => {
   const handleRoleChange = async (collaboratorUserId, newRole) => {
     try {
       await updateCollaboratorRole(targetType, targetId, collaboratorUserId, newRole);
-      showToast("Роль участника обновлена", "success");
+      showToast(tr("Роль участника обновлена"), "success");
       await loadCollaboratorsData();
       await fetchDecks(true);
       await fetchFolders();
     } catch (err) {
       console.error("Error updating role:", err);
-      showToast("Ошибка при изменении роли", "error");
+      showToast(tr("Ошибка при изменении роли"), "error");
     }
   };
 
@@ -137,7 +140,7 @@ export const CollaboratorsModal = () => {
     setConfirmTarget({
       action: 'remove_user',
       userId: collaborator.user_id,
-      userName: collaborator.first_name || collaborator.username || `Пользователь #${collaborator.user_id}`
+      userName: collaborator.first_name || collaborator.username || tr("Пользователь #{{p0}}", { p0: collaborator.user_id })
     });
   };
 
@@ -153,24 +156,24 @@ export const CollaboratorsModal = () => {
     if (action === 'remove_user') {
       try {
         await removeCollaborator(targetType, targetId, userId);
-        showToast("Участник удален", "success");
+        showToast(tr("Участник удален"), "success");
         await loadCollaboratorsData();
         await fetchDecks(true);
         await fetchFolders();
       } catch (err) {
         console.error("Error removing collaborator:", err);
-        showToast("Ошибка при удалении", "error");
+        showToast(tr("Ошибка при удалении"), "error");
       }
     } else if (action === 'close_all') {
       try {
         await removeAllCollaborators(targetType, targetId);
-        showToast("Совместный доступ закрыт", "info");
+        showToast(tr("Совместный доступ закрыт"), "info");
         await fetchDecks(true);
         await fetchFolders();
         setIsCollaboratorsModalOpen(false);
       } catch (err) {
         console.error("Error closing sharing:", err);
-        showToast("Ошибка при закрытии доступа", "error");
+        showToast(tr("Ошибка при закрытии доступа"), "error");
       }
     }
   };
@@ -244,13 +247,13 @@ export const CollaboratorsModal = () => {
               </div>
               <h4 style={{ margin: '0 0 8px', color: '#fff', fontSize: '1.1rem', fontWeight: 700 }}>
                 {confirmTarget.action === 'close_all' 
-                  ? 'Закрыть совместный доступ?' 
-                  : `Удалить ${confirmTarget.userName}?`}
+                  ? tr("Закрыть совместный доступ?") 
+                  : tr("Удалить {{p0}}?", { p0: confirmTarget.userName })}
               </h4>
               <p style={{ margin: '0 0 20px', color: 'rgba(255,255,255,0.6)', fontSize: '0.88rem', lineHeight: 1.4, maxWidth: '280px' }}>
                 {confirmTarget.action === 'close_all'
-                  ? 'Все соавторы потеряют доступ к этой папке/колоде.'
-                  : 'Пользователь больше не сможет просматривать или редактировать этот элемент.'}
+                  ? tr("Все соавторы потеряют доступ к этой папке/колоде.")
+                  : tr("Пользователь больше не сможет просматривать или редактировать этот элемент.")}
               </p>
               <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '280px' }}>
                 <button
@@ -266,9 +269,7 @@ export const CollaboratorsModal = () => {
                     fontSize: '0.88rem',
                     cursor: 'pointer'
                   }}
-                >
-                  Отмена
-                </button>
+                >{tr("Отмена")}{' '}</button>
                 <button
                   onClick={executeConfirm}
                   style={{
@@ -284,7 +285,7 @@ export const CollaboratorsModal = () => {
                     boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)'
                   }}
                 >
-                  {confirmTarget.action === 'close_all' ? 'Да, закрыть' : 'Да, удалить'}
+                  {confirmTarget.action === 'close_all' ? tr("Да, закрыть") : tr("Да, удалить")}
                 </button>
               </div>
             </div>
@@ -314,9 +315,7 @@ export const CollaboratorsModal = () => {
                 <Users size={22} />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>
-                  Совместный доступ
-                </h3>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>{tr("Совместный доступ")}{' '}</h3>
                 <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '260px' }}>
                   {targetName}
                 </p>
@@ -368,7 +367,7 @@ export const CollaboratorsModal = () => {
                 }}
               >
                 <Users size={16} />
-                <span>Участники ({collaborators.length})</span>
+                <span>{tr("Участники (")}{collaborators.length})</span>
               </button>
 
               <button 
@@ -388,7 +387,7 @@ export const CollaboratorsModal = () => {
                 }}
               >
                 <Trophy size={16} />
-                <span>Прогресс группы</span>
+                <span>{tr("Прогресс группы")}</span>
               </button>
             </div>
           )}
@@ -407,7 +406,7 @@ export const CollaboratorsModal = () => {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#c4b5fd', fontSize: '0.88rem', fontWeight: 600 }}>
                     <Link size={16} />
-                    <span>Ссылка для присоединения</span>
+                    <span>{tr("Ссылка для присоединения")}</span>
                   </div>
 
                   {/* Primary Send in Telegram Button */}
@@ -433,7 +432,7 @@ export const CollaboratorsModal = () => {
                     }}
                   >
                     <Send size={16} />
-                    <span>Отправить в Telegram</span>
+                    <span>{tr("Отправить в Telegram")}</span>
                   </button>
 
                   {/* Copy Link Row */}
@@ -441,7 +440,7 @@ export const CollaboratorsModal = () => {
                     <input 
                       type="text" 
                       readOnly 
-                      value={inviteLink || 'Генерация ссылки...'} 
+                      value={inviteLink || tr("Генерация ссылки...")} 
                       style={{
                         flex: 1,
                         background: 'rgba(0,0,0,0.3)',
@@ -472,7 +471,7 @@ export const CollaboratorsModal = () => {
                       }}
                     >
                       {copiedLink ? <Check size={16} /> : <Copy size={16} />}
-                      <span>{copiedLink ? 'Скопировано' : 'Скопировать'}</span>
+                      <span>{copiedLink ? tr("Скопировано") : tr("Скопировать")}</span>
                     </button>
                   </div>
                 </div>
@@ -480,13 +479,11 @@ export const CollaboratorsModal = () => {
                 {/* Direct User Invite Form (Only for Owner) */}
                 {isOwner && (
                   <form onSubmit={handleAddUser} style={{ marginBottom: '24px' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginBottom: '8px', fontWeight: 500 }}>
-                      Добавить участника по имя пользователя:
-                    </label>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', marginBottom: '8px', fontWeight: 500 }}>{tr("Добавить участника по имя пользователя:")}{' '}</label>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <input 
                         type="text" 
-                        placeholder="@username или Telegram ID"
+                        placeholder={tr("@username или Telegram ID")}
                         value={userIdentifier}
                         onChange={(e) => setUserIdentifier(e.target.value)}
                         disabled={addingUser}
@@ -519,7 +516,7 @@ export const CollaboratorsModal = () => {
                         }}
                       >
                         <UserPlus size={16} />
-                        <span>Добавить</span>
+                        <span>{tr("Добавить")}</span>
                       </button>
                     </div>
                   </form>
@@ -527,18 +524,12 @@ export const CollaboratorsModal = () => {
 
                 {/* Members List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Список участников
-                  </div>
+                  <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tr("Список участников")}{' '}</div>
 
                   {loading ? (
-                    <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
-                      Загрузка...
-                    </div>
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>{tr("Загрузка...")}{' '}</div>
                   ) : collaborators.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem' }}>
-                      Нет соавторов
-                    </div>
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem' }}>{tr("Нет соавторов")}{' '}</div>
                   ) : (
                     collaborators.map((c) => (
                       <div 
@@ -569,7 +560,7 @@ export const CollaboratorsModal = () => {
                           )}
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.92rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {c.first_name || c.username || `Пользователь #${c.user_id}`}
+                              {c.first_name || c.username || tr("Пользователь #{{p0}}", { p0: c.user_id })}
                             </div>
                             {c.username && (
                               <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)' }}>
@@ -592,9 +583,7 @@ export const CollaboratorsModal = () => {
                               display: 'flex',
                               alignItems: 'center',
                               gap: '4px'
-                            }}>
-                              👑 Владелец
-                            </span>
+                            }}>{tr("👑 Владелец")}{' '}</span>
                           ) : isOwner ? (
                             <select
                               value={c.role}
@@ -610,8 +599,8 @@ export const CollaboratorsModal = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              <option value="viewer" style={{ background: '#1e1e2e' }}>👁️ Слушатель</option>
-                              <option value="editor" style={{ background: '#1e1e2e' }}>✏️ Редактор</option>
+                              <option value="viewer" style={{ background: '#1e1e2e' }}>{tr("👁️ Слушатель")}</option>
+                              <option value="editor" style={{ background: '#1e1e2e' }}>{tr("✏️ Редактор")}</option>
                             </select>
                           ) : (
                             <span style={{
@@ -622,7 +611,7 @@ export const CollaboratorsModal = () => {
                               fontSize: '0.78rem',
                               fontWeight: 600
                             }}>
-                              {c.role === 'editor' ? '✏️ Редактор' : '👁️ Слушатель'}
+                              {c.role === 'editor' ? tr("✏️ Редактор") : tr("👁️ Слушатель")}
                             </span>
                           )}
 
@@ -639,7 +628,7 @@ export const CollaboratorsModal = () => {
                                 display: 'flex',
                                 alignItems: 'center'
                               }}
-                              title="Удалить участника"
+                              title={tr("Удалить участника")}
                             >
                               <Trash2 size={15} />
                             </button>
@@ -672,7 +661,7 @@ export const CollaboratorsModal = () => {
                     }}
                   >
                     <Trash2 size={16} />
-                    <span>Закрыть совместный доступ (удалить всех соавторов)</span>
+                    <span>{tr("Закрыть совместный доступ (удалить всех соавторов)")}</span>
                   </button>
                 )}
               </>
@@ -680,9 +669,7 @@ export const CollaboratorsModal = () => {
               /* Group Progress Leaderboard */
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {!groupProgress ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
-                    Загрузка прогресса...
-                  </div>
+                  <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>{tr("Загрузка прогресса...")}{' '}</div>
                 ) : (
                   <>
                     <div style={{
@@ -695,15 +682,13 @@ export const CollaboratorsModal = () => {
                       alignItems: 'center'
                     }}>
                       <div>
-                        <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>Всего карточек в папке</div>
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>{tr("Всего карточек в папке")}</div>
                         <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#fff' }}>{groupProgress.total_cards}</div>
                       </div>
                       <Sparkles size={28} color="#a78bfa" />
                     </div>
 
-                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, marginTop: '8px' }}>
-                      🏆 Рейтинг участников
-                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, marginTop: '8px' }}>{tr("🏆 Рейтинг участников")}{' '}</div>
 
                     {groupProgress.members?.map((m, idx) => (
                       <div 
@@ -731,9 +716,7 @@ export const CollaboratorsModal = () => {
                             <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>
                               {m.first_name || m.username}
                             </div>
-                            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)' }}>
-                              Выучено {m.mastered_cards} из {groupProgress.total_cards} • {m.reviews_today} сегодня
-                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)' }}>{tr("Выучено")}{' '}{m.mastered_cards}{' '}{tr("из")}{' '}{groupProgress.total_cards} • {m.reviews_today}{' '}{tr("сегодня")}{' '}</div>
                           </div>
                         </div>
 

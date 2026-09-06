@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Eye, Volume2, Sparkles, AlertTriangle, RotateCw, BookOpen, HelpCircle } from 'lucide-react';
@@ -47,6 +49,7 @@ export const StudyCard = React.memo(({
   onTrainerAnswer,
   onNextCard
 }) => {
+  useInterfaceLocale();
   const flagStyle = useMemo(() => getFlagStyle(card?.flag), [card?.flag]);
 
   // Card language: prefer card-level, then deck-level, then global active language
@@ -287,7 +290,7 @@ export const StudyCard = React.memo(({
       }}
     >
       <Eye size={18} />
-      <span>Показать ответ</span>
+      <span>{tr("Показать ответ")}</span>
     </button>
   );
 
@@ -327,16 +330,14 @@ export const StudyCard = React.memo(({
                   backdropFilter: 'blur(8px)',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
                   zIndex: 15
-                }}>
-                  🏋️ Тренажер
-                </div>
+                }}>{tr("🏋️ Тренажер")}{' '}</div>
               )}
 
               {/* Leech Indicator */}
               {Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5)) && (
                 <div
                   className="leech-badge"
-                  title={`Сложная карточка (${card?.lapses || 5} ошибок). Рекомендуем упростить или добавить мнемонику.`}
+                  title={tr("Сложная карточка ({{p0}} ошибок). Рекомендуем упростить или добавить мнемонику.", { p0: card?.lapses || 5 })}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -354,7 +355,7 @@ export const StudyCard = React.memo(({
                   }}
                 >
                   <AlertTriangle size={12} color="#ef4444" />
-                  <span>Сложная карточка ({card?.lapses || 5} ошибок)</span>
+                  <span>{tr("Сложная карточка (")}{card?.lapses || 5}{' '}{tr("ошибок)")}</span>
                 </div>
               )}
               
@@ -385,7 +386,7 @@ export const StudyCard = React.memo(({
                   <div
                     onMouseDown={startCardImageResize}
                     onTouchStart={startCardImageResize}
-                    title="Потяни чтобы изменить высоту"
+                    title={tr("Потяни чтобы изменить высоту")}
                     style={{
                       height: '14px',
                       display: 'flex',
@@ -425,7 +426,7 @@ export const StudyCard = React.memo(({
                   </div>
                   <div className="flip-hint-badge">
                     <Eye size={16} />
-                    <span>Посмотреть ответ</span>
+                    <span>{tr("Посмотреть ответ")}</span>
                   </div>
                   {renderFrontAudioPlayer()}
                 </>
@@ -601,16 +602,14 @@ export const StudyCard = React.memo(({
                   backdropFilter: 'blur(8px)',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
                   zIndex: 15
-                }}>
-                  🏋️ Тренажер
-                </div>
+                }}>{tr("🏋️ Тренажер")}{' '}</div>
               )}
 
               {/* Leech Indicator */}
               {Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5)) && (
                 <div
                   className="leech-badge"
-                  title={`Сложная карточка (${card?.lapses || 5} ошибок). Рекомендуем упростить или добавить мнемонику.`}
+                  title={tr("Сложная карточка ({{p0}} ошибок). Рекомендуем упростить или добавить мнемонику.", { p0: card?.lapses || 5 })}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -628,14 +627,14 @@ export const StudyCard = React.memo(({
                   }}
                 >
                   <AlertTriangle size={12} color="#ef4444" />
-                  <span>Сложная карточка ({card?.lapses || 5} ошибок)</span>
+                  <span>{tr("Сложная карточка (")}{card?.lapses || 5}{' '}{tr("ошибок)")}</span>
                 </div>
               )}
               {/* 1. FRONT REFERENCE SECTION */}
               <div className="card-back-front-section">
                 <div className="card-back-section-badge front-badge">
                   <HelpCircle size={12} />
-                  <span>{effectiveStudyMode === 'quiz' ? 'Вопрос' : (studyMode === 'reverse' ? 'Перевод' : 'Лицевая сторона')}</span>
+                  <span>{effectiveStudyMode === 'quiz' ? tr("Вопрос") : (studyMode === 'reverse' ? tr("Перевод") : tr("Лицевая сторона"))}</span>
                 </div>
 
                 {effectiveStudyMode === 'quiz' && quizData ? (
@@ -645,7 +644,7 @@ export const StudyCard = React.memo(({
                     </div>
 
                     <div className="back-quiz-subdivider">
-                      <span>Варианты ответа</span>
+                      <span>{tr("Варианты ответа")}</span>
                     </div>
 
                     <div className="back-quiz-options-compact">
@@ -657,7 +656,7 @@ export const StudyCard = React.memo(({
                         >
                           <span className="back-quiz-opt-tag">{['A', 'B', 'C', 'D', 'E', 'F'][i] || (i + 1)}</span>
                           <span className="back-quiz-opt-label">{opt.text}</span>
-                          {opt.isCorrect && <span className="back-quiz-opt-badge">✓ Верный</span>}
+                          {opt.isCorrect && <span className="back-quiz-opt-badge">{tr("✓ Верный")}</span>}
                         </div>
                       ))}
                     </div>
@@ -710,7 +709,7 @@ export const StudyCard = React.memo(({
                 <div className="separator-line" />
                 <div className="separator-badge">
                   <RotateCw size={12} />
-                  <span>{studyMode === 'reverse' ? 'Оригинал' : 'Ответ / Перевод'}</span>
+                  <span>{studyMode === 'reverse' ? tr("Оригинал") : tr("Ответ / Перевод")}</span>
                 </div>
                 <div className="separator-line" />
               </div>
@@ -783,7 +782,7 @@ export const StudyCard = React.memo(({
                           onPlayBackAudio?.(card);
                         }
                       }}
-                      title="Озвучить"
+                      title={tr("Озвучить")}
                     >
                       {isAudioLoading ? (
                         card.audio_is_generating ? (
@@ -834,7 +833,7 @@ export const StudyCard = React.memo(({
                     <div className="separator-line" />
                     <div className="context-badge">
                       <BookOpen size={12} />
-                      <span>Контекст и примеры</span>
+                      <span>{tr("Контекст и примеры")}</span>
                     </div>
                     <div className="separator-line" />
                   </div>
@@ -883,7 +882,7 @@ export const StudyCard = React.memo(({
                 }}
               >
                 <Eye size={16} style={{ color: '#c084fc' }} />
-                <span>Вернуться к лицевой стороне</span>
+                <span>{tr("Вернуться к лицевой стороне")}</span>
               </div>
             </div>
           </div>

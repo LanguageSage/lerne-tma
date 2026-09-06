@@ -1,8 +1,11 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const CollaboratorPresenceBar = ({ collaborators = [], onlineCount = 0, isShared = false }) => {
+  useInterfaceLocale();
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!isShared || !collaborators || collaborators.length <= 1) {
@@ -40,7 +43,7 @@ export const CollaboratorPresenceBar = ({ collaborators = [], onlineCount = 0, i
         {/* Left Title & Status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)', flexShrink: 0 }}>
           <Users size={16} color="#818cf8" />
-          <span>Участники ({collaborators.length})</span>
+          <span>{tr("Участники (")}{collaborators.length})</span>
           {onlineCount > 0 && (
             <span style={{
               fontSize: '0.72rem',
@@ -51,8 +54,7 @@ export const CollaboratorPresenceBar = ({ collaborators = [], onlineCount = 0, i
               fontWeight: 700,
               marginLeft: 4
             }}>
-              {onlineCount} в сети
-            </span>
+              {onlineCount}{' '}{tr("в сети")}{' '}</span>
           )}
         </div>
 
@@ -68,7 +70,7 @@ export const CollaboratorPresenceBar = ({ collaborators = [], onlineCount = 0, i
                 return (
                   <div
                     key={c.user_id}
-                    title={`${name} ${isOnline ? '(В сети)' : '(Оффлайн)'}`}
+                    title={`${name} ${isOnline ? tr("(В сети)") : tr("(Оффлайн)")}`}
                     style={{
                       position: 'relative',
                       width: 28,
@@ -243,7 +245,7 @@ export const CollaboratorPresenceBar = ({ collaborators = [], onlineCount = 0, i
                       background: isOnline ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.06)',
                       color: isOnline ? '#4ade80' : 'rgba(255, 255, 255, 0.5)'
                     }}>
-                      {isOnline ? 'в сети' : 'оффлайн'}
+                      {isOnline ? tr("в сети") : tr("оффлайн")}
                     </span>
                   </div>
                 );

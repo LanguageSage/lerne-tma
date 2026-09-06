@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Image as ImageIcon, Volume2, Video, Link2, Trash2, Edit2, Plus, Globe } from 'lucide-react';
@@ -8,12 +10,11 @@ import { MediaPicker } from '../common/MediaPicker';
 import { ImageEditorModal } from '../common/ImageEditorModal';
 
 const ImageHeightSlider = ({ initialHeight, onSave }) => {
+  useInterfaceLocale();
   const [height, setHeight] = useState(initialHeight);
   return (
     <div style={{ marginBottom: '20px' }}>
-      <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '12px', color: '#f1f5f9' }}>
-        Размер картинки в карточках
-      </h3>
+      <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '12px', color: '#f1f5f9' }}>{tr("Размер картинки в карточках")}{' '}</h3>
       <div style={{ padding: '14px 16px', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.06)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
           <span style={{ fontSize: '0.8rem', color: '#94a3b8', minWidth: '32px' }}>60px</span>
@@ -33,15 +34,14 @@ const ImageHeightSlider = ({ initialHeight, onSave }) => {
         <div style={{ textAlign: 'center', fontSize: '0.9rem', color: '#c084fc', fontWeight: 700 }}>
           {height}px
         </div>
-        <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: '#64748b', textAlign: 'center' }}>
-          Применяется в списке карточек и в режиме обучения
-        </p>
+        <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: '#64748b', textAlign: 'center' }}>{tr("Применяется в списке карточек и в режиме обучения")}{' '}</p>
       </div>
     </div>
   );
 };
 
 export const DeckMediaModal = ({ isOpen, onClose }) => {
+  useInterfaceLocale();
   const { currentDeck, updateDeckMetadata } = useDeckStore();
   const { showToast, loading } = useUiStore();
   const { uploadDeckResource } = useMediaUpload();
@@ -71,13 +71,13 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploading(true);
-    setUploadStatus('Загрузка...');
+    setUploadStatus(tr("Загрузка..."));
     try {
       await uploadDeckResource(file, type, currentDeck.id);
       setUploadStatus('');
       e.target.value = '';
     } catch {
-      showToast('Ошибка при загрузке файла');
+      showToast(tr("Ошибка при загрузке файла"));
       setUploadStatus('');
     } finally {
       setIsUploading(false);
@@ -87,12 +87,12 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
   const handleSaveDeckImage = async (file) => {
     if (!file) return;
     setIsUploading(true);
-    setUploadStatus('Сохранение изображения...');
+    setUploadStatus(tr("Сохранение изображения..."));
     try {
       await uploadDeckResource(file, 'image', currentDeck.id, targetResourceIndex);
       setUploadStatus('');
     } catch {
-      showToast('Ошибка при сохранении изображения');
+      showToast(tr("Ошибка при сохранении изображения"));
       setUploadStatus('');
     } finally {
       setIsUploading(false);
@@ -110,13 +110,13 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
       const newMetadata = { ...metadata, resources: updatedResources };
       await updateDeckMetadata(currentDeck.id, newMetadata);
     } catch {
-      showToast('Не удалось обновить настройки');
+      showToast(tr("Не удалось обновить настройки"));
     }
   };
 
   const handleAddLink = async () => {
     if (!linkUrl.trim()) {
-      showToast('Введите ссылку URL');
+      showToast(tr("Введите ссылку URL"));
       return;
     }
 
@@ -124,34 +124,34 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
       const newResource = {
         type: 'link',
         url: linkUrl.trim().startsWith('http') ? linkUrl.trim() : `https://${linkUrl.trim()}`,
-        title: linkTitle.trim() || 'Ссылка'
+        title: linkTitle.trim() || tr("Ссылка")
       };
 
       const updatedResources = [...resources, newResource];
       const newMetadata = { ...metadata, resources: updatedResources };
 
       await updateDeckMetadata(currentDeck.id, newMetadata);
-      showToast('Ссылка добавлена в ресурсы', 'success');
+      showToast(tr("Ссылка добавлена в ресурсы"), 'success');
       
       setLinkUrl('');
       setLinkTitle('');
       setShowLinkForm(false);
     } catch {
-      showToast('Не удалось добавить ссылку');
+      showToast(tr("Не удалось добавить ссылку"));
     }
   };
 
   const handleDeleteResource = async (indexToDelete) => {
-    if (!window.confirm('Удалить этот ресурс из колоды?')) return;
+    if (!window.confirm(tr("Удалить этот ресурс из колоды?"))) return;
 
     try {
       const updatedResources = resources.filter((_, idx) => idx !== indexToDelete);
       const newMetadata = { ...metadata, resources: updatedResources };
 
       await updateDeckMetadata(currentDeck.id, newMetadata);
-      showToast('Ресурс удален', 'success');
+      showToast(tr("Ресурс удален"), 'success');
     } catch {
-      showToast('Не удалось удалить ресурс');
+      showToast(tr("Не удалось удалить ресурс"));
     }
   };
 
@@ -188,16 +188,14 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
             }}
           >
             <div className="settings-header" style={{ marginBottom: 14, flexShrink: 0 }}>
-              <h2>Ресурсы колоды</h2>
+              <h2>{tr("Ресурсы колоды")}</h2>
               <button className="close-btn" onClick={onClose} disabled={loading}>
                 <X size={24} />
               </button>
             </div>
 
             <div className="settings-content scrollable" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 2px' }}>
-              <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 16px 0', textAlign: 'center' }}>
-                Прикрепленные медиафайлы и ссылки будут доступны всем карточкам в этой колоде.
-              </p>
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 16px 0', textAlign: 'center' }}>{tr("Прикрепленные медиафайлы и ссылки будут доступны всем карточкам в этой колоде.")}{' '}</p>
 
               {/* Image Height Setting — always at the top for quick access */}
               <ImageHeightSlider
@@ -210,8 +208,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
 
               {/* Resources List */}
               <div style={{ marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '10px', color: '#f1f5f9' }}>
-                  Текущие ресурсы ({resources.length})
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '10px', color: '#f1f5f9' }}>{tr("Текущие ресурсы (")}{resources.length})
                 </h3>
 
                 {resources.length === 0 ? (
@@ -222,9 +219,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                     textAlign: 'center',
                     color: '#64748b',
                     fontSize: '0.9rem'
-                  }}>
-                    Нет прикрепленных ресурсов
-                  </div>
+                  }}>{tr("Нет прикрепленных ресурсов")}{' '}</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {resources.map((res, idx) => (
@@ -268,7 +263,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                                   color: '#94a3b8',
                                   userSelect: 'none'
                                 }}
-                                title="Показывать в каждой карточке"
+                                title={tr("Показывать в каждой карточке")}
                               >
                                 <input
                                   type="checkbox"
@@ -276,7 +271,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                                   onChange={(e) => handleToggleShowInCardsModal(idx, e.target.checked)}
                                   style={{ width: '15px', height: '15px', accentColor: '#c084fc', cursor: 'pointer' }}
                                 />
-                                <span>В карточках</span>
+                                <span>{tr("В карточках")}</span>
                               </label>
 
                               <button
@@ -299,7 +294,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                                 }}
                                 onMouseOver={e => e.currentTarget.style.opacity = '1'}
                                 onMouseOut={e => e.currentTarget.style.opacity = '0.8'}
-                                title="Редактировать изображение"
+                                title={tr("Редактировать изображение")}
                               >
                                 <Edit2 size={16} />
                               </button>
@@ -321,7 +316,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                             }}
                             onMouseOver={e => e.currentTarget.style.opacity = '1'}
                             onMouseOut={e => e.currentTarget.style.opacity = '0.8'}
-                            title="Удалить ресурс"
+                            title={tr("Удалить ресурс")}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -335,9 +330,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
               {/* Add Resource Buttons */}
               {!showLinkForm && (
                 <div style={{ marginBottom: '15px' }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '10px', color: '#f1f5f9' }}>
-                    Добавить ресурс
-                  </h3>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '10px', color: '#f1f5f9' }}>{tr("Добавить ресурс")}{' '}</h3>
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
@@ -361,7 +354,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                       }}
                     >
                       <ImageIcon size={16} />
-                      <span>Картинка</span>
+                      <span>{tr("Картинка")}</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -393,7 +386,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                       gap: '6px'
                     }}>
                       <Volume2 size={16} />
-                      <span>Аудио</span>
+                      <span>{tr("Аудио")}</span>
                       <input
                         type="file"
                         accept="audio/*"
@@ -418,7 +411,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                       gap: '6px'
                     }}>
                       <Video size={16} />
-                      <span>Видео</span>
+                      <span>{tr("Видео")}</span>
                       <input
                         type="file"
                         accept="video/*"
@@ -448,7 +441,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                       }}
                     >
                       <Link2 size={16} />
-                      <span>Ссылка</span>
+                      <span>{tr("Ссылка")}</span>
                     </button>
                   </div>
                 </div>
@@ -469,7 +462,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: '#10b981' }}>Прикрепить ссылку</h4>
+                    <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: '#10b981' }}>{tr("Прикрепить ссылку")}</h4>
                     <button
                       onClick={() => setShowLinkForm(false)}
                       style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex' }}
@@ -480,7 +473,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
 
                   <div className="form-group" style={{ marginBottom: '8px' }}>
                     <input
-                      placeholder="URL (например: google.com)"
+                      placeholder={tr("URL (например: google.com)")}
                       value={linkUrl}
                       onChange={e => setLinkUrl(e.target.value)}
                       style={{ fontSize: '0.85rem', padding: '8px' }}
@@ -490,7 +483,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
 
                   <div className="form-group" style={{ marginBottom: '12px' }}>
                     <input
-                      placeholder="Название ссылки (необязательно)"
+                      placeholder={tr("Название ссылки (необязательно)")}
                       value={linkTitle}
                       onChange={e => setLinkTitle(e.target.value)}
                       style={{ fontSize: '0.85rem', padding: '8px' }}
@@ -504,17 +497,13 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                       onClick={handleAddLink}
                       disabled={loading}
                       style={{ flex: 1, height: '32px', fontSize: '0.8rem', padding: 0 }}
-                    >
-                      Добавить
-                    </button>
+                    >{tr("Добавить")}{' '}</button>
                     <button
                       className="btn-secondary btn-tiny"
                       onClick={() => setShowLinkForm(false)}
                       disabled={loading}
                       style={{ flex: 1, height: '32px', fontSize: '0.8rem', padding: 0 }}
-                    >
-                      Отмена
-                    </button>
+                    >{tr("Отмена")}{' '}</button>
                   </div>
                 </motion.div>
               )}
@@ -530,7 +519,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
                   </div>
                 )}
                 <button className="btn btn-primary btn-full" onClick={onClose} disabled={isUploading}>
-                  {isUploading ? 'Подождите...' : 'Готово'}
+                  {isUploading ? tr("Подождите...") : tr("Готово")}
                 </button>
               </div>
             </div>
@@ -557,7 +546,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
           setEditingImageSrc(null);
           handleSaveDeckImage(file);
         }}
-        title="Настройка фото списка"
+        title={tr("Настройка фото списка")}
       />
     </>
   );

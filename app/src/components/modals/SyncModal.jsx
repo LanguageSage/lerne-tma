@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, RefreshCw, Copy, Trash2, AlertTriangle } from 'lucide-react';
@@ -9,6 +11,7 @@ export const SyncModal = ({
   onSync,
   loading
 }) => {
+  useInterfaceLocale();
   if (!isOpen || !deck) return null;
 
   return (
@@ -22,16 +25,14 @@ export const SyncModal = ({
           onClick={e => e.stopPropagation()}
         >
           <div className="settings-header">
-            <h2>Обновление колоды</h2>
+            <h2>{tr("Обновление колоды")}</h2>
             <button className="close-btn" onClick={onClose} disabled={loading}>
               <X size={24} />
             </button>
           </div>
           
           <div className="settings-content">
-            <p style={{ marginBottom: '20px' }}>
-              Колода <strong>{deck.name}</strong> может быть обновлена из библиотеки. Выберите, как вы хотите поступить:
-            </p>
+            <p style={{ marginBottom: '20px' }}>{tr("Колода")}{' '}<strong>{deck.name}</strong>{' '}{tr("может быть обновлена из библиотеки. Выберите, как вы хотите поступить:")}{' '}</p>
 
             <div className="choice-grid">
               <button 
@@ -42,11 +43,9 @@ export const SyncModal = ({
               >
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
                   <RefreshCw size={20} style={{ marginRight: '10px' }} /> 
-                  <strong style={{ fontSize: '16px' }}>Умное обновление (Merge)</strong>
+                  <strong style={{ fontSize: '16px' }}>{tr("Умное обновление (Merge)")}</strong>
                 </div>
-                <span style={{ fontSize: '12px', opacity: 0.9, fontWeight: 'normal' }}>
-                  Добавит новые карточки и обновит текст/картинки в существующих. Ваш прогресс обучения будет сохранен.
-                </span>
+                <span style={{ fontSize: '12px', opacity: 0.9, fontWeight: 'normal' }}>{tr("Добавит новые карточки и обновит текст/картинки в существующих. Ваш прогресс обучения будет сохранен.")}{' '}</span>
               </button>
 
               <button 
@@ -57,17 +56,15 @@ export const SyncModal = ({
               >
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
                   <Copy size={20} style={{ marginRight: '10px' }} /> 
-                  <strong style={{ fontSize: '16px' }}>Скачать как копию</strong>
+                  <strong style={{ fontSize: '16px' }}>{tr("Скачать как копию")}</strong>
                 </div>
-                <span style={{ fontSize: '12px', opacity: 0.7, fontWeight: 'normal' }}>
-                  Создаст новую колоду (копию из библиотеки), чтобы вы могли сравнить. Текущая колода останется без изменений.
-                </span>
+                <span style={{ fontSize: '12px', opacity: 0.7, fontWeight: 'normal' }}>{tr("Создаст новую колоду (копию из библиотеки), чтобы вы могли сравнить. Текущая колода останется без изменений.")}{' '}</span>
               </button>
 
               <button 
                 className="btn-secondary btn-full choice-btn" 
                 onClick={() => {
-                  if (window.confirm("ВНИМАНИЕ! Это действие удалит все карточки в этой колоде и весь ваш прогресс обучения по ним. Вы абсолютно уверены?")) {
+                  if (window.confirm(tr("ВНИМАНИЕ! Это действие удалит все карточки в этой колоде и весь ваш прогресс обучения по ним. Вы абсолютно уверены?"))) {
                     onSync('replace');
                   }
                 }}
@@ -76,11 +73,9 @@ export const SyncModal = ({
               >
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', color: '#ef4444' }}>
                   <AlertTriangle size={20} style={{ marginRight: '10px' }} /> 
-                  <strong style={{ fontSize: '16px' }}>Полная замена (Replace)</strong>
+                  <strong style={{ fontSize: '16px' }}>{tr("Полная замена (Replace)")}</strong>
                 </div>
-                <span style={{ fontSize: '12px', opacity: 0.7, fontWeight: 'normal' }}>
-                  Удалит локальную колоду и заново скачает её из базы. Прогресс обучения будет сброшен.
-                </span>
+                <span style={{ fontSize: '12px', opacity: 0.7, fontWeight: 'normal' }}>{tr("Удалит локальную колоду и заново скачает её из базы. Прогресс обучения будет сброшен.")}{' '}</span>
               </button>
             </div>
           </div>

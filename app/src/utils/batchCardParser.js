@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { classifySentenceFast } from '../services/classifier/index.js';
 import { buildCefrMetaFromClassifierResult } from './levelUtils.js';
 
@@ -111,8 +112,8 @@ export function parseBatchCardsText(rawText) {
         id: `temp_${Date.now()}_${i}`,
         front: formattedFront,
         front_text: formattedFront,
-        back: cleanCorrectAnswer || 'Правильный ответ',
-        back_text: cleanCorrectAnswer || 'Правильный ответ',
+        back: cleanCorrectAnswer || tr("Правильный ответ"),
+        back_text: cleanCorrectAnswer || tr("Правильный ответ"),
         context: '',
         card_type: 'quiz',
         level,

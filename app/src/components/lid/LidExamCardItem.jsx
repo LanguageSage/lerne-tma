@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Award, ArrowRight, Sparkles, Clock, Layers, ShieldCheck } from 'lucide-react';
@@ -5,6 +7,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useLidStore } from '../../store/useLidStore';
 
 export const LidExamCardItem = () => {
+  useInterfaceLocale();
   const { setView } = useUiStore();
   const { resetToMenu } = useLidStore();
 
@@ -34,14 +37,14 @@ export const LidExamCardItem = () => {
 
           <div className="lid-hero-badge-right">
             <Sparkles size={13} className="lid-sparkle-icon" />
-            <span>Официальный симулятор</span>
+            <span>{tr("Официальный симулятор")}</span>
           </div>
         </div>
 
         {/* Title & Subtitle */}
         <div className="lid-hero-title-group">
           <h3 className="lid-hero-title">
-            <span>Симуляция экзамена</span>
+            <span>{tr("Симуляция экзамена")}</span>
             <ShieldCheck size={20} className="lid-shield-icon" />
           </h3>
           <p className="lid-hero-subtitle">
@@ -53,24 +56,24 @@ export const LidExamCardItem = () => {
         <div className="lid-hero-stats-row">
           <div className="lid-hero-stat-chip">
             <Layers size={13} className="chip-icon questions" />
-            <span><strong>33</strong> вопроса</span>
+            <span><strong>33</strong>{' '}{tr("вопроса")}</span>
           </div>
 
           <div className="lid-hero-stat-chip">
             <Clock size={13} className="chip-icon timer" />
-            <span><strong>60</strong> минут</span>
+            <span><strong>60</strong>{' '}{tr("минут")}</span>
           </div>
 
           <div className="lid-hero-stat-chip">
             <Award size={13} className="chip-icon pass" />
-            <span>Порог <strong>17 / 33</strong></span>
+            <span>{tr("Порог")}{' '}<strong>17 / 33</strong></span>
           </div>
         </div>
 
         {/* Bottom CTA Bar */}
         <div className="lid-hero-footer-row">
           <div className="lid-hero-footer-info">
-            <span className="lid-hero-mode-pill">📝 Реальный экзамен & 🎓 Тренировка</span>
+            <span className="lid-hero-mode-pill">{tr("📝 Реальный экзамен & 🎓 Тренировка")}</span>
           </div>
 
           <button
@@ -78,7 +81,7 @@ export const LidExamCardItem = () => {
             className="lid-hero-start-btn"
             onClick={handleOpenExamSimulator}
           >
-            <span>Начать</span>
+            <span>{tr("Начать")}</span>
             <ArrowRight size={15} />
           </button>
         </div>

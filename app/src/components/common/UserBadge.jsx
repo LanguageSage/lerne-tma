@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { User } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
@@ -5,6 +7,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import './UserBadge.css';
 
 export const UserProfileBadge = () => {
+  useInterfaceLocale();
   const { userProfile, openSettings } = useUiStore();
   const [imgError, setImgError] = useState(false);
   
@@ -15,7 +18,7 @@ export const UserProfileBadge = () => {
   const validName = (first_name && first_name !== 'Пользователь') ? first_name : null;
   const displayName = validName 
     ? validName 
-    : (username ? `@${username}` : (is_guest ? 'Гость' : 'Профиль'));
+    : (username ? `@${username}` : (is_guest ? tr("Гость") : tr("Профиль")));
 
   const getInitials = () => {
     if (validName) {
@@ -40,7 +43,7 @@ export const UserProfileBadge = () => {
     <div 
       className={`user-badge-container ${is_guest ? 'guest' : ''}`}
       onClick={() => openSettings('profile')}
-      title={is_guest ? "Настроить профиль" : "Ваш профиль"}
+      title={is_guest ? tr("Настроить профиль") : tr("Ваш профиль")}
     >
       <div className="avatar-wrapper">
         {photo_url && !imgError ? (
@@ -65,6 +68,7 @@ export const UserProfileBadge = () => {
 };
 
 export const GuestBanner = () => {
+  useInterfaceLocale();
   const { userProfile } = useUiStore();
   const { 
     isPolling, 
@@ -74,7 +78,7 @@ export const GuestBanner = () => {
   if (!userProfile?.is_guest) return null;
 
   const handleOpenAuthModal = () => {
-    useUiStore.getState().setIsAuthModalOpen(true, "Вход в аккаунт");
+    useUiStore.getState().setIsAuthModalOpen(true, tr("Вход в аккаунт"));
   };
 
   return (
@@ -83,8 +87,8 @@ export const GuestBanner = () => {
         <span className="icon">{isPolling ? "⌛" : "⚠️"}</span>
         <p>
           {isPolling 
-            ? "Ожидание подтверждения в боте... Нажмите кнопку «Старт» в Telegram и вернитесь сюда."
-            : "Вы вошли как гость. Авторизуйтесь через Telegram или по 6-значному коду, чтобы сохранить колоды!"}
+            ? tr("Ожидание подтверждения в боте... Нажмите кнопку «Старт» в Telegram и вернитесь сюда.")
+            : tr("Вы вошли как гость. Авторизуйтесь через Telegram или по 6-значному коду, чтобы сохранить колоды!")}
         </p>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {isPolling ? (
@@ -93,17 +97,13 @@ export const GuestBanner = () => {
               className="banner-btn"
               onClick={() => checkPendingSession()}
               style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none' }}
-            >
-              Я подтвердил
-            </button>
+            >{tr("Я подтвердил")}{' '}</button>
           ) : (
             <button 
               type="button"
               className="banner-btn"
               onClick={handleOpenAuthModal}
-            >
-              Войти в аккаунт
-            </button>
+            >{tr("Войти в аккаунт")}{' '}</button>
           )}
         </div>
       </div>

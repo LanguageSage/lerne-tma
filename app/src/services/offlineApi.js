@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 import { prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId, getUserProfile } from '../utils/auth';
@@ -13,7 +14,7 @@ const jsonObject = (value, fallback = {}) => {
 };
 const result = (data = {}) => ({ data });
 const success = (data = {}) => result({ status: 'success', ...data });
-const notFound = () => { throw new Error('Запись не найдена на устройстве. Сначала выполните синхронизацию.'); };
+const notFound = () => { throw new Error(tr("Запись не найдена на устройстве. Сначала выполните синхронизацию.")); };
 
 async function cardView(db, card, userId) {
   const progress = await db.progress.get([card.id, userId]);
@@ -81,7 +82,7 @@ export const offlineApi = {
       const item = await table.get(id);
       if (!item) notFound();
       const owner = table.name === 'cards' ? await db.decks.get(item.deck_id) : item;
-      if (owner?.role === 'viewer') throw new Error('У вас доступ только для чтения');
+      if (owner?.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
       const updated = { ...item, ...fields, ...dirtyFields() };
       await table.put(updated);
       return updated;
@@ -114,7 +115,7 @@ export const offlineApi = {
     }
     if (m === 'post' && ['/study/grade', '/study/duplicates/grade'].includes(url)) {
       const allowedGrades = body.is_extended ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6, 7];
-      if (!allowedGrades.includes(body.grade)) throw new Error('Некорректная оценка');
+      if (!allowedGrades.includes(body.grade)) throw new Error(tr("Некорректная оценка"));
       const id = Number(body.card_id);
       const card = await db.cards.get(id);
       if (!card || card.is_deleted) notFound();
@@ -134,7 +135,7 @@ export const offlineApi = {
         const deckId = Number(body.deck_id || previous?.deck_id);
         const deck = await db.decks.get(deckId);
         if (!deck || deck.is_deleted) notFound();
-        if (deck.role === 'viewer') throw new Error('У вас доступ только для чтения');
+        if (deck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
         const siblings = await db.cards.where('deck_id').equals(deckId).toArray();
         const card = { ...previous, id, deck_id: deckId,
           front_text: body.front ?? body.front_text ?? previous?.front_text ?? '',
@@ -156,7 +157,7 @@ export const offlineApi = {
       if (parentId) {
         const parent = await db.folders.get(Number(parentId));
         if (!parent || parent.is_deleted) notFound();
-        if (parent.role === 'viewer') throw new Error('У вас доступ только для чтения');
+        if (parent.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
       }
       const item = { ...body, id: getNextTempId(), user_id: userId, is_deleted: 0,
         position: 0, role: 'owner', is_owner: true, created_at: new Date().toISOString(), ...dirtyFields() };
@@ -207,7 +208,7 @@ export const offlineApi = {
           let ancestor = target;
           const seen = new Set();
           while (ancestor != null) {
-            if (seen.has(ancestor) || (entity === 'folders' && ancestor === id)) throw new Error('Папку нельзя переместить внутрь себя');
+            if (seen.has(ancestor) || (entity === 'folders' && ancestor === id)) throw new Error(tr("Папку нельзя переместить внутрь себя"));
             seen.add(ancestor);
             const folder = await db.folders.get(ancestor);
             if (!folder || folder.is_deleted) notFound();
@@ -244,7 +245,7 @@ export const offlineApi = {
       const stats = { total_cards: cards.length, new_cards: 0, learning_cards: 0, young_cards: 0, mature_cards: 0, leech_cards: 0, retention_rate: null };
       const forecast = Array.from({ length: 7 }, (_, i) => {
         const date = new Date(Date.now() + i * 86400000);
-        return { day_index: i, date: date.toISOString().slice(0, 10), day_name: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][date.getDay()], count: 0 };
+        return { day_index: i, date: date.toISOString().slice(0, 10), day_name: [tr("Вс"), tr("Пн"), tr("Вт"), tr("Ср"), tr("Чт"), tr("Пт"), tr("Сб")][date.getDay()], count: 0 };
       });
       for (const c of cards) {
         const p = progress.get(c.id);
@@ -263,7 +264,7 @@ export const offlineApi = {
 };
 
 function unsupported() {
-  const error = new Error('Для этого действия требуется подключение к интернету.');
+  const error = new Error(tr("Для этого действия требуется подключение к интернету."));
   error.code = 'OFFLINE_UNSUPPORTED';
   return error;
 }

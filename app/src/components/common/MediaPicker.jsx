@@ -1,3 +1,5 @@
+import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Camera, Search, ClipboardPaste, X } from 'lucide-react';
@@ -11,6 +13,7 @@ export const MediaPicker = ({
   searchQuery = '', 
   loading = false
 }) => {
+  useInterfaceLocale();
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [editingFile, setEditingFile] = useState(null);
@@ -55,7 +58,7 @@ export const MediaPicker = ({
       setIsCameraOpen(true);
     } catch (err) {
       console.error('Camera open failed:', err);
-      setCameraError('Камера недоступна.');
+      setCameraError(tr("Камера недоступна."));
       cameraInputRef.current?.click();
     }
   };
@@ -128,10 +131,10 @@ export const MediaPicker = ({
           }
         }
       }
-      useUiStore.getState().showToast('В буфере обмена нет картинки. Скопируйте изображение и попробуйте снова.', 'info');
+      useUiStore.getState().showToast(tr("В буфере обмена нет картинки. Скопируйте изображение и попробуйте снова."), 'info');
     } catch (err) {
       console.warn('Clipboard read failed:', err);
-      useUiStore.getState().showToast('Не удалось получить доступ к буферу. Вы можете нажать Ctrl+V.', 'info');
+      useUiStore.getState().showToast(tr("Не удалось получить доступ к буферу. Вы можете нажать Ctrl+V."), 'info');
     }
   };
 
@@ -176,12 +179,12 @@ export const MediaPicker = ({
               onClick={e => e.stopPropagation()}
             >
               <div className="image-picker-header">
-                <h3>Выбор изображения</h3>
+                <h3>{tr("Выбор изображения")}</h3>
                 <button
                   type="button"
                   className="image-picker-close"
                   onClick={onClose}
-                  title="Закрыть"
+                  title={tr("Закрыть")}
                 >
                   <X size={18} />
                 </button>
@@ -192,40 +195,40 @@ export const MediaPicker = ({
                   className="image-picker-tile"
                   onClick={() => galleryInputRef.current?.click()}
                   disabled={loading}
-                  title="Выбрать картинку из памяти устройства"
+                  title={tr("Выбрать картинку из памяти устройства")}
                 >
                   <Upload size={24} color="#c084fc" />
-                  <span>Галерея</span>
+                  <span>{tr("Галерея")}</span>
                 </button>
                 <button
                   type="button"
                   className="image-picker-tile"
                   onClick={openCamera}
                   disabled={loading}
-                  title="Сделать снимок с камеры"
+                  title={tr("Сделать снимок с камеры")}
                 >
                   <Camera size={24} color="#38bdf8" />
-                  <span>Камера</span>
+                  <span>{tr("Камера")}</span>
                 </button>
                 <button
                   type="button"
                   className="image-picker-tile"
                   onClick={handlePasteFromClipboard}
                   disabled={loading}
-                  title="Вставить скопированную картинку из буфера обмена (или Ctrl+V)"
+                  title={tr("Вставить скопированную картинку из буфера обмена (или Ctrl+V)")}
                 >
                   <ClipboardPaste size={24} color="#fbbf24" />
-                  <span>Из буфера</span>
+                  <span>{tr("Из буфера")}</span>
                 </button>
                 <a
                   href={googleImageUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="image-picker-tile"
-                  title="Открыть поиск картинок Google в новой вкладке"
+                  title={tr("Открыть поиск картинок Google в новой вкладке")}
                 >
                   <Search size={24} color="#34d399" />
-                  <span>Поиск Google</span>
+                  <span>{tr("Поиск Google")}</span>
                 </a>
               </div>
               <input
@@ -259,12 +262,12 @@ export const MediaPicker = ({
           <div className="camera-overlay" onClick={closeCamera}>
             <div className="camera-capture-dialog" onClick={e => e.stopPropagation()}>
               <div className="image-picker-header">
-                <h3>Фото</h3>
+                <h3>{tr("Фото")}</h3>
                 <button
                   type="button"
                   className="image-picker-close"
                   onClick={closeCamera}
-                  title="Закрыть"
+                  title={tr("Закрыть")}
                 >
                   <X size={18} />
                 </button>
@@ -282,12 +285,9 @@ export const MediaPicker = ({
               )}
               <canvas ref={canvasRef} className="hidden-file-input" />
               <div className="camera-actions">
-                <button type="button" className="btn-secondary" onClick={closeCamera}>
-                  Отмена
-                </button>
+                <button type="button" className="btn-secondary" onClick={closeCamera}>{tr("Отмена")}{' '}</button>
                 <button type="button" className="btn btn-primary" onClick={capturePhoto} disabled={loading || !!cameraError}>
-                  <Camera size={18} /> Снять
-                </button>
+                  <Camera size={18} />{' '}{tr("Снять")}{' '}</button>
               </div>
             </div>
           </div>
@@ -303,7 +303,7 @@ export const MediaPicker = ({
           onImageUpload(editedFile);
           onClose();
         }}
-        title="Настройка фото"
+        title={tr("Настройка фото")}
       />
     </>
   );

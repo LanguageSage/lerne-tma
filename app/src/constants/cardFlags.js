@@ -1,12 +1,13 @@
+import { tr } from '../i18n/locale';
 export const FLAG_COLORS = {
-  0: { id: 0, name: 'Без флага', hex: null },
-  1: { id: 1, name: 'Красный', hex: '#ef4444' },
-  2: { id: 2, name: 'Оранжевый', hex: '#f97316' },
-  3: { id: 3, name: 'Зеленый', hex: '#22c55e' },
-  4: { id: 4, name: 'Синий', hex: '#3b82f6' },
-  5: { id: 5, name: 'Розовый', hex: '#ec4899' },
-  6: { id: 6, name: 'Бирюзовый', hex: '#06b6d4' },
-  7: { id: 7, name: 'Фиолетовый', hex: '#a855f7' },
+  0: { id: 0, get name() { return tr("Без флага"); }, hex: null },
+  1: { id: 1, get name() { return tr("Красный"); }, hex: '#ef4444' },
+  2: { id: 2, get name() { return tr("Оранжевый"); }, hex: '#f97316' },
+  3: { id: 3, get name() { return tr("Зеленый"); }, hex: '#22c55e' },
+  4: { id: 4, get name() { return tr("Синий"); }, hex: '#3b82f6' },
+  5: { id: 5, get name() { return tr("Розовый"); }, hex: '#ec4899' },
+  6: { id: 6, get name() { return tr("Бирюзовый"); }, hex: '#06b6d4' },
+  7: { id: 7, get name() { return tr("Фиолетовый"); }, hex: '#a855f7' },
 };
 
 export const getFlagStyle = (flagId) => {

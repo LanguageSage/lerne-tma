@@ -1,3 +1,4 @@
+import { tr } from '../i18n/locale';
 /**
  * SRS SM-2 Spaced Repetition Engine for Lerne Offline Mode
  * Synchronized with backend logic in api/srs.py
@@ -48,19 +49,19 @@ export const applyFuzz = (interval) => {
 export const formatInterval = (value, isDays = false) => {
   if (!isDays) {
     if (value < 60) {
-      return `${Math.round(value)} мин`;
+      return tr("{{p0}} мин", { p0: Math.round(value) });
     }
     const hours = value / 60;
-    if (hours < 24) return `${Math.round(hours)} ч`;
-    return `${Math.round(hours / 24)} дн`;
+    if (hours < 24) return tr("{{p0}} ч", { p0: Math.round(hours) });
+    return tr("{{p0}} дн", { p0: Math.round(hours / 24) });
   } else {
-    if (value < 1) return `<1 дн`;
-    if (value < 30) return `${Math.round(value)} дн`;
+    if (value < 1) return tr("<1 дн", {  });
+    if (value < 30) return tr("{{p0}} дн", { p0: Math.round(value) });
     const months = value / 30.0;
     if (months < 12) {
-      return months % 1 !== 0 ? `${months.toFixed(1)} мес` : `${Math.round(months)} мес`;
+      return months % 1 !== 0 ? tr("{{p0}} мес", { p0: months.toFixed(1) }) : tr("{{p0}} мес", { p0: Math.round(months) });
     }
-    return `${(value / 365.0).toFixed(1)} г.`;
+    return tr("{{p0}} г.", { p0: (value / 365.0).toFixed(1) });
   }
 };
 
