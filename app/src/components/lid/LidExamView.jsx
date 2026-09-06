@@ -127,9 +127,12 @@ export const LidExamView = () => {
               <ArrowLeft size={20} />
             </button>
             <div className="lid-menu-title-wrap">
-              <span className="lid-hero-flag">🇩🇪</span>
-              <h2 className="lid-menu-title">Leben in Deutschland</h2>
-              <span className="lid-menu-subtitle">{tr("Официальный симулятор экзамена BAMF")}{' '}</span>
+              <div className="lid-menu-pill-row">
+                <span className="lid-hero-flag">🇩🇪</span>
+                <span className="lid-menu-tag">BAMF • LiD</span>
+              </div>
+              <h1 className="lid-menu-title">{tr("Симуляция экзамена")}</h1>
+              <span className="lid-menu-subtitle">Leben in Deutschland • Einbürgerungstest</span>
             </div>
           </div>
 

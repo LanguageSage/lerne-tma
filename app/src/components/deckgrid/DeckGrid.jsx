@@ -66,7 +66,6 @@ export const DeckGrid = ({
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
   const langInfo = useLanguageStore(state => state.getLanguageInfo());
 
-  const [deckFilter, setDeckFilter] = useState('all'); // 'all' | 'learning'
 
   const { collaborators, onlineCount, isShared } = useCollaborativePresence('folder', activeFolderId, view === 'decks' && activeFolderId !== null);
 
@@ -160,23 +159,15 @@ export const DeckGrid = ({
     return decks.filter(d => (d.target_language || 'de') === activeLanguage && Boolean(d.is_learning) && !d.is_inbox && !d.is_deleted);
   }, [decks, activeLanguage]);
 
-  const learningCount = React.useMemo(() => {
-    return currentDecks.filter(d => Boolean(d.is_learning)).length;
-  }, [currentDecks]);
-
   const filteredFolders = React.useMemo(() => {
     if (!isSearchActive) return currentFolders;
     return scopedFolders.filter(f => matchFolder(f, deckSearchQuery));
   }, [isSearchActive, currentFolders, scopedFolders, deckSearchQuery]);
 
   const filteredDecks = React.useMemo(() => {
-    let list = scopedDecks;
-    if (!isSearchActive && deckFilter === 'learning') {
-      list = list.filter(d => Boolean(d.is_learning));
-    }
-    if (!isSearchActive) return list;
-    return list.filter(d => matchDeck(d, deckSearchQuery));
-  }, [isSearchActive, scopedDecks, deckFilter, deckSearchQuery]);
+    if (!isSearchActive) return scopedDecks;
+    return scopedDecks.filter(d => matchDeck(d, deckSearchQuery));
+  }, [isSearchActive, scopedDecks, deckSearchQuery]);
 
   const totalSearchResultsCount = filteredFolders.length + filteredDecks.length + searchedCards.length;
 
@@ -365,26 +356,6 @@ export const DeckGrid = ({
             setCurrentDeck={setCurrentDeck}
             fetchDeckCards={fetchDeckCards}
           />
-        )}
-
-        {/* Quick Filter Tabs: All vs Learning */}
-        {activeFolderId === null && currentDecks.length > 0 && !deckSearchQuery.trim() && (
-          <div className="deck-filter-tabs glass">
-            <button 
-              type="button"
-              className={`deck-filter-tab ${deckFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setDeckFilter('all')}
-            >
-              <span>{t('decks.filter_all', { count: currentDecks.length }, `Все (${currentDecks.length})`)}</span>
-            </button>
-            <button 
-              type="button"
-              className={`deck-filter-tab ${deckFilter === 'learning' ? 'active' : ''}`}
-              onClick={() => setDeckFilter('learning')}
-            >
-              <span>{t('decks.filter_learning', { count: learningCount }, `🎯 Учу (${learningCount})`)}</span>
-            </button>
-          </div>
         )}
 
         <div id="tut-deck-list" className="deck-grid">

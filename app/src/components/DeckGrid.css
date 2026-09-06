@@ -104,6 +104,13 @@
   margin-bottom: 10px;
 }
 
+/* ---------------------------------------------------------
+   Deck Card (Обычные колоды)
+   
+   👉 НАСТРОЙКА ЦВЕТА ФОНА ОБЫЧНЫХ КОЛОД:
+   Если захотите сделать карточки колод светлее/темнее,
+   отредактируйте свойства background ниже в .deck-card и .deck-card::before
+   --------------------------------------------------------- */
 .deck-card {
   display: flex;
   flex-direction: column;
@@ -111,9 +118,10 @@
   transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
   position: relative;
   overflow: visible !important;
-  border: 1px solid var(--folder-color-border, rgba(255, 255, 255, 0.15));
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--folder-color-border, rgba(255, 255, 255, 0.12));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  /* Цвет фона колод: приятный затемнённый полупрозрачный оттенок */
+  background: rgba(13, 18, 30, 0.72);
   backdrop-filter: blur(16px);
   border-radius: 20px;
   box-sizing: border-box;
@@ -127,16 +135,17 @@
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; height: 100%;
-  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 50%, var(--folder-color-bg-tint, rgba(168, 85, 247, 0.08)) 100%);
+  /* Мягкий градиентный отблеск сверху вниз */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 45%, var(--folder-color-bg-tint, rgba(168, 85, 247, 0.06)) 100%);
   z-index: 0;
   pointer-events: none;
   border-radius: 20px;
 }
 
 .deck-card:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(18, 24, 38, 0.85);
   border-color: var(--folder-color-hover, rgba(168, 85, 247, 0.6));
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), 0 0 20px var(--folder-color-shadow, rgba(168, 85, 247, 0.3)), inset 0 0 15px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), 0 0 20px var(--folder-color-shadow, rgba(168, 85, 247, 0.3)), inset 0 0 15px rgba(255, 255, 255, 0.05);
 }
 
 .deck-icon {
@@ -637,44 +646,6 @@
     padding: 16px;
     border-radius: 0 0 20px 20px;
   }
-}
-
-/* Deck Filter Tabs (All vs Learning) */
-.deck-filter-tabs {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px;
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  margin-bottom: 12px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.deck-filter-tab {
-  padding: 6px 14px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #94a3b8;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.deck-filter-tab:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.deck-filter-tab.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(129, 140, 248, 0.15));
-  border-color: rgba(99, 102, 241, 0.4);
-  color: #a5b4fc;
-  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
 }
 
 /* Learning Shortcuts Section (Сейчас усиленно учу) */

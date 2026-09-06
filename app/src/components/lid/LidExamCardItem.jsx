@@ -43,13 +43,19 @@ export const LidExamCardItem = () => {
 
         {/* Title & Subtitle */}
         <div className="lid-hero-title-group">
-          <h3 className="lid-hero-title">
-            <span>{tr("Симуляция экзамена")}</span>
-            <ShieldCheck size={20} className="lid-shield-icon" />
-          </h3>
-          <p className="lid-hero-subtitle">
-            Leben in Deutschland • Einbürgerungstest
-          </p>
+          <div className="lid-hero-title-header">
+            <div className="lid-hero-icon-box">
+              <ShieldCheck size={26} className="lid-shield-icon" />
+            </div>
+            <div className="lid-hero-title-text-wrap">
+              <h3 className="lid-hero-title">
+                <span>{tr("Симуляция экзамена")}</span>
+              </h3>
+              <p className="lid-hero-subtitle">
+                Leben in Deutschland • Einbürgerungstest
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* 3 Stats Chips */}

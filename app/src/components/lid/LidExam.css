@@ -55,25 +55,47 @@
 .lid-menu-title-wrap {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+}
+
+.lid-menu-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .lid-hero-flag {
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   line-height: 1;
-  margin-bottom: 2px;
+}
+
+.lid-menu-tag {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  color: #facc15;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .lid-menu-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.55rem;
   font-weight: 800;
-  color: #f8fafc;
-  letter-spacing: -0.01em;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .lid-menu-subtitle {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: #94a3b8;
+  font-weight: 500;
 }
 
 /* Selected Land Banner */
@@ -2344,36 +2366,52 @@
 
 /* ---------------------------------------------------------
    Hero Deck Card in Grid (Симуляция экзамена)
+   
+   👉 НАСТРОЙКА ЦВЕТА ФОНА КАРТОЧКИ:
+   Если захотите изменить цвет фона или градиент этой колоды,
+   отредактируйте свойство background ниже в классе .lid-exam-hero-card
    --------------------------------------------------------- */
 .lid-exam-hero-card {
   position: relative;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
-  border: 1.5px solid rgba(234, 179, 8, 0.4) !important;
-  border-radius: 18px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 16px rgba(234, 179, 8, 0.1) !important;
+  /* Цвет фона: глубокий тёмный с мягким отблеском */
+  background: radial-gradient(circle at top right, rgba(234, 179, 8, 0.12) 0%, transparent 60%),
+              radial-gradient(circle at bottom left, rgba(56, 189, 248, 0.08) 0%, transparent 60%),
+              linear-gradient(145deg, #090d16 0%, #0d121f 50%, #06090f 100%) !important;
+  border: 1.5px solid rgba(234, 179, 8, 0.45) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(234, 179, 8, 0.12) !important;
   overflow: hidden !important;
   cursor: pointer;
   padding: 0 !important;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   width: 100%;
 }
 
+.lid-exam-hero-card::before {
+  /* Отключаем светлый псевдоэлемент общей карточки DeckGrid */
+  display: none !important;
+}
+
 .lid-exam-hero-card:hover {
-  border-color: rgba(234, 179, 8, 0.8) !important;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 24px rgba(234, 179, 8, 0.25) !important;
+  background: radial-gradient(circle at top right, rgba(234, 179, 8, 0.18) 0%, transparent 60%),
+              radial-gradient(circle at bottom left, rgba(56, 189, 248, 0.12) 0%, transparent 60%),
+              linear-gradient(145deg, #0c121e 0%, #111827 50%, #080c14 100%) !important;
+  border-color: rgba(234, 179, 8, 0.85) !important;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.75), 0 0 32px rgba(234, 179, 8, 0.25) !important;
+  transform: translateY(-2px);
 }
 
 .lid-hero-card-accent-bar {
-  height: 4px;
-  background: linear-gradient(90deg, #111827 0%, #ef4444 50%, #facc15 100%);
+  height: 5px;
+  background: linear-gradient(90deg, #18181b 0%, #ef4444 45%, #facc15 100%);
   width: 100%;
 }
 
 .lid-hero-card-inner {
-  padding: 16px 18px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .lid-hero-header-row {
@@ -2387,35 +2425,36 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .lid-hero-flag-emoji {
-  font-size: 1rem;
+  font-size: 1.1rem;
   line-height: 1;
 }
 
 .lid-hero-badge-text {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #f1f5f9;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
 }
 
 .lid-hero-badge-right {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(234, 179, 8, 0.14);
-  border: 1px solid rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.16);
+  border: 1px solid rgba(234, 179, 8, 0.45);
   color: #facc15;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 8px;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 700;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.1);
 }
 
 .lid-sparkle-icon {
@@ -2425,30 +2464,57 @@
 .lid-hero-title-group {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
-.lid-hero-title {
-  margin: 0;
-  font-size: 1.22rem;
-  font-weight: 800;
-  color: #ffffff;
+.lid-hero-title-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  letter-spacing: -0.01em;
+  gap: 12px;
+}
+
+.lid-hero-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(30, 58, 138, 0.3) 100%);
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
 }
 
 .lid-shield-icon {
   color: #38bdf8;
-  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(56, 189, 248, 0.4));
+}
+
+.lid-hero-title-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lid-hero-title {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.25);
 }
 
 .lid-hero-subtitle {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: #94a3b8;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .lid-hero-stats-row {
@@ -2461,13 +2527,13 @@
 .lid-hero-stat-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 0.74rem;
-  color: #cbd5e1;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.78rem;
+  color: #e2e8f0;
 }
 
 .chip-icon.questions {
@@ -2486,8 +2552,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   gap: 10px;
 }
 
@@ -2498,7 +2564,7 @@
 }
 
 .lid-hero-mode-pill {
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   color: #94a3b8;
   font-weight: 500;
 }
@@ -2506,23 +2572,24 @@
 .lid-hero-start-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fde047 0%, #ca8a04 100%);
   color: #0f172a;
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: 0.88rem;
+  font-weight: 900;
   border: none;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(234, 179, 8, 0.3);
+  box-shadow: 0 4px 16px rgba(234, 179, 8, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.5);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   flex-shrink: 0;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
 }
 
 .lid-hero-start-btn:hover {
-  transform: translateX(2px);
-  box-shadow: 0 4px 14px rgba(234, 179, 8, 0.45);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 20px rgba(234, 179, 8, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.6);
 }
 
 /* =========================================================
