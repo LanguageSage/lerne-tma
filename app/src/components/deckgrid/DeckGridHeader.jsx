@@ -9,7 +9,6 @@ import { HelpButton } from '../TutorialOverlay';
 import { useTranslation } from '../../i18n/i18nContext';
 
 export const DeckGridHeader = ({
-  startTutorial,
   setIsNewDeckModalOpen,
   setIsSettingsOpen,
   onLanguageChange,
@@ -39,7 +38,7 @@ export const DeckGridHeader = ({
           <UserProfileBadge />
         </div>
         <div className="header-actions">
-          <HelpButton onClick={() => startTutorial('decks')} />
+          <HelpButton topic="decks" />
           <button 
             id="tut-add-deck" 
             className="add-deck-btn" 

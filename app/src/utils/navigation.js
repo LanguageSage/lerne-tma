@@ -23,6 +23,8 @@ export const navigateUp = () => {
 
   // 1. Any Modal Open -> Close modal
   const isAnyModalOpen = Boolean(
+    uiState.isFullGuideOpen ||
+    uiState.isHelpOpen ||
     uiState.isSettingsOpen ||
     uiState.isNewDeckModalOpen ||
     uiState.isRenameModalOpen ||
@@ -38,6 +40,14 @@ export const navigateUp = () => {
   );
 
   if (isAnyModalOpen) {
+    if (uiState.isFullGuideOpen) {
+      uiState.closeFullGuide();
+      return true;
+    }
+    if (uiState.isHelpOpen) {
+      uiState.closeHelp();
+      return true;
+    }
     uiState.setIsSettingsOpen(false);
     uiState.setIsNewDeckModalOpen(false);
     uiState.setIsRenameModalOpen(false);

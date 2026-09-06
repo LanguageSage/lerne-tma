@@ -15,7 +15,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { navigateUp } from '../../utils/navigation';
 
-export const CardCreator = ({ startTutorial }) => {
+export const CardCreator = () => {
   useInterfaceLocale();
   const { t } = useTranslation();
   const { view, setIsSettingsOpen } = useUiStore();
@@ -117,7 +117,7 @@ export const CardCreator = ({ startTutorial }) => {
             <button className="header-action-btn" disabled={true} title={tr("Добавить карточку")}>
               <Plus size={22} />
             </button>
-            <HelpButton onClick={() => startTutorial('creator')} />
+            <HelpButton topic="creator" />
             <button 
               className="header-action-btn settings-btn" 
               onClick={() => setIsSettingsOpen(true)}

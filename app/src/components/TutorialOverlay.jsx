@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import './TutorialOverlay.css';
 
 import { useTranslation } from '../i18n/i18nContext';
+import { useUiStore } from '../store/useUiStore';
 
 export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) => {
   const { t } = useTranslation();
@@ -195,11 +196,24 @@ export const TutorialOverlay = ({ isOpen, steps, onFinish, onSkip, isFlipped }) 
   );
 };
 
-export const HelpButton = ({ onClick, title }) => {
+export const HelpButton = ({ onClick, topic, title }) => {
   const { t } = useTranslation();
-  const helpTitle = title || t('tutorial.help', 'Довідка');
+  const openHelp = useUiStore(s => s.openHelp);
+  const helpTitle = title || t('tutorial.help', 'Справка');
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (onClick) {
+      onClick();
+    } else if (topic) {
+      openHelp(topic);
+    } else {
+      openHelp('decks');
+    }
+  };
+
   return (
-    <button id="tut-help-button" className="help-btn-normal" onClick={(e) => { e.stopPropagation(); onClick(); }} title={helpTitle}>
+    <button id="tut-help-button" className="help-btn-normal" onClick={handleClick} title={helpTitle}>
       <span className="help-icon-text">?</span>
     </button>
   );

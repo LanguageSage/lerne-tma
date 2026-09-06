@@ -220,7 +220,7 @@ const DraggableCardItem = React.memo(({
   );
 });
 
-export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
+export const CardList = ({ startStudy, startStudyCard }) => {
   useInterfaceLocale();
   const { t } = useTranslation();
   const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen, showToast } = useUiStore();
@@ -613,7 +613,7 @@ export const CardList = ({ startTutorial, startStudy, startStudyCard }) => {
               <ListPlus size={22} />
             </button>
 
-            <HelpButton onClick={() => startTutorial('cards')} />
+            <HelpButton topic="cards" />
 
             {/* Search Toggle Button */}
             <button

@@ -11,7 +11,6 @@ export const StudyHeader = ({
   card,
   onBack,
   onOpenCreator,
-  onStartTutorial,
   onOpenEditor,
   onOpenSettings,
   isTrainerDeck = false,
@@ -40,7 +39,7 @@ export const StudyHeader = ({
     <div className="header-actions">
       <UserProfileBadge />
 
-      <HelpButton onClick={onStartTutorial} />
+      <HelpButton topic="study" />
 
       <button
         id="tut-study-edit-card"

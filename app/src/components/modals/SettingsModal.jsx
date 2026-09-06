@@ -17,7 +17,7 @@ import { ProfileTab } from '../settings/ProfileTab';
 import { RemindersTab } from '../settings/RemindersTab';
 import { SrsTab } from '../settings/SrsTab';
 
-export const SettingsModal = ({ userId, startTutorial }) => {
+export const SettingsModal = ({ userId }) => {
   useInterfaceLocale();
   const { isSettingsOpen, setIsSettingsOpen, settingsTab } = useUiStore();
   const { t } = useTranslation();
@@ -92,7 +92,7 @@ export const SettingsModal = ({ userId, startTutorial }) => {
             <div className="settings-header">
               <h2>{t('settings.title', 'Настройки')}</h2>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <HelpButton onClick={() => startTutorial('settings')} />
+                <HelpButton topic="settings" />
                 <button className="close-btn" onClick={() => setIsSettingsOpen(false)}>
                   <X size={24} />
                 </button>

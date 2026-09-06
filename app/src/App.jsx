@@ -20,6 +20,8 @@ import {
   LanguageSelectionModal, ImportModal, CollaboratorsModal, BatchCardModal 
 } from './components/modals';
 import { TutorialOverlay } from './components/TutorialOverlay';
+import { HelpDrawer } from './components/help/HelpDrawer';
+import { FullGuideModal } from './components/help/FullGuideModal';
 import { LidExamView } from './components/lid/LidExamView';
 
 import { TUTORIAL_STEPS } from './constants/appConstants';
@@ -88,8 +90,12 @@ function AppContent() {
   const isCollaboratorsModalOpen = useUiStore(state => state.isCollaboratorsModalOpen);
   const importShareId = useUiStore(state => state.importShareId);
   const isLanguageModalOpen = useLanguageStore(state => state.isLanguageModalOpen);
+  const isHelpOpen = useUiStore(state => state.isHelpOpen);
+  const isFullGuideOpen = useUiStore(state => state.isFullGuideOpen);
 
   const anyModalOpen = Boolean(
+    isHelpOpen ||
+    isFullGuideOpen ||
     isSettingsOpen ||
     isNewDeckModalOpen ||
     isRenameModalOpen ||
@@ -239,11 +245,10 @@ function AppContent() {
     switch (view) {
       case 'study':
       case 'trainer':
-        return <StudyView startTutorial={startTutorial} />;
+        return <StudyView />;
       case 'cards':
         return (
           <CardList
-            startTutorial={startTutorial}
             startStudy={startStudy}
             startStudyCard={startStudyCard}
           />
@@ -274,13 +279,13 @@ function AppContent() {
       {renderView()}
 
       {/* Overlays and Modals */}
-      {view === 'creator' && <CardCreator startTutorial={startTutorial} />}
-      {view === 'editor' && <CardEditor startTutorial={startTutorial} />}
+      {view === 'creator' && <CardCreator />}
+      {view === 'editor' && <CardEditor />}
       {isBatchModalOpen && <BatchCardModal />}
       {isNewDeckModalOpen && <DeckModals />}
       {isRenameModalOpen && <RenameDeckModal />}
       {isCollaboratorsModalOpen && <CollaboratorsModal />}
-      {isSettingsOpen && <SettingsModal userId={USER_ID} startTutorial={startTutorial} />}
+      {isSettingsOpen && <SettingsModal userId={USER_ID} />}
       
       {importShareId && (
         <ImportModal
@@ -356,6 +361,11 @@ function AppContent() {
       )}
 
       {isLanguageModalOpen && <LanguageSelectionModal />}
+      
+      {/* Help System: Contextual Drawer & Full Guide Modal */}
+      <HelpDrawer onStartTutorial={startTutorial} />
+      <FullGuideModal />
+
       {isFirstLaunch && (
         <LanguageWelcomeModal 
           isOpen={isFirstLaunch} 

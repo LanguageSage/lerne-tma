@@ -27,7 +27,7 @@ import { GradeButtons } from './GradeButtons';
 import { StudyFinished } from './StudyFinished';
 import { StudyCard } from './StudyCard';
 
-export const StudyView = ({ startTutorial }) => {
+export const StudyView = () => {
   useInterfaceLocale();
   const { view, loading, setIsSettingsOpen, showToast, setView, setActiveFolderId } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
@@ -417,7 +417,6 @@ export const StudyView = ({ startTutorial }) => {
           card={card}
           onBack={navigateUp}
           onOpenCreator={() => openCreator(currentDeck?.id, 'study', card?.id)}
-          onStartTutorial={() => startTutorial(isFlipped ? 'study_back' : 'study')}
           onOpenEditor={() => openEditor(currentDeck?.id === 'duplicates' ? card.deck_id : currentDeck?.id, card, 'study')}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />

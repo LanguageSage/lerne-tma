@@ -12,7 +12,7 @@ import { useAudio } from '../../hooks/useAudio';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { navigateUp } from '../../utils/navigation';
 
-export const CardEditor = ({ startTutorial }) => {
+export const CardEditor = () => {
   useInterfaceLocale();
   const { view, setIsSettingsOpen } = useUiStore();
   const { editingCard, setEditingCard } = useSessionStore();
@@ -82,7 +82,7 @@ export const CardEditor = ({ startTutorial }) => {
             <button className="header-action-btn" disabled={true} title={tr("Добавить карточку")}>
               <Plus size={22} />
             </button>
-            <HelpButton onClick={() => startTutorial('editor')} />
+            <HelpButton topic="creator" />
             <button 
               className="header-action-btn settings-btn" 
               onClick={() => setIsSettingsOpen(true)}

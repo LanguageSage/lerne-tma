@@ -42,6 +42,16 @@ export const useUiStore = create((set) => ({
   activeTutorial: null,
   setActiveTutorial: (tutorial) => set({ activeTutorial: tutorial }),
   
+  // Help system state
+  isHelpOpen: false,
+  helpTopic: 'decks',
+  isFullGuideOpen: false,
+  fullGuideTopic: null,
+  openHelp: (topic = 'decks') => set({ isHelpOpen: true, helpTopic: topic }),
+  closeHelp: () => set({ isHelpOpen: false }),
+  openFullGuide: (topic = null) => set({ isFullGuideOpen: true, fullGuideTopic: topic, isHelpOpen: false }),
+  closeFullGuide: () => set({ isFullGuideOpen: false }),
+  
   isOpeningDeck: false,
   setIsOpeningDeck: (isOpening) => set({ isOpeningDeck: isOpening }),
 
