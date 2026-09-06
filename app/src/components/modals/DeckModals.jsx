@@ -574,7 +574,7 @@ export const DeckModals = () => {
                   <Copy size={18} style={{ color: '#38bdf8', flexShrink: 0 }} />
                   <div>
                     <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{tr("Создать копию (Copy)")}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{tr("Импортировать как «")}{duplicateDeckTarget.deck?.name} (v2)»</div>
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{tr("Импортировать как «{{p0}} (v2)»", { p0: duplicateDeckTarget.deck?.name || '' })}</div>
                   </div>
                 </button>
 

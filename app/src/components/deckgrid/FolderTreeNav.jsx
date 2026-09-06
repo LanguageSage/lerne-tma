@@ -163,7 +163,7 @@ export const FolderCardItem = React.memo(({
             <Folder size={24} color={folderColor} fill={folderColor} fillOpacity={0.2} />
           </div>
           <h3>
-            <span className="deck-title-text">{folder.name}</span>
+            <span className="deck-title-text">{folder.name === '📥 Входящие' ? tr("📥 Входящие") : folder.name}</span>
           </h3>
         </div>
       </div>

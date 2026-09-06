@@ -1,4 +1,4 @@
-import { tr } from '../../i18n/locale';
+import { tr, getInterfaceLanguage } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -149,7 +149,7 @@ export const BatchCardModal = () => {
         position: idx
       }));
 
-      const nativeLang = localStorage.getItem('native_language') || useLanguageStore.getState().nativeLanguage || 'ru';
+      const nativeLang = getInterfaceLanguage();
 
       const res = await api.post('/ai/enrich-batch', {
         cards: payloadCards,

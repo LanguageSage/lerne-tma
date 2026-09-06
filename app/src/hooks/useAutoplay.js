@@ -1,4 +1,4 @@
-import { tr } from '../i18n/locale';
+import { tr, getInterfaceLanguage } from '../i18n/locale';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
@@ -141,7 +141,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     const pathKey = isBack ? 'audio_back_path' : 'audio_path';
     const text = getCardText(targetCard, side);
     const deckTargetLang = targetCard.target_language || useDeckStore.getState().currentDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de';
-    const nativeLang = useLanguageStore.getState().nativeLanguage || 'ru';
+    const nativeLang = getInterfaceLanguage();
     const lang = isBack ? nativeLang : deckTargetLang;
     const rate = formatRate(isBack ? settings.ttsSpeedRu : settings.ttsSpeed);
     const voice = isBack 

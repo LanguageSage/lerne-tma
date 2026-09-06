@@ -265,7 +265,7 @@ export const DeckCardItem = React.memo(({
           </div>
           
           <h3>
-            <span className="deck-title-text">{deck.name}</span>
+            <span className="deck-title-text">{deck.is_inbox ? tr("📥 Входящие карточки") : deck.name}</span>
 
             {!deck.is_inbox && (
               <button

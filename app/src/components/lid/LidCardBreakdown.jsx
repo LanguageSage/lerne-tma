@@ -68,7 +68,7 @@ export const LidCardBreakdown = ({ context, ruContext = null, className = '' }) 
 
   const getSectionTheme = (emoji, title) => {
     const t = (title || '').toLowerCase();
-    if (emoji === '🎯' || t.includes('объяснен')) {
+    if (emoji === '🎯' || t.includes('объяснен') || t.includes('пояснен') || t.includes('explan')) {
       return {
         cardClass: 'lid-breakdown-card explanation',
         badgeClass: 'lid-breakdown-badge explanation',
@@ -76,7 +76,7 @@ export const LidCardBreakdown = ({ context, ruContext = null, className = '' }) 
         color: '#38bdf8'
       };
     }
-    if (emoji === '📖' || t.includes('словарь') || t.includes('словарный')) {
+    if (emoji === '📖' || t.includes('словарь') || t.includes('словарный') || t.includes('словник') || t.includes('vocab')) {
       return {
         cardClass: 'lid-breakdown-card vocabulary',
         badgeClass: 'lid-breakdown-badge vocabulary',
@@ -84,7 +84,7 @@ export const LidCardBreakdown = ({ context, ruContext = null, className = '' }) 
         color: '#c084fc'
       };
     }
-    if (emoji === '💡' || t.includes('грамматик') || t.includes('правил')) {
+    if (emoji === '💡' || t.includes('грамматик') || t.includes('граматик') || t.includes('правил') || t.includes('grammar')) {
       return {
         cardClass: 'lid-breakdown-card grammar',
         badgeClass: 'lid-breakdown-badge grammar',
@@ -111,7 +111,7 @@ export const LidCardBreakdown = ({ context, ruContext = null, className = '' }) 
         <div className="lid-breakdown-sections-list">
           {sections.map((sec, idx) => {
             const theme = getSectionTheme(sec.emoji, sec.title);
-            const isVocab = sec.title.toLowerCase().includes('словарь') || sec.title.toLowerCase().includes('словарный');
+            const isVocab = sec.title.toLowerCase().includes('словарь') || sec.title.toLowerCase().includes('словарный') || sec.title.toLowerCase().includes('словник') || sec.title.toLowerCase().includes('vocab');
 
             return (
               <div key={idx} className={theme.cardClass}>

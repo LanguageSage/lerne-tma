@@ -1,4 +1,4 @@
-import { tr } from '../../i18n/locale';
+import { tr, getInterfaceLanguage } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCw, Square } from 'lucide-react';
@@ -183,7 +183,7 @@ export const StudyNavigation = ({
             </label>
 
             <label className="autoplay-slider">
-              <span>DE {ttsSpeed > 0 ? '+' : ''}{ttsSpeed}%</span>
+              <span>{(useSettingsStore.getState().adminSettings?.TARGET_LANG || 'DE').toUpperCase()} {ttsSpeed > 0 ? '+' : ''}{ttsSpeed}%</span>
               <input
                 type="range"
                 min="-50"
@@ -196,7 +196,7 @@ export const StudyNavigation = ({
             </label>
 
             <label className="autoplay-slider">
-              <span>RU {ttsSpeedRu > 0 ? '+' : ''}{ttsSpeedRu}%</span>
+              <span>{getInterfaceLanguage().toUpperCase()} {ttsSpeedRu > 0 ? '+' : ''}{ttsSpeedRu}%</span>
               <input
                 type="range"
                 min="-50"

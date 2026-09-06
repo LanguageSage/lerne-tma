@@ -1,4 +1,4 @@
-import { tr } from '../i18n/locale';
+import { tr, getInterfaceLanguage } from '../i18n/locale';
 import { create } from 'zustand';
 import { cloudStorage } from '../utils/auth';
 import api from '../services/api';
@@ -16,6 +16,9 @@ export const useLanguageStore = create((set, get) => ({
   activeLanguage: INITIAL_LANG,
   hasSelectedLanguage: INITIAL_HAS_SELECTED,
   isLanguageModalOpen: false,
+  get nativeLanguage() {
+    return getInterfaceLanguage();
+  },
   
   setLanguage: async (code, skipBackend = false) => {
     if (SUPPORTED_LANGUAGES.some(l => l.code === code)) {

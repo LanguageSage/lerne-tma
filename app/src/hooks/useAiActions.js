@@ -1,4 +1,4 @@
-import { tr } from '../i18n/locale';
+import { tr, getInterfaceLanguage } from '../i18n/locale';
 import { useRef } from 'react';
 import axios from 'axios';
 import api from '../services/api';
@@ -18,11 +18,11 @@ export const useAiActions = () => {
     if (!c || !c.front) return;
     setLoading(true);
     const targetLang = c.target_language || useLanguageStore.getState().activeLanguage || 'de';
-    const hasRussian = /[а-яА-Я]/.test(c.front);
-    const langToSpeak = hasRussian ? (useLanguageStore.getState().nativeLanguage || 'ru') : targetLang;
+    const hasCyrillic = /[а-яА-ЯёЁіІїЇєЄґҐ]/.test(c.front);
+    const langToSpeak = targetLang;
     const voice = getTtsVoiceForLang(langToSpeak, adminSettings);
     const rate = adminSettings?.TTS_SPEED || '+0%';
-    const textToSpeak = hasRussian ? c.back : c.front;
+    const textToSpeak = hasCyrillic && c.back ? c.back : c.front;
 
     if (!textToSpeak) {
       showToast(tr("Нет текста для озвучки"));
@@ -79,11 +79,11 @@ export const useAiActions = () => {
     if (!data || !data.front) return;
 
     const targetLang = data.target_language || useLanguageStore.getState().activeLanguage || 'de';
-    const hasRussian = /[а-яА-Я]/.test(data.front);
-    const langToSpeak = hasRussian ? (useLanguageStore.getState().nativeLanguage || 'ru') : targetLang;
+    const hasCyrillic = /[а-яА-ЯёЁіІїЇєЄґҐ]/.test(data.front);
+    const langToSpeak = targetLang;
     const voice = getTtsVoiceForLang(langToSpeak, adminSettings);
     const rate = adminSettings?.TTS_SPEED || '+0%';
-    const textToSpeak = hasRussian ? data.back : data.front;
+    const textToSpeak = hasCyrillic && data.back ? data.back : data.front;
 
     if (!textToSpeak) {
       return;
@@ -147,7 +147,7 @@ export const useAiActions = () => {
         const { useDeckStore } = await import('../store/useDeckStore');
         const currentDeck = useDeckStore.getState().currentDeck;
         const targetLang = currentDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de';
-        const nativeLang = localStorage.getItem('native_language') || useLanguageStore.getState().nativeLanguage || 'ru';
+        const nativeLang = getInterfaceLanguage();
         const res = await api.post('/cards/ai-generate', 
           { phrase, target_language: targetLang, native_language: nativeLang, action_type: actionType }, 
           { signal: abortControllerRef.current.signal }
@@ -237,7 +237,7 @@ export const useAiActions = () => {
       const currentDeck = useDeckStore.getState().currentDeck;
       const targetDeck = deckId ? decks.find(d => String(d.id) === String(deckId)) || currentDeck : currentDeck;
       const targetLang = targetDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de';
-      const nativeLang = localStorage.getItem('native_language') || useLanguageStore.getState().nativeLanguage || 'ru';
+      const nativeLang = getInterfaceLanguage();
 
       const res = await api.post('/cards/ai-generate-batch',
         {

@@ -1,4 +1,4 @@
-import { tr } from '../../i18n/locale';
+import { tr, getInterfaceLanguage } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,7 +9,6 @@ import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { useLanguageStore } from '../../store/useLanguageStore';
 import { getTtsVoiceForLang } from '../../constants/languageConstants';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
@@ -351,7 +350,7 @@ export const StudyView = ({ startTutorial }) => {
     }
 
     try {
-      const nativeLang = useLanguageStore.getState().nativeLanguage || 'ru';
+      const nativeLang = getInterfaceLanguage();
       const generated = await api.post('/media/generate-audio', {
         text: targetCard.back,
         lang: nativeLang,

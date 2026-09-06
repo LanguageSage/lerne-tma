@@ -1477,5 +1477,7 @@
   "Оцени свои знания ✅": "Grade Your Knowledge ✅",
   "Выбери честную оценку: от \"Снова\", если забыл, до \"Легко\", если слово далось без усилий. Это самое важное для обучения!": "Choose a honest rating: from \"Again\" to \"Easy\". This is essential for SRS learning!",
   "Умные повторения 🧠": "Smart Repetitions 🧠",
-  "На основе твоей оценки ИИ рассчитает момент, когда ты начнешь забывать это слово, и покажет его именно тогда.": "AI calculates the exact moment when you start forgetting this word."
+  "На основе твоей оценки ИИ рассчитает момент, когда ты начнешь забывать это слово, и покажет его именно тогда.": "AI calculates the exact moment when you start forgetting this word.",
+  "📥 Входящие карточки": "📥 Inbox Cards",
+  "Импортировать как «{{p0}} (v2)»": "Import as “{{p0}} (v2)”"
 }
