@@ -1,7 +1,18 @@
-import { Capacitor } from '@capacitor/core';
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window === 'undefined') return 'https://tma-amber.vercel.app/api';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL
-  || (Capacitor.isNativePlatform() ? 'https://tma-amber.vercel.app/api' : '/api');
+  const { hostname, port } = window.location;
+  // Local Vite dev server (proxies to local backend)
+  if (port === '5173') return '/api';
+  // Web build running on Vercel
+  if (hostname.endsWith('vercel.app')) return '/api';
+
+  // Android APK (Capacitor / WebView on https://localhost), standalone, or custom host
+  return 'https://tma-amber.vercel.app/api';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const mediaURL = (path, kind = 'images') => {
   if (!path) return null;
