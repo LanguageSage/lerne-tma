@@ -106,7 +106,11 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
       return;
     }
 
-    playAudio(url, () => resolve(isCurrentRun(runId)));
+    playAudio(
+      url,
+      (success) => resolve(Boolean(success) && isCurrentRun(runId)),
+      () => resolve(false),
+    );
   }), [isCurrentRun, playAudio]);
 
   const updateCardAudio = useCallback((cardId, patch) => {
@@ -145,19 +149,23 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     const lang = isBack ? nativeLang : deckTargetLang;
     const rate = formatRate(isBack ? settings.ttsSpeedRu : settings.ttsSpeed);
     const voice = isBack 
-      ? getTtsVoiceForLang(nativeLang, settings.adminSettings)
-      : getTtsVoiceForLang(deckTargetLang, settings.adminSettings);
-    const forceGenerate = isBack ? settings.autoplayForceBackAudio : settings.autoplayForceFrontAudio;
+      ? getTtsVoiceForLang(nativeLang, settings.adminSettings, settings.ttsVoices)
+      : getTtsVoiceForLang(deckTargetLang, settings.adminSettings, settings.ttsVoices);
+    const forceGenerate = settings.alwaysRegenerateAudio
+      || (isBack ? settings.autoplayForceBackAudio : settings.autoplayForceFrontAudio);
     const hasWrongBackAudio = isBack && (
       (targetCard.audio_back_url && targetCard.audio_url && targetCard.audio_back_url === targetCard.audio_url) ||
       (targetCard.audio_back_path && targetCard.audio_path && targetCard.audio_back_path === targetCard.audio_path)
     );
 
-    const existingUrl = targetCard[urlKey] || (targetCard[pathKey] ? (targetCard[pathKey].startsWith('http') || targetCard[pathKey].startsWith('/api/') ? targetCard[pathKey] : `/api/media/audio/${targetCard[pathKey]}`) : null);
+    const existingUrl = targetCard[urlKey] !== undefined
+      ? targetCard[urlKey]
+      : (targetCard[pathKey] ? (targetCard[pathKey].startsWith('http') || targetCard[pathKey].startsWith('/api/') ? targetCard[pathKey] : `/api/media/audio/${targetCard[pathKey]}`) : null);
     if (existingUrl && !hasWrongBackAudio && !forceGenerate) return existingUrl;
     if (!text?.trim()) return null;
 
     setStatus(isBack ? tr("Генерируем перевод") : tr("Генерируем фразу"));
+    updateCardAudio(targetCard.id, { audio_is_generating: true });
     let generated;
     try {
       generated = await api.post('/media/generate-card-audio', {
@@ -169,6 +177,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
         voice,
       });
     } catch (err) {
+      updateCardAudio(targetCard.id, { audio_is_generating: false });
       console.error('Audio generation failed:', err);
       showToast?.(tr("Не удалось сгенерировать {{p0}}: {{p1}}", { p0: isBack ? tr("перевод") : tr("фразу"), p1: err.response?.data?.detail || err.message }));
       return null;
@@ -180,13 +189,18 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
       [urlKey]: generated.data.url
     };
 
-    if (!isCurrentRun(runId)) return null;
+    if (!isCurrentRun(runId)) {
+      updateCardAudio(targetCard.id, { audio_is_generating: false });
+      return null;
+    }
 
     const mergedPatch = {
       ...audioPatch,
       [pathKey]: generated.data.path,
-      [urlKey]: generated.data.url
+      [urlKey]: generated.data.url,
+      audio_is_generating: false,
     };
+    Object.assign(targetCard, mergedPatch);
     updateCardAudio(targetCard.id, mergedPatch);
     return mergedPatch[urlKey];
   }, [isCurrentRun, showToast, updateCardAudio]);
@@ -291,7 +305,17 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
           });
         }
         const frontUrl = await ensureAudio(targetCard, 'front', runId);
-        if (frontUrl) await waitForAudio(frontUrl, runId);
+        if (frontUrl) {
+          const played = await waitForAudio(frontUrl, runId);
+          if (!played && isCurrentRun(runId)) {
+            const recoveredUrl = await ensureAudio(
+              { ...targetCard, audio_url: null, audio_path: null },
+              'front',
+              runId,
+            );
+            if (recoveredUrl) await waitForAudio(recoveredUrl, runId);
+          }
+        }
         if (!isCurrentRun(runId)) return;
 
         setStatus(tr("{{p0}}Пауза {{p1}}с", { p0: repeatPrefix, p1: settings.autoplayFrontPause }));
@@ -317,7 +341,17 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
           });
         }
         const backUrl = await ensureAudio(latestCard, 'back', runId);
-        if (backUrl) await waitForAudio(backUrl, runId);
+        if (backUrl) {
+          const played = await waitForAudio(backUrl, runId);
+          if (!played && isCurrentRun(runId)) {
+            const recoveredUrl = await ensureAudio(
+              { ...latestCard, audio_back_url: null, audio_back_path: null },
+              'back',
+              runId,
+            );
+            if (recoveredUrl) await waitForAudio(recoveredUrl, runId);
+          }
+        }
         if (!isCurrentRun(runId)) return;
 
         setStatus(tr("{{p0}}Пауза {{p1}}с", { p0: repeatPrefix, p1: settings.autoplayBackPause }));

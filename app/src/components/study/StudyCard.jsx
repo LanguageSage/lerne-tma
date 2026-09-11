@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Eye, Volume2, Sparkles, AlertTriangle, RotateCw, BookOpen, HelpCircle } from 'lucide-react';
+import { RefreshCw, Eye, AlertTriangle, RotateCw, BookOpen, HelpCircle } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { CardBackground } from '../common/CardBackground';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -41,7 +41,6 @@ export const StudyCard = React.memo(({
   sessionVoice = null, // from useSessionVoice in StudyView
   isAudioLoading,
   isAutoplayActive,
-  onPlayBackAudio,
   styles,
   resolvedBgFront,
   resolvedBgBack,
@@ -67,7 +66,7 @@ export const StudyCard = React.memo(({
 
   // Voice picker — scoped to this card's language, initialized from session store
   const storedVoice = sessionVoice?.getSessionVoice(deckId) || null;
-  const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, true);
+  const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, false);
 
   // Provide current card text to the picker so auto-generate works on voice switch
   const frontText = card ? stripMarkdown(studyMode === 'reverse' ? card.back : card.front) : '';
@@ -178,7 +177,7 @@ export const StudyCard = React.memo(({
     if (!c) return '';
     const urlVal = isBack ? c.audio_back_url : c.audio_url;
     const pathVal = isBack ? c.audio_back_path : c.audio_path;
-    const raw = urlVal || pathVal;
+    const raw = urlVal !== undefined ? urlVal : pathVal;
     if (!raw) return '';
     if (raw.startsWith('http') || raw.startsWith('/api/') || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
     if (raw.startsWith('audio/')) return `/api/media/${raw}`;
@@ -187,8 +186,10 @@ export const StudyCard = React.memo(({
 
   const renderFrontAudioPlayer = () => {
     const isBackSide = studyMode === 'reverse';
-    const audioUrl = getResolvedAudioUrl(card, isBackSide) || getResolvedAudioUrl(card, !isBackSide);
-    if (!audioUrl && !frontText) return null;
+    const audioUrl = getResolvedAudioUrl(card, isBackSide);
+    // The reverse-mode front is the translation. Ordinary study may play an
+    // existing translation recording, but only Auto is allowed to generate it.
+    if (!audioUrl && (!frontText || isBackSide)) return null;
 
     return (
       <CardAudioPlayer
@@ -207,9 +208,9 @@ export const StudyCard = React.memo(({
         playbackRate={audioControls?.playbackRate}
         isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
         isGenerating={card.audio_is_generating}
-        voicePicker={frontVoicePicker}
-        cardText={frontText}
-        cardId={card?.id}
+        voicePicker={isBackSide ? null : frontVoicePicker}
+        cardText={isBackSide ? '' : frontText}
+        cardId={isBackSide ? null : card?.id}
         isBack={isBackSide}
         disabled={loading || isAutoplayActive}
       />
@@ -674,10 +675,9 @@ export const StudyCard = React.memo(({
                 )}
 
                 {(() => {
-                  const resolvedFrontUrl = studyMode === 'reverse'
-                    ? (getResolvedAudioUrl(card, true) || getResolvedAudioUrl(card, false))
-                    : getResolvedAudioUrl(card, false);
-                  if (!resolvedFrontUrl) return null;
+                  const isTranslation = studyMode === 'reverse';
+                  const resolvedFrontUrl = getResolvedAudioUrl(card, isTranslation);
+                  if (!resolvedFrontUrl && (!frontText || isTranslation)) return null;
 
                   return (
                     <div style={{ marginTop: '8px' }}>
@@ -697,10 +697,10 @@ export const StudyCard = React.memo(({
                         playbackRate={audioControls?.playbackRate}
                         isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
                         isGenerating={card.audio_is_generating}
-                        voicePicker={frontVoicePicker}
-                        cardText={frontText}
-                        cardId={card?.id}
-                        isBack={studyMode === 'reverse'}
+                        voicePicker={isTranslation ? null : frontVoicePicker}
+                        cardText={isTranslation ? '' : frontText}
+                        cardId={isTranslation ? null : card?.id}
+                        isBack={isTranslation}
                         disabled={loading || isAutoplayActive}
                       />
                     </div>
@@ -734,28 +734,10 @@ export const StudyCard = React.memo(({
                     return (
                       <CardAudioPlayer
                         audioUrl={targetBackAudioUrl}
-                        playAudio={() => {
-                          if (studyMode === 'reverse') {
-                            const frontAudio = getResolvedAudioUrl(card, false);
-                            if (frontAudio && playAudio) playAudio(frontAudio);
-                          } else {
-                            onPlayBackAudio?.(card);
-                          }
-                        }}
+                        playAudio={audioControls?.playAudio || playAudio}
                         pauseAudio={audioControls?.pauseAudio}
                         resumeAudio={audioControls?.resumeAudio}
-                        togglePlayPause={(url) => {
-                          if (audioControls?.currentUrl === url && audioControls?.audioState !== 'idle') {
-                            audioControls.togglePlayPause(url);
-                          } else {
-                            if (studyMode === 'reverse') {
-                              const frontAudio = getResolvedAudioUrl(card, false);
-                              if (frontAudio && playAudio) playAudio(frontAudio);
-                            } else {
-                              onPlayBackAudio?.(card);
-                            }
-                          }
-                        }}
+                        togglePlayPause={audioControls?.togglePlayPause}
                         stopAudio={audioControls?.stopAudio}
                         seekAudio={audioControls?.seekAudio}
                         setPlaybackSpeed={audioControls?.setPlaybackSpeed}
@@ -766,39 +748,11 @@ export const StudyCard = React.memo(({
                         playbackRate={audioControls?.playbackRate}
                         isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
                         isGenerating={card.audio_is_generating}
-                        voicePicker={frontVoicePicker}
-                        cardText={frontText}
-                        cardId={card?.id}
-                        isBack={studyMode !== 'reverse'}
                         disabled={loading || isAudioLoading}
                       />
                     );
                   }
-                  return (
-                    <button
-                      className="audio-btn-translation"
-                      disabled={loading || isAudioLoading}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (studyMode === 'reverse') {
-                          if (card.audio_url && playAudio) playAudio(card.audio_url);
-                        } else {
-                          onPlayBackAudio?.(card);
-                        }
-                      }}
-                      title={tr("Озвучить")}
-                    >
-                      {isAudioLoading ? (
-                        card.audio_is_generating ? (
-                          <Sparkles size={22} className="sparkles-spin" style={{ color: '#a855f7' }} />
-                        ) : (
-                          <RefreshCw size={22} className="spin" />
-                        )
-                      ) : (
-                        <Volume2 size={22} />
-                      )}
-                    </button>
-                  );
+                  return null;
                 })()}
                 <div id="tut-study-answer" className="text-back" style={backCardStyle}>
                   {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.front : card.back))}

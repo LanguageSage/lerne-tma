@@ -18,11 +18,11 @@ export const useAiActions = () => {
     if (!c || !c.front) return;
     setLoading(true);
     const targetLang = c.target_language || useLanguageStore.getState().activeLanguage || 'de';
-    const hasCyrillic = /[а-яА-ЯёЁіІїЇєЄґҐ]/.test(c.front);
     const langToSpeak = targetLang;
-    const voice = getTtsVoiceForLang(langToSpeak, adminSettings);
-    const rate = adminSettings?.TTS_SPEED || '+0%';
-    const textToSpeak = hasCyrillic && c.back ? c.back : c.front;
+    const settings = useSettingsStore.getState();
+    const voice = getTtsVoiceForLang(langToSpeak, adminSettings, settings.ttsVoices);
+    const rate = `${settings.ttsSpeed >= 0 ? '+' : ''}${settings.ttsSpeed}%`;
+    const textToSpeak = c.front;
 
     if (!textToSpeak) {
       showToast(tr("Нет текста для озвучки"));
@@ -79,11 +79,11 @@ export const useAiActions = () => {
     if (!data || !data.front) return;
 
     const targetLang = data.target_language || useLanguageStore.getState().activeLanguage || 'de';
-    const hasCyrillic = /[а-яА-ЯёЁіІїЇєЄґҐ]/.test(data.front);
     const langToSpeak = targetLang;
-    const voice = getTtsVoiceForLang(langToSpeak, adminSettings);
-    const rate = adminSettings?.TTS_SPEED || '+0%';
-    const textToSpeak = hasCyrillic && data.back ? data.back : data.front;
+    const settings = useSettingsStore.getState();
+    const voice = getTtsVoiceForLang(langToSpeak, adminSettings, settings.ttsVoices);
+    const rate = `${settings.ttsSpeed >= 0 ? '+' : ''}${settings.ttsSpeed}%`;
+    const textToSpeak = data.front;
 
     if (!textToSpeak) {
       return;

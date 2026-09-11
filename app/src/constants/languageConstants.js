@@ -20,9 +20,10 @@ export const DEFAULT_TTS_VOICES = {
   ru: 'ru-RU-SvetlanaNeural',
 };
 
-export const getTtsVoiceForLang = (lang, adminSettings) => {
+export const getTtsVoiceForLang = (lang, adminSettings, userVoices = null) => {
   const rawCode = (lang || 'de').toLowerCase().trim().replace('_', '-');
   const code = rawCode.split('-')[0] || 'de';
+  if (userVoices?.[code]) return userVoices[code];
   if (code === 'de') return adminSettings?.TTS_VOICE || DEFAULT_TTS_VOICES.de;
   if (code === 'ru') return adminSettings?.TTS_VOICE_RU || DEFAULT_TTS_VOICES.ru;
   if (code === 'no') return adminSettings?.TTS_VOICE_NO || DEFAULT_TTS_VOICES.no;

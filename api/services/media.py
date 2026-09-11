@@ -30,8 +30,7 @@ def _get_cached_tma_settings():
     return _tma_settings_cache
 
 def _build_media_exists_map(cards_dicts: list) -> set:
-    """Собирает множество (filename, folder) существующих в TMAMedia записей.
-    Один запрос вместо N проверок."""
+    """Собирает множество существующих и пригодных медиа одним запросом."""
     from ..models import TMAMedia
     
     filenames = set()
@@ -55,23 +54,54 @@ def _build_media_exists_map(cards_dicts: list) -> set:
         filenames_list = list(filenames)
         for i in range(0, len(filenames_list), 500):
             chunk = filenames_list[i:i+500]
-            for filename, folder in TMAMedia.select(TMAMedia.filename, TMAMedia.folder).where(TMAMedia.filename << chunk).tuples():
-                existing.add((filename, folder))
+            query = TMAMedia.select(
+                TMAMedia.filename,
+                TMAMedia.folder,
+                fn.LENGTH(TMAMedia.content),
+                fn.SUBSTR(TMAMedia.content, 1, 4096),
+            ).where(TMAMedia.filename << chunk)
+            for filename, folder, content_size, content_prefix in query.tuples():
+                if folder != 'audio' or _is_valid_audio_content(content_prefix, content_size):
+                    existing.add((filename, folder))
         return existing
     except Exception as e:
         logger.error(f"Error in _build_media_exists_map: {e}")
         return set()
 
 
+def _is_valid_audio_content(content_prefix, content_size=None) -> bool:
+    """Проверяет размер и сигнатуру аудио по небольшому начальному фрагменту."""
+    content = bytes(content_prefix or b'')
+    size = content_size if content_size is not None else len(content)
+    if size < 128 or not any(content):
+        return False
+    if content.startswith((b'ID3', b'RIFF', b'OggS', b'fLaC', b'\x1aE\xdf\xa3')):
+        return True
+    if len(content) >= 8 and content[4:8] == b'ftyp':
+        return True
+    return any(
+        content[index] == 0xFF and (content[index + 1] & 0xE0) == 0xE0
+        for index in range(len(content) - 1)
+    )
+
+
 @lru_cache(maxsize=2000)
 def _check_media_exists(filename: str, folder: str) -> bool:
-    """Кэшированная проверка существования медиа в БД."""
+    """Кэшированная проверка существования и минимальной целостности медиа."""
     try:
         from ..models import TMAMedia
-        return TMAMedia.select(TMAMedia.id).where(
+        row = TMAMedia.select(
+            fn.LENGTH(TMAMedia.content),
+            fn.SUBSTR(TMAMedia.content, 1, 4096),
+        ).where(
             TMAMedia.filename == filename,
-            TMAMedia.folder == folder
-        ).exists()
+            TMAMedia.folder == folder,
+        ).tuples().first()
+        if not row:
+            return False
+        if folder != 'audio':
+            return True
+        return _is_valid_audio_content(row[1], row[0])
     except Exception:
         return False
 
@@ -82,9 +112,6 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) ->
         return None
     if path_str.startswith("http://") or path_str.startswith("https://"):
         return path_str
-    if path_str.startswith("/api/media/"):
-        return path_str
-    
     filename = os.path.basename(path_str)
     if not filename:
         return None
@@ -96,6 +123,15 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) ->
         folder = "videos"
     elif media_type == "backgrounds":
         folder = "backgrounds"
+
+    if exists_map is not None:
+        if (filename, folder) not in exists_map:
+            return None
+    elif not _check_media_exists(filename, folder):
+        return None
+
+    if path_str.startswith("/api/media/"):
+        return path_str
     
     return f"/api/media/{folder}/{filename}"
 
@@ -121,10 +157,7 @@ async def ensure_card_audio(card, user_id: int):
         else:
             filename = os.path.basename(card.audio_path)
             # Проверяем только наличие записи по ID (без скачивания гигабайтных/мегабайтных BLOB из БД)
-            has_valid_audio = TMAMedia.select(TMAMedia.id).where(
-                (TMAMedia.filename == filename) & 
-                (TMAMedia.folder == "audio")
-            ).exists()
+            has_valid_audio = _check_media_exists(filename, "audio")
                 
     if has_valid_audio:
         return
@@ -195,11 +228,15 @@ async def ensure_card_audio(card, user_id: int):
             with open(result, "rb") as f:
                 content = f.read()
                 
-            TMAMedia.get_or_create(
+            media, created = TMAMedia.get_or_create(
                 filename=filename,
                 folder='audio',
                 defaults={'content': content}
             )
+            if not created:
+                media.content = content
+                media.save(only=[TMAMedia.content])
+            _check_media_exists.cache_clear()
             
             card.audio_path = filename
             card.save()

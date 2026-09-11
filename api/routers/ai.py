@@ -193,8 +193,6 @@ async def generate_batch_cards(request: BatchRequest, user_id: int = Depends(get
                         "cefr": card_data.get("cefr") or (build_ai_cefr_payload(card_level) if card_level else None),
                         "position": card_pos
                     })
-                    # Schedule background audio generation (non-blocking)
-                    asyncio.create_task(services.ensure_card_audio(new_c, user_id))
             res["saved_cards"] = created_cards
     elif "cards" in res and res["cards"]:
         for idx, card_data in enumerate(res["cards"]):

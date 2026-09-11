@@ -1,4 +1,3 @@
-import asyncio
 from fastapi import APIRouter, HTTPException, Depends
 import logging
 
@@ -23,9 +22,6 @@ async def _card_to_response(card, progress, user_id: int):
         if creator:
             creator_name = creator.username or creator.first_name
             creator_avatar = creator.photo_url
-
-    # Запускаем проверку/генерацию аудио в фоновом режиме для мгновенного отклика
-    asyncio.create_task(services.ensure_card_audio(card, user_id))
 
     # Fetch deck explicitly to bypass any Peewee relationship caching issues
     deck = None

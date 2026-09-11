@@ -10,7 +10,6 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useAudio } from '../../hooks/useAudio';
-import { useSettingsStore } from '../../store/useSettingsStore';
 
 import { useTranslation } from '../../i18n/i18nContext';
 import { navigateUp } from '../../utils/navigation';
@@ -22,7 +21,6 @@ export const CardCreator = () => {
   const { currentDeck } = useDeckStore();
   const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
   const { playAudio } = useAudio();
-  const { autoPlay } = useSettingsStore();
 
   const editingCard = useSessionStore.getState().editingCard;
   const editingCardDeckId = editingCard?.deck_id;
@@ -90,9 +88,6 @@ export const CardCreator = () => {
         };
         setNewCardData(updated);
         
-        setTimeout(() => {
-          generateAudioInternal(updated, setNewCardData, autoPlay ? playAudio : null);
-        }, 500);
       }
     }
   };

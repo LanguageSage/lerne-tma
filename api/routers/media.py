@@ -233,18 +233,24 @@ async def generate_audio_endpoint(
             with open(result, "rb") as f:
                 content = f.read()
             
-            models.TMAMedia.get_or_create(
+            media, created = models.TMAMedia.get_or_create(
                 filename=filename,
                 folder='audio',
                 defaults={'content': content}
             )
+            if not created:
+                media.content = content
+                media.save(only=[models.TMAMedia.content])
+            from api.services.media import _check_media_exists
+            _check_media_exists.cache_clear()
+            _media_cache.delete('audio', filename)
             
             try: os.remove(result)
             except Exception: pass
             
             return {
                 "path": filename,
-                "url": f"/api/media/audio/{filename}",
+                "url": f"/api/media/audio/{filename}?v={uuid.uuid4().hex[:8]}",
                 "word_boundaries": word_boundaries
             }
         except Exception as db_err:
@@ -297,7 +303,7 @@ async def generate_card_audio_endpoint(
 
     try:
         from api.utils.audio import generate_audio
-        result = await generate_audio(text_value.strip(), voice=voice, rate=rate)
+        result = await generate_audio(text_value.strip(), voice=voice, rate=rate, force=True)
         result = result[0] if isinstance(result, tuple) else result
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
@@ -309,18 +315,32 @@ async def generate_card_audio_endpoint(
             filename = os.path.basename(result)
             with open(result, 'rb') as audio_file:
                 content = audio_file.read()
-            models.TMAMedia.get_or_create(filename=filename, folder='audio', defaults={'content': content})
+            media, created = models.TMAMedia.get_or_create(
+                filename=filename,
+                folder='audio',
+                defaults={'content': content},
+            )
+            if not created:
+                media.content = content
+                media.save(only=[models.TMAMedia.content])
+            from api.services.media import _check_media_exists
+            _check_media_exists.cache_clear()
+            _media_cache.delete('audio', filename)
             try:
                 os.remove(result)
             except OSError:
                 pass
             path = filename
-            url = f'/api/media/audio/{filename}'
+            url = f'/api/media/audio/{filename}?v={uuid.uuid4().hex[:8]}'
 
         field = 'audio_back_path' if side == 'back' else 'audio_path'
+        previous_path = getattr(card, field)
         setattr(card, field, path)
         card.updated_at = models.datetime.datetime.now()
         card.save(only=[getattr(models.TMA_Card, field), models.TMA_Card.updated_at])
+        if previous_path and previous_path != path:
+            from api.services.cards import cleanup_unreferenced_audio
+            cleanup_unreferenced_audio(previous_path)
         return {'path': path, 'url': url}
     except HTTPException:
         raise
@@ -393,6 +413,11 @@ class MediaMemoryCache:
 
         self.cache[key] = (content, media_type)
         self.current_bytes += size
+
+    def delete(self, folder: str, filename: str):
+        cached = self.cache.pop((folder, filename), None)
+        if cached:
+            self.current_bytes -= len(cached[0])
 
 _media_cache = MediaMemoryCache()
 

@@ -7,7 +7,7 @@ import { useTranslation } from '../../i18n/i18nContext';
 
 export const GeneralTab = ({ userId }) => {
   useInterfaceLocale();
-  const { autoPlay, setAutoPlay, autoShow, setAutoShow } = useSettingsStore();
+  const { autoShow, setAutoShow } = useSettingsStore();
   const { t } = useTranslation();
 
   return (
@@ -20,17 +20,6 @@ export const GeneralTab = ({ userId }) => {
       className="settings-section"
     >
       <h3>{tr("Обучение")}</h3>
-      <div className="settings-row">
-        <span>{t('settings.auto_sound')}</span>
-        <label className="switch">
-          <input 
-            type="checkbox" 
-            checked={autoPlay} 
-            onChange={e => setAutoPlay(e.target.checked)} 
-          />
-          <span className="slider"></span>
-        </label>
-      </div>
       <div className="settings-row">
         <span>{t('settings.auto_reveal')}</span>
         <label className="switch">

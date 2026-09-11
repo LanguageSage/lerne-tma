@@ -186,7 +186,7 @@ export const useAudio = (autoPlay, showToast) => {
     }
   }, []);
 
-  const playAudio = useCallback((url, onEndedCallback) => {
+  const playAudio = useCallback((url, onEndedCallback, onPlaybackError) => {
     if (!url) return Promise.resolve(false);
 
     if (globalActiveStopCallback && globalActiveStopCallback !== stopAudio) {
@@ -209,6 +209,20 @@ export const useAudio = (autoPlay, showToast) => {
     audioRef.current = audio;
     globalActiveAudio = audio;
     globalActiveStopCallback = stopAudio;
+    let terminalErrorHandled = false;
+
+    const handleTerminalError = (error) => {
+      if (terminalErrorHandled) return;
+      terminalErrorHandled = true;
+      if (onPlaybackError) {
+        Promise.resolve(onPlaybackError(error)).catch((callbackError) => {
+          console.error('Audio recovery failed:', callbackError);
+        });
+      } else {
+        console.warn('Audio file is missing or damaged; playback stopped.', error);
+      }
+      if (onEndedCallback) onEndedCallback(false);
+    };
 
     audio.oncanplaythrough = () => {
       setIsAudioLoading(false);
@@ -261,13 +275,12 @@ export const useAudio = (autoPlay, showToast) => {
       }
 
       const retries = retryCountRef.current[url] || 0;
-      if (retries < 1) {
+      if (!onPlaybackError && retries < 1) {
         retryCountRef.current[url] = retries + 1;
         console.warn(`Audio load failed, retrying once for: ${url}`);
-        setTimeout(() => playAudioRef.current?.(url, onEndedCallback), 1000);
+        setTimeout(() => playAudioRef.current?.(url, onEndedCallback, onPlaybackError), 1000);
       } else {
-        if (showToast) showToast(tr("Ошибка аудио: файл не найден или поврежден"));
-        if (onEndedCallback) onEndedCallback(false);
+        handleTerminalError(new Error('Audio file is missing or damaged'));
       }
     };
 
@@ -302,14 +315,15 @@ export const useAudio = (autoPlay, showToast) => {
       if (err.name === "NotAllowedError") {
         if (!autoPlay && showToast) showToast(tr("Браузер заблокировал автовоспроизведение"));
       } else if (err.name === "NotSupportedError") {
-        if (showToast) showToast(tr("Ошибка аудио: файл не найден или поврежден"));
+        handleTerminalError(err);
+        return false;
       }
       if (onEndedCallback) onEndedCallback(false);
       return false;
     });
   }, [autoPlay, preloadAudio, showToast, stopAudio]);
 
-  const togglePlayPause = useCallback((url, onEndedCallback) => {
+  const togglePlayPause = useCallback((url, onEndedCallback, onPlaybackError) => {
     if (!url) return;
     if (currentUrl === url && audioRef.current) {
       if (audioState === 'playing') {
@@ -317,10 +331,10 @@ export const useAudio = (autoPlay, showToast) => {
       } else if (audioState === 'paused') {
         resumeAudio();
       } else {
-        playAudio(url, onEndedCallback);
+        playAudio(url, onEndedCallback, onPlaybackError);
       }
     } else {
-      playAudio(url, onEndedCallback);
+      playAudio(url, onEndedCallback, onPlaybackError);
     }
   }, [currentUrl, audioState, pauseAudio, resumeAudio, playAudio]);
 

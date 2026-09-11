@@ -1,4 +1,3 @@
-import asyncio
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 import logging
@@ -22,8 +21,6 @@ async def save_card(data: dict, user_id: int = Depends(get_user_id)):
             raise HTTPException(status_code=403, detail="Для создания и изменения карточек требуется авторизация через Telegram.")
         card = services.save_card(data, user_id)
         if card:
-            # Запускаем проверку/генерацию аудио в фоновом режиме для мгновенного отклика (10-20ms)
-            asyncio.create_task(services.ensure_card_audio(card, user_id))
             # Сразу возвращаем полные данные для StudyView
             return services.format_card_for_study(card, user_id)
         raise HTTPException(status_code=400, detail="Could not save card. Check logs.")

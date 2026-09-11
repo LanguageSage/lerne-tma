@@ -30,11 +30,12 @@ export const useVoicePicker = (
   const rawCode = (lang || 'de').toLowerCase().trim().replace('_', '-');
   const code = rawCode.split('-')[0] || 'de';
   const adminSettings = useSettingsStore((s) => s.adminSettings);
-  const defaultVoice = getTtsVoiceForLang(code, adminSettings);
+  const ttsVoices = useSettingsStore((s) => s.ttsVoices);
+  const defaultVoice = getTtsVoiceForLang(code, adminSettings, ttsVoices);
 
   const voices = VOICES_BY_LANG[code] || [];
 
-  const [selectedVoice, setSelectedVoiceState] = useState(sessionVoice || null);
+  const [selectedVoice, setSelectedVoiceState] = useState(sessionVoice || defaultVoice);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [wordBoundaries, setWordBoundaries] = useState(null); // for karaoke
   const [isGenerating, setIsGenerating] = useState(false);
@@ -47,14 +48,12 @@ export const useVoicePicker = (
 
   const isDefaultVoice = selectedVoice === defaultVoice;
 
-  // Sync with session voice when it changes from outside (e.g. deck changed)
+  // Audio settings are the shared source of truth for the picker and Auto mode.
   useEffect(() => {
-    if (sessionVoice !== selectedVoice) {
-      setSelectedVoiceState(sessionVoice || null);
-      setPreviewUrl(null);
-      setWordBoundaries(null);
-    }
-  }, [sessionVoice, selectedVoice]);
+    setSelectedVoiceState(defaultVoice);
+    setPreviewUrl(null);
+    setWordBoundaries(null);
+  }, [defaultVoice]);
 
   const generatePreview = useCallback(async (text, voiceOverride = null) => {
     const voice = voiceOverride || selectedVoice || defaultVoice;
@@ -72,10 +71,13 @@ export const useVoicePicker = (
     setGenerateError(null);
 
     try {
+      const settings = useSettingsStore.getState();
+      const speed = code === 'ru' ? settings.ttsSpeedRu : settings.ttsSpeed;
       const res = await api.post('/media/generate-audio', {
         text: text.trim(),
         lang: code,
         voice,
+        rate: `${Number(speed) >= 0 ? '+' : ''}${Number(speed) || 0}%`,
         with_boundaries: true, // signals backend to include word timing
       });
 
@@ -104,6 +106,9 @@ export const useVoicePicker = (
     setPreviewUrl(null);
     setWordBoundaries(null);
     onVoiceChange?.(voiceValue);
+    if (voiceValue) {
+      useSettingsStore.getState().setTtsVoice(code, voiceValue);
+    }
 
     if (autoGenerate && cardTextRef.current) {
       // Give React a tick to commit the voice state before generating
@@ -111,7 +116,7 @@ export const useVoicePicker = (
         generatePreview(cardTextRef.current, voiceValue);
       }, 0);
     }
-  }, [autoGenerate, generatePreview, onVoiceChange]);
+  }, [autoGenerate, code, generatePreview, onVoiceChange]);
 
   // Update the text ref whenever cardText changes (used by auto-generate)
   const setCardText = useCallback((text) => {
@@ -126,7 +131,13 @@ export const useVoicePicker = (
     cardTextRef.current = '';
   }, [defaultVoice, sessionVoice]);
 
-  const generateAndSaveToCard = useCallback(async (cardId, text, isBack = false, voiceOverride = null) => {
+  const generateAndSaveToCard = useCallback(async (
+    cardId,
+    text,
+    isBack = false,
+    voiceOverride = null,
+    options = {},
+  ) => {
     const voice = voiceOverride || selectedVoice || defaultVoice;
     if (!text?.trim() || !voice || !cardId) return null;
 
@@ -134,12 +145,15 @@ export const useVoicePicker = (
     setGenerateError(null);
 
     try {
+      const settings = useSettingsStore.getState();
+      const speed = isBack ? settings.ttsSpeedRu : settings.ttsSpeed;
       const res = await api.post('/media/generate-card-audio', {
         card_id: cardId,
         side: isBack ? 'back' : 'front',
         text: text.trim(),
         lang: code,
         voice,
+        rate: `${Number(speed) >= 0 ? '+' : ''}${Number(speed) || 0}%`,
         with_boundaries: true,
       });
 
@@ -151,19 +165,6 @@ export const useVoicePicker = (
         const { useUiStore } = await import('../store/useUiStore');
         const { useSessionStore } = await import('../store/useSessionStore');
         const sessionState = useSessionStore.getState();
-        const sessionCard = String(sessionState.card?.id) === String(cardId) ? sessionState.card : null;
-        const currentPath = isBack ? sessionCard?.audio_back_path : sessionCard?.audio_path;
-        const cleanP = (p) => (p || '').replace('/api/media/audio/', '').replace('audio/', '').trim();
-
-        // Smart check: if card already uses this exact audio file, don't re-save
-        if (sessionCard && currentPath && cleanP(currentPath) === cleanP(path)) {
-          useUiStore.getState().showToast(tr("Этот голос уже используется для карточки"), 'info');
-          setPreviewUrl(url);
-          setWordBoundaries(boundaries);
-          return url;
-        }
-
-        // Audio has its own sharing permission; do not update the whole card here.
 
         const cardPatch = isBack
           ? { audio_back_url: url, audio_back_path: path }
@@ -207,7 +208,9 @@ export const useVoicePicker = (
           }
         } catch { /* ignore */ }
 
-        useUiStore.getState().showToast(tr("Озвучка обновлена"), 'success');
+        if (!options.silent) {
+          useUiStore.getState().showToast(tr("Озвучка обновлена"), 'success');
+        }
         setPreviewUrl(url);
         setWordBoundaries(boundaries);
       }

@@ -27,7 +27,7 @@ SUPPORTED_VOICES = {
 _OFFSET_TO_SECONDS = 10_000_000
 
 
-async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_boundaries=False):
+async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_boundaries=False, force=False):
     """
     Генератор аудио. Возвращает:
       - (path_or_url, None)              при with_boundaries=False
@@ -61,7 +61,7 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
 
     word_boundaries = None
 
-    already_cached = os.path.exists(abs_filepath) and os.path.getsize(abs_filepath) > 0
+    already_cached = not force and os.path.exists(abs_filepath) and os.path.getsize(abs_filepath) > 0
 
     if already_cached and not with_boundaries:
         # Fast path: file is cached, boundaries not requested

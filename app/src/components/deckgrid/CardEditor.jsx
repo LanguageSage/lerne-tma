@@ -9,7 +9,6 @@ import { useUiStore } from '../../store/useUiStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useAudio } from '../../hooks/useAudio';
-import { useSettingsStore } from '../../store/useSettingsStore';
 import { navigateUp } from '../../utils/navigation';
 
 export const CardEditor = () => {
@@ -18,7 +17,6 @@ export const CardEditor = () => {
   const { editingCard, setEditingCard } = useSessionStore();
   const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
   const { playAudio } = useAudio();
-  const { autoPlay } = useSettingsStore();
 
   const [animDone, setAnimDone] = React.useState(false);
 
@@ -51,9 +49,6 @@ export const CardEditor = () => {
           tags: result.tags || editingCard.tags
         };
         setEditingCard(updated);
-        setTimeout(() => {
-          generateAudioInternal(updated, setEditingCard, autoPlay ? playAudio : null);
-        }, 500);
       }
     }
   };

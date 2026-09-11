@@ -2,8 +2,9 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Play, Pause, Square, Volume2, RefreshCw, Mic2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, Pause, Square, Volume2, RefreshCw, Mic2, ChevronUp, ChevronDown, Settings } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useUiStore } from '../../store/useUiStore';
 import './CardAudioPlayer.css';
 
 
@@ -50,8 +51,8 @@ export const CardAudioPlayer = React.memo(({
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
 
-  const autoPlay = useSettingsStore((s) => s.autoPlay);
-  const setAutoPlay = useSettingsStore((s) => s.setAutoPlay);
+  const forceOverwrite = useSettingsStore((s) => s.alwaysRegenerateAudio);
+  const openSettings = useUiStore((s) => s.openSettings);
 
   const resolveAudioUrl = (url) => {
     if (!url) return '';
@@ -67,16 +68,38 @@ export const CardAudioPlayer = React.memo(({
   const isLoading = (isThisActive && (audioState === 'loading' || isAudioLoading))
     || isGenerating
     || voicePicker?.isGenerating;
+  const canGenerate = Boolean(voicePicker && cardText && cardId);
+
+  const generateAndPlay = async (silent = true, voiceOverride = null) => {
+    if (!canGenerate) return null;
+    const url = await voicePicker.generateAndSaveToCard(
+      cardId,
+      cardText,
+      isBack,
+      voiceOverride,
+      { silent },
+    );
+    if (url) playAudio?.(url);
+    return url;
+  };
+
+  const handlePlaybackError = async () => {
+    await generateAndPlay(true);
+  };
 
   const handlePlayPauseClick = (e) => {
     e.stopPropagation();
     if (disabled || isLoading) return;
+    if (!isThisActive && forceOverwrite && canGenerate) {
+      generateAndPlay(true);
+      return;
+    }
     if (togglePlayPause) {
-      togglePlayPause(effectiveUrl);
+      togglePlayPause(effectiveUrl, undefined, canGenerate ? handlePlaybackError : undefined);
     } else if (isPlaying) {
       pauseAudio?.();
     } else {
-      playAudio?.(effectiveUrl);
+      playAudio?.(effectiveUrl, undefined, canGenerate ? handlePlaybackError : undefined);
     }
   };
 
@@ -104,7 +127,7 @@ export const CardAudioPlayer = React.memo(({
     if (isThisActive) stopAudio?.();
 
     const voiceVal = (voice?.value === 'saved' || !voice?.value) ? null : voice.value;
-    voicePicker.setSelectedVoice(voiceVal);
+    await voicePicker.setSelectedVoice(voiceVal);
     voicePicker.setPreviewUrl(null);
 
     if (!voiceVal) {
@@ -116,8 +139,7 @@ export const CardAudioPlayer = React.memo(({
 
     if (cardText) {
       if (cardId) {
-        const url = await voicePicker.generateAndSaveToCard(cardId, cardText, isBack, voiceVal);
-        if (url) playAudio?.(url);
+        await generateAndPlay(true, voiceVal);
       } else {
         const url = await voicePicker.generatePreview(cardText, voiceVal);
         if (url) playAudio?.(url);
@@ -136,11 +158,12 @@ export const CardAudioPlayer = React.memo(({
 
   const handleRegenerateAndSave = async (e) => {
     e.stopPropagation();
-    if (!voicePicker || !cardText || !cardId) return;
-    const url = await voicePicker.generateAndSaveToCard(cardId, cardText, isBack);
-    if (url) {
-      playAudio?.(url);
-    }
+    await generateAndPlay(false);
+  };
+
+  const handleOpenAudioSettings = (e) => {
+    e.stopPropagation();
+    openSettings('voice');
   };
 
   // If card has no audio yet, allow generating audio on demand
@@ -167,6 +190,10 @@ export const CardAudioPlayer = React.memo(({
               <Volume2 size={14} />
             )}
             <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{tr("Озвучить")}</span>
+          </button>
+          <button type="button" className="audio-player-btn-settings" onClick={handleOpenAudioSettings}>
+            <Settings size={13} />
+            <span>{tr("Настройки")}</span>
           </button>
         </div>
       </div>,
@@ -228,6 +255,16 @@ export const CardAudioPlayer = React.memo(({
             title={tr("Скорость")}
           >
             {playbackRate}x
+          </button>
+
+          <button
+            type="button"
+            className="audio-player-btn-settings compact"
+            onClick={handleOpenAudioSettings}
+            title={tr("Настройки аудио")}
+          >
+            <Settings size={13} />
+            <span>{tr("Настройки")}</span>
           </button>
 
           {/* Expand Button */}
@@ -322,19 +359,10 @@ export const CardAudioPlayer = React.memo(({
               </button>
             )}
 
-            <label
-              className="audio-player-autoplay-label"
-              onClick={(e) => e.stopPropagation()}
-              title={tr("Автоматическое воспроизведение аудио при открытии карточки")}
-            >
-              <input
-                type="checkbox"
-                className="audio-player-autoplay-checkbox"
-                checked={autoPlay}
-                onChange={(e) => setAutoPlay(e.target.checked)}
-              />
-              <span className="audio-player-autoplay-text">{tr("Автовоспроизведение")}</span>
-            </label>
+            <button type="button" className="audio-player-btn-settings" onClick={handleOpenAudioSettings}>
+              <Settings size={13} />
+              <span>{tr("Настройки")}</span>
+            </button>
           </div>
 
           <button

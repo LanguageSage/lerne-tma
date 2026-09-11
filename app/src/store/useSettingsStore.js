@@ -78,6 +78,8 @@ export const STUDY_STORAGE_MAP = {
   autoplayCardRepeat: 'lerne_autoplay_card_repeat',
   ttsSpeed: 'lerne_tts_speed',
   ttsSpeedRu: 'lerne_tts_speed_ru',
+  ttsVoices: 'lerne_tts_voices',
+  alwaysRegenerateAudio: 'lerne_always_regenerate_audio',
   autoplayLoop: 'lerne_autoplay_loop',
   autoplayForceFrontAudio: 'lerne_autoplay_force_front_audio',
   autoplayForceBackAudio: 'lerne_autoplay_force_back_audio',
@@ -150,6 +152,15 @@ const getInitialDesignState = () => {
   return state;
 };
 
+const getStoredTtsVoices = () => {
+  try {
+    const value = storage.get('lerne_tts_voices');
+    return value ? JSON.parse(value) : {};
+  } catch {
+    return {};
+  }
+};
+
 const getInitialStudyState = () => ({
   autoPlay: storage.get('lerne_autoplay') !== null ? storage.get('lerne_autoplay') === 'true' : false,
   autoShow: storage.get('lerne_autoshow') !== null ? storage.get('lerne_autoshow') === 'true' : false,
@@ -161,6 +172,10 @@ const getInitialStudyState = () => ({
   autoplayCardRepeat: storage.get('lerne_autoplay_card_repeat') !== null ? Number(storage.get('lerne_autoplay_card_repeat')) : 1,
   ttsSpeed: storage.get('lerne_tts_speed') !== null ? Number(storage.get('lerne_tts_speed')) : 0,
   ttsSpeedRu: storage.get('lerne_tts_speed_ru') !== null ? Number(storage.get('lerne_tts_speed_ru')) : 0,
+  ttsVoices: getStoredTtsVoices(),
+  alwaysRegenerateAudio: storage.get('lerne_always_regenerate_audio') !== null
+    ? storage.get('lerne_always_regenerate_audio') === 'true'
+    : storage.get('lerne_autoplay_force_front_audio') === 'true',
   autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : true,
   autoplayForceFrontAudio: storage.get('lerne_autoplay_force_front_audio') !== null ? storage.get('lerne_autoplay_force_front_audio') === 'true' : false,
   autoplayForceBackAudio: storage.get('lerne_autoplay_force_back_audio') !== null ? storage.get('lerne_autoplay_force_back_audio') === 'true' : false,
@@ -256,6 +271,18 @@ export const useSettingsStore = create((set, get) => {
     setTtsSpeedRu: (value) => {
       storage.set('lerne_tts_speed_ru', value);
       set({ ttsSpeedRu: Number(value) });
+      debouncedSaveSettings(get);
+    },
+    setTtsVoice: (lang, voice) => {
+      const code = (lang || 'de').toLowerCase().replace('_', '-').split('-')[0];
+      const nextVoices = { ...get().ttsVoices, [code]: voice };
+      storage.set('lerne_tts_voices', JSON.stringify(nextVoices));
+      set({ ttsVoices: nextVoices });
+      debouncedSaveSettings(get);
+    },
+    setAlwaysRegenerateAudio: (value) => {
+      storage.set('lerne_always_regenerate_audio', value);
+      set({ alwaysRegenerateAudio: Boolean(value) });
       debouncedSaveSettings(get);
     },
     setAutoplayLoop: (value) => {
