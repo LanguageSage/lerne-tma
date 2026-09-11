@@ -11,10 +11,15 @@ from peewee import fn
 from api import models
 from tools.admin.schemas import (
     AssignDeckRequest,
+    BatchControlRequest,
     BatchDeleteDecksRequest,
+    BatchRegenerateAudioRequest,
+    BatchRegenerateDeckRequest,
     BatchSummaryRequest,
     ControlRegenRequest,
     CreateDeckRequest,
+    RegenerateAudioRequest,
+    RegenerateDeckRequest,
     SetDefaultDeckRequest,
 )
 from tools.admin.services.card_helpers import card_has_valid_audio, card_is_fully_completed
@@ -25,13 +30,6 @@ from tools.admin.services.regen_worker import (
     run_audio_regeneration,
     run_batch_ai_regeneration,
     run_batch_audio_regeneration,
-)
-from tools.admin.schemas import (
-    BatchRegenerateDeckRequest,
-    BatchRegenerateAudioRequest,
-    RegenerateDeckRequest,
-    RegenerateAudioRequest,
-    BatchControlRequest,
 )
 from tools.admin.services import task_manager
 

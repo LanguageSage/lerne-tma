@@ -6,8 +6,9 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from api import models
-from tools.admin.schemas import BulkCreateCardsRequest, SuggestWordsRequest, UpdateCardRequest
+from tools.admin.schemas import BulkCreateCardsRequest, CreateSingleCardRequest, SuggestWordsRequest, UpdateCardRequest
 from tools.admin.services.card_helpers import save_audio_to_db_or_cloud
+from tools.admin.services.deck_helpers import get_deck_and_cards
 from tools.admin.services.regen_worker import regen_tasks, run_bulk_card_creation
 
 import time
@@ -105,6 +106,75 @@ async def synthesize_single_card_audio(
         return {"status": "ok", "card_id": card_id, "audio_path": saved_audio}
 
     raise HTTPException(status_code=500, detail="Failed to save audio file")
+
+
+@router.post("/api/admin/decks/{deck_id}/cards")
+def add_card_to_deck_endpoint(deck_id: str, req: CreateSingleCardRequest):
+    """Adds a single card to an existing deck (TMA_Deck or Library Deck)."""
+    deck, existing_cards, is_library = get_deck_and_cards(deck_id)
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+
+    front = (req.front_text or "").strip()
+    back = (req.back_text or "").strip()
+    if not front or not back:
+        raise HTTPException(status_code=400, detail="Front text and back text are required")
+
+    next_pos = len(existing_cards) + 1
+    now = datetime.datetime.now()
+
+    if is_library:
+        new_card = models.Card.create(
+            deck=deck,
+            front_text=front,
+            back_text=back,
+            context=(req.context or "").strip(),
+            tags=(req.tags or "").strip(),
+            position=next_pos,
+            is_deleted=False,
+            created_at=now,
+            updated_at=now
+        )
+        return {
+            "status": "ok",
+            "card": {
+                "id": new_card.id,
+                "front": new_card.front_text,
+                "back": new_card.back_text,
+                "context": new_card.context,
+                "tags": new_card.tags,
+                "position": new_card.position,
+                "has_audio": False,
+                "audio_path": "",
+                "is_library": True
+            }
+        }
+    else:
+        new_card = models.TMA_Card.create(
+            deck_id=deck.id,
+            front_text=front,
+            back_text=back,
+            context=(req.context or "").strip(),
+            tags=(req.tags or "").strip(),
+            position=next_pos,
+            is_deleted=False,
+            created_at=now,
+            updated_at=now
+        )
+        return {
+            "status": "ok",
+            "card": {
+                "id": new_card.id,
+                "front": new_card.front_text,
+                "back": new_card.back_text,
+                "context": new_card.context,
+                "tags": new_card.tags,
+                "position": new_card.position,
+                "has_audio": False,
+                "audio_path": "",
+                "is_library": False
+            }
+        }
 
 
 @router.post("/api/admin/cards/bulk-create")

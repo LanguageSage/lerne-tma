@@ -907,11 +907,11 @@ input[type=range]:active::-webkit-slider-thumb {
 .action-menu-item {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px;
+  gap: 12px;
+  padding: 9px 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  border-radius: 14px;
   width: 100%;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -921,7 +921,7 @@ input[type=range]:active::-webkit-slider-thumb {
 .action-menu-item:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .action-menu-item:active {
@@ -929,9 +929,9 @@ input[type=range]:active::-webkit-slider-thumb {
 }
 
 .action-menu-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -2,8 +2,10 @@ import { tr, getInterfaceLanguage } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Move, Copy, Trash2, Edit2, Settings2, Play, Square, Pause, RotateCw } from 'lucide-react';
+import { X, Move, Copy, Trash2, Edit2, Settings2, Play, Square, Pause, RotateCw, Hash, ArrowUp, ArrowDown } from 'lucide-react';
+import { arrayMove } from '@dnd-kit/sortable';
 import { useUiStore } from '../../store/useUiStore';
+import { useDeckStore } from '../../store/useDeckStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSessionStore } from '../../store/useSessionStore';
@@ -62,9 +64,27 @@ export const CardActionModal = ({
   onStartAutoplay
 }) => {
   useInterfaceLocale();
-  const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy' | 'autoplay'
+  const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy' | 'autoplay' | 'position'
   const [expandedFolders, setExpandedFolders] = React.useState({});
   const { handleSetCardFlag } = useCardActions();
+
+  const currentDeck = useDeckStore(s => s.currentDeck);
+  const deckCards = useDeckStore(s => s.deckCards);
+  const cardsByDeck = useDeckStore(s => s.cardsByDeck);
+  const showToast = useUiStore(s => s.showToast);
+
+  const targetDeckId = card?.deck_id || currentDeck?.id;
+  const cardsList = React.useMemo(() => {
+    return (currentDeck?.id === targetDeckId ? deckCards : null) || (targetDeckId ? cardsByDeck[targetDeckId] : null) || [];
+  }, [currentDeck?.id, targetDeckId, deckCards, cardsByDeck]);
+
+  const currentIdx = cardsList.findIndex(c => c.id === card?.id);
+  const currentPosition = currentIdx !== -1 
+    ? currentIdx + 1 
+    : (card?.card_number || (typeof card?.position === 'number' ? card.position + 1 : 1));
+  const totalCardsCount = cardsList.length || card?.total_cards || 1;
+
+  const [targetPos, setTargetPos] = React.useState(currentPosition);
 
   const autoplayState = useSessionStore(s => s.autoplayState);
   const isAutoplayPlaying = autoplayState === 'playing';
@@ -101,11 +121,45 @@ export const CardActionModal = ({
 
   // Reset mode and expanded folders when modal opens
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && card) {
       setMode('main');
       setExpandedFolders({});
+      setTargetPos(currentPosition);
+      if (targetDeckId && (!cardsList || cardsList.length === 0)) {
+        useDeckStore.getState().fetchDeckCards(targetDeckId).catch(() => {});
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, card, currentPosition, targetDeckId, cardsList]);
+
+  const handleApplyPosition = async () => {
+    if (!card || !targetDeckId) return;
+
+    let list = (currentDeck?.id === targetDeckId ? deckCards : null) || cardsByDeck[targetDeckId] || [];
+    if (!list || list.length === 0) {
+      list = await useDeckStore.getState().fetchDeckCards(targetDeckId);
+    }
+    if (!list || list.length === 0) return;
+
+    const fromIndex = list.findIndex(c => c.id === card.id);
+    if (fromIndex === -1) {
+      showToast(tr("Карточка не найдена в колоде"), "error");
+      return;
+    }
+
+    const val = parseInt(targetPos, 10);
+    const clampedTarget = Math.max(1, Math.min(list.length, isNaN(val) ? 1 : val));
+    const toIndex = clampedTarget - 1;
+
+    if (fromIndex === toIndex) {
+      onClose();
+      return;
+    }
+
+    const newOrder = arrayMove(list, fromIndex, toIndex);
+    await useDeckStore.getState().reorderCards(newOrder.map(c => c.id), targetDeckId);
+    showToast(tr("Позиция изменена на № {{p0}}", { p0: clampedTarget }), "success");
+    onClose();
+  };
 
   if (!isOpen || !card) return null;
 
@@ -145,8 +199,8 @@ export const CardActionModal = ({
             flexDirection: 'column',
             overflow: 'hidden',
             borderRadius: '28px 28px 0 0',
-            padding: '20px 24px',
-            paddingBottom: 'max(24px, env(safe-area-inset-bottom, 20px))',
+            padding: '16px 20px',
+            paddingBottom: 'max(20px, env(safe-area-inset-bottom, 16px))',
             background: 'rgba(15, 23, 42, 0.95)',
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -160,15 +214,16 @@ export const CardActionModal = ({
             height: '4px',
             background: 'rgba(255, 255, 255, 0.2)',
             borderRadius: '2px',
-            margin: '0 auto 16px',
+            margin: '0 auto 10px',
             flexShrink: 0
           }} />
 
-          <div className="settings-header" style={{ marginBottom: '16px', flexShrink: 0 }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>
+          <div className="settings-header" style={{ marginBottom: '10px', flexShrink: 0 }}>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 700, margin: 0 }}>
               {mode === 'main' ? tr("Управление карточкой") : 
                mode === 'move' ? tr("Переместить") : 
-               mode === 'copy' ? tr("Копировать") : tr("Режим «Авто»")}
+               mode === 'copy' ? tr("Копировать") : 
+               mode === 'position' ? tr("Позиция в списке") : tr("Режим «Авто»")}
             </h2>
             <button className="close-btn" onClick={onClose} style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
               <X size={20} />
@@ -177,7 +232,7 @@ export const CardActionModal = ({
           
           <div className="settings-content scrollable" style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             {mode === 'main' && (
-              <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
 
                 <button 
                   className="action-menu-item" 
@@ -253,6 +308,21 @@ export const CardActionModal = ({
                   </button>
                 )}
 
+                <button 
+                  className="action-menu-item" 
+                  onClick={() => setMode('position')}
+                >
+                  <div className="action-menu-icon" style={{ background: 'rgba(168, 85, 247, 0.12)', color: '#c084fc' }}>
+                    <Hash size={20} />
+                  </div>
+                  <div className="action-menu-text">
+                    <strong>{tr("Позиция в списке")}</strong>
+                    <span>
+                      {tr("Текущий номер: № {{p0}} из {{p1}}", { p0: currentPosition, p1: totalCardsCount })}
+                    </span>
+                  </div>
+                </button>
+
                 <FlagPicker 
                   value={card.flag} 
                   onChange={(flagId) => {
@@ -261,7 +331,7 @@ export const CardActionModal = ({
                   }} 
                 />
                 
-                <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.05)', margin: '10px 0' }} />
+                <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.05)', margin: '6px 0' }} />
 
                 <button 
                   className="action-menu-item delete" 
@@ -275,6 +345,145 @@ export const CardActionModal = ({
                     <span>{tr("Это действие нельзя отменить")}</span>
                   </div>
                 </button>
+              </div>
+            )}
+
+            {mode === 'position' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '4px 0 10px' }}>
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  borderRadius: '14px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '3px' }}>{tr("Карточка:")}</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {card.front || tr("Без текста")}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#c084fc', marginTop: '4px', fontWeight: 600 }}>
+                    {tr("Текущий номер: № {{p0}} из {{p1}}", { p0: currentPosition, p1: totalCardsCount })}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#cbd5e1', fontWeight: 600 }}>
+                    {tr("Новый номер (от 1 до {{p0}}):", { p0: totalCardsCount })}
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setTargetPos(prev => Math.max(1, (Number(prev) || 1) - 1))}
+                      style={{ width: '42px', height: '42px', borderRadius: '12px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={totalCardsCount}
+                      value={targetPos}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          setTargetPos('');
+                        } else {
+                          const n = parseInt(val, 10);
+                          if (!isNaN(n)) setTargetPos(n);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleApplyPosition();
+                      }}
+                      style={{
+                        flex: 1,
+                        height: '42px',
+                        textAlign: 'center',
+                        fontSize: '1.25rem',
+                        fontWeight: 800,
+                        color: '#c084fc',
+                        background: 'rgba(168, 85, 247, 0.12)',
+                        border: '1px solid rgba(168, 85, 247, 0.4)',
+                        borderRadius: '12px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setTargetPos(prev => Math.min(totalCardsCount, (Number(prev) || 0) + 1))}
+                      style={{ width: '42px', height: '42px', borderRadius: '12px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setTargetPos(1)}
+                    style={{
+                      padding: '9px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      background: targetPos === 1 ? 'rgba(168, 85, 247, 0.25)' : undefined,
+                      borderColor: targetPos === 1 ? '#a855f7' : undefined
+                    }}
+                  >
+                    <ArrowUp size={15} />
+                    <span>{tr("В начало (№ 1)")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setTargetPos(totalCardsCount)}
+                    style={{
+                      padding: '9px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      background: targetPos === totalCardsCount ? 'rgba(168, 85, 247, 0.25)' : undefined,
+                      borderColor: targetPos === totalCardsCount ? '#a855f7' : undefined
+                    }}
+                  >
+                    <ArrowDown size={15} />
+                    <span>{tr("В конец (№ {{p0}})", { p0: totalCardsCount })}</span>
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setMode('main')}
+                    style={{ flex: 1, height: '42px', borderRadius: '12px' }}
+                  >
+                    {tr("Назад")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleApplyPosition}
+                    disabled={!targetPos || Number(targetPos) < 1 || Number(targetPos) > totalCardsCount}
+                    style={{ flex: 2, height: '42px', borderRadius: '12px', fontWeight: 700 }}
+                  >
+                    {tr("Применить")}
+                  </button>
+                </div>
               </div>
             )}
 

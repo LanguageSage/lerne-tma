@@ -444,14 +444,16 @@ export const createDeckSlice = (set, get) => ({
     }, 400);
   },
 
-  reorderCards: async (orderedIds) => {
-    const { deckCards } = get();
-    if (!orderedIds || orderedIds.length === 0) return;
+  reorderCards: async (orderedIds, targetDeckId = null) => {
+    const state = get();
+    const effectiveDeckId = targetDeckId || state.currentDeck?.id;
+    const baseCards = (effectiveDeckId && state.cardsByDeck[effectiveDeckId]) || state.deckCards || [];
+    if (!orderedIds || orderedIds.length === 0 || baseCards.length === 0) return;
 
     const posMap = new Map();
     orderedIds.forEach((id, idx) => posMap.set(id, idx));
 
-    const updated = [...deckCards];
+    const updated = [...baseCards];
     const reorderedItems = [];
     const positions = [];
 
@@ -469,10 +471,9 @@ export const createDeckSlice = (set, get) => ({
       updated[pos] = { ...item, position: posMap.get(item.id) };
     });
 
-    const currentId = get().currentDeck?.id;
     set((prev) => ({
-      deckCards: updated,
-      cardsByDeck: currentId ? { ...prev.cardsByDeck, [currentId]: updated } : prev.cardsByDeck
+      deckCards: (!effectiveDeckId || prev.currentDeck?.id === effectiveDeckId) ? updated : prev.deckCards,
+      cardsByDeck: effectiveDeckId ? { ...prev.cardsByDeck, [effectiveDeckId]: updated } : prev.cardsByDeck
     }));
 
     if (cardReorderTimeout) {

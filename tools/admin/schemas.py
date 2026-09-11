@@ -166,6 +166,13 @@ class UpdateCardRequest(BaseModel):
     tags: Optional[str] = None
 
 
+class CreateSingleCardRequest(BaseModel):
+    front_text: str
+    back_text: str
+    context: Optional[str] = ""
+    tags: Optional[str] = ""
+
+
 class BatchDeleteDecksRequest(BaseModel):
     deck_ids: List[str]
 

@@ -136,7 +136,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     ));
   }, []);
 
-  const ensureAudio = useCallback(async (targetCard, side, runId) => {
+  const ensureAudio = useCallback(async (targetCard, side, runId, isPrefetch = false) => {
     if (!targetCard || !isCurrentRun(runId)) return null;
 
     const settings = useSettingsStore.getState();
@@ -164,7 +164,9 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     if (existingUrl && !hasWrongBackAudio && !forceGenerate) return existingUrl;
     if (!text?.trim()) return null;
 
-    setStatus(isBack ? tr("Генерируем перевод") : tr("Генерируем фразу"));
+    if (!isPrefetch) {
+      setStatus(isBack ? tr("Генерируем перевод") : tr("Генерируем фразу"));
+    }
     updateCardAudio(targetCard.id, { audio_is_generating: true });
     let generated;
     try {
@@ -178,26 +180,18 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
       });
     } catch (err) {
       updateCardAudio(targetCard.id, { audio_is_generating: false });
-      console.error('Audio generation failed:', err);
-      showToast?.(tr("Не удалось сгенерировать {{p0}}: {{p1}}", { p0: isBack ? tr("перевод") : tr("фразу"), p1: err.response?.data?.detail || err.message }));
+      if (!isPrefetch) {
+        console.error('Audio generation failed:', err);
+        showToast?.(tr("Не удалось сгенерировать {{p0}}: {{p1}}", { p0: isBack ? tr("перевод") : tr("фразу"), p1: err.response?.data?.detail || err.message }));
+      }
       return null;
     }
+
     if (!isCurrentRun(runId)) return null;
 
-    const audioPatch = {
-      [pathKey]: generated.data.path,
-      [urlKey]: generated.data.url
-    };
-
-    if (!isCurrentRun(runId)) {
-      updateCardAudio(targetCard.id, { audio_is_generating: false });
-      return null;
-    }
-
     const mergedPatch = {
-      ...audioPatch,
-      [pathKey]: generated.data.path,
-      [urlKey]: generated.data.url,
+      [pathKey]: generated?.data?.path,
+      [urlKey]: generated?.data?.url,
       audio_is_generating: false,
     };
     Object.assign(targetCard, mergedPatch);
@@ -292,6 +286,9 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
       const backRepeats = Math.max(1, Number(settings.autoplayBackRepeat) || 1);
 
       // --- 1. FRONT SIDE REPEAT CYCLE ---
+      // Запускаем упреждающую фоновую генерацию перевода, пока звучит фраза и идет пауза
+      const prefetchBackPromise = ensureAudio(targetCard, 'back', runId, true).catch(() => null);
+
       for (let i = 1; i <= frontRepeats; i++) {
         if (!isCurrentRun(runId)) return;
         const repeatPrefix = frontRepeats > 1 ? tr("[Фраза {{p0}}/{{p1}}] ", { p0: i, p1: frontRepeats }) : '';
@@ -327,6 +324,15 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
 
       // --- 2. BACK SIDE REPEAT CYCLE ---
       session.setIsFlipped(true);
+
+      // Во время звучания перевода предзагружаем фронт следующей карточки
+      const currentQueue = autoplayCardsRef.current || [];
+      const currentIdx = currentQueue.findIndex((item) => String(item.id) === String(targetCard.id));
+      const nextCard = currentIdx >= 0 && currentIdx + 1 < currentQueue.length ? currentQueue[currentIdx + 1] : null;
+      if (nextCard) {
+        ensureAudio(nextCard, 'front', runId, true).catch(() => null);
+      }
+
       for (let i = 1; i <= backRepeats; i++) {
         if (!isCurrentRun(runId)) return;
         const repeatPrefix = backRepeats > 1 ? tr("[Перевод {{p0}}/{{p1}}] ", { p0: i, p1: backRepeats }) : '';
@@ -340,7 +346,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
             album: useDeckStore.getState().currentDeck?.name || tr("Режим изучения")
           });
         }
-        const backUrl = await ensureAudio(latestCard, 'back', runId);
+        const backUrl = (i === 1 ? await prefetchBackPromise : null) || (await ensureAudio(latestCard, 'back', runId));
         if (backUrl) {
           const played = await waitForAudio(backUrl, runId);
           if (!played && isCurrentRun(runId)) {

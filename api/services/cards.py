@@ -775,16 +775,38 @@ def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_
 
     deck_map = {d['id']: d for d in scoped_decks}
     matched_cards = []
+    deck_card_ids = {}
     if deck_map:
         cards_q = TMA_Card.select().where(TMA_Card.deck_id.in_(list(deck_map.keys())), TMA_Card.is_deleted == False)
         for c in cards_q:
             if match_fn(c.front_text) or match_fn(c.back_text):
                 meta = parse_card_metadata(c.metadata) or {}
+                if c.deck_id not in deck_card_ids:
+                    deck_card_ids[c.deck_id] = [
+                        item.id for item in TMA_Card.select(TMA_Card.id)
+                        .where(TMA_Card.deck_id == c.deck_id, TMA_Card.is_deleted == False)
+                        .order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
+                    ]
+                card_ids_in_deck = deck_card_ids[c.deck_id]
+                try:
+                    card_num = card_ids_in_deck.index(c.id) + 1
+                except ValueError:
+                    card_num = (c.position or 0) + 1
+
                 matched_cards.append({
-                    "id": c.id, "front": c.front_text, "back": c.back_text, "context": c.context or '',
+                    "id": c.id,
+                    "front": c.front_text,
+                    "back": c.back_text,
+                    "context": c.context or '',
                     "level": meta.get('cefr', {}).get('level') if isinstance(meta, dict) else None,
-                    "deck_id": c.deck_id, "deck_name": deck_map[c.deck_id]['name'],
-                    "folder_id": deck_map[c.deck_id].get('folder_id')
+                    "deck_id": c.deck_id,
+                    "deck_name": deck_map[c.deck_id]['name'],
+                    "folder_id": deck_map[c.deck_id].get('folder_id'),
+                    "position": c.position,
+                    "card_number": card_num,
+                    "total_cards": len(card_ids_in_deck),
+                    "flag": getattr(c, 'flag', None),
+                    "card_type": getattr(c, 'card_type', 'standard')
                 })
                 if len(matched_cards) >= limit:
                     break

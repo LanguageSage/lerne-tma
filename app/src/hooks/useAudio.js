@@ -277,10 +277,9 @@ export const useAudio = (autoPlay, showToast) => {
       const retries = retryCountRef.current[url] || 0;
       if (!onPlaybackError && retries < 1) {
         retryCountRef.current[url] = retries + 1;
-        console.warn(`Audio load failed, retrying once for: ${url}`);
-        setTimeout(() => playAudioRef.current?.(url, onEndedCallback, onPlaybackError), 1000);
+        setTimeout(() => playAudioRef.current?.(url, onEndedCallback, onPlaybackError), 500);
       } else {
-        handleTerminalError(new Error('Audio file is missing or damaged'));
+        handleTerminalError(new Error('Audio load failed'));
       }
     };
 
@@ -311,10 +310,9 @@ export const useAudio = (autoPlay, showToast) => {
         globalActiveAudio = null;
         globalActiveStopCallback = null;
       }
-      console.error("Audio play failed:", err);
       if (err.name === "NotAllowedError") {
         if (!autoPlay && showToast) showToast(tr("Браузер заблокировал автовоспроизведение"));
-      } else if (err.name === "NotSupportedError") {
+      } else if (onPlaybackError) {
         handleTerminalError(err);
         return false;
       }

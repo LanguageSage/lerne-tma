@@ -138,12 +138,8 @@ export const CardAudioPlayer = React.memo(({
     }
 
     if (cardText) {
-      if (cardId) {
-        await generateAndPlay(true, voiceVal);
-      } else {
-        const url = await voicePicker.generatePreview(cardText, voiceVal);
-        if (url) playAudio?.(url);
-      }
+      const url = await voicePicker.generatePreview(cardText, voiceVal);
+      if (url) playAudio?.(url);
     }
   };
 
@@ -235,28 +231,21 @@ export const CardAudioPlayer = React.memo(({
             )}
           </button>
 
-          {/* Small Progress / Time indicator when playing */}
-          {isThisActive && (
-            <div className="pill-mini-info">
-              <span className="pill-time">{formatTime(currentTime)}</span>
-            </div>
-          )}
-
           {/* Playback Speed indicator */}
           <button
             type="button"
             className="pill-btn-speed"
             onClick={(e) => {
               e.stopPropagation();
-              const speeds = [0.5, 0.75, 1.0, 1.25, 1.5];
-              const nextIdx = (speeds.indexOf(playbackRate) + 1) % speeds.length;
-              setPlaybackSpeed?.(speeds[nextIdx]);
+              const nextIdx = (SPEEDS.indexOf(playbackRate) + 1) % SPEEDS.length;
+              setPlaybackSpeed?.(SPEEDS[nextIdx]);
             }}
             title={tr("Скорость")}
           >
             {playbackRate}x
           </button>
 
+          {/* Settings Button */}
           <button
             type="button"
             className="audio-player-btn-settings compact"
@@ -264,7 +253,6 @@ export const CardAudioPlayer = React.memo(({
             title={tr("Настройки аудио")}
           >
             <Settings size={13} />
-            <span>{tr("Настройки")}</span>
           </button>
 
           {/* Expand Button */}
@@ -343,20 +331,35 @@ export const CardAudioPlayer = React.memo(({
             )}
 
             {voicePicker && (
-              <button
-                type="button"
-                className={`audio-player-btn-regenerate ${voicePicker.isGenerating ? 'loading' : ''}`}
-                onClick={cardId ? handleRegenerateAndSave : handleGeneratePreview}
-                disabled={voicePicker.isGenerating || !cardText}
-                title={cardId ? tr("Перезаписать озвучку выбранным голосом") : tr("Озвучить выбранным голосом")}
-              >
-                {voicePicker.isGenerating ? (
-                  <RefreshCw size={12} className="spin" />
-                ) : (
-                  <RefreshCw size={12} />
+              <>
+                <button
+                  type="button"
+                  className={`audio-player-btn-preview ${voicePicker.isGenerating ? 'loading' : ''}`}
+                  onClick={handleGeneratePreview}
+                  disabled={voicePicker.isGenerating || !cardText}
+                  title={tr("Прослушать выбранным голосом")}
+                >
+                  <Volume2 size={12} />
+                  <span>{tr("Прослушать")}</span>
+                </button>
+
+                {cardId && (
+                  <button
+                    type="button"
+                    className={`audio-player-btn-regenerate ${voicePicker.isGenerating ? 'loading' : ''}`}
+                    onClick={handleRegenerateAndSave}
+                    disabled={voicePicker.isGenerating || !cardText}
+                    title={tr("Перезаписать озвучку в карточке выбранным голосом")}
+                  >
+                    {voicePicker.isGenerating ? (
+                      <RefreshCw size={12} className="spin" />
+                    ) : (
+                      <RefreshCw size={12} />
+                    )}
+                    <span>{voicePicker.isGenerating ? tr("Генерирую…") : tr("Перезаписать")}</span>
+                  </button>
                 )}
-                <span>{voicePicker.isGenerating ? tr("Генерирую…") : cardId ? tr("Перезаписать") : tr("Прослушать")}</span>
-              </button>
+              </>
             )}
 
             <button type="button" className="audio-player-btn-settings" onClick={handleOpenAudioSettings}>

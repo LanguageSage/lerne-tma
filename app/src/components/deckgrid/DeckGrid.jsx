@@ -35,6 +35,9 @@ import { LearningShortcutsBar } from './LearningShortcutsBar';
 import { matchFolder, matchDeck, getScopedFolders, getScopedDecks } from '../../utils/search';
 import { isLidRootFolder } from '../../services/lidFolderManager';
 import { LidExamCardItem } from '../lid/LidExamCardItem';
+import { CardActionButton } from '../modals/CardActionModal';
+import { CardLevelBadge } from '../common/CardLevelBadge';
+import { getFlagStyle } from '../../constants/cardFlags';
 import { navigateUp } from '../../utils/navigation';
 import api from '../../services/api';
 
@@ -428,26 +431,59 @@ export const DeckGrid = ({
                     )}
                   </div>
                   <div className="search-cards-list">
-                    {searchedCards.map((c) => (
-                      <div
-                        key={`searched-card-${c.id}`}
-                        className="search-card-result-item glass"
-                        onClick={() => handleSelectSearchedCard(c)}
-                      >
-                        <div className="search-card-result-main">
-                          <div className="search-card-result-front">{c.front}</div>
-                          <div className="search-card-result-back">{c.back}</div>
+                    {searchedCards.map((c) => {
+                      const flagStyle = getFlagStyle(c.flag);
+                      const cardNum = c.card_number || (typeof c.position === 'number' ? c.position + 1 : 1);
+                      return (
+                        <div
+                          key={`searched-card-${c.id}`}
+                          className="card-item card-front glass search-card-item-styled"
+                          style={flagStyle}
+                        >
+                          <div 
+                            className="card-item-text"
+                            onClick={() => handleSelectSearchedCard(c)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <div className="front-min">
+                              {c.front}
+                            </div>
+                            {c.back && (
+                              <div className="back-min">
+                                {c.back}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="card-item-footer">
+                            <div className="card-item-footer-left">
+                              <span 
+                                className="search-card-deck-tag" 
+                                onClick={() => handleSelectSearchedCard(c)}
+                                style={{ cursor: 'pointer' }}
+                                title={t('decks.open_deck', 'Открыть колоду')}
+                              >
+                                📁 {c.deck_name || t('decks.deck', 'Колода')}
+                              </span>
+                              {c.level && <CardLevelBadge card={c} size="sm" />}
+                            </div>
+
+                            <div className="card-item-footer-right">
+                              <span className="card-item-corner-number">
+                                {cardNum}
+                              </span>
+
+                              <CardActionButton 
+                                card={c} 
+                                size={16} 
+                                className="card-item-actions-trigger" 
+                                stopDrag={true} 
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <div className="search-card-result-meta">
-                          {c.level ? (
-                            <span className="search-card-level-tag">{c.level}</span>
-                          ) : <span />}
-                          <span className="search-card-deck-tag">
-                            📁 {c.deck_name || t('decks.deck', 'Колода')}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

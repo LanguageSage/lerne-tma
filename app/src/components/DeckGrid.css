@@ -971,6 +971,27 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.search-card-deck-tag:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.search-card-item-styled {
+  margin-bottom: 0;
+  border-radius: 16px !important;
+}
+
+.search-card-item-styled .card-item-text {
+  cursor: pointer;
+}
+
+.search-card-item-styled .card-item-footer {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .search-card-level-tag {

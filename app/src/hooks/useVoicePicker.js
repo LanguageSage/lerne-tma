@@ -3,6 +3,11 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import api from '../services/api';
 import { VOICES_BY_LANG, getTtsVoiceForLang } from '../constants/languageConstants';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useUiStore } from '../store/useUiStore';
+import { useSessionStore } from '../store/useSessionStore';
+import { useDeckStore } from '../store/useDeckStore';
+import { useLidStore } from '../store/useLidStore';
+import { db } from '../services/localDb';
 
 /**
  * useVoicePicker — manages per-card voice selection and on-demand audio preview generation.
@@ -162,8 +167,6 @@ export const useVoicePicker = (
       const boundaries = res.data?.word_boundaries || null;
 
       if (url && path) {
-        const { useUiStore } = await import('../store/useUiStore');
-        const { useSessionStore } = await import('../store/useSessionStore');
         const sessionState = useSessionStore.getState();
 
         const cardPatch = isBack
@@ -187,14 +190,12 @@ export const useVoicePicker = (
         }
 
         // 2. Update deck cards list in useDeckStore
-        const { useDeckStore } = await import('../store/useDeckStore');
         const updateCardLocal = useDeckStore.getState().updateCardLocal;
         if (updateCardLocal) {
           updateCardLocal(cardId, cardPatch);
         }
 
         try {
-          const { useLidStore } = await import('../store/useLidStore');
           const updateQuestionAudio = useLidStore.getState().updateQuestionAudio;
           if (updateQuestionAudio) {
             updateQuestionAudio(cardId, { audio_path: path, audio_url: url });
@@ -202,7 +203,6 @@ export const useVoicePicker = (
         } catch { /* ignore */ }
 
         try {
-          const { db } = await import('../services/localDb');
           if (db?.cards) {
             await db.cards.update(cardId, isBack ? { audio_back_path: path } : { audio_path: path });
           }
