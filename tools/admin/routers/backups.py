@@ -5,17 +5,21 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from api import models
 from tools.admin.schemas import (
     BackupSettingsRequest,
     BatchDeleteBackupsRequest,
+    CreateDeckBackupRequest,
+    CreateFolderBackupRequest,
     RestoreDeckRequest,
     RestoreFolderRequest,
 )
 from tools.admin.services.backup_service import (
+    create_deck_backup,
+    create_folder_backup,
     get_all_backup_search_dirs,
     get_backup_deck_cards,
     get_effective_backup_dir,
@@ -58,6 +62,8 @@ def get_backups():
 
                         if fname.startswith("deck_"):
                             b_type = "Снимок колоды"
+                        elif fname.startswith("folder_"):
+                            b_type = "Снимок папки"
                         elif fname.startswith("cards_backup_"):
                             b_type = "Снимок карточек"
                         elif "supabase" in fname:
@@ -79,6 +85,12 @@ def get_backups():
                                             card_count = jdata["cards_count"]
                                         if "deck" in jdata and "name" in jdata["deck"]:
                                             deck_name = jdata["deck"]["name"]
+                                        elif "decks" in jdata and isinstance(jdata["decks"], list) and len(jdata["decks"]) == 1:
+                                            deck_name = jdata["decks"][0].get("name")
+                                        elif "folder" in jdata and "name" in jdata["folder"]:
+                                            deck_name = f"📁 Папка: {jdata['folder']['name']}"
+                                        elif "folders" in jdata and isinstance(jdata["folders"], list) and len(jdata["folders"]) == 1:
+                                            deck_name = f"📁 Папка: {jdata['folders'][0].get('name')}"
                                         elif "cards" in jdata and isinstance(jdata["cards"], list):
                                             card_count = len(jdata["cards"])
                                     elif isinstance(jdata, list):
@@ -107,24 +119,33 @@ def get_backups():
         "backups": backup_files,
         "total_count": len(backup_files),
         "total_size_mb": round(total_bytes / (1024 * 1024), 2),
-        "custom_dir": custom_dir
+        "custom_dir": custom_dir,
+        "auto_backup_enabled": cfg.get("auto_backup_enabled", False)
     }
 
 
 @router.post("/api/admin/backups/settings")
 def save_backup_settings(req: BackupSettingsRequest):
-    """Saves custom local backup directory path."""
-    target_dir = req.custom_dir.strip()
-    if target_dir and not os.path.exists(target_dir):
-        try:
-            os.makedirs(target_dir, exist_ok=True)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Cannot create directory: {str(e)}")
-
+    """Saves custom local backup directory path and auto_backup_enabled setting."""
     cfg = load_admin_config()
-    cfg["custom_backup_dir"] = target_dir
+    if req.custom_dir is not None:
+        target_dir = req.custom_dir.strip()
+        if target_dir and not os.path.exists(target_dir):
+            try:
+                os.makedirs(target_dir, exist_ok=True)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Cannot create directory: {str(e)}")
+        cfg["custom_backup_dir"] = target_dir
+
+    if req.auto_backup_enabled is not None:
+        cfg["auto_backup_enabled"] = bool(req.auto_backup_enabled)
+
     save_admin_config(cfg)
-    return {"status": "ok", "custom_backup_dir": target_dir}
+    return {
+        "status": "ok",
+        "custom_backup_dir": cfg.get("custom_backup_dir", ""),
+        "auto_backup_enabled": cfg.get("auto_backup_enabled", False)
+    }
 
 
 @router.post("/api/admin/backups/create")
@@ -175,6 +196,63 @@ def create_full_db_backup():
         "users_count": len(users),
         "decks_count": len(decks),
         "cards_count": len(cards)
+    }
+
+
+@router.post("/api/admin/backups/create-deck")
+def create_deck_backup_endpoint(req: CreateDeckBackupRequest):
+    """Creates a targeted JSON backup of a single deck with its cards."""
+    try:
+        return create_deck_backup(req.deck_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to create deck backup")
+        raise HTTPException(status_code=500, detail=f"Failed to create deck backup: {str(e)}")
+
+
+@router.post("/api/admin/backups/create-folder")
+def create_folder_backup_endpoint(req: CreateFolderBackupRequest):
+    """Creates a targeted JSON backup of a folder with all its decks and cards."""
+    try:
+        return create_folder_backup(req.folder_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to create folder backup")
+        raise HTTPException(status_code=500, detail=f"Failed to create folder backup: {str(e)}")
+
+
+@router.post("/api/admin/backups/upload")
+async def upload_backup_file(file: UploadFile = File(...)):
+    """Uploads an external backup JSON file to the effective backup directory."""
+    if not file.filename.endswith((".json", ".db", ".sql")):
+        raise HTTPException(status_code=400, detail="Только файлы .json, .db или .sql допускаются для загрузки")
+
+    safe_name = os.path.basename(file.filename)
+    if not safe_name or ".." in safe_name:
+        raise HTTPException(status_code=400, detail="Некорректное имя файла")
+
+    target_dir = get_effective_backup_dir()
+    target_path = os.path.join(target_dir, safe_name)
+
+    content = await file.read()
+    if safe_name.endswith(".json"):
+        try:
+            parsed = json.loads(content.decode("utf-8"))
+            if not isinstance(parsed, (dict, list)):
+                raise ValueError("JSON должен быть объектом или массивом")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Невалидный JSON файл: {str(e)}")
+
+    with open(target_path, "wb") as f:
+        f.write(content)
+
+    return {
+        "status": "ok",
+        "filename": safe_name,
+        "filepath": target_path,
+        "size_bytes": len(content)
     }
 
 

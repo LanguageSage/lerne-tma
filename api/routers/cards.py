@@ -60,11 +60,12 @@ async def batch_move_cards(data: dict, user_id: int = Depends(get_user_id)):
             raise HTTPException(status_code=403, detail="Для перемещения карточек требуется авторизация.")
         card_ids = data.get("card_ids", [])
         target_deck_id = data.get("target_deck_id")
+        on_duplicate = data.get("on_duplicate", "skip")
         if not card_ids:
             raise HTTPException(status_code=400, detail="Список карточек пуст.")
         if not target_deck_id:
             raise HTTPException(status_code=400, detail="Не указана целевая колода.")
-        return services.batch_move_cards(card_ids, int(target_deck_id), user_id)
+        return services.batch_move_cards(card_ids, int(target_deck_id), user_id, on_duplicate=on_duplicate)
     except HTTPException:
         raise
     except PermissionError as e:
@@ -83,11 +84,12 @@ async def batch_copy_cards(data: dict, user_id: int = Depends(get_user_id)):
             raise HTTPException(status_code=403, detail="Для копирования карточек требуется авторизация.")
         card_ids = data.get("card_ids", [])
         target_deck_id = data.get("target_deck_id")
+        on_duplicate = data.get("on_duplicate", "skip")
         if not card_ids:
             raise HTTPException(status_code=400, detail="Список карточек пуст.")
         if not target_deck_id:
             raise HTTPException(status_code=400, detail="Не указана целевая колода.")
-        return services.batch_copy_cards(card_ids, int(target_deck_id), user_id)
+        return services.batch_copy_cards(card_ids, int(target_deck_id), user_id, on_duplicate=on_duplicate)
     except HTTPException:
         raise
     except PermissionError as e:

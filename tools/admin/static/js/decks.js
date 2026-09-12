@@ -208,6 +208,9 @@ function renderDecksTable(decks, resetPage = false) {
               <button onclick="openRegenModal('${d.id}', '${safeName}', 'audio_only')" title="🎙️ Озвучить колоду (TTS)" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/20 transition inline-flex items-center gap-1">
                 <i data-lucide="mic" class="w-3.5 h-3.5"></i> Звук
               </button>
+              <button onclick="createDeckBackup('${d.id}', '${safeName}')" title="💾 Создать точечный бэкап колоды" class="px-2.5 py-1 bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 text-xs font-semibold rounded-lg border border-teal-500/20 transition inline-flex items-center gap-1">
+                <i data-lucide="save" class="w-3.5 h-3.5"></i> Бэкап
+              </button>
               <button onclick="openAssignModal('${d.id}', '${safeName}')" title="👥 Раздать колоду" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/20 transition">
                 👥
               </button>
@@ -583,4 +586,38 @@ function setDeckHealthFilter(filterType) {
     }
   });
   filterDecks();
+}
+
+
+/**
+ * Creates a standalone JSON backup of a single deck and offers instant download / explore.
+ */
+async function createDeckBackup(deckId, deckName) {
+  if (typeof showToast === 'function') {
+    showToast(`⏳ Создание бэкапа колоды «${deckName}»...`);
+  }
+  try {
+    const res = await fetch('/api/admin/backups/create-deck', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deck_id: String(deckId) })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const dlUrl = `/api/admin/backups/download/${encodeURIComponent(data.filename)}?folder=${encodeURIComponent(data.folder || '')}`;
+      if (typeof showToast === 'function') {
+        showToast(`✅ Бэкап «${deckName}» создан (${data.cards_count} карт.)! <a href="${dlUrl}" download class="underline font-bold text-white ml-1.5">📥 Скачать JSON</a>`, 'success');
+      } else {
+        alert(`Бэкап колоды создан!\nФайл: ${data.filename}\nКарточек: ${data.cards_count}`);
+      }
+      if (typeof loadBackups === 'function') {
+        loadBackups();
+      }
+    } else {
+      alert(data.detail || 'Ошибка при создании бэкапа колоды');
+    }
+  } catch (e) {
+    console.error('Failed to create deck backup', e);
+    alert('Ошибка сети при создании бэкапа колоды');
+  }
 }

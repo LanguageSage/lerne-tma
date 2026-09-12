@@ -154,6 +154,9 @@ export const useCardEditor = () => {
 
       const sourceView = ui.editorSourceView || 'cards';
       session.setEditingCard(null);
+      if (savedCard?.id) {
+        ui.setLastSelectedCardId(savedCard.id);
+      }
 
       if (sourceView === 'study') {
         if (savedCard && savedCard.id) {
@@ -399,15 +402,22 @@ export const useCardEditor = () => {
     }
   };
 
-  const handleBatchMoveCards = async (cardIds, targetDeckId) => {
+  const handleBatchMoveCards = async (cardIds, targetDeckId, onDuplicate = 'skip') => {
     if (!cardIds || cardIds.length === 0 || !targetDeckId) return false;
     setLoading(true);
     try {
-      await api.post('/cards/batch-move', {
+      const res = await api.post('/cards/batch-move', {
         card_ids: cardIds,
-        target_deck_id: targetDeckId
+        target_deck_id: targetDeckId,
+        on_duplicate: onDuplicate
       });
-      showToast(tr("Перемещено карточек: {{p0}}", { p0: cardIds.length }), "success");
+      const movedTotal = res.data?.count ?? cardIds.length;
+      const skipped = res.data?.skipped || 0;
+      if (skipped > 0) {
+        showToast(tr("Перемещено: {{p0}} (пропущено дубликатов: {{p1}})", { p0: movedTotal, p1: skipped }), "success");
+      } else {
+        showToast(tr("Перемещено карточек: {{p0}}", { p0: movedTotal }), "success");
+      }
       
       const session = useSessionStore.getState();
       const { currentDeck, deckCards, cardsByDeck, decks } = useDeckStore.getState();
@@ -499,6 +509,7 @@ export const useCardEditor = () => {
       });
 
       cardIds.forEach(id => session.removeCardFromSession(id));
+      fetchDecks(true);
       return true;
     } catch (err) {
       console.error('Batch Delete Error:', err);
@@ -509,15 +520,22 @@ export const useCardEditor = () => {
     }
   };
 
-  const handleBatchCopyCards = async (cardIds, targetDeckId) => {
+  const handleBatchCopyCards = async (cardIds, targetDeckId, onDuplicate = 'skip') => {
     if (!cardIds || cardIds.length === 0 || !targetDeckId) return false;
     setLoading(true);
     try {
-      await api.post('/cards/batch-copy', {
+      const res = await api.post('/cards/batch-copy', {
         card_ids: cardIds,
-        target_deck_id: targetDeckId
+        target_deck_id: targetDeckId,
+        on_duplicate: onDuplicate
       });
-      showToast(tr("Скопировано карточек: {{p0}}", { p0: cardIds.length }), "success");
+      const copiedTotal = res.data?.count ?? cardIds.length;
+      const skipped = res.data?.skipped || 0;
+      if (skipped > 0) {
+        showToast(tr("Скопировано: {{p0}} (пропущено дубликатов: {{p1}})", { p0: copiedTotal, p1: skipped }), "success");
+      } else {
+        showToast(tr("Скопировано карточек: {{p0}}", { p0: copiedTotal }), "success");
+      }
       
       const { currentDeck, decks } = useDeckStore.getState();
       const count = cardIds.length;

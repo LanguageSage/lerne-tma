@@ -213,14 +213,13 @@ function AppContent() {
       return; // Let DuplicateManager handle the scroll
     }
     if (view === 'cards') {
-      const container = document.getElementById('app-container');
       const savedScroll = useUiStore.getState().cardsScrollTop;
       const lastId = useUiStore.getState().lastSelectedCardId;
-      if (container && (savedScroll > 0 || lastId)) {
-        if (savedScroll > 0) {
-          container.scrollTop = savedScroll;
-        }
-        return; // Let CardList handle restoring scroll
+      if (savedScroll > 0 || lastId) {
+        // INVARIANT: DO NOT touch container.scrollTop here! CardList mounts asynchronously and
+        // restores its own scroll after DOM layout calculation (double rAF). Touching it here
+        // prematurely clamps scrollTop to 0 and corrupts saved position.
+        return;
       }
     }
     const container = document.getElementById('app-container');

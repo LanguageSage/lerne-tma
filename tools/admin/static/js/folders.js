@@ -246,6 +246,11 @@ function renderFoldersList() {
                   class="px-3 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1 shadow-md shadow-indigo-500/20">
                   👥 Раздать
                 </button>
+                <button onclick="createFolderBackup(${f.id}, '${safeName}')" 
+                  class="px-3 py-2 text-xs font-bold rounded-xl bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/30 transition flex items-center gap-1"
+                  title="Создать точечный бэкап папки со всеми входящими колодами и карточками">
+                  <i data-lucide="save" class="w-3.5 h-3.5"></i> 💾 Бэкап
+                </button>
                 <button onclick="promoteToLibrary('folder', ${f.id}, '${safeName}')" 
                   class="px-3 py-2 text-xs font-bold rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 transition flex items-center gap-1"
                   title="Добавить папку со всеми колодами в Мастер-Библиотеку">
@@ -742,4 +747,38 @@ async function submitFolderRegen(action = 'start') {
     }
 
     let promptsData = [];
+
+
+/**
+ * Creates a standalone JSON backup of a folder with all its decks and cards.
+ */
+async function createFolderBackup(folderId, folderName) {
+  if (typeof showToast === 'function') {
+    showToast(`⏳ Создание бэкапа папки «${folderName}»...`);
+  }
+  try {
+    const res = await fetch('/api/admin/backups/create-folder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder_id: Number(folderId) })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const dlUrl = `/api/admin/backups/download/${encodeURIComponent(data.filename)}?folder=${encodeURIComponent(data.folder || '')}`;
+      if (typeof showToast === 'function') {
+        showToast(`✅ Бэкап папки «${folderName}» создан (${data.decks_count} колод, ${data.cards_count} карт.)! <a href="${dlUrl}" download class="underline font-bold text-white ml-1.5">📥 Скачать JSON</a>`, 'success');
+      } else {
+        alert(`Бэкап папки создан!\nФайл: ${data.filename}\nКолод: ${data.decks_count}, Карточек: ${data.cards_count}`);
+      }
+      if (typeof loadBackups === 'function') {
+        loadBackups();
+      }
+    } else {
+      alert(data.detail || 'Ошибка при создании бэкапа папки');
+    }
+  } catch (e) {
+    console.error('Failed to create folder backup', e);
+    alert('Ошибка сети при создании бэкапа папки');
+  }
+}
 

@@ -21,6 +21,7 @@ description: Build Lerne TMA React interfaces with Telegram viewport integration
 - Route new interface text through the existing translation mechanism, including toasts, errors, placeholders, and accessible labels. Preserve interpolation parameters.
 - Distinguish interface language, learning language, and user content. Do not translate user content as interface copy.
 - Give missing translations and failed requests deliberate fallback behavior. Hiding a crash with an error boundary does not fix its cause.
+- Maintain list scroll and item context across drill-down navigation (`CardList` $\leftrightarrow$ `StudyView`/`CardEditor`). Never reset scroll to top on back navigation. Always ensure paginated/virtualized lists render items up to the active card (`lastSelectedCardId`) before anchoring.
 
 ## Motion and verification
 

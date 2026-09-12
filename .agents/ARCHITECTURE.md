@@ -36,6 +36,7 @@
 2. **Слайсы Zustand (`useDeckStore.js`)**: Не раздувайте `useDeckStore.js` напрямую. Стейт разделен на срезы (`slices/createDeckSlice.js`, `createFolderSlice.js`, `createLibrarySlice.js`, `createShareSlice.js`, `createTrashSlice.js`).
 3. **Платформенные функции**: Действующие адаптеры Telegram/Capacitor находятся в `app/src/utils/platform.js`, CloudStorage — в `app/src/utils/auth.js`. Файла `services/telegram.js` сейчас нет. `initDataUnsafe` не является серверным доказательством личности.
 4. **Медиафайлы карточек**: Загрузка и отображение картинок обязательно изолируются через `StudyCardImage.jsx` с каскадным резолвингом `image_url` $\to$ `media_url` $\to$ `image_path` и автоматическим ретраем при сбоях сети.
+5. **Сохранение скролла и контекста навигации (`CardList`)**: При возврате из режима обучения, тренировки или редактора в список карточек пользователь **никогда** не должен сбрасываться в начало списка. Стейт `cardsScrollTop` и `lastSelectedCardId` свято сохраняются, `visibleCount` обязан охватывать целевую карточку (`idx + 30`), а слушатель скролла защищен флагом `isRestoringScrollRef` от преждевременной перезаписи позиции нулем.
 
 ### Серверный поток данных (Backend)
 1. **Тонкие роутеры (`api/routers/`)**: Роутеры только принимают HTTP-запрос, валидируют входные Pydantic-схемы, вызывают соответствующий метод из `api/services/` и возвращают результат.

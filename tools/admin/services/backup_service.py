@@ -1,8 +1,9 @@
-"""Backup configuration and file management for the Admin Panel."""
+import datetime
 import json
 import logging
 import os
-from typing import List
+import re
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ def load_admin_config() -> dict:
                 return json.load(f)
         except Exception:
             pass
-    return {"custom_backup_dir": ""}
+    return {"custom_backup_dir": "", "auto_backup_enabled": False}
 
 
 def save_admin_config(data: dict) -> None:
@@ -120,8 +121,18 @@ def inspect_backup(filename: str, folder: Optional[str] = None) -> dict:
 
     raw_users = data.get("users", [])
     raw_folders = data.get("folders", [])
+    if not raw_folders and isinstance(data.get("folder"), dict):
+        raw_folders = [data["folder"]]
     raw_decks = data.get("decks", [])
+    if not raw_decks and isinstance(data.get("deck"), dict):
+        raw_decks = [data["deck"]]
     raw_cards = data.get("cards", [])
+
+    if len(raw_decks) == 1:
+        single_deck_id = raw_decks[0].get("id")
+        for c in raw_cards:
+            if not c.get("deck") and not c.get("deck_id") and single_deck_id is not None:
+                c["deck_id"] = single_deck_id
 
     # Card counts and image counts per deck
     cards_per_deck = {}
@@ -246,7 +257,15 @@ def get_backup_deck_cards(filename: str, folder: Optional[str], deck_id: int) ->
     data = _load_backup_data(filepath)
 
     raw_decks = data.get("decks", [])
+    if not raw_decks and isinstance(data.get("deck"), dict):
+        raw_decks = [data["deck"]]
     raw_cards = data.get("cards", [])
+
+    if len(raw_decks) == 1:
+        single_deck_id = raw_decks[0].get("id")
+        for c in raw_cards:
+            if not c.get("deck") and not c.get("deck_id") and single_deck_id is not None:
+                c["deck_id"] = single_deck_id
 
     matched_deck = next((d for d in raw_decks if d.get("id") == deck_id), None)
     if not matched_deck:
@@ -295,14 +314,24 @@ def restore_deck_from_backup(
     filepath = resolve_backup_path(filename, folder)
     data = _load_backup_data(filepath)
 
-    matched_deck = next((d for d in data.get("decks", []) if d.get("id") == deck_id), None)
+    raw_decks = data.get("decks", [])
+    if not raw_decks and isinstance(data.get("deck"), dict):
+        raw_decks = [data["deck"]]
+
+    matched_deck = next((d for d in raw_decks if d.get("id") == deck_id), None)
+    if not matched_deck and len(raw_decks) == 1:
+        matched_deck = raw_decks[0]
     if not matched_deck:
         raise ValueError(f"Deck ID {deck_id} not found in backup")
 
     deck_name = matched_deck.get("name", "Восстановленная колода")
     deck_lang = matched_deck.get("target_language", "de")
     deck_level = matched_deck.get("level")
-    deck_cards = [c for c in data.get("cards", []) if (c.get("deck") or c.get("deck_id")) == deck_id]
+
+    raw_cards = data.get("cards", [])
+    deck_cards = [c for c in raw_cards if (c.get("deck") or c.get("deck_id")) == deck_id]
+    if not deck_cards and len(raw_decks) == 1:
+        deck_cards = raw_cards
 
     # Target users
     if apply_to_all_users:
@@ -393,13 +422,26 @@ def restore_folder_from_backup(
     filepath = resolve_backup_path(filename, folder)
     data = _load_backup_data(filepath)
 
-    matched_fld = next((f for f in data.get("folders", []) if f.get("id") == backup_folder_id), None)
+    raw_folders = data.get("folders", [])
+    if not raw_folders and isinstance(data.get("folder"), dict):
+        raw_folders = [data["folder"]]
+
+    matched_fld = next((f for f in raw_folders if f.get("id") == backup_folder_id), None)
+    if not matched_fld and len(raw_folders) == 1:
+        matched_fld = raw_folders[0]
     if not matched_fld:
         raise ValueError(f"Folder ID {backup_folder_id} not found in backup")
 
     fld_name = matched_fld.get("name", "Восстановленная папка")
     fld_color = matched_fld.get("color", "#4f46e5")
-    fld_decks = [d for d in data.get("decks", []) if (d.get("folder") or d.get("folder_id")) == backup_folder_id]
+
+    raw_decks = data.get("decks", [])
+    if not raw_decks and isinstance(data.get("deck"), dict):
+        raw_decks = [data["deck"]]
+
+    fld_decks = [d for d in raw_decks if (d.get("folder") or d.get("folder_id")) == backup_folder_id]
+    if not fld_decks and len(raw_folders) == 1:
+        fld_decks = raw_decks
 
     if apply_to_all_users:
         target_users = list(models.TMAUser.select(models.TMAUser.user_id))
@@ -497,5 +539,140 @@ def restore_folder_from_backup(
         "users_count": len(target_users),
         "decks_count": total_restored_decks,
         "cards_count": total_restored_cards
+    }
+
+
+def create_deck_backup(deck_id_val: str) -> dict:
+    """Creates a standalone JSON snapshot of a single deck and its cards."""
+    from tools.admin.services.deck_helpers import get_deck_and_cards
+
+    deck, cards, is_lib = get_deck_and_cards(deck_id_val)
+    if not deck:
+        raise ValueError(f"Deck not found: {deck_id_val}")
+
+    deck_data = deck.__data__.copy()
+    for k in ("created_at", "updated_at"):
+        if isinstance(deck_data.get(k), datetime.datetime):
+            deck_data[k] = str(deck_data[k])
+
+    deck_id = deck.id
+    deck_name = deck.name or "Deck"
+    slug = re.sub(r'[^a-zA-Z0-9а-яА-ЯёЁ_-]', '_', deck_name).strip('_')[:30]
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    fname = f"deck_{deck_id}_{slug}_{timestamp}.json" if slug else f"deck_{deck_id}_{timestamp}.json"
+    target_dir = get_effective_backup_dir()
+    fpath = os.path.join(target_dir, fname)
+
+    cards_data = []
+    for c in cards:
+        cd = c.__data__.copy()
+        for k in ("created_at", "updated_at"):
+            if isinstance(cd.get(k), datetime.datetime):
+                cd[k] = str(cd[k])
+        cd.pop("image_data", None)
+        cd["deck_id"] = deck_id
+        cards_data.append(cd)
+
+    dump_data = {
+        "backup_type": "deck",
+        "timestamp": timestamp,
+        "is_library": is_lib,
+        "decks_count": 1,
+        "cards_count": len(cards_data),
+        "decks": [deck_data],
+        "cards": cards_data
+    }
+
+    with open(fpath, "w", encoding="utf-8") as f:
+        json.dump(dump_data, f, ensure_ascii=False, indent=2)
+
+    return {
+        "status": "ok",
+        "filename": fname,
+        "filepath": fpath,
+        "folder": target_dir,
+        "deck_id": deck_id,
+        "deck_name": deck_name,
+        "cards_count": len(cards_data)
+    }
+
+
+def create_folder_backup(folder_id: int) -> dict:
+    """Creates a standalone JSON snapshot of a folder with all its decks and cards."""
+    from api import models
+
+    folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == folder_id)
+    is_lib = False
+    if not folder:
+        folder = models.Folder.get_or_none(models.Folder.id == folder_id)
+        is_lib = True
+
+    if not folder:
+        raise ValueError(f"Folder not found: {folder_id}")
+
+    folder_data = folder.__data__.copy()
+    for k in ("created_at", "updated_at"):
+        if isinstance(folder_data.get(k), datetime.datetime):
+            folder_data[k] = str(folder_data[k])
+
+    folder_name = folder.name or "Folder"
+    slug = re.sub(r'[^a-zA-Z0-9а-яА-ЯёЁ_-]', '_', folder_name).strip('_')[:30]
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    fname = f"folder_{folder.id}_{slug}_{timestamp}.json" if slug else f"folder_{folder.id}_{timestamp}.json"
+    target_dir = get_effective_backup_dir()
+    fpath = os.path.join(target_dir, fname)
+
+    if is_lib:
+        decks = list(models.Deck.select().where((models.Deck.folder == folder) & (models.Deck.is_deleted == False)))
+        cards_model = models.Card
+    else:
+        decks = list(models.TMA_Deck.select().where((models.TMA_Deck.folder == folder) & (models.TMA_Deck.is_deleted == False)))
+        cards_model = models.TMA_Card
+
+    decks_data = []
+    cards_data = []
+
+    for d in decks:
+        dd = d.__data__.copy()
+        for k in ("created_at", "updated_at"):
+            if isinstance(dd.get(k), datetime.datetime):
+                dd[k] = str(dd[k])
+        dd["folder_id"] = folder.id
+        decks_data.append(dd)
+
+        cards = list(cards_model.select().where((cards_model.deck_id == d.id) & (cards_model.is_deleted == False)))
+        for c in cards:
+            cd = c.__data__.copy()
+            for k in ("created_at", "updated_at"):
+                if isinstance(cd.get(k), datetime.datetime):
+                    cd[k] = str(cd[k])
+            cd.pop("image_data", None)
+            cd["deck_id"] = d.id
+            cards_data.append(cd)
+
+    dump_data = {
+        "backup_type": "folder",
+        "timestamp": timestamp,
+        "is_library": is_lib,
+        "folders_count": 1,
+        "decks_count": len(decks_data),
+        "cards_count": len(cards_data),
+        "folders": [folder_data],
+        "decks": decks_data,
+        "cards": cards_data
+    }
+
+    with open(fpath, "w", encoding="utf-8") as f:
+        json.dump(dump_data, f, ensure_ascii=False, indent=2)
+
+    return {
+        "status": "ok",
+        "filename": fname,
+        "filepath": fpath,
+        "folder": target_dir,
+        "folder_id": folder.id,
+        "folder_name": folder_name,
+        "decks_count": len(decks_data),
+        "cards_count": len(cards_data)
     }
 

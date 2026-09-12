@@ -102,19 +102,32 @@ function renderMediaStats(stats) {
   if (activeCountEl) activeCountEl.innerText = stats.active_count.toLocaleString();
   if (activeSizeEl) activeSizeEl.innerText = formatBytes(stats.active_size_bytes);
 
+  const nonWebpCountEl = document.getElementById('media-stat-non-webp-count');
+  const nonWebpSizeEl = document.getElementById('media-stat-non-webp-size');
+  if (nonWebpCountEl) nonWebpCountEl.innerText = (stats.non_webp_count || 0).toLocaleString();
+  if (nonWebpSizeEl) nonWebpSizeEl.innerText = formatBytes(stats.non_webp_size_bytes || 0);
+
   // Update filter button badge counts
   const badgeAll = document.getElementById('media-badge-all');
   const badgeOrphaned = document.getElementById('media-badge-orphaned');
   const badgeActive = document.getElementById('media-badge-active');
+  const badgeNonWebp = document.getElementById('media-badge-non_webp');
 
   if (badgeAll) badgeAll.innerText = stats.total_images;
   if (badgeOrphaned) badgeOrphaned.innerText = stats.orphaned_count;
   if (badgeActive) badgeActive.innerText = stats.active_count;
+  if (badgeNonWebp) badgeNonWebp.innerText = stats.non_webp_count || 0;
 
   // Header quick backup text
   const quickZipBtnText = document.getElementById('media-quick-zip-text');
   if (quickZipBtnText) {
-    quickZipBtnText.innerText = `📥 Скачать все осиротевшие (${stats.orphaned_count} шт • ${formatBytes(stats.orphaned_size_bytes)})`;
+    quickZipBtnText.innerText = `📥 Скачать осиротевшие (${stats.orphaned_count} шт)`;
+  }
+
+  // Header quick convert webp button text
+  const convertBtnText = document.getElementById('media-convert-webp-text');
+  if (convertBtnText) {
+    convertBtnText.innerText = `⚡ Сжать в WebP (${stats.non_webp_count || 0} шт)`;
   }
 }
 
@@ -122,7 +135,7 @@ function setMediaFilter(filterType) {
   mediaCurrentFilter = filterType;
   mediaCurrentPage = 1;
 
-  ['all', 'orphaned', 'active'].forEach(f => {
+  ['non_webp', 'all', 'orphaned', 'active'].forEach(f => {
     const btn = document.getElementById(`media-filter-${f}`);
     if (btn) {
       if (f === filterType) {
@@ -158,6 +171,10 @@ function renderMediaGrid(items) {
       ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300">Осиротела</span>`
       : `<button onclick="openMediaUsageModal('${encodeURIComponent(item.filename)}', '${item.url}', false, ${item.size_bytes})" class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 transition">В карточке ℹ️</button>`;
 
+    const formatBadge = !item.is_webp
+      ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">${item.format || 'JPG'}</span>`
+      : '';
+
     html += `
       <div class="glass rounded-xl border border-slate-800 overflow-hidden flex flex-col group hover:border-indigo-500/50 transition shadow-sm hover:shadow-lg relative ${isChecked ? 'ring-2 ring-indigo-500' : ''}">
         <!-- Image Thumbnail -->
@@ -172,8 +189,9 @@ function renderMediaGrid(items) {
               onchange="toggleMediaSelect('${item.filename}', this.checked)">
           </div>
 
-          <!-- Top Right Badge -->
-          <div class="absolute top-2 right-2 z-10" onclick="event.stopPropagation()">
+          <!-- Top Right Badges -->
+          <div class="absolute top-2 right-2 z-10 flex items-center gap-1" onclick="event.stopPropagation()">
+            ${formatBadge}
             ${badgeHtml}
           </div>
         </div>
@@ -511,3 +529,55 @@ async function openMediaUsageModal(encodedFilename, url, isOrphaned, sizeBytes) 
 
   if (window.lucide) window.lucide.createIcons();
 }
+
+// ── WebP Batch Optimization ──────────────────────────────────────────────────
+
+async function convertAllNonWebpImages() {
+  const btn = document.getElementById('btn-media-convert-webp');
+  const countEl = document.getElementById('media-stat-non-webp-count');
+  const sizeEl = document.getElementById('media-stat-non-webp-size');
+  const count = countEl ? countEl.innerText : '0';
+  const size = sizeEl ? sizeEl.innerText : '0 B';
+
+  if (count === '0') {
+    alert('Все картинки в базе уже находятся в оптимизированном формате WebP!');
+    return;
+  }
+
+  const confirmMsg = `⚡ ОПТИМИЗАЦИЯ В WEBP\n\nБудет выполнена оптимизация всех картинок других форматов (${count} шт • ${size}) в современный формат WebP.\n\nСсылки во всех карточках колод и библиотеке будут автоматически обновлены без потери данных.\n\nЗапустить сжатие и конвертацию?`;
+  if (!confirm(confirmMsg)) return;
+
+  const origHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> <span>Сжатие...</span>`;
+  }
+
+  try {
+    const res = await fetch('/api/admin/media/convert-to-webp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Ошибка конвертации' }));
+      throw new Error(err.detail || 'Не удалось выполнить конвертацию');
+    }
+
+    const data = await res.json();
+    alert(`✅ Оптимизация завершена!\n\nСжато картинок: ${data.converted_count}\nИсходный размер: ${formatBytes(data.original_bytes)}\nНовый размер WebP: ${formatBytes(data.new_bytes)}\nСэкономлено памяти: ${formatBytes(data.saved_bytes)}!`);
+
+    clearMediaSelection();
+    loadMediaCatalog(1, true);
+  } catch (e) {
+    alert('Ошибка при конвертации в WebP: ' + e.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+}
+

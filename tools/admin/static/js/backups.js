@@ -12,6 +12,11 @@ async function loadBackups() {
           document.getElementById('backup-custom-dir-input').value = data.custom_dir;
         }
 
+        if (data.auto_backup_enabled !== undefined) {
+          window.adminAutoBackupEnabled = !!data.auto_backup_enabled;
+          updateAutoBackupUI(window.adminAutoBackupEnabled);
+        }
+
         const tbody = document.getElementById('backups-table-body');
         tbody.innerHTML = '';
 
@@ -223,6 +228,92 @@ async function triggerCreateFullBackup() {
         alert("Ошибка при создании бэкапа!");
       }
     }
+
+function updateAutoBackupUI(isEnabled) {
+  const statusEl = document.getElementById('backup-autobackup-status');
+  const btnEl = document.getElementById('backup-autobackup-toggle-btn');
+  const btnText = document.getElementById('backup-autobackup-btn-text');
+
+  if (statusEl) {
+    if (isEnabled) {
+      statusEl.className = 'text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1.5';
+      statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Включён';
+    } else {
+      statusEl.className = 'text-sm font-bold text-slate-400 mt-1 flex items-center gap-1.5';
+      statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500"></span> Отключён';
+    }
+  }
+
+  if (btnEl && btnText) {
+    if (isEnabled) {
+      btnEl.className = 'px-3.5 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-xs font-semibold text-rose-300 flex items-center gap-1.5 transition cursor-pointer';
+      btnText.innerText = 'Выключить';
+    } else {
+      btnEl.className = 'px-3.5 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-semibold text-emerald-300 flex items-center gap-1.5 transition cursor-pointer';
+      btnText.innerText = 'Включить';
+    }
+  }
+}
+
+async function toggleAutoBackup() {
+  const nextState = !window.adminAutoBackupEnabled;
+  try {
+    const res = await fetch('/api/admin/backups/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auto_backup_enabled: nextState })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      window.adminAutoBackupEnabled = !!data.auto_backup_enabled;
+      updateAutoBackupUI(window.adminAutoBackupEnabled);
+      if (typeof showToast === 'function') {
+        showToast(`Автобэкап БД ${window.adminAutoBackupEnabled ? 'включён' : 'отключён'}`);
+      } else {
+        alert(`Автобэкап БД ${window.adminAutoBackupEnabled ? 'включён' : 'отключён'}`);
+      }
+    } else {
+      alert(data.detail || 'Ошибка сохранения настройки автобэкапа');
+    }
+  } catch (e) {
+    console.error('Failed to toggle auto backup', e);
+    alert('Ошибка сети при переключении автобэкапа');
+  }
+}
+
+async function uploadBackupFile(fileInput) {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  if (typeof showToast === 'function') {
+    showToast('⏳ Загрузка файла бэкапа...');
+  }
+
+  try {
+    const res = await fetch('/api/admin/backups/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok) {
+      if (typeof showToast === 'function') {
+        showToast(`✅ Бэкап ${data.filename} успешно загружен!`);
+      } else {
+        alert(`Бэкап ${data.filename} успешно загружен!`);
+      }
+      fileInput.value = '';
+      await loadBackups();
+    } else {
+      alert(data.detail || 'Ошибка загрузки файла бэкапа');
+    }
+  } catch (e) {
+    console.error('Failed to upload backup', e);
+    alert('Ошибка сети при загрузке бэкапа');
+  }
+}
 
     // ==========================================
     // DECK PREVIEW & INTERACTIVE CARDS MANAGER

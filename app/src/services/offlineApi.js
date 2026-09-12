@@ -17,6 +17,11 @@ const result = (data = {}) => ({ data });
 const success = (data = {}) => result({ status: 'success', ...data });
 const notFound = () => { throw new Error(tr("Запись не найдена на устройстве. Сначала выполните синхронизацию.")); };
 
+export const normalizeCardKey = (text) => {
+  if (!text) return '';
+  return String(text).normalize('NFKC').replace(/[\W_]+/g, '').toLowerCase();
+};
+
 async function cardView(db, card, userId) {
   const progress = await db.progress.get([card.id, userId]);
   const metadata = jsonObject(card.metadata);
@@ -201,48 +206,151 @@ export const offlineApi = {
     if (m === 'post' && url === '/cards/batch-move') {
       const targetDeckId = Number(body.target_deck_id);
       const cardIds = (body.card_ids || []).map(Number);
+      const onDuplicate = body.on_duplicate || 'skip';
       return db.transaction('rw', db.cards, db.decks, async () => {
         const targetDeck = await db.decks.get(targetDeckId);
         if (!targetDeck || targetDeck.is_deleted) notFound();
         if (targetDeck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
         const siblings = await db.cards.where('deck_id').equals(targetDeckId).filter(c => !c.is_deleted).toArray();
-        let currentPos = Math.max(-1, ...siblings.map(c => c.position || 0));
-        for (const cid of cardIds) {
+        const existingByFront = new Map();
+        for (const c of siblings) {
+          const key = normalizeCardKey(c.front_text || c.front);
+          if (key) existingByFront.set(key, c);
+        }
+        let maxPos = siblings.reduce((max, c) => Math.max(max, c.position || 0), 0);
+        let movedCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+
+        for (let idx = 0; idx < cardIds.length; idx++) {
+          const cid = cardIds[idx];
           const card = await db.cards.get(cid);
-          if (card && !card.is_deleted) {
-            currentPos += 1;
-            await db.cards.put({ ...card, deck_id: targetDeckId, position: currentPos, ...dirtyFields() });
+          if (card && !card.is_deleted && card.deck_id !== targetDeckId) {
+            const frontKey = normalizeCardKey(card.front_text || card.front);
+            const existingMatch = frontKey ? existingByFront.get(frontKey) : null;
+            if (existingMatch && onDuplicate === 'skip') {
+              skippedCount += 1;
+              continue;
+            }
+            if (existingMatch && onDuplicate === 'overwrite') {
+              const updatedPos = idx + 1;
+              await db.cards.put({
+                ...existingMatch,
+                front_text: card.front_text || card.front || '',
+                front: card.front_text || card.front || '',
+                back_text: card.back_text || card.back || '',
+                back: card.back_text || card.back || '',
+                card_type: card.card_type || existingMatch.card_type || 'standard',
+                context: card.context || '',
+                image_path: card.image_path || existingMatch.image_path,
+                audio_path: card.audio_path || existingMatch.audio_path,
+                audio_back_path: card.audio_back_path || existingMatch.audio_back_path,
+                video_front_path: card.video_front_path || existingMatch.video_front_path,
+                video_back_path: card.video_back_path || existingMatch.video_back_path,
+                tags: card.tags || existingMatch.tags,
+                flag: card.flag !== undefined ? card.flag : existingMatch.flag,
+                metadata: card.metadata || existingMatch.metadata,
+                position: updatedPos,
+                ...dirtyFields()
+              });
+              await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields() });
+              updatedCount += 1;
+              continue;
+            }
+
+            let cardPos;
+            if (maxPos === 0 && siblings.length === 0) {
+              cardPos = (card.position !== undefined && card.position > 0) ? card.position : (idx + 1);
+            } else {
+              maxPos += 1;
+              cardPos = maxPos;
+            }
+
+            await db.cards.put({ ...card, deck_id: targetDeckId, position: cardPos, ...dirtyFields() });
+            movedCount += 1;
+            if (frontKey) existingByFront.set(frontKey, card);
           }
         }
-        return success({ count: cardIds.length });
+        return success({ count: movedCount + updatedCount, moved: movedCount, updated: updatedCount, skipped: skippedCount });
       });
     }
     if (m === 'post' && url === '/cards/batch-copy') {
       const targetDeckId = Number(body.target_deck_id);
       const cardIds = (body.card_ids || []).map(Number);
+      const onDuplicate = body.on_duplicate || 'skip';
       return db.transaction('rw', db.cards, db.decks, async () => {
         const targetDeck = await db.decks.get(targetDeckId);
         if (!targetDeck || targetDeck.is_deleted) notFound();
         if (targetDeck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
         const siblings = await db.cards.where('deck_id').equals(targetDeckId).filter(c => !c.is_deleted).toArray();
-        let currentPos = Math.max(-1, ...siblings.map(c => c.position || 0));
-        for (const cid of cardIds) {
+        const existingByFront = new Map();
+        for (const c of siblings) {
+          const key = normalizeCardKey(c.front_text || c.front);
+          if (key) existingByFront.set(key, c);
+        }
+        let maxPos = siblings.reduce((max, c) => Math.max(max, c.position || 0), 0);
+        let createdCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+
+        for (let idx = 0; idx < cardIds.length; idx++) {
+          const cid = cardIds[idx];
           const card = await db.cards.get(cid);
           if (card && !card.is_deleted) {
-            currentPos += 1;
+            const frontKey = normalizeCardKey(card.front_text || card.front);
+            const existingMatch = frontKey ? existingByFront.get(frontKey) : null;
+            if (existingMatch && onDuplicate === 'skip') {
+              skippedCount += 1;
+              continue;
+            }
+            if (existingMatch && onDuplicate === 'overwrite') {
+              const updatedPos = idx + 1;
+              await db.cards.put({
+                ...existingMatch,
+                front_text: card.front_text || card.front || '',
+                front: card.front_text || card.front || '',
+                back_text: card.back_text || card.back || '',
+                back: card.back_text || card.back || '',
+                card_type: card.card_type || existingMatch.card_type || 'standard',
+                context: card.context || '',
+                image_path: card.image_path || existingMatch.image_path,
+                audio_path: card.audio_path || existingMatch.audio_path,
+                audio_back_path: card.audio_back_path || existingMatch.audio_back_path,
+                video_front_path: card.video_front_path || existingMatch.video_front_path,
+                video_back_path: card.video_back_path || existingMatch.video_back_path,
+                tags: card.tags || existingMatch.tags,
+                flag: card.flag !== undefined ? card.flag : existingMatch.flag,
+                metadata: card.metadata || existingMatch.metadata,
+                position: updatedPos,
+                ...dirtyFields()
+              });
+              updatedCount += 1;
+              continue;
+            }
+
+            let cardPos;
+            if (maxPos === 0 && siblings.length === 0) {
+              cardPos = (card.position !== undefined && card.position > 0) ? card.position : (idx + 1);
+            } else {
+              maxPos += 1;
+              cardPos = maxPos;
+            }
+
             const newId = getNextTempId();
             const newCard = {
               ...card,
               id: newId,
               deck_id: targetDeckId,
-              position: currentPos,
+              position: cardPos,
               created_at: new Date().toISOString(),
               ...dirtyFields()
             };
             await db.cards.put(newCard);
+            createdCount += 1;
+            if (frontKey) existingByFront.set(frontKey, newCard);
           }
         }
-        return success({ count: cardIds.length });
+        return success({ count: createdCount + updatedCount, created: createdCount, updated: updatedCount, skipped: skippedCount });
       });
     }
     if (m === 'post' && url === '/cards/batch-delete') {

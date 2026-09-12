@@ -240,7 +240,7 @@ const DraggableCardItem = React.memo(({
 export const CardList = ({ startStudy, startStudyCard }) => {
   useInterfaceLocale();
   const { t } = useTranslation();
-  const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen, showToast } = useUiStore();
+  const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, setCardsScrollTop, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck, deckCards, cardsLoading, folders, decks, handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
   const { handleBatchMoveCards, handleBatchCopyCards, handleBatchDeleteCards } = useCardActions();
 
@@ -467,11 +467,60 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     showToast(tr("Выбрано карточек: {{p0}}", { p0: targetIds.length }), "info");
   }, [rangeInput, filteredCards, showToast]);
 
-  const [visibleCount, setVisibleCount] = React.useState(40);
+  // =========================================================================
+  // CRITICAL INVARIANT: DO NOT SIMPLIFY OR REMOVE THIS LOGIC!
+  // When returning from StudyView/CardEditor to CardList, visibleCount MUST
+  // include the previously selected card (lastSelectedCardId) and cardsScrollTop.
+  // If visibleCount resets to 40 blindly, deep cards (e.g. card #120) won't exist
+  // in the DOM, scrollHeight will be too short, and the browser will clamp scroll
+  // to top, destroying user position.
+  // =========================================================================
+  const calculateRequiredVisibleCount = React.useCallback((cards) => {
+    let count = 40;
+    if (!cards || !cards.length) return count;
+    const lastId = useUiStore.getState().lastSelectedCardId;
+    if (lastId) {
+      const idx = cards.findIndex(c => String(c.id) === String(lastId));
+      if (idx !== -1) {
+        count = Math.max(count, idx + 30);
+      }
+    }
+    const savedTop = useUiStore.getState().cardsScrollTop;
+    if (savedTop > 0) {
+      count = Math.max(count, Math.ceil(savedTop / 50) + 20);
+    }
+    return Math.min(cards.length, count);
+  }, []);
+
+  const [visibleCount, setVisibleCount] = React.useState(() => {
+    const deck = useDeckStore.getState().currentDeck;
+    const cards = (deck && (useDeckStore.getState().deckCards || useDeckStore.getState().cardsByDeck[deck.id])) || [];
+    let initial = 40;
+    const lastId = useUiStore.getState().lastSelectedCardId;
+    if (lastId && cards.length) {
+      const idx = cards.findIndex(c => String(c.id) === String(lastId));
+      if (idx !== -1) initial = Math.max(initial, idx + 30);
+    }
+    const savedTop = useUiStore.getState().cardsScrollTop;
+    if (savedTop > 0 && cards.length) {
+      initial = Math.max(initial, Math.ceil(savedTop / 50) + 20);
+    }
+    return Math.min(cards.length || 40, initial);
+  });
 
   React.useEffect(() => {
-    setVisibleCount(40);
-  }, [currentDeck?.id, searchQuery]);
+    if (searchQuery.trim()) return;
+    if (!filteredCards || !filteredCards.length) return;
+    const required = calculateRequiredVisibleCount(filteredCards);
+    setVisibleCount(prev => Math.max(prev, required));
+  }, [filteredCards, searchQuery, calculateRequiredVisibleCount]);
+
+  React.useEffect(() => {
+    if (!searchQuery.trim()) {
+      const required = calculateRequiredVisibleCount(filteredCards);
+      setVisibleCount(required);
+    }
+  }, [currentDeck?.id, calculateRequiredVisibleCount, filteredCards, searchQuery]);
 
   const renderedCards = React.useMemo(() => {
     if (searchQuery.trim()) return filteredCards;
@@ -617,16 +666,33 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     }
   }, [view, currentDeck?.id]);
 
+  // =========================================================================
+  // CRITICAL INVARIANT: DO NOT REMOVE isRestoringScrollRef OR THE RESTORATION EFFECT!
+  // During remount & DOM layout calculation, container.scrollTop temporarily reports 0
+  // or clamped values. isRestoringScrollRef prevents handleScroll from overwriting
+  // saved cardsScrollTop with 0 before double-rAF restore finishes.
+  // =========================================================================
+  const isRestoringScrollRef = React.useRef(false);
+  const hasRestoredForDeckRef = React.useRef(null);
+
+  // Preserve scroll position on unmount so returning to CardList always has the latest scrollTop
+  React.useEffect(() => {
+    return () => {
+      const container = document.getElementById('app-container');
+      if (container && container.scrollTop > 0) {
+        useUiStore.getState().setCardsScrollTop(container.scrollTop);
+      }
+    };
+  }, []);
+
+  // Safe scroll listener that does NOT fire or overwrite state while restoring scroll
   React.useEffect(() => {
     if (view !== 'cards') return;
     const container = document.getElementById('app-container');
     if (!container) return;
 
-    if (cardsScrollTop > 0) {
-      container.scrollTop = cardsScrollTop;
-    }
-
     const handleScroll = () => {
+      if (isRestoringScrollRef.current) return;
       setCardsScrollTop(container.scrollTop);
       if (container.scrollTop + container.clientHeight >= container.scrollHeight - 350) {
         setVisibleCount(prev => (prev < filteredCards.length ? prev + 30 : prev));
@@ -637,23 +703,65 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     return () => {
       container.removeEventListener('scroll', handleScroll);
     };
-  }, [view, cardsScrollTop, setCardsScrollTop, filteredCards.length]);
+  }, [view, setCardsScrollTop, filteredCards.length]);
 
+  // Robust scroll & anchor restoration with layout-wait (double rAF)
   React.useEffect(() => {
-    if (lastSelectedCardId && view === 'cards') {
-      const timer = setTimeout(() => {
-        const el = document.getElementById(`card-item-${lastSelectedCardId}`);
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
-          if (!inView) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (view !== 'cards' || !currentDeck?.id) return;
+    if (!renderedCards || renderedCards.length === 0) return;
+
+    // Run restoration only once per mount/deck view session
+    if (hasRestoredForDeckRef.current === currentDeck.id) return;
+
+    const savedTop = useUiStore.getState().cardsScrollTop;
+    const lastId = useUiStore.getState().lastSelectedCardId;
+
+    if (savedTop > 0 || lastId) {
+      isRestoringScrollRef.current = true;
+      hasRestoredForDeckRef.current = currentDeck.id;
+
+      const container = document.getElementById('app-container');
+
+      const performRestore = () => {
+        if (!container) {
+          isRestoringScrollRef.current = false;
+          return;
+        }
+
+        // 1. Restore pixel position first if valid
+        if (savedTop > 0) {
+          container.scrollTop = savedTop;
+        }
+
+        // 2. Anchor to specific card element if lastSelectedCardId is known
+        if (lastId) {
+          const el = document.getElementById(`card-item-${lastId}`);
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const inView = rect.top >= 60 && rect.bottom <= (window.innerHeight - 60);
+            if (!inView) {
+              el.scrollIntoView({ behavior: 'instant', block: 'center' });
+            }
           }
         }
-      }, 100);
-      return () => clearTimeout(timer);
+
+        // Cooldown period to ignore any layout-induced scroll events
+        setTimeout(() => {
+          isRestoringScrollRef.current = false;
+          if (container && container.scrollTop > 0) {
+            useUiStore.getState().setCardsScrollTop(container.scrollTop);
+          }
+        }, 150);
+      };
+
+      // Double rAF guarantees DOM nodes have been laid out with correct heights
+      requestAnimationFrame(() => {
+        requestAnimationFrame(performRestore);
+      });
+    } else {
+      hasRestoredForDeckRef.current = currentDeck.id;
     }
-  }, [lastSelectedCardId, view]);
+  }, [view, currentDeck?.id, renderedCards]);
 
   if (view !== 'cards') return null;
   if (!currentDeck) {
@@ -1358,6 +1466,14 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                 >
                   {tr("Выбрать")}
                 </button>
+                <button
+                  type="button"
+                  className="batch-range-all-btn"
+                  onClick={handleSelectAll}
+                  title={selectedCardIds.size === filteredCards.length && filteredCards.length > 0 ? tr("Снять выбор со всех") : tr("Выбрать все карточки")}
+                >
+                  {selectedCardIds.size === filteredCards.length && filteredCards.length > 0 ? tr("Снять все") : tr("Все ({{p0}})", { p0: filteredCards.length })}
+                </button>
               </form>
 
               {/* Row 2: Action buttons */}
@@ -1426,11 +1542,15 @@ export const CardList = ({ startStudy, startStudyCard }) => {
           currentDeckId={currentDeck?.id}
           decks={decks || []}
           folders={folders || []}
-          onConfirm={async (targetDeckId) => {
-            const ids = Array.from(selectedCardIds);
+          onConfirm={async (targetDeckId, duplicateAction) => {
+            const orderedIds = (filteredCards || [])
+              .filter(c => selectedCardIds.has(c.id))
+              .map(c => c.id);
+            const fallbackIds = Array.from(selectedCardIds);
+            const ids = orderedIds.length > 0 ? orderedIds : fallbackIds;
             const ok = batchModalMode === 'copy'
-              ? await handleBatchCopyCards(ids, targetDeckId)
-              : await handleBatchMoveCards(ids, targetDeckId);
+              ? await handleBatchCopyCards(ids, targetDeckId, duplicateAction)
+              : await handleBatchMoveCards(ids, targetDeckId, duplicateAction);
             if (ok) {
               setSelectedCardIds(new Set());
               setIsSelectMode(false);

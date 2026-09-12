@@ -458,11 +458,16 @@ async def run_batch_ai_regeneration(task_id: str, options: BatchRegenerateDeckRe
     task_info["logs"].append(f"Запуск: {mode_str} (Голос: {options.voice or 'Default'})...")
 
     if not options.dry_run:
-        try:
-            _create_full_db_backup()
-            task_info["logs"].append("🛡️ Автобэкап базы данных успешно создан перед стартом пакета.")
-        except Exception as e:
-            task_info["logs"].append(f"⚠️ Не удалось создать автобэкап: {e}")
+        from tools.admin.services.backup_service import load_admin_config
+        cfg = load_admin_config()
+        if cfg.get("auto_backup_enabled", False):
+            try:
+                _create_full_db_backup()
+                task_info["logs"].append("🛡️ Автобэкап базы данных успешно создан перед стартом пакета.")
+            except Exception as e:
+                task_info["logs"].append(f"⚠️ Не удалось создать автобэкап: {e}")
+        else:
+            task_info["logs"].append("ℹ️ Автобэкап базы данных отключен в настройках (пропуск).")
 
     task_manager.update_task_progress(task_id, status="running", log_msg="🚀 Запуск пакета")
     global_card_idx = 0

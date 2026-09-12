@@ -1179,6 +1179,10 @@
             </button>
           </div>
 
+          <input type="file" id="backup-file-upload-input" accept=".json,.db,.sql" onchange="uploadBackupFile(this)" class="hidden">
+          <button onclick="document.getElementById('backup-file-upload-input').click()" class="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-sm font-semibold rounded-xl border border-indigo-500/30 flex items-center gap-2 transition" title="Загрузить файл бэкапа (.json) с компьютера в систему">
+            <i data-lucide="upload" class="w-4 h-4"></i> Загрузить бэкап из файла
+          </button>
           <button onclick="triggerCreateFullBackup()" class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/10 flex items-center gap-2 transition">
             <i data-lucide="plus-circle" class="w-4 h-4"></i> Создать полный бэкап БД
           </button>
@@ -1213,13 +1217,13 @@
         <div class="glass p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
           <div>
             <p class="text-xs text-slate-400 font-semibold uppercase">Автобэкап при ИИ</p>
-            <h3 class="text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Включён всегда
-            </h3>
+            <div id="backup-autobackup-status" class="text-sm font-bold text-slate-400 mt-1 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span> Отключён
+            </div>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-            <i data-lucide="shield-check" class="w-6 h-6"></i>
-          </div>
+          <button type="button" id="backup-autobackup-toggle-btn" onclick="toggleAutoBackup()" class="px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 flex items-center gap-1.5 transition cursor-pointer" title="Включить / отключить автоматическое создание бэкапа перед запуском пакетов ИИ и классификации">
+            <i data-lucide="power" class="w-3.5 h-3.5"></i> <span id="backup-autobackup-btn-text">Включить</span>
+          </button>
         </div>
       </div>
 
@@ -1401,9 +1405,13 @@
 
           <!-- Top Action Buttons -->
           <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-            <button onclick="downloadAllOrphanedZip()" id="btn-media-download-all-orphaned" class="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition" title="Скачать все неиспользуемые картинки в ZIP-архив">
+            <button onclick="convertAllNonWebpImages()" id="btn-media-convert-webp" class="px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition" title="Сжать все JPG/PNG в WebP и обновить ссылки в карточках">
+              <i data-lucide="zap" class="w-4 h-4 text-cyan-200"></i>
+              <span id="media-convert-webp-text">⚡ Сжать в WebP</span>
+            </button>
+            <button onclick="downloadAllOrphanedZip()" id="btn-media-download-all-orphaned" class="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-2 transition" title="Скачать все неиспользуемые картинки в ZIP-архив">
               <i data-lucide="archive" class="w-4 h-4"></i>
-              <span id="media-quick-zip-text">📥 Скачать все осиротевшие (ZIP)</span>
+              <span id="media-quick-zip-text">📥 Скачать осиротевшие (ZIP)</span>
             </button>
             <button onclick="loadMediaCatalog(mediaCurrentPage, true)" id="btn-media-refresh" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white rounded-xl border border-slate-700 flex items-center gap-1.5 transition" title="Пересчитать статус файлов">
               <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
@@ -1412,13 +1420,21 @@
         </div>
 
         <!-- Metric Cards -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-800/80 text-xs">
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 border-t border-slate-800/80 text-xs">
           <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between">
             <div>
               <span class="text-slate-400 block text-[11px]">Всего картинок:</span>
               <b id="media-stat-total-count" class="text-white font-mono text-sm">0</b>
             </div>
             <span id="media-stat-total-size" class="text-slate-400 font-mono text-xs">0 B</span>
+          </div>
+
+          <div class="p-3 bg-cyan-950/40 rounded-xl border border-cyan-500/30 flex items-center justify-between">
+            <div>
+              <span class="text-cyan-300 block text-[11px] font-semibold">⚡ Не в WebP:</span>
+              <b id="media-stat-non-webp-count" class="text-cyan-200 font-mono text-sm">0</b>
+            </div>
+            <span id="media-stat-non-webp-size" class="text-cyan-300/80 font-mono text-xs">0 B</span>
           </div>
 
           <div class="p-3 bg-amber-950/40 rounded-xl border border-amber-500/30 flex items-center justify-between">
@@ -1431,7 +1447,7 @@
 
           <div class="p-3 bg-emerald-950/40 rounded-xl border border-emerald-500/30 flex items-center justify-between">
             <div>
-              <span class="text-emerald-300 block text-[11px] font-semibold">✅ Используются:</span>
+              <span class="text-emerald-300 block text-[11px] font-semibold">✅ В карточках:</span>
               <b id="media-stat-active-count" class="text-emerald-200 font-mono text-sm">0</b>
             </div>
             <span id="media-stat-active-size" class="text-emerald-300/80 font-mono text-xs">0 B</span>
@@ -1451,6 +1467,10 @@
       <div class="glass p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <!-- Filter Tabs -->
         <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="setMediaFilter('non_webp')" id="media-filter-non_webp" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center gap-1.5">
+            <span>⚡ Не в WebP</span>
+            <span id="media-badge-non_webp" class="px-1.5 py-0.5 rounded-full bg-cyan-500/30 text-cyan-200 text-[10px] font-mono">0</span>
+          </button>
           <button onclick="setMediaFilter('orphaned')" id="media-filter-orphaned" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm bg-indigo-600 text-white flex items-center gap-1.5">
             <span>⚠️ Осиротевшие</span>
             <span id="media-badge-orphaned" class="px-1.5 py-0.5 rounded-full bg-amber-500/30 text-amber-200 text-[10px] font-mono">0</span>

@@ -488,6 +488,15 @@ def get_image(filename: str, request: Request):
     
     content = bytes(media.content)
     
+    # Handle legacy/archived zstandard-compressed images
+    if content.startswith(b'\x28\xb5\x2f\xfd'):
+        try:
+            import zstandard as zstd
+            dctx = zstd.ZstdDecompressor()
+            content = dctx.decompress(content, max_output_size=25 * 1024 * 1024)
+        except Exception as ze:
+            logger.warning(f"Failed to decompress zstd image {clean_filename}: {ze}")
+
     # Detect exact magic bytes to guarantee valid browser rendering
     if content.startswith(b'\xff\xd8\xff'):
         media_type = "image/jpeg"

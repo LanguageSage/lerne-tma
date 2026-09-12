@@ -215,7 +215,16 @@ class ClassificationRequest(BaseModel):
 
 
 class BackupSettingsRequest(BaseModel):
-    custom_dir: str
+    custom_dir: Optional[str] = None
+    auto_backup_enabled: Optional[bool] = None
+
+
+class CreateDeckBackupRequest(BaseModel):
+    deck_id: str
+
+
+class CreateFolderBackupRequest(BaseModel):
+    folder_id: int
 
 
 class ControlRegenRequest(BaseModel):

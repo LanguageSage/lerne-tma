@@ -336,17 +336,22 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
             _save_classification_task(task_id, task_info)
             return
 
-        # Create backup before DB write
-        from tools.admin.services.regen_worker import _create_full_db_backup
-        try:
-            backup = _create_full_db_backup()
-            task_info["backup_filename"] = backup.get("filename")
-            _append_classification_log(task_info, f"Backup created before DB update: {backup.get('filename')}.")
-        except Exception as backup_err:
-            task_info["status"] = "failed"
-            _append_classification_log(task_info, f"Backup failed, DB update cancelled: {backup_err}")
-            _save_classification_task(task_id, task_info)
-            return
+        # Create backup before DB write if enabled in settings
+        from tools.admin.services.backup_service import load_admin_config
+        cfg = load_admin_config()
+        if cfg.get("auto_backup_enabled", False):
+            from tools.admin.services.regen_worker import _create_full_db_backup
+            try:
+                backup = _create_full_db_backup()
+                task_info["backup_filename"] = backup.get("filename")
+                _append_classification_log(task_info, f"Backup created before DB update: {backup.get('filename')}.")
+            except Exception as backup_err:
+                task_info["status"] = "failed"
+                _append_classification_log(task_info, f"Backup failed, DB update cancelled: {backup_err}")
+                _save_classification_task(task_id, task_info)
+                return
+        else:
+            _append_classification_log(task_info, "Автобэкап БД перед классификацией отключен в настройках (пропуск).")
 
         card_update_groups = defaultdict(list)
         for phrase, card_ids in phrase_to_card_ids.items():

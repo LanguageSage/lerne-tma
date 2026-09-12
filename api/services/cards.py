@@ -9,9 +9,18 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
+import re
+import unicodedata
 from .media import resolve_media_url, _build_media_exists_map
 from .utils import add_to_history, resolve_deck_metadata
 from .cefr_metadata import get_cefr_metadata, merge_cefr_metadata, parse_card_metadata, serialize_card_metadata
+
+def normalize_card_key(text: str) -> str:
+    """Нормализует текст для надежного поиска дубликатов: NFKC, lowercase, без пунктуации и спецсимволов."""
+    if not text:
+        return ""
+    normalized = unicodedata.normalize('NFKC', str(text))
+    return re.sub(r'[\W_]+', '', normalized).lower()
 
 def cleanup_unreferenced_audio(filename: str):
     """Удаляет аудиофайл из TMAMedia, если на него больше не ссылается ни одна карточка."""
@@ -273,7 +282,7 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
         raise e
 
 
-def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int) -> dict:
+def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_duplicate: str = 'skip') -> dict:
     """Массово перемещает карточки в целевую колоду с сохранением SRS-прогресса."""
     from fastapi import HTTPException
     from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
@@ -296,7 +305,7 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int) -> 
 
     cards = list(TMA_Card.select().where((TMA_Card.id.in_(card_ids)) & (TMA_Card.is_deleted == False)))
     affected_source_decks = set()
-    valid_card_ids = []
+    valid_cards = []
 
     user_role_cache = {}
     for card in cards:
@@ -312,36 +321,98 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int) -> 
         creator_id_int = int(card.creator_id) if card.creator_id is not None else None
         is_creator = (creator_id_int == int(user_id)) if creator_id_int is not None else False
         if role in ['owner', 'editor'] or is_creator:
-            valid_card_ids.append(card.id)
+            valid_cards.append(card)
             affected_source_decks.add(card.deck_id)
 
-    if not valid_card_ids:
-        return {"status": "success", "count": 0}
+    # Сохраняем строгий порядок выбора карточек пользователем
+    card_by_id = {c.id: c for c in valid_cards}
+    valid_cards = [card_by_id[cid] for cid in card_ids if cid in card_by_id]
+
+    # Загружаем существующие карточки целевой колоды для проверки совпадений по лицевой стороне
+    existing_cards = list(TMA_Card.select().where(
+        (TMA_Card.deck_id == target_deck_id) & (TMA_Card.is_deleted == False)
+    ))
+    existing_by_front = {
+        normalize_card_key(c.front_text): c
+        for c in existing_cards if normalize_card_key(c.front_text)
+    }
 
     now = datetime.datetime.now()
+    moved_count = 0
+    updated_count = 0
+    skipped_count = 0
+
     with tma_db.atomic():
-        for idx, cid in enumerate(valid_card_ids):
-            TMA_Card.update(
-                deck_id=target_deck_id,
-                position=max_pos + idx + 1,
-                updated_at=now
-            ).where(TMA_Card.id == cid).execute()
+        for idx, card in enumerate(valid_cards):
+            front_key = normalize_card_key(card.front_text)
+            existing_match = existing_by_front.get(front_key) if front_key else None
+
+            if existing_match and on_duplicate == 'skip':
+                skipped_count += 1
+                continue
+
+            if existing_match and on_duplicate == 'overwrite':
+                existing_match.front_text = card.front_text or ''
+                existing_match.back_text = card.back_text or ''
+                existing_match.card_type = card.card_type or existing_match.card_type or 'standard'
+                existing_match.context = card.context or ''
+                if card.image_path:
+                    existing_match.image_path = card.image_path
+                if card.audio_path:
+                    existing_match.audio_path = card.audio_path
+                if card.audio_back_path:
+                    existing_match.audio_back_path = card.audio_back_path
+                if card.video_front_path:
+                    existing_match.video_front_path = card.video_front_path
+                if card.video_back_path:
+                    existing_match.video_back_path = card.video_back_path
+                if card.tags:
+                    existing_match.tags = card.tags
+                if card.flag:
+                    existing_match.flag = card.flag
+                if card.metadata:
+                    existing_match.metadata = card.metadata
+                # Синхронизируем позицию согласно выбранному порядку (1..N)
+                existing_match.position = idx + 1
+                existing_match.updated_at = now
+                existing_match.save()
+
+                # Мягко удаляем исходную перемещаемую карточку
+                card.is_deleted = True
+                card.updated_at = now
+                card.save()
+                updated_count += 1
+                continue
+
+            # on_duplicate == 'keep' или совпадений нет -> перемещаем карточку в целевую колоду
+            if max_pos == 0 and len(existing_cards) == 0:
+                card_pos = card.position if (card.position is not None and card.position > 0) else (idx + 1)
+            else:
+                max_pos += 1
+                card_pos = max_pos
+            card.deck_id = target_deck_id
+            card.position = card_pos
+            card.updated_at = now
+            card.save()
+            moved_count += 1
+            if front_key:
+                existing_by_front[front_key] = card
 
         touch_deck_and_parent_folders(target_deck_id, deck_obj=target_deck)
         for s_deck_id in affected_source_decks:
             touch_deck_and_parent_folders(s_deck_id)
 
-    logger.info(f"User {user_id} moved {len(valid_card_ids)} cards to deck {target_deck_id}")
-    return {"status": "success", "count": len(valid_card_ids)}
+    logger.info(f"User {user_id} moved cards to deck {target_deck_id}: moved={moved_count}, updated={updated_count}, skipped={skipped_count}")
+    return {"status": "success", "count": moved_count + updated_count, "moved": moved_count, "updated": updated_count, "skipped": skipped_count}
 
 
-def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int) -> dict:
-    """Массово копирует карточки в целевую колоду."""
+def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_duplicate: str = 'skip') -> dict:
+    """Массово копирует карточки в целевую колоду с обработкой совпадений по front_text."""
     from fastapi import HTTPException
     from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
 
     if not card_ids:
-        return {"status": "success", "count": 0}
+        return {"status": "success", "count": 0, "created": 0, "updated": 0, "skipped": 0}
 
     target_deck = TMA_Deck.get_or_none(TMA_Deck.id == target_deck_id)
     if not target_deck or target_deck.is_deleted:
@@ -376,12 +447,70 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int) -> 
             valid_cards.append(card)
 
     if not valid_cards:
-        return {"status": "success", "count": 0}
+        return {"status": "success", "count": 0, "created": 0, "updated": 0, "skipped": 0}
 
+    # Сохраняем строгий порядок выбора карточек пользователем
+    card_by_id = {c.id: c for c in valid_cards}
+    valid_cards = [card_by_id[cid] for cid in card_ids if cid in card_by_id]
+
+    # Загружаем существующие карточки целевой колоды для проверки совпадений по front_text
+    existing_cards = list(TMA_Card.select().where(
+        (TMA_Card.deck_id == target_deck_id) & (TMA_Card.is_deleted == False)
+    ))
+    existing_by_front = {
+        normalize_card_key(c.front_text): c
+        for c in existing_cards if normalize_card_key(c.front_text)
+    }
+
+    created_count = 0
+    updated_count = 0
+    skipped_count = 0
     now = datetime.datetime.now()
+
     with tma_db.atomic():
         for idx, card in enumerate(valid_cards):
-            TMA_Card.create(
+            front_key = normalize_card_key(card.front_text)
+            existing_match = existing_by_front.get(front_key) if front_key else None
+
+            if existing_match and on_duplicate == 'skip':
+                skipped_count += 1
+                continue
+
+            if existing_match and on_duplicate == 'overwrite':
+                existing_match.front_text = card.front_text or ''
+                existing_match.back_text = card.back_text or ''
+                existing_match.card_type = card.card_type or existing_match.card_type or 'standard'
+                existing_match.context = card.context or ''
+                if card.image_path:
+                    existing_match.image_path = card.image_path
+                if card.audio_path:
+                    existing_match.audio_path = card.audio_path
+                if card.audio_back_path:
+                    existing_match.audio_back_path = card.audio_back_path
+                if card.video_front_path:
+                    existing_match.video_front_path = card.video_front_path
+                if card.video_back_path:
+                    existing_match.video_back_path = card.video_back_path
+                if card.tags:
+                    existing_match.tags = card.tags
+                if card.flag:
+                    existing_match.flag = card.flag
+                if card.metadata:
+                    existing_match.metadata = card.metadata
+                # Синхронизируем позицию согласно выбранному порядку (1..N)
+                existing_match.position = idx + 1
+                existing_match.updated_at = now
+                existing_match.save()
+                updated_count += 1
+                continue
+
+            # on_duplicate == 'keep' или совпадений нет -> создаем новую карточку
+            if max_pos == 0 and len(existing_cards) == 0:
+                card_pos = card.position if (card.position is not None and card.position > 0) else (idx + 1)
+            else:
+                max_pos += 1
+                card_pos = max_pos
+            new_c = TMA_Card.create(
                 deck_id=target_deck_id,
                 front_text=card.front_text or '',
                 back_text=card.back_text or '',
@@ -395,18 +524,22 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int) -> 
                 tags=card.tags or '',
                 flag=card.flag or 0,
                 metadata=card.metadata,
-                position=max_pos + idx + 1,
+                position=card_pos,
                 source='user',
                 creator_id=user_id,
                 is_deleted=False,
                 created_at=now,
                 updated_at=now
             )
+            created_count += 1
+            if front_key:
+                existing_by_front[front_key] = new_c
 
         touch_deck_and_parent_folders(target_deck_id, deck_obj=target_deck)
 
-    logger.info(f"User {user_id} copied {len(valid_cards)} cards to deck {target_deck_id}")
-    return {"status": "success", "count": len(valid_cards)}
+    logger.info(f"User {user_id} copied cards to deck {target_deck_id}: created={created_count}, updated={updated_count}, skipped={skipped_count}")
+    return {"status": "success", "count": created_count + updated_count, "created": created_count, "updated": updated_count, "skipped": skipped_count}
+
 
 
 def batch_delete_cards(card_ids: list[int], user_id: int) -> dict:
@@ -564,16 +697,7 @@ def get_cards_for_study(deck_id: int, user_id: int):
         cards = list(cards_query.dicts())
         
         if not cards:
-            # Self-healing: if deck exists in TMA_Deck but has 0 cards, check if it matches a default library deck
-            tma_deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
-            if tma_deck:
-                lib_deck = Deck.get_or_none((Deck.name == tma_deck.name) & (Deck.is_deleted == False))
-                if lib_deck:
-                    from api.services.decks import import_deck
-                    import_deck(lib_deck.id, user_id, mode='merge', local_deck_id=tma_deck.id)
-                    cards = list(cards_query.dicts())
-            if not cards:
-                return []
+            return []
 
         # Получаем прогресс напрямую по ID карточек через уникальный индекс (user_id, card_id) в формате dict
         card_ids = [c['id'] for c in cards]

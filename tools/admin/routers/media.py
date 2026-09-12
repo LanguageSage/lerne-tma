@@ -3,6 +3,7 @@ import io
 import logging
 import os
 import time
+import uuid
 import zipfile
 from typing import List, Optional
 
@@ -75,11 +76,19 @@ def _get_images_catalog(force_refresh: bool = False):
         active_bytes = 0
         orphaned_count = 0
         active_count = 0
+        non_webp_count = 0
+        non_webp_bytes = 0
 
         for filename, length in media_rows:
             size = int(length or 0)
             total_bytes += size
             is_orphaned = filename not in active_filenames
+            is_webp = filename.lower().endswith(".webp")
+            ext = os.path.splitext(filename)[1].lower().replace(".", "")
+            if not is_webp:
+                non_webp_count += 1
+                non_webp_bytes += size
+
             if is_orphaned:
                 orphaned_count += 1
                 orphaned_bytes += size
@@ -91,11 +100,13 @@ def _get_images_catalog(force_refresh: bool = False):
                 "filename": filename,
                 "size_bytes": size,
                 "is_orphaned": is_orphaned,
+                "is_webp": is_webp,
+                "format": ext.upper() if ext else "UNKNOWN",
                 "url": f"/api/media/images/{filename}"
             })
 
-        # Sort: orphaned first, then alphabetical
-        items.sort(key=lambda x: (not x["is_orphaned"], x["filename"]))
+        # Sort: non_webp first when converting, else orphaned first, then alphabetical
+        items.sort(key=lambda x: (x["is_webp"], not x["is_orphaned"], x["filename"]))
 
         result = {
             "stats": {
@@ -105,6 +116,8 @@ def _get_images_catalog(force_refresh: bool = False):
                 "orphaned_size_bytes": orphaned_bytes,
                 "active_count": active_count,
                 "active_size_bytes": active_bytes,
+                "non_webp_count": non_webp_count,
+                "non_webp_size_bytes": non_webp_bytes,
             },
             "items": items,
             "active_filenames": active_filenames
@@ -118,7 +131,8 @@ def _get_images_catalog(force_refresh: bool = False):
             "stats": {
                 "total_images": 0, "total_size_bytes": 0,
                 "orphaned_count": 0, "orphaned_size_bytes": 0,
-                "active_count": 0, "active_size_bytes": 0
+                "active_count": 0, "active_size_bytes": 0,
+                "non_webp_count": 0, "non_webp_size_bytes": 0,
             },
             "items": [],
             "active_filenames": set()
@@ -136,13 +150,13 @@ def get_media_stats():
 
 @router.get("/api/admin/media/images")
 def list_media_images(
-    filter: str = Query("all"),  # 'all' | 'orphaned' | 'active'
+    filter: str = Query("all"),  # 'all' | 'orphaned' | 'active' | 'non_webp'
     q: Optional[str] = Query(default=None),
     page: int = Query(1, ge=1),
     limit: int = Query(60, ge=1, le=500),
     refresh: bool = Query(False)
 ):
-    """Lists images with search, filter (orphaned/active) and pagination."""
+    """Lists images with search, filter (orphaned/active/non_webp) and pagination."""
     catalog = _get_images_catalog(force_refresh=refresh)
     filtered = catalog["items"]
 
@@ -150,6 +164,8 @@ def list_media_images(
         filtered = [x for x in filtered if x["is_orphaned"]]
     elif filter == "active":
         filtered = [x for x in filtered if not x["is_orphaned"]]
+    elif filter == "non_webp":
+        filtered = [x for x in filtered if not x["is_webp"]]
 
     if isinstance(q, str) and q.strip():
         query = q.strip().lower()
@@ -355,6 +371,151 @@ def cleanup_orphaned_images(req: Optional[CleanupRequest] = None):
     }
 
 
+class ConvertWebpRequest(BaseModel):
+    filenames: Optional[List[str]] = None
+
+
+@router.post("/api/admin/media/convert-to-webp")
+def convert_images_to_webp(req: Optional[ConvertWebpRequest] = None):
+    """
+    Converts images from PNG/JPG/JPEG to optimized WebP.
+    Updates TMAMedia records and replaces references in TMA_Card and Card image_path.
+    """
+    import datetime
+    from api.utils.image import optimize_image
+
+    target_filenames = None
+    if req and req.filenames and len(req.filenames) > 0:
+        target_filenames = [os.path.basename(f) for f in req.filenames]
+
+    query = models.TMAMedia.select().where(models.TMAMedia.folder == "images")
+    if target_filenames:
+        query = query.where(models.TMAMedia.filename << target_filenames)
+    else:
+        # Default: all non-webp images
+        query = query.where(~models.TMAMedia.filename.endswith(".webp"))
+
+    media_items = list(query)
+    if not media_items:
+        return {
+            "status": "success",
+            "converted_count": 0,
+            "original_bytes": 0,
+            "new_bytes": 0,
+            "saved_bytes": 0,
+            "message": "Нет картинок, требующих конвертации в WebP"
+        }
+
+    converted_count = 0
+    original_bytes = 0
+    new_bytes = 0
+    errors = []
+    now = datetime.datetime.now()
+
+    for m in media_items:
+        old_filename = m.filename
+        if old_filename.lower().endswith(".webp") and not target_filenames:
+            continue
+
+        raw_content = bytes(m.content) if m.content else b""
+        if not raw_content:
+            continue
+
+        if raw_content.startswith(b"\x28\xb5\x2f\xfd"):
+            try:
+                import zstandard as zstd
+                dctx = zstd.ZstdDecompressor()
+                raw_content = dctx.decompress(raw_content, max_output_size=25 * 1024 * 1024)
+            except Exception as ze:
+                logger.warning(f"Failed to decompress zstd image {old_filename}: {ze}")
+
+        old_size = len(raw_content)
+        original_bytes += old_size
+
+        try:
+            webp_bytes, mime = optimize_image(raw_content, max_size=1200, quality=80)
+            opt_size = len(webp_bytes)
+            new_bytes += opt_size
+
+            name_base = os.path.splitext(old_filename)[0]
+            new_filename = f"{name_base}.webp"
+
+            if new_filename != old_filename:
+                collision = models.TMAMedia.get_or_none(
+                    (models.TMAMedia.filename == new_filename) &
+                    (models.TMAMedia.folder == "images")
+                )
+                if collision:
+                    new_filename = f"{name_base}_{uuid.uuid4().hex[:4]}.webp"
+
+            with models.tma_db.atomic():
+                if new_filename != old_filename:
+                    # Create or update new TMAMedia record
+                    models.TMAMedia.create(
+                        filename=new_filename,
+                        folder="images",
+                        content=webp_bytes
+                    )
+                    # Delete old TMAMedia record
+                    models.TMAMedia.delete().where(
+                        (models.TMAMedia.filename == old_filename) &
+                        (models.TMAMedia.folder == "images")
+                    ).execute()
+
+                    # Update TMA_Card image_path
+                    cards_to_update = list(
+                        models.TMA_Card.select(models.TMA_Card.id, models.TMA_Card.image_path)
+                        .where(models.TMA_Card.image_path.contains(old_filename))
+                    )
+                    for c in cards_to_update:
+                        new_path = c.image_path.replace(old_filename, new_filename)
+                        models.TMA_Card.update(
+                            image_path=new_path,
+                            updated_at=now
+                        ).where(models.TMA_Card.id == c.id).execute()
+
+                    # Update Card (library) image_path
+                    lib_cards_to_update = list(
+                        models.Card.select(models.Card.id, models.Card.image_path)
+                        .where(models.Card.image_path.contains(old_filename))
+                    )
+                    for lc in lib_cards_to_update:
+                        new_lib_path = lc.image_path.replace(old_filename, new_filename)
+                        models.Card.update(
+                            image_path=new_lib_path,
+                            updated_at=now
+                        ).where(models.Card.id == lc.id).execute()
+                else:
+                    # Same filename (already .webp), just re-optimized
+                    models.TMAMedia.update(
+                        content=webp_bytes
+                    ).where(
+                        (models.TMAMedia.filename == old_filename) &
+                        (models.TMAMedia.folder == "images")
+                    ).execute()
+
+            converted_count += 1
+
+        except Exception as e:
+            logger.error(f"Error converting image {old_filename} to WebP: {e}", exc_info=True)
+            errors.append(f"{old_filename}: {str(e)}")
+
+    # Invalidate cache so UI immediately sees updated stats
+    _catalog_cache["data"] = None
+
+    saved_bytes = max(0, original_bytes - new_bytes)
+    logger.info(f"Admin converted {converted_count} images to WebP. Saved {saved_bytes} bytes.")
+
+    return {
+        "status": "success",
+        "converted_count": converted_count,
+        "original_bytes": original_bytes,
+        "new_bytes": new_bytes,
+        "saved_bytes": saved_bytes,
+        "errors": errors
+    }
+
+
 # ─── Standard Media Serving ───────────────────────────────────────────────────
 
 @router.get("/api/media/images/{filename:path}")
@@ -369,6 +530,14 @@ def get_admin_image(filename: str):
         raise HTTPException(status_code=404, detail="Image file not found")
 
     content = bytes(media.content)
+    if content.startswith(b"\x28\xb5\x2f\xfd"):
+        try:
+            import zstandard as zstd
+            dctx = zstd.ZstdDecompressor()
+            content = dctx.decompress(content, max_output_size=25 * 1024 * 1024)
+        except Exception as ze:
+            logger.warning(f"Failed to decompress zstd image {clean_name}: {ze}")
+
     if content.startswith(b"\xff\xd8\xff"):
         media_type = "image/jpeg"
     elif content.startswith(b"\x89PNG\r\n\x1a\n"):

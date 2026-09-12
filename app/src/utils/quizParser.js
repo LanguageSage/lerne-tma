@@ -33,8 +33,8 @@ const cleanOptionPrefix = (line) => {
 export const parseQuizData = (card) => {
   if (!card || !card.front) return null;
 
-  // 1. Explicit card_type check: if card_type is set and is NOT 'quiz', ignore
-  if (card.card_type && card.card_type !== 'quiz') {
+  // 1. Explicit card_type check: if card_type is explicitly 'trainer', ignore
+  if (card.card_type === 'trainer') {
     return null;
   }
 
