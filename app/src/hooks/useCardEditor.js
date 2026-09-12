@@ -509,6 +509,43 @@ export const useCardEditor = () => {
     }
   };
 
+  const handleBatchCopyCards = async (cardIds, targetDeckId) => {
+    if (!cardIds || cardIds.length === 0 || !targetDeckId) return false;
+    setLoading(true);
+    try {
+      await api.post('/cards/batch-copy', {
+        card_ids: cardIds,
+        target_deck_id: targetDeckId
+      });
+      showToast(tr("Скопировано карточек: {{p0}}", { p0: cardIds.length }), "success");
+      
+      const { currentDeck, decks } = useDeckStore.getState();
+      const count = cardIds.length;
+      const updatedDecks = (decks || []).map(d => {
+        if (d.id === targetDeckId) {
+          const oldStats = d.stats || { total: 0, new: 0, learning: 0, due: 0 };
+          return {
+            ...d,
+            stats: { ...oldStats, total: (oldStats.total || 0) + count }
+          };
+        }
+        return d;
+      });
+      useDeckStore.setState({ decks: updatedDecks });
+
+      if (currentDeck && currentDeck.id === targetDeckId) {
+        fetchDeckCards(currentDeck.id);
+      }
+      fetchDecks(true);
+      return true;
+    } catch (err) {
+      showToast(tr("Ошибка при копировании: {{p0}}", { p0: err.response?.data?.detail || err.message }));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     saveCard,
     handleDeleteCard,
@@ -517,6 +554,7 @@ export const useCardEditor = () => {
     handleCopyCard,
     handleShareCard,
     handleBatchMoveCards,
+    handleBatchCopyCards,
     handleBatchDeleteCards
   };
 };

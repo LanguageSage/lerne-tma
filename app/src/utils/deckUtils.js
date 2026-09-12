@@ -92,3 +92,43 @@ export const getResourceSrc = (item, mediaType = 'images') => {
   }
   return '';
 };
+
+/**
+ * Parses user-entered number ranges or comma-separated numbers (e.g. "1-5, 8, 11-15", "от 1 до 10")
+ * and returns a sorted array of 1-based indices within [1, totalCount].
+ */
+export const parseRangeSelection = (inputStr, totalCount) => {
+  if (!inputStr || typeof inputStr !== 'string' || !totalCount || totalCount <= 0) return [];
+
+  // Normalize "от 1 до 5", "с 1 по 5", "1 - 5", "1..5", "1—5"
+  const normalized = inputStr
+    .replace(/\b(?:от|с|from)\s+/gi, '')
+    .replace(/\s*(?:до|по|to|[-–—:]+|\.{2,})\s*/gi, '-');
+
+  const tokens = normalized.split(/[,;\s]+/).filter(Boolean);
+  const indices = new Set();
+
+  for (const token of tokens) {
+    const rangeMatch = token.match(/^(\d+)-(\d+)$/);
+    if (rangeMatch) {
+      const num1 = parseInt(rangeMatch[1], 10);
+      const num2 = parseInt(rangeMatch[2], 10);
+      const from = Math.max(1, Math.min(num1, num2));
+      const to = Math.min(totalCount, Math.max(num1, num2));
+      for (let i = from; i <= to; i++) {
+        indices.add(i);
+      }
+    } else {
+      const numMatch = token.match(/^(\d+)$/);
+      if (numMatch) {
+        const val = parseInt(numMatch[1], 10);
+        if (val >= 1 && val <= totalCount) {
+          indices.add(val);
+        }
+      }
+    }
+  }
+
+  return Array.from(indices).sort((a, b) => a - b);
+};
+

@@ -21,7 +21,7 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronLeft, Plus, ListPlus, Settings, Play, RefreshCw, GripHorizontal, ExternalLink, Crop, Loader2, Search, ChevronDown, ChevronUp, MoreHorizontal, ChevronRight, CheckSquare, Check, Trash2, X, Move } from 'lucide-react';
+import { ChevronLeft, Plus, ListPlus, Settings, Play, RefreshCw, GripHorizontal, ExternalLink, Crop, Loader2, Search, ChevronDown, ChevronUp, MoreHorizontal, ChevronRight, CheckSquare, Check, Trash2, X, Move, Copy } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
 import { BatchMoveModal } from '../modals/BatchMoveModal';
@@ -46,7 +46,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
 import { matchCard } from '../../utils/search';
-import { getSortedFolderTree, parseDeckMetadata, getResourceSrc } from '../../utils/deckUtils';
+import { getSortedFolderTree, parseDeckMetadata, getResourceSrc, parseRangeSelection } from '../../utils/deckUtils';
 
 const DraggableCardItem = React.memo(({
   c,
@@ -242,16 +242,19 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const { t } = useTranslation();
   const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck, deckCards, cardsLoading, folders, decks, handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
-  const { handleBatchMoveCards, handleBatchDeleteCards } = useCardActions();
+  const { handleBatchMoveCards, handleBatchCopyCards, handleBatchDeleteCards } = useCardActions();
 
   const [isSelectMode, setIsSelectMode] = React.useState(false);
   const [selectedCardIds, setSelectedCardIds] = React.useState(new Set());
   const [isBatchMoveModalOpen, setIsBatchMoveModalOpen] = React.useState(false);
+  const [batchModalMode, setBatchModalMode] = React.useState('move');
+  const [rangeInput, setRangeInput] = React.useState('');
 
   const toggleSelectMode = React.useCallback(() => {
     setIsSelectMode(prev => {
       if (prev) {
         setSelectedCardIds(new Set());
+        setRangeInput('');
       }
       return !prev;
     });
@@ -272,6 +275,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   React.useEffect(() => {
     setIsSelectMode(false);
     setSelectedCardIds(new Set());
+    setRangeInput('');
   }, [currentDeck?.id, view]);
 
   const previewCardFont = useSettingsStore(s => s.previewCardFont);
@@ -449,6 +453,19 @@ export const CardList = ({ startStudy, startStudyCard }) => {
       setSelectedCardIds(new Set(filteredCards.map(c => c.id)));
     }
   }, [selectedCardIds.size, filteredCards]);
+
+  const handleApplyRange = React.useCallback((e) => {
+    e?.preventDefault();
+    if (!rangeInput.trim()) return;
+    const indices = parseRangeSelection(rangeInput, filteredCards.length);
+    if (indices.length === 0) {
+      showToast(tr("Карточки по указанным номерам не найдены"), "warning");
+      return;
+    }
+    const targetIds = indices.map(idx => filteredCards[idx - 1]?.id).filter(Boolean);
+    setSelectedCardIds(new Set(targetIds));
+    showToast(tr("Выбрано карточек: {{p0}}", { p0: targetIds.length }), "info");
+  }, [rangeInput, filteredCards, showToast]);
 
   const [visibleCount, setVisibleCount] = React.useState(40);
 
@@ -1313,41 +1330,90 @@ export const CardList = ({ startStudy, startStudyCard }) => {
               exit={{ y: 80, opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <button
-                type="button"
-                className="batch-action-btn move-btn"
-                disabled={selectedCardIds.size === 0}
-                onClick={() => setIsBatchMoveModalOpen(true)}
-              >
-                <Move size={16} />
-                <span>{tr("Переместить")} ({selectedCardIds.size})</span>
-              </button>
+              {/* Row 1: Range input */}
+              <form className="batch-range-row" onSubmit={handleApplyRange}>
+                <div className="batch-range-input-wrapper">
+                  <input
+                    type="text"
+                    className="batch-range-input"
+                    placeholder={tr("№ карт: 1-10, 15...")}
+                    value={rangeInput}
+                    onChange={(e) => setRangeInput(e.target.value)}
+                  />
+                  {rangeInput && (
+                    <button
+                      type="button"
+                      className="batch-range-clear-btn"
+                      onClick={() => setRangeInput('')}
+                      title={tr("Очистить")}
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="batch-range-apply-btn"
+                  disabled={!rangeInput.trim()}
+                >
+                  {tr("Выбрать")}
+                </button>
+              </form>
 
-              <button
-                type="button"
-                className="batch-action-btn delete-btn"
-                disabled={selectedCardIds.size === 0}
-                onClick={async () => {
-                  const ids = Array.from(selectedCardIds);
-                  const ok = await handleBatchDeleteCards(ids);
-                  if (ok) {
-                    setSelectedCardIds(new Set());
-                    setIsSelectMode(false);
-                  }
-                }}
-              >
-                <Trash2 size={16} />
-                <span>{tr("Удалить")} ({selectedCardIds.size})</span>
-              </button>
+              {/* Row 2: Action buttons */}
+              <div className="batch-buttons-row">
+                <button
+                  type="button"
+                  className="batch-action-btn copy-btn"
+                  disabled={selectedCardIds.size === 0}
+                  onClick={() => {
+                    setBatchModalMode('copy');
+                    setIsBatchMoveModalOpen(true);
+                  }}
+                >
+                  <Copy size={15} />
+                  <span>{tr("Копировать")} ({selectedCardIds.size})</span>
+                </button>
 
-              <button
-                type="button"
-                className="batch-action-cancel-btn"
-                onClick={toggleSelectMode}
-                title={tr("Отмена")}
-              >
-                <X size={18} />
-              </button>
+                <button
+                  type="button"
+                  className="batch-action-btn move-btn"
+                  disabled={selectedCardIds.size === 0}
+                  onClick={() => {
+                    setBatchModalMode('move');
+                    setIsBatchMoveModalOpen(true);
+                  }}
+                >
+                  <Move size={15} />
+                  <span>{tr("Переместить")} ({selectedCardIds.size})</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="batch-action-btn delete-btn"
+                  disabled={selectedCardIds.size === 0}
+                  onClick={async () => {
+                    const ids = Array.from(selectedCardIds);
+                    const ok = await handleBatchDeleteCards(ids);
+                    if (ok) {
+                      setSelectedCardIds(new Set());
+                      setIsSelectMode(false);
+                    }
+                  }}
+                >
+                  <Trash2 size={15} />
+                  <span>{tr("Удалить")} ({selectedCardIds.size})</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="batch-action-cancel-btn"
+                  onClick={toggleSelectMode}
+                  title={tr("Отмена")}
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1355,13 +1421,16 @@ export const CardList = ({ startStudy, startStudyCard }) => {
         <BatchMoveModal
           isOpen={isBatchMoveModalOpen}
           onClose={() => setIsBatchMoveModalOpen(false)}
+          mode={batchModalMode}
           selectedCount={selectedCardIds.size}
           currentDeckId={currentDeck?.id}
           decks={decks || []}
           folders={folders || []}
           onConfirm={async (targetDeckId) => {
             const ids = Array.from(selectedCardIds);
-            const ok = await handleBatchMoveCards(ids, targetDeckId);
+            const ok = batchModalMode === 'copy'
+              ? await handleBatchCopyCards(ids, targetDeckId)
+              : await handleBatchMoveCards(ids, targetDeckId);
             if (ok) {
               setSelectedCardIds(new Set());
               setIsSelectMode(false);

@@ -74,6 +74,29 @@ async def batch_move_cards(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/batch-copy")
+async def batch_copy_cards(data: dict, user_id: int = Depends(get_user_id)):
+    try:
+        from api import models
+        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+        if user and user.is_guest:
+            raise HTTPException(status_code=403, detail="Для копирования карточек требуется авторизация.")
+        card_ids = data.get("card_ids", [])
+        target_deck_id = data.get("target_deck_id")
+        if not card_ids:
+            raise HTTPException(status_code=400, detail="Список карточек пуст.")
+        if not target_deck_id:
+            raise HTTPException(status_code=400, detail="Не указана целевая колода.")
+        return services.batch_copy_cards(card_ids, int(target_deck_id), user_id)
+    except HTTPException:
+        raise
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"Router batch_copy_cards error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/batch-delete")
 async def batch_delete_cards(data: dict, user_id: int = Depends(get_user_id)):
     try:

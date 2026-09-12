@@ -335,6 +335,80 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int) -> 
     return {"status": "success", "count": len(valid_card_ids)}
 
 
+def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int) -> dict:
+    """Массово копирует карточки в целевую колоду."""
+    from fastapi import HTTPException
+    from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
+
+    if not card_ids:
+        return {"status": "success", "count": 0}
+
+    target_deck = TMA_Deck.get_or_none(TMA_Deck.id == target_deck_id)
+    if not target_deck or target_deck.is_deleted:
+        raise HTTPException(status_code=404, detail="Целевая колода не найдена")
+
+    target_role = 'owner' if target_deck.user_id == user_id else get_effective_user_role(user_id, 'deck', target_deck_id)
+    if target_role == 'viewer' or not target_role:
+        raise PermissionError("Нет прав на добавление карточек в целевую колоду.")
+
+    # Вычисляем максимальную позицию в целевой колоде
+    max_pos = TMA_Card.select(fn.MAX(TMA_Card.position)).where(
+        (TMA_Card.deck_id == target_deck_id) & (TMA_Card.is_deleted == False)
+    ).scalar() or 0
+
+    cards = list(TMA_Card.select().where((TMA_Card.id.in_(card_ids)) & (TMA_Card.is_deleted == False)))
+    valid_cards = []
+
+    user_role_cache = {}
+    for card in cards:
+        if not card.deck_id:
+            continue
+        if card.deck_id not in user_role_cache:
+            source_deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
+            if source_deck and source_deck.user_id == user_id:
+                user_role_cache[card.deck_id] = 'owner'
+            else:
+                user_role_cache[card.deck_id] = get_effective_user_role(user_id, 'deck', card.deck_id)
+        role = user_role_cache.get(card.deck_id)
+        creator_id_int = int(card.creator_id) if card.creator_id is not None else None
+        is_creator = (creator_id_int == int(user_id)) if creator_id_int is not None else False
+        if role in ['owner', 'editor', 'viewer'] or is_creator:
+            valid_cards.append(card)
+
+    if not valid_cards:
+        return {"status": "success", "count": 0}
+
+    now = datetime.datetime.now()
+    with tma_db.atomic():
+        for idx, card in enumerate(valid_cards):
+            TMA_Card.create(
+                deck_id=target_deck_id,
+                front_text=card.front_text or '',
+                back_text=card.back_text or '',
+                context=card.context or '',
+                image_path=card.image_path,
+                audio_path=card.audio_path,
+                audio_back_path=card.audio_back_path,
+                video_front_path=card.video_front_path,
+                video_back_path=card.video_back_path,
+                card_type=card.card_type or 'standard',
+                tags=card.tags or '',
+                flag=card.flag or 0,
+                metadata=card.metadata,
+                position=max_pos + idx + 1,
+                source='user',
+                creator_id=user_id,
+                is_deleted=False,
+                created_at=now,
+                updated_at=now
+            )
+
+        touch_deck_and_parent_folders(target_deck_id, deck_obj=target_deck)
+
+    logger.info(f"User {user_id} copied {len(valid_cards)} cards to deck {target_deck_id}")
+    return {"status": "success", "count": len(valid_cards)}
+
+
 def batch_delete_cards(card_ids: list[int], user_id: int) -> dict:
     """Массовое мягкое удаление карточек с проверкой прав."""
     from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
