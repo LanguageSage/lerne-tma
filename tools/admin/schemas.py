@@ -225,3 +225,23 @@ class ControlRegenRequest(BaseModel):
 
 VALID_CEFR_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
 CEFR_TAG_RE = re.compile(r"\b(A1|A2|B1|B2|C1|C2)\b", re.IGNORECASE)
+
+
+class RestoreDeckRequest(BaseModel):
+    backup_filename: str
+    backup_folder: Optional[str] = None
+    deck_id: int
+    target_user_id: Optional[int] = None
+    target_folder_id: Optional[int] = None
+    mode: str = "replace"  # "replace" or "copy"
+    apply_to_all_users: bool = False
+
+
+class RestoreFolderRequest(BaseModel):
+    backup_filename: str
+    backup_folder: Optional[str] = None
+    backup_folder_id: int
+    target_user_id: Optional[int] = None
+    mode: str = "replace"  # "replace" or "copy"
+    apply_to_all_users: bool = False
+

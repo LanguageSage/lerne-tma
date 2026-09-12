@@ -47,6 +47,9 @@ async function loadBackups() {
               <td class="px-6 py-4 text-xs text-slate-400">${b.created_at}</td>
               <td class="px-6 py-4 text-right whitespace-nowrap">
                 <div class="inline-flex items-center gap-2">
+                  <button onclick="openInBackupExplorer('${encodeURIComponent(b.filename)}', '${encodeURIComponent(b.folder || '')}')" class="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-medium rounded-lg border border-purple-500/20 inline-flex items-center gap-1.5 transition">
+                    <i data-lucide="scan-search" class="w-3.5 h-3.5"></i> Обзор
+                  </button>
                   <a href="/api/admin/backups/download/${encodeURIComponent(b.filename)}?folder=${encodeURIComponent(b.folder || '')}" download class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/20 inline-flex items-center gap-1.5 transition">
                     <i data-lucide="download" class="w-3.5 h-3.5"></i> Скачать
                   </a>

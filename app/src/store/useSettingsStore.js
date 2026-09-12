@@ -101,6 +101,10 @@ export const collectUserSettings = (state) => {
   if (state.userDesign !== undefined) {
     settings.userDesign = state.userDesign;
   }
+  const nativeLang = storage.get('native_language');
+  if (nativeLang) {
+    settings.native_language = nativeLang;
+  }
   return settings;
 };
 
@@ -108,9 +112,10 @@ let saveTimer = null;
 export const debouncedSaveSettings = (get) => {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
+    saveTimer = null;
     try {
-      const { getAccessToken } = await import('../utils/auth');
-      if (!getAccessToken()) return;
+      const { getAccessToken, getUserId } = await import('../utils/auth');
+      if (!getAccessToken() && !getUserId()) return;
       const settings = collectUserSettings(get());
       await api.post('/user/settings', settings);
     } catch (e) {
@@ -414,6 +419,21 @@ export const useSettingsStore = create((set, get) => {
         }
       }
 
+      // Sync native interface language if present and changed
+      if (serverSettings.native_language) {
+        const currentLang = storage.get('native_language');
+        if (currentLang !== serverSettings.native_language) {
+          import('../i18n/locale').then(({ setInterfaceLanguage, normalizeInterfaceLanguage }) => {
+            const lang = normalizeInterfaceLanguage(serverSettings.native_language);
+            if (lang) {
+              setInterfaceLanguage(lang);
+              storage.set('native_language', lang);
+              storage.set('native_language_selected', 'true');
+            }
+          }).catch(() => {});
+        }
+      }
+
       if (Object.keys(updates).length > 0) {
         set(updates);
       }
@@ -421,8 +441,8 @@ export const useSettingsStore = create((set, get) => {
 
     saveCurrentSettingsToServer: async () => {
       try {
-        const { getAccessToken } = await import('../utils/auth');
-        if (!getAccessToken()) return false;
+        const { getAccessToken, getUserId } = await import('../utils/auth');
+        if (!getAccessToken() && !getUserId()) return false;
         const settings = collectUserSettings(get());
         await api.post('/user/settings', settings);
         return true;
@@ -430,6 +450,22 @@ export const useSettingsStore = create((set, get) => {
         console.warn('Manual settings sync failed:', e);
         return false;
       }
+    },
+
+    fetchUserSettingsFromServer: async () => {
+      try {
+        if (saveTimer !== null) return null;
+        const { getAccessToken, getUserId } = await import('../utils/auth');
+        if (!getAccessToken() && !getUserId()) return null;
+        const res = await api.get('/user/settings');
+        if (res.data && typeof res.data === 'object' && Object.keys(res.data).length > 0) {
+          get().syncUserSettingsFromServer(res.data);
+          return res.data;
+        }
+      } catch (e) {
+        console.warn('Failed to fetch user settings from server:', e);
+      }
+      return null;
     },
 
     // --- Admin/API Settings (Fetched from Backend) ---

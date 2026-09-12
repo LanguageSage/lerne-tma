@@ -7,6 +7,7 @@ import { cloudStorage } from '../utils/auth';
 import api from '../services/api';
 import { setInterfaceLanguage, normalizeInterfaceLanguage, tr } from './locale';
 import { useInterfaceLocale } from './useInterfaceLocale';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 const TRANSLATIONS = {
   uk: ukTranslations,
@@ -74,6 +75,7 @@ export function LanguageProvider({ children }) {
       api.post('/user/language', { native_language: code }).catch(err => {
         console.error("Failed to save native language to backend:", err);
       });
+      useSettingsStore.getState().saveCurrentSettingsToServer().catch(() => {});
     }
   }, []);
 

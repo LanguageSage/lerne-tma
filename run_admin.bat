@@ -5,6 +5,13 @@ echo ===================================================
 echo   Lerne TMA - Local Admin Console
 echo ===================================================
 echo.
+
+:: Free port 8050 if previously occupied by a stuck process
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8050 ^| findstr LISTENING') do (
+    echo [INFO] Порт 8050 занят процессом %%a. Завершаю зависший процесс...
+    taskkill /f /pid %%a >nul 2>&1
+)
+
 echo Starting FastAPI server at http://127.0.0.1:8050...
 echo.
 

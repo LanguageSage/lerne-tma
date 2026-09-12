@@ -6,7 +6,7 @@ function switchTab(tab) {
         localStorage.setItem('lerne_admin_tab', tab);
       } catch (e) {}
 
-      ['users', 'decks', 'folders', 'ai', 'bulk', 'classification', 'backups'].forEach(t => {
+      ['users', 'decks', 'folders', 'ai', 'bulk', 'classification', 'backups', 'backup-explorer'].forEach(t => {
         const contentEl = document.getElementById(`content-${t}`);
         if (contentEl) contentEl.classList.add('hidden');
         const btn = document.getElementById(`tab-${t}`);
@@ -28,6 +28,8 @@ function switchTab(tab) {
         loadAdminFolders();
       } else if (tab === 'backups') {
         loadBackups();
+      } else if (tab === 'backup-explorer') {
+        initBackupExplorer();
       } else if (tab === 'bulk') {
         initBulkCreator();
       } else if (tab === 'ai') {

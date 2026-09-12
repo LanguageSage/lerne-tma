@@ -100,6 +100,7 @@ export const useAppInitialization = (checkStartParam) => {
             useDeckStore.getState().fetchDecks();
             useDeckStore.getState().fetchFolders();
           }
+          useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
         }
       }
     };
@@ -109,6 +110,8 @@ export const useAppInitialization = (checkStartParam) => {
       console.log("[Sync] Network online detected. Triggering auto-sync...");
       if (isOfflineMode()) {
         syncService.sync().catch(e => console.error("Online event sync failed:", e));
+      } else {
+        useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
       }
     };
 

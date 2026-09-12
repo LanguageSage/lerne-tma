@@ -14,6 +14,8 @@ router = APIRouter(
     tags=["settings"],
 )
 
+logger = logging.getLogger(__name__)
+
 # User Settings (Custom Prompts Manager)
 from api import ai_service
 

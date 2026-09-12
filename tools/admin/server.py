@@ -84,5 +84,8 @@ def _open_browser():
 
 if __name__ == "__main__":
     import uvicorn
-    threading.Thread(target=_open_browser, daemon=True).start()
-    uvicorn.run("tools.admin.server:app", host="127.0.0.1", port=8050, reload=True)
+    should_reload = "--reload" in sys.argv
+    if not should_reload:
+        threading.Thread(target=_open_browser, daemon=True).start()
+    uvicorn.run("tools.admin.server:app", host="127.0.0.1", port=8050, reload=should_reload)
+

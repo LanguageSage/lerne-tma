@@ -9,11 +9,20 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from api import models
-from tools.admin.schemas import BackupSettingsRequest, BatchDeleteBackupsRequest
+from tools.admin.schemas import (
+    BackupSettingsRequest,
+    BatchDeleteBackupsRequest,
+    RestoreDeckRequest,
+    RestoreFolderRequest,
+)
 from tools.admin.services.backup_service import (
     get_all_backup_search_dirs,
+    get_backup_deck_cards,
     get_effective_backup_dir,
+    inspect_backup,
     load_admin_config,
+    restore_deck_from_backup,
+    restore_folder_from_backup,
     save_admin_config,
 )
 
@@ -243,3 +252,76 @@ def batch_delete_backups(req: BatchDeleteBackupsRequest):
                     errors.append(f"Failed to delete {fn}: {str(e)}")
 
     return {"status": "ok", "deleted_count": len(deleted), "deleted_paths": deleted, "errors": errors}
+
+
+@router.get("/api/admin/backups/inspect")
+def inspect_backup_endpoint(filename: str, folder: Optional[str] = Query(None)):
+    """Parses and returns users, folders, and decks list inside a chosen backup file."""
+    try:
+        return inspect_backup(filename, folder)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to inspect backup")
+        raise HTTPException(status_code=500, detail=f"Inspection failed: {str(e)}")
+
+
+@router.get("/api/admin/backups/deck-preview")
+def get_backup_deck_preview_endpoint(filename: str, deck_id: int, folder: Optional[str] = Query(None)):
+    """Returns all cards for a specific deck in the backup with images."""
+    try:
+        return get_backup_deck_cards(filename, folder, deck_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to preview deck cards from backup")
+        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
+
+
+@router.post("/api/admin/backups/restore-deck")
+def restore_deck_endpoint(req: RestoreDeckRequest):
+    """Restores a deck from backup with options: replace or copy, single or all users."""
+    try:
+        return restore_deck_from_backup(
+            filename=req.backup_filename,
+            folder=req.backup_folder,
+            deck_id=req.deck_id,
+            target_user_id=req.target_user_id,
+            target_folder_id=req.target_folder_id,
+            mode=req.mode,
+            apply_to_all_users=req.apply_to_all_users
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to restore deck from backup")
+        raise HTTPException(status_code=500, detail=f"Restore failed: {str(e)}")
+
+
+@router.post("/api/admin/backups/restore-folder")
+def restore_folder_endpoint(req: RestoreFolderRequest):
+    """Restores an entire folder with all decks and cards from backup."""
+    try:
+        return restore_folder_from_backup(
+            filename=req.backup_filename,
+            folder=req.backup_folder,
+            backup_folder_id=req.backup_folder_id,
+            target_user_id=req.target_user_id,
+            mode=req.mode,
+            apply_to_all_users=req.apply_to_all_users
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to restore folder from backup")
+        raise HTTPException(status_code=500, detail=f"Restore failed: {str(e)}")
+
+

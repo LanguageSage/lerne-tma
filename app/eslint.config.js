@@ -30,6 +30,7 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
       'react/jsx-uses-vars': 'error',    // marks JSX-used vars (motion.div, etc.) as "used"
       'react/jsx-uses-react': 'error',   // marks React as "used" in JSX files
+      'react/jsx-no-undef': 'error',     // disallows undeclared variables in JSX
     },
   },
 ])

@@ -87,6 +87,9 @@
         <button onclick="switchTab('backups')" id="tab-backups" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
           <i data-lucide="hard-drive" class="w-4 h-4"></i> Бэкапы БД
         </button>
+        <button onclick="switchTab('backup-explorer')" id="tab-backup-explorer" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+          <i data-lucide="scan-search" class="w-4 h-4 text-purple-400"></i> 📦 Инспектор бэкапов
+        </button>
       </nav>
     </div>
   </header>
@@ -1275,6 +1278,107 @@
       </div>
     </section>
 
+    <!-- Tab 8: Backup Explorer (Full-Screen Workspace) -->
+    <section id="content-backup-explorer" class="space-y-6 hidden">
+      <!-- Top Bar: Header & Controls -->
+      <div class="glass p-5 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-xl space-y-4">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <div class="flex items-center gap-3">
+              <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <i data-lucide="scan-search" class="w-6 h-6 text-purple-400"></i> Инспектор резервных копий
+              </h2>
+              <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                Выборочное восстановление
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">Визуальный аудит колод, карточек и цветных картинок внутри бэкапа с точечным восстановлением</p>
+          </div>
+
+          <!-- Backup File Selector -->
+          <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div class="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 w-full md:w-auto">
+              <i data-lucide="hard-drive" class="w-4 h-4 text-indigo-400 shrink-0"></i>
+              <select id="explorer-backup-select" onchange="inspectCurrentBackup()" class="bg-transparent text-xs text-white font-mono focus:outline-none cursor-pointer w-full md:w-80">
+                <option value="">Загрузка бэкапов...</option>
+              </select>
+            </div>
+            <button onclick="inspectCurrentBackup()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white rounded-xl border border-slate-700 flex items-center gap-1.5 transition shrink-0">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Обновить
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary Metric Badges -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 border-t border-slate-800/80 text-xs">
+          <div class="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between">
+            <span class="text-slate-400">Пользователей:</span>
+            <b id="explorer-stat-users" class="text-white font-mono">0</b>
+          </div>
+          <div class="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between">
+            <span class="text-slate-400">Папок:</span>
+            <b id="explorer-stat-folders" class="text-white font-mono">0</b>
+          </div>
+          <div class="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between">
+            <span class="text-slate-400">Колод:</span>
+            <b id="explorer-stat-decks" class="text-white font-mono">0</b>
+          </div>
+          <div class="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between">
+            <span class="text-slate-400">Карточек:</span>
+            <b id="explorer-stat-cards" class="text-indigo-300 font-mono">0</b>
+          </div>
+          <div class="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between">
+            <span class="text-slate-400">Иллюстраций:</span>
+            <b id="explorer-stat-images" class="text-purple-300 font-mono">0</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Two-Column Workspace -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Left Column: Filter + Folders & Decks List (4 cols) -->
+        <div class="lg:col-span-4 space-y-4">
+          <div class="glass p-4 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-xl space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <i data-lucide="folder-tree" class="w-4 h-4 text-indigo-400"></i> Структура данных
+              </h3>
+            </div>
+
+            <!-- Filters -->
+            <div class="space-y-2">
+              <select id="explorer-user-filter" onchange="onExplorerUserFilterChange(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <option value="all">👥 Все пользователи</option>
+              </select>
+
+              <div class="relative">
+                <input type="text" id="explorer-deck-search" oninput="onExplorerSearchChange(this.value)" placeholder="Поиск колоды..." class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5"></i>
+              </div>
+            </div>
+
+            <!-- Scrollable List of Decks -->
+            <div id="explorer-decks-list" class="max-h-[68vh] overflow-y-auto pr-1 space-y-2 text-xs">
+              <div class="py-12 text-center text-slate-500">Загрузка структуры бэкапа...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Card Preview & Granular Restoration (8 cols) -->
+        <div class="lg:col-span-8 space-y-4">
+          <div id="explorer-card-preview-box" class="space-y-4">
+            <div class="glass p-12 rounded-2xl border border-slate-800 text-center text-slate-500 space-y-2">
+              <i data-lucide="layers" class="w-8 h-8 mx-auto text-slate-600"></i>
+              <p class="text-sm font-semibold">Выберите колоду в левой колонке для детального просмотра</p>
+              <p class="text-xs text-slate-600">Вы сможете изучить формулировки вопросов, ответов, проверить цветные картинки и выполнить выборочное восстановление</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
   </main>
 
   <!-- Modal: Interactive Deck Preview & Health Check -->
@@ -1826,6 +1930,7 @@
   <script src="/static/js/bulk_creator.js"></script>
   <script src="/static/js/classification.js"></script>
   <script src="/static/js/backups.js"></script>
+  <script src="/static/js/backup_explorer.js"></script>
   <script src="/static/js/app.js"></script>
 
 </body>

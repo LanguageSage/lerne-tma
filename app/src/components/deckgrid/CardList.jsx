@@ -1,7 +1,7 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   DndContext,
   closestCenter,
@@ -25,6 +25,7 @@ import { ChevronLeft, Plus, ListPlus, Settings, Play, RefreshCw, GripHorizontal,
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
 import { BatchMoveModal } from '../modals/BatchMoveModal';
+import DeckAudioPlayer from '../common/DeckAudioPlayer';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useCardNavigation } from '../../hooks/useCardNavigation';
