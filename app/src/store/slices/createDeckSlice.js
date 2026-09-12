@@ -446,35 +446,46 @@ export const createDeckSlice = (set, get) => ({
 
   reorderCards: async (orderedIds, targetDeckId = null) => {
     const state = get();
-    const effectiveDeckId = targetDeckId || state.currentDeck?.id;
-    const baseCards = (effectiveDeckId && state.cardsByDeck[effectiveDeckId]) || state.deckCards || [];
+    const effectiveDeckId = targetDeckId != null ? targetDeckId : state.currentDeck?.id;
+    const isCurrentDeck = state.currentDeck && String(state.currentDeck.id) === String(effectiveDeckId);
+    const baseCards = (isCurrentDeck && state.deckCards && state.deckCards.length > 0)
+      ? state.deckCards
+      : ((effectiveDeckId && state.cardsByDeck[effectiveDeckId]) || state.deckCards || []);
+
     if (!orderedIds || orderedIds.length === 0 || baseCards.length === 0) return;
 
-    const posMap = new Map();
-    orderedIds.forEach((id, idx) => posMap.set(id, idx));
+    const cardMap = new Map();
+    baseCards.forEach(c => cardMap.set(String(c.id), c));
+    const orderedSet = new Set(orderedIds.map(String));
 
-    const updated = [...baseCards];
-    const reorderedItems = [];
-    const positions = [];
+    const reorderedCards = orderedIds
+      .map((id, idx) => {
+        const item = cardMap.get(String(id));
+        return item ? { ...item, position: idx } : null;
+      })
+      .filter(Boolean);
 
-    updated.forEach((c, idx) => {
-      if (posMap.has(c.id)) {
-        reorderedItems.push(c);
-        positions.push(idx);
-      }
+    let updated;
+    if (reorderedCards.length === baseCards.length) {
+      updated = reorderedCards;
+    } else {
+      let reorderIdx = 0;
+      updated = baseCards.map((c, idx) => {
+        if (orderedSet.has(String(c.id))) {
+          const item = reorderedCards[reorderIdx++];
+          return { ...item, position: idx };
+        }
+        return { ...c, position: idx };
+      });
+    }
+
+    set((prev) => {
+      const isStillCurrent = !effectiveDeckId || (prev.currentDeck && String(prev.currentDeck.id) === String(effectiveDeckId));
+      return {
+        deckCards: isStillCurrent ? updated : prev.deckCards,
+        cardsByDeck: effectiveDeckId ? { ...prev.cardsByDeck, [effectiveDeckId]: updated } : prev.cardsByDeck
+      };
     });
-
-    reorderedItems.sort((a, b) => posMap.get(a.id) - posMap.get(b.id));
-
-    positions.forEach((pos, i) => {
-      const item = reorderedItems[i];
-      updated[pos] = { ...item, position: posMap.get(item.id) };
-    });
-
-    set((prev) => ({
-      deckCards: (!effectiveDeckId || prev.currentDeck?.id === effectiveDeckId) ? updated : prev.deckCards,
-      cardsByDeck: effectiveDeckId ? { ...prev.cardsByDeck, [effectiveDeckId]: updated } : prev.cardsByDeck
-    }));
 
     if (cardReorderTimeout) {
       clearTimeout(cardReorderTimeout);
@@ -482,7 +493,7 @@ export const createDeckSlice = (set, get) => ({
 
     cardReorderTimeout = setTimeout(async () => {
       try {
-        await api.post('/cards/reorder', { card_ids: orderedIds });
+        await api.post('/cards/reorder', { card_ids: updated.map(c => c.id) });
       } catch (err) {
         console.error('Reorder Cards Error:', err);
       }

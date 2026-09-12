@@ -399,12 +399,124 @@ export const useCardEditor = () => {
     }
   };
 
+  const handleBatchMoveCards = async (cardIds, targetDeckId) => {
+    if (!cardIds || cardIds.length === 0 || !targetDeckId) return false;
+    setLoading(true);
+    try {
+      await api.post('/cards/batch-move', {
+        card_ids: cardIds,
+        target_deck_id: targetDeckId
+      });
+      showToast(tr("Перемещено карточек: {{p0}}", { p0: cardIds.length }), "success");
+      
+      const session = useSessionStore.getState();
+      const { currentDeck, deckCards, cardsByDeck, decks } = useDeckStore.getState();
+      const cardIdsSet = new Set(cardIds.map(String));
+
+      const updatedDeckCards = (deckCards || []).filter(c => !cardIdsSet.has(String(c.id)));
+      const sourceDeckId = currentDeck?.id;
+      const updatedCardsByDeck = sourceDeckId
+        ? { ...cardsByDeck, [sourceDeckId]: updatedDeckCards }
+        : cardsByDeck;
+      
+      const count = cardIds.length;
+      const updatedDecks = (decks || []).map(d => {
+        if (d.id === sourceDeckId) {
+          const oldStats = d.stats || { total: count, new: 0, learning: 0, due: 0 };
+          return {
+            ...d,
+            stats: { ...oldStats, total: Math.max(0, (oldStats.total || count) - count) }
+          };
+        }
+        if (d.id === targetDeckId) {
+          const oldStats = d.stats || { total: 0, new: 0, learning: 0, due: 0 };
+          return {
+            ...d,
+            stats: { ...oldStats, total: (oldStats.total || 0) + count }
+          };
+        }
+        return d;
+      });
+
+      useDeckStore.setState({
+        deckCards: updatedDeckCards,
+        cardsByDeck: updatedCardsByDeck,
+        decks: updatedDecks
+      });
+
+      cardIds.forEach(id => session.removeCardFromSession(id));
+      if (sourceDeckId && sourceDeckId !== 'duplicates') {
+        fetchDeckCards(sourceDeckId);
+      }
+      fetchDecks(true);
+      return true;
+    } catch (err) {
+      showToast(tr("Ошибка при перемещении: {{p0}}", { p0: err.response?.data?.detail || err.message }));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBatchDeleteCards = async (cardIds, skipConfirm = false) => {
+    if (!cardIds || cardIds.length === 0) return false;
+    if (!skipConfirm && !window.confirm(tr("Удалить выбранные карточки ({{p0}} шт.)?", { p0: cardIds.length }))) return false;
+    setLoading(true);
+    try {
+      await api.post('/cards/batch-delete', {
+        card_ids: cardIds
+      });
+      showToast(tr("Удалено карточек: {{p0}}", { p0: cardIds.length }), "success");
+
+      const session = useSessionStore.getState();
+      const { currentDeck, deckCards, cardsByDeck, decks } = useDeckStore.getState();
+      const cardIdsSet = new Set(cardIds.map(String));
+
+      const updatedDeckCards = (deckCards || []).filter(c => !cardIdsSet.has(String(c.id)));
+      const sourceDeckId = currentDeck?.id;
+      const updatedCardsByDeck = sourceDeckId
+        ? { ...cardsByDeck, [sourceDeckId]: updatedDeckCards }
+        : cardsByDeck;
+
+      const count = cardIds.length;
+      const updatedDecks = sourceDeckId
+        ? (decks || []).map(d => {
+            if (d.id === sourceDeckId) {
+              const oldStats = d.stats || { total: count, new: 0, learning: 0, due: 0 };
+              return {
+                ...d,
+                stats: { ...oldStats, total: Math.max(0, (oldStats.total || count) - count) }
+              };
+            }
+            return d;
+          })
+        : decks;
+
+      useDeckStore.setState({
+        deckCards: updatedDeckCards,
+        cardsByDeck: updatedCardsByDeck,
+        decks: updatedDecks
+      });
+
+      cardIds.forEach(id => session.removeCardFromSession(id));
+      return true;
+    } catch (err) {
+      console.error('Batch Delete Error:', err);
+      showToast(tr("Ошибка при удалении"));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     saveCard,
     handleDeleteCard,
     handleSetCardFlag,
     handleMoveCard,
     handleCopyCard,
-    handleShareCard
+    handleShareCard,
+    handleBatchMoveCards,
+    handleBatchDeleteCards
   };
 };

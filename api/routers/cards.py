@@ -51,6 +51,49 @@ async def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/batch-move")
+async def batch_move_cards(data: dict, user_id: int = Depends(get_user_id)):
+    try:
+        from api import models
+        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+        if user and user.is_guest:
+            raise HTTPException(status_code=403, detail="Для перемещения карточек требуется авторизация.")
+        card_ids = data.get("card_ids", [])
+        target_deck_id = data.get("target_deck_id")
+        if not card_ids:
+            raise HTTPException(status_code=400, detail="Список карточек пуст.")
+        if not target_deck_id:
+            raise HTTPException(status_code=400, detail="Не указана целевая колода.")
+        return services.batch_move_cards(card_ids, int(target_deck_id), user_id)
+    except HTTPException:
+        raise
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"Router batch_move_cards error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/batch-delete")
+async def batch_delete_cards(data: dict, user_id: int = Depends(get_user_id)):
+    try:
+        from api import models
+        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+        if user and user.is_guest:
+            raise HTTPException(status_code=403, detail="Для удаления карточек требуется авторизация.")
+        card_ids = data.get("card_ids", [])
+        if not card_ids:
+            raise HTTPException(status_code=400, detail="Список карточек пуст.")
+        return services.batch_delete_cards(card_ids, user_id)
+    except HTTPException:
+        raise
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error(f"Router batch_delete_cards error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.put("/{card_id}")
 @router.patch("/{card_id}")
 async def update_card(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
@@ -99,10 +142,18 @@ def reorder_cards(data: dict, user_id: int = Depends(get_user_id)):
     card_ids = data.get('card_ids', [])
     try:
         user_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id)
+        collab_decks = models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
+            (models.TMA_Collaborator.user_id == user_id) &
+            (models.TMA_Collaborator.target_type == 'deck') &
+            (models.TMA_Collaborator.role.in_(['owner', 'editor']))
+        )
+        valid_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
+            (models.TMA_Deck.id << user_decks) | (models.TMA_Deck.id << collab_decks)
+        )
         with models.tma_db.atomic():
             for idx, card_id in enumerate(card_ids):
                 models.TMA_Card.update(position=idx).where(
-                    (models.TMA_Card.id == card_id) & (models.TMA_Card.deck_id << user_decks)
+                    (models.TMA_Card.id == card_id) & (models.TMA_Card.deck_id << valid_decks)
                 ).execute()
         return {"status": "success"}
     except Exception as e:

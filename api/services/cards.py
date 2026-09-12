@@ -273,6 +273,114 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
         raise e
 
 
+def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int) -> dict:
+    """Массово перемещает карточки в целевую колоду с сохранением SRS-прогресса."""
+    from fastapi import HTTPException
+    from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
+
+    if not card_ids:
+        return {"status": "success", "count": 0}
+
+    target_deck = TMA_Deck.get_or_none(TMA_Deck.id == target_deck_id)
+    if not target_deck or target_deck.is_deleted:
+        raise HTTPException(status_code=404, detail="Целевая колода не найдена")
+
+    target_role = 'owner' if target_deck.user_id == user_id else get_effective_user_role(user_id, 'deck', target_deck_id)
+    if target_role == 'viewer' or not target_role:
+        raise PermissionError("Нет прав на добавление карточек в целевую колоду.")
+
+    # Вычисляем максимальную позицию в целевой колоде
+    max_pos = TMA_Card.select(fn.MAX(TMA_Card.position)).where(
+        (TMA_Card.deck_id == target_deck_id) & (TMA_Card.is_deleted == False)
+    ).scalar() or 0
+
+    cards = list(TMA_Card.select().where((TMA_Card.id.in_(card_ids)) & (TMA_Card.is_deleted == False)))
+    affected_source_decks = set()
+    valid_card_ids = []
+
+    user_role_cache = {}
+    for card in cards:
+        if not card.deck_id or card.deck_id == target_deck_id:
+            continue
+        if card.deck_id not in user_role_cache:
+            source_deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
+            if source_deck and source_deck.user_id == user_id:
+                user_role_cache[card.deck_id] = 'owner'
+            else:
+                user_role_cache[card.deck_id] = get_effective_user_role(user_id, 'deck', card.deck_id)
+        role = user_role_cache.get(card.deck_id)
+        creator_id_int = int(card.creator_id) if card.creator_id is not None else None
+        is_creator = (creator_id_int == int(user_id)) if creator_id_int is not None else False
+        if role in ['owner', 'editor'] or is_creator:
+            valid_card_ids.append(card.id)
+            affected_source_decks.add(card.deck_id)
+
+    if not valid_card_ids:
+        return {"status": "success", "count": 0}
+
+    now = datetime.datetime.now()
+    with tma_db.atomic():
+        for idx, cid in enumerate(valid_card_ids):
+            TMA_Card.update(
+                deck_id=target_deck_id,
+                position=max_pos + idx + 1,
+                updated_at=now
+            ).where(TMA_Card.id == cid).execute()
+
+        touch_deck_and_parent_folders(target_deck_id, deck_obj=target_deck)
+        for s_deck_id in affected_source_decks:
+            touch_deck_and_parent_folders(s_deck_id)
+
+    logger.info(f"User {user_id} moved {len(valid_card_ids)} cards to deck {target_deck_id}")
+    return {"status": "success", "count": len(valid_card_ids)}
+
+
+def batch_delete_cards(card_ids: list[int], user_id: int) -> dict:
+    """Массовое мягкое удаление карточек с проверкой прав."""
+    from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
+
+    if not card_ids:
+        return {"status": "success", "count": 0}
+
+    cards = list(TMA_Card.select().where((TMA_Card.id.in_(card_ids)) & (TMA_Card.is_deleted == False)))
+    affected_decks = set()
+    valid_card_ids = []
+
+    user_role_cache = {}
+    for card in cards:
+        if not card.deck_id:
+            continue
+        if card.deck_id not in user_role_cache:
+            source_deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
+            if source_deck and source_deck.user_id == user_id:
+                user_role_cache[card.deck_id] = 'owner'
+            else:
+                user_role_cache[card.deck_id] = get_effective_user_role(user_id, 'deck', card.deck_id)
+        role = user_role_cache.get(card.deck_id)
+        creator_id_int = int(card.creator_id) if card.creator_id is not None else None
+        is_creator = (creator_id_int == int(user_id)) if creator_id_int is not None else False
+        if role in ['owner', 'editor'] or is_creator:
+            valid_card_ids.append(card.id)
+            affected_decks.add(card.deck_id)
+
+    if not valid_card_ids:
+        return {"status": "success", "count": 0}
+
+    now = datetime.datetime.now()
+    with tma_db.atomic():
+        TMA_Card.update(
+            is_deleted=True,
+            updated_at=now
+        ).where(TMA_Card.id.in_(valid_card_ids)).execute()
+
+        for d_id in affected_decks:
+            touch_deck_and_parent_folders(d_id)
+
+    logger.info(f"User {user_id} batch deleted {len(valid_card_ids)} cards")
+    return {"status": "success", "count": len(valid_card_ids)}
+
+
+
 def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, creator=None):
     is_dict = isinstance(c, dict)
     get_val = lambda k_dict, k_obj: c.get(k_dict) if is_dict else getattr(c, k_obj, None)

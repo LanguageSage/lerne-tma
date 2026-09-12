@@ -21,12 +21,14 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronLeft, Plus, ListPlus, Settings, Play, RefreshCw, GripHorizontal, ExternalLink, Crop, Loader2, Search, ChevronDown, ChevronUp, MoreHorizontal, ChevronRight } from 'lucide-react';
+import { ChevronLeft, Plus, ListPlus, Settings, Play, RefreshCw, GripHorizontal, ExternalLink, Crop, Loader2, Search, ChevronDown, ChevronUp, MoreHorizontal, ChevronRight, CheckSquare, Check, Trash2, X, Move } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
+import { BatchMoveModal } from '../modals/BatchMoveModal';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useCardNavigation } from '../../hooks/useCardNavigation';
+import { useCardActions } from '../../hooks/useCardActions';
 import { UserProfileBadge } from '../common/UserBadge';
 import { DeckMediaModal } from '../modals/DeckMediaModal';
 import { ImageEditorModal } from '../common/ImageEditorModal';
@@ -53,7 +55,10 @@ const DraggableCardItem = React.memo(({
   frontTypographyStyle,
   backTypographyStyle,
   cardListBg,
-  previewCardLines
+  previewCardLines,
+  isSelectMode = false,
+  isSelected = false,
+  onToggleSelect
 }) => {
   useInterfaceLocale();
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -68,6 +73,7 @@ const DraggableCardItem = React.memo(({
     isDragging
   } = useSortable({
     id: c.id,
+    disabled: isSelectMode,
     animateLayoutChanges: () => false,
   });
 
@@ -102,6 +108,10 @@ const DraggableCardItem = React.memo(({
   };
 
   const handleItemClick = () => {
+    if (isSelectMode) {
+      onToggleSelect?.(c.id);
+      return;
+    }
     const container = document.getElementById('app-container');
     if (container) useUiStore.getState().setCardsScrollTop(container.scrollTop);
     useUiStore.getState().setLastSelectedCardId(c.id);
@@ -113,8 +123,14 @@ const DraggableCardItem = React.memo(({
       ref={setNodeRef}
       style={{ ...style, ...cardListBg?.style }}
       id={`card-item-${c.id}`}
-      className={`card-item card-front glass ${cardListBg?.className || ''} card-item-draggable ${isDragging ? 'is-dragging' : ''}`}
+      className={`card-item card-front glass ${cardListBg?.className || ''} card-item-draggable ${isDragging ? 'is-dragging' : ''} ${isSelectMode ? 'is-select-mode' : ''} ${isSelected ? 'is-selected' : ''}`}
+      onClick={isSelectMode ? () => onToggleSelect?.(c.id) : undefined}
     >
+      {isSelectMode && (
+        <div className="card-select-checkbox">
+          {isSelected && <Check size={16} strokeWidth={3} />}
+        </div>
+      )}
       <div 
         className="card-item-text"
         onClick={handleItemClick}
@@ -154,15 +170,17 @@ const DraggableCardItem = React.memo(({
 
       <div className="card-item-footer">
         <div className="card-item-footer-left">
-          <div 
-            className="deck-drag-handle-bottom" 
-            {...attributes}
-            {...listeners}
-            onClick={(e) => e.stopPropagation()}
-            title={tr("Зажмите и потяните для перетаскивания карточки")}
-          >
-            <GripHorizontal size={20} />
-          </div>
+          {!isSelectMode && (
+            <div 
+              className="deck-drag-handle-bottom" 
+              {...attributes}
+              {...listeners}
+              onClick={(e) => e.stopPropagation()}
+              title={tr("Зажмите и потяните для перетаскивания карточки")}
+            >
+              <GripHorizontal size={20} />
+            </div>
+          )}
 
           <CardLevelBadge card={c} size="sm" />
 
@@ -204,12 +222,14 @@ const DraggableCardItem = React.memo(({
             </span>
           )}
 
-          <CardActionButton 
-            card={c} 
-            size={16} 
-            className="card-item-actions-trigger" 
-            stopDrag={true} 
-          />
+          {!isSelectMode && (
+            <CardActionButton 
+              card={c} 
+              size={16} 
+              className="card-item-actions-trigger" 
+              stopDrag={true} 
+            />
+          )}
         </div>
       </div>
     </div>
@@ -220,7 +240,38 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   useInterfaceLocale();
   const { t } = useTranslation();
   const { view, setView, setIsSettingsOpen, setIsRenameModalOpen, setDeckToRename, lastSelectedCardId, cardsScrollTop, setCardsScrollTop, setIsBatchModalOpen, showToast } = useUiStore();
-  const { currentDeck, deckCards, cardsLoading, folders, handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
+  const { currentDeck, deckCards, cardsLoading, folders, decks, handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
+  const { handleBatchMoveCards, handleBatchDeleteCards } = useCardActions();
+
+  const [isSelectMode, setIsSelectMode] = React.useState(false);
+  const [selectedCardIds, setSelectedCardIds] = React.useState(new Set());
+  const [isBatchMoveModalOpen, setIsBatchMoveModalOpen] = React.useState(false);
+
+  const toggleSelectMode = React.useCallback(() => {
+    setIsSelectMode(prev => {
+      if (prev) {
+        setSelectedCardIds(new Set());
+      }
+      return !prev;
+    });
+  }, []);
+
+  const handleToggleSelectCard = React.useCallback((cardId) => {
+    setSelectedCardIds(prev => {
+      const next = new Set(prev);
+      if (next.has(cardId)) {
+        next.delete(cardId);
+      } else {
+        next.add(cardId);
+      }
+      return next;
+    });
+  }, []);
+
+  React.useEffect(() => {
+    setIsSelectMode(false);
+    setSelectedCardIds(new Set());
+  }, [currentDeck?.id, view]);
 
   const previewCardFont = useSettingsStore(s => s.previewCardFont);
   const previewCardTextColor = useSettingsStore(s => s.previewCardTextColor);
@@ -389,6 +440,14 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     if (!searchQuery.trim()) return deckCards;
     return deckCards.filter(c => matchCard(c, searchQuery));
   }, [deckCards, searchQuery]);
+
+  const handleSelectAll = React.useCallback(() => {
+    if (selectedCardIds.size === filteredCards.length && filteredCards.length > 0) {
+      setSelectedCardIds(new Set());
+    } else {
+      setSelectedCardIds(new Set(filteredCards.map(c => c.id)));
+    }
+  }, [selectedCardIds.size, filteredCards]);
 
   const [visibleCount, setVisibleCount] = React.useState(40);
 
@@ -631,6 +690,20 @@ export const CardList = ({ startStudy, startStudyCard }) => {
               <Search size={20} />
             </button>
 
+            {/* Selection Mode Toggle Button */}
+            <button
+              className={`header-action-btn ${isSelectMode ? 'active' : ''}`}
+              onClick={toggleSelectMode}
+              title={isSelectMode ? tr("Выйти из режима выбора") : tr("Выбрать несколько карточек")}
+              style={{
+                color: isSelectMode ? '#c084fc' : 'currentColor',
+                background: isSelectMode ? 'rgba(168, 85, 247, 0.2)' : undefined,
+                borderColor: isSelectMode ? 'rgba(168, 85, 247, 0.5)' : undefined
+              }}
+            >
+              <CheckSquare size={20} />
+            </button>
+
             {/* Quick Lines Switcher Button */}
             <button 
               className="header-action-btn settings-btn" 
@@ -798,6 +871,51 @@ export const CardList = ({ startStudy, startStudyCard }) => {
             </div>
           </div>
         </div>
+
+        {/* Select Mode Toolbar */}
+        {isSelectMode && (
+          <div className="select-mode-bar glass">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={toggleSelectMode}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  color: '#cbd5e1',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+                title={tr("Отменить выбор")}
+              >
+                <X size={16} />
+              </button>
+              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f8fafc' }}>
+                {tr("Выбрано: {{p0}} из {{p1}}", { p0: selectedCardIds.size, p1: filteredCards.length })}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleSelectAll}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                borderRadius: '10px',
+                fontWeight: 600,
+                background: 'rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              {selectedCardIds.size === filteredCards.length && filteredCards.length > 0 ? tr("Снять всё") : tr("Выбрать все")}
+            </button>
+          </div>
+        )}
 
         {/* Expandable Search Input in CardList */}
         {isSearchOpen && (
@@ -1140,6 +1258,9 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       backTypographyStyle={backTypographyStyle}
                       cardListBg={cardListBg}
                       previewCardLines={previewCardLines}
+                      isSelectMode={isSelectMode}
+                      isSelected={selectedCardIds.has(c.id)}
+                      onToggleSelect={handleToggleSelectCard}
                     />
                   ))}
                   {visibleCount < filteredCards.length && !searchQuery.trim() && (
@@ -1175,9 +1296,79 @@ export const CardList = ({ startStudy, startStudyCard }) => {
           )}
         </div>
         
-        <button id="tut-fab-add" className="fab-add-card" onClick={() => openCreator(currentDeck?.id)}>
-          <Plus size={28} />
-        </button>
+        {!isSelectMode && (
+          <button id="tut-fab-add" className="fab-add-card" onClick={() => openCreator(currentDeck?.id)}>
+            <Plus size={28} />
+          </button>
+        )}
+
+        {/* Floating Batch Actions Dock */}
+        <AnimatePresence>
+          {isSelectMode && (
+            <motion.div
+              className="batch-actions-bar"
+              initial={{ y: 80, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 80, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <button
+                type="button"
+                className="batch-action-btn move-btn"
+                disabled={selectedCardIds.size === 0}
+                onClick={() => setIsBatchMoveModalOpen(true)}
+              >
+                <Move size={16} />
+                <span>{tr("Переместить")} ({selectedCardIds.size})</span>
+              </button>
+
+              <button
+                type="button"
+                className="batch-action-btn delete-btn"
+                disabled={selectedCardIds.size === 0}
+                onClick={async () => {
+                  const ids = Array.from(selectedCardIds);
+                  const ok = await handleBatchDeleteCards(ids);
+                  if (ok) {
+                    setSelectedCardIds(new Set());
+                    setIsSelectMode(false);
+                  }
+                }}
+              >
+                <Trash2 size={16} />
+                <span>{tr("Удалить")} ({selectedCardIds.size})</span>
+              </button>
+
+              <button
+                type="button"
+                className="batch-action-cancel-btn"
+                onClick={toggleSelectMode}
+                title={tr("Отмена")}
+              >
+                <X size={18} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <BatchMoveModal
+          isOpen={isBatchMoveModalOpen}
+          onClose={() => setIsBatchMoveModalOpen(false)}
+          selectedCount={selectedCardIds.size}
+          currentDeckId={currentDeck?.id}
+          decks={decks || []}
+          folders={folders || []}
+          onConfirm={async (targetDeckId) => {
+            const ids = Array.from(selectedCardIds);
+            const ok = await handleBatchMoveCards(ids, targetDeckId);
+            if (ok) {
+              setSelectedCardIds(new Set());
+              setIsSelectMode(false);
+              return true;
+            }
+            return false;
+          }}
+        />
 
         <DeckMediaModal 
           isOpen={isMediaModalOpen} 

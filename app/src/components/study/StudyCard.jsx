@@ -17,6 +17,7 @@ import { StudyCardQuiz } from './StudyCardQuiz';
 import { StudyCardPuzzle } from './StudyCardPuzzle';
 import { StudyCardSpeech } from './StudyCardSpeech';
 import { CardAudioPlayer } from './CardAudioPlayer';
+import { StudyCardImage } from './StudyCardImage';
 import { KaraokeText } from './KaraokeText';
 import { useVoicePicker } from '../../hooks/useVoicePicker';
 import { useKaraokeSync } from '../../hooks/useKaraokeSync';
@@ -244,7 +245,21 @@ export const StudyCard = React.memo(({
     return null;
   };
 
-  const imageUrl = card.image_url || getDeckImageUrl(deckImage);
+  const getResolvedImageUrl = (c) => {
+    if (!c) return null;
+    const raw = c.image_url || c.media_url || c.image_path || c.image;
+    if (!raw || typeof raw !== 'string') return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('/lid_images/')) {
+      return raw;
+    }
+    if (raw.startsWith('/api/media/')) {
+      return raw;
+    }
+    const cleanPath = raw.replace(/^(images|audio|videos)\//, '');
+    return `/api/media/images/${cleanPath}`;
+  };
+
+  const imageUrl = getResolvedImageUrl(card) || getDeckImageUrl(deckImage);
 
   const hasQuizSyntax = quizData && quizData.isQuiz;
   const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
@@ -362,56 +377,13 @@ export const StudyCard = React.memo(({
               
               {/* Media Preview Header — shown on all modes */}
               {imageUrl && (
-                <>
-                  <div style={{
-                    width: '100%',
-                    height: `${cardImageHeight}px`,
-                    overflow: 'hidden',
-                    borderRadius: '12px',
-                    marginBottom: '4px',
-                    flexShrink: 0
-                  }}>
-                    <img
-                      src={imageUrl}
-                      alt=""
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                        borderRadius: '12px'
-                      }}
-                    />
-                  </div>
-                  {/* Resize handle */}
-                  <div
-                    onMouseDown={startCardImageResize}
-                    onTouchStart={startCardImageResize}
-                    title={tr("Потяни чтобы изменить высоту")}
-                    style={{
-                      height: '14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'ns-resize',
-                      marginBottom: '10px',
-                      userSelect: 'none',
-                      touchAction: 'none',
-                      flexShrink: 0
-                    }}
-                  >
-                    <div style={{
-                      width: '40px',
-                      height: '4px',
-                      borderRadius: '2px',
-                      background: 'rgba(168, 85, 247, 0.45)',
-                      transition: 'background 0.2s'
-                    }}
-                    onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.9)'}
-                    onMouseOut={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.45)'}
-                    />
-                  </div>
-                </>
+                <StudyCardImage
+                  src={imageUrl}
+                  height={cardImageHeight}
+                  cardId={card?.id}
+                  onResizeStart={startCardImageResize}
+                  showResizeHandle={true}
+                />
               )}
 
               {/* Classic / Reverse Mode Text */}
@@ -760,26 +732,12 @@ export const StudyCard = React.memo(({
               </div>
               
               {imageUrl && (
-                <div style={{
-                  width: '100%',
-                  height: `${cardImageHeight}px`,
-                  overflow: 'hidden',
-                  borderRadius: '12px',
-                  marginTop: '12px',
-                  marginBottom: '12px',
-                  flexShrink: 0
-                }}>
-                  <img
+                <div style={{ marginTop: '12px', marginBottom: '12px', flexShrink: 0 }}>
+                  <StudyCardImage
                     src={imageUrl}
-                    alt=""
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      borderRadius: '12px'
-                    }}
-                    onError={(e) => { e.target.style.display = 'none'; }}
+                    height={cardImageHeight}
+                    cardId={card?.id}
+                    showResizeHandle={false}
                   />
                 </div>
               )}

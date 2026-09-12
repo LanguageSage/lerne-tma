@@ -1,5 +1,6 @@
 export { AuthRequiredModal } from './AuthRequiredModal';
 export { BatchCardModal } from './BatchCardModal';
+export { BatchMoveModal } from './BatchMoveModal';
 export { CardActionModal } from './CardActionModal';
 export { CollaboratorsModal } from './CollaboratorsModal';
 export { DeckMediaModal } from './DeckMediaModal';

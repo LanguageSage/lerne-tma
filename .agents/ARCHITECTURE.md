@@ -13,7 +13,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Колоды (Decks)** | `deckgrid/DeckGrid.jsx`, `deckgrid/DeckCard.jsx` | `useDeckStore.js` (`createDeckSlice.js`), `offlineApi.js`, `localDb.js` | `decks.py` | `decks.py` | `TMA_Deck` |
 | **Папки (Folders)** | `deckgrid/FolderCard.jsx`, `modals/FolderModal.jsx` | `useDeckStore.js` (`createFolderSlice.js`), `offlineApi.js` | `folders.py` | `folders.py` | `TMA_Folder` |
-| **Карточки (Cards)** | `CardList.jsx`, `modals/CardEditModal.jsx` | `useDeckStore.js` (`createDeckSlice.js`), `offlineApi.js` | `cards.py` | `cards.py` | `TMA_Card` |
+| **Карточки (Cards & Batch)** | `CardList.jsx`, `modals/BatchMoveModal.jsx`, `modals/CardEditModal.jsx` | `useDeckStore.js`, `useCardActions.js`, `offlineApi.js`, `localDb.js` | `cards.py` (`/batch-move`, `/batch-delete`) | `cards.py` | `TMA_Card` |
 | **Обучение & SRS** | `study/StudyView.jsx`, `study/CardView.jsx` | `useSessionStore.js`, `offlineApi.js` | `study.py` | `study.py`, `srs.py` | `TMAProgress`, `TMAReviewHistory` |
 | **Offline-First & Синхронизация** | `common/SyncIndicator.jsx`, `offlineUi.js` | `localDb.js` (Dexie), `offlineApi.js`, `syncService.js` | `sync.py` | `sync_service.py`, `offline_sync.py` | `TMAOfflineBatch` |
 | **AI-генерация & Промпты** | `modals/AiGenerateModal.jsx`, `study/AiExplainer.jsx` | `useSessionStore.js` | `ai.py` | `ai_service.py`, `prompt_builders.py`, `ai_clients.py` | `TMAUserPrompt`, `TMACustomPrompt` |
@@ -35,6 +35,7 @@
 1. **Offline-First по умолчанию**: Все операции создания, изменения и удаления данных **сначала** фиксируются в Dexie (IndexedDB) через `offlineApi.js`, и только потом отправляются/планируются на сервер через `syncService.js`.
 2. **Слайсы Zustand (`useDeckStore.js`)**: Не раздувайте `useDeckStore.js` напрямую. Стейт разделен на срезы (`slices/createDeckSlice.js`, `createFolderSlice.js`, `createLibrarySlice.js`, `createShareSlice.js`, `createTrashSlice.js`).
 3. **Платформенные функции**: Действующие адаптеры Telegram/Capacitor находятся в `app/src/utils/platform.js`, CloudStorage — в `app/src/utils/auth.js`. Файла `services/telegram.js` сейчас нет. `initDataUnsafe` не является серверным доказательством личности.
+4. **Медиафайлы карточек**: Загрузка и отображение картинок обязательно изолируются через `StudyCardImage.jsx` с каскадным резолвингом `image_url` $\to$ `media_url` $\to$ `image_path` и автоматическим ретраем при сбоях сети.
 
 ### Серверный поток данных (Backend)
 1. **Тонкие роутеры (`api/routers/`)**: Роутеры только принимают HTTP-запрос, валидируют входные Pydantic-схемы, вызывают соответствующий метод из `api/services/` и возвращают результат.
@@ -54,4 +55,5 @@
 | **Карточки создаются на сервере, но не видны в UI** | `createDeckSlice.js` (селектор фильтрации/папок) | `api/services/cards.py` | Флаги `is_deleted` или несоответствие `folder_id` |
 | **Ошибка генерации карточек нейросетью** | Логи сетевого запроса к `/api/ai/...` | `api/routers/ai.py` $\to$ `api/ai_service.py` | Промпты в `prompt_builders.py` или API-ключи провайдера |
 | **Не воспроизводится аудио карточки** | `app/src/utils/audio.js` $\to$ `mediaCache.js` | `api/routers/media.py` | `api/services/media.py` (генерация edge-tts) |
+| **Не загружается картинка карточки** | `StudyCardImage.jsx` $\to$ `StudyCard.jsx` | `api/routers/media.py` (`/images/`) | `TMAMedia` в БД Supabase / reconnect |
 | **Сбой авторизации в Telegram/Android** | `app/src/store/useAuthStore.js`, `utils/auth.js`, `utils/platform.js` | `api/routers/auth_v2.py`, `bot.py`, `dependencies/auth.py` | `api/auth/providers.py`, TTL/challenge и сессии в `service.py`; deployment-проверки в `api/auth/DEPLOYMENT.md` |

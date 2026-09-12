@@ -138,8 +138,11 @@ export async function resolveLocalRequest(url, body) {
     .replace(/\/trash\/(deck|card)\/(-\d+)/, (_, kind, value) => `/trash/${kind}/${id(`${kind}s`, Number(value))}`);
   if (!body || typeof body !== 'object' || body instanceof FormData) return { url: resolvedUrl, body };
   const copy = { ...body };
-  for (const [field, kind] of Object.entries({ card_id: 'cards', deck_id: 'decks', folder_id: 'folders', parent_id: 'folders', after_card_id: 'cards' })) {
+  for (const [field, kind] of Object.entries({ card_id: 'cards', deck_id: 'decks', target_deck_id: 'decks', folder_id: 'folders', parent_id: 'folders', after_card_id: 'cards' })) {
     if (field in copy) copy[field] = id(kind, copy[field]);
+  }
+  if (Array.isArray(copy.card_ids)) {
+    copy.card_ids = copy.card_ids.map(c => id('cards', c));
   }
   return { url: resolvedUrl, body: copy };
 }

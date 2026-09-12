@@ -198,6 +198,37 @@ export const offlineApi = {
         return result({ ...card, front: card.front_text, back: card.back_text });
       });
     }
+    if (m === 'post' && url === '/cards/batch-move') {
+      const targetDeckId = Number(body.target_deck_id);
+      const cardIds = (body.card_ids || []).map(Number);
+      return db.transaction('rw', db.cards, db.decks, async () => {
+        const targetDeck = await db.decks.get(targetDeckId);
+        if (!targetDeck || targetDeck.is_deleted) notFound();
+        if (targetDeck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
+        const siblings = await db.cards.where('deck_id').equals(targetDeckId).filter(c => !c.is_deleted).toArray();
+        let currentPos = Math.max(-1, ...siblings.map(c => c.position || 0));
+        for (const cid of cardIds) {
+          const card = await db.cards.get(cid);
+          if (card && !card.is_deleted) {
+            currentPos += 1;
+            await db.cards.put({ ...card, deck_id: targetDeckId, position: currentPos, ...dirtyFields() });
+          }
+        }
+        return success({ count: cardIds.length });
+      });
+    }
+    if (m === 'post' && url === '/cards/batch-delete') {
+      const cardIds = (body.card_ids || []).map(Number);
+      return db.transaction('rw', db.cards, db.decks, async () => {
+        for (const cid of cardIds) {
+          const card = await db.cards.get(cid);
+          if (card) {
+            await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields() });
+          }
+        }
+        return success({ count: cardIds.length });
+      });
+    }
     match = url.match(/^\/(decks|folders)$/);
     if (m === 'post' && match) {
       const table = db[match[1]];

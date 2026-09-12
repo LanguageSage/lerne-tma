@@ -431,10 +431,24 @@ def get_audio(filename: str, request: Request):
         return get_range_response(request, content, "audio/mpeg")
 
     logger.debug(f"MEDIA: Requesting audio: {clean_filename}")
-    media = models.TMAMedia.get_or_none(
-        (models.TMAMedia.filename == clean_filename) & 
-        (models.TMAMedia.folder == 'audio')
-    )
+    try:
+        media = models.TMAMedia.get_or_none(
+            (models.TMAMedia.filename == clean_filename) & 
+            (models.TMAMedia.folder == 'audio')
+        )
+    except Exception as e:
+        logger.warning(f"DB connection reset in get_audio, reconnecting: {e}")
+        try:
+            models.initialize_database()
+            models.tma_db.connect(reuse_if_open=True)
+            media = models.TMAMedia.get_or_none(
+                (models.TMAMedia.filename == clean_filename) & 
+                (models.TMAMedia.folder == 'audio')
+            )
+        except Exception as retry_err:
+            logger.error(f"Retry in get_audio failed: {retry_err}")
+            raise HTTPException(status_code=500, detail="Database connection error")
+
     if not media:
         raise HTTPException(status_code=404, detail="Audio not found in DB")
     
@@ -451,10 +465,24 @@ def get_image(filename: str, request: Request):
         return get_range_response(request, content, media_type)
 
     logger.debug(f"MEDIA: Requesting image: {clean_filename}")
-    media = models.TMAMedia.get_or_none(
-        (models.TMAMedia.filename == clean_filename) & 
-        (models.TMAMedia.folder == 'images')
-    )
+    try:
+        media = models.TMAMedia.get_or_none(
+            (models.TMAMedia.filename == clean_filename) & 
+            (models.TMAMedia.folder == 'images')
+        )
+    except Exception as e:
+        logger.warning(f"DB connection reset in get_image, reconnecting: {e}")
+        try:
+            models.initialize_database()
+            models.tma_db.connect(reuse_if_open=True)
+            media = models.TMAMedia.get_or_none(
+                (models.TMAMedia.filename == clean_filename) & 
+                (models.TMAMedia.folder == 'images')
+            )
+        except Exception as retry_err:
+            logger.error(f"Retry in get_image failed: {retry_err}")
+            raise HTTPException(status_code=500, detail="Database connection error")
+
     if not media:
         raise HTTPException(status_code=404, detail="Image not found in DB")
     

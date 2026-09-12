@@ -47,6 +47,42 @@ export const getSortedFolderTree = (foldersList = [], excludeId = null, excludeD
   return result;
 };
 
+export const getSortedFolderAndDeckTree = (foldersList = [], decksList = [], expandedFolders = {}) => {
+  const result = [];
+  const traverse = (folderId, depth, isParentVisible) => {
+    if (!isParentVisible) return;
+
+    // 1. Process child folders first
+    const childFolders = (foldersList || []).filter(f => f.parent_id === folderId);
+    for (const folder of childFolders) {
+      const isExpanded = !!expandedFolders[folder.id];
+      result.push({
+        type: 'folder',
+        id: folder.id,
+        name: folder.name,
+        depth: depth,
+        isExpanded: isExpanded
+      });
+      traverse(folder.id, depth + 1, isExpanded);
+    }
+
+    // 2. Process child decks
+    const childDecks = (decksList || []).filter(d => d.folder_id === folderId);
+    for (const deck of childDecks) {
+      result.push({
+        type: 'deck',
+        id: deck.id,
+        name: deck.name,
+        totalCards: deck.stats?.total || 0,
+        depth: depth
+      });
+    }
+  };
+
+  traverse(null, 0, true);
+  return result;
+};
+
 export const getResourceSrc = (item, mediaType = 'images') => {
   if (!item) return '';
   if (item.url) return item.url;

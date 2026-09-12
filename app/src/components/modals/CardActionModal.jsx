@@ -10,45 +10,10 @@ import { useCardActions } from '../../hooks/useCardActions';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { FlagPicker } from '../common/FlagPicker';
+import { getSortedFolderAndDeckTree } from '../../utils/deckUtils';
 
 const PAUSE_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
 const SPEED_OPTIONS = Array.from({ length: 21 }, (_, index) => -50 + index * 5);
-
-const getSortedFolderAndDeckTree = (foldersList, decksList, expandedFolders) => {
-  const result = [];
-  const traverse = (folderId, depth, isParentVisible) => {
-    if (!isParentVisible) return;
-
-    // 1. Process child folders first
-    const childFolders = foldersList.filter(f => f.parent_id === folderId);
-    for (const folder of childFolders) {
-      const isExpanded = !!expandedFolders[folder.id];
-      result.push({
-        type: 'folder',
-        id: folder.id,
-        name: folder.name,
-        depth: depth,
-        isExpanded: isExpanded
-      });
-      traverse(folder.id, depth + 1, isExpanded);
-    }
-
-    // 2. Process child decks
-    const childDecks = decksList.filter(d => d.folder_id === folderId);
-    for (const deck of childDecks) {
-      result.push({
-        type: 'deck',
-        id: deck.id,
-        name: deck.name,
-        totalCards: deck.stats?.total || 0,
-        depth: depth
-      });
-    }
-  };
-
-  traverse(null, 0, true);
-  return result;
-};
 
 export const CardActionModal = ({
   isOpen,
@@ -73,12 +38,15 @@ export const CardActionModal = ({
   const cardsByDeck = useDeckStore(s => s.cardsByDeck);
   const showToast = useUiStore(s => s.showToast);
 
-  const targetDeckId = card?.deck_id || currentDeck?.id;
+  const targetDeckId = card?.deck_id != null ? card.deck_id : currentDeck?.id;
+  const isCurrentDeck = currentDeck && String(currentDeck.id) === String(targetDeckId);
   const cardsList = React.useMemo(() => {
-    return (currentDeck?.id === targetDeckId ? deckCards : null) || (targetDeckId ? cardsByDeck[targetDeckId] : null) || [];
-  }, [currentDeck?.id, targetDeckId, deckCards, cardsByDeck]);
+    return (isCurrentDeck && deckCards && deckCards.length > 0)
+      ? deckCards
+      : ((targetDeckId && cardsByDeck[targetDeckId]) || deckCards || []);
+  }, [isCurrentDeck, targetDeckId, deckCards, cardsByDeck]);
 
-  const currentIdx = cardsList.findIndex(c => c.id === card?.id);
+  const currentIdx = cardsList.findIndex(c => String(c.id) === String(card?.id));
   const currentPosition = currentIdx !== -1 
     ? currentIdx + 1 
     : (card?.card_number || (typeof card?.position === 'number' ? card.position + 1 : 1));
@@ -132,15 +100,19 @@ export const CardActionModal = ({
   }, [isOpen, card, currentPosition, targetDeckId, cardsList]);
 
   const handleApplyPosition = async () => {
-    if (!card || !targetDeckId) return;
+    if (!card || targetDeckId == null) return;
 
-    let list = (currentDeck?.id === targetDeckId ? deckCards : null) || cardsByDeck[targetDeckId] || [];
+    let list = (isCurrentDeck && deckCards && deckCards.length > 0)
+      ? [...deckCards]
+      : (cardsByDeck[targetDeckId] ? [...cardsByDeck[targetDeckId]] : []);
+
     if (!list || list.length === 0) {
-      list = await useDeckStore.getState().fetchDeckCards(targetDeckId);
+      const fetched = await useDeckStore.getState().fetchDeckCards(targetDeckId);
+      list = [...(fetched || [])];
     }
     if (!list || list.length === 0) return;
 
-    const fromIndex = list.findIndex(c => c.id === card.id);
+    const fromIndex = list.findIndex(c => String(c.id) === String(card.id));
     if (fromIndex === -1) {
       showToast(tr("Карточка не найдена в колоде"), "error");
       return;
