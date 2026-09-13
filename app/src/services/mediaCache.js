@@ -29,11 +29,21 @@ async function cacheMedia(database, url) {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok || Number(response.headers.get('content-length')) > MAX_FILE_BYTES) return;
     const blob = await response.blob();
-    if (!/^(image|audio)\//.test(blob.type) || blob.size > MAX_FILE_BYTES) return;
+    let finalBlob = blob;
+    if (!/^(image|audio)\//.test(blob.type)) {
+      if (/\.mp3(\?|$)/i.test(url)) {
+        finalBlob = new Blob([blob], { type: 'audio/mpeg' });
+      } else if (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(url)) {
+        finalBlob = new Blob([blob], { type: 'image/webp' });
+      } else {
+        return;
+      }
+    }
+    if (finalBlob.size > MAX_FILE_BYTES) return;
     await database.transaction('rw', database.media, async () => {
       let size = 0;
       await database.media.each(item => { size += item.blob.size; });
-      if (size + blob.size <= MAX_CACHE_BYTES) await database.media.put({ url, blob });
+      if (size + finalBlob.size <= MAX_CACHE_BYTES) await database.media.put({ url, blob: finalBlob });
     });
   } finally {
     clearTimeout(timeout);

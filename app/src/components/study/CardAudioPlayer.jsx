@@ -83,8 +83,8 @@ export const CardAudioPlayer = React.memo(({
     return url;
   };
 
-  const handlePlaybackError = async () => {
-    await generateAndPlay(true);
+  const handlePlaybackError = async (err) => {
+    console.warn('[CardAudioPlayer] Playback failed for:', effectiveUrl, err);
   };
 
   const handlePlayPauseClick = (e) => {

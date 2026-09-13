@@ -7,8 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response, Up
 import logging
 from PIL import Image, UnidentifiedImageError
 
-import models
-from api import models # Ensure we use the api.models package
+from api import models
 from api.dependencies.auth import get_user_id
 from api.utils.image import optimize_image # Импортируем наш оптимизатор
 
@@ -365,6 +364,18 @@ async def upload_audio_file(
         raise HTTPException(status_code=413, detail="Audio is too large. Maximum size is 20 MB")
 
     filename = f"aud_{user_id}_{uuid.uuid4().hex[:12]}.mp3"
+    
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_KEY")
+    if supabase_url and supabase_key:
+        from api.utils.audio import _upload_to_supabase
+        cloud_url = await _upload_to_supabase(content, filename, supabase_url, supabase_key)
+        if cloud_url:
+            return {
+                "path": cloud_url,
+                "url": cloud_url
+            }
+
     try:
         models.TMAMedia.create(
             filename=filename,
@@ -449,8 +460,25 @@ def get_audio(filename: str, request: Request):
             logger.error(f"Retry in get_audio failed: {retry_err}")
             raise HTTPException(status_code=500, detail="Database connection error")
 
-    if not media:
-        raise HTTPException(status_code=404, detail="Audio not found in DB")
+    if not media or not media.content:
+        supabase_url = os.environ.get("SUPABASE_URL")
+        supabase_key = os.environ.get("SUPABASE_KEY")
+        if supabase_url:
+            project_url = supabase_url.rstrip("/")
+            storage_url = f"{project_url}/storage/v1/object/public/tma-audio/{clean_filename}"
+            try:
+                import httpx
+                headers = {"Authorization": f"Bearer {supabase_key}"} if supabase_key else {}
+                resp = httpx.get(storage_url, headers=headers, timeout=10.0)
+                if resp.status_code == 200 and resp.content:
+                    content = resp.content
+                    _media_cache.set('audio', clean_filename, content, "audio/mpeg")
+                    return get_range_response(request, content, "audio/mpeg")
+                else:
+                    logger.warning(f"Supabase Storage get audio {clean_filename} returned {resp.status_code}")
+            except Exception as up_err:
+                logger.warning(f"Error fetching audio from Supabase Storage: {up_err}")
+        raise HTTPException(status_code=404, detail="Audio not found")
     
     content = bytes(media.content)
     _media_cache.set('audio', clean_filename, content, "audio/mpeg")

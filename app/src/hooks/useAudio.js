@@ -201,8 +201,8 @@ export const useAudio = (autoPlay, showToast) => {
     setCurrentUrl(url);
     setCurrentTime(0);
 
-    const cached = preloadAudio(url);
-    const audio = cached?.cloneNode ? cached.cloneNode(true) : new Audio(url);
+    preloadAudio(url);
+    const audio = new Audio(url);
     audio.playsInline = true;
     audio.playbackRate = playbackRateRef.current || 1.0;
 
@@ -274,12 +274,15 @@ export const useAudio = (autoPlay, showToast) => {
         globalActiveStopCallback = null;
       }
 
+      const errCode = audio.error?.code;
+      const errMsg = audio.error?.message;
       const retries = retryCountRef.current[url] || 0;
-      if (!onPlaybackError && retries < 1) {
+      console.warn(`[useAudio] Audio load failed for ${url} (code: ${errCode}, msg: ${errMsg}, retry: ${retries})`);
+      if (retries < 1) {
         retryCountRef.current[url] = retries + 1;
         setTimeout(() => playAudioRef.current?.(url, onEndedCallback, onPlaybackError), 500);
       } else {
-        handleTerminalError(new Error('Audio load failed'));
+        handleTerminalError(new Error(`Audio load failed (code ${errCode || 'unknown'})`));
       }
     };
 

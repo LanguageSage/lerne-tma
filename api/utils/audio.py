@@ -152,8 +152,8 @@ def _parse_boundaries(raw_events):
     return result
 
 
-async def _upload_to_supabase(file_path, filename, project_url, api_key):
-    """Загрузка файла в Supabase Storage через REST API (async)."""
+async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key):
+    """Загрузка файла или байтов в Supabase Storage через REST API (async)."""
     import aiohttp
     bucket = "tma-audio"
     project_url = project_url.rstrip("/")
@@ -161,12 +161,16 @@ async def _upload_to_supabase(file_path, filename, project_url, api_key):
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "x-upsert": "true"
+        "x-upsert": "true",
+        "Content-Type": "audio/mpeg"
     }
 
     try:
-        with open(file_path, "rb") as f:
-            data = f.read()
+        if isinstance(file_path_or_bytes, (bytes, bytearray)):
+            data = file_path_or_bytes
+        else:
+            with open(file_path_or_bytes, "rb") as f:
+                data = f.read()
 
         async with aiohttp.ClientSession() as session:
             async with session.post(upload_url, headers=headers, data=data) as resp:

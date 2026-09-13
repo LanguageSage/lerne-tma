@@ -61,7 +61,7 @@ def _build_media_exists_map(cards_dicts: list) -> set:
                 fn.SUBSTR(TMAMedia.content, 1, 4096),
             ).where(TMAMedia.filename << chunk)
             for filename, folder, content_size, content_prefix in query.tuples():
-                if folder != 'audio' or _is_valid_audio_content(content_prefix, content_size):
+                if folder != 'audio' or content_size is None or _is_valid_audio_content(content_prefix, content_size):
                     existing.add((filename, folder))
         return existing
     except Exception as e:
@@ -101,6 +101,9 @@ def _check_media_exists(filename: str, folder: str) -> bool:
             return False
         if folder != 'audio':
             return True
+        # If content is NULL, it has been migrated to Supabase Storage and is served via Storage redirect
+        if row[0] is None:
+            return True
         return _is_valid_audio_content(row[1], row[0])
     except Exception:
         return False
@@ -110,11 +113,16 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) ->
     """Формирует канонический URL для медиа-ресурсов."""
     if not path_str:
         return None
+    clean_filename = os.path.basename(path_str.split('?')[0])
+    if not clean_filename:
+        return None
+
+    if media_type in ("audio", "audio_back"):
+        return f"/api/media/audio/{clean_filename}"
+
     if path_str.startswith("http://") or path_str.startswith("https://"):
         return path_str
-    filename = os.path.basename(path_str)
-    if not filename:
-        return None
+    filename = clean_filename
     
     folder = "images"
     if media_type in ("audio", "audio_back"):
@@ -223,23 +231,38 @@ async def ensure_card_audio(card, user_id: int):
             card.save()
             logger.info(f"Generated cloud audio for card {card.id}: {result}")
         else:
-            # Локальный файл, сохраняем контент в БД
             filename = os.path.basename(result)
             with open(result, "rb") as f:
                 content = f.read()
-                
-            media, created = TMAMedia.get_or_create(
-                filename=filename,
-                folder='audio',
-                defaults={'content': content}
-            )
-            if not created:
-                media.content = content
-                media.save(only=[TMAMedia.content])
-            _check_media_exists.cache_clear()
-            
-            card.audio_path = filename
-            card.save()
+
+            supabase_url = os.environ.get("SUPABASE_URL")
+            supabase_key = os.environ.get("SUPABASE_KEY")
+            cloud_url = None
+            if supabase_url and supabase_key:
+                try:
+                    from ..utils.audio import _upload_to_supabase
+                    cloud_url = await _upload_to_supabase(content, filename, supabase_url, supabase_key)
+                except Exception as up_err:
+                    logger.warning(f"Failed to upload ensured audio to storage: {up_err}")
+
+            if cloud_url:
+                card.audio_path = cloud_url
+                card.save()
+                logger.info(f"Generated audio uploaded to cloud for card {card.id}: {cloud_url}")
+            else:
+                # Fallback to local DB
+                media, created = TMAMedia.get_or_create(
+                    filename=filename,
+                    folder='audio',
+                    defaults={'content': content}
+                )
+                if not created:
+                    media.content = content
+                    media.save(only=[TMAMedia.content])
+                _check_media_exists.cache_clear()
+                card.audio_path = filename
+                card.save()
+                logger.info(f"Generated local audio for card {card.id} and saved to TMAMedia: {filename}")
             
             try: os.remove(result)
             except Exception: pass

@@ -181,7 +181,7 @@ class TMAMedia(BaseModel):
     id = AutoField()
     filename = CharField(index=True)
     folder = CharField()  # 'images', 'audio', 'videos', 'backgrounds'
-    content = BlobField()
+    content = BlobField(null=True)
     created_at = DateTimeField(default=datetime.datetime.now)
 
     class Meta:

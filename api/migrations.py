@@ -260,6 +260,7 @@ MIGRATIONS = [
     (74, "ALTER TABLE tma_folder ADD COLUMN position INTEGER DEFAULT 0", 'tma'),
     (75, "CREATE TABLE IF NOT EXISTS tma_offline_batch (key VARCHAR(255) PRIMARY KEY, payload_hash VARCHAR(64) NOT NULL, response TEXT NOT NULL DEFAULT '', created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)", 'tma'),
     (80, "ALTER TABLE tma_collaborator ADD COLUMN can_edit_audio BOOLEAN DEFAULT false", 'tma'),
+    (81, "ALTER TABLE tmamedia ALTER COLUMN content DROP NOT NULL", 'tma'),
 ]
 
 
