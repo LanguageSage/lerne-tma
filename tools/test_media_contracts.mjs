@@ -5,13 +5,13 @@ function getResolvedImageUrl(c) {
   if (!c) return null;
   const raw = c.image_url || c.media_url || c.image_path || c.image;
   if (!raw || typeof raw !== 'string') return null;
-  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('/lid_images/')) {
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:') || raw.startsWith('blob:')) {
     return raw;
   }
   if (raw.startsWith('/api/media/')) {
     return raw;
   }
-  const cleanPath = raw.replace(/^(images|audio|videos)\//, '');
+  const cleanPath = raw.replace(/^(images|audio|videos)\//, '').replace(/^\/lid_images\//, '');
   return `/api/media/images/${cleanPath}`;
 }
 
@@ -39,10 +39,10 @@ assert.equal(
   '/api/media/images/lid_banner.png'
 );
 
-// Contract 5: lid_images legacy route preserved
+// Contract 5: lid_images legacy route converted to unified /api/media/images/
 assert.equal(
   getResolvedImageUrl({ image_url: '/lid_images/photo.png' }),
-  '/lid_images/photo.png'
+  '/api/media/images/photo.png'
 );
 
 // Contract 6: Empty or null card handled safely
