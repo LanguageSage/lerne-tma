@@ -42,6 +42,7 @@ function clearFolderUserFilter() {
 async function loadAdminFolders() {
       try {
         const res = await fetch('/api/admin/folders');
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         const data = await res.json();
         foldersData = data.folders || [];
 
@@ -457,10 +458,6 @@ async function submitAssignFolder() {
       }
     }
 
-    let activeFolderRegenId = null;
-    let folderDecksState = {};
-    let globalBatchExcludedCards = new Set();
-
 function openFolderRegenModal(folderId) {
       activeFolderRegenId = folderId;
       const folder = (foldersData || []).find(f => f.id === folderId);
@@ -746,7 +743,6 @@ async function submitFolderRegen(action = 'start') {
       }
     }
 
-    let promptsData = [];
 
 
 /**

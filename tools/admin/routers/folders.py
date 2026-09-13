@@ -389,9 +389,15 @@ def assign_folder(folder_id: int, req: AssignFolderRequest):
         if not target_uids:
             return {"status": "ok", "users_processed": 0, "message": f"Пользователей с папкой '{folder.name}' не найдено."}
 
+        # Pre-cache master cards once outside the per-user loop to avoid N*M roundtrips
+        master_decks_data = []
+        for d in decks:
+            cards = list(models.TMA_Card.select().where((models.TMA_Card.deck == d) & (models.TMA_Card.is_deleted == False)))
+            master_decks_data.append((d, cards))
+
         overwritten_users = 0
-        with models.tma_db.atomic():
-            for uid in target_uids:
+        for uid in target_uids:
+            with models.tma_db.atomic():
                 user_folder = models.TMA_Folder.get_or_none(
                     (models.TMA_Folder.user_id == uid) & (models.TMA_Folder.is_deleted == False) &
                     ((models.TMA_Folder.name == folder.name) | (models.TMA_Folder.name == clean_f_name) | (models.TMA_Folder.name == f"⭐ {clean_f_name}"))
@@ -418,9 +424,8 @@ def assign_folder(folder_id: int, req: AssignFolderRequest):
                     user_folder.updated_at = now
                     user_folder.save()
 
-                # Bulk insert fresh decks and cards from master folder
-                for d in decks:
-                    cards = list(models.TMA_Card.select().where((models.TMA_Card.deck == d) & (models.TMA_Card.is_deleted == False)))
+                # Insert fresh decks and cards from prefetched master data
+                for d, cards in master_decks_data:
                     new_d = models.TMA_Deck.create(
                         user_id=uid, folder=user_folder, name=d.name,
                         target_language=d.target_language, level=d.level, topic=d.topic,
@@ -440,7 +445,13 @@ def assign_folder(folder_id: int, req: AssignFolderRequest):
                     ]
                     if card_objs:
                         models.TMA_Card.bulk_create(card_objs, batch_size=200)
-                overwritten_users += 1
+            overwritten_users += 1
+
+        try:
+            from tools.admin.routers.decks import invalidate_decks_cache
+            invalidate_decks_cache()
+        except Exception:
+            pass
 
         return {
             "status": "ok", "users_processed": overwritten_users,

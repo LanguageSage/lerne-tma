@@ -59,7 +59,7 @@ export function useStudyNavigation() {
       if (localCard) {
         if (!localCard.image_url && (localCard.image_path || localCard.media_url)) {
           const raw = localCard.image_path || localCard.media_url;
-          const cleanPath = raw.replace(/^(images|audio|videos)\//, '');
+          const cleanPath = raw.replace(/^(images|audio|videos)\//, '').replace(/^\/lid_images\//, '');
           localCard = { ...localCard, image_url: `/api/media/images/${cleanPath}` };
         }
         useSessionStore.getState().addToHistory(localCard);
@@ -97,7 +97,7 @@ export function useStudyNavigation() {
       if (localCard) {
         if (!localCard.image_url && (localCard.image_path || localCard.media_url)) {
           const raw = localCard.image_path || localCard.media_url;
-          const cleanPath = raw.replace(/^(images|audio|videos)\//, '');
+          const cleanPath = raw.replace(/^(images|audio|videos)\//, '').replace(/^\/lid_images\//, '');
           localCard = { ...localCard, image_url: `/api/media/images/${cleanPath}` };
         }
         useSessionStore.getState().addToHistory(localCard);

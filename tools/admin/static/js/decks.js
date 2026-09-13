@@ -80,18 +80,16 @@ async function loadDecks(userIdFilter = null) {
         const uid = userIdFilter || activeUserFilter;
         const url = uid ? `/api/admin/decks?user_id=${uid}` : '/api/admin/decks';
         const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         const data = await res.json();
         decksData = data.decks || [];
         renderDecksTable(decksData);
-        loadAdminFolders();
       } catch (err) {
         console.error("Failed to load decks", err);
+      } finally {
+        loadAdminFolders();
       }
     }
-
-    let currentDeckPage = 1;
-    const deckPageSize = 40;
-    let currentRenderedDecks = [];
 
 async function loadDecksSilent() {
       try {
@@ -324,8 +322,6 @@ async function deduplicateDeck(deckId, deckName) {
       }
     }
 
-    let decksAutoRefreshInterval = null;
-
 function toggleDecksAutoRefresh() {
       const isEnabled = document.getElementById('decks-auto-refresh').checked;
       if (isEnabled) {
@@ -447,10 +443,6 @@ async function submitAssignDeck() {
       }
     }
 
-    let foldersData = [];
-    let activeAssignFolderId = null;
-    let folderFilterMode = 'all';
-    let folderUserFilter = null;
 
 function filterLibraryDecks() {
       const libraryDecks = decksData.filter(d => d.is_default);
@@ -480,22 +472,29 @@ async function promoteToLibrary(entityType, entityId, entityName) {
 async function overwriteAllUsers(entityType, entityId, entityName) {
       const label = entityType === 'folder' ? 'папку' : 'колоду';
       if (!confirm(`🔄 Полностью заменить ${label} «${entityName}» у всех пользователей, у которых она есть?\n\n⚠️ Это удалит весь прогресс обучения (SRS) пользователей по этой ${label}!\n\nПродолжить?`)) return;
+      
+      const prevCursor = document.body.style.cursor;
+      document.body.style.cursor = 'wait';
       try {
         const endpoint = entityType === 'folder'
           ? `/api/admin/folders/${entityId}/overwrite-users`
           : `/api/admin/decks/${entityId}/overwrite-users`;
         const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Сервер вернул ошибку (${res.status}): ${errText}`);
+        }
         const data = await res.json();
         alert(data.message || `Обновление выполнено для ${data.users_processed || 0} пользователей.`);
         if (entityType === 'folder') loadAdminFolders(); else loadDecks();
       } catch (err) {
-        alert('Ошибка: ' + err);
+        alert('Ошибка при обновлении: ' + (err.message || err));
+      } finally {
+        document.body.style.cursor = prevCursor;
       }
     }
 
     // ── New: Collaborative Modal ──────────────────────────────────────────────
-    let activeCollaborativeType = null;
-    let activeCollaborativeId = null;
 
 function openCollaborativeModal(entityType, entityId, entityName) {
       activeCollaborativeType = entityType;

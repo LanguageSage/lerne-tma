@@ -48,15 +48,16 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
   const rawBack = (card.back || card.back_text || '').trim();
   const rawContext = card.context || '';
   const audioUrl = card.audio_url || card.audio_path || '';
-  const rawMedia = card.media_url || card.image_path || card.image_url || card.image || '';
+  const rawMedia = card.image_url || card.media_url || card.image_path || card.image || '';
 
-  // Resolve media image URL
+  // Canonical media URL resolution directly from card
   let resolvedImage = null;
-  if (rawMedia) {
-    if (rawMedia.startsWith('http') || rawMedia.startsWith('/')) {
+  if (rawMedia && typeof rawMedia === 'string') {
+    if (rawMedia.startsWith('http://') || rawMedia.startsWith('https://') || rawMedia.startsWith('data:') || rawMedia.startsWith('blob:') || rawMedia.startsWith('/api/media/')) {
       resolvedImage = rawMedia;
     } else {
-      resolvedImage = `/lid_images/${rawMedia}`;
+      const cleanPath = rawMedia.replace(/^(images|audio|videos)\//, '').replace(/^\/lid_images\//, '');
+      resolvedImage = `/api/media/images/${cleanPath}`;
     }
   }
 

@@ -249,13 +249,13 @@ export const StudyCard = React.memo(({
     if (!c) return null;
     const raw = c.image_url || c.media_url || c.image_path || c.image;
     if (!raw || typeof raw !== 'string') return null;
-    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('/lid_images/')) {
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:') || raw.startsWith('blob:')) {
       return raw;
     }
     if (raw.startsWith('/api/media/')) {
       return raw;
     }
-    const cleanPath = raw.replace(/^(images|audio|videos)\//, '');
+    const cleanPath = raw.replace(/^(images|audio|videos)\//, '').replace(/^\/lid_images\//, '');
     return `/api/media/images/${cleanPath}`;
   };
 

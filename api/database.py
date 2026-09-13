@@ -73,7 +73,7 @@ def initialize_database() -> bool:
     if PooledPostgresqlDatabase is not None:
         try:
             actual_db = PooledPostgresqlDatabase(
-                autorollback=True, max_connections=8, stale_timeout=300, **db_params
+                autorollback=True, max_connections=20, stale_timeout=300, **db_params
             )
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)

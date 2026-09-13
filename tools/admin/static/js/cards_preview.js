@@ -258,11 +258,6 @@ function previewOpenBulkAdd() {
       if (select) select.value = String(dId);
     }
 
-    // ==========================================
-    // BULK CARD CREATOR WORKSPACE
-    // ==========================================
-    let activeBulkTaskId = null;
-    let bulkPollInterval = null;
 
 
 /**

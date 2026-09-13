@@ -23,45 +23,65 @@ let deckHealthFilter = 'all';
 
 const ADMIN_VOICES_BY_LANG = {
   de: [
-    { id: 'de-DE-KatjaNeural', name: '🇩🇪 Katja (Женский, естественный, основной)' },
-    { id: 'de-DE-ConradNeural', name: '🇩🇪 Conrad (Мужской, четкий)' },
-    { id: 'de-DE-AmalaNeural', name: '🇩🇪 Amala (Женский, мягкий)' },
-    { id: 'de-DE-BerndNeural', name: '🇩🇪 Bernd (Мужской, глубокий)' },
-    { id: 'de-DE-ChristophNeural', name: '🇩🇪 Christoph (Мужской, дикторский)' },
-    { id: 'de-DE-ElkeNeural', name: '🇩🇪 Elke (Женский)' },
-    { id: 'de-DE-GiselaNeural', name: '🇩🇪 Gisela (Женский)' },
-    { id: 'de-DE-KasperNeural', name: '🇩🇪 Kasper (Мужской)' },
-    { id: 'de-DE-KillianNeural', name: '🇩🇪 Killian (Мужской, молодой)' },
-    { id: 'de-DE-KlarissaNeural', name: '🇩🇪 Klarissa (Женский)' },
-    { id: 'de-DE-KlausNeural', name: '🇩🇪 Klaus (Мужской)' },
-    { id: 'de-DE-LouisaNeural', name: '🇩🇪 Louisa (Женский, живой)' },
-    { id: 'de-DE-MajaNeural', name: '🇩🇪 Maja (Женский, юный)' },
-    { id: 'de-DE-RalfNeural', name: '🇩🇪 Ralf (Мужской)' },
-    { id: 'de-DE-TanjaNeural', name: '🇩🇪 Tanja (Женский)' },
-    { id: 'de-DE-FlorianMultilingualNeural', name: '🇩🇪 Florian (Мультиязычный)' },
-    { id: 'de-DE-SeraphinaMultilingualNeural', name: '🇩🇪 Seraphina (Мультиязычный)' }
+    { group: '🇩🇪 Германия', voices: [
+      { value: 'de-DE-KatjaNeural', label: 'Катя (♀️ Женский — по умолчанию)', default: true },
+      { value: 'de-DE-AmalaNeural', label: 'Амала (♀️ Женский)' },
+      { value: 'de-DE-SeraphinaMultilingualNeural', label: 'Серафина (♀️ Женский)' },
+      { value: 'de-DE-KillianNeural', label: 'Киллиан (♂️ Мужской)' },
+      { value: 'de-DE-ConradNeural', label: 'Конрад (♂️ Мужской)' },
+      { value: 'de-DE-FlorianMultilingualNeural', label: 'Флориан (♂️ Мужской)' },
+    ]},
+    { group: '🇦🇹 Австрия', voices: [
+      { value: 'de-AT-IngridNeural', label: 'Ингрид (♀️ Женский)' },
+      { value: 'de-AT-JonasNeural', label: 'Йонас (♂️ Мужской)' },
+    ]},
+    { group: '🇨🇭 Швейцария', voices: [
+      { value: 'de-CH-JanNeural', label: 'Ян (♂️ Мужской)' },
+      { value: 'de-CH-LeniNeural', label: 'Лени (♀️ Женский)' },
+    ]}
   ],
   en: [
-    { id: 'en-US-JennyNeural', name: '🇺🇸 Jenny (Женский, основной)' },
-    { id: 'en-US-GuyNeural', name: '🇺🇸 Guy (Мужской, четкий)' },
-    { id: 'en-GB-SoniaNeural', name: '🇬🇧 Sonia (Британский, женский)' },
-    { id: 'en-GB-RyanNeural', name: '🇬🇧 Ryan (Британский, мужской)' }
-  ],
-  nb: [
-    { id: 'nb-NO-PernilleNeural', name: '🇳🇴 Pernille (Норвежский, женский)' },
-    { id: 'nb-NO-FinnNeural', name: '🇳🇴 Finn (Норвежский, мужской)' }
+    { group: '🇺🇸 США', voices: [
+      { value: 'en-US-JennyNeural', label: 'Дженни (♀️ Женский — по умолчанию)', default: true },
+      { value: 'en-US-AriaNeural', label: 'Ария (♀️ Женский)' },
+      { value: 'en-US-AvaNeural', label: 'Ава (♀️ Женский)' },
+      { value: 'en-US-EmmaNeural', label: 'Эмма (♀️ Женский)' },
+      { value: 'en-US-GuyNeural', label: 'Гай (♂️ Мужской)' },
+      { value: 'en-US-BrianNeural', label: 'Брайан (♂️ Мужской)' },
+      { value: 'en-US-AndrewNeural', label: 'Эндрю (♂️ Мужской)' },
+    ]},
+    { group: '🇬🇧 Великобритания', voices: [
+      { value: 'en-GB-SoniaNeural', label: 'Соня (♀️ Женский)' },
+      { value: 'en-GB-MaisieNeural', label: 'Мэйзи (♀️ Женский)' },
+      { value: 'en-GB-RyanNeural', label: 'Райан (♂️ Мужской)' },
+      { value: 'en-GB-ThomasNeural', label: 'Томас (♂️ Мужской)' },
+    ]}
   ],
   no: [
-    { id: 'nb-NO-PernilleNeural', name: '🇳🇴 Pernille (Норвежский, женский)' },
-    { id: 'nb-NO-FinnNeural', name: '🇳🇴 Finn (Норвежский, мужской)' }
+    { group: '🇳🇴 Норвегия (Bokmål)', voices: [
+      { value: 'nb-NO-FinnNeural', label: 'Финн (♂️ Мужской — по умолчанию)', default: true },
+      { value: 'nb-NO-PernilleNeural', label: 'Пернилле (♀️ Женский)' },
+      { value: 'nb-NO-IselinNeural', label: 'Иселин (♀️ Женский)' },
+    ]}
+  ],
+  nb: [
+    { group: '🇳🇴 Норвегия (Bokmål)', voices: [
+      { value: 'nb-NO-FinnNeural', label: 'Финн (♂️ Мужской — по умолчанию)', default: true },
+      { value: 'nb-NO-PernilleNeural', label: 'Пернилле (♀️ Женский)' },
+      { value: 'nb-NO-IselinNeural', label: 'Иселин (♀️ Женский)' },
+    ]}
   ],
   uk: [
-    { id: 'uk-UA-PolinaNeural', name: '🇺🇦 Поліна (Українська, жіночий)' },
-    { id: 'uk-UA-OstapNeural', name: '🇺🇦 Остап (Українська, чоловічий)' }
+    { group: '🇺🇦 Украина', voices: [
+      { value: 'uk-UA-PolinaNeural', label: 'Поліна (♀️ Жіночий — за замовчуванням)', default: true },
+      { value: 'uk-UA-OstapNeural', label: 'Остап (♂️ Чоловічий)' },
+    ]}
   ],
   ru: [
-    { id: 'ru-RU-SvetlanaNeural', name: '🇷🇺 Светлана (Женский)' },
-    { id: 'ru-RU-DmitryNeural', name: '🇷🇺 Дмитрий (Мужской)' }
+    { group: '🇷🇺 Россия', voices: [
+      { value: 'ru-RU-SvetlanaNeural', label: 'Светлана (♀️ Женский — по умолчанию)', default: true },
+      { value: 'ru-RU-DmitryNeural', label: 'Дмитрий (♂️ Мужской)' },
+    ]}
   ]
 };
 

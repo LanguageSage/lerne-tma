@@ -100,13 +100,16 @@ function onGlobalTaskBadgeClick() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  lucide.createIcons();
+  if (window.lucide && typeof lucide.createIcons === 'function') {
+    lucide.createIcons();
+  }
   loadStagedDecksFromStorage();
   updateStagingUI();
   renderVoiceOptions('de');
   renderBulkVoiceOptions('de');
   loadUsers();
   loadDecks();
+  loadAdminFolders();
   startDecksAutoRefresh();
   checkSavedCheckpoint(true);
 

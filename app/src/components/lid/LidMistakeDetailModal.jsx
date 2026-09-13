@@ -32,18 +32,10 @@ export const LidMistakeDetailModal = ({
   });
 
   const question = item?.question;
-  const [fallbackQuestionId, setFallbackQuestionId] = useState(null);
   const rawImage = question?.image || null;
-  const isFallback = fallbackQuestionId === question?.id;
-  const imgSrc = isFallback && rawImage?.startsWith('/lid_images/')
+  const imgSrc = rawImage?.startsWith('/lid_images/')
     ? `/api/media/images/${rawImage.replace('/lid_images/', '')}`
     : rawImage;
-
-  const handleImgError = useCallback(() => {
-    if (question?.id) {
-      setFallbackQuestionId(question.id);
-    }
-  }, [question]);
 
   const startCardImageResize = useCallback((e) => {
     e.stopPropagation();
@@ -178,7 +170,6 @@ export const LidMistakeDetailModal = ({
                     alt={tr("Иллюстрация к вопросу")} 
                     className="lid-mistake-img" 
                     style={{ cursor: 'pointer', height: isZoomedImage ? 'auto' : '100%', maxHeight: isZoomedImage ? '500px' : 'none' }}
-                    onError={handleImgError}
                   />
                   <div className="lid-img-zoom-hint">
                     <ImageIcon size={12} />

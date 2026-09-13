@@ -14,7 +14,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,7 +23,41 @@ from api import models
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Lerne TMA Admin Console", version="2.0.0")
+
+def db_session_scope():
+    """Per-request database session management to return pooled connections."""
+    try:
+        if not getattr(models.tma_db, "obj", None):
+            models.initialize_database()
+        elif models.tma_db.is_closed():
+            models.tma_db.connect(reuse_if_open=True)
+        yield
+    except Exception as exc:
+        if "exceeded maximum connections" in str(exc).lower():
+            logger.warning("MaxConnectionsExceeded detected, resetting database pool...")
+            actual = getattr(models.tma_db, "obj", None)
+            if actual and hasattr(actual, "close_all"):
+                try:
+                    actual.close_all()
+                except Exception:
+                    pass
+        raise exc
+    finally:
+        try:
+            if hasattr(models.tma_db, "obj") and models.tma_db.obj:
+                if not models.tma_db.is_closed():
+                    models.tma_db.close()
+        except Exception:
+            pass
+        try:
+            if hasattr(models.lerne_db, "obj") and models.lerne_db.obj:
+                if not models.lerne_db.is_closed():
+                    models.lerne_db.close()
+        except Exception:
+            pass
+
+
+app = FastAPI(title="Lerne TMA Admin Console", version="2.0.0", dependencies=[Depends(db_session_scope)])
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,6 +66,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 
 @app.on_event("startup")

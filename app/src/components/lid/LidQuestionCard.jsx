@@ -31,18 +31,10 @@ export const LidQuestionCard = ({
     } catch { return 200; }
   });
 
-  const [fallbackQuestionId, setFallbackQuestionId] = useState(null);
   const rawImage = question?.image || null;
-  const isFallback = fallbackQuestionId === question?.id;
-  const imgSrc = isFallback && rawImage?.startsWith('/lid_images/')
+  const imgSrc = rawImage?.startsWith('/lid_images/')
     ? `/api/media/images/${rawImage.replace('/lid_images/', '')}`
     : rawImage;
-
-  const handleImgError = useCallback(() => {
-    if (question?.id) {
-      setFallbackQuestionId(question.id);
-    }
-  }, [question]);
 
   const startCardImageResize = useCallback((e) => {
     e.stopPropagation();
@@ -150,7 +142,7 @@ export const LidQuestionCard = ({
           }}
         >
           <div className="lid-image-modal-card glass" onClick={(e) => e.stopPropagation()}>
-            <img src={imgSrc} alt={tr("Иллюстрация")} className="lid-image-modal-img" onError={handleImgError} />
+            <img src={imgSrc} alt={tr("Иллюстрация")} className="lid-image-modal-img" />
             <button
               type="button"
               className="btn btn-secondary lid-image-modal-close"
@@ -186,7 +178,6 @@ export const LidQuestionCard = ({
                     className="lid-question-image"
                     style={{ height: '100%', maxHeight: 'none' }}
                     onClick={() => setIsImageExpanded(!isImageExpanded)}
-                    onError={handleImgError}
                   />
                   <button
                     type="button"
@@ -425,7 +416,6 @@ export const LidQuestionCard = ({
                       alt={tr("Иллюстрация")}
                       className="lid-question-image"
                       style={{ height: '100%', maxHeight: 'none' }}
-                      onError={handleImgError}
                     />
                   </div>
                   {/* Resize Handle */}

@@ -6,6 +6,7 @@ import random
 from fastapi import APIRouter, Depends, HTTPException, Query
 from api.dependencies.auth import get_user_id
 from api import models
+from api.services.media import resolve_media_url
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,9 @@ def serialize_card(card, deck_name=""):
         else:
             bamf_num = pos
 
+    img_url = resolve_media_url(img, "images") if img else None
+    aud_url = resolve_media_url(aud, "audio") if aud else None
+
     return {
         "id": card.id,
         "deck_id": card.deck_id,
@@ -99,8 +103,9 @@ def serialize_card(card, deck_name=""):
         "back": card.back_text or "",
         "context": card.context or "",
         "image_path": img,
-        "media_url": img,
-        "audio_url": aud,
+        "image_url": img_url,
+        "media_url": img_url or img,
+        "audio_url": aud_url or aud,
         "audio_path": aud,
         "card_type": getattr(card, 'card_type', 'quiz') or 'quiz',
         "position": pos,

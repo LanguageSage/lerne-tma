@@ -53,10 +53,6 @@ function togglePromptFulltext() {
       }
     }
 
-    let currentDeckCards = [];
-    let currentPlayingAudio = null;
-    let currentPreviewAudio = null;
-
 function onCardCheckboxChange(cb) {
       const cardId = Number(cb.value);
       if (cb.checked) {
@@ -120,8 +116,6 @@ async function loadDeckCardsForSelector(deckId) {
 function selectAllCardSelector(checked) {
       document.querySelectorAll('.card-select-checkbox').forEach(cb => cb.checked = checked);
     }
-
-    let activeStudioPreset = 'context_only';
 
 function selectStudioPreset(presetKey) {
       activeStudioPreset = presetKey;
@@ -787,12 +781,6 @@ async function controlActiveRegen(action) {
       }
     }
 
-    let currentDryRunAudio = null;
-    let currentPlayingDryRunIndex = null;
-    let currentPlayingDryRunBtn = null;
-    let lastSingleDryRunKey = '';
-    let lastBatchDryRunKey = '';
-
 function stopDryRunAudio() {
       if (currentDryRunAudio) {
         currentDryRunAudio.pause();
@@ -1239,8 +1227,6 @@ async function clearSavedCheckpoint() {
         console.error("Clear checkpoint error", e);
       }
     }
-
-    let usersStats = { total: 0, registered: 0, guest: 0 };
 
 
 /**

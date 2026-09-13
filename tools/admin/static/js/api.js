@@ -143,8 +143,6 @@ async function playVoicePreview() {
       }
     }
 
-    let committedDryRunCardIds = new Set();
-
 
 /**
  * Shows a temporary floating toast notification in the UI.

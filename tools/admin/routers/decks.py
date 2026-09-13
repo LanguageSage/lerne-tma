@@ -6,7 +6,7 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
-from peewee import fn
+from peewee import Case, fn
 
 from api import models
 from tools.admin.schemas import (
@@ -36,10 +36,23 @@ from tools.admin.services import task_manager
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+_DECKS_CACHE = {"data": None, "timestamp": 0.0}
+_CACHE_TTL_SEC = 10.0
+
+
+def invalidate_decks_cache():
+    _DECKS_CACHE["data"] = None
+    _DECKS_CACHE["timestamp"] = 0.0
+
 
 @router.get("/api/admin/decks")
 def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
     """Returns all active decks in the database with health statistics (missing audio/context)."""
+    now = time.time()
+    if not search and not user_id:
+        if _DECKS_CACHE["data"] is not None and (now - _DECKS_CACHE["timestamp"]) < _CACHE_TTL_SEC:
+            return _DECKS_CACHE["data"]
+
     result = []
 
     if not user_id:
@@ -57,21 +70,28 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
                 )
         lib_decks = list(lib_query.order_by(models.Deck.id.desc()))
 
-        lib_card_counts = dict(
-            models.Card.select(models.Card.deck_id, fn.COUNT(models.Card.id))
-            .where(models.Card.is_deleted == False)
-            .group_by(models.Card.deck_id).tuples()
-        )
-        lib_missing_audio = dict(
-            models.Card.select(models.Card.deck_id, fn.COUNT(models.Card.id))
-            .where((models.Card.is_deleted == False) & ((models.Card.audio_path.is_null(True)) | (models.Card.audio_path == '')))
-            .group_by(models.Card.deck_id).tuples()
-        )
-        lib_missing_context = dict(
-            models.Card.select(models.Card.deck_id, fn.COUNT(models.Card.id))
-            .where((models.Card.is_deleted == False) & ((models.Card.context.is_null(True)) | (models.Card.context == '')))
-            .group_by(models.Card.deck_id).tuples()
-        )
+        lib_card_counts = {}
+        lib_missing_audio = {}
+        lib_missing_context = {}
+        lib_ids = [d.id for d in lib_decks]
+        if lib_ids:
+            lib_audio_case = Case(None, [(((models.Card.audio_path.is_null(True)) | (models.Card.audio_path == '')), 1)], None)
+            lib_ctx_case = Case(None, [(((models.Card.context.is_null(True)) | (models.Card.context == '')), 1)], None)
+            lib_stats = (
+                models.Card.select(
+                    models.Card.deck_id,
+                    fn.COUNT(models.Card.id),
+                    fn.COUNT(lib_audio_case),
+                    fn.COUNT(lib_ctx_case)
+                )
+                .where((models.Card.is_deleted == False) & (models.Card.deck_id << lib_ids))
+                .group_by(models.Card.deck_id)
+                .tuples()
+            )
+            for row in lib_stats:
+                lib_card_counts[row[0]] = row[1]
+                lib_missing_audio[row[0]] = row[2]
+                lib_missing_context[row[0]] = row[3]
 
         for d in lib_decks:
             c_count = lib_card_counts.get(d.id, 0)
@@ -115,20 +135,28 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
             )
     tma_decks = list(user_query.order_by(models.TMA_Deck.id.desc()))
 
-    tma_card_counts = dict(
-        models.TMA_Card.select(models.TMA_Card.deck_id, fn.COUNT(models.TMA_Card.id))
-        .where(models.TMA_Card.is_deleted == False).group_by(models.TMA_Card.deck_id).tuples()
-    )
-    tma_missing_audio = dict(
-        models.TMA_Card.select(models.TMA_Card.deck_id, fn.COUNT(models.TMA_Card.id))
-        .where((models.TMA_Card.is_deleted == False) & ((models.TMA_Card.audio_path.is_null(True)) | (models.TMA_Card.audio_path == '')))
-        .group_by(models.TMA_Card.deck_id).tuples()
-    )
-    tma_missing_context = dict(
-        models.TMA_Card.select(models.TMA_Card.deck_id, fn.COUNT(models.TMA_Card.id))
-        .where((models.TMA_Card.is_deleted == False) & ((models.TMA_Card.context.is_null(True)) | (models.TMA_Card.context == '')))
-        .group_by(models.TMA_Card.deck_id).tuples()
-    )
+    tma_card_counts = {}
+    tma_missing_audio = {}
+    tma_missing_context = {}
+    tma_ids = [d.id for d in tma_decks]
+    if tma_ids:
+        tma_audio_case = Case(None, [(((models.TMA_Card.audio_path.is_null(True)) | (models.TMA_Card.audio_path == '')), 1)], None)
+        tma_ctx_case = Case(None, [(((models.TMA_Card.context.is_null(True)) | (models.TMA_Card.context == '')), 1)], None)
+        tma_stats = (
+            models.TMA_Card.select(
+                models.TMA_Card.deck_id,
+                fn.COUNT(models.TMA_Card.id),
+                fn.COUNT(tma_audio_case),
+                fn.COUNT(tma_ctx_case)
+            )
+            .where((models.TMA_Card.is_deleted == False) & (models.TMA_Card.deck_id << tma_ids))
+            .group_by(models.TMA_Card.deck_id)
+            .tuples()
+        )
+        for row in tma_stats:
+            tma_card_counts[row[0]] = row[1]
+            tma_missing_audio[row[0]] = row[2]
+            tma_missing_context[row[0]] = row[3]
 
     tma_uids = list(set([d.user_id for d in tma_decks if d.user_id]))
     user_map = {}
@@ -180,7 +208,11 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
             "is_default": is_def, "is_library": False, "share_id": d.share_id
         })
 
-    return {"decks": result}
+    resp = {"decks": result}
+    if not search and not user_id:
+        _DECKS_CACHE["data"] = resp
+        _DECKS_CACHE["timestamp"] = time.time()
+    return resp
 
 
 @router.get("/api/admin/users/{user_id}/decks")
@@ -228,6 +260,7 @@ def create_deck(req: CreateDeckRequest):
                     metadata=json.dumps({"source_deck_id": deck.id, "is_default": True})
                 )
 
+    invalidate_decks_cache()
     return {"status": "ok", "deck_id": deck.id, "name": deck.name}
 
 
@@ -309,6 +342,7 @@ def delete_deck(deck_id: str):
             (models.TMA_Collaborator.target_type == 'deck') & (models.TMA_Collaborator.target_id == deck.id)
         ).execute()
 
+    invalidate_decks_cache()
     return {"status": "ok", "deleted_deck_id": deck_id}
 
 
@@ -345,6 +379,7 @@ def batch_delete_decks(req: BatchDeleteDecksRequest):
                 (models.TMA_Collaborator.target_type == 'deck') & (models.TMA_Collaborator.target_id << tma_deck_ids)
             ).execute()
 
+    invalidate_decks_cache()
     logger.info(f"Admin bulk deleted {len(deleted_ids)} decks: {deleted_ids}")
     return {"status": "ok", "deleted_count": len(deleted_ids), "deleted_deck_ids": deleted_ids}
 
@@ -402,6 +437,7 @@ def deduplicate_deck_cards(deck_id: str):
         else:
             seen_fronts.add(front)
 
+    invalidate_decks_cache()
     return {
         "status": "ok", "deck_id": deck_id, "removed_duplicates": removed_count,
         "remaining_cards": len(seen_fronts),
@@ -503,6 +539,7 @@ def set_default_deck(deck_id: str, req: SetDefaultDeckRequest):
     elif not req.is_default:
         msg = f"Отметка дефолтной снята с колоды '{clean_name}'."
 
+    invalidate_decks_cache()
     return {"status": "ok", "is_default": req.is_default, "copied_to_users": copied_count, "message": msg}
 
 
@@ -696,6 +733,7 @@ def assign_deck(deck_id: str, req: AssignDeckRequest):
             models.TMA_Card.bulk_create(card_objs, batch_size=200)
         processed_users += 1
 
+    invalidate_decks_cache()
     return {"status": "ok", "mode": req.mode, "users_processed": processed_users}
 
 

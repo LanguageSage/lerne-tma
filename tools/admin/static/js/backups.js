@@ -315,10 +315,3 @@ async function uploadBackupFile(fileInput) {
   }
 }
 
-    // ==========================================
-    // DECK PREVIEW & INTERACTIVE CARDS MANAGER
-    // ==========================================
-    let previewDeckId = null;
-    let previewDeckData = null;
-    let previewCardsList = [];
-

@@ -5,6 +5,9 @@
  */
 export const cleanMedia = (path) => {
   if (!path) return '';
+  if (path.startsWith('/lid_images/')) {
+    return path.replace(/^\/lid_images\//, '');
+  }
   if (path.startsWith('/api/media/')) {
     const parts = path.split('/');
     // Формат обычно: /api/media/images/filename.webp -> parts: ["", "api", "media", "images", "filename.webp"]
