@@ -42,6 +42,7 @@ export const parseBackTranslation = (backText) => {
  * so users cannot rely on muscle / positional memory.
  */
 export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = true } = {}) => {
+  // ИНВАРИАНТ: Данные вопроса и картинки извлекаются НАПРЯМУЮ из карточки (card.image_url / card.image_path). Внешние файлы запрещены.
   if (!card) return null;
 
   const rawFront = (card.front || card.front_text || '').trim();

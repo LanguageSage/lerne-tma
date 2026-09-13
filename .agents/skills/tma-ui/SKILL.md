@@ -9,7 +9,7 @@ description: Build Lerne TMA React interfaces with Telegram viewport integration
 
 - Follow the existing visual system, shared components, Telegram theme variables, and lucide-react icon conventions.
 - Respect safe areas, dynamic viewport height, the on-screen keyboard, and bottom navigation. Check affected screens at narrow mobile widths.
-- Coordinate Telegram MainButton, BackButton, and haptics with existing handlers and cleanup. Preserve standalone behavior where supported.
+- Coordinate Telegram MainButton, BackButton, and haptics with existing handlers and cleanup. Preserve standalone behavior where supported. Platform adapters live in `app/src/utils/platform.js`, CloudStorage in `app/src/utils/auth.js`.
 - Keep transient state local and shared navigation or entities in their owning store. Read [reuse guidance](../lean-code/SKILL.md) when changing boundaries.
 - When adding a new major view, feature directory under `components/`, or new store slice, record it in `.agents/ARCHITECTURE.md`.
 
@@ -21,7 +21,6 @@ description: Build Lerne TMA React interfaces with Telegram viewport integration
 - Route new interface text through the existing translation mechanism, including toasts, errors, placeholders, and accessible labels. Preserve interpolation parameters.
 - Distinguish interface language, learning language, and user content. Do not translate user content as interface copy.
 - Give missing translations and failed requests deliberate fallback behavior. Hiding a crash with an error boundary does not fix its cause.
-- Maintain list scroll and item context across drill-down navigation (`CardList` $\leftrightarrow$ `StudyView`/`CardEditor`). Never reset scroll to top on back navigation. Always ensure paginated/virtualized lists render items up to the active card (`lastSelectedCardId`) before anchoring.
 
 ## Motion and verification
 

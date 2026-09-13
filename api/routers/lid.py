@@ -57,6 +57,7 @@ STATE_CODE_TO_NAME = {
 
 MASTER_UID = 642478257
 
+# ИНВАРИАНТ: Данные вопросов и медиа берутся СТРОГО из существующих tma_card / tma_media. Сторонние JSON-файлы запрещены.
 def serialize_card(card, deck_name=""):
     img = getattr(card, 'image_path', '') or ''
     aud = getattr(card, 'audio_path', '') or ''

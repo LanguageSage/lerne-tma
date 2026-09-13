@@ -17,8 +17,8 @@ For offline data, inspect `app/src/services/localDb.js`, `offlineApi.js`, and `s
 - Database transactions cannot atomically include browser storage or external services. Define recovery from partial success using existing retry or reconciliation mechanisms.
 - Preserve queued local changes. Check duplicates, conflicts, retry behavior, and deletion propagation when those paths change.
 - Prefer database constraints for relevant uniqueness and referential invariants; application prechecks can race. Translate constraint failures into expected API errors.
-- Check query patterns before adding indexes, including write cost and migration impact.
 - When creating new Peewee models in `api/models.py` or new Dexie tables in `app/src/services/localDb.js`, update the schema mappings in `.agents/ARCHITECTURE.md`.
+- Offline-first data flow: Client data mutations commit to Dexie first via `offlineApi.js`, then sync asynchronously to PostgreSQL via `syncService.js`. Never bypass local persistence for mutations.
 
 ## Migrations
 

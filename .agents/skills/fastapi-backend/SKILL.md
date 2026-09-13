@@ -10,6 +10,7 @@ description: Develop Lerne TMA FastAPI routes and Python services while preservi
 Inspect `api/main.py`, affected `api/routers/` and `api/services/` modules, and consumers in `app/src/services/` and store actions. Check request and response shapes, errors, defaults, and authentication dependencies.
 
 - Preserve contracts used by existing clients. Making a parameter optional is safe only when omission has defined behavior.
+- Thin routers, logic in services: Routers only validate request models, authenticate, and delegate to `api/services/`. Isolate SRS calculations, card parsing, and complex business logic in services.
 - Use validation models and explicit errors where they clarify the touched contract; avoid unrelated route rewrites.
 - Enforce ownership and collaborative permissions for affected objects on the server. Check unauthorized and cross-user access when changing shared resources or permissions.
 - Return expected domain failures through the existing error contract. Do not mask unexpected failures as successful empty responses or expose internal exceptions.
@@ -22,6 +23,7 @@ Inspect `api/main.py`, affected `api/routers/` and `api/services/` modules, and 
 - For multi-record mutations or migrations, read [data guidance](../db-mgmt/SKILL.md).
 - Check whether timeouts or repeated requests can duplicate data or external work. Reuse existing idempotency mechanisms where applicable.
 - Bound external requests with timeouts. Retry only safe operations and relevant transient failures. Inspect existing TTS and image caching before adding generation.
+- Media streaming: Serve images and audio exclusively via `/api/media/<folder>/<filename>` backed by `TMAMedia`. Do not bind routes or serializers to static frontend folders.
 - Evaluate query counts for list endpoints. Use joins or prefetching for demonstrated N+1 patterns while preserving permissions and result semantics.
 - When adding a new router, service, or changing subsystem architecture, update the corresponding rows in `.agents/ARCHITECTURE.md`.
 
