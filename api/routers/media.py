@@ -221,10 +221,9 @@ async def generate_audio_endpoint(
             raise HTTPException(status_code=500, detail="Failed to generate audio")
             
         if result.startswith("http"):
-            clean_filename = os.path.basename(result.split('?')[0])
             return {
                 "path": result,
-                "url": f"/api/media/audio/{clean_filename}",
+                "url": result,
                 "word_boundaries": word_boundaries
             }
         
@@ -309,9 +308,8 @@ async def generate_card_audio_endpoint(
             raise HTTPException(status_code=500, detail="Failed to generate audio")
 
         if result.startswith('http'):
-            clean_filename = os.path.basename(result.split('?')[0])
             path = result
-            url = f"/api/media/audio/{clean_filename}"
+            url = result
         else:
             filename = os.path.basename(result)
             with open(result, 'rb') as audio_file:
@@ -437,54 +435,12 @@ _media_cache = MediaMemoryCache()
 
 @router.get("/audio/{filename:path}")
 def get_audio(filename: str, request: Request):
-    clean_filename = os.path.basename(filename)
-    cached = _media_cache.get('audio', clean_filename)
-    if cached:
-        content, _ = cached
-        return get_range_response(request, content, "audio/mpeg")
-
-    logger.debug(f"MEDIA: Requesting audio: {clean_filename}")
-    try:
-        media = models.TMAMedia.get_or_none(
-            (models.TMAMedia.filename == clean_filename) & 
-            (models.TMAMedia.folder == 'audio')
-        )
-    except Exception as e:
-        logger.warning(f"DB connection reset in get_audio, reconnecting: {e}")
-        try:
-            models.initialize_database()
-            models.tma_db.connect(reuse_if_open=True)
-            media = models.TMAMedia.get_or_none(
-                (models.TMAMedia.filename == clean_filename) & 
-                (models.TMAMedia.folder == 'audio')
-            )
-        except Exception as retry_err:
-            logger.error(f"Retry in get_audio failed: {retry_err}")
-            raise HTTPException(status_code=500, detail="Database connection error")
-
-    if not media or not media.content:
-        supabase_url = os.environ.get("SUPABASE_URL")
-        supabase_key = os.environ.get("SUPABASE_KEY")
-        if supabase_url:
-            project_url = supabase_url.rstrip("/")
-            storage_url = f"{project_url}/storage/v1/object/public/tma-audio/{clean_filename}"
-            try:
-                import httpx
-                headers = {"Authorization": f"Bearer {supabase_key}"} if supabase_key else {}
-                resp = httpx.get(storage_url, headers=headers, timeout=10.0)
-                if resp.status_code == 200 and resp.content:
-                    content = resp.content
-                    _media_cache.set('audio', clean_filename, content, "audio/mpeg")
-                    return get_range_response(request, content, "audio/mpeg")
-                else:
-                    logger.warning(f"Supabase Storage get audio {clean_filename} returned {resp.status_code}")
-            except Exception as up_err:
-                logger.warning(f"Error fetching audio from Supabase Storage: {up_err}")
-        raise HTTPException(status_code=404, detail="Audio not found")
-    
-    content = bytes(media.content)
-    _media_cache.set('audio', clean_filename, content, "audio/mpeg")
-    return get_range_response(request, content, "audio/mpeg")
+    """Fast 307 redirect to Supabase Storage CDN for legacy URLs."""
+    from fastapi.responses import RedirectResponse
+    clean_filename = os.path.basename(filename.split('?')[0])
+    supabase_url = os.environ.get("SUPABASE_URL", "https://wdopyuulhiykrextyvnt.supabase.co").rstrip("/")
+    direct_url = f"{supabase_url}/storage/v1/object/public/audio/{clean_filename}"
+    return RedirectResponse(url=direct_url, status_code=307)
 
 @router.get("/images/{filename:path}")
 def get_image(filename: str, request: Request):

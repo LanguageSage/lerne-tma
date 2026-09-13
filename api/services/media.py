@@ -118,7 +118,12 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) ->
         return None
 
     if media_type in ("audio", "audio_back"):
-        return f"/api/media/audio/{clean_filename}"
+        if path_str.startswith("http://") or path_str.startswith("https://"):
+            if "/storage/v1/object/public/tma-audio/" in path_str:
+                return path_str.replace("/storage/v1/object/public/tma-audio/", "/storage/v1/object/public/audio/")
+            return path_str
+        supabase_url = os.environ.get("SUPABASE_URL", "https://wdopyuulhiykrextyvnt.supabase.co").rstrip("/")
+        return f"{supabase_url}/storage/v1/object/public/audio/{clean_filename}"
 
     if path_str.startswith("http://") or path_str.startswith("https://"):
         return path_str

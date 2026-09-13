@@ -1,9 +1,10 @@
+const SUPABASE_AUDIO_CDN = 'https://wdopyuulhiykrextyvnt.supabase.co/storage/v1/object/public/audio';
+
 /**
- * Возвращает канонический URL для аудиофайла через прокси-эндпоинт /api/media/audio/...
- * Это гарантирует правильный заголовок audio/mpeg, HTTP 206 Partial Content (диапазоны байт)
- * и обход кэша CDN Cloudflare (который мог закэшировать application/octet-stream).
+ * Возвращает прямой публичный CDN URL для аудиофайла из бакета audio в Supabase Storage.
+ * Воспроизведение происходит напрямую из CDN без задержек проксирования.
  * @param {string} pathOrUrl - Путь или URL аудиофайла.
- * @returns {string} Канонический URL для воспроизведения или пустая строка.
+ * @returns {string} Прямой URL для воспроизведения или пустая строка.
  */
 export const getAudioUrl = (pathOrUrl) => {
   if (!pathOrUrl || typeof pathOrUrl !== 'string') return '';
@@ -11,13 +12,18 @@ export const getAudioUrl = (pathOrUrl) => {
   if (!trimmed) return '';
   if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) return trimmed;
 
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (trimmed.includes('/storage/v1/object/public/tma-audio/')) {
+      return trimmed.replace('/storage/v1/object/public/tma-audio/', '/storage/v1/object/public/audio/');
+    }
+    return trimmed;
+  }
+
   const cleanPath = trimmed.split('?')[0];
   const filename = cleanPath.split(/[\\/]/).pop();
   if (!filename) return '';
 
-  if (cleanPath === `/api/media/audio/${filename}`) return cleanPath;
-
-  return `/api/media/audio/${filename}`;
+  return `${SUPABASE_AUDIO_CDN}/${filename}`;
 };
 
 /**

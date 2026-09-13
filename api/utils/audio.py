@@ -155,7 +155,7 @@ def _parse_boundaries(raw_events):
 async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key):
     """Загрузка файла или байтов в Supabase Storage через REST API (async)."""
     import aiohttp
-    bucket = "tma-audio"
+    bucket = "audio"
     project_url = project_url.rstrip("/")
     upload_url = f"{project_url}/storage/v1/object/{bucket}/{filename}"
 
