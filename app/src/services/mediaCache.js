@@ -10,9 +10,13 @@ export async function localMediaURL(database, path, kind) {
   if (!url || /^(blob:|data:)/.test(url)) return url;
   const key = `${database.name}:${url}`;
   const cached = await database.media.get(url);
-  if (cached) {
-    if (!objectUrls.has(key)) objectUrls.set(key, URL.createObjectURL(cached.blob));
-    return objectUrls.get(key);
+  if (cached && cached.blob) {
+    try {
+      if (!objectUrls.has(key)) objectUrls.set(key, URL.createObjectURL(cached.blob));
+      return objectUrls.get(key);
+    } catch {
+      // Fallback to network URL if blob is unreadable
+    }
   }
   if (navigator.onLine && kind !== 'videos' && !pending.has(key) && pending.size < 4) {
     pending.add(key);

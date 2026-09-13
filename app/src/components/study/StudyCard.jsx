@@ -21,6 +21,7 @@ import { StudyCardImage } from './StudyCardImage';
 import { KaraokeText } from './KaraokeText';
 import { useVoicePicker } from '../../hooks/useVoicePicker';
 import { useKaraokeSync } from '../../hooks/useKaraokeSync';
+import { getAudioUrl } from '../../utils/media';
 
 // Re-export for backward compatibility
 // eslint-disable-next-line react-refresh/only-export-components
@@ -176,13 +177,10 @@ export const StudyCard = React.memo(({
 
   const getResolvedAudioUrl = (c, isBack = false) => {
     if (!c) return '';
-    const urlVal = isBack ? c.audio_back_url : c.audio_url;
-    const pathVal = isBack ? c.audio_back_path : c.audio_path;
-    const raw = urlVal !== undefined ? urlVal : pathVal;
-    if (!raw) return '';
-    if (raw.startsWith('http') || raw.startsWith('/api/') || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
-    if (raw.startsWith('audio/')) return `/api/media/${raw}`;
-    return `/api/media/audio/${raw}`;
+    const target = isBack
+      ? (c.audio_back_url || c.audio_back_path)
+      : (c.audio_url || c.audio_path);
+    return getAudioUrl(target);
   };
 
   const renderFrontAudioPlayer = () => {

@@ -178,9 +178,7 @@ const getInitialStudyState = () => ({
   ttsSpeed: storage.get('lerne_tts_speed') !== null ? Number(storage.get('lerne_tts_speed')) : 0,
   ttsSpeedRu: storage.get('lerne_tts_speed_ru') !== null ? Number(storage.get('lerne_tts_speed_ru')) : 0,
   ttsVoices: getStoredTtsVoices(),
-  alwaysRegenerateAudio: storage.get('lerne_always_regenerate_audio') !== null
-    ? storage.get('lerne_always_regenerate_audio') === 'true'
-    : storage.get('lerne_autoplay_force_front_audio') === 'true',
+  alwaysRegenerateAudio: storage.get('lerne_always_regenerate_audio') === 'true',
   autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : true,
   autoplayForceFrontAudio: storage.get('lerne_autoplay_force_front_audio') !== null ? storage.get('lerne_autoplay_force_front_audio') === 'true' : false,
   autoplayForceBackAudio: storage.get('lerne_autoplay_force_back_audio') !== null ? storage.get('lerne_autoplay_force_back_audio') === 'true' : false,

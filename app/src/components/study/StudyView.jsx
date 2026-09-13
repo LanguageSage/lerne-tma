@@ -19,6 +19,7 @@ import { useCardNavigation } from '../../hooks/useCardNavigation';
 import { useSessionVoice } from '../../hooks/useSessionVoice';
 import { MediaPicker } from '../common/MediaPicker';
 import { navigateUp } from '../../utils/navigation';
+import { getAudioUrl } from '../../utils/media';
 
 // Sub-components
 import { StudyHeader } from './StudyHeader';
@@ -237,9 +238,7 @@ export const StudyView = () => {
     const isSuppressedAfterAutoplay = suppressLegacyAutoplayCardRef.current === card?.id;
     const currentCardKey = `${card?.id}-${historyIndex}`;
     const isAutoplayEnabledMode = studyMode === 'classic' || (studyMode === 'random' && activeRandomMode === 'classic');
-    const resolvedUrl = card?.audio_url !== undefined
-      ? card.audio_url
-      : (card?.audio_path ? (card.audio_path.startsWith('http') || card.audio_path.startsWith('/api/') ? card.audio_path : `/api/media/audio/${card.audio_path}`) : '');
+    const resolvedUrl = getAudioUrl(card?.audio_url || card?.audio_path);
     const shouldStart = view === 'study' && card?.id && autoPlay && isAutoplayEnabledMode
       && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay
       && lastAutoplayedCardRef.current !== currentCardKey;
@@ -283,14 +282,8 @@ export const StudyView = () => {
             if (cancelled) return;
           }
           if (!cancelled && url) {
-            await playAudio(url, undefined, async () => {
-              if (cancelled) return;
-              try {
-                const recoveredUrl = await generateAudio();
-                if (!cancelled && recoveredUrl) await playAudio(recoveredUrl);
-              } catch (error) {
-                console.error('Automatic audio recovery failed:', error);
-              }
+            await playAudio(url, undefined, (playbackErr) => {
+              console.warn('[StudyView] Audio playback warning:', url, playbackErr);
             });
           }
         } catch (err) {

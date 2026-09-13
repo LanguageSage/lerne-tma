@@ -3,8 +3,8 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, Pause, Square, Volume2, RefreshCw, Mic2, ChevronUp, ChevronDown, Settings } from 'lucide-react';
-import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
+import { getAudioUrl } from '../../utils/media';
 import './CardAudioPlayer.css';
 
 
@@ -51,14 +51,11 @@ export const CardAudioPlayer = React.memo(({
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
 
-  const forceOverwrite = useSettingsStore((s) => s.alwaysRegenerateAudio);
   const openSettings = useUiStore((s) => s.openSettings);
 
   const resolveAudioUrl = (url) => {
     if (!url) return '';
-    if (url.startsWith('http') || url.startsWith('/api/') || url.startsWith('blob:') || url.startsWith('data:')) return url;
-    if (url.startsWith('audio/')) return `/api/media/${url}`;
-    return `/api/media/audio/${url}`;
+    return getAudioUrl(url);
   };
 
   const rawUrl = (voicePicker?.previewUrl) || audioUrl;
@@ -90,16 +87,12 @@ export const CardAudioPlayer = React.memo(({
   const handlePlayPauseClick = (e) => {
     e.stopPropagation();
     if (disabled || isLoading) return;
-    if (!isThisActive && forceOverwrite && canGenerate) {
-      generateAndPlay(true);
-      return;
-    }
     if (togglePlayPause) {
-      togglePlayPause(effectiveUrl, undefined, canGenerate ? handlePlaybackError : undefined);
+      togglePlayPause(effectiveUrl, undefined, handlePlaybackError);
     } else if (isPlaying) {
       pauseAudio?.();
     } else {
-      playAudio?.(effectiveUrl, undefined, canGenerate ? handlePlaybackError : undefined);
+      playAudio?.(effectiveUrl, undefined, handlePlaybackError);
     }
   };
 

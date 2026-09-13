@@ -17,6 +17,7 @@ import { classifySentenceFast } from '../../services/classifier';
 import { triggerHaptic } from '../../utils/platform';
 
 import { useTranslation } from '../../i18n/i18nContext';
+import { getAudioUrl } from '../../utils/media';
 
 export const CardForm = ({
   cardData,
@@ -498,7 +499,7 @@ export const CardForm = ({
               <button 
                 type="button"
                 className="audio-btn-corner" 
-                onClick={(e) => { e.stopPropagation(); playAudio(cardData.audio_url || `/api/media/${cardData.audio_path}`); }}
+                onClick={(e) => { e.stopPropagation(); playAudio(getAudioUrl(cardData.audio_url || cardData.audio_path)); }}
                 title={tr("Озвучить")}
                 style={{
                   position: 'static',

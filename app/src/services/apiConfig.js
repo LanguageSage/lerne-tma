@@ -1,3 +1,5 @@
+import { getAudioUrl } from '../utils/media';
+
 const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   if (typeof window === 'undefined') return 'https://tma-amber.vercel.app/api';
@@ -16,6 +18,9 @@ export const API_BASE_URL = getApiBaseUrl();
 
 export const mediaURL = (path, kind = 'images') => {
   if (!path) return null;
+  if (kind === 'audio') {
+    return getAudioUrl(path);
+  }
   if (/^(https?:|blob:|data:)/.test(path)) return path;
   const base = new URL(API_BASE_URL, window.location.origin);
   const relative = path.startsWith('/api/media/')

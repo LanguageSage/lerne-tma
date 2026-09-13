@@ -1,6 +1,7 @@
 import { stripMarkdown } from './text.js';
 import lidTranslations from '../data/lidTranslations.json' with { type: 'json' };
 import { shuffleFY } from './shuffle.js';
+import { getAudioUrl } from './media.js';
 
 const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -48,7 +49,7 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
   const rawFront = (card.front || card.front_text || '').trim();
   const rawBack = (card.back || card.back_text || '').trim();
   const rawContext = card.context || '';
-  const audioUrl = card.audio_url || card.audio_path || '';
+  const audioUrl = getAudioUrl(card.audio_url || card.audio_path);
   const rawMedia = card.image_url || card.media_url || card.image_path || card.image || '';
 
   // Canonical media URL resolution directly from card

@@ -221,9 +221,10 @@ async def generate_audio_endpoint(
             raise HTTPException(status_code=500, detail="Failed to generate audio")
             
         if result.startswith("http"):
+            clean_filename = os.path.basename(result.split('?')[0])
             return {
                 "path": result,
-                "url": result,
+                "url": f"/api/media/audio/{clean_filename}",
                 "word_boundaries": word_boundaries
             }
         
@@ -308,8 +309,9 @@ async def generate_card_audio_endpoint(
             raise HTTPException(status_code=500, detail="Failed to generate audio")
 
         if result.startswith('http'):
+            clean_filename = os.path.basename(result.split('?')[0])
             path = result
-            url = result
+            url = f"/api/media/audio/{clean_filename}"
         else:
             filename = os.path.basename(result)
             with open(result, 'rb') as audio_file:

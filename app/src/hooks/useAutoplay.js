@@ -7,6 +7,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { getTtsVoiceForLang } from '../constants/languageConstants';
 import { stripMarkdown } from '../utils/text';
+import { getAudioUrl } from '../utils/media';
 
 const formatRate = (value) => `${value >= 0 ? '+' : ''}${value}%`;
 const getCardText = (targetCard, side) => {
@@ -158,9 +159,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
       (targetCard.audio_back_path && targetCard.audio_path && targetCard.audio_back_path === targetCard.audio_path)
     );
 
-    const existingUrl = targetCard[urlKey] !== undefined
-      ? targetCard[urlKey]
-      : (targetCard[pathKey] ? (targetCard[pathKey].startsWith('http') || targetCard[pathKey].startsWith('/api/') ? targetCard[pathKey] : `/api/media/audio/${targetCard[pathKey]}`) : null);
+    const existingUrl = getAudioUrl(targetCard[urlKey] || targetCard[pathKey]);
     if (existingUrl && !hasWrongBackAudio && !forceGenerate) return existingUrl;
     if (!text?.trim()) return null;
 
@@ -303,15 +302,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
         }
         const frontUrl = await ensureAudio(targetCard, 'front', runId);
         if (frontUrl) {
-          const played = await waitForAudio(frontUrl, runId);
-          if (!played && isCurrentRun(runId)) {
-            const recoveredUrl = await ensureAudio(
-              { ...targetCard, audio_url: null, audio_path: null },
-              'front',
-              runId,
-            );
-            if (recoveredUrl) await waitForAudio(recoveredUrl, runId);
-          }
+          await waitForAudio(frontUrl, runId);
         }
         if (!isCurrentRun(runId)) return;
 
@@ -348,15 +339,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
         }
         const backUrl = (i === 1 ? await prefetchBackPromise : null) || (await ensureAudio(latestCard, 'back', runId));
         if (backUrl) {
-          const played = await waitForAudio(backUrl, runId);
-          if (!played && isCurrentRun(runId)) {
-            const recoveredUrl = await ensureAudio(
-              { ...latestCard, audio_back_url: null, audio_back_path: null },
-              'back',
-              runId,
-            );
-            if (recoveredUrl) await waitForAudio(recoveredUrl, runId);
-          }
+          await waitForAudio(backUrl, runId);
         }
         if (!isCurrentRun(runId)) return;
 

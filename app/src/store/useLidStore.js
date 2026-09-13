@@ -6,6 +6,7 @@ import { transformCardToExamQuestion } from '../utils/lidCardAdapter';
 import { getBundeslandByCode } from '../data/bundeslaender';
 import { useUiStore } from './useUiStore';
 import { pickRandom } from '../utils/shuffle';
+import { getAudioUrl } from '../utils/media';
 
 const STORAGE_LAND_KEY = 'lerne_lid_selected_land';
 const STORAGE_REMEMBER_KEY = 'lerne_lid_remember_land';
@@ -220,7 +221,7 @@ export const useLidStore = create((set, get) => ({
     set((state) => ({
       questions: state.questions.map((q) => {
         if (q.id === questionId) {
-          const resolvedUrl = audio_url || `/api/media/audio/${audio_path}`;
+          const resolvedUrl = getAudioUrl(audio_url || audio_path);
           return {
             ...q,
             audio_path,

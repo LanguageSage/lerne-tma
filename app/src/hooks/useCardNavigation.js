@@ -1,7 +1,7 @@
 import { tr } from '../i18n/locale';
 import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
-import { cleanMedia } from '../utils/media';
+import { cleanMedia, getAudioUrl } from '../utils/media';
 
 export const useCardNavigation = () => {
   const { setView, setEditorSourceView, userProfile, setIsAuthModalOpen, setLastSelectedCardId, setCardsScrollTop } = useUiStore();
@@ -32,7 +32,7 @@ export const useCardNavigation = () => {
         image_path: cleanMedia(cardToEdit.image_path),
         image_url: cardToEdit.image_url || (cardToEdit.image_path ? `/api/media/${cardToEdit.image_path}` : ''),
         audio_path: cleanMedia(cardToEdit.audio_path),
-        audio_url: cardToEdit.audio_url || (cardToEdit.audio_path ? `/api/media/${cardToEdit.audio_path}` : ''),
+        audio_url: getAudioUrl(cardToEdit.audio_url || cardToEdit.audio_path),
         video_front_path: cleanMedia(cardToEdit.video_front_path),
         video_front_url: cardToEdit.video_front_url || (cardToEdit.video_front_path ? `/api/media/${cardToEdit.video_front_path}` : ''),
         video_back_path: cleanMedia(cardToEdit.video_back_path),
