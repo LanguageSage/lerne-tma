@@ -1,9 +1,10 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Eye, AlertTriangle, RotateCw, BookOpen, HelpCircle } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { RefreshCw, Eye, AlertTriangle, RotateCw, BookOpen } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
+import './StudyCard.css';
 import { CardBackground } from '../common/CardBackground';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
@@ -51,6 +52,7 @@ export const StudyCard = React.memo(({
   onNextCard
 }) => {
   useInterfaceLocale();
+  const reduceMotion = useReducedMotion();
   const flagStyle = useMemo(() => getFlagStyle(card?.flag), [card?.flag]);
 
   // Card language: prefer card-level, then deck-level, then global active language
@@ -313,15 +315,34 @@ export const StudyCard = React.memo(({
       <motion.div
         id="tut-study-card"
         key={`${card.id}-${card.front}-${historyIndex}`}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className={`card-container ${loading ? 'loading-card' : ''}`}
-        style={{ borderRadius: '20px', transition: 'all 0.3s ease', ...flagStyle }}
+        initial={{ opacity: 0, y: reduceMotion ? 0 : 12, scale: reduceMotion ? 1 : 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
+        transition={{ duration: reduceMotion ? 0 : 0.22 }}
+        className={`card-container study-flashcard ${loading ? 'loading-card' : ''}`}
+        style={flagStyle}
+        aria-busy={loading}
       >
+        <div className="study-card-perspective">
+        <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={isFlipped ? 'back' : 'front'}
+          initial={reduceMotion ? false : {
+            rotateY: isFlipped ? -90 : 90, rotateX: -4, z: 36, scale: 0.97,
+          }}
+          animate={reduceMotion ? { rotateY: 0, rotateX: 0, z: 0, scale: 1 } : {
+            rotateY: [isFlipped ? -90 : 90, isFlipped ? 3 : -3, 0],
+            rotateX: [-4, 1, 0], z: [36, 12, 0], scale: [0.97, 1.005, 1],
+          }}
+          exit={reduceMotion ? {} : {
+            rotateY: isFlipped ? -90 : 90, rotateX: 4, z: 36, scale: 0.97,
+            transition: { duration: 0.22, ease: [0.55, 0, 0.85, 0.4] },
+          }}
+          transition={{ duration: reduceMotion ? 0 : 0.42, times: [0, 0.76, 1], ease: [0.16, 1, 0.3, 1] }}
+          className="study-card-surface"
+        >
         {!isFlipped ? (
-          <div className="card-inner card-front glass" onClick={() => onFlip(true)} style={{ cursor: 'pointer', ...flagStyle }}>
+          <div className="card-inner card-front glass" onClick={() => { if (!loading) onFlip(true); }} style={{ cursor: 'pointer', ...flagStyle }}>
             <CardBackground styleType={resolvedBgFront} />
             <div className="card-face">
               
@@ -394,10 +415,6 @@ export const StudyCard = React.memo(({
                       activeWordIndex={activeWordIndex}
                       style={cardStyle}
                     />
-                  </div>
-                  <div className="flip-hint-badge">
-                    <Eye size={16} />
-                    <span>{tr("Посмотреть ответ")}</span>
                   </div>
                   {renderFrontAudioPlayer()}
                 </>
@@ -555,7 +572,7 @@ export const StudyCard = React.memo(({
             </div>
           </div>
         ) : (
-          <div className="card-inner card-back glass" onClick={() => onFlip(false)} style={{ cursor: 'pointer', ...flagStyle }}>
+          <div className="card-inner card-back glass" onClick={() => { if (!loading) onFlip(false); }} style={{ cursor: 'pointer', ...flagStyle }}>
             <CardBackground styleType={resolvedBgBack} />
             <div className="card-face">
               {/* Type Badge (Top-Right Corner) */}
@@ -607,11 +624,6 @@ export const StudyCard = React.memo(({
               )}
               {/* 1. FRONT REFERENCE SECTION */}
               <div className="card-back-front-section">
-                <div className="card-back-section-badge front-badge">
-                  <HelpCircle size={12} />
-                  <span>{effectiveStudyMode === 'quiz' ? tr("Вопрос") : (studyMode === 'reverse' ? tr("Перевод") : tr("Лицевая сторона"))}</span>
-                </div>
-
                 {effectiveStudyMode === 'quiz' && quizData ? (
                   <div>
                     <div className="back-quiz-question" style={{ ...cardStyle, textAlign: 'left', fontSize: '1.2rem', marginBottom: '8px' }}>
@@ -773,35 +785,25 @@ export const StudyCard = React.memo(({
               {/* Card Level Badge (Bottom-Left Corner) */}
               <CardLevelBadge card={card} textColor={backCardStyle?.color} style={{ position: 'absolute', bottom: '12px', left: '12px', zIndex: 15 }} />
 
-              <div 
-                className="flip-hint-badge" 
-                style={{ 
-                  marginTop: '18px', 
-                  cursor: 'pointer', 
-                  background: 'rgba(20, 15, 38, 0.9)', 
-                  border: '1.5px solid rgba(168, 85, 247, 0.55)', 
-                  color: '#ffffff', 
-                  fontWeight: 700, 
-                  fontSize: '0.92rem', 
-                  padding: '8px 16px', 
-                  borderRadius: '14px',
-                  boxShadow: '0 4px 18px rgba(0, 0, 0, 0.45)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onFlip(false);
-                }}
-              >
-                <Eye size={16} style={{ color: '#c084fc' }} />
-                <span>{tr("Вернуться к лицевой стороне")}</span>
-              </div>
+
             </div>
           </div>
         )}
 
+        </motion.div>
+        </AnimatePresence>
+        </div>
+        <div className="study-card-footer">
+          <button
+            type="button"
+            className="study-card-flip-button"
+            disabled={loading}
+            onClick={() => onFlip(!isFlipped)}
+          >
+            <RotateCw size={18} aria-hidden="true" />
+            <span>{tr("Перевернуть карточку")}</span>
+          </button>
+        </div>
         {loading && (
           <div className="card-loading-overlay">
             <RefreshCw size={40} className="spin" />
