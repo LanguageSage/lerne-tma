@@ -210,9 +210,25 @@ async def send_reminder_to_user(bot_app, user_id: int, force: bool = False) -> d
         if not user or user.is_guest:
             return {"status": "skipped", "message": "Guest user"}
 
+        target_chat_id = None
         identity = TMAAuthIdentity.get_or_none(
             (TMAAuthIdentity.account == user_id) & (TMAAuthIdentity.provider == 'telegram'))
-        if identity is None or not identity.subject.isdigit() or int(identity.subject) <= 0:
+        if identity and identity.subject.isdigit() and int(identity.subject) > 0:
+            target_chat_id = int(identity.subject)
+        elif isinstance(user_id, int) and user_id > 0:
+            target_chat_id = user_id
+            try:
+                from ..models import TMAAuthAccount
+                if TMAAuthAccount.get_or_none(TMAAuthAccount.user_id == user_id):
+                    TMAAuthIdentity.get_or_create(
+                        account=user_id,
+                        provider='telegram',
+                        defaults={'subject': str(user_id)}
+                    )
+            except Exception as sync_err:
+                logger.debug(f"Identity backfill skipped for {user_id}: {sync_err}")
+
+        if not target_chat_id:
             return {"status": "skipped", "message": "Telegram not linked"}
 
         settings = get_user_reminder_settings(user_id)
@@ -233,7 +249,7 @@ async def send_reminder_to_user(bot_app, user_id: int, force: bool = False) -> d
         ])
 
         await bot_app.bot.send_message(
-            chat_id=int(identity.subject),
+            chat_id=target_chat_id,
             text=msg_text,
             parse_mode="HTML",
             reply_markup=keyboard
@@ -255,6 +271,7 @@ async def check_and_send_all_reminders(bot_app) -> dict:
         return {"status": "error", "message": "Bot not configured"}
 
     results = {"sent": 0, "skipped": 0, "errors": 0}
+    details = []
     now_utc = datetime.datetime.now(datetime.timezone.utc)
 
     try:
@@ -264,6 +281,7 @@ async def check_and_send_all_reminders(bot_app) -> dict:
                 settings = get_user_reminder_settings(u.user_id)
                 if not settings.get("enabled", True):
                     results["skipped"] += 1
+                    details.append({"user_id": u.user_id, "status": "skipped", "reason": "disabled"})
                     continue
 
                 tz_offset = int(settings.get("timezone_offset", 3))
@@ -276,20 +294,18 @@ async def check_and_send_all_reminders(bot_app) -> dict:
                 last_sent_setting = TMASetting.get_or_none(TMASetting.key == last_sent_key)
                 if last_sent_setting and last_sent_setting.value == date_hour_key:
                     results["skipped"] += 1
+                    details.append({"user_id": u.user_id, "status": "skipped", "reason": f"already_sent_hour_{current_hour}"})
                     continue
 
                 # Проверка тихого режима (если включен)
                 if settings.get("quiet_enabled", False):
                     q_start = int(settings.get("quiet_start", "23:00").split(":")[0])
                     q_end = int(settings.get("quiet_end", "07:00").split(":")[0])
-                    if q_start > q_end:
-                        if current_hour >= q_start or current_hour < q_end:
-                            results["skipped"] += 1
-                            continue
-                    else:
-                        if q_start <= current_hour < q_end:
-                            results["skipped"] += 1
-                            continue
+                    is_quiet = (current_hour >= q_start or current_hour < q_end) if q_start > q_end else (q_start <= current_hour < q_end)
+                    if is_quiet:
+                        results["skipped"] += 1
+                        details.append({"user_id": u.user_id, "status": "skipped", "reason": "quiet_hours"})
+                        continue
 
                 frequency = settings.get("frequency", "twice_daily")
                 should_send = False
@@ -316,11 +332,13 @@ async def check_and_send_all_reminders(bot_app) -> dict:
                         due_check = get_user_due_summary(u.user_id)
                         if due_check.get("total_due", 0) == 0:
                             results["skipped"] += 1
+                            details.append({"user_id": u.user_id, "status": "skipped", "reason": "only_due_enabled_but_no_due_cards"})
                             continue
 
                     res = await send_reminder_to_user(bot_app, u.user_id, force=False)
                     if res.get("status") == "success":
                         results["sent"] += 1
+                        details.append({"user_id": u.user_id, "status": "sent", "due": res.get("total_due", 0)})
                         # Фиксируем отметку успешной отправки в этот час
                         s_obj, _ = TMASetting.get_or_create(key=last_sent_key)
                         s_obj.value = date_hour_key
@@ -328,12 +346,17 @@ async def check_and_send_all_reminders(bot_app) -> dict:
                         s_obj.save()
                     else:
                         results["skipped"] += 1
+                        details.append({"user_id": u.user_id, "status": "skipped", "reason": res.get("message")})
                 else:
                     results["skipped"] += 1
+                    details.append({"user_id": u.user_id, "status": "skipped", "reason": f"hour_mismatch (current={current_hour}, freq={frequency})"})
             except Exception as user_err:
                 logger.error(f"Error processing user {u.user_id} in cron: {user_err}")
                 results["errors"] += 1
+                details.append({"user_id": u.user_id, "status": "error", "error": str(user_err)})
 
+        results["details"] = details
+        logger.info(f"Cron reminder summary: sent={results['sent']}, skipped={results['skipped']}, errors={results['errors']}")
         return {"status": "ok", "results": results}
     except Exception as e:
         logger.error(f"Error in check_and_send_all_reminders: {e}", exc_info=True)

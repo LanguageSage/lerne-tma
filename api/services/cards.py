@@ -22,11 +22,6 @@ def normalize_card_key(text: str) -> str:
     normalized = unicodedata.normalize('NFKC', str(text))
     return re.sub(r'[\W_]+', '', normalized).lower()
 
-def cleanup_unreferenced_audio(filename: str):
-    """No-op: Audio files are stored in Supabase Storage and each card manages its own audio."""
-    return
-
-
 def save_card(data, user_id):
     """Сохраняет или обновляет карточку."""
     logger.info(f"Saving card for user {user_id}. Data: {data}")
