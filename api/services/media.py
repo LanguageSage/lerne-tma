@@ -130,9 +130,7 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) ->
     filename = clean_filename
     
     folder = "images"
-    if media_type in ("audio", "audio_back"):
-        folder = "audio"
-    elif media_type in ("videos", "video_front", "video_back"):
+    if media_type in ("videos", "video_front", "video_back"):
         folder = "videos"
     elif media_type == "backgrounds":
         folder = "backgrounds"
@@ -271,7 +269,5 @@ async def ensure_card_audio(card, user_id: int):
             
             try: os.remove(result)
             except Exception: pass
-            
-            logger.info(f"Generated local audio for card {card.id} and saved to TMAMedia: {filename}")
     except Exception as e:
         logger.error(f"Failed to ensure audio for card {card.id}: {e}", exc_info=True)

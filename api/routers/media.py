@@ -4,6 +4,7 @@ import re
 import uuid
 import hashlib
 from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response, UploadFile, File, Request
+from fastapi.responses import RedirectResponse
 import logging
 from PIL import Image, UnidentifiedImageError
 
@@ -434,9 +435,8 @@ _media_cache = MediaMemoryCache()
 
 
 @router.get("/audio/{filename:path}")
-def get_audio(filename: str, request: Request):
+def get_audio(filename: str):
     """Fast 307 redirect to Supabase Storage CDN for legacy URLs."""
-    from fastapi.responses import RedirectResponse
     clean_filename = os.path.basename(filename.split('?')[0])
     supabase_url = os.environ.get("SUPABASE_URL", "https://wdopyuulhiykrextyvnt.supabase.co").rstrip("/")
     direct_url = f"{supabase_url}/storage/v1/object/public/audio/{clean_filename}"
