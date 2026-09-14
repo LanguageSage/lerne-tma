@@ -234,32 +234,37 @@ export const StudyView = () => {
     }
   }, [card?.id]);
 
+  const cardId = card?.id;
+
   useEffect(() => {
-    const isSuppressedAfterAutoplay = suppressLegacyAutoplayCardRef.current === card?.id;
-    const currentCardKey = `${card?.id}-${historyIndex}`;
+    const isSuppressedAfterAutoplay = suppressLegacyAutoplayCardRef.current === cardId;
+    const currentCardKey = `${cardId}-${historyIndex}`;
     const isAutoplayEnabledMode = studyMode === 'classic' || (studyMode === 'random' && activeRandomMode === 'classic');
-    const resolvedUrl = getAudioUrl(card?.audio_url || card?.audio_path);
-    const shouldStart = view === 'study' && card?.id && autoPlay && isAutoplayEnabledMode
+    const shouldStart = view === 'study' && cardId && autoPlay && isAutoplayEnabledMode
       && !loading && !isAutoplayActive && !isSuppressedAfterAutoplay
       && lastAutoplayedCardRef.current !== currentCardKey;
     if (shouldStart) {
       lastAutoplayedCardRef.current = currentCardKey;
       let cancelled = false;
       const timer = setTimeout(async () => {
-        let url = resolvedUrl;
+        const latestCard = useSessionStore.getState().card;
+        if (!latestCard || String(latestCard.id) !== String(cardId)) return;
+
+        let url = getAudioUrl(latestCard.audio_url || latestCard.audio_path);
         const updateAudioState = (patch) => {
-          useSessionStore.getState().updateCardInSession?.(card.id, patch);
-          useDeckStore.getState().updateCardLocal?.(card.id, patch);
+          useSessionStore.getState().updateCardInSession?.(cardId, patch);
+          useDeckStore.getState().updateCardLocal?.(cardId, patch);
         };
         const generateAudio = async () => {
           updateAudioState({ audio_is_generating: true });
           try {
             const settings = useSettingsStore.getState();
-            const targetLanguage = card.target_language || currentDeck?.target_language || 'de';
+            const currentCardData = useSessionStore.getState().card || latestCard;
+            const targetLanguage = currentCardData.target_language || currentDeck?.target_language || 'de';
             const generated = await api.post('/media/generate-card-audio', {
-              card_id: card.id,
+              card_id: cardId,
               side: 'front',
-              text: card.front || card.front_text,
+              text: currentCardData.front || currentCardData.front_text,
               lang: targetLanguage,
               rate: `${Number(settings.ttsSpeed) >= 0 ? '+' : ''}${Number(settings.ttsSpeed) || 0}%`,
               voice: getTtsVoiceForLang(targetLanguage, settings.adminSettings, settings.ttsVoices),
@@ -270,7 +275,7 @@ export const StudyView = () => {
               audio_is_generating: false,
             };
             updateAudioState(patch);
-            return generated.data.url;
+            return getAudioUrl(generated.data.url || generated.data.path) || generated.data.url;
           } catch (error) {
             updateAudioState({ audio_is_generating: false });
             throw error;
@@ -298,7 +303,7 @@ export const StudyView = () => {
         clearTimeout(timer);
       };
     }
-  }, [card, historyIndex, autoPlay, view, loading, isAutoplayActive, playAudio, studyMode, activeRandomMode, alwaysRegenerateAudio, currentDeck?.target_language, showToast]);
+  }, [cardId, historyIndex, autoPlay, view, loading, isAutoplayActive, playAudio, studyMode, activeRandomMode, alwaysRegenerateAudio, currentDeck?.target_language, showToast]);
 
   useEffect(() => {
     if (studyMode === 'random') {

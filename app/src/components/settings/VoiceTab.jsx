@@ -17,6 +17,8 @@ export const VoiceTab = () => {
     setAutoPlay,
     alwaysRegenerateAudio,
     setAlwaysRegenerateAudio,
+    autoGenerateCardAudio,
+    setAutoGenerateCardAudio,
     ttsSpeed,
     setTtsSpeed,
     ttsSpeedRu,
@@ -71,6 +73,13 @@ export const VoiceTab = () => {
           <span>{tr("Всегда генерировать и перезаписывать аудио")}</span>
           <label className="switch">
             <input type="checkbox" checked={alwaysRegenerateAudio} onChange={e => setAlwaysRegenerateAudio(e.target.checked)} />
+            <span className="slider"></span>
+          </label>
+        </div>
+        <div className="settings-row">
+          <span>{tr("Создавать аудио для новых карточек")}</span>
+          <label className="switch">
+            <input type="checkbox" checked={autoGenerateCardAudio} onChange={e => setAutoGenerateCardAudio(e.target.checked)} />
             <span className="slider"></span>
           </label>
         </div>

@@ -195,7 +195,7 @@ export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgr
     };
     Object.assign(targetCard, mergedPatch);
     updateCardAudio(targetCard.id, mergedPatch);
-    return mergedPatch[urlKey];
+    return getAudioUrl(mergedPatch[urlKey] || mergedPatch[pathKey]) || mergedPatch[urlKey];
   }, [isCurrentRun, showToast, updateCardAudio]);
 
   const getAutoplayCards = useCallback(async () => {

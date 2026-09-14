@@ -129,6 +129,10 @@ def save_card(data, user_id):
         card.back_text = new_back
     elif 'audio_back_path' in data:
         card.audio_back_path = data.get('audio_back_path')
+
+    if data.get('auto_generate_audio') is False and not is_new:
+        card.audio_path = None
+        card.audio_back_path = None
         
     if 'context' in data:
         card.context = data.get('context')

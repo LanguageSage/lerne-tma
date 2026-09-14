@@ -80,6 +80,7 @@ export const STUDY_STORAGE_MAP = {
   ttsSpeedRu: 'lerne_tts_speed_ru',
   ttsVoices: 'lerne_tts_voices',
   alwaysRegenerateAudio: 'lerne_always_regenerate_audio',
+  autoGenerateCardAudio: 'lerne_auto_generate_card_audio',
   autoplayLoop: 'lerne_autoplay_loop',
   autoplayForceFrontAudio: 'lerne_autoplay_force_front_audio',
   autoplayForceBackAudio: 'lerne_autoplay_force_back_audio',
@@ -179,6 +180,7 @@ const getInitialStudyState = () => ({
   ttsSpeedRu: storage.get('lerne_tts_speed_ru') !== null ? Number(storage.get('lerne_tts_speed_ru')) : 0,
   ttsVoices: getStoredTtsVoices(),
   alwaysRegenerateAudio: storage.get('lerne_always_regenerate_audio') === 'true',
+  autoGenerateCardAudio: storage.get('lerne_auto_generate_card_audio') !== 'false',
   autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : true,
   autoplayForceFrontAudio: storage.get('lerne_autoplay_force_front_audio') !== null ? storage.get('lerne_autoplay_force_front_audio') === 'true' : false,
   autoplayForceBackAudio: storage.get('lerne_autoplay_force_back_audio') !== null ? storage.get('lerne_autoplay_force_back_audio') === 'true' : false,
@@ -286,6 +288,11 @@ export const useSettingsStore = create((set, get) => {
     setAlwaysRegenerateAudio: (value) => {
       storage.set('lerne_always_regenerate_audio', value);
       set({ alwaysRegenerateAudio: Boolean(value) });
+      debouncedSaveSettings(get);
+    },
+    setAutoGenerateCardAudio: (value) => {
+      storage.set('lerne_auto_generate_card_audio', value);
+      set({ autoGenerateCardAudio: Boolean(value) });
       debouncedSaveSettings(get);
     },
     setAutoplayLoop: (value) => {

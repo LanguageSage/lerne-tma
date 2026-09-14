@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 import logging
 
 from api import services
@@ -13,7 +13,7 @@ router = APIRouter(
 )
 
 @router.post("/save")
-async def save_card(data: dict, user_id: int = Depends(get_user_id)):
+async def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int = Depends(get_user_id)):
     try:
         from api import models
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
@@ -21,11 +21,9 @@ async def save_card(data: dict, user_id: int = Depends(get_user_id)):
             raise HTTPException(status_code=403, detail="Для создания и изменения карточек требуется авторизация через Telegram.")
         card = services.save_card(data, user_id)
         if card:
-            if not card.audio_path and card.front_text:
-                try:
-                    await services.ensure_card_audio(card, user_id)
-                except Exception as audio_err:
-                    logger.warning(f"Auto-generate audio on save_card failed: {audio_err}")
+            auto_generate = data.get('auto_generate_audio', True)
+            if auto_generate and not card.audio_path and card.front_text:
+                background_tasks.add_task(services.ensure_card_audio, card, user_id)
             # Сразу возвращаем полные данные для StudyView
             return services.format_card_for_study(card, user_id)
         raise HTTPException(status_code=400, detail="Could not save card. Check logs.")
