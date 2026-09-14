@@ -148,10 +148,6 @@ def clear_trash(user_id: int):
                 # Удаляем сами колоды
                 TMA_Deck.delete().where(TMA_Deck.id << deck_ids).execute()
 
-        # Очищаем осиротевшие аудиофайлы из TMAMedia
-        from .cards import cleanup_unreferenced_audio
-        for audio_file in audios_to_check:
-            cleanup_unreferenced_audio(audio_file)
 
         logger.info(f"Cleared trash for user {user_id}: {len(card_ids)} cards, {len(deck_ids)} decks removed.")
         return True

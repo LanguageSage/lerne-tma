@@ -143,7 +143,11 @@ app.include_router(feedback.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(auth_v2.router, prefix="/api")
 app.include_router(share.router, prefix="/api")
-app.include_router(debug.router, prefix="/api")
+
+# Only mount debug routes in non-production environments
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+if ENVIRONMENT != "production":
+    app.include_router(debug.router, prefix="/api")
 app.include_router(trash.router, prefix="/api")
 app.include_router(sync.router, prefix="/api")
 app.include_router(folders.router, prefix="/api")
@@ -167,10 +171,14 @@ def get_init_data(user_id: int = Depends(get_user_id)):
     decks = services.get_active_decks(user_id, folder_map=folder_map)
     folders = services.get_active_folders(user_id, folder_map=folder_map)
     
-    # Get settings
+    # Get settings (sanitized: strictly exclude secret keys, tokens, and credentials)
     settings = {}
     try:
+        sensitive_terms = ("KEY", "SECRET", "TOKEN", "PASSWORD", "PASSWD", "CREDENTIAL")
         for s in models.TMASetting.select():
+            key_upper = s.key.upper()
+            if any(term in key_upper for term in sensitive_terms):
+                continue
             settings[s.key] = s.value
     except Exception: pass
         

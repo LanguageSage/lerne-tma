@@ -143,12 +143,12 @@ def run_tests():
     from api.services.cards import save_card
     from fastapi import HTTPException
 
-    # Student B has role 'viewer' on deck 10 -> Should fail with 403
+    # Student B has role 'viewer' on deck 10 -> Should fail with 403 / PermissionError
     viewer_failed = False
     try:
         save_card({"id": 101, "deck_id": 10, "front": "Hacked Front"}, user_id=student_b_id)
-    except HTTPException as exc:
-        if exc.status_code == 403:
+    except (HTTPException, PermissionError) as exc:
+        if getattr(exc, 'status_code', 403) == 403:
             viewer_failed = True
 
     assert viewer_failed, "Student B (viewer) should be rejected from editing card on deck 10 with HTTP 403."
@@ -166,8 +166,8 @@ def run_tests():
     create_viewer_failed = False
     try:
         create_deck(name="Illegal Deck", user_id=student_b_id, folder_id=1)
-    except HTTPException as exc:
-        if exc.status_code == 403:
+    except (HTTPException, PermissionError) as exc:
+        if getattr(exc, 'status_code', 403) == 403:
             create_viewer_failed = True
 
     assert create_viewer_failed, "Student B (viewer) must be blocked from creating decks in Folder 1"

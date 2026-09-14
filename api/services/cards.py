@@ -23,26 +23,8 @@ def normalize_card_key(text: str) -> str:
     return re.sub(r'[\W_]+', '', normalized).lower()
 
 def cleanup_unreferenced_audio(filename: str):
-    """Удаляет аудиофайл из TMAMedia, если на него больше не ссылается ни одна карточка."""
-    if not filename:
-        return
-    clean_name = str(filename).replace('/api/media/audio/', '').replace('audio/', '').strip()
-    if not clean_name:
-        return
-    try:
-        refs_count = TMA_Card.select(TMA_Card.id).where(
-            ((TMA_Card.audio_path == clean_name) | (TMA_Card.audio_path == f"/api/media/audio/{clean_name}") |
-             (TMA_Card.audio_back_path == clean_name) | (TMA_Card.audio_back_path == f"/api/media/audio/{clean_name}")) &
-            (TMA_Card.is_deleted == False)
-        ).count()
-        if refs_count == 0:
-            deleted = TMAMedia.delete().where(
-                (TMAMedia.filename == clean_name) & (TMAMedia.folder == 'audio')
-            ).execute()
-            if deleted:
-                logger.info(f"Deleted unreferenced audio from TMAMedia: {clean_name}")
-    except Exception as e:
-        logger.warning(f"Failed to cleanup unreferenced audio {clean_name}: {e}")
+    """No-op: Audio files are stored in Supabase Storage and each card manages its own audio."""
+    return
 
 
 def save_card(data, user_id):
@@ -104,35 +86,41 @@ def save_card(data, user_id):
 
     if 'front' in data or 'front_text' in data:
         new_front = data.get('front') if 'front' in data else data.get('front_text')
-        if old_front and new_front and old_front.strip() != new_front.strip():
+        from api.utils.audio import _prepare_tts_text
+        old_spoken = _prepare_tts_text(old_front) if old_front else ""
+        new_spoken = _prepare_tts_text(new_front) if new_front else ""
+        spoken_changed = bool(old_spoken and new_spoken and old_spoken != new_spoken)
+
+        if spoken_changed:
             incoming_audio = data.get('audio_path')
             if not incoming_audio or incoming_audio == card.audio_path:
                 card.audio_path = None
             else:
                 card.audio_path = incoming_audio
-        elif 'audio_path' in data:
+        elif 'audio_path' in data and data.get('audio_path') is not None:
             card.audio_path = data.get('audio_path')
         card.front_text = new_front
-    elif 'audio_path' in data:
+    elif 'audio_path' in data and data.get('audio_path') is not None:
         card.audio_path = data.get('audio_path')
         
     if 'back' in data or 'back_text' in data:
         new_back = data.get('back') if 'back' in data else data.get('back_text')
-        if old_back and new_back and old_back.strip() != new_back.strip():
+        from api.utils.audio import _prepare_tts_text
+        old_back_spoken = _prepare_tts_text(old_back) if old_back else ""
+        new_back_spoken = _prepare_tts_text(new_back) if new_back else ""
+        back_spoken_changed = bool(old_back_spoken and new_back_spoken and old_back_spoken != new_back_spoken)
+
+        if back_spoken_changed:
             incoming_back_audio = data.get('audio_back_path')
             if not incoming_back_audio or incoming_back_audio == card.audio_back_path:
                 card.audio_back_path = None
             else:
                 card.audio_back_path = incoming_back_audio
-        elif 'audio_back_path' in data:
+        elif 'audio_back_path' in data and data.get('audio_back_path') is not None:
             card.audio_back_path = data.get('audio_back_path')
         card.back_text = new_back
-    elif 'audio_back_path' in data:
+    elif 'audio_back_path' in data and data.get('audio_back_path') is not None:
         card.audio_back_path = data.get('audio_back_path')
-
-    if data.get('auto_generate_audio') is False and not is_new:
-        card.audio_path = None
-        card.audio_back_path = None
         
     if 'context' in data:
         card.context = data.get('context')
@@ -226,11 +214,6 @@ def save_card(data, user_id):
     
     with tma_db.atomic():
         card.save()
-        if old_audio_path and card.audio_path != old_audio_path:
-            cleanup_unreferenced_audio(old_audio_path)
-        if old_audio_back_path and card.audio_back_path != old_audio_back_path:
-            cleanup_unreferenced_audio(old_audio_back_path)
-
         if card.deck_id:
             from .collaborative_service import touch_deck_and_parent_folders
             touch_deck_and_parent_folders(card.deck_id, deck_obj=cached_deck)

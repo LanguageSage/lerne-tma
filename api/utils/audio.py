@@ -152,9 +152,20 @@ def _parse_boundaries(raw_events):
     return result
 
 
+_supabase_http_session = None
+
+
+async def _get_supabase_session():
+    global _supabase_http_session
+    import aiohttp
+    if _supabase_http_session is None or _supabase_http_session.closed:
+        timeout = aiohttp.ClientTimeout(total=15, connect=5)
+        _supabase_http_session = aiohttp.ClientSession(timeout=timeout)
+    return _supabase_http_session
+
+
 async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key):
     """Загрузка файла или байтов в Supabase Storage через REST API (async)."""
-    import aiohttp
     bucket = "audio"
     project_url = project_url.rstrip("/")
     upload_url = f"{project_url}/storage/v1/object/{bucket}/{filename}"
@@ -172,14 +183,14 @@ async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key
             with open(file_path_or_bytes, "rb") as f:
                 data = f.read()
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(upload_url, headers=headers, data=data) as resp:
-                if resp.status in [200, 201]:
-                    return f"{project_url}/storage/v1/object/public/{bucket}/{filename}"
-                else:
-                    error_text = await resp.text()
-                    logger.error(f"Supabase Upload Error ({resp.status}): {error_text}")
-                    return None
+        session = await _get_supabase_session()
+        async with session.post(upload_url, headers=headers, data=data) as resp:
+            if resp.status in [200, 201]:
+                return f"{project_url}/storage/v1/object/public/{bucket}/{filename}"
+            else:
+                error_text = await resp.text()
+                logger.error(f"Supabase Upload Error ({resp.status}): {error_text}")
+                return None
     except Exception as e:
         logger.error(f"Supabase Storage Exception: {e}")
         return None
@@ -215,6 +226,14 @@ def _strip_markdown(text):
 
 
 def _prepare_tts_text(text, max_chars=900):
+    if not text:
+        return ""
+    # Strip trailing parenthesized question on a new line (matches input_parser directive format)
+    trailing_question_match = re.search(r'\n\s*\((.+?)\)\s*$', text, re.DOTALL)
+    if trailing_question_match:
+        text_before = text[:trailing_question_match.start()].strip()
+        if text_before:
+            text = text_before
     res = _strip_markdown(text)
     res = re.sub(r"https?://\S+", "", res)
     res = re.sub(r"\s+", " ", res).strip()

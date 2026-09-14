@@ -338,9 +338,6 @@ async def generate_card_audio_endpoint(
         setattr(card, field, path)
         card.updated_at = models.datetime.datetime.now()
         card.save(only=[getattr(models.TMA_Card, field), models.TMA_Card.updated_at])
-        if previous_path and previous_path != path:
-            from api.services.cards import cleanup_unreferenced_audio
-            cleanup_unreferenced_audio(previous_path)
         return {'path': path, 'url': url}
     except HTTPException:
         raise

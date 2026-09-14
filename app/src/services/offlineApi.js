@@ -198,10 +198,6 @@ export const offlineApi = {
         for (const key of ['context', 'level', 'tags', 'card_type', 'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path', 'flag']) {
           if (Object.hasOwn(body, key)) card[key] = body[key];
         }
-        if (body.auto_generate_audio === false && previous?.id) {
-          card.audio_path = null;
-          card.audio_back_path = null;
-        }
         if (body.cefr) card.metadata = { ...jsonObject(previous?.metadata), cefr: body.cefr };
         await db.cards.put(card);
         return result({ ...card, front: card.front_text, back: card.back_text });

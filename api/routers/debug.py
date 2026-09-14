@@ -5,15 +5,20 @@ from fastapi import APIRouter, Header, Depends, HTTPException
 from api import models, services
 from api.dependencies.auth import get_user_id
 
-ADMIN_USER_ID = 642478257
+ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", "642478257"))
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 logger = logging.getLogger(__name__)
 
-@router.get("/test-import/{deck_id}")
-def debug_import(deck_id: int, user_id: int = Depends(get_user_id)):
+def ensure_debug_access(user_id: int):
+    if os.getenv("ENVIRONMENT", "development").lower() == "production":
+        raise HTTPException(status_code=404, detail="Not found")
     if user_id != ADMIN_USER_ID:
         raise HTTPException(status_code=403, detail="Access denied")
+
+@router.get("/test-import/{deck_id}")
+def debug_import(deck_id: int, user_id: int = Depends(get_user_id)):
+    ensure_debug_access(user_id)
     
     logs = []
     def log(msg):
@@ -53,8 +58,7 @@ def debug_import(deck_id: int, user_id: int = Depends(get_user_id)):
 
 @router.get("/test-audio")
 async def debug_audio(text: str = "Test", voice: str = "de-DE-KatjaNeural", user_id: int = Depends(get_user_id)):
-    if user_id != ADMIN_USER_ID:
-        raise HTTPException(status_code=403, detail="Access denied")
+    ensure_debug_access(user_id)
     logs = []
     logs.append(f"Starting debug audio for text: '{text}', voice: '{voice}'")
     try:

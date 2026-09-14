@@ -39,6 +39,7 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test' 
     closeLocalDb: (id) => { closedDbUserIds.push(id); },
     resetAllDatabases: () => { resetAllDatabasesCount++; },
     storage: { remove() {} }, openExternalLink() {},
+    prepareExternalLink: () => ({ navigate() {}, close() {} }),
     useUiStore: { getState: () => ui, setState: value => Object.assign(ui, value) },
     useDeckStore: { getState: () => ({
       async fetchDecks() {},

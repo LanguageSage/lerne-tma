@@ -17,6 +17,7 @@ async function harness(page, context) {
   await context.addInitScript(() => {
     localStorage.setItem('offline_mode', 'true');
     localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'test_access_token', refresh_token: 'test_refresh_token' }));
   });
   await page.goto('/offline-harness');
   await loadModules(page);

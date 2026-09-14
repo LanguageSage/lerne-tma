@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 # Ensure project root is in python path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from pathlib import Path
+project_root = str(Path(__file__).resolve().parents[2])
 sys.path.insert(0, project_root)
 
 # Initialize in-memory SQLite database for testing
@@ -22,73 +23,17 @@ models.tma_db.create_tables([
     models.TMA_Folder,
     models.TMA_Deck,
     models.TMA_Card,
-    models.TMAProgress
+    models.TMAProgress,
+    models.TMA_Collaborator
 ], safe=True)
 
 from api.services.sync_service import execute_sync_push, execute_sync_pull
-
-# Mock Pydantic models matching sync.py
-class SyncFolderItem(BaseModel):
-    id: int
-    name: str
-    is_deleted: bool = False
-    is_pinned: bool = False
-    position: int = 0
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-class SyncDeckItem(BaseModel):
-    id: int
-    name: str
-    level: Optional[str] = None
-    topic: Optional[str] = None
-    is_deleted: bool = False
-    is_pinned: bool = False
-    position: int = 0
-    folder_id: Optional[int] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-class SyncCardItem(BaseModel):
-    id: int
-    deck_id: int
-    front_text: str
-    back_text: str
-    context: Optional[str] = None
-    image_path: Optional[str] = None
-    audio_path: Optional[str] = None
-    audio_back_path: Optional[str] = None
-    video_front_path: Optional[str] = None
-    video_back_path: Optional[str] = None
-    want_to_learn: bool = False
-    is_deleted: bool = False
-    flag: Optional[int] = 0
-    position: Optional[int] = 0
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-class SyncProgressItem(BaseModel):
-    card_id: int
-    queue: str
-    interval: int
-    ease_factor: float
-    repetitions: int
-    lapses: int
-    step_index: Optional[int] = None
-    next_review: Optional[str] = None
-    last_reviewed: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-class PushRequest(BaseModel):
-    folders: List[SyncFolderItem] = []
-    decks: List[SyncDeckItem] = []
-    cards: List[SyncCardItem] = []
-    progress: List[SyncProgressItem] = []
+from api.routers.sync import SyncFolderItem, SyncDeckItem, SyncCardItem, SyncProgressItem, PushRequest
 
 
 def run_tests():
     user_id = 999111
+    models.TMAUser.get_or_create(user_id=user_id, defaults={'default_decks_initialized': True})
     print("=== STARTING SMART SYNC INTEGRATION TESTS ===")
 
     # Test 1: Negative ID mapping (creating offline folder, deck, card, progress)
