@@ -209,7 +209,7 @@ export const useAiActions = () => {
           continue;
         }
 
-        const detail = err.response?.data?.detail || err.message;
+        const detail = err.customTimeoutMsg || err.response?.data?.detail || err.response?.data?.error || err.message;
         if (err.message === 'Network Error') {
           showToast(tr("Ошибка сети: проверьте соединение"));
         } else {
