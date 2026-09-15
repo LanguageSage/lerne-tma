@@ -16,67 +16,27 @@ import { PromptsTab } from '../settings/PromptsTab';
 import { ProfileTab } from '../settings/ProfileTab';
 import { RemindersTab } from '../settings/RemindersTab';
 import { SrsTab } from '../settings/SrsTab';
+import { AutoplaySettingsTab } from '../settings/AutoplaySettingsTab';
+import { useSessionStore } from '../../store/useSessionStore';
 
 export const SettingsModal = ({ userId }) => {
   useInterfaceLocale();
-  const { isSettingsOpen, setIsSettingsOpen, settingsTab } = useUiStore();
+  const { isSettingsOpen, setIsSettingsOpen, settingsTab, setSettingsTab } = useUiStore();
   const { t } = useTranslation();
 
   const ADMIN_USER_ID = 642478257;
   const isAdmin = Number(userId) === ADMIN_USER_ID;
 
-  const getInitialTab = () => {
-    if (settingsTab) return settingsTab;
-    try {
-      const stored = localStorage.getItem('lerne_last_settings_tab');
-      if (stored && (stored !== 'ai' || isAdmin)) return stored;
-    } catch {
-      // ignore
-    }
-    return 'general';
-  };
-
-  const [activeSettingsTab, setActiveSettingsTab] = useState(getInitialTab);
+  const activeSettingsTab = !isAdmin && settingsTab === 'ai' ? 'general' : settingsTab;
   const [customBackgrounds] = useState([]);
-
-  const handleTabChange = (tab) => {
-    setActiveSettingsTab(tab);
-    try {
-      localStorage.setItem('lerne_last_settings_tab', tab);
-    } catch {
-      // ignore
-    }
-  };
+  const handleTabChange = setSettingsTab;
 
   React.useEffect(() => {
     if (isSettingsOpen) {
-      if (settingsTab) {
-        setActiveSettingsTab(settingsTab);
-        try {
-          localStorage.setItem('lerne_last_settings_tab', settingsTab);
-        } catch {
-          // ignore
-        }
-      } else {
-        try {
-          const stored = localStorage.getItem('lerne_last_settings_tab');
-          if (stored && (stored !== 'ai' || isAdmin)) {
-            setActiveSettingsTab(stored);
-          } else {
-            setActiveSettingsTab('general');
-          }
-        } catch {
-          setActiveSettingsTab('general');
-        }
-      }
+      const session = useSessionStore.getState();
+      if (session.autoplayState === 'playing') session.pauseAutoplayFn?.();
     }
-  }, [isSettingsOpen, settingsTab, isAdmin]);
-
-  React.useEffect(() => {
-    if (!isAdmin && activeSettingsTab === 'ai') {
-      setActiveSettingsTab('general');
-    }
-  }, [isAdmin, activeSettingsTab]);
+  }, [isSettingsOpen]);
 
   return (
     <AnimatePresence>
@@ -93,7 +53,7 @@ export const SettingsModal = ({ userId }) => {
               <h2>{t('settings.title', 'Настройки')}</h2>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <HelpButton topic="settings" />
-                <button className="close-btn" onClick={() => setIsSettingsOpen(false)}>
+                <button className="close-btn" aria-label={tr("Закрыть настройки")} title={tr("Закрыть настройки")} onClick={() => setIsSettingsOpen(false)}>
                   <X size={24} />
                 </button>
               </div>
@@ -112,6 +72,7 @@ export const SettingsModal = ({ userId }) => {
                 <option value="reminders">{tr("🔔 Напоминания бота")}</option>
                 <option value="general">⚙️ {t('settings.tab_general', 'Общие настройки')}</option>
                 <option value="design">🎨 {t('settings.tab_design', 'Дизайн')}</option>
+                <option value="autoplay">▶ {tr("Авто-режим")}</option>
                 <option value="voice">🗣 {t('settings.tab_voice', 'Озвучка')}</option>
                 {isAdmin && <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>}
                 <option value="prompts">📝 {t('settings.tab_prompts', 'Промпты ИИ')}</option>
@@ -129,6 +90,7 @@ export const SettingsModal = ({ userId }) => {
                   uploadCustomBackground={() => {}} 
                 />
               )}
+              {activeSettingsTab === 'autoplay' && <AutoplaySettingsTab />}
               {activeSettingsTab === 'voice' && <VoiceTab />}
               {activeSettingsTab === 'ai' && isAdmin && <AITab />}
               {activeSettingsTab === 'prompts' && <PromptsTab />}

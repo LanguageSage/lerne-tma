@@ -1,5 +1,5 @@
 import { tr, getInterfaceLanguage } from '../i18n/locale';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -8,460 +8,243 @@ import { useLanguageStore } from '../store/useLanguageStore';
 import { getTtsVoiceForLang } from '../constants/languageConstants';
 import { stripMarkdown } from '../utils/text';
 import { getAudioUrl } from '../utils/media';
+import { buildAutoplaySequence, createAutoplayQueue, normalizeAutoplaySettings } from '../utils/autoplaySequence';
 
-const formatRate = (value) => `${value >= 0 ? '+' : ''}${value}%`;
-const getCardText = (targetCard, side) => {
-  if (!targetCard) return '';
-  return side === 'back'
-    ? (targetCard.back ?? targetCard.back_text ?? '')
-    : (targetCard.front ?? targetCard.front_text ?? '');
-};
+const getCardText = (card, side) => side === 'back'
+  ? (card.back ?? card.back_text ?? '') : (card.front ?? card.front_text ?? '');
 
-export const filterAndSortAutoplayCards = (cards, order) => {
-  if (!cards || !cards.length) return [];
-
-  if (order === 'srs') {
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-
-    const dueReviewCards = [];
-    const dueLearningCards = [];
-    const newCards = [];
-
-    for (const c of cards) {
-      if (!c.queue || c.queue === 'new') {
-        newCards.push(c);
-      } else if (c.queue === 'learning' || c.queue === 'relearning') {
-        if (!c.next_review || new Date(c.next_review) <= endOfToday) {
-          dueLearningCards.push(c);
-        }
-      } else if (c.queue === 'review') {
-        if (!c.next_review || new Date(c.next_review) <= endOfToday) {
-          dueReviewCards.push(c);
-        }
-      }
-    }
-
-    // Overdue / due review cards first (oldest review time first)
-    dueReviewCards.sort((a, b) => {
-      const timeA = a.next_review ? new Date(a.next_review).getTime() : 0;
-      const timeB = b.next_review ? new Date(b.next_review).getTime() : 0;
-      return timeA - timeB;
-    });
-
-    // Learning / relearning cards scheduled for today
-    dueLearningCards.sort((a, b) => {
-      const timeA = a.next_review ? new Date(a.next_review).getTime() : 0;
-      const timeB = b.next_review ? new Date(b.next_review).getTime() : 0;
-      return timeA - timeB;
-    });
-
-    // New cards sorted by position asc, id asc
-    newCards.sort((a, b) => (a.position || 0) - (b.position || 0) || (a.id || 0) - (b.id || 0));
-
-    return [...dueReviewCards, ...dueLearningCards, ...newCards];
-  }
-
-  // Default 'list' mode: linear sequence by position asc, id asc
-  return [...cards].sort((a, b) => (a.position || 0) - (b.position || 0) || (a.id || 0) - (b.id || 0));
-};
-
-export const useAutoplay = ({ card, playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock }) => {
+export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock }) => {
   const runRef = useRef(0);
-  const timerRef = useRef(null);
-  const cardRef = useRef(card);
-  const autoplayCardsRef = useRef([]);
-  const currentCardIdRef = useRef(card?.id);
-  const runCardCycleRef = useRef(null);
+  const waitRef = useRef(null);
+  const queueRef = useRef([]);
+  const sessionRef = useRef({ audio: new Map(), order: null });
+  const [autoplayCards, setAutoplayCards] = useState([]);
   const [status, setStatus] = useState('');
 
-  useEffect(() => {
-    cardRef.current = card;
-    if (card?.id !== currentCardIdRef.current) {
-      currentCardIdRef.current = card?.id;
-    }
-  }, [card]);
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
+  const setQueue = useCallback((cards) => {
+    queueRef.current = cards;
+    setAutoplayCards(cards);
   }, []);
 
-  const isCurrentRun = useCallback((runId) => (
-    runRef.current === runId && useSessionStore.getState().autoplayState === 'playing'
-  ), []);
+  // Every cancellation settles the pending audio/timer wait as well as stopping sound.
+  const cancelCurrent = useCallback(() => {
+    runRef.current += 1;
+    waitRef.current?.();
+    waitRef.current = null;
+    stopAudio();
+  }, [stopAudio]);
 
-  const wait = useCallback((seconds, runId) => new Promise((resolve) => {
-    clearTimer();
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      resolve(isCurrentRun(runId));
-    }, Math.max(0, Number(seconds) || 0) * 1000);
-  }), [clearTimer, isCurrentRun]);
+  const isCurrentRun = useCallback((id) => id === runRef.current
+    && useSessionStore.getState().autoplayState === 'playing', []);
 
-  const waitForAudio = useCallback((url, runId) => new Promise((resolve) => {
-    if (!url || !isCurrentRun(runId)) {
-      resolve(false);
-      return;
-    }
+  const wait = useCallback((seconds, id) => new Promise(resolve => {
+    const finish = (ok) => {
+      clearTimeout(timer);
+      if (waitRef.current === cancel) waitRef.current = null;
+      resolve(ok && isCurrentRun(id));
+    };
+    const cancel = () => finish(false);
+    const timer = setTimeout(() => finish(true), seconds * 1000);
+    waitRef.current = cancel;
+  }), [isCurrentRun]);
 
-    playAudio(
-      url,
-      (success) => resolve(Boolean(success) && isCurrentRun(runId)),
-      () => resolve(false),
-    );
+  const waitForAudio = useCallback((url, id) => new Promise(resolve => {
+    const finish = (ok) => {
+      if (waitRef.current === cancel) waitRef.current = null;
+      resolve(Boolean(ok) && isCurrentRun(id));
+    };
+    const cancel = () => finish(false);
+    waitRef.current = cancel;
+    Promise.resolve(playAudio(url, finish, () => finish(false))).catch(() => finish(false));
   }), [isCurrentRun, playAudio]);
 
-  const updateCardAudio = useCallback((cardId, patch) => {
-    const session = useSessionStore.getState();
-    const deck = useDeckStore.getState();
+  const ensureAudio = useCallback(async (card, side, settings) => {
+    const context = sessionRef.current;
+    const back = side === 'back';
+    const lang = back ? getInterfaceLanguage() : (card.target_language
+      || useDeckStore.getState().currentDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de');
+    const globalSettings = useSettingsStore.getState();
+    const voice = getTtsVoiceForLang(lang, globalSettings.adminSettings, globalSettings.ttsVoices);
+    const speed = back ? settings.autoplayTranslationSpeed : settings.autoplayPhraseSpeed;
+    const force = back ? settings.autoplayForceBackAudio : settings.autoplayForceFrontAudio;
+    const key = JSON.stringify([card.id, side, lang, voice, speed, force]);
+    if (context.audio.has(key)) return context.audio.get(key);
 
-    session.setCard((current) => (
-      current?.id === cardId ? { ...current, ...patch } : current
-    ));
-    if (typeof session.setStudyHistory === 'function') {
-      const currentHistory = session.studyHistory || [];
-      session.setStudyHistory(currentHistory.map((item) => (
-        item?.id === cardId ? { ...item, ...patch } : item
-      )));
-    }
-    deck.setDeckCards((deck.deckCards || []).map((item) => (
-      item.id === cardId ? { ...item, ...patch } : item
-    )));
+    const urlKey = back ? 'audio_back_url' : 'audio_url';
+    const pathKey = back ? 'audio_back_path' : 'audio_path';
+    const latest = queueRef.current.find(c => String(c.id) === String(card.id)) || card;
+    const existing = getAudioUrl(latest[urlKey] || latest[pathKey]);
+    const wrongBack = back && ((latest.audio_back_url && latest.audio_back_url === latest.audio_url)
+      || (latest.audio_back_path && latest.audio_back_path === latest.audio_path));
+    if (existing && !force && !wrongBack) return existing;
+    const text = getCardText(latest, side);
+    if (!text.trim()) throw new Error(tr("Нет текста для озвучки"));
+    setStatus(back ? tr("Генерируем перевод") : tr("Генерируем фразу"));
 
-    // Mutate local autoplayCardsRef so subsequent loops or card reviews don't re-generate audio
-    autoplayCardsRef.current = (autoplayCardsRef.current || []).map((item) => (
-      item.id === cardId ? { ...item, ...patch } : item
-    ));
-  }, []);
-
-  const ensureAudio = useCallback(async (targetCard, side, runId, isPrefetch = false) => {
-    if (!targetCard || !isCurrentRun(runId)) return null;
-
-    const settings = useSettingsStore.getState();
-    const isBack = side === 'back';
-    const urlKey = isBack ? 'audio_back_url' : 'audio_url';
-    const pathKey = isBack ? 'audio_back_path' : 'audio_path';
-    const text = getCardText(targetCard, side);
-    const deckTargetLang = targetCard.target_language || useDeckStore.getState().currentDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de';
-    const nativeLang = getInterfaceLanguage();
-    const lang = isBack ? nativeLang : deckTargetLang;
-    const rate = formatRate(isBack ? settings.ttsSpeedRu : settings.ttsSpeed);
-    const voice = isBack 
-      ? getTtsVoiceForLang(nativeLang, settings.adminSettings, settings.ttsVoices)
-      : getTtsVoiceForLang(deckTargetLang, settings.adminSettings, settings.ttsVoices);
-    const forceGenerate = settings.alwaysRegenerateAudio
-      || (isBack ? settings.autoplayForceBackAudio : settings.autoplayForceFrontAudio);
-    const hasWrongBackAudio = isBack && (
-      (targetCard.audio_back_url && targetCard.audio_url && targetCard.audio_back_url === targetCard.audio_url) ||
-      (targetCard.audio_back_path && targetCard.audio_path && targetCard.audio_back_path === targetCard.audio_path)
-    );
-
-    const existingUrl = getAudioUrl(targetCard[urlKey] || targetCard[pathKey]);
-    if (existingUrl && !hasWrongBackAudio && !forceGenerate) return existingUrl;
-    if (!text?.trim()) return null;
-
-    if (!isPrefetch) {
-      setStatus(isBack ? tr("Генерируем перевод") : tr("Генерируем фразу"));
-    }
-    updateCardAudio(targetCard.id, { audio_is_generating: true });
-    let generated;
-    try {
-      generated = await api.post('/media/generate-card-audio', {
-        card_id: targetCard.id,
-        side,
-        text,
-        lang,
-        rate,
-        voice,
-      });
-    } catch (err) {
-      updateCardAudio(targetCard.id, { audio_is_generating: false });
-      if (!isPrefetch) {
-        console.error('Audio generation failed:', err);
-        showToast?.(tr("Не удалось сгенерировать {{p0}}: {{p1}}", { p0: isBack ? tr("перевод") : tr("фразу"), p1: err.response?.data?.detail || err.message }));
+    // The promise is cached before awaiting: pause/resume and deck loops reuse it.
+    const request = api.post('/media/generate-card-audio', {
+      card_id: card.id, side, text, lang, voice, rate: `${speed >= 0 ? '+' : ''}${speed}%`,
+    }).then(({ data }) => {
+      const url = getAudioUrl(data.url || data.path);
+      if (!url) throw new Error(tr("Не удалось получить аудио"));
+      if (sessionRef.current === context) {
+        const patch = { [urlKey]: data.url, [pathKey]: data.path, audio_is_generating: false };
+        useSessionStore.getState().updateCardInSession(card.id, patch);
+        useDeckStore.getState().updateCardLocal?.(card.id, patch);
+        setQueue(queueRef.current.map(c => String(c.id) === String(card.id) ? { ...c, ...patch } : c));
       }
-      return null;
-    }
-
-    if (!isCurrentRun(runId)) return null;
-
-    const mergedPatch = {
-      [pathKey]: generated?.data?.path,
-      [urlKey]: generated?.data?.url,
-      audio_is_generating: false,
-    };
-    Object.assign(targetCard, mergedPatch);
-    updateCardAudio(targetCard.id, mergedPatch);
-    return getAudioUrl(mergedPatch[urlKey] || mergedPatch[pathKey]) || mergedPatch[urlKey];
-  }, [isCurrentRun, showToast, updateCardAudio]);
-
-  const getAutoplayCards = useCallback(async () => {
-    const deckStore = useDeckStore.getState();
-    const settings = useSettingsStore.getState();
-    const currentDeck = deckStore.currentDeck;
-
-    if (!currentDeck) return [];
-    if (currentDeck.id === 'duplicates') {
-      return filterAndSortAutoplayCards(deckStore.duplicateCards || [], settings.autoplayOrder);
-    }
-
-    await deckStore.fetchDeckCards(currentDeck.id);
-    const rawCards = useDeckStore.getState().deckCards || [];
-    return filterAndSortAutoplayCards(rawCards, settings.autoplayOrder);
-  }, []);
-
-  const prepareAutoplayCards = useCallback(async () => {
-    const cards = await getAutoplayCards();
-    autoplayCardsRef.current = cards;
-    return cards;
-  }, [getAutoplayCards]);
-
-  const deckCards = useDeckStore(s => s.deckCards);
-  const duplicateCards = useDeckStore(s => s.duplicateCards);
-  const currentDeck = useDeckStore(s => s.currentDeck);
-  const autoplayOrder = useSettingsStore(s => s.autoplayOrder);
-
-  const activeAutoplayCards = useMemo(() => {
-    if (!currentDeck) return [];
-    const source = currentDeck.id === 'duplicates' ? (duplicateCards || []) : (deckCards || []);
-    return filterAndSortAutoplayCards(source, autoplayOrder);
-  }, [currentDeck, duplicateCards, deckCards, autoplayOrder]);
-
-  useEffect(() => {
-    autoplayCardsRef.current = activeAutoplayCards;
-  }, [activeAutoplayCards]);
-
-  const moveToNextCard = useCallback(async (currentCard, runId) => {
-    const settings = useSettingsStore.getState();
-    let cards = autoplayCardsRef.current.length
-      ? autoplayCardsRef.current
-      : await prepareAutoplayCards();
-    if (!isCurrentRun(runId) || !cards.length) return false;
-
-    let currentIndex = cards.findIndex((item) => String(item.id) === String(currentCard.id));
-    let nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
-
-    if (nextIndex >= cards.length && useDeckStore.getState().currentDeck?.id !== 'duplicates') {
-      const refreshedCards = await getAutoplayCards();
-      if (!isCurrentRun(runId)) return false;
-
-      const refreshedIndex = refreshedCards.findIndex((item) => String(item.id) === String(currentCard.id));
-      if (refreshedIndex >= 0 && refreshedIndex + 1 < refreshedCards.length) {
-        cards = refreshedCards;
-        autoplayCardsRef.current = refreshedCards;
-        currentIndex = refreshedIndex;
-        nextIndex = currentIndex + 1;
-      }
-    }
-
-    if (nextIndex >= cards.length) {
-      if (!settings.autoplayLoop) {
-        useSessionStore.getState().stopAutoplay();
-        setStatus('');
-        stopAudio();
-        return false;
-      }
-      useSessionStore.getState().setCard(cards[0]);
-      return true;
-    }
-
-    useSessionStore.getState().setCard(cards[nextIndex]);
-    return true;
-  }, [getAutoplayCards, isCurrentRun, prepareAutoplayCards, stopAudio]);
-
-  const runCardCycle = useCallback(async (runId) => {
-    const targetCard = cardRef.current;
-    if (!targetCard || !isCurrentRun(runId)) return;
-
-    const session = useSessionStore.getState();
-    const settings = useSettingsStore.getState();
-
-    try {
-      session.setIsFlipped(false);
-      const frontRepeats = Math.max(1, Number(settings.autoplayFrontRepeat) || 1);
-      const backRepeats = Math.max(1, Number(settings.autoplayBackRepeat) || 1);
-
-      // --- 1. FRONT SIDE REPEAT CYCLE ---
-      // Запускаем упреждающую фоновую генерацию перевода, пока звучит фраза и идет пауза
-      const prefetchBackPromise = ensureAudio(targetCard, 'back', runId, true).catch(() => null);
-
-      for (let i = 1; i <= frontRepeats; i++) {
-        if (!isCurrentRun(runId)) return;
-        const repeatPrefix = frontRepeats > 1 ? tr("[Фраза {{p0}}/{{p1}}] ", { p0: i, p1: frontRepeats }) : '';
-
-        setStatus(tr("{{p0}}Озвучиваем фразу", { p0: repeatPrefix }));
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.metadata = new MediaMetadata({
-            title: stripMarkdown(targetCard.front || ''),
-            artist: tr("Lerne TMA (Фраза{{p0}})", { p0: frontRepeats > 1 ? ` ${i}/${frontRepeats}` : '' }),
-            album: useDeckStore.getState().currentDeck?.name || tr("Режим изучения")
-          });
-        }
-        const frontUrl = await ensureAudio(targetCard, 'front', runId);
-        if (frontUrl) {
-          await waitForAudio(frontUrl, runId);
-        }
-        if (!isCurrentRun(runId)) return;
-
-        setStatus(tr("{{p0}}Пауза {{p1}}с", { p0: repeatPrefix, p1: settings.autoplayFrontPause }));
-        const afterFrontPause = await wait(settings.autoplayFrontPause, runId);
-        if (!afterFrontPause) return;
-      }
-
-      if (!isCurrentRun(runId)) return;
-
-      // --- 2. BACK SIDE REPEAT CYCLE ---
-      session.setIsFlipped(true);
-
-      // Во время звучания перевода предзагружаем фронт следующей карточки
-      const currentQueue = autoplayCardsRef.current || [];
-      const currentIdx = currentQueue.findIndex((item) => String(item.id) === String(targetCard.id));
-      const nextCard = currentIdx >= 0 && currentIdx + 1 < currentQueue.length ? currentQueue[currentIdx + 1] : null;
-      if (nextCard) {
-        ensureAudio(nextCard, 'front', runId, true).catch(() => null);
-      }
-
-      for (let i = 1; i <= backRepeats; i++) {
-        if (!isCurrentRun(runId)) return;
-        const repeatPrefix = backRepeats > 1 ? tr("[Перевод {{p0}}/{{p1}}] ", { p0: i, p1: backRepeats }) : '';
-
-        setStatus(tr("{{p0}}Озвучиваем перевод", { p0: repeatPrefix }));
-        const latestCard = useSessionStore.getState().card || targetCard;
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.metadata = new MediaMetadata({
-            title: stripMarkdown(latestCard.back || ''),
-            artist: tr("Lerne TMA (Перевод{{p0}})", { p0: backRepeats > 1 ? ` ${i}/${backRepeats}` : '' }),
-            album: useDeckStore.getState().currentDeck?.name || tr("Режим изучения")
-          });
-        }
-        const backUrl = (i === 1 ? await prefetchBackPromise : null) || (await ensureAudio(latestCard, 'back', runId));
-        if (backUrl) {
-          await waitForAudio(backUrl, runId);
-        }
-        if (!isCurrentRun(runId)) return;
-
-        setStatus(tr("{{p0}}Пауза {{p1}}с", { p0: repeatPrefix, p1: settings.autoplayBackPause }));
-        const afterBackPause = await wait(settings.autoplayBackPause, runId);
-        if (!afterBackPause) return;
-      }
-
-      if (!isCurrentRun(runId)) return;
-
-      const latestCard = useSessionStore.getState().card || targetCard;
-      await moveToNextCard(latestCard, runId);
-    } catch (err) {
-      console.error('Autoplay error:', err);
-      if (isCurrentRun(runId)) {
-        showToast?.(tr("Ошибка авто-режима: {{p0}}", { p0: err.response?.data?.detail || err.message }));
-        useSessionStore.getState().stopAutoplay();
-        stopAudio();
-        setStatus('');
-      }
-    }
-  }, [ensureAudio, isCurrentRun, moveToNextCard, showToast, stopAudio, wait, waitForAudio]);
-
-  useEffect(() => {
-    runCardCycleRef.current = runCardCycle;
-  }, [runCardCycle]);
-
-  const restart = useCallback(() => {
-    clearTimer();
-    stopAudio();
-    const runId = runRef.current + 1;
-    runRef.current = runId;
-    runCardCycle(runId);
-  }, [clearTimer, runCardCycle, stopAudio]);
-
-  const start = useCallback(() => {
-    const settings = useSettingsStore.getState();
-    startBackgroundLock?.();
-    prepareAutoplayCards().then((cards) => {
-      if (!cards || !cards.length) {
-        if (settings.autoplayOrder === 'srs') {
-          showToast?.(tr("На сегодня нет карточек для повторения по SRS"));
-          setStatus(tr("На сегодня нет карточек по SRS"));
-        } else {
-          showToast?.(tr("В колоде нет доступных карточек"));
-          setStatus(tr("Нет карточек в колоде"));
-        }
-        stopAudio();
-        stopBackgroundLock?.();
-        useSessionStore.getState().stopAutoplay();
-        return;
-      }
-
-      useSessionStore.getState().setAutoplayState('playing');
-
-      // Check if current card is in the autoplay queue
-      const currentCard = cardRef.current;
-      const existsInQueue = currentCard && cards.some(c => String(c.id) === String(currentCard.id));
-      if (!existsInQueue) {
-        useSessionStore.getState().setCard(cards[0]);
-      }
-
-      restart();
+      return url;
+    }).catch(error => {
+      context.audio.delete(key);
+      throw error;
     });
-  }, [prepareAutoplayCards, restart, showToast, startBackgroundLock, stopAudio, stopBackgroundLock]);
+    context.audio.set(key, request);
+    return request;
+  }, [setQueue]);
+
+  const getCards = useCallback(async () => {
+    const deck = useDeckStore.getState();
+    if (!deck.currentDeck) return [];
+    if (deck.currentDeck.id === 'duplicates') return deck.duplicateCards || [];
+    await deck.fetchDeckCards(deck.currentDeck.id);
+    return useDeckStore.getState().deckCards || [];
+  }, []);
 
   const stop = useCallback(() => {
-    runRef.current += 1;
-    autoplayCardsRef.current = [];
-    clearTimer();
-    stopAudio();
+    cancelCurrent();
     stopBackgroundLock?.();
     setStatus('');
+    useSessionStore.getState().setIsFlipped(false);
     useSessionStore.getState().stopAutoplay();
-  }, [clearTimer, stopAudio, stopBackgroundLock]);
+  }, [cancelCurrent, stopBackgroundLock]);
 
   const pause = useCallback(() => {
-    runRef.current += 1;
-    clearTimer();
-    stopAudio();
+    cancelCurrent();
     stopBackgroundLock?.();
     setStatus(tr("Пауза"));
     useSessionStore.getState().pauseAutoplay();
-  }, [clearTimer, stopAudio, stopBackgroundLock]);
+  }, [cancelCurrent, stopBackgroundLock]);
 
-  const resume = useCallback(() => {
-    if (!cardRef.current) return;
+  const run = useCallback(async (id, firstCard) => {
+    let target = firstCard;
+    try {
+      while (target && isCurrentRun(id)) {
+        const settings = normalizeAutoplaySettings(useSettingsStore.getState());
+        const sequence = buildAutoplaySequence(settings);
+        useSessionStore.getState().setCard(target);
+        for (let step = 0; step < sequence.length; step++) {
+          const side = sequence[step];
+          useSessionStore.getState().setIsFlipped(side === 'back');
+          const url = await ensureAudio(target, side, settings);
+          if (!isCurrentRun(id)) return;
+          const cycle = Math.floor(step / (settings.autoplayFrontRepeat + 1)) + 1;
+          setStatus(tr("Цикл {{cycle}}/{{total}} · {{side}}", {
+            cycle, total: settings.autoplayCycleRepeat,
+            side: side === 'back' ? tr("Перевод") : tr("Фраза"),
+          }));
+          if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined') {
+            navigator.mediaSession.metadata = new MediaMetadata({
+              title: stripMarkdown(getCardText(target, side)),
+              artist: tr("Авто-режим"), album: useDeckStore.getState().currentDeck?.name || '',
+            });
+          }
+          if (!await waitForAudio(url, id)) {
+            if (isCurrentRun(id)) {
+              pause();
+              showToast?.(tr("Не удалось воспроизвести аудио. Нажмите «Продолжить», чтобы повторить."));
+            }
+            return;
+          }
+          const seconds = step === sequence.length - 1 ? settings.autoplayCardPause : settings.autoplayGap;
+          setStatus(tr("Пауза {{seconds}} с", { seconds }));
+          if (!await wait(seconds, id)) return;
+        }
+        const index = queueRef.current.findIndex(c => String(c.id) === String(target.id));
+        if (index >= 0 && index + 1 < queueRef.current.length) {
+          target = queueRef.current[index + 1];
+        } else {
+          if (!settings.autoplayLoop) { stop(); return; }
+          const cards = await getCards();
+          if (!isCurrentRun(id)) return;
+          const queue = createAutoplayQueue(cards, settings.autoplayOrder, target.id);
+          setQueue(queue);
+          target = queue[0]; // Explicit loop also supports a deck containing one card.
+          if (!target) stop();
+        }
+      }
+    } catch (error) {
+      if (!isCurrentRun(id)) return;
+      pause();
+      showToast?.(tr("Ошибка авто-режима: {{p0}}", { p0: error.response?.data?.detail || error.message }));
+    }
+  }, [ensureAudio, getCards, isCurrentRun, pause, setQueue, showToast, stop, wait, waitForAudio]);
+
+  const launch = useCallback(async (fresh) => {
+    if (fresh && useSessionStore.getState().autoplayState !== 'stopped') return;
+    cancelCurrent();
+    const id = runRef.current;
+    if (fresh) sessionRef.current = { audio: new Map(), order: null };
+    const settings = normalizeAutoplaySettings(useSettingsStore.getState());
     useSessionStore.getState().setAutoplayState('playing');
     startBackgroundLock?.();
-    restart();
-  }, [restart, startBackgroundLock]);
-
-  const cancelCurrent = useCallback(() => {
-    runRef.current += 1;
-    clearTimer();
-    stopAudio();
-    setStatus('');
-  }, [clearTimer, stopAudio]);
-
-  useEffect(() => {
-    const state = useSessionStore.getState().autoplayState;
-    if (state === 'playing' && card?.id) {
-      restart();
+    try {
+      const rebuild = fresh || sessionRef.current.order !== settings.autoplayOrder || !queueRef.current.length;
+      let target = useSessionStore.getState().card;
+      if (rebuild) {
+        setStatus(tr("Загрузка карточек..."));
+        const cards = await getCards();
+        if (!isCurrentRun(id)) return;
+        const queue = createAutoplayQueue(cards, settings.autoplayOrder);
+        setQueue(queue);
+        sessionRef.current.order = settings.autoplayOrder;
+        // Random starts at the start of its shuffled queue, so no cards are skipped.
+        target = settings.autoplayOrder === 'random' ? queue[0]
+          : queue.find(c => String(c.id) === String(target?.id)) || queue[0];
+      }
+      if (!target) {
+        stop();
+        showToast?.(settings.autoplayOrder === 'srs'
+          ? tr("На сегодня нет карточек для повторения по SRS") : tr("В колоде нет доступных карточек"));
+        return;
+      }
+      if (isCurrentRun(id)) void run(id, target);
+    } catch (error) {
+      if (isCurrentRun(id)) {
+        stop();
+        showToast?.(tr("Ошибка авто-режима: {{p0}}", { p0: error.response?.data?.detail || error.message }));
+      }
     }
-  }, [card?.id, restart]);
+  }, [cancelCurrent, getCards, isCurrentRun, run, setQueue, showToast, startBackgroundLock, stop]);
+
+  const start = useCallback(() => launch(true), [launch]);
+  const resume = useCallback(() => launch(false), [launch]);
+
+  const navigate = useCallback((direction) => {
+    const session = useSessionStore.getState();
+    const queue = queueRef.current;
+    if (!queue.length) return;
+    const index = queue.findIndex(c => String(c.id) === String(session.card?.id));
+    let next = index + direction;
+    if (next < 0 || next >= queue.length) {
+      if (!useSettingsStore.getState().autoplayLoop) return;
+      if (direction > 0 && sessionRef.current.order === 'random') {
+        const reshuffled = createAutoplayQueue(queue, 'random', session.card?.id);
+        setQueue(reshuffled);
+        next = 0;
+      } else next = (next + queue.length) % queue.length;
+    }
+    cancelCurrent();
+    const target = queueRef.current[next];
+    session.setCard(target);
+    session.setIsFlipped(false);
+    if (session.autoplayState === 'playing') void run(runRef.current, target);
+  }, [cancelCurrent, run, setQueue]);
 
   useEffect(() => () => {
-    runRef.current += 1;
-    autoplayCardsRef.current = [];
-    clearTimer();
-    stopAudio();
+    cancelCurrent();
     stopBackgroundLock?.();
-  }, [clearTimer, stopAudio, stopBackgroundLock]);
+    useSessionStore.getState().stopAutoplay();
+  }, [cancelCurrent, stopBackgroundLock]);
 
-  return {
-    start,
-    stop,
-    pause,
-    resume,
-    restart,
-    cancelCurrent,
-    status,
-    autoplayCards: activeAutoplayCards
-  };
+  return { start, stop, pause, resume, navigate, status, autoplayCards };
 };

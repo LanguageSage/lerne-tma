@@ -1,6 +1,23 @@
 import { create } from 'zustand';
 import { storage } from '../utils/auth';
 import api from '../services/api';
+import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence';
+
+export const AUTOPLAY_STORAGE_MAP = Object.fromEntries(
+  Object.keys(AUTOPLAY_DEFAULTS).map(key => [key, `lerne_auto_v2_${key}`]),
+);
+
+const getInitialAutoplaySettings = () => {
+  const saved = {};
+  for (const [key, storageKey] of Object.entries(AUTOPLAY_STORAGE_MAP)) {
+    const value = storage.get(storageKey);
+    if (value !== null) saved[key] = value;
+  }
+  const settings = Number(saved.autoplayVersion) === AUTOPLAY_VERSION
+    ? normalizeAutoplaySettings(saved) : { ...AUTOPLAY_DEFAULTS };
+  for (const [key, value] of Object.entries(settings)) storage.set(AUTOPLAY_STORAGE_MAP[key], value);
+  return settings;
+};
 
 export const DEFAULT_DESIGN_SETTINGS = {
   cardBgFront: 'liquid_emerald',
@@ -68,22 +85,14 @@ export const DESIGN_STORAGE_MAP = {
 };
 
 export const STUDY_STORAGE_MAP = {
+  ...AUTOPLAY_STORAGE_MAP,
   autoPlay: 'lerne_autoplay',
   autoShow: 'lerne_autoshow',
-  autoplayOrder: 'lerne_autoplay_order',
-  autoplayFrontPause: 'lerne_autoplay_front_pause',
-  autoplayBackPause: 'lerne_autoplay_back_pause',
-  autoplayFrontRepeat: 'lerne_autoplay_front_repeat',
-  autoplayBackRepeat: 'lerne_autoplay_back_repeat',
-  autoplayCardRepeat: 'lerne_autoplay_card_repeat',
   ttsSpeed: 'lerne_tts_speed',
   ttsSpeedRu: 'lerne_tts_speed_ru',
   ttsVoices: 'lerne_tts_voices',
   alwaysRegenerateAudio: 'lerne_always_regenerate_audio',
   autoGenerateCardAudio: 'lerne_auto_generate_card_audio',
-  autoplayLoop: 'lerne_autoplay_loop',
-  autoplayForceFrontAudio: 'lerne_autoplay_force_front_audio',
-  autoplayForceBackAudio: 'lerne_autoplay_force_back_audio',
   studyMode: 'lerne_study_mode',
   speechMatchThreshold: 'lerne_speech_match_threshold',
   voiceBack: 'lerne_voice_back',
@@ -168,22 +177,14 @@ const getStoredTtsVoices = () => {
 };
 
 const getInitialStudyState = () => ({
+  ...getInitialAutoplaySettings(),
   autoPlay: storage.get('lerne_autoplay') !== null ? storage.get('lerne_autoplay') === 'true' : false,
   autoShow: storage.get('lerne_autoshow') !== null ? storage.get('lerne_autoshow') === 'true' : false,
-  autoplayOrder: storage.get('lerne_autoplay_order') || 'list',
-  autoplayFrontPause: storage.get('lerne_autoplay_front_pause') !== null ? Number(storage.get('lerne_autoplay_front_pause')) : 4,
-  autoplayBackPause: storage.get('lerne_autoplay_back_pause') !== null ? Number(storage.get('lerne_autoplay_back_pause')) : 2,
-  autoplayFrontRepeat: storage.get('lerne_autoplay_front_repeat') !== null ? Number(storage.get('lerne_autoplay_front_repeat')) : (storage.get('lerne_autoplay_card_repeat') !== null ? Number(storage.get('lerne_autoplay_card_repeat')) : 1),
-  autoplayBackRepeat: storage.get('lerne_autoplay_back_repeat') !== null ? Number(storage.get('lerne_autoplay_back_repeat')) : (storage.get('lerne_autoplay_card_repeat') !== null ? Number(storage.get('lerne_autoplay_card_repeat')) : 1),
-  autoplayCardRepeat: storage.get('lerne_autoplay_card_repeat') !== null ? Number(storage.get('lerne_autoplay_card_repeat')) : 1,
   ttsSpeed: storage.get('lerne_tts_speed') !== null ? Number(storage.get('lerne_tts_speed')) : 0,
   ttsSpeedRu: storage.get('lerne_tts_speed_ru') !== null ? Number(storage.get('lerne_tts_speed_ru')) : 0,
   ttsVoices: getStoredTtsVoices(),
   alwaysRegenerateAudio: storage.get('lerne_always_regenerate_audio') === 'true',
   autoGenerateCardAudio: storage.get('lerne_auto_generate_card_audio') !== 'false',
-  autoplayLoop: storage.get('lerne_autoplay_loop') !== null ? storage.get('lerne_autoplay_loop') === 'true' : true,
-  autoplayForceFrontAudio: storage.get('lerne_autoplay_force_front_audio') !== null ? storage.get('lerne_autoplay_force_front_audio') === 'true' : false,
-  autoplayForceBackAudio: storage.get('lerne_autoplay_force_back_audio') !== null ? storage.get('lerne_autoplay_force_back_audio') === 'true' : false,
   studyMode: (storage.get('lerne_study_mode') && storage.get('lerne_study_mode') !== 'turbo') ? storage.get('lerne_study_mode') : 'classic',
   speechMatchThreshold: storage.get('lerne_speech_match_threshold') !== null ? Number(storage.get('lerne_speech_match_threshold')) : 75,
   voiceBack: storage.get('lerne_voice_back') || '',
@@ -238,34 +239,10 @@ export const useSettingsStore = create((set, get) => {
       set({ autoShow: value });
       debouncedSaveSettings(get);
     },
-    setAutoplayOrder: (value) => {
-      storage.set('lerne_autoplay_order', value);
-      set({ autoplayOrder: value });
-      debouncedSaveSettings(get);
-    },
-    setAutoplayFrontPause: (value) => {
-      storage.set('lerne_autoplay_front_pause', value);
-      set({ autoplayFrontPause: Number(value) });
-      debouncedSaveSettings(get);
-    },
-    setAutoplayBackPause: (value) => {
-      storage.set('lerne_autoplay_back_pause', value);
-      set({ autoplayBackPause: Number(value) });
-      debouncedSaveSettings(get);
-    },
-    setAutoplayFrontRepeat: (value) => {
-      storage.set('lerne_autoplay_front_repeat', value);
-      set({ autoplayFrontRepeat: Number(value) });
-      debouncedSaveSettings(get);
-    },
-    setAutoplayBackRepeat: (value) => {
-      storage.set('lerne_autoplay_back_repeat', value);
-      set({ autoplayBackRepeat: Number(value) });
-      debouncedSaveSettings(get);
-    },
-    setAutoplayCardRepeat: (value) => {
-      storage.set('lerne_autoplay_card_repeat', value);
-      set({ autoplayCardRepeat: Number(value) });
+    setAutoplaySettings: (patch) => {
+      const settings = normalizeAutoplaySettings({ ...get(), ...patch });
+      for (const [key, value] of Object.entries(settings)) storage.set(AUTOPLAY_STORAGE_MAP[key], value);
+      set(settings);
       debouncedSaveSettings(get);
     },
     setTtsSpeed: (value) => {
@@ -293,21 +270,6 @@ export const useSettingsStore = create((set, get) => {
     setAutoGenerateCardAudio: (value) => {
       storage.set('lerne_auto_generate_card_audio', value);
       set({ autoGenerateCardAudio: Boolean(value) });
-      debouncedSaveSettings(get);
-    },
-    setAutoplayLoop: (value) => {
-      storage.set('lerne_autoplay_loop', value);
-      set({ autoplayLoop: value });
-      debouncedSaveSettings(get);
-    },
-    setAutoplayForceFrontAudio: (value) => {
-      storage.set('lerne_autoplay_force_front_audio', value);
-      set({ autoplayForceFrontAudio: value });
-      debouncedSaveSettings(get);
-    },
-    setAutoplayForceBackAudio: (value) => {
-      storage.set('lerne_autoplay_force_back_audio', value);
-      set({ autoplayForceBackAudio: value });
       debouncedSaveSettings(get);
     },
     setVoiceBack: (value) => {
@@ -384,6 +346,11 @@ export const useSettingsStore = create((set, get) => {
 
     syncUserSettingsFromServer: (serverSettings) => {
       if (!serverSettings || typeof serverSettings !== 'object') return;
+      const migrateAutoplay = Number(serverSettings.autoplayVersion) !== AUTOPLAY_VERSION;
+      // Old clients/server snapshots must not overwrite the new settings after migration.
+      const autoplay = migrateAutoplay
+        ? normalizeAutoplaySettings(get()) : normalizeAutoplaySettings(serverSettings);
+      serverSettings = { ...serverSettings, ...autoplay };
       const updates = {};
 
       // Apply design settings
@@ -442,6 +409,7 @@ export const useSettingsStore = create((set, get) => {
       if (Object.keys(updates).length > 0) {
         set(updates);
       }
+      if (migrateAutoplay) debouncedSaveSettings(get);
     },
 
     saveCurrentSettingsToServer: async () => {

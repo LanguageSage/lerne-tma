@@ -10,9 +10,7 @@ export const SrsTab = () => {
   useInterfaceLocale();
   const { 
     srsExtendedGrades, 
-    setSrsExtendedGrades, 
-    autoplayOrder, 
-    setAutoplayOrder 
+    setSrsExtendedGrades
   } = useSettingsStore();
 
   return (
@@ -96,45 +94,6 @@ export const SrsTab = () => {
           </div>
         )}
 
-        {/* Переключатель порядка */}
-        <div className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0 2px 0' }}>
-          <div style={{ paddingRight: '12px' }}>
-            <span style={{ fontWeight: 600, display: 'block', fontSize: '0.9rem', color: '#f8fafc' }}>{tr("Приоритет карточек в колоде")}{' '}</span>
-            <span style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'block', marginTop: '3px', lineHeight: 1.35 }}>{tr("Сначала созревшие по расписанию SRS или строго по порядку колоды.")}{' '}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => setAutoplayOrder('srs')}
-              style={{
-                padding: '6px 10px',
-                borderRadius: '8px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                border: '1px solid',
-                borderColor: autoplayOrder === 'srs' ? '#a855f7' : 'rgba(255,255,255,0.15)',
-                background: autoplayOrder === 'srs' ? 'rgba(168, 85, 247, 0.25)' : 'rgba(255,255,255,0.05)',
-                color: autoplayOrder === 'srs' ? '#e9d5ff' : '#94a3b8',
-                cursor: 'pointer'
-              }}
-            >{tr("По SRS")}{' '}</button>
-            <button
-              type="button"
-              onClick={() => setAutoplayOrder('list')}
-              style={{
-                padding: '6px 10px',
-                borderRadius: '8px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                border: '1px solid',
-                borderColor: autoplayOrder === 'list' ? '#a855f7' : 'rgba(255,255,255,0.15)',
-                background: autoplayOrder === 'list' ? 'rgba(168, 85, 247, 0.25)' : 'rgba(255,255,255,0.05)',
-                color: autoplayOrder === 'list' ? '#e9d5ff' : '#94a3b8',
-                cursor: 'pointer'
-              }}
-            >{tr("По списку")}{' '}</button>
-          </div>
-        </div>
       </div>
 
       {/* Встроенная аналитика памяти */}

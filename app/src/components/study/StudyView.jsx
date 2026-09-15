@@ -32,7 +32,7 @@ export const StudyView = () => {
   useInterfaceLocale();
   const { view, loading, setIsSettingsOpen, showToast, setView, setActiveFolderId } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
-  const { card, setCard, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, setIsLearningMore, autoplayState } = useSessionStore();
+  const { card, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, setIsLearningMore, autoplayState } = useSessionStore();
   const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
@@ -352,16 +352,7 @@ export const StudyView = () => {
   const handleAutoplayAwareBack = async () => {
     stopAudio();
     if (isAutoplayActive) {
-      autoplay.cancelCurrent();
-      const activeQueue = (autoplay.autoplayCards && autoplay.autoplayCards.length > 0)
-        ? autoplay.autoplayCards
-        : (currentDeck?.id === 'duplicates' ? duplicateCards : deckCards);
-      const currentIndex = activeQueue.findIndex(c => String(c.id) === String(card?.id));
-      if (currentIndex > 0) {
-        setCard(activeQueue[currentIndex - 1]);
-      } else if (autoplayLoop && activeQueue.length > 0) {
-        setCard(activeQueue[activeQueue.length - 1]);
-      }
+      autoplay.navigate(-1);
       return;
     }
     await goBack();
@@ -370,16 +361,7 @@ export const StudyView = () => {
   const handleAutoplayAwareNext = async () => {
     stopAudio();
     if (isAutoplayActive) {
-      autoplay.cancelCurrent();
-      const activeQueue = (autoplay.autoplayCards && autoplay.autoplayCards.length > 0)
-        ? autoplay.autoplayCards
-        : (currentDeck?.id === 'duplicates' ? duplicateCards : deckCards);
-      const currentIndex = activeQueue.findIndex(c => String(c.id) === String(card?.id));
-      if (currentIndex >= 0 && currentIndex < activeQueue.length - 1) {
-        setCard(activeQueue[currentIndex + 1]);
-      } else if (autoplayLoop && activeQueue.length > 0) {
-        setCard(activeQueue[0]);
-      }
+      autoplay.navigate(1);
       return;
     }
     await goNext();
@@ -462,6 +444,7 @@ export const StudyView = () => {
               <span className="study-mode-dropdown-label">{tr("Режим:")}</span>
               <select
                 className="study-mode-select glass"
+                disabled={isAutoplayActive}
                 value={studyMode}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -478,7 +461,7 @@ export const StudyView = () => {
               </select>
             </div>
 
-            {studyMode === 'random' && (
+            {studyMode === 'random' && !isAutoplayActive && (
               <div className="random-mode-config glass">
                 <div className="random-config-title">{tr("Случайные режимы в пуле 🎲")}</div>
                 <div className="random-config-grid">
@@ -521,7 +504,7 @@ export const StudyView = () => {
             <StudyCard
               card={card}
               isFlipped={isFlipped}
-              onFlip={setIsFlipped}
+              onFlip={isAutoplayActive ? () => {} : setIsFlipped}
               loading={loading}
               historyIndex={historyIndex}
               playAudio={playAudio}
@@ -532,7 +515,7 @@ export const StudyView = () => {
               styles={styleSettings}
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
-              studyMode={studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
+              studyMode={isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
               onNextCard={() => {
                 setIsFlipped(false);
                 goNext();
@@ -566,6 +549,12 @@ export const StudyView = () => {
               onAutoplayStop={autoplay.stop}
               onAutoplayPause={autoplay.pause}
               onAutoplayResume={autoplay.resume}
+              onAutoplayStart={autoplay.start}
+              autoplayLoop={autoplayLoop}
+              onAutoplaySettings={() => {
+                autoplay.pause();
+                useUiStore.getState().openSettings('autoplay');
+              }}
             />
 
             <div className="card-actions-row-study">

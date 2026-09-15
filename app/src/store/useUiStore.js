@@ -1,7 +1,8 @@
 import { tr } from '../i18n/locale';
 import { create } from 'zustand';
+import { readLastSettingsTab, rememberSettingsTab } from '../utils/settingsNavigation';
 
-export const useUiStore = create((set) => ({
+export const useUiStore = create((set, get) => ({
   view: 'decks',
   setView: (view) => set({ view }),
   
@@ -19,10 +20,14 @@ export const useUiStore = create((set) => ({
   
   // Modals state
   isSettingsOpen: false,
-  settingsTab: 'general',
-  setSettingsTab: (tab) => set({ settingsTab: tab }),
-  openSettings: (tab = 'general') => set({ isSettingsOpen: true, settingsTab: tab }),
-  setIsSettingsOpen: (isOpen) => set({ isSettingsOpen: isOpen }),
+  settingsTab: readLastSettingsTab(),
+  setSettingsTab: (tab) => {
+    rememberSettingsTab(tab);
+    set({ settingsTab: tab });
+  },
+  // Explicit destinations are temporary; only a manual tab selection is remembered.
+  openSettings: (tab) => set({ isSettingsOpen: true, settingsTab: tab || readLastSettingsTab() }),
+  setIsSettingsOpen: (isOpen) => isOpen ? get().openSettings() : set({ isSettingsOpen: false }),
   
   isNewDeckModalOpen: false,
   setIsNewDeckModalOpen: (isOpen) => set({ isNewDeckModalOpen: isOpen }),

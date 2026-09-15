@@ -264,7 +264,9 @@ export const StudyCard = React.memo(({
   const hasQuizSyntax = quizData && quizData.isQuiz;
   const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
   const hasTrainerGaps = clozeData && clozeData.gaps && clozeData.gaps.length > 0;
-  const effectiveStudyMode = hasQuizSyntax
+  const effectiveStudyMode = isAutoplayActive
+    ? 'classic'
+    : hasQuizSyntax
     ? 'quiz'
     : ((hasBracketSyntax || hasTrainerGaps)
         ? 'trainer'
@@ -797,7 +799,7 @@ export const StudyCard = React.memo(({
           <button
             type="button"
             className="study-card-flip-button"
-            disabled={loading}
+            disabled={loading || isAutoplayActive}
             onClick={() => onFlip(!isFlipped)}
           >
             <RotateCw size={18} aria-hidden="true" />
