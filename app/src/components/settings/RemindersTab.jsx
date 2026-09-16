@@ -14,7 +14,10 @@ import {
   Globe, 
   Zap, 
   Layers,
-  ShieldAlert
+  ShieldAlert,
+  BookOpen,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -23,7 +26,9 @@ export const RemindersTab = () => {
   useInterfaceLocale();
   const { 
     reminderSettings, 
+    reminderDiagnostics,
     fetchReminderSettings, 
+    fetchReminderDiagnostics,
     saveReminderSettings, 
     sendTestReminder 
   } = useSettingsStore();
@@ -40,12 +45,14 @@ export const RemindersTab = () => {
     quiet_enabled: false,
     quiet_start: '23:00',
     quiet_end: '07:00',
+    timezone: 'Europe/Berlin',
     timezone_offset: 3
   });
 
   useEffect(() => {
     fetchReminderSettings();
-  }, [fetchReminderSettings]);
+    fetchReminderDiagnostics();
+  }, [fetchReminderSettings, fetchReminderDiagnostics]);
 
   useEffect(() => {
     if (reminderSettings) {
@@ -56,11 +63,15 @@ export const RemindersTab = () => {
     }
   }, [reminderSettings]);
 
-  // Автоопределение часового пояса при первой загрузке, если не был установлен
+  // Автоопределение IANA часового пояса при первом открытии
   useEffect(() => {
-    if (!reminderSettings?.timezone_offset && reminderSettings?.timezone_offset !== 0) {
-      const browserOffset = -Math.round(new Date().getTimezoneOffset() / 60);
-      setLocalSettings(prev => (prev.timezone_offset !== browserOffset ? { ...prev, timezone_offset: browserOffset } : prev));
+    try {
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (browserTz && reminderSettings && (!reminderSettings.timezone || reminderSettings.timezone === 'UTC')) {
+        setLocalSettings(prev => ({ ...prev, timezone: browserTz }));
+      }
+    } catch (e) {
+      console.warn('Auto detect timezone failed:', e);
     }
   }, [reminderSettings]);
 
@@ -394,12 +405,12 @@ export const RemindersTab = () => {
                 <Globe size={18} color="#38bdf8" />
                 <div>
                   <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ffffff' }}>{tr("Часовой пояс")}</div>
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{tr("Для точной отправки по вашему времени")}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{tr("Для точной отправки (с учётом летнего времени)")}</div>
                 </div>
               </div>
               <select
-                value={localSettings.timezone_offset ?? 3}
-                onChange={(e) => handleUpdate({ ...localSettings, timezone_offset: Number(e.target.value) })}
+                value={localSettings.timezone || 'Europe/Berlin'}
+                onChange={(e) => handleUpdate({ ...localSettings, timezone: e.target.value })}
                 style={{
                   background: 'rgba(15, 23, 42, 0.9)',
                   border: '1px solid rgba(255,255,255,0.2)',
@@ -407,12 +418,25 @@ export const RemindersTab = () => {
                   padding: '5px 10px',
                   borderRadius: '8px',
                   fontSize: '0.82rem',
-                  outline: 'none'
+                  outline: 'none',
+                  maxWidth: '180px'
                 }}
               >
-                {Array.from({ length: 27 }, (_, i) => i - 12).map(tz => (
-                  <option key={tz} value={tz}>
-                    UTC{tz >= 0 ? `+${tz}` : tz} {tz === 3 ? tr("(МСК / Киев / Стамбул)") : (tz === 1 ? tr("(Берлин / Париж)") : (tz === 2 ? tr("(Хельсинки)") : ''))}
+                {[
+                  { value: 'Europe/Berlin', label: 'Europe/Berlin (Германия / Франция)' },
+                  { value: 'Europe/Kyiv', label: 'Europe/Kyiv (Украина)' },
+                  { value: 'Europe/Moscow', label: 'Europe/Moscow (Москва / Минск)' },
+                  { value: 'Europe/London', label: 'Europe/London (Великобритания)' },
+                  { value: 'Asia/Tashkent', label: 'Asia/Tashkent (Узбекистан)' },
+                  { value: 'Asia/Almaty', label: 'Asia/Almaty (Казахстан)' },
+                  { value: 'Asia/Dubai', label: 'Asia/Dubai (ОАЭ)' },
+                  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (Япония)' },
+                  { value: 'America/New_York', label: 'America/New_York (США Восток)' },
+                  { value: 'America/Los_Angeles', label: 'America/Los_Angeles (США Запад)' },
+                  { value: 'UTC', label: 'UTC (Всемирное время)' },
+                ].map(tz => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
                   </option>
                 ))}
               </select>
@@ -456,6 +480,53 @@ export const RemindersTab = () => {
               </label>
             </div>
           </div>
+
+          {/* Diagnostics Banner */}
+          {reminderDiagnostics && (
+            <div style={{
+              padding: '14px',
+              background: 'rgba(15, 23, 42, 0.6)',
+              borderRadius: '14px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              marginBottom: '20px'
+            }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircle2 size={16} color="#34d399" />
+                <span>{tr("Статус и диагностика бота")}</span>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.78rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '10px' }}>
+                  <div style={{ color: '#94a3b8' }}>{tr("Telegram привязан")}:</div>
+                  <div style={{ fontWeight: 600, color: reminderDiagnostics.telegram_linked ? '#34d399' : '#f59e0b', marginTop: 2 }}>
+                    {reminderDiagnostics.telegram_linked ? tr("🟢 Да (Подключен)") : tr("🟠 Нет (Откройте бота)")}
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '10px' }}>
+                  <div style={{ color: '#94a3b8' }}>{tr("Изучаемых колод")}:</div>
+                  <div style={{ fontWeight: 600, color: reminderDiagnostics.active_decks > 0 ? '#38bdf8' : '#cbd5e1', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <BookOpen size={13} />
+                    <span>{reminderDiagnostics.active_decks} {tr("кол.")}</span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '10px' }}>
+                  <div style={{ color: '#94a3b8' }}>{tr("След. напоминание")}:</div>
+                  <div style={{ fontWeight: 600, color: '#a855f7', marginTop: 2 }}>
+                    {reminderDiagnostics.next_reminder_slot || tr("Не запланировано")}
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '10px' }}>
+                  <div style={{ color: '#94a3b8' }}>{tr("Последняя отправка")}:</div>
+                  <div style={{ fontWeight: 600, color: '#cbd5e1', marginTop: 2, fontSize: '0.74rem' }}>
+                    {reminderDiagnostics.last_sent_slot || '—'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Info callout */}
           <div style={{ 
@@ -507,4 +578,5 @@ export const RemindersTab = () => {
     </motion.div>
   );
 };
+
 

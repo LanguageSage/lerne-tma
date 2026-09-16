@@ -462,8 +462,10 @@ export const useSettingsStore = create((set, get) => {
       enabled: true,
       times: ['10:00', '19:00'],
       frequency: 'twice_daily',
+      timezone: 'Europe/Berlin',
       timezone_offset: 3,
     },
+    reminderDiagnostics: null,
     reminderLoading: false,
 
     fetchReminderSettings: async () => {
@@ -477,6 +479,19 @@ export const useSettingsStore = create((set, get) => {
         console.error('Fetch Reminder Settings Error:', err);
       } finally {
         set({ reminderLoading: false });
+      }
+    },
+
+    fetchReminderDiagnostics: async () => {
+      try {
+        const res = await api.get('/bot/reminder-diagnostics');
+        if (res.data) {
+          set({ reminderDiagnostics: res.data });
+        }
+        return res.data;
+      } catch (err) {
+        console.error('Fetch Reminder Diagnostics Error:', err);
+        return null;
       }
     },
 
@@ -505,3 +520,4 @@ export const useSettingsStore = create((set, get) => {
     },
   };
 });
+

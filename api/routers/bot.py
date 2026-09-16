@@ -443,3 +443,7 @@ async def trigger_cron_reminders(
     async with ptb_app:
         return await services.check_and_send_all_reminders(ptb_app)
 
+@router.get("/bot/reminder-diagnostics")
+async def get_reminder_diagnostics_endpoint(user_id: int = Depends(get_user_id)):
+    """Возвращает диагностику напоминаний Telegram для текущего пользователя."""
+    return services.get_user_reminder_diagnostics(user_id)
