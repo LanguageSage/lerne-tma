@@ -1,4 +1,4 @@
-import { stripMarkdown } from './text';
+import { stripMarkdown } from './text.js';
 
 export const ARTICLE_GROUPS = [
   ['der', 'die', 'das', 'den', 'dem', 'des'],
@@ -43,10 +43,15 @@ export const autoGenerateChoices = (correctWord, existingChoices = []) => {
   return existingChoices;
 };
 
+export const normalizeAnswer = (str) => {
+  if (!str) return '';
+  return str.trim().replace(/\s+/g, ' ').toLowerCase();
+};
+
 export const cleanBracketSyntax = (text) => {
   if (!text) return '';
-  return text.replace(/(?:\{([^}]+)\}|\[([^\]]+)\](?!\())/g, (match, c1, c2) => {
-    const contents = c1 || c2 || '';
+  return text.replace(/(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())/g, (match, c1, c2, c3) => {
+    const contents = c1 || c2 || c3 || '';
     const parts = contents.split(/[|;,/]/).map(p => p.trim()).filter(Boolean);
     if (parts.length === 0) return '';
     const correct = parts.find(p => p.startsWith('*')) || parts[0];
@@ -58,8 +63,11 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
   if (!card) return null;
   const originalText = stripMarkdown(card.front || '');
 
-  // 1. Explicit bracket syntax (supports both {...} and [...]): supports 1, 2, or multiple gaps!
-  const bracketMatches = [...originalText.matchAll(/(?:\{([^}]+)\}|\[([^\]]+)\](?!\())/g)];
+  // 1. Explicit bracket syntax:
+  // - [[...]] -> input gap (self-typed)
+  // - {...}   -> choice gap (select from choices)
+  // - [...]   -> fallback bracket syntax
+  const bracketMatches = [...originalText.matchAll(/(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())/g)];
   if (bracketMatches.length > 0) {
     let maskedText = '';
     let lastEnd = 0;
@@ -71,10 +79,24 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
       maskedText += originalText.substring(lastEnd, matchStart) + `___GAP_${index}___`;
       lastEnd = matchEnd;
 
-      const innerContent = match[1] || match[2] || '';
+      const isDoubleBracket = Boolean(match[1]);
+      const innerContent = (match[1] || match[2] || match[3] || '').trim();
+
+      if (isDoubleBracket) {
+        // Strict input gap mode
+        return {
+          id: index,
+          rawMatch: match[0],
+          mode: 'input',
+          correctAnswer: innerContent,
+          choices: []
+        };
+      }
+
+      // Choice gap mode
       const optionsRaw = innerContent.split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
-      let correctAnswer = optionsRaw.find(o => o.startsWith('*')) || optionsRaw[0] || '';
-      const cleanCorrect = correctAnswer.replace(/^\*/, '').trim();
+      const correctOption = optionsRaw.find(o => o.startsWith('*')) || optionsRaw[0] || '';
+      const cleanCorrect = correctOption.replace(/^\*/, '').trim();
       let cleanChoices = optionsRaw.map(o => o.replace(/^\*/, '').trim());
       cleanChoices = autoGenerateChoices(cleanCorrect, cleanChoices);
       const shuffledChoices = [...cleanChoices].sort(() => Math.random() - 0.5);
@@ -82,6 +104,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
       return {
         id: index,
         rawMatch: match[0],
+        mode: 'choice',
         correctAnswer: cleanCorrect,
         choices: shuffledChoices
       };

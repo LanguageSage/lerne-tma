@@ -27,14 +27,34 @@ export const BatchCardModal = () => {
   const [generatedCards, setGeneratedCards] = useState(null);
 
   const importPlaceholder = useMemo(() => {
-    if (targetLanguage === 'en') {
-      return `What is the capital of the United Kingdom?\n\n*London\nParis\nBerlin\nRome\n---\nWhich word is an adjective?\n\nQuickly\n*Beautiful\nRun\nHappiness\n---`;
-    }
-    if (targetLanguage === 'no') {
-      return `Hva er hovedstaden i Norge?\n\n*Oslo\nBergen\nTrondheim\nStavanger\n---\nHvilket ord er et adjektiv?\n\nRaskt\n*Vakker\nLøpe\nGlede\n---`;
-    }
-    return `Deutschland ist ein Rechtsstaat. Was ist damit gemeint?\n\n*Alle Einwohner und der Staat müssen sich an die Gesetze halten.\nDer Staat muss sich nicht an die Gesetze halten.\nNur Deutsche müssen die Gesetze befolgen.\nDie Gerichte machen die Gesetze.\n---\nWie heißt die deutsche Verfassung?\n\nVolksgesetz\nBundesgesetz\n*Grundgesetz\n---`;
-  }, [targetLanguage]);
+    return `@@CARD trainer
+FRONT:
+Ich [[hatte]] meine Freunde [[angerufen]], bevor ich ins Kino gegangen bin.
+BACK:
+hatte, angerufen
+CONTEXT:
+Plusquamperfekt
+TAGS:
+B1,Grammatik
+@@END
+
+@@CARD match
+FRONT:
+@match
+Als ich Kind war => lebte ich auf dem Land.
+Als wir geheiratet haben => haben ungefähr 300 Gäste mit uns gefeiert.
+BACK:
+Соответствия
+@@END
+
+@@CARD free_text
+FRONT:
+@free
+Schreiben Sie einen Satz mit „als“.
+BACK:
+Als ich in Berlin war, besuchte ich das Brandenburger Tor.
+@@END`;
+  }, []);
 
   const aiBatchPlaceholder = useMemo(() => {
     if (targetLanguage === 'en') {
@@ -46,9 +66,17 @@ export const BatchCardModal = () => {
     return `Der Hund\nDie Katze\nMein erster Eindruck ist, dass das Gebäude sehr modern wirkt.\nDas Haus mit dem großen Garten.`;
   }, [targetLanguage]);
 
-  // Auto-switch to import tab if user pastes text with '---' or quiz asterisks
+  // Auto-switch to import tab if user pastes text with exercises or batch markers
   useEffect(() => {
-    if (rawText && (rawText.includes('---') || rawText.includes('\n*') || /\{([^}]+)\}/.test(rawText))) {
+    if (rawText && (
+      rawText.includes('---') ||
+      rawText.includes('@@CARD') ||
+      rawText.includes('@match') ||
+      rawText.includes('@free') ||
+      rawText.includes('\n*') ||
+      /\{([^}]+)\}/.test(rawText) ||
+      /\[\[([^\]]+)\]\]/.test(rawText)
+    )) {
       setActiveTab('import');
     }
   }, [rawText]);
@@ -222,6 +250,8 @@ export const BatchCardModal = () => {
   // Count types for summary
   const quizCount = parsedCards.filter(c => c.card_type === 'quiz').length;
   const trainerCount = parsedCards.filter(c => c.card_type === 'trainer').length;
+  const matchCount = parsedCards.filter(c => c.card_type === 'match').length;
+  const freeTextCount = parsedCards.filter(c => c.card_type === 'free_text').length;
   const standardCount = parsedCards.filter(c => c.card_type === 'standard').length;
 
   return (
@@ -248,23 +278,19 @@ export const BatchCardModal = () => {
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 12,
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25))',
-                border: '1px solid rgba(168,85,247,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <Layers size={22} color="#c084fc" />
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(168, 85, 247, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c084fc' }}>
+                <Layers size={18} />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'white', margin: 0 }}>{tr("Массовое создание карточек")}{' '}</h3>
-                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                  {currentDeck ? tr("Колода: {{p0}}", { p0: currentDeck.name }) : tr("Импорт тестов и карточек")}
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc' }}>
+                  {tr("Массовое добавление")}
+                </h3>
+                <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                  {currentDeck?.name || tr("Текущая колода")}
                 </span>
               </div>
             </div>
-            <button className="close-btn" disabled={isProcessing} onClick={handleClose}>
+            <button type="button" onClick={handleClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
               <X size={20} />
             </button>
           </div>
@@ -301,7 +327,7 @@ export const BatchCardModal = () => {
                 }}
               >
                 <FileText size={15} />
-                <span>{tr("Импорт тестов (---)")}</span>
+                <span>{tr("Импорт упражнений")}</span>
               </button>
 
               <button
@@ -336,7 +362,8 @@ export const BatchCardModal = () => {
               activeTab === 'import' ? (
                 /* ── TAB 1: Direct Text Import ── */
                 <>
-                  <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>{tr("Вставьте готовые тесты или карточки, разделённые строкой")}{' '}<code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>---</code>{tr(". Правильный вариант ответа в тесте отметьте звёздочкой")}{' '}<code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#4ade80' }}>*</code>.
+                  <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
+                    {tr("Вставьте упражнения в формате")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>@@CARD ... @@END</code> {tr("или карточки с разделителем")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>---</code>.
                   </p>
 
                   <div style={{ position: 'relative' }}>
@@ -364,16 +391,19 @@ export const BatchCardModal = () => {
                     {/* Live parsing summary badge bar */}
                     <div style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      marginTop: 6, fontSize: '0.8rem', color: parsedCards.length > 0 ? '#4ade80' : '#94a3b8'
+                      marginTop: 6, fontSize: '0.8rem', color: parsedCards.length > 0 ? '#4ade80' : '#94a3b8',
+                      flexWrap: 'wrap', gap: 6
                     }}>
                       <span>
-                        {parsedCards.length === 0 ? tr("Вставьте текст с разделителями ---") : (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {parsedCards.length === 0 ? tr("Вставьте упражнения (@@CARD или ---)") : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <Check size={14} color="#4ade80" />
-                            <strong>{tr("Распознано:")}{' '}{parsedCards.length}{' '}{tr("карточек")}</strong>
-                            {quizCount > 0 && <span style={{ color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '1px 5px', borderRadius: 4 }}>☑️ {quizCount}{' '}{tr("тестов")}</span>}
-                            {trainerCount > 0 && <span style={{ color: '#c084fc', background: 'rgba(168,85,247,0.15)', padding: '1px 5px', borderRadius: 4 }}>🏋️ {trainerCount}{' '}{tr("тренаж.")}</span>}
-                            {standardCount > 0 && <span style={{ color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4 }}>📖 {standardCount}{' '}{tr("обычн.")}</span>}
+                            <strong>{tr("Найдено карточек:")} {parsedCards.length}</strong>
+                            {trainerCount > 0 && <span style={{ color: '#c084fc', background: 'rgba(168,85,247,0.15)', padding: '1px 5px', borderRadius: 4 }}>🏋️ Trainer: {trainerCount}</span>}
+                            {quizCount > 0 && <span style={{ color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '1px 5px', borderRadius: 4 }}>☑️ Quiz: {quizCount}</span>}
+                            {matchCount > 0 && <span style={{ color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '1px 5px', borderRadius: 4 }}>🔗 Match: {matchCount}</span>}
+                            {freeTextCount > 0 && <span style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '1px 5px', borderRadius: 4 }}>💬 Free text: {freeTextCount}</span>}
+                            {standardCount > 0 && <span style={{ color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4 }}>📖 Standard: {standardCount}</span>}
                           </span>
                         )}
                       </span>
@@ -384,7 +414,8 @@ export const BatchCardModal = () => {
                   {/* Live Preview of parsed cards */}
                   {parsedCards.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '200px', overflowY: 'auto', paddingRight: 4, marginTop: 4 }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' }}>{tr("Предпросмотр (")}{parsedCards.length}):
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' }}>
+                        {tr("Предпросмотр (")}{parsedCards.length}):
                       </span>
                       {parsedCards.map((card, idx) => (
                         <div key={idx} style={{
@@ -399,10 +430,19 @@ export const BatchCardModal = () => {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                               {card.card_type === 'quiz' && (
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>{tr("☑️ Тест")}{' '}</span>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>☑️ Quiz</span>
                               )}
                               {card.card_type === 'trainer' && (
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>{tr("🏋️ Тренажер")}{' '}</span>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🏋️ Trainer</span>
+                              )}
+                              {card.card_type === 'match' && (
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🔗 Match</span>
+                              )}
+                              {card.card_type === 'free_text' && (
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>💬 Free text</span>
+                              )}
+                              {card.card_type === 'standard' && (
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>📖 Standard</span>
                               )}
                               <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {card.front.split('\n')[0]}
@@ -492,10 +532,22 @@ export const BatchCardModal = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                           {card.card_type === 'quiz' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>{tr("☑️ Тест")}{' '}</span>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>☑️ Quiz</span>
                           )}
                           {card.card_type === 'trainer' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>{tr("🏋️ Тренажер")}{' '}</span>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🏋️ Trainer</span>
+                          )}
+                          {card.card_type === 'match' && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🔗 Match</span>
+                          )}
+                          {card.card_type === 'free_text' && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>💬 Free text</span>
+                          )}
+                          {card.card_type === 'puzzle' && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#ec4899', background: 'rgba(236,72,153,0.15)', border: '1px solid rgba(236,72,153,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🧩 Puzzle</span>
+                          )}
+                          {card.card_type === 'standard' && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>📖 Standard</span>
                           )}
                           <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {(card.front_text || card.front || '').split('\n')[0]}
@@ -541,7 +593,7 @@ export const BatchCardModal = () => {
                       ) : (
                         <Zap size={16} />
                       )}
-                      <span>{tr("⚡ Быстро")}</span>
+                      <span>{tr("Создать ({{p0}})", { p0: parsedCards.length })}</span>
                     </button>
 
                     <button

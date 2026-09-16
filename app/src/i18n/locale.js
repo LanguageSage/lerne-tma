@@ -1,5 +1,5 @@
-import en from './messages/en.json';
-import uk from './messages/uk.json';
+import en from './messages/en.json' with { type: 'json' };
+import uk from './messages/uk.json' with { type: 'json' };
 
 export const normalizeInterfaceLanguage = code => {
   const language = String(code || '').toLowerCase().split(/[-_]/)[0];

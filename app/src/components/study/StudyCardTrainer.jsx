@@ -54,7 +54,7 @@ export const StudyCardTrainer = React.memo(({
 
   if (!card || !clozeData) return null;
 
-  const filledCount = gaps.filter(g => selectedOptions[g.id]).length;
+  const filledCount = gaps.filter(g => (selectedOptions[g.id] || '').trim().length > 0).length;
   const allGapsFilled = gaps.length > 0 && filledCount === gaps.length;
 
   const handleSelectOption = (gapId, option) => {
@@ -64,19 +64,25 @@ export const StudyCardTrainer = React.memo(({
     triggerHaptic('light');
 
     // Auto-advance to next unfilled gap if available
-    const nextUnfilled = gaps.find(g => g.id !== gapId && !updated[g.id]);
+    const nextUnfilled = gaps.find(g => g.id !== gapId && !(updated[g.id] || '').trim());
     if (nextUnfilled) {
       setActiveGapId(nextUnfilled.id);
     }
+  };
+
+  const handleInputChange = (gapId, value) => {
+    if (isChecked) return;
+    setSelectedOptions(prev => ({ ...prev, [gapId]: value }));
   };
 
   const handleCheck = () => {
     if (!allGapsFilled) return;
     setIsChecked(true);
 
-    const allCorrect = gaps.every(
-      g => (selectedOptions[g.id] || '').toLowerCase() === g.correctAnswer.toLowerCase()
-    );
+    const allCorrect = gaps.every(g => {
+      const userAns = (selectedOptions[g.id] || '').trim().replace(/\s+/g, ' ');
+      return userAns.toLowerCase() === g.correctAnswer.trim().toLowerCase();
+    });
 
     if (allCorrect) {
       playSuccessSound();
@@ -102,7 +108,7 @@ export const StudyCardTrainer = React.memo(({
     }
   };
 
-  // Render text with interactive gap badges
+  // Render text with interactive gap badges and inputs
   const renderTextWithGaps = () => {
     let text = clozeData.maskedText;
     const elements = [];
@@ -120,72 +126,151 @@ export const StudyCardTrainer = React.memo(({
           );
         }
 
-        const chosen = selectedOptions[gap.id];
-        const isCorrectChoice = chosen?.toLowerCase() === gap.correctAnswer.toLowerCase();
+        const rawValue = selectedOptions[gap.id] || '';
+        const isInputGap = gap.mode === 'input';
+        const normUser = rawValue.trim().replace(/\s+/g, ' ').toLowerCase();
+        const normCorrect = (gap.correctAnswer || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        const isCorrectChoice = normUser === normCorrect;
         const isActive = currentActiveGapId === gap.id && !isChecked;
 
-        let borderColor = 'rgba(168, 85, 247, 0.45)';
-        let bgColor = 'rgba(168, 85, 247, 0.08)';
-        let textColor = '#c084fc';
-        let badgeLabel = chosen || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____');
+        if (isInputGap) {
+          let borderColor = 'rgba(168, 85, 247, 0.45)';
+          let bgColor = 'rgba(168, 85, 247, 0.1)';
+          let textColor = '#ffffff';
 
-        if (isChecked) {
-          if (isCorrectChoice) {
-            borderColor = '#22c55e';
-            bgColor = 'rgba(34, 197, 94, 0.25)';
-            textColor = '#4ade80';
-            badgeLabel = `${chosen} ✓`;
-          } else {
-            borderColor = '#ef4444';
-            bgColor = 'rgba(239, 68, 68, 0.25)';
-            textColor = '#f87171';
-            badgeLabel = `${chosen || '—'} ✗ (${gap.correctAnswer})`;
+          if (isChecked) {
+            if (isCorrectChoice) {
+              borderColor = '#22c55e';
+              bgColor = 'rgba(34, 197, 94, 0.25)';
+              textColor = '#4ade80';
+            } else {
+              borderColor = '#ef4444';
+              bgColor = 'rgba(239, 68, 68, 0.25)';
+              textColor = '#f87171';
+            }
+          } else if (isActive) {
+            borderColor = '#a855f7';
+            bgColor = 'rgba(168, 85, 247, 0.28)';
           }
-        } else if (isActive) {
-          borderColor = '#a855f7';
-          bgColor = 'rgba(168, 85, 247, 0.35)';
-          textColor = '#ffffff';
-        } else if (chosen) {
-          borderColor = 'rgba(168, 85, 247, 0.7)';
-          bgColor = 'rgba(168, 85, 247, 0.18)';
-          textColor = '#ffffff';
-        }
 
-        elements.push(
-          <motion.span
-            key={`gap-${gap.id}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isChecked) {
-                setActiveGapId(gap.id);
-                triggerHaptic('light');
-              }
-            }}
-            animate={isActive ? { scale: [1, 1.05, 1] } : { scale: 1 }}
-            transition={isActive ? { repeat: Infinity, duration: 2 } : undefined}
-            style={{
-              position: 'relative',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '2px 4px',
-              minWidth: '68px',
-              padding: '4px 12px',
-              borderRadius: '12px',
-              border: `2px ${chosen || isActive ? 'solid' : 'dashed'} ${borderColor}`,
-              background: bgColor,
-              color: textColor,
-              fontWeight: 700,
-              textAlign: 'center',
-              cursor: isChecked ? 'default' : 'pointer',
-              boxShadow: isActive ? '0 0 16px rgba(168, 85, 247, 0.8)' : undefined,
-              verticalAlign: 'baseline'
-            }}
-            title={isChecked ? undefined : tr("Пропуск #{{p0}}", { p0: gap.id + 1 })}
-          >
-            <span>{badgeLabel}</span>
-          </motion.span>
-        );
+          const charLen = Math.max((gap.correctAnswer || '').length + 2, rawValue.length + 2, 7);
+
+          elements.push(
+            <span
+              key={`gap-input-wrap-${gap.id}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                verticalAlign: 'middle',
+                margin: '2px 4px',
+                position: 'relative'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <input
+                type="text"
+                value={rawValue}
+                disabled={isChecked}
+                onChange={(e) => handleInputChange(gap.id, e.target.value)}
+                onFocus={() => setActiveGapId(gap.id)}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="______"
+                style={{
+                  width: `${charLen}ch`,
+                  minWidth: '72px',
+                  maxWidth: '240px',
+                  padding: '4px 8px',
+                  borderRadius: '10px',
+                  border: `2px solid ${borderColor}`,
+                  background: bgColor,
+                  color: textColor,
+                  fontWeight: 700,
+                  fontSize: 'inherit',
+                  fontFamily: 'inherit',
+                  textAlign: 'center',
+                  outline: 'none',
+                  boxShadow: isActive ? '0 0 14px rgba(168, 85, 247, 0.7)' : undefined,
+                  transition: 'all 0.15s ease-in-out'
+                }}
+              />
+              {isChecked && (
+                isCorrectChoice ? (
+                  <span style={{ color: '#22c55e', marginLeft: '5px', fontWeight: 800 }}>✓</span>
+                ) : (
+                  <span style={{ color: '#ef4444', marginLeft: '5px', fontSize: '0.88em', fontWeight: 700 }}>
+                    ✗ <span style={{ color: '#4ade80', textDecoration: 'underline' }}>{gap.correctAnswer}</span>
+                  </span>
+                )
+              )}
+            </span>
+          );
+        } else {
+          // Choice gap
+          let borderColor = 'rgba(168, 85, 247, 0.45)';
+          let bgColor = 'rgba(168, 85, 247, 0.08)';
+          let textColor = '#c084fc';
+          let badgeLabel = rawValue || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____');
+
+          if (isChecked) {
+            if (isCorrectChoice) {
+              borderColor = '#22c55e';
+              bgColor = 'rgba(34, 197, 94, 0.25)';
+              textColor = '#4ade80';
+              badgeLabel = `${rawValue} ✓`;
+            } else {
+              borderColor = '#ef4444';
+              bgColor = 'rgba(239, 68, 68, 0.25)';
+              textColor = '#f87171';
+              badgeLabel = `${rawValue || '—'} ✗ (${gap.correctAnswer})`;
+            }
+          } else if (isActive) {
+            borderColor = '#a855f7';
+            bgColor = 'rgba(168, 85, 247, 0.35)';
+            textColor = '#ffffff';
+          } else if (rawValue) {
+            borderColor = 'rgba(168, 85, 247, 0.7)';
+            bgColor = 'rgba(168, 85, 247, 0.18)';
+            textColor = '#ffffff';
+          }
+
+          elements.push(
+            <motion.span
+              key={`gap-${gap.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isChecked) {
+                  setActiveGapId(gap.id);
+                  triggerHaptic('light');
+                }
+              }}
+              animate={isActive ? { scale: [1, 1.05, 1] } : { scale: 1 }}
+              transition={isActive ? { repeat: Infinity, duration: 2 } : undefined}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '2px 4px',
+                minWidth: '68px',
+                padding: '4px 12px',
+                borderRadius: '12px',
+                border: `2px ${rawValue || isActive ? 'solid' : 'dashed'} ${borderColor}`,
+                background: bgColor,
+                color: textColor,
+                fontWeight: 700,
+                textAlign: 'center',
+                cursor: isChecked ? 'default' : 'pointer',
+                boxShadow: isActive ? '0 0 16px rgba(168, 85, 247, 0.8)' : undefined,
+                verticalAlign: 'baseline'
+              }}
+              title={isChecked ? undefined : tr("Пропуск #{{p0}}", { p0: gap.id + 1 })}
+            >
+              <span>{badgeLabel}</span>
+            </motion.span>
+          );
+        }
         lastIndex = pos + placeholder.length;
       }
     });
@@ -201,7 +286,8 @@ export const StudyCardTrainer = React.memo(({
     return elements;
   };
 
-  const choices = activeGap?.choices || [];
+  const isChoiceMode = activeGap?.mode === 'choice';
+  const choices = isChoiceMode ? (activeGap?.choices || []) : [];
   const hasLongChoice = choices.some(c => (c || '').length > 16);
 
   return (
@@ -238,8 +324,8 @@ export const StudyCardTrainer = React.memo(({
         </div>
       )}
 
-      {/* Multi-gap Indicator if more than 1 gap */}
-      {gaps.length > 1 && !isChecked && (
+      {/* Multi-gap Indicator if choice gap active */}
+      {isChoiceMode && gaps.length > 1 && !isChecked && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -254,88 +340,90 @@ export const StudyCardTrainer = React.memo(({
         </div>
       )}
 
-      {/* Duolingo-style Options Grid (Always visible inside card, no clipping!) */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: hasLongChoice || choices.length <= 1 ? '1fr' : 'repeat(2, 1fr)',
-          gap: '10px',
-          width: '100%',
-          maxWidth: '380px',
-          margin: '0 auto 18px auto'
-        }}
-      >
-        {choices.map((opt, i) => {
-          const chosen = selectedOptions[currentActiveGapId];
-          const isSelected = chosen === opt;
-          const isCorrect = opt.toLowerCase() === activeGap?.correctAnswer?.toLowerCase();
+      {/* Duolingo-style Options Grid (Shown only for choice gaps) */}
+      {isChoiceMode && choices.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: hasLongChoice || choices.length <= 1 ? '1fr' : 'repeat(2, 1fr)',
+            gap: '10px',
+            width: '100%',
+            maxWidth: '380px',
+            margin: '0 auto 18px auto'
+          }}
+        >
+          {choices.map((opt, i) => {
+            const chosen = selectedOptions[currentActiveGapId];
+            const isSelected = chosen === opt;
+            const isCorrect = opt.toLowerCase() === activeGap?.correctAnswer?.toLowerCase();
 
-          let btnBg = 'rgba(255, 255, 255, 0.06)';
-          let btnBorder = '1.5px solid rgba(255, 255, 255, 0.12)';
-          let btnColor = '#f1f5f9';
-          let btnShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+            let btnBg = 'rgba(255, 255, 255, 0.06)';
+            let btnBorder = '1.5px solid rgba(255, 255, 255, 0.12)';
+            let btnColor = '#f1f5f9';
+            let btnShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
 
-          if (isChecked) {
-            if (isCorrect) {
-              btnBg = 'rgba(34, 197, 94, 0.25)';
-              btnBorder = '2px solid #22c55e';
-              btnColor = '#4ade80';
-              btnShadow = '0 0 16px rgba(34, 197, 94, 0.4)';
-            } else if (isSelected && !isCorrect) {
-              btnBg = 'rgba(239, 68, 68, 0.25)';
-              btnBorder = '2px solid #ef4444';
-              btnColor = '#f87171';
-            } else {
-              btnBg = 'rgba(255, 255, 255, 0.02)';
-              btnBorder = '1px solid rgba(255, 255, 255, 0.05)';
-              btnColor = 'rgba(255, 255, 255, 0.35)';
+            if (isChecked) {
+              if (isCorrect) {
+                btnBg = 'rgba(34, 197, 94, 0.25)';
+                btnBorder = '2px solid #22c55e';
+                btnColor = '#4ade80';
+                btnShadow = '0 0 16px rgba(34, 197, 94, 0.4)';
+              } else if (isSelected && !isCorrect) {
+                btnBg = 'rgba(239, 68, 68, 0.25)';
+                btnBorder = '2px solid #ef4444';
+                btnColor = '#f87171';
+              } else {
+                btnBg = 'rgba(255, 255, 255, 0.02)';
+                btnBorder = '1px solid rgba(255, 255, 255, 0.05)';
+                btnColor = 'rgba(255, 255, 255, 0.35)';
+              }
+            } else if (isSelected) {
+              btnBg = 'linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(124, 58, 237, 0.4))';
+              btnBorder = '2px solid #a855f7';
+              btnColor = '#ffffff';
+              btnShadow = '0 0 18px rgba(168, 85, 247, 0.45)';
             }
-          } else if (isSelected) {
-            btnBg = 'linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(124, 58, 237, 0.4))';
-            btnBorder = '2px solid #a855f7';
-            btnColor = '#ffffff';
-            btnShadow = '0 0 18px rgba(168, 85, 247, 0.45)';
-          }
 
-          return (
-            <motion.button
-              key={`${currentActiveGapId}-${i}-${opt}`}
-              type="button"
-              whileTap={!isChecked ? { scale: 0.95 } : undefined}
-              disabled={isChecked}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectOption(currentActiveGapId, opt);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minHeight: '48px',
-                padding: '10px 14px',
-                borderRadius: '14px',
-                background: btnBg,
-                border: btnBorder,
-                color: (isChecked || isSelected) ? btnColor : (contextStyle.color || btnColor),
-                fontFamily: contextStyle.fontFamily || undefined,
-                fontSize: contextStyle.fontSize || '1.1rem',
-                fontWeight: isSelected ? 700 : (contextStyle.fontWeight || 600),
-                fontStyle: contextStyle.fontStyle || undefined,
-                textShadow: contextStyle.textShadow || undefined,
-                cursor: isChecked ? 'default' : 'pointer',
-                textAlign: 'center',
-                boxShadow: btnShadow,
-                transition: 'all 0.15s ease-in-out',
-                wordBreak: 'break-word',
-                userSelect: 'none',
-                WebkitUserSelect: 'none'
-              }}
-            >
-              <span>{opt}</span>
-            </motion.button>
-          );
-        })}
-      </div>
+            return (
+              <motion.button
+                key={`${currentActiveGapId}-${i}-${opt}`}
+                type="button"
+                whileTap={!isChecked ? { scale: 0.95 } : undefined}
+                disabled={isChecked}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelectOption(currentActiveGapId, opt);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: '48px',
+                  padding: '10px 14px',
+                  borderRadius: '14px',
+                  background: btnBg,
+                  border: btnBorder,
+                  color: (isChecked || isSelected) ? btnColor : (contextStyle.color || btnColor),
+                  fontFamily: contextStyle.fontFamily || undefined,
+                  fontSize: contextStyle.fontSize || '1.1rem',
+                  fontWeight: isSelected ? 700 : (contextStyle.fontWeight || 600),
+                  fontStyle: contextStyle.fontStyle || undefined,
+                  textShadow: contextStyle.textShadow || undefined,
+                  cursor: isChecked ? 'default' : 'pointer',
+                  textAlign: 'center',
+                  boxShadow: btnShadow,
+                  transition: 'all 0.15s ease-in-out',
+                  wordBreak: 'break-word',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none'
+                }}
+              >
+                <span>{opt}</span>
+              </motion.button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Action Footer & Buttons */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
@@ -366,7 +454,7 @@ export const StudyCardTrainer = React.memo(({
               handleCheck();
             }}
           >
-            {allGapsFilled ? tr("Проверить ответы") : tr("Выберите вариант ({{p0}}/{{p1}})", { p0: filledCount, p1: gaps.length })}
+            {allGapsFilled ? tr("Проверить ответы") : tr("Заполните пропуски ({{p0}}/{{p1}})", { p0: filledCount, p1: gaps.length })}
           </button>
         ) : isPureTrainerMode ? (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>

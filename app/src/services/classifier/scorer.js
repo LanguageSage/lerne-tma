@@ -1,4 +1,4 @@
-import { tr } from '../../i18n/locale';
+import { tr } from '../../i18n/locale.js';
 /**
  * app/src/services/classifier/scorer.js
  *

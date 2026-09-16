@@ -1,24 +1,149 @@
-import { tr } from '../i18n/locale';
+import { tr } from '../i18n/locale.js';
 import { classifySentenceFast } from '../services/classifier/index.js';
 import { buildCefrMetaFromClassifierResult } from './levelUtils.js';
 
 /**
- * Parses batch text formatted with '---' or newlines into structured cards.
+ * Automatically detects the card type based on content markers and syntax.
+ */
+export function detectCardTypeByContent(front = '') {
+  if (!front) return 'standard';
+
+  if (/^@match\b/i.test(front) || /\n@match\b/i.test(front)) {
+    return 'match';
+  }
+
+  if (/^@free\b/i.test(front) || /\n@free\b/i.test(front)) {
+    return 'free_text';
+  }
+
+  if (/\{([^}]+)\}|\[\[([^\]]+)\]\]/.test(front)) {
+    return 'trainer';
+  }
+
+  const lines = front.split('\n').map(l => l.trim()).filter(Boolean);
+  const hasStarOption = lines.some(l => /^\*|\s*\*|\*$/i.test(l) || /^\[\*\]/i.test(l));
+  if (lines.length >= 2 && hasStarOption) {
+    return 'quiz';
+  }
+
+  return 'standard';
+}
+
+/**
+ * Parses batch text into structured cards.
  * Supports:
- * 1. Quiz / Exam multiple-choice blocks (with * on correct choice)
- * 2. Trainer cloze blocks (with {...})
- * 3. Standard text cards (front / back)
+ * 1. Dedicated Exercise Blocks:
+ *    @@CARD [trainer|quiz|puzzle|match|free_text|standard]
+ *    FRONT: ...
+ *    BACK: ...
+ *    CONTEXT: ...
+ *    TAGS: ...
+ *    @@END
+ * 2. Delimiter-separated cards ('---') with auto-detection:
+ *    - @match -> matching pairs
+ *    - @free -> free text writing
+ *    - {...} or [[...]] -> trainer cloze
+ *    - Multiple choice with * -> quiz
+ *    - Front / Back lines -> standard
  */
 export function parseBatchCardsText(rawText) {
   if (!rawText || !rawText.trim()) return [];
 
-  // Split blocks by delimiter '---' (with optional whitespace or newlines)
+  const parsedCards = [];
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 1. Dedicated @@CARD ... @@END format
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (rawText.includes('@@CARD')) {
+    const cardBlockRegex = /@@CARD(?:[ \t]+([a-zA-Z0-9_-]+))?(?:[ \t]*\r?\n)([\s\S]*?)(?:@@END|(?=@@CARD)|$)/gi;
+    const matches = Array.from(rawText.matchAll(cardBlockRegex));
+
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      const explicitType = (match[1] || '').trim().toLowerCase();
+      const body = (match[2] || '').trim();
+
+      if (!body) continue;
+
+      let front = '';
+      let back = '';
+      let context = '';
+      let tags = '';
+
+      // Parse FRONT:, BACK:, CONTEXT:, TAGS: sections
+      const sectionRegex = /(?:^|\n)\s*(FRONT|BACK|CONTEXT|TAGS)\s*:\s*([\s\S]*?)(?=(?:\n\s*(?:FRONT|BACK|CONTEXT|TAGS)\s*:)|$)/gi;
+      const sectionMatches = Array.from(body.matchAll(sectionRegex));
+
+      if (sectionMatches.length > 0) {
+        for (const sm of sectionMatches) {
+          const sName = sm[1].toUpperCase();
+          const sVal = sm[2].trim();
+          if (sName === 'FRONT') front = sVal;
+          else if (sName === 'BACK') back = sVal;
+          else if (sName === 'CONTEXT') context = sVal;
+          else if (sName === 'TAGS') tags = sVal;
+        }
+      } else {
+        // If no labels, first line/paragraph is front, rest is back
+        const parts = body.split(/\n\s*\n/);
+        front = parts[0]?.trim() || '';
+        back = parts.slice(1).join('\n\n').trim();
+      }
+
+      if (!front) continue;
+
+      const validTypes = ['trainer', 'quiz', 'puzzle', 'match', 'free_text', 'standard'];
+      const card_type = validTypes.includes(explicitType)
+        ? explicitType
+        : detectCardTypeByContent(front);
+
+      // Auto-extract back for trainer if empty
+      if (!back && card_type === 'trainer') {
+        const clozeRegex = /(?:\[\[([^\]]+)\]\]|\{([^}]+)\})/g;
+        const answers = Array.from(front.matchAll(clozeRegex)).map(m => {
+          const inner = (m[1] || m[2] || '').trim();
+          if (m[1]) return inner; // [[input]]
+          const opts = inner.split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
+          const star = opts.find(o => o.startsWith('*'));
+          return star ? star.substring(1).trim() : (opts[0] || '');
+        });
+        if (answers.length > 0) {
+          back = answers.join(', ');
+        }
+      }
+
+      const res = classifySentenceFast(front, 'de');
+      const level = res.level || 'A1';
+
+      parsedCards.push({
+        id: `temp_${Date.now()}_${i}`,
+        front,
+        front_text: front,
+        back,
+        back_text: back,
+        context,
+        tags: tags || level,
+        card_type,
+        level,
+        reason: res.reason,
+        reason_short: res.reason_short,
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local')
+      });
+    }
+
+    if (parsedCards.length > 0) {
+      return parsedCards;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 2. Legacy / Quick '---' format with advanced auto-detection
+  // ─────────────────────────────────────────────────────────────────────────────
   let blocks = rawText
     .split(/\n\s*[-—_]{3,}\s*(?:\n|$)/)
     .map(b => b.trim())
     .filter(Boolean);
 
-  // If no '---' found, but text contains multiple blocks separated by 2+ empty lines
   if (blocks.length <= 1 && !rawText.includes('---')) {
     const candidateBlocks = rawText.split(/\n{3,}/).map(b => b.trim()).filter(Boolean);
     if (candidateBlocks.length > 1) {
@@ -26,20 +151,64 @@ export function parseBatchCardsText(rawText) {
     }
   }
 
-  const parsedCards = [];
-
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i].trim();
     if (!block) continue;
 
-    // ── 1. Trainer Card: Cloze braces {...} or brackets [...] ─────────────────
-    const clozeRegex = /(?:\{([^}]+)\}|\[([^\]]+)\](?!\())/g;
+    // A. Match exercise (@match)
+    if (/^@match\b/i.test(block) || /\n@match\b/i.test(block)) {
+      const res = classifySentenceFast(block, 'de');
+      const level = res.level || 'B1';
+      parsedCards.push({
+        id: `temp_${Date.now()}_${i}`,
+        front: block,
+        front_text: block,
+        back: tr("Сопоставление пар"),
+        back_text: tr("Сопоставление пар"),
+        context: '',
+        card_type: 'match',
+        level,
+        reason: res.reason,
+        reason_short: res.reason_short,
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
+        tags: level
+      });
+      continue;
+    }
+
+    // B. Free text exercise (@free)
+    if (/^@free\b/i.test(block) || /\n@free\b/i.test(block)) {
+      const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+      const front = lines[0] === '@free' ? lines.slice(0, 2).join('\n') : lines[0];
+      const back = lines.slice(lines[0] === '@free' ? 2 : 1).join('\n');
+      const res = classifySentenceFast(front, 'de');
+      const level = res.level || 'B1';
+      parsedCards.push({
+        id: `temp_${Date.now()}_${i}`,
+        front,
+        front_text: front,
+        back,
+        back_text: back,
+        context: '',
+        card_type: 'free_text',
+        level,
+        reason: res.reason,
+        reason_short: res.reason_short,
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
+        tags: level
+      });
+      continue;
+    }
+
+    // C. Trainer Card: Cloze braces {...} or brackets [[...]] or [...]
+    const clozeRegex = /(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())/g;
     if (clozeRegex.test(block)) {
-      const clozeMatches = Array.from(block.matchAll(clozeRegex)).map(m => m[1] || m[2] || '');
+      const clozeMatches = Array.from(block.matchAll(clozeRegex));
       let extractedAnswer = '';
       if (clozeMatches.length > 0) {
         const answers = clozeMatches.map(m => {
-          const opts = m.split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
+          if (m[1]) return m[1].trim(); // [[input]]
+          const opts = (m[2] || m[3] || '').split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
           const star = opts.find(o => o.startsWith('*'));
           return star ? star.substring(1).trim() : (opts[0] || '');
         });
@@ -65,7 +234,7 @@ export function parseBatchCardsText(rawText) {
       continue;
     }
 
-    // ── 2. Quiz Card: Multiple choices with * marker ─────────────────────────
+    // D. Quiz Card: Multiple choices with * marker
     const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
     const starLine = lines.find(l => /^\*|\s*\*|\*$/i.test(l) || /^\[\*\]/i.test(l));
 
@@ -126,7 +295,7 @@ export function parseBatchCardsText(rawText) {
       continue;
     }
 
-    // ── 3. Standard Card: Front / Back or Single line with separator ────────
+    // E. Standard Card: Front / Back
     if (lines.length >= 2) {
       const front = lines[0];
       const back = lines.slice(1).join('\n');

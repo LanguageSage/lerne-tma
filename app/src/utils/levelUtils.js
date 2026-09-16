@@ -1,4 +1,4 @@
-import { tr } from '../i18n/locale';
+import { tr } from '../i18n/locale.js';
 /**
  * Helper utilities for formatting and styling card CEFR levels (A1 - C2).
  */

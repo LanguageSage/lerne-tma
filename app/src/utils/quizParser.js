@@ -1,4 +1,4 @@
-import { tr } from '../i18n/locale';
+import { tr } from '../i18n/locale.js';
 import { stripMarkdown } from './text.js';
 
 const cleanPunctuation = (str) => {

@@ -260,6 +260,101 @@ export const CardForm = ({
               }}
               placeholder={t('creator.word_placeholder', 'Слово или фраза...')}
             />
+            {/* Exercise syntax chips toolbar */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 4px 4px 4px',
+              flexWrap: 'wrap',
+              fontSize: '0.72rem'
+            }}>
+              <span style={{ color: 'rgba(255, 255, 255, 0.45)', fontWeight: 600 }}>{tr("Тренажёр:")}</span>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  const addition = '{*richtig|falsch}';
+                  setCardData(prev => ({ ...prev, front: prev.front ? `${prev.front} ${addition}` : addition }));
+                }}
+                title={tr("Вставить выбор из вариантов")}
+                style={{
+                  cursor: 'pointer',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'rgba(168, 85, 247, 0.15)',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                  color: '#c084fc',
+                  fontWeight: 600,
+                  fontSize: '0.7rem'
+                }}
+              >
+                {'{*выбор|вариант}'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const addition = '[[ответ]]';
+                  setCardData(prev => ({ ...prev, front: prev.front ? `${prev.front} ${addition}` : addition }));
+                }}
+                title={tr("Вставить пропуск для ввода")}
+                style={{
+                  cursor: 'pointer',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  color: '#7dd3fc',
+                  fontWeight: 600,
+                  fontSize: '0.7rem'
+                }}
+              >
+                {'[[ввод]]'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const addition = '@match\nА => B\nC => D';
+                  setCardData(prev => ({ ...prev, front: addition, card_type: 'match' }));
+                }}
+                title={tr("Вставить сопоставление пар")}
+                style={{
+                  cursor: 'pointer',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  color: '#fcd34d',
+                  fontWeight: 600,
+                  fontSize: '0.7rem'
+                }}
+              >
+                @match A =&gt; B
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const addition = '@free\n';
+                  setCardData(prev => ({ ...prev, front: addition, card_type: 'free_text' }));
+                }}
+                title={tr("Вставить открытый вопрос")}
+                style={{
+                  cursor: 'pointer',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'rgba(236, 72, 153, 0.15)',
+                  border: '1px solid rgba(236, 72, 153, 0.3)',
+                  color: '#f472b6',
+                  fontWeight: 600,
+                  fontSize: '0.7rem'
+                }}
+              >
+                @free
+              </button>
+            </div>
           </div>
           
           {(cardData.image_url || cardData.image_path) && (() => {
@@ -758,7 +853,18 @@ export const CardForm = ({
                 height: 'auto',
                 minHeight: '80px'
               }}
-              placeholder={t('creator.back', 'Перевод...')}
+              placeholder={(() => {
+                const isExercise = Boolean(
+                  cardData?.card_type === 'match' ||
+                  cardData?.card_type === 'free_text' ||
+                  cardData?.card_type === 'trainer' ||
+                  cardData?.card_type === 'quiz' ||
+                  /^@match\b/i.test(cardData?.front || '') ||
+                  /^@free\b/i.test(cardData?.front || '') ||
+                  /\{([^}]+)\}|\[\[([^\]]+)\]\]/.test(cardData?.front || '')
+                );
+                return isExercise ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');
+              })()}
             />
             
             {(cardData.context || isCreator) && (

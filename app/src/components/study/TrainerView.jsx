@@ -11,8 +11,10 @@ import { parseClozeData, cleanBracketSyntax } from '../../utils/clozeParser';
 import { stripMarkdown } from '../../utils/text';
 import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
 
-import { StudyCardTrainer } from './StudyCardTrainer';
-import { TrainerFinished } from './TrainerFinished';
+import { ExerciseRenderer } from './ExerciseRenderer.jsx';
+import { detectExerciseType } from '../../utils/exerciseDetector.js';
+import { StudyCardTrainer } from './StudyCardTrainer.jsx';
+import { TrainerFinished } from './TrainerFinished.jsx';
 import { navigateUp } from '../../utils/navigation';
 
 export const TrainerView = () => {
@@ -297,16 +299,29 @@ export const TrainerView = () => {
                     border: '1px solid rgba(168, 85, 247, 0.3)'
                   }}
                 >
-                  <StudyCardTrainer
+                  <ExerciseRenderer
                     card={currentCard}
-                    clozeData={clozeData}
+                    studyMode="trainer"
+                    isPureTrainerMode={true}
                     isFlipped={isFlipped}
                     onFlip={setIsFlipped}
                     playAudio={playAudio}
                     onTrainerAnswer={handleTrainerAnswer}
                     onNextCard={handleNextCard}
                     styles={styleSettings}
-                    isPureTrainerMode={true}
+                    fallback={
+                      <StudyCardTrainer
+                        card={currentCard}
+                        clozeData={clozeData}
+                        isFlipped={isFlipped}
+                        onFlip={setIsFlipped}
+                        playAudio={playAudio}
+                        onTrainerAnswer={handleTrainerAnswer}
+                        onNextCard={handleNextCard}
+                        styles={styleSettings}
+                        isPureTrainerMode={true}
+                      />
+                    }
                   />
                 </div>
               ) : (
@@ -331,7 +346,7 @@ export const TrainerView = () => {
                     </div>
                   </div>
 
-                  {/* Russian Translation */}
+                  {/* Translation or Exercise Answer */}
                   <div style={{
                     padding: '12px 16px',
                     background: 'rgba(255, 255, 255, 0.05)',
@@ -340,7 +355,9 @@ export const TrainerView = () => {
                     marginBottom: '14px',
                     textAlign: 'center'
                   }}>
-                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tr("Перевод")}{' '}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      {detectExerciseType(currentCard) ? tr("Ответ / объяснение") : tr("Перевод")}
+                    </div>
                     <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#4ade80', whiteSpace: 'pre-wrap', ...backCardStyle }}>
                       {stripMarkdown(currentCard.back)}
                     </div>

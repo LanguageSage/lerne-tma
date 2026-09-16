@@ -13,11 +13,13 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { parseClozeData, cleanBracketSyntax, autoGenerateChoices } from '../../utils/clozeParser';
 import { parseQuizData } from '../../utils/quizParser';
-import { StudyCardTrainer } from './StudyCardTrainer';
-import { StudyCardQuiz } from './StudyCardQuiz';
-import { StudyCardPuzzle } from './StudyCardPuzzle';
-import { StudyCardSpeech } from './StudyCardSpeech';
-import { CardAudioPlayer } from './CardAudioPlayer';
+import { ExerciseRenderer } from './ExerciseRenderer.jsx';
+import { detectExerciseType } from '../../utils/exerciseDetector.js';
+import { StudyCardTrainer } from './StudyCardTrainer.jsx';
+import { StudyCardQuiz } from './StudyCardQuiz.jsx';
+import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
+import { StudyCardSpeech } from './StudyCardSpeech.jsx';
+import { CardAudioPlayer } from './CardAudioPlayer.jsx';
 import { StudyCardImage } from './StudyCardImage';
 import { KaraokeText } from './KaraokeText';
 import { useVoicePicker } from '../../hooks/useVoicePicker';
@@ -167,6 +169,11 @@ export const StudyCard = React.memo(({
   const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
   const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(styles?.cardTextColor), [styles?.cardTextColor]);
 
+  // Interactive Exercise Type Detection
+  const exerciseType = useMemo(() => {
+    return detectExerciseType(card, studyMode);
+  }, [card, studyMode]);
+
   // Quiz / Exam Data Parsing
   const quizData = useMemo(() => {
     return parseQuizData(card);
@@ -262,16 +269,9 @@ export const StudyCard = React.memo(({
 
   const imageUrl = getResolvedImageUrl(card) || getDeckImageUrl(deckImage);
 
-  const hasQuizSyntax = quizData && quizData.isQuiz;
-  const hasBracketSyntax = /\{([^}]+)\}/.test(card?.front || '');
-  const hasTrainerGaps = clozeData && clozeData.gaps && clozeData.gaps.length > 0;
   const effectiveStudyMode = isAutoplayActive
     ? 'classic'
-    : hasQuizSyntax
-    ? 'quiz'
-    : ((hasBracketSyntax || hasTrainerGaps)
-        ? 'trainer'
-        : (studyMode === 'trainer' ? 'classic' : studyMode));
+    : (exerciseType || (studyMode === 'trainer' ? 'classic' : studyMode));
 
   const handleClozeClick = (option, e) => {
     e.stopPropagation();
@@ -350,7 +350,7 @@ export const StudyCard = React.memo(({
             <div className="card-face">
               
               {/* Type Badge (Top-Right Corner) */}
-              {effectiveStudyMode === 'trainer' && (
+              {exerciseType && (
                 <div style={{
                   position: 'absolute',
                   top: '12px',
@@ -368,7 +368,13 @@ export const StudyCard = React.memo(({
                   backdropFilter: 'blur(8px)',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
                   zIndex: 15
-                }}>{tr("🏋️ Тренажер")}{' '}</div>
+                }}>
+                  {exerciseType === 'match' && tr("🔗 Сопоставление")}
+                  {exerciseType === 'free_text' && tr("💬 Письмо")}
+                  {exerciseType === 'quiz' && tr("❓ Тест")}
+                  {exerciseType === 'trainer' && tr("🏋️ Тренажер")}
+                  {exerciseType === 'puzzle' && tr("🧩 Пазл")}
+                </div>
               )}
 
               {/* Leech Indicator */}
@@ -409,7 +415,7 @@ export const StudyCard = React.memo(({
               )}
 
               {/* Classic / Reverse Mode Text */}
-              {(effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
+              {!exerciseType && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
                 <>
                   <div id="tut-study-front" className="text-front" style={cardStyle}>
                     <KaraokeText
@@ -423,27 +429,12 @@ export const StudyCard = React.memo(({
                 </>
               )}
 
-
-              {/* Quiz / Exam Mode Component */}
-              {effectiveStudyMode === 'quiz' && quizData && (
-                <StudyCardQuiz
+              {/* Interactive Exercise Renderer (match, free_text, quiz, trainer, puzzle) */}
+              {exerciseType && studyMode !== 'speak' && (
+                <ExerciseRenderer
                   card={card}
-                  quizData={quizData}
-                  isFlipped={isFlipped}
-                  setIsFlipped={onFlip}
-                  onFlip={onFlip}
-                  playAudio={playAudio}
-                  onTrainerAnswer={onTrainerAnswer}
-                  renderAudioPlayer={renderFrontAudioPlayer}
-                  styles={styles}
-                />
-              )}
-
-              {/* Trainer Mode Component */}
-              {effectiveStudyMode === 'trainer' && clozeData && (
-                <StudyCardTrainer
-                  card={card}
-                  clozeData={clozeData}
+                  studyMode={studyMode}
+                  isPureTrainerMode={false}
                   isFlipped={isFlipped}
                   onFlip={onFlip}
                   playAudio={playAudio}
@@ -698,7 +689,13 @@ export const StudyCard = React.memo(({
                 <div className="separator-line" />
                 <div className="separator-badge">
                   <RotateCw size={12} />
-                  <span>{studyMode === 'reverse' ? tr("Оригинал") : tr("Ответ / Перевод")}</span>
+                  <span>
+                    {studyMode === 'reverse'
+                      ? tr("Оригинал")
+                      : exerciseType
+                      ? tr("Ответ / объяснение")
+                      : tr("Перевод")}
+                  </span>
                 </div>
                 <div className="separator-line" />
               </div>
