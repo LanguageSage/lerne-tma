@@ -964,18 +964,33 @@ def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
         raise e
 
 
-def bulk_save_cards(cards_data: list, user_id: int) -> list:
-    """Массово сохраняет список карточек в одной транзакции БД."""
+def bulk_save_cards(cards_data: list, user_id: int) -> dict:
+    """Массово сохраняет список карточек с изоляцией ошибок через savepoint."""
     saved_cards = []
+    failed_cards = []
     with tma_db.atomic():
-        for item in cards_data:
+        for idx, item in enumerate(cards_data):
             try:
-                card = save_card(item, user_id)
-                if card:
-                    saved_cards.append(format_card_for_study(card, user_id))
+                with tma_db.savepoint():
+                    card = save_card(item, user_id)
+                    if card:
+                        saved_cards.append(format_card_for_study(card, user_id))
             except Exception as item_err:
-                logger.error(f"Error saving batch card: {item_err}, data: {item}")
-    return saved_cards
+                logger.error(f"Error saving batch card at index {idx}: {item_err}, data: {item}")
+                failed_cards.append({
+                    "index": idx,
+                    "front": (item.get("front") or item.get("front_text") or "")[:40],
+                    "message": str(item_err)
+                })
+
+    return {
+        "status": "success",
+        "count": len(saved_cards),
+        "created_count": len(saved_cards),
+        "failed_count": len(failed_cards),
+        "cards": saved_cards,
+        "failed": failed_cards
+    }
 
 
 def get_deck_stats_counts(user_id: int, deck_id: int) -> dict:

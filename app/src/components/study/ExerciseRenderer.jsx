@@ -30,6 +30,8 @@ export const ExerciseRenderer = React.memo(({
   renderAudioPlayer,
   playAudio,
   styles = {},
+  savedState,
+  onSaveState,
   fallback = null
 }) => {
   const detectedType = useMemo(() => {
@@ -77,6 +79,8 @@ export const ExerciseRenderer = React.memo(({
           renderAudioPlayer={renderAudioPlayer}
           styles={styles}
           isPureTrainerMode={isPureTrainerMode}
+          savedState={savedState}
+          onSaveState={onSaveState}
         />
       );
 
@@ -92,6 +96,8 @@ export const ExerciseRenderer = React.memo(({
           renderAudioPlayer={renderAudioPlayer}
           styles={styles}
           isPureTrainerMode={isPureTrainerMode}
+          savedState={savedState}
+          onSaveState={onSaveState}
         />
       );
 
@@ -108,6 +114,8 @@ export const ExerciseRenderer = React.memo(({
           onTrainerAnswer={onTrainerAnswer}
           renderAudioPlayer={renderAudioPlayer}
           styles={styles}
+          savedState={savedState}
+          onSaveState={onSaveState}
         />
       );
 
@@ -125,6 +133,8 @@ export const ExerciseRenderer = React.memo(({
           renderAudioPlayer={renderAudioPlayer}
           styles={styles}
           isPureTrainerMode={isPureTrainerMode}
+          savedState={savedState}
+          onSaveState={onSaveState}
         />
       );
 
@@ -136,7 +146,12 @@ export const ExerciseRenderer = React.memo(({
           onFlip={onFlip}
           loading={false}
           playAudio={playAudio}
+          onTrainerAnswer={onTrainerAnswer}
+          onNextCard={onNextCard}
           styles={styles}
+          isPureTrainerMode={isPureTrainerMode}
+          savedState={savedState}
+          onSaveState={onSaveState}
         />
       );
 

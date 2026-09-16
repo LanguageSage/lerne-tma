@@ -1,5 +1,10 @@
 import { stripMarkdown } from './text.js';
 
+export const normalizeMatchValue = (str) => {
+  if (!str) return '';
+  return str.trim().replace(/\s+/g, ' ');
+};
+
 /**
  * Detects and parses matching exercise cards (@match).
  * Syntax:

@@ -2,27 +2,35 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Eye } from 'lucide-react';
+import { Sparkles, RotateCcw } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
 import { triggerHaptic } from '../../utils/platform';
+import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
+import { getBackCardStyle } from '../../utils/cardStyles';
 
 export const StudyCardPuzzle = React.memo(({
   card,
   isFlipped,
-  onFlip,
-  loading,
-  playAudio,
-  styles = {}
+  onTrainerAnswer,
+  styles = {},
+  savedState,
+  onSaveState
 }) => {
   useInterfaceLocale();
-  const [selectedPuzzles, setSelectedPuzzles] = useState([]);
+  const [selectedPuzzles, setSelectedPuzzles] = useState(savedState?.selectedPuzzles || []);
   const [activeDragId, setActiveDragId] = useState(null);
   const [hoverIndex, setHoverIndex] = useState(null);
   const [dragStartPos, setDragStartPos] = useState(null);
   const [dragCurrentPos, setDragCurrentPos] = useState(null);
+  const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
+  const [isCorrect, setIsCorrect] = useState(savedState?.isCorrect ?? null);
+  const isFirstTryRef = useRef(savedState?.isFirstTry ?? true);
+  const hasReportedWrongRef = useRef(savedState?.hasReportedWrong ?? false);
 
   const cachedRectsRef = useRef([]);
+
+  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles]);
 
   const {
     cardFont,
@@ -33,7 +41,18 @@ export const StudyCardPuzzle = React.memo(({
     cardTextShadow
   } = styles;
 
-  // Reset state when card changes
+  // Sync state to parent for flip preservation
+  useEffect(() => {
+    onSaveState?.({
+      selectedPuzzles,
+      isChecked,
+      isCorrect,
+      isFirstTry: isFirstTryRef.current,
+      hasReportedWrong: hasReportedWrongRef.current
+    });
+  }, [selectedPuzzles, isChecked, isCorrect, onSaveState]);
+
+  // Reset state unconditionally when card changes
   useEffect(() => {
     queueMicrotask(() => {
       setSelectedPuzzles([]);
@@ -41,12 +60,17 @@ export const StudyCardPuzzle = React.memo(({
       setHoverIndex(null);
       setDragStartPos(null);
       setDragCurrentPos(null);
+      setIsChecked(false);
+      setIsCorrect(null);
+      isFirstTryRef.current = true;
+      hasReportedWrongRef.current = false;
     });
   }, [card?.id]);
 
   const puzzleData = useMemo(() => {
     if (!card) return null;
-    const originalWords = stripMarkdown(card.front)
+    const rawFront = (card.front || '').replace(/^@puzzle\s*/i, '').trim();
+    const originalWords = stripMarkdown(rawFront)
       .split(/\s+/)
       .map(w => w.trim())
       .filter(Boolean);
@@ -70,10 +94,15 @@ export const StudyCardPuzzle = React.memo(({
     };
   }, [card]);
 
+  const allWordsPlaced = Boolean(puzzleData && selectedPuzzles.length === puzzleData.originalWords.length);
+
   const handlePuzzleChipClick = (wordObj, e) => {
     e.stopPropagation();
-    if (isFlipped) return;
-
+    if (isFlipped || (isChecked && isCorrect)) return;
+    if (isChecked) {
+      setIsChecked(false);
+      setIsCorrect(null);
+    }
     const updated = [...selectedPuzzles, wordObj];
     setSelectedPuzzles(updated);
     triggerHaptic('light');
@@ -81,38 +110,82 @@ export const StudyCardPuzzle = React.memo(({
 
   const handleRemovePuzzleWord = (wordObj, index, e) => {
     e.stopPropagation();
-    if (isFlipped) return;
-
+    if (isFlipped || (isChecked && isCorrect)) return;
+    if (isChecked) {
+      setIsChecked(false);
+      setIsCorrect(null);
+    }
     const updated = selectedPuzzles.filter((_, i) => i !== index);
     setSelectedPuzzles(updated);
     triggerHaptic('light');
   };
 
-  // Check correctness when all words are placed
-  useEffect(() => {
-    if (loading || !puzzleData || selectedPuzzles.length === 0 || isFlipped) return;
+  const handleCheck = () => {
+    if (!allWordsPlaced || isChecked) return;
+    setIsChecked(true);
 
-    if (selectedPuzzles.length === puzzleData.originalWords.length) {
-      const userText = selectedPuzzles.map(w => w.text.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").toLowerCase()).join(' ');
-      const targetText = puzzleData.cleanWords.join(' ');
+    const userText = selectedPuzzles.map(w => w.text.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").toLowerCase()).join(' ');
+    const targetText = puzzleData.cleanWords.join(' ');
 
-      if (userText === targetText) {
-        triggerHaptic('success');
-        const timer = setTimeout(() => {
-          onFlip(true);
-        }, 800);
-        return () => clearTimeout(timer);
-      } else {
-        triggerHaptic('error');
+    if (userText === targetText) {
+      setIsCorrect(true);
+      playSuccessSound();
+      triggerHaptic('success');
+      onTrainerAnswer?.(card.id, isFirstTryRef.current);
+    } else {
+      setIsCorrect(false);
+      playErrorSound();
+      triggerHaptic('error');
+      if (!hasReportedWrongRef.current) {
+        hasReportedWrongRef.current = true;
+        isFirstTryRef.current = false;
+        onTrainerAnswer?.(card.id, false);
       }
     }
-  }, [selectedPuzzles, puzzleData, isFlipped, card.audio_url, playAudio, onFlip, loading]);
+  };
+
+  const handleReset = () => {
+    setSelectedPuzzles([]);
+    setIsChecked(false);
+    setIsCorrect(null);
+    triggerHaptic('light');
+  };
 
 
   if (!puzzleData) return null;
 
   return (
     <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
+      {/* Header Instruction */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        color: '#c084fc',
+        fontSize: '0.86rem',
+        fontWeight: 700,
+        marginBottom: '8px'
+      }}>
+        <Sparkles size={15} />
+        <span>{tr("🧩 Соберите предложение по-немецки:")}</span>
+      </div>
+
+      {/* Target Translation Prompt */}
+      {card.back && (
+        <div 
+          className="text-back"
+          style={{
+            ...backCardStyle,
+            marginBottom: '16px',
+            textAlign: 'center',
+            width: '100%',
+            opacity: 0.95
+          }}
+        >
+          {card.back}
+        </div>
+      )}
+
       {/* Target Slots Container */}
       <div 
         className="puzzle-target-slots glass"
@@ -126,9 +199,18 @@ export const StudyCardPuzzle = React.memo(({
           minHeight: '58px',
           padding: '12px',
           borderRadius: '16px',
-          background: 'rgba(0, 0, 0, 0.2)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
-          marginBottom: '24px'
+          background: isChecked && isCorrect
+            ? 'rgba(34, 197, 94, 0.12)'
+            : isChecked && isCorrect === false
+            ? 'rgba(239, 68, 68, 0.12)'
+            : 'rgba(0, 0, 0, 0.2)',
+          border: isChecked && isCorrect
+            ? '1.5px solid #22c55e'
+            : isChecked && isCorrect === false
+            ? '1.5px solid #ef4444'
+            : '1px solid rgba(255, 255, 255, 0.06)',
+          marginBottom: '16px',
+          transition: 'all 0.2s ease-in-out'
         }}
       >
         {selectedPuzzles.length === 0 ? (
@@ -286,17 +368,65 @@ export const StudyCardPuzzle = React.memo(({
         })}
       </div>
 
-      {/* Reveal Answer Button */}
-      <button 
-        className="btn-interactive-reveal"
-        onClick={(e) => {
-          e.stopPropagation();
-          onFlip(true);
-        }}
-      >
-        <Eye size={18} />
-        <span>{tr("Показать ответ")}</span>
-      </button>
+      {/* Check and Reset Action Buttons */}
+      <div style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        maxWidth: '340px',
+        margin: '12px auto 4px auto'
+      }}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={!allWordsPlaced}
+          onClick={handleCheck}
+          style={{
+            flex: 1,
+            padding: '13px 20px',
+            fontWeight: 700,
+            borderRadius: '16px',
+            fontSize: '1rem',
+            cursor: allWordsPlaced ? 'pointer' : 'not-allowed',
+            background: allWordsPlaced
+              ? (isChecked && isCorrect === false
+                  ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                  : isChecked && isCorrect
+                  ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                  : 'linear-gradient(135deg, #a855f7, #7c3aed)')
+              : 'rgba(25, 20, 42, 0.85)',
+            color: allWordsPlaced ? '#ffffff' : '#94a3b8',
+            boxShadow: allWordsPlaced ? '0 4px 18px rgba(168, 85, 247, 0.45)' : 'none',
+            border: allWordsPlaced ? 'none' : '1px solid rgba(168, 85, 247, 0.3)',
+            transition: 'all 0.2s ease-in-out'
+          }}
+        >
+          {tr("Проверить ответы")}
+        </button>
+
+        {selectedPuzzles.length > 0 && !isCorrect && (
+          <button
+            type="button"
+            onClick={handleReset}
+            title={tr("Сбросить")}
+            style={{
+              padding: '12px 14px',
+              borderRadius: '16px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              color: '#ffffff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <RotateCcw size={18} />
+          </button>
+        )}
+      </div>
 
       {/* Drag Arrow SVG Overlay */}
       {dragStartPos && dragCurrentPos && (

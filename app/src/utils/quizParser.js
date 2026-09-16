@@ -38,11 +38,6 @@ export const parseQuizData = (card) => {
     return null;
   }
 
-  // 2. Trainer protection: if front contains braces {}, it is ALWAYS a trainer card, NEVER a quiz card
-  if (/\{([^}]+)\}/.test(card.front)) {
-    return null;
-  }
-
   const rawFront = card.front.trim();
   if (!rawFront) return null;
 

@@ -229,11 +229,16 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
 
       const res = await api.post('/cards/bulk-save', { cards: payloadCards });
       const savedCardsList = res.data?.cards || payloadCards;
+      const failedCount = res.data?.failed_count || 0;
 
       setGeneratedCards(savedCardsList);
       await updateLocalStores(savedCardsList);
 
-      showToast(tr("Успешно добавлено {{p0}} карточек!", { p0: savedCardsList.length }), 'success');
+      if (failedCount > 0) {
+        showToast(tr("Добавлено {{p0}} карточек, пропущено с ошибкой: {{p1}}", { p0: savedCardsList.length, p1: failedCount }), 'warning');
+      } else {
+        showToast(tr("Успешно добавлено {{p0}} карточек!", { p0: savedCardsList.length }), 'success');
+      }
     } catch (err) {
       console.error('Bulk save error:', err);
       showToast(tr("Ошибка импорта: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');

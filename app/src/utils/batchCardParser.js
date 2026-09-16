@@ -1,32 +1,14 @@
 import { tr } from '../i18n/locale.js';
 import { classifySentenceFast } from '../services/classifier/index.js';
 import { buildCefrMetaFromClassifierResult } from './levelUtils.js';
+import { detectExerciseType } from './exerciseDetector.js';
 
 /**
  * Automatically detects the card type based on content markers and syntax.
  */
 export function detectCardTypeByContent(front = '') {
   if (!front) return 'standard';
-
-  if (/^@match\b/i.test(front) || /\n@match\b/i.test(front)) {
-    return 'match';
-  }
-
-  if (/^@free\b/i.test(front) || /\n@free\b/i.test(front)) {
-    return 'free_text';
-  }
-
-  if (/\{([^}]+)\}|\[\[([^\]]+)\]\]/.test(front)) {
-    return 'trainer';
-  }
-
-  const lines = front.split('\n').map(l => l.trim()).filter(Boolean);
-  const hasStarOption = lines.some(l => /^\*|\s*\*|\*$/i.test(l) || /^\[\*\]/i.test(l));
-  if (lines.length >= 2 && hasStarOption) {
-    return 'quiz';
-  }
-
-  return 'standard';
+  return detectExerciseType({ front }) || 'standard';
 }
 
 /**

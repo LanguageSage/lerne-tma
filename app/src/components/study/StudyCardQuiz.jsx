@@ -9,28 +9,37 @@ import { stripMarkdown } from '../../utils/text';
 export const StudyCardQuiz = ({
   card,
   quizData,
-  onFlip,
-  setIsFlipped,
   onTrainerAnswer,
   renderAudioPlayer,
-  styles = {}
+  styles = {},
+  savedState,
+  onSaveState
 }) => {
   useInterfaceLocale();
-  const [selectedOptionId, setSelectedOptionId] = useState(null);
-  const [isChecked, setIsChecked] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(null);
+  const [selectedOptionId, setSelectedOptionId] = useState(savedState?.selectedOptionId ?? null);
+  const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
+  const [isCorrect, setIsCorrect] = useState(savedState?.isCorrect ?? null);
+  const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(styles?.cardTextColor), [styles?.cardTextColor]);
 
-  // Reset state on card change
+  // Sync state to parent for flip preservation
   useEffect(() => {
-    queueMicrotask(() => {
-      setSelectedOptionId(null);
-      setIsChecked(false);
-      setIsCorrect(null);
-    });
-  }, [card?.id, card?.front, card?.back]);
+    onSaveState?.({ selectedOptionId, isChecked, isCorrect, isFirstTry });
+  }, [selectedOptionId, isChecked, isCorrect, isFirstTry, onSaveState]);
+
+  // Reset state on card change when no saved state exists
+  useEffect(() => {
+    if (!savedState) {
+      queueMicrotask(() => {
+        setSelectedOptionId(null);
+        setIsChecked(false);
+        setIsCorrect(null);
+        setIsFirstTry(true);
+      });
+    }
+  }, [card?.id, card?.front, card?.back, savedState]);
 
   if (!card || !quizData) return null;
 
@@ -57,10 +66,11 @@ export const StudyCardQuiz = ({
     if (correct) {
       triggerHaptic('success');
       if (onTrainerAnswer) {
-        onTrainerAnswer(card.id, true);
+        onTrainerAnswer(card.id, isFirstTry);
       }
     } else {
       triggerHaptic('error');
+      setIsFirstTry(false);
       if (onTrainerAnswer) {
         onTrainerAnswer(card.id, false);
       }
@@ -282,22 +292,6 @@ export const StudyCardQuiz = ({
           {isCorrect ? tr("✅ Правильно!") : tr("❌ Неправильно! Смотри разбор на обороте.")}
         </div>
       )}
-
-      {/* Reveal Answer Button */}
-      <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: isChecked ? '12px' : '10px' }}>
-        <button
-          type="button"
-          className="btn-interactive-reveal"
-          onClick={(e) => {
-            e.stopPropagation();
-            const flipFn = onFlip || setIsFlipped;
-            if (flipFn) flipFn(true);
-          }}
-        >
-          <Eye size={18} />
-          <span>{tr("Показать ответ")}</span>
-        </button>
-      </div>
     </div>
   );
 };

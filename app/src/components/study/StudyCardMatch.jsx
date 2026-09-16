@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, RotateCcw, Link2 } from 'lucide-react';
 import { getCardStyle, getContextStyle } from '../../utils/cardStyles.js';
+import { normalizeMatchValue } from '../../utils/matchParser.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 
@@ -24,48 +25,67 @@ export const StudyCardMatch = React.memo(({
   onNextCard,
   renderAudioPlayer,
   styles = {},
-  isPureTrainerMode = false
+  isPureTrainerMode = false,
+  savedState,
+  onSaveState
 }) => {
   useInterfaceLocale();
 
-  const [selectedLeft, setSelectedLeft] = useState(null); // pairId
-  const [selectedRight, setSelectedRight] = useState(null); // originalPairId
-  const [userMatches, setUserMatches] = useState({}); // { [leftPairId]: rightOriginalPairId }
-  const [isChecked, setIsChecked] = useState(false);
-  const [isFirstTry, setIsFirstTry] = useState(true);
+  const [selectedLeft, setSelectedLeft] = useState(savedState?.selectedLeft ?? null); // pairId
+  const [selectedRight, setSelectedRight] = useState(savedState?.selectedRight ?? null); // originalPairId
+  const [userMatches, setUserMatches] = useState(savedState?.userMatches || {}); // { [leftPairId]: rightOriginalPairId }
+  const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
+  const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
 
   const pairs = useMemo(() => matchData?.pairs || [], [matchData?.pairs]);
-  const [shuffledRight, setShuffledRight] = useState([]);
+  const [shuffledRight, setShuffledRight] = useState(savedState?.shuffledRight || []);
 
-  // Reset and shuffle right options on card change
+  // Sync state to parent for flip preservation
   useEffect(() => {
-    queueMicrotask(() => {
-      setSelectedLeft(null);
-      setSelectedRight(null);
-      setUserMatches({});
-      setIsChecked(false);
-      setIsFirstTry(true);
+    onSaveState?.({ selectedLeft, selectedRight, userMatches, isChecked, isFirstTry, shuffledRight });
+  }, [selectedLeft, selectedRight, userMatches, isChecked, isFirstTry, shuffledRight, onSaveState]);
 
-      if (pairs.length > 0) {
-        const rightList = pairs.map(p => ({
-          originalPairId: p.id,
-          text: p.right
-        }));
-        setShuffledRight([...rightList].sort(() => Math.random() - 0.5));
-      } else {
-        setShuffledRight([]);
-      }
-    });
-  }, [card?.id, pairs]);
+  // Reset and shuffle right options on card change when no saved state exists
+  useEffect(() => {
+    if (!savedState) {
+      queueMicrotask(() => {
+        setSelectedLeft(null);
+        setSelectedRight(null);
+        setUserMatches({});
+        setIsChecked(false);
+        setIsFirstTry(true);
+
+        const rights = pairs.map(p => ({ originalPairId: p.id, id: p.id, text: p.right }));
+        const cardSeed = card?.id || 1;
+        const prng = (seed) => {
+          const x = Math.sin(seed + 1) * 10000;
+          return x - Math.floor(x);
+        };
+        const shuffled = rights
+          .map((item, idx) => ({ ...item, r: prng(cardSeed + idx * 7) }))
+          .sort((a, b) => a.r - b.r)
+          .map(({ originalPairId, id, text }) => ({ originalPairId, id, text }));
+
+        setShuffledRight(shuffled);
+      });
+    }
+  }, [card?.id, pairs, savedState]);
 
   if (!card || !matchData || pairs.length < 2) return null;
 
   const totalPairs = pairs.length;
   const connectedCount = Object.keys(userMatches).length;
   const allConnected = connectedCount === totalPairs;
+
+  const isPairCorrect = (leftId, chosenRightOriginalId) => {
+    const leftPair = pairs.find(p => p.id === leftId);
+    const chosenRightPair = pairs.find(p => p.id === chosenRightOriginalId);
+    if (!leftPair || !chosenRightPair) return false;
+    return normalizeMatchValue(leftPair.right) === normalizeMatchValue(chosenRightPair.right);
+  };
 
   // Handle clicking left item
   const handleLeftClick = (leftId) => {
@@ -132,7 +152,7 @@ export const StudyCardMatch = React.memo(({
     if (!allConnected) return;
     setIsChecked(true);
 
-    const allCorrect = pairs.every(p => userMatches[p.id] === p.id);
+    const allCorrect = pairs.every(p => isPairCorrect(p.id, userMatches[p.id]));
 
     if (allCorrect) {
       playSuccessSound();
@@ -211,8 +231,8 @@ export const StudyCardMatch = React.memo(({
             const matchedRightId = userMatches[p.id];
             const isMatched = matchedRightId !== undefined;
             const pairColor = isMatched ? getPairColor(p.id) : null;
-            const isCorrect = isChecked && isMatched && matchedRightId === p.id;
-            const isWrong = isChecked && isMatched && matchedRightId !== p.id;
+            const isCorrect = isChecked && isMatched && isPairCorrect(p.id, matchedRightId);
+            const isWrong = isChecked && isMatched && !isPairCorrect(p.id, matchedRightId);
 
             let border = '1.5px solid rgba(255, 255, 255, 0.12)';
             let bg = 'rgba(255, 255, 255, 0.05)';
@@ -299,8 +319,8 @@ export const StudyCardMatch = React.memo(({
             const isMatched = matchedLeftKey !== undefined;
             const leftIdNum = isMatched ? parseInt(matchedLeftKey, 10) : null;
             const pairColor = isMatched ? getPairColor(leftIdNum) : null;
-            const isCorrect = isChecked && isMatched && leftIdNum === r.originalPairId;
-            const isWrong = isChecked && isMatched && leftIdNum !== r.originalPairId;
+            const isCorrect = isChecked && isMatched && isPairCorrect(leftIdNum, r.originalPairId);
+            const isWrong = isChecked && isMatched && !isPairCorrect(leftIdNum, r.originalPairId);
 
             let border = '1.5px solid rgba(255, 255, 255, 0.12)';
             let bg = 'rgba(255, 255, 255, 0.05)';
@@ -380,7 +400,7 @@ export const StudyCardMatch = React.memo(({
       </div>
 
       {/* When checked with errors, show correct matches list */}
-      {isChecked && pairs.some(p => userMatches[p.id] !== p.id) && (
+      {isChecked && pairs.some(p => !isPairCorrect(p.id, userMatches[p.id])) && (
         <div style={{
           width: '100%',
           padding: '10px 14px',
@@ -466,29 +486,6 @@ export const StudyCardMatch = React.memo(({
             {tr("Дальше →")}
           </button>
         ) : null}
-
-        <button
-          type="button"
-          style={{
-            cursor: 'pointer',
-            background: 'rgba(20, 15, 38, 0.85)',
-            backdropFilter: 'blur(14px)',
-            padding: '9px 16px',
-            borderRadius: '14px',
-            border: '1.5px solid rgba(168, 85, 247, 0.5)',
-            color: '#ffffff',
-            fontSize: '0.88rem',
-            fontWeight: 600,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginTop: '2px'
-          }}
-          onClick={() => onFlip?.(true)}
-        >
-          <Eye size={15} style={{ color: '#c084fc' }} />
-          <span>{tr("Показать ответ")}</span>
-        </button>
       </div>
     </div>
   );

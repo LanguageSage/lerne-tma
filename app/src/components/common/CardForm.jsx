@@ -217,6 +217,47 @@ export const CardForm = ({
           {loading ? <RefreshCw size={18} className="spin" /> : <Volume2 size={18} />}
           <span>{loading ? tr("Озвучивание...") : tr("Озвучить")}</span>
         </button>
+        <button
+          type="button"
+          className="form-toolbar-btn btn-audio"
+          onClick={async () => {
+            if (!cardData?.front?.trim()) {
+              showToast(tr("Аудио не сгенерировано: нет текста"), "error");
+              return;
+            }
+            try {
+              showToast(tr("Генерируем озвучку..."), "info");
+              if (cardData?.id) {
+                const res = await api.post('/media/generate-card-audio', {
+                  card_id: cardData.id,
+                  side: 'front',
+                  text: cardData.front,
+                });
+                const newUrl = res.data?.url;
+                const newPath = res.data?.path;
+                if (newUrl) {
+                  setCardData(prev => ({ ...prev, audio_url: newUrl, audio_path: newPath }));
+                  showToast(tr("Озвучка обновлена"), "success");
+                  if (playAudio) playAudio(getAudioUrl(newUrl));
+                } else {
+                  showToast(tr("Аудио не сгенерировано"), "error");
+                }
+              } else {
+                if (onGenerateAudio) {
+                  await onGenerateAudio(cardData, setCardData, playAudio);
+                }
+              }
+            } catch (err) {
+              const detail = err?.response?.data?.detail;
+              showToast(detail ? tr("Аудио не сгенерировано: {{p0}}", { p0: detail }) : tr("Аудио не сгенерировано"), "error");
+            }
+          }}
+          disabled={loading}
+          title={tr("Заменить озвучку")}
+        >
+          <RefreshCw size={18} className={loading ? "spin" : ""} />
+          <span>{tr("Заменить")}</span>
+        </button>
       </div>
 
       <div className="form-group">
@@ -316,8 +357,11 @@ export const CardForm = ({
               <button
                 type="button"
                 onClick={() => {
-                  const addition = '@match\nА => B\nC => D';
-                  setCardData(prev => ({ ...prev, front: addition, card_type: 'match' }));
+                  setCardData(prev => {
+                    const cleaned = (prev.front || '').replace(/^@(match|free|puzzle)\s*/i, '').trim();
+                    const newFront = cleaned ? `@match\n${cleaned}` : '@match\nА => B\nC => D';
+                    return { ...prev, front: newFront, card_type: 'match' };
+                  });
                 }}
                 title={tr("Вставить сопоставление пар")}
                 style={{
@@ -337,8 +381,11 @@ export const CardForm = ({
               <button
                 type="button"
                 onClick={() => {
-                  const addition = '@free\n';
-                  setCardData(prev => ({ ...prev, front: addition, card_type: 'free_text' }));
+                  setCardData(prev => {
+                    const cleaned = (prev.front || '').replace(/^@(match|free|puzzle)\s*/i, '').trim();
+                    const newFront = cleaned ? `@free\n${cleaned}` : '@free\n';
+                    return { ...prev, front: newFront, card_type: 'free_text' };
+                  });
                 }}
                 title={tr("Вставить открытый вопрос")}
                 style={{
@@ -353,6 +400,30 @@ export const CardForm = ({
                 }}
               >
                 @free
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCardData(prev => {
+                    const cleaned = (prev.front || '').replace(/^@(match|free|puzzle)\s*/i, '').trim();
+                    const newFront = cleaned ? `@puzzle\n${cleaned}` : '@puzzle\n';
+                    return { ...prev, front: newFront, card_type: 'puzzle' };
+                  });
+                }}
+                title={tr("Вставить конструктор фразы (Пазл)")}
+                style={{
+                  cursor: 'pointer',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: 'rgba(168, 85, 247, 0.15)',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                  color: '#c084fc',
+                  fontWeight: 600,
+                  fontSize: '0.7rem'
+                }}
+              >
+                @puzzle
               </button>
             </div>
           </div>
@@ -590,97 +661,6 @@ export const CardForm = ({
                 </div>
               )}
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {(cardData.audio_path || cardData.audio_url) && (
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const audioTarget = cardData.audio_url || cardData.audio_path;
-                    if (audioTarget && playAudio) {
-                      playAudio(getAudioUrl(audioTarget));
-                    }
-                  }}
-                  title={tr("Озвучить")}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '16px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.22)',
-                    color: '#fff',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <Volume2 size={15} />
-                  <span>{tr("Озвучить")}</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  if (!cardData?.front?.trim()) {
-                    showToast(tr("Аудио не сгенерировано: нет текста"), "error");
-                    return;
-                  }
-                  try {
-                    showToast(tr("Генерируем озвучку..."), "info");
-                    if (cardData?.id) {
-                      const res = await api.post('/media/generate-card-audio', {
-                        card_id: cardData.id,
-                        side: 'front',
-                        text: cardData.front,
-                      });
-                      const newUrl = res.data?.url;
-                      const newPath = res.data?.path;
-                      if (newUrl) {
-                        setCardData(prev => ({ ...prev, audio_url: newUrl, audio_path: newPath }));
-                        showToast(tr("Озвучка обновлена"), "success");
-                        if (playAudio) playAudio(getAudioUrl(newUrl));
-                      } else {
-                        showToast(tr("Аудио не сгенерировано"), "error");
-                      }
-                    } else {
-                      setCardData(prev => ({ ...prev, audio_path: '', audio_url: '' }));
-                      showToast(tr("Озвучка сброшена для генерации при сохранении"), "info");
-                    }
-                  } catch (err) {
-                    const detail = err?.response?.data?.detail;
-                    showToast(detail ? tr("Аудио не сгенерировано: {{p0}}", { p0: detail }) : tr("Аудио не сгенерировано"), "error");
-                  }
-                }}
-                title={tr("Заменить озвучку")}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
-                  borderRadius: '16px',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.22)',
-                  color: '#fff',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <RefreshCw size={14} />
-                <span>{tr("Заменить")}</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -859,8 +839,10 @@ export const CardForm = ({
                   cardData?.card_type === 'free_text' ||
                   cardData?.card_type === 'trainer' ||
                   cardData?.card_type === 'quiz' ||
+                  cardData?.card_type === 'puzzle' ||
                   /^@match\b/i.test(cardData?.front || '') ||
                   /^@free\b/i.test(cardData?.front || '') ||
+                  /^@puzzle\b/i.test(cardData?.front || '') ||
                   /\{([^}]+)\}|\[\[([^\]]+)\]\]/.test(cardData?.front || '')
                 );
                 return isExercise ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');

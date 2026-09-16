@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseClozeData, cleanBracketSyntax, normalizeAnswer } from '../clozeParser.js';
-import { parseQuizData } from '../quizParser.js';
-import { parseMatchData } from '../matchParser.js';
+import { parseMatchData, normalizeMatchValue } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
 import { parseBatchCardsText } from '../batchCardParser.js';
+import { detectExerciseType } from '../exerciseDetector.js';
 
 test('1. Choice gap syntax: Ich lebe {*seit|in|vor} 17 Jahren in Deutschland.', () => {
   const card = {
@@ -77,32 +77,43 @@ test('3. Mixed gaps: {*Als|Wenn} ich ankam, [[hatte]] sie schon [[gegessen]].', 
   assert.equal(cleaned, 'Als ich ankam, hatte sie schon gegessen.');
 });
 
-test('normalizeAnswer helper check: trim, multi-spaces, case insensitive, umlauts preserved', () => {
+test('4. normalizeAnswer: multiple spaces, case-insensitive, umlauts, trailing punctuation, and hyphen check', () => {
   assert.equal(normalizeAnswer('   Hatte  '), 'hatte');
   assert.equal(normalizeAnswer('viel    Erfolg '), 'viel erfolg');
   assert.equal(normalizeAnswer('Überraschung'), 'überraschung');
   assert.equal(normalizeAnswer('groß'), 'groß');
+
+  // Trailing sentence punctuation optional:
+  assert.equal(normalizeAnswer('Ich hatte die Tickets gekauft.'), 'ich hatte die tickets gekauft');
+  assert.equal(normalizeAnswer('Ich hatte die Tickets gekauft'), 'ich hatte die tickets gekauft');
+  assert.equal(normalizeAnswer('Viel Erfolg!'), 'viel erfolg');
+  assert.equal(normalizeAnswer('Wie geht es dir?'), 'wie geht es dir');
+
+  // Internal hyphens remain significant:
+  assert.equal(normalizeAnswer('E-Mail'), 'e-mail');
+  assert.notEqual(normalizeAnswer('E-Mail'), normalizeAnswer('Email'));
 });
 
-test('4. @match syntax: Left => Right', () => {
+test('5. @match parsing and duplicated right values with normalizeMatchValue', () => {
   const matchCard = {
     front: `@match
-Als ich Kind war => haben wir unsere Häuser im Dorf nie abgesperrt.
-Als wir geheiratet haben => haben ungefähr 300 Gäste mit uns gefeiert.
-Ich habe ihn sofort angerufen => als ich seine Nachricht bekommen habe.`
+ich => hatte
+er => hatte
+wir => hatten`
   };
 
   const parsed = parseMatchData(matchCard);
   assert.ok(parsed);
   assert.equal(parsed.isMatch, true);
   assert.equal(parsed.pairs.length, 3);
-  assert.equal(parsed.pairs[0].left, 'Als ich Kind war');
-  assert.equal(parsed.pairs[0].right, 'haben wir unsere Häuser im Dorf nie abgesperrt.');
-  assert.equal(parsed.pairs[1].left, 'Als wir geheiratet haben');
-  assert.equal(parsed.pairs[2].left, 'Ich habe ihn sofort angerufen');
+
+  // Check right value normalization for duplicates
+  assert.equal(normalizeMatchValue(parsed.pairs[0].right), 'hatte');
+  assert.equal(normalizeMatchValue(parsed.pairs[1].right), 'hatte');
+  assert.equal(normalizeMatchValue(parsed.pairs[0].right), normalizeMatchValue(parsed.pairs[1].right));
 });
 
-test('5. @free syntax: Schreiben Sie einen Satz', () => {
+test('6. @free syntax: prompt and example answer', () => {
   const freeCard = {
     front: `@free
 Schreiben Sie einen Satz mit „als“.`,
@@ -116,40 +127,50 @@ Schreiben Sie einen Satz mit „als“.`,
   assert.equal(parsed.exampleAnswer, 'Als ich klein war, spielte ich oft im Garten.');
 });
 
-test('6. Old quiz card detection and backward compatibility', () => {
-  const quizCard = {
-    front: 'Wie heißt die Hauptstadt von Deutschland?\n\n*Berlin\nMünchen\nHamburg'
+test('7. Quiz with braces in question text remains quiz (not cloze/trainer)', () => {
+  const card = {
+    card_type: 'translation',
+    front: 'Was ist der Unterschied zwischen {sein} und {haben}?\n\n*A. Sein ist für Bewegung\nB. Haben ist für Bewegung'
   };
-  const parsedQuiz = parseQuizData(quizCard);
-  assert.ok(parsedQuiz);
-  assert.equal(parsedQuiz.isQuiz, true);
-  assert.equal(parsedQuiz.correctAnswerText, 'Berlin');
 
-  // Should NOT be treated as trainer
-  const clozeResult = parseClozeData(quizCard, 'classic');
-  assert.equal(clozeResult, null);
+  const detected = detectExerciseType(card);
+  assert.equal(detected, 'quiz');
 });
 
-test('7. @@CARD bulk import with explicit and auto-detected types', () => {
-  const bulkText = `
-@@CARD trainer
-FRONT:
-Ich [[hatte]] schon gegessen.
-BACK:
-hatte
-CONTEXT:
-Plusquamperfekt
-TAGS:
-B1,Grammar
-@@END
+test('8. General card_type="translation" or "standard" does not block auto-detection by syntax', () => {
+  const trainerCard = {
+    card_type: 'translation',
+    front: '{*Als|Wenn} ich nach Hause kam...'
+  };
+  assert.equal(detectExerciseType(trainerCard), 'trainer');
 
-@@CARD match
+  const quizCard = {
+    card_type: 'standard',
+    front: 'Wie geht es dir?\n\nGut\n*Sehr gut\nSchlecht'
+  };
+  assert.equal(detectExerciseType(quizCard), 'quiz');
+});
+
+test('9. Explicit specialized card_type has absolute priority', () => {
+  const explicitQuiz = { card_type: 'quiz', front: 'Simple text' };
+  assert.equal(detectExerciseType(explicitQuiz), 'quiz');
+
+  const explicitMatch = { card_type: 'match', front: 'Simple text' };
+  assert.equal(detectExerciseType(explicitMatch), 'match');
+
+  const explicitPuzzle = { card_type: 'puzzle', front: 'Simple text' };
+  assert.equal(detectExerciseType(explicitPuzzle), 'puzzle');
+});
+
+test('10. @@CARD bulk import with puzzle, free_text and auto-detected cards', () => {
+  const bulkText = `
+@@CARD puzzle
 FRONT:
-@match
-A => B
-C => D
+Ich hatte meine Freunde angerufen.
 BACK:
-Соответствия
+Я позвонил друзьям.
+TAGS:
+B1
 @@END
 
 @@CARD free_text
@@ -169,21 +190,14 @@ Der
 `;
 
   const parsed = parseBatchCardsText(bulkText);
-  assert.equal(parsed.length, 4);
+  assert.equal(parsed.length, 3);
 
-  assert.equal(parsed[0].card_type, 'trainer');
-  assert.equal(parsed[0].front, 'Ich [[hatte]] schon gegessen.');
-  assert.equal(parsed[0].back, 'hatte');
-  assert.equal(parsed[0].context, 'Plusquamperfekt');
-  assert.equal(parsed[0].tags, 'B1,Grammar');
+  assert.equal(parsed[0].card_type, 'puzzle');
+  assert.equal(parsed[0].front, 'Ich hatte meine Freunde angerufen.');
 
-  assert.equal(parsed[1].card_type, 'match');
-  assert.ok(parsed[1].front.includes('@match'));
+  assert.equal(parsed[1].card_type, 'free_text');
+  assert.ok(parsed[1].front.includes('@free'));
 
-  assert.equal(parsed[2].card_type, 'free_text');
-  assert.ok(parsed[2].front.includes('@free'));
-
-  // Auto-detected without explicit type
-  assert.equal(parsed[3].card_type, 'trainer');
+  assert.equal(parsed[2].card_type, 'trainer');
 });
 

@@ -3,9 +3,10 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Eye, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getCardStyle, getContextStyle } from '../../utils/cardStyles';
+import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
+import { normalizeAnswer } from '../../utils/clozeParser';
 
 export const StudyCardTrainer = React.memo(({
   card,
@@ -15,28 +16,38 @@ export const StudyCardTrainer = React.memo(({
   onNextCard,
   renderAudioPlayer,
   styles = {},
-  isPureTrainerMode = false
+  isPureTrainerMode = false,
+  savedState,
+  onSaveState
 }) => {
   useInterfaceLocale();
-  const [selectedOptions, setSelectedOptions] = useState({}); // { gapId: chosenOption }
-  const [activeGapId, setActiveGapId] = useState(null);
-  const [isChecked, setIsChecked] = useState(false);
-  const [isFirstTry, setIsFirstTry] = useState(true);
+  const [selectedOptions, setSelectedOptions] = useState(savedState?.selectedOptions || {}); // { gapId: chosenOption }
+  const [activeGapId, setActiveGapId] = useState(savedState?.activeGapId ?? null);
+  const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
+  const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
+  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles]);
   const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
 
   const gaps = useMemo(() => clozeData?.gaps || [], [clozeData?.gaps]);
 
-  // Reset internal state when card changes
+  // Sync state to parent for flip preservation
   useEffect(() => {
-    queueMicrotask(() => {
-      setSelectedOptions({});
-      setActiveGapId(null);
-      setIsChecked(false);
-      setIsFirstTry(true);
-    });
-  }, [card?.id]);
+    onSaveState?.({ selectedOptions, activeGapId, isChecked, isFirstTry });
+  }, [selectedOptions, activeGapId, isChecked, isFirstTry, onSaveState]);
+
+  // Reset internal state when card changes and no saved state exists
+  useEffect(() => {
+    if (!savedState) {
+      queueMicrotask(() => {
+        setSelectedOptions({});
+        setActiveGapId(null);
+        setIsChecked(false);
+        setIsFirstTry(true);
+      });
+    }
+  }, [card?.id, savedState]);
 
   // Determine current active gap (first unfilled or manually selected)
   const currentActiveGapId = useMemo(() => {
@@ -80,8 +91,9 @@ export const StudyCardTrainer = React.memo(({
     setIsChecked(true);
 
     const allCorrect = gaps.every(g => {
-      const userAns = (selectedOptions[g.id] || '').trim().replace(/\s+/g, ' ');
-      return userAns.toLowerCase() === g.correctAnswer.trim().toLowerCase();
+      const userAns = normalizeAnswer(selectedOptions[g.id] || '');
+      const validAnswers = (g.correctAnswer || '').split('|').map(normalizeAnswer);
+      return validAnswers.includes(userAns);
     });
 
     if (allCorrect) {
@@ -128,9 +140,9 @@ export const StudyCardTrainer = React.memo(({
 
         const rawValue = selectedOptions[gap.id] || '';
         const isInputGap = gap.mode === 'input';
-        const normUser = rawValue.trim().replace(/\s+/g, ' ').toLowerCase();
-        const normCorrect = (gap.correctAnswer || '').trim().replace(/\s+/g, ' ').toLowerCase();
-        const isCorrectChoice = normUser === normCorrect;
+        const normUser = normalizeAnswer(rawValue);
+        const validAnswers = (gap.correctAnswer || '').split('|').map(normalizeAnswer);
+        const isCorrectChoice = validAnswers.includes(normUser);
         const isActive = currentActiveGapId === gap.id && !isChecked;
 
         if (isInputGap) {
@@ -302,12 +314,28 @@ export const StudyCardTrainer = React.memo(({
         alignItems: 'center'
       }}
     >
+      {/* Russian Translation Context */}
+      {card.back && (
+        <div 
+          className="text-back"
+          style={{
+            ...backCardStyle,
+            marginBottom: '8px',
+            textAlign: 'center',
+            width: '100%',
+            opacity: 0.95
+          }}
+        >
+          {card.back}
+        </div>
+      )}
+
       {/* Masked Sentence Header */}
       <div 
         className="text-front cloze-masked-text" 
         style={{ 
           ...cardStyle, 
-          margin: '12px 0 16px 0', 
+          margin: '8px 0 16px 0', 
           lineHeight: 1.8, 
           whiteSpace: 'pre-wrap', 
           cursor: 'default',
@@ -481,36 +509,6 @@ export const StudyCardTrainer = React.memo(({
             >{tr("Дальше →")}{' '}</button>
           </div>
         ) : null}
-
-        <button
-          type="button"
-          style={{ 
-            cursor: 'pointer', 
-            pointerEvents: 'auto',
-            background: 'rgba(20, 15, 38, 0.85)', 
-            backdropFilter: 'blur(14px)',
-            WebkitBackdropFilter: 'blur(14px)',
-            padding: '9px 16px', 
-            borderRadius: '14px', 
-            border: '1.5px solid rgba(168, 85, 247, 0.5)', 
-            color: '#ffffff', 
-            fontSize: '0.88rem',
-            fontWeight: 600,
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginTop: '2px',
-            zIndex: 10
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onFlip(true);
-          }}
-        >
-          <Eye size={15} style={{ color: '#c084fc' }} />
-          <span>{tr("Показать перевод")}</span>
-        </button>
       </div>
     </div>
   );

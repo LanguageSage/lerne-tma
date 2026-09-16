@@ -45,8 +45,10 @@ async def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
         cards_list = data.get("cards", [])
         if not cards_list:
             raise HTTPException(status_code=400, detail="Список карточек пуст.")
-        saved = services.bulk_save_cards(cards_list, user_id)
-        return {"status": "success", "count": len(saved), "cards": saved}
+        res = services.bulk_save_cards(cards_list, user_id)
+        if isinstance(res, dict):
+            return res
+        return {"status": "success", "count": len(res), "cards": res}
     except HTTPException:
         raise
     except Exception as e:

@@ -45,18 +45,21 @@ export const autoGenerateChoices = (correctWord, existingChoices = []) => {
 
 export const normalizeAnswer = (str) => {
   if (!str) return '';
-  return str.trim().replace(/\s+/g, ' ').toLowerCase();
+  let res = str.trim().replace(/\s+/g, ' ').toLowerCase();
+  res = res.replace(/[.!?]+$/, '').trim();
+  return res;
 };
 
 export const cleanBracketSyntax = (text) => {
   if (!text) return '';
-  return text.replace(/(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())/g, (match, c1, c2, c3) => {
+  const stripped = text.replace(/^@(puzzle|match|free)\s*/i, '');
+  return stripped.replace(/(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())/g, (match, c1, c2, c3) => {
     const contents = c1 || c2 || c3 || '';
     const parts = contents.split(/[|;,/]/).map(p => p.trim()).filter(Boolean);
     if (parts.length === 0) return '';
     const correct = parts.find(p => p.startsWith('*')) || parts[0];
     return correct.replace(/^\*/, '').trim();
-  });
+  }).trim();
 };
 
 export const parseClozeData = (card, studyMode, sourceCards = []) => {

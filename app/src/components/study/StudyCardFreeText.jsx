@@ -2,9 +2,9 @@ import { tr } from '../../i18n/locale.js';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PenLine, Eye, EyeOff, Check, Sparkles } from 'lucide-react';
+import { PenLine, Eye, EyeOff, Check, X, Sparkles } from 'lucide-react';
 import { getCardStyle, getContextStyle } from '../../utils/cardStyles.js';
-import { playSuccessSound } from '../../utils/audioSynth.js';
+import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 
 export const StudyCardFreeText = React.memo(({
@@ -15,36 +15,56 @@ export const StudyCardFreeText = React.memo(({
   onNextCard,
   renderAudioPlayer,
   styles = {},
-  isPureTrainerMode = false
+  isPureTrainerMode = false,
+  savedState,
+  onSaveState
 }) => {
   useInterfaceLocale();
 
-  const [userInput, setUserInput] = useState('');
-  const [showExample, setShowExample] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
+  const [userInput, setUserInput] = useState(savedState?.userInput || '');
+  const [showExample, setShowExample] = useState(savedState?.showExample || false);
+  const [isCompleted, setIsCompleted] = useState(savedState?.isCompleted || false);
+  const [selfGrade, setSelfGrade] = useState(savedState?.selfGrade ?? null); // true | false | null
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
 
-  // Reset state on card change
+  // Sync state to parent for flip preservation
   useEffect(() => {
-    queueMicrotask(() => {
-      setUserInput('');
-      setShowExample(false);
-      setIsCompleted(false);
-    });
-  }, [card?.id]);
+    onSaveState?.({ userInput, showExample, isCompleted, selfGrade });
+  }, [userInput, showExample, isCompleted, selfGrade, onSaveState]);
+
+  // Reset state on card change when no saved state exists
+  useEffect(() => {
+    if (!savedState) {
+      queueMicrotask(() => {
+        setUserInput('');
+        setShowExample(false);
+        setIsCompleted(false);
+        setSelfGrade(null);
+      });
+    }
+  }, [card?.id, savedState]);
 
   if (!card || !freeTextData) return null;
 
   const exampleAnswer = freeTextData.exampleAnswer || (card.back || '').trim();
+  const hasInput = userInput.trim().length > 0;
 
-  const handleComplete = () => {
-    if (isCompleted) return;
+  const handleSelfGrade = (isCorrect) => {
+    if (isCompleted || !hasInput) return;
     setIsCompleted(true);
-    playSuccessSound();
-    triggerHaptic('success');
-    onTrainerAnswer?.(card.id, true);
+    setSelfGrade(isCorrect);
+
+    if (isCorrect) {
+      playSuccessSound();
+      triggerHaptic('success');
+      onTrainerAnswer?.(card.id, true);
+    } else {
+      playErrorSound();
+      triggerHaptic('error');
+      onTrainerAnswer?.(card.id, false);
+    }
 
     if (!isPureTrainerMode && onFlip) {
       setTimeout(() => {
@@ -172,105 +192,115 @@ export const StudyCardFreeText = React.memo(({
         )}
       </AnimatePresence>
 
-      {/* Action Footer */}
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-        <div style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '340px' }}>
-          {exampleAnswer && (
-            <button
-              type="button"
-              onClick={() => {
-                setShowExample(prev => !prev);
-                triggerHaptic('light');
-              }}
-              style={{
-                flex: 1,
-                padding: '11px 14px',
-                borderRadius: '14px',
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.16)',
-                color: '#f1f5f9',
-                fontSize: '0.86rem',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              {showExample ? <EyeOff size={15} /> : <Eye size={15} />}
-              <span>{showExample ? tr("Скрыть пример") : tr("Показать пример")}</span>
-            </button>
-          )}
+      {/* Action Footer & Workflow */}
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+        {!showExample ? (
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!hasInput}
+            onClick={() => {
+              setShowExample(true);
+              triggerHaptic('light');
+            }}
+            style={{
+              width: '100%',
+              maxWidth: '340px',
+              padding: '12px 18px',
+              borderRadius: '14px',
+              fontWeight: 700,
+              fontSize: '0.94rem',
+              background: hasInput ? 'linear-gradient(135deg, #a855f7, #7c3aed)' : 'rgba(25, 20, 42, 0.85)',
+              color: hasInput ? '#fff' : '#94a3b8',
+              border: hasInput ? 'none' : '1px solid rgba(168, 85, 247, 0.3)',
+              cursor: hasInput ? 'pointer' : 'not-allowed',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <Eye size={16} />
+            <span>{hasInput ? tr("Показать пример ответа") : tr("Введите ответ для продолжения")}</span>
+          </button>
+        ) : !isCompleted ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '340px', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600 }}>
+              {tr("Сверьте ваш ответ с образцом:")}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <button
+                type="button"
+                onClick={() => handleSelfGrade(true)}
+                style={{
+                  flex: 1,
+                  padding: '11px 14px',
+                  borderRadius: '14px',
+                  background: 'rgba(34, 197, 94, 0.22)',
+                  border: '1.5px solid #22c55e',
+                  color: '#4ade80',
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Check size={16} />
+                <span>{tr("Ответ верный")}</span>
+              </button>
 
-          {!isCompleted ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleComplete}
-              style={{
-                flex: 1,
-                padding: '11px 18px',
-                borderRadius: '14px',
-                fontWeight: 700,
-                fontSize: '0.94rem',
-                background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
-                color: '#fff',
-                border: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              <Check size={16} />
-              <span>{tr("Готово")}</span>
-            </button>
-          ) : isPureTrainerMode ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onNextCard}
-              style={{
-                flex: 1,
-                padding: '11px 18px',
-                borderRadius: '14px',
-                fontWeight: 700,
-                fontSize: '0.94rem',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                color: '#fff',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              <span>{tr("Дальше →")}</span>
-            </button>
-          ) : null}
-        </div>
-
-        <button
-          type="button"
-          style={{
-            cursor: 'pointer',
-            background: 'rgba(20, 15, 38, 0.85)',
-            backdropFilter: 'blur(14px)',
-            padding: '9px 16px',
-            borderRadius: '14px',
-            border: '1.5px solid rgba(168, 85, 247, 0.5)',
-            color: '#ffffff',
-            fontSize: '0.88rem',
-            fontWeight: 600,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginTop: '4px'
-          }}
-          onClick={() => onFlip?.(true)}
-        >
-          <Eye size={15} style={{ color: '#c084fc' }} />
-          <span>{tr("Показать ответ")}</span>
-        </button>
+              <button
+                type="button"
+                onClick={() => handleSelfGrade(false)}
+                style={{
+                  flex: 1,
+                  padding: '11px 14px',
+                  borderRadius: '14px',
+                  background: 'rgba(239, 68, 68, 0.22)',
+                  border: '1.5px solid #ef4444',
+                  color: '#f87171',
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={16} />
+                <span>{tr("Нужно повторить")}</span>
+              </button>
+            </div>
+          </div>
+        ) : isPureTrainerMode ? (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={onNextCard}
+            style={{
+              width: '100%',
+              maxWidth: '320px',
+              padding: '12px 20px',
+              borderRadius: '14px',
+              fontWeight: 700,
+              fontSize: '1rem',
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <span>{tr("Дальше →")}</span>
+          </button>
+        ) : (
+          <div style={{ fontSize: '0.86rem', color: selfGrade ? '#4ade80' : '#f87171', fontWeight: 700 }}>
+            {selfGrade ? tr("✓ Отмечено как верный ответ") : tr("✗ Отмечено для повторения")}
+          </div>
+        )}
       </div>
     </div>
   );

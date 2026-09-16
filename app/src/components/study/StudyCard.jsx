@@ -96,9 +96,15 @@ export const StudyCard = React.memo(({
     frontVoicePicker.setPreviewUrl(null);
   }, [card?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Interactive Cloze states
+  // Interactive Cloze & Exercise states
   const [wrongSelected, setWrongSelected] = useState([]);
   const [correctSelected, setCorrectSelected] = useState(null);
+  const [exerciseStates, setExerciseStates] = useState({});
+
+  const handleSaveExerciseState = useCallback((state) => {
+    if (!card?.id) return;
+    setExerciseStates(prev => ({ ...prev, [card.id]: state }));
+  }, [card?.id]);
 
   // Reset interactive states when card changes
   useEffect(() => {
@@ -442,6 +448,8 @@ export const StudyCard = React.memo(({
                   onNextCard={onNextCard}
                   renderAudioPlayer={renderFrontAudioPlayer}
                   styles={styles}
+                  savedState={card?.id ? exerciseStates[card.id] : undefined}
+                  onSaveState={handleSaveExerciseState}
                 />
               )}
 
@@ -528,18 +536,6 @@ export const StudyCard = React.memo(({
                   </div>
                   {renderRevealButton()}
                 </div>
-              )}
-
-              {/* Puzzle (Sentence Builder) Mode */}
-              {studyMode === 'puzzle' && (
-                <StudyCardPuzzle
-                  card={card}
-                  isFlipped={isFlipped}
-                  onFlip={onFlip}
-                  loading={loading}
-                  playAudio={playAudio}
-                  styles={styles}
-                />
               )}
 
               {/* Speech Recognition Mode */}
