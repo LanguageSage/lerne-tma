@@ -281,14 +281,20 @@ async def generate_card_audio_endpoint(
         raise HTTPException(status_code=404, detail="Card not found")
 
     from api.services.collaborative_service import can_edit_audio, get_effective_user_role
-    if not get_effective_user_role(user_id, 'deck', card.deck_id):
-        raise HTTPException(status_code=403, detail="Access denied")
-    if not can_edit_audio(user_id, 'deck', card.deck_id):
-        raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
+    role = get_effective_user_role(user_id, 'deck', card.deck_id)
+    is_creator = card.creator_id is not None and int(card.creator_id) == int(user_id)
+    deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == card.deck_id)
+    is_deck_owner = deck and int(deck.user_id) == int(user_id)
+    if not is_creator and not is_deck_owner:
+        if not role:
+            raise HTTPException(status_code=403, detail="Access denied")
+        if not can_edit_audio(user_id, 'deck', card.deck_id):
+            raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
 
+    card_source_text = card.front_text if side == 'front' else card.back_text
     text_value = data.get('text')
-    if not isinstance(text_value, str) or not text_value.strip():
-        text_value = card.front_text if side == 'front' else card.back_text
+    if not isinstance(text_value, str) or not text_value.strip() or (card_source_text and ("*" in card_source_text or "✅" in card_source_text)):
+        text_value = card_source_text
     if not text_value or not text_value.strip():
         raise HTTPException(status_code=400, detail="Text is required")
 

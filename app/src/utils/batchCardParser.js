@@ -32,9 +32,10 @@ export function parseBatchCardsText(rawText) {
     const block = blocks[i].trim();
     if (!block) continue;
 
-    // ── 1. Trainer Card: Cloze braces {...} ─────────────────────────────────
-    if (/\{([^}]+)\}/.test(block)) {
-      const clozeMatches = Array.from(block.matchAll(/\{([^}]+)\}/g)).map(m => m[1]);
+    // ── 1. Trainer Card: Cloze braces {...} or brackets [...] ─────────────────
+    const clozeRegex = /(?:\{([^}]+)\}|\[([^\]]+)\](?!\())/g;
+    if (clozeRegex.test(block)) {
+      const clozeMatches = Array.from(block.matchAll(clozeRegex)).map(m => m[1] || m[2] || '');
       let extractedAnswer = '';
       if (clozeMatches.length > 0) {
         const answers = clozeMatches.map(m => {

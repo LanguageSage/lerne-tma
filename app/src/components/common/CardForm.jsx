@@ -18,6 +18,7 @@ import { triggerHaptic } from '../../utils/platform';
 
 import { useTranslation } from '../../i18n/i18nContext';
 import { getAudioUrl } from '../../utils/media';
+import api from '../../services/api';
 
 export const CardForm = ({
   cardData,
@@ -495,28 +496,96 @@ export const CardForm = ({
               )}
             </div>
 
-            {(cardData.audio_path || cardData.audio_url) && (
-              <button 
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {(cardData.audio_path || cardData.audio_url) && (
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const audioTarget = cardData.audio_url || cardData.audio_path;
+                    if (audioTarget && playAudio) {
+                      playAudio(getAudioUrl(audioTarget));
+                    }
+                  }}
+                  title={tr("Озвучить")}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '16px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.22)',
+                    color: '#fff',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <Volume2 size={15} />
+                  <span>{tr("Озвучить")}</span>
+                </button>
+              )}
+
+              <button
                 type="button"
-                className="audio-btn-corner" 
-                onClick={(e) => { e.stopPropagation(); playAudio(getAudioUrl(cardData.audio_url || cardData.audio_path)); }}
-                title={tr("Озвучить")}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (!cardData?.front?.trim()) {
+                    showToast(tr("Аудио не сгенерировано: нет текста"), "error");
+                    return;
+                  }
+                  try {
+                    showToast(tr("Генерируем озвучку..."), "info");
+                    if (cardData?.id) {
+                      const res = await api.post('/media/generate-card-audio', {
+                        card_id: cardData.id,
+                        side: 'front',
+                        text: cardData.front,
+                      });
+                      const newUrl = res.data?.url;
+                      const newPath = res.data?.path;
+                      if (newUrl) {
+                        setCardData(prev => ({ ...prev, audio_url: newUrl, audio_path: newPath }));
+                        showToast(tr("Озвучка обновлена"), "success");
+                        if (playAudio) playAudio(getAudioUrl(newUrl));
+                      } else {
+                        showToast(tr("Аудио не сгенерировано"), "error");
+                      }
+                    } else {
+                      setCardData(prev => ({ ...prev, audio_path: '', audio_url: '' }));
+                      showToast(tr("Озвучка сброшена для генерации при сохранении"), "info");
+                    }
+                  } catch (err) {
+                    const detail = err?.response?.data?.detail;
+                    showToast(detail ? tr("Аудио не сгенерировано: {{p0}}", { p0: detail }) : tr("Аудио не сгенерировано"), "error");
+                  }
+                }}
+                title={tr("Заменить озвучку")}
                 style={{
-                  position: 'static',
-                  margin: 0,
-                  width: '36px',
-                  height: '36px',
-                  padding: 0,
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: '50%',
-                  flexShrink: 0
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '16px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.22)',
+                  color: '#fff',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                <Volume2 size={18} />
+                <RefreshCw size={14} />
+                <span>{tr("Заменить")}</span>
               </button>
-            )}
+            </div>
           </div>
         </div>
       </div>

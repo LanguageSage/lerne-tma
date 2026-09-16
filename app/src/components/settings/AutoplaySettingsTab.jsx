@@ -2,6 +2,7 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { buildAutoplaySequence } from '../../utils/autoplaySequence';
+import { VOICES_BY_LANG, getTtsVoiceForLang } from '../../constants/languageConstants';
 import './AutoplaySettingsTab.css';
 
 const PRESETS = [
@@ -14,6 +15,11 @@ export const AutoplaySettingsTab = () => {
   useInterfaceLocale();
   const settings = useSettingsStore();
   const update = settings.setAutoplaySettings;
+  const setTtsVoice = settings.setTtsVoice;
+  const setTtsSpeed = settings.setTtsSpeed;
+  const setTtsSpeedRu = settings.setTtsSpeedRu;
+
+  const currentGermanVoice = getTtsVoiceForLang('de', settings.adminSettings, settings.ttsVoices);
   const cycle = buildAutoplaySequence({ ...settings, autoplayCycleRepeat: 1 });
   const preset = PRESETS.find(p => p.phrases === settings.autoplayFrontRepeat && p.cycles === settings.autoplayCycleRepeat);
   const numberField = (key, label, min, max, unit = '') => (
@@ -73,13 +79,35 @@ export const AutoplaySettingsTab = () => {
       </fieldset>
       <fieldset>
         <legend>{tr("Озвучка")}</legend>
+        <label className="auto-setting">
+          <span>{tr("Голос озвучки (немецкий)")}</span>
+          <select
+            value={currentGermanVoice}
+            onChange={e => {
+              const voiceVal = e.target.value;
+              setTtsVoice('de', voiceVal);
+            }}
+          >
+            {(VOICES_BY_LANG.de || []).map(v => (
+              <option key={v.value} value={v.value}>
+                {v.label} ({v.gender === 'f' ? tr("Женский") : tr("Мужской")})
+              </option>
+            ))}
+          </select>
+        </label>
+
         {[
-          ['autoplayPhraseSpeed', tr("Скорость фразы")],
-          ['autoplayTranslationSpeed', tr("Скорость перевода")],
-        ].map(([key, label]) => <label key={key} className="auto-speed">
+          ['autoplayPhraseSpeed', tr("Скорость фразы"), 'de'],
+          ['autoplayTranslationSpeed', tr("Скорость перевода"), 'ru'],
+        ].map(([key, label, langCode]) => <label key={key} className="auto-speed">
           <span>{label} <output>{settings[key] > 0 ? '+' : ''}{settings[key]}%</output></span>
           <input type="range" min="-50" max="50" step="5" value={settings[key]}
-            onChange={e => update({ [key]: Number(e.target.value) })} />
+            onChange={e => {
+              const val = Number(e.target.value);
+              update({ [key]: val });
+              if (langCode === 'de' && setTtsSpeed) setTtsSpeed(`${val >= 0 ? '+' : ''}${val}%`);
+              if (langCode === 'ru' && setTtsSpeedRu) setTtsSpeedRu(`${val >= 0 ? '+' : ''}${val}%`);
+            }} />
         </label>)}
         {[
           ['autoplayForceFrontAudio', tr("Генерировать фразу заново")],

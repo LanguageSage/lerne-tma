@@ -45,7 +45,8 @@ export const autoGenerateChoices = (correctWord, existingChoices = []) => {
 
 export const cleanBracketSyntax = (text) => {
   if (!text) return '';
-  return text.replace(/\{([^}]+)\}/g, (match, contents) => {
+  return text.replace(/(?:\{([^}]+)\}|\[([^\]]+)\](?!\())/g, (match, c1, c2) => {
+    const contents = c1 || c2 || '';
     const parts = contents.split(/[|;,/]/).map(p => p.trim()).filter(Boolean);
     if (parts.length === 0) return '';
     const correct = parts.find(p => p.startsWith('*')) || parts[0];
@@ -57,8 +58,8 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
   if (!card) return null;
   const originalText = stripMarkdown(card.front || '');
 
-  // 1. Explicit bracket syntax: supports 1, 2, or multiple gaps!
-  const bracketMatches = [...originalText.matchAll(/\{([^}]+)\}/g)];
+  // 1. Explicit bracket syntax (supports both {...} and [...]): supports 1, 2, or multiple gaps!
+  const bracketMatches = [...originalText.matchAll(/(?:\{([^}]+)\}|\[([^\]]+)\](?!\())/g)];
   if (bracketMatches.length > 0) {
     let maskedText = '';
     let lastEnd = 0;
@@ -70,7 +71,8 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
       maskedText += originalText.substring(lastEnd, matchStart) + `___GAP_${index}___`;
       lastEnd = matchEnd;
 
-      const optionsRaw = match[1].split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
+      const innerContent = match[1] || match[2] || '';
+      const optionsRaw = innerContent.split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
       let correctAnswer = optionsRaw.find(o => o.startsWith('*')) || optionsRaw[0] || '';
       const cleanCorrect = correctAnswer.replace(/^\*/, '').trim();
       let cleanChoices = optionsRaw.map(o => o.replace(/^\*/, '').trim());

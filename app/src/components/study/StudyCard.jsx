@@ -73,6 +73,7 @@ export const StudyCard = React.memo(({
   const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, false);
 
   // Provide current card text to the picker so auto-generate works on voice switch
+  const rawFrontText = card ? (studyMode === 'reverse' ? card.back : card.front) : '';
   const frontText = card ? stripMarkdown(studyMode === 'reverse' ? card.back : card.front) : '';
 
   // Karaoke: sync word boundaries with audio playback position (with fallback estimation)
@@ -85,8 +86,8 @@ export const StudyCard = React.memo(({
   );
 
   useEffect(() => {
-    frontVoicePicker.setCardText(frontText);
-  }, [frontText]); // eslint-disable-line react-hooks/exhaustive-deps
+    frontVoicePicker.setCardText(rawFrontText);
+  }, [rawFrontText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // On card change: keep voice selection (session) but clear stale preview URL
   useEffect(() => {

@@ -225,6 +225,54 @@ def _strip_markdown(text):
     return res.strip()
 
 
+def _clean_quiz_option_prefix(line: str, is_back: bool = False) -> str:
+    if not line:
+        return ""
+    line = line.strip()
+    if is_back:
+        line = line.replace("✅", "").strip()
+    else:
+        line = re.sub(r"^\s*\[\*\]\s*", "", line)
+        line = re.sub(r"^\s*\*+\s*", "", line)
+    # Strip numbering or bullet prefixes like "1.", "1)", "A.", "A)", "-", "•", "○"
+    line = re.sub(r"^\s*(?:[0-9]{1,2}|[a-zA-Z])[\.\)]\s*", "", line)
+    line = re.sub(r"^\s*[-*○•\s]+", "", line)
+    return line.strip()
+
+
+def _prepare_quiz_tts_text(text: str) -> str | None:
+    if not text or "\n" not in text:
+        return None
+
+    parts = re.split(r"\n\s*\n", text.strip(), maxsplit=1)
+    if len(parts) < 2:
+        return None
+
+    question = parts[0].strip()
+    options_block = parts[1].strip()
+    option_lines = [l.strip() for l in options_block.split("\n") if l.strip()]
+
+    if len(option_lines) < 2:
+        return None
+
+    # Check front format (marker '*')
+    star_lines = [l for l in option_lines if "*" in l]
+    if len(star_lines) == 1:
+        correct_answer = _clean_quiz_option_prefix(star_lines[0], is_back=False)
+        if question and correct_answer:
+            return f"{question} . . . . . . {correct_answer}"
+
+    # Check back format (marker '✅')
+    check_lines = [l for l in option_lines if "✅" in l]
+    if len(check_lines) == 1:
+        correct_answer = _clean_quiz_option_prefix(check_lines[0], is_back=True)
+        if question and correct_answer:
+            return f"{question} . . . . . . {correct_answer}"
+
+    return None
+
+
+
 def _prepare_tts_text(text, max_chars=900):
     if not text:
         return ""
@@ -234,6 +282,11 @@ def _prepare_tts_text(text, max_chars=900):
         text_before = text[:trailing_question_match.start()].strip()
         if text_before:
             text = text_before
+
+    quiz_text = _prepare_quiz_tts_text(text)
+    if quiz_text is not None:
+        text = quiz_text
+
     res = _strip_markdown(text)
     res = re.sub(r"https?://\S+", "", res)
     res = re.sub(r"\s+", " ", res).strip()
@@ -241,3 +294,4 @@ def _prepare_tts_text(text, max_chars=900):
         return res
     trimmed = res[:max_chars].rsplit(" ", 1)[0].strip()
     return trimmed or res[:max_chars].strip()
+

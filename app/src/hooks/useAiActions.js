@@ -97,22 +97,26 @@ export const useAiActions = () => {
         rate: rate
       });
 
-      const update = {
-        audio_path: res.data.path,
-        audio_url: res.data.url
-      };
+      if (res.data?.url || res.data?.path) {
+        const update = {
+          audio_path: res.data.path,
+          audio_url: res.data.url
+        };
 
-      if (setter) {
-        setter(prev => ({ ...prev, ...update }));
+        if (setter) {
+          setter(prev => ({ ...prev, ...update }));
+        } else {
+          session.setEditingCard({ ...session.editingCard, ...update });
+        }
+
+        showToast(tr("Озвучка обновлена"), "success");
+        if (playAudioFn) playAudioFn(res.data.url);
       } else {
-        session.setEditingCard({ ...session.editingCard, ...update });
+        showToast(tr("Аудио не сгенерировано"), "error");
       }
-
-      showToast(tr("Аудио сгенерировано"), "success");
-      if (playAudioFn) playAudioFn(res.data.url);
     } catch (err) {
       console.error(err);
-      showToast(tr("Ошибка генерации аудио: {{p0}}", { p0: err.response?.data?.detail || err.message }));
+      showToast(tr("Аудио не сгенерировано: {{p0}}", { p0: err.response?.data?.detail || err.message }), "error");
     }
   };
 
