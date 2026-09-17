@@ -14,7 +14,13 @@ from api.services.language_service import (
     build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt,
     build_trainer_prompt, build_quiz_prompt, get_cefr_rubric
 )
-from api.services.input_parser import parse_user_input, parse_ai_json_response, parse_ai_batch_json_response
+from api.services.input_parser import (
+    detect_ai_input_type,
+    parse_user_input,
+    parse_ai_json_response,
+    parse_ai_batch_json_response,
+    preserve_exercise_marker,
+)
 from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload
 
 _AI_CONFIG_CACHE = {"data": None, "ts": 0}
@@ -116,11 +122,17 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt,
             build_trainer_prompt, build_quiz_prompt
         )
-        from api.services.input_parser import parse_user_input, parse_ai_json_response
+        from api.services.input_parser import (
+            detect_ai_input_type,
+            parse_user_input,
+            parse_ai_json_response,
+            preserve_exercise_marker,
+        )
         from api.models import TMACustomPrompt, TMASetting
 
         parsed = parse_user_input(phrase)
         clean_phrase = parsed.clean_phrase or phrase
+        input_type = detect_ai_input_type(clean_phrase)
 
         if not native_language:
             native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
@@ -162,6 +174,15 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 logger.error(f"AI: Explain rule failed after {duration:.2f}s: {response}")
                 return {"error": response}
             logger.info(f"AI: Explain rule successful in {duration:.2f}s")
+            parsed_rule = parse_ai_json_response(response)
+            if parsed_rule:
+                return {
+                    "front": "",
+                    "back": parsed_rule.get("back", ""),
+                    "context": parsed_rule.get("context", "") or response.strip(),
+                }
+            # Backward-compatible fallback for providers that return the old
+            # Markdown-only response instead of the requested JSON object.
             return {"front": "", "back": "", "context": response.strip()}
 
         # Handle custom_directive mode (Answer/directive only)
@@ -186,8 +207,8 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             return {"front": "", "back": "", "context": response.strip()}
 
         # Standard full_card mode
-        is_quiz_request = '\n*' in phrase or phrase.startswith('*') or any(marker in phrase for marker in ['[*]', '[ ]', '[x]', '[X]'])
-        is_trainer_request = '{' in phrase or any(w in phrase.lower() for w in ['тренажер', 'тренажёр', 'пропуск', 'cloze', 'грамматика', 'грамматик'])
+        is_quiz_request = input_type == 'quiz'
+        is_trainer_request = input_type == 'trainer'
         target_ptype = 'exam' if is_quiz_request else ('trainer' if is_trainer_request else 'standard')
 
         custom_prompt = TMACustomPrompt.get_or_none(
@@ -263,7 +284,7 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         
         response, success = await client.chat_completion(
             system_prompt=system_prompt,
-            user_message=phrase,
+            user_message=clean_phrase,
             model=model_name
         )
         
@@ -273,7 +294,10 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
             return {"error": response}
         
         logger.info(f"AI: Generation successful in {duration:.2f}s")
-        result = extract_json_from_text(response, phrase)
+        result = extract_json_from_text(response, clean_phrase)
+        result["front"] = preserve_exercise_marker(result.get("front", clean_phrase), input_type)
+        if input_type != "standard":
+            result["card_type"] = input_type
 
         # Determine CEFR level using fast local classifier if not already set
         if detect_level and result and "front" in result and not result.get("level"):

@@ -1,11 +1,11 @@
 export const stripMarkdown = (text) => {
   if (!text) return "";
   return text
-    .replace(/\*\*/g, "")
-    .replace(/__/g, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/\*([^*\s|{}]+)\*/g, "$1")
+    .replace(/_([^_\s|{}]+)_/g, "$1")
     .replace(/```/g, "")
-    .replace(/\*/g, "")
-    .replace(/_/g, "")
     .replace(/`/g, "")
     .replace(/<center>/g, "")
     .replace(/<\/center>/g, "")

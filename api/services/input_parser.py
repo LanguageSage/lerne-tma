@@ -6,6 +6,53 @@ class ParsedInput(NamedTuple):
     directive: Optional[str]
     has_directive: bool
 
+
+def detect_ai_input_type(text: str) -> str:
+    """Classify AI card input without relying on the stored ``card_type``."""
+    normalized = str(text or "").strip()
+    if not normalized:
+        return "standard"
+
+    # Explicit exercise markers own the card even when their content contains
+    # cloze or quiz-like characters.
+    if re.search(r"(?im)^\s*@match\b", normalized):
+        return "match"
+    if re.search(r"(?im)^\s*@puzzle\b", normalized):
+        return "puzzle"
+
+    # Keep the established backend priority: quiz markers win over cloze.
+    is_quiz = (
+        "\n*" in normalized
+        or normalized.startswith("*")
+        or any(marker in normalized for marker in ["[*]", "[ ]", "[x]", "[X]"])
+    )
+    if is_quiz:
+        return "quiz"
+
+    if re.search(r"\{[^}]+\}|\[\[[^\]]+\]\]", normalized):
+        return "trainer"
+
+    trainer_words = ["тренажер", "тренажёр", "пропуск", "cloze", "грамматика", "грамматик"]
+    if any(word in normalized.lower() for word in trainer_words):
+        return "trainer"
+
+    return "standard"
+
+
+def preserve_exercise_marker(front: str, input_type: str) -> str:
+    """Ensure explicit ``@match``/``@puzzle`` markers survive AI output."""
+    if input_type not in {"match", "puzzle"}:
+        return front
+
+    marker = f"@{input_type}"
+    generated_front = str(front or "").strip()
+    if re.search(rf"(?im)^\s*{re.escape(marker)}\b", generated_front):
+        return generated_front
+
+    generated_front = re.sub(r"(?im)^\s*@(match|puzzle)\b\s*", "", generated_front, count=1).strip()
+    return f"{marker}\n{generated_front}" if generated_front else marker
+
+
 def parse_user_input(text: str) -> ParsedInput:
     """
     Parses user input phrase.
@@ -14,15 +61,16 @@ def parse_user_input(text: str) -> ParsedInput:
       "Ich fahre mit dem Bus\n(почему dem, а не den?)"
     it extracts the clean phrase ("Ich fahre mit dem Bus") and the directive ("почему dem, а не den?").
     
-    Rule: Matches `\\n\\s*\\((.+)\\)\\s*$` at the very end of the string.
+    Rule: only a standalone final line ``(directive)`` is extracted.
     """
     if not text:
         return ParsedInput(clean_phrase="", directive=None, has_directive=False)
 
     text_str = text.strip()
     
-    # Match a newline followed by optional whitespace and parenthesized directive at string end
-    match = re.search(r'\n\s*\((.+?)\)\s*$', text_str, re.DOTALL)
+    # The directive must occupy exactly one final line. Parenthesized hints
+    # such as ``Ich gehe (gehen) nach Hause`` remain part of the phrase.
+    match = re.search(r'(?:\r?\n)[ \t]*\(([^\r\n]+)\)[ \t]*$', text_str)
     if match:
         directive_text = match.group(1).strip()
         clean_text = text_str[:match.start()].strip()
@@ -151,4 +199,3 @@ def parse_ai_batch_json_response(text: str) -> list:
                 })
 
     return results
-

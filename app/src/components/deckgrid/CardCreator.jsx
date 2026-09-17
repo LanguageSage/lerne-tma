@@ -10,6 +10,7 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useAudio } from '../../hooks/useAudio';
+import { resolveAiTranslation } from '../../utils/aiCardResult';
 
 import { useTranslation } from '../../i18n/i18nContext';
 import { navigateUp } from '../../utils/navigation';
@@ -75,6 +76,7 @@ export const CardCreator = () => {
         const updatedCtx = currentCtx ? `${result.context}\n\n${currentCtx.trim()}` : result.context;
         setNewCardData({
           ...newCardData,
+          back: resolveAiTranslation(newCardData.back, result.back, actionType),
           context: updatedCtx
         });
       } else {

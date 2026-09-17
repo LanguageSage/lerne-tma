@@ -18,7 +18,7 @@ import { triggerHaptic } from '../../utils/platform';
 
 import { useTranslation } from '../../i18n/i18nContext';
 import { getAudioUrl } from '../../utils/media';
-import { detectExerciseType } from '../../utils/exerciseDetector';
+import { detectAiQuickActionType, detectExerciseType } from '../../utils/exerciseDetector';
 import api from '../../services/api';
 
 export const CardForm = ({
@@ -668,24 +668,22 @@ export const CardForm = ({
 
       {(() => {
         const frontText = cardData.front || '';
-        const hasClozeBraces = /\{([^}]+)\}/.test(frontText);
-        const hasQuizStar = (/\n\*/.test(frontText) || /^\*/.test(frontText)) && frontText.includes('\n');
-        const hasParentheses = /\(([^)]+)\)/.test(frontText);
+        const quickActionType = detectAiQuickActionType(frontText);
 
         let dynamicAction = null;
-        if (hasClozeBraces) {
+        if (quickActionType === 'explain_rule') {
           dynamicAction = {
             id: 'explain_rule',
             label: tr("📖 Правило"),
             icon: BookOpen
           };
-        } else if (hasQuizStar) {
+        } else if (quickActionType === 'full_card') {
           dynamicAction = {
             id: 'full_card',
             label: tr("📝 Разбор теста"),
             icon: BookOpen
           };
-        } else if (hasParentheses) {
+        } else if (quickActionType === 'custom_directive') {
           dynamicAction = {
             id: 'custom_directive',
             label: tr("💬 Только просьбу"),

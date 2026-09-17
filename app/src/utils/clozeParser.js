@@ -22,12 +22,18 @@ export const ARTICLE_GROUPS = [
   ['durch', 'für', 'gegen', 'ohne', 'um', 'bis', 'entlang'],
   ['an', 'auf', 'hinter', 'in', 'neben', 'über', 'unter', 'vor', 'zwischen'],
   ['am', 'ans', 'im', 'ins', 'zum', 'zur', 'vom', 'beim'],
-  ['sich', 'mich', 'mir', 'dich', 'dir', 'uns', 'euch']
+  ['sich', 'mich', 'mir', 'dich', 'dir', 'uns', 'euch'],
+  ['trotzdem', 'deshalb', 'darum', 'dennoch', 'deswegen', 'daher'],
+  ['obwohl', 'weil', 'da', 'wenn', 'als', 'dass', 'damit'],
+  ['und', 'aber', 'oder', 'sondern', 'denn'],
+  ['außerdem', 'ausserdem', 'jedoch', 'sonst']
 ];
 
 export const autoGenerateChoices = (correctWord, existingChoices = []) => {
   if (existingChoices.length > 1) return existingChoices;
-  const lower = (correctWord || '').toLowerCase().trim();
+  const rawWord = (correctWord || '').trim();
+  const lower = rawWord.toLowerCase();
+  const isCapitalized = rawWord.length > 0 && rawWord[0] === rawWord[0].toUpperCase() && rawWord[0] !== rawWord[0].toLowerCase();
   for (const group of ARTICLE_GROUPS) {
     if (group.includes(lower)) {
       const distractors = group.filter(w => w !== lower);
@@ -35,7 +41,9 @@ export const autoGenerateChoices = (correctWord, existingChoices = []) => {
       const copy = [...distractors];
       while (chosen.length < 3 && copy.length > 0) {
         const idx = Math.floor(Math.random() * copy.length);
-        chosen.push(copy.splice(idx, 1)[0]);
+        const w = copy.splice(idx, 1)[0];
+        const formatted = isCapitalized ? (w.charAt(0).toUpperCase() + w.slice(1)) : w;
+        chosen.push(formatted);
       }
       return [correctWord, ...chosen];
     }
@@ -98,10 +106,15 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
 
       // Choice gap mode
       const optionsRaw = innerContent.split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
-      const correctOption = optionsRaw.find(o => o.startsWith('*')) || optionsRaw[0] || '';
-      const cleanCorrect = correctOption.replace(/^\*/, '').trim();
+      const starredOptions = optionsRaw.filter(o => o.startsWith('*'));
+      const correctList = starredOptions.length > 0
+        ? starredOptions.map(o => o.replace(/^\*/, '').trim())
+        : [optionsRaw[0] ? optionsRaw[0].replace(/^\*/, '').trim() : ''];
+      const cleanCorrect = correctList.filter(Boolean).join('|');
       let cleanChoices = optionsRaw.map(o => o.replace(/^\*/, '').trim());
-      cleanChoices = autoGenerateChoices(cleanCorrect, cleanChoices);
+      if (correctList.length === 1 && cleanCorrect) {
+        cleanChoices = autoGenerateChoices(cleanCorrect, cleanChoices);
+      }
       const shuffledChoices = [...cleanChoices].sort(() => Math.random() - 0.5);
 
       return {

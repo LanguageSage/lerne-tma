@@ -1,6 +1,7 @@
 import { tr, getInterfaceLanguage } from '../i18n/locale';
 import { useRef } from 'react';
 import axios from 'axios';
+import { resolveAiTranslation } from '../utils/aiCardResult';
 import api from '../services/api';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
@@ -183,8 +184,10 @@ export const useAiActions = () => {
         if (actionType === 'custom_directive' || actionType === 'explain_rule') {
           const currentCtx = session.editingCard?.context || '';
           const updatedCtx = currentCtx ? `${res.data.context}\n\n${currentCtx.trim()}` : res.data.context;
+          const currentBack = session.editingCard?.back || '';
           session.setEditingCard({
             ...session.editingCard,
+            back: resolveAiTranslation(currentBack, res.data.back, actionType),
             context: updatedCtx
           });
           showToast(actionType === 'explain_rule' ? tr("Правило добавлено в Контекст!") : tr("Ответ добавлен в Контекст!"), "success");

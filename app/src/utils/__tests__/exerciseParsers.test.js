@@ -4,7 +4,12 @@ import { parseClozeData, cleanBracketSyntax, normalizeAnswer } from '../clozePar
 import { parseMatchData, normalizeMatchValue } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
 import { parseBatchCardsText } from '../batchCardParser.js';
-import { detectExerciseType } from '../exerciseDetector.js';
+import { resolveAiTranslation } from '../aiCardResult.js';
+import {
+  detectAiQuickActionType,
+  detectExerciseType,
+  hasTrailingUserDirective
+} from '../exerciseDetector.js';
 
 test('1. Choice gap syntax: Ich lebe {*seit|in|vor} 17 Jahren in Deutschland.', () => {
   const card = {
@@ -246,5 +251,83 @@ Das ist ein *wichtiges Wort.
   assert.equal(parsed[0].card_type, 'quiz');
   assert.equal(parsed[1].card_type, 'trainer');
   assert.equal(parsed[2].card_type, 'standard');
+});
+
+test('13. AI quick actions support both trainer syntaxes without treating inline hints as directives', () => {
+  assert.equal(detectAiQuickActionType('Ich fahre {*mit|nach|zu} dem Bus.'), 'explain_rule');
+  assert.equal(detectAiQuickActionType('Er [[hatte]] gestern [[angerufen]].'), 'explain_rule');
+
+  for (const phrase of [
+    'Ich möchte Brot (kaufen).',
+    'Er will Lehrer (sein).',
+    'Wir werden Zeit (haben).'
+  ]) {
+    assert.equal(hasTrailingUserDirective(phrase), false);
+    assert.equal(detectAiQuickActionType(phrase), null);
+  }
+
+  const directiveCard = 'Ich fahre mit dem Bus.\n(почему dem, а не den?)';
+  assert.equal(hasTrailingUserDirective(directiveCard), true);
+  assert.equal(detectAiQuickActionType(directiveCard), 'custom_directive');
+});
+
+test('14. Batch import preserves explicit @match and @puzzle markers', () => {
+  const parsed = parseBatchCardsText(`@match
+ich => hatte
+wir => hatten
+---
+@puzzle
+Ich kaufe heute Brot.`);
+
+  assert.equal(parsed.length, 2);
+  assert.equal(parsed[0].card_type, 'match');
+  assert.ok(parsed[0].front.startsWith('@match'));
+  assert.equal(parsed[1].card_type, 'puzzle');
+  assert.ok(parsed[1].front.startsWith('@puzzle'));
+});
+
+test('15. Rule action fills only an empty translation field', () => {
+  assert.equal(resolveAiTranslation('', 'Новый перевод', 'explain_rule'), 'Новый перевод');
+  assert.equal(resolveAiTranslation('   ', 'Новый перевод', 'explain_rule'), 'Новый перевод');
+  assert.equal(resolveAiTranslation('Ручной перевод', 'Новый перевод', 'explain_rule'), 'Ручной перевод');
+  assert.equal(resolveAiTranslation('', 'Новый перевод', 'custom_directive'), '');
+});
+
+test('16. Multiple asterisk synonyms in choice gap: {*Trotzdem|*Dennoch|Deshalb|Obwohl}', () => {
+  const card = {
+    front: 'Ich habe schlecht geschlafen. {*Trotzdem|*Dennoch|Deshalb|Obwohl} gehe ich heute zur Arbeit.'
+  };
+
+  const parsed = parseClozeData(card, 'trainer');
+  assert.ok(parsed);
+  assert.equal(parsed.gaps.length, 1);
+  assert.equal(parsed.gaps[0].mode, 'choice');
+  assert.equal(parsed.gaps[0].correctAnswer, 'Trotzdem|Dennoch');
+  assert.equal(parsed.gaps[0].choices.length, 4);
+  assert.ok(parsed.gaps[0].choices.includes('Trotzdem'));
+  assert.ok(parsed.gaps[0].choices.includes('Dennoch'));
+  assert.ok(parsed.gaps[0].choices.includes('Deshalb'));
+  assert.ok(parsed.gaps[0].choices.includes('Obwohl'));
+
+  const cleaned = cleanBracketSyntax(card.front);
+  assert.equal(cleaned, 'Ich habe schlecht geschlafen. Trotzdem gehe ich heute zur Arbeit.');
+});
+
+test('17. Connector distractor auto-generation and capitalization: {Trotzdem}', () => {
+  const card = {
+    front: 'Ich habe schlecht geschlafen. {Trotzdem} gehe ich heute zur Arbeit.'
+  };
+
+  const parsed = parseClozeData(card, 'trainer');
+  assert.ok(parsed);
+  assert.equal(parsed.gaps.length, 1);
+  assert.equal(parsed.gaps[0].mode, 'choice');
+  assert.equal(parsed.gaps[0].correctAnswer, 'Trotzdem');
+  assert.equal(parsed.gaps[0].choices.length, 4);
+  assert.ok(parsed.gaps[0].choices.includes('Trotzdem'));
+  // Ensure distractors are capitalized since 'Trotzdem' is capitalized
+  for (const choice of parsed.gaps[0].choices) {
+    assert.equal(choice[0], choice[0].toUpperCase());
+  }
 });
 

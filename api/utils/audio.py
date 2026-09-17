@@ -277,7 +277,7 @@ def _prepare_tts_text(text, max_chars=900):
     if not text:
         return ""
     # Strip trailing parenthesized question on a new line (matches input_parser directive format)
-    trailing_question_match = re.search(r'\n\s*\((.+?)\)\s*$', text, re.DOTALL)
+    trailing_question_match = re.search(r'(?:\r?\n)[ \t]*\(([^\r\n]+)\)[ \t]*$', text.strip())
     if trailing_question_match:
         text_before = text[:trailing_question_match.start()].strip()
         if text_before:
@@ -294,4 +294,3 @@ def _prepare_tts_text(text, max_chars=900):
         return res
     trimmed = res[:max_chars].rsplit(" ", 1)[0].strip()
     return trimmed or res[:max_chars].strip()
-

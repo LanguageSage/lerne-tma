@@ -88,8 +88,11 @@ export function parseBatchCardsText(rawText) {
           const inner = (m[1] || m[2] || '').trim();
           if (m[1]) return inner; // [[input]]
           const opts = inner.split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
-          const star = opts.find(o => o.startsWith('*'));
-          return star ? star.substring(1).trim() : (opts[0] || '');
+          const stars = opts.filter(o => o.startsWith('*'));
+          if (stars.length > 0) {
+            return stars.map(s => s.replace(/^\*/, '').trim()).join(' / ');
+          }
+          return opts[0] ? opts[0].replace(/^\*/, '').trim() : '';
         });
         if (answers.length > 0) {
           back = answers.join(', ');
@@ -188,8 +191,8 @@ export function parseBatchCardsText(rawText) {
 
     // C. Puzzle exercise (@puzzle)
     if (detectedType === 'puzzle') {
-      const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-      const front = lines[0] === '@puzzle' ? lines.slice(1).join('\n') : block.replace(/^@puzzle\s*/i, '');
+      // The marker is the content-level source of truth and must survive import.
+      const front = block;
       const res = classifySentenceFast(front, 'de');
       const level = res.level || 'A1';
       parsedCards.push({
@@ -218,8 +221,11 @@ export function parseBatchCardsText(rawText) {
         const answers = clozeMatches.map(m => {
           if (m[1]) return m[1].trim(); // [[input]]
           const opts = (m[2] || '').split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
-          const star = opts.find(o => o.startsWith('*'));
-          return star ? star.substring(1).trim() : (opts[0] || '');
+          const stars = opts.filter(o => o.startsWith('*'));
+          if (stars.length > 0) {
+            return stars.map(s => s.replace(/^\*/, '').trim()).join(' / ');
+          }
+          return opts[0] ? opts[0].replace(/^\*/, '').trim() : '';
         });
         extractedAnswer = answers.join(', ');
       }

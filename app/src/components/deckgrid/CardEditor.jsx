@@ -9,6 +9,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useAudio } from '../../hooks/useAudio';
+import { resolveAiTranslation } from '../../utils/aiCardResult';
 import { navigateUp } from '../../utils/navigation';
 
 export const CardEditor = () => {
@@ -37,6 +38,7 @@ export const CardEditor = () => {
         const updatedCtx = currentCtx ? `${result.context}\n\n${currentCtx.trim()}` : result.context;
         setEditingCard({
           ...editingCard,
+          back: resolveAiTranslation(editingCard.back, result.back, actionType),
           context: updatedCtx
         });
       } else {
