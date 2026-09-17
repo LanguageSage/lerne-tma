@@ -6,22 +6,39 @@ const cleanPunctuation = (str) => {
   return str.replace(/\s+([?!.,;:])/g, '$1').trim();
 };
 
+export const maskTrainerTokens = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/\[\[[^\]]+\]\]/g, '__TRAINER_INPUT__')
+    .replace(/\{[^}]+\}/g, '__TRAINER_CHOICE__');
+};
+
 /**
  * Helper to clean prefixes like ○, •, -, [ ], [*], A), 1., etc. from option line
+ * and determine if it is marked as the correct answer.
  */
 const cleanOptionPrefix = (line) => {
   if (!line) return { isCorrect: false, text: '' };
   const trimmed = line.trim();
 
-  // Check if line contains star marker indicating correct answer
-  const isCorrect = /^\*|\s*\*|\*$/i.test(trimmed) || /^\[\*\]/i.test(trimmed);
+  // Check if line begins with a correct-answer marker:
+  // - ^\* (e.g. *Berlin, * A) Berlin, * 1. Berlin)
+  // - ^\[\*\] (e.g. [*] Berlin)
+  // - ^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*\* (e.g. A) *Berlin, 1. *Berlin)
+  // - ^[-○•]\s*\* (e.g. - *Berlin, • *Berlin)
+  const isCorrect = (
+    /^\*(?!\*)/.test(trimmed) ||
+    /^\[\*\]/i.test(trimmed) ||
+    /^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*\*/i.test(trimmed) ||
+    /^[-○•]\s*\*/u.test(trimmed)
+  );
 
   // Strip prefixes: *, ○, •, -, [ ], [*], [x], A), A., 1), 1.
   const cleaned = trimmed
     .replace(/^\[[*xX ]\]\s*/i, '') // strip [*], [ ], [x]
     .replace(/^[-*○•\s]+/u, '')     // strip leading *, ○, •, - and spaces
-    .replace(/^(?:[a-zA-Z]|[0-9]{1,2})[).]\s+/i, '') // strip A) , A. , 1) , 1.
-    .replace(/^[-*○•\s]+/u, '')     // strip remaining bullets after letter
+    .replace(/^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*/i, '') // strip A) , A. , 1) , 1.
+    .replace(/^[-*○•\s]+/u, '')     // strip remaining bullets/stars after letter
     .trim();
 
   return { isCorrect, text: cleanPunctuation(stripMarkdown(cleaned)) };
@@ -31,28 +48,25 @@ const cleanOptionPrefix = (line) => {
  * Detects and parses Quiz / Exam (Multiple Choice) cards.
  */
 export const parseQuizData = (card) => {
-  if (!card || !card.front) return null;
-
-  // 1. Explicit card_type check: if card_type is explicitly 'trainer', ignore
-  if (card.card_type === 'trainer') {
-    return null;
-  }
-
-  const rawFront = card.front.trim();
+  if (!card) return null;
+  const rawFront = (card.front || card.front_text || '').trim();
   if (!rawFront) return null;
+
+  // Mask trainer tokens so asterisks inside {...} or [[...]] are never seen as quiz markers
+  const maskedFront = maskTrainerTokens(rawFront);
 
   let rawQuestion = '';
   let optionLines = [];
 
   // 1. Primary Strategy: Split by double newline (\n\n)
-  if (rawFront.includes('\n\n')) {
-    const parts = rawFront.split(/\n\s*\n/);
+  if (maskedFront.includes('\n\n')) {
+    const parts = maskedFront.split(/\n\s*\n/);
     rawQuestion = parts[0].trim();
     const remainingText = parts.slice(1).join('\n\n').trim();
     optionLines = remainingText.split('\n').map(l => l.trim()).filter(Boolean);
   } else {
     // 2. Fallback Strategy: Split by lines and find first option-like line
-    const lines = rawFront.split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = maskedFront.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length < 2) return null;
 
     let firstOptionIdx = -1;
@@ -68,8 +82,8 @@ export const parseQuizData = (card) => {
       rawQuestion = lines.slice(0, firstOptionIdx).join('\n').trim();
       optionLines = lines.slice(firstOptionIdx);
     } else {
-      // If no markers found, but at least 2 lines and one has star
-      const starIdx = lines.findIndex(l => l.includes('*'));
+      // If no markers found, but at least 2 lines and one starts with star
+      const starIdx = lines.findIndex(l => /^\*(?!\*)|^\[\*\]/i.test(l));
       if (starIdx > 0) {
         rawQuestion = lines.slice(0, 1).join('\n').trim();
         optionLines = lines.slice(1);

@@ -2,6 +2,7 @@ import { tr } from '../i18n/locale.js';
 import { classifySentenceFast } from '../services/classifier/index.js';
 import { buildCefrMetaFromClassifierResult } from './levelUtils.js';
 import { detectExerciseType } from './exerciseDetector.js';
+import { parseQuizData } from './quizParser.js';
 
 /**
  * Automatically detects the card type based on content markers and syntax.
@@ -24,6 +25,7 @@ export function detectCardTypeByContent(front = '') {
  * 2. Delimiter-separated cards ('---') with auto-detection:
  *    - @match -> matching pairs
  *    - @free -> free text writing
+ *    - @puzzle -> word/sentence puzzle
  *    - {...} or [[...]] -> trainer cloze
  *    - Multiple choice with * -> quiz
  *    - Front / Back lines -> standard
@@ -119,7 +121,7 @@ export function parseBatchCardsText(rawText) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 2. Legacy / Quick '---' format with advanced auto-detection
+  // 2. Legacy / Quick '---' format with unified central auto-detection
   // ─────────────────────────────────────────────────────────────────────────────
   let blocks = rawText
     .split(/\n\s*[-—_]{3,}\s*(?:\n|$)/)
@@ -137,8 +139,10 @@ export function parseBatchCardsText(rawText) {
     const block = blocks[i].trim();
     if (!block) continue;
 
+    const detectedType = detectCardTypeByContent(block);
+
     // A. Match exercise (@match)
-    if (/^@match\b/i.test(block) || /\n@match\b/i.test(block)) {
+    if (detectedType === 'match') {
       const res = classifySentenceFast(block, 'de');
       const level = res.level || 'B1';
       parsedCards.push({
@@ -159,7 +163,7 @@ export function parseBatchCardsText(rawText) {
     }
 
     // B. Free text exercise (@free)
-    if (/^@free\b/i.test(block) || /\n@free\b/i.test(block)) {
+    if (detectedType === 'free_text') {
       const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
       const front = lines[0] === '@free' ? lines.slice(0, 2).join('\n') : lines[0];
       const back = lines.slice(lines[0] === '@free' ? 2 : 1).join('\n');
@@ -182,15 +186,38 @@ export function parseBatchCardsText(rawText) {
       continue;
     }
 
-    // C. Trainer Card: Cloze braces {...} or brackets [[...]] or [...]
-    const clozeRegex = /(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())/g;
-    if (clozeRegex.test(block)) {
+    // C. Puzzle exercise (@puzzle)
+    if (detectedType === 'puzzle') {
+      const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+      const front = lines[0] === '@puzzle' ? lines.slice(1).join('\n') : block.replace(/^@puzzle\s*/i, '');
+      const res = classifySentenceFast(front, 'de');
+      const level = res.level || 'A1';
+      parsedCards.push({
+        id: `temp_${Date.now()}_${i}`,
+        front,
+        front_text: front,
+        back: tr("Конструктор фразы"),
+        back_text: tr("Конструктор фразы"),
+        context: '',
+        card_type: 'puzzle',
+        level,
+        reason: res.reason,
+        reason_short: res.reason_short,
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
+        tags: level
+      });
+      continue;
+    }
+
+    // D. Trainer Card: Cloze braces {...} or brackets [[...]]
+    if (detectedType === 'trainer') {
+      const clozeRegex = /(?:\[\[([^\]]+)\]\]|\{([^}]+)\})/g;
       const clozeMatches = Array.from(block.matchAll(clozeRegex));
       let extractedAnswer = '';
       if (clozeMatches.length > 0) {
         const answers = clozeMatches.map(m => {
           if (m[1]) return m[1].trim(); // [[input]]
-          const opts = (m[2] || m[3] || '').split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
+          const opts = (m[2] || '').split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
           const star = opts.find(o => o.startsWith('*'));
           return star ? star.substring(1).trim() : (opts[0] || '');
         });
@@ -216,56 +243,21 @@ export function parseBatchCardsText(rawText) {
       continue;
     }
 
-    // D. Quiz Card: Multiple choices with * marker
-    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-    const starLine = lines.find(l => /^\*|\s*\*|\*$/i.test(l) || /^\[\*\]/i.test(l));
+    // E. Quiz Card: Multiple choices with * marker
+    if (detectedType === 'quiz') {
+      const quizData = parseQuizData({ front: block });
+      const questionText = quizData?.question || block.split('\n')[0];
+      const cleanCorrectAnswer = quizData?.correctAnswerText || tr("Правильный ответ");
 
-    if (lines.length >= 2 && starLine) {
-      let questionText = '';
-      let optionLines = [];
-
-      if (block.includes('\n\n')) {
-        const parts = block.split(/\n\s*\n/);
-        questionText = parts[0].trim();
-        optionLines = parts.slice(1).join('\n\n').split('\n').map(l => l.trim()).filter(Boolean);
-      } else {
-        let firstOptionIdx = -1;
-        for (let j = 0; j < lines.length; j++) {
-          const l = lines[j];
-          if (/^[-*○•]/u.test(l) || /^\[[*xX ]\]/i.test(l) || /^[a-zA-Z0-9]+[).]\s/.test(l)) {
-            firstOptionIdx = j;
-            break;
-          }
-        }
-
-        if (firstOptionIdx > 0) {
-          questionText = lines.slice(0, firstOptionIdx).join('\n').trim();
-          optionLines = lines.slice(firstOptionIdx);
-        } else {
-          questionText = lines[0];
-          optionLines = lines.slice(1);
-        }
-      }
-
-      // Clean correct answer text
-      const cleanCorrectAnswer = (starLine || '')
-        .replace(/^\[[*xX ]\]\s*/i, '')
-        .replace(/^[-*○•\s]+/u, '')
-        .replace(/^([a-zA-Z0-9]+[).])\s*/, '')
-        .replace(/^[-*○•\s]+/u, '')
-        .replace(/\*$/, '')
-        .trim();
-
-      const formattedFront = `${questionText}\n\n${optionLines.join('\n')}`;
       const res = classifySentenceFast(questionText, 'de');
       const level = res.level || 'B1';
 
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
-        front: formattedFront,
-        front_text: formattedFront,
-        back: cleanCorrectAnswer || tr("Правильный ответ"),
-        back_text: cleanCorrectAnswer || tr("Правильный ответ"),
+        front: block,
+        front_text: block,
+        back: cleanCorrectAnswer,
+        back_text: cleanCorrectAnswer,
         context: '',
         card_type: 'quiz',
         level,
@@ -277,7 +269,8 @@ export function parseBatchCardsText(rawText) {
       continue;
     }
 
-    // E. Standard Card: Front / Back
+    // F. Standard Card: Front / Back
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length >= 2) {
       const front = lines[0];
       const back = lines.slice(1).join('\n');

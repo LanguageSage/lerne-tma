@@ -127,44 +127,70 @@ Schreiben Sie einen Satz mit „als“.`,
   assert.equal(parsed.exampleAnswer, 'Als ich klein war, spielte ich oft im Garten.');
 });
 
-test('7. Quiz with braces in question text remains quiz (not cloze/trainer)', () => {
-  const card = {
-    card_type: 'translation',
-    front: 'Was ist der Unterschied zwischen {sein} und {haben}?\n\n*A. Sein ist für Bewegung\nB. Haben ist für Bewegung'
-  };
-
-  const detected = detectExerciseType(card);
-  assert.equal(detected, 'quiz');
+test('7. Trainer priority: {*Wenn|Seit|Als} and {mit|nach|zu} are detected as trainer', () => {
+  assert.equal(detectExerciseType({ front: '{*Wenn|Seit|Als}' }), 'trainer');
+  assert.equal(detectExerciseType({ front: 'Ich fahre {*mit|nach|zu} dem Bus.' }), 'trainer');
+  assert.equal(detectExerciseType({ front: 'Ich fahre {mit|nach|zu} dem Bus.' }), 'trainer');
+  assert.equal(detectExerciseType({ front: 'Er [[hatte]] gestern [[angerufen]].' }), 'trainer');
 });
 
-test('8. General card_type="translation" or "standard" does not block auto-detection by syntax', () => {
-  const trainerCard = {
-    card_type: 'translation',
-    front: '{*Als|Wenn} ich nach Hause kam...'
+test('8. Quiz detection with valid test structure vs asterisks in normal text', () => {
+  const validQuiz = {
+    front: 'Wie heißt die Hauptstadt?\n\nMünchen\n*Berlin\nHamburg'
   };
-  assert.equal(detectExerciseType(trainerCard), 'trainer');
+  assert.equal(detectExerciseType(validQuiz), 'quiz');
 
-  const quizCard = {
+  // Normal text with asterisk is NOT quiz
+  assert.equal(detectExerciseType({ front: 'Das ist ein *wichtiges Wort.' }), null);
+  assert.equal(detectExerciseType({ front: 'Text * irgendwo.' }), null);
+});
+
+test('9. Stored card_type in DB is NOT source of truth: content overrides stored card_type', () => {
+  const conflictingCard = {
+    card_type: 'quiz',
+    front: 'Ich fahre {*mit|nach|zu} dem Bus.'
+  };
+  assert.equal(detectExerciseType(conflictingCard), 'trainer');
+
+  const standardStoredTrainer = {
     card_type: 'standard',
-    front: 'Wie geht es dir?\n\nGut\n*Sehr gut\nSchlecht'
+    front: 'Ich fahre {*mit|nach|zu} dem Bus.'
   };
-  assert.equal(detectExerciseType(quizCard), 'quiz');
+  assert.equal(detectExerciseType(standardStoredTrainer), 'trainer');
+
+  const quizStoredStandard = {
+    card_type: 'quiz',
+    front: 'Das ist ein *wichtiges Wort.'
+  };
+  assert.equal(detectExerciseType(quizStoredStandard), null);
 });
 
-test('9. Explicit specialized card_type has absolute priority', () => {
-  const explicitQuiz = { card_type: 'quiz', front: 'Simple text' };
-  assert.equal(detectExerciseType(explicitQuiz), 'quiz');
+test('10. Full realistic German letter card is recognized as trainer regardless of stored card_type', () => {
+  const letterFront = `Sehr geehrter {Herr Bauer|Frau Bauer|Firma Mustermann},
+wir möchten Sie daran erinnern, dass Ihre Bestellung vom 15. Februar 2024 noch zur Abholung bereitliegt. Leider konnten wir bisher keinen Kontakt mit {Ihnen|Sie|Ihr} aufnehmen.
 
-  const explicitMatch = { card_type: 'match', front: 'Simple text' };
-  assert.equal(detectExerciseType(explicitMatch), 'match');
+Bitte holen Sie Ihre {aktuelle|alte|vergangene} Bestellung spätestens bis zum 15. März 2024 in unserer Filiale ab. Bringen Sie Ihre Bestellnummer mit, {damit|weil|um} wir Ihnen den Artikel problemlos aushändigen können.
 
-  const explicitPuzzle = { card_type: 'puzzle', front: 'Simple text' };
-  assert.equal(detectExerciseType(explicitPuzzle), 'puzzle');
+{*Wenn|Seit|Als} Sie den Artikel bereits abgeholt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.
+
+Falls Sie Fragen zu Ihrer Bestellung haben, {*können|möchten|sollen} Sie sich gerne an unseren Kundenservice unter der Telefonnummer 030-123456 wenden.
+
+Mit freundlichen {*Grüßen|Gruß|Grüße}
+Mustermann GmbH.`;
+
+  // Without card_type
+  assert.equal(detectExerciseType({ front: letterFront }), 'trainer');
+
+  // With stored card_type = 'quiz'
+  assert.equal(detectExerciseType({ card_type: 'quiz', front: letterFront }), 'trainer');
+
+  // With stored card_type = 'standard'
+  assert.equal(detectExerciseType({ card_type: 'standard', front: letterFront }), 'trainer');
 });
 
-test('10. @@CARD bulk import with puzzle, free_text and auto-detected cards', () => {
+test('11. @@CARD and delimiter bulk import with auto-detected exercise types', () => {
   const bulkText = `
-@@CARD puzzle
+@@CARD
 FRONT:
 Ich hatte meine Freunde angerufen.
 BACK:
@@ -192,12 +218,33 @@ Der
   const parsed = parseBatchCardsText(bulkText);
   assert.equal(parsed.length, 3);
 
-  assert.equal(parsed[0].card_type, 'puzzle');
+  assert.equal(parsed[0].card_type, 'standard');
   assert.equal(parsed[0].front, 'Ich hatte meine Freunde angerufen.');
 
   assert.equal(parsed[1].card_type, 'free_text');
   assert.ok(parsed[1].front.includes('@free'));
 
   assert.equal(parsed[2].card_type, 'trainer');
+});
+
+test('12. Delimiter import with trainer letter and multiple choices', () => {
+  const delimiterText = `
+Wie heißt die Hauptstadt?
+
+München
+*Berlin
+Hamburg
+---
+Ich fahre {*mit|nach|zu} dem Bus.
+---
+Das ist ein *wichtiges Wort.
+Перевод
+`;
+
+  const parsed = parseBatchCardsText(delimiterText);
+  assert.equal(parsed.length, 3);
+  assert.equal(parsed[0].card_type, 'quiz');
+  assert.equal(parsed[1].card_type, 'trainer');
+  assert.equal(parsed[2].card_type, 'standard');
 });
 

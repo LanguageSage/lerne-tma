@@ -5,7 +5,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
 import { cleanMedia } from '../utils/media';
-import { parseQuizData } from '../utils/quizParser';
+import { detectExerciseType } from '../utils/exerciseDetector';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { useStudySession } from './useStudySession';
@@ -33,16 +33,7 @@ export const useCardEditor = () => {
       }
 
       const frontText = data.front || '';
-      let computedType = data.card_type;
-      if (!computedType || computedType === 'translation' || computedType === 'standard') {
-        if (/\{([^}]+)\}/.test(frontText)) {
-          computedType = 'trainer';
-        } else if (parseQuizData({ front: frontText }) !== null) {
-          computedType = 'quiz';
-        } else {
-          computedType = 'standard';
-        }
-      }
+      const computedType = detectExerciseType({ front: frontText }) || 'standard';
 
       let finalLevel = data.level;
       let finalTags = data.tags;

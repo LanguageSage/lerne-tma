@@ -145,9 +145,6 @@ export const StudyCardSpeech = React.memo(({
       stopSpeechRecognition();
 
       triggerHaptic('success');
-      setTimeout(() => {
-        onFlip(true);
-      }, 800);
       return true;
     } else if (isFinalCheck) {
       setSpeechSuccess(false);

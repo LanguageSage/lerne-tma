@@ -10,7 +10,6 @@ import { triggerHaptic } from '../../utils/platform.js';
 export const StudyCardFreeText = React.memo(({
   card,
   freeTextData,
-  onFlip,
   onTrainerAnswer,
   onNextCard,
   renderAudioPlayer,
@@ -64,12 +63,6 @@ export const StudyCardFreeText = React.memo(({
       playErrorSound();
       triggerHaptic('error');
       onTrainerAnswer?.(card.id, false);
-    }
-
-    if (!isPureTrainerMode && onFlip) {
-      setTimeout(() => {
-        onFlip(true);
-      }, 700);
     }
   };
 

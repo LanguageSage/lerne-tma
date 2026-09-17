@@ -1,9 +1,9 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useState, useEffect, useMemo } from 'react';
-import { Eye, Sparkles } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Languages } from 'lucide-react';
+import { getCardStyle } from '../../utils/cardStyles';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
 import { normalizeAnswer } from '../../utils/clozeParser';
@@ -11,74 +11,121 @@ import { normalizeAnswer } from '../../utils/clozeParser';
 export const StudyCardTrainer = React.memo(({
   card,
   clozeData,
-  onFlip,
   onTrainerAnswer,
   onNextCard,
   renderAudioPlayer,
   styles = {},
-  isPureTrainerMode = false,
   savedState,
   onSaveState
 }) => {
   useInterfaceLocale();
   const [selectedOptions, setSelectedOptions] = useState(savedState?.selectedOptions || {}); // { gapId: chosenOption }
-  const [activeGapId, setActiveGapId] = useState(savedState?.activeGapId ?? null);
+  const [openDropdownGapId, setOpenDropdownGapId] = useState(null);
+  const [dropdownPos, setDropdownPos] = useState({});
+  const [showTranslation, setShowTranslation] = useState(savedState?.showTranslation || false);
   const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
   const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
 
+  const gapRefs = useRef({});
+
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
-  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles]);
-  const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
 
   const gaps = useMemo(() => clozeData?.gaps || [], [clozeData?.gaps]);
 
-  // Sync state to parent for flip preservation
+  // Sync state to parent for flip/navigation preservation
   useEffect(() => {
-    onSaveState?.({ selectedOptions, activeGapId, isChecked, isFirstTry });
-  }, [selectedOptions, activeGapId, isChecked, isFirstTry, onSaveState]);
+    onSaveState?.({ selectedOptions, isChecked, isFirstTry, showTranslation });
+  }, [selectedOptions, isChecked, isFirstTry, showTranslation, onSaveState]);
 
   // Reset internal state when card changes and no saved state exists
   useEffect(() => {
     if (!savedState) {
       queueMicrotask(() => {
         setSelectedOptions({});
-        setActiveGapId(null);
+        setOpenDropdownGapId(null);
+        setShowTranslation(false);
         setIsChecked(false);
         setIsFirstTry(true);
       });
     }
   }, [card?.id, savedState]);
 
-  // Determine current active gap (first unfilled or manually selected)
-  const currentActiveGapId = useMemo(() => {
-    if (gaps.length === 0) return 0;
-    if (activeGapId !== null && gaps.some(g => g.id === activeGapId)) {
-      return activeGapId;
-    }
-    const firstUnfilled = gaps.find(g => !selectedOptions[g.id]);
-    return firstUnfilled ? firstUnfilled.id : gaps[0].id;
-  }, [activeGapId, gaps, selectedOptions]);
-
-  const activeGap = useMemo(() => {
-    return gaps.find(g => g.id === currentActiveGapId) || gaps[0] || null;
-  }, [gaps, currentActiveGapId]);
+  // Close dropdown on window scroll or resize to prevent detached menus
+  useEffect(() => {
+    if (openDropdownGapId === null) return;
+    const handleDismiss = () => setOpenDropdownGapId(null);
+    window.addEventListener('scroll', handleDismiss, { passive: true });
+    window.addEventListener('resize', handleDismiss, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleDismiss);
+      window.removeEventListener('resize', handleDismiss);
+    };
+  }, [openDropdownGapId]);
 
   if (!card || !clozeData) return null;
 
   const filledCount = gaps.filter(g => (selectedOptions[g.id] || '').trim().length > 0).length;
   const allGapsFilled = gaps.length > 0 && filledCount === gaps.length;
 
+  const backText = (card.back_text || card.back || '').trim();
+  const hasBackText = backText.length > 0;
+
+  const handleOpenDropdown = (gapId, e) => {
+    e.stopPropagation();
+    if (isChecked) return;
+    triggerHaptic('selection');
+
+    if (openDropdownGapId === gapId) {
+      setOpenDropdownGapId(null);
+      return;
+    }
+
+    const el = gapRefs.current[gapId];
+    if (!el) {
+      setOpenDropdownGapId(gapId);
+      return;
+    }
+
+    const rect = el.getBoundingClientRect();
+    const gapObj = gaps.find(g => g.id === gapId);
+    const choicesCount = gapObj?.choices?.length || 3;
+    const minWidth = Math.max(Math.round(rect.width), 80);
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const estimatedHeight = Math.min(choicesCount * 38 + 16, 280);
+
+    const pos = {
+      position: 'fixed',
+      minWidth: `${minWidth}px`,
+      maxWidth: `calc(100vw - 24px)`,
+      zIndex: 99999
+    };
+
+    // Right-side screen boundary protection: if gap is near right edge, align right edge of popover to right of gap
+    if (rect.left > window.innerWidth - 180) {
+      pos.right = `${Math.max(12, Math.round(window.innerWidth - rect.right))}px`;
+    } else {
+      pos.left = `${Math.max(12, Math.round(rect.left))}px`;
+    }
+
+    // If bottom space is too small, flip upwards directly above gap
+    if (spaceBelow < estimatedHeight + 16 && spaceAbove > spaceBelow) {
+      pos.bottom = `${Math.round(window.innerHeight - rect.top + 6)}px`;
+    } else {
+      pos.top = `${Math.round(rect.bottom + 6)}px`;
+    }
+
+    setDropdownPos(pos);
+    setOpenDropdownGapId(gapId);
+  };
+
   const handleSelectOption = (gapId, option) => {
     if (isChecked) return;
     const updated = { ...selectedOptions, [gapId]: option };
     setSelectedOptions(updated);
+    setOpenDropdownGapId(null);
     triggerHaptic('light');
-
-    // Auto-advance to next unfilled gap if available
-    const nextUnfilled = gaps.find(g => g.id !== gapId && !(updated[g.id] || '').trim());
-    if (nextUnfilled) {
-      setActiveGapId(nextUnfilled.id);
-    }
   };
 
   const handleInputChange = (gapId, value) => {
@@ -88,6 +135,7 @@ export const StudyCardTrainer = React.memo(({
 
   const handleCheck = () => {
     if (!allGapsFilled) return;
+    setOpenDropdownGapId(null);
     setIsChecked(true);
 
     const allCorrect = gaps.every(g => {
@@ -106,12 +154,6 @@ export const StudyCardTrainer = React.memo(({
       triggerHaptic('error');
       onTrainerAnswer?.(card.id, false);
     }
-
-    if (!isPureTrainerMode && onFlip) {
-      setTimeout(() => {
-        onFlip(true);
-      }, 700);
-    }
   };
 
   const handleNext = () => {
@@ -120,193 +162,240 @@ export const StudyCardTrainer = React.memo(({
     }
   };
 
-  // Render text with interactive gap badges and inputs
-  const renderTextWithGaps = () => {
-    let text = clozeData.maskedText;
-    const elements = [];
-    let lastIndex = 0;
+  // Render a specific gap element (Input gap or Choice gap badge)
+  const renderGapElement = (gap) => {
+    const rawValue = selectedOptions[gap.id] || '';
+    const isInputGap = gap.mode === 'input';
+    const normUser = normalizeAnswer(rawValue);
+    const validAnswers = (gap.correctAnswer || '').split('|').map(normalizeAnswer);
+    const isCorrectChoice = validAnswers.includes(normUser);
+    const isDropdownOpen = openDropdownGapId === gap.id;
 
-    gaps.forEach((gap) => {
-      const placeholder = `___GAP_${gap.id}___`;
-      const pos = text.indexOf(placeholder, lastIndex);
-      if (pos !== -1) {
-        if (pos > lastIndex) {
-          elements.push(
-            <span key={`text-${lastIndex}`} style={{ cursor: 'default' }}>
-              {text.substring(lastIndex, pos)}
-            </span>
-          );
-        }
+    if (isInputGap) {
+      let borderColor = 'rgba(168, 85, 247, 0.45)';
+      let bgColor = 'rgba(168, 85, 247, 0.1)';
+      let textColor = '#ffffff';
 
-        const rawValue = selectedOptions[gap.id] || '';
-        const isInputGap = gap.mode === 'input';
-        const normUser = normalizeAnswer(rawValue);
-        const validAnswers = (gap.correctAnswer || '').split('|').map(normalizeAnswer);
-        const isCorrectChoice = validAnswers.includes(normUser);
-        const isActive = currentActiveGapId === gap.id && !isChecked;
-
-        if (isInputGap) {
-          let borderColor = 'rgba(168, 85, 247, 0.45)';
-          let bgColor = 'rgba(168, 85, 247, 0.1)';
-          let textColor = '#ffffff';
-
-          if (isChecked) {
-            if (isCorrectChoice) {
-              borderColor = '#22c55e';
-              bgColor = 'rgba(34, 197, 94, 0.25)';
-              textColor = '#4ade80';
-            } else {
-              borderColor = '#ef4444';
-              bgColor = 'rgba(239, 68, 68, 0.25)';
-              textColor = '#f87171';
-            }
-          } else if (isActive) {
-            borderColor = '#a855f7';
-            bgColor = 'rgba(168, 85, 247, 0.28)';
-          }
-
-          const charLen = Math.max((gap.correctAnswer || '').length + 2, rawValue.length + 2, 7);
-
-          elements.push(
-            <span
-              key={`gap-input-wrap-${gap.id}`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                verticalAlign: 'middle',
-                margin: '2px 4px',
-                position: 'relative'
-              }}
-              onClick={e => e.stopPropagation()}
-            >
-              <input
-                type="text"
-                value={rawValue}
-                disabled={isChecked}
-                onChange={(e) => handleInputChange(gap.id, e.target.value)}
-                onFocus={() => setActiveGapId(gap.id)}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                placeholder="______"
-                style={{
-                  width: `${charLen}ch`,
-                  minWidth: '72px',
-                  maxWidth: '240px',
-                  padding: '4px 8px',
-                  borderRadius: '10px',
-                  border: `2px solid ${borderColor}`,
-                  background: bgColor,
-                  color: textColor,
-                  fontWeight: 700,
-                  fontSize: 'inherit',
-                  fontFamily: 'inherit',
-                  textAlign: 'center',
-                  outline: 'none',
-                  boxShadow: isActive ? '0 0 14px rgba(168, 85, 247, 0.7)' : undefined,
-                  transition: 'all 0.15s ease-in-out'
-                }}
-              />
-              {isChecked && (
-                isCorrectChoice ? (
-                  <span style={{ color: '#22c55e', marginLeft: '5px', fontWeight: 800 }}>✓</span>
-                ) : (
-                  <span style={{ color: '#ef4444', marginLeft: '5px', fontSize: '0.88em', fontWeight: 700 }}>
-                    ✗ <span style={{ color: '#4ade80', textDecoration: 'underline' }}>{gap.correctAnswer}</span>
-                  </span>
-                )
-              )}
-            </span>
-          );
+      if (isChecked) {
+        if (isCorrectChoice) {
+          borderColor = '#22c55e';
+          bgColor = 'rgba(34, 197, 94, 0.25)';
+          textColor = '#4ade80';
         } else {
-          // Choice gap
-          let borderColor = 'rgba(168, 85, 247, 0.45)';
-          let bgColor = 'rgba(168, 85, 247, 0.08)';
-          let textColor = '#c084fc';
-          let badgeLabel = rawValue || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____');
-
-          if (isChecked) {
-            if (isCorrectChoice) {
-              borderColor = '#22c55e';
-              bgColor = 'rgba(34, 197, 94, 0.25)';
-              textColor = '#4ade80';
-              badgeLabel = `${rawValue} ✓`;
-            } else {
-              borderColor = '#ef4444';
-              bgColor = 'rgba(239, 68, 68, 0.25)';
-              textColor = '#f87171';
-              badgeLabel = `${rawValue || '—'} ✗ (${gap.correctAnswer})`;
-            }
-          } else if (isActive) {
-            borderColor = '#a855f7';
-            bgColor = 'rgba(168, 85, 247, 0.35)';
-            textColor = '#ffffff';
-          } else if (rawValue) {
-            borderColor = 'rgba(168, 85, 247, 0.7)';
-            bgColor = 'rgba(168, 85, 247, 0.18)';
-            textColor = '#ffffff';
-          }
-
-          elements.push(
-            <motion.span
-              key={`gap-${gap.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!isChecked) {
-                  setActiveGapId(gap.id);
-                  triggerHaptic('light');
-                }
-              }}
-              animate={isActive ? { scale: [1, 1.05, 1] } : { scale: 1 }}
-              transition={isActive ? { repeat: Infinity, duration: 2 } : undefined}
-              style={{
-                position: 'relative',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '2px 4px',
-                minWidth: '68px',
-                padding: '4px 12px',
-                borderRadius: '12px',
-                border: `2px ${rawValue || isActive ? 'solid' : 'dashed'} ${borderColor}`,
-                background: bgColor,
-                color: textColor,
-                fontWeight: 700,
-                textAlign: 'center',
-                cursor: isChecked ? 'default' : 'pointer',
-                boxShadow: isActive ? '0 0 16px rgba(168, 85, 247, 0.8)' : undefined,
-                verticalAlign: 'baseline'
-              }}
-              title={isChecked ? undefined : tr("Пропуск #{{p0}}", { p0: gap.id + 1 })}
-            >
-              <span>{badgeLabel}</span>
-            </motion.span>
-          );
+          borderColor = '#ef4444';
+          bgColor = 'rgba(239, 68, 68, 0.25)';
+          textColor = '#f87171';
         }
-        lastIndex = pos + placeholder.length;
       }
-    });
 
-    if (lastIndex < text.length) {
-      elements.push(
-        <span key={`text-end`} style={{ cursor: 'default' }}>
-          {text.substring(lastIndex)}
+      const charLen = Math.max((gap.correctAnswer || '').length + 2, rawValue.length + 2, 7);
+
+      return (
+        <span
+          key={`gap-input-wrap-${gap.id}`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            verticalAlign: 'middle',
+            margin: '2px 4px',
+            position: 'relative'
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <input
+            type="text"
+            value={rawValue}
+            disabled={isChecked}
+            onChange={(e) => handleInputChange(gap.id, e.target.value)}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="______"
+            style={{
+              width: `${charLen}ch`,
+              minWidth: '72px',
+              maxWidth: '240px',
+              padding: '4px 8px',
+              borderRadius: '10px',
+              border: `2px solid ${borderColor}`,
+              background: bgColor,
+              color: textColor,
+              fontWeight: 700,
+              fontSize: 'inherit',
+              fontFamily: 'inherit',
+              textAlign: 'center',
+              outline: 'none',
+              transition: 'all 0.15s ease-in-out'
+            }}
+          />
+          {isChecked && (
+            isCorrectChoice ? (
+              <span style={{ color: '#22c55e', marginLeft: '5px', fontWeight: 800 }}>✓</span>
+            ) : (
+              <span style={{ color: '#ef4444', marginLeft: '5px', fontSize: '0.88em', fontWeight: 700 }}>
+                ✗ <span style={{ color: '#4ade80', textDecoration: 'underline' }}>{gap.correctAnswer}</span>
+              </span>
+            )
+          )}
         </span>
       );
     }
 
-    return elements;
+    // Choice gap: interactive clickable badge
+    let borderColor = 'rgba(168, 85, 247, 0.45)';
+    let bgColor = 'rgba(168, 85, 247, 0.08)';
+    let textColor = '#c084fc';
+    let badgeLabel = rawValue ? `${rawValue} ▾` : (gaps.length > 1 ? `[${gap.id + 1}] _____ ▾` : '_____ ▾');
+
+    if (isChecked) {
+      if (isCorrectChoice) {
+        borderColor = '#22c55e';
+        bgColor = 'rgba(34, 197, 94, 0.25)';
+        textColor = '#4ade80';
+        badgeLabel = `${rawValue} ✓`;
+      } else {
+        borderColor = '#ef4444';
+        bgColor = 'rgba(239, 68, 68, 0.25)';
+        textColor = '#f87171';
+        badgeLabel = `${rawValue || '—'} ✗ (${gap.correctAnswer})`;
+      }
+    } else if (isDropdownOpen) {
+      borderColor = '#a855f7';
+      bgColor = 'rgba(168, 85, 247, 0.35)';
+      textColor = '#ffffff';
+    } else if (rawValue) {
+      borderColor = 'rgba(168, 85, 247, 0.7)';
+      bgColor = 'rgba(168, 85, 247, 0.18)';
+      textColor = '#ffffff';
+    }
+
+    return (
+      <button
+        key={`gap-btn-${gap.id}`}
+        ref={el => { gapRefs.current[gap.id] = el; }}
+        type="button"
+        onClick={(e) => handleOpenDropdown(gap.id, e)}
+        disabled={isChecked}
+        style={{
+          position: 'relative',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '2px 4px',
+          minWidth: '68px',
+          padding: '4px 10px',
+          borderRadius: '10px',
+          border: `1.5px ${rawValue || isDropdownOpen ? 'solid' : 'dashed'} ${borderColor}`,
+          background: bgColor,
+          color: textColor,
+          fontWeight: 700,
+          fontSize: '0.92em',
+          fontFamily: 'inherit',
+          textAlign: 'center',
+          cursor: isChecked ? 'default' : 'pointer',
+          boxShadow: isDropdownOpen ? '0 0 14px rgba(168, 85, 247, 0.7)' : undefined,
+          verticalAlign: 'baseline',
+          transition: 'all 0.15s ease-in-out',
+          userSelect: 'none',
+          WebkitUserSelect: 'none'
+        }}
+        title={isChecked ? undefined : tr("Нажмите, чтобы выбрать вариант")}
+      >
+        <span>{badgeLabel}</span>
+      </button>
+    );
   };
 
-  const isChoiceMode = activeGap?.mode === 'choice';
-  const choices = isChoiceMode ? (activeGap?.choices || []) : [];
-  const hasLongChoice = choices.some(c => (c || '').length > 16);
+  // Render a snippet of text with gap placeholders replaced by interactive elements
+  const renderSnippetWithGaps = (snippet) => {
+    const parts = [];
+    const regex = /___GAP_(\d+)___/g;
+    let match;
+    let lastIdx = 0;
+
+    while ((match = regex.exec(snippet)) !== null) {
+      const gapIndex = parseInt(match[1], 10);
+      const gap = gaps.find(g => g.id === gapIndex);
+      if (match.index > lastIdx) {
+        parts.push(
+          <span key={`txt-${lastIdx}-${match.index}`} style={{ cursor: 'default' }}>
+            {snippet.substring(lastIdx, match.index)}
+          </span>
+        );
+      }
+      if (gap) {
+        parts.push(renderGapElement(gap));
+      }
+      lastIdx = regex.lastIndex;
+    }
+
+    if (lastIdx < snippet.length) {
+      parts.push(
+        <span key={`txt-end-${lastIdx}`} style={{ cursor: 'default' }}>
+          {snippet.substring(lastIdx)}
+        </span>
+      );
+    }
+
+    return parts;
+  };
+
+  // Render the full text with optional line-by-line / paragraph-by-paragraph translation
+  const renderExerciseContent = () => {
+    const rawMasked = clozeData.maskedText || '';
+    if (!rawMasked) return null;
+
+    // Split front into lines (preserving paragraph structure)
+    const frontRawLines = rawMasked.split('\n');
+    // Split back translation into non-empty lines
+    const backLines = backText
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    let backLinePointer = 0;
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+        {frontRawLines.map((line, idx) => {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            return <div key={`empty-${idx}`} style={{ height: '8px' }} />;
+          }
+
+          const translationForLine = backLines[backLinePointer];
+          backLinePointer += 1;
+
+          return (
+            <div key={`line-${idx}`} style={{ width: '100%', marginBottom: '4px' }}>
+              <div style={{ lineHeight: 1.8 }}>
+                {renderSnippetWithGaps(line)}
+              </div>
+              {showTranslation && translationForLine && (
+                <div className="trainer-line-trans">
+                  <Languages size={15} className="trainer-trans-icon" />
+                  <span>{translationForLine}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {showTranslation && backLinePointer < backLines.length && (
+          <div className="trainer-line-trans" style={{ marginTop: '6px' }}>
+            <Languages size={15} className="trainer-trans-icon" />
+            <span>{backLines.slice(backLinePointer).join('\n')}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div 
-      className="interactive-mode-container" 
-      onClick={e => e.stopPropagation()} 
-      style={{ 
+    <div
+      className="interactive-mode-container"
+      onClick={e => e.stopPropagation()}
+      style={{
         cursor: 'default',
         width: '100%',
         display: 'flex',
@@ -314,36 +403,37 @@ export const StudyCardTrainer = React.memo(({
         alignItems: 'center'
       }}
     >
-      {/* Russian Translation Context */}
-      {card.back && (
-        <div 
-          className="text-back"
-          style={{
-            ...backCardStyle,
-            marginBottom: '8px',
-            textAlign: 'center',
-            width: '100%',
-            opacity: 0.95
-          }}
-        >
-          {card.back}
+      {/* Front Face Translation Toggle Button */}
+      {hasBackText && (
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginBottom: '8px' }}>
+          <button
+            type="button"
+            className={`trainer-toggle-trans-btn ${showTranslation ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTranslation(prev => !prev);
+              triggerHaptic('light');
+            }}
+            title={showTranslation ? tr("Скрыть перевод") : tr("Показать перевод")}
+          >
+            <Languages size={14} />
+            <span>{showTranslation ? tr("Скрыть перевод") : tr("Показать перевод")}</span>
+          </button>
         </div>
       )}
 
-      {/* Masked Sentence Header */}
-      <div 
-        className="text-front cloze-masked-text" 
-        style={{ 
-          ...cardStyle, 
-          margin: '8px 0 16px 0', 
-          lineHeight: 1.8, 
-          whiteSpace: 'pre-wrap', 
+      {/* Main Text with Gaps & Inline Translation */}
+      <div
+        className="text-front cloze-masked-text"
+        style={{
+          ...cardStyle,
+          margin: '4px 0 16px 0',
           cursor: 'default',
           width: '100%'
         }}
         onClick={e => e.stopPropagation()}
       >
-        {renderTextWithGaps()}
+        {renderExerciseContent()}
       </div>
 
       {renderAudioPlayer && (
@@ -352,109 +442,8 @@ export const StudyCardTrainer = React.memo(({
         </div>
       )}
 
-      {/* Multi-gap Indicator if choice gap active */}
-      {isChoiceMode && gaps.length > 1 && !isChecked && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          marginBottom: '10px',
-          fontSize: '0.8rem',
-          color: '#c084fc',
-          fontWeight: 600
-        }}>
-          <Sparkles size={13} />
-          <span>{tr("Варианты для пропуска #")}{currentActiveGapId + 1}{' '}{tr("из")}{' '}{gaps.length}</span>
-        </div>
-      )}
-
-      {/* Duolingo-style Options Grid (Shown only for choice gaps) */}
-      {isChoiceMode && choices.length > 0 && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: hasLongChoice || choices.length <= 1 ? '1fr' : 'repeat(2, 1fr)',
-            gap: '10px',
-            width: '100%',
-            maxWidth: '380px',
-            margin: '0 auto 18px auto'
-          }}
-        >
-          {choices.map((opt, i) => {
-            const chosen = selectedOptions[currentActiveGapId];
-            const isSelected = chosen === opt;
-            const isCorrect = opt.toLowerCase() === activeGap?.correctAnswer?.toLowerCase();
-
-            let btnBg = 'rgba(255, 255, 255, 0.06)';
-            let btnBorder = '1.5px solid rgba(255, 255, 255, 0.12)';
-            let btnColor = '#f1f5f9';
-            let btnShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
-
-            if (isChecked) {
-              if (isCorrect) {
-                btnBg = 'rgba(34, 197, 94, 0.25)';
-                btnBorder = '2px solid #22c55e';
-                btnColor = '#4ade80';
-                btnShadow = '0 0 16px rgba(34, 197, 94, 0.4)';
-              } else if (isSelected && !isCorrect) {
-                btnBg = 'rgba(239, 68, 68, 0.25)';
-                btnBorder = '2px solid #ef4444';
-                btnColor = '#f87171';
-              } else {
-                btnBg = 'rgba(255, 255, 255, 0.02)';
-                btnBorder = '1px solid rgba(255, 255, 255, 0.05)';
-                btnColor = 'rgba(255, 255, 255, 0.35)';
-              }
-            } else if (isSelected) {
-              btnBg = 'linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(124, 58, 237, 0.4))';
-              btnBorder = '2px solid #a855f7';
-              btnColor = '#ffffff';
-              btnShadow = '0 0 18px rgba(168, 85, 247, 0.45)';
-            }
-
-            return (
-              <motion.button
-                key={`${currentActiveGapId}-${i}-${opt}`}
-                type="button"
-                whileTap={!isChecked ? { scale: 0.95 } : undefined}
-                disabled={isChecked}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSelectOption(currentActiveGapId, opt);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minHeight: '48px',
-                  padding: '10px 14px',
-                  borderRadius: '14px',
-                  background: btnBg,
-                  border: btnBorder,
-                  color: (isChecked || isSelected) ? btnColor : (contextStyle.color || btnColor),
-                  fontFamily: contextStyle.fontFamily || undefined,
-                  fontSize: contextStyle.fontSize || '1.1rem',
-                  fontWeight: isSelected ? 700 : (contextStyle.fontWeight || 600),
-                  fontStyle: contextStyle.fontStyle || undefined,
-                  textShadow: contextStyle.textShadow || undefined,
-                  cursor: isChecked ? 'default' : 'pointer',
-                  textAlign: 'center',
-                  boxShadow: btnShadow,
-                  transition: 'all 0.15s ease-in-out',
-                  wordBreak: 'break-word',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none'
-                }}
-              >
-                <span>{opt}</span>
-              </motion.button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Action Footer & Buttons */}
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
         {!isChecked ? (
           <button
             className="btn btn-primary"
@@ -466,8 +455,8 @@ export const StudyCardTrainer = React.memo(({
               borderRadius: '16px',
               fontSize: '1.02rem',
               cursor: allGapsFilled ? 'pointer' : 'not-allowed',
-              background: allGapsFilled 
-                ? 'linear-gradient(135deg, #a855f7, #7c3aed)' 
+              background: allGapsFilled
+                ? 'linear-gradient(135deg, #a855f7, #7c3aed)'
                 : 'rgba(25, 20, 42, 0.85)',
               color: allGapsFilled ? '#ffffff' : '#94a3b8',
               boxShadow: allGapsFilled ? '0 6px 24px rgba(168, 85, 247, 0.5)' : 'none',
@@ -484,7 +473,7 @@ export const StudyCardTrainer = React.memo(({
           >
             {allGapsFilled ? tr("Проверить ответы") : tr("Заполните пропуски ({{p0}}/{{p1}})", { p0: filledCount, p1: gaps.length })}
           </button>
-        ) : isPureTrainerMode ? (
+        ) : (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
             <button
               className="btn btn-primary"
@@ -506,10 +495,50 @@ export const StudyCardTrainer = React.memo(({
                 e.stopPropagation();
                 handleNext();
               }}
-            >{tr("Дальше →")}{' '}</button>
+            >
+              {tr("Дальше →")}
+            </button>
           </div>
-        ) : null}
+        )}
       </div>
+
+      {/* Viewport-Safe Floating Gap Dropdown Popover */}
+      {openDropdownGapId !== null && (() => {
+        const activeDropdownGap = gaps.find(g => g.id === openDropdownGapId);
+        if (!activeDropdownGap || activeDropdownGap.mode !== 'choice') return null;
+        const currentChoices = activeDropdownGap.choices || [];
+        const currentChosen = selectedOptions[openDropdownGapId];
+
+        return createPortal(
+          <>
+            <div
+              className="gap-dropdown-backdrop"
+              onClick={() => setOpenDropdownGapId(null)}
+              onTouchStart={() => setOpenDropdownGapId(null)}
+            />
+            <div className="gap-dropdown-popover" style={dropdownPos} onClick={e => e.stopPropagation()}>
+              {currentChoices.map((opt, i) => {
+                const isSelected = currentChosen === opt;
+                return (
+                  <button
+                    key={`${openDropdownGapId}-${i}-${opt}`}
+                    type="button"
+                    className={`gap-dropdown-item ${isSelected ? 'is-selected' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectOption(openDropdownGapId, opt);
+                    }}
+                  >
+                    <span style={{ flex: 1 }}>{opt}</span>
+                    {isSelected && <span style={{ color: '#c084fc', fontWeight: 800 }}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </>,
+          document.body
+        );
+      })()}
     </div>
   );
 });

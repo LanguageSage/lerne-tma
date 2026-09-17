@@ -92,3 +92,136 @@
   .study-card-flip-button { transition: none; }
   .study-card-flip-button:active:not(:disabled) { transform: none; }
 }
+
+/* ── Gap Dropdown / Popover ───────────────────────────────────────── */
+.gap-dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: transparent;
+  touch-action: none;
+}
+
+.gap-dropdown-popover {
+  position: fixed;
+  z-index: 99999;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 14px;
+  padding: 5px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(168, 85, 247, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: gapDropdownFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@keyframes gapDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.gap-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f1f5f9;
+  font-size: 0.94rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  box-sizing: border-box;
+}
+
+.gap-dropdown-item:active {
+  background: rgba(168, 85, 247, 0.35);
+  border-color: #a855f7;
+  transform: scale(0.98);
+}
+
+.gap-dropdown-item.is-selected {
+  background: rgba(168, 85, 247, 0.25);
+  border-color: #a855f7;
+  color: #c084fc;
+  font-weight: 700;
+}
+
+/* ── Front Face Translation Toggle & Lines ────────────────────────── */
+.trainer-toggle-trans-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.1);
+  color: #d8b4fe;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  margin-bottom: 12px;
+}
+
+.trainer-toggle-trans-btn:hover, .trainer-toggle-trans-btn.active {
+  background: rgba(168, 85, 247, 0.25);
+  border-color: #a855f7;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+}
+
+.trainer-line-trans {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(168, 85, 247, 0.12);
+  border-left: 3px solid #a855f7;
+  color: #f1f5f9;
+  font-size: 0.96em;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: left;
+  animation: lineTransFadeIn 0.2s ease-out;
+  box-sizing: border-box;
+}
+
+@keyframes lineTransFadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.trainer-trans-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #c084fc;
+}
+

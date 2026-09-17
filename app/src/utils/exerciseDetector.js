@@ -1,46 +1,66 @@
 import { parseQuizData } from './quizParser.js';
 
-const SPECIALIZED_TYPES = ['match', 'free_text', 'quiz', 'trainer', 'puzzle'];
+/**
+ * Checks if the text contains valid trainer cloze gaps:
+ * - Choice gap: {...} (e.g. {*mit|nach|zu} or {mit|nach|zu})
+ * - Input gap: [[...]] (e.g. [[hatte]])
+ */
+export const hasTrainerSyntax = (text) => {
+  if (!text) return false;
+  return /\{([^}]+)\}|\[\[([^\]]+)\]\]/.test(text);
+};
 
 /**
- * Detects the specific exercise type of a card.
+ * Detects the specific exercise type of a card strictly based on its content (front).
+ * DB card_type is NOT the source of truth — card content is.
+ *
+ * Strict Priority:
+ * 1. match (@match)
+ * 2. free_text (@free)
+ * 3. puzzle (@puzzle)
+ * 4. trainer ({...} or [[...]]) - absolute priority over quiz
+ * 5. quiz (structured multiple choice test with * on option lines)
+ * 6. puzzle (if studyMode === 'puzzle')
+ * 7. null (standard card)
+ *
  * Returns: 'match' | 'free_text' | 'quiz' | 'trainer' | 'puzzle' | null
  */
-export const detectExerciseType = (card, studyMode = 'classic') => {
-  if (!card) return null;
-  const front = card.front || card.front_text || '';
-  const type = (card.card_type || '').toLowerCase().trim();
+export const detectExerciseType = (cardOrFront, studyMode = 'classic') => {
+  if (!cardOrFront) return null;
+  const front = typeof cardOrFront === 'string'
+    ? cardOrFront
+    : (cardOrFront.front || cardOrFront.front_text || '');
+  const trimmed = front.trim();
+  if (!trimmed) return null;
 
-  // 1. Explicit specialized types have absolute priority
-  if (SPECIALIZED_TYPES.includes(type)) {
-    return type;
-  }
-
-  // 2. Syntax-based auto-detection for general/missing types (standard, translation, etc.):
-  if (/^@match\b/i.test(front) || /\n@match\b/i.test(front)) {
+  // 1. Match directive: @match
+  if (/^@match\b/i.test(trimmed) || /\n@match\b/i.test(trimmed)) {
     return 'match';
   }
 
-  if (/^@free\b/i.test(front) || /\n@free\b/i.test(front)) {
+  // 2. Free text writing directive: @free
+  if (/^@free\b/i.test(trimmed) || /\n@free\b/i.test(trimmed)) {
     return 'free_text';
   }
 
-  if (/^@puzzle\b/i.test(front) || /\n@puzzle\b/i.test(front)) {
+  // 3. Sentence builder / puzzle directive: @puzzle
+  if (/^@puzzle\b/i.test(trimmed) || /\n@puzzle\b/i.test(trimmed)) {
     return 'puzzle';
   }
 
-  // 3. Quiz check BEFORE cloze braces so question text with braces (e.g. "Difference between {A} and {B}?") stays quiz
-  const quizData = parseQuizData(card);
+  // 4. Trainer / Cloze gaps: {...} or [[...]] (Strict priority over quiz)
+  if (hasTrainerSyntax(trimmed)) {
+    return 'trainer';
+  }
+
+  // 5. Quiz / Multiple Choice structure (Checked on content after masking trainer tokens)
+  const cardObj = typeof cardOrFront === 'string' ? { front: cardOrFront } : cardOrFront;
+  const quizData = parseQuizData(cardObj);
   if (quizData?.isQuiz) {
     return 'quiz';
   }
 
-  // 4. Cloze / Trainer braces {...} or brackets [[...]]
-  if (/\{([^}]+)\}|\[\[([^\]]+)\]\]/.test(front)) {
-    return 'trainer';
-  }
-
-  // 5. Explicit studyMode puzzle
+  // 6. Explicit studyMode puzzle fallback
   if (studyMode === 'puzzle') {
     return 'puzzle';
   }

@@ -291,10 +291,6 @@ export const StudyCard = React.memo(({
         const isFirstTry = wrongSelected.length === 0;
         onTrainerAnswer(card.id, isFirstTry);
       }
-
-      setTimeout(() => {
-        onFlip(true);
-      }, 700);
     } else {
       if (!wrongSelected.includes(option)) {
         if (studyMode === 'trainer' && wrongSelected.length === 0 && onTrainerAnswer) {
@@ -681,61 +677,74 @@ export const StudyCard = React.memo(({
               </div>
 
               {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
-              <div className="card-side-separator">
-                <div className="separator-line" />
-                <div className="separator-badge">
-                  <RotateCw size={12} />
-                  <span>
-                    {studyMode === 'reverse'
-                      ? tr("Оригинал")
-                      : exerciseType
-                      ? tr("Ответ / объяснение")
-                      : tr("Перевод")}
-                  </span>
-                </div>
-                <div className="separator-line" />
-              </div>
+              {(() => {
+                const frontClean = cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front)).trim();
+                const backClean = cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.front : card.back)).trim();
+                const hasDistinctBack = Boolean(backClean && backClean !== frontClean);
+                if (!hasDistinctBack && !card.video_back_url && !deckVideo?.url) return null;
 
-              {(card.video_back_url || deckVideo?.url) && (
-                <div className="video-container-card">
-                  <video src={card.video_back_url || deckVideo?.url} autoPlay loop muted playsInline />
-                </div>
-              )}
-              
-              {/* 3. BACK ANSWER BLOCK */}
-              <div className="back-answer-block">
-                {(() => {
-                  const targetBackAudioUrl = studyMode === 'reverse'
-                    ? getResolvedAudioUrl(card, false)
-                    : getResolvedAudioUrl(card, true);
-                  if (targetBackAudioUrl) {
-                    return (
-                      <CardAudioPlayer
-                        audioUrl={targetBackAudioUrl}
-                        playAudio={audioControls?.playAudio || playAudio}
-                        pauseAudio={audioControls?.pauseAudio}
-                        resumeAudio={audioControls?.resumeAudio}
-                        togglePlayPause={audioControls?.togglePlayPause}
-                        stopAudio={audioControls?.stopAudio}
-                        seekAudio={audioControls?.seekAudio}
-                        setPlaybackSpeed={audioControls?.setPlaybackSpeed}
-                        audioState={audioControls?.audioState}
-                        currentUrl={audioControls?.currentUrl}
-                        currentTime={audioControls?.currentTime}
-                        duration={audioControls?.duration}
-                        playbackRate={audioControls?.playbackRate}
-                        isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
-                        isGenerating={card.audio_is_generating}
-                        disabled={loading || isAudioLoading}
-                      />
-                    );
-                  }
-                  return null;
-                })()}
-                <div id="tut-study-answer" className="text-back" style={backCardStyle}>
-                  {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.front : card.back))}
-                </div>
-              </div>
+                return (
+                  <>
+                    <div className="card-side-separator">
+                      <div className="separator-line" />
+                      <div className="separator-badge">
+                        <RotateCw size={12} />
+                        <span>
+                          {studyMode === 'reverse'
+                            ? tr("Оригинал")
+                            : exerciseType
+                            ? tr("Ответ / объяснение")
+                            : tr("Перевод")}
+                        </span>
+                      </div>
+                      <div className="separator-line" />
+                    </div>
+
+                    {(card.video_back_url || deckVideo?.url) && (
+                      <div className="video-container-card">
+                        <video src={card.video_back_url || deckVideo?.url} autoPlay loop muted playsInline />
+                      </div>
+                    )}
+                    
+                    {/* 3. BACK ANSWER BLOCK */}
+                    {hasDistinctBack && (
+                      <div className="back-answer-block">
+                        {(() => {
+                          const targetBackAudioUrl = studyMode === 'reverse'
+                            ? getResolvedAudioUrl(card, false)
+                            : getResolvedAudioUrl(card, true);
+                          if (targetBackAudioUrl) {
+                            return (
+                              <CardAudioPlayer
+                                audioUrl={targetBackAudioUrl}
+                                playAudio={audioControls?.playAudio || playAudio}
+                                pauseAudio={audioControls?.pauseAudio}
+                                resumeAudio={audioControls?.resumeAudio}
+                                togglePlayPause={audioControls?.togglePlayPause}
+                                stopAudio={audioControls?.stopAudio}
+                                seekAudio={audioControls?.seekAudio}
+                                setPlaybackSpeed={audioControls?.setPlaybackSpeed}
+                                audioState={audioControls?.audioState}
+                                currentUrl={audioControls?.currentUrl}
+                                currentTime={audioControls?.currentTime}
+                                duration={audioControls?.duration}
+                                playbackRate={audioControls?.playbackRate}
+                                isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
+                                isGenerating={card.audio_is_generating}
+                                disabled={loading || isAudioLoading}
+                              />
+                            );
+                          }
+                          return null;
+                        })()}
+                        <div id="tut-study-answer" className="text-back" style={backCardStyle}>
+                          {backClean}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               
               {imageUrl && (
                 <div style={{ marginTop: '12px', marginBottom: '12px', flexShrink: 0 }}>

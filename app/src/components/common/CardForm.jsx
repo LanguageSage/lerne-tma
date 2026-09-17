@@ -18,6 +18,7 @@ import { triggerHaptic } from '../../utils/platform';
 
 import { useTranslation } from '../../i18n/i18nContext';
 import { getAudioUrl } from '../../utils/media';
+import { detectExerciseType } from '../../utils/exerciseDetector';
 import api from '../../services/api';
 
 export const CardForm = ({
@@ -834,17 +835,7 @@ export const CardForm = ({
                 minHeight: '80px'
               }}
               placeholder={(() => {
-                const isExercise = Boolean(
-                  cardData?.card_type === 'match' ||
-                  cardData?.card_type === 'free_text' ||
-                  cardData?.card_type === 'trainer' ||
-                  cardData?.card_type === 'quiz' ||
-                  cardData?.card_type === 'puzzle' ||
-                  /^@match\b/i.test(cardData?.front || '') ||
-                  /^@free\b/i.test(cardData?.front || '') ||
-                  /^@puzzle\b/i.test(cardData?.front || '') ||
-                  /\{([^}]+)\}|\[\[([^\]]+)\]\]/.test(cardData?.front || '')
-                );
+                const isExercise = Boolean(detectExerciseType(cardData));
                 return isExercise ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');
               })()}
             />

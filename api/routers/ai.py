@@ -99,7 +99,7 @@ async def enrich_batch_cards(request: EnrichBatchRequest, user_id: int = Depends
                     "tags": c.get("tags") or c.get("level", "A1"),
                     "level": c.get("level", "A1"),
                     "cefr": c.get("cefr") or build_ai_cefr_payload(c.get("level", "A1")),
-                    "card_type": c.get("card_type", "quiz"),
+                    "card_type": c.get("card_type") or "standard",
                     "source": "ai_batch_quiz"
                 })
             saved = services.bulk_save_cards(payload_to_save, user_id)

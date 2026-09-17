@@ -40,7 +40,7 @@ import { getFlagStyle } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
-import { parseQuizData } from '../../utils/quizParser';
+import { detectExerciseType } from '../../utils/exerciseDetector';
 import { getTextShadow, getCardListBgStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
@@ -86,8 +86,12 @@ const DraggableCardItem = React.memo(({
     ...flagStyle
   };
 
-  const isQuizCard = React.useMemo(() => c.card_type === 'quiz' || parseQuizData(c) !== null, [c]);
-  const isTrainerCard = React.useMemo(() => c.card_type === 'trainer' || (!isQuizCard && /\{([^}]+)\}/.test(c.front || '')), [c, isQuizCard]);
+  const detectedExerciseType = React.useMemo(() => detectExerciseType(c), [c]);
+  const isQuizCard = detectedExerciseType === 'quiz';
+  const isTrainerCard = detectedExerciseType === 'trainer';
+  const isMatchCard = detectedExerciseType === 'match';
+  const isFreeTextCard = detectedExerciseType === 'free_text';
+  const isPuzzleCard = detectedExerciseType === 'puzzle';
 
   const linesLimit = previewCardLines === 0 ? 0 : (previewCardLines || 2);
   const isFrontLong = linesLimit > 0 && ((c.front || '').length > (linesLimit * 45) || (c.front || '').split('\n').length > linesLimit);
@@ -213,6 +217,51 @@ const DraggableCardItem = React.memo(({
               alignItems: 'center',
               gap: '2px'
             }}>{tr("🏋️ Тренажер")}{' '}</span>
+          )}
+
+          {isMatchCard && (
+            <span style={{ 
+              fontSize: '0.68rem', 
+              fontWeight: 700, 
+              color: '#38bdf8', 
+              background: 'rgba(56, 189, 248, 0.15)', 
+              border: '1px solid rgba(56, 189, 248, 0.3)', 
+              borderRadius: '6px', 
+              padding: '1px 5px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px'
+            }}>{tr("🔗 Сопоставление")}{' '}</span>
+          )}
+
+          {isFreeTextCard && (
+            <span style={{ 
+              fontSize: '0.68rem', 
+              fontWeight: 700, 
+              color: '#f59e0b', 
+              background: 'rgba(245, 158, 11, 0.15)', 
+              border: '1px solid rgba(245, 158, 11, 0.3)', 
+              borderRadius: '6px', 
+              padding: '1px 5px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px'
+            }}>{tr("💬 Письмо")}{' '}</span>
+          )}
+
+          {isPuzzleCard && (
+            <span style={{ 
+              fontSize: '0.68rem', 
+              fontWeight: 700, 
+              color: '#ec4899', 
+              background: 'rgba(236, 72, 153, 0.15)', 
+              border: '1px solid rgba(236, 72, 153, 0.3)', 
+              borderRadius: '6px', 
+              padding: '1px 5px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px'
+            }}>{tr("🧩 Пазл")}{' '}</span>
           )}
         </div>
 

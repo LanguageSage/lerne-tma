@@ -20,7 +20,6 @@ const PAIR_COLORS = [
 export const StudyCardMatch = React.memo(({
   card,
   matchData,
-  onFlip,
   onTrainerAnswer,
   onNextCard,
   renderAudioPlayer,
@@ -163,12 +162,6 @@ export const StudyCardMatch = React.memo(({
       setIsFirstTry(false);
       triggerHaptic('error');
       onTrainerAnswer?.(card.id, false);
-    }
-
-    if (!isPureTrainerMode && onFlip) {
-      setTimeout(() => {
-        onFlip(true);
-      }, 700);
     }
   };
 
@@ -403,20 +396,21 @@ export const StudyCardMatch = React.memo(({
       {isChecked && pairs.some(p => !isPairCorrect(p.id, userMatches[p.id])) && (
         <div style={{
           width: '100%',
-          padding: '10px 14px',
-          borderRadius: '12px',
-          background: 'rgba(239, 68, 68, 0.12)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
-          marginBottom: '14px',
-          fontSize: '0.8rem',
-          color: '#fca5a5'
+          padding: '14px 16px',
+          borderRadius: '14px',
+          background: 'rgba(239, 68, 68, 0.15)',
+          border: '1.5px solid rgba(239, 68, 68, 0.35)',
+          marginBottom: '16px',
+          fontSize: '1.02rem',
+          color: '#fca5a5',
+          lineHeight: 1.55
         }}>
-          <div style={{ fontWeight: 700, marginBottom: '6px' }}>{tr("Правильные соответствия:")}</div>
+          <div style={{ fontWeight: 700, fontSize: '1.08rem', marginBottom: '8px', color: '#ffb4b4' }}>{tr("Правильные соответствия:")}</div>
           {pairs.map(p => (
-            <div key={`corr-${p.id}`} style={{ margin: '3px 0' }}>
-              <span style={{ color: '#fff', fontWeight: 600 }}>{p.left}</span>
+            <div key={`corr-${p.id}`} style={{ margin: '6px 0', fontSize: '1rem', lineHeight: 1.5 }}>
+              <span style={{ color: '#ffffff', fontWeight: 600 }}>{p.left}</span>
               {' '}→{' '}
-              <span style={{ color: '#4ade80' }}>{p.right}</span>
+              <span style={{ color: '#4ade80', fontWeight: 700 }}>{p.right}</span>
             </div>
           ))}
         </div>

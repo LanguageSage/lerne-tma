@@ -16,13 +16,13 @@ export const normalizeMatchValue = (str) => {
  * Supported separators: =>, ->, —, =
  */
 export const parseMatchData = (card) => {
-  if (!card || !card.front) return null;
+  if (!card) return null;
 
-  const rawFront = card.front.trim();
-  const isExplicitType = card.card_type === 'match';
+  const rawFront = (typeof card === 'string' ? card : (card.front || card.front_text || '')).trim();
+  if (!rawFront) return null;
+
   const hasMatchTag = /^@match\b/i.test(rawFront) || /\n@match\b/i.test(rawFront);
-
-  if (!isExplicitType && !hasMatchTag) return null;
+  if (!hasMatchTag) return null;
 
   // Remove @match directive
   const textWithoutDirective = rawFront.replace(/@match\b/i, '').trim();

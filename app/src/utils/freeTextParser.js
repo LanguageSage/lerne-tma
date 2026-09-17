@@ -9,19 +9,19 @@ import { stripMarkdown } from './text.js';
  * Example answer can be provided in back or context.
  */
 export const parseFreeTextData = (card) => {
-  if (!card || !card.front) return null;
+  if (!card) return null;
 
-  const rawFront = card.front.trim();
-  const isExplicitType = card.card_type === 'free_text';
+  const rawFront = (typeof card === 'string' ? card : (card.front || card.front_text || '')).trim();
+  if (!rawFront) return null;
+
   const hasFreeTag = /^@free\b/i.test(rawFront) || /\n@free\b/i.test(rawFront);
-
-  if (!isExplicitType && !hasFreeTag) return null;
+  if (!hasFreeTag) return null;
 
   const prompt = rawFront.replace(/@free\b/i, '').trim();
 
   return {
     isFreeText: true,
     prompt: stripMarkdown(prompt) || prompt,
-    exampleAnswer: (card.back || card.context || '').trim()
+    exampleAnswer: (typeof card === 'object' ? (card.back || card.back_text || card.context || '') : '').trim()
   };
 };

@@ -10,6 +10,7 @@ import { useCardActions } from '../../hooks/useCardActions';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { db } from '../../services/localDb';
 import { parseBatchCardsText } from '../../utils/batchCardParser';
+import { detectExerciseType } from '../../utils/exerciseDetector';
 import api from '../../services/api';
 
 export const BatchCardModal = () => {
@@ -171,7 +172,7 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
         back: c.back,
         back_text: c.back,
         context: c.context || '',
-        card_type: c.card_type,
+        card_type: detectExerciseType(c) || c.card_type || 'standard',
         level: c.level,
         tags: c.tags,
         position: idx
@@ -220,7 +221,7 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
         back: c.back,
         back_text: c.back,
         context: c.context || '',
-        card_type: c.card_type,
+        card_type: detectExerciseType(c) || c.card_type || 'standard',
         level: c.level,
         tags: c.tags,
         position: currentPos + idx,
@@ -253,11 +254,13 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
   };
 
   // Count types for summary
-  const quizCount = parsedCards.filter(c => c.card_type === 'quiz').length;
-  const trainerCount = parsedCards.filter(c => c.card_type === 'trainer').length;
-  const matchCount = parsedCards.filter(c => c.card_type === 'match').length;
-  const freeTextCount = parsedCards.filter(c => c.card_type === 'free_text').length;
-  const standardCount = parsedCards.filter(c => c.card_type === 'standard').length;
+  const getCardType = (c) => detectExerciseType(c) || c.card_type || 'standard';
+  const quizCount = parsedCards.filter(c => getCardType(c) === 'quiz').length;
+  const trainerCount = parsedCards.filter(c => getCardType(c) === 'trainer').length;
+  const matchCount = parsedCards.filter(c => getCardType(c) === 'match').length;
+  const freeTextCount = parsedCards.filter(c => getCardType(c) === 'free_text').length;
+  const puzzleCount = parsedCards.filter(c => getCardType(c) === 'puzzle').length;
+  const standardCount = parsedCards.filter(c => getCardType(c) === 'standard').length;
 
   return (
     <AnimatePresence>
@@ -408,6 +411,7 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
                             {quizCount > 0 && <span style={{ color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '1px 5px', borderRadius: 4 }}>☑️ Quiz: {quizCount}</span>}
                             {matchCount > 0 && <span style={{ color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '1px 5px', borderRadius: 4 }}>🔗 Match: {matchCount}</span>}
                             {freeTextCount > 0 && <span style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '1px 5px', borderRadius: 4 }}>💬 Free text: {freeTextCount}</span>}
+                            {puzzleCount > 0 && <span style={{ color: '#ec4899', background: 'rgba(236,72,153,0.15)', padding: '1px 5px', borderRadius: 4 }}>🧩 Puzzle: {puzzleCount}</span>}
                             {standardCount > 0 && <span style={{ color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4 }}>📖 Standard: {standardCount}</span>}
                           </span>
                         )}
@@ -422,47 +426,53 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
                       <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' }}>
                         {tr("Предпросмотр (")}{parsedCards.length}):
                       </span>
-                      {parsedCards.map((card, idx) => (
-                        <div key={idx} style={{
-                          padding: '8px 12px',
-                          borderRadius: 8,
-                          background: 'rgba(255, 255, 255, 0.04)',
-                          border: '1px solid rgba(255, 255, 255, 0.07)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 3
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-                              {card.card_type === 'quiz' && (
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>☑️ Quiz</span>
-                              )}
-                              {card.card_type === 'trainer' && (
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🏋️ Trainer</span>
-                              )}
-                              {card.card_type === 'match' && (
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🔗 Match</span>
-                              )}
-                              {card.card_type === 'free_text' && (
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>💬 Free text</span>
-                              )}
-                              {card.card_type === 'standard' && (
-                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>📖 Standard</span>
-                              )}
-                              <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {card.front.split('\n')[0]}
-                              </span>
+                      {parsedCards.map((card, idx) => {
+                        const cardType = getCardType(card);
+                        return (
+                          <div key={idx} style={{
+                            padding: '8px 12px',
+                            borderRadius: 8,
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.07)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 3
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                                {cardType === 'quiz' && (
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>☑️ Quiz</span>
+                                )}
+                                {cardType === 'trainer' && (
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🏋️ Trainer</span>
+                                )}
+                                {cardType === 'match' && (
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🔗 Match</span>
+                                )}
+                                {cardType === 'free_text' && (
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>💬 Free text</span>
+                                )}
+                                {cardType === 'puzzle' && (
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#ec4899', background: 'rgba(236,72,153,0.15)', border: '1px solid rgba(236,72,153,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🧩 Puzzle</span>
+                                )}
+                                {cardType === 'standard' && (
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>📖 Standard</span>
+                                )}
+                                <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {card.front.split('\n')[0]}
+                                </span>
+                              </div>
+                              <CardLevelBadge card={card} size="sm" />
                             </div>
-                            <CardLevelBadge card={card} size="sm" />
+                            {card.back && (
+                              <div style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ color: '#4ade80' }}>✓</span>
+                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.back}</span>
+                              </div>
+                            )}
                           </div>
-                          {card.back && (
-                            <div style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span style={{ color: '#4ade80' }}>✓</span>
-                              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.back}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </>
@@ -524,47 +534,50 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '350px', overflowY: 'auto', paddingRight: 4 }}>
-                  {generatedCards.map((card, idx) => (
-                    <div key={idx} style={{
-                      padding: '10px 14px',
-                      borderRadius: 10,
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-                          {card.card_type === 'quiz' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>☑️ Quiz</span>
-                          )}
-                          {card.card_type === 'trainer' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🏋️ Trainer</span>
-                          )}
-                          {card.card_type === 'match' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🔗 Match</span>
-                          )}
-                          {card.card_type === 'free_text' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>💬 Free text</span>
-                          )}
-                          {card.card_type === 'puzzle' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#ec4899', background: 'rgba(236,72,153,0.15)', border: '1px solid rgba(236,72,153,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🧩 Puzzle</span>
-                          )}
-                          {card.card_type === 'standard' && (
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>📖 Standard</span>
-                          )}
-                          <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {(card.front_text || card.front || '').split('\n')[0]}
-                          </span>
+                  {generatedCards.map((card, idx) => {
+                    const cardType = getCardType(card);
+                    return (
+                      <div key={idx} style={{
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                            {cardType === 'quiz' && (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>☑️ Quiz</span>
+                            )}
+                            {cardType === 'trainer' && (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🏋️ Trainer</span>
+                            )}
+                            {cardType === 'match' && (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🔗 Match</span>
+                            )}
+                            {cardType === 'free_text' && (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>💬 Free text</span>
+                            )}
+                            {cardType === 'puzzle' && (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#ec4899', background: 'rgba(236,72,153,0.15)', border: '1px solid rgba(236,72,153,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🧩 Puzzle</span>
+                            )}
+                            {cardType === 'standard' && (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>📖 Standard</span>
+                            )}
+                            <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {(card.front_text || card.front || '').split('\n')[0]}
+                            </span>
+                          </div>
+                          <CardLevelBadge card={card} size="sm" />
                         </div>
-                        <CardLevelBadge card={card} size="sm" />
+                        <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
+                          {card.back_text || card.back}
+                        </span>
                       </div>
-                      <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
-                        {card.back_text || card.back}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -651,7 +651,7 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
                                 merged["level"] = generated_item["level"]
                                 merged["tags"] = generated_item["level"]
                                 merged["cefr"] = build_ai_cefr_payload(generated_item["level"])
-                            merged["card_type"] = generated_item.get("card_type") or original_card.get("card_type") or "quiz"
+                            merged["card_type"] = original_card.get("card_type") or generated_item.get("card_type") or "standard"
                             enriched_cards.append(merged)
                     else:
                         logger.warning(f"Could not parse AI response chunk {index}")
