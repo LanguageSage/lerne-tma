@@ -218,7 +218,7 @@ def _strip_markdown(text):
     res = res.replace("**", "").replace("__", "").replace("`", "").replace("*", "").replace("_", "")
     res = res.replace("<center>", "").replace("</center>", "").replace("<large>", "").replace("</large>", "")
     res = re.sub(r"\{\{.*?\}\}", "", res)
-    res = re.sub(r"\[\[.*?\]\]", "", res)
+    res = res.replace("[[", "").replace("]]", "")
     import unicodedata
     res = "".join(ch for ch in res if unicodedata.category(ch)[0] != "C")
     res = res.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")

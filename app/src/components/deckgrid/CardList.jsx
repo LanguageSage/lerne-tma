@@ -1535,9 +1535,11 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                     setBatchModalMode('copy');
                     setIsBatchMoveModalOpen(true);
                   }}
+                  title={tr("Копировать выбранные карточки")}
                 >
                   <Copy size={15} />
-                  <span>{tr("Копировать")} ({selectedCardIds.size})</span>
+                  <span className="batch-btn-label">{tr("Копировать")}</span>
+                  <span className="batch-btn-count">({selectedCardIds.size})</span>
                 </button>
 
                 <button
@@ -1548,9 +1550,11 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                     setBatchModalMode('move');
                     setIsBatchMoveModalOpen(true);
                   }}
+                  title={tr("Переместить выбранные карточки")}
                 >
                   <Move size={15} />
-                  <span>{tr("Переместить")} ({selectedCardIds.size})</span>
+                  <span className="batch-btn-label">{tr("Переместить")}</span>
+                  <span className="batch-btn-count">({selectedCardIds.size})</span>
                 </button>
 
                 <button
@@ -1565,9 +1569,11 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       setIsSelectMode(false);
                     }
                   }}
+                  title={tr("Удалить выбранные карточки")}
                 >
                   <Trash2 size={15} />
-                  <span>{tr("Удалить")} ({selectedCardIds.size})</span>
+                  <span className="batch-btn-label">{tr("Удалить")}</span>
+                  <span className="batch-btn-count">({selectedCardIds.size})</span>
                 </button>
 
                 <button

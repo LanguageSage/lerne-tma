@@ -84,6 +84,22 @@ class TrainerInputRegressionTests(unittest.TestCase):
             "Zeile (sein) einsHinweis: (kaufen)",
         )
 
+    def test_tts_preserves_double_bracket_cloze_content(self):
+        cases = {
+            "Als ich in die Schule kam, [[hatte]] der Unterricht schon [[begonnen]]. (beginnen)": (
+                "Als ich in die Schule kam, hatte der Unterricht schon begonnen. (beginnen)"
+            ),
+            "Ich [[habe]] das Buch [[gelesen]].": "Ich habe das Buch gelesen.",
+            "Gestern {*sind/haben} wir nach Berlin [[gefahren]].": "Gestern sind wir nach Berlin gefahren.",
+            "Sie [[hatte]] die Tickets [[gekauft]], bevor der Film ausverkauft war. (kaufen)": (
+                "Sie hatte die Tickets gekauft, bevor der Film ausverkauft war. (kaufen)"
+            ),
+        }
+
+        for source, expected in cases.items():
+            with self.subTest(source=source):
+                self.assertEqual(_prepare_tts_text(source), expected)
+
     def test_directive_words_do_not_change_the_clean_phrase_type(self):
         parsed = parse_user_input("Ein normales Wort\n(объясни грамматику)")
         self.assertEqual(detect_ai_input_type(parsed.clean_phrase), "standard")
