@@ -1,7 +1,7 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useRef, useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, MessageSquare, SlidersHorizontal, Check } from 'lucide-react';
+import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -12,6 +12,7 @@ import { ImageEditorModal } from './ImageEditorModal';
 import { useDeckStore } from '../../store/useDeckStore';
 import { FlagPicker } from './FlagPicker';
 import { CardLevelBadge } from './CardLevelBadge';
+import { CardQuestionComposer } from '../study/CardQuestionComposer.jsx';
 import { buildCefrMetaFromClassifierResult, buildManualCefrMeta, updateCardLevelTags } from '../../utils/levelUtils';
 import { classifySentenceFast } from '../../services/classifier';
 import { triggerHaptic } from '../../utils/platform';
@@ -683,17 +684,23 @@ export const CardForm = ({
             label: tr("📝 Разбор теста"),
             icon: BookOpen
           };
-        } else if (quickActionType === 'custom_directive') {
-          dynamicAction = {
-            id: 'custom_directive',
-            label: tr("💬 Только просьбу"),
-            icon: MessageSquare
-          };
         }
 
         const DynamicIcon = dynamicAction?.icon || BookOpen;
 
         return (
+          <>
+          {!isCreator && (
+            <CardQuestionComposer
+              onSubmit={(request) => onAiGenerate?.('full_card', request)}
+              icon="✨"
+              triggerLabel={tr("Выполнить просьбу")}
+              title={tr("Что изменить в карточке?")}
+              placeholder={tr("Опишите необходимые изменения...")}
+              submitLabel={tr("Выполнить ✨")}
+              disabled={loading}
+            />
+          )}
           <div className={`ai-quick-actions ${dynamicAction && !loading ? 'has-dynamic' : ''}`} style={{ gap: '10px' }}>
             {loading ? (
               <button 
@@ -745,6 +752,7 @@ export const CardForm = ({
               {loading ? <RefreshCw className="spin" size={18} /> : t('creator.save', 'Сохранить')}
             </button>
           </div>
+          </>
         );
       })()}
 

@@ -16,7 +16,6 @@ from api.services.language_service import (
 )
 from api.services.input_parser import (
     detect_ai_input_type,
-    parse_user_input,
     parse_ai_json_response,
     parse_ai_batch_json_response,
     preserve_exercise_marker,
@@ -113,7 +112,14 @@ def extract_json_from_text(text: str, default_front: str) -> dict:
         
     return {"front": front, "back": back, "context": context, "level": level_str}
 
-async def generate_card_fields(user_id: int, phrase: str, target_language: str = "de", native_language: str = None, action_type: str = "full_card"):
+async def generate_card_fields(
+    user_id: int,
+    phrase: str,
+    target_language: str = "de",
+    native_language: str = None,
+    action_type: str = "full_card",
+    user_request: str = None,
+):
     """Generates Front, Back, and Context for a card using AI."""
     start_time = time.time()
     try:
@@ -124,14 +130,13 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         )
         from api.services.input_parser import (
             detect_ai_input_type,
-            parse_user_input,
             parse_ai_json_response,
             preserve_exercise_marker,
         )
         from api.models import TMACustomPrompt, TMASetting
 
-        parsed = parse_user_input(phrase)
-        clean_phrase = parsed.clean_phrase or phrase
+        clean_phrase = str(phrase or "").strip()
+        clean_user_request = str(user_request or "").strip()
         input_type = detect_ai_input_type(clean_phrase)
 
         if not native_language:
@@ -189,7 +194,7 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         if action_type == "custom_directive":
             system_prompt = build_custom_directive_prompt(
                 phrase=clean_phrase,
-                directive=parsed.directive,
+                directive=clean_user_request,
                 target_lang=target_lang,
                 native_lang=native_lang
             )
@@ -234,8 +239,8 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
         if custom_prompt and not is_system_preset:
             raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
             system_prompt = (raw_prompt or get_prompt_for_phrase(clean_phrase, target_lang, native_lang)).replace("{phrase}", clean_phrase)
-            if parsed.has_directive:
-                system_prompt += f"\n\nДополнительное указание пользователя: \"{parsed.directive}\". Выполни просьбу пользователя."
+            if clean_user_request:
+                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
             if detect_level and "level" not in system_prompt.lower():
                 system_prompt += f"\n\nОбязательно добавь в выводимый JSON объект поле уровня:\n\"level\": \"один из уровня CEFR (A1, A2, B1, B2, C1, C2)\""
         elif is_quiz_request:
@@ -246,6 +251,8 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 is_batch=False,
                 detect_level=detect_level
             )
+            if clean_user_request:
+                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
         elif is_trainer_request:
             system_prompt = build_trainer_prompt(
                 phrase=clean_phrase,
@@ -253,12 +260,14 @@ async def generate_card_fields(user_id: int, phrase: str, target_language: str =
                 native_lang=native_lang,
                 detect_level=detect_level
             )
+            if clean_user_request:
+                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
         else:
             system_prompt = build_card_prompt(
                 phrase=clean_phrase,
                 target_lang=target_lang,
                 native_lang=native_lang,
-                directive=parsed.directive
+                directive=clean_user_request,
             )
 
         if "JSON" not in system_prompt.upper():

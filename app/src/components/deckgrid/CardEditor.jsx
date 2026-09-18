@@ -29,9 +29,9 @@ export const CardEditor = () => {
 
   if (view !== 'editor') return null;
 
-  const handleAiGenerate = async (actionType = 'full_card') => {
+  const handleAiGenerate = async (actionType = 'full_card', userRequest = '') => {
     if (!editingCard?.front) return;
-    const result = await runAiGenerator(editingCard.front, true, actionType);
+    const result = await runAiGenerator(editingCard.front, true, actionType, userRequest);
     if (result) {
       if (actionType === 'custom_directive' || actionType === 'explain_rule') {
         const currentCtx = editingCard.context || '';
@@ -42,17 +42,19 @@ export const CardEditor = () => {
           context: updatedCtx
         });
       } else {
+        const replaceAllFields = Boolean(userRequest.trim());
         const updated = {
           ...editingCard,
-          front: result.front || editingCard.front,
-          back: result.back || editingCard.back,
-          context: result.context || editingCard.context,
+          front: replaceAllFields ? (result.front ?? '') : (result.front || editingCard.front),
+          back: replaceAllFields ? (result.back ?? '') : (result.back || editingCard.back),
+          context: replaceAllFields ? (result.context ?? '') : (result.context || editingCard.context),
           level: result.level || editingCard.level,
           tags: result.tags || editingCard.tags
         };
         setEditingCard(updated);
       }
     }
+    return result;
   };
 
   const handleBack = () => {

@@ -4,7 +4,6 @@ from unittest.mock import patch
 from api import ai_service
 from api.services.input_parser import (
     detect_ai_input_type,
-    parse_user_input,
     preserve_exercise_marker,
 )
 from api.services.prompt_builders import build_rule_explanation_prompt
@@ -18,12 +17,14 @@ class _DisabledSetting:
 class _FakeAIClient:
     response = ""
     last_system_prompt = ""
+    last_user_message = ""
 
     def __init__(self, **_kwargs):
         pass
 
     async def chat_completion(self, system_prompt, user_message, model):
         self.__class__.last_system_prompt = system_prompt
+        self.__class__.last_user_message = user_message
         return self.__class__.response, True
 
 
@@ -45,39 +46,10 @@ class TrainerInputRegressionTests(unittest.TestCase):
             "@puzzle\nIch kaufe Brot.",
         )
 
-    def test_only_standalone_final_parenthesized_line_is_a_directive(self):
-        parsed = parse_user_input("Ich fahre mit dem Bus.\n(почему dem, а не den?)")
-        self.assertTrue(parsed.has_directive)
-        self.assertEqual(parsed.clean_phrase, "Ich fahre mit dem Bus.")
-        self.assertEqual(parsed.directive, "почему dem, а не den?")
-
-    def test_inline_verb_hints_are_not_directives(self):
-        for phrase in (
-            "Ich möchte Brot (kaufen).",
-            "Er will Lehrer (sein).",
-            "Wir werden Zeit (haben).",
-            "Ich möchte (kaufen) Brot.",
-        ):
-            with self.subTest(phrase=phrase):
-                parsed = parse_user_input(phrase)
-                self.assertFalse(parsed.has_directive)
-                self.assertEqual(parsed.clean_phrase, phrase)
-
-    def test_multiline_parentheses_do_not_swallow_the_final_directive(self):
-        parsed = parse_user_input("Zeile (sein) eins\nZeile zwei\n(nur diese просьба)")
-        self.assertEqual(parsed.clean_phrase, "Zeile (sein) eins\nZeile zwei")
-        self.assertEqual(parsed.directive, "nur diese просьба")
-
-    def test_non_standalone_final_parentheses_are_not_a_directive(self):
-        phrase = "Ich kaufe Brot.\nHinweis: (kaufen)"
-        parsed = parse_user_input(phrase)
-        self.assertFalse(parsed.has_directive)
-        self.assertEqual(parsed.clean_phrase, phrase)
-
-    def test_tts_uses_the_same_strict_directive_boundary(self):
+    def test_tts_preserves_parenthesized_final_line_as_card_text(self):
         self.assertEqual(
             _prepare_tts_text("Ich fahre mit dem Bus.\n(почему dem?)"),
-            "Ich fahre mit dem Bus.",
+            "Ich fahre mit dem Bus.(почему dem?)",
         )
         self.assertEqual(
             _prepare_tts_text("Zeile (sein) eins\nHinweis: (kaufen)"),
@@ -100,9 +72,8 @@ class TrainerInputRegressionTests(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(_prepare_tts_text(source), expected)
 
-    def test_directive_words_do_not_change_the_clean_phrase_type(self):
-        parsed = parse_user_input("Ein normales Wort\n(объясни грамматику)")
-        self.assertEqual(detect_ai_input_type(parsed.clean_phrase), "standard")
+    def test_parenthesized_final_line_does_not_change_input_type(self):
+        self.assertEqual(detect_ai_input_type("Ein normales Wort\n(любой текст)"), "standard")
 
     def test_rule_prompt_requests_translation_and_both_cloze_syntaxes(self):
         prompt = build_rule_explanation_prompt("Er [[hatte]] angerufen.", "de", "uk")
@@ -112,9 +83,10 @@ class TrainerInputRegressionTests(unittest.TestCase):
 
 
 class GenerateCardFieldsRegressionTests(unittest.IsolatedAsyncioTestCase):
-    async def _generate(self, phrase, response, action_type="full_card"):
+    async def _generate(self, phrase, response, action_type="full_card", user_request=None):
         _FakeAIClient.response = response
         _FakeAIClient.last_system_prompt = ""
+        _FakeAIClient.last_user_message = ""
         with (
             patch.object(ai_service, "get_ai_config", return_value=("ollama", "key", "test-model")),
             patch.object(ai_service, "AIService", _FakeAIClient),
@@ -127,7 +99,38 @@ class GenerateCardFieldsRegressionTests(unittest.IsolatedAsyncioTestCase):
                 target_language="de",
                 native_language="uk",
                 action_type=action_type,
+                user_request=user_request,
             )
+
+    async def test_parenthesized_final_line_is_sent_to_ai_unchanged(self):
+        phrase = "Ein Satz.\n(упрости это предложение)"
+        await self._generate(
+            phrase,
+            '{"front":"Ein Satz.","back":"Одне речення.","context":""}',
+        )
+        self.assertEqual(_FakeAIClient.last_user_message, phrase)
+        self.assertIn(phrase, _FakeAIClient.last_system_prompt)
+
+    async def test_full_card_user_request_is_added_separately(self):
+        result = await self._generate(
+            "Das ist bereits fertig.",
+            '{"front":"Das ist schon fertig.","back":"Це вже готово.","context":"Новий контекст"}',
+            user_request="Замени bereits на schon и исправь перевод",
+        )
+        self.assertIn("Замени bereits на schon", _FakeAIClient.last_system_prompt)
+        self.assertEqual(result["front"], "Das ist schon fertig.")
+        self.assertEqual(result["back"], "Це вже готово.")
+        self.assertEqual(result["context"], "Новий контекст")
+
+    async def test_custom_directive_uses_explicit_user_request(self):
+        result = await self._generate(
+            "Ich fahre mit dem Bus.",
+            "Відповідь на запитання",
+            action_type="custom_directive",
+            user_request="Почему dem?",
+        )
+        self.assertIn('Вопрос или просьба: "Почему dem?"', _FakeAIClient.last_system_prompt)
+        self.assertEqual(result["context"], "Відповідь на запитання")
 
     async def test_double_brackets_select_the_existing_trainer_prompt(self):
         result = await self._generate(

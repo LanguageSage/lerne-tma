@@ -130,7 +130,7 @@ export const useAiActions = () => {
     }
   };
 
-  const runAiGenerator = async (phrase, returnResult = false, actionType = 'full_card') => {
+  const runAiGenerator = async (phrase, returnResult = false, actionType = 'full_card', userRequest = '') => {
     if (!phrase) return;
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -154,7 +154,13 @@ export const useAiActions = () => {
         const targetLang = currentDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de';
         const nativeLang = getInterfaceLanguage();
         const res = await api.post('/cards/ai-generate', 
-          { phrase, target_language: targetLang, native_language: nativeLang, action_type: actionType }, 
+          {
+            phrase,
+            target_language: targetLang,
+            native_language: nativeLang,
+            action_type: actionType,
+            user_request: String(userRequest || '').trim() || undefined
+          },
           { signal: abortControllerRef.current.signal }
         );
 

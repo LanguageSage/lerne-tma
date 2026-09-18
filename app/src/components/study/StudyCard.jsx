@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { RefreshCw, Eye, AlertTriangle, RotateCw, BookOpen } from 'lucide-react';
+import { RefreshCw, Eye, AlertTriangle, RotateCw } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import './StudyCard.css';
 import { CardBackground } from '../common/CardBackground';
@@ -21,6 +21,7 @@ import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
 import { StudyCardSpeech } from './StudyCardSpeech.jsx';
 import { CardAudioPlayer } from './CardAudioPlayer.jsx';
 import { StudyCardImage } from './StudyCardImage';
+import { CardQuestionComposer } from './CardQuestionComposer.jsx';
 import { KaraokeText } from './KaraokeText';
 import { useVoicePicker } from '../../hooks/useVoicePicker';
 import { useKaraokeSync } from '../../hooks/useKaraokeSync';
@@ -51,6 +52,7 @@ export const StudyCard = React.memo(({
   resolvedBgBack,
   studyMode = 'classic',
   onTrainerAnswer,
+  onAskQuestion,
   onNextCard
 }) => {
   useInterfaceLocale();
@@ -351,34 +353,6 @@ export const StudyCard = React.memo(({
             <CardBackground styleType={resolvedBgFront} />
             <div className="card-face">
               
-              {/* Type Badge (Top-Right Corner) */}
-              {exerciseType && (
-                <div style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  color: '#c084fc',
-                  background: 'rgba(168, 85, 247, 0.18)',
-                  border: '1px solid rgba(168, 85, 247, 0.35)',
-                  borderRadius: '8px',
-                  padding: '3px 8px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  backdropFilter: 'blur(8px)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
-                  zIndex: 15
-                }}>
-                  {exerciseType === 'match' && tr("🔗 Сопоставление")}
-                  {exerciseType === 'free_text' && tr("💬 Письмо")}
-                  {exerciseType === 'quiz' && tr("❓ Тест")}
-                  {exerciseType === 'trainer' && tr("🏋️ Тренажер")}
-                  {exerciseType === 'puzzle' && tr("🧩 Пазл")}
-                </div>
-              )}
-
               {/* Leech Indicator */}
               {Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5)) && (
                 <div
@@ -561,28 +535,6 @@ export const StudyCard = React.memo(({
           <div className="card-inner card-back glass" onClick={() => { if (!loading) onFlip(false); }} style={{ cursor: 'pointer', ...flagStyle }}>
             <CardBackground styleType={resolvedBgBack} />
             <div className="card-face">
-              {/* Type Badge (Top-Right Corner) */}
-              {effectiveStudyMode === 'trainer' && (
-                <div style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  color: '#c084fc',
-                  background: 'rgba(168, 85, 247, 0.18)',
-                  border: '1px solid rgba(168, 85, 247, 0.35)',
-                  borderRadius: '8px',
-                  padding: '3px 8px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  backdropFilter: 'blur(8px)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
-                  zIndex: 15
-                }}>{tr("🏋️ Тренажер")}{' '}</div>
-              )}
-
               {/* Leech Indicator */}
               {Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5)) && (
                 <div
@@ -676,6 +628,8 @@ export const StudyCard = React.memo(({
                 })()}
               </div>
 
+              <CardQuestionComposer onSubmit={onAskQuestion} />
+
               {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
               {(() => {
                 const frontClean = cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front)).trim();
@@ -685,20 +639,16 @@ export const StudyCard = React.memo(({
 
                 return (
                   <>
-                    <div className="card-side-separator">
-                      <div className="separator-line" />
-                      <div className="separator-badge">
-                        <RotateCw size={12} />
-                        <span>
-                          {studyMode === 'reverse'
-                            ? tr("Оригинал")
-                            : exerciseType
-                            ? tr("Ответ / объяснение")
-                            : tr("Перевод")}
-                        </span>
+                    {!exerciseType && (
+                      <div className="card-side-separator">
+                        <div className="separator-line" />
+                        <div className="separator-badge">
+                          <RotateCw size={12} />
+                          <span>{studyMode === 'reverse' ? tr("Оригинал") : tr("Перевод")}</span>
+                        </div>
+                        <div className="separator-line" />
                       </div>
-                      <div className="separator-line" />
-                    </div>
+                    )}
 
                     {(card.video_back_url || deckVideo?.url) && (
                       <div className="video-container-card">
@@ -757,17 +707,9 @@ export const StudyCard = React.memo(({
                 </div>
               )}
 
-              {/* 4. EXPLICIT SEPARATOR & CONTEXT BLOCK */}
+              {/* 4. CONTEXT BLOCK */}
               {card.context && (
                 <div className="card-context-wrapper">
-                  <div className="context-separator">
-                    <div className="separator-line" />
-                    <div className="context-badge">
-                      <BookOpen size={12} />
-                      <span>{tr("Контекст и примеры")}</span>
-                    </div>
-                    <div className="separator-line" />
-                  </div>
                   <div className="text-context" style={contextStyle}>
                     {stripMarkdown(card.context)}
                   </div>

@@ -741,8 +741,7 @@
   margin: 12px 0 14px;
 }
 
-.card-side-separator .separator-line,
-.context-separator .separator-line {
+.card-side-separator .separator-line {
   flex: 1;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.45), transparent);
@@ -763,37 +762,10 @@
   border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
-/* Context container and separator */
+/* Context container */
 .card-context-wrapper {
   width: 100%;
   margin-top: 14px;
-}
-
-.context-separator {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 10px;
-}
-
-.context-separator .separator-line {
-  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.4), transparent);
-}
-
-.context-separator .context-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: rgba(56, 189, 248, 0.12);
-  color: #7dd3fc;
-  border: 1px solid rgba(56, 189, 248, 0.28);
 }
 
 .card-context-wrapper .text-context {

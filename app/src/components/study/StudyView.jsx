@@ -30,10 +30,10 @@ import { StudyCard } from './StudyCard';
 
 export const StudyView = () => {
   useInterfaceLocale();
-  const { view, loading, setIsSettingsOpen, showToast, setView, setActiveFolderId } = useUiStore();
+  const { view, loading, setIsSettingsOpen, showToast, setView, setActiveFolderId, userProfile, setIsAuthModalOpen } = useUiStore();
   const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
   const { card, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, setIsLearningMore, autoplayState } = useSessionStore();
-  const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard } = useCardActions();
+  const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard, runAiGenerator } = useCardActions();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
 
@@ -349,6 +349,28 @@ export const StudyView = () => {
     }
   };
 
+  const handleAskQuestion = async (userRequest) => {
+    if (!card?.front) return false;
+    if (userProfile?.is_guest) {
+      setIsAuthModalOpen(true, tr("Для редактирования карточек войдите через Telegram"));
+      return false;
+    }
+
+    const result = await runAiGenerator(card.front, true, 'custom_directive', userRequest);
+    if (!result) return false;
+
+    const answer = String(result.context || '').trim();
+    const currentContext = String(card.context || '').trim();
+    const nextContext = answer && currentContext
+      ? `${answer}\n\n${currentContext}`
+      : (answer || currentContext);
+
+    stopAudio();
+    openEditor(card.deck_id || currentDeck?.id, { ...card, context: nextContext }, 'study');
+    showToast(tr("Ответ добавлен в Контекст!"), 'success');
+    return true;
+  };
+
   const handleAutoplayAwareBack = async () => {
     stopAudio();
     if (isAutoplayActive) {
@@ -516,6 +538,7 @@ export const StudyView = () => {
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
               studyMode={isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
+              onAskQuestion={handleAskQuestion}
               onNextCard={() => {
                 setIsFlipped(false);
                 goNext();

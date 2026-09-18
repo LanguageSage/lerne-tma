@@ -7,8 +7,7 @@ import { parseBatchCardsText } from '../batchCardParser.js';
 import { resolveAiTranslation } from '../aiCardResult.js';
 import {
   detectAiQuickActionType,
-  detectExerciseType,
-  hasTrailingUserDirective
+  detectExerciseType
 } from '../exerciseDetector.js';
 
 test('1. Choice gap syntax: Ich lebe {*seit|in|vor} 17 Jahren in Deutschland.', () => {
@@ -253,22 +252,18 @@ Das ist ein *wichtiges Wort.
   assert.equal(parsed[2].card_type, 'standard');
 });
 
-test('13. AI quick actions support both trainer syntaxes without treating inline hints as directives', () => {
+test('13. AI quick actions support trainer syntax and treat parentheses as ordinary text', () => {
   assert.equal(detectAiQuickActionType('Ich fahre {*mit|nach|zu} dem Bus.'), 'explain_rule');
   assert.equal(detectAiQuickActionType('Er [[hatte]] gestern [[angerufen]].'), 'explain_rule');
 
   for (const phrase of [
     'Ich möchte Brot (kaufen).',
     'Er will Lehrer (sein).',
-    'Wir werden Zeit (haben).'
+    'Wir werden Zeit (haben).',
+    'Ich fahre mit dem Bus.\n(почему dem, а не den?)'
   ]) {
-    assert.equal(hasTrailingUserDirective(phrase), false);
     assert.equal(detectAiQuickActionType(phrase), null);
   }
-
-  const directiveCard = 'Ich fahre mit dem Bus.\n(почему dem, а не den?)';
-  assert.equal(hasTrailingUserDirective(directiveCard), true);
-  assert.equal(detectAiQuickActionType(directiveCard), 'custom_directive');
 });
 
 test('14. Batch import preserves explicit @match and @puzzle markers', () => {
@@ -330,4 +325,3 @@ test('17. Connector distractor auto-generation and capitalization: {Trotzdem}', 
     assert.equal(choice[0], choice[0].toUpperCase());
   }
 });
-

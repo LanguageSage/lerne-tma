@@ -10,15 +10,6 @@ export const hasTrainerSyntax = (text) => {
   return /\{([^}]+)\}|\[\[([^\]]+)\]\]/.test(text);
 };
 
-/**
- * A user directive is valid only when it occupies the final line by itself.
- * Inline hints such as "Ich gehe (gehen)" are ordinary card content.
- */
-export const hasTrailingUserDirective = (text) => {
-  if (!text) return false;
-  return /(?:\r?\n)[ \t]*\([^\r\n]+\)[ \t]*$/.test(String(text).trim());
-};
-
 /** Keep CardForm's quick-action policy testable and aligned with input syntax. */
 export const detectAiQuickActionType = (text) => {
   const front = String(text || '');
@@ -27,7 +18,6 @@ export const detectAiQuickActionType = (text) => {
   const hasQuizStar = (/\n\*/.test(front) || /^\*/.test(front)) && front.includes('\n');
   if (hasQuizStar) return 'full_card';
 
-  if (hasTrailingUserDirective(front)) return 'custom_directive';
   return null;
 };
 

@@ -1,10 +1,5 @@
 import re
-from typing import NamedTuple, Optional
-
-class ParsedInput(NamedTuple):
-    clean_phrase: str
-    directive: Optional[str]
-    has_directive: bool
+from typing import Optional
 
 
 def detect_ai_input_type(text: str) -> str:
@@ -51,33 +46,6 @@ def preserve_exercise_marker(front: str, input_type: str) -> str:
 
     generated_front = re.sub(r"(?im)^\s*@(match|puzzle)\b\s*", "", generated_front, count=1).strip()
     return f"{marker}\n{generated_front}" if generated_front else marker
-
-
-def parse_user_input(text: str) -> ParsedInput:
-    """
-    Parses user input phrase.
-    If the text has a new line at the end containing parenthesized instructions/questions,
-    e.g.:
-      "Ich fahre mit dem Bus\n(почему dem, а не den?)"
-    it extracts the clean phrase ("Ich fahre mit dem Bus") and the directive ("почему dem, а не den?").
-    
-    Rule: only a standalone final line ``(directive)`` is extracted.
-    """
-    if not text:
-        return ParsedInput(clean_phrase="", directive=None, has_directive=False)
-
-    text_str = text.strip()
-    
-    # The directive must occupy exactly one final line. Parenthesized hints
-    # such as ``Ich gehe (gehen) nach Hause`` remain part of the phrase.
-    match = re.search(r'(?:\r?\n)[ \t]*\(([^\r\n]+)\)[ \t]*$', text_str)
-    if match:
-        directive_text = match.group(1).strip()
-        clean_text = text_str[:match.start()].strip()
-        if clean_text and directive_text:
-            return ParsedInput(clean_phrase=clean_text, directive=directive_text, has_directive=True)
-            
-    return ParsedInput(clean_phrase=text_str, directive=None, has_directive=False)
 
 
 def parse_ai_json_response(text: str) -> Optional[dict]:

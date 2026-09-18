@@ -19,6 +19,7 @@ class PhraseRequest(BaseModel):
     target_language: str = "de"
     native_language: str = None
     action_type: str = "full_card"
+    user_request: Optional[str] = None
 
 @router.get("/admin/models/{provider}")
 async def list_models(provider: str, url: str = None):
@@ -116,7 +117,8 @@ async def generate_card(request: PhraseRequest, user_id: int = Depends(get_user_
         phrase=request.phrase,
         target_language=request.target_language,
         native_language=request.native_language,
-        action_type=request.action_type
+        action_type=request.action_type,
+        user_request=request.user_request,
     )
 
 @router.post("/ai/generate-batch")

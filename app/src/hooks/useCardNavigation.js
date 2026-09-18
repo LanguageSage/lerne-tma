@@ -25,6 +25,7 @@ export const useCardNavigation = () => {
         setLastSelectedCardId(cardToEdit.id);
       }
       setEditingCard({
+        ...cardToEdit,
         id: cardToEdit.id,
         front: cardToEdit.front || '',
         back: cardToEdit.back || '',

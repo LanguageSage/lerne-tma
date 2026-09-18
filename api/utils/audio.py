@@ -276,12 +276,6 @@ def _prepare_quiz_tts_text(text: str) -> str | None:
 def _prepare_tts_text(text, max_chars=900):
     if not text:
         return ""
-    # Strip trailing parenthesized question on a new line (matches input_parser directive format)
-    trailing_question_match = re.search(r'(?:\r?\n)[ \t]*\(([^\r\n]+)\)[ \t]*$', text.strip())
-    if trailing_question_match:
-        text_before = text[:trailing_question_match.start()].strip()
-        if text_before:
-            text = text_before
 
     quiz_text = _prepare_quiz_tts_text(text)
     if quiz_text is not None:
