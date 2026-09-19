@@ -411,6 +411,17 @@ test('22. word bank parser rejects invalid structures and [[...]] gaps', () => {
   }), null);
 });
 
+test('22a. word bank parser removes blank-only lines from displayed text', () => {
+  const parsed = parseWordBankData({
+    front: '@wordbank\nSehr geehrte Frau Groß,\n\n\nIch habe Ihre Anzeige <<31>>.\n@options\nGELESEN | GESUCHT',
+    back: '31=GELESEN'
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.text, 'Sehr geehrte Frau Groß,\nIch habe Ihre Anzeige <<31>>.');
+  assert.equal(parsed.maskedText.includes('\n\n'), false);
+});
+
 test('23. one word-bank option cannot be assigned to two gaps', () => {
   const first = assignWordBankOption({}, '31', 'option-0');
   const second = assignWordBankOption(first, '32', 'option-0');

@@ -1,6 +1,7 @@
 import { tr } from '../../i18n/locale.js';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getCardStyle } from '../../utils/cardStyles.js';
 import { playErrorSound, playSuccessSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
@@ -20,7 +21,8 @@ export const StudyCardWordBank = React.memo(({
   onTrainerAnswer,
   styles = {},
   savedState,
-  onSaveState
+  onSaveState,
+  footerActionTarget
 }) => {
   useInterfaceLocale();
 
@@ -41,6 +43,12 @@ export const StudyCardWordBank = React.memo(({
   const [isCompleted, setIsCompleted] = useState(savedState?.isCompleted ?? false);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
+  const optionFontSize = useMemo(() => {
+    if (cardStyle?.fontSize) {
+      return `calc(${cardStyle.fontSize} * 0.9)`;
+    }
+    return '0.9em';
+  }, [cardStyle]);
   const optionById = useMemo(() => new Map(options.map(option => [option.id, option])), [options]);
   const usedOptionIds = useMemo(() => getUsedWordBankOptionIds(assignments), [assignments]);
   const allFilled = gaps.length > 0 && gaps.every(gap => assignments[gap.id]);
@@ -142,6 +150,7 @@ export const StudyCardWordBank = React.memo(({
         className={classNames}
         onClick={(event) => handleGapClick(gapId, event)}
         disabled={isCompleted}
+        style={{ fontSize: cardStyle?.fontSize || 'inherit' }}
         aria-label={selectedOption
           ? `${gapId}: ${selectedOption.value}`
           : `${gapId}: ${tr('Пустой пропуск')}`}
@@ -171,6 +180,17 @@ export const StudyCardWordBank = React.memo(({
     return parts;
   };
 
+  const checkButton = (
+    <button
+      type="button"
+      className="btn btn-primary word-bank-check"
+      disabled={!allFilled || isCompleted}
+      onClick={handleCheck}
+    >
+      {isCompleted ? tr('Выполнено') : tr('Проверить')}
+    </button>
+  );
+
   return (
     <div className="interactive-mode-container word-bank-exercise" onClick={event => event.stopPropagation()}>
       <div className="word-bank-text-area" style={cardStyle}>
@@ -186,6 +206,7 @@ export const StudyCardWordBank = React.memo(({
                 key={option.id}
                 type="button"
                 className="word-bank-option"
+                style={{ fontSize: optionFontSize }}
                 disabled={isUsed || isCompleted}
                 onClick={(event) => handleOptionClick(option.id, event)}
               >
@@ -194,16 +215,13 @@ export const StudyCardWordBank = React.memo(({
             );
           })}
         </div>
-
-        <button
-          type="button"
-          className="btn btn-primary word-bank-check"
-          disabled={!allFilled || isCompleted}
-          onClick={handleCheck}
-        >
-          {isCompleted ? tr('Выполнено') : tr('Проверить')}
-        </button>
       </div>
+
+      {footerActionTarget ? createPortal(checkButton, footerActionTarget) : (
+        <div className="word-bank-inline-actions">
+          {checkButton}
+        </div>
+      )}
     </div>
   );
 });

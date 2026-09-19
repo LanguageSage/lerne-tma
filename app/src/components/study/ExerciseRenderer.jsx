@@ -35,6 +35,7 @@ export const ExerciseRenderer = React.memo(({
   styles = {},
   savedState,
   onSaveState,
+  footerActionTarget,
   fallback = null
 }) => {
   const detectedType = useMemo(() => {
@@ -85,6 +86,7 @@ export const ExerciseRenderer = React.memo(({
           styles={styles}
           savedState={savedState}
           onSaveState={onSaveState}
+          footerActionTarget={footerActionTarget}
         />
       );
 

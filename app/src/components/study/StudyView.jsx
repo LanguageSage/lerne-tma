@@ -1,6 +1,6 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Trash2, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
 import DeckAudioPlayer from '../common/DeckAudioPlayer';
@@ -20,6 +20,7 @@ import { useSessionVoice } from '../../hooks/useSessionVoice';
 import { MediaPicker } from '../common/MediaPicker';
 import { navigateUp } from '../../utils/navigation';
 import { getAudioUrl } from '../../utils/media';
+import { detectExerciseType } from '../../utils/exerciseDetector';
 
 // Sub-components
 import { StudyHeader } from './StudyHeader';
@@ -204,7 +205,44 @@ export const StudyView = () => {
   
   // Local UI & Animation State
   const [activeRandomMode, setActiveRandomMode] = useState(null);
+  const [isExerciseAnswered, setIsExerciseAnswered] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollTopRef = useRef(0);
   const lastCardKeyRef = useRef('');
+
+  useEffect(() => {
+    setIsExerciseAnswered(false);
+  }, [card?.id, studyMode]);
+
+  useEffect(() => {
+    const container = document.getElementById('app-container');
+    if (!container) return;
+
+    const handleScroll = () => {
+      const currentScrollTop = container.scrollTop;
+      const delta = currentScrollTop - lastScrollTopRef.current;
+
+      if (currentScrollTop <= 24) {
+        setIsHeaderVisible(true);
+      } else if (delta > 10) {
+        setIsHeaderVisible(false);
+      } else if (delta < -10) {
+        setIsHeaderVisible(true);
+      }
+      lastScrollTopRef.current = currentScrollTop;
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const container = document.getElementById('app-container');
+    if (container) {
+      container.scrollTop = 0;
+    }
+    setIsHeaderVisible(true);
+  }, [card?.id]);
 
 
 
@@ -404,11 +442,19 @@ export const StudyView = () => {
     }
   };
 
+  const effectiveMode = isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode;
+  const activeExerciseType = useMemo(() => {
+    return detectExerciseType(card, effectiveMode);
+  }, [card, effectiveMode]);
+
+  const isExerciseActive = Boolean(activeExerciseType && !isFlipped && !isExerciseAnswered);
+  const showGradeButtons = currentDeck?.id !== 'duplicates' && !isAutoplayActive && !isExerciseActive;
+
   if (view !== 'study') return null;
 
   return (
     <div className="view-study">
-      {currentDeck?.id !== 'duplicates' && !isAutoplayActive && (
+      {showGradeButtons && (
         <GradeButtons 
           card={card} 
           loading={loading} 
@@ -425,15 +471,88 @@ export const StudyView = () => {
         animate={{ opacity: 1 }}
         className="view"
       >
-        <StudyHeader
-          deckName={currentDeck?.name}
-          isTrainerDeck={Boolean(currentDeck?.is_trainer || (deckCards && deckCards.length > 0 && deckCards.every(c => /\{([^}]+)\}/.test(c.front || ''))))}
-          card={card}
-          onBack={navigateUp}
-          onOpenCreator={() => openCreator(currentDeck?.id, 'study', card?.id)}
-          onOpenEditor={() => openEditor(currentDeck?.id === 'duplicates' ? card.deck_id : currentDeck?.id, card, 'study')}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-        />
+        <div className={`study-top-collapsible ${isHeaderVisible ? 'is-visible' : 'is-hidden'}`}>
+          <StudyHeader
+            deckName={currentDeck?.name}
+            isTrainerDeck={Boolean(currentDeck?.is_trainer || (deckCards && deckCards.length > 0 && deckCards.every(c => /\{([^}]+)\}/.test(c.front || ''))))}
+            card={card}
+            onBack={navigateUp}
+            onOpenCreator={() => openCreator(currentDeck?.id, 'study', card?.id)}
+            onOpenEditor={() => openEditor(currentDeck?.id === 'duplicates' ? card.deck_id : currentDeck?.id, card, 'study')}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+          />
+
+          {/* Deck general audio material player */}
+          {(() => {
+            const deckAudio = card?.deck_metadata?.resources?.find(r => r.type === 'audio');
+            if (deckAudio) {
+              return <DeckAudioPlayer url={deckAudio.url} title={deckAudio.title} variant="compact" />;
+            }
+            return null;
+          })()}
+
+          {/* Study Mode Selector Dropdown */}
+          <div className="study-mode-dropdown-container">
+            <span className="study-mode-dropdown-label">{tr("Режим:")}</span>
+            <select
+              className="study-mode-select glass"
+              disabled={isAutoplayActive}
+              value={studyMode}
+              onChange={(e) => {
+                const val = e.target.value;
+                setStudyMode(val);
+                setIsFlipped(false); // Reset card face on mode swap
+              }}
+            >
+              <option value="classic">{tr("🃏 Карточки (Немецкий → Русский)")}</option>
+              <option value="reverse">{tr("🔄 Перевод (Русский → Немецкий)")}</option>
+              <option value="cloze">{tr("📝 Выбор слова (Пропуски)")}</option>
+              <option value="puzzle">{tr("🧩 Конструктор (Сборка фразы)")}</option>
+              <option value="speak">{tr("🗣 Произношение (Голос)")}</option>
+              <option value="random">{tr("🎲 Случайный выбор (Рандом)")}</option>
+            </select>
+          </div>
+
+          {studyMode === 'random' && !isAutoplayActive && (
+            <div className="random-mode-config glass">
+              <div className="random-config-title">{tr("Случайные режимы в пуле 🎲")}</div>
+              <div className="random-config-grid">
+                {[
+                  { key: 'classic', label: tr("🃏 Карточки") },
+                  { key: 'reverse', label: tr("🔄 Перевод") },
+                  { key: 'cloze', label: tr("📝 Выбор слова") },
+                  { key: 'puzzle', label: tr("🧩 Конструктор") },
+                  { key: 'speak', label: tr("🗣 Произношение") }
+                ].map(({ key, label }) => {
+                  const isChecked = (randomEnabledModes || []).includes(key);
+                  return (
+                    <label key={key} className="random-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const enabled = [...(randomEnabledModes || [])];
+                          if (e.target.checked) {
+                            if (!enabled.includes(key)) enabled.push(key);
+                          } else {
+                            if (enabled.length <= 1) {
+                              return;
+                            }
+                            const idx = enabled.indexOf(key);
+                            if (idx >= 0) enabled.splice(idx, 1);
+                          }
+                          setRandomEnabledModes(enabled);
+                        }}
+                      />
+                      <span className="custom-checkbox-span"></span>
+                      <span className="random-checkbox-text">{label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
         {card && (
           <MediaPicker
@@ -452,76 +571,6 @@ export const StudyView = () => {
           </div>
         ) : card ? (
           <div className="study-flow">
-            {/* Deck general audio material player */}
-            {(() => {
-              const deckAudio = card?.deck_metadata?.resources?.find(r => r.type === 'audio');
-              if (deckAudio) {
-                return <DeckAudioPlayer url={deckAudio.url} title={deckAudio.title} variant="compact" />;
-              }
-              return null;
-            })()}
-
-            {/* Study Mode Selector Dropdown */}
-            <div className="study-mode-dropdown-container">
-              <span className="study-mode-dropdown-label">{tr("Режим:")}</span>
-              <select
-                className="study-mode-select glass"
-                disabled={isAutoplayActive}
-                value={studyMode}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setStudyMode(val);
-                  setIsFlipped(false); // Reset card face on mode swap
-                }}
-              >
-                <option value="classic">{tr("🃏 Карточки (Немецкий → Русский)")}</option>
-                <option value="reverse">{tr("🔄 Перевод (Русский → Немецкий)")}</option>
-                <option value="cloze">{tr("📝 Выбор слова (Пропуски)")}</option>
-                <option value="puzzle">{tr("🧩 Конструктор (Сборка фразы)")}</option>
-                <option value="speak">{tr("🗣 Произношение (Голос)")}</option>
-                <option value="random">{tr("🎲 Случайный выбор (Рандом)")}</option>
-              </select>
-            </div>
-
-            {studyMode === 'random' && !isAutoplayActive && (
-              <div className="random-mode-config glass">
-                <div className="random-config-title">{tr("Случайные режимы в пуле 🎲")}</div>
-                <div className="random-config-grid">
-                  {[
-                    { key: 'classic', label: tr("🃏 Карточки") },
-                    { key: 'reverse', label: tr("🔄 Перевод") },
-                    { key: 'cloze', label: tr("📝 Выбор слова") },
-                    { key: 'puzzle', label: tr("🧩 Конструктор") },
-                    { key: 'speak', label: tr("🗣 Произношение") }
-                  ].map(({ key, label }) => {
-                    const isChecked = (randomEnabledModes || []).includes(key);
-                    return (
-                      <label key={key} className="random-checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            const enabled = [...(randomEnabledModes || [])];
-                            if (e.target.checked) {
-                              if (!enabled.includes(key)) enabled.push(key);
-                            } else {
-                              if (enabled.length <= 1) {
-                                return;
-                              }
-                              const idx = enabled.indexOf(key);
-                              if (idx >= 0) enabled.splice(idx, 1);
-                            }
-                            setRandomEnabledModes(enabled);
-                          }}
-                        />
-                        <span className="custom-checkbox-span"></span>
-                        <span className="random-checkbox-text">{label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             <StudyCard
               card={card}
@@ -538,6 +587,7 @@ export const StudyView = () => {
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
               studyMode={isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
+              onTrainerAnswer={() => setIsExerciseAnswered(true)}
               onAskQuestion={handleAskQuestion}
               onNextCard={() => {
                 setIsFlipped(false);

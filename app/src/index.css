@@ -80,6 +80,21 @@ body {
   }
 }
 
+.view-study {
+  width: calc(100% + 2rem);
+  margin-left: -1rem;
+  margin-right: -1rem;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .view-study {
+    width: calc(100% + 1.5rem);
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+  }
+}
+
 /* Glassmorphism Classes */
 .glass {
   background: rgba(255, 255, 255, 0.05);

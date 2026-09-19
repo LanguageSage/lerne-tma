@@ -98,7 +98,7 @@ export const StudyCardFreeText = React.memo(({
         style={{
           ...cardStyle,
           fontSize: '1.12rem',
-          lineHeight: 1.6,
+          lineHeight: 1.35,
           textAlign: 'center',
           marginBottom: '14px',
           whiteSpace: 'pre-wrap',

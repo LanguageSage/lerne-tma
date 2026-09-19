@@ -102,6 +102,7 @@ export const StudyCard = React.memo(({
   const [wrongSelected, setWrongSelected] = useState([]);
   const [correctSelected, setCorrectSelected] = useState(null);
   const [exerciseStates, setExerciseStates] = useState({});
+  const [exerciseFooterTarget, setExerciseFooterTarget] = useState(null);
 
   const handleSaveExerciseState = useCallback((state) => {
     if (!card?.id) return;
@@ -420,13 +421,14 @@ export const StudyCard = React.memo(({
                   styles={styles}
                   savedState={card?.id ? exerciseStates[card.id] : undefined}
                   onSaveState={handleSaveExerciseState}
+                  footerActionTarget={exerciseFooterTarget}
                 />
               )}
 
               {/* Cloze (Fill-in-the-blanks) Mode */}
               {effectiveStudyMode === 'cloze' && clozeData && (
                 <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-                  <div className="text-front cloze-masked-text" style={{ ...cardStyle, margin: '14px 0', lineHeight: 1.5 }}>
+                  <div className="text-front cloze-masked-text" style={{ ...cardStyle, margin: '14px 0', lineHeight: 1.35 }}>
                     {(() => {
                       const parts = clozeData.maskedText.split('_____');
                       const activeWord = correctSelected || wrongSelected[wrongSelected.length - 1];
@@ -741,6 +743,9 @@ export const StudyCard = React.memo(({
         </AnimatePresence>
         </div>
         <div className="study-card-footer">
+          {!isFlipped && (
+            <div ref={setExerciseFooterTarget} className="study-card-exercise-action" />
+          )}
           <button
             type="button"
             className="study-card-flip-button"

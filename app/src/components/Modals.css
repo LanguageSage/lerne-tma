@@ -91,6 +91,7 @@ input:checked + .slider:before {
   font-size: inherit; 
   color: inherit; 
   font-weight: 600; 
+  line-height: 1.35; 
   margin: 0; 
   width: 100%; 
   overflow-wrap: break-word; 

@@ -1,4 +1,33 @@
 /* Study Flow */
+.study-top-collapsible {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0 10px;
+  max-height: 250px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.22s ease,
+              transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              margin 0.28s ease,
+              padding 0.28s ease;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.study-top-collapsible.is-hidden {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  transform: translateY(-16px) !important;
+  margin-top: -1.2rem !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  pointer-events: none;
+}
+
 .header-compact {
   display: flex;
   align-items: center;
@@ -799,7 +828,7 @@
   width: 100%;
   max-width: 460px;
   padding: 0 16px;
-  margin-bottom: 16px;
+  margin-bottom: 6px;
   box-sizing: border-box;
 }
 
@@ -871,7 +900,7 @@
 .cloze-masked-text {
   text-align: center;
   margin-bottom: 24px !important;
-  line-height: 1.4;
+  line-height: 1.35;
   letter-spacing: 0.5px;
 }
 

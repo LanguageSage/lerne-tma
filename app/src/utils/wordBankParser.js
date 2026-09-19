@@ -33,7 +33,11 @@ export const parseWordBankData = (card) => {
   const optionsMatch = /^@options[ \t]*$/im.exec(afterDirective);
   if (!optionsMatch) return null;
 
-  const text = afterDirective.slice(0, optionsMatch.index).trim();
+  const text = afterDirective
+    .slice(0, optionsMatch.index)
+    .trim()
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n[ \t]*\n+/g, '\n');
   const rawOptions = afterDirective.slice(optionsMatch.index + optionsMatch[0].length).trim();
   if (!text || !rawOptions) return null;
   if (/\[\[|\]\]/.test(text)) return null;

@@ -446,8 +446,8 @@ export const StudyCardTrainer = React.memo(({
           backLinePointer += 1;
 
           return (
-            <div key={`line-${idx}`} style={{ width: '100%', marginBottom: '4px' }}>
-              <div style={{ lineHeight: 1.8 }}>
+            <div key={`line-${idx}`} style={{ width: '100%', marginBottom: 0 }}>
+              <div style={{ lineHeight: 1.35 }}>
                 {renderSnippetWithGaps(line)}
               </div>
               {showTranslation && translationForLine && (

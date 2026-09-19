@@ -98,7 +98,7 @@ export const StudyCardQuiz = ({
             color: cardStyle.color || '#ffffff',
             fontSize: cardStyle.fontSize ? `${Math.max(parseFloat(cardStyle.fontSize), 1.4)}rem` : '1.45rem',
             fontWeight: cardStyle.fontWeight || 700,
-            lineHeight: 1.45,
+            lineHeight: 1.35,
             letterSpacing: '-0.01em',
             textAlign: (styles?.cardTextAlign && styles.cardTextAlign !== 'center') ? styles.cardTextAlign : 'left',
             marginBottom: renderAudioPlayer ? '12px' : '0',
