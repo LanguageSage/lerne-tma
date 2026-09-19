@@ -297,14 +297,25 @@
   user-select: none;
 }
 
+@keyframes subtleNavFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28), 0 0 10px rgba(255, 255, 255, 0.15);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35), 0 0 18px rgba(255, 255, 255, 0.35);
+  }
+}
+
 .nav-arrow-btn {
   width: 58px;
   height: 58px;
   min-width: 58px;
   min-height: 58px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
-  border: 1.5px solid rgba(168, 85, 247, 0.4);
-  color: #c084fc;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  color: #ffffff;
   padding: 0;
   border-radius: 50%;
   cursor: pointer;
@@ -312,17 +323,17 @@
   align-items: center;
   justify-content: center;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   backdrop-filter: blur(10px);
-  animation: subtleNavFloat 3.5s ease-in-out infinite;
+  animation: subtleNavFloat 3s ease-in-out infinite;
 }
 
 .nav-arrow-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.12));
-  border-color: rgba(255, 255, 255, 0.55);
-  transform: scale(1.1) translateY(-2px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.18));
+  border-color: #ffffff;
+  transform: scale(1.12) translateY(-3px);
   color: #ffffff;
-  box-shadow: 0 8px 26px rgba(255, 255, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 28px rgba(255, 255, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   animation-play-state: paused;
 }
 
@@ -331,20 +342,20 @@
 }
 
 .nav-arrow-btn:disabled {
-  opacity: 0.2;
+  opacity: 0.25;
   cursor: not-allowed;
-  color: #64748b;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
   box-shadow: none;
   transform: none;
   animation: none;
 }
 
 .nav-arrow-subtext {
-  font-size: 0.67rem;
-  font-weight: 600;
-  color: rgba(241, 245, 249, 0.72);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #e2e8f0;
   letter-spacing: 0.2px;
   text-align: center;
   line-height: 1.15;
@@ -353,7 +364,7 @@
 }
 
 .nav-btn-wrapper.is-disabled .nav-arrow-subtext {
-  opacity: 0.3;
+  opacity: 0.35;
 }
 
 .nav-counter-wrapper {

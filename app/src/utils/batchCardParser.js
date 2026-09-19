@@ -16,7 +16,7 @@ export function detectCardTypeByContent(front = '') {
  * Parses batch text into structured cards.
  * Supports:
  * 1. Dedicated Exercise Blocks:
- *    @@CARD [trainer|quiz|puzzle|match|free_text|standard]
+ *    @@CARD [trainer|quiz|puzzle|match|free_text|word_bank|standard]
  *    FRONT: ...
  *    BACK: ...
  *    CONTEXT: ...
@@ -76,7 +76,7 @@ export function parseBatchCardsText(rawText) {
 
       if (!front) continue;
 
-      const validTypes = ['trainer', 'quiz', 'puzzle', 'match', 'free_text', 'standard'];
+      const validTypes = ['trainer', 'quiz', 'puzzle', 'match', 'free_text', 'word_bank', 'standard'];
       const card_type = validTypes.includes(explicitType)
         ? explicitType
         : detectCardTypeByContent(front);

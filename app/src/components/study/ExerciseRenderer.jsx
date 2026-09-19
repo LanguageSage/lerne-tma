@@ -3,6 +3,7 @@ import { parseClozeData } from '../../utils/clozeParser.js';
 import { parseQuizData } from '../../utils/quizParser.js';
 import { parseMatchData } from '../../utils/matchParser.js';
 import { parseFreeTextData } from '../../utils/freeTextParser.js';
+import { parseWordBankData } from '../../utils/wordBankParser.js';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
 
 import { StudyCardTrainer } from './StudyCardTrainer.jsx';
@@ -10,6 +11,7 @@ import { StudyCardQuiz } from './StudyCardQuiz.jsx';
 import { StudyCardMatch } from './StudyCardMatch.jsx';
 import { StudyCardFreeText } from './StudyCardFreeText.jsx';
 import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
+import { StudyCardWordBank } from './StudyCardWordBank.jsx';
 
 /**
  * Universal ExerciseRenderer for all interactive exercise types:
@@ -18,6 +20,7 @@ import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
  * - free_text (open response with example answer)
  * - quiz (multiple choice test)
  * - puzzle (word ordering)
+ * - word_bank (numbered gaps with a shared option bank)
  */
 export const ExerciseRenderer = React.memo(({
   card,
@@ -62,11 +65,29 @@ export const ExerciseRenderer = React.memo(({
     return parseClozeData(card, studyMode);
   }, [card, detectedType, studyMode]);
 
+  const wordBankData = useMemo(() => {
+    if (detectedType !== 'word_bank') return null;
+    return parseWordBankData(card);
+  }, [card, detectedType]);
+
   if (!detectedType) {
     return fallback;
   }
 
   switch (detectedType) {
+    case 'word_bank':
+      if (!wordBankData) return fallback;
+      return (
+        <StudyCardWordBank
+          card={card}
+          wordBankData={wordBankData}
+          onTrainerAnswer={onTrainerAnswer}
+          styles={styles}
+          savedState={savedState}
+          onSaveState={onSaveState}
+        />
+      );
+
     case 'match':
       if (!matchData) return fallback;
       return (

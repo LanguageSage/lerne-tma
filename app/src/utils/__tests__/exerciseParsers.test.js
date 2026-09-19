@@ -5,6 +5,14 @@ import { parseMatchData, normalizeMatchValue } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
 import { parseBatchCardsText } from '../batchCardParser.js';
 import { resolveAiTranslation } from '../aiCardResult.js';
+import { parseWordBankData } from '../wordBankParser.js';
+import {
+  assignWordBankOption,
+  checkWordBankAssignments,
+  getNextEmptyWordBankGapId,
+  removeWordBankOption,
+  sanitizeWordBankAssignments
+} from '../wordBankState.js';
 import {
   detectAiQuickActionType,
   detectExerciseType
@@ -324,4 +332,135 @@ test('17. Connector distractor auto-generation and capitalization: {Trotzdem}', 
   for (const choice of parsed.gaps[0].choices) {
     assert.equal(choice[0], choice[0].toUpperCase());
   }
+});
+
+test('18. @wordbank is detected before trainer syntax without changing ordinary trainer cards', () => {
+  assert.equal(detectExerciseType({ front: '@wordbank\nText <<31>>\n@options\nFÜR | AUF' }), 'word_bank');
+  assert.equal(detectExerciseType({ front: '@wordbank\nText <<31>> and [[legacy]]\n@options\nFÜR' }), 'word_bank');
+  assert.equal(detectExerciseType({ front: 'Text [[legacy]].' }), 'trainer');
+});
+
+test('19. word bank parser extracts numbered gaps, ordered options, and BACK answers', () => {
+  const parsed = parseWordBankData({
+    front: `@wordbank
+Ein langer Text mit <<31>>, danach <<32>> und schließlich <<33>>.
+
+@options
+AN | AUF | FÜR | HABEN | VIEL`,
+    back: `31=FÜR
+32=VIEL
+33=AUF`
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.isWordBank, true);
+  assert.deepEqual(parsed.gaps.map(gap => gap.id), ['31', '32', '33']);
+  assert.deepEqual(parsed.gaps.map(gap => gap.correctAnswer), ['FÜR', 'VIEL', 'AUF']);
+  assert.deepEqual(parsed.options.map(option => option.value), ['AN', 'AUF', 'FÜR', 'HABEN', 'VIEL']);
+  assert.match(parsed.maskedText, /___WORD_BANK_GAP_31___/);
+  assert.equal(parsed.text.includes('@wordbank'), false);
+  assert.equal(parsed.text.includes('@options'), false);
+});
+
+test('20. @@CARD word_bank batch import preserves the explicit type and syntax', () => {
+  const [card] = parseBatchCardsText(`@@CARD word_bank
+FRONT:
+@wordbank
+Text <<31>>.
+@options
+FÜR | AUF
+BACK:
+31=FÜR
+CONTEXT:
+Sprachbausteine Teil 2
+@@END`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'word_bank');
+  assert.ok(card.front.includes('<<31>>'));
+  assert.equal(card.back, '31=FÜR');
+  assert.equal(card.context, 'Sprachbausteine Teil 2');
+});
+
+test('21. word bank supports 10 gaps, 15 ordered options, and extra distractors', () => {
+  const gapIds = Array.from({ length: 10 }, (_, index) => String(index + 31));
+  const optionValues = Array.from({ length: 15 }, (_, index) => `WORT_${index + 1}`);
+  const parsed = parseWordBankData({
+    front: `@wordbank\n${gapIds.map(id => `Satz <<${id}>>.`).join('\n')}\n@options\n${optionValues.join(' | ')}`,
+    back: gapIds.map((id, index) => `${id}=${optionValues[index]}`).join('\n')
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.gaps.length, 10);
+  assert.equal(parsed.options.length, 15);
+  assert.deepEqual(parsed.options.map(option => option.value), optionValues);
+});
+
+test('22. word bank parser rejects invalid structures and [[...]] gaps', () => {
+  assert.equal(parseWordBankData({
+    front: '@wordbank\nText [[FÜR]].\n@options\nFÜR',
+    back: '31=FÜR'
+  }), null);
+  assert.equal(parseWordBankData({
+    front: '@wordbank\nText <<31>>.\n@options\nFÜR',
+    back: '32=FÜR'
+  }), null);
+  assert.equal(parseWordBankData({
+    front: '@wordbank\nText <<31>>.\n@options\nAUF',
+    back: '31=FÜR'
+  }), null);
+});
+
+test('23. one word-bank option cannot be assigned to two gaps', () => {
+  const first = assignWordBankOption({}, '31', 'option-0');
+  const second = assignWordBankOption(first, '32', 'option-0');
+  assert.deepEqual(second, { 31: 'option-0' });
+  assert.equal(second, first);
+});
+
+test('24. removing a filled word-bank gap returns its option to the bank', () => {
+  const assigned = { 31: 'option-0', 32: 'option-1' };
+  const removed = removeWordBankOption(assigned, '31');
+  assert.deepEqual(removed, { 32: 'option-1' });
+  assert.equal(Object.values(removed).includes('option-0'), false);
+});
+
+test('25. replacing a word-bank answer releases the previous option and activates the next empty gap', () => {
+  const gaps = [{ id: '31' }, { id: '32' }, { id: '33' }];
+  const replaced = assignWordBankOption({ 31: 'option-0' }, '31', 'option-2');
+  assert.deepEqual(replaced, { 31: 'option-2' });
+  assert.equal(Object.values(replaced).includes('option-0'), false);
+  assert.equal(getNextEmptyWordBankGapId(gaps, replaced, '31'), '32');
+});
+
+test('26. word-bank checking marks correct and incorrect gaps without exposing answers', () => {
+  const gaps = [
+    { id: '31', correctAnswer: 'FÜR' },
+    { id: '32', correctAnswer: 'VIEL' }
+  ];
+  const options = [
+    { id: 'option-0', value: 'FÜR' },
+    { id: 'option-1', value: 'AUF' },
+    { id: 'option-2', value: 'VIEL' }
+  ];
+  const checked = checkWordBankAssignments(gaps, options, { 31: 'option-0', 32: 'option-1' });
+  assert.deepEqual(checked.results, { 31: 'correct', 32: 'incorrect' });
+  assert.equal(checked.allCorrect, false);
+  assert.equal(Object.values(checked.results).includes('VIEL'), false);
+});
+
+test('27. saved word-bank assignments are restored safely and preserve single-use options', () => {
+  const gaps = [{ id: '31' }, { id: '32' }, { id: '33' }];
+  const options = [
+    { id: 'option-0', value: 'FÜR' },
+    { id: 'option-1', value: 'AUF' }
+  ];
+  const restored = sanitizeWordBankAssignments({
+    31: 'option-0',
+    32: 'option-0',
+    33: 'missing-option',
+    99: 'option-1'
+  }, gaps, options);
+
+  assert.deepEqual(restored, { 31: 'option-0' });
 });

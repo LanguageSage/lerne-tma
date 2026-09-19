@@ -29,12 +29,13 @@ export const detectAiQuickActionType = (text) => {
  * 1. match (@match)
  * 2. free_text (@free)
  * 3. puzzle (@puzzle)
- * 4. trainer ({...} or [[...]]) - absolute priority over quiz
- * 5. quiz (structured multiple choice test with * on option lines)
- * 6. puzzle (if studyMode === 'puzzle')
- * 7. null (standard card)
+ * 4. word_bank (@wordbank)
+ * 5. trainer ({...} or [[...]]) - absolute priority over quiz
+ * 6. quiz (structured multiple choice test with * on option lines)
+ * 7. puzzle (if studyMode === 'puzzle')
+ * 8. null (standard card)
  *
- * Returns: 'match' | 'free_text' | 'quiz' | 'trainer' | 'puzzle' | null
+ * Returns: 'match' | 'free_text' | 'quiz' | 'trainer' | 'puzzle' | 'word_bank' | null
  */
 export const detectExerciseType = (cardOrFront, studyMode = 'classic') => {
   if (!cardOrFront) return null;
@@ -59,19 +60,24 @@ export const detectExerciseType = (cardOrFront, studyMode = 'classic') => {
     return 'puzzle';
   }
 
-  // 4. Trainer / Cloze gaps: {...} or [[...]] (Strict priority over quiz)
+  // 4. Shared word bank. Must win over trainer syntax if malformed legacy tokens are present.
+  if (/^@wordbank\b/i.test(trimmed) || /\n@wordbank\b/i.test(trimmed)) {
+    return 'word_bank';
+  }
+
+  // 5. Trainer / Cloze gaps: {...} or [[...]] (Strict priority over quiz)
   if (hasTrainerSyntax(trimmed)) {
     return 'trainer';
   }
 
-  // 5. Quiz / Multiple Choice structure (Checked on content after masking trainer tokens)
+  // 6. Quiz / Multiple Choice structure (Checked on content after masking trainer tokens)
   const cardObj = typeof cardOrFront === 'string' ? { front: cardOrFront } : cardOrFront;
   const quizData = parseQuizData(cardObj);
   if (quizData?.isQuiz) {
     return 'quiz';
   }
 
-  // 6. Explicit studyMode puzzle fallback
+  // 7. Explicit studyMode puzzle fallback
   if (studyMode === 'puzzle') {
     return 'puzzle';
   }
