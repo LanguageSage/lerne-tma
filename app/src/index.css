@@ -585,10 +585,24 @@ h1, h2, h3 {
   white-space: nowrap;
 }
 
-.ai-quick-actions.has-dynamic > .btn-save-action,
-.ai-quick-actions.has-dynamic > .btn-primary {
+.ai-quick-actions:not(.has-request).has-dynamic > .btn-save-action,
+.ai-quick-actions:not(.has-request).has-dynamic > .btn-primary {
   flex: 1 1 100%;
   width: 100%;
+}
+
+.ai-quick-actions.has-request.no-dynamic > .btn-ai-generate {
+  flex: 1 1 100%;
+}
+
+.ai-quick-actions > .card-question-composer.is-action {
+  flex: 1 1 calc(50% - 5px);
+  width: auto;
+  margin: 0;
+}
+
+.ai-quick-actions > .card-question-composer.is-action.is-open {
+  flex-basis: 100%;
 }
 
 .btn-ai-generate {
@@ -638,6 +652,20 @@ h1, h2, h3 {
 
 .btn-ai-generate .spin {
   animation: spin 1s linear infinite;
+}
+
+@media (max-width: 420px) {
+  .ai-quick-actions {
+    gap: 8px;
+  }
+
+  .ai-quick-actions > button,
+  .ai-quick-actions > .btn,
+  .ai-quick-actions > .btn-ai-generate,
+  .ai-quick-actions > .card-question-composer.is-action {
+    flex-basis: 100% !important;
+    width: 100%;
+  }
 }
 
 @keyframes spin {

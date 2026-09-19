@@ -10,6 +10,7 @@ export function CardQuestionComposer({
   placeholder = tr('Напишите вопрос...'),
   submitLabel = tr('Отправить'),
   disabled = false,
+  variant = 'question',
 }) {
   useInterfaceLocale();
   const [isOpen, setIsOpen] = useState(false);
@@ -44,7 +45,7 @@ export function CardQuestionComposer({
   };
 
   return (
-    <div className="card-question-composer" onClick={(event) => event.stopPropagation()}>
+    <div className={`card-question-composer is-${variant} ${isOpen ? 'is-open' : ''}`} onClick={(event) => event.stopPropagation()}>
       {!isOpen ? (
         <button
           type="button"

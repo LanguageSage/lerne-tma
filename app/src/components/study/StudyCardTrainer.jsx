@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Languages } from 'lucide-react';
+import { Languages, RotateCcw } from 'lucide-react';
 import { getCardStyle } from '../../utils/cardStyles';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
@@ -12,7 +12,6 @@ export const StudyCardTrainer = React.memo(({
   card,
   clozeData,
   onTrainerAnswer,
-  onNextCard,
   renderAudioPlayer,
   styles = {},
   savedState,
@@ -156,10 +155,11 @@ export const StudyCardTrainer = React.memo(({
     }
   };
 
-  const handleNext = () => {
-    if (onNextCard) {
-      onNextCard();
-    }
+  const handleReset = () => {
+    setSelectedOptions({});
+    setOpenDropdownGapId(null);
+    setIsChecked(false);
+    triggerHaptic('light');
   };
 
   // Render a specific gap element (Input gap or Choice gap badge)
@@ -175,6 +175,7 @@ export const StudyCardTrainer = React.memo(({
       let borderColor = 'rgba(168, 85, 247, 0.45)';
       let bgColor = 'rgba(168, 85, 247, 0.1)';
       let textColor = '#ffffff';
+      let textDecoration = 'none';
 
       if (isChecked) {
         if (isCorrectChoice) {
@@ -185,6 +186,7 @@ export const StudyCardTrainer = React.memo(({
           borderColor = '#ef4444';
           bgColor = 'rgba(239, 68, 68, 0.25)';
           textColor = '#f87171';
+          textDecoration = 'line-through';
         }
       }
 
@@ -220,6 +222,7 @@ export const StudyCardTrainer = React.memo(({
               border: `2px solid ${borderColor}`,
               background: bgColor,
               color: textColor,
+              textDecoration,
               fontWeight: 700,
               fontSize: 'inherit',
               fontFamily: 'inherit',
@@ -232,8 +235,32 @@ export const StudyCardTrainer = React.memo(({
             isCorrectChoice ? (
               <span style={{ color: '#22c55e', marginLeft: '5px', fontWeight: 800 }}>✓</span>
             ) : (
-              <span style={{ color: '#ef4444', marginLeft: '5px', fontSize: '0.88em', fontWeight: 700 }}>
-                ✗ <span style={{ color: '#4ade80', textDecoration: 'underline' }}>{gap.correctAnswer}</span>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  marginLeft: '4px'
+                }}
+              >
+                <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.9em' }}>✗</span>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    padding: '3px 8px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #22c55e',
+                    background: 'rgba(34, 197, 94, 0.25)',
+                    color: '#4ade80',
+                    fontWeight: 700,
+                    fontSize: '0.88em'
+                  }}
+                >
+                  <span>{gap.correctAnswer}</span>
+                  <span style={{ color: '#22c55e', fontWeight: 800 }}>✓</span>
+                </span>
               </span>
             )
           )}
@@ -241,7 +268,64 @@ export const StudyCardTrainer = React.memo(({
       );
     }
 
-    // Choice gap: interactive clickable badge
+    // Choice gap when checked & incorrect: render two separate side-by-side badges
+    if (isChecked && !isCorrectChoice) {
+      return (
+        <span
+          key={`gap-choice-result-${gap.id}`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            verticalAlign: 'baseline',
+            margin: '2px 4px'
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Wrong User Choice Badge */}
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 9px',
+              borderRadius: '10px',
+              border: '1.5px solid #ef4444',
+              background: 'rgba(239, 68, 68, 0.25)',
+              color: '#f87171',
+              fontWeight: 700,
+              fontSize: '0.92em',
+              userSelect: 'none'
+            }}
+          >
+            <span style={{ textDecoration: 'line-through' }}>{rawValue || '—'}</span>
+            <span style={{ color: '#ef4444', fontWeight: 800 }}>✗</span>
+          </span>
+
+          {/* Correct Answer Badge */}
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 9px',
+              borderRadius: '10px',
+              border: '1.5px solid #22c55e',
+              background: 'rgba(34, 197, 94, 0.25)',
+              color: '#4ade80',
+              fontWeight: 700,
+              fontSize: '0.92em',
+              userSelect: 'none'
+            }}
+          >
+            <span>{gap.correctAnswer}</span>
+            <span style={{ color: '#22c55e', fontWeight: 800 }}>✓</span>
+          </span>
+        </span>
+      );
+    }
+
+    // Choice gap: interactive clickable badge (default / correct / open)
     let borderColor = 'rgba(168, 85, 247, 0.45)';
     let bgColor = 'rgba(168, 85, 247, 0.08)';
     let textColor = '#c084fc';
@@ -253,11 +337,6 @@ export const StudyCardTrainer = React.memo(({
         bgColor = 'rgba(34, 197, 94, 0.25)';
         textColor = '#4ade80';
         badgeLabel = `${rawValue} ✓`;
-      } else {
-        borderColor = '#ef4444';
-        bgColor = 'rgba(239, 68, 68, 0.25)';
-        textColor = '#f87171';
-        badgeLabel = `${rawValue || '—'} ✗ (${gap.correctAnswer})`;
       }
     } else if (isDropdownOpen) {
       borderColor = '#a855f7';
@@ -446,7 +525,8 @@ export const StudyCardTrainer = React.memo(({
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
         {!isChecked ? (
           <button
-            className="btn btn-primary"
+            type="button"
+            className="btn"
             style={{
               width: '100%',
               maxWidth: '320px',
@@ -456,14 +536,14 @@ export const StudyCardTrainer = React.memo(({
               fontSize: '1.02rem',
               cursor: allGapsFilled ? 'pointer' : 'not-allowed',
               background: allGapsFilled
-                ? 'linear-gradient(135deg, #a855f7, #7c3aed)'
-                : 'rgba(25, 20, 42, 0.85)',
+                ? 'rgba(255, 255, 255, 0.12)'
+                : 'rgba(25, 20, 42, 0.4)',
               color: allGapsFilled ? '#ffffff' : '#94a3b8',
-              boxShadow: allGapsFilled ? '0 6px 24px rgba(168, 85, 247, 0.5)' : 'none',
-              border: allGapsFilled ? 'none' : '1px solid rgba(168, 85, 247, 0.3)',
+              boxShadow: allGapsFilled ? '0 4px 20px rgba(0, 0, 0, 0.25)' : 'none',
+              border: allGapsFilled ? '1.5px solid rgba(255, 255, 255, 0.28)' : '1px solid rgba(255, 255, 255, 0.1)',
               transition: 'all 0.2s ease-in-out',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)'
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)'
             }}
             disabled={!allGapsFilled}
             onClick={(e) => {
@@ -476,7 +556,8 @@ export const StudyCardTrainer = React.memo(({
         ) : (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
             <button
-              className="btn btn-primary"
+              type="button"
+              className="btn"
               style={{
                 width: '100%',
                 maxWidth: '320px',
@@ -484,19 +565,26 @@ export const StudyCardTrainer = React.memo(({
                 fontWeight: 700,
                 borderRadius: '16px',
                 fontSize: '1.02rem',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                background: 'rgba(255, 255, 255, 0.12)',
                 color: '#ffffff',
-                boxShadow: '0 4px 20px rgba(34, 197, 94, 0.4)',
-                border: 'none',
+                border: '1.5px solid rgba(255, 255, 255, 0.28)',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease-in-out'
+                transition: 'all 0.2s ease-in-out',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)'
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                handleNext();
+                handleReset();
               }}
             >
-              {tr("Дальше →")}
+              <RotateCcw size={18} />
+              <span>{tr("Сбросить")}</span>
             </button>
           </div>
         )}

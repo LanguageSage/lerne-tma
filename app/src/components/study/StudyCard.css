@@ -80,8 +80,12 @@
 
 .card-question-composer {
   width: 100%;
-  margin: 12px 0 14px;
+  margin: 4px 0 6px;
   box-sizing: border-box;
+}
+
+.card-question-composer.is-question {
+  margin: 0;
 }
 
 .card-question-trigger {
@@ -90,21 +94,53 @@
   justify-content: center;
   gap: 7px;
   min-height: 44px;
-  padding: 8px 14px;
-  border: 1px solid rgba(168, 85, 247, 0.38);
+  padding: 6px 10px;
+  border: 0;
   border-radius: 12px;
-  background: rgba(168, 85, 247, 0.13);
+  background: transparent;
   color: #e9d5ff;
   font: inherit;
   font-size: 0.86rem;
   font-weight: 650;
   cursor: pointer;
   touch-action: manipulation;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  text-shadow: 0 0 10px rgba(216, 180, 254, 0.72);
+  transition: color 160ms ease, text-shadow 160ms ease, transform 160ms ease;
+  animation: card-question-glow 2.4s ease-in-out infinite;
 }
 
 .card-question-trigger:active { transform: scale(0.98); }
 .card-question-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.card-question-composer.is-question .card-question-trigger {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 0.8rem;
+}
+
+.card-question-composer.is-question.is-open {
+  margin: 4px 0 8px;
+}
+
+.card-question-composer.is-action .card-question-trigger {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  background: linear-gradient(135deg, rgba(126, 34, 206, 0.22), rgba(168, 85, 247, 0.14));
+  box-shadow: 0 4px 15px rgba(126, 34, 206, 0.14);
+  text-shadow: none;
+  animation: none;
+}
+
+.card-question-composer.is-action.is-open {
+  margin-top: 2px;
+}
+
+@keyframes card-question-glow {
+  0%, 100% { color: #e9d5ff; text-shadow: 0 0 8px rgba(216, 180, 254, 0.5); }
+  50% { color: #fff; text-shadow: 0 0 15px rgba(216, 180, 254, 0.95), 0 0 26px rgba(168, 85, 247, 0.38); }
+}
 
 .card-question-form {
   display: flex;
@@ -185,7 +221,8 @@
 
 @media (hover: hover) {
   .study-card-flip-button:hover:not(:disabled) { filter: brightness(1.15); }
-  .card-question-trigger:hover { background: rgba(168, 85, 247, 0.22); border-color: rgba(192, 132, 252, 0.65); }
+  .card-question-trigger:hover { color: #fff; text-shadow: 0 0 16px rgba(216, 180, 254, 0.95); }
+  .card-question-composer.is-action .card-question-trigger:hover { background: linear-gradient(135deg, rgba(126, 34, 206, 0.34), rgba(168, 85, 247, 0.24)); }
 }
 
 @media (max-width: 360px) {
@@ -199,6 +236,7 @@
   .study-card-flip-button:active:not(:disabled) { transform: none; }
   .card-question-trigger { transition: none; }
   .card-question-trigger:active { transform: none; }
+  .card-question-trigger { animation: none; }
 }
 
 /* ── Gap Dropdown / Popover ───────────────────────────────────────── */

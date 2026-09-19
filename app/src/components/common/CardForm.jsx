@@ -689,19 +689,7 @@ export const CardForm = ({
         const DynamicIcon = dynamicAction?.icon || BookOpen;
 
         return (
-          <>
-          {!isCreator && (
-            <CardQuestionComposer
-              onSubmit={(request) => onAiGenerate?.('full_card', request)}
-              icon="✨"
-              triggerLabel={tr("Выполнить просьбу")}
-              title={tr("Что изменить в карточке?")}
-              placeholder={tr("Опишите необходимые изменения...")}
-              submitLabel={tr("Выполнить ✨")}
-              disabled={loading}
-            />
-          )}
-          <div className={`ai-quick-actions ${dynamicAction && !loading ? 'has-dynamic' : ''}`} style={{ gap: '10px' }}>
+          <div className={`ai-quick-actions ${dynamicAction && !loading ? 'has-dynamic' : 'no-dynamic'} ${!isCreator ? 'has-request' : ''}`} style={{ gap: '10px' }}>
             {loading ? (
               <button 
                 type="button"
@@ -740,6 +728,18 @@ export const CardForm = ({
                   <Sparkles size={16} />
                   <span>{t('creator.ai_generate', 'Генерировать ✨')}</span>
                 </button>
+                {!isCreator && (
+                  <CardQuestionComposer
+                    onSubmit={(request) => onAiGenerate?.('full_card', request)}
+                    icon="✨"
+                    triggerLabel={tr("Выполнить просьбу")}
+                    title={tr("Что изменить в карточке?")}
+                    placeholder={tr("Опишите необходимые изменения...")}
+                    submitLabel={tr("Выполнить ✨")}
+                    disabled={loading}
+                    variant="action"
+                  />
+                )}
               </>
             )}
             <button 
@@ -752,7 +752,6 @@ export const CardForm = ({
               {loading ? <RefreshCw className="spin" size={18} /> : t('creator.save', 'Сохранить')}
             </button>
           </div>
-          </>
         );
       })()}
 

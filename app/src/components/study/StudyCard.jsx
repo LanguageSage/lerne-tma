@@ -628,7 +628,7 @@ export const StudyCard = React.memo(({
                 })()}
               </div>
 
-              <CardQuestionComposer onSubmit={onAskQuestion} />
+              <CardQuestionComposer onSubmit={onAskQuestion} submitLabel={tr('Задать')} />
 
               {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
               {(() => {
