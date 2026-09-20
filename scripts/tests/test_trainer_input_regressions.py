@@ -97,7 +97,7 @@ class TrainerInputRegressionTests(unittest.TestCase):
         self.assertIn("::options\nwas | dass | wie | ob", restored)
         self.assertTrue(restored.endswith("Ich weiß, [[dass alles klappt]]."))
 
-    def test_source_marker_populates_internal_context_and_legacy_context_is_supported(self):
+    def test_source_marker_populates_internal_context_and_legacy_context_is_not_recognized(self):
         source = (
             "::task\nErgänzen Sie das Verb.\n\n"
             "::source\nWiedersehen nach 20 Jahren.\n\n"
@@ -111,9 +111,9 @@ class TrainerInputRegressionTests(unittest.TestCase):
         self.assertIn("::source", restore_exercise_content(parsed, parsed["exercise"]))
 
         legacy = parse_exercise_content("::context\nLegacy text.\n\nSatz [[Antwort]].")
-        self.assertTrue(legacy["has_blocks"])
-        self.assertEqual(legacy["context"], "Legacy text.")
-        self.assertEqual(legacy["exercise"], "Satz [[Antwort]].")
+        self.assertFalse(legacy["has_blocks"])
+        self.assertEqual(legacy["context"], "")
+        self.assertEqual(legacy["exercise"], "::context\nLegacy text.\n\nSatz [[Antwort]].")
 
     def test_source_with_explicit_exercise_marker_supports_multiparagraph_context(self):
         source = (

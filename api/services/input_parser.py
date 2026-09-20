@@ -7,7 +7,6 @@ EXERCISE_MARKER_TO_BLOCK_TYPE = {
     "task": "task",
     "options": "options",
     "source": "context",
-    "context": "context",
     "example": "example",
 }
 
@@ -17,7 +16,7 @@ def _is_exercise_marker(line: str) -> bool:
 
 
 def _exercise_block_type(line: str) -> str | None:
-    match = re.fullmatch(r"\s*::(task|options|source|context|example)\s*", line or "", re.IGNORECASE)
+    match = re.fullmatch(r"\s*::(task|options|source|example)\s*", line or "", re.IGNORECASE)
     block_type = EXERCISE_MARKER_TO_BLOCK_TYPE.get(match.group(1).lower()) if match else None
     return block_type if block_type in EXERCISE_BLOCK_TYPES else None
 
@@ -184,6 +183,10 @@ def restore_exercise_content(parsed_content: dict, generated_exercise: str) -> s
     preamble = str((parsed_content or {}).get("raw_preamble") or "").strip()
     if not preamble:
         return exercise
+    has_source = bool((parsed_content or {}).get("context"))
+    has_exercise_marker = bool(re.search(r"(?im)^\s*::exercise\s*$", preamble))
+    if has_source and not has_exercise_marker:
+        return f"{preamble}\n\n::exercise\n{exercise}" if exercise else f"{preamble}\n\n::exercise"
     return f"{preamble}\n\n{exercise}" if exercise else preamble
 
 

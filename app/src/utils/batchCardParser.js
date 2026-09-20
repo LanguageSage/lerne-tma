@@ -184,7 +184,6 @@ export function parseBatchCardsText(rawText) {
     if (!block) continue;
 
     const parsedExercise = parseExerciseContent(block);
-    const exerciseContext = parsedExercise.context || '';
     const cleanSentenceForLevel = parsedExercise.hasBlocks ? (parsedExercise.exercise || block) : block;
     const detectedType = detectCardTypeByContent(block);
 
@@ -198,7 +197,7 @@ export function parseBatchCardsText(rawText) {
         front_text: block,
         back: tr("Сопоставление пар"),
         back_text: tr("Сопоставление пар"),
-        context: exerciseContext,
+        context: '',
         card_type: 'match',
         level,
         reason: res.reason,
@@ -222,7 +221,7 @@ export function parseBatchCardsText(rawText) {
         front_text: front,
         back,
         back_text: back,
-        context: exerciseContext,
+        context: '',
         card_type: 'free_text',
         level,
         reason: res.reason,
@@ -245,7 +244,7 @@ export function parseBatchCardsText(rawText) {
         front_text: front,
         back: tr("Конструктор фразы"),
         back_text: tr("Конструктор фразы"),
-        context: exerciseContext,
+        context: '',
         card_type: 'puzzle',
         level,
         reason: res.reason,
@@ -282,7 +281,7 @@ export function parseBatchCardsText(rawText) {
         front_text: block,
         back: extractedAnswer,
         back_text: extractedAnswer,
-        context: exerciseContext,
+        context: '',
         card_type: 'trainer',
         level,
         reason: res.reason,
@@ -308,7 +307,7 @@ export function parseBatchCardsText(rawText) {
         front_text: block,
         back: cleanCorrectAnswer,
         back_text: cleanCorrectAnswer,
-        context: exerciseContext,
+        context: '',
         card_type: 'quiz',
         level,
         reason: res.reason,
@@ -332,7 +331,7 @@ export function parseBatchCardsText(rawText) {
         front_text: front,
         back,
         back_text: back,
-        context: exerciseContext,
+        context: '',
         card_type: 'standard',
         level,
         reason: res.reason,
@@ -361,7 +360,7 @@ export function parseBatchCardsText(rawText) {
         front_text: front.trim(),
         back: back.trim(),
         back_text: back.trim(),
-        context: exerciseContext,
+        context: '',
         card_type: 'standard',
         level,
         reason: res.reason,

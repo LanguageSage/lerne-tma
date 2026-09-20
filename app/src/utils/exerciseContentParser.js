@@ -3,7 +3,6 @@ const MARKER_TO_BLOCK_TYPE = Object.freeze({
   task: 'task',
   options: 'options',
   source: 'context',
-  context: 'context',
   example: 'example'
 });
 
@@ -12,7 +11,7 @@ const normalizeLineEndings = (value) => String(value ?? '').replace(/\r\n?/g, '\
 const isExerciseMarker = (line) => /^\s*::exercise\s*$/i.test(line || '');
 
 const getBlockType = (line) => {
-  const match = /^\s*::(task|options|source|context|example)\s*$/i.exec(line || '');
+  const match = /^\s*::(task|options|source|example)\s*$/i.exec(line || '');
   const type = MARKER_TO_BLOCK_TYPE[match?.[1]?.toLowerCase()];
   return BLOCK_TYPES.has(type) ? type : null;
 };
@@ -181,5 +180,10 @@ export const restoreExerciseContent = (parsedContent, generatedExercise) => {
   const exercise = (generated.hasBlocks ? generated.exercise : normalizeLineEndings(generatedExercise)).trim();
   const preamble = parsedContent?.rawPreamble?.trim() || '';
   if (!preamble) return exercise;
+  const hasSource = Boolean(parsedContent?.context);
+  const hasExerciseMarker = /^\s*::exercise\s*$/im.test(preamble);
+  if (hasSource && !hasExerciseMarker) {
+    return exercise ? `${preamble}\n\n::exercise\n${exercise}` : `${preamble}\n\n::exercise`;
+  }
   return exercise ? `${preamble}\n\n${exercise}` : preamble;
 };

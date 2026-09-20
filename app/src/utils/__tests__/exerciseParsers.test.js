@@ -734,14 +734,13 @@ test('34. unknown markers inside exercise content are not silently removed', () 
   assert.equal(parsed.exercise, source);
 });
 
-test('34a. legacy ::context is supported as backward-compatible alias for context', () => {
+test('34a. legacy ::context is NOT parsed as a special block', () => {
   const source = '::context\nLegacy text.\n\nSatz [[Antwort]].';
   const parsed = parseExerciseContent(source);
 
-  assert.equal(parsed.hasBlocks, true);
-  assert.equal(parsed.context, 'Legacy text.');
-  assert.equal(parsed.exercise, 'Satz [[Antwort]].');
-  assert.equal(parsed.blocks[0].type, 'context');
+  assert.equal(parsed.hasBlocks, false);
+  assert.equal(parsed.context, '');
+  assert.equal(parsed.exercise, source);
 });
 
 test('34b. integration regression: task + multi-line source without ::exercise extracts cleanly', () => {
@@ -842,7 +841,7 @@ Ich weiß, [[dass er kommt]].
   assert.ok(card.front.includes('::options'));
 });
 
-test('35a. full pipeline: splitImportedCards -> parseBatchCardsText with <<<LERNE_CARD>>> populates context', () => {
+test('35a. full pipeline: splitImportedCards -> parseBatchCardsText with <<<LERNE_CARD>>> avoids duplicate context storage', () => {
   const rawBatch = `::task
 Ergänzen Sie das Verb.
 
@@ -858,6 +857,7 @@ ${LERNE_CARD_SEPARATOR}
 ::source
 Kurze Geschichte.
 
+::exercise
 Sie [[war]] müde.`;
 
   const blocks = splitImportedCards(rawBatch);
@@ -866,13 +866,34 @@ Sie [[war]] müde.`;
   const cards = parseBatchCardsText(rawBatch);
   assert.equal(cards.length, 2);
 
+  // Single source of truth in front/front_text:
   assert.equal(cards[0].card_type, 'trainer');
-  assert.equal(cards[0].context, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin wieder.');
+  assert.equal(cards[0].context, ''); // Not duplicated in card.context
+  assert.ok(cards[0].front.includes('::source'));
   assert.equal(cards[0].back, 'hatte');
 
+  // Runtime computes context on the fly from front:
+  const runtime0 = parseExerciseContent(cards[0].front);
+  assert.equal(runtime0.context, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin wieder.');
+  assert.equal(runtime0.exercise, 'Er [[hatte]] sein Studium abgeschlossen.');
+
   assert.equal(cards[1].card_type, 'trainer');
-  assert.equal(cards[1].context, 'Kurze Geschichte.');
+  assert.equal(cards[1].context, ''); // Not duplicated
+  assert.ok(cards[1].front.includes('::source'));
   assert.equal(cards[1].back, 'war');
+
+  const runtime1 = parseExerciseContent(cards[1].front);
+  assert.equal(runtime1.context, 'Kurze Geschichte.');
+  assert.equal(runtime1.exercise, 'Sie [[war]] müde.');
+});
+
+test('35b. restoreExerciseContent guarantees ::exercise if ::source is present', () => {
+  const source = `::source\nGeschichte.\n\nSatz [[hier]].`;
+  const parsed = parseExerciseContent(source);
+  const restored = restoreExerciseContent(parsed, 'Neuer Satz [[dort]].');
+
+  assert.ok(restored.includes('::source\nGeschichte.'));
+  assert.ok(restored.includes('::exercise\nNeuer Satz [[dort]].'));
 });
 
 test('36. information blocks do not interfere with puzzle or quiz detection and parsing', () => {
