@@ -9,7 +9,7 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { db } from '../../services/localDb';
-import { LEGACY_CARD_SEPARATOR, LERNE_CARD_SEPARATOR, parseBatchCardsText } from '../../utils/batchCardParser';
+import { hasCardSeparatorLine, LERNE_CARD_SEPARATOR, parseBatchCardsText } from '../../utils/batchCardParser';
 import { detectExerciseType } from '../../utils/exerciseDetector';
 import api from '../../services/api';
 
@@ -58,8 +58,7 @@ vielleicht`;
   // Auto-switch to import tab if user pastes text with exercises or batch markers
   useEffect(() => {
     if (rawText && (
-      rawText.includes(LERNE_CARD_SEPARATOR) ||
-      rawText.includes(LEGACY_CARD_SEPARATOR) ||
+      hasCardSeparatorLine(rawText) ||
       rawText.includes('@@CARD') ||
       rawText.includes('@match') ||
       rawText.includes('@free') ||

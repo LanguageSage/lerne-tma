@@ -4,7 +4,7 @@ import { parseClozeData, cleanBracketSyntax, normalizeAnswer } from '../clozePar
 import { parseMatchData, normalizeMatchValue } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
 import { parseQuizData } from '../quizParser.js';
-import { parseBatchCardsText, splitImportedCards } from '../batchCardParser.js';
+import { hasCardSeparatorLine, parseBatchCardsText, splitImportedCards } from '../batchCardParser.js';
 import { resolveAiTranslation } from '../aiCardResult.js';
 import { parseWordBankData } from '../wordBankParser.js';
 import {
@@ -339,6 +339,42 @@ vielleicht`);
 
   assert.equal(cards.length, 5);
   assert.deepEqual(cards.map(card => card.card_type), ['trainer', 'puzzle', 'match', 'standard', 'quiz']);
+});
+
+test('14d. Inline separator text does not disable blank-line fallback parsing', () => {
+  for (const inlineSeparator of ['Text with --- inside the sentence.', 'Text <<<LERNE_CARD>>> inside sentence']) {
+    const cards = parseBatchCardsText(`${inlineSeparator}\n\n\nHaus\nдом`);
+    assert.equal(cards.length, 2);
+  }
+
+  assert.equal(hasCardSeparatorLine('Text with --- inside the sentence.'), false);
+  assert.equal(hasCardSeparatorLine('Text <<<LERNE_CARD>>> inside sentence'), false);
+  assert.equal(hasCardSeparatorLine('card1\n  <<<LERNE_CARD>>>  \ncard2'), true);
+});
+
+test('14e. New standalone separator preserves Trainer information blocks and puzzle markers', () => {
+  const cards = parseBatchCardsText(`::task
+Wählen Sie das passende Wort.
+
+::options
+was | dass | wie | ob
+
+Ich verstehe jetzt viel besser, [[wie das deutsche Hochschulsystem funktioniert]].
+(das deutsche Hochschulsystem funktionieren)
+
+<<<LERNE_CARD>>>
+
+@puzzle
+Am Wochenende fahren wir mit dem Zug nach Berlin.`);
+
+  assert.equal(cards.length, 2);
+  assert.equal(cards[0].card_type, 'trainer');
+  assert.ok(cards[0].front.includes('::task'));
+  assert.ok(cards[0].front.includes('::options'));
+  assert.ok(cards[0].front.includes('[[wie das deutsche Hochschulsystem funktioniert]]'));
+  assert.ok(cards[0].front.includes('(das deutsche Hochschulsystem funktionieren)'));
+  assert.equal(cards[1].card_type, 'puzzle');
+  assert.ok(cards[1].front.startsWith('@puzzle'));
 });
 
 test('15. Rule action fills only an empty translation field', () => {

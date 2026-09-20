@@ -12,6 +12,13 @@ const isCardSeparatorLine = (line) => {
   return value === LERNE_CARD_SEPARATOR || value === LEGACY_CARD_SEPARATOR;
 };
 
+export function hasCardSeparatorLine(rawText) {
+  return String(rawText || '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .some(isCardSeparatorLine);
+}
+
 /**
  * Splits quick-import text into non-empty card blocks. Both separators are
  * intentionally accepted only when they occupy a complete line.
@@ -164,7 +171,7 @@ export function parseBatchCardsText(rawText) {
   // ─────────────────────────────────────────────────────────────────────────────
   let blocks = splitImportedCards(rawText);
 
-  if (blocks.length <= 1 && !rawText.includes(LERNE_CARD_SEPARATOR) && !rawText.includes(LEGACY_CARD_SEPARATOR)) {
+  if (blocks.length <= 1 && !hasCardSeparatorLine(rawText)) {
     const candidateBlocks = rawText.split(/\n{3,}/).map(b => b.trim()).filter(Boolean);
     if (candidateBlocks.length > 1) {
       blocks = candidateBlocks;
