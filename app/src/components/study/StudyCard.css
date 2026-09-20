@@ -113,18 +113,21 @@
 }
 
 .exercise-info-task {
-  border-left: 3px solid rgba(56, 189, 248, 0.72);
-  background: rgba(14, 116, 144, 0.1);
+  border-color: var(--design-task-border, rgba(56, 189, 248, 0.72));
+  border-left: 3px solid var(--design-task-border, rgba(56, 189, 248, 0.72));
+  background: var(--design-task-bg, rgba(14, 116, 144, 0.1));
 }
 
-.exercise-info-context {
-  background: rgba(255, 255, 255, 0.045);
+.exercise-info-context,
+.exercise-info-source {
+  border-color: var(--design-source-border, rgba(148, 163, 184, 0.18));
+  background: var(--design-source-bg, rgba(255, 255, 255, 0.045));
 }
 
 .exercise-info-example {
-  border-color: rgba(196, 181, 253, 0.2);
-  background: rgba(124, 58, 237, 0.07);
-  color: rgba(241, 245, 249, 0.88);
+  border-color: var(--design-example-border, rgba(196, 181, 253, 0.2));
+  background: var(--design-example-bg, rgba(124, 58, 237, 0.07));
+  color: var(--design-example-color, rgba(241, 245, 249, 0.88));
 }
 
 .exercise-info-label {
@@ -138,7 +141,10 @@
 
 .exercise-info-text {
   color: inherit;
-  font-size: 0.86rem;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  font-style: inherit;
   line-height: 1.45;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -167,10 +173,6 @@
 @media (max-width: 420px) {
   .exercise-info-block {
     padding: 8px 9px;
-  }
-
-  .exercise-info-text {
-    font-size: 0.82rem;
   }
 }
 

@@ -28,6 +28,14 @@ function saveCachedPublishedDesign(doc) {
   } catch { /* quota exceeded — silently ignore */ }
 }
 
+// Immediately apply design tokens on startup (cached published design or defaults)
+const initialPublishedDesign = loadCachedPublishedDesign();
+if (initialPublishedDesign?.config) {
+  applyPublishedDesignTokens(initialPublishedDesign.config);
+} else {
+  applyPublishedDesignTokens(DEFAULT_DESIGN_CONFIG_V2);
+}
+
 export const AUTOPLAY_STORAGE_MAP = Object.fromEntries(
   Object.keys(AUTOPLAY_DEFAULTS).map(key => [key, `lerne_auto_v2_${key}`]),
 );
@@ -484,7 +492,7 @@ export const useSettingsStore = create((set, get) => {
     //   null → дизайн ещё не опубликован → использовать DEFAULT_DESIGN_CONFIG_V2.
     // adminDraftDesignV2: черновик администратора, изолирован внутри preview.
     //   Не влияет на реальное приложение до публикации.
-    publishedDesignV2: loadCachedPublishedDesign(),
+    publishedDesignV2: initialPublishedDesign,
     adminDraftDesignV2: null,
 
     /** Применяет опубликованный global design (из /init или /design/global).

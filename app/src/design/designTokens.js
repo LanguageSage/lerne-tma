@@ -260,6 +260,7 @@ export function designConfigToCssVariables(config) {
  * @param {object} config — Design Config V2
  */
 export function applyPublishedDesignTokens(config) {
+  if (typeof document === 'undefined' || !document?.documentElement) return;
   const vars = designConfigToCssVariables(config);
   const root = document.documentElement;
   for (const [prop, value] of Object.entries(vars)) {

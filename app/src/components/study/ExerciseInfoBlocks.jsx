@@ -76,7 +76,7 @@ export const ExerciseInfoBlocks = React.memo(({ content }) => {
               borderRadius: 'var(--design-task-radius)',
               padding: 'var(--design-task-padding)'
             }
-          : block.type === 'source'
+          : (block.type === 'source' || block.type === 'context')
           ? {
               fontFamily: 'var(--design-source-font)',
               fontSize: 'var(--design-source-font-size)',

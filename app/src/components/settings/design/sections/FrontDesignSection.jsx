@@ -103,40 +103,76 @@ export const FrontDesignSection = React.memo(({ config, onChangeField }) => {
       {subTab === 'infoBlocks' && (
         <div className="design-info-blocks-controls">
           {/* Task block controls */}
-          <h4 style={{ fontSize: '0.9rem', color: '#38bdf8', margin: '14px 0 8px 0' }}>
-            ::task ({tr('Задание')})
-          </h4>
-          <ColorControl
-            label={tr('Цвет текста')}
-            value={front.task?.color || '#94a3b8'}
-            onChange={val => onChangeField('front.task.color', val)}
+          <TypographyControls
+            title={`::task (${tr('Задание')})`}
+            typography={front.task}
+            onChangeField={(field, val) => onChangeField(`front.task.${field}`, val)}
+            minSize={0.65}
+            maxSize={1.8}
+            stepSize={0.02}
+            showAlign={false}
+            showShadow={false}
           />
-          <SliderControl
-            label={tr('Размер шрифта')}
-            value={front.task?.size || 0.88}
-            min={0.65}
-            max={1.5}
-            step={0.02}
-            onChange={val => onChangeField('front.task.size', val)}
-          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+            <ColorControl
+              label={tr('Цвет фона')}
+              value={front.task?.bg || 'transparent'}
+              onChange={val => onChangeField('front.task.bg', val)}
+            />
+            <ColorControl
+              label={tr('Цвет рамки')}
+              value={front.task?.borderColor || 'transparent'}
+              onChange={val => onChangeField('front.task.borderColor', val)}
+            />
+          </div>
 
           {/* Example block controls */}
-          <h4 style={{ fontSize: '0.9rem', color: '#c084fc', margin: '18px 0 8px 0' }}>
-            ::example ({tr('Пример')})
-          </h4>
-          <ColorControl
-            label={tr('Цвет текста')}
-            value={front.example?.color || '#94a3b8'}
-            onChange={val => onChangeField('front.example.color', val)}
+          <TypographyControls
+            title={`::example (${tr('Пример')})`}
+            typography={front.example}
+            onChangeField={(field, val) => onChangeField(`front.example.${field}`, val)}
+            minSize={0.65}
+            maxSize={1.8}
+            stepSize={0.02}
+            showAlign={false}
+            showShadow={false}
           />
-          <SliderControl
-            label={tr('Размер шрифта')}
-            value={front.example?.size || 0.88}
-            min={0.65}
-            max={1.5}
-            step={0.02}
-            onChange={val => onChangeField('front.example.size', val)}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+            <ColorControl
+              label={tr('Цвет фона')}
+              value={front.example?.bg || 'transparent'}
+              onChange={val => onChangeField('front.example.bg', val)}
+            />
+            <ColorControl
+              label={tr('Цвет рамки')}
+              value={front.example?.borderColor || 'transparent'}
+              onChange={val => onChangeField('front.example.borderColor', val)}
+            />
+          </div>
+
+          {/* Source block controls */}
+          <TypographyControls
+            title={`::source (${tr('Источник / контекст')})`}
+            typography={front.source}
+            onChangeField={(field, val) => onChangeField(`front.source.${field}`, val)}
+            minSize={0.65}
+            maxSize={1.8}
+            stepSize={0.02}
+            showAlign={false}
+            showShadow={false}
           />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+            <ColorControl
+              label={tr('Цвет фона')}
+              value={front.source?.bg || 'transparent'}
+              onChange={val => onChangeField('front.source.bg', val)}
+            />
+            <ColorControl
+              label={tr('Цвет рамки')}
+              value={front.source?.borderColor || 'transparent'}
+              onChange={val => onChangeField('front.source.borderColor', val)}
+            />
+          </div>
 
           {/* Options chips controls */}
           <h4 style={{ fontSize: '0.9rem', color: '#4ade80', margin: '18px 0 8px 0' }}>
