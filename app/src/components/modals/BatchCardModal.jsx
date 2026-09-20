@@ -9,7 +9,7 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { db } from '../../services/localDb';
-import { parseBatchCardsText } from '../../utils/batchCardParser';
+import { LEGACY_CARD_SEPARATOR, LERNE_CARD_SEPARATOR, parseBatchCardsText } from '../../utils/batchCardParser';
 import { detectExerciseType } from '../../utils/exerciseDetector';
 import api from '../../services/api';
 
@@ -28,33 +28,21 @@ export const BatchCardModal = () => {
   const [generatedCards, setGeneratedCards] = useState(null);
 
   const importPlaceholder = useMemo(() => {
-    return `@@CARD trainer
-FRONT:
-Ich [[hatte]] meine Freunde [[angerufen]], bevor ich ins Kino gegangen bin.
-BACK:
-hatte, angerufen
-CONTEXT:
-Plusquamperfekt
-TAGS:
-B1,Grammatik
-@@END
+    return `Ich [[hatte]] meine Freunde [[angerufen]], bevor ich ins Kino gegangen bin.
+(anrufen)
 
-@@CARD match
-FRONT:
-@match
-Als ich Kind war => lebte ich auf dem Land.
-Als wir geheiratet haben => haben ungefähr 300 Gäste mit uns gefeiert.
-BACK:
-Соответствия
-@@END
+${LERNE_CARD_SEPARATOR}
 
-@@CARD free_text
-FRONT:
-@free
-Schreiben Sie einen Satz mit „als“.
-BACK:
-Als ich in Berlin war, besuchte ich das Brandenburger Tor.
-@@END`;
+@puzzle
+Morgen fahre ich nach Berlin.
+
+${LERNE_CARD_SEPARATOR}
+
+Welche Antwort ist richtig?
+
+ja
+*nein
+vielleicht`;
   }, []);
 
   const aiBatchPlaceholder = useMemo(() => {
@@ -70,7 +58,8 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
   // Auto-switch to import tab if user pastes text with exercises or batch markers
   useEffect(() => {
     if (rawText && (
-      rawText.includes('---') ||
+      rawText.includes(LERNE_CARD_SEPARATOR) ||
+      rawText.includes(LEGACY_CARD_SEPARATOR) ||
       rawText.includes('@@CARD') ||
       rawText.includes('@match') ||
       rawText.includes('@free') ||
@@ -158,7 +147,7 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
   // ── 2. AI Quiz/Card Enrichment (Generates explanations & translations) ─────
   const handleAiEnrichImport = async () => {
     if (parsedCards.length === 0) {
-      showToast(tr("Не удалось распознать карточки в тексте. Проверьте разделители (---)"), 'error');
+      showToast(tr("Не удалось распознать карточки в тексте. Проверьте строку-разделитель <<<LERNE_CARD>>>"), 'error');
       return;
     }
 
@@ -204,7 +193,7 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
   // ── 3. Direct Fast Import (Quizzes, Trainers, Standard without AI) ─────────
   const handleDirectImport = async () => {
     if (parsedCards.length === 0) {
-      showToast(tr("Не удалось распознать карточки в тексте. Проверьте разделители (---)"), 'error');
+      showToast(tr("Не удалось распознать карточки в тексте. Проверьте строку-разделитель <<<LERNE_CARD>>>"), 'error');
       return;
     }
 
@@ -371,7 +360,7 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
                 /* ── TAB 1: Direct Text Import ── */
                 <>
                   <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
-                    {tr("Вставьте упражнения в формате")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>@@CARD ... @@END</code> {tr("или карточки с разделителем")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>---</code>.
+                    {tr("Каждая карточка отделяется отдельной строкой:")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>{LERNE_CARD_SEPARATOR}</code>. {tr("Формат @@CARD ... @@END также поддерживается.")}
                   </p>
 
                   <div style={{ position: 'relative' }}>
@@ -403,7 +392,7 @@ Als ich in Berlin war, besuchte ich das Brandenburger Tor.
                       flexWrap: 'wrap', gap: 6
                     }}>
                       <span>
-                        {parsedCards.length === 0 ? tr("Вставьте упражнения (@@CARD или ---)") : (
+                        {parsedCards.length === 0 ? tr("Вставьте упражнения (@@CARD или <<<LERNE_CARD>>>)") : (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <Check size={14} color="#4ade80" />
                             <strong>{tr("Найдено карточек:")} {parsedCards.length}</strong>

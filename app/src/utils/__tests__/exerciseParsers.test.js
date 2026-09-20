@@ -4,7 +4,7 @@ import { parseClozeData, cleanBracketSyntax, normalizeAnswer } from '../clozePar
 import { parseMatchData, normalizeMatchValue } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
 import { parseQuizData } from '../quizParser.js';
-import { parseBatchCardsText } from '../batchCardParser.js';
+import { parseBatchCardsText, splitImportedCards } from '../batchCardParser.js';
 import { resolveAiTranslation } from '../aiCardResult.js';
 import { parseWordBankData } from '../wordBankParser.js';
 import {
@@ -289,6 +289,56 @@ Ich kaufe heute Brot.`);
   assert.ok(parsed[0].front.startsWith('@match'));
   assert.equal(parsed[1].card_type, 'puzzle');
   assert.ok(parsed[1].front.startsWith('@puzzle'));
+});
+
+test('14a. Batch card separators use a standalone LERNE_CARD line and preserve legacy imports', () => {
+  assert.deepEqual(
+    splitImportedCards('card1\n<<<LERNE_CARD>>>\ncard2'),
+    ['card1', 'card2']
+  );
+  assert.deepEqual(splitImportedCards('card1\n---\ncard2'), ['card1', 'card2']);
+  assert.deepEqual(
+    splitImportedCards('card1 <<<LERNE_CARD>>> text'),
+    ['card1 <<<LERNE_CARD>>> text']
+  );
+  assert.deepEqual(splitImportedCards('card1 --- text'), ['card1 --- text']);
+});
+
+test('14b. Batch card separators trim blocks, handle CRLF, and support mixed separators', () => {
+  assert.deepEqual(
+    splitImportedCards('\n<<<LERNE_CARD>>>\n\ncard1\n\n<<<LERNE_CARD>>>\n\ncard2\n\n<<<LERNE_CARD>>>\n'),
+    ['card1', 'card2']
+  );
+  assert.deepEqual(splitImportedCards('<<<LERNE_CARD>>>\ncard1\n<<<LERNE_CARD>>>\n'), ['card1']);
+  assert.deepEqual(splitImportedCards('card1\r\n<<<LERNE_CARD>>>\r\ncard2'), ['card1', 'card2']);
+  assert.deepEqual(
+    splitImportedCards('card1\n<<<LERNE_CARD>>>\ncard2\n---\ncard3'),
+    ['card1', 'card2', 'card3']
+  );
+});
+
+test('14c. New batch separator preserves exercise type detection', () => {
+  const cards = parseBatchCardsText(`Ich [[habe]] das Buch [[gelesen]].
+(lesen)
+<<<LERNE_CARD>>>
+@puzzle
+Morgen fahre ich nach Berlin.
+<<<LERNE_CARD>>>
+@match
+ich => hatte
+wir => hatten
+<<<LERNE_CARD>>>
+Haus
+дом
+<<<LERNE_CARD>>>
+Welche Antwort ist richtig?
+
+ja
+*nein
+vielleicht`);
+
+  assert.equal(cards.length, 5);
+  assert.deepEqual(cards.map(card => card.card_type), ['trainer', 'puzzle', 'match', 'standard', 'quiz']);
 });
 
 test('15. Rule action fills only an empty translation field', () => {

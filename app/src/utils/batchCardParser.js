@@ -4,6 +4,41 @@ import { buildCefrMetaFromClassifierResult } from './levelUtils.js';
 import { detectExerciseType } from './exerciseDetector.js';
 import { parseQuizData } from './quizParser.js';
 
+export const LERNE_CARD_SEPARATOR = '<<<LERNE_CARD>>>';
+export const LEGACY_CARD_SEPARATOR = '---';
+
+const isCardSeparatorLine = (line) => {
+  const value = line.trim();
+  return value === LERNE_CARD_SEPARATOR || value === LEGACY_CARD_SEPARATOR;
+};
+
+/**
+ * Splits quick-import text into non-empty card blocks. Both separators are
+ * intentionally accepted only when they occupy a complete line.
+ */
+export function splitImportedCards(rawText) {
+  const normalizedText = String(rawText || '').replace(/\r\n?/g, '\n');
+  const blocks = [];
+  let lines = [];
+
+  const addBlock = () => {
+    const block = lines.join('\n').trim();
+    if (block) blocks.push(block);
+    lines = [];
+  };
+
+  for (const line of normalizedText.split('\n')) {
+    if (isCardSeparatorLine(line)) {
+      addBlock();
+    } else {
+      lines.push(line);
+    }
+  }
+  addBlock();
+
+  return blocks;
+}
+
 /**
  * Automatically detects the card type based on content markers and syntax.
  */
@@ -22,7 +57,8 @@ export function detectCardTypeByContent(front = '') {
  *    CONTEXT: ...
  *    TAGS: ...
  *    @@END
- * 2. Delimiter-separated cards ('---') with auto-detection:
+ * 2. Delimiter-separated cards (`<<<LERNE_CARD>>>`, with `---` retained as
+ *    a legacy separator) with auto-detection:
  *    - @match -> matching pairs
  *    - @free -> free text writing
  *    - @puzzle -> word/sentence puzzle
@@ -124,14 +160,11 @@ export function parseBatchCardsText(rawText) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 2. Legacy / Quick '---' format with unified central auto-detection
+  // 2. Quick import format with unified central auto-detection
   // ─────────────────────────────────────────────────────────────────────────────
-  let blocks = rawText
-    .split(/\n\s*[-—_]{3,}\s*(?:\n|$)/)
-    .map(b => b.trim())
-    .filter(Boolean);
+  let blocks = splitImportedCards(rawText);
 
-  if (blocks.length <= 1 && !rawText.includes('---')) {
+  if (blocks.length <= 1 && !rawText.includes(LERNE_CARD_SEPARATOR) && !rawText.includes(LEGACY_CARD_SEPARATOR)) {
     const candidateBlocks = rawText.split(/\n{3,}/).map(b => b.trim()).filter(Boolean);
     if (candidateBlocks.length > 1) {
       blocks = candidateBlocks;
