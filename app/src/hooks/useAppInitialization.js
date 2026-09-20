@@ -16,7 +16,7 @@ const SETTINGS_VERSION = '6';
 
 export const useAppInitialization = (checkStartParam) => {
   const { setUserProfile, showToast } = useUiStore();
-  const { setAdminSettings, setUserPrompts, applyDesignPreset } = useSettingsStore();
+  const { setAdminSettings, setUserPrompts, applyDesignPreset, setIsAdmin, setPublishedDesignV2 } = useSettingsStore();
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -126,16 +126,6 @@ export const useAppInitialization = (checkStartParam) => {
         syncService.sync().catch(e => console.error("Periodic sync failed:", e));
       }
     }, 60000);
-
-    const USER_ID = getUserId();
-    const params = new URLSearchParams(window.location.search);
-    const adminIds = (import.meta.env.VITE_ADMIN_IDS || '642478257')
-      .split(',')
-      .map(id => Number(id.trim()))
-      .filter(Boolean);
-    if (params.get('admin') === '1' || (USER_ID && adminIds.includes(Number(USER_ID)))) {
-      useSettingsStore.setState({ isAdmin: true });
-    }
 
     const currentVersion = storage.get('lerne_settings_version');
     if (currentVersion !== SETTINGS_VERSION) {
@@ -309,6 +299,22 @@ export const useAppInitialization = (checkStartParam) => {
       // Cache init response for instant future starts
       storage.set('lerne_init_cache', JSON.stringify(res.data));
       storage.set('lerne_init_cache_version', CACHE_VERSION);
+
+      // Backend-authoritative isAdmin (source of truth)
+      if (typeof res.data.is_admin === 'boolean') {
+        setIsAdmin(res.data.is_admin);
+        // DEV-only override: ?admin=1 query param (never trusted in production)
+        if (!res.data.is_admin && import.meta.env.DEV) {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('admin') === '1') setIsAdmin(true);
+        }
+      }
+
+      // Global published Design V2 — apply to app root immediately
+      if (res.data.global_design_v2?.config) {
+        setPublishedDesignV2(res.data.global_design_v2);
+      }
+
       fetchDuplicates();
 
       // If user opened a deck or refreshed, re-sync currentDeck & cards for current deck

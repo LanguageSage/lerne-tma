@@ -21,14 +21,21 @@ export const getCardStyle = (styles) => {
 
 export const getBackCardStyle = (styles) => {
   if (!styles) return {};
+  // Back side uses back-specific font settings (not inherited from front)
+  // Falls back to cardFont only if explicit back font not set (V1 backwards compat)
   const backColor = styles.backTextColor || styles.cardTextColor || '#ffffff';
+  const backFont = styles.backCardFont || styles.cardFont || undefined;
+  const backSize = styles.backCardFontSize ?? styles.cardFontSize;
+  const backWeight = styles.backCardFontWeight || styles.cardFontWeight || undefined;
+  const backStyle = styles.backCardFontStyle || styles.cardFontStyle || undefined;
+  const backShadow = styles.backCardTextShadow || styles.cardTextShadow;
   return {
-    fontFamily: styles.cardFont || undefined,
+    fontFamily: backFont,
     color: styles.backTextColor || styles.cardTextColor || undefined,
-    fontSize: styles.cardFontSize ? `${styles.cardFontSize}rem` : undefined,
-    fontWeight: styles.cardFontWeight || undefined,
-    fontStyle: styles.cardFontStyle || undefined,
-    textShadow: styles.cardTextShadow ? getTextShadow(styles.cardTextShadow, backColor) : undefined,
+    fontSize: backSize ? `${backSize}rem` : undefined,
+    fontWeight: backWeight,
+    fontStyle: backStyle,
+    textShadow: backShadow ? getTextShadow(backShadow, backColor) : undefined,
     textAlign: styles.contextTextAlign || 'left',
   };
 };
@@ -152,5 +159,44 @@ export const getHarmonizedOptionStyles = (baseColor) => {
     badgeColor,
     buttonBorder,
     buttonBg
+  };
+};
+
+/**
+ * Derives pre-computed inline style objects from Design Config V2.
+ * Used by StudyCard when publishedDesignV2 is available.
+ * Falls back to legacy flat-field functions when V2 is not set.
+ */
+export const getDesignStylesFromV2 = (designConfig) => {
+  if (!designConfig) return null;
+  const { front, back } = designConfig;
+  return {
+    frontText: {
+      fontFamily: front?.mainText?.font,
+      color: front?.mainText?.color,
+      fontSize: front?.mainText?.size ? `${front.mainText.size}rem` : undefined,
+      fontWeight: front?.mainText?.weight,
+      fontStyle: front?.mainText?.style,
+      textAlign: front?.mainText?.align || 'left',
+      lineHeight: front?.mainText?.lineHeight,
+    },
+    backText: {
+      fontFamily: back?.answerText?.font,
+      color: back?.answerText?.color,
+      fontSize: back?.answerText?.size ? `${back.answerText.size}rem` : undefined,
+      fontWeight: back?.answerText?.weight,
+      fontStyle: back?.answerText?.style,
+      textAlign: back?.answerText?.align || 'left',
+      lineHeight: back?.answerText?.lineHeight,
+    },
+    contextText: {
+      fontFamily: back?.context?.font,
+      color: back?.context?.color === 'auto' ? undefined : back?.context?.color,
+      fontSize: back?.context?.size ? `${back.context.size}rem` : undefined,
+      fontWeight: back?.context?.weight,
+      fontStyle: back?.context?.style,
+      textAlign: back?.context?.align || 'left',
+      lineHeight: back?.context?.lineHeight,
+    },
   };
 };

@@ -1,6 +1,6 @@
-# AI Harness Architecture & Agent Guidelines (Lerne TMA)
+# AI Harness Architecture & Agent Guidelines (Lerne)
 
-Welcome to the **Lerne TMA (Telegram Mini App)** repository. This project is configured for **AI-Native Engineering** following the Stanford AI Engineering Practices Benchmark (L3/L4 Maturity Level).
+Welcome to the **Lerne — React Web Application** repository. This project is configured for **AI-Native Engineering** following the Stanford AI Engineering Practices Benchmark (L3/L4 Maturity Level).
 
 ## Core Principles
 

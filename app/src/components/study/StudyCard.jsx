@@ -8,6 +8,7 @@ import './StudyCard.css';
 import { CardBackground } from '../common/CardBackground';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 // Extracted Sub-components and Utilities
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
@@ -30,7 +31,7 @@ import { getAudioUrl } from '../../utils/media';
 // Re-export for backward compatibility
 // eslint-disable-next-line react-refresh/only-export-components
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
-import { getCardStyle, getBackCardStyle, getContextStyle, getHarmonizedOptionStyles } from '../../utils/cardStyles';
+import { getCardStyle, getBackCardStyle, getContextStyle, getHarmonizedOptionStyles, getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
 
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
@@ -173,10 +174,13 @@ export const StudyCard = React.memo(({
     window.addEventListener('touchend', onUp);
   }, [cardImageHeight]);
 
-  const cardStyle = useMemo(() => getCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
-  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
-  const contextStyle = useMemo(() => getContextStyle(styles), [styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
-  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(styles?.cardTextColor), [styles?.cardTextColor]);
+  const publishedDesignV2 = useSettingsStore(state => state.publishedDesignV2);
+  const v2Styles = useMemo(() => getDesignStylesFromV2(publishedDesignV2?.config), [publishedDesignV2]);
+
+  const cardStyle = useMemo(() => v2Styles?.frontText || getCardStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
+  const backCardStyle = useMemo(() => v2Styles?.backText || getBackCardStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
+  const contextStyle = useMemo(() => v2Styles?.contextText || getContextStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
+  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(publishedDesignV2?.config?.exercises?.baseColor || styles?.cardTextColor), [publishedDesignV2, styles?.cardTextColor]);
 
   // Interactive Exercise Type Detection
   const exerciseType = useMemo(() => {
@@ -433,18 +437,18 @@ export const StudyCard = React.memo(({
                       const parts = clozeData.maskedText.split('_____');
                       const activeWord = correctSelected || wrongSelected[wrongSelected.length - 1];
 
-                      let borderColor = 'rgba(255,255,255,0.4)';
-                      let bgColor = 'rgba(255,255,255,0.05)';
-                      let textColor = 'rgba(255,255,255,0.5)';
+                      let borderColor = 'var(--design-cloze-gap-border, rgba(255,255,255,0.4))';
+                      let bgColor = 'var(--design-cloze-gap-bg, rgba(255,255,255,0.05))';
+                      let textColor = 'var(--design-cloze-gap-color, rgba(255,255,255,0.5))';
 
                       if (correctSelected) {
-                        borderColor = '#22c55e';
-                        bgColor = 'rgba(34, 197, 94, 0.2)';
-                        textColor = '#4ade80';
+                        borderColor = 'var(--design-cloze-correct-border, #22c55e)';
+                        bgColor = 'var(--design-cloze-correct-bg, rgba(34, 197, 94, 0.2))';
+                        textColor = 'var(--design-cloze-correct-color, #4ade80)';
                       } else if (wrongSelected.length > 0) {
-                        borderColor = '#ef4444';
-                        bgColor = 'rgba(239, 68, 68, 0.2)';
-                        textColor = '#f87171';
+                        borderColor = 'var(--design-cloze-wrong-border, #ef4444)';
+                        bgColor = 'var(--design-cloze-wrong-bg, rgba(239, 68, 68, 0.2))';
+                        textColor = 'var(--design-cloze-wrong-color, #f87171)';
                       }
 
                       return (

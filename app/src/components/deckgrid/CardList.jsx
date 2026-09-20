@@ -339,28 +339,57 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const cardListBg = React.useMemo(() => getCardListBgStyle(previewCardBg), [previewCardBg]);
   const previewCardLines = useSettingsStore(s => s.previewCardLines);
   const previewCardTextAlign = useSettingsStore(s => s.previewCardTextAlign);
+  const publishedDesignV2 = useSettingsStore(s => s.publishedDesignV2);
 
   const frontColor = previewCardTextColor || '#ffffff';
-  const frontTypographyStyle = React.useMemo(() => ({
-    fontFamily: previewCardFont || undefined,
-    color: frontColor,
-    fontSize: previewCardFontSize ? `${previewCardFontSize}rem` : undefined,
-    textShadow: getTextShadow(previewTextShadow, frontColor),
-    fontWeight: previewCardFontWeight || 600,
-    fontStyle: previewCardFontStyle || undefined,
-    textAlign: previewCardTextAlign || 'left',
-  }), [previewCardFont, frontColor, previewCardFontSize, previewTextShadow, previewCardFontWeight, previewCardFontStyle, previewCardTextAlign]);
+  const frontTypographyStyle = React.useMemo(() => {
+    const v2 = publishedDesignV2?.config?.cardList?.frontText;
+    if (v2) {
+      return {
+        fontFamily: v2.font || undefined,
+        color: v2.color || '#ffffff',
+        fontSize: v2.size ? `${v2.size}rem` : undefined,
+        textShadow: getTextShadow(v2.shadow, v2.color || '#ffffff'),
+        fontWeight: v2.weight || 600,
+        fontStyle: v2.style || undefined,
+        textAlign: v2.align || 'left',
+      };
+    }
+    return {
+      fontFamily: previewCardFont || undefined,
+      color: frontColor,
+      fontSize: previewCardFontSize ? `${previewCardFontSize}rem` : undefined,
+      textShadow: getTextShadow(previewTextShadow, frontColor),
+      fontWeight: previewCardFontWeight || 600,
+      fontStyle: previewCardFontStyle || undefined,
+      textAlign: previewCardTextAlign || 'left',
+    };
+  }, [publishedDesignV2, previewCardFont, frontColor, previewCardFontSize, previewTextShadow, previewCardFontWeight, previewCardFontStyle, previewCardTextAlign]);
 
   const effectiveBackColor = previewBackTextColor || '#cbd5e1';
-  const backTypographyStyle = React.useMemo(() => ({
-    fontFamily: previewCardFont || undefined,
-    color: effectiveBackColor,
-    fontSize: previewBackFontSize ? `${previewBackFontSize}rem` : undefined,
-    textShadow: getTextShadow(previewTextShadow, effectiveBackColor),
-    fontWeight: 500,
-    fontStyle: previewCardFontStyle || undefined,
-    textAlign: previewCardTextAlign || 'left',
-  }), [previewCardFont, effectiveBackColor, previewBackFontSize, previewTextShadow, previewCardFontStyle, previewCardTextAlign]);
+  const backTypographyStyle = React.useMemo(() => {
+    const v2 = publishedDesignV2?.config?.cardList?.backText;
+    if (v2) {
+      return {
+        fontFamily: v2.font || undefined,
+        color: v2.color || '#cbd5e1',
+        fontSize: v2.size ? `${v2.size}rem` : undefined,
+        textShadow: getTextShadow(v2.shadow, v2.color || '#cbd5e1'),
+        fontWeight: v2.weight || 500,
+        fontStyle: v2.style || undefined,
+        textAlign: v2.align || 'left',
+      };
+    }
+    return {
+      fontFamily: previewCardFont || undefined,
+      color: effectiveBackColor,
+      fontSize: previewBackFontSize ? `${previewBackFontSize}rem` : undefined,
+      textShadow: getTextShadow(previewTextShadow, effectiveBackColor),
+      fontWeight: 500,
+      fontStyle: previewCardFontStyle || undefined,
+      textAlign: previewCardTextAlign || 'left',
+    };
+  }, [publishedDesignV2, previewCardFont, effectiveBackColor, previewBackFontSize, previewTextShadow, previewCardFontStyle, previewCardTextAlign]);
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -1432,7 +1461,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       frontTypographyStyle={frontTypographyStyle}
                       backTypographyStyle={backTypographyStyle}
                       cardListBg={cardListBg}
-                      previewCardLines={previewCardLines}
+                      previewCardLines={publishedDesignV2?.config?.cardList?.frontText?.lines ?? previewCardLines}
                       isSelectMode={isSelectMode}
                       isSelected={selectedCardIds.has(c.id)}
                       onToggleSelect={handleToggleSelectCard}

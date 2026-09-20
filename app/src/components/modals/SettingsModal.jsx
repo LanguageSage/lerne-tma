@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { useUiStore } from '../../store/useUiStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 
 // Modular Tabs
@@ -19,15 +20,53 @@ import { SrsTab } from '../settings/SrsTab';
 import { AutoplaySettingsTab } from '../settings/AutoplaySettingsTab';
 import { useSessionStore } from '../../store/useSessionStore';
 
+class TabErrorBoundary extends React.Component {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('Settings tab error:', error, errorInfo);
+  }
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+  };
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '24px 16px', textAlign: 'center', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.25)', margin: '12px 0' }}>
+          <h4 style={{ color: '#f87171', margin: '0 0 8px 0' }}>{tr('Не удалось загрузить раздел')}</h4>
+          <p style={{ color: '#cbd5e1', fontSize: '0.85rem', margin: '0 0 16px 0' }}>
+            {this.state.error?.message || tr('Произошла ошибка при отображении настроек.')}
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-tiny"
+            onClick={this.handleReset}
+            style={{ padding: '6px 14px' }}
+          >
+            {tr('Попробовать снова')}
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export const SettingsModal = ({ userId }) => {
   useInterfaceLocale();
   const { isSettingsOpen, setIsSettingsOpen, settingsTab, setSettingsTab } = useUiStore();
   const { t } = useTranslation();
 
-  const ADMIN_USER_ID = 642478257;
-  const isAdmin = Number(userId) === ADMIN_USER_ID;
+  // Single source of truth: backend-authoritative via useSettingsStore
+  const isAdmin = useSettingsStore(s => s.isAdmin);
 
-  const activeSettingsTab = !isAdmin && settingsTab === 'ai' ? 'general' : settingsTab;
+  // Redirect non-admin away from admin-only tabs
+  const activeSettingsTab = (!isAdmin && (settingsTab === 'ai' || settingsTab === 'design'))
+    ? 'general'
+    : settingsTab;
+
   const [customBackgrounds] = useState([]);
   const handleTabChange = setSettingsTab;
 
@@ -71,7 +110,7 @@ export const SettingsModal = ({ userId }) => {
                 <option value="srs">{tr("🧠 SRS (Интервалы и память)")}</option>
                 <option value="reminders">{tr("🔔 Напоминания бота")}</option>
                 <option value="general">⚙️ {t('settings.tab_general', 'Общие настройки')}</option>
-                <option value="design">🎨 {t('settings.tab_design', 'Дизайн')}</option>
+                {isAdmin && <option value="design">🎨 {t('settings.tab_design', 'Дизайн (Редактор)')}</option>}
                 <option value="autoplay">▶ {tr("Авто-режим")}</option>
                 <option value="voice">🗣 {t('settings.tab_voice', 'Озвучка')}</option>
                 {isAdmin && <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>}
@@ -84,11 +123,13 @@ export const SettingsModal = ({ userId }) => {
               {activeSettingsTab === 'srs' && <SrsTab />}
               {activeSettingsTab === 'reminders' && <RemindersTab />}
               {activeSettingsTab === 'general' && <GeneralTab userId={userId} />}
-              {activeSettingsTab === 'design' && (
-                <DesignTab 
-                  customBackgrounds={customBackgrounds} 
-                  uploadCustomBackground={() => {}} 
-                />
+              {activeSettingsTab === 'design' && isAdmin && (
+                <TabErrorBoundary>
+                  <DesignTab 
+                    customBackgrounds={customBackgrounds} 
+                    uploadCustomBackground={() => {}} 
+                  />
+                </TabErrorBoundary>
               )}
               {activeSettingsTab === 'autoplay' && <AutoplaySettingsTab />}
               {activeSettingsTab === 'voice' && <VoiceTab />}
@@ -101,5 +142,6 @@ export const SettingsModal = ({ userId }) => {
     </AnimatePresence>
   );
 };
+
 
 
