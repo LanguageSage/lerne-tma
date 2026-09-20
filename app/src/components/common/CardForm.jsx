@@ -177,7 +177,30 @@ export const CardForm = ({
   };
 
   const insertInformationBlock = (type) => {
-    const marker = `::${type}`;
+    if (type === 'exercise') {
+      const exerciseMarker = '::exercise';
+      setCardData(prev => {
+        const raw = String(prev?.front || '');
+        const markerMatch = /^\s*::exercise\s*$/im.exec(raw);
+        if (markerMatch) {
+          focusBlockContent(raw, markerMatch[0], markerMatch.index);
+          return prev;
+        }
+        const parsed = parseExerciseContent(raw);
+        const prefix = parsed.hasBlocks && parsed.rawPreamble
+          ? `${parsed.rawPreamble.trim()}\n\n`
+          : '';
+        const exercise = parsed.hasBlocks ? parsed.exercise : raw.trim();
+        const nextFront = exercise
+          ? `${prefix}${exerciseMarker}\n\n${exercise}`
+          : `${prefix}${exerciseMarker}\n`;
+        focusBlockContent(nextFront, exerciseMarker, prefix.length);
+        return { ...prev, front: nextFront };
+      });
+      return;
+    }
+
+    const marker = `::${type === 'context' ? 'source' : type}`;
     setCardData(prev => {
       const raw = String(prev?.front || '');
       const parsed = parseExerciseContent(raw);
@@ -474,7 +497,8 @@ export const CardForm = ({
                 ['task', tr('+ Задание')],
                 ['options', tr('+ Варианты')],
                 ['context', tr('+ Исходный текст')],
-                ['example', tr('+ Пример')]
+                ['example', tr('+ Пример')],
+                ['exercise', tr('+ Упражнение')]
               ].map(([type, label]) => (
                 <button
                   key={type}

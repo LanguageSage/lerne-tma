@@ -3,6 +3,7 @@ import { classifySentenceFast } from '../services/classifier/index.js';
 import { buildCefrMetaFromClassifierResult } from './levelUtils.js';
 import { detectExerciseType } from './exerciseDetector.js';
 import { parseQuizData } from './quizParser.js';
+import { parseExerciseContent } from './exerciseContentParser.js';
 
 export const LERNE_CARD_SEPARATOR = '<<<LERNE_CARD>>>';
 export const LEGACY_CARD_SEPARATOR = '---';
@@ -97,8 +98,8 @@ export function parseBatchCardsText(rawText) {
       let context = '';
       let tags = '';
 
-      // Parse FRONT:, BACK:, CONTEXT:, TAGS: sections
-      const sectionRegex = /(?:^|\n)\s*(FRONT|BACK|CONTEXT|TAGS)\s*:\s*([\s\S]*?)(?=(?:\n\s*(?:FRONT|BACK|CONTEXT|TAGS)\s*:)|$)/gi;
+      // Parse FRONT:, BACK:, CONTEXT:, SOURCE:, TAGS: sections
+      const sectionRegex = /(?:^|\n)\s*(FRONT|BACK|CONTEXT|SOURCE|TAGS)\s*:\s*([\s\S]*?)(?=(?:\n\s*(?:FRONT|BACK|CONTEXT|SOURCE|TAGS)\s*:)|$)/gi;
       const sectionMatches = Array.from(body.matchAll(sectionRegex));
 
       if (sectionMatches.length > 0) {
@@ -107,7 +108,7 @@ export function parseBatchCardsText(rawText) {
           const sVal = sm[2].trim();
           if (sName === 'FRONT') front = sVal;
           else if (sName === 'BACK') back = sVal;
-          else if (sName === 'CONTEXT') context = sVal;
+          else if (sName === 'CONTEXT' || sName === 'SOURCE') context = sVal;
           else if (sName === 'TAGS') tags = sVal;
         }
       } else {
@@ -182,11 +183,14 @@ export function parseBatchCardsText(rawText) {
     const block = blocks[i].trim();
     if (!block) continue;
 
+    const parsedExercise = parseExerciseContent(block);
+    const exerciseContext = parsedExercise.context || '';
+    const cleanSentenceForLevel = parsedExercise.hasBlocks ? (parsedExercise.exercise || block) : block;
     const detectedType = detectCardTypeByContent(block);
 
     // A. Match exercise (@match)
     if (detectedType === 'match') {
-      const res = classifySentenceFast(block, 'de');
+      const res = classifySentenceFast(cleanSentenceForLevel, 'de');
       const level = res.level || 'B1';
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
@@ -194,7 +198,7 @@ export function parseBatchCardsText(rawText) {
         front_text: block,
         back: tr("Сопоставление пар"),
         back_text: tr("Сопоставление пар"),
-        context: '',
+        context: exerciseContext,
         card_type: 'match',
         level,
         reason: res.reason,
@@ -218,7 +222,7 @@ export function parseBatchCardsText(rawText) {
         front_text: front,
         back,
         back_text: back,
-        context: '',
+        context: exerciseContext,
         card_type: 'free_text',
         level,
         reason: res.reason,
@@ -233,7 +237,7 @@ export function parseBatchCardsText(rawText) {
     if (detectedType === 'puzzle') {
       // The marker is the content-level source of truth and must survive import.
       const front = block;
-      const res = classifySentenceFast(front, 'de');
+      const res = classifySentenceFast(cleanSentenceForLevel, 'de');
       const level = res.level || 'A1';
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
@@ -241,7 +245,7 @@ export function parseBatchCardsText(rawText) {
         front_text: front,
         back: tr("Конструктор фразы"),
         back_text: tr("Конструктор фразы"),
-        context: '',
+        context: exerciseContext,
         card_type: 'puzzle',
         level,
         reason: res.reason,
@@ -270,7 +274,7 @@ export function parseBatchCardsText(rawText) {
         extractedAnswer = answers.join(', ');
       }
 
-      const res = classifySentenceFast(block, 'de');
+      const res = classifySentenceFast(cleanSentenceForLevel, 'de');
       const level = res.level || 'A1';
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
@@ -278,7 +282,7 @@ export function parseBatchCardsText(rawText) {
         front_text: block,
         back: extractedAnswer,
         back_text: extractedAnswer,
-        context: '',
+        context: exerciseContext,
         card_type: 'trainer',
         level,
         reason: res.reason,
@@ -295,7 +299,7 @@ export function parseBatchCardsText(rawText) {
       const questionText = quizData?.question || block.split('\n')[0];
       const cleanCorrectAnswer = quizData?.correctAnswerText || tr("Правильный ответ");
 
-      const res = classifySentenceFast(questionText, 'de');
+      const res = classifySentenceFast(cleanSentenceForLevel || questionText, 'de');
       const level = res.level || 'B1';
 
       parsedCards.push({
@@ -304,7 +308,7 @@ export function parseBatchCardsText(rawText) {
         front_text: block,
         back: cleanCorrectAnswer,
         back_text: cleanCorrectAnswer,
-        context: '',
+        context: exerciseContext,
         card_type: 'quiz',
         level,
         reason: res.reason,
@@ -320,7 +324,7 @@ export function parseBatchCardsText(rawText) {
     if (lines.length >= 2) {
       const front = lines[0];
       const back = lines.slice(1).join('\n');
-      const res = classifySentenceFast(front, 'de');
+      const res = classifySentenceFast(cleanSentenceForLevel || front, 'de');
       const level = res.level || 'A1';
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
@@ -328,7 +332,7 @@ export function parseBatchCardsText(rawText) {
         front_text: front,
         back,
         back_text: back,
-        context: '',
+        context: exerciseContext,
         card_type: 'standard',
         level,
         reason: res.reason,
@@ -349,7 +353,7 @@ export function parseBatchCardsText(rawText) {
       } else if (line.includes(';') && !line.includes('&')) {
         [front, back] = line.split(';');
       }
-      const res = classifySentenceFast(front, 'de');
+      const res = classifySentenceFast(cleanSentenceForLevel || front, 'de');
       const level = res.level || 'A1';
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
@@ -357,7 +361,7 @@ export function parseBatchCardsText(rawText) {
         front_text: front.trim(),
         back: back.trim(),
         back_text: back.trim(),
-        context: '',
+        context: exerciseContext,
         card_type: 'standard',
         level,
         reason: res.reason,

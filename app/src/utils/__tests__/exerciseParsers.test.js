@@ -4,7 +4,7 @@ import { parseClozeData, cleanBracketSyntax, normalizeAnswer } from '../clozePar
 import { parseMatchData, normalizeMatchValue } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
 import { parseQuizData } from '../quizParser.js';
-import { hasCardSeparatorLine, parseBatchCardsText, splitImportedCards } from '../batchCardParser.js';
+import { hasCardSeparatorLine, parseBatchCardsText, splitImportedCards, LERNE_CARD_SEPARATOR } from '../batchCardParser.js';
 import { resolveAiTranslation } from '../aiCardResult.js';
 import { parseWordBankData } from '../wordBankParser.js';
 import {
@@ -603,11 +603,11 @@ Ich weiß nicht, [[ob er heute kommt]].
   assert.equal(cloze.content.task, 'Wählen Sie das passende Wort.');
 });
 
-test('31. context and example blocks support multiline content and repeated examples', () => {
+test('31. source and example blocks support multiline content and repeated examples', () => {
   const parsed = parseExerciseContent(`::task
 Lesen Sie und antworten Sie.
 
-::context
+::source
 Anna studiert seit drei Jahren in Berlin.
 Sie möchte später als Ärztin arbeiten.
 
@@ -631,8 +631,8 @@ Was möchte Anna später machen?
   assert.equal(parsed.exercise, 'Was möchte Anna später machen?\n\n[[Sie möchte als Ärztin arbeiten.]]');
 });
 
-test('31a. context works as the only information block', () => {
-  const parsed = parseExerciseContent(`::context
+test('31a. source works as the only information block and populates internal context', () => {
+  const parsed = parseExerciseContent(`::source
 Anna studiert in Berlin.
 Sie möchte Ärztin werden.
 
@@ -643,6 +643,44 @@ Was möchte Anna werden?
   assert.equal(parsed.task, '');
   assert.equal(parsed.context, 'Anna studiert in Berlin.\nSie möchte Ärztin werden.');
   assert.equal(parsed.exercise, 'Was möchte Anna werden?\n\n[[Sie möchte Ärztin werden.]]');
+});
+
+test('31aa. source preserves a task and trainer input', () => {
+  const parsed = parseExerciseContent(`::task
+Ergänzen Sie das Verb.
+
+::source
+Wiedersehen nach 20 Jahren.
+
+Er [[hatte]] sein Studium abgeschlossen.`);
+
+  assert.equal(parsed.task, 'Ergänzen Sie das Verb.');
+  assert.equal(parsed.context, 'Wiedersehen nach 20 Jahren.');
+  assert.equal(parsed.exercise, 'Er [[hatte]] sein Studium abgeschlossen.');
+});
+
+test('31ab. source preserves options and the trainer sentence', () => {
+  const parsed = parseExerciseContent(`::options
+ob | weil | dass
+
+::source
+Ich weiß nicht, ob er kommt.
+
+Ich weiß nicht, [[ob er kommt]].`);
+
+  assert.deepEqual(parsed.options, ['ob', 'weil', 'dass']);
+  assert.equal(parsed.context, 'Ich weiß nicht, ob er kommt.');
+  assert.equal(parsed.exercise, 'Ich weiß nicht, [[ob er kommt]].');
+});
+
+test('31ac. example preserves the main trainer sentence', () => {
+  const parsed = parseExerciseContent(`::example
+Ich habe gestern gearbeitet.
+
+Ich [[habe]] heute gearbeitet.`);
+
+  assert.deepEqual(parsed.examples, ['Ich habe gestern gearbeitet.']);
+  assert.equal(parsed.exercise, 'Ich [[habe]] heute gearbeitet.');
 });
 
 test('31b. example works as the only information block', () => {
@@ -661,7 +699,7 @@ test('32. all information blocks preserve source order and restore around AI out
   const source = `::task
 Wählen Sie das passende Wort und schreiben Sie den Satz zu Ende.
 
-::context
+::source
 Paul erzählt über sein Studium in Deutschland.
 
 ::options
@@ -678,6 +716,7 @@ Ich verstehe jetzt viel besser, [[wie das deutsche Hochschulsystem funktioniert]
 
   assert.deepEqual(parsed.blocks.map(block => block.type), ['task', 'context', 'options', 'example']);
   assert.ok(restored.startsWith('::task\n'));
+  assert.ok(restored.includes('::source\nPaul erzählt über sein Studium in Deutschland.'));
   assert.ok(restored.includes('::options\nwas | dass | wie | ob'));
   assert.ok(restored.endsWith('Ich verstehe jetzt, [[wie alles funktioniert]].'));
 });
@@ -693,6 +732,97 @@ test('34. unknown markers inside exercise content are not silently removed', () 
   const parsed = parseExerciseContent(source);
   assert.equal(parsed.hasBlocks, false);
   assert.equal(parsed.exercise, source);
+});
+
+test('34a. legacy ::context is supported as backward-compatible alias for context', () => {
+  const source = '::context\nLegacy text.\n\nSatz [[Antwort]].';
+  const parsed = parseExerciseContent(source);
+
+  assert.equal(parsed.hasBlocks, true);
+  assert.equal(parsed.context, 'Legacy text.');
+  assert.equal(parsed.exercise, 'Satz [[Antwort]].');
+  assert.equal(parsed.blocks[0].type, 'context');
+});
+
+test('34b. integration regression: task + multi-line source without ::exercise extracts cleanly', () => {
+  const input = `::task
+Ergänzen Sie „hatte“ oder „war“ in der richtigen Form.
+
+::source
+Wiedersehen nach 20 Jahren.
+Sie trafen sich zufällig in Berlin auf der Straße wieder.
+
+Er war ein paar Jahre älter als sie. Er [[hatte]] sein Studium schon abgeschlossen, sie studierte noch.`;
+
+  const parsed = parseExerciseContent(input);
+
+  assert.equal(parsed.task, 'Ergänzen Sie „hatte“ oder „war“ in der richtigen Form.');
+  assert.equal(parsed.context, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin auf der Straße wieder.');
+  assert.equal(parsed.exercise, 'Er war ein paar Jahre älter als sie. Er [[hatte]] sein Studium schon abgeschlossen, sie studierte noch.');
+  assert.ok(!parsed.exercise.includes('::task'));
+  assert.ok(!parsed.exercise.includes('::source'));
+  assert.ok(!parsed.exercise.includes('Wiedersehen'));
+});
+
+test('34c. multi-paragraph source with explicit ::exercise marker preserves blank lines inside source', () => {
+  const input = `::task
+Lesen Sie den Text und ergänzen Sie die richtige Form.
+
+::source
+Wiedersehen nach 20 Jahren.
+
+Sie trafen sich zufällig in Berlin auf der Straße wieder.
+20 Jahre lang hatten sie sich nicht gesehen.
+
+::exercise
+Er war ein paar Jahre älter als sie.
+Er [[hatte]] sein Studium schon abgeschlossen.`;
+
+  const parsed = parseExerciseContent(input);
+
+  assert.equal(parsed.task, 'Lesen Sie den Text und ergänzen Sie die richtige Form.');
+  assert.equal(parsed.context, 'Wiedersehen nach 20 Jahren.\n\nSie trafen sich zufällig in Berlin auf der Straße wieder.\n20 Jahre lang hatten sie sich nicht gesehen.');
+  assert.equal(parsed.exercise, 'Er war ein paar Jahre älter als sie.\nEr [[hatte]] sein Studium schon abgeschlossen.');
+  assert.ok(!parsed.exercise.includes('::task'));
+  assert.ok(!parsed.exercise.includes('::source'));
+  assert.ok(!parsed.exercise.includes('::exercise'));
+});
+
+test('34d. source-only card without ::exercise extracts source and isolates body', () => {
+  const input = `::source
+Wiedersehen nach 20 Jahren.
+Sie trafen sich zufällig in Berlin auf der Straße wieder.
+
+Er [[hatte]] sein Studium abgeschlossen.`;
+
+  const parsed = parseExerciseContent(input);
+
+  assert.equal(parsed.task, '');
+  assert.equal(parsed.context, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin auf der Straße wieder.');
+  assert.equal(parsed.exercise, 'Er [[hatte]] sein Studium abgeschlossen.');
+  assert.ok(!parsed.exercise.includes('::source'));
+  assert.ok(!parsed.exercise.includes('Wiedersehen'));
+});
+
+test('34e. arbitrary block order works identically', () => {
+  const input = `::options
+hatte | war
+
+::task
+Wählen Sie die Form.
+
+::source
+Erinnerungen an damals.
+
+::exercise
+Er [[hatte]] recht.`;
+
+  const parsed = parseExerciseContent(input);
+
+  assert.deepEqual(parsed.options, ['hatte', 'war']);
+  assert.equal(parsed.task, 'Wählen Sie die Form.');
+  assert.equal(parsed.context, 'Erinnerungen an damals.');
+  assert.equal(parsed.exercise, 'Er [[hatte]] recht.');
 });
 
 test('35. batch import preserves information blocks and detects the existing trainer type', () => {
@@ -712,13 +842,46 @@ Ich weiß, [[dass er kommt]].
   assert.ok(card.front.includes('::options'));
 });
 
+test('35a. full pipeline: splitImportedCards -> parseBatchCardsText with <<<LERNE_CARD>>> populates context', () => {
+  const rawBatch = `::task
+Ergänzen Sie das Verb.
+
+::source
+Wiedersehen nach 20 Jahren.
+Sie trafen sich zufällig in Berlin wieder.
+
+::exercise
+Er [[hatte]] sein Studium abgeschlossen.
+
+${LERNE_CARD_SEPARATOR}
+
+::source
+Kurze Geschichte.
+
+Sie [[war]] müde.`;
+
+  const blocks = splitImportedCards(rawBatch);
+  assert.equal(blocks.length, 2);
+
+  const cards = parseBatchCardsText(rawBatch);
+  assert.equal(cards.length, 2);
+
+  assert.equal(cards[0].card_type, 'trainer');
+  assert.equal(cards[0].context, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin wieder.');
+  assert.equal(cards[0].back, 'hatte');
+
+  assert.equal(cards[1].card_type, 'trainer');
+  assert.equal(cards[1].context, 'Kurze Geschichte.');
+  assert.equal(cards[1].back, 'war');
+});
+
 test('36. information blocks do not interfere with puzzle or quiz detection and parsing', () => {
   const puzzle = `::task
 Bilden Sie den Satz.
 
 @puzzle
 Ich kaufe heute Brot.`;
-  const quiz = `::context
+  const quiz = `::source
 Lesen Sie die Frage.
 
 Wie heißt die Hauptstadt?

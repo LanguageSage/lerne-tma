@@ -287,7 +287,7 @@ def _prepare_tts_text(text, max_chars=900):
     if not text:
         return ""
 
-    # Visual task/context/options/example blocks never belong to speech. Strip
+    # Visual task/source/options/example blocks never belong to speech. Strip
     # them before the established quiz/cloze/Markdown preparation below.
     from api.services.input_parser import parse_exercise_content
     text = parse_exercise_content(text)["exercise"]

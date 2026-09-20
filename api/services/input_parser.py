@@ -3,12 +3,27 @@ from typing import Optional
 
 
 EXERCISE_BLOCK_TYPES = {"task", "options", "context", "example"}
+EXERCISE_MARKER_TO_BLOCK_TYPE = {
+    "task": "task",
+    "options": "options",
+    "source": "context",
+    "context": "context",
+    "example": "example",
+}
+
+
+def _is_exercise_marker(line: str) -> bool:
+    return bool(re.fullmatch(r"\s*::exercise\s*", line or "", re.IGNORECASE))
 
 
 def _exercise_block_type(line: str) -> str | None:
-    match = re.fullmatch(r"\s*::(task|options|context|example)\s*", line or "", re.IGNORECASE)
-    block_type = match.group(1).lower() if match else None
+    match = re.fullmatch(r"\s*::(task|options|source|context|example)\s*", line or "", re.IGNORECASE)
+    block_type = EXERCISE_MARKER_TO_BLOCK_TYPE.get(match.group(1).lower()) if match else None
     return block_type if block_type in EXERCISE_BLOCK_TYPES else None
+
+
+def _exercise_block_marker(block_type: str) -> str:
+    return f"::{'source' if block_type == 'context' else block_type}"
 
 
 def parse_exercise_content(raw_text: str) -> dict:
@@ -28,53 +43,110 @@ def parse_exercise_content(raw_text: str) -> dict:
         return empty
 
     lines = raw.split("\n")
-    index = 0
-    while index < len(lines) and not lines[index].strip():
-        index += 1
-    if index >= len(lines) or not _exercise_block_type(lines[index]):
+    first_non_empty = 0
+    while first_non_empty < len(lines) and not lines[first_non_empty].strip():
+        first_non_empty += 1
+    if first_non_empty >= len(lines) or not _exercise_block_type(lines[first_non_empty]):
         return empty
+
+    explicit_exercise_idx = -1
+    for idx, line in enumerate(lines):
+        if _is_exercise_marker(line):
+            explicit_exercise_idx = idx
+            break
 
     blocks = []
     exercise_start = len(lines)
-    finished_preamble = False
+    index = first_non_empty
 
-    while index < len(lines) and not finished_preamble:
-        block_type = _exercise_block_type(lines[index])
-        if not block_type:
-            exercise_start = index
-            break
-
-        marker = f"::{block_type}"
-        index += 1
-        content_lines = []
-
-        while index < len(lines):
-            if _exercise_block_type(lines[index]):
-                break
-
+    if explicit_exercise_idx != -1 and explicit_exercise_idx >= first_non_empty:
+        # Mode A: Explicit ::exercise marker present
+        while index < explicit_exercise_idx:
             if not lines[index].strip():
-                next_index = index
-                while next_index < len(lines) and not lines[next_index].strip():
-                    next_index += 1
-                if next_index < len(lines) and _exercise_block_type(lines[next_index]):
-                    index = next_index
-                else:
-                    exercise_start = next_index
-                    finished_preamble = True
+                index += 1
+                continue
+
+            block_type = _exercise_block_type(lines[index])
+            if not block_type:
+                index += 1
+                continue
+
+            marker = _exercise_block_marker(block_type)
+            index += 1
+            content_lines = []
+
+            while index < explicit_exercise_idx:
+                if _exercise_block_type(lines[index]):
+                    break
+                content_lines.append(lines[index])
+                index += 1
+
+            content = "\n".join(content_lines).strip()
+            block = {"type": block_type, "marker": marker, "content": content}
+            if block_type == "options":
+                block["options"] = [
+                    value.strip()
+                    for value in re.split(r"\s*\|\s*|\n+", content)
+                    if value.strip()
+                ]
+            blocks.append(block)
+
+        exercise_start = explicit_exercise_idx + 1
+    else:
+        # Mode B: Implicit boundary (no ::exercise marker)
+        finished_preamble = False
+
+        while index < len(lines) and not finished_preamble:
+            block_type = _exercise_block_type(lines[index])
+            if not block_type:
+                exercise_start = index
                 break
 
-            content_lines.append(lines[index])
+            marker = _exercise_block_marker(block_type)
             index += 1
+            content_lines = []
 
-        content = "\n".join(content_lines).strip()
-        block = {"type": block_type, "marker": marker, "content": content}
-        if block_type == "options":
-            block["options"] = [
-                value.strip()
-                for value in re.split(r"\s*\|\s*|\n+", content)
-                if value.strip()
-            ]
-        blocks.append(block)
+            while index < len(lines):
+                if _is_exercise_marker(lines[index]):
+                    exercise_start = index + 1
+                    finished_preamble = True
+                    break
+
+                if _exercise_block_type(lines[index]):
+                    break
+
+                if not lines[index].strip():
+                    next_index = index
+                    while next_index < len(lines) and not lines[next_index].strip():
+                        next_index += 1
+                    if next_index < len(lines) and _is_exercise_marker(lines[next_index]):
+                        exercise_start = next_index + 1
+                        finished_preamble = True
+                        break
+                    if next_index < len(lines) and _exercise_block_type(lines[next_index]):
+                        index = next_index
+                    else:
+                        exercise_start = next_index
+                        finished_preamble = True
+                    break
+
+                content_lines.append(lines[index])
+                index += 1
+
+            content = "\n".join(content_lines).strip()
+            block = {"type": block_type, "marker": marker, "content": content}
+            if block_type == "options":
+                block["options"] = [
+                    value.strip()
+                    for value in re.split(r"\s*\|\s*|\n+", content)
+                    if value.strip()
+                ]
+            blocks.append(block)
+
+    raw_exercise_lines = lines[exercise_start:]
+    while raw_exercise_lines and _is_exercise_marker(raw_exercise_lines[0]):
+        raw_exercise_lines = raw_exercise_lines[1:]
+    exercise = "\n".join(raw_exercise_lines).strip()
 
     def first_content(block_type: str) -> str:
         return next(

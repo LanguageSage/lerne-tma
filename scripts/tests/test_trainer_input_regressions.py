@@ -97,10 +97,49 @@ class TrainerInputRegressionTests(unittest.TestCase):
         self.assertIn("::options\nwas | dass | wie | ob", restored)
         self.assertTrue(restored.endswith("Ich weiß, [[dass alles klappt]]."))
 
+    def test_source_marker_populates_internal_context_and_legacy_context_is_supported(self):
+        source = (
+            "::task\nErgänzen Sie das Verb.\n\n"
+            "::source\nWiedersehen nach 20 Jahren.\n\n"
+            "Er [[hatte]] sein Studium abgeschlossen."
+        )
+        parsed = parse_exercise_content(source)
+
+        self.assertEqual(parsed["task"], "Ergänzen Sie das Verb.")
+        self.assertEqual(parsed["context"], "Wiedersehen nach 20 Jahren.")
+        self.assertEqual(parsed["exercise"], "Er [[hatte]] sein Studium abgeschlossen.")
+        self.assertIn("::source", restore_exercise_content(parsed, parsed["exercise"]))
+
+        legacy = parse_exercise_content("::context\nLegacy text.\n\nSatz [[Antwort]].")
+        self.assertTrue(legacy["has_blocks"])
+        self.assertEqual(legacy["context"], "Legacy text.")
+        self.assertEqual(legacy["exercise"], "Satz [[Antwort]].")
+
+    def test_source_with_explicit_exercise_marker_supports_multiparagraph_context(self):
+        source = (
+            "::task\nLesen Sie den Text und ergänzen Sie die richtige Form.\n\n"
+            "::source\nWiedersehen nach 20 Jahren.\n\n"
+            "Sie trafen sich zufällig in Berlin auf der Straße wieder.\n"
+            "20 Jahre lang hatten sie sich nicht gesehen.\n\n"
+            "::exercise\nEr war ein paar Jahre älter als sie.\n"
+            "Er [[hatte]] sein Studium schon abgeschlossen."
+        )
+        parsed = parse_exercise_content(source)
+
+        self.assertEqual(parsed["task"], "Lesen Sie den Text und ergänzen Sie die richtige Form.")
+        self.assertIn("Wiedersehen nach 20 Jahren.\n\nSie trafen sich zufällig", parsed["context"])
+        self.assertEqual(
+            parsed["exercise"],
+            "Er war ein paar Jahre älter als sie.\nEr [[hatte]] sein Studium schon abgeschlossen."
+        )
+        self.assertNotIn("::task", parsed["exercise"])
+        self.assertNotIn("::source", parsed["exercise"])
+        self.assertNotIn("::exercise", parsed["exercise"])
+
     def test_tts_excludes_all_visual_blocks_options_and_hint(self):
         source = (
             "::task\nWählen Sie das passende Wort und schreiben Sie damit den Satz zu Ende.\n\n"
-            "::context\nPaul erzählt über sein Studium in Deutschland.\n\n"
+            "::source\nPaul erzählt über sein Studium in Deutschland.\n\n"
             "::options\nwas | dass | wie | ob\n\n"
             "::example\nIch weiß jetzt, wie das funktioniert.\n\n"
             "Ich verstehe jetzt viel besser, [[wie das deutsche Hochschulsystem funktioniert]].\n\n"
