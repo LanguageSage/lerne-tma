@@ -4,7 +4,7 @@ import { parseClozeData, cleanBracketSyntax, normalizeAnswer } from '../clozePar
 import { parseMatchData, normalizeMatchValue } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
 import { parseQuizData } from '../quizParser.js';
-import { hasCardSeparatorLine, parseBatchCardsText, splitImportedCards, LERNE_CARD_SEPARATOR } from '../batchCardParser.js';
+import { hasCardSeparatorLine, parseBatchCardsText, splitImportedCards, parseImportedCardSections, LERNE_CARD_SEPARATOR } from '../batchCardParser.js';
 import { resolveAiTranslation } from '../aiCardResult.js';
 import { parseWordBankData } from '../wordBankParser.js';
 import {
@@ -202,31 +202,33 @@ Mustermann GmbH.`;
   assert.equal(detectExerciseType({ card_type: 'standard', front: letterFront }), 'trainer');
 });
 
-test('11. @@CARD and delimiter bulk import with auto-detected exercise types', () => {
+test('11. Bulk import with auto-detected exercise types using strict FRONT/BACK/CONTEXT', () => {
   const bulkText = `
-@@CARD
 FRONT:
 Ich hatte meine Freunde angerufen.
 BACK:
 Я позвонил друзьям.
-TAGS:
+CONTEXT:
 B1
-@@END
 
-@@CARD free_text
+${LERNE_CARD_SEPARATOR}
+
 FRONT:
 @free
 Beschreiben Sie Ihren Tag.
 BACK:
 Morgens stehe ich um 7 Uhr auf.
-@@END
+CONTEXT:
 
-@@CARD
+
+${LERNE_CARD_SEPARATOR}
+
 FRONT:
 {*Der|Die|Das} Hund bellt.
 BACK:
 Der
-@@END
+CONTEXT:
+
 `;
 
   const parsed = parseBatchCardsText(bulkText);
@@ -234,6 +236,7 @@ Der
 
   assert.equal(parsed[0].card_type, 'standard');
   assert.equal(parsed[0].front, 'Ich hatte meine Freunde angerufen.');
+  assert.equal(parsed[0].context, 'B1');
 
   assert.equal(parsed[1].card_type, 'free_text');
   assert.ok(parsed[1].front.includes('@free'));
@@ -241,18 +244,32 @@ Der
   assert.equal(parsed[2].card_type, 'trainer');
 });
 
-test('12. Delimiter import with trainer letter and multiple choices', () => {
+test('12. Delimiter import with quiz, trainer, and standard', () => {
   const delimiterText = `
+FRONT:
 Wie heißt die Hauptstadt?
 
 München
 *Berlin
 Hamburg
----
+BACK:
+
+CONTEXT:
+
+${LERNE_CARD_SEPARATOR}
+FRONT:
 Ich fahre {*mit|nach|zu} dem Bus.
----
-Das ist ein *wichtiges Wort.
+BACK:
+
+CONTEXT:
+
+${LERNE_CARD_SEPARATOR}
+FRONT:
+Das ist ein wichtiges Wort.
+BACK:
 Перевод
+CONTEXT:
+
 `;
 
   const parsed = parseBatchCardsText(delimiterText);
@@ -277,12 +294,22 @@ test('13. AI quick actions support trainer syntax and treat parentheses as ordin
 });
 
 test('14. Batch import preserves explicit @match and @puzzle markers', () => {
-  const parsed = parseBatchCardsText(`@match
+  const parsed = parseBatchCardsText(`FRONT:
+@match
 ich => hatte
 wir => hatten
----
+BACK:
+
+CONTEXT:
+
+${LERNE_CARD_SEPARATOR}
+FRONT:
 @puzzle
-Ich kaufe heute Brot.`);
+Ich kaufe heute Brot.
+BACK:
+
+CONTEXT:
+`);
 
   assert.equal(parsed.length, 2);
   assert.equal(parsed[0].card_type, 'match');
@@ -291,69 +318,105 @@ Ich kaufe heute Brot.`);
   assert.ok(parsed[1].front.startsWith('@puzzle'));
 });
 
-test('14a. Batch card separators use a standalone LERNE_CARD line and preserve legacy imports', () => {
+test('14a. Batch card separators use a standalone LERNE_CARD line', () => {
   assert.deepEqual(
     splitImportedCards('card1\n<<<LERNE_CARD>>>\ncard2'),
     ['card1', 'card2']
   );
-  assert.deepEqual(splitImportedCards('card1\n---\ncard2'), ['card1', 'card2']);
   assert.deepEqual(
     splitImportedCards('card1 <<<LERNE_CARD>>> text'),
     ['card1 <<<LERNE_CARD>>> text']
   );
-  assert.deepEqual(splitImportedCards('card1 --- text'), ['card1 --- text']);
+  assert.equal(hasCardSeparatorLine('card1\n<<<LERNE_CARD>>>\ncard2'), true);
+  assert.equal(hasCardSeparatorLine('card1 <<<LERNE_CARD>>> text'), false);
+  assert.equal(hasCardSeparatorLine('card1 text'), false);
 });
 
-test('14b. Batch card separators trim blocks, handle CRLF, and support mixed separators', () => {
+test('14b. Batch card separators trim blocks and handle CRLF', () => {
   assert.deepEqual(
     splitImportedCards('\n<<<LERNE_CARD>>>\n\ncard1\n\n<<<LERNE_CARD>>>\n\ncard2\n\n<<<LERNE_CARD>>>\n'),
     ['card1', 'card2']
   );
   assert.deepEqual(splitImportedCards('<<<LERNE_CARD>>>\ncard1\n<<<LERNE_CARD>>>\n'), ['card1']);
   assert.deepEqual(splitImportedCards('card1\r\n<<<LERNE_CARD>>>\r\ncard2'), ['card1', 'card2']);
-  assert.deepEqual(
-    splitImportedCards('card1\n<<<LERNE_CARD>>>\ncard2\n---\ncard3'),
-    ['card1', 'card2', 'card3']
-  );
 });
 
 test('14c. New batch separator preserves exercise type detection', () => {
-  const cards = parseBatchCardsText(`Ich [[habe]] das Buch [[gelesen]].
+  const cards = parseBatchCardsText(`FRONT:
+Ich [[habe]] das Buch [[gelesen]].
 (lesen)
-<<<LERNE_CARD>>>
+BACK:
+
+CONTEXT:
+
+${LERNE_CARD_SEPARATOR}
+FRONT:
 @puzzle
 Morgen fahre ich nach Berlin.
-<<<LERNE_CARD>>>
+BACK:
+
+CONTEXT:
+
+${LERNE_CARD_SEPARATOR}
+FRONT:
 @match
 ich => hatte
 wir => hatten
-<<<LERNE_CARD>>>
+BACK:
+
+CONTEXT:
+
+${LERNE_CARD_SEPARATOR}
+FRONT:
 Haus
+BACK:
 дом
-<<<LERNE_CARD>>>
+CONTEXT:
+
+${LERNE_CARD_SEPARATOR}
+FRONT:
 Welche Antwort ist richtig?
 
 ja
 *nein
-vielleicht`);
+vielleicht
+BACK:
+
+CONTEXT:
+`);
 
   assert.equal(cards.length, 5);
   assert.deepEqual(cards.map(card => card.card_type), ['trainer', 'puzzle', 'match', 'standard', 'quiz']);
 });
 
-test('14d. Inline separator text does not disable blank-line fallback parsing', () => {
-  for (const inlineSeparator of ['Text with --- inside the sentence.', 'Text <<<LERNE_CARD>>> inside sentence']) {
-    const cards = parseBatchCardsText(`${inlineSeparator}\n\n\nHaus\nдом`);
-    assert.equal(cards.length, 2);
-  }
+test('14d. Missing required sections makes the card invalid and skips it', () => {
+  // Missing CONTEXT:
+  assert.equal(parseImportedCardSections('FRONT:\nHaus\nBACK:\nдом'), null);
+  // Missing BACK:
+  assert.equal(parseImportedCardSections('FRONT:\nHaus\nCONTEXT:\nKapitel 1'), null);
+  // Missing FRONT:
+  assert.equal(parseImportedCardSections('BACK:\nдом\nCONTEXT:\nKapitel 1'), null);
+  // Empty FRONT:
+  assert.equal(parseImportedCardSections('FRONT:\n\nBACK:\nдом\nCONTEXT:\nKapitel 1'), null);
 
-  assert.equal(hasCardSeparatorLine('Text with --- inside the sentence.'), false);
-  assert.equal(hasCardSeparatorLine('Text <<<LERNE_CARD>>> inside sentence'), false);
-  assert.equal(hasCardSeparatorLine('card1\n  <<<LERNE_CARD>>>  \ncard2'), true);
+  const cards = parseBatchCardsText(`FRONT:
+Haus
+BACK:
+дом
+<<<LERNE_CARD>>>
+FRONT:
+Buch
+BACK:
+книга
+CONTEXT:
+`);
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].front, 'Buch');
 });
 
 test('14e. New standalone separator preserves Trainer information blocks and puzzle markers', () => {
-  const cards = parseBatchCardsText(`::task
+  const cards = parseBatchCardsText(`FRONT:
+::task
 Wählen Sie das passende Wort.
 
 ::options
@@ -361,11 +424,20 @@ was | dass | wie | ob
 
 Ich verstehe jetzt viel besser, [[wie das deutsche Hochschulsystem funktioniert]].
 (das deutsche Hochschulsystem funktionieren)
+BACK:
+
+CONTEXT:
+
 
 <<<LERNE_CARD>>>
 
+FRONT:
 @puzzle
-Am Wochenende fahren wir mit dem Zug nach Berlin.`);
+Am Wochenende fahren wir mit dem Zug nach Berlin.
+BACK:
+
+CONTEXT:
+`);
 
   assert.equal(cards.length, 2);
   assert.equal(cards[0].card_type, 'trainer');
@@ -450,9 +522,8 @@ AN | AUF | FÜR | HABEN | VIEL`,
   assert.equal(parsed.text.includes('@options'), false);
 });
 
-test('20. @@CARD word_bank batch import preserves the explicit type and syntax', () => {
-  const [card] = parseBatchCardsText(`@@CARD word_bank
-FRONT:
+test('20. word_bank batch import preserves the type, context, and syntax', () => {
+  const [card] = parseBatchCardsText(`FRONT:
 @wordbank
 Text <<31>>.
 @options
@@ -460,8 +531,7 @@ FÜR | AUF
 BACK:
 31=FÜR
 CONTEXT:
-Sprachbausteine Teil 2
-@@END`);
+Sprachbausteine Teil 2`);
 
   assert.ok(card);
   assert.equal(card.card_type, 'word_bank');
@@ -825,7 +895,8 @@ Er [[hatte]] recht.`;
 });
 
 test('35. batch import preserves information blocks and detects the existing trainer type', () => {
-  const [card] = parseBatchCardsText(`::task
+  const [card] = parseBatchCardsText(`FRONT:
+::task
 Ergänzen Sie den Satz.
 
 ::options
@@ -833,7 +904,11 @@ ob | dass
 
 Ich weiß, [[dass er kommt]].
 
-(er kommen)`);
+(er kommen)
+BACK:
+
+CONTEXT:
+`);
 
   assert.ok(card);
   assert.equal(card.card_type, 'trainer');
@@ -842,7 +917,8 @@ Ich weiß, [[dass er kommt]].
 });
 
 test('35a. full pipeline: splitImportedCards -> parseBatchCardsText with <<<LERNE_CARD>>> avoids duplicate context storage', () => {
-  const rawBatch = `::task
+  const rawBatch = `FRONT:
+::task
 Ergänzen Sie das Verb.
 
 ::source
@@ -851,14 +927,23 @@ Sie trafen sich zufällig in Berlin wieder.
 
 ::exercise
 Er [[hatte]] sein Studium abgeschlossen.
+BACK:
+
+CONTEXT:
+
 
 ${LERNE_CARD_SEPARATOR}
 
+FRONT:
 ::source
 Kurze Geschichte.
 
 ::exercise
-Sie [[war]] müde.`;
+Sie [[war]] müde.
+BACK:
+
+CONTEXT:
+`;
 
   const blocks = splitImportedCards(rawBatch);
   assert.equal(blocks.length, 2);
@@ -935,7 +1020,12 @@ Er [[war]] zu Hause.`;
   assert.equal(detectExerciseType({ front: noisyCard }), 'trainer');
 
   // 2. Batch import answer extraction
-  const batchImported = parseBatchCardsText(noisyCard);
+  const batchImported = parseBatchCardsText(`FRONT:
+${noisyCard}
+BACK:
+
+CONTEXT:
+`);
   assert.equal(batchImported.length, 1);
   assert.equal(batchImported[0].card_type, 'trainer');
   assert.equal(batchImported[0].back, 'war');
@@ -953,4 +1043,269 @@ Er [[war]] zu Hause.`;
   assert.equal(cloze.gaps.length, 1);
   assert.equal(cloze.gaps[0].correctAnswer, 'war');
 });
+
+test('38. Strict Format: 1. Standard card import', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+Haus
+
+BACK:
+дом
+
+CONTEXT:
+`);
+  assert.ok(card);
+  assert.equal(card.card_type, 'standard');
+  assert.equal(card.front, 'Haus');
+  assert.equal(card.back, 'дом');
+  assert.equal(card.context, '');
+});
+
+test('38a. Strict Format: 2. Trainer card with empty BACK auto-extracts answers and preserves CONTEXT', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+Ich [[hatte]] meine Freunde [[angerufen]].
+
+BACK:
+
+CONTEXT:
+Plusquamperfekt`);
+  assert.ok(card);
+  assert.equal(card.card_type, 'trainer');
+  assert.equal(card.front, 'Ich [[hatte]] meine Freunde [[angerufen]].');
+  assert.equal(card.back, 'hatte, angerufen');
+  assert.equal(card.context, 'Plusquamperfekt');
+});
+
+test('38b. Strict Format: 3. Free Text card with ::task, ::exercise, @free', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+::task
+Antworten Sie mit einem vollständigen Satz.
+
+::exercise
+@free
+Warum lernst du Deutsch?
+
+BACK:
+Ich lerne Deutsch, weil ich in Deutschland lebe.
+
+CONTEXT:
+B1 Nebensatz`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'free_text');
+  assert.ok(card.front.includes('::task'));
+  assert.ok(card.front.includes('@free'));
+  assert.equal(card.back, 'Ich lerne Deutsch, weil ich in Deutschland lebe.');
+  assert.equal(card.context, 'B1 Nebensatz');
+
+  const freeData = parseFreeTextData(card);
+  assert.ok(freeData);
+  assert.equal(freeData.prompt, 'Warum lernst du Deutsch?');
+  assert.equal(freeData.exampleAnswer, 'Ich lerne Deutsch, weil ich in Deutschland lebe.');
+});
+
+test('38c. Strict Format: 4. Word Bank card with @wordbank, <<31>>, @options', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+@wordbank
+Ich weiß nicht, <<31>> er heute kommt.
+Sie sagt, <<32>> sie keine Zeit hat.
+
+@options
+ob | dass
+
+BACK:
+31=ob
+32=dass
+
+CONTEXT:
+Konjunktionen B1`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'word_bank');
+  assert.equal(card.back, '31=ob\n32=dass');
+  assert.equal(card.context, 'Konjunktionen B1');
+
+  const wbData = parseWordBankData(card);
+  assert.ok(wbData);
+  assert.equal(wbData.isWordBank, true);
+  assert.deepEqual(wbData.gaps.map(g => g.id), ['31', '32']);
+  assert.deepEqual(wbData.gaps.map(g => g.correctAnswer), ['ob', 'dass']);
+});
+
+test('38d. Strict Format: 5. Puzzle card with @puzzle', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+@puzzle
+Ich fahre morgen nach Berlin.
+
+BACK:
+Я завтра еду в Берлин.
+
+CONTEXT:
+(объяснение и примеры)
+B1 Satzbau`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'puzzle');
+  assert.equal(card.front, '@puzzle\nIch fahre morgen nach Berlin.');
+  assert.equal(card.back, 'Я завтра еду в Берлин.');
+  assert.equal(card.context, '(объяснение и примеры)\nB1 Satzbau');
+});
+
+test('38e. Strict Format: 6. Match card with @match', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+@match
+ich => bin
+du => bist
+er => ist
+
+BACK:
+
+CONTEXT:
+Sein Präsens`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'match');
+  assert.ok(card.front.startsWith('@match'));
+  assert.equal(card.back, 'Сопоставление пар');
+  assert.equal(card.context, 'Sein Präsens');
+});
+
+test('38f. Strict Format: 7. Quiz card with * on correct option', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+Welche Stadt ist die Hauptstadt von Deutschland?
+
+München
+*Berlin
+Köln
+
+BACK:
+
+CONTEXT:
+Geografie`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'quiz');
+  assert.equal(card.back, 'Berlin');
+  assert.equal(card.context, 'Geografie');
+});
+
+test('38g. Strict Format: 8. ::source and CONTEXT coexist without mixing', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+::source
+Anna wohnt in Berlin.
+
+::exercise
+@free
+Wo wohnt Anna?
+
+BACK:
+Anna wohnt in Berlin.
+
+CONTEXT:
+Kapitel 4`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'free_text');
+  const parsedFront = parseExerciseContent(card.front);
+  assert.equal(parsedFront.context, 'Anna wohnt in Berlin.');
+  assert.equal(card.context, 'Kapitel 4');
+});
+
+test('38h. Strict Format: 9. ::options (FRONT preamble) vs @options (Word Bank syntax)', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+::options
+Информационные варианты
+
+@wordbank
+Ich weiß nicht, <<31>> er heute kommt.
+
+@options
+ob | dass
+
+BACK:
+31=ob
+
+CONTEXT:
+Тест options`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'word_bank');
+  const parsedFront = parseExerciseContent(card.front);
+  assert.deepEqual(parsedFront.options, ['Информационные варианты']);
+  const wbData = parseWordBankData(card);
+  assert.ok(wbData);
+  assert.deepEqual(wbData.options.map(o => o.value), ['ob', 'dass']);
+});
+
+test('38i. Strict Format: 10. BACK and CONTEXT never affect card type', () => {
+  const [card] = parseBatchCardsText(`FRONT:
+Haus
+
+BACK:
+@puzzle
+[[test]]
+
+CONTEXT:
+@wordbank
+{*A|B}`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'standard');
+  assert.equal(card.front, 'Haus');
+  assert.equal(card.back, '@puzzle\n[[test]]');
+  assert.equal(card.context, '@wordbank\n{*A|B}');
+});
+
+test('38j. Strict Format: 11. Multiple cards separated by <<<LERNE_CARD>>>', () => {
+  const cards = parseBatchCardsText(`FRONT:
+Haus
+BACK:
+дом
+CONTEXT:
+
+${LERNE_CARD_SEPARATOR}
+
+FRONT:
+@puzzle
+Ich lerne Deutsch.
+BACK:
+Я учу немецкий.
+CONTEXT:
+A1
+
+${LERNE_CARD_SEPARATOR}
+
+FRONT:
+@wordbank
+Text <<31>>.
+@options
+hier
+BACK:
+31=hier
+CONTEXT:
+`);
+
+  assert.equal(cards.length, 3);
+  assert.equal(cards[0].card_type, 'standard');
+  assert.equal(cards[1].card_type, 'puzzle');
+  assert.equal(cards[2].card_type, 'word_bank');
+});
+
+test('38k. Strict Format: 12. Invalid card sections rejection and empty section markers', () => {
+  // Missing FRONT:
+  assert.equal(parseImportedCardSections(`BACK:\nдом\nCONTEXT:\n`), null);
+  // Missing BACK:
+  assert.equal(parseImportedCardSections(`FRONT:\nHaus\nCONTEXT:\n`), null);
+  // Missing CONTEXT:
+  assert.equal(parseImportedCardSections(`FRONT:\nHaus\nBACK:\nдом`), null);
+  // Empty FRONT content
+  assert.equal(parseImportedCardSections(`FRONT:\n\nBACK:\nдом\nCONTEXT:\n`), null);
+
+  // Valid with empty BACK and empty CONTEXT
+  const valid = parseImportedCardSections(`FRONT:\nHaus\nBACK:\n\nCONTEXT:\n`);
+  assert.ok(valid);
+  assert.equal(valid.front, 'Haus');
+  assert.equal(valid.back, '');
+  assert.equal(valid.context, '');
+});
+
 

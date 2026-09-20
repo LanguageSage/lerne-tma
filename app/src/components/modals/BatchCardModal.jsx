@@ -28,21 +28,44 @@ export const BatchCardModal = () => {
   const [generatedCards, setGeneratedCards] = useState(null);
 
   const importPlaceholder = useMemo(() => {
-    return `Ich [[hatte]] meine Freunde [[angerufen]], bevor ich ins Kino gegangen bin.
+    return `FRONT:
+Ich [[hatte]] meine Freunde [[angerufen]], bevor ich ins Kino gegangen bin.
 (anrufen)
+
+BACK:
+
+
+CONTEXT:
+Plusquamperfekt
 
 ${LERNE_CARD_SEPARATOR}
 
+FRONT:
 @puzzle
 Morgen fahre ich nach Berlin.
 
+BACK:
+Я завтра еду в Берлин.
+
+CONTEXT:
+B1 Satzbau
+
 ${LERNE_CARD_SEPARATOR}
 
-Welche Antwort ist richtig?
+FRONT:
+@wordbank
+Ich weiß nicht, <<31>> er heute kommt.
+Sie sagt, <<32>> sie keine Zeit hat.
 
-ja
-*nein
-vielleicht`;
+@options
+ob | dass
+
+BACK:
+31=ob
+32=dass
+
+CONTEXT:
+Konjunktionen B1`;
   }, []);
 
   const aiBatchPlaceholder = useMemo(() => {
@@ -59,9 +82,11 @@ vielleicht`;
   useEffect(() => {
     if (rawText && (
       hasCardSeparatorLine(rawText) ||
-      rawText.includes('@@CARD') ||
+      rawText.includes('FRONT:') ||
+      rawText.includes('@wordbank') ||
       rawText.includes('@match') ||
       rawText.includes('@free') ||
+      rawText.includes('@puzzle') ||
       rawText.includes('\n*') ||
       /\{([^}]+)\}/.test(rawText) ||
       /\[\[([^\]]+)\]\]/.test(rawText)
@@ -248,6 +273,7 @@ vielleicht`;
   const matchCount = parsedCards.filter(c => getCardType(c) === 'match').length;
   const freeTextCount = parsedCards.filter(c => getCardType(c) === 'free_text').length;
   const puzzleCount = parsedCards.filter(c => getCardType(c) === 'puzzle').length;
+  const wordBankCount = parsedCards.filter(c => getCardType(c) === 'word_bank').length;
   const standardCount = parsedCards.filter(c => getCardType(c) === 'standard').length;
 
   return (
@@ -359,7 +385,7 @@ vielleicht`;
                 /* ── TAB 1: Direct Text Import ── */
                 <>
                   <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
-                    {tr("Каждая карточка отделяется отдельной строкой:")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>{LERNE_CARD_SEPARATOR}</code>. {tr("Формат @@CARD ... @@END также поддерживается.")}
+                    {tr("Каждая карточка должна содержать секции FRONT:, BACK:, CONTEXT: и отделяться строкой:")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>{LERNE_CARD_SEPARATOR}</code>
                   </p>
 
                   <div style={{ position: 'relative' }}>
@@ -391,7 +417,7 @@ vielleicht`;
                       flexWrap: 'wrap', gap: 6
                     }}>
                       <span>
-                        {parsedCards.length === 0 ? tr("Вставьте упражнения (@@CARD или <<<LERNE_CARD>>>)") : (
+                        {parsedCards.length === 0 ? tr("Вставьте карточки в формате FRONT:, BACK:, CONTEXT: через <<<LERNE_CARD>>>") : (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <Check size={14} color="#4ade80" />
                             <strong>{tr("Найдено карточек:")} {parsedCards.length}</strong>
@@ -400,6 +426,7 @@ vielleicht`;
                             {matchCount > 0 && <span style={{ color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '1px 5px', borderRadius: 4 }}>🔗 Match: {matchCount}</span>}
                             {freeTextCount > 0 && <span style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '1px 5px', borderRadius: 4 }}>💬 Free text: {freeTextCount}</span>}
                             {puzzleCount > 0 && <span style={{ color: '#ec4899', background: 'rgba(236,72,153,0.15)', padding: '1px 5px', borderRadius: 4 }}>🧩 Puzzle: {puzzleCount}</span>}
+                            {wordBankCount > 0 && <span style={{ color: '#a78bfa', background: 'rgba(167,139,250,0.15)', padding: '1px 5px', borderRadius: 4 }}>🏦 Word Bank: {wordBankCount}</span>}
                             {standardCount > 0 && <span style={{ color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4 }}>📖 Standard: {standardCount}</span>}
                           </span>
                         )}
@@ -429,7 +456,7 @@ vielleicht`;
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                                 {cardType === 'quiz' && (
-                                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>☑️ Quiz</span>
+                                   <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>☑️ Quiz</span>
                                 )}
                                 {cardType === 'trainer' && (
                                   <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c084fc', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🏋️ Trainer</span>
@@ -442,6 +469,9 @@ vielleicht`;
                                 )}
                                 {cardType === 'puzzle' && (
                                   <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#ec4899', background: 'rgba(236,72,153,0.15)', border: '1px solid rgba(236,72,153,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🧩 Puzzle</span>
+                                )}
+                                {cardType === 'word_bank' && (
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>🏦 Word Bank</span>
                                 )}
                                 {cardType === 'standard' && (
                                   <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 4, padding: '1px 4px', flexShrink: 0 }}>📖 Standard</span>

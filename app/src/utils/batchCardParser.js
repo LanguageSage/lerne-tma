@@ -6,11 +6,9 @@ import { parseQuizData } from './quizParser.js';
 import { parseExerciseContent } from './exerciseContentParser.js';
 
 export const LERNE_CARD_SEPARATOR = '<<<LERNE_CARD>>>';
-export const LEGACY_CARD_SEPARATOR = '---';
 
 const isCardSeparatorLine = (line) => {
-  const value = line.trim();
-  return value === LERNE_CARD_SEPARATOR || value === LEGACY_CARD_SEPARATOR;
+  return String(line || '').trim() === LERNE_CARD_SEPARATOR;
 };
 
 export function hasCardSeparatorLine(rawText) {
@@ -21,8 +19,8 @@ export function hasCardSeparatorLine(rawText) {
 }
 
 /**
- * Splits quick-import text into non-empty card blocks. Both separators are
- * intentionally accepted only when they occupy a complete line.
+ * Splits quick-import text into non-empty card blocks using LERNE_CARD_SEPARATOR.
+ * The separator is accepted only when it occupies a complete line.
  */
 export function splitImportedCards(rawText) {
   const normalizedText = String(rawText || '').replace(/\r\n?/g, '\n');
@@ -48,6 +46,64 @@ export function splitImportedCards(rawText) {
 }
 
 /**
+ * Parses a single imported card block into FRONT, BACK, CONTEXT sections.
+ * All three section markers (FRONT:, BACK:, CONTEXT:) must be present.
+ * BACK: and CONTEXT: may be empty, but their markers are mandatory.
+ * Returns { front, back, context } or null if invalid.
+ */
+export function parseImportedCardSections(block) {
+  if (!block || typeof block !== 'string') return null;
+
+  const normalized = block.replace(/\r\n?/g, '\n');
+  const lines = normalized.split('\n');
+
+  const MARKER_REGEX = /^\s*(FRONT|BACK|CONTEXT)\s*:(.*)$/i;
+
+  const sections = {
+    FRONT: [],
+    BACK: [],
+    CONTEXT: []
+  };
+  const seenMarkers = new Set();
+  let currentSection = null;
+
+  for (const line of lines) {
+    const match = MARKER_REGEX.exec(line);
+    if (match) {
+      const sectionName = match[1].toUpperCase();
+      seenMarkers.add(sectionName);
+      currentSection = sectionName;
+      const inlineContent = match[2];
+      if (inlineContent.trim()) {
+        sections[currentSection].push(inlineContent.trim());
+      }
+    } else if (currentSection) {
+      sections[currentSection].push(line);
+    }
+  }
+
+  // All three section markers are strictly required
+  if (!seenMarkers.has('FRONT') || !seenMarkers.has('BACK') || !seenMarkers.has('CONTEXT')) {
+    return null;
+  }
+
+  const front = sections.FRONT.join('\n').trim();
+  const back = sections.BACK.join('\n').trim();
+  const context = sections.CONTEXT.join('\n').trim();
+
+  // FRONT cannot be empty
+  if (!front) {
+    return null;
+  }
+
+  return {
+    front,
+    back,
+    context
+  };
+}
+
+/**
  * Automatically detects the card type based on content markers and syntax.
  */
 export function detectCardTypeByContent(front = '') {
@@ -56,321 +112,87 @@ export function detectCardTypeByContent(front = '') {
 }
 
 /**
- * Parses batch text into structured cards.
- * Supports:
- * 1. Dedicated Exercise Blocks:
- *    @@CARD [trainer|quiz|puzzle|match|free_text|word_bank|standard]
- *    FRONT: ...
- *    BACK: ...
- *    CONTEXT: ...
- *    TAGS: ...
- *    @@END
- * 2. Delimiter-separated cards (`<<<LERNE_CARD>>>`, with `---` retained as
- *    a legacy separator) with auto-detection:
- *    - @match -> matching pairs
- *    - @free -> free text writing
- *    - @puzzle -> word/sentence puzzle
- *    - {...} or [[...]] -> trainer cloze
- *    - Multiple choice with * -> quiz
- *    - Front / Back lines -> standard
+ * Parses batch cards text using strict 3-level architecture:
+ * Level 1: parseImportedCardSections(block) -> front, back, context
+ * Level 2: parseExerciseContent(front) -> information blocks (task, options, source, example) + exercise
+ * Level 3: detectExerciseType(front) -> determines card_type strictly from front
  */
 export function parseBatchCardsText(rawText) {
   if (!rawText || !rawText.trim()) return [];
 
+  const blocks = splitImportedCards(rawText);
   const parsedCards = [];
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 1. Dedicated @@CARD ... @@END format
-  // ─────────────────────────────────────────────────────────────────────────────
-  if (rawText.includes('@@CARD')) {
-    const cardBlockRegex = /@@CARD(?:[ \t]+([a-zA-Z0-9_-]+))?(?:[ \t]*\r?\n)([\s\S]*?)(?:@@END|(?=@@CARD)|$)/gi;
-    const matches = Array.from(rawText.matchAll(cardBlockRegex));
-
-    for (let i = 0; i < matches.length; i++) {
-      const match = matches[i];
-      const explicitType = (match[1] || '').trim().toLowerCase();
-      const body = (match[2] || '').trim();
-
-      if (!body) continue;
-
-      let front = '';
-      let back = '';
-      let context = '';
-      let tags = '';
-
-      // Parse FRONT:, BACK:, CONTEXT:, SOURCE:, TAGS: sections
-      const sectionRegex = /(?:^|\n)\s*(FRONT|BACK|CONTEXT|SOURCE|TAGS)\s*:\s*([\s\S]*?)(?=(?:\n\s*(?:FRONT|BACK|CONTEXT|SOURCE|TAGS)\s*:)|$)/gi;
-      const sectionMatches = Array.from(body.matchAll(sectionRegex));
-
-      if (sectionMatches.length > 0) {
-        for (const sm of sectionMatches) {
-          const sName = sm[1].toUpperCase();
-          const sVal = sm[2].trim();
-          if (sName === 'FRONT') front = sVal;
-          else if (sName === 'BACK') back = sVal;
-          else if (sName === 'CONTEXT' || sName === 'SOURCE') context = sVal;
-          else if (sName === 'TAGS') tags = sVal;
-        }
-      } else {
-        // If no labels, first line/paragraph is front, rest is back
-        const parts = body.split(/\n\s*\n/);
-        front = parts[0]?.trim() || '';
-        back = parts.slice(1).join('\n\n').trim();
-      }
-
-      if (!front) continue;
-
-      const validTypes = ['trainer', 'quiz', 'puzzle', 'match', 'free_text', 'word_bank', 'standard'];
-      const card_type = validTypes.includes(explicitType)
-        ? explicitType
-        : detectCardTypeByContent(front);
-
-      // Auto-extract back for trainer if empty
-      if (!back && card_type === 'trainer') {
-        const clozeRegex = /(?:\[\[([^\]]+)\]\]|\{([^}]+)\})/g;
-        const answers = Array.from(front.matchAll(clozeRegex)).map(m => {
-          const inner = (m[1] || m[2] || '').trim();
-          if (m[1]) return inner; // [[input]]
-          const opts = inner.split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
-          const stars = opts.filter(o => o.startsWith('*'));
-          if (stars.length > 0) {
-            return stars.map(s => s.replace(/^\*/, '').trim()).join(' / ');
-          }
-          return opts[0] ? opts[0].replace(/^\*/, '').trim() : '';
-        });
-        if (answers.length > 0) {
-          back = answers.join(', ');
-        }
-      }
-
-      const res = classifySentenceFast(front, 'de');
-      const level = res.level || 'A1';
-
-      parsedCards.push({
-        id: `temp_${Date.now()}_${i}`,
-        front,
-        front_text: front,
-        back,
-        back_text: back,
-        context,
-        tags: tags || level,
-        card_type,
-        level,
-        reason: res.reason,
-        reason_short: res.reason_short,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local')
-      });
-    }
-
-    if (parsedCards.length > 0) {
-      return parsedCards;
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 2. Quick import format with unified central auto-detection
-  // ─────────────────────────────────────────────────────────────────────────────
-  let blocks = splitImportedCards(rawText);
-
-  if (blocks.length <= 1 && !hasCardSeparatorLine(rawText)) {
-    const candidateBlocks = rawText.split(/\n{3,}/).map(b => b.trim()).filter(Boolean);
-    if (candidateBlocks.length > 1) {
-      blocks = candidateBlocks;
-    }
-  }
 
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i].trim();
     if (!block) continue;
 
-    const parsedExercise = parseExerciseContent(block);
-    const cleanSentenceForLevel = parsedExercise.exercise || block;
-    const detectedType = detectCardTypeByContent(block);
+    // Level 1: Structure of the card
+    const sections = parseImportedCardSections(block);
+    if (!sections) continue;
 
-    // A. Match exercise (@match)
+    const { front, back, context } = sections;
+
+    // Level 2: Structure of FRONT
+    const parsedExercise = parseExerciseContent(front);
+    const cleanSentenceForLevel = parsedExercise.exercise || front;
+
+    // Level 3: Exercise syntax & type detection (strictly from front)
+    const detectedType = detectExerciseType(front) || 'standard';
+
+    let finalBack = back;
+
     if (detectedType === 'match') {
-      const res = classifySentenceFast(cleanSentenceForLevel, 'de');
-      const level = res.level || 'B1';
-      parsedCards.push({
-        id: `temp_${Date.now()}_${i}`,
-        front: block,
-        front_text: block,
-        back: tr("Сопоставление пар"),
-        back_text: tr("Сопоставление пар"),
-        context: '',
-        card_type: 'match',
-        level,
-        reason: res.reason,
-        reason_short: res.reason_short,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
-        tags: level
-      });
-      continue;
-    }
-
-    // B. Free text exercise (@free)
-    if (detectedType === 'free_text') {
-      const exerciseText = parsedExercise.exercise || block;
-      const lines = exerciseText.split('\n').map(l => l.trim()).filter(Boolean);
-      const front = lines[0] === '@free' ? lines.slice(0, 2).join('\n') : lines[0];
-      const back = lines.slice(lines[0] === '@free' ? 2 : 1).join('\n');
-      const res = classifySentenceFast(front, 'de');
-      const level = res.level || 'B1';
-      parsedCards.push({
-        id: `temp_${Date.now()}_${i}`,
-        front: block,
-        front_text: block,
-        back,
-        back_text: back,
-        context: '',
-        card_type: 'free_text',
-        level,
-        reason: res.reason,
-        reason_short: res.reason_short,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
-        tags: level
-      });
-      continue;
-    }
-
-    // C. Puzzle exercise (@puzzle)
-    if (detectedType === 'puzzle') {
-      // The marker is the content-level source of truth and must survive import.
-      const front = block;
-      const res = classifySentenceFast(cleanSentenceForLevel, 'de');
-      const level = res.level || 'A1';
-      parsedCards.push({
-        id: `temp_${Date.now()}_${i}`,
-        front,
-        front_text: front,
-        back: tr("Конструктор фразы"),
-        back_text: tr("Конструктор фразы"),
-        context: '',
-        card_type: 'puzzle',
-        level,
-        reason: res.reason,
-        reason_short: res.reason_short,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
-        tags: level
-      });
-      continue;
-    }
-
-    // D. Trainer Card: Cloze braces {...} or brackets [[...]]
-    if (detectedType === 'trainer') {
-      const clozeRegex = /(?:\[\[([^\]]+)\]\]|\{([^}]+)\})/g;
-      const exerciseText = parsedExercise.exercise || block;
-      const clozeMatches = Array.from(exerciseText.matchAll(clozeRegex));
-      let extractedAnswer = '';
-      if (clozeMatches.length > 0) {
-        const answers = clozeMatches.map(m => {
-          if (m[1]) return m[1].trim(); // [[input]]
-          const opts = (m[2] || '').split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
-          const stars = opts.filter(o => o.startsWith('*'));
-          if (stars.length > 0) {
-            return stars.map(s => s.replace(/^\*/, '').trim()).join(' / ');
-          }
-          return opts[0] ? opts[0].replace(/^\*/, '').trim() : '';
-        });
-        extractedAnswer = answers.join(', ');
+      if (!finalBack) finalBack = tr("Сопоставление пар");
+    } else if (detectedType === 'puzzle') {
+      if (!finalBack) finalBack = tr("Конструктор фразы");
+    } else if (detectedType === 'trainer') {
+      // Auto-extract back from cloze gaps if back is left empty
+      if (!finalBack) {
+        const clozeRegex = /(?:\[\[([^\]]+)\]\]|\{([^}]+)\})/g;
+        const exerciseText = parsedExercise.exercise || front;
+        const clozeMatches = Array.from(exerciseText.matchAll(clozeRegex));
+        if (clozeMatches.length > 0) {
+          const answers = clozeMatches.map(m => {
+            if (m[1]) return m[1].trim(); // [[input]]
+            const opts = (m[2] || '').split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
+            const stars = opts.filter(o => o.startsWith('*'));
+            if (stars.length > 0) {
+              return stars.map(s => s.replace(/^\*/, '').trim()).join(' / ');
+            }
+            return opts[0] ? opts[0].replace(/^\*/, '').trim() : '';
+          });
+          finalBack = answers.join(', ');
+        }
       }
-
-      const res = classifySentenceFast(cleanSentenceForLevel, 'de');
-      const level = res.level || 'A1';
-      parsedCards.push({
-        id: `temp_${Date.now()}_${i}`,
-        front: block,
-        front_text: block,
-        back: extractedAnswer,
-        back_text: extractedAnswer,
-        context: '',
-        card_type: 'trainer',
-        level,
-        reason: res.reason,
-        reason_short: res.reason_short,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
-        tags: level
-      });
-      continue;
-    }
-
-    // E. Quiz Card: Multiple choices with * marker
-    if (detectedType === 'quiz') {
-      const quizData = parseQuizData({ front: block });
-      const questionText = quizData?.question || block.split('\n')[0];
-      const cleanCorrectAnswer = quizData?.correctAnswerText || tr("Правильный ответ");
-
-      const res = classifySentenceFast(cleanSentenceForLevel || questionText, 'de');
-      const level = res.level || 'B1';
-
-      parsedCards.push({
-        id: `temp_${Date.now()}_${i}`,
-        front: block,
-        front_text: block,
-        back: cleanCorrectAnswer,
-        back_text: cleanCorrectAnswer,
-        context: '',
-        card_type: 'quiz',
-        level,
-        reason: res.reason,
-        reason_short: res.reason_short,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
-        tags: level
-      });
-      continue;
-    }
-
-    // F. Standard Card: Front / Back
-    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length >= 2) {
-      const front = lines[0];
-      const back = lines.slice(1).join('\n');
-      const res = classifySentenceFast(cleanSentenceForLevel || front, 'de');
-      const level = res.level || 'A1';
-      parsedCards.push({
-        id: `temp_${Date.now()}_${i}`,
-        front,
-        front_text: front,
-        back,
-        back_text: back,
-        context: '',
-        card_type: 'standard',
-        level,
-        reason: res.reason,
-        reason_short: res.reason_short,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
-        tags: level
-      });
-    } else if (lines.length === 1) {
-      const line = lines[0];
-      let front = line;
-      let back = '';
-      if (line.includes(' = ')) {
-        [front, back] = line.split(' = ');
-      } else if (line.includes(' — ')) {
-        [front, back] = line.split(' — ');
-      } else if (line.includes('\t')) {
-        [front, back] = line.split('\t');
-      } else if (line.includes(';') && !line.includes('&')) {
-        [front, back] = line.split(';');
+    } else if (detectedType === 'quiz') {
+      // Auto-extract correct answer if back is left empty
+      if (!finalBack) {
+        const quizData = parseQuizData({ front });
+        finalBack = quizData?.correctAnswerText || tr("Правильный ответ");
       }
-      const res = classifySentenceFast(cleanSentenceForLevel || front, 'de');
-      const level = res.level || 'A1';
-      parsedCards.push({
-        id: `temp_${Date.now()}_${i}`,
-        front: front.trim(),
-        front_text: front.trim(),
-        back: back.trim(),
-        back_text: back.trim(),
-        context: '',
-        card_type: 'standard',
-        level,
-        reason: res.reason,
-        reason_short: res.reason_short,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
-        tags: level
-      });
     }
+
+    const res = classifySentenceFast(cleanSentenceForLevel, 'de');
+    const defaultLevel = (detectedType === 'match' || detectedType === 'free_text' || detectedType === 'quiz' || detectedType === 'word_bank')
+      ? 'B1'
+      : 'A1';
+    const level = res.level || defaultLevel;
+
+    parsedCards.push({
+      id: `temp_${Date.now()}_${i}`,
+      front,
+      front_text: front,
+      back: finalBack,
+      back_text: finalBack,
+      context,
+      card_type: detectedType,
+      level,
+      reason: res.reason,
+      reason_short: res.reason_short,
+      cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
+      tags: level
+    });
   }
 
   return parsedCards;

@@ -8,6 +8,73 @@ import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
 import { normalizeAnswer } from '../../utils/clozeParser';
 
+const AutoExpandingInput = React.memo(({
+  rawValue,
+  gap,
+  isChecked,
+  borderColor,
+  bgColor,
+  textColor,
+  textDecoration,
+  onInputChange,
+  onCheck
+}) => {
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [rawValue]);
+
+  const charLen = Math.max((gap.correctAnswer || '').length + 2, rawValue.length + 2, 7);
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onCheck?.();
+    }
+  };
+
+  return (
+    <textarea
+      ref={textareaRef}
+      rows={1}
+      value={rawValue}
+      disabled={isChecked}
+      onChange={(e) => onInputChange(gap.id, e.target.value)}
+      onKeyDown={handleKeyDown}
+      autoCapitalize="none"
+      autoCorrect="off"
+      spellCheck={false}
+      placeholder="______"
+      style={{
+        width: `${charLen}ch`,
+        minWidth: '72px',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        padding: '4px 8px',
+        borderRadius: '10px',
+        border: `2px solid ${borderColor}`,
+        background: bgColor,
+        color: textColor,
+        textDecoration,
+        fontWeight: 700,
+        fontSize: 'inherit',
+        fontFamily: 'inherit',
+        textAlign: 'center',
+        outline: 'none',
+        resize: 'none',
+        overflow: 'hidden',
+        verticalAlign: 'middle',
+        lineHeight: 1.3,
+        transition: 'border-color 0.15s ease-in-out, background 0.15s ease-in-out'
+      }}
+    />
+  );
+});
+
 export const StudyCardTrainer = React.memo(({
   card,
   clozeData,
@@ -190,8 +257,6 @@ export const StudyCardTrainer = React.memo(({
         }
       }
 
-      const charLen = Math.max((gap.correctAnswer || '').length + 2, rawValue.length + 2, 7);
-
       return (
         <span
           key={`gap-input-wrap-${gap.id}`}
@@ -200,36 +265,21 @@ export const StudyCardTrainer = React.memo(({
             alignItems: 'center',
             verticalAlign: 'middle',
             margin: '2px 4px',
-            position: 'relative'
+            position: 'relative',
+            maxWidth: '100%'
           }}
           onClick={e => e.stopPropagation()}
         >
-          <input
-            type="text"
-            value={rawValue}
-            disabled={isChecked}
-            onChange={(e) => handleInputChange(gap.id, e.target.value)}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder="______"
-            style={{
-              width: `${charLen}ch`,
-              minWidth: '72px',
-              maxWidth: '240px',
-              padding: '4px 8px',
-              borderRadius: '10px',
-              border: `2px solid ${borderColor}`,
-              background: bgColor,
-              color: textColor,
-              textDecoration,
-              fontWeight: 700,
-              fontSize: 'inherit',
-              fontFamily: 'inherit',
-              textAlign: 'center',
-              outline: 'none',
-              transition: 'all 0.15s ease-in-out'
-            }}
+          <AutoExpandingInput
+            rawValue={rawValue}
+            gap={gap}
+            isChecked={isChecked}
+            borderColor={borderColor}
+            bgColor={bgColor}
+            textColor={textColor}
+            textDecoration={textDecoration}
+            onInputChange={handleInputChange}
+            onCheck={handleCheck}
           />
           {isChecked && (
             isCorrectChoice ? (
