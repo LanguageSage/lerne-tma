@@ -150,6 +150,16 @@ class TrainerInputRegressionTests(unittest.TestCase):
             "Ich verstehe jetzt viel besser, wie das deutsche Hochschulsystem funktioniert.",
         )
 
+    def test_preamble_blocks_with_noise_syntax_do_not_leak_into_tts_or_ai_detection(self):
+        source = (
+            "::task\nErgänzen Sie das Verb [[falsch]].\n\n"
+            "::source\nIm Text steht [[hatte]].\n@match\nA => B\n\n"
+            "::example\nEr [[hatte]] Zeit.\n\n"
+            "::exercise\nEr [[war]] zu Hause."
+        )
+        self.assertEqual(_prepare_tts_text(source), "Er war zu Hause.")
+        self.assertEqual(detect_ai_input_type(source), "trainer")
+
 
 class GenerateCardFieldsRegressionTests(unittest.IsolatedAsyncioTestCase):
     async def _generate(self, phrase, response, action_type="full_card", user_request=None):

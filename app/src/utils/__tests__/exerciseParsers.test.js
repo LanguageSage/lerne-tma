@@ -915,3 +915,42 @@ Hamburg`;
   assert.equal(detectExerciseType({ front: quiz }), 'quiz');
   assert.equal(parseQuizData({ front: quiz }).question, 'Wie heißt die Hauptstadt?');
 });
+
+test('37. preamble blocks with noise syntax are completely opaque to exercise-specific parsers and type detector', () => {
+  const noisyCard = `::task
+Инструкция с [[NO_TASK]].
+
+::source
+Текст с [[NO_SOURCE]].
+@match
+A => B
+
+::example
+{*NO_EXAMPLE/wrong}
+
+::exercise
+Er [[war]] zu Hause.`;
+
+  // 1. Type Detection
+  assert.equal(detectExerciseType({ front: noisyCard }), 'trainer');
+
+  // 2. Batch import answer extraction
+  const batchImported = parseBatchCardsText(noisyCard);
+  assert.equal(batchImported.length, 1);
+  assert.equal(batchImported[0].card_type, 'trainer');
+  assert.equal(batchImported[0].back, 'war');
+  assert.ok(!batchImported[0].back.includes('NO_TASK'));
+  assert.ok(!batchImported[0].back.includes('NO_SOURCE'));
+  assert.ok(!batchImported[0].back.includes('NO_EXAMPLE'));
+
+  // 3. Specialized parsers reject/ignore noise in preambles
+  assert.equal(parseMatchData({ front: noisyCard }), null);
+  assert.equal(parseWordBankData({ front: noisyCard, back: '1=A' }), null);
+  assert.equal(parseFreeTextData({ front: noisyCard }), null);
+
+  // 4. Cloze data extracts only war
+  const cloze = parseClozeData({ front: noisyCard });
+  assert.equal(cloze.gaps.length, 1);
+  assert.equal(cloze.gaps[0].correctAnswer, 'war');
+});
+

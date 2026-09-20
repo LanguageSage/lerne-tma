@@ -1,4 +1,5 @@
 import { stripMarkdown } from './text.js';
+import { parseExerciseContent } from './exerciseContentParser.js';
 
 /**
  * Detects and parses free text exercise cards (@free).
@@ -14,10 +15,13 @@ export const parseFreeTextData = (card) => {
   const rawFront = (typeof card === 'string' ? card : (card.front || card.front_text || '')).trim();
   if (!rawFront) return null;
 
-  const hasFreeTag = /^@free\b/i.test(rawFront) || /\n@free\b/i.test(rawFront);
+  const exerciseText = parseExerciseContent(rawFront).exercise.trim();
+  if (!exerciseText) return null;
+
+  const hasFreeTag = /^@free\b/i.test(exerciseText) || /\n@free\b/i.test(exerciseText);
   if (!hasFreeTag) return null;
 
-  const prompt = rawFront.replace(/@free\b/i, '').trim();
+  const prompt = exerciseText.replace(/@free\b/i, '').trim();
 
   return {
     isFreeText: true,

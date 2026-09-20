@@ -184,7 +184,7 @@ export function parseBatchCardsText(rawText) {
     if (!block) continue;
 
     const parsedExercise = parseExerciseContent(block);
-    const cleanSentenceForLevel = parsedExercise.hasBlocks ? (parsedExercise.exercise || block) : block;
+    const cleanSentenceForLevel = parsedExercise.exercise || block;
     const detectedType = detectCardTypeByContent(block);
 
     // A. Match exercise (@match)
@@ -210,15 +210,16 @@ export function parseBatchCardsText(rawText) {
 
     // B. Free text exercise (@free)
     if (detectedType === 'free_text') {
-      const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+      const exerciseText = parsedExercise.exercise || block;
+      const lines = exerciseText.split('\n').map(l => l.trim()).filter(Boolean);
       const front = lines[0] === '@free' ? lines.slice(0, 2).join('\n') : lines[0];
       const back = lines.slice(lines[0] === '@free' ? 2 : 1).join('\n');
       const res = classifySentenceFast(front, 'de');
       const level = res.level || 'B1';
       parsedCards.push({
         id: `temp_${Date.now()}_${i}`,
-        front,
-        front_text: front,
+        front: block,
+        front_text: block,
         back,
         back_text: back,
         context: '',
@@ -258,7 +259,8 @@ export function parseBatchCardsText(rawText) {
     // D. Trainer Card: Cloze braces {...} or brackets [[...]]
     if (detectedType === 'trainer') {
       const clozeRegex = /(?:\[\[([^\]]+)\]\]|\{([^}]+)\})/g;
-      const clozeMatches = Array.from(block.matchAll(clozeRegex));
+      const exerciseText = parsedExercise.exercise || block;
+      const clozeMatches = Array.from(exerciseText.matchAll(clozeRegex));
       let extractedAnswer = '';
       if (clozeMatches.length > 0) {
         const answers = clozeMatches.map(m => {

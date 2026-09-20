@@ -8,6 +8,7 @@ import { getTextShadow } from '../../utils/style';
 import { triggerHaptic } from '../../utils/platform';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { getBackCardStyle } from '../../utils/cardStyles';
+import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
 
 export const StudyCardPuzzle = React.memo(({
   card,
@@ -69,7 +70,8 @@ export const StudyCardPuzzle = React.memo(({
 
   const puzzleData = useMemo(() => {
     if (!card) return null;
-    const rawFront = (card.front || '').replace(/^@puzzle\s*/i, '').trim();
+    const exerciseText = parseExerciseContent(card.front || card.front_text || '').exercise;
+    const rawFront = exerciseText.replace(/^@puzzle\s*/i, '').trim();
     const originalWords = stripMarkdown(rawFront)
       .split(/\s+/)
       .map(w => w.trim())

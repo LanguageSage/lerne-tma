@@ -191,8 +191,16 @@ def restore_exercise_content(parsed_content: dict, generated_exercise: str) -> s
 
 
 def detect_ai_input_type(text: str) -> str:
-    """Classify AI card input without relying on the stored ``card_type``."""
-    normalized = str(text or "").strip()
+    """
+    Classify AI card input without relying on the stored ``card_type``.
+
+    Architectural Principle:
+    - front_text is the storage source of truth for the complete card.
+    - parse_exercise_content(front_text) is the single boundary between visual preamble blocks and exercise syntax.
+    - parsed["exercise"] is the ONLY front text allowed to be passed to specialized exercise analyzers.
+    """
+    parsed = parse_exercise_content(text)
+    normalized = str(parsed["exercise"] if parsed["has_blocks"] else (text or "")).strip()
     if not normalized:
         return "standard"
 

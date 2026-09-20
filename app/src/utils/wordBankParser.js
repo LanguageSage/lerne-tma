@@ -1,3 +1,5 @@
+import { parseExerciseContent } from './exerciseContentParser.js';
+
 const normalizeWordBankValue = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
 const getCardField = (card, primary, fallback) => {
@@ -26,10 +28,13 @@ export const parseWordBankData = (card) => {
   const rawBack = getCardField(card, 'back', 'back_text').trim();
   if (!rawFront || !rawBack) return null;
 
-  const directiveMatch = /^@wordbank[ \t]*$/im.exec(rawFront);
-  if (!directiveMatch || rawFront.slice(0, directiveMatch.index).trim()) return null;
+  const exerciseText = parseExerciseContent(rawFront).exercise.trim();
+  if (!exerciseText) return null;
 
-  const afterDirective = rawFront.slice(directiveMatch.index + directiveMatch[0].length);
+  const directiveMatch = /^@wordbank[ \t]*$/im.exec(exerciseText);
+  if (!directiveMatch || exerciseText.slice(0, directiveMatch.index).trim()) return null;
+
+  const afterDirective = exerciseText.slice(directiveMatch.index + directiveMatch[0].length);
   const optionsMatch = /^@options[ \t]*$/im.exec(afterDirective);
   if (!optionsMatch) return null;
 

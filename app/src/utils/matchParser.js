@@ -1,4 +1,5 @@
 import { stripMarkdown } from './text.js';
+import { parseExerciseContent } from './exerciseContentParser.js';
 
 export const normalizeMatchValue = (str) => {
   if (!str) return '';
@@ -21,11 +22,14 @@ export const parseMatchData = (card) => {
   const rawFront = (typeof card === 'string' ? card : (card.front || card.front_text || '')).trim();
   if (!rawFront) return null;
 
-  const hasMatchTag = /^@match\b/i.test(rawFront) || /\n@match\b/i.test(rawFront);
+  const exerciseText = parseExerciseContent(rawFront).exercise.trim();
+  if (!exerciseText) return null;
+
+  const hasMatchTag = /^@match\b/i.test(exerciseText) || /\n@match\b/i.test(exerciseText);
   if (!hasMatchTag) return null;
 
   // Remove @match directive
-  const textWithoutDirective = rawFront.replace(/@match\b/i, '').trim();
+  const textWithoutDirective = exerciseText.replace(/@match\b/i, '').trim();
   const lines = textWithoutDirective.split('\n').map(l => l.trim()).filter(Boolean);
 
   const pairSeparatorRegex = /\s*(?:=>|->|—|=)\s*/;

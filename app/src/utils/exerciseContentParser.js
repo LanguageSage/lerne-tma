@@ -32,9 +32,14 @@ const emptyResult = (raw) => ({
 /**
  * Parse leading visual information blocks without touching the stored card text.
  *
+ * ARCHITECTURAL PRINCIPLE:
+ * 1. front_text — хранение полной карточки в БД.
+ * 2. parseExerciseContent(front_text) — единственная граница между визуальной структурой карточки и синтаксисом упражнения.
+ * 3. parsed.exercise — единственный текст лицевой стороны, который разрешено передавать специализированным exercise-анализаторам.
+ *
  * Supported markers:
  * - ::task -> task instructions
- * - ::source / ::context -> background text / context
+ * - ::source -> background text / context
  * - ::options -> answer choices
  * - ::example -> examples (can appear multiple times)
  * - ::exercise -> explicit start of the exercise body (optional)
