@@ -1,5 +1,6 @@
 import { tr } from '../i18n/locale.js';
 import { stripMarkdown } from './text.js';
+import { parseExerciseContent } from './exerciseContentParser.js';
 
 const cleanPunctuation = (str) => {
   if (!str) return '';
@@ -49,7 +50,7 @@ const cleanOptionPrefix = (line) => {
  */
 export const parseQuizData = (card) => {
   if (!card) return null;
-  const rawFront = (card.front || card.front_text || '').trim();
+  const rawFront = parseExerciseContent(card.front || card.front_text || '').exercise.trim();
   if (!rawFront) return null;
 
   // Mask trainer tokens so asterisks inside {...} or [[...]] are never seen as quiz markers

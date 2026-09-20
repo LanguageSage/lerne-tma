@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { parseClozeData, cleanBracketSyntax, normalizeAnswer } from '../clozeParser.js';
 import { parseMatchData, normalizeMatchValue } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
+import { parseQuizData } from '../quizParser.js';
 import { parseBatchCardsText } from '../batchCardParser.js';
 import { resolveAiTranslation } from '../aiCardResult.js';
 import { parseWordBankData } from '../wordBankParser.js';
@@ -17,6 +18,7 @@ import {
   detectAiQuickActionType,
   detectExerciseType
 } from '../exerciseDetector.js';
+import { parseExerciseContent, restoreExerciseContent } from '../exerciseContentParser.js';
 
 test('1. Choice gap syntax: Ich lebe {*seit|in|vor} 17 Jahren in Deutschland.', () => {
   const card = {
@@ -474,4 +476,172 @@ test('27. saved word-bank assignments are restored safely and preserve single-us
   }, gaps, options);
 
   assert.deepEqual(restored, { 31: 'option-0' });
+});
+
+test('28. exercise content parser leaves legacy cards unchanged', () => {
+  const source = 'Ich [[habe]] das Buch [[gelesen]].\n\n(lesen)';
+  const parsed = parseExerciseContent(source);
+  assert.equal(parsed.hasBlocks, false);
+  assert.equal(parsed.exercise, source);
+  assert.deepEqual(parsed.options, []);
+});
+
+test('29. task block ends before the trainer exercise', () => {
+  const parsed = parseExerciseContent(`::task
+Ergänzen Sie den Satz.
+
+Ich glaube, [[dass er heute kommt]].
+
+(er heute kommen)`);
+
+  assert.equal(parsed.task, 'Ergänzen Sie den Satz.');
+  assert.equal(parsed.exercise, 'Ich glaube, [[dass er heute kommt]].\n\n(er heute kommen)');
+  assert.equal(detectExerciseType({ front: restoreExerciseContent(parsed, parsed.exercise) }), 'trainer');
+});
+
+test('30. task and options are parsed into visual values without entering cloze text', () => {
+  const source = `::task
+Wählen Sie das passende Wort.
+
+::options
+ob | dass | weil | obwohl
+
+Ich weiß nicht, [[ob er heute kommt]].
+
+(er heute kommen)`;
+  const parsed = parseExerciseContent(source);
+  const cloze = parseClozeData({ front: source }, 'trainer');
+
+  assert.deepEqual(parsed.options, ['ob', 'dass', 'weil', 'obwohl']);
+  assert.equal(cloze.maskedText, 'Ich weiß nicht, ___GAP_0___.\n\n(er heute kommen)');
+  assert.equal(cloze.content.task, 'Wählen Sie das passende Wort.');
+});
+
+test('31. context and example blocks support multiline content and repeated examples', () => {
+  const parsed = parseExerciseContent(`::task
+Lesen Sie und antworten Sie.
+
+::context
+Anna studiert seit drei Jahren in Berlin.
+Sie möchte später als Ärztin arbeiten.
+
+::example
+Was macht Paul?
+Paul arbeitet als Lehrer.
+
+::example
+Was macht Mia?
+Mia studiert Medizin.
+
+Was möchte Anna später machen?
+
+[[Sie möchte als Ärztin arbeiten.]]`);
+
+  assert.equal(parsed.context, 'Anna studiert seit drei Jahren in Berlin.\nSie möchte später als Ärztin arbeiten.');
+  assert.deepEqual(parsed.examples, [
+    'Was macht Paul?\nPaul arbeitet als Lehrer.',
+    'Was macht Mia?\nMia studiert Medizin.'
+  ]);
+  assert.equal(parsed.exercise, 'Was möchte Anna später machen?\n\n[[Sie möchte als Ärztin arbeiten.]]');
+});
+
+test('31a. context works as the only information block', () => {
+  const parsed = parseExerciseContent(`::context
+Anna studiert in Berlin.
+Sie möchte Ärztin werden.
+
+Was möchte Anna werden?
+
+[[Sie möchte Ärztin werden.]]`);
+
+  assert.equal(parsed.task, '');
+  assert.equal(parsed.context, 'Anna studiert in Berlin.\nSie möchte Ärztin werden.');
+  assert.equal(parsed.exercise, 'Was möchte Anna werden?\n\n[[Sie möchte Ärztin werden.]]');
+});
+
+test('31b. example works as the only information block', () => {
+  const parsed = parseExerciseContent(`::example
+Obwohl es regnet, gehen wir spazieren.
+
+Er ist müde. Er arbeitet weiter.
+
+[[Obwohl er müde ist, arbeitet er weiter.]]`);
+
+  assert.deepEqual(parsed.examples, ['Obwohl es regnet, gehen wir spazieren.']);
+  assert.equal(parsed.exercise, 'Er ist müde. Er arbeitet weiter.\n\n[[Obwohl er müde ist, arbeitet er weiter.]]');
+});
+
+test('32. all information blocks preserve source order and restore around AI output', () => {
+  const source = `::task
+Wählen Sie das passende Wort und schreiben Sie den Satz zu Ende.
+
+::context
+Paul erzählt über sein Studium in Deutschland.
+
+::options
+was | dass | wie | ob
+
+::example
+Ich weiß jetzt, wie das funktioniert.
+
+Ich verstehe jetzt viel besser, [[wie das deutsche Hochschulsystem funktioniert]].
+
+(das deutsche Hochschulsystem funktionieren)`;
+  const parsed = parseExerciseContent(source);
+  const restored = restoreExerciseContent(parsed, 'Ich verstehe jetzt, [[wie alles funktioniert]].');
+
+  assert.deepEqual(parsed.blocks.map(block => block.type), ['task', 'context', 'options', 'example']);
+  assert.ok(restored.startsWith('::task\n'));
+  assert.ok(restored.includes('::options\nwas | dass | wie | ob'));
+  assert.ok(restored.endsWith('Ich verstehe jetzt, [[wie alles funktioniert]].'));
+});
+
+test('33. parser handles Windows and Unix line endings identically', () => {
+  const unix = '::task\nErgänzen Sie.\n\nSatz [[hier]].';
+  const windows = unix.replace(/\n/g, '\r\n');
+  assert.deepEqual(parseExerciseContent(windows), parseExerciseContent(unix));
+});
+
+test('34. unknown markers inside exercise content are not silently removed', () => {
+  const source = '::unknown\nText [[Antwort]].';
+  const parsed = parseExerciseContent(source);
+  assert.equal(parsed.hasBlocks, false);
+  assert.equal(parsed.exercise, source);
+});
+
+test('35. batch import preserves information blocks and detects the existing trainer type', () => {
+  const [card] = parseBatchCardsText(`::task
+Ergänzen Sie den Satz.
+
+::options
+ob | dass
+
+Ich weiß, [[dass er kommt]].
+
+(er kommen)`);
+
+  assert.ok(card);
+  assert.equal(card.card_type, 'trainer');
+  assert.ok(card.front.startsWith('::task'));
+  assert.ok(card.front.includes('::options'));
+});
+
+test('36. information blocks do not interfere with puzzle or quiz detection and parsing', () => {
+  const puzzle = `::task
+Bilden Sie den Satz.
+
+@puzzle
+Ich kaufe heute Brot.`;
+  const quiz = `::context
+Lesen Sie die Frage.
+
+Wie heißt die Hauptstadt?
+
+München
+*Berlin
+Hamburg`;
+
+  assert.equal(detectExerciseType({ front: puzzle }), 'puzzle');
+  assert.equal(detectExerciseType({ front: quiz }), 'quiz');
+  assert.equal(parseQuizData({ front: quiz }).question, 'Wie heißt die Hauptstadt?');
 });

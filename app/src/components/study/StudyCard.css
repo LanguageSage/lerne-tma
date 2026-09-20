@@ -94,6 +94,86 @@
   transition: transform 160ms ease, filter 160ms ease;
 }
 
+.exercise-info-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 14px;
+  text-align: left;
+}
+
+.exercise-info-block {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.exercise-info-task {
+  border-left: 3px solid rgba(56, 189, 248, 0.72);
+  background: rgba(14, 116, 144, 0.1);
+}
+
+.exercise-info-context {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.exercise-info-example {
+  border-color: rgba(196, 181, 253, 0.2);
+  background: rgba(124, 58, 237, 0.07);
+  color: rgba(241, 245, 249, 0.88);
+}
+
+.exercise-info-label {
+  margin-bottom: 5px;
+  color: rgba(203, 213, 225, 0.72);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.exercise-info-text {
+  color: inherit;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.exercise-option-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exercise-option-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 9px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.09);
+  color: #dbeafe;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+@media (max-width: 420px) {
+  .exercise-info-block {
+    padding: 8px 9px;
+  }
+
+  .exercise-info-text {
+    font-size: 0.82rem;
+  }
+}
+
 .study-card-flip-button svg { flex-shrink: 0; }
 .study-card-flip-button:active:not(:disabled) { transform: scale(0.98); }
 .study-card-flip-button:focus-visible { outline: 3px solid #ddd6fe; outline-offset: 3px; }

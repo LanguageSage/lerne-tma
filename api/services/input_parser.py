@@ -2,6 +2,119 @@ import re
 from typing import Optional
 
 
+EXERCISE_BLOCK_TYPES = {"task", "options", "context", "example"}
+
+
+def _exercise_block_type(line: str) -> str | None:
+    match = re.fullmatch(r"\s*::(task|options|context|example)\s*", line or "", re.IGNORECASE)
+    block_type = match.group(1).lower() if match else None
+    return block_type if block_type in EXERCISE_BLOCK_TYPES else None
+
+
+def parse_exercise_content(raw_text: str) -> dict:
+    """Split leading visual blocks from the exercise without changing storage."""
+    raw = str(raw_text or "").replace("\r\n", "\n").replace("\r", "\n")
+    empty = {
+        "task": "",
+        "options": [],
+        "context": "",
+        "examples": [],
+        "blocks": [],
+        "exercise": raw.strip(),
+        "raw_preamble": "",
+        "has_blocks": False,
+    }
+    if not raw.strip():
+        return empty
+
+    lines = raw.split("\n")
+    index = 0
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+    if index >= len(lines) or not _exercise_block_type(lines[index]):
+        return empty
+
+    blocks = []
+    exercise_start = len(lines)
+    finished_preamble = False
+
+    while index < len(lines) and not finished_preamble:
+        block_type = _exercise_block_type(lines[index])
+        if not block_type:
+            exercise_start = index
+            break
+
+        marker = f"::{block_type}"
+        index += 1
+        content_lines = []
+
+        while index < len(lines):
+            if _exercise_block_type(lines[index]):
+                break
+
+            if not lines[index].strip():
+                next_index = index
+                while next_index < len(lines) and not lines[next_index].strip():
+                    next_index += 1
+                if next_index < len(lines) and _exercise_block_type(lines[next_index]):
+                    index = next_index
+                else:
+                    exercise_start = next_index
+                    finished_preamble = True
+                break
+
+            content_lines.append(lines[index])
+            index += 1
+
+        content = "\n".join(content_lines).strip()
+        block = {"type": block_type, "marker": marker, "content": content}
+        if block_type == "options":
+            block["options"] = [
+                value.strip()
+                for value in re.split(r"\s*\|\s*|\n+", content)
+                if value.strip()
+            ]
+        blocks.append(block)
+
+    def first_content(block_type: str) -> str:
+        return next(
+            (block["content"] for block in blocks if block["type"] == block_type and block["content"]),
+            "",
+        )
+
+    return {
+        "task": first_content("task"),
+        "options": [
+            option
+            for block in blocks
+            if block["type"] == "options"
+            for option in block.get("options", [])
+        ],
+        "context": first_content("context"),
+        "examples": [
+            block["content"]
+            for block in blocks
+            if block["type"] == "example" and block["content"]
+        ],
+        "blocks": blocks,
+        "exercise": "\n".join(lines[exercise_start:]).strip(),
+        "raw_preamble": "\n".join(lines[:exercise_start]).strip(),
+        "has_blocks": bool(blocks),
+    }
+
+
+def restore_exercise_content(parsed_content: dict, generated_exercise: str) -> str:
+    """Reattach the original visual preamble after AI changes the exercise."""
+    generated = parse_exercise_content(generated_exercise)
+    exercise = (
+        generated["exercise"] if generated["has_blocks"] else str(generated_exercise or "")
+    ).strip()
+    preamble = str((parsed_content or {}).get("raw_preamble") or "").strip()
+    if not preamble:
+        return exercise
+    return f"{preamble}\n\n{exercise}" if exercise else preamble
+
+
 def detect_ai_input_type(text: str) -> str:
     """Classify AI card input without relying on the stored ``card_type``."""
     normalized = str(text or "").strip()

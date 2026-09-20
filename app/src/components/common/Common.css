@@ -265,3 +265,47 @@
   line-height: 1.4;
 }
 
+.exercise-info-editor-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 4px 8px;
+}
+
+.exercise-info-editor-label {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.exercise-info-editor-button {
+  min-height: 34px;
+  padding: 5px 9px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.35);
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.exercise-info-editor-button:hover,
+.exercise-info-editor-button:focus-visible {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(14, 116, 144, 0.16);
+  color: #e0f2fe;
+}
+
+.exercise-info-editor-button:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.7);
+  outline-offset: 2px;
+}
+
+@media (max-width: 420px) {
+  .exercise-info-editor-button {
+    min-height: 40px;
+  }
+}

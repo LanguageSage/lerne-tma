@@ -5,6 +5,7 @@ import { parseMatchData } from '../../utils/matchParser.js';
 import { parseFreeTextData } from '../../utils/freeTextParser.js';
 import { parseWordBankData } from '../../utils/wordBankParser.js';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
+import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
 
 import { StudyCardTrainer } from './StudyCardTrainer.jsx';
 import { StudyCardQuiz } from './StudyCardQuiz.jsx';
@@ -12,6 +13,7 @@ import { StudyCardMatch } from './StudyCardMatch.jsx';
 import { StudyCardFreeText } from './StudyCardFreeText.jsx';
 import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
 import { StudyCardWordBank } from './StudyCardWordBank.jsx';
+import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 
 /**
  * Universal ExerciseRenderer for all interactive exercise types:
@@ -38,38 +40,54 @@ export const ExerciseRenderer = React.memo(({
   footerActionTarget,
   fallback = null
 }) => {
+  const content = useMemo(() => {
+    return parseExerciseContent(card?.front || card?.front_text || '');
+  }, [card?.front, card?.front_text]);
+
+  const exerciseCard = useMemo(() => {
+    if (!card || !content.hasBlocks) return card;
+    return { ...card, front: content.exercise, front_text: content.exercise };
+  }, [card, content]);
+
   const detectedType = useMemo(() => {
-    return detectExerciseType(card, studyMode);
-  }, [card, studyMode]);
+    return detectExerciseType(exerciseCard, studyMode);
+  }, [exerciseCard, studyMode]);
 
   // Match
   const matchData = useMemo(() => {
     if (detectedType !== 'match') return null;
-    return parseMatchData(card);
-  }, [card, detectedType]);
+    return parseMatchData(exerciseCard);
+  }, [exerciseCard, detectedType]);
 
   // Free text
   const freeTextData = useMemo(() => {
     if (detectedType !== 'free_text') return null;
-    return parseFreeTextData(card);
-  }, [card, detectedType]);
+    return parseFreeTextData(exerciseCard);
+  }, [exerciseCard, detectedType]);
 
   // Quiz
   const quizData = useMemo(() => {
     if (detectedType !== 'quiz') return null;
-    return parseQuizData(card);
-  }, [card, detectedType]);
+    return parseQuizData(exerciseCard);
+  }, [exerciseCard, detectedType]);
 
   // Trainer (cloze gaps)
   const clozeData = useMemo(() => {
     if (detectedType !== 'trainer') return null;
-    return parseClozeData(card, studyMode);
-  }, [card, detectedType, studyMode]);
+    return parseClozeData(exerciseCard, studyMode);
+  }, [exerciseCard, detectedType, studyMode]);
 
   const wordBankData = useMemo(() => {
     if (detectedType !== 'word_bank') return null;
-    return parseWordBankData(card);
-  }, [card, detectedType]);
+    return parseWordBankData(exerciseCard);
+  }, [exerciseCard, detectedType]);
+
+  const withInformation = (exercise) => (
+    <>
+      <ExerciseInfoBlocks content={content} />
+      {exercise}
+    </>
+  );
 
   if (!detectedType) {
     return fallback;
@@ -78,9 +96,9 @@ export const ExerciseRenderer = React.memo(({
   switch (detectedType) {
     case 'word_bank':
       if (!wordBankData) return fallback;
-      return (
+      return withInformation(
         <StudyCardWordBank
-          card={card}
+          card={exerciseCard}
           wordBankData={wordBankData}
           onTrainerAnswer={onTrainerAnswer}
           styles={styles}
@@ -92,9 +110,9 @@ export const ExerciseRenderer = React.memo(({
 
     case 'match':
       if (!matchData) return fallback;
-      return (
+      return withInformation(
         <StudyCardMatch
-          card={card}
+          card={exerciseCard}
           matchData={matchData}
           onFlip={onFlip}
           onTrainerAnswer={onTrainerAnswer}
@@ -109,9 +127,9 @@ export const ExerciseRenderer = React.memo(({
 
     case 'free_text':
       if (!freeTextData) return fallback;
-      return (
+      return withInformation(
         <StudyCardFreeText
-          card={card}
+          card={exerciseCard}
           freeTextData={freeTextData}
           onFlip={onFlip}
           onTrainerAnswer={onTrainerAnswer}
@@ -126,9 +144,9 @@ export const ExerciseRenderer = React.memo(({
 
     case 'quiz':
       if (!quizData) return fallback;
-      return (
+      return withInformation(
         <StudyCardQuiz
-          card={card}
+          card={exerciseCard}
           quizData={quizData}
           isFlipped={isFlipped}
           setIsFlipped={onFlip}
@@ -144,9 +162,9 @@ export const ExerciseRenderer = React.memo(({
 
     case 'trainer':
       if (!clozeData) return fallback;
-      return (
+      return withInformation(
         <StudyCardTrainer
-          card={card}
+          card={exerciseCard}
           clozeData={clozeData}
           isFlipped={isFlipped}
           onFlip={onFlip}
@@ -162,9 +180,9 @@ export const ExerciseRenderer = React.memo(({
       );
 
     case 'puzzle':
-      return (
+      return withInformation(
         <StudyCardPuzzle
-          card={card}
+          card={exerciseCard}
           isFlipped={isFlipped}
           onFlip={onFlip}
           loading={false}

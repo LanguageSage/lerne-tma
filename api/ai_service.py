@@ -16,9 +16,11 @@ from api.services.language_service import (
 )
 from api.services.input_parser import (
     detect_ai_input_type,
+    parse_exercise_content,
     parse_ai_json_response,
     parse_ai_batch_json_response,
     preserve_exercise_marker,
+    restore_exercise_content,
 )
 from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload
 
@@ -130,14 +132,18 @@ async def generate_card_fields(
         )
         from api.services.input_parser import (
             detect_ai_input_type,
+            parse_exercise_content,
             parse_ai_json_response,
             preserve_exercise_marker,
+            restore_exercise_content,
         )
         from api.models import TMACustomPrompt, TMASetting
 
         clean_phrase = str(phrase or "").strip()
         clean_user_request = str(user_request or "").strip()
-        input_type = detect_ai_input_type(clean_phrase)
+        parsed_content = parse_exercise_content(clean_phrase)
+        exercise_phrase = parsed_content["exercise"] if parsed_content["has_blocks"] else clean_phrase
+        input_type = detect_ai_input_type(exercise_phrase)
 
         if not native_language:
             native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
@@ -164,14 +170,14 @@ async def generate_card_fields(
         # Handle explain_rule mode (grammar explanation for cloze gap)
         if action_type == "explain_rule":
             system_prompt = build_rule_explanation_prompt(
-                phrase=clean_phrase,
+                phrase=exercise_phrase,
                 target_lang=target_lang,
                 native_lang=native_lang
             )
-            logger.info(f"AI: Processing explain_rule for '{clean_phrase}' using {provider}/{model_name}...")
+            logger.info(f"AI: Processing explain_rule for '{exercise_phrase}' using {provider}/{model_name}...")
             response, success = await client.chat_completion(
                 system_prompt=system_prompt,
-                user_message=clean_phrase,
+                user_message=exercise_phrase,
                 model=model_name
             )
             duration = time.time() - start_time
@@ -193,15 +199,15 @@ async def generate_card_fields(
         # Handle custom_directive mode (Answer/directive only)
         if action_type == "custom_directive":
             system_prompt = build_custom_directive_prompt(
-                phrase=clean_phrase,
+                phrase=exercise_phrase,
                 directive=clean_user_request,
                 target_lang=target_lang,
                 native_lang=native_lang
             )
-            logger.info(f"AI: Processing custom_directive for '{clean_phrase}' using {provider}/{model_name}...")
+            logger.info(f"AI: Processing custom_directive for '{exercise_phrase}' using {provider}/{model_name}...")
             response, success = await client.chat_completion(
                 system_prompt=system_prompt,
-                user_message=clean_phrase,
+                user_message=exercise_phrase,
                 model=model_name
             )
             duration = time.time() - start_time
@@ -230,7 +236,7 @@ async def generate_card_fields(
                 ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
             )
         
-        is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in clean_phrase)
+        is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in exercise_phrase)
         is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "📝", "Уровень", "Рівень", "Level", "preset"])
         
         detect_level_setting = TMASetting.get_or_none(TMASetting.key == "AI_DETECT_LEVEL")
@@ -238,14 +244,14 @@ async def generate_card_fields(
 
         if custom_prompt and not is_system_preset:
             raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
-            system_prompt = (raw_prompt or get_prompt_for_phrase(clean_phrase, target_lang, native_lang)).replace("{phrase}", clean_phrase)
+            system_prompt = (raw_prompt or get_prompt_for_phrase(exercise_phrase, target_lang, native_lang)).replace("{phrase}", exercise_phrase)
             if clean_user_request:
                 system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
             if detect_level and "level" not in system_prompt.lower():
                 system_prompt += f"\n\nОбязательно добавь в выводимый JSON объект поле уровня:\n\"level\": \"один из уровня CEFR (A1, A2, B1, B2, C1, C2)\""
         elif is_quiz_request:
             system_prompt = build_quiz_prompt(
-                phrase_or_items=clean_phrase,
+                phrase_or_items=exercise_phrase,
                 target_lang=target_lang,
                 native_lang=native_lang,
                 is_batch=False,
@@ -255,7 +261,7 @@ async def generate_card_fields(
                 system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
         elif is_trainer_request:
             system_prompt = build_trainer_prompt(
-                phrase=clean_phrase,
+                phrase=exercise_phrase,
                 target_lang=target_lang,
                 native_lang=native_lang,
                 detect_level=detect_level
@@ -264,7 +270,7 @@ async def generate_card_fields(
                 system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
         else:
             system_prompt = build_card_prompt(
-                phrase=clean_phrase,
+                phrase=exercise_phrase,
                 target_lang=target_lang,
                 native_lang=native_lang,
                 directive=clean_user_request,
@@ -275,7 +281,7 @@ async def generate_card_fields(
             if is_cyrillic:
                 system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"перевод на {lang_name.lower()}\",\n  \"back\": \"перевод на {native_name}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
             else:
-                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{phrase}\",\n  \"back\": \"перевод на {native_name}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
+                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{exercise_phrase}\",\n  \"back\": \"перевод на {native_name}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
 
         client = AIService(provider=provider, api_key=ai_key)
         
@@ -293,7 +299,7 @@ async def generate_card_fields(
         
         response, success = await client.chat_completion(
             system_prompt=system_prompt,
-            user_message=clean_phrase,
+            user_message=exercise_phrase,
             model=model_name
         )
         
@@ -303,8 +309,9 @@ async def generate_card_fields(
             return {"error": response}
         
         logger.info(f"AI: Generation successful in {duration:.2f}s")
-        result = extract_json_from_text(response, clean_phrase)
-        result["front"] = preserve_exercise_marker(result.get("front", clean_phrase), input_type)
+        result = extract_json_from_text(response, exercise_phrase)
+        generated_front = preserve_exercise_marker(result.get("front", exercise_phrase), input_type)
+        result["front"] = restore_exercise_content(parsed_content, generated_front)
         if input_type != "standard":
             result["card_type"] = input_type
 
@@ -313,12 +320,13 @@ async def generate_card_fields(
             try:
                 from api.services.classifier import classify_sentence_fast
                 from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload
-                local_res = classify_sentence_fast(result["front"], target_lang)
+                classified_front = parse_exercise_content(result["front"])["exercise"]
+                local_res = classify_sentence_fast(classified_front, target_lang)
                 if local_res.get("confidence", 0.0) >= 0.80:
                     result["level"] = local_res.get("level", "A1")
                     result["cefr"] = build_local_cefr_payload(local_res)
                 else:
-                    ai_levels = await classify_phrases_batch([result["front"]], target_lang)
+                    ai_levels = await classify_phrases_batch([classified_front], target_lang)
                     result["level"] = ai_levels[0] if ai_levels else local_res.get("level", "A1")
                     result["cefr"] = build_ai_cefr_payload(result["level"])
             except Exception as classify_err:
@@ -643,15 +651,22 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
                 await asyncio.sleep(2.5)
 
             chunk_items_formatted = []
+            chunk_for_prompt = []
             for idx, c in enumerate(chunk):
                 f = c.get("front") or c.get("front_text") or ""
-                chunk_items_formatted.append(f"--- БЛОК {idx+1} ---\n{f.strip()}")
+                parsed_content = parse_exercise_content(f)
+                exercise = parsed_content["exercise"] if parsed_content["has_blocks"] else f.strip()
+                chunk_items_formatted.append(f"--- БЛОК {idx+1} ---\n{exercise}")
+                prompt_card = dict(c)
+                prompt_card["front"] = exercise
+                prompt_card["front_text"] = exercise
+                chunk_for_prompt.append(prompt_card)
 
             prompt_text = "\n\n".join(chunk_items_formatted)
 
             from api.services.language_service import build_quiz_prompt
             system_prompt = build_quiz_prompt(
-                phrase_or_items=chunk,
+                phrase_or_items=chunk_for_prompt,
                 target_lang=target_lang,
                 native_lang=native_lang,
                 is_batch=True,
@@ -672,8 +687,13 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
                         for original_card, generated_item in zip(chunk, items):
                             merged = dict(original_card)
                             if generated_item.get("front"):
-                                merged["front"] = generated_item["front"]
-                                merged["front_text"] = generated_item["front"]
+                                original_front = original_card.get("front") or original_card.get("front_text") or ""
+                                protected_front = restore_exercise_content(
+                                    parse_exercise_content(original_front),
+                                    generated_item["front"],
+                                )
+                                merged["front"] = protected_front
+                                merged["front_text"] = protected_front
                             if generated_item.get("back"):
                                 merged["back"] = generated_item["back"]
                                 merged["back_text"] = generated_item["back"]

@@ -272,10 +272,26 @@ def _prepare_quiz_tts_text(text: str) -> str | None:
     return None
 
 
+def _strip_standalone_parenthesized_hints(text: str) -> str:
+    """Remove hint-only lines like ``(Infinitiv verwenden)`` from speech."""
+    if not text:
+        return ""
+    return "\n".join(
+        line for line in text.splitlines()
+        if not re.fullmatch(r"\s*\([^()\r\n]+\)\s*", line)
+    )
+
+
 
 def _prepare_tts_text(text, max_chars=900):
     if not text:
         return ""
+
+    # Visual task/context/options/example blocks never belong to speech. Strip
+    # them before the established quiz/cloze/Markdown preparation below.
+    from api.services.input_parser import parse_exercise_content
+    text = parse_exercise_content(text)["exercise"]
+    text = _strip_standalone_parenthesized_hints(text)
 
     quiz_text = _prepare_quiz_tts_text(text)
     if quiz_text is not None:

@@ -11,6 +11,9 @@ import { getSpeechLocaleForLang } from '../../constants/languageConstants';
 import { getCardStyle } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
 import { stopGlobalAudio } from '../../hooks/useAudio';
+import { parseExerciseContent } from '../../utils/exerciseContentParser';
+import { cleanBracketSyntax } from '../../utils/clozeParser';
+import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 
 
 export const StudyCardSpeech = React.memo(({
@@ -30,9 +33,15 @@ export const StudyCardSpeech = React.memo(({
   const [speechError, setSpeechError] = useState("");
   const [speechSuccess, setSpeechSuccess] = useState(false);
 
+  const exerciseContent = useMemo(() => parseExerciseContent(card?.front || ''), [card?.front]);
+  const spokenFront = useMemo(
+    () => cleanBracketSyntax(exerciseContent.exercise),
+    [exerciseContent]
+  );
+
   const recognitionRef = useRef(null);
   const silenceTimerRef = useRef(null);
-  const cardFrontRef = useRef(card?.front);
+  const cardFrontRef = useRef(spokenFront);
 
   const recognizedTextRef = useRef("");
   const speechSuccessRef = useRef(false);
@@ -61,8 +70,8 @@ export const StudyCardSpeech = React.memo(({
   ]);
 
   useEffect(() => {
-    cardFrontRef.current = card?.front;
-  }, [card?.front]);
+    cardFrontRef.current = spokenFront;
+  }, [spokenFront]);
 
   useEffect(() => {
     recognizedTextRef.current = recognizedText;
@@ -113,7 +122,7 @@ export const StudyCardSpeech = React.memo(({
     const activeLang = useLanguageStore.getState().activeLanguage;
     const cardLang = card.target_language || currentDeck?.target_language || activeLang || 'de';
     const cleanTranscript = normalizeSpeechText(transcript, cardLang);
-    const cleanOriginal = normalizeSpeechText(cardFrontRef.current || card.front, cardLang);
+    const cleanOriginal = normalizeSpeechText(cardFrontRef.current || spokenFront, cardLang);
 
     if (!cleanTranscript || !cleanOriginal) return false;
 
@@ -295,14 +304,16 @@ export const StudyCardSpeech = React.memo(({
 
   return (
     <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-      <div 
+      <ExerciseInfoBlocks content={exerciseContent} />
+
+      <div
         className="text-front speak-target-text" 
         style={{ 
           ...cardStyle, 
           marginBottom: '28px' 
         }}
       >
-        {stripMarkdown(card.front)}
+        {stripMarkdown(spokenFront)}
       </div>
 
       {/* Accuracy Threshold Selector */}

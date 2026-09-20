@@ -4,7 +4,9 @@ from unittest.mock import patch
 from api import ai_service
 from api.services.input_parser import (
     detect_ai_input_type,
+    parse_exercise_content,
     preserve_exercise_marker,
+    restore_exercise_content,
 )
 from api.services.prompt_builders import build_rule_explanation_prompt
 from api.utils.audio import _prepare_tts_text
@@ -46,10 +48,10 @@ class TrainerInputRegressionTests(unittest.TestCase):
             "@puzzle\nIch kaufe Brot.",
         )
 
-    def test_tts_preserves_parenthesized_final_line_as_card_text(self):
+    def test_tts_removes_standalone_parenthesized_hint_lines_only(self):
         self.assertEqual(
             _prepare_tts_text("Ich fahre mit dem Bus.\n(почему dem?)"),
-            "Ich fahre mit dem Bus.(почему dem?)",
+            "Ich fahre mit dem Bus.",
         )
         self.assertEqual(
             _prepare_tts_text("Zeile (sein) eins\nHinweis: (kaufen)"),
@@ -58,13 +60,13 @@ class TrainerInputRegressionTests(unittest.TestCase):
 
     def test_tts_preserves_double_bracket_cloze_content(self):
         cases = {
-            "Als ich in die Schule kam, [[hatte]] der Unterricht schon [[begonnen]]. (beginnen)": (
-                "Als ich in die Schule kam, hatte der Unterricht schon begonnen. (beginnen)"
+            "Als ich in die Schule kam, [[hatte]] der Unterricht schon [[begonnen]].\n(beginnen)": (
+                "Als ich in die Schule kam, hatte der Unterricht schon begonnen."
             ),
             "Ich [[habe]] das Buch [[gelesen]].": "Ich habe das Buch gelesen.",
             "Gestern {*sind/haben} wir nach Berlin [[gefahren]].": "Gestern sind wir nach Berlin gefahren.",
-            "Sie [[hatte]] die Tickets [[gekauft]], bevor der Film ausverkauft war. (kaufen)": (
-                "Sie hatte die Tickets gekauft, bevor der Film ausverkauft war. (kaufen)"
+            "Sie [[hatte]] die Tickets [[gekauft]], bevor der Film ausverkauft war.\n(kaufen)": (
+                "Sie hatte die Tickets gekauft, bevor der Film ausverkauft war."
             ),
         }
 
@@ -80,6 +82,34 @@ class TrainerInputRegressionTests(unittest.TestCase):
         self.assertIn('"back"', prompt)
         self.assertIn('"context"', prompt)
         self.assertIn("[[...]]", prompt)
+
+    def test_information_blocks_are_parsed_and_restored(self):
+        source = (
+            "::task\r\nWählen Sie das passende Wort.\r\n\r\n"
+            "::options\r\nwas | dass | wie | ob\r\n\r\n"
+            "Ich weiß, [[dass er kommt]].\r\n\r\n(er kommen)"
+        )
+        parsed = parse_exercise_content(source)
+        self.assertEqual(parsed["task"], "Wählen Sie das passende Wort.")
+        self.assertEqual(parsed["options"], ["was", "dass", "wie", "ob"])
+        self.assertEqual(parsed["exercise"], "Ich weiß, [[dass er kommt]].\n\n(er kommen)")
+        restored = restore_exercise_content(parsed, "Ich weiß, [[dass alles klappt]].")
+        self.assertIn("::options\nwas | dass | wie | ob", restored)
+        self.assertTrue(restored.endswith("Ich weiß, [[dass alles klappt]]."))
+
+    def test_tts_excludes_all_visual_blocks_options_and_hint(self):
+        source = (
+            "::task\nWählen Sie das passende Wort und schreiben Sie damit den Satz zu Ende.\n\n"
+            "::context\nPaul erzählt über sein Studium in Deutschland.\n\n"
+            "::options\nwas | dass | wie | ob\n\n"
+            "::example\nIch weiß jetzt, wie das funktioniert.\n\n"
+            "Ich verstehe jetzt viel besser, [[wie das deutsche Hochschulsystem funktioniert]].\n\n"
+            "(das deutsche Hochschulsystem funktionieren)"
+        )
+        self.assertEqual(
+            _prepare_tts_text(source),
+            "Ich verstehe jetzt viel besser, wie das deutsche Hochschulsystem funktioniert.",
+        )
 
 
 class GenerateCardFieldsRegressionTests(unittest.IsolatedAsyncioTestCase):
@@ -156,6 +186,51 @@ class GenerateCardFieldsRegressionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result["back"], "Він учора телефонував.")
         self.assertIn("Plusquamperfekt", result["context"])
+
+    async def test_information_blocks_are_hidden_from_ai_and_restored_unchanged(self):
+        phrase = (
+            "::task\nWählen Sie das passende Wort.\n\n"
+            "::options\nob | dass | wie\n\n"
+            "Ich weiß, [[dass er kommt]]."
+        )
+        result = await self._generate(
+            phrase,
+            '{"front":"Ich weiß jetzt, [[dass er kommt]].","back":"Я знаю.","context":"Правило"}',
+        )
+        self.assertEqual(_FakeAIClient.last_user_message, "Ich weiß, [[dass er kommt]].")
+        self.assertNotIn("::task", _FakeAIClient.last_system_prompt)
+        self.assertTrue(result["front"].startswith("::task\nWählen Sie das passende Wort."))
+        self.assertIn("::options\nob | dass | wie", result["front"])
+        self.assertTrue(result["front"].endswith("Ich weiß jetzt, [[dass er kommt]]."))
+
+    async def test_batch_ai_enrichment_preserves_information_blocks(self):
+        phrase = (
+            "::task\nWählen Sie das passende Wort.\n\n"
+            "::options\nob | dass | wie\n\n"
+            "Ich weiß, [[dass er kommt]]."
+        )
+        _FakeAIClient.response = (
+            '[{"front":"Ich weiß jetzt, [[dass er kommt]].",'
+            '"back":"Я знаю.","context":"Правило","level":"B1"}]'
+        )
+        _FakeAIClient.last_user_message = ""
+        with (
+            patch.object(ai_service, "get_ai_config", return_value=("ollama", "key", "test-model")),
+            patch.object(ai_service, "AIService", _FakeAIClient),
+        ):
+            result = await ai_service.enrich_batch_quiz_fields(
+                user_id=1,
+                cards=[{"front": phrase, "front_text": phrase, "card_type": "trainer"}],
+                target_language="de",
+                native_language="uk",
+            )
+
+        enriched = result["cards"][0]["front"]
+        self.assertNotIn("::task", _FakeAIClient.last_user_message)
+        self.assertIn("Ich weiß, [[dass er kommt]].", _FakeAIClient.last_user_message)
+        self.assertTrue(enriched.startswith("::task\nWählen Sie das passende Wort."))
+        self.assertIn("::options\nob | dass | wie", enriched)
+        self.assertTrue(enriched.endswith("Ich weiß jetzt, [[dass er kommt]]."))
 
 
 if __name__ == "__main__":

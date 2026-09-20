@@ -20,6 +20,7 @@ import { triggerHaptic } from '../../utils/platform';
 import { useTranslation } from '../../i18n/i18nContext';
 import { getAudioUrl } from '../../utils/media';
 import { detectAiQuickActionType, detectExerciseType } from '../../utils/exerciseDetector';
+import { parseExerciseContent } from '../../utils/exerciseContentParser';
 import api from '../../services/api';
 
 export const CardForm = ({
@@ -159,6 +160,45 @@ export const CardForm = ({
     }));
 
     showToast(tr("Уровень установлен: {{p0}} (вручную)", { p0: selectedLevel }), 'info');
+  };
+
+  const focusBlockContent = (text, marker, startAt = 0) => {
+    requestAnimationFrame(() => {
+      const textarea = frontRef.current;
+      if (!textarea) return;
+      const markerIndex = text.indexOf(marker, startAt);
+      if (markerIndex < 0) return;
+      const lineEnd = text.indexOf('\n', markerIndex);
+      const cursor = lineEnd >= 0 ? lineEnd + 1 : text.length;
+      textarea.focus();
+      textarea.setSelectionRange(cursor, cursor);
+      autoResize(frontRef);
+    });
+  };
+
+  const insertInformationBlock = (type) => {
+    const marker = `::${type}`;
+    setCardData(prev => {
+      const raw = String(prev?.front || '');
+      const parsed = parseExerciseContent(raw);
+      const existing = type === 'example' ? null : parsed.blocks.find(block => block.type === type);
+
+      if (existing) {
+        const markerMatch = new RegExp(`^\\s*${marker}\\s*$`, 'im').exec(raw);
+        focusBlockContent(raw, markerMatch?.[0] || marker, markerMatch?.index || 0);
+        return prev;
+      }
+
+      const prefix = parsed.hasBlocks && parsed.rawPreamble
+        ? `${parsed.rawPreamble.trim()}\n\n`
+        : '';
+      const exercise = parsed.hasBlocks ? parsed.exercise : raw.trim();
+      const nextFront = exercise
+        ? `${prefix}${marker}\n\n${exercise}`
+        : `${prefix}${marker}\n`;
+      focusBlockContent(nextFront, marker, prefix.length);
+      return { ...prev, front: nextFront };
+    });
   };
 
   if (!cardData) return null;
@@ -427,6 +467,26 @@ export const CardForm = ({
               >
                 @puzzle
               </button>
+            </div>
+            <div className="exercise-info-editor-toolbar" aria-label={tr("Информационные блоки упражнения")}>
+              <span className="exercise-info-editor-label">{tr("Информация:")}</span>
+              {[
+                ['task', tr('+ Задание')],
+                ['options', tr('+ Варианты')],
+                ['context', tr('+ Исходный текст')],
+                ['example', tr('+ Пример')]
+              ].map(([type, label]) => (
+                <button
+                  key={type}
+                  type="button"
+                  className={`exercise-info-editor-button is-${type}`}
+                  onClick={() => insertInformationBlock(type)}
+                  title={tr("Добавить информационный блок")}
+                  aria-label={label}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
           

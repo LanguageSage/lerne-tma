@@ -1558,5 +1558,15 @@
   "Не удалось получить аудио": "Audio could not be retrieved",
   "Пауза {{seconds}} с": "Pause {{seconds}} s",
   "Цикл {{cycle}}/{{total}} · {{side}}": "Cycle {{cycle}}/{{total}} · {{side}}",
-  "Закрыть настройки": "Close settings"
+  "Закрыть настройки": "Close settings",
+  "Информация к заданию": "Exercise information",
+  "Исходный текст": "Source text",
+  "Пример": "Example",
+  "Информационные блоки упражнения": "Exercise information blocks",
+  "Информация:": "Information:",
+  "+ Задание": "+ Task",
+  "+ Варианты": "+ Options",
+  "+ Исходный текст": "+ Source text",
+  "+ Пример": "+ Example",
+  "Добавить информационный блок": "Add information block"
 }

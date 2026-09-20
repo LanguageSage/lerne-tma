@@ -1,4 +1,5 @@
 import { parseQuizData } from './quizParser.js';
+import { parseExerciseContent } from './exerciseContentParser.js';
 
 /**
  * Checks if the text contains valid trainer cloze gaps:
@@ -12,7 +13,7 @@ export const hasTrainerSyntax = (text) => {
 
 /** Keep CardForm's quick-action policy testable and aligned with input syntax. */
 export const detectAiQuickActionType = (text) => {
-  const front = String(text || '');
+  const front = parseExerciseContent(text).exercise;
   if (hasTrainerSyntax(front)) return 'explain_rule';
 
   const hasQuizStar = (/\n\*/.test(front) || /^\*/.test(front)) && front.includes('\n');
@@ -42,7 +43,7 @@ export const detectExerciseType = (cardOrFront, studyMode = 'classic') => {
   const front = typeof cardOrFront === 'string'
     ? cardOrFront
     : (cardOrFront.front || cardOrFront.front_text || '');
-  const trimmed = front.trim();
+  const trimmed = parseExerciseContent(front).exercise.trim();
   if (!trimmed) return null;
 
   // 1. Match directive: @match
@@ -71,7 +72,9 @@ export const detectExerciseType = (cardOrFront, studyMode = 'classic') => {
   }
 
   // 6. Quiz / Multiple Choice structure (Checked on content after masking trainer tokens)
-  const cardObj = typeof cardOrFront === 'string' ? { front: cardOrFront } : cardOrFront;
+  const cardObj = typeof cardOrFront === 'string'
+    ? { front: trimmed }
+    : { ...cardOrFront, front: trimmed, front_text: trimmed };
   const quizData = parseQuizData(cardObj);
   if (quizData?.isQuiz) {
     return 'quiz';

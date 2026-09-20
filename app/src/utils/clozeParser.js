@@ -1,4 +1,5 @@
 import { stripMarkdown } from './text.js';
+import { parseExerciseContent } from './exerciseContentParser.js';
 
 export const ARTICLE_GROUPS = [
   ['der', 'die', 'das', 'den', 'dem', 'des'],
@@ -60,7 +61,7 @@ export const normalizeAnswer = (str) => {
 
 export const cleanBracketSyntax = (text) => {
   if (!text) return '';
-  const stripped = text.replace(/^@(puzzle|match|free)\s*/i, '');
+  const stripped = parseExerciseContent(text).exercise.replace(/^@(puzzle|match|free)\s*/i, '');
   return stripped.replace(/(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())/g, (match, c1, c2, c3) => {
     const contents = c1 || c2 || c3 || '';
     const parts = contents.split(/[|;,/]/).map(p => p.trim()).filter(Boolean);
@@ -72,7 +73,8 @@ export const cleanBracketSyntax = (text) => {
 
 export const parseClozeData = (card, studyMode, sourceCards = []) => {
   if (!card) return null;
-  const originalText = stripMarkdown(card.front || '');
+  const content = parseExerciseContent(card.front || card.front_text || '');
+  const originalText = stripMarkdown(content.exercise);
 
   // 1. Explicit bracket syntax:
   // - [[...]] -> input gap (self-typed)
@@ -130,6 +132,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
 
     return {
       isMultiGap: true,
+      content,
       gaps,
       maskedText,
       correctAnswer: gaps[0].correctAnswer,
@@ -188,6 +191,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
   const choices = [cleanTarget, ...selectedDistractors].sort(() => Math.random() - 0.5);
 
   return {
+    content,
     maskedText,
     correctAnswer: cleanTarget,
     choices
