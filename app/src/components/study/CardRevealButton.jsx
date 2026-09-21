@@ -21,8 +21,11 @@ const CardRevealButton = React.memo(({ onClick, label = tr("Показать о�
         alignItems: 'center',
         justifyContent: 'center',
         gap: '8px',
-        width: '100%',
-        padding: '12px 20px',
+        width: 'auto',
+        minWidth: '220px',
+        maxWidth: '380px',
+        margin: '12px auto',
+        padding: '12px 32px',
         borderRadius: '14px',
         border: '1px solid rgba(56, 189, 248, 0.35)',
         background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%)',
@@ -34,6 +37,7 @@ const CardRevealButton = React.memo(({ onClick, label = tr("Показать о�
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         boxShadow: '0 4px 15px rgba(56, 189, 248, 0.12)',
         userSelect: 'none',
+        alignSelf: 'center',
         ...style
       }}
     >

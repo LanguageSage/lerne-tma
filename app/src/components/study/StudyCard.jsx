@@ -316,6 +316,29 @@ export const StudyCard = React.memo(({
   const renderRevealButton = () => (
     <button 
       className="btn-interactive-reveal"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        width: 'auto',
+        minWidth: '220px',
+        maxWidth: '380px',
+        margin: '14px auto 0 auto',
+        padding: '12px 32px',
+        borderRadius: '14px',
+        border: '1px solid rgba(56, 189, 248, 0.35)',
+        background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%)',
+        color: '#38bdf8',
+        fontWeight: 700,
+        fontSize: '0.95rem',
+        cursor: 'pointer',
+        backdropFilter: 'blur(8px)',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow: '0 4px 15px rgba(56, 189, 248, 0.12)',
+        userSelect: 'none',
+        alignSelf: 'center'
+      }}
       onClick={(e) => {
         e.stopPropagation();
         onFlip(true);
@@ -514,7 +537,9 @@ export const StudyCard = React.memo(({
                       );
                     })}
                   </div>
-                  {renderRevealButton()}
+                  <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
+                    {renderRevealButton()}
+                  </div>
                 </div>
               )}
 
