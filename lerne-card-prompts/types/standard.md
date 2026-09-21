@@ -18,7 +18,7 @@ BACK:
 Berlin
 
 CONTEXT:
-Geografie
+
 ```
 
 ## VALIDATION

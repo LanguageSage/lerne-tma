@@ -22,7 +22,7 @@ BACK:
 Die Revolution begann 1789 mit dem Sturm auf die Bastille.
 
 CONTEXT:
-Geschichte
+
 ```
 
 ## WHEN NOT TO USE

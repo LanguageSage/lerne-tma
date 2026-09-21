@@ -29,7 +29,7 @@ BACK:
 (Musterlösung) Ich habe eine große Familie. Meine Eltern heißen Thomas und Maria. Wir leben zusammen in Berlin...
 
 CONTEXT:
-Sprechen A2
+
 ```
 
 ## VALIDATION

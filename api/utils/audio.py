@@ -199,16 +199,18 @@ async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key
 def _clean_bracket_syntax(t):
     if not t:
         return ""
+    stripped = re.sub(r"^@(puzzle|match|free)\s*", "", t, flags=re.IGNORECASE)
 
     def _repl(m):
-        raw = m.group(1)
+        raw = m.group(1) or m.group(2) or m.group(3) or ""
         parts = [p.strip() for p in re.split(r"[|;,/]", raw) if p.strip()]
         if not parts:
             return ""
         correct = next((p for p in parts if p.startswith("*")), parts[0])
         return re.sub(r"^\*", "", correct).strip()
 
-    return re.sub(r"\{([^}]+)\}", _repl, t)
+    return re.sub(r"(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())", _repl, stripped).strip()
+
 
 
 def _strip_markdown(text):

@@ -20,7 +20,7 @@ BACK:
 seit
 
 CONTEXT:
-B1 Sprachbausteine
+
 ```
 
 ### Пример комбинированного Trainer (Choice + Input):
@@ -36,7 +36,6 @@ BACK:
 Als ... hatte ... gegessen
 
 CONTEXT:
-Temporalsätze B1
 ```
 
 ## WHEN NOT TO USE

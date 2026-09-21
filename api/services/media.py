@@ -253,19 +253,14 @@ async def ensure_card_audio(card, user_id: int):
                 card.save()
                 logger.info(f"Generated audio uploaded to cloud for card {card.id}: {cloud_url}")
             else:
-                # Fallback to local DB
-                media, created = TMAMedia.get_or_create(
-                    filename=filename,
-                    folder='audio',
-                    defaults={'content': content}
-                )
-                if not created:
-                    media.content = content
-                    media.save(only=[TMAMedia.content])
-                _check_media_exists.cache_clear()
+                # Fallback to local pending storage
+                out_dir = "/tmp/pending_audio" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "user_files", "pending_audio")
+                os.makedirs(out_dir, exist_ok=True)
+                with open(os.path.join(out_dir, filename), "wb") as f:
+                    f.write(content)
                 card.audio_path = filename
                 card.save()
-                logger.info(f"Generated local audio for card {card.id} and saved to TMAMedia: {filename}")
+                logger.info(f"Generated local audio for card {card.id} saved to pending storage: {filename}")
             
             try: os.remove(result)
             except Exception: pass

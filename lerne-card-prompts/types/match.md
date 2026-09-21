@@ -21,7 +21,7 @@ BACK:
 (всё сопоставлено верно)
 
 CONTEXT:
-Vocabulary A1
+
 ```
 
 ## WHEN NOT TO USE

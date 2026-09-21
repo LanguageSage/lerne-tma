@@ -230,32 +230,14 @@ async def generate_audio_endpoint(
         
         try:
             filename = os.path.basename(result)
-            with open(result, "rb") as f:
-                content = f.read()
-            
-            media, created = models.TMAMedia.get_or_create(
-                filename=filename,
-                folder='audio',
-                defaults={'content': content}
-            )
-            if not created:
-                media.content = content
-                media.save(only=[models.TMAMedia.content])
-            from api.services.media import _check_media_exists
-            _check_media_exists.cache_clear()
-            _media_cache.delete('audio', filename)
-            
-            try: os.remove(result)
-            except Exception: pass
-            
             return {
                 "path": filename,
-                "url": f"/api/media/audio/{filename}?v={uuid.uuid4().hex[:8]}",
+                "url": f"/api/media/audio/{filename}",
                 "word_boundaries": word_boundaries
             }
-        except Exception as db_err:
-            logger.error(f"DATABASE SAVE ERROR for audio: {db_err}")
-            raise HTTPException(status_code=500, detail=f"Database Save Error: {str(db_err)}")
+        except Exception as err:
+            logger.error(f"AUDIO GENERATION ERROR: {err}")
+            raise HTTPException(status_code=500, detail=f"Audio Generation Error: {str(err)}")
     except Exception as e:
         import traceback
         err_msg = traceback.format_exc()
@@ -319,25 +301,8 @@ async def generate_card_audio_endpoint(
             url = result
         else:
             filename = os.path.basename(result)
-            with open(result, 'rb') as audio_file:
-                content = audio_file.read()
-            media, created = models.TMAMedia.get_or_create(
-                filename=filename,
-                folder='audio',
-                defaults={'content': content},
-            )
-            if not created:
-                media.content = content
-                media.save(only=[models.TMAMedia.content])
-            from api.services.media import _check_media_exists
-            _check_media_exists.cache_clear()
-            _media_cache.delete('audio', filename)
-            try:
-                os.remove(result)
-            except OSError:
-                pass
             path = filename
-            url = f'/api/media/audio/{filename}?v={uuid.uuid4().hex[:8]}'
+            url = f'/api/media/audio/{filename}'
 
         field = 'audio_back_path' if side == 'back' else 'audio_path'
         previous_path = getattr(card, field)
@@ -381,14 +346,12 @@ async def upload_audio_file(
             }
 
     try:
-        models.TMAMedia.create(
-            filename=filename,
-            folder='audio',
-            content=content
-        )
+        out_dir = "/tmp/pending_audio" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "user_files", "pending_audio")
+        os.makedirs(out_dir, exist_ok=True)
+        with open(os.path.join(out_dir, filename), "wb") as f:
+            f.write(content)
     except Exception as e:
-        logger.error(f"Audio upload error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to save audio")
+        logger.error(f"Audio upload fallback save error: {e}")
 
     return {
         "path": f"audio/{filename}",
@@ -438,9 +401,23 @@ _media_cache = MediaMemoryCache()
 
 
 @router.get("/audio/{filename:path}")
-def get_audio(filename: str):
-    """Fast 307 redirect to Supabase Storage CDN for legacy URLs."""
+def get_audio(filename: str, request: Request):
+    """Serve audio locally if present in temp/pending storage, else redirect to Supabase Storage CDN."""
     clean_filename = os.path.basename(filename.split('?')[0])
+
+    possible_paths = [
+        os.path.join("/tmp/pending_audio", clean_filename),
+        os.path.join(os.getcwd(), "user_files", "pending_audio", clean_filename)
+    ]
+    for local_path in possible_paths:
+        if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+            try:
+                with open(local_path, "rb") as f:
+                    content = f.read()
+                return get_range_response(request, content, "audio/mpeg")
+            except Exception:
+                pass
+
     supabase_url = os.environ.get("SUPABASE_URL", "https://wdopyuulhiykrextyvnt.supabase.co").rstrip("/")
     direct_url = f"{supabase_url}/storage/v1/object/public/audio/{clean_filename}"
     return RedirectResponse(url=direct_url, status_code=307)

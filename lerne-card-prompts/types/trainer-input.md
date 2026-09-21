@@ -26,7 +26,7 @@ BACK:
 war ... gegangen
 
 CONTEXT:
-Plusquamperfekt B1
+
 ```
 
 ### Пример комбинированного Trainer (Input + Choice):
@@ -42,7 +42,6 @@ BACK:
 Als ... hatte ... gegessen
 
 CONTEXT:
-Temporalsätze B1
 ```
 
 ## VALIDATION
