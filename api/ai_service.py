@@ -128,7 +128,8 @@ async def generate_card_fields(
         from api.services.language_service import (
             get_prompt_for_phrase, get_language_config, get_native_config,
             build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt,
-            build_trainer_prompt, build_quiz_prompt, build_match_prompt, build_puzzle_prompt
+            build_trainer_prompt, build_quiz_prompt, build_match_prompt, build_puzzle_prompt,
+            build_word_bank_prompt, build_free_text_prompt
         )
         from api.services.input_parser import (
             detect_ai_input_type,
@@ -286,6 +287,24 @@ async def generate_card_fields(
             )
             if clean_user_request:
                 system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
+        elif input_type == 'word_bank':
+            system_prompt = build_word_bank_prompt(
+                phrase=exercise_phrase,
+                target_lang=target_lang,
+                native_lang=native_lang,
+                detect_level=detect_level
+            )
+            if clean_user_request:
+                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
+        elif input_type == 'free_text':
+            system_prompt = build_free_text_prompt(
+                phrase=exercise_phrase,
+                target_lang=target_lang,
+                native_lang=native_lang,
+                detect_level=detect_level
+            )
+            if clean_user_request:
+                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
         else:
             system_prompt = build_card_prompt(
                 phrase=exercise_phrase,
@@ -328,7 +347,7 @@ async def generate_card_fields(
         
         logger.info(f"AI: Generation successful in {duration:.2f}s")
         result = extract_json_from_text(response, exercise_phrase)
-        if input_type in ("match", "puzzle"):
+        if input_type in ("match", "puzzle", "word_bank", "free_text"):
             result["front"] = clean_phrase
         else:
             generated_front = preserve_exercise_marker(result.get("front", exercise_phrase), input_type)

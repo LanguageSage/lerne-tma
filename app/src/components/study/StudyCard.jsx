@@ -564,27 +564,19 @@ export const StudyCard = React.memo(({
               {/* Bottom Level & Action Bar (Pinned to bottom of card window) */}
               <div
                 className="study-card-bottom-bar"
-                style={{
-                  position: 'absolute',
-                  bottom: '12px',
-                  left: '12px',
-                  right: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '8px',
-                  zIndex: 15,
-                  pointerEvents: 'none'
-                }}
               >
-                <div style={{ pointerEvents: 'auto' }}>
-                  <CardLevelBadge card={card} textColor={cardStyle?.color} />
+                <div className="study-card-level-slot">
+                  <CardLevelBadge
+                    card={card}
+                    textColor={cardStyle?.color}
+                    style={{ maxWidth: '100%' }}
+                  />
                 </div>
                 <div
                   ref={setExerciseFooterTarget}
                   className="study-card-footer-action-target"
-                  style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
                 />
+                <div className="study-card-bottom-spacer" aria-hidden="true" />
               </div>
 
             </div>
@@ -799,9 +791,6 @@ export const StudyCard = React.memo(({
         </AnimatePresence>
         </div>
         <div className="study-card-footer">
-          {!isFlipped && (
-            <div ref={setExerciseFooterTarget} className="study-card-exercise-action" />
-          )}
           <button
             type="button"
             className="study-card-flip-button"

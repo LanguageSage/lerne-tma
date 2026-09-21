@@ -576,26 +576,7 @@ export const StudyCardTrainer = React.memo(({
         const actionButtonEl = !isChecked ? (
           <button
             type="button"
-            className="btn"
-            style={{
-              width: footerActionTarget ? 'auto' : '100%',
-              maxWidth: '320px',
-              padding: footerActionTarget ? '8px 16px' : '13px 24px',
-              fontWeight: 700,
-              borderRadius: footerActionTarget ? '12px' : '16px',
-              fontSize: footerActionTarget ? '0.88rem' : '1.02rem',
-              cursor: allGapsFilled ? 'pointer' : 'not-allowed',
-              background: allGapsFilled
-                ? 'rgba(255, 255, 255, 0.16)'
-                : 'rgba(25, 20, 42, 0.5)',
-              color: allGapsFilled ? '#ffffff' : '#94a3b8',
-              boxShadow: allGapsFilled ? '0 4px 20px rgba(0, 0, 0, 0.25)' : 'none',
-              border: allGapsFilled ? '1.5px solid rgba(255, 255, 255, 0.35)' : '1px solid rgba(255, 255, 255, 0.15)',
-              transition: 'all 0.2s ease-in-out',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              whiteSpace: 'nowrap'
-            }}
+            className={`btn trainer-footer-action ${allGapsFilled ? 'is-ready' : 'is-disabled'}`}
             disabled={!allGapsFilled}
             onClick={(e) => {
               e.stopPropagation();
@@ -607,28 +588,7 @@ export const StudyCardTrainer = React.memo(({
         ) : (
           <button
             type="button"
-            className="btn"
-            style={{
-              width: footerActionTarget ? 'auto' : '100%',
-              maxWidth: '320px',
-              padding: footerActionTarget ? '8px 16px' : '13px 24px',
-              fontWeight: 700,
-              borderRadius: footerActionTarget ? '12px' : '16px',
-              fontSize: footerActionTarget ? '0.88rem' : '1.02rem',
-              background: 'rgba(255, 255, 255, 0.16)',
-              color: '#ffffff',
-              border: '1.5px solid rgba(255, 255, 255, 0.35)',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease-in-out',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              whiteSpace: 'nowrap'
-            }}
+            className="btn trainer-footer-action is-reset"
             onClick={(e) => {
               e.stopPropagation();
               handleReset();

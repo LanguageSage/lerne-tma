@@ -274,6 +274,62 @@ def build_puzzle_prompt(phrase: str, target_lang: str = "de", native_lang: str =
     )
     return prompt
 
+def build_word_bank_prompt(phrase: str, target_lang: str = "de", native_lang: str = "uk", detect_level: bool = True) -> str:
+    lang_config = get_language_config(target_lang, native_lang)
+    native_config = get_native_config(native_lang)
+    lang_name = lang_config["name"]
+    native_name = native_config["name"]
+
+    level_rule = '3. "level": определи CEFR уровень сложности текста ("A1", "A2", "B1", "B2", "C1", "C2").\n\n' if detect_level else '\n'
+    json_level = ',\n  "level": "B1"' if detect_level else ''
+
+    prompt = (
+        f"Ты — профессиональный преподаватель языка {lang_name}. Родной язык пользователя: {native_name}.\n"
+        f"Тебе передано упражнение типа 'Word Bank' (Вставить слова из банка):\n'{phrase}'\n\n"
+        f"Инструкции:\n"
+        f"Язык всех пояснений, словаря и перевода: СТРОГО {native_name}.\n\n"
+        f"1. \"back\": ПОЛНЫЙ и точный перевод текста со вставленными пропущенными словами на {native_name} язык.\n"
+        f"2. \"context\": оформи 2 чётких блока:\n"
+        f"   📖 **Словарный запас**:\n"
+        f"   - [пропущенное слово на {lang_name}] — [перевод на {native_name}]\n\n"
+        f"   💡 **Грамматика / Пояснения**:\n"
+        f"   [кратко объясни, почему вставляются именно эти слова, их падеж или управление]\n\n"
+        f"{level_rule}"
+        f"Return ONLY a JSON object in this format:\n{{\n"
+        f'  "back": "Полный перевод текста со вставленными словами",\n'
+        f'  "context": "📖 **Словарный запас**:\\n...\\n\\n💡 **Грамматика / Пояснения**:\\n..."{json_level}\n'
+        f"}}\nEND_JSON"
+    )
+    return prompt
+
+def build_free_text_prompt(phrase: str, target_lang: str = "de", native_lang: str = "uk", detect_level: bool = True) -> str:
+    lang_config = get_language_config(target_lang, native_lang)
+    native_config = get_native_config(native_lang)
+    lang_name = lang_config["name"]
+    native_name = native_config["name"]
+
+    level_rule = '3. "level": определи CEFR уровень сложности текста ("A1", "A2", "B1", "B2", "C1", "C2").\n\n' if detect_level else '\n'
+    json_level = ',\n  "level": "B1"' if detect_level else ''
+
+    prompt = (
+        f"Ты — профессиональный преподаватель языка {lang_name}. Родной язык пользователя: {native_name}.\n"
+        f"Тебе передано задание типа 'Открытый вопрос / Сочинение' (Free text):\n'{phrase}'\n\n"
+        f"Инструкции:\n"
+        f"Язык всех пояснений, словаря и перевода: СТРОГО {native_name}.\n\n"
+        f"1. \"back\": НАПИШИ пример идеального ответа на этот вопрос на языке {lang_name} (примерно 2-4 предложения) с переводом на {native_name}.\n"
+        f"2. \"context\": оформи 2 чётких блока:\n"
+        f"   📖 **Полезные фразы для ответа**:\n"
+        f"   - [фраза на {lang_name}] — [перевод на {native_name}]\n\n"
+        f"   💡 **Грамматика / Советы**:\n"
+        f"   [кратко посоветуй, какие конструкции лучше использовать при ответе]\n\n"
+        f"{level_rule}"
+        f"Return ONLY a JSON object in this format:\n{{\n"
+        f'  "back": "[Пример ответа на {lang_name}]\\n\\n[Перевод примера]",\n'
+        f'  "context": "📖 **Полезные фразы для ответа**:\\n...\\n\\n💡 **Грамматика / Советы**:\\n..."{json_level}\n'
+        f"}}\nEND_JSON"
+    )
+    return prompt
+
 def get_system_presets(target_lang: str = "de", native_lang: str = None) -> list:
     if not native_lang:
         try:

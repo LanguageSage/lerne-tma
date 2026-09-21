@@ -210,6 +210,10 @@ def detect_ai_input_type(text: str) -> str:
         return "match"
     if re.search(r"(?im)^\s*@puzzle\b", normalized):
         return "puzzle"
+    if re.search(r"(?im)^\s*@wordbank\b", normalized):
+        return "word_bank"
+    if re.search(r"(?im)^\s*@free\b", normalized):
+        return "free_text"
 
     # Keep the established backend priority: quiz markers win over cloze.
     is_quiz = (
@@ -231,16 +235,22 @@ def detect_ai_input_type(text: str) -> str:
 
 
 def preserve_exercise_marker(front: str, input_type: str) -> str:
-    """Ensure explicit ``@match``/``@puzzle`` markers survive AI output."""
-    if input_type not in {"match", "puzzle"}:
+    """Ensure explicit markers survive AI output."""
+    type_to_marker = {
+        "match": "@match",
+        "puzzle": "@puzzle",
+        "free_text": "@free",
+        "word_bank": "@wordbank"
+    }
+    if input_type not in type_to_marker:
         return front
 
-    marker = f"@{input_type}"
+    marker = type_to_marker[input_type]
     generated_front = str(front or "").strip()
     if re.search(rf"(?im)^\s*{re.escape(marker)}\b", generated_front):
         return generated_front
 
-    generated_front = re.sub(r"(?im)^\s*@(match|puzzle)\b\s*", "", generated_front, count=1).strip()
+    generated_front = re.sub(r"(?im)^\s*@(match|puzzle|free|wordbank)\b\s*", "", generated_front, count=1).strip()
     return f"{marker}\n{generated_front}" if generated_front else marker
 
 
