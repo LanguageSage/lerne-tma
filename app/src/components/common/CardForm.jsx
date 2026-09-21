@@ -886,6 +886,7 @@ export const CardForm = ({
          </div>
       </div>
 
+
       <div className="form-group">
         <div 
           className="card-preview-container glass" 
@@ -929,36 +930,51 @@ export const CardForm = ({
               })()}
             />
             
-            {(cardData.context || isCreator) && (
-               <>
-                 <div style={{ width: '90%', height: '4px', background: 'rgba(255,255,255,0.7)', margin: '16px auto', borderRadius: '2px', position: 'relative', zIndex: 10, display: 'block' }}></div>
-                 <textarea 
-                   ref={contextRef}
-                   className="context-textarea textarea-preview textarea-context-preview"
-                   value={cardData.context || ''} 
-                   onChange={(e) => {
-                     setCardData({...cardData, context: e.target.value});
-                   }}
-                   onInput={(e) => {
-                     e.target.style.height = 'auto';
-                     e.target.style.height = `${e.target.scrollHeight}px`;
-                   }}
-                   style={{ 
-                     fontFamily: contextFont, 
-                     fontSize: `${contextFontSize}rem`,
-                     color: contextTextColor,
-                     fontWeight: contextFontWeight,
-                     fontStyle: contextFontStyle,
-                     textShadow: getContextShadow(contextTextShadow, contextTextColor),
-                     textAlign: contextTextAlign || 'left',
-                     overflow: 'hidden',
-                     height: 'auto',
-                     minHeight: '80px'
-                   }}
-                   placeholder={t('creator.context', 'Примеры, грамматика...')}
-                 />
-               </>
-            )}
+            <div 
+              style={{ 
+                width: '100%', 
+                margin: '18px 0 14px 0', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                position: 'relative', 
+                zIndex: 10 
+              }}
+            >
+              <div 
+                style={{ 
+                  width: '100%', 
+                  height: '1px', 
+                  background: 'linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.25) 20%, rgba(168,85,247,0.55) 50%, rgba(255,255,255,0.25) 80%, rgba(255,255,255,0.02) 100%)',
+                  boxShadow: '0 0 8px rgba(168, 85, 247, 0.35)'
+                }} 
+              />
+            </div>
+            <textarea 
+              ref={contextRef}
+              className="context-textarea textarea-preview textarea-context-preview"
+              value={cardData.context || ''} 
+              onChange={(e) => {
+                setCardData({...cardData, context: e.target.value});
+              }}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              style={{ 
+                fontFamily: contextFont, 
+                fontSize: `${contextFontSize}rem`,
+                color: contextTextColor,
+                fontWeight: contextFontWeight,
+                fontStyle: contextFontStyle,
+                textShadow: getContextShadow(contextTextShadow, contextTextColor),
+                textAlign: contextTextAlign || 'left',
+                overflow: 'hidden',
+                height: 'auto',
+                minHeight: '80px'
+              }}
+              placeholder={t('creator.context', 'Примеры, грамматика...')}
+            />
           </div>
         </div>
       </div>
