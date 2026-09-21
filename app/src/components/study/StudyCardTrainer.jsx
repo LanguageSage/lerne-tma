@@ -535,10 +535,20 @@ export const StudyCardTrainer = React.memo(({
     >
       {/* Front Face Translation Toggle Button */}
       {hasBackText && (
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginBottom: '8px' }}>
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', margin: '8px 0 12px 0' }}>
           <button
             type="button"
             className={`trainer-toggle-trans-btn ${showTranslation ? 'active' : ''}`}
+            style={{
+              padding: '8px 24px',
+              borderRadius: '12px',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
             onClick={(e) => {
               e.stopPropagation();
               setShowTranslation(prev => !prev);
@@ -546,7 +556,7 @@ export const StudyCardTrainer = React.memo(({
             }}
             title={showTranslation ? tr("Скрыть перевод") : tr("Показать перевод")}
           >
-            <Languages size={14} />
+            <Languages size={15} />
             <span>{showTranslation ? tr("Скрыть перевод") : tr("Показать перевод")}</span>
           </button>
         </div>
