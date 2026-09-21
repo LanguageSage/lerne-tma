@@ -20,7 +20,6 @@ import { triggerHaptic } from '../../utils/platform';
 import { useTranslation } from '../../i18n/i18nContext';
 import { getAudioUrl } from '../../utils/media';
 import { detectAiQuickActionType, detectExerciseType } from '../../utils/exerciseDetector';
-import { parseExerciseContent } from '../../utils/exerciseContentParser';
 import api from '../../services/api';
 
 export const CardForm = ({
@@ -177,49 +176,36 @@ export const CardForm = ({
   };
 
   const insertInformationBlock = (type) => {
-    if (type === 'exercise') {
-      const exerciseMarker = '::exercise';
-      setCardData(prev => {
-        const raw = String(prev?.front || '');
-        const markerMatch = /^\s*::exercise\s*$/im.exec(raw);
+    const marker = type === 'exercise' ? '::exercise' : `::${type}`;
+    
+    setCardData(prev => {
+      const raw = String(prev?.front || '');
+      
+      if (type !== 'example') {
+        const markerMatch = new RegExp(`^\\s*${marker}\\s*$`, 'im').exec(raw);
         if (markerMatch) {
           focusBlockContent(raw, markerMatch[0], markerMatch.index);
           return prev;
         }
-        const parsed = parseExerciseContent(raw);
-        const prefix = parsed.hasBlocks && parsed.rawPreamble
-          ? `${parsed.rawPreamble.trim()}\n\n`
-          : '';
-        const exercise = parsed.hasBlocks ? parsed.exercise : raw.trim();
-        const nextFront = exercise
-          ? `${prefix}${exerciseMarker}\n\n${exercise}`
-          : `${prefix}${exerciseMarker}\n`;
-        focusBlockContent(nextFront, exerciseMarker, prefix.length);
-        return { ...prev, front: nextFront };
-      });
-      return;
-    }
-
-    const marker = `::${type}`;
-    setCardData(prev => {
-      const raw = String(prev?.front || '');
-      const parsed = parseExerciseContent(raw);
-      const existing = type === 'example' ? null : parsed.blocks.find(block => block.type === type);
-
-      if (existing) {
-        const markerMatch = new RegExp(`^\\s*${marker}\\s*$`, 'im').exec(raw);
-        focusBlockContent(raw, markerMatch?.[0] || marker, markerMatch?.index || 0);
-        return prev;
       }
 
-      const prefix = parsed.hasBlocks && parsed.rawPreamble
-        ? `${parsed.rawPreamble.trim()}\n\n`
-        : '';
-      const exercise = parsed.hasBlocks ? parsed.exercise : raw.trim();
-      const nextFront = exercise
-        ? `${prefix}${marker}\n\n${exercise}`
-        : `${prefix}${marker}\n`;
-      focusBlockContent(nextFront, marker, prefix.length);
+      const textarea = frontRef.current;
+      let insertIndex = raw.length;
+      if (textarea && textarea.selectionStart !== undefined) {
+        insertIndex = textarea.selectionStart;
+      }
+      
+      const before = raw.substring(0, insertIndex);
+      const after = raw.substring(insertIndex);
+      
+      let addition = marker;
+      if (before && !before.endsWith('\n')) addition = '\n' + addition;
+      if (after && !after.startsWith('\n')) addition = addition + '\n';
+      if (!after) addition += '\n';
+
+      const nextFront = before + addition + after;
+      focusBlockContent(nextFront, marker, before.length);
+      
       return { ...prev, front: nextFront };
     });
   };

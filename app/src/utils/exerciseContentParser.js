@@ -62,120 +62,70 @@ export const parseExerciseContent = (rawText) => {
   if (!raw.trim()) return emptyResult(raw);
 
   const lines = raw.split('\n');
-  let firstNonEmpty = 0;
-  while (firstNonEmpty < lines.length && !lines[firstNonEmpty].trim()) firstNonEmpty += 1;
-
-  if (firstNonEmpty >= lines.length || !getBlockType(lines[firstNonEmpty])) {
-    return emptyResult(raw);
-  }
-
-  const explicitExerciseIdx = lines.findIndex(isExerciseMarker);
+  const hasExplicitExerciseMarker = lines.some(isExerciseMarker);
   const blocks = [];
-  let exerciseStart = lines.length;
-  let index = firstNonEmpty;
-
-  if (explicitExerciseIdx !== -1 && explicitExerciseIdx >= firstNonEmpty) {
-    // Mode A: Explicit ::exercise marker present
-    while (index < explicitExerciseIdx) {
-      if (!lines[index].trim()) {
-        index += 1;
-        continue;
-      }
-
-      const type = getBlockType(lines[index]);
-      if (!type) {
-        index += 1;
-        continue;
-      }
-
-      const marker = markerForBlockType(type);
-      index += 1;
-      const contentLines = [];
-
-      while (index < explicitExerciseIdx) {
-        if (getBlockType(lines[index])) break;
-        contentLines.push(lines[index]);
-        index += 1;
-      }
-
-      const content = contentLines.join('\n').trim();
-      const block = { type, marker, content };
-      if (type === 'options') {
-        block.options = content
-          .split(/\s*\|\s*|\n+/)
-          .map(value => value.trim())
-          .filter(Boolean);
-      }
-      blocks.push(block);
+  
+  let currentType = null;
+  let currentLines = [];
+  
+  const saveBlock = () => {
+    const content = currentLines.join('\n').trim();
+    if (currentType || content) {
+      blocks.push({
+        type: currentType || 'exercise',
+        marker: currentType ? markerForBlockType(currentType) : null,
+        content,
+        ...(currentType === 'options' ? {
+          options: content.split(/\s*\|\s*|\n+/).map(v => v.trim()).filter(Boolean)
+        } : {})
+      });
     }
+    currentType = null;
+    currentLines = [];
+  };
 
-    exerciseStart = explicitExerciseIdx + 1;
-  } else {
-    // Mode B: Implicit boundary (no ::exercise marker)
-    let finishedPreamble = false;
-
-    while (index < lines.length && !finishedPreamble) {
-      const type = getBlockType(lines[index]);
-      if (!type) {
-        exerciseStart = index;
-        break;
-      }
-
-      const marker = markerForBlockType(type);
-      index += 1;
-      const contentLines = [];
-
-      while (index < lines.length) {
-        if (isExerciseMarker(lines[index])) {
-          exerciseStart = index + 1;
-          finishedPreamble = true;
-          break;
-        }
-
-        const nextType = getBlockType(lines[index]);
-        if (nextType) break;
-
-        if (!lines[index].trim()) {
-          let nextIndex = index;
-          while (nextIndex < lines.length && !lines[nextIndex].trim()) nextIndex += 1;
-          if (nextIndex < lines.length && isExerciseMarker(lines[nextIndex])) {
-            exerciseStart = nextIndex + 1;
-            finishedPreamble = true;
-            break;
-          }
-          if (nextIndex < lines.length && getBlockType(lines[nextIndex])) {
-            index = nextIndex;
-          } else {
-            exerciseStart = nextIndex;
-            finishedPreamble = true;
-          }
-          break;
-        }
-
-        contentLines.push(lines[index]);
-        index += 1;
-      }
-
-      const content = contentLines.join('\n').trim();
-      const block = { type, marker, content };
-      if (type === 'options') {
-        block.options = content
-          .split(/\s*\|\s*|\n+/)
-          .map(value => value.trim())
-          .filter(Boolean);
-      }
-      blocks.push(block);
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const infoType = getBlockType(line);
+    const isEx = isExerciseMarker(line);
+    
+    if (infoType || isEx) {
+      saveBlock();
+      currentType = infoType || (isEx ? 'exercise' : null);
+      i++;
+      continue;
     }
+    
+    // Mode B Implicit Boundary Detection:
+    // If we are inside an info block, we hit an empty line, AND there is NO explicit ::exercise marker in the file,
+    // we look ahead. If the next non-blank line is NOT a marker, then the current info block ends.
+    if (!hasExplicitExerciseMarker && currentType && currentType !== 'exercise' && !line.trim()) {
+      let nextIndex = i;
+      while (nextIndex < lines.length && !lines[nextIndex].trim()) {
+        nextIndex++;
+      }
+      if (nextIndex < lines.length) {
+        const nextInfoType = getBlockType(lines[nextIndex]);
+        
+        if (!nextInfoType) {
+           saveBlock();
+           currentType = 'exercise';
+        }
+      }
+    }
+    
+    currentLines.push(line);
+    i++;
   }
+  saveBlock();
 
-  // Slice exercise and ensure any accidental leading ::exercise marker is removed
-  let rawExerciseLines = lines.slice(exerciseStart);
-  while (rawExerciseLines.length > 0 && isExerciseMarker(rawExerciseLines[0])) {
-    rawExerciseLines = rawExerciseLines.slice(1);
-  }
-  const exercise = rawExerciseLines.join('\n').trim();
-  const rawPreamble = lines.slice(0, exerciseStart).join('\n').trim();
   const firstContent = (type) => blocks.find(block => block.type === type && block.content)?.content || '';
+  const exercise = blocks.filter(b => b.type === 'exercise').map(b => b.content).join('\n\n').trim();
+
+  // For backward compatibility (not strictly used anymore but kept for safety)
+  const exerciseIndex = blocks.findIndex(b => b.type === 'exercise');
+  const rawPreamble = exerciseIndex > 0 ? blocks.slice(0, exerciseIndex).map(b => (b.marker ? b.marker + '\n' : '') + b.content).join('\n\n') : '';
 
   return {
     task: firstContent('task'),
@@ -185,20 +135,50 @@ export const parseExerciseContent = (rawText) => {
     blocks,
     exercise,
     rawPreamble,
-    hasBlocks: blocks.length > 0
+    hasBlocks: blocks.length > 0 && blocks.some(b => b.type !== 'exercise')
   };
 };
 
 /** Restore the original information preamble around AI-generated exercise text. */
 export const restoreExerciseContent = (parsedContent, generatedExercise) => {
   const generated = parseExerciseContent(generatedExercise);
-  const exercise = (generated.hasBlocks ? generated.exercise : normalizeLineEndings(generatedExercise)).trim();
-  const preamble = parsedContent?.rawPreamble?.trim() || '';
-  if (!preamble) return exercise;
-  const hasSource = Boolean(parsedContent?.source);
-  const hasExerciseMarker = /^\s*::exercise\s*$/im.test(preamble);
-  if (hasSource && !hasExerciseMarker) {
-    return exercise ? `${preamble}\n\n::exercise\n${exercise}` : `${preamble}\n\n::exercise`;
+  const exerciseText = (generated.hasBlocks ? generated.exercise : normalizeLineEndings(generatedExercise)).trim();
+  
+  const { blocks } = parsedContent;
+  if (!blocks || blocks.length === 0) return exerciseText;
+
+  let result = [];
+  let exerciseInserted = false;
+  
+  const hasInfoBlocks = blocks.some(b => b.type !== 'exercise');
+  const hasExplicitExerciseMarker = blocks.some(b => b.type === 'exercise' && b.marker);
+  const hasSource = blocks.some(b => b.type === 'source');
+  
+  for (const block of blocks) {
+    if (block.type === 'exercise') {
+      if (!exerciseInserted) {
+        let exText = exerciseText;
+        if (block.marker || (hasSource && hasInfoBlocks && !hasExplicitExerciseMarker)) {
+           exText = exText ? `::exercise\n${exText}` : '::exercise';
+        }
+        if (exText) result.push(exText);
+        exerciseInserted = true;
+      }
+    } else {
+      let blockText = '';
+      if (block.marker) blockText += block.marker;
+      if (block.content) blockText += (blockText ? '\n' : '') + block.content;
+      if (blockText) result.push(blockText);
+    }
   }
-  return exercise ? `${preamble}\n\n${exercise}` : preamble;
+  
+  if (!exerciseInserted) {
+    let exText = exerciseText;
+    if (hasSource && hasInfoBlocks && !hasExplicitExerciseMarker) {
+      exText = exText ? `::exercise\n${exText}` : '::exercise';
+    }
+    if (exText) result.push(exText);
+  }
+  
+  return result.join('\n\n').trim();
 };

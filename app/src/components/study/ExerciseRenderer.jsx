@@ -82,12 +82,30 @@ export const ExerciseRenderer = React.memo(({
     return parseWordBankData(exerciseCard);
   }, [exerciseCard, detectedType]);
 
-  const withInformation = (exercise) => (
-    <>
-      <ExerciseInfoBlocks content={content} />
-      {exercise}
-    </>
-  );
+  const withInformation = (exercise) => {
+    const blocks = content?.blocks || [];
+    const exerciseIndex = blocks.findIndex(b => b.type === 'exercise');
+    
+    let topBlocks = blocks;
+    let bottomBlocks = [];
+    
+    if (exerciseIndex !== -1) {
+      topBlocks = blocks.slice(0, exerciseIndex);
+      bottomBlocks = blocks.slice(exerciseIndex + 1);
+    }
+
+    return (
+      <>
+        {topBlocks.length > 0 && (
+          <ExerciseInfoBlocks blocks={topBlocks} />
+        )}
+        {exercise}
+        {bottomBlocks.length > 0 && (
+          <ExerciseInfoBlocks blocks={bottomBlocks} />
+        )}
+      </>
+    );
+  };
 
   if (!detectedType) {
     return fallback;

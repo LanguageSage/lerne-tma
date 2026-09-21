@@ -1,11 +1,9 @@
 import React from 'react';
 import { tr } from '../../i18n/locale';
 
-export const ExerciseInfoBlocks = React.memo(({ content }) => {
-  const blocks = content?.blocks || [];
+export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks }) => {
+  const blocks = propBlocks || content?.blocks || [];
   if (blocks.length === 0) return null;
-
-  const exampleCount = blocks.filter(block => block.type === 'example' && block.content).length;
 
   return (
     <section className="exercise-info-blocks" aria-label={tr('Информация к заданию')}>
@@ -15,17 +13,6 @@ export const ExerciseInfoBlocks = React.memo(({ content }) => {
         if (block.type === 'options') {
           return (
             <div key={`${block.type}-${index}`} className="exercise-info-block exercise-info-options">
-              <div
-                className="exercise-info-label"
-                style={{
-                  fontFamily: 'var(--design-options-label-font)',
-                  fontSize: 'var(--design-options-label-size)',
-                  color: 'var(--design-options-label-color)',
-                  fontWeight: 'var(--design-options-label-w)'
-                }}
-              >
-                {tr('Варианты ответа')}
-              </div>
               <div
                 className="exercise-option-chips"
                 role="list"
@@ -54,15 +41,6 @@ export const ExerciseInfoBlocks = React.memo(({ content }) => {
             </div>
           );
         }
-
-        const exampleIndex = block.type === 'example'
-          ? blocks.slice(0, index + 1).filter(item => item.type === 'example' && item.content).length
-          : 0;
-        const label = block.type === 'source'
-          ? tr('Исходный текст')
-          : block.type === 'example'
-            ? (exampleCount > 1 ? `${tr('Пример')} ${exampleIndex}` : tr('Пример'))
-            : null;
 
         const blockStyle = block.type === 'task'
           ? {
@@ -108,7 +86,6 @@ export const ExerciseInfoBlocks = React.memo(({ content }) => {
             className={`exercise-info-block exercise-info-${block.type}`}
             style={blockStyle}
           >
-            {label && <div className="exercise-info-label">{label}</div>}
             <div className="exercise-info-text">{block.content}</div>
           </div>
         );

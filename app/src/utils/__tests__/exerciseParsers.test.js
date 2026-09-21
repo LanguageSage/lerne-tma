@@ -784,7 +784,7 @@ Ich verstehe jetzt viel besser, [[wie das deutsche Hochschulsystem funktioniert]
   const parsed = parseExerciseContent(source);
   const restored = restoreExerciseContent(parsed, 'Ich verstehe jetzt, [[wie alles funktioniert]].');
 
-  assert.deepEqual(parsed.blocks.map(block => block.type), ['task', 'source', 'options', 'example']);
+  assert.deepEqual(parsed.blocks.map(block => block.type).filter(t => t !== 'exercise'), ['task', 'source', 'options', 'example']);
   assert.ok(restored.startsWith('::task\n'));
   assert.ok(restored.includes('::source\nPaul erzählt über sein Studium in Deutschland.'));
   assert.ok(restored.includes('::options\nwas | dass | wie | ob'));
