@@ -82,7 +82,8 @@ export const StudyCardTrainer = React.memo(({
   renderAudioPlayer,
   styles = {},
   savedState,
-  onSaveState
+  onSaveState,
+  footerActionTarget
 }) => {
   useInterfaceLocale();
   const [selectedOptions, setSelectedOptions] = useState(savedState?.selectedOptions || {}); // { gapId: chosenOption }
@@ -572,28 +573,29 @@ export const StudyCardTrainer = React.memo(({
       )}
 
       {/* Action Footer & Buttons */}
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
-        {!isChecked ? (
+      {(() => {
+        const actionButtonEl = !isChecked ? (
           <button
             type="button"
             className="btn"
             style={{
-              width: '100%',
+              width: footerActionTarget ? 'auto' : '100%',
               maxWidth: '320px',
-              padding: '13px 24px',
+              padding: footerActionTarget ? '8px 16px' : '13px 24px',
               fontWeight: 700,
-              borderRadius: '16px',
-              fontSize: '1.02rem',
+              borderRadius: footerActionTarget ? '12px' : '16px',
+              fontSize: footerActionTarget ? '0.88rem' : '1.02rem',
               cursor: allGapsFilled ? 'pointer' : 'not-allowed',
               background: allGapsFilled
-                ? 'rgba(255, 255, 255, 0.12)'
-                : 'rgba(25, 20, 42, 0.4)',
+                ? 'rgba(255, 255, 255, 0.16)'
+                : 'rgba(25, 20, 42, 0.5)',
               color: allGapsFilled ? '#ffffff' : '#94a3b8',
               boxShadow: allGapsFilled ? '0 4px 20px rgba(0, 0, 0, 0.25)' : 'none',
-              border: allGapsFilled ? '1.5px solid rgba(255, 255, 255, 0.28)' : '1px solid rgba(255, 255, 255, 0.1)',
+              border: allGapsFilled ? '1.5px solid rgba(255, 255, 255, 0.35)' : '1px solid rgba(255, 255, 255, 0.15)',
               transition: 'all 0.2s ease-in-out',
               backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)'
+              WebkitBackdropFilter: 'blur(12px)',
+              whiteSpace: 'nowrap'
             }}
             disabled={!allGapsFilled}
             onClick={(e) => {
@@ -604,41 +606,50 @@ export const StudyCardTrainer = React.memo(({
             {allGapsFilled ? tr("Проверить ответы") : tr("Заполните пропуски ({{p0}}/{{p1}})", { p0: filledCount, p1: gaps.length })}
           </button>
         ) : (
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-            <button
-              type="button"
-              className="btn"
-              style={{
-                width: '100%',
-                maxWidth: '320px',
-                padding: '13px 24px',
-                fontWeight: 700,
-                borderRadius: '16px',
-                fontSize: '1.02rem',
-                background: 'rgba(255, 255, 255, 0.12)',
-                color: '#ffffff',
-                border: '1.5px solid rgba(255, 255, 255, 0.28)',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease-in-out',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)'
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleReset();
-              }}
-            >
-              <RotateCcw size={18} />
-              <span>{tr("Сбросить")}</span>
-            </button>
+          <button
+            type="button"
+            className="btn"
+            style={{
+              width: footerActionTarget ? 'auto' : '100%',
+              maxWidth: '320px',
+              padding: footerActionTarget ? '8px 16px' : '13px 24px',
+              fontWeight: 700,
+              borderRadius: footerActionTarget ? '12px' : '16px',
+              fontSize: footerActionTarget ? '0.88rem' : '1.02rem',
+              background: 'rgba(255, 255, 255, 0.16)',
+              color: '#ffffff',
+              border: '1.5px solid rgba(255, 255, 255, 0.35)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease-in-out',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              whiteSpace: 'nowrap'
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleReset();
+            }}
+          >
+            <RotateCcw size={16} />
+            <span>{tr("Сбросить")}</span>
+          </button>
+        );
+
+        if (footerActionTarget) {
+          return createPortal(actionButtonEl, footerActionTarget);
+        }
+
+        return (
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
+            {actionButtonEl}
           </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* Viewport-Safe Floating Gap Dropdown Popover */}
       {openDropdownGapId !== null && (() => {

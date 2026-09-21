@@ -536,8 +536,31 @@ export const StudyCard = React.memo(({
                 />
               )}
 
-              {/* Card Level Badge (Bottom-Left Corner) */}
-              <CardLevelBadge card={card} textColor={cardStyle?.color} style={{ position: 'absolute', bottom: '12px', left: '12px', zIndex: 15 }} />
+              {/* Bottom Level & Action Bar (Pinned to bottom of card window) */}
+              <div
+                className="study-card-bottom-bar"
+                style={{
+                  position: 'absolute',
+                  bottom: '12px',
+                  left: '12px',
+                  right: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  zIndex: 15,
+                  pointerEvents: 'none'
+                }}
+              >
+                <div style={{ pointerEvents: 'auto' }}>
+                  <CardLevelBadge card={card} textColor={cardStyle?.color} />
+                </div>
+                <div
+                  ref={setExerciseFooterTarget}
+                  className="study-card-footer-action-target"
+                  style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
+                />
+              </div>
 
             </div>
           </div>

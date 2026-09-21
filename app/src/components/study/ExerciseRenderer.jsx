@@ -194,6 +194,7 @@ export const ExerciseRenderer = React.memo(({
           isPureTrainerMode={isPureTrainerMode}
           savedState={savedState}
           onSaveState={onSaveState}
+          footerActionTarget={footerActionTarget}
         />
       );
 
