@@ -10,10 +10,11 @@ clean_run.bat
 *.ps1
 *.lnk
 
-# Documentation
+# Documentation & Prompts
 docs/
 project_docs/
 reports/
+lerne-card-prompts/
 
 # Backups and local cache
 backups/
