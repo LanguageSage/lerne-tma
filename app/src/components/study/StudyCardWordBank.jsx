@@ -163,7 +163,7 @@ export const StudyCardWordBank = React.memo(({
 
   const renderText = () => {
     const parts = [];
-    const marker = /___WORD_BANK_GAP_(\d+)___/g;
+    const marker = /___WORD_BANK_GAP_([a-zA-Z0-9_-]+)___/g;
     let cursor = 0;
     let match;
 

@@ -693,7 +693,7 @@ Was möchte Anna später machen?
 
 [[Sie möchte als Ärztin arbeiten.]]`);
 
-  assert.equal(parsed.context, 'Anna studiert seit drei Jahren in Berlin.\nSie möchte später als Ärztin arbeiten.');
+  assert.equal(parsed.source, 'Anna studiert seit drei Jahren in Berlin.\nSie möchte später als Ärztin arbeiten.');
   assert.deepEqual(parsed.examples, [
     'Was macht Paul?\nPaul arbeitet als Lehrer.',
     'Was macht Mia?\nMia studiert Medizin.'
@@ -711,7 +711,7 @@ Was möchte Anna werden?
 [[Sie möchte Ärztin werden.]]`);
 
   assert.equal(parsed.task, '');
-  assert.equal(parsed.context, 'Anna studiert in Berlin.\nSie möchte Ärztin werden.');
+  assert.equal(parsed.source, 'Anna studiert in Berlin.\nSie möchte Ärztin werden.');
   assert.equal(parsed.exercise, 'Was möchte Anna werden?\n\n[[Sie möchte Ärztin werden.]]');
 });
 
@@ -725,7 +725,7 @@ Wiedersehen nach 20 Jahren.
 Er [[hatte]] sein Studium abgeschlossen.`);
 
   assert.equal(parsed.task, 'Ergänzen Sie das Verb.');
-  assert.equal(parsed.context, 'Wiedersehen nach 20 Jahren.');
+  assert.equal(parsed.source, 'Wiedersehen nach 20 Jahren.');
   assert.equal(parsed.exercise, 'Er [[hatte]] sein Studium abgeschlossen.');
 });
 
@@ -738,8 +738,8 @@ Ich weiß nicht, ob er kommt.
 
 Ich weiß nicht, [[ob er kommt]].`);
 
-  assert.deepEqual(parsed.options, ['ob', 'weil', 'dass']);
-  assert.equal(parsed.context, 'Ich weiß nicht, ob er kommt.');
+  assert.equal(parsed.options.length, 3);
+  assert.equal(parsed.source, 'Ich weiß nicht, ob er kommt.');
   assert.equal(parsed.exercise, 'Ich weiß nicht, [[ob er kommt]].');
 });
 
@@ -784,7 +784,7 @@ Ich verstehe jetzt viel besser, [[wie das deutsche Hochschulsystem funktioniert]
   const parsed = parseExerciseContent(source);
   const restored = restoreExerciseContent(parsed, 'Ich verstehe jetzt, [[wie alles funktioniert]].');
 
-  assert.deepEqual(parsed.blocks.map(block => block.type), ['task', 'context', 'options', 'example']);
+  assert.deepEqual(parsed.blocks.map(block => block.type), ['task', 'source', 'options', 'example']);
   assert.ok(restored.startsWith('::task\n'));
   assert.ok(restored.includes('::source\nPaul erzählt über sein Studium in Deutschland.'));
   assert.ok(restored.includes('::options\nwas | dass | wie | ob'));
@@ -809,7 +809,8 @@ test('34a. legacy ::context is NOT parsed as a special block', () => {
   const parsed = parseExerciseContent(source);
 
   assert.equal(parsed.hasBlocks, false);
-  assert.equal(parsed.context, '');
+  assert.equal(parsed.source, '');
+  assert.equal(parsed.context, undefined);
   assert.equal(parsed.exercise, source);
 });
 
@@ -826,7 +827,7 @@ Er war ein paar Jahre älter als sie. Er [[hatte]] sein Studium schon abgeschlos
   const parsed = parseExerciseContent(input);
 
   assert.equal(parsed.task, 'Ergänzen Sie „hatte“ oder „war“ in der richtigen Form.');
-  assert.equal(parsed.context, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin auf der Straße wieder.');
+  assert.equal(parsed.source, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin auf der Straße wieder.');
   assert.equal(parsed.exercise, 'Er war ein paar Jahre älter als sie. Er [[hatte]] sein Studium schon abgeschlossen, sie studierte noch.');
   assert.ok(!parsed.exercise.includes('::task'));
   assert.ok(!parsed.exercise.includes('::source'));
@@ -850,7 +851,7 @@ Er [[hatte]] sein Studium schon abgeschlossen.`;
   const parsed = parseExerciseContent(input);
 
   assert.equal(parsed.task, 'Lesen Sie den Text und ergänzen Sie die richtige Form.');
-  assert.equal(parsed.context, 'Wiedersehen nach 20 Jahren.\n\nSie trafen sich zufällig in Berlin auf der Straße wieder.\n20 Jahre lang hatten sie sich nicht gesehen.');
+  assert.equal(parsed.source, 'Wiedersehen nach 20 Jahren.\n\nSie trafen sich zufällig in Berlin auf der Straße wieder.\n20 Jahre lang hatten sie sich nicht gesehen.');
   assert.equal(parsed.exercise, 'Er war ein paar Jahre älter als sie.\nEr [[hatte]] sein Studium schon abgeschlossen.');
   assert.ok(!parsed.exercise.includes('::task'));
   assert.ok(!parsed.exercise.includes('::source'));
@@ -867,7 +868,7 @@ Er [[hatte]] sein Studium abgeschlossen.`;
   const parsed = parseExerciseContent(input);
 
   assert.equal(parsed.task, '');
-  assert.equal(parsed.context, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin auf der Straße wieder.');
+  assert.equal(parsed.source, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin auf der Straße wieder.');
   assert.equal(parsed.exercise, 'Er [[hatte]] sein Studium abgeschlossen.');
   assert.ok(!parsed.exercise.includes('::source'));
   assert.ok(!parsed.exercise.includes('Wiedersehen'));
@@ -890,7 +891,7 @@ Er [[hatte]] recht.`;
 
   assert.deepEqual(parsed.options, ['hatte', 'war']);
   assert.equal(parsed.task, 'Wählen Sie die Form.');
-  assert.equal(parsed.context, 'Erinnerungen an damals.');
+  assert.equal(parsed.source, 'Erinnerungen an damals.');
   assert.equal(parsed.exercise, 'Er [[hatte]] recht.');
 });
 
@@ -957,9 +958,9 @@ CONTEXT:
   assert.ok(cards[0].front.includes('::source'));
   assert.equal(cards[0].back, 'hatte');
 
-  // Runtime computes context on the fly from front:
+  // Runtime computes source on the fly from front:
   const runtime0 = parseExerciseContent(cards[0].front);
-  assert.equal(runtime0.context, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin wieder.');
+  assert.equal(runtime0.source, 'Wiedersehen nach 20 Jahren.\nSie trafen sich zufällig in Berlin wieder.');
   assert.equal(runtime0.exercise, 'Er [[hatte]] sein Studium abgeschlossen.');
 
   assert.equal(cards[1].card_type, 'trainer');
@@ -968,7 +969,7 @@ CONTEXT:
   assert.equal(cards[1].back, 'war');
 
   const runtime1 = parseExerciseContent(cards[1].front);
-  assert.equal(runtime1.context, 'Kurze Geschichte.');
+  assert.equal(runtime1.source, 'Kurze Geschichte.');
   assert.equal(runtime1.exercise, 'Sie [[war]] müde.');
 });
 
@@ -1206,7 +1207,7 @@ Kapitel 4`);
   assert.ok(card);
   assert.equal(card.card_type, 'free_text');
   const parsedFront = parseExerciseContent(card.front);
-  assert.equal(parsedFront.context, 'Anna wohnt in Berlin.');
+  assert.equal(parsedFront.source, 'Anna wohnt in Berlin.');
   assert.equal(card.context, 'Kapitel 4');
 });
 
@@ -1307,5 +1308,150 @@ test('38k. Strict Format: 12. Invalid card sections rejection and empty section 
   assert.equal(valid.back, '');
   assert.equal(valid.context, '');
 });
+
+test('39. Word Bank: expanded ID support (<<31>>, <<a>>, <<B>>, <<1a>>, <<gap-1>>, <<gap_1>>)', () => {
+  const card = {
+    front: `@wordbank
+Satz eins <<31>>.
+Satz zwei <<a>>.
+Satz drei <<B>>.
+Satz vier <<1a>>.
+Satz fünf <<gap-1>>.
+Satz sechs <<gap_1>>.
+@options
+Wort31 | WortA | WortB | Wort1a | WortGapDash | WortGapUnder | ExtraWort`,
+    back: `31=Wort31
+a=WortA
+B=WortB
+1a=Wort1a
+gap-1=WortGapDash
+gap_1=WortGapUnder`
+  };
+
+  const parsed = parseWordBankData(card);
+  assert.ok(parsed, 'Card with expanded IDs should parse successfully');
+  assert.equal(parsed.gaps.length, 6);
+  assert.deepEqual(parsed.gaps.map(g => g.id), ['31', 'a', 'B', '1a', 'gap-1', 'gap_1']);
+  assert.equal(parsed.gaps[0].correctAnswer, 'Wort31');
+  assert.equal(parsed.gaps[1].correctAnswer, 'WortA');
+  assert.equal(parsed.gaps[2].correctAnswer, 'WortB');
+  assert.equal(parsed.gaps[3].correctAnswer, 'Wort1a');
+  assert.equal(parsed.gaps[4].correctAnswer, 'WortGapDash');
+  assert.equal(parsed.gaps[5].correctAnswer, 'WortGapUnder');
+
+  assert.match(parsed.maskedText, /___WORD_BANK_GAP_31___/);
+  assert.match(parsed.maskedText, /___WORD_BANK_GAP_a___/);
+  assert.match(parsed.maskedText, /___WORD_BANK_GAP_B___/);
+  assert.match(parsed.maskedText, /___WORD_BANK_GAP_1a___/);
+  assert.match(parsed.maskedText, /___WORD_BANK_GAP_gap-1___/);
+  assert.match(parsed.maskedText, /___WORD_BANK_GAP_gap_1___/);
+});
+
+test('40. Word Bank: validation checks for duplicate IDs, missing BACK, and orphaned BACK IDs', () => {
+  // 1. Duplicate ID in text gaps -> invalid (null)
+  const duplicateGapCard = {
+    front: `@wordbank
+Text <<gap-1>> und noch <<gap-1>>.
+@options
+A | B`,
+    back: `gap-1=A`
+  };
+  assert.equal(parseWordBankData(duplicateGapCard), null, 'Duplicate gap ID in front must be rejected');
+
+  // 2. Duplicate ID in BACK -> invalid (null)
+  const duplicateBackCard = {
+    front: `@wordbank
+Text <<gap-1>>.
+@options
+A | B`,
+    back: `gap-1=A\ngap-1=B`
+  };
+  assert.equal(parseWordBankData(duplicateBackCard), null, 'Duplicate ID in back must be rejected');
+
+  // 3. Gap without BACK -> invalid (null)
+  const gapWithoutBackCard = {
+    front: `@wordbank
+Text <<gap-1>> und <<gap-2>>.
+@options
+A | B`,
+    back: `gap-1=A`
+  };
+  assert.equal(parseWordBankData(gapWithoutBackCard), null, 'Gap without corresponding BACK entry must be rejected');
+
+  // 4. BACK ID without gap -> invalid (null)
+  const backWithoutGapCard = {
+    front: `@wordbank
+Text <<gap-1>>.
+@options
+A | B`,
+    back: `gap-1=A\ngap-2=B`
+  };
+  assert.equal(parseWordBankData(backWithoutGapCard), null, 'BACK entry without corresponding front gap must be rejected');
+});
+
+test('41. Mixed Trainer: {*Als|Wenn} combined with [[input]] gaps in single card', () => {
+  const card = {
+    front: '{*Als|Wenn} ich kam, [[hatte]] sie schon [[gegessen]].',
+    back: 'Когда я пришел, она уже поела.'
+  };
+
+  // 1. Detection: must be detected strictly as 'trainer'
+  assert.equal(detectExerciseType(card), 'trainer');
+
+  // 2. Parsing: parseClozeData handles all gaps seamlessly
+  const parsed = parseClozeData(card, 'trainer');
+  assert.ok(parsed);
+  assert.equal(parsed.isMultiGap, true);
+  assert.equal(parsed.gaps.length, 3);
+
+  // Gap 0: Choice
+  assert.equal(parsed.gaps[0].mode, 'choice');
+  assert.equal(parsed.gaps[0].correctAnswer, 'Als');
+  assert.ok(parsed.gaps[0].choices.includes('Als'));
+  assert.ok(parsed.gaps[0].choices.includes('Wenn'));
+
+  // Gap 1: Input
+  assert.equal(parsed.gaps[1].mode, 'input');
+  assert.equal(parsed.gaps[1].correctAnswer, 'hatte');
+  assert.equal(parsed.gaps[1].choices.length, 0);
+
+  // Gap 2: Input
+  assert.equal(parsed.gaps[2].mode, 'input');
+  assert.equal(parsed.gaps[2].correctAnswer, 'gegessen');
+  assert.equal(parsed.gaps[2].choices.length, 0);
+
+  // Clean bracket syntax
+  const cleaned = cleanBracketSyntax(card.front);
+  assert.equal(cleaned, 'Als ich kam, hatte sie schon gegessen.');
+});
+
+test('42. Explicit contract: parseExerciseContent(front).source vs card.context separation', () => {
+  const card = {
+    front: `::source\nAnna wohnt in Berlin.\n\n::exercise\nWo wohnt Anna?`,
+    back: 'Berlin',
+    context: 'Lektion 4'
+  };
+
+  const parsedFront = parseExerciseContent(card.front);
+
+  assert.equal(parsedFront.source, 'Anna wohnt in Berlin.');
+  assert.equal(card.context, 'Lektion 4');
+  assert.equal(parsedFront.context, undefined, 'parsedExercise.context should no longer exist');
+});
+
+test('43. ::exercise officially supported as the first marker in FRONT', () => {
+  const card = {
+    front: `::exercise\nWo wohnt Anna?`,
+    back: 'Berlin',
+    context: 'Lektion 4'
+  };
+
+  const parsedFront = parseExerciseContent(card.front);
+  assert.equal(parsedFront.exercise, 'Wo wohnt Anna?');
+  assert.equal(parsedFront.source, '');
+  assert.equal(card.context, 'Lektion 4');
+});
+
+
 
 

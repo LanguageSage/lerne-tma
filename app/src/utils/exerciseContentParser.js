@@ -1,8 +1,8 @@
-const BLOCK_TYPES = new Set(['task', 'options', 'context', 'example']);
+const BLOCK_TYPES = new Set(['task', 'options', 'source', 'example']);
 const MARKER_TO_BLOCK_TYPE = Object.freeze({
   task: 'task',
   options: 'options',
-  source: 'context',
+  source: 'source',
   example: 'example'
 });
 
@@ -16,15 +16,27 @@ const getBlockType = (line) => {
   return BLOCK_TYPES.has(type) ? type : null;
 };
 
-const markerForBlockType = (type) => `::${type === 'context' ? 'source' : type}`;
+const markerForBlockType = (type) => `::${type}`;
+
+const cleanRawExercise = (text) => {
+  const lines = normalizeLineEndings(text).split('\n');
+  let idx = 0;
+  while (idx < lines.length && (!lines[idx].trim() || isExerciseMarker(lines[idx]))) {
+    if (isExerciseMarker(lines[idx])) {
+      return lines.slice(idx + 1).join('\n').trim();
+    }
+    idx += 1;
+  }
+  return text.trim();
+};
 
 const emptyResult = (raw) => ({
   task: '',
   options: [],
-  context: '',
+  source: '',
   examples: [],
   blocks: [],
-  exercise: raw.trim(),
+  exercise: cleanRawExercise(raw),
   rawPreamble: '',
   hasBlocks: false
 });
@@ -36,17 +48,14 @@ const emptyResult = (raw) => ({
  * 1. front_text — хранение полной карточки в БД.
  * 2. parseExerciseContent(front_text) — единственная граница между визуальной структурой карточки и синтаксисом упражнения.
  * 3. parsed.exercise — единственный текст лицевой стороны, который разрешено передавать специализированным exercise-анализаторам.
+ * 4. parsed.source — текст блока ::source (не путать с card.context!).
  *
  * Supported markers:
  * - ::task -> task instructions
- * - ::source -> background text / context
+ * - ::source -> background text / context source
  * - ::options -> answer choices
  * - ::example -> examples (can appear multiple times)
  * - ::exercise -> explicit start of the exercise body (optional)
- *
- * When ::exercise is present, all lines up to ::exercise belong to preamble blocks,
- * allowing multi-paragraph sources with blank lines. When ::exercise is omitted,
- * a blank line followed by non-marker text marks the boundary.
  */
 export const parseExerciseContent = (rawText) => {
   const raw = normalizeLineEndings(rawText);
@@ -55,6 +64,7 @@ export const parseExerciseContent = (rawText) => {
   const lines = raw.split('\n');
   let firstNonEmpty = 0;
   while (firstNonEmpty < lines.length && !lines[firstNonEmpty].trim()) firstNonEmpty += 1;
+
   if (firstNonEmpty >= lines.length || !getBlockType(lines[firstNonEmpty])) {
     return emptyResult(raw);
   }
@@ -170,7 +180,7 @@ export const parseExerciseContent = (rawText) => {
   return {
     task: firstContent('task'),
     options: blocks.filter(block => block.type === 'options').flatMap(block => block.options || []),
-    context: firstContent('context'),
+    source: firstContent('source'),
     examples: blocks.filter(block => block.type === 'example' && block.content).map(block => block.content),
     blocks,
     exercise,
@@ -185,7 +195,7 @@ export const restoreExerciseContent = (parsedContent, generatedExercise) => {
   const exercise = (generated.hasBlocks ? generated.exercise : normalizeLineEndings(generatedExercise)).trim();
   const preamble = parsedContent?.rawPreamble?.trim() || '';
   if (!preamble) return exercise;
-  const hasSource = Boolean(parsedContent?.context);
+  const hasSource = Boolean(parsedContent?.source);
   const hasExerciseMarker = /^\s*::exercise\s*$/im.test(preamble);
   if (hasSource && !hasExerciseMarker) {
     return exercise ? `${preamble}\n\n::exercise\n${exercise}` : `${preamble}\n\n::exercise`;

@@ -200,7 +200,7 @@ export const CardForm = ({
       return;
     }
 
-    const marker = `::${type === 'context' ? 'source' : type}`;
+    const marker = `::${type}`;
     setCardData(prev => {
       const raw = String(prev?.front || '');
       const parsed = parseExerciseContent(raw);
@@ -496,7 +496,7 @@ export const CardForm = ({
               {[
                 ['task', tr('+ Задание')],
                 ['options', tr('+ Варианты')],
-                ['context', tr('+ Исходный текст')],
+                ['source', tr('+ Исходный текст')],
                 ['example', tr('+ Пример')],
                 ['exercise', tr('+ Упражнение')]
               ].map(([type, label]) => (

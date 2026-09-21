@@ -58,7 +58,7 @@ export const ExerciseInfoBlocks = React.memo(({ content }) => {
         const exampleIndex = block.type === 'example'
           ? blocks.slice(0, index + 1).filter(item => item.type === 'example' && item.content).length
           : 0;
-        const label = block.type === 'context'
+        const label = block.type === 'source'
           ? tr('Исходный текст')
           : block.type === 'example'
             ? (exampleCount > 1 ? `${tr('Пример')} ${exampleIndex}` : tr('Пример'))

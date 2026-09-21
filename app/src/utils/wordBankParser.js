@@ -46,7 +46,7 @@ export const parseWordBankData = (card) => {
   const rawOptions = afterDirective.slice(optionsMatch.index + optionsMatch[0].length).trim();
   if (!text || !rawOptions) return null;
   if (/\[\[|\]\]/.test(text)) return null;
-  if (/<<|>>/.test(text.replace(/<<(\d+)>>/g, ''))) return null;
+  if (/<<|>>/.test(text.replace(/<<([a-zA-Z0-9_-]+)>>/g, ''))) return null;
 
   const options = rawOptions
     .split(/\s*\|\s*|\r?\n+/)
@@ -55,7 +55,7 @@ export const parseWordBankData = (card) => {
     .map((value, index) => ({ id: `option-${index}`, value }));
   if (options.length === 0) return null;
 
-  const gapMatches = Array.from(text.matchAll(/<<(\d+)>>/g));
+  const gapMatches = Array.from(text.matchAll(/<<([a-zA-Z0-9_-]+)>>/g));
   if (gapMatches.length === 0) return null;
 
   const gapIds = gapMatches.map(match => match[1]);
@@ -65,7 +65,7 @@ export const parseWordBankData = (card) => {
   for (const rawLine of rawBack.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line) continue;
-    const match = /^(\d+)\s*=\s*(.+)$/.exec(line);
+    const match = /^([a-zA-Z0-9_-]+)\s*=\s*(.+)$/.exec(line);
     if (!match || !match[2].trim()) return null;
     answerEntries.push([match[1], match[2].trim()]);
   }
@@ -98,7 +98,7 @@ export const parseWordBankData = (card) => {
   return {
     isWordBank: true,
     text,
-    maskedText: text.replace(/<<(\d+)>>/g, '___WORD_BANK_GAP_$1___'),
+    maskedText: text.replace(/<<([a-zA-Z0-9_-]+)>>/g, '___WORD_BANK_GAP_$1___'),
     gaps,
     options
   };
