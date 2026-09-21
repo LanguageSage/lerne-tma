@@ -87,6 +87,8 @@ export const useAppInitialization = (checkStartParam) => {
     checkStartParam();
 
     // Listen for visibility changes
+    let lastVisibilityFetch = 0;
+    const VISIBILITY_FETCH_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         console.log("App became visible, re-checking parameters and auth...");
@@ -96,9 +98,13 @@ export const useAppInitialization = (checkStartParam) => {
           if (isOfflineMode()) {
             syncService.sync().catch(e => console.error("Visibility sync failed:", e));
           } else {
-            // Fresh reload of decks and folders when returning to Telegram Mini App
-            useDeckStore.getState().fetchDecks();
-            useDeckStore.getState().fetchFolders();
+            const now = Date.now();
+            if (now - lastVisibilityFetch > VISIBILITY_FETCH_COOLDOWN_MS) {
+              lastVisibilityFetch = now;
+              // Fresh reload of decks and folders when returning to Telegram Mini App
+              useDeckStore.getState().fetchDecks();
+              useDeckStore.getState().fetchFolders();
+            }
           }
           useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
         }
@@ -230,7 +236,7 @@ export const useAppInitialization = (checkStartParam) => {
 
   const fetchInitData = async () => {
     const languageAtStart = getInterfaceLanguage();
-    const { setDecksAndFolders, fetchDuplicates } = useDeckStore.getState();
+    const { setDecksAndFolders } = useDeckStore.getState();
     const currentDecks = useDeckStore.getState().decks;
     const currentFolders = useDeckStore.getState().folders;
     if ((!currentDecks || currentDecks.length === 0) && (!currentFolders || currentFolders.length === 0)) {
@@ -315,7 +321,6 @@ export const useAppInitialization = (checkStartParam) => {
         setPublishedDesignV2(res.data.global_design_v2);
       }
 
-      fetchDuplicates();
 
       // If user opened a deck or refreshed, re-sync currentDeck & cards for current deck
       const uiState = useUiStore.getState();
