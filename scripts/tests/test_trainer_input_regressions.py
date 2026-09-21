@@ -181,6 +181,24 @@ class GenerateCardFieldsRegressionTests(unittest.IsolatedAsyncioTestCase):
                 user_request=user_request,
             )
 
+    async def test_ai_generation_freezes_match_front_and_invokes_match_prompt(self):
+        phrase = "::task\nZutaten\n\n::exercise\n@match\nApfel => apple"
+        result = await self._generate(
+            phrase,
+            '{"back":"Яблоко => apple","context":"Словарь"}',
+        )
+        self.assertEqual(result["front"], phrase)
+        self.assertIn("сопоставление пар (Match)", _FakeAIClient.last_system_prompt)
+
+    async def test_ai_generation_freezes_puzzle_front_and_invokes_puzzle_prompt(self):
+        phrase = "::task\nSatz\n\n::exercise\n@puzzle\nIch kaufe Brot."
+        result = await self._generate(
+            phrase,
+            '{"back":"Я покупаю хлеб.","context":"Словарь"}',
+        )
+        self.assertEqual(result["front"], phrase)
+        self.assertIn("Собери предложение из фрагментов", _FakeAIClient.last_system_prompt)
+
     async def test_parenthesized_final_line_is_sent_to_ai_unchanged(self):
         phrase = "Ein Satz.\n(упрости это предложение)"
         await self._generate(
