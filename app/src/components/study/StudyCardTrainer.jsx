@@ -19,15 +19,6 @@ const AutoExpandingInput = React.memo(({
   onInputChange,
   onCheck
 }) => {
-  const textareaRef = useRef(null);
-
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [rawValue]);
-
   const charLen = Math.max((gap.correctAnswer || '').length + 2, rawValue.length + 2, 7);
 
   const handleKeyDown = (e) => {
@@ -38,9 +29,8 @@ const AutoExpandingInput = React.memo(({
   };
 
   return (
-    <textarea
-      ref={textareaRef}
-      rows={1}
+    <input
+      type="text"
       value={rawValue}
       disabled={isChecked}
       onChange={(e) => onInputChange(gap.id, e.target.value)}
@@ -65,11 +55,10 @@ const AutoExpandingInput = React.memo(({
         fontFamily: 'inherit',
         textAlign: 'center',
         outline: 'none',
-        resize: 'none',
+        whiteSpace: 'nowrap',
         overflow: 'hidden',
         verticalAlign: 'middle',
-        lineHeight: 1.3,
-        transition: 'border-color 0.15s ease-in-out, background 0.15s ease-in-out'
+        transition: 'border-color 0.15s ease-in-out, background 0.15s ease-in-out, width 0.1s ease-out'
       }}
     />
   );

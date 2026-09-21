@@ -341,7 +341,10 @@ async def generate_card_fields(
             try:
                 from api.services.classifier import classify_sentence_fast
                 from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload
-                classified_front = parse_exercise_content(result["front"])["exercise"]
+                from api.utils.audio import _prepare_tts_text
+                # Strip trainer/quiz syntax before classification to avoid a 2nd AI call.
+                classified_front = _prepare_tts_text(result["front"], max_chars=500) \
+                    or parse_exercise_content(result["front"])["exercise"]
                 local_res = classify_sentence_fast(classified_front, target_lang)
                 if local_res.get("confidence", 0.0) >= 0.80:
                     result["level"] = local_res.get("level", "A1")
@@ -537,15 +540,17 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
     if lang == "de":
         try:
             from api.services.classifier import classify_sentence_fast
+            from api.utils.audio import _prepare_tts_text
             local_hits = 0
             for i, phrase in enumerate(phrases):
-                local = classify_sentence_fast(phrase.strip(), "de")
+                clean = _prepare_tts_text(phrase, max_chars=500) or phrase.strip()
+                local = classify_sentence_fast(clean, "de")
                 local_fallback_results[i] = local.get("level", "A1")
                 if local.get("confidence", 0.0) >= 0.80:
                     final_results[i] = local["level"]
                     local_hits += 1
                 else:
-                    phrases_for_ai.append(phrase)
+                    phrases_for_ai.append(clean)
                     ai_indices.append(i)
             if local_hits:
                 logger.info(
