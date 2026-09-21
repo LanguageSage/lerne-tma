@@ -339,11 +339,17 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const cardListBg = React.useMemo(() => getCardListBgStyle(previewCardBg), [previewCardBg]);
   const previewCardLines = useSettingsStore(s => s.previewCardLines);
   const previewCardTextAlign = useSettingsStore(s => s.previewCardTextAlign);
+  const isAdmin = useSettingsStore(s => s.isAdmin);
+  const adminDraftDesignV2 = useSettingsStore(s => s.adminDraftDesignV2);
   const publishedDesignV2 = useSettingsStore(s => s.publishedDesignV2);
+
+  const effectiveCardListConfig = (isAdmin && adminDraftDesignV2)
+    ? adminDraftDesignV2.cardList
+    : publishedDesignV2?.config?.cardList;
 
   const frontColor = previewCardTextColor || '#ffffff';
   const frontTypographyStyle = React.useMemo(() => {
-    const v2 = publishedDesignV2?.config?.cardList?.frontText;
+    const v2 = effectiveCardListConfig?.frontText;
     if (v2) {
       return {
         fontFamily: v2.font || undefined,
@@ -364,11 +370,11 @@ export const CardList = ({ startStudy, startStudyCard }) => {
       fontStyle: previewCardFontStyle || undefined,
       textAlign: previewCardTextAlign || 'left',
     };
-  }, [publishedDesignV2, previewCardFont, frontColor, previewCardFontSize, previewTextShadow, previewCardFontWeight, previewCardFontStyle, previewCardTextAlign]);
+  }, [effectiveCardListConfig, previewCardFont, frontColor, previewCardFontSize, previewTextShadow, previewCardFontWeight, previewCardFontStyle, previewCardTextAlign]);
 
   const effectiveBackColor = previewBackTextColor || '#cbd5e1';
   const backTypographyStyle = React.useMemo(() => {
-    const v2 = publishedDesignV2?.config?.cardList?.backText;
+    const v2 = effectiveCardListConfig?.backText;
     if (v2) {
       return {
         fontFamily: v2.font || undefined,
@@ -389,7 +395,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
       fontStyle: previewCardFontStyle || undefined,
       textAlign: previewCardTextAlign || 'left',
     };
-  }, [publishedDesignV2, previewCardFont, effectiveBackColor, previewBackFontSize, previewTextShadow, previewCardFontStyle, previewCardTextAlign]);
+  }, [effectiveCardListConfig, previewCardFont, effectiveBackColor, previewBackFontSize, previewTextShadow, previewCardFontStyle, previewCardTextAlign]);
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);

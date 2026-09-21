@@ -118,10 +118,10 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
           className="design-toolbar-btn"
           onClick={handleSaveDraft}
           disabled={saving}
-          title={tr('Сохранить черновик')}
+          title={tr('Сохранить черновик на сервере')}
         >
           <Save size={15} />
-          {saving ? tr('Сохранение...') : tr('Черновик')}
+          {saving ? tr('Сохранение...') : tr('Сохранить черновик')}
         </button>
 
         {publishConfirm ? (
@@ -142,7 +142,7 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
             title={tr('Опубликовать для всех пользователей')}
           >
             {publishSuccess ? <Check size={15} /> : <Globe size={15} />}
-            {publishing ? tr('Публикация...') : publishSuccess ? tr('Опубликовано!') : tr('Опубликовать')}
+            {publishing ? tr('Публикация...') : publishSuccess ? tr('Опубликовано!') : tr('Опубликовать для всех')}
           </button>
         )}
       </div>

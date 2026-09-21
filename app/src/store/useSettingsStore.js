@@ -28,9 +28,35 @@ function saveCachedPublishedDesign(doc) {
   } catch { /* quota exceeded — silently ignore */ }
 }
 
+const DESIGN_V2_DRAFT_CACHE_KEY = 'lerne:admin-draft:v2';
+
+function loadCachedAdminDraft() {
+  try {
+    const raw = localStorage.getItem(DESIGN_V2_DRAFT_CACHE_KEY);
+    if (!raw) return null;
+    return normalizeDesignConfig(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedAdminDraft(config) {
+  try {
+    if (config) {
+      localStorage.setItem(DESIGN_V2_DRAFT_CACHE_KEY, JSON.stringify(config));
+    } else {
+      localStorage.removeItem(DESIGN_V2_DRAFT_CACHE_KEY);
+    }
+  } catch { /* quota exceeded — silently ignore */ }
+}
+
 // Immediately apply design tokens on startup (cached published design or defaults)
 const initialPublishedDesign = loadCachedPublishedDesign();
-if (initialPublishedDesign?.config) {
+const initialAdminDraft = loadCachedAdminDraft();
+
+if (initialAdminDraft) {
+  applyPublishedDesignTokens(initialAdminDraft);
+} else if (initialPublishedDesign?.config) {
   applyPublishedDesignTokens(initialPublishedDesign.config);
 } else {
   applyPublishedDesignTokens(DEFAULT_DESIGN_CONFIG_V2);
@@ -493,7 +519,7 @@ export const useSettingsStore = create((set, get) => {
     // adminDraftDesignV2: черновик администратора, изолирован внутри preview.
     //   Не влияет на реальное приложение до публикации.
     publishedDesignV2: initialPublishedDesign,
-    adminDraftDesignV2: null,
+    adminDraftDesignV2: initialAdminDraft,
 
     /** Применяет опубликованный global design (из /init или /design/global).
      *  Сохраняет в localStorage-кеш и применяет CSS tokens к app root. */
@@ -503,19 +529,30 @@ export const useSettingsStore = create((set, get) => {
       const doc = { ...serverDoc, config: normalized };
       saveCachedPublishedDesign(doc);
       set({ publishedDesignV2: doc });
-      applyPublishedDesignTokens(normalized);
+      if (!get().isAdmin || !get().adminDraftDesignV2) {
+        applyPublishedDesignTokens(normalized);
+      }
     },
 
-    /** Обновляет admin draft (только в памяти, не трогает published). */
+    /** Обновляет admin draft (сохраняет в кеш и при необходимости применяет токены). */
     setAdminDraftDesignV2: (config) => {
       const normalized = normalizeDesignConfig(config);
+      saveCachedAdminDraft(normalized);
       set({ adminDraftDesignV2: normalized });
+      if (get().isAdmin) {
+        applyPublishedDesignTokens(normalized);
+      }
     },
 
     /** Патчит одно поле в admin draft по dot-path. */
     patchAdminDraft: (path, value) => {
       const current = get().adminDraftDesignV2 ?? normalizeDesignConfig(get().publishedDesignV2?.config);
-      set({ adminDraftDesignV2: patchDesignValue(current, path, value) });
+      const updated = patchDesignValue(current, path, value);
+      saveCachedAdminDraft(updated);
+      set({ adminDraftDesignV2: updated });
+      if (get().isAdmin) {
+        applyPublishedDesignTokens(updated);
+      }
     },
 
     /** Публикует admin draft: отправляет на сервер, при успехе обновляет published. */
@@ -551,7 +588,12 @@ export const useSettingsStore = create((set, get) => {
       try {
         const res = await api.get('/admin/design/draft');
         if (res.data?.config) {
-          set({ adminDraftDesignV2: normalizeDesignConfig(res.data.config) });
+          const normalized = normalizeDesignConfig(res.data.config);
+          saveCachedAdminDraft(normalized);
+          set({ adminDraftDesignV2: normalized });
+          if (get().isAdmin) {
+            applyPublishedDesignTokens(normalized);
+          }
         }
       } catch (e) {
         console.warn('Failed to load admin draft:', e);
@@ -561,7 +603,12 @@ export const useSettingsStore = create((set, get) => {
     /** Возвращает draft к текущему published design. */
     revertDraftToPublished: () => {
       const published = get().publishedDesignV2?.config;
-      set({ adminDraftDesignV2: published ? normalizeDesignConfig(published) : normalizeDesignConfig(null) });
+      const target = published ? normalizeDesignConfig(published) : normalizeDesignConfig(null);
+      saveCachedAdminDraft(target);
+      set({ adminDraftDesignV2: target });
+      if (get().isAdmin) {
+        applyPublishedDesignTokens(target);
+      }
     },
 
     /** Сбрасывает конкретную секцию в draft до defaults. */
@@ -569,19 +616,37 @@ export const useSettingsStore = create((set, get) => {
       const current = get().adminDraftDesignV2 ?? normalizeDesignConfig(null);
       if (!(section in DEFAULT_DESIGN_CONFIG_V2)) return;
       const updated = { ...current, [section]: JSON.parse(JSON.stringify(DEFAULT_DESIGN_CONFIG_V2[section])) };
+      saveCachedAdminDraft(updated);
       set({ adminDraftDesignV2: updated });
+      if (get().isAdmin) {
+        applyPublishedDesignTokens(updated);
+      }
     },
 
     /** Инициализирует admin draft из опубликованного дизайна (при открытии редактора). */
     initAdminDraftFromPublished: () => {
       const published = get().publishedDesignV2?.config;
       if (!get().adminDraftDesignV2) {
-        set({ adminDraftDesignV2: published ? normalizeDesignConfig(published) : normalizeDesignConfig(null) });
+        const target = published ? normalizeDesignConfig(published) : normalizeDesignConfig(null);
+        saveCachedAdminDraft(target);
+        set({ adminDraftDesignV2: target });
+        if (get().isAdmin) {
+          applyPublishedDesignTokens(target);
+        }
       }
     },
 
     /** Backend-authoritative setter для isAdmin. Вызывается из /init ответа. */
-    setIsAdmin: (value) => set({ isAdmin: Boolean(value) }),
+    setIsAdmin: (value) => {
+      const isAdmin = Boolean(value);
+      set({ isAdmin });
+      if (isAdmin) {
+        const draft = get().adminDraftDesignV2;
+        if (draft) {
+          applyPublishedDesignTokens(draft);
+        }
+      }
+    },
 
     customBackgrounds: [],
     setCustomBackgrounds: (bgs) => set({ customBackgrounds: bgs }),
