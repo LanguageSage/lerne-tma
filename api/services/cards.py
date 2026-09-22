@@ -154,14 +154,19 @@ def save_card(data, user_id):
         card.metadata = merge_cefr_metadata(card.metadata, data.get('cefr'))
 
     # Проверяем, не перепутаны ли стороны (меняем только если на лицевой кириллица, а на обороте непустая латиница)
+    # Отключаем этот механизм для интерактивных карточек (match, puzzle, word_bank, quiz, etc.) и карточек с маркерами блоков.
     import re
-    if card.front_text and card.back_text and re.search(r'[а-яА-ЯёЁ]', card.front_text) and not re.search(r'[а-яА-ЯёЁ]', card.back_text) and re.search(r'[a-zA-ZäöüßÄÖÜ]', card.back_text):
-        logger.info("Swapping front and back for saved card because front contains Cyrillic and back contains Latin.")
-        front = card.front_text
-        back = card.back_text
-        card.front_text = back
-        card.back_text = front
-        card.audio_path = None
+    is_standard = (data.get('card_type') == 'standard' or getattr(card, 'card_type', 'standard') == 'standard')
+    has_exercise_markers = re.search(r'(@match|@puzzle|@wordbank|@free|::exercise|::task|::example|::source|::options)', card.front_text or "", re.IGNORECASE)
+    
+    if is_standard and not has_exercise_markers and card.front_text and card.back_text:
+        if re.search(r'[а-яА-ЯёЁ]', card.front_text) and not re.search(r'[а-яА-ЯёЁ]', card.back_text) and re.search(r'[a-zA-ZäöüßÄÖÜ]', card.back_text):
+            logger.info("Swapping front and back for saved card because front contains Cyrillic and back contains Latin.")
+            front = card.front_text
+            back = card.back_text
+            card.front_text = back
+            card.back_text = front
+            card.audio_path = None
 
     # Гарантируем, что обязательные поля не None
     if card.front_text is None: card.front_text = ""

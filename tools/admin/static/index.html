@@ -26,74 +26,72 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
   <!-- Header / Navigation -->
-  <header class="glass sticky top-0 z-40 px-6 py-4 flex items-center justify-between border-b border-slate-800">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
+  <header class="glass sticky top-0 z-40 px-4 py-2 flex items-center justify-between gap-3 border-b border-slate-800">
+    <!-- Left: Logo & Title -->
+    <div class="flex items-center gap-2 shrink-0">
+      <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-indigo-500/20">
         🛡️
       </div>
-      <div>
-        <h1 class="font-bold text-lg leading-tight text-white">Lerne TMA Admin</h1>
-        <p class="text-xs text-slate-400">Управление пользователями, дефолтными колодами и ИИ</p>
-      </div>
+      <span class="font-bold text-sm text-white tracking-tight whitespace-nowrap">Lerne Admin</span>
     </div>
 
-    <!-- Right side: Staged Queue Controls + Navigation Tabs -->
-    <div class="flex items-center gap-3 flex-wrap justify-end">
-      <!-- Live Server Heartbeat Status -->
-      <div id="server-status-pill" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-semibold shadow-inner" title="Статус подключения к API">
+    <!-- Center: Navigation Tabs in 1 Compact Row -->
+    <nav class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 overflow-x-auto scrollbar-none">
+      <button onclick="switchTab('users')" id="tab-users" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 bg-indigo-600 text-white shadow shrink-0">
+        <i data-lucide="users" class="w-3.5 h-3.5"></i> <span>Пользователи</span>
+      </button>
+      <button onclick="switchTab('decks')" id="tab-decks" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <i data-lucide="layers" class="w-3.5 h-3.5"></i> <span>Все колоды</span>
+      </button>
+      <button onclick="switchTab('folders')" id="tab-folders" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <i data-lucide="folder" class="w-3.5 h-3.5 text-indigo-400"></i> <span>Папки</span> (<span id="folders-tab-badge">0</span>)
+      </button>
+      <button onclick="switchTab('ai')" id="tab-ai" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> <span>ИИ Перегенерация</span>
+      </button>
+      <button onclick="switchTab('bulk')" id="tab-bulk" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-emerald-400"></i> <span>Массовое создание</span>
+      </button>
+      <button onclick="switchTab('classification')" id="tab-classification" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <i data-lucide="tags" class="w-3.5 h-3.5 text-cyan-400"></i> <span>CEFR классификация</span>
+      </button>
+      <button onclick="switchTab('backups')" id="tab-backups" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <i data-lucide="hard-drive" class="w-3.5 h-3.5"></i> <span>Бэкапы БД</span>
+      </button>
+      <button onclick="switchTab('backup-explorer')" id="tab-backup-explorer" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <i data-lucide="scan-search" class="w-3.5 h-3.5 text-purple-400"></i> <span>Инспектор бэкапов</span>
+      </button>
+      <button onclick="switchTab('media-manager')" id="tab-media-manager" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <i data-lucide="image" class="w-3.5 h-3.5 text-pink-400"></i> <span>Галерея картин</span>
+      </button>
+    </nav>
+
+    <!-- Right: Status Pill & Queue Badge -->
+    <div class="flex items-center gap-2 shrink-0">
+      <!-- Live Server Status -->
+      <div id="server-status-pill" class="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-semibold shadow-inner" title="Статус подключения к API">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         <span>8050 онлайн</span>
       </div>
 
-      <!-- Global Active Background Task Badge -->
-      <button id="global-task-badge" onclick="onGlobalTaskBadgeClick()" class="hidden px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 animate-pulse transition" title="Кликните для перехода к активной задаче">
+      <!-- Active Task Badge -->
+      <button id="global-task-badge" onclick="onGlobalTaskBadgeClick()" class="hidden px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 animate-pulse transition" title="Кликните для перехода к активной задаче">
         <i data-lucide="activity" class="w-3.5 h-3.5"></i>
-        <span id="global-task-text">Задача: 0%</span>
+        <span id="global-task-text">0%</span>
       </button>
 
       <!-- Staged Queue Quick Bar -->
-      <div id="header-staged-box" class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 p-1 rounded-xl shadow-inner">
-        <button onclick="openStagedDecksModal()" id="btn-header-staged" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60" title="Открыть менеджер очереди">
-          <i data-lucide="package" class="w-4 h-4 text-indigo-400"></i>
+      <div id="header-staged-box" class="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl shadow-inner">
+        <button onclick="openStagedDecksModal()" id="btn-header-staged" class="px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60" title="Открыть менеджер очереди">
+          <i data-lucide="package" class="w-3.5 h-3.5 text-indigo-400"></i>
           <span>Очередь:</span>
           <span id="header-staged-count" class="px-1.5 py-0.5 rounded bg-indigo-600/30 text-indigo-300 font-mono font-bold text-xs">0</span>
           <span class="text-slate-400 font-normal text-xs">(<span id="header-staged-cards">0</span> к.)</span>
         </button>
-        <button onclick="clearStagedDecks()" id="btn-header-clear-staged" class="hidden px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-bold rounded-lg border border-rose-500/30 flex items-center gap-1 transition" title="Очистить всю очередь отложенных колод">
-          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Очистить
+        <button onclick="clearStagedDecks()" id="btn-header-clear-staged" class="hidden px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-bold rounded-lg border border-rose-500/30 flex items-center gap-1 transition" title="Очистить очередь">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
         </button>
       </div>
-
-      <!-- Tabs -->
-      <nav class="flex flex-wrap gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
-        <button onclick="switchTab('users')" id="tab-users" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 bg-indigo-600 text-white shadow-md">
-          <i data-lucide="users" class="w-4 h-4"></i> Пользователи
-        </button>
-        <button onclick="switchTab('decks')" id="tab-decks" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
-          <i data-lucide="layers" class="w-4 h-4"></i> Все колоды
-        </button>
-        <button onclick="switchTab('folders')" id="tab-folders" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
-          <i data-lucide="folder" class="w-4 h-4 text-indigo-400"></i> Папки (<span id="folders-tab-badge">0</span>)
-        </button>
-        <button onclick="switchTab('ai')" id="tab-ai" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
-          <i data-lucide="sparkles" class="w-4 h-4"></i> ИИ Перегенерация
-        </button>
-        <button onclick="switchTab('bulk')" id="tab-bulk" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
-          <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-400"></i> ➕ Массовое создание
-        </button>
-        <button onclick="switchTab('classification')" id="tab-classification" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
-          <i data-lucide="tags" class="w-4 h-4 text-cyan-400"></i> CEFR классификация
-        </button>
-        <button onclick="switchTab('backups')" id="tab-backups" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
-          <i data-lucide="hard-drive" class="w-4 h-4"></i> Бэкапы БД
-        </button>
-        <button onclick="switchTab('backup-explorer')" id="tab-backup-explorer" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
-          <i data-lucide="scan-search" class="w-4 h-4 text-purple-400"></i> 📦 Инспектор бэкапов
-        </button>
-        <button onclick="switchTab('media-manager')" id="tab-media-manager" class="px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
-          <i data-lucide="image" class="w-4 h-4 text-pink-400"></i> Галерея картинок
-        </button>
-      </nav>
     </div>
   </header>
 

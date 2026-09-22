@@ -27,6 +27,8 @@ from api.services.prompt_builders import (
     build_quiz_prompt,
     build_match_prompt,
     build_puzzle_prompt,
+    build_word_bank_prompt,
+    build_free_text_prompt,
     get_system_presets,
 )
 
@@ -44,5 +46,7 @@ __all__ = [
     "build_quiz_prompt",
     "build_match_prompt",
     "build_puzzle_prompt",
+    "build_word_bank_prompt",
+    "build_free_text_prompt",
     "get_system_presets",
 ]
