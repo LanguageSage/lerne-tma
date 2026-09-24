@@ -1,0 +1,137 @@
+c:\121\Lerne_projekt\bot\requirements.txt
+c:\121\Lerne_projekt\Lerne\deck_debug.txt
+c:\121\Lerne_projekt\Lerne\requirements.txt
+c:\121\Lerne_projekt\Lerne\TMA_DEPLOYMENT_GUIDE.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\browser\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\clarity\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\clean-code-mentor\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\db-mgmt\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\git-helper\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\python-dev\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\python-optimize\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\python-refactor\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\skill-creator\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\ui-styling\SKILL.md
+c:\121\Lerne_projekt\Lerne\.agent\skills\web-design\SKILL.md
+c:\121\Lerne_projekt\Lerne\.pytest_cache\README.md
+c:\121\Lerne_projekt\Lerne\project_docs\CLASSIFICATION_LOGIC.md
+c:\121\Lerne_projekt\Lerne\project_docs\DECISIONS_LOG.md
+c:\121\Lerne_projekt\Lerne\project_docs\developer_guide.md
+c:\121\Lerne_projekt\Lerne\project_docs\DOCS_MAP.md
+c:\121\Lerne_projekt\Lerne\project_docs\OVERVIEW.md
+c:\121\Lerne_projekt\Lerne\project_docs\PROJECT_MAP.md
+c:\121\Lerne_projekt\Lerne\project_docs\USER_FILES.md
+c:\121\Lerne_projekt\Lerne\project_docs\Гибкие разделители промптов.md
+c:\121\Lerne_projekt\Lerne\project_docs\стек.md
+c:\121\Lerne_projekt\Lerne\project_docs\academy\knowledge_base_db_media.md
+c:\121\Lerne_projekt\Lerne\project_docs\academy\mentorship_approach.md
+c:\121\Lerne_projekt\Lerne\project_docs\academy\project_architecture.md
+c:\121\Lerne_projekt\Lerne\project_docs\ARCHITECTURE\ARCHITECTURE.md
+c:\121\Lerne_projekt\Lerne\project_docs\ARCHITECTURE\DATA_FLOWS.md
+c:\121\Lerne_projekt\Lerne\project_docs\ARCHITECTURE\DIRECTORY_STRUCTURE.md
+c:\121\Lerne_projekt\Lerne\project_docs\ARCHITECTURE\IMPLEMENTATION_PLAN.md
+c:\121\Lerne_projekt\Lerne\project_docs\ARCHITECTURE\IMPLEMENTATION_SPEC.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\CARD_EDITOR_PLAN.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\card_format.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\export_audio_system.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\E_REFACTORING_PLAN.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\grammar_topics_dictionary.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\learning_with_ai.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\markdown_colors_brainstorming.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\MULTI_LANGUAGE_PLAN.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\prompt_system_logic_analysis.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\теме в немецком.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\улучшения системы логирования.md
+c:\121\Lerne_projekt\Lerne\project_docs\archive\Умный сбор и адаптивное обучение в Lerne.md
+c:\121\Lerne_projekt\Lerne\project_docs\библиотека\ui_best_practices.md
+c:\121\Lerne_projekt\Lerne\project_docs\планы\ROADMAP_2026.md
+c:\121\Lerne_projekt\Lerne\project_docs\планы\карта уровней.md
+c:\121\Lerne_projekt\Lerne\project_docs\планы\пробелы в системе промтов и классификации.md
+c:\121\Lerne_projekt\Lerne\scratch\db_check_output.txt
+c:\121\Lerne_projekt\Lerne\scratch\phrase_check_output.txt
+c:\121\Lerne_projekt\Lerne\scratch\simulation_output.txt
+c:\121\Lerne_projekt\Lerne\user_files\data\clean_prompt.txt
+c:\121\Lerne_projekt\Lerne\user_files\data\pending_cards.txt
+c:\121\Lerne_projekt\Lerne-UI\README.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\browser\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\clarity\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\db-mgmt\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\git-helper\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\python-dev\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\python-optimize\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\python-refactor\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\skill-creator\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\ui-styling\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\.agent\skills\web-design\SKILL.md
+c:\121\Lerne_projekt\Lerne-UI\backend\requirements.txt
+c:\121\Lerne_projekt\Lerne-UI\backend\user_files\data\clean_prompt.txt
+c:\121\Lerne_projekt\Lerne-UI\backend\user_files\data\pending_cards.txt
+c:\121\Lerne_projekt\Lerne-UI\docs\LERNE_TRANSFER_AUDIT.md
+c:\121\Lerne_projekt\Lerne-UI\src-tauri\target\debug\build\rust_decimal-ddef7b7a4b8e813b\out\README-lib.md
+c:\121\Lerne_projekt\telegram-ai-bot\FEATURES.md
+c:\121\Lerne_projekt\telegram-ai-bot\README.md
+c:\121\Lerne_projekt\telegram-ai-bot\requirements.txt
+c:\121\Lerne_projekt\tma\AGENTS.md
+c:\121\Lerne_projekt\tma\all_md_files.txt
+c:\121\Lerne_projekt\tma\out.txt
+c:\121\Lerne_projekt\tma\.agents\ADMIN_ARCHITECTURE.md
+c:\121\Lerne_projekt\tma\.agents\AGENTS.md
+c:\121\Lerne_projekt\tma\.agents\ARCHITECTURE.md
+c:\121\Lerne_projekt\tma\.agents\docs\CHAT_UI_SKILL_PROPOSAL.md
+c:\121\Lerne_projekt\tma\.agents\rules\architectural_integrity.md
+c:\121\Lerne_projekt\tma\.agents\rules\offline_mode.md
+c:\121\Lerne_projekt\tma\.agents\skills\ai-harness-eval\SKILL.md
+c:\121\Lerne_projekt\tma\.agents\skills\db-mgmt\SKILL.md
+c:\121\Lerne_projekt\tma\.agents\skills\fastapi-backend\SKILL.md
+c:\121\Lerne_projekt\tma\.agents\skills\lean-code\SKILL.md
+c:\121\Lerne_projekt\tma\.agents\skills\tma-ui\SKILL.md
+c:\121\Lerne_projekt\tma\.gemini\antigravity\scratch\library_decks.txt
+c:\121\Lerne_projekt\tma\.vercel\README.txt
+c:\121\Lerne_projekt\tma\api\requirements.txt
+c:\121\Lerne_projekt\tma\api\auth\DEPLOYMENT.md
+c:\121\Lerne_projekt\tma\api\services\classifier\README.md
+c:\121\Lerne_projekt\tma\app\README.md
+c:\121\Lerne_projekt\tma\docs\USER_MANUAL.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\AGENTS.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\common.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\validation.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\patterns\image-source.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\patterns\raw-text.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\patterns\textbook-exercise.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\types\free-text.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\types\match.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\types\puzzle.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\types\quiz.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\types\standard.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\types\trainer-choice.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\types\trainer-input.md
+c:\121\Lerne_projekt\tma\lerne-card-prompts\types\word-bank.md
+c:\121\Lerne_projekt\tma\project_docs\DECISIONS_LOG.md
+c:\121\Lerne_projekt\tma\project_docs\DOCS_MAP.md
+c:\121\Lerne_projekt\tma\project_docs\FULL_DOCUMENTATION.md
+c:\121\Lerne_projekt\tma\project_docs\function_guide.md
+c:\121\Lerne_projekt\tma\project_docs\FUTURE_PLANS.md
+c:\121\Lerne_projekt\tma\project_docs\алгоритм перемешивания в симуляторе.md
+c:\121\Lerne_projekt\tma\project_docs\Гарантированная отправка настроек в облако для пол.md
+c:\121\Lerne_projekt\tma\project_docs\Как сейчас работает генерация аудио.md
+c:\121\Lerne_projekt\tma\project_docs\как устроен Supabase изнутри и почему размер базы мгновенно уменьшится.md
+c:\121\Lerne_projekt\tma\project_docs\концепция классификации.md
+c:\121\Lerne_projekt\tma\project_docs\логирование.md
+c:\121\Lerne_projekt\tma\project_docs\мозговой штурм - удержания внимания для изучения.md
+c:\121\Lerne_projekt\tma\project_docs\Нумерация карточек в приложении работает по следую.md
+c:\121\Lerne_projekt\tma\project_docs\Синхронизация настроек пользователя между устройст.md
+c:\121\Lerne_projekt\tma\project_docs\ARCHITECTURE\AUTH_V2.md
+c:\121\Lerne_projekt\tma\project_docs\ARCHITECTURE\DATABASE_AND_STORAGE.md
+c:\121\Lerne_projekt\tma\project_docs\ARCHITECTURE\SMART_SYNC_PLAN.md
+c:\121\Lerne_projekt\tma\project_docs\ARCHITECTURE\SRS_SYSTEM.md
+c:\121\Lerne_projekt\tma\project_docs\archive\cloud_deployment_plan.md
+c:\121\Lerne_projekt\tma\project_docs\archive\MIGRATION_REPORT.md
+c:\121\Lerne_projekt\tma\project_docs\reports\AUTH_SECURITY_REVIEW.md
+c:\121\Lerne_projekt\tma\project_docs\reports\duplicate_management_fix_report.md
+c:\121\Lerne_projekt\tma\project_docs\аудио\Перенос аудиофайлов в публичный бакет audio.md
+c:\121\Lerne_projekt\tma\scratch\i18n-build.txt
+c:\121\Lerne_projekt\tma\scratch\i18n-lines.txt
+c:\121\Lerne_projekt\tma\scratch\i18n-lint.txt
+c:\121\Lerne_projekt\tma\scripts\README_REGENERATE.md
+c:\121\Lerne_projekt\tma\tools\README.md
+c:\121\Lerne_projekt\tma\tools\admin\README_ADMIN.md
