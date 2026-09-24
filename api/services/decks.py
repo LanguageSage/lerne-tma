@@ -287,6 +287,37 @@ def merge_guest_data(guest_id: int, target_user_id: int):
 
 
 
+def get_next_deck_position(user_id: int, folder_id: int = None, target_language: str = 'de') -> int:
+    """Возвращает следующий порядковый номер position для создаваемой колоды."""
+    try:
+        lang = (target_language or 'de').lower().strip()
+        
+        if folder_id is not None:
+            query = TMA_Deck.select(fn.MAX(TMA_Deck.position)).where(
+                (TMA_Deck.folder_id == folder_id) & 
+                (TMA_Deck.is_deleted == False)
+            )
+        else:
+            from .collaborative_service import get_user_accessible_deck_ids
+            accessible_ids = get_user_accessible_deck_ids(user_id)
+            if not accessible_ids:
+                return 0
+            
+            lang_cond = (TMA_Deck.target_language == lang) | (TMA_Deck.target_language.is_null() if lang == 'de' else False)
+            query = TMA_Deck.select(fn.MAX(TMA_Deck.position)).where(
+                (TMA_Deck.id << list(accessible_ids)) &
+                (TMA_Deck.folder_id.is_null()) &
+                (TMA_Deck.is_deleted == False) &
+                lang_cond
+            )
+        
+        max_pos = query.scalar()
+        return (max_pos + 1) if max_pos is not None else 0
+    except Exception as e:
+        logger.error(f"Error calculating get_next_deck_position: {e}")
+        return 0
+
+
 def create_deck(name: str, user_id: int, folder_id: int = None, target_language: str = 'de', deck_type: str = 'standard'):
     """Создает новую пользовательскую колоду."""
     try:
@@ -298,17 +329,20 @@ def create_deck(name: str, user_id: int, folder_id: int = None, target_language:
             elif role is None:
                 raise PermissionError("Родительская папка не найдена или нет доступа")
 
-        meta_dict = {"resources": [], "is_learning": False}
-        deck = TMA_Deck.create(
-            user_id=user_id,
-            name=name,
-            folder_id=folder_id,
-            target_language=target_language or 'de',
-            metadata=json.dumps(meta_dict),
-            created_at=datetime.datetime.now(),
-            updated_at=datetime.datetime.now()
-        )
-        return deck
+        with tma_db.atomic():
+            next_position = get_next_deck_position(user_id=user_id, folder_id=folder_id, target_language=target_language)
+            meta_dict = {"resources": [], "is_learning": False}
+            deck = TMA_Deck.create(
+                user_id=user_id,
+                name=name,
+                folder_id=folder_id,
+                target_language=target_language or 'de',
+                position=next_position,
+                metadata=json.dumps(meta_dict),
+                created_at=datetime.datetime.now(),
+                updated_at=datetime.datetime.now()
+            )
+            return deck
 
     except PermissionError:
         raise

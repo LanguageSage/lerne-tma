@@ -14,7 +14,9 @@ const axiosInstance = axios.create({
 // The server supports both Bearer token and X-User-ID headers.
 axiosInstance.interceptors.request.use((config) => {
   const url = config.url || '';
-  if (url.includes('/ai') || url.includes('/cards/ai-generate') || url.includes('/cards/save') || url.includes('/cards/bulk-save')) {
+  if (url.includes('/cards/bulk-save')) {
+    config.timeout = 120000;
+  } else if (url.includes('/ai') || url.includes('/cards/ai-generate') || url.includes('/cards/save')) {
     config.timeout = 45000;
   }
   const token = getAccessToken();

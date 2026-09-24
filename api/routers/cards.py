@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 import logging
 
@@ -36,7 +37,7 @@ async def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int 
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/bulk-save")
-async def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
+def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
     try:
         from api import models
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
@@ -45,14 +46,20 @@ async def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
         cards_list = data.get("cards", [])
         if not cards_list:
             raise HTTPException(status_code=400, detail="Список карточек пуст.")
-        res = services.bulk_save_cards(cards_list, user_id)
+        import_id = data.get('import_id')
+        if import_id is not None:
+            try:
+                import_id = str(UUID(str(import_id)))
+            except (ValueError, TypeError, AttributeError):
+                raise HTTPException(status_code=422, detail='Некорректный import_id')
+        res = services.bulk_save_cards(cards_list, user_id, import_id=import_id)
         if isinstance(res, dict):
             return res
         return {"status": "success", "count": len(res), "cards": res}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Router bulk_save error: {e}")
+        logger.error("Router bulk_save error type=%s", type(e).__name__)
         raise HTTPException(status_code=400, detail=str(e))
 
 

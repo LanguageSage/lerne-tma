@@ -12,6 +12,28 @@ import { db } from '../../services/localDb';
 import { hasCardSeparatorLine, LERNE_CARD_SEPARATOR, parseBatchCardsText } from '../../utils/batchCardParser';
 import { detectExerciseType } from '../../utils/exerciseDetector';
 import api from '../../services/api';
+import { getUserId } from '../../utils/auth';
+
+const importStorageKey = (deckId) => `lerne_bulk_import_${getUserId() || 'anon'}_${deckId}`;
+const pendingInMemory = new Map();
+
+const readPendingImports = (deckId) => {
+  const key = importStorageKey(deckId);
+  if (pendingInMemory.has(key)) return pendingInMemory.get(key);
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch { return pendingInMemory.get(key) || []; }
+};
+
+const writePendingImports = (deckId, entries) => {
+  const key = importStorageKey(deckId);
+  pendingInMemory.set(key, entries);
+  try {
+    if (entries.length) localStorage.setItem(key, JSON.stringify(entries));
+    else localStorage.removeItem(key);
+  } catch { /* Keep the retry in memory when storage is unavailable. */ }
+};
 
 export const BatchCardModal = () => {
   useInterfaceLocale();
@@ -26,6 +48,17 @@ export const BatchCardModal = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMode, setProcessingMode] = useState(''); // 'ai' | 'direct'
   const [generatedCards, setGeneratedCards] = useState(null);
+  const [importOutcome, setImportOutcome] = useState(null); // in_progress | unknown
+
+  useEffect(() => {
+    if (!isBatchModalOpen || !currentDeck?.id) return;
+    const pending = readPendingImports(currentDeck.id).at(-1);
+    if (pending) {
+      setRawText(text => text || pending.rawText);
+      setImportOutcome('unknown');
+      setActiveTab('import');
+    }
+  }, [isBatchModalOpen, currentDeck?.id]);
 
   const importPlaceholder = useMemo(() => {
     return `FRONT:
@@ -95,6 +128,7 @@ BACK:
     setIsProcessing(false);
     setProcessingMode('');
     setGeneratedCards(null);
+    setImportOutcome(null);
     setIsBatchModalOpen(false);
   };
 
@@ -217,11 +251,10 @@ BACK:
 
     setIsProcessing(true);
     setProcessingMode('direct');
+    let attempt;
+    const deckId = currentDeck?.id;
     try {
-      const { deckCards } = useDeckStore.getState();
-      const currentPos = deckCards?.length || 0;
-
-      const payloadCards = parsedCards.map((c, idx) => ({
+      const payloadCards = parsedCards.map(c => ({
         deck_id: currentDeck?.id || null,
         front: c.front,
         front_text: c.front,
@@ -231,25 +264,42 @@ BACK:
         card_type: detectExerciseType(c) || c.card_type || 'standard',
         level: c.level,
         tags: c.tags,
-        position: currentPos + idx,
         source: 'batch_import'
       }));
-
-      const res = await api.post('/cards/bulk-save', { cards: payloadCards });
-      const savedCardsList = res.data?.cards || payloadCards;
-      const failedCount = res.data?.failed_count || 0;
+      const pending = readPendingImports(deckId);
+      attempt = pending.find(entry => entry.rawText === rawText);
+      if (!attempt) {
+        attempt = { import_id: crypto.randomUUID(), rawText, cards: payloadCards };
+        writePendingImports(deckId, [...pending, attempt]);
+      }
+      setImportOutcome('in_progress');
+      const res = await api.post('/cards/bulk-save', { import_id: attempt.import_id, cards: attempt.cards });
+      writePendingImports(deckId, readPendingImports(deckId).filter(entry => entry.import_id !== attempt.import_id));
+      const savedCardsList = res.data?.cards || [];
+      const createdCount = res.data?.created ?? savedCardsList.length;
+      const failedCount = res.data?.failed?.length ?? res.data?.failed_count ?? 0;
 
       setGeneratedCards(savedCardsList);
+      setImportOutcome(null);
       await updateLocalStores(savedCardsList);
 
       if (failedCount > 0) {
-        showToast(tr("Добавлено {{p0}} карточек, пропущено с ошибкой: {{p1}}", { p0: savedCardsList.length, p1: failedCount }), 'warning');
+        showToast(tr("Добавлено {{p0}} карточек, пропущено с ошибкой: {{p1}}", { p0: createdCount, p1: failedCount }), 'warning');
       } else {
-        showToast(tr("Успешно добавлено {{p0}} карточек!", { p0: savedCardsList.length }), 'success');
+        showToast(tr("Успешно добавлено {{p0}} карточек!", { p0: createdCount }), 'success');
       }
     } catch (err) {
-      console.error('Bulk save error:', err);
-      showToast(tr("Ошибка импорта: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');
+      const outcomeUnknown = err.code === 'ECONNABORTED' || err.customTimeoutMsg || !err.response || err.response.status === 504;
+      if (outcomeUnknown) {
+        setImportOutcome('unknown');
+        showToast(tr("Результат импорта пока неизвестен. Сервер может продолжать работу. Повторите запрос с тем же импортом."), 'warning');
+      } else {
+        if (attempt) {
+          writePendingImports(deckId, readPendingImports(deckId).filter(entry => entry.import_id !== attempt.import_id));
+        }
+        setImportOutcome(null);
+        showToast(tr("Ошибка импорта: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');
+      }
     } finally {
       setIsProcessing(false);
       setProcessingMode('');
@@ -386,7 +436,7 @@ BACK:
                     <textarea
                       rows={9}
                       value={rawText}
-                      onChange={(e) => setRawText(e.target.value)}
+                      onChange={(e) => { setRawText(e.target.value); setImportOutcome(null); }}
                       disabled={isProcessing}
                       placeholder={importPlaceholder}
                       style={{
@@ -595,8 +645,16 @@ BACK:
             )}
           </div>
 
+          {importOutcome === 'unknown' && activeTab === 'import' && !generatedCards && (
+            <div role="status" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 12,
+              color: '#fbbf24', fontSize: '0.84rem', lineHeight: 1.4 }}>
+              <AlertCircle size={18} style={{ flexShrink: 0 }} />
+              <span>{tr("Результат импорта неизвестен: сервер может ещё сохранять карточки. Повторите запрос — новые копии не появятся.")}</span>
+            </div>
+          )}
+
           {/* Footer Actions */}
-          <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
             {!generatedCards ? (
               <>
                 <button
@@ -615,7 +673,8 @@ BACK:
                       title={tr("Мгновенно сохранить карточки без вызова ИИ")}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '10px 14px', borderRadius: 12, fontSize: '0.86rem'
+                        padding: '10px 14px', borderRadius: 12, fontSize: '0.86rem', minHeight: 44,
+                        flex: importOutcome === 'unknown' ? '1 1 100%' : undefined
                       }}
                     >
                       {isProcessing && processingMode === 'direct' ? (
@@ -623,7 +682,7 @@ BACK:
                       ) : (
                         <Zap size={16} />
                       )}
-                      <span>{tr("Создать ({{p0}})", { p0: parsedCards.length })}</span>
+                      <span>{importOutcome === 'unknown' ? tr("Проверить результат и повторить") : tr("Создать ({{p0}})", { p0: parsedCards.length })}</span>
                     </button>
 
                     <button
