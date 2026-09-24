@@ -984,13 +984,17 @@ def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
         raise e
 
 
-def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None) -> dict:
+def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None, placement: str = 'end') -> dict:
     """Save a batch; an import receipt and its cards commit in the same transaction."""
+    if placement not in ('start', 'end'):
+        raise HTTPException(422, 'Некорректное положение импорта')
     started = time.monotonic()
     requested = len(cards_data)
     deck_ids = {str(item.get('deck_id')) for item in cards_data if isinstance(item, dict)}
     deck_id = next(iter(deck_ids)) if len(deck_ids) == 1 else None
-    payload_hash = hashlib.sha256(json.dumps(cards_data, sort_keys=True, ensure_ascii=False, default=str,
+    # Preserve the hash of pending receipts created before placement was introduced.
+    hash_payload = cards_data if placement == 'end' else {'cards': cards_data, 'placement': placement}
+    payload_hash = hashlib.sha256(json.dumps(hash_payload, sort_keys=True, ensure_ascii=False, default=str,
                                               separators=(',', ':')).encode('utf-8')).hexdigest()
     saved_cards = []
     failed_cards = []
@@ -1017,11 +1021,15 @@ def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None) -> di
             fast_path = len(deck_ids) == 1 and all(
                 isinstance(item, dict) and not (item.get('id') or item.get('card_id'))
                 and not item.get('after_card_id') for item in cards_data)
+            if placement == 'start' and not fast_path:
+                raise HTTPException(422, 'Добавление в начало доступно только для новых карточек одной колоды')
             batch = None
             if fast_path:
                 try:
                     target_id = int(deck_id)
                 except (TypeError, ValueError):
+                    if placement == 'start':
+                        raise HTTPException(422, 'Для добавления в начало нужна колода')
                     fast_path = False
                 else:
                     deck = TMA_Deck.get_or_none((TMA_Deck.id == target_id) & (TMA_Deck.is_deleted == False))
@@ -1031,9 +1039,14 @@ def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None) -> di
                         from .collaborative_service import get_effective_user_role
                         if get_effective_user_role(user_id, 'deck', target_id) not in ('owner', 'editor', 'admin'):
                             raise HTTPException(403, 'Нет прав на изменение колоды')
-                    max_pos = TMA_Card.select(fn.Max(TMA_Card.position)).where(
+                    position_function = fn.Min if placement == 'start' else fn.Max
+                    edge_position = TMA_Card.select(position_function(TMA_Card.position)).where(
                         (TMA_Card.deck_id == target_id) & (TMA_Card.is_deleted == False)).scalar()
-                    batch = {'deck': deck, 'position': max_pos or 0}
+                    if placement == 'start' and edge_position is not None:
+                        initial_position = edge_position - requested - 1
+                    else:
+                        initial_position = edge_position or 0
+                    batch = {'deck': deck, 'position': initial_position}
 
             created_cards = []
             for idx, item in enumerate(cards_data):
@@ -1083,8 +1096,8 @@ def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None) -> di
                 receipt.save()
             return json.loads(serialized_response)
     finally:
-        logger.info("Bulk import import_id=%s deck_id=%s requested=%s created=%s failed=%s elapsed_ms=%s",
-                    import_id, deck_id, requested, logged_created, logged_failed,
+        logger.info("Bulk import import_id=%s deck_id=%s placement=%s requested=%s created=%s failed=%s elapsed_ms=%s",
+                    import_id, deck_id, placement, requested, logged_created, logged_failed,
                     round((time.monotonic() - started) * 1000))
 
 

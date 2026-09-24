@@ -93,6 +93,41 @@ class BulkImportTests(unittest.TestCase):
         self.assertEqual(error.exception.status_code, 409)
         self.assertEqual(models.TMA_Card.select().count(), 3)
 
+    def test_start_places_batch_before_existing_cards_without_moving_them(self):
+        first = models.TMA_Card.create(deck=self.deck, front_text='Existing first', back_text='x', position=0)
+        last = models.TMA_Card.create(deck=self.deck, front_text='Existing last', back_text='y', position=8)
+        models.TMA_Card.create(deck=self.deck, front_text='Deleted', back_text='z', position=-20,
+                               is_deleted=True)
+        result = cards.bulk_save_cards(self.batch(), 1, str(uuid4()), placement='start')
+        active = list(models.TMA_Card.select().where(
+            (models.TMA_Card.deck == self.deck) & (models.TMA_Card.is_deleted == False))
+            .order_by(models.TMA_Card.position, models.TMA_Card.id))
+        self.assertEqual(result['created'], 3)
+        self.assertEqual([card.front_text for card in active],
+                         ['Haus', '@wordbank\n<<1>>', '@match\na=b', 'Existing first', 'Existing last'])
+        self.assertEqual([card.position for card in active], [-3, -2, -1, 0, 8])
+        self.assertEqual(models.TMA_Card.get_by_id(first.id).position, 0)
+        self.assertEqual(models.TMA_Card.get_by_id(last.id).position, 8)
+
+    def test_start_on_empty_deck_and_retry_preserve_positions(self):
+        import_id = str(uuid4())
+        first = cards.bulk_save_cards(self.batch(), 1, import_id, placement='start')
+        self.assertEqual(cards.bulk_save_cards(self.batch(), 1, import_id, placement='start'), first)
+        self.assertEqual([card.position for card in models.TMA_Card.select().order_by(models.TMA_Card.position)],
+                         [1, 2, 3])
+        with self.assertRaises(HTTPException) as error:
+            cards.bulk_save_cards(self.batch(), 1, import_id, placement='end')
+        self.assertEqual(error.exception.status_code, 409)
+        self.assertEqual(models.TMA_Card.select().count(), 3)
+
+    def test_start_requires_new_cards_in_one_deck(self):
+        other = models.TMA_Deck.create(user_id=1, name='Other')
+        payload = [self.batch()[0], {**self.batch()[1], 'deck_id': other.id}]
+        with self.assertRaises(HTTPException) as error:
+            cards.bulk_save_cards(payload, 1, str(uuid4()), placement='start')
+        self.assertEqual(error.exception.status_code, 422)
+        self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
+
     def test_no_duplicate_filtering_and_other_deck_is_allowed(self):
         duplicate = self.batch()[0]
         cards.bulk_save_cards([duplicate, duplicate], 1, str(uuid4()))
@@ -137,6 +172,7 @@ class BulkImportTests(unittest.TestCase):
 
     def test_concurrent_retry_creates_one_batch(self):
         import_id = str(uuid4())
+        existing = models.TMA_Card.create(deck=self.deck, front_text='Existing', back_text='x', position=3)
         started = threading.Event()
         original = cards.save_card
 
@@ -148,7 +184,7 @@ class BulkImportTests(unittest.TestCase):
 
         def run_batch():
             try:
-                return cards.bulk_save_cards(self.batch(), 1, import_id)
+                return cards.bulk_save_cards(self.batch(), 1, import_id, placement='start')
             finally:
                 database.close()
 
@@ -158,7 +194,10 @@ class BulkImportTests(unittest.TestCase):
                 self.assertTrue(started.wait(5))
                 second = pool.submit(run_batch)
                 self.assertEqual(first.result(timeout=10), second.result(timeout=10))
-        self.assertEqual(models.TMA_Card.select().count(), 3)
+        self.assertEqual(models.TMA_Card.select().count(), 4)
+        self.assertEqual(models.TMA_Card.get_by_id(existing.id).position, 3)
+        self.assertEqual([card.front_text for card in models.TMA_Card.select().order_by(models.TMA_Card.position)],
+                         ['Haus', '@wordbank\n<<1>>', '@match\na=b', 'Existing'])
         self.assertEqual(models.TMAOfflineBatch.select().count(), 1)
 
 

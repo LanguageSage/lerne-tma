@@ -49,12 +49,14 @@ export const BatchCardModal = () => {
   const [processingMode, setProcessingMode] = useState(''); // 'ai' | 'direct'
   const [generatedCards, setGeneratedCards] = useState(null);
   const [importOutcome, setImportOutcome] = useState(null); // in_progress | unknown
+  const [importPlacement, setImportPlacement] = useState('end');
 
   useEffect(() => {
     if (!isBatchModalOpen || !currentDeck?.id) return;
     const pending = readPendingImports(currentDeck.id).at(-1);
     if (pending) {
       setRawText(text => text || pending.rawText);
+      setImportPlacement(pending.placement || 'end');
       setImportOutcome('unknown');
       setActiveTab('import');
     }
@@ -129,6 +131,7 @@ BACK:
     setProcessingMode('');
     setGeneratedCards(null);
     setImportOutcome(null);
+    setImportPlacement('end');
     setIsBatchModalOpen(false);
   };
 
@@ -136,6 +139,10 @@ BACK:
     if (activeTab !== 'import' || !rawText.trim()) return [];
     return parseBatchCardsText(rawText);
   }, [rawText, activeTab]);
+  const pendingForCurrentText = currentDeck?.id
+    ? readPendingImports(currentDeck.id).find(entry => entry.rawText === rawText)
+    : null;
+  const selectedPlacement = pendingForCurrentText?.placement || importPlacement;
 
   if (!isBatchModalOpen) return null;
 
@@ -269,11 +276,14 @@ BACK:
       const pending = readPendingImports(deckId);
       attempt = pending.find(entry => entry.rawText === rawText);
       if (!attempt) {
-        attempt = { import_id: crypto.randomUUID(), rawText, cards: payloadCards };
+        attempt = { import_id: crypto.randomUUID(), rawText, cards: payloadCards, placement: importPlacement };
         writePendingImports(deckId, [...pending, attempt]);
       }
+      setImportPlacement(attempt.placement || 'end');
       setImportOutcome('in_progress');
-      const res = await api.post('/cards/bulk-save', { import_id: attempt.import_id, cards: attempt.cards });
+      const res = await api.post('/cards/bulk-save', {
+        import_id: attempt.import_id, cards: attempt.cards, placement: attempt.placement || 'end'
+      });
       writePendingImports(deckId, readPendingImports(deckId).filter(entry => entry.import_id !== attempt.import_id));
       const savedCardsList = res.data?.cards || [];
       const createdCount = res.data?.created ?? savedCardsList.length;
@@ -431,6 +441,26 @@ BACK:
                   <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
                     {tr("Для обычной карточки достаточно FRONT:. BACK: и CONTEXT: необязательны. Карточки отделяются строкой:")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>{LERNE_CARD_SEPARATOR}</code>
                   </p>
+
+                  <div role="group" aria-label={tr("Положение новых карточек")} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#cbd5e1' }}>
+                      {tr("Положение новых карточек")}
+                    </span>
+                    <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 12, background: 'rgba(15, 23, 42, 0.65)' }}>
+                      {(['end', 'start']).map(value => (
+                        <button key={value} type="button" aria-pressed={selectedPlacement === value}
+                          disabled={isProcessing || !!pendingForCurrentText || !currentDeck?.id}
+                          onClick={() => setImportPlacement(value)}
+                          style={{ flex: 1, minWidth: 0, minHeight: 44, padding: '8px 10px', borderRadius: 9,
+                            border: 'none', fontSize: '0.82rem', fontWeight: selectedPlacement === value ? 700 : 500,
+                            color: selectedPlacement === value ? '#fff' : '#94a3b8',
+                            background: selectedPlacement === value ? 'rgba(168, 85, 247, 0.3)' : 'transparent',
+                            cursor: isProcessing || pendingForCurrentText ? 'default' : 'pointer' }}>
+                          {value === 'end' ? tr("В конец колоды") : tr("В начало колоды")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                   <div style={{ position: 'relative' }}>
                     <textarea

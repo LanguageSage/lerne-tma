@@ -52,7 +52,10 @@ def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
                 import_id = str(UUID(str(import_id)))
             except (ValueError, TypeError, AttributeError):
                 raise HTTPException(status_code=422, detail='Некорректный import_id')
-        res = services.bulk_save_cards(cards_list, user_id, import_id=import_id)
+        placement = data.get('placement', 'end')
+        if placement not in ('start', 'end'):
+            raise HTTPException(status_code=422, detail='Некорректное положение импорта')
+        res = services.bulk_save_cards(cards_list, user_id, import_id=import_id, placement=placement)
         if isinstance(res, dict):
             return res
         return {"status": "success", "count": len(res), "cards": res}
