@@ -82,19 +82,20 @@ export function parseImportedCardSections(block) {
     }
   }
 
-  // All three section markers are strictly required
-  if (!seenMarkers.has('FRONT') || !seenMarkers.has('BACK') || !seenMarkers.has('CONTEXT')) {
+  // The FRONT: marker is strictly required
+  if (!seenMarkers.has('FRONT')) {
     return null;
   }
 
   const front = sections.FRONT.join('\n').trim();
-  const back = sections.BACK.join('\n').trim();
-  const context = sections.CONTEXT.join('\n').trim();
-
+  
   // FRONT cannot be empty
   if (!front) {
     return null;
   }
+
+  const back = seenMarkers.has('BACK') ? sections.BACK.join('\n').trim() : '';
+  const context = seenMarkers.has('CONTEXT') ? sections.CONTEXT.join('\n').trim() : '';
 
   return {
     front,

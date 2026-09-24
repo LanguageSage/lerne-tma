@@ -29,12 +29,15 @@ export const BatchCardModal = () => {
 
   const importPlaceholder = useMemo(() => {
     return `FRONT:
+obwohl
+BACK:
+хотя
+
+${LERNE_CARD_SEPARATOR}
+
+FRONT:
 Ich [[hatte]] meine Freunde [[angerufen]], bevor ich ins Kino gegangen bin.
 (anrufen)
-
-BACK:
-
-
 CONTEXT:
 Plusquamperfekt
 
@@ -43,12 +46,6 @@ ${LERNE_CARD_SEPARATOR}
 FRONT:
 @puzzle
 Morgen fahre ich nach Berlin.
-
-BACK:
-Я завтра еду в Берлин.
-
-CONTEXT:
-B1 Satzbau
 
 ${LERNE_CARD_SEPARATOR}
 
@@ -62,10 +59,7 @@ ob | dass
 
 BACK:
 31=ob
-32=dass
-
-CONTEXT:
-Konjunktionen B1`;
+32=dass`;
   }, []);
 
   const aiBatchPlaceholder = useMemo(() => {
@@ -385,7 +379,7 @@ Konjunktionen B1`;
                 /* ── TAB 1: Direct Text Import ── */
                 <>
                   <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.4 }}>
-                    {tr("Каждая карточка должна содержать секции FRONT:, BACK:, CONTEXT: и отделяться строкой:")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>{LERNE_CARD_SEPARATOR}</code>
+                    {tr("Для обычной карточки достаточно FRONT:. BACK: и CONTEXT: необязательны. Карточки отделяются строкой:")} <code style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4, color: '#c084fc' }}>{LERNE_CARD_SEPARATOR}</code>
                   </p>
 
                   <div style={{ position: 'relative' }}>
@@ -417,7 +411,7 @@ Konjunktionen B1`;
                       flexWrap: 'wrap', gap: 6
                     }}>
                       <span>
-                        {parsedCards.length === 0 ? tr("Вставьте карточки в формате FRONT:, BACK:, CONTEXT: через <<<LERNE_CARD>>>") : (
+                        {parsedCards.length === 0 ? tr("Вставьте карточки (FRONT:) через <<<LERNE_CARD>>>") : (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <Check size={14} color="#4ade80" />
                             <strong>{tr("Найдено карточек:")} {parsedCards.length}</strong>

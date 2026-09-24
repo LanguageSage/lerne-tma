@@ -389,20 +389,27 @@ CONTEXT:
   assert.deepEqual(cards.map(card => card.card_type), ['trainer', 'puzzle', 'match', 'standard', 'quiz']);
 });
 
-test('14d. Missing required sections makes the card invalid and skips it', () => {
-  // Missing CONTEXT:
-  assert.equal(parseImportedCardSections('FRONT:\nHaus\nBACK:\nдом'), null);
-  // Missing BACK:
-  assert.equal(parseImportedCardSections('FRONT:\nHaus\nCONTEXT:\nKapitel 1'), null);
-  // Missing FRONT:
+test('14d. BACK and CONTEXT are optional, but FRONT is mandatory', () => {
+  // FRONT + BACK -> valid
+  assert.deepEqual(parseImportedCardSections('FRONT:\nHaus\nBACK:\nдом'), { front: 'Haus', back: 'дом', context: '' });
+  // FRONT + CONTEXT -> valid
+  assert.deepEqual(parseImportedCardSections('FRONT:\nHaus\nCONTEXT:\nKapitel 1'), { front: 'Haus', back: '', context: 'Kapitel 1' });
+  // FRONT only -> valid
+  assert.deepEqual(parseImportedCardSections('FRONT:\nHaus'), { front: 'Haus', back: '', context: '' });
+  // FRONT + BACK + CONTEXT -> valid
+  assert.deepEqual(parseImportedCardSections('FRONT:\nHaus\nBACK:\nдом\nCONTEXT:\nKapitel 1'), { front: 'Haus', back: 'дом', context: 'Kapitel 1' });
+  
+  // Missing FRONT -> invalid
+  assert.equal(parseImportedCardSections('BACK:\nдом'), null);
+  assert.equal(parseImportedCardSections('CONTEXT:\nKapitel 1'), null);
   assert.equal(parseImportedCardSections('BACK:\nдом\nCONTEXT:\nKapitel 1'), null);
-  // Empty FRONT:
+  // Empty FRONT -> invalid
   assert.equal(parseImportedCardSections('FRONT:\n\nBACK:\nдом\nCONTEXT:\nKapitel 1'), null);
+  // No FRONT marker -> invalid (Raw text is not allowed as per strict marker rules)
+  assert.equal(parseImportedCardSections('Ich bin hier.'), null);
 
   const cards = parseBatchCardsText(`FRONT:
 Haus
-BACK:
-дом
 <<<LERNE_CARD>>>
 FRONT:
 Buch
@@ -410,8 +417,66 @@ BACK:
 книга
 CONTEXT:
 `);
-  assert.equal(cards.length, 1);
-  assert.equal(cards[0].front, 'Buch');
+  assert.equal(cards.length, 2);
+  assert.equal(cards[0].front, 'Haus');
+  assert.equal(cards[0].back, '');
+  assert.equal(cards[1].front, 'Buch');
+  assert.equal(cards[1].back, 'книга');
+});
+
+test('14e. Automatic fallback for back is preserved when BACK is omitted', () => {
+  const cards = parseBatchCardsText(`FRONT:
+Ich [[bin]] hier.
+<<<LERNE_CARD>>>
+FRONT:
+@puzzle
+Ich gehe heute arbeiten.
+<<<LERNE_CARD>>>
+FRONT:
+@match
+ich => bin
+du => bist
+<<<LERNE_CARD>>>
+FRONT:
+Welche Antwort ist richtig?
+
+Berlin
+*Bonn
+Hamburg
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie
+
+::options
+ja | nein
+
+::exercise
+Ist das gut? [[ja]]`);
+
+  assert.equal(cards.length, 5);
+
+  // 1. Trainer
+  assert.equal(cards[0].card_type, 'trainer');
+  assert.equal(cards[0].back, 'bin');
+  
+  // 2. Puzzle
+  assert.equal(cards[1].card_type, 'puzzle');
+  assert.ok(cards[1].back.length > 0); // Preserves existing fallback translation
+
+  // 3. Match
+  assert.equal(cards[2].card_type, 'match');
+  assert.ok(cards[2].back.length > 0);
+
+  // 4. Quiz
+  assert.equal(cards[3].card_type, 'quiz');
+  assert.equal(cards[3].back, 'Bonn');
+
+  // 5. Trainer with information blocks
+  assert.equal(cards[4].card_type, 'trainer');
+  assert.ok(cards[4].front.includes('::task'));
+  assert.ok(cards[4].front.includes('::options'));
+  assert.equal(cards[4].back, 'ja');
 });
 
 test('14e. New standalone separator preserves Trainer information blocks and puzzle markers', () => {
@@ -1294,12 +1359,18 @@ CONTEXT:
 test('38k. Strict Format: 12. Invalid card sections rejection and empty section markers', () => {
   // Missing FRONT:
   assert.equal(parseImportedCardSections(`BACK:\nдом\nCONTEXT:\n`), null);
-  // Missing BACK:
-  assert.equal(parseImportedCardSections(`FRONT:\nHaus\nCONTEXT:\n`), null);
-  // Missing CONTEXT:
-  assert.equal(parseImportedCardSections(`FRONT:\nHaus\nBACK:\nдом`), null);
   // Empty FRONT content
   assert.equal(parseImportedCardSections(`FRONT:\n\nBACK:\nдом\nCONTEXT:\n`), null);
+
+  // Valid with missing BACK:
+  const validNoBack = parseImportedCardSections(`FRONT:\nHaus\nCONTEXT:\n`);
+  assert.ok(validNoBack);
+  assert.equal(validNoBack.front, 'Haus');
+
+  // Valid with missing CONTEXT:
+  const validNoContext = parseImportedCardSections(`FRONT:\nHaus\nBACK:\nдом`);
+  assert.ok(validNoContext);
+  assert.equal(validNoContext.front, 'Haus');
 
   // Valid with empty BACK and empty CONTEXT
   const valid = parseImportedCardSections(`FRONT:\nHaus\nBACK:\n\nCONTEXT:\n`);
