@@ -206,6 +206,7 @@ export const ExerciseRenderer = React.memo(({
           onFlip={onFlip}
           loading={false}
           playAudio={playAudio}
+          renderAudioPlayer={renderAudioPlayer}
           onTrainerAnswer={onTrainerAnswer}
           onNextCard={onNextCard}
           styles={styles}

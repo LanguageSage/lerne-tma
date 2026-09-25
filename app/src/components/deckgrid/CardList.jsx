@@ -47,6 +47,8 @@ import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
 import { matchCard } from '../../utils/search';
 import { getSortedFolderTree, parseDeckMetadata, getResourceSrc, parseRangeSelection } from '../../utils/deckUtils';
+import { stripMarkdown } from '../../utils/text';
+import { cleanBracketSyntax } from '../../utils/clozeParser';
 
 const DraggableCardItem = React.memo(({
   c,
@@ -145,7 +147,7 @@ const DraggableCardItem = React.memo(({
           className={`front-min ${isExpanded ? 'expanded' : ''}`} 
           style={{ ...frontTypographyStyle, ...clampStyle }}
         >
-          {c.front}
+          {stripMarkdown(cleanBracketSyntax(c.front || ''))}
         </div>
 
         {c.back && (
@@ -153,7 +155,7 @@ const DraggableCardItem = React.memo(({
             className={`back-min ${isExpanded ? 'expanded' : ''}`} 
             style={{ ...backTypographyStyle, ...clampStyle }}
           >
-            {c.back}
+            {stripMarkdown(cleanBracketSyntax(c.back || ''))}
           </div>
         )}
 

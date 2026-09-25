@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, RotateCcw } from 'lucide-react';
+import { Sparkles, RotateCcw, Eye } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
 import { triggerHaptic } from '../../utils/platform';
@@ -14,6 +14,7 @@ export const StudyCardPuzzle = React.memo(({
   card,
   isFlipped,
   onTrainerAnswer,
+  renderAudioPlayer,
   styles = {},
   savedState,
   onSaveState
@@ -26,6 +27,7 @@ export const StudyCardPuzzle = React.memo(({
   const [dragCurrentPos, setDragCurrentPos] = useState(null);
   const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
   const [isCorrect, setIsCorrect] = useState(savedState?.isCorrect ?? null);
+  const [showTranslation, setShowTranslation] = useState(false);
   const isFirstTryRef = useRef(savedState?.isFirstTry ?? true);
   const hasReportedWrongRef = useRef(savedState?.hasReportedWrong ?? false);
 
@@ -172,19 +174,48 @@ export const StudyCardPuzzle = React.memo(({
         <span>{tr("🧩 Соберите предложение по-немецки:")}</span>
       </div>
 
+      {/* Header Actions (Audio) */}
+      {renderAudioPlayer && (
+        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+          {renderAudioPlayer()}
+        </div>
+      )}
+
       {/* Target Translation Prompt */}
       {card.back && (
-        <div 
-          className="text-back"
-          style={{
-            ...backCardStyle,
-            marginBottom: '16px',
-            textAlign: 'center',
-            width: '100%',
-            opacity: 0.95
-          }}
-        >
-          {card.back}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+          {!showTranslation ? (
+            <button
+              onClick={() => setShowTranslation(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '12px',
+                color: '#cbd5e1',
+                fontSize: '0.8rem',
+                cursor: 'pointer'
+              }}
+            >
+              <Eye size={14} />
+              <span>{tr("Показать перевод")}</span>
+            </button>
+          ) : (
+            <div 
+              className="text-back"
+              style={{
+                ...backCardStyle,
+                textAlign: 'center',
+                width: '100%',
+                opacity: 0.95
+              }}
+            >
+              {card.back}
+            </div>
+          )}
         </div>
       )}
 
