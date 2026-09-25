@@ -219,6 +219,33 @@ def save_card(data, user_id, *, _batch=None):
         else:
             card.position = 0
         
+    if 'topics' in data and data.get('topics') is not None:
+        card.topics = data.get('topics')
+
+    if card.context:
+        import re
+        extracted = False
+        
+        m_level = re.search(r"(?im)^\s*::level\s*\r?\n(.*?)(?=(?:^\s*::)|$)", card.context, re.DOTALL)
+        if m_level:
+            level_str = m_level.group(1).upper().strip()
+            if level_str in {"A1", "A2", "B1", "B2", "C1", "C2"}:
+                curr_tags = card.tags or ""
+                if level_str not in curr_tags:
+                    card.tags = f"{curr_tags},{level_str}".strip(",") if curr_tags else level_str
+            extracted = True
+            
+        m_topic = re.search(r"(?im)^\s*::topic\s*\r?\n(.*?)(?=(?:^\s*::)|$)", card.context, re.DOTALL)
+        if m_topic:
+            card.topics = m_topic.group(1).strip()
+            extracted = True
+            
+        if extracted:
+            new_context = card.context
+            new_context = re.sub(r"(?im)^\s*::level\s*\r?\n.*?(?=(?:^\s*::)|$)", "", new_context, flags=re.DOTALL)
+            new_context = re.sub(r"(?im)^\s*::topic\s*\r?\n.*?(?=(?:^\s*::)|$)", "", new_context, flags=re.DOTALL)
+            card.context = new_context.strip()
+
     card.updated_at = datetime.datetime.now()
     if not data.get('silent'):
         card.history = add_to_history(card.history, "Edited manually")

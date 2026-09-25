@@ -19,10 +19,10 @@ Wann begann die Französische Revolution?
 1799
 
 BACK:
-Die Revolution begann 1789 mit dem Sturm auf die Bastille.
+Когда началась Французская революция?
 
 CONTEXT:
-
+Революция началась в 1789 году со взятия Бастилии.
 ```
 
 ## WHEN NOT TO USE

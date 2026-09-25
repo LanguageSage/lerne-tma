@@ -2,12 +2,14 @@ import re
 from typing import Optional
 
 
-EXERCISE_BLOCK_TYPES = {"task", "options", "context", "example"}
+EXERCISE_BLOCK_TYPES = {"task", "options", "context", "example", "level", "topic"}
 EXERCISE_MARKER_TO_BLOCK_TYPE = {
     "task": "task",
     "options": "options",
     "source": "context",
     "example": "example",
+    "level": "level",
+    "topic": "topic",
 }
 
 
@@ -16,7 +18,7 @@ def _is_exercise_marker(line: str) -> bool:
 
 
 def _exercise_block_type(line: str) -> str | None:
-    match = re.fullmatch(r"\s*::(task|options|source|example)\s*", line or "", re.IGNORECASE)
+    match = re.fullmatch(r"\s*::(task|options|source|example|level|topic)\s*", line or "", re.IGNORECASE)
     block_type = EXERCISE_MARKER_TO_BLOCK_TYPE.get(match.group(1).lower()) if match else None
     return block_type if block_type in EXERCISE_BLOCK_TYPES else None
 
@@ -162,6 +164,8 @@ def parse_exercise_content(raw_text: str) -> dict:
             for option in block.get("options", [])
         ],
         "context": first_content("context"),
+        "level": first_content("level"),
+        "topic": first_content("topic"),
         "examples": [
             block["content"]
             for block in blocks

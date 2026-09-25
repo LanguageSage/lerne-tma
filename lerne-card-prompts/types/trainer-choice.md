@@ -17,10 +17,10 @@ Wählen Sie das passende Wort.
 Ich lebe {in|*seit|vor} 17 Jahren in Deutschland.
 
 BACK:
-seit
+Я живу в Германии уже 17 лет.
 
 CONTEXT:
-
+С предлогом "seit" (с каких пор) используется датив для действий, начавшихся в прошлом и продолжающихся сейчас.
 ```
 
 ### Пример комбинированного Trainer (Choice + Input):
@@ -33,9 +33,10 @@ Wählen Sie das passende Wort und ergänzen Sie die Form.
 {*Als|Wenn} ich nach Hause kam, [[hatte]] sie schon [[gegessen]].
 
 BACK:
-Als ... hatte ... gegessen
+Когда я пришел домой, она уже поела.
 
 CONTEXT:
+"Als" используется для однократного действия в прошлом. Plusquamperfekt ("hatte gegessen") показывает предшествование.
 ```
 
 ## WHEN NOT TO USE

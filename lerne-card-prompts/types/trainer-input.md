@@ -23,10 +23,10 @@ Ergänzen Sie die richtige Form.
 Er [[war]] nach Hause [[gegangen]].
 
 BACK:
-war ... gegangen
+Он ушел домой.
 
 CONTEXT:
-
+Plusquamperfekt образуется с помощью вспомогательного глагола war/hatte и Partizip II (gegangen).
 ```
 
 ### Пример комбинированного Trainer (Input + Choice):
@@ -39,13 +39,14 @@ Wählen Sie das passende Wort und ergänzen Sie die Form.
 {*Als|Wenn} ich nach Hause kam, [[hatte]] sie schon [[gegessen]].
 
 BACK:
-Als ... hatte ... gegessen
+Когда я пришел домой, она уже поела.
 
 CONTEXT:
+"Als" для однократного действия в прошлом. "hatte gegessen" (Plusquamperfekt) для предшествующего действия.
 ```
 
 ## VALIDATION
 - Убедитесь, что все слова, требующие ввода, обернуты в `[[ ]]`.
 - Внутри `[[ ]]` нет символа `|`.
-- `BACK` содержит ожидаемый ответ (для справки ученика при перевороте карточки).
+- `BACK` содержит перевод фразы целиком.
 - Если задание содержит и выбор, и ввод — обе механики оформлены корректно в одной карточке.

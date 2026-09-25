@@ -1,9 +1,11 @@
-const BLOCK_TYPES = new Set(['task', 'options', 'source', 'example']);
+const BLOCK_TYPES = new Set(['task', 'options', 'source', 'example', 'level', 'topic']);
 const MARKER_TO_BLOCK_TYPE = Object.freeze({
   task: 'task',
   options: 'options',
   source: 'source',
-  example: 'example'
+  example: 'example',
+  level: 'level',
+  topic: 'topic'
 });
 
 const normalizeLineEndings = (value) => String(value ?? '').replace(/\r\n?/g, '\n');
@@ -11,7 +13,7 @@ const normalizeLineEndings = (value) => String(value ?? '').replace(/\r\n?/g, '\
 const isExerciseMarker = (line) => /^\s*::exercise\s*$/i.test(line || '');
 
 const getBlockType = (line) => {
-  const match = /^\s*::(task|options|source|example)\s*$/i.exec(line || '');
+  const match = /^\s*::(task|options|source|example|level|topic)\s*$/i.exec(line || '');
   const type = MARKER_TO_BLOCK_TYPE[match?.[1]?.toLowerCase()];
   return BLOCK_TYPES.has(type) ? type : null;
 };
@@ -34,6 +36,8 @@ const emptyResult = (raw) => ({
   task: '',
   options: [],
   source: '',
+  level: '',
+  topic: '',
   examples: [],
   blocks: [],
   exercise: cleanRawExercise(raw),
@@ -131,6 +135,8 @@ export const parseExerciseContent = (rawText) => {
     task: firstContent('task'),
     options: blocks.filter(block => block.type === 'options').flatMap(block => block.options || []),
     source: firstContent('source'),
+    level: firstContent('level'),
+    topic: firstContent('topic'),
     examples: blocks.filter(block => block.type === 'example' && block.content).map(block => block.content),
     blocks,
     exercise,

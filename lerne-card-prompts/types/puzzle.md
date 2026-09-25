@@ -16,10 +16,10 @@ Bilden Sie einen korrekten Satz.
 Ich liebe es, neue Sprachen zu lernen.
 
 BACK:
-I love learning new languages.
+Я люблю учить новые языки.
 
 CONTEXT:
-
+Глагол стоит на втором месте, а инфинитивный оборот "zu lernen" - в конце.
 ```
 
 ## WHEN NOT TO USE
