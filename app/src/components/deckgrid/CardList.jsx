@@ -2,24 +2,12 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
 import {
-  DndContext,
-  closestCenter,
-  pointerWithin,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  DragOverlay
-} from '@dnd-kit/core';
-import {
-  arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { ChevronLeft, Plus, ListPlus, Settings, Play, RefreshCw, ExternalLink, Crop, Loader2, Search, MoreHorizontal, ChevronRight, CheckSquare, Check, Trash2, X, Move, Copy } from 'lucide-react';
+import { ChevronLeft, Plus, ListPlus, Settings, Play, RefreshCw, ExternalLink, Crop, Loader2, Search, MoreHorizontal, ChevronRight, CheckSquare, Check, X } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardActionButton } from '../modals/CardActionModal';
 import { BatchMoveModal } from '../modals/BatchMoveModal';
@@ -42,8 +30,12 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
 import { matchCard } from '../../utils/search';
-import { getSortedFolderTree, parseDeckMetadata, getResourceSrc, parseRangeSelection } from '../../utils/deckUtils';
+import { getSortedFolderTree, parseDeckMetadata, getResourceSrc } from '../../utils/deckUtils';
 import { DraggableCardItem } from './DraggableCardItem';
+import { FloatingBatchDock } from './FloatingBatchDock';
+import { useCardSelectMode } from '../../hooks/useCardSelectMode';
+import { useCardDnd } from '../../hooks/useCardDnd';
+import { useDeckImageResize } from '../../hooks/useDeckImageResize';
 
 
 export const CardList = ({ startStudy, startStudyCard }) => {
@@ -53,39 +45,6 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const { currentDeck, deckCards, cardsLoading, folders, decks, handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
   const { handleBatchMoveCards, handleBatchCopyCards, handleBatchDeleteCards } = useCardActions();
 
-  const [isSelectMode, setIsSelectMode] = React.useState(false);
-  const [selectedCardIds, setSelectedCardIds] = React.useState(new Set());
-  const [isBatchMoveModalOpen, setIsBatchMoveModalOpen] = React.useState(false);
-  const [batchModalMode, setBatchModalMode] = React.useState('move');
-  const [rangeInput, setRangeInput] = React.useState('');
-
-  const toggleSelectMode = React.useCallback(() => {
-    setIsSelectMode(prev => {
-      if (prev) {
-        setSelectedCardIds(new Set());
-        setRangeInput('');
-      }
-      return !prev;
-    });
-  }, []);
-
-  const handleToggleSelectCard = React.useCallback((cardId) => {
-    setSelectedCardIds(prev => {
-      const next = new Set(prev);
-      if (next.has(cardId)) {
-        next.delete(cardId);
-      } else {
-        next.add(cardId);
-      }
-      return next;
-    });
-  }, []);
-
-  React.useEffect(() => {
-    setIsSelectMode(false);
-    setSelectedCardIds(new Set());
-    setRangeInput('');
-  }, [currentDeck?.id, view]);
 
   const previewCardFont = useSettingsStore(s => s.previewCardFont);
   const previewCardTextColor = useSettingsStore(s => s.previewCardTextColor);
@@ -289,27 +248,27 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     if (!searchQuery.trim()) return deckCards;
     return deckCards.filter(c => matchCard(c, searchQuery));
   }, [deckCards, searchQuery]);
+  // Memoized Deck Metadata & Resources
+  const deckMetadata = React.useMemo(() => parseDeckMetadata(currentDeck), [currentDeck]);
+  const deckResources = React.useMemo(() => deckMetadata.resources || [], [deckMetadata]);
+  const deckImages = React.useMemo(() => deckResources.filter(r => r.type === 'image'), [deckResources]);
+  const deckAudios = React.useMemo(() => deckResources.filter(r => r.type === 'audio'), [deckResources]);
+  const deckVideos = React.useMemo(() => deckResources.filter(r => r.type === 'video'), [deckResources]);
+  const deckLinks = React.useMemo(() => deckResources.filter(r => r.type === 'link'), [deckResources]);
 
-  const handleSelectAll = React.useCallback(() => {
-    if (selectedCardIds.size === filteredCards.length && filteredCards.length > 0) {
-      setSelectedCardIds(new Set());
-    } else {
-      setSelectedCardIds(new Set(filteredCards.map(c => c.id)));
-    }
-  }, [selectedCardIds.size, filteredCards]);
+  // ── Custom hooks ─────────────────────────────────────────────────────
+  const selectMode = useCardSelectMode(filteredCards, currentDeck?.id, view);
+  const {
+    isSelectMode, setIsSelectMode, selectedCardIds, setSelectedCardIds,
+    isBatchMoveModalOpen, setIsBatchMoveModalOpen, batchModalMode, toggleSelectMode, handleToggleSelectCard, handleSelectAll,
+  } = selectMode;
 
-  const handleApplyRange = React.useCallback((e) => {
-    e?.preventDefault();
-    if (!rangeInput.trim()) return;
-    const indices = parseRangeSelection(rangeInput, filteredCards.length);
-    if (indices.length === 0) {
-      showToast(tr("Карточки по указанным номерам не найдены"), "warning");
-      return;
-    }
-    const targetIds = indices.map(idx => filteredCards[idx - 1]?.id).filter(Boolean);
-    setSelectedCardIds(new Set(targetIds));
-    showToast(tr("Выбрано карточек: {{p0}}", { p0: targetIds.length }), "info");
-  }, [rangeInput, filteredCards, showToast]);
+  const { sensors, activeCard, handleDragStart, handleDragEnd,
+    customCollisionDetection, getOriginalIndex } = useCardDnd(filteredCards, deckCards);
+
+  const { imageHeight, startResizeDrag, handleToggleShowInCards } = useDeckImageResize(deckMetadata, currentDeck);
+
+
 
   // =========================================================================
   // CRITICAL INVARIANT: DO NOT SIMPLIFY OR REMOVE THIS LOGIC!
@@ -371,134 +330,13 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     return filteredCards.slice(0, visibleCount);
   }, [filteredCards, searchQuery, visibleCount]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 4,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 120,
-        tolerance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const [activeCardId, setActiveCardId] = React.useState(null);
-
-  const handleDragStart = (event) => {
-    setActiveCardId(event.active.id);
-  };
-
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    setActiveCardId(null);
-    if (over && active.id !== over.id) {
-      const oldIndex = filteredCards.findIndex(item => item.id === active.id);
-      const newIndex = filteredCards.findIndex(item => item.id === over.id);
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const newOrder = arrayMove(filteredCards, oldIndex, newIndex);
-        const orderedIds = newOrder.map(c => c.id);
-        useDeckStore.getState().reorderCards(orderedIds);
-      }
-    }
-  };
-
-  const customCollisionDetection = React.useCallback((args) => {
-    const pointerCollisions = pointerWithin(args);
-    if (pointerCollisions.length > 0) {
-      return pointerCollisions;
-    }
-    return closestCenter(args);
-  }, []);
-
-  const activeCard = React.useMemo(() => {
-    if (!activeCardId) return null;
-    return filteredCards.find(c => c.id === activeCardId);
-  }, [activeCardId, filteredCards]);
-
-  const getOriginalIndex = React.useCallback((cardId) => {
-    if (!deckCards) return 0;
-    const idx = deckCards.findIndex(c => c.id === cardId);
-    return idx >= 0 ? idx : 0;
-  }, [deckCards]);
 
   const { uploadDeckResource } = useMediaUpload();
   const { openCreator } = useCardNavigation();
   const isDeckViewActive = ['cards', 'study', 'trainer', 'editor'].includes(view);
   const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck?.id, isDeckViewActive);
 
-  // Memoized Deck Metadata & Resources
-  const deckMetadata = React.useMemo(() => parseDeckMetadata(currentDeck), [currentDeck]);
-  const deckResources = React.useMemo(() => deckMetadata.resources || [], [deckMetadata]);
-  const deckImages = React.useMemo(() => deckResources.filter(r => r.type === 'image'), [deckResources]);
-  const deckAudios = React.useMemo(() => deckResources.filter(r => r.type === 'audio'), [deckResources]);
-  const deckVideos = React.useMemo(() => deckResources.filter(r => r.type === 'video'), [deckResources]);
-  const deckLinks = React.useMemo(() => deckResources.filter(r => r.type === 'link'), [deckResources]);
 
-  // Resizable image height — read from metadata, default 220px
-  const getMetaImageHeight = React.useCallback(() => {
-    return deckMetadata.imageHeight || 220;
-  }, [deckMetadata]);
-
-  const [imageHeight, setImageHeight] = React.useState(getMetaImageHeight);
-
-  // Sync imageHeight when deck changes
-  React.useEffect(() => {
-    setImageHeight(getMetaImageHeight());
-  }, [getMetaImageHeight]);
-
-  const saveImageHeight = React.useCallback(async (h) => {
-    if (!currentDeck) return;
-    await useDeckStore.getState().updateDeckMetadata(currentDeck.id, { ...deckMetadata, imageHeight: h });
-  }, [currentDeck, deckMetadata]);
-
-  const startResizeDrag = React.useCallback((e) => {
-    e.preventDefault();
-    const startY = e.touches ? e.touches[0].clientY : e.clientY;
-    const startH = imageHeight;
-    const onMove = (ev) => {
-      const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
-      const delta = clientY - startY;
-      const newH = Math.max(80, Math.min(800, startH + delta));
-      setImageHeight(newH);
-    };
-    const onUp = (ev) => {
-      const clientY = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
-      const delta = clientY - startY;
-      const finalH = Math.max(80, Math.min(800, startH + delta));
-      saveImageHeight(Math.round(finalH));
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('touchend', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchmove', onMove, { passive: false });
-    window.addEventListener('touchend', onUp);
-  }, [imageHeight, saveImageHeight]);
-
-  const handleToggleShowInCards = async (targetImg, isChecked) => {
-    if (!currentDeck) return;
-    let metadata = { resources: [] };
-    if (currentDeck.metadata) {
-      metadata = typeof currentDeck.metadata === 'string'
-        ? JSON.parse(currentDeck.metadata)
-        : currentDeck.metadata;
-    }
-    const updatedResources = (metadata.resources || []).map(r => {
-      if (r === targetImg || (r.type === 'image' && (r.url === targetImg.url || r.path === targetImg.path))) {
-        return { ...r, show_in_cards: isChecked };
-      }
-      return r;
-    });
-    await useDeckStore.getState().updateDeckMetadata(currentDeck.id, { ...metadata, resources: updatedResources });
-  };
 
   React.useEffect(() => {
     if (view === 'cards' && currentDeck?.id) {
@@ -1273,116 +1111,10 @@ export const CardList = ({ startStudy, startStudyCard }) => {
         )}
 
         {/* Floating Batch Actions Dock */}
-        <AnimatePresence>
-          {isSelectMode && (
-            <motion.div
-              className="batch-actions-bar"
-              initial={{ y: 80, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 80, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {/* Row 1: Range input */}
-              <form className="batch-range-row" onSubmit={handleApplyRange}>
-                <div className="batch-range-input-wrapper">
-                  <input
-                    type="text"
-                    className="batch-range-input"
-                    placeholder={tr("№ карт: 1-10, 15...")}
-                    value={rangeInput}
-                    onChange={(e) => setRangeInput(e.target.value)}
-                  />
-                  {rangeInput && (
-                    <button
-                      type="button"
-                      className="batch-range-clear-btn"
-                      onClick={() => setRangeInput('')}
-                      title={tr("Очистить")}
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
-                <button
-                  type="submit"
-                  className="batch-range-apply-btn"
-                  disabled={!rangeInput.trim()}
-                >
-                  {tr("Выбрать")}
-                </button>
-                <button
-                  type="button"
-                  className="batch-range-all-btn"
-                  onClick={handleSelectAll}
-                  title={selectedCardIds.size === filteredCards.length && filteredCards.length > 0 ? tr("Снять выбор со всех") : tr("Выбрать все карточки")}
-                >
-                  {selectedCardIds.size === filteredCards.length && filteredCards.length > 0 ? tr("Снять все") : tr("Все ({{p0}})", { p0: filteredCards.length })}
-                </button>
-              </form>
-
-              {/* Row 2: Action buttons */}
-              <div className="batch-buttons-row">
-                <button
-                  type="button"
-                  className="batch-action-btn copy-btn"
-                  disabled={selectedCardIds.size === 0}
-                  onClick={() => {
-                    setBatchModalMode('copy');
-                    setIsBatchMoveModalOpen(true);
-                  }}
-                  title={tr("Копировать выбранные карточки")}
-                >
-                  <Copy size={15} />
-                  <span className="batch-btn-label">{tr("Копировать")}</span>
-                  <span className="batch-btn-count">({selectedCardIds.size})</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="batch-action-btn move-btn"
-                  disabled={selectedCardIds.size === 0}
-                  onClick={() => {
-                    setBatchModalMode('move');
-                    setIsBatchMoveModalOpen(true);
-                  }}
-                  title={tr("Переместить выбранные карточки")}
-                >
-                  <Move size={15} />
-                  <span className="batch-btn-label">{tr("Переместить")}</span>
-                  <span className="batch-btn-count">({selectedCardIds.size})</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="batch-action-btn delete-btn"
-                  disabled={selectedCardIds.size === 0}
-                  onClick={async () => {
-                    const ids = Array.from(selectedCardIds);
-                    const ok = await handleBatchDeleteCards(ids);
-                    if (ok) {
-                      setSelectedCardIds(new Set());
-                      setIsSelectMode(false);
-                    }
-                  }}
-                  title={tr("Удалить выбранные карточки")}
-                >
-                  <Trash2 size={15} />
-                  <span className="batch-btn-label">{tr("Удалить")}</span>
-                  <span className="batch-btn-count">({selectedCardIds.size})</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="batch-action-cancel-btn"
-                  onClick={toggleSelectMode}
-                  title={tr("Отмена")}
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <FloatingBatchDock
+          selectMode={{ ...selectMode, filteredCards }}
+          handleBatchDeleteCards={handleBatchDeleteCards}
+        />
 
         <BatchMoveModal
           isOpen={isBatchMoveModalOpen}
