@@ -1,6 +1,6 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Trash2, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
 import DeckAudioPlayer from '../common/DeckAudioPlayer';
@@ -205,14 +205,17 @@ export const StudyView = () => {
   
   // Local UI & Animation State
   const [activeRandomMode, setActiveRandomMode] = useState(null);
+  
   const [isExerciseAnswered, setIsExerciseAnswered] = useState(false);
+  const [exerciseEvidence, setExerciseEvidence] = useState(null);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollTopRef = useRef(0);
   const lastCardKeyRef = useRef('');
 
   useEffect(() => {
     setIsExerciseAnswered(false);
-  }, [card?.id, studyMode]);
+    setExerciseEvidence(null);
+  }, [card?.id, historyIndex, studyMode]);
 
   useEffect(() => {
     const container = document.getElementById('app-container');
@@ -450,6 +453,14 @@ export const StudyView = () => {
   const isExerciseActive = Boolean(activeExerciseType && !isFlipped && !isExerciseAnswered);
   const showGradeButtons = currentDeck?.id !== 'duplicates' && !isAutoplayActive && !isExerciseActive;
 
+    const handleGrade = useCallback((grade, isExtended) => {
+    stopAudio();
+    const evidence = exerciseEvidence;
+    setExerciseEvidence(null);
+    setIsExerciseAnswered(false);
+    submitGrade(grade, isExtended, evidence);
+  }, [stopAudio, exerciseEvidence, submitGrade]);
+
   if (view !== 'study') return null;
 
   return (
@@ -458,10 +469,7 @@ export const StudyView = () => {
         <GradeButtons 
           card={card} 
           loading={loading} 
-          onGrade={(grade, isExtended) => {
-            stopAudio();
-            submitGrade(grade, isExtended);
-          }} 
+          onGrade={handleGrade} 
         />
       )}
 
@@ -587,7 +595,14 @@ export const StudyView = () => {
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
               studyMode={isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
-              onTrainerAnswer={() => setIsExerciseAnswered(true)}
+              onTrainerAnswer={(cardId, evidence) => {
+                  if (typeof evidence === 'object') {
+                    setExerciseEvidence(evidence);
+                    if (evidence.isCorrect) setIsExerciseAnswered(true);
+                  } else {
+                    if (evidence !== false) setIsExerciseAnswered(true);
+                  }
+                }}
               onAskQuestion={handleAskQuestion}
               onNextCard={() => {
                 setIsFlipped(false);
@@ -714,3 +729,9 @@ export const StudyView = () => {
     </div>
   );
 };
+
+
+
+
+
+

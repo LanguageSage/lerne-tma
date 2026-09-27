@@ -105,10 +105,12 @@ export const StudyCard = React.memo(({
   const [exerciseStates, setExerciseStates] = useState({});
   const [exerciseFooterTarget, setExerciseFooterTarget] = useState(null);
 
+  const reviewKey = card?.id ? `${card.id}:${historyIndex}` : null;
+
   const handleSaveExerciseState = useCallback((state) => {
-    if (!card?.id) return;
-    setExerciseStates(prev => ({ ...prev, [card.id]: state }));
-  }, [card?.id]);
+    if (!reviewKey) return;
+    setExerciseStates(prev => ({ ...prev, [reviewKey]: state }));
+  }, [reviewKey]);
 
   // Reset interactive states when card changes
   useEffect(() => {
@@ -450,7 +452,7 @@ export const StudyCard = React.memo(({
                   onNextCard={onNextCard}
                   renderAudioPlayer={renderFrontAudioPlayer}
                   styles={styles}
-                  savedState={card?.id ? exerciseStates[card.id] : undefined}
+                  savedState={reviewKey ? exerciseStates[reviewKey] : undefined}
                   onSaveState={handleSaveExerciseState}
                   footerActionTarget={exerciseFooterTarget}
                 />
@@ -810,3 +812,5 @@ export const StudyCard = React.memo(({
     </AnimatePresence>
   );
 });
+
+

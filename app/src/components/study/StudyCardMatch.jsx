@@ -34,7 +34,10 @@ export const StudyCardMatch = React.memo(({
   const [selectedRight, setSelectedRight] = useState(savedState?.selectedRight ?? null); // originalPairId
   const [userMatches, setUserMatches] = useState(savedState?.userMatches || {}); // { [leftPairId]: rightOriginalPairId }
   const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
+  
   const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
+  const [attemptCount, setAttemptCount] = useState(savedState?.attemptCount ?? 0);
+  const [mistakeCount, setMistakeCount] = useState(savedState?.mistakeCount ?? 0);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
@@ -44,8 +47,8 @@ export const StudyCardMatch = React.memo(({
 
   // Sync state to parent for flip preservation
   useEffect(() => {
-    onSaveState?.({ selectedLeft, selectedRight, userMatches, isChecked, isFirstTry, shuffledRight });
-  }, [selectedLeft, selectedRight, userMatches, isChecked, isFirstTry, shuffledRight, onSaveState]);
+    onSaveState?.({ selectedLeft, selectedRight, userMatches, isChecked, isFirstTry, shuffledRight, attemptCount, mistakeCount });
+  }, [selectedLeft, selectedRight, userMatches, isChecked, isFirstTry, shuffledRight, onSaveState, attemptCount, mistakeCount]);
 
   // Reset and shuffle right options on card change when no saved state exists
   useEffect(() => {
@@ -150,18 +153,20 @@ export const StudyCardMatch = React.memo(({
   const handleCheck = () => {
     if (!allConnected) return;
     setIsChecked(true);
+    setAttemptCount(prev => prev + 1);
 
     const allCorrect = pairs.every(p => isPairCorrect(p.id, userMatches[p.id]));
 
     if (allCorrect) {
       playSuccessSound();
       triggerHaptic('success');
-      onTrainerAnswer?.(card.id, isFirstTry);
+      onTrainerAnswer?.(card.id, { isCorrect: true, isFirstTry, attemptCount: attemptCount + 1, mistakeCount });
     } else {
       playErrorSound();
       setIsFirstTry(false);
       triggerHaptic('error');
-      onTrainerAnswer?.(card.id, false);
+      setMistakeCount(prev => prev + 1);
+      onTrainerAnswer?.(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCount + 1, mistakeCount: mistakeCount + 1 });
     }
   };
 
@@ -484,3 +489,7 @@ export const StudyCardMatch = React.memo(({
     </div>
   );
 });
+
+
+
+

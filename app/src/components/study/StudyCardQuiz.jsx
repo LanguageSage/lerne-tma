@@ -19,15 +19,18 @@ export const StudyCardQuiz = ({
   const [selectedOptionId, setSelectedOptionId] = useState(savedState?.selectedOptionId ?? null);
   const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
   const [isCorrect, setIsCorrect] = useState(savedState?.isCorrect ?? null);
+  
   const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
+  const [attemptCount, setAttemptCount] = useState(savedState?.attemptCount ?? 0);
+  const [mistakeCount, setMistakeCount] = useState(savedState?.mistakeCount ?? 0);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(styles?.cardTextColor), [styles?.cardTextColor]);
 
   // Sync state to parent for flip preservation
   useEffect(() => {
-    onSaveState?.({ selectedOptionId, isChecked, isCorrect, isFirstTry });
-  }, [selectedOptionId, isChecked, isCorrect, isFirstTry, onSaveState]);
+    onSaveState?.({ selectedOptionId, isChecked, isCorrect, isFirstTry, attemptCount, mistakeCount });
+  }, [selectedOptionId, isChecked, isCorrect, isFirstTry, onSaveState, attemptCount, mistakeCount]);
 
   // Reset state on card change when no saved state exists
   useEffect(() => {
@@ -62,17 +65,19 @@ export const StudyCardQuiz = ({
 
     setIsChecked(true);
     setIsCorrect(correct);
+    setAttemptCount(prev => prev + 1);
 
     if (correct) {
       triggerHaptic('success');
       if (onTrainerAnswer) {
-        onTrainerAnswer(card.id, isFirstTry);
+        onTrainerAnswer(card.id, { isCorrect: true, isFirstTry, attemptCount: attemptCount + 1, mistakeCount });
       }
     } else {
       triggerHaptic('error');
       setIsFirstTry(false);
-      if (onTrainerAnswer) {
-        onTrainerAnswer(card.id, false);
+        setMistakeCount(prev => prev + 1);
+        if (onTrainerAnswer) {
+          onTrainerAnswer(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCount + 1, mistakeCount: mistakeCount + 1 });
       }
     }
   };
@@ -295,3 +300,8 @@ export const StudyCardQuiz = ({
     </div>
   );
 };
+
+
+
+
+

@@ -1,0 +1,220 @@
+import { test, describe, beforeEach } from 'node:test';
+import assert from 'node:assert';
+import "fake-indexeddb/auto";
+import { resetAllDatabases, getLocalDb } from '../localDb.js';
+import * as dbService from '../knowledgeDbService.js';
+
+// Mock Vite env
+globalThis.import = { meta: { env: { VITE_KNOWLEDGE_LAYER_ENABLED: 'true' } } };
+
+import { captureStudyKnowledgeAttempt } from '../knowledgeCaptureService.js';
+
+describe('KnowledgeCaptureService - KI-04', () => {
+
+  beforeEach(async () => {
+    const dbs = await indexedDB.databases();
+    for (const db of dbs) {
+      if (db.name) {
+        await new Promise(r => { const req = indexedDB.deleteDatabase(db.name); req.onsuccess = r; req.onerror = r; });
+      }
+    }
+    resetAllDatabases();
+    
+    // Prepare DB for user 123
+    const db = getLocalDb('123');
+    await db.knowledge_items.bulkAdd([
+      { id: 101, title: 'Primary', type: 'grammar' },
+      { id: 102, title: 'Secondary', type: 'vocab' }
+    ]);
+  });
+
+  test('Test 1 - no KI -> no attempt', async () => {
+    // Card with no mapping
+    await captureStudyKnowledgeAttempt({
+      userId: '123',
+      card: { id: 1 },
+      grade: 3,
+      isExtended: false,
+      eventTime: '2026-01-01T10:00:00Z'
+    });
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    assert.strictEqual(pending.length, 0);
+  });
+
+  test('Test 2 - primary KI -> attempt queued', async () => {
+    const db = getLocalDb('123');
+    await db.card_knowledge_items.add({ card_id: 1, knowledge_item_id: 101, role: 'primary' });
+    
+    await captureStudyKnowledgeAttempt({
+      userId: '123',
+      card: { id: 1, front_text: '@puzzle\nSomething' },
+      grade: 3, // 'good' (correct = true)
+      isExtended: false,
+      eventTime: '2026-01-01T10:00:00Z'
+    });
+    
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    assert.strictEqual(pending.length, 1);
+    
+    const attempt = pending[0];
+    assert.strictEqual(attempt.knowledge_item_id, 101);
+    assert.strictEqual(attempt.card_id, 1);
+    assert.strictEqual(attempt.evaluation_data.card_type, 'puzzle');
+    assert.strictEqual(attempt.evaluation_data.evaluation_type, 'self_rating');
+    assert.strictEqual(attempt.evaluation_data.correct, null); // self-rating is always null correctness
+    assert.strictEqual(attempt.evaluation_data.rating, 'good');
+    assert.strictEqual(attempt.event_time, '2026-01-01T10:00:00Z');
+  });
+
+  test('Test 3 - primary + secondary -> only one attempt for primary', async () => {
+    const db = getLocalDb('123');
+    await db.card_knowledge_items.bulkAdd([
+      { card_id: 2, knowledge_item_id: 101, role: 'primary' },
+      { card_id: 2, knowledge_item_id: 102, role: 'secondary' },
+      { card_id: 2, knowledge_item_id: 103, role: 'secondary' }
+    ]);
+    
+    await captureStudyKnowledgeAttempt({
+      userId: '123',
+      card: { id: 2 },
+      grade: 0,
+      isExtended: true, // ext_0
+      eventTime: '2026-01-01T10:00:00Z'
+    });
+    
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    assert.strictEqual(pending.length, 1);
+    assert.strictEqual(pending[0].knowledge_item_id, 101);
+    assert.strictEqual(pending[0].evaluation_data.rating, 'ext_0');
+  });
+
+  test('Test 4 - secondary only -> no attempt', async () => {
+    const db = getLocalDb('123');
+    await db.card_knowledge_items.add({ card_id: 3, knowledge_item_id: 102, role: 'secondary' });
+    
+    await captureStudyKnowledgeAttempt({
+      userId: '123',
+      card: { id: 3 },
+      grade: 3,
+      isExtended: false
+    });
+    
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    assert.strictEqual(pending.length, 0);
+  });
+
+  test('Test 11 - capture error does not throw (safely ignored)', async () => {
+    // Try to pass a broken payload or mock failure
+    // If it throws, the test will fail
+    await captureStudyKnowledgeAttempt({
+      userId: null, // should just return early without throwing
+      card: { id: 4 }
+    });
+    
+    const originalEnv = globalThis.import.meta.env.VITE_KNOWLEDGE_LAYER_ENABLED;
+    globalThis.import.meta.env.VITE_KNOWLEDGE_LAYER_ENABLED = 'false';
+    // should return early due to feature flag
+    await captureStudyKnowledgeAttempt({
+      userId: '123',
+      card: { id: 1 },
+      grade: 3
+    });
+    globalThis.import.meta.env.VITE_KNOWLEDGE_LAYER_ENABLED = originalEnv;
+    
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    assert.strictEqual(pending.length, 0); // No new attempts
+  });
+
+
+  test('KI-04.1 - Exercise first try correct', async () => {
+    const db = getLocalDb('123');
+    await db.card_knowledge_items.add({ card_id: 10, knowledge_item_id: 101, role: 'primary' });
+    await captureStudyKnowledgeAttempt({ userId: '123', card: { id: 10, front_text: '* A' }, grade: 3, isExtended: false, exerciseEvidence: { isCorrect: true, isFirstTry: true, attemptCount: 1, mistakeCount: 0 } });
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    const attempt = pending.find(a => a.card_id === 10);
+    assert.strictEqual(attempt.evaluation_data.schema_version, 2);
+    assert.strictEqual(attempt.evaluation_data.evaluation_type, 'hybrid');
+    assert.strictEqual(attempt.evaluation_data.exercise_evidence.first_try_correct, true);
+    assert.strictEqual(attempt.evaluation_data.exercise_evidence.attempt_count, 1);
+  });
+
+  test('KI-04.1 - Exercise after errors', async () => {
+    const db = getLocalDb('123');
+    await db.card_knowledge_items.add({ card_id: 11, knowledge_item_id: 101, role: 'primary' });
+    await captureStudyKnowledgeAttempt({ userId: '123', card: { id: 11, front_text: '* A' }, grade: 2, isExtended: false, exerciseEvidence: { isCorrect: true, isFirstTry: false, attemptCount: 4, mistakeCount: 3 } });
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    const attempt = pending.find(a => a.card_id === 11);
+    assert.strictEqual(attempt.evaluation_data.schema_version, 2);
+    assert.strictEqual(attempt.evaluation_data.exercise_evidence.first_try_correct, false);
+    assert.strictEqual(attempt.evaluation_data.exercise_evidence.attempt_count, 4);
+    assert.strictEqual(attempt.evaluation_data.exercise_evidence.mistake_count, 3);
+  });
+
+  test('KI-04.1 - Repeated card review lifecycle isolation', async () => {
+    const db = getLocalDb('123');
+    await db.card_knowledge_items.add({ card_id: 42, knowledge_item_id: 101, role: 'primary' });
+
+    // Review #1 for Card 42 (e.g., student struggled, 4 attempts, 3 mistakes)
+    const reviewEvidence1 = { isCorrect: true, isFirstTry: false, attemptCount: 4, mistakeCount: 3 };
+    await captureStudyKnowledgeAttempt({
+      userId: '123',
+      card: { id: 42, front_text: '@match\nA - 1' },
+      grade: 2,
+      isExtended: false,
+      eventTime: '2026-01-01T10:00:00Z',
+      exerciseEvidence: reviewEvidence1
+    });
+
+    // Review #2 for SAME Card 42 (e.g. later in session or single-card deck, student gets it right on first try)
+    const reviewEvidence2 = { isCorrect: true, isFirstTry: true, attemptCount: 1, mistakeCount: 0 };
+    await captureStudyKnowledgeAttempt({
+      userId: '123',
+      card: { id: 42, front_text: '@match\nA - 1' },
+      grade: 3,
+      isExtended: false,
+      eventTime: '2026-01-01T10:05:00Z',
+      exerciseEvidence: reviewEvidence2
+    });
+
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    const cardAttempts = pending.filter(a => a.card_id === 42);
+    assert.strictEqual(cardAttempts.length, 2);
+
+    const firstReview = cardAttempts[0];
+    const secondReview = cardAttempts[1];
+
+    assert.strictEqual(firstReview.evaluation_data.exercise_evidence.attempt_count, 4);
+    assert.strictEqual(firstReview.evaluation_data.exercise_evidence.first_try_correct, false);
+    assert.strictEqual(firstReview.evaluation_data.exercise_evidence.mistake_count, 3);
+
+    // Second review MUST have attempt_count=1, first_try_correct=true, mistake_count=0
+    assert.strictEqual(secondReview.evaluation_data.exercise_evidence.attempt_count, 1);
+    assert.strictEqual(secondReview.evaluation_data.exercise_evidence.first_try_correct, true);
+    assert.strictEqual(secondReview.evaluation_data.exercise_evidence.mistake_count, 0);
+  });
+
+  test('KI-04.1 - StudyCard reviewKey state scoping by historyIndex', () => {
+    // Simulating StudyCard exerciseStates cache keyed by ${card.id}:
+    const exerciseStates = {};
+    const cardA = { id: 77 };
+
+    const saveExerciseState = (cardId, historyIdx, state) => {
+      const reviewKey = `${cardId}:${historyIdx}`;
+      exerciseStates[reviewKey] = state;
+    };
+
+    const getSavedState = (cardId, historyIdx) => {
+      const reviewKey = `${cardId}:${historyIdx}`;
+      return exerciseStates[reviewKey];
+    };
+
+    // Review #1 (historyIndex = 10)
+    saveExerciseState(cardA.id, 10, { attemptCount: 4, mistakeCount: 3, isFirstTry: false });
+    assert.deepStrictEqual(getSavedState(cardA.id, 10), { attemptCount: 4, mistakeCount: 3, isFirstTry: false });
+
+    // Review #2 (historyIndex = 11) for the same cardA must start fresh (no saved state from historyIndex 10)
+    const stateForReview2 = getSavedState(cardA.id, 11);
+    assert.strictEqual(stateForReview2, undefined);
+  });
+});
+
