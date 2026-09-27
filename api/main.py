@@ -18,8 +18,7 @@ from api.dependencies.auth import get_user_id
 
 from api import models, services
 
-# Импорт роутеров
-from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, auth_v2, share, debug, trash, sync, folders, collaborative, lid
+from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, auth_v2, share, debug, trash, sync, folders, collaborative, lid, knowledge
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -153,6 +152,7 @@ app.include_router(sync.router, prefix="/api")
 app.include_router(folders.router, prefix="/api")
 app.include_router(collaborative.router, prefix="/api")
 app.include_router(lid.router, prefix="/api")
+app.include_router(knowledge.router, prefix="/api")
 
 # --- Consolidated Init Endpoint ---
 @app.get("/api/init")

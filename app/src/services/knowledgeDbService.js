@@ -117,7 +117,7 @@ export function createKnowledgeAttempt(payload) {
   return {
     ...payload,
     client_event_id: payload.client_event_id || crypto.randomUUID(),
-    created_at: payload.created_at || new Date().toISOString(),
+    event_time: payload.event_time || new Date().toISOString(),
   };
 }
 

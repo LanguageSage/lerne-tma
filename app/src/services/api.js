@@ -1,8 +1,8 @@
 import axios from 'axios';
-import { getAccessToken, getAuthSession, saveAuthSession, clearAuthSession, getUserId } from '../utils/auth';
-import { isOfflineMode, resolveLocalRequest, prepareLocalDb } from './localDb';
-import { offlineApi } from './offlineApi';
-import { API_BASE_URL } from './apiConfig';
+import { getAccessToken, getAuthSession, saveAuthSession, clearAuthSession, getUserId } from '../utils/auth.js';
+import { isOfflineMode, resolveLocalRequest, prepareLocalDb } from './localDb.js';
+import { offlineApi } from './offlineApi.js';
+import { API_BASE_URL } from './apiConfig.js';
 
 const baseURL = API_BASE_URL;
 
