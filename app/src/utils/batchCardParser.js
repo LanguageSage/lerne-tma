@@ -1,6 +1,5 @@
 import { tr } from '../i18n/locale.js';
-import { classifySentenceFast } from '../services/classifier/index.js';
-import { buildCefrMetaFromClassifierResult } from './levelUtils.js';
+import { buildManualCefrMeta } from './levelUtils.js';
 import { detectExerciseType } from './exerciseDetector.js';
 import { parseQuizData } from './quizParser.js';
 import { parseExerciseContent } from './exerciseContentParser.js';
@@ -112,6 +111,56 @@ export function detectCardTypeByContent(front = '') {
   return detectExerciseType({ front }) || 'standard';
 }
 
+export function extractContextMetadata(context) {
+  if (!context) return { level: null, topic: null, cleanContext: '' };
+
+  let level = null;
+  let topic = null;
+  let cleanContext = context;
+
+  // 1. Level with marker: ::level B1, ::level\nB1, Level: B1, Уровень: B1
+  const mLevelMarker = /(?:^|\n)\s*(?:::level|level|уровень)\s*:?\s*\r?\n?\s*([a-c][1-2])\b/i.exec(cleanContext);
+  if (mLevelMarker) {
+    level = mLevelMarker[1].toUpperCase();
+    cleanContext = cleanContext.slice(0, mLevelMarker.index) + '\n' + cleanContext.slice(mLevelMarker.index + mLevelMarker[0].length);
+  }
+
+  // 2. Topic with marker: ::topic Relativsätze, ::topic\nRelativsätze, Topic: Relativsätze, Тема: Relativsätze
+  const mTopicMarker = /(?:^|\n)\s*(?:::topic|topic|тема)\s*:?\s*\r?\n?\s*([^\n]+)/i.exec(cleanContext);
+  if (mTopicMarker) {
+    topic = mTopicMarker[1].trim();
+    cleanContext = cleanContext.slice(0, mTopicMarker.index) + '\n' + cleanContext.slice(mTopicMarker.index + mTopicMarker[0].length);
+  }
+
+  // 3. Fallback for bare level line if no level marker was found (e.g. standalone 'B1' line)
+  if (!level) {
+    const mBareLevel = /(?:^|\n)\s*([a-c][1-2])\s*(?:\r?\n|$)/i.exec(cleanContext);
+    if (mBareLevel) {
+      level = mBareLevel[1].toUpperCase();
+      const startPos = mBareLevel.index;
+      const endPos = mBareLevel.index + mBareLevel[0].length;
+      const afterText = cleanContext.slice(endPos).trim();
+      cleanContext = cleanContext.slice(0, startPos);
+
+      if (afterText && !topic) {
+        const afterLines = afterText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (afterLines.length > 0 && afterLines[0].length < 80) {
+          topic = afterLines[0];
+          const remainingAfter = afterLines.slice(1).join('\n');
+          if (remainingAfter) {
+            cleanContext += '\n' + remainingAfter;
+          }
+        }
+      } else if (afterText) {
+        cleanContext += '\n' + afterText;
+      }
+    }
+  }
+
+  const lines = cleanContext.split(/\r?\n/).filter(l => l.trim() !== '');
+  return { level, topic, cleanContext: lines.join('\n').trim() };
+}
+
 /**
  * Parses batch cards text using strict 3-level architecture:
  * Level 1: parseImportedCardSections(block) -> front, back, context
@@ -136,7 +185,6 @@ export function parseBatchCardsText(rawText) {
 
     // Level 2: Structure of FRONT
     const parsedExercise = parseExerciseContent(front);
-    const cleanSentenceForLevel = parsedExercise.exercise || front;
 
     // Level 3: Exercise syntax & type detection (strictly from front)
     const detectedType = detectExerciseType(front) || 'standard';
@@ -174,23 +222,14 @@ export function parseBatchCardsText(rawText) {
       }
     }
 
-    let explicitLevel = null;
-    let explicitTopic = null;
-    if (context) {
-      const levelMatch = /(?:^|\n)\s*::level\s*\r?\n(.*?)(?=(?:\r?\n\s*::)|$)/i.exec(context);
-      if (levelMatch && levelMatch[1]) explicitLevel = levelMatch[1].trim().toUpperCase();
-      
-      const topicMatch = /(?:^|\n)\s*::topic\s*\r?\n(.*?)(?=(?:\r?\n\s*::)|$)/i.exec(context);
-      if (topicMatch && topicMatch[1]) explicitTopic = topicMatch[1].trim();
-    }
+    const { level: explicitLevel, topic: explicitTopic, cleanContext } = extractContextMetadata(context);
 
-    const res = classifySentenceFast(cleanSentenceForLevel, 'de');
     const defaultLevel = (detectedType === 'match' || detectedType === 'free_text' || detectedType === 'quiz' || detectedType === 'word_bank')
       ? 'B1'
       : 'A1';
-    
-    // AI-provided level takes precedence over local classifier
-    const level = explicitLevel || res.level || defaultLevel;
+
+    const level = explicitLevel || defaultLevel;
+    const cefr = buildManualCefrMeta(level);
 
     parsedCards.push({
       id: `temp_${Date.now()}_${i}`,
@@ -198,12 +237,12 @@ export function parseBatchCardsText(rawText) {
       front_text: front,
       back: finalBack,
       back_text: finalBack,
-      context,
+      context: cleanContext,
       card_type: detectedType,
       level,
-      reason: res.reason,
-      reason_short: res.reason_short,
-      cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
+      reason: cefr.reason,
+      reason_short: cefr.reason_short,
+      cefr,
       tags: level,
       topics: explicitTopic || ''
     });

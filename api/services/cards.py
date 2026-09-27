@@ -226,25 +226,59 @@ def save_card(data, user_id, *, _batch=None):
         import re
         extracted = False
         
-        m_level = re.search(r"(?im)^\s*::level\s*\r?\n(.*?)(?=(?:^\s*::)|$)", card.context, re.DOTALL)
-        if m_level:
-            level_str = m_level.group(1).upper().strip()
+        m_level_marker = re.search(r"(?:^|\n)\s*(?:::level|level|уровень)\s*:?\s*\r?\n?\s*([a-cA-C][1-2])\b", card.context, re.IGNORECASE)
+        if m_level_marker:
+            level_str = m_level_marker.group(1).upper().strip()
             if level_str in {"A1", "A2", "B1", "B2", "C1", "C2"}:
                 curr_tags = card.tags or ""
                 if level_str not in curr_tags:
                     card.tags = f"{curr_tags},{level_str}".strip(",") if curr_tags else level_str
             extracted = True
-            
-        m_topic = re.search(r"(?im)^\s*::topic\s*\r?\n(.*?)(?=(?:^\s*::)|$)", card.context, re.DOTALL)
-        if m_topic:
-            card.topics = m_topic.group(1).strip()
+
+        m_topic_marker = re.search(r"(?:^|\n)\s*(?:::topic|topic|тема)\s*:?\s*\r?\n?\s*([^\n]+)", card.context, re.IGNORECASE)
+        if m_topic_marker:
+            card.topics = m_topic_marker.group(1).strip()
             extracted = True
-            
+
         if extracted:
             new_context = card.context
-            new_context = re.sub(r"(?im)^\s*::level\s*\r?\n.*?(?=(?:^\s*::)|$)", "", new_context, flags=re.DOTALL)
-            new_context = re.sub(r"(?im)^\s*::topic\s*\r?\n.*?(?=(?:^\s*::)|$)", "", new_context, flags=re.DOTALL)
+            new_context = re.sub(r"(?im)^\s*(?:::level|level|уровень)\s*:?\s*\r?\n?.*?(?=(?:^\s*(?:::|topic|level|тема|уровень))|$)", "", new_context, flags=re.DOTALL)
+            new_context = re.sub(r"(?im)^\s*(?:::topic|topic|тема)\s*:?\s*\r?\n?.*?(?=(?:^\s*(?:::|topic|level|тема|уровень))|$)", "", new_context, flags=re.DOTALL)
             card.context = new_context.strip()
+        else:
+            m_bare_level = re.search(r"(?:^|\n)\s*([a-cA-C][1-2])\s*(?:\r?\n|$)", card.context)
+            if m_bare_level:
+                level_str = m_bare_level.group(1).upper().strip()
+                if level_str in {"A1", "A2", "B1", "B2", "C1", "C2"}:
+                    curr_tags = card.tags or ""
+                    if level_str not in curr_tags:
+                        card.tags = f"{curr_tags},{level_str}".strip(",") if curr_tags else level_str
+                    
+                    start_pos = m_bare_level.start()
+                    end_pos = m_bare_level.end()
+                    after_text = card.context[end_pos:].strip()
+                    new_ctx = card.context[:start_pos]
+                    if after_text:
+                        after_lines = [l.strip() for l in after_text.splitlines() if l.strip()]
+                        if after_lines and len(after_lines[0]) < 80 and not card.topics:
+                            card.topics = after_lines[0]
+                            remaining_after = "\n".join(after_lines[1:])
+                            if remaining_after:
+                                new_ctx += "\n" + remaining_after
+                        else:
+                            new_ctx += "\n" + after_text
+                    card.context = new_ctx.strip()
+
+        # Always sync CEFR metadata in card.metadata with card.tags/level
+        target_level = data.get('level')
+        if not target_level and card.tags:
+            for lvl in ["A1", "A2", "B1", "B2", "C1", "C2"]:
+                if lvl in str(card.tags).upper():
+                    target_level = lvl
+                    break
+        if target_level and target_level in {"A1", "A2", "B1", "B2", "C1", "C2"}:
+            from .cefr_metadata import build_local_cefr_payload
+            card.metadata = merge_cefr_metadata(card.metadata, build_local_cefr_payload({'level': target_level}))
 
     card.updated_at = datetime.datetime.now()
     if not data.get('silent'):

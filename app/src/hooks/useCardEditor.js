@@ -9,8 +9,7 @@ import { detectExerciseType } from '../utils/exerciseDetector';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { useStudySession } from './useStudySession';
-import { classifySentenceFast } from '../services/classifier';
-import { buildCefrMetaFromClassifierResult, buildManualCefrMeta, getSavedCefr, updateCardLevelTags } from '../utils/levelUtils';
+import { buildManualCefrMeta, getSavedCefr, updateCardLevelTags } from '../utils/levelUtils';
 
 export const useCardEditor = () => {
   const { fetchDecks, fetchDeckCards } = useDeckStore();
@@ -38,19 +37,11 @@ export const useCardEditor = () => {
       let finalLevel = data.level;
       let finalTags = data.tags;
       let finalCefr = getSavedCefr(data);
-      if (data.manual_level && finalLevel) {
-        finalCefr = buildManualCefrMeta(finalLevel);
-      } else if (!data.manual_level && frontText) {
-        try {
-          const res = classifySentenceFast(frontText, 'de');
-          if (res && res.level) {
-            finalLevel = res.level;
-            finalTags = updateCardLevelTags(finalTags, res.level);
-            finalCefr = buildCefrMetaFromClassifierResult(res, 'local');
-          }
-        } catch {
-          // ignore
+      if (finalLevel) {
+        if (!finalCefr || finalCefr.level !== finalLevel) {
+          finalCefr = buildManualCefrMeta(finalLevel);
         }
+        finalTags = updateCardLevelTags(finalTags, finalLevel);
       }
 
       const autoGenerateCardAudio = useSettingsStore.getState().autoGenerateCardAudio;

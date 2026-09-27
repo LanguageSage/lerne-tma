@@ -1,4 +1,4 @@
-﻿import { tr, getInterfaceLanguage } from '../../i18n/locale';
+import { tr, getInterfaceLanguage } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -203,6 +203,8 @@ BACK:
         card_type: detectExerciseType(c) || c.card_type || 'standard',
         level: c.level,
         tags: c.tags,
+        cefr: c.cefr,
+        topics: c.topics || '',
         position: idx
       }));
 
@@ -250,6 +252,8 @@ BACK:
         card_type: detectExerciseType(c) || c.card_type || 'standard',
         level: c.level,
         tags: c.tags,
+        cefr: c.cefr,
+        topics: c.topics || '',
         source: 'batch_import'
       }));
       attempt = pendingImport.findByText(rawText);
