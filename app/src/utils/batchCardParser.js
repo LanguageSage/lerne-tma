@@ -174,11 +174,23 @@ export function parseBatchCardsText(rawText) {
       }
     }
 
+    let explicitLevel = null;
+    let explicitTopic = null;
+    if (context) {
+      const levelMatch = /(?:^|\n)\s*::level\s*\r?\n(.*?)(?=(?:\r?\n\s*::)|$)/i.exec(context);
+      if (levelMatch && levelMatch[1]) explicitLevel = levelMatch[1].trim().toUpperCase();
+      
+      const topicMatch = /(?:^|\n)\s*::topic\s*\r?\n(.*?)(?=(?:\r?\n\s*::)|$)/i.exec(context);
+      if (topicMatch && topicMatch[1]) explicitTopic = topicMatch[1].trim();
+    }
+
     const res = classifySentenceFast(cleanSentenceForLevel, 'de');
     const defaultLevel = (detectedType === 'match' || detectedType === 'free_text' || detectedType === 'quiz' || detectedType === 'word_bank')
       ? 'B1'
       : 'A1';
-    const level = res.level || defaultLevel;
+    
+    // AI-provided level takes precedence over local classifier
+    const level = explicitLevel || res.level || defaultLevel;
 
     parsedCards.push({
       id: `temp_${Date.now()}_${i}`,
@@ -192,7 +204,8 @@ export function parseBatchCardsText(rawText) {
       reason: res.reason,
       reason_short: res.reason_short,
       cefr: buildCefrMetaFromClassifierResult({ ...res, level }, 'local'),
-      tags: level
+      tags: level,
+      topics: explicitTopic || ''
     });
   }
 

@@ -147,6 +147,27 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) ->
     return f"/api/media/{folder}/{filename}"
 
 
+def is_user_auto_generate_audio_enabled(user_id: int) -> bool:
+    """Checks USER_SETTINGS_{user_id} in TMASetting. Returns False if explicitly disabled by user."""
+    if not user_id:
+        return True
+    try:
+        import json
+        from ..models import TMASetting
+        setting = TMASetting.get_or_none(TMASetting.key == f"USER_SETTINGS_{user_id}")
+        if setting and setting.value:
+            settings_dict = json.loads(setting.value)
+            if isinstance(settings_dict, dict):
+                val = settings_dict.get("autoGenerateCardAudio")
+                if val is None:
+                    val = settings_dict.get("auto_generate_card_audio")
+                if val is False or val == "false":
+                    return False
+    except Exception as e:
+        logger.warning(f"Error checking user auto-generate audio setting for user {user_id}: {e}")
+    return True
+
+
 async def ensure_card_audio(card, user_id: int):
     """Проверяет наличие озвучки для лицевой стороны карточки.
     Если файла озвучки нет в TMAMedia или он пустой/недействительный,
@@ -158,6 +179,9 @@ async def ensure_card_audio(card, user_id: int):
     from .collaborative_service import can_edit_audio
 
     if not can_edit_audio(user_id, 'deck', card.deck_id):
+        return
+
+    if user_id and not is_user_auto_generate_audio_enabled(user_id):
         return
     
     # 1. Проверяем, есть ли уже озвучка

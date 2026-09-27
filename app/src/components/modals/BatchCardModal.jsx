@@ -7,34 +7,14 @@ import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { useCardActions } from '../../hooks/useCardActions';
+import { usePendingImport } from '../../hooks/usePendingImport';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardTypeBadge } from '../common/CardTypeBadge';
 import { db } from '../../services/localDb';
 import { hasCardSeparatorLine, LERNE_CARD_SEPARATOR, parseBatchCardsText } from '../../utils/batchCardParser';
 import { detectExerciseType } from '../../utils/exerciseDetector';
 import api from '../../services/api';
-import { getUserId } from '../../utils/auth';
 
-const importStorageKey = (deckId) => `lerne_bulk_import_${getUserId() || 'anon'}_${deckId}`;
-const pendingInMemory = new Map();
-
-const readPendingImports = (deckId) => {
-  const key = importStorageKey(deckId);
-  if (pendingInMemory.has(key)) return pendingInMemory.get(key);
-  try {
-    const value = JSON.parse(localStorage.getItem(key) || '[]');
-    return Array.isArray(value) ? value : [];
-  } catch { return pendingInMemory.get(key) || []; }
-};
-
-const writePendingImports = (deckId, entries) => {
-  const key = importStorageKey(deckId);
-  pendingInMemory.set(key, entries);
-  try {
-    if (entries.length) localStorage.setItem(key, JSON.stringify(entries));
-    else localStorage.removeItem(key);
-  } catch { /* Keep the retry in memory when storage is unavailable. */ }
-};
 
 export const BatchCardModal = () => {
   useInterfaceLocale();
@@ -43,6 +23,7 @@ export const BatchCardModal = () => {
   const { runBatchAiGenerator } = useCardActions();
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
   const targetLanguage = currentDeck?.target_language || activeLanguage || 'de';
+  const pendingImport = usePendingImport(currentDeck?.id);
 
   const [activeTab, setActiveTab] = useState('import'); // 'import' | 'ai'
   const [rawText, setRawText] = useState('');
@@ -54,14 +35,14 @@ export const BatchCardModal = () => {
 
   useEffect(() => {
     if (!isBatchModalOpen || !currentDeck?.id) return;
-    const pending = readPendingImports(currentDeck.id).at(-1);
+    const pending = pendingImport.last();
     if (pending) {
       setRawText(text => text || pending.rawText);
       setImportPlacement(pending.placement || 'end');
       setImportOutcome('unknown');
       setActiveTab('import');
     }
-  }, [isBatchModalOpen, currentDeck?.id]);
+  }, [isBatchModalOpen, currentDeck?.id, pendingImport]);
 
   const importPlaceholder = useMemo(() => {
     return `FRONT:
@@ -140,9 +121,7 @@ BACK:
     if (activeTab !== 'import' || !rawText.trim()) return [];
     return parseBatchCardsText(rawText);
   }, [rawText, activeTab]);
-  const pendingForCurrentText = currentDeck?.id
-    ? readPendingImports(currentDeck.id).find(entry => entry.rawText === rawText)
-    : null;
+  const pendingForCurrentText = pendingImport.findByText(rawText);
   const selectedPlacement = pendingForCurrentText?.placement || importPlacement;
 
   if (!isBatchModalOpen) return null;
@@ -260,7 +239,6 @@ BACK:
     setIsProcessing(true);
     setProcessingMode('direct');
     let attempt;
-    const deckId = currentDeck?.id;
     try {
       const payloadCards = parsedCards.map(c => ({
         deck_id: currentDeck?.id || null,
@@ -274,18 +252,17 @@ BACK:
         tags: c.tags,
         source: 'batch_import'
       }));
-      const pending = readPendingImports(deckId);
-      attempt = pending.find(entry => entry.rawText === rawText);
+      attempt = pendingImport.findByText(rawText);
       if (!attempt) {
         attempt = { import_id: crypto.randomUUID(), rawText, cards: payloadCards, placement: importPlacement };
-        writePendingImports(deckId, [...pending, attempt]);
+        pendingImport.add(attempt);
       }
       setImportPlacement(attempt.placement || 'end');
       setImportOutcome('in_progress');
       const res = await api.post('/cards/bulk-save', {
         import_id: attempt.import_id, cards: attempt.cards, placement: attempt.placement || 'end'
       });
-      writePendingImports(deckId, readPendingImports(deckId).filter(entry => entry.import_id !== attempt.import_id));
+      pendingImport.remove(attempt.import_id);
       const savedCardsList = res.data?.cards || [];
       const createdCount = res.data?.created ?? savedCardsList.length;
       const failedCount = res.data?.failed?.length ?? res.data?.failed_count ?? 0;
@@ -306,7 +283,7 @@ BACK:
         showToast(tr("Результат импорта пока неизвестен. Сервер может продолжать работу. Повторите запрос с тем же импортом."), 'warning');
       } else {
         if (attempt) {
-          writePendingImports(deckId, readPendingImports(deckId).filter(entry => entry.import_id !== attempt.import_id));
+          pendingImport.remove(attempt.import_id);
         }
         setImportOutcome(null);
         showToast(tr("Ошибка импорта: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');

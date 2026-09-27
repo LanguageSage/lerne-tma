@@ -12,6 +12,9 @@
 ```text
 FRONT:
 ::task
+Beantworten Sie die Frage.
+
+::exercise
 Was ist die Hauptstadt von Deutschland?
 
 BACK:
