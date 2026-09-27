@@ -37,6 +37,7 @@ import { useAppInitialization } from './hooks/useAppInitialization';
 import { useCardNavigation } from './hooks/useCardNavigation';
 import { useCollaborativeSync } from './hooks/useCollaborativeSync';
 import { useStudyNavigation } from './hooks/useStudyNavigation';
+import { useKnowledgeSync } from './hooks/useKnowledgeSync';
 
 import { LanguageProvider, useTranslation } from './i18n/i18nContext';
 import { getLocalizedTutorialSteps } from './i18n/tutorialSteps';
@@ -206,6 +207,7 @@ function AppContent() {
   const { clearImportShareId, checkStartParam } = useAutoImport();
   useAppInitialization(checkStartParam);
   useCollaborativeSync(); // Real-time background sync for collaborative folders
+  useKnowledgeSync(currentUserId);
   
   // Scroll to top on view change
   useEffect(() => {

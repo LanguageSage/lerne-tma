@@ -177,7 +177,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
     });
 
     const pending = await dbService.getPendingKnowledgeAttempts('123');
-    const cardAttempts = pending.filter(a => a.card_id === 42);
+    const cardAttempts = pending.filter(a => a.card_id === 42).sort((a, b) => a.event_time.localeCompare(b.event_time));
     assert.strictEqual(cardAttempts.length, 2);
 
     const firstReview = cardAttempts[0];

@@ -7,17 +7,23 @@ import {
   markKnowledgeAttemptPending
 } from './knowledgeDbService.js';
 
+export const BATCH_SIZE = 100;
+
 /**
  * Synchronizes pending Knowledge Attempts to the backend.
  * Uses batch size of 100.
+ * Returns a summary object for orchestration:
+ * { selectedCount, succeededCount, failedCount, transportFailed, error }
  */
 export async function syncKnowledgeAttempts(userId) {
-  if (!userId) return;
+  if (!userId) {
+    return { selectedCount: 0, succeededCount: 0, failedCount: 0, transportFailed: false };
+  }
 
   // 1. Get pending attempts
-  const pendingAttempts = await getPendingKnowledgeAttempts(userId, 100);
+  const pendingAttempts = await getPendingKnowledgeAttempts(userId, BATCH_SIZE);
   if (!pendingAttempts || pendingAttempts.length === 0) {
-    return;
+    return { selectedCount: 0, succeededCount: 0, failedCount: 0, transportFailed: false };
   }
 
   // 2. Mark them as syncing
@@ -41,24 +47,53 @@ export async function syncKnowledgeAttempts(userId) {
   } catch (error) {
     // On ANY batch-level HTTP error (401, 403, 400, 422, 5xx, network error),
     // we preserve the events and revert them to pending.
-    // Permanent failures are ONLY determined by per-event server responses in the 200 OK payload.
     for (const attempt of batch) {
       await markKnowledgeAttemptPending(attempt.client_event_id);
     }
-    // Caller can handle the HTTP error (auth, etc)
-    throw error;
+    return {
+      selectedCount: batch.length,
+      succeededCount: 0,
+      failedCount: 0,
+      transportFailed: true,
+      error
+    };
+  }
+
+  // Check malformed response
+  const results = response?.data?.results;
+  if (!Array.isArray(results)) {
+    for (const attempt of batch) {
+      await markKnowledgeAttemptPending(attempt.client_event_id);
+    }
+    return {
+      selectedCount: batch.length,
+      succeededCount: 0,
+      failedCount: 0,
+      transportFailed: true,
+      error: new Error('Malformed batch response: results array missing')
+    };
   }
 
   // 4. Process per-event results
-  const results = response?.data?.results || [];
+  let succeededCount = 0;
+  let failedCount = 0;
   for (const result of results) {
     if (result.status === 'created' || result.status === 'duplicate') {
       await deleteKnowledgeAttempt(result.client_event_id);
+      succeededCount++;
     } else {
       await markKnowledgeAttemptFailed(
         result.client_event_id,
         result.error_code || result.status
       );
+      failedCount++;
     }
   }
+
+  return {
+    selectedCount: batch.length,
+    succeededCount,
+    failedCount,
+    transportFailed: false
+  };
 }
