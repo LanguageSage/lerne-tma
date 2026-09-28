@@ -455,15 +455,12 @@ export const DeckCardItem = React.memo(({
             {!deck.is_inbox && !deck.is_global_readonly && (
               <button 
                 className="dropdown-item" 
-                style={{ opacity: 0.6, cursor: 'not-allowed' }}
                 onClick={(e) => {
-                  e.stopPropagation();
+                  handleToggleLearning(e);
                   setIsMenuOpen(false);
-                  showToast(tr("Фича «Учить» находится в разработке"), 'info');
                 }}
-                title={tr("Фича «Учить» находится в разработке")}
               >
-                <span>{deck.is_learning ? tr("⏸ Отключить напоминания (Не учу)") : tr("🔥 Включить в изучение (Учить)")} (в разработке)</span>
+                <span>{deck.is_learning ? tr("⏸ Отключить напоминания (Не учу)") : tr("🔥 Включить в изучение (Учить)")}</span>
               </button>
             )}
 
