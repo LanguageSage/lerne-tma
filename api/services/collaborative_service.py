@@ -8,6 +8,10 @@ from api import models
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Access version (cache invalidation marker)
+# ---------------------------------------------------------------------------
+
 def get_access_version(user_id: int) -> str | None:
     """Returns a stable marker that changes when this user's grants change."""
     query = models.TMA_Collaborator.select(
@@ -19,6 +23,47 @@ def get_access_version(user_id: int) -> str | None:
         return None
     return f"{row['grant_count']}:{row['last_grant_id']}"
 
+
+# ---------------------------------------------------------------------------
+# Global readonly helpers
+# ---------------------------------------------------------------------------
+
+def _is_globally_readable(folder_id: int, folder_map: Dict[int, Any] = None) -> bool:
+    """Returns True if folder_id or any of its ancestors has access_scope == 'global_readonly'.
+    Uses folder_map when available to avoid extra queries."""
+    if folder_map is None:
+        all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
+        folder_map = {f.id: f for f in all_folders}
+
+    current_id = folder_id
+    visited = set()
+    while current_id and current_id not in visited:
+        visited.add(current_id)
+        f = folder_map.get(current_id)
+        if not f or getattr(f, 'is_deleted', False):
+            break
+        if getattr(f, 'access_scope', 'private') == 'global_readonly':
+            return True
+        current_id = getattr(f, 'parent_id', None)
+    return False
+
+
+def get_global_readonly_folder_ids(folder_map: Dict[int, Any]) -> set:
+    """Returns all folder IDs that are globally readable (root + all descendants)."""
+    global_roots = {
+        f.id for f in folder_map.values()
+        if getattr(f, 'access_scope', 'private') == 'global_readonly'
+        and not getattr(f, 'is_deleted', False)
+    }
+    result = set()
+    for root_id in global_roots:
+        result.update(_get_all_subfolder_ids(root_id, folder_map))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Admin operations
+# ---------------------------------------------------------------------------
 
 def admin_bulk_delete_folders(folder_ids: List[int], user_ids: List[int]) -> dict:
     """Soft-delete selected folders owned by selected users, including contents."""
@@ -83,9 +128,47 @@ def admin_bulk_delete_folders(folder_ids: List[int], user_ids: List[int]) -> dic
     }
 
 
+def set_folder_access_scope(folder_id: int, access_scope: str, requester_id: int) -> dict:
+    """Admin-only: publish or unpublish a folder as global_readonly.
+    Only the ADMIN_USER_ID can call this; the folder owner is unchanged.
+    """
+    import os
+    from fastapi import HTTPException
+
+    admin_id = int(os.environ.get("ADMIN_USER_ID", "642478257"))
+    if requester_id != admin_id:
+        raise HTTPException(status_code=403, detail="Only the platform admin can set access_scope")
+
+    if access_scope not in ('private', 'global_readonly'):
+        raise HTTPException(status_code=422, detail="access_scope must be 'private' or 'global_readonly'")
+
+    folder = models.TMA_Folder.get_or_none(
+        (models.TMA_Folder.id == folder_id) & (models.TMA_Folder.is_deleted == False)
+    )
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+
+    folder.access_scope = access_scope
+    folder.updated_at = datetime.datetime.now()
+    folder.save()
+
+    return {
+        "status": "ok",
+        "folder_id": folder_id,
+        "folder_name": folder.name,
+        "access_scope": access_scope,
+        "owner_user_id": folder.user_id,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Batch collaborative info (used by list endpoints)
+# ---------------------------------------------------------------------------
+
 def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders: List[Any] = None, folder_map: Dict[int, Any] = None) -> Dict[str, Dict[int, Dict[str, Any]]]:
     """
     Computes effective user role and is_shared for multiple decks and folders in 1-2 DB queries.
+    Also sets is_global_readonly and is_official flags.
     """
     decks = decks or []
     folders = folders or []
@@ -101,6 +184,9 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
 
     all_known_folder_ids = list(folder_map.keys())
 
+    # Pre-compute global-readonly folder set (one pass, no extra queries)
+    global_readonly_ids = get_global_readonly_folder_ids(folder_map)
+
     # Single query for all collaborators
     collabs = []
     conditions = []
@@ -108,7 +194,7 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
         conditions.append((models.TMA_Collaborator.target_type == 'deck') & (models.TMA_Collaborator.target_id << deck_ids))
     if all_known_folder_ids:
         conditions.append((models.TMA_Collaborator.target_type == 'folder') & (models.TMA_Collaborator.target_id << all_known_folder_ids))
-    
+
     if conditions:
         from peewee import reduce, operator
         query_condition = reduce(operator.or_, conditions)
@@ -143,6 +229,10 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
             res = resolve_folder_role(f.parent_id)
             role_memo[fid] = res
             return res
+        # Global readonly fallback: any authenticated user gets 'viewer'
+        if fid in global_readonly_ids:
+            role_memo[fid] = 'viewer'
+            return 'viewer'
         role_memo[fid] = None
         return None
 
@@ -177,43 +267,66 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
                 deck_role = resolve_folder_role(d.folder_id)
             else:
                 deck_role = None
+            # Global readonly fallback for decks
+            if deck_role is None and getattr(d, 'folder_id', None) and d.folder_id in global_readonly_ids:
+                deck_role = 'viewer'
+
+        deck_folder_id = getattr(d, 'folder_id', None)
+        is_global = deck_folder_id in global_readonly_ids if deck_folder_id else False
 
         if deck_role and deck_role != 'owner':
             deck_shared = True
         elif len(collabs_by_target.get(('deck', d.id), [])) > 0:
             deck_shared = True
-        elif getattr(d, 'folder_id', None):
-            deck_shared = resolve_folder_shared(d.folder_id)
+        elif deck_folder_id:
+            deck_shared = resolve_folder_shared(deck_folder_id)
         else:
             deck_shared = False
 
-        deck_info[d.id] = {'role': deck_role, 'is_shared': deck_shared}
+        deck_info[d.id] = {
+            'role': deck_role,
+            'is_shared': deck_shared,
+            'is_global_readonly': is_global,
+            'is_official': is_global,
+        }
 
     folder_info = {}
     for f in folders:
+        role = resolve_folder_role(f.id)
+        is_global = f.id in global_readonly_ids
         folder_info[f.id] = {
-            'role': resolve_folder_role(f.id),
-            'is_shared': resolve_folder_shared(f.id)
+            'role': role,
+            'is_shared': resolve_folder_shared(f.id),
+            'is_global_readonly': is_global,
+            'is_official': is_global,
         }
 
     return {'decks': deck_info, 'folders': folder_info}
 
 
+# ---------------------------------------------------------------------------
+# Effective role (single-item lookup, used by mutation guards)
+# ---------------------------------------------------------------------------
+
 def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> Optional[str]:
     """
     Determines effective permission role ('owner', 'editor', 'viewer', or None)
-    for a given user on a deck or folder, honoring direct overrides and parent folder cascades.
+    for a given user on a deck or folder, honoring:
+      1. Direct ownership
+      2. Direct TMA_Collaborator entry
+      3. Inherited parent-folder collaborator cascade
+      4. global_readonly access_scope (any authenticated user → 'viewer')
     """
     if target_type == 'deck':
         deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
         if not deck or deck.is_deleted:
             return None
-        
-        # 1. Direct owner check
+
+        # 1. Direct owner
         if deck.user_id == user_id:
             return 'owner'
-        
-        # 2. Direct deck collaborator override check
+
+        # 2. Direct deck collaborator
         direct_collab = models.TMA_Collaborator.get_or_none(
             (models.TMA_Collaborator.target_type == 'deck') &
             (models.TMA_Collaborator.target_id == target_id) &
@@ -221,23 +334,25 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
         )
         if direct_collab:
             return direct_collab.role
-        
-        # 3. Cascade check up folder hierarchy if deck belongs to a folder
+
+        # 3. Cascade through parent folder
         if deck.folder_id:
-            return get_effective_user_role(user_id, 'folder', deck.folder_id)
-        
+            folder_role = get_effective_user_role(user_id, 'folder', deck.folder_id)
+            if folder_role:
+                return folder_role
+
         return None
 
     elif target_type == 'folder':
         folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
         if not folder or folder.is_deleted:
             return None
-        
-        # 1. Direct owner check
+
+        # 1. Direct owner
         if folder.user_id == user_id:
             return 'owner'
-        
-        # 2. Direct folder collaborator check
+
+        # 2. Direct folder collaborator
         direct_collab = models.TMA_Collaborator.get_or_none(
             (models.TMA_Collaborator.target_type == 'folder') &
             (models.TMA_Collaborator.target_id == target_id) &
@@ -245,14 +360,32 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
         )
         if direct_collab:
             return direct_collab.role
-        
+
         # 3. Recursive parent folder check
         if folder.parent_id:
             return get_effective_user_role(user_id, 'folder', folder.parent_id)
-        
+
+        # 4. Global readonly: any authenticated user gets 'viewer'
+        if getattr(folder, 'access_scope', 'private') == 'global_readonly':
+            return 'viewer'
+
         return None
 
     return None
+
+
+def _require_can_mutate(user_id: int, target_type: str, target_id: int):
+    """Raises PermissionError if user cannot mutate (write/delete) this resource.
+    Allowed roles: owner, editor. Viewer and unauthenticated are blocked."""
+    from fastapi import HTTPException
+    role = get_effective_user_role(user_id, target_type, target_id)
+    if role not in ('owner', 'editor'):
+        if role == 'viewer':
+            raise HTTPException(
+                status_code=403,
+                detail="Этот контент доступен только для чтения (официальный урок Lerne)."
+            )
+        raise HTTPException(status_code=403, detail="Access denied")
 
 
 def can_edit_audio(user_id: int, target_type: str, target_id: int) -> bool:
@@ -303,7 +436,7 @@ def is_shared_item(user_id: int, target_type: str, target_id: int) -> bool:
         ).count()
         if collab_count > 0:
             return True
-        
+
         deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
         if deck and deck.folder_id:
             return is_shared_item(user_id, 'folder', deck.folder_id)
@@ -311,6 +444,9 @@ def is_shared_item(user_id: int, target_type: str, target_id: int) -> bool:
     return False
 
 
+# ---------------------------------------------------------------------------
+# Private helpers
+# ---------------------------------------------------------------------------
 
 def _get_all_parent_folder_ids(folder_id: int) -> List[int]:
     """Recursively collects folder_id and all its parent folder IDs."""
@@ -330,7 +466,7 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
     """Returns all collaborators and owner for a given folder or deck, including inherited folder collaborators."""
     collaborators = []
     seen_user_ids = set()
-    
+
     # Get owner info
     owner_id = None
     folder_id = None
@@ -344,7 +480,7 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
         if folder:
             owner_id = folder.user_id
             folder_id = folder.parent_id
-            
+
     if owner_id:
         seen_user_ids.add(owner_id)
         owner_user = models.TMAUser.get_or_none(models.TMAUser.user_id == owner_id)
@@ -394,7 +530,6 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
         })
 
     return collaborators
-
 
 
 def add_collaborator(target_type: str, target_id: int, user_id_to_add: int, role: str, added_by: int, can_edit_audio: bool = False) -> dict:
@@ -522,14 +657,8 @@ def join_by_share_id(share_id: str, user_id: int) -> dict:
     }
 
 
-
-
-
 def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int, requester_id: int) -> bool:
-    """Removes a collaborator directly from a folder or deck.
-    NOTE: For decks inside folders, only the direct deck-level entry is removed.
-    Folder-level access must be managed from the folder itself.
-    """
+    """Removes a collaborator directly from a folder or deck."""
     requester_role = get_effective_user_role(requester_id, target_type, target_id)
     if requester_role != 'owner' and int(requester_id) != int(user_id_to_remove):
         raise Exception("Access denied: Only owner can remove collaborators")
@@ -544,10 +673,7 @@ def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int
 
 
 def remove_all_collaborators(target_type: str, target_id: int, requester_id: int) -> int:
-    """Removes all direct collaborators for a folder or deck (closes shared access for that item).
-    NOTE: For decks inside folders, this only removes deck-level direct entries.
-    It does NOT cascade to the parent folder to avoid accidentally revoking folder access.
-    """
+    """Removes all direct collaborators for a folder or deck."""
     requester_role = get_effective_user_role(requester_id, target_type, target_id)
     if requester_role != 'owner':
         raise Exception("Access denied: Only item owner can close shared access")
@@ -558,8 +684,6 @@ def remove_all_collaborators(target_type: str, target_id: int, requester_id: int
     ).execute()
 
     return count
-
-
 
 
 def _get_all_subfolder_ids(folder_id: int, folder_map: Dict[int, Any] = None) -> List[int]:
@@ -583,33 +707,30 @@ def get_group_progress(folder_id: int, requester_id: int) -> dict:
     if not role:
         raise Exception("Access denied to folder")
 
-    # 1. Collect all card IDs in this folder hierarchy
     all_folder_ids = _get_all_subfolder_ids(folder_id)
     decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
         (models.TMA_Deck.folder_id << all_folder_ids) & (models.TMA_Deck.is_deleted == False)
     )
     deck_ids = [d.id for d in decks]
-    
+
     cards = models.TMA_Card.select(models.TMA_Card.id).where(
         (models.TMA_Card.deck_id << deck_ids) & (models.TMA_Card.is_deleted == False)
     )
     card_ids = [c.id for c in cards]
     total_cards = len(card_ids)
 
-    # 2. Get list of all group members (owner + collaborators)
     members_info = get_collaborators('folder', folder_id)
-    
+
     today_start = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     member_stats = []
     for member in members_info:
         uid = member["user_id"]
-        
+
         mastered_count = 0
         learning_count = 0
-        
+
         if total_cards > 0:
-            # Query TMAProgress for this user across card_ids
             progs = models.TMAProgress.select().where(
                 (models.TMAProgress.user_id == uid) &
                 (models.TMAProgress.card_id << card_ids)
@@ -623,7 +744,6 @@ def get_group_progress(folder_id: int, requester_id: int) -> dict:
         new_count = max(0, total_cards - mastered_count - learning_count)
         percent = round((mastered_count / total_cards) * 100) if total_cards > 0 else 0
 
-        # Count today's reviews
         reviews_today = 0
         if card_ids:
             reviews_today = models.TMAReviewHistory.select().where(
@@ -647,7 +767,6 @@ def get_group_progress(folder_id: int, requester_id: int) -> dict:
             "reviews_today": reviews_today
         })
 
-    # Sort leaderboard by progress_percent DESC, then reviews_today DESC
     member_stats.sort(key=lambda x: (x["progress_percent"], x["reviews_today"]), reverse=True)
 
     folder_name = ""
@@ -664,7 +783,8 @@ def get_group_progress(folder_id: int, requester_id: int) -> dict:
 
 
 def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None) -> set:
-    """Returns all deck IDs that user owns or has collaborator access to, including decks in owned/collaborated folders."""
+    """Returns all deck IDs that user owns or has collaborator access to,
+    including decks in owned/collaborated/global_readonly folders."""
     owned_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
         (models.TMA_Deck.user_id == user_id) & (models.TMA_Deck.is_deleted == False)
     )
@@ -693,29 +813,37 @@ def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None
     return deck_ids
 
 
-
 def get_user_accessible_folder_ids(user_id: int, folder_map: Dict[int, Any] = None) -> set:
-    """Returns all folder IDs that user owns or has collaborator access to."""
+    """Returns all folder IDs that user owns, has collaborator access to, OR are globally readable."""
     if folder_map is None:
         all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
         folder_map = {f.id: f for f in all_folders}
 
+    # Owned folders
     owned_folder_ids = set(f.id for f in folder_map.values() if f.user_id == user_id and not getattr(f, 'is_deleted', False))
-    
+
+    # Explicit collaborator folders
     collab_folder_ids = set(
         c.target_id for c in models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
             (models.TMA_Collaborator.target_type == 'folder') &
             (models.TMA_Collaborator.user_id == user_id)
         )
     )
-    
+
+    # Global readonly folders (no TMA_Collaborator row needed)
+    global_ids = get_global_readonly_folder_ids(folder_map)
+
     root_folder_ids = owned_folder_ids | collab_folder_ids
-    all_accessible = set()
+    all_accessible = set(global_ids)  # global folders are always included
     for fid in root_folder_ids:
         all_accessible.update(_get_all_subfolder_ids(fid, folder_map))
 
     return all_accessible
 
+
+# ---------------------------------------------------------------------------
+# Presence tracking
+# ---------------------------------------------------------------------------
 
 _active_presence_map: Dict[str, Dict[int, datetime.datetime]] = {}
 
@@ -757,13 +885,11 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
     for u in stale_users:
         del _active_presence_map[key][u]
 
-    # Get collaborators list
     collaborators = get_collaborators(target_type, target_id)
     online_count = 0
 
     for c in collaborators:
         uid = c["user_id"]
-        # Check current key or any parent folder keys
         last_ts = _active_presence_map[key].get(uid)
         if not last_ts and folder_id:
             for p_id in _get_all_parent_folder_ids(folder_id):
@@ -777,10 +903,8 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
         if is_online:
             online_count += 1
 
-    # Sort collaborators: Online users first (leftmost), then offline users
     collaborators.sort(key=lambda x: (not x["is_online"], x.get("last_seen_seconds") or 999999))
 
-    # Fetch updated_at timestamp for deck/folder
     updated_at_iso = None
     if target_type == 'deck':
         if not deck:
@@ -801,10 +925,10 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
     }
 
 
-def touch_deck_and_parent_folders(deck_id: int, deck_obj = None):
+def touch_deck_and_parent_folders(deck_id: int, deck_obj=None):
     """
     Updates updated_at timestamp on a deck AND recursively updates all parent TMA_Folder timestamps.
-    This guarantees that live sync detects card edits/deletions when a user is in Folder view ('Диалоги').
+    This guarantees that live sync detects card edits/deletions when a user is in Folder view.
     """
     if not deck_id and not deck_obj:
         return
@@ -832,5 +956,3 @@ def touch_deck_and_parent_folders(deck_id: int, deck_obj = None):
 
     if folder_ids:
         models.TMA_Folder.update(updated_at=now).where(models.TMA_Folder.id << folder_ids).execute()
-
-

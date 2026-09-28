@@ -36,6 +36,8 @@ async function cardView(db, card, userId) {
     video_back_url: await localMediaURL(db, card.video_back_path, 'videos'),
     intervals: getNextIntervals(progress), is_leech: isLeech(progress?.lapses || 0),
     queue: progress?.queue || 'new', interval: progress?.interval || 0, lapses: progress?.lapses || 0,
+    flag: progress?.flag ?? card.flag ?? 0,
+    want_to_learn: progress?.want_to_learn ?? card.want_to_learn ?? false,
   };
 }
 
@@ -407,7 +409,8 @@ export const offlineApi = {
         }
         if (action === 'reset' && entity === 'decks') {
           for (const card of await db.cards.where('deck_id').equals(id).toArray()) {
-            await db.progress.put({ card_id: card.id, user_id: userId, queue: 'new', interval: 0,
+            const oldProg = await db.progress.get([card.id, userId]) || {};
+            await db.progress.put({ ...oldProg, card_id: card.id, user_id: userId, queue: 'new', interval: 0,
               ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null, ...dirtyFields() });
           }
           return success();
@@ -415,7 +418,13 @@ export const offlineApi = {
         let fields;
         if (action === 'rename') fields = { name: body.name };
         if (action === 'color') fields = { color: body.color };
-        if (action === 'flag') fields = { flag: Number(body.flag) || 0 };
+        if (action === 'flag') {
+          const prog = await db.progress.get([id, userId]) || { card_id: id, user_id: userId, queue: 'new', interval: 0, ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null };
+          prog.flag = Number(body.flag) || 0;
+          Object.assign(prog, dirtyFields());
+          await db.progress.put(prog);
+          return success({ id, flag: prog.flag });
+        }
         if (action === 'pin') fields = { is_pinned: !item.is_pinned };
         if (action === 'move') {
           const key = entity === 'folders' ? 'parent_id' : 'folder_id';

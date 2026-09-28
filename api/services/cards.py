@@ -334,11 +334,31 @@ def delete_card(card_id: int, user_id: int):
 
 
 def set_card_flag(card_id: int, user_id: int, flag: int):
+    """Sets per-user flag (colour label) on a card via TMAProgress.
+    Any authenticated user who can see the card can set their own flag.
+    The canonical TMA_Card.flag is NOT modified.
+    """
     try:
-        card = TMA_Card.get_by_id(card_id)
-        card.flag = int(flag) if flag is not None else 0
-        card.save()
-        return card
+        card = TMA_Card.get_or_none((TMA_Card.id == card_id) & (TMA_Card.is_deleted == False))
+        if not card:
+            raise ValueError(f"Card {card_id} not found")
+        # Verify user can access this card (has at least viewer role on its deck)
+        from .collaborative_service import get_effective_user_role
+        deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id) if card.deck_id else None
+        if deck and deck.user_id != user_id:
+            role = get_effective_user_role(user_id, 'deck', card.deck_id)
+            if not role:
+                raise PermissionError("No access to this card")
+        # Write to TMAProgress (per-user), not to TMA_Card (canonical)
+        progress, _ = TMAProgress.get_or_create(
+            card_id=card_id,
+            user_id=user_id,
+            defaults={'queue': 'new', 'flag': 0, 'want_to_learn': False}
+        )
+        progress.flag = int(flag) if flag is not None else 0
+        progress.updated_at = datetime.datetime.now()
+        progress.save()
+        return {'id': card_id, 'flag': progress.flag}
     except Exception as e:
         logger.error(f"Error setting card flag: {e}", exc_info=True)
         raise e
@@ -710,7 +730,9 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "audio_back_path": audio_back_path,
         "video_front_path": video_front,
         "video_back_path": video_back,
-        "flag": int(get_val('flag', 'flag') or 0),
+        # flag and want_to_learn are per-user: read from TMAProgress (p) first
+        "flag": int(get_p('flag') or get_val('flag', 'flag') or 0),
+        "want_to_learn": bool(get_p('want_to_learn') or get_val('want_to_learn', 'want_to_learn') or False),
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
         "is_leech": srs.is_leech(lapses),

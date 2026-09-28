@@ -229,13 +229,15 @@ export const FolderCardItem = React.memo(({
         </div>
 
         <div className="deck-footer-actions-right">
-          <button 
-            className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
-            onClick={toggleMenu}
-            title={tr("Опции папки")}
-          >
-            <MoreHorizontal size={18} />
-          </button>
+          {!folder.is_global_readonly && (
+            <button 
+              className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
+              onClick={toggleMenu}
+              title={tr("Опции папки")}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+          )}
         </div>
 
         {isMenuOpen && (

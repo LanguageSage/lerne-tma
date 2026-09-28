@@ -261,6 +261,13 @@ MIGRATIONS = [
     (75, "CREATE TABLE IF NOT EXISTS tma_offline_batch (key VARCHAR(255) PRIMARY KEY, payload_hash VARCHAR(64) NOT NULL, response TEXT NOT NULL DEFAULT '', created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)", 'tma'),
     (80, "ALTER TABLE tma_collaborator ADD COLUMN can_edit_audio BOOLEAN DEFAULT false", 'tma'),
     (81, "ALTER TABLE tmamedia ALTER COLUMN content DROP NOT NULL", 'tma'),
+    # Global official lessons: access_scope on folders
+    (83, "ALTER TABLE tma_folder ADD COLUMN access_scope TEXT NOT NULL DEFAULT 'private'", 'tma'),
+    # User-specific card state: flag and want_to_learn move from canonical card to per-user TMAProgress
+    (84, "ALTER TABLE tmaprogress ADD COLUMN flag INTEGER NOT NULL DEFAULT 0", 'tma'),
+    (85, "ALTER TABLE tmaprogress ADD COLUMN want_to_learn BOOLEAN NOT NULL DEFAULT false", 'tma'),
+    # Partial index for fast global_readonly folder queries
+    (86, "CREATE INDEX IF NOT EXISTS idx_tma_folder_access_scope ON tma_folder(access_scope)", 'tma'),
 ]
 
 
