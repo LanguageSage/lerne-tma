@@ -303,15 +303,17 @@ export const DeckCardItem = React.memo(({
       <div className="deck-footer-actions">
         <div className="deck-footer-actions-left">
           {!deck.is_inbox ? (
-            {!deck.is_global_readonly && (<div
-              className="deck-drag-handle-bottom"
-              {...attributes}
-              {...listeners}
-              onClick={(e) => e.stopPropagation()}
-              title={tr("Зажмите и потяните для перетаскивания колоды")}
-            >
-              <GripHorizontal size={20} />
-            </div>)}
+            !deck.is_global_readonly && (
+              <div
+                className="deck-drag-handle-bottom"
+                {...attributes}
+                {...listeners}
+                onClick={(e) => e.stopPropagation()}
+                title={tr("Зажмите и потяните для перетаскивания колоды")}
+              >
+                <GripHorizontal size={20} />
+              </div>
+            )
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>{tr("📥 Входящие")}{' '}</span>
