@@ -95,7 +95,8 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
                 "is_guest": user.is_guest,
                 "active_language": user.active_language or "de",
                 "native_language": getattr(user, 'native_language', None) or "uk",
-                "has_selected_language": bool(user.has_selected_language)
+                "has_selected_language": bool(user.has_selected_language),
+                "is_admin": bool(user.username in ADMIN_USERNAMES)
             }
         }
     except Exception as e:
