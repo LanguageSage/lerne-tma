@@ -995,10 +995,24 @@ def promote_to_library(deck_id: int):
 
 
 def reset_deck_progress(user_id: int, deck_id: int):
+    """Resets SRS fields but preserves per-user flag and want_to_learn annotations."""
     try:
         card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == deck_id)]
         if card_ids:
-            TMAProgress.delete().where(TMAProgress.user_id == user_id, TMAProgress.card_id << card_ids).execute()
+            TMAProgress.update(
+                queue='new',
+                interval=0,
+                ease_factor=2.5,
+                repetitions=0,
+                lapses=0,
+                step_index=0,
+                next_review=None,
+                last_reviewed=None,
+                updated_at=datetime.datetime.now()
+                # flag and want_to_learn intentionally NOT reset
+            ).where(
+                (TMAProgress.user_id == user_id) & (TMAProgress.card_id << card_ids)
+            ).execute()
         return True
     except Exception as e:
         logger.error(f"Error resetting progress: {e}", exc_info=True)

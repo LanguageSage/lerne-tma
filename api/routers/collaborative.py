@@ -171,3 +171,17 @@ def get_presence(target_type: str, target_id: int, user_id: int = Depends(get_us
         raise HTTPException(status_code=403, detail="Access denied")
     
     return collaborative_service.record_and_get_presence(user_id, target_type, target_id)
+
+
+class SetAccessScopeRequest(BaseModel):
+    access_scope: str
+
+@router.post("/admin/folders/{folder_id}/access-scope")
+def set_folder_access_scope(folder_id: int, req: SetAccessScopeRequest, user_id: int = Depends(get_user_id)):
+    """Admin-only: publish or unpublish a folder as global_readonly."""
+    try:
+        return collaborative_service.set_folder_access_scope(folder_id, req.access_scope, requester_id=user_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

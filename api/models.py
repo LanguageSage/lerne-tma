@@ -46,10 +46,13 @@ class TMA_Folder(BaseModel):
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     share_id = CharField(null=True, unique=True)
+    # 'private' (default) or 'global_readonly' - visible to all authenticated users, read-only
+    access_scope = CharField(default='private')
     class Meta:
         table_name = 'tma_folder'
         indexes = (
             (('user_id', 'is_deleted'), False),
+            (('access_scope',), False),
         )
 
 class TMA_Deck(BaseModel):
@@ -141,6 +144,9 @@ class TMAProgress(BaseModel):
     last_reviewed = DateTimeField(null=True)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
+    # User-specific annotation fields (per-user, not canonical card content)
+    flag = IntegerField(default=0)  # colour label 0-5 set by this user
+    want_to_learn = BooleanField(default=False)  # user bookmark
     class Meta:
         table_name = 'tmaprogress'
         indexes = (

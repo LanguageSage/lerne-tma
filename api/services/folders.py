@@ -1,11 +1,12 @@
 import datetime
 import logging
+from fastapi import HTTPException
 from ..models import TMA_Folder, TMA_Deck, TMAMedia, tma_db
 
 logger = logging.getLogger(__name__)
 
 def get_active_folders(user_id: int, folder_map: dict = None):
-    """Возвращает все активные папки пользователя (собственные и доступные по соавторству)."""
+    """Возвращает все активные папки пользователя (собственные, по соавторству и глобальные)."""
     try:
         from .decks import ensure_inbox_deck
         from .collaborative_service import get_user_accessible_folder_ids, get_batch_collaborative_info
@@ -30,13 +31,15 @@ def get_active_folders(user_id: int, folder_map: dict = None):
 
         collab_info = get_batch_collaborative_info(user_id, folders=folders, folder_map=folder_map)
         folder_collab_map = collab_info.get('folders', {})
-        
+
         result = []
         for f in folders:
             collab_meta = folder_collab_map.get(f.id, {})
             role = collab_meta.get('role', 'owner' if f.user_id == user_id else None)
             is_shared = collab_meta.get('is_shared', False)
-            
+            is_global_readonly = collab_meta.get('is_global_readonly', False)
+            is_official = collab_meta.get('is_official', False)
+
             result.append({
                 "id": f.id,
                 "name": f.name,
@@ -46,7 +49,10 @@ def get_active_folders(user_id: int, folder_map: dict = None):
                 "position": getattr(f, 'position', 0) or 0,
                 "is_shared": is_shared,
                 "role": role,
-                "is_owner": role == 'owner'
+                "is_owner": role == 'owner',
+                "is_global_readonly": is_global_readonly,
+                "is_official": is_official,
+                "access_scope": getattr(f, 'access_scope', 'private'),
             })
 
         return result
@@ -59,8 +65,8 @@ def ensure_inbox_folder(user_id: int, target_language: str = 'de') -> TMA_Folder
     """Возвращает (или создаёт) специальную папку «Входящие» для пользователя под конкретный язык."""
     lang = (target_language or 'de').lower().strip()
     inbox_folder = TMA_Folder.get_or_none(
-        (TMA_Folder.user_id == user_id) & 
-        (TMA_Folder.name == "📥 Входящие") & 
+        (TMA_Folder.user_id == user_id) &
+        (TMA_Folder.name == "📥 Входящие") &
         ((TMA_Folder.target_language == lang) | (TMA_Folder.target_language.is_null() if lang == 'de' else False)) &
         (TMA_Folder.is_deleted == False)
     )
@@ -78,6 +84,31 @@ def ensure_inbox_folder(user_id: int, target_language: str = 'de') -> TMA_Folder
         inbox_folder.target_language = lang
         inbox_folder.save()
     return inbox_folder
+
+
+def _require_folder_write(folder_id: int, user_id: int) -> TMA_Folder:
+    """Returns the folder if user can mutate it, else raises 403/404.
+    - owner: full access
+    - global_readonly viewer: 403 with helpful message
+    - no access: 404
+    """
+    folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.is_deleted == False))
+    if not folder:
+        raise HTTPException(status_code=404, detail="Папка не найдена")
+    if folder.user_id == user_id:
+        return folder  # owner — fast path
+
+    from .collaborative_service import get_effective_user_role
+    role = get_effective_user_role(user_id, 'folder', folder_id)
+    if role == 'viewer' or getattr(folder, 'access_scope', 'private') == 'global_readonly':
+        raise HTTPException(
+            status_code=403,
+            detail="Этот контент доступен только для чтения (официальный урок Lerne)."
+        )
+    if role not in ('owner', 'editor'):
+        raise HTTPException(status_code=404, detail="Папка не найдена или доступ ограничен")
+    return folder
+
 
 def create_folder(name: str, user_id: int, parent_id: int = None, color: str = None, target_language: str = 'de'):
     """Создает новую папку для пользователя, предотвращая дублирование системных папок."""
@@ -102,13 +133,20 @@ def create_folder(name: str, user_id: int, parent_id: int = None, color: str = N
 
         if parent_id is not None:
             from .collaborative_service import get_effective_user_role
-            from fastapi import HTTPException
+            parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.is_deleted == False))
+            if not parent:
+                raise ValueError("Родительская папка не найдена или нет доступа")
+            # Block creating subfolders inside global_readonly content
+            if getattr(parent, 'access_scope', 'private') == 'global_readonly':
+                raise HTTPException(
+                    status_code=403,
+                    detail="Этот контент доступен только для чтения (официальный урок Lerne)."
+                )
             role = get_effective_user_role(user_id, 'folder', parent_id)
             if role == 'viewer':
                 raise HTTPException(status_code=403, detail="У вас роль Слушателя (только чтение). Создавать подпапки в этой папке может только Редактор или Владелец.")
             elif role is None:
                 raise ValueError("Родительская папка не найдена или нет доступа")
-
 
         folder = TMA_Folder.create(
             user_id=user_id,
@@ -120,16 +158,17 @@ def create_folder(name: str, user_id: int, parent_id: int = None, color: str = N
             updated_at=datetime.datetime.now()
         )
         return folder
+    except (HTTPException, ValueError):
+        raise
     except Exception as e:
         logger.error(f"Error in create_folder: {e}")
         raise e
 
+
 def rename_folder(folder_id: int, name: str, user_id: int):
     """Переименовывает папку пользователя."""
     try:
-        folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
-        if not folder:
-            return None
+        folder = _require_folder_write(folder_id, user_id)
         if folder.name == "📥 Входящие":
             raise ValueError("Нельзя переименовать папку Входящие")
         folder.name = name
@@ -141,43 +180,41 @@ def rename_folder(folder_id: int, name: str, user_id: int):
             TMAMedia.delete().where((TMAMedia.filename == filename) & (TMAMedia.folder == 'previews')).execute()
 
         return folder
+    except (HTTPException, ValueError):
+        raise
     except Exception as e:
         logger.error(f"Error renaming folder {folder_id}: {e}")
         raise e
 
+
 def change_folder_color(folder_id: int, color: str, user_id: int):
     """Изменяет цвет папки."""
     try:
-        folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
-        if not folder:
-            return None
+        folder = _require_folder_write(folder_id, user_id)
         folder.color = color
         folder.updated_at = datetime.datetime.now()
         folder.save()
         return folder
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error changing color of folder {folder_id}: {e}")
         raise e
 
+
 def move_folder(folder_id: int, parent_id: int, user_id: int):
     """Перемещает папку в другую родительскую папку (или в корень, если parent_id=None)."""
     try:
-        # Проверяем перемещаемую папку
-        folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
-        if not folder:
-            return None
-            
-        # Нельзя переместить папку саму в себя
+        folder = _require_folder_write(folder_id, user_id)
+
         if folder_id == parent_id:
             raise ValueError("Нельзя переместить папку саму в себя")
-            
-        # Проверяем родительскую папку
+
         if parent_id is not None:
             parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.user_id == user_id))
             if not parent:
                 raise ValueError("Родительская папка не найдена")
-                
-            # Проверяем на циклическую зависимость (родитель не должен быть подпапкой перемещаемой папки)
+
             curr = parent
             while curr is not None:
                 if curr.id == folder_id:
@@ -188,9 +225,12 @@ def move_folder(folder_id: int, parent_id: int, user_id: int):
         folder.updated_at = datetime.datetime.now()
         folder.save()
         return folder
+    except (HTTPException, ValueError):
+        raise
     except Exception as e:
         logger.error(f"Error moving folder {folder_id} to parent {parent_id}: {e}")
         raise e
+
 
 def get_descendant_folder_ids(folder_id: int, user_id: int) -> list:
     """Рекурсивно находит ID всех подпапок для указанной папки."""
@@ -203,12 +243,16 @@ def get_descendant_folder_ids(folder_id: int, user_id: int) -> list:
         descendants.extend(get_descendant_folder_ids(child.id, user_id))
     return descendants
 
+
 def delete_folder(folder_id: int, user_id: int):
     """Каскадно мягко удаляет папку, её подпапки и все колоды внутри них в корзину."""
     try:
-        folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
-        if not folder:
-            return False
+        # Only owners can delete; _require_folder_write handles global_readonly guard
+        folder = _require_folder_write(folder_id, user_id)
+        if folder.user_id != user_id:
+            # Editor attempted delete — not allowed
+            raise HTTPException(status_code=403, detail="Только владелец может удалить папку")
+
         if folder.name == "📥 Входящие":
             active_inbox_count = TMA_Folder.select().where(
                 (TMA_Folder.user_id == user_id) &
@@ -223,12 +267,9 @@ def delete_folder(folder_id: int, user_id: int):
         all_target_folder_ids = [folder_id] + descendant_ids
 
         with tma_db.atomic():
-            # Мягко удаляем все колоды внутри удаляемой папки и её подпапок (сохраняя folder_id!)
             TMA_Deck.update(is_deleted=True, updated_at=now).where(
                 (TMA_Deck.folder_id << all_target_folder_ids) & (TMA_Deck.user_id == user_id)
             ).execute()
-
-            # Мягко удаляем саму папку и все её подпапки (сохраняя parent_id!)
             TMA_Folder.update(is_deleted=True, updated_at=now).where(
                 (TMA_Folder.id << all_target_folder_ids) & (TMA_Folder.user_id == user_id)
             ).execute()
@@ -239,15 +280,19 @@ def delete_folder(folder_id: int, user_id: int):
 
         logger.info(f"Cascade soft-deleted folder {folder_id} ({len(descendant_ids)} subfolders) and its decks for user {user_id}")
         return True
+    except (HTTPException, ValueError):
+        raise
     except Exception as e:
         logger.error(f"Error deleting folder {folder_id}: {e}", exc_info=True)
         raise e
 
+
 def reorder_folders(folder_ids: list, user_id: int):
-    """Обновляет порядок папок пользователя."""
+    """Обновляет порядок папок пользователя. Глобальные папки игнорируются."""
     try:
         with tma_db.atomic():
             for idx, folder_id in enumerate(folder_ids):
+                # Only reorder folders owned by this user (global_readonly owned by another user are silently skipped)
                 TMA_Folder.update(position=idx, updated_at=datetime.datetime.now()).where(
                     (TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id)
                 ).execute()
@@ -255,4 +300,3 @@ def reorder_folders(folder_ids: list, user_id: int):
     except Exception as e:
         logger.error(f"Error reordering folders: {e}")
         raise e
-
