@@ -1,6 +1,12 @@
 import { getPrimaryKnowledgeItemForCard, enqueueKnowledgeAttempt, createKnowledgeAttempt } from './knowledgeDbService.js';
 import { detectExerciseType } from '../utils/exerciseDetector.js';
 
+const STANDARD_GRADE_RATINGS = ['again', 'hard', 'good', 'easy'];
+
+export const knowledgeRatingForGrade = (grade, isExtended) => (
+  isExtended ? `ext_${grade}` : STANDARD_GRADE_RATINGS[grade] ?? `unknown_${grade}`
+);
+
 export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExtended, eventTime, exerciseEvidence }) => {
   // Feature flag via env (defaults to true if not explicitly 'false')
   if (import.meta.env && import.meta.env.VITE_KNOWLEDGE_LAYER_ENABLED === 'false') return;
@@ -15,13 +21,7 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
     }
     const primaryKiId = primaryKi.id;
 
-    // Determine semantic rating string based on extended or standard
-    let ratingStr;
-    if (isExtended) {
-      ratingStr = `ext_${grade}`;
-    } else {
-      ratingStr = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' }[grade] || `unknown_${grade}`;
-    }
+    const ratingStr = knowledgeRatingForGrade(grade, isExtended);
 
     const cardType = detectExerciseType(card, 'classic') || 'standard';
 

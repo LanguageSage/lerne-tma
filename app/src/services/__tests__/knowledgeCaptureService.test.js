@@ -1,5 +1,6 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
 import "fake-indexeddb/auto";
 import { resetAllDatabases, getLocalDb } from '../localDb.js';
 import * as dbService from '../knowledgeDbService.js';
@@ -7,7 +8,7 @@ import * as dbService from '../knowledgeDbService.js';
 // Mock Vite env
 globalThis.import = { meta: { env: { VITE_KNOWLEDGE_LAYER_ENABLED: 'true' } } };
 
-import { captureStudyKnowledgeAttempt } from '../knowledgeCaptureService.js';
+import { captureStudyKnowledgeAttempt, knowledgeRatingForGrade } from '../knowledgeCaptureService.js';
 
 describe('KnowledgeCaptureService - KI-04', () => {
 
@@ -48,7 +49,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
     await captureStudyKnowledgeAttempt({
       userId: '123',
       card: { id: 1, front_text: '@puzzle\nSomething' },
-      grade: 3, // 'good' (correct = true)
+      grade: 2, // Good in GradeButtons
       isExtended: false,
       eventTime: '2026-01-01T10:00:00Z'
     });
@@ -64,6 +65,51 @@ describe('KnowledgeCaptureService - KI-04', () => {
     assert.strictEqual(attempt.evaluation_data.correct, null); // self-rating is always null correctness
     assert.strictEqual(attempt.evaluation_data.rating, 'good');
     assert.strictEqual(attempt.event_time, '2026-01-01T10:00:00Z');
+  });
+
+  test('GradeButtons standard semantics reach self and hybrid capture', async () => {
+    const source = readFileSync(new URL('../../components/study/GradeButtons.jsx', import.meta.url), 'utf8');
+    const db = getLocalDb('123');
+    const ratings = ['again', 'hard', 'good', 'easy'];
+    for (const [grade, rating] of ratings.entries()) {
+      assert.match(source, new RegExp(`\\{ grade: ${grade}, label: t\\('study\\.grade_${rating}'`));
+      assert.strictEqual(knowledgeRatingForGrade(grade, false), rating);
+      for (const hybrid of [false, true]) {
+        const cardId = 100 + grade * 2 + Number(hybrid);
+        await db.card_knowledge_items.add({ card_id: cardId, knowledge_item_id: 101, role: 'primary' });
+        await captureStudyKnowledgeAttempt({
+          userId: '123', card: { id: cardId }, grade, isExtended: false,
+          exerciseEvidence: hybrid
+            ? { isCorrect: true, isFirstTry: true, attemptCount: 1, mistakeCount: 0 }
+            : undefined
+        });
+      }
+    }
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    assert.strictEqual(pending.length, 8);
+    for (const attempt of pending) {
+      const grade = Math.floor((attempt.card_id - 100) / 2);
+      assert.strictEqual(attempt.evaluation_data.rating, ratings[grade]);
+      assert.strictEqual(attempt.evaluation_data.evaluation_type,
+        attempt.card_id % 2 ? 'hybrid' : 'self_rating');
+    }
+  });
+
+  test('GradeButtons extended values reach capture as ext_0 through ext_7', async () => {
+    const source = readFileSync(new URL('../../components/study/GradeButtons.jsx', import.meta.url), 'utf8');
+    const db = getLocalDb('123');
+    for (let grade = 0; grade < 8; grade++) {
+      assert.match(source, new RegExp(`\\{ grade: ${grade}, num: ${grade + 1}, fallback:`));
+      assert.strictEqual(knowledgeRatingForGrade(grade, true), `ext_${grade}`);
+      const cardId = 200 + grade;
+      await db.card_knowledge_items.add({ card_id: cardId, knowledge_item_id: 101, role: 'primary' });
+      await captureStudyKnowledgeAttempt({ userId: '123', card: { id: cardId }, grade, isExtended: true });
+    }
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    assert.strictEqual(pending.length, 8);
+    for (const attempt of pending) {
+      assert.strictEqual(attempt.evaluation_data.rating, `ext_${attempt.card_id - 200}`);
+    }
   });
 
   test('Test 3 - primary + secondary -> only one attempt for primary', async () => {

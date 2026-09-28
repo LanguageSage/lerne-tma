@@ -1,6 +1,8 @@
 import datetime
 import math
 import unittest
+from contextlib import nullcontext
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from peewee import IntegrityError, SqliteDatabase
@@ -13,9 +15,10 @@ from api.routers.knowledge import (
     KnowledgeAttemptSyncItem, KnowledgeAttemptSyncRequest, sync_knowledge_attempts,
 )
 from api.services.knowledge_mastery import (
-    CALCULATION_VERSION, rebuild_knowledge_state, score_knowledge_attempt,
+    CALCULATION_VERSION, rebuild_all_knowledge_states, rebuild_knowledge_state,
+    score_knowledge_attempt,
 )
-from api.migrations import run_knowledge_mastery_migration
+from api.migrations import KNOWLEDGE_MASTERY_LOCK_ID, run_knowledge_mastery_migration
 
 
 test_db = SqliteDatabase(':memory:')
@@ -53,8 +56,20 @@ class TestMasteryScorer(unittest.TestCase):
                 self.assertTrue(evidence.has_objective)
                 self.assertTrue(evidence.has_self_rating)
 
+    def test_extended_ratings_in_self_and_hybrid(self):
+        scores = [.10, .25, .40, .575, .75, .85, .95, 1.00]
+        for grade, expected in enumerate(scores):
+            with self.subTest(grade=grade):
+                rating = f'ext_{grade}'
+                self_evidence = score_knowledge_attempt(self_rating(rating))
+                self.assertAlmostEqual(self_evidence.score, expected)
+                self.assertEqual(self_evidence.weight, .5)
+                hybrid_evidence = score_knowledge_attempt(hybrid(2, rating))
+                self.assertAlmostEqual(hybrid_evidence.score, .80 * .8 + expected * .2)
+                self.assertEqual(hybrid_evidence.weight, 1)
+
     def test_unscorable_versions_ratings_and_inconsistent_evidence(self):
-        invalid = [self_rating('ext_0'), self_rating('unknown_4'),
+        invalid = [self_rating('ext_8'), self_rating('unknown_4'),
                    self_rating(['good']),
                    {**self_rating('good'), 'schema_version': 999},
                    {**hybrid(4, 'good'), 'evaluation_type': 'future'},
@@ -69,6 +84,37 @@ class TestMasteryScorer(unittest.TestCase):
 
 
 class TestMasteryMigration(unittest.TestCase):
+    def test_postgres_lock_precedes_marker_and_schema_checks(self):
+        events = []
+
+        class FakePostgres:
+            param = '%s'
+
+            def atomic(self, **options):
+                events.append('transaction')
+                return nullcontext()
+
+            def execute_sql(self, sql, params=None):
+                events.append(sql)
+                return SimpleNamespace(fetchone=lambda: (1,))
+
+            def get_columns(self, table):
+                events.append('inspect schema')
+                names = ('positive_evidence', 'negative_evidence', 'evidence_mass',
+                         'proficiency', 'confidence', 'evidence_event_count',
+                         'objective_event_count', 'self_rating_event_count',
+                         'last_evidence_at')
+                return [SimpleNamespace(name=name) for name in names]
+
+        with patch('peewee.PostgresqlDatabase', FakePostgres):
+            result = run_knowledge_mastery_migration(FakePostgres())
+        self.assertFalse(result['applied'])
+        lock = f'SELECT pg_advisory_xact_lock({KNOWLEDGE_MASTERY_LOCK_ID})'
+        self.assertLess(events.index('transaction'), events.index(lock))
+        self.assertLess(events.index(lock), next(i for i, sql in enumerate(events)
+                                                 if 'SELECT 1 FROM tma_migration_history' in sql))
+        self.assertLess(events.index(lock), events.index('inspect schema'))
+
     def test_legacy_rows_survive_additive_migration(self):
         database = SqliteDatabase(':memory:')
         database.connect()
@@ -87,7 +133,27 @@ class TestMasteryMigration(unittest.TestCase):
                 attempts_count, calculation_version, evidence_mass
                 FROM tma_user_knowledge_state''').fetchone()
             self.assertEqual(row, (7, 11, 13, 4, '', 0))
-            self.assertIn('last_evidence_at', {c.name for c in database.get_columns('tma_user_knowledge_state')})
+            self.assertTrue({
+                'positive_evidence', 'negative_evidence', 'evidence_mass',
+                'proficiency', 'confidence', 'evidence_event_count',
+                'objective_event_count', 'self_rating_event_count', 'last_evidence_at',
+            } <= {c.name for c in database.get_columns('tma_user_knowledge_state')})
+        finally:
+            database.close()
+
+    def test_incomplete_schema_does_not_mark_migration_applied(self):
+        database = SqliteDatabase(':memory:')
+        database.connect()
+        try:
+            database.execute_sql('''CREATE TABLE tma_user_knowledge_state (
+                id INTEGER PRIMARY KEY, calculation_version TEXT)''')
+            stale_columns = database.get_columns('tma_user_knowledge_state')
+            with patch.object(database, 'get_columns', return_value=stale_columns):
+                with self.assertRaisesRegex(RuntimeError, 'required columns missing'):
+                    run_knowledge_mastery_migration(database)
+            if database.table_exists('tma_migration_history'):
+                self.assertIsNone(database.execute_sql(
+                    'SELECT 1 FROM tma_migration_history WHERE migration_id = 82').fetchone())
         finally:
             database.close()
 
@@ -195,14 +261,31 @@ class TestMasterySync(unittest.TestCase):
         self.assertEqual(self.state(user_id=2).evidence_event_count, 1)
         self.assertEqual(self.state(ki=self.ki2.id).evidence_event_count, 1)
 
-    def test_future_and_extended_events_preserved_without_state(self):
-        for i, data in enumerate([self_rating('ext_0'),
-                                  {**self_rating('good'), 'schema_version': 999},
+    def test_future_events_preserved_without_state(self):
+        for i, data in enumerate([{**self_rating('good'), 'schema_version': 999},
                                   {'schema_version': 1, 'evaluation_type': 'future'}]):
             self.assertEqual(self.send(f'future-{i}', data), 'created')
-        self.assertEqual(TMAKnowledgeAttempt.select().count(), 3)
+        self.assertEqual(TMAKnowledgeAttempt.select().count(), 2)
         self.assertIsNone(self.state())
         self.assertIsNone(rebuild_knowledge_state(1, self.ki1.id))
+
+    def test_rebuild_all_restores_missing_states_without_changing_attempts(self):
+        self.send('a', self_rating('ext_0'))
+        self.send('b', hybrid(2, 'ext_7'))
+        self.send('other-user', self_rating('good'), user_id=2)
+        self.send('other-ki', self_rating('hard'), ki=self.ki2.id)
+        before = {(1, self.ki1.id): self.snapshot(self.state()),
+                  (2, self.ki1.id): self.snapshot(self.state(user_id=2)),
+                  (1, self.ki2.id): self.snapshot(self.state(ki=self.ki2.id))}
+        raw = list(TMAKnowledgeAttempt.select(
+            TMAKnowledgeAttempt.id, TMAKnowledgeAttempt.evaluation_data).tuples())
+        TMAUserKnowledgeState.delete().execute()
+        self.assertEqual(rebuild_all_knowledge_states(), 3)
+        self.assertEqual(self.snapshot(self.state()), before[(1, self.ki1.id)])
+        self.assertEqual(self.snapshot(self.state(user_id=2)), before[(2, self.ki1.id)])
+        self.assertEqual(self.snapshot(self.state(ki=self.ki2.id)), before[(1, self.ki2.id)])
+        self.assertEqual(list(TMAKnowledgeAttempt.select(
+            TMAKnowledgeAttempt.id, TMAKnowledgeAttempt.evaluation_data).tuples()), raw)
 
     def test_version_mismatch_rebuilds_history_once(self):
         self.send('a', self_rating('good'))

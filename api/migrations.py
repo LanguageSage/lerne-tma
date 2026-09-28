@@ -15,6 +15,7 @@ AUTH_CHALLENGE_MIGRATION_ID = 77
 AUTH_PASSWORD_MIGRATION_ID = 78
 AUTH_SESSION_METHOD_MIGRATION_ID = 79
 KNOWLEDGE_MASTERY_MIGRATION_ID = 82
+KNOWLEDGE_MASTERY_LOCK_ID = 76120982
 
 
 def run_knowledge_mastery_migration(database):
@@ -26,6 +27,10 @@ def run_knowledge_mastery_migration(database):
         raise RuntimeError('Unsupported knowledge migration database')
     options = {'lock_type': 'IMMEDIATE'} if isinstance(database, SqliteDatabase) else {}
     with database.atomic(**options):
+        if isinstance(database, PostgresqlDatabase):
+            database.execute_sql("SET LOCAL lock_timeout = '5s'")
+            database.execute_sql("SET LOCAL statement_timeout = '60s'")
+            database.execute_sql(f'SELECT pg_advisory_xact_lock({KNOWLEDGE_MASTERY_LOCK_ID})')
         database.execute_sql('''CREATE TABLE IF NOT EXISTS tma_migration_history (
             migration_id INT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         marker = database.param
@@ -64,6 +69,9 @@ def run_knowledge_mastery_migration(database):
                                      "ALTER COLUMN calculation_version SET DEFAULT ''")
         database.execute_sql("UPDATE tma_user_knowledge_state SET calculation_version = '' "
                              "WHERE calculation_version IS NULL OR calculation_version <> 'mastery-v1'")
+        migrated_columns = {column.name for column in database.get_columns('tma_user_knowledge_state')}
+        if not required.keys() <= migrated_columns:
+            raise RuntimeError('Knowledge migration left required columns missing')
         database.execute_sql(
             f'INSERT INTO tma_migration_history (migration_id) VALUES ({marker})',
             (KNOWLEDGE_MASTERY_MIGRATION_ID,))

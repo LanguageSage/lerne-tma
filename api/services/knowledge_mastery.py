@@ -14,7 +14,11 @@ from api import models
 
 logger = logging.getLogger(__name__)
 CALCULATION_VERSION = 'mastery-v1'
-SELF_RATING_SCORES = {'again': 0.10, 'hard': 0.40, 'good': 0.75, 'easy': 0.95}
+SELF_RATING_SCORES = {
+    'again': 0.10, 'hard': 0.40, 'good': 0.75, 'easy': 0.95,
+    'ext_0': 0.10, 'ext_1': 0.25, 'ext_2': 0.40, 'ext_3': 0.575,
+    'ext_4': 0.75, 'ext_5': 0.85, 'ext_6': 0.95, 'ext_7': 1.00,
+}
 OBJECTIVE_ATTEMPT_SCORES = {1: 1.00, 2: 0.80, 3: 0.65, 4: 0.55}
 OBJECTIVE_5_PLUS = 0.45
 SELF_RATING_WEIGHT = 0.5
@@ -159,6 +163,18 @@ def rebuild_knowledge_state(user_id, knowledge_item_id):
     with knowledge_transaction():
         _lock_pair(user_id, knowledge_item_id)
         return _rebuild_locked(user_id, knowledge_item_id)
+
+
+def rebuild_all_knowledge_states():
+    """Rebuild derived states for every pair present in raw attempts (manual maintenance)."""
+    pairs = (models.TMAKnowledgeAttempt.select(
+        models.TMAKnowledgeAttempt.user_id, models.TMAKnowledgeAttempt.knowledge_item_id)
+        .distinct().tuples())
+    rebuilt = 0
+    for user_id, knowledge_item_id in pairs.iterator():
+        rebuild_knowledge_state(user_id, knowledge_item_id)
+        rebuilt += 1
+    return rebuilt
 
 
 def apply_created_attempt(attempt, evaluation_data):
