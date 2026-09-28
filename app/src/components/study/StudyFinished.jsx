@@ -24,14 +24,6 @@ export const StudyFinished = ({
     } else {
       useSessionStore.getState().stopAutoplay?.();
       useSessionStore.getState().resetSession();
-      const deck = useDeckStore.getState().currentDeck;
-      if (deck && deck.id !== 'duplicates' && !deck.is_learning) {
-        try {
-          await useDeckStore.getState().toggleDeckLearning(deck.id, true);
-        } catch (e) {
-          console.warn('Auto toggle learning error:', e);
-        }
-      }
       useDeckStore.getState().fetchDecks(true).catch(console.error);
       useUiStore.getState().setActiveFolderId(null);
       useUiStore.getState().setView('decks');

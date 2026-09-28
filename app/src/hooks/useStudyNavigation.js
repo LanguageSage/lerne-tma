@@ -19,11 +19,6 @@ export function useStudyNavigation() {
   const startStudy = useCallback(async (deck) => {
     setIsOpeningDeck(true);
     try {
-      if (deck && deck.id !== 'duplicates' && !deck.is_learning) {
-        useDeckStore.getState().toggleDeckLearning(deck.id, true).catch(err => {
-          console.warn('Auto-mark deck learning failed:', err);
-        });
-      }
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
       const state = useDeckStore.getState();
@@ -43,11 +38,6 @@ export function useStudyNavigation() {
 
   const startStudyCard = useCallback(async (deck, cardId) => {
     try {
-      if (deck && deck.id !== 'duplicates' && !deck.is_learning) {
-        useDeckStore.getState().toggleDeckLearning(deck.id, true).catch(err => {
-          console.warn('Auto-mark deck learning failed:', err);
-        });
-      }
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
       

@@ -7,11 +7,18 @@ from peewee import IntegrityError
 
 from api.dependencies.auth import get_user_id
 from api import models
+from api.services.knowledge_mastery import (
+    apply_created_attempt, knowledge_transaction, lock_knowledge_pair, normalize_event_time,
+)
 
 router = APIRouter(
     prefix="/knowledge",
     tags=["knowledge"],
 )
+
+
+class AttemptInsertIntegrityError(Exception):
+    """Distinguish an invalid/duplicate attempt from a state-engine DB failure."""
 
 class KnowledgeAttemptSyncItem(BaseModel):
     client_event_id: str
@@ -124,21 +131,26 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
         evaluation_data_str = json.dumps(item.evaluation_data) if item.evaluation_data else None
         
         try:
-            with models.tma_db.atomic() as txn:
-                models.TMAKnowledgeAttempt.create(
-                    user_id=user_id,
-                    card_id=item.card_id,
-                    knowledge_item_id=item.knowledge_item_id,
-                    client_event_id=item.client_event_id,
-                    event_time=item.event_time or datetime.datetime.now(),
-                    evaluation_data=evaluation_data_str,
-                    review_id=item.review_id
-                )
-                results.append(KnowledgeAttemptSyncResult(
-                    client_event_id=item.client_event_id, 
-                    status="created"
-                ))
-        except IntegrityError as e:
+            with knowledge_transaction():
+                lock_knowledge_pair(user_id, item.knowledge_item_id)
+                try:
+                    attempt = models.TMAKnowledgeAttempt.create(
+                        user_id=user_id,
+                        card_id=item.card_id,
+                        knowledge_item_id=item.knowledge_item_id,
+                        client_event_id=item.client_event_id,
+                        event_time=normalize_event_time(item.event_time or datetime.datetime.now(datetime.timezone.utc)),
+                        evaluation_data=evaluation_data_str,
+                        review_id=item.review_id
+                    )
+                except IntegrityError as error:
+                    raise AttemptInsertIntegrityError() from error
+                apply_created_attempt(attempt, item.evaluation_data)
+            results.append(KnowledgeAttemptSyncResult(
+                client_event_id=item.client_event_id,
+                status="created"
+            ))
+        except AttemptInsertIntegrityError:
             existing = models.TMAKnowledgeAttempt.get_or_none(
                 models.TMAKnowledgeAttempt.user_id == user_id,
                 models.TMAKnowledgeAttempt.client_event_id == item.client_event_id

@@ -704,14 +704,14 @@ export const StudyView = () => {
               stopAudio?.();
               useSessionStore.getState().stopAutoplay?.();
               useSessionStore.getState().resetSession();
-              const deck = useDeckStore.getState().currentDeck;
-              if (deck && deck.id !== 'duplicates' && !deck.is_learning) {
-                try {
-                  await useDeckStore.getState().toggleDeckLearning(deck.id, true);
-                } catch (e) {
-                  console.warn('Auto toggle learning on finish error:', e);
-                }
-              }
+              // auto toggle learning disabled
+
+
+
+
+
+
+
               useDeckStore.getState().fetchDecks(true).catch(console.error);
               setActiveFolderId(null);
               setView('decks');

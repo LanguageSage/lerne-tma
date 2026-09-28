@@ -15,7 +15,7 @@ def create_all_tables():
     global _tables_created
     if _tables_created:
         return
-    from api.migrations import run_migrations
+    from api.migrations import run_migrations, run_knowledge_mastery_migration
     try:
         run_migrations(tma_db, lerne_db)
         models_to_create = [
@@ -26,6 +26,7 @@ def create_all_tables():
             TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState
         ]
         tma_db.create_tables(models_to_create, safe=True)
+        run_knowledge_mastery_migration(tma_db)
         try:
             tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
         except Exception as e:
@@ -186,8 +187,17 @@ class TMAUserKnowledgeState(BaseModel):
     knowledge_item = ForeignKeyField(TMAKnowledgeItem, column_name='knowledge_item_id', backref='user_states', on_delete='CASCADE')
     attempts_count = IntegerField(default=0)
     last_attempt_at = DateTimeField(null=True)
-    calculation_version = IntegerField(default=1)
+    calculation_version = CharField(max_length=32, default='')
     state_data = TextField(null=True)
+    positive_evidence = DoubleField(default=0)
+    negative_evidence = DoubleField(default=0)
+    evidence_mass = DoubleField(default=0)
+    proficiency = DoubleField(default=0.5)
+    confidence = DoubleField(default=0)
+    evidence_event_count = IntegerField(default=0)
+    objective_event_count = IntegerField(default=0)
+    self_rating_event_count = IntegerField(default=0)
+    last_evidence_at = DateTimeField(null=True)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
 
