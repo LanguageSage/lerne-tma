@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Literal
 import datetime
 import json
 from peewee import IntegrityError
 
 from api.dependencies.auth import get_user_id
 from api import models
+from api.services import knowledge_diagnostics
 from api.services.knowledge_mastery import (
     apply_created_attempt, knowledge_transaction, lock_knowledge_pair, normalize_event_time,
 )
@@ -175,3 +176,56 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
                 ))
     
     return KnowledgeAttemptSyncResponse(results=results)
+
+
+@router.get('/diagnostics/summary')
+def get_knowledge_diagnostics_summary(user_id: int = Depends(get_user_id)):
+    return knowledge_diagnostics.summary(user_id)
+
+
+@router.get('/diagnostics/items')
+def list_knowledge_diagnostics_items(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort_by: Literal['name', 'proficiency', 'confidence', 'evidence_mass',
+                     'evidence_event_count', 'last_evidence_at'] = 'name',
+    sort_dir: Literal['asc', 'desc'] = 'asc',
+    language: Optional[str] = None,
+    category: Optional[str] = None,
+    cefr_level: Optional[str] = None,
+    diagnostic_status: Optional[Literal['unobserved', 'insufficient', 'weak',
+                                        'developing', 'strong']] = None,
+    confidence_min: Optional[float] = Query(None, ge=0, le=1),
+    confidence_max: Optional[float] = Query(None, ge=0, le=1),
+    search: Optional[str] = Query(None, max_length=200),
+    has_objective_evidence: Optional[bool] = None,
+    user_id: int = Depends(get_user_id),
+):
+    if confidence_min is not None and confidence_max is not None and confidence_min > confidence_max:
+        raise HTTPException(status_code=422, detail='confidence_min_exceeds_max')
+    return knowledge_diagnostics.list_items(
+        user_id, limit=limit, offset=offset, sort_by=sort_by, sort_dir=sort_dir,
+        language=language, category=category, cefr_level=cefr_level,
+        status=diagnostic_status, confidence_min=confidence_min,
+        confidence_max=confidence_max, search=search,
+        has_objective_evidence=has_objective_evidence)
+
+
+@router.get('/diagnostics/items/{knowledge_item_id}')
+def get_knowledge_diagnostics_item(knowledge_item_id: int, user_id: int = Depends(get_user_id)):
+    result = knowledge_diagnostics.get_item(user_id, knowledge_item_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail='knowledge_item_not_found')
+    return result
+
+
+@router.get('/diagnostics/items/{knowledge_item_id}/attempts')
+def list_knowledge_diagnostics_attempts(
+    knowledge_item_id: int,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user_id: int = Depends(get_user_id),
+):
+    if not knowledge_diagnostics.item_exists(user_id, knowledge_item_id):
+        raise HTTPException(status_code=404, detail='knowledge_item_not_found')
+    return knowledge_diagnostics.list_attempts(user_id, knowledge_item_id, limit=limit, offset=offset)

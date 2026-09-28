@@ -46,34 +46,52 @@ class Evidence:
 
 def score_knowledge_attempt(evaluation_data):
     """Return a contribution, or None for an event v1 cannot interpret."""
+    contribution, reason = explain_knowledge_attempt(evaluation_data)
+    if reason in ('objective_not_auto_evaluated', 'objective_not_completed',
+                  'invalid_attempt_count', 'invalid_first_try_correct'):
+        logger.warning('Unscorable hybrid knowledge evidence: invalid objective fields')
+    return contribution
+
+
+def explain_knowledge_attempt(evaluation_data):
+    """Return (contribution, stable ignored reason) using the v1 scoring rules."""
     if not isinstance(evaluation_data, dict):
-        return None
+        return None, 'invalid_evaluation_data'
     evaluation_type = evaluation_data.get('evaluation_type')
     version = evaluation_data.get('schema_version')
     rating = evaluation_data.get('rating')
-    if type(rating) is not str or type(version) is not int:
-        return None
-    if evaluation_type == 'self_rating' and version == 1:
-        rating_score = SELF_RATING_SCORES.get(rating)
-        return (Evidence(rating_score, SELF_RATING_WEIGHT, False, True)
-                if rating_score is not None else None)
-    if evaluation_type != 'hybrid' or version != 2:
-        return None
-    rating_score = SELF_RATING_SCORES.get(rating)
+    if evaluation_type not in ('self_rating', 'hybrid'):
+        return None, 'unsupported_evaluation_type'
+    if type(version) is not int or version != (1 if evaluation_type == 'self_rating' else 2):
+        return None, 'unsupported_schema_version'
+    if type(rating) is not str or rating not in SELF_RATING_SCORES:
+        return None, 'unknown_rating'
+    rating_score = SELF_RATING_SCORES[rating]
+    if evaluation_type == 'self_rating':
+        return Evidence(rating_score, SELF_RATING_WEIGHT, False, True), None
     exercise = evaluation_data.get('exercise_evidence')
-    if rating_score is None or not isinstance(exercise, dict):
-        return None
+    if not isinstance(exercise, dict):
+        return None, 'missing_exercise_evidence'
     count = exercise.get('attempt_count')
     first_try = exercise.get('first_try_correct')
-    if (exercise.get('auto_evaluated') is not True
-            or exercise.get('completed') is not True
-            or type(count) is not int or count < 1
-            or type(first_try) is not bool or first_try != (count == 1)):
-        logger.warning('Unscorable hybrid knowledge evidence: invalid objective fields')
-        return None
+    if exercise.get('auto_evaluated') is not True:
+        return None, 'objective_not_auto_evaluated'
+    if exercise.get('completed') is not True:
+        return None, 'objective_not_completed'
+    if type(count) is not int or count < 1:
+        return None, 'invalid_attempt_count'
+    if type(first_try) is not bool or first_try != (count == 1):
+        return None, 'invalid_first_try_correct'
     objective = OBJECTIVE_ATTEMPT_SCORES.get(count, OBJECTIVE_5_PLUS)
     score = objective * HYBRID_OBJECTIVE_FACTOR + rating_score * HYBRID_SELF_FACTOR
-    return Evidence(score, HYBRID_WEIGHT, True, True)
+    return Evidence(score, HYBRID_WEIGHT, True, True), None
+
+
+def parse_evaluation_data(value):
+    try:
+        return json.loads(value) if value else None
+    except (TypeError, ValueError):
+        return None
 
 
 def knowledge_transaction():
@@ -99,14 +117,14 @@ def normalize_event_time(value):
     return value
 
 
-def _empty_state():
+def empty_knowledge_state():
     return dict(positive_evidence=0.0, negative_evidence=0.0, evidence_mass=0.0,
                 proficiency=0.5, confidence=0.0, evidence_event_count=0,
                 objective_event_count=0, self_rating_event_count=0,
                 last_evidence_at=None, calculation_version=CALCULATION_VERSION)
 
 
-def _add(state, contribution, event_time):
+def accumulate_knowledge_evidence(state, contribution, event_time):
     state['positive_evidence'] += contribution.positive_delta
     state['negative_evidence'] += contribution.negative_delta
     state['evidence_mass'] += contribution.weight
@@ -134,19 +152,16 @@ def _save_state(user_id, knowledge_item_id, state):
 
 
 def _rebuild_locked(user_id, knowledge_item_id):
-    state = _empty_state()
+    state = empty_knowledge_state()
     attempts = (models.TMAKnowledgeAttempt.select()
                 .where(models.TMAKnowledgeAttempt.user_id == user_id,
                        models.TMAKnowledgeAttempt.knowledge_item_id == knowledge_item_id)
                 .order_by(models.TMAKnowledgeAttempt.id))
     for attempt in attempts:
-        try:
-            evaluation_data = json.loads(attempt.evaluation_data) if attempt.evaluation_data else None
-        except (TypeError, ValueError):
-            evaluation_data = None
+        evaluation_data = parse_evaluation_data(attempt.evaluation_data)
         contribution = score_knowledge_attempt(evaluation_data)
         if contribution is not None:
-            _add(state, contribution, attempt.event_time)
+            accumulate_knowledge_evidence(state, contribution, attempt.event_time)
     if state['evidence_event_count']:
         _save_state(user_id, knowledge_item_id, state)
         return models.TMAUserKnowledgeState.get(
@@ -189,8 +204,8 @@ def apply_created_attempt(attempt, evaluation_data):
     if state_row is None or state_row.calculation_version != CALCULATION_VERSION:
         _rebuild_locked(user_id, knowledge_item_id)
         return
-    state = {field: getattr(state_row, field) for field in _empty_state()}
-    _add(state, contribution, attempt.event_time)
+    state = {field: getattr(state_row, field) for field in empty_knowledge_state()}
+    accumulate_knowledge_evidence(state, contribution, attempt.event_time)
     _save_state(user_id, knowledge_item_id, state)
 
 
