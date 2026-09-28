@@ -1,5 +1,8 @@
 export const SETTINGS_TABS = ['profile', 'srs', 'reminders', 'general', 'design', 'voice', 'autoplay', 'ai', 'prompts', 'diagnostics'];
 
+export const accessibleSettingsTab = (tab, isAdmin) =>
+  !isAdmin && ['ai', 'design', 'diagnostics'].includes(tab) ? 'general' : tab;
+
 export const readLastSettingsTab = () => {
   try {
     const tab = globalThis.localStorage?.getItem('lerne_last_settings_tab');
