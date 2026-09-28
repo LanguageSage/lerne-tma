@@ -1,4 +1,4 @@
-export const SETTINGS_TABS = ['profile', 'srs', 'reminders', 'general', 'design', 'voice', 'autoplay', 'ai', 'prompts'];
+export const SETTINGS_TABS = ['profile', 'srs', 'reminders', 'general', 'design', 'voice', 'autoplay', 'ai', 'prompts', 'diagnostics'];
 
 export const readLastSettingsTab = () => {
   try {

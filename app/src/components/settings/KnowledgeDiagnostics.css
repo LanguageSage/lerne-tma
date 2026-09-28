@@ -1,0 +1,41 @@
+.kd { color: inherit; font-size: .88rem; min-width: 0; }
+.settings-modal.kd-modal { max-width: min(1000px, calc(100vw - 24px)); }
+.kd h2 { margin: 0; font-size: 1.25rem; }
+.kd h2 small { font-size: .7rem; font-weight: 600; text-transform: uppercase; color: #fbbf24; }
+.kd header p, .kd-meta { margin: 4px 0 12px; color: #cbd5e1; font-size: .76rem; }
+.kd-section { margin-top: 20px; }
+.kd-section h3 { margin: 0 0 10px; font-size: 1rem; }
+.kd-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 6px 16px; }
+.kd-summary > div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
+.kd-summary strong, .kd table td { font-variant-numeric: tabular-nums; }
+.kd-warning { color: #fbbf24; font-weight: 700; }
+.kd-map-scroll { width: 100%; overflow-x: auto; }
+.kd-map-scroll svg { display: block; width: 100%; min-width: 320px; max-height: 330px; background: rgba(0,0,0,.13); border-radius: 8px; }
+.kd-map-scroll text { fill: currentColor; font-size: 11px; }
+.kd-map-scroll .kd-zone { opacity: .65; }
+.kd-axis { stroke: currentColor; stroke-width: 1.5; }
+.kd-guide { stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 4; opacity: .5; }
+.kd-point { fill: #38bdf8; stroke: #061b2a; stroke-width: 1.5; cursor: help; }
+.kd-point.kd-weak { fill: #fb7185; }
+.kd-point.kd-strong { fill: #4ade80; }
+.kd-point.kd-insufficient { fill: #cbd5e1; }
+.kd-point.kd-mismatch { stroke: #fbbf24; stroke-width: 4; }
+.kd-point:focus { outline: none; stroke: white; stroke-width: 4; }
+.kd-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 12px; }
+.kd-filters label, .kd-pagination label { display: flex; flex-direction: column; gap: 3px; font-size: .72rem; text-transform: capitalize; }
+.kd input, .kd select, .kd button { min-height: 44px; box-sizing: border-box; border: 1px solid rgba(255,255,255,.25); border-radius: 6px; background: #1e293b; color: #fff; padding: 5px 8px; }
+.kd input { width: 115px; }
+.kd input[placeholder] { width: 150px; }
+.kd button { cursor: pointer; }
+.kd button:disabled { opacity: .45; cursor: default; }
+.kd-table-scroll { overflow-x: auto; width: 100%; }
+.kd table { border-collapse: collapse; white-space: nowrap; width: 100%; font-size: .76rem; }
+.kd th, .kd td { text-align: left; padding: 7px 9px; border-bottom: 1px solid rgba(255,255,255,.12); }
+.kd thead th { position: sticky; top: 0; background: #1e293b; }
+.kd tbody th { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.kd-row-mismatch { background: rgba(251,191,36,.1); }
+.kd-status { font-weight: 600; }
+.kd-status.kd-weak { color: #fda4af; }.kd-status.kd-strong { color: #86efac; }.kd-status.kd-insufficient { color: #cbd5e1; }
+.kd-pagination { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 12px; }
+.kd-pagination span { margin: 0 auto 6px 0; }
+@media (max-width: 420px) { .kd-summary { grid-template-columns: repeat(2, minmax(0,1fr)); } .kd-pagination span { width: 100%; } }
