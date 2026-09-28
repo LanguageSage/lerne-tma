@@ -9,6 +9,8 @@ from api.dependencies.auth import get_user_id
 router = APIRouter(tags=["auth"])
 logger = logging.getLogger(__name__)
 
+ADMIN_USERNAMES = {'Nimaypumpay', 'Aruna27', 'Chintamanichapliuk'}
+
 class UserSyncSchema(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
