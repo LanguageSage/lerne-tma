@@ -101,6 +101,9 @@ class TestDiagnosticsAPI(unittest.TestCase):
         self.assertEqual(detail['raw_attempt_count'], detail['scorable_attempt_count'] + detail['ignored_attempt_count'])
         self.assertTrue(detail['state_matches_rebuild'])
         self.assertEqual(detail['materialized_state']['attempts_count'], 2)
+        self.assertEqual(detail['materialized_state']['proficiency'], detail['recomputed_state']['proficiency'])
+        self.assertEqual(detail['materialized_state']['diagnostic_status'], detail['recomputed_state']['diagnostic_status'])
+        self.assertNotIn('proficiency', detail)
         response = self.get(path + '/attempts?limit=5&offset=0')
         self.assertEqual(response.status_code, 200)
         self.assertEqual((response.json()['total'], len(response.json()['items'])), (11, 5))
@@ -115,13 +118,24 @@ class TestDiagnosticsAPI(unittest.TestCase):
         self.assertAlmostEqual(by_id['a-0']['weight'], .5)
         self.assertAlmostEqual(by_id['a-1']['score'], .95)
         self.assertEqual(by_id['a-1']['objective_evidence']['mistake_count'], 0)
-        TMAUserKnowledgeState.update(evidence_mass=999).where(
+        TMAUserKnowledgeState.update(proficiency=0.01, confidence=0.9).where(
             (TMAUserKnowledgeState.user_id == 1) &
             (TMAUserKnowledgeState.knowledge_item_id == self.a.id)).execute()
-        self.assertFalse(self.get(path).json()['state_matches_rebuild'])
+        mismatch = self.get(path).json()
+        self.assertFalse(mismatch['state_matches_rebuild'])
+        self.assertEqual(mismatch['materialized_state']['proficiency'], 0.01)
+        self.assertNotEqual(mismatch['materialized_state']['proficiency'], mismatch['recomputed_state']['proficiency'])
+        self.assertEqual(mismatch['materialized_state']['diagnostic_status'], 'weak')
+        self.assertEqual(mismatch['recomputed_state']['diagnostic_status'], 'insufficient')
+        listed = next(item for item in self.get('/knowledge/diagnostics/items').json()['items'] if item['id'] == self.a.id)
+        self.assertEqual(listed['materialized_state']['proficiency'], 0.01)
+        self.assertEqual(listed['recomputed_state']['proficiency'], mismatch['recomputed_state']['proficiency'])
+        self.assertFalse(listed['state_matches_rebuild'])
+        self.assertEqual(self.get('/knowledge/diagnostics/items?diagnostic_status=insufficient').json()['total'], 1)
         self.assertEqual(TMAUserKnowledgeState.get(
-            TMAUserKnowledgeState.knowledge_item_id == self.a.id).evidence_mass, 999)
-        self.assertEqual(self.get('/knowledge/diagnostics/summary').json()['state_mismatch_count'], 1)
+            TMAUserKnowledgeState.knowledge_item_id == self.a.id).proficiency, 0.01)
+        summary = self.get('/knowledge/diagnostics/summary').json()
+        self.assertEqual((summary['state_mismatch_count'], summary['insufficient_count'], summary['weak_count']), (1, 1, 0))
 
     def test_isolation_unobserved_and_auth(self):
         self.add(self.a, 'a', self_rating('easy'))
@@ -131,10 +145,11 @@ class TestDiagnosticsAPI(unittest.TestCase):
         rebuild_knowledge_state(2, self.a.id)
         rebuild_knowledge_state(2, self.b.id)
         summary = self.get('/knowledge/diagnostics/summary').json()
+        self.assertEqual(summary['classification_source'], 'recomputed_state')
         self.assertEqual((summary['observed_knowledge_items'], summary['unobserved_knowledge_items'],
                           summary['raw_attempt_count'], summary['objective_event_count']), (1, 2, 1, 0))
         detail = self.get(f'/knowledge/diagnostics/items/{self.b.id}').json()
-        self.assertEqual((detail['diagnostic_status'], detail['confidence'], detail['proficiency'],
+        self.assertEqual((detail['recomputed_state']['diagnostic_status'], detail['recomputed_state']['confidence'], detail['recomputed_state']['proficiency'],
                           detail['has_evidence'], detail['materialized_state']),
                          ('unobserved', 0, .5, False, None))
         attempts = self.get(f'/knowledge/diagnostics/items/{self.a.id}/attempts').json()['items']
@@ -186,7 +201,7 @@ class TestDiagnosticsAPI(unittest.TestCase):
         self.add(self.a, 'ignored', {'schema_version': 1, 'evaluation_type': 'self_rating',
                                      'rating': 'unknown', 'extra': float('nan')})
         detail = self.get(f'/knowledge/diagnostics/items/{self.a.id}').json()
-        self.assertEqual((detail['diagnostic_status'], detail['raw_attempt_count'],
+        self.assertEqual((detail['recomputed_state']['diagnostic_status'], detail['raw_attempt_count'],
                           detail['scorable_attempt_count'], detail['materialized_state']),
                          ('unobserved', 1, 0, None))
         attempt = self.get(f'/knowledge/diagnostics/items/{self.a.id}/attempts').json()['items'][0]
@@ -198,8 +213,23 @@ class TestDiagnosticsAPI(unittest.TestCase):
         missing = self.get(f'/knowledge/diagnostics/items/{self.b.id}').json()
         self.assertEqual(missing['scorable_attempt_count'], 1)
         self.assertFalse(missing['state_matches_rebuild'])
+        self.assertIsNone(missing['materialized_state'])
+        self.assertEqual(missing['recomputed_state']['evidence_event_count'], 1)
         self.assertIsNone(TMAUserKnowledgeState.get_or_none(
             TMAUserKnowledgeState.knowledge_item_id == self.b.id))
+
+    def test_stale_materialized_state_without_scorable_raw_evidence(self):
+        self.add(self.a, 'scorable', hybrid())
+        rebuild_knowledge_state(1, self.a.id)
+        TMAKnowledgeAttempt.delete().where(TMAKnowledgeAttempt.knowledge_item_id == self.a.id).execute()
+        detail = self.get(f'/knowledge/diagnostics/items/{self.a.id}').json()
+        self.assertIsNotNone(detail['materialized_state'])
+        self.assertEqual(detail['recomputed_state']['evidence_event_count'], 0)
+        self.assertFalse(detail['state_matches_rebuild'])
+        listed = next(item for item in self.get('/knowledge/diagnostics/items').json()['items'] if item['id'] == self.a.id)
+        self.assertFalse(listed['state_matches_rebuild'])
+        summary = self.get('/knowledge/diagnostics/summary').json()
+        self.assertEqual((summary['state_mismatch_count'], summary['observed_knowledge_items']), (1, 0))
 
 
 if __name__ == '__main__':

@@ -77,12 +77,15 @@ def _materialized_state(state):
         return None
     fields = ('id', 'user_id', 'knowledge_item_id', 'attempts_count', 'last_attempt_at',
               'state_data', 'created_at', 'updated_at', *STATE_FIELDS)
-    return {field: getattr(state, field) for field in fields}
+    return {**{field: getattr(state, field) for field in fields},
+            'diagnostic_status': diagnostic_status({field: getattr(state, field) for field in STATE_FIELDS})}
 
 
 def _state_matches(state, computed):
     if state is None:
         return computed['evidence_event_count'] == 0
+    if computed['evidence_event_count'] == 0:
+        return False
     if state.attempts_count != computed['evidence_event_count'] or state.last_attempt_at != computed['last_evidence_at']:
         return False
     for field in STATE_FIELDS:
@@ -100,13 +103,13 @@ def _project(item, history, stored):
     raw_count = history['raw_attempt_count'] if history else 0
     scorable_count = computed['evidence_event_count']
     return {
-        **item, **computed,
-        'diagnostic_status': diagnostic_status(computed),
+        **item,
         'has_evidence': scorable_count > 0,
         'raw_attempt_count': raw_count,
         'scorable_attempt_count': scorable_count,
         'ignored_attempt_count': raw_count - scorable_count,
         'materialized_state': _materialized_state(stored),
+        'recomputed_state': {**computed, 'diagnostic_status': diagnostic_status(computed)},
         'state_matches_rebuild': _state_matches(stored, computed),
     }
 
@@ -116,16 +119,17 @@ def summary(user_id):
     history = _computed_history(user_id)
     states = _states(user_id)
     items = [_project(item, history.get(item['id']), states.get(item['id'])) for item in catalog]
-    result = {f'{status}_count': sum(item['diagnostic_status'] == status for item in items)
+    result = {f'{status}_count': sum(item['recomputed_state']['diagnostic_status'] == status for item in items)
               for status in ('strong', 'developing', 'weak', 'insufficient')}
     result.update(
+        classification_source='recomputed_state',
         observed_knowledge_items=sum(item['has_evidence'] for item in items),
         unobserved_knowledge_items=sum(not item['has_evidence'] for item in items),
         raw_attempt_count=sum(item['raw_attempt_count'] for item in items),
         scorable_attempt_count=sum(item['scorable_attempt_count'] for item in items),
         ignored_attempt_count=sum(item['ignored_attempt_count'] for item in items),
-        objective_event_count=sum(item['objective_event_count'] for item in items),
-        self_rating_event_count=sum(item['self_rating_event_count'] for item in items),
+        objective_event_count=sum(item['recomputed_state']['objective_event_count'] for item in items),
+        self_rating_event_count=sum(item['recomputed_state']['self_rating_event_count'] for item in items),
         calculation_versions=sorted({state.calculation_version for state in states.values()}),
         state_mismatch_count=sum(not item['state_matches_rebuild'] for item in items),
     )
@@ -146,19 +150,20 @@ def list_items(user_id, *, limit, offset, sort_by, sort_dir, language=None, cate
     if cefr_level is not None:
         items = [item for item in items if item['cefr_level'] == cefr_level]
     if status is not None:
-        items = [item for item in items if item['diagnostic_status'] == status]
+        items = [item for item in items if item['recomputed_state']['diagnostic_status'] == status]
     if confidence_min is not None:
-        items = [item for item in items if item['confidence'] >= confidence_min]
+        items = [item for item in items if item['recomputed_state']['confidence'] >= confidence_min]
     if confidence_max is not None:
-        items = [item for item in items if item['confidence'] <= confidence_max]
+        items = [item for item in items if item['recomputed_state']['confidence'] <= confidence_max]
     if search:
         items = [item for item in items if search.casefold() in item['name'].casefold()]
     if has_objective_evidence is not None:
-        items = [item for item in items if (item['objective_event_count'] > 0) == has_objective_evidence]
+        items = [item for item in items if (item['recomputed_state']['objective_event_count'] > 0) == has_objective_evidence]
     items.sort(key=lambda item: item['id'])
-    populated = sorted((item for item in items if item[sort_by] is not None),
-                       key=lambda item: item[sort_by], reverse=sort_dir == 'desc')
-    ordered = populated + [item for item in items if item[sort_by] is None]
+    sort_value = lambda item: item['name'] if sort_by == 'name' else item['recomputed_state'][sort_by]
+    populated = sorted((item for item in items if sort_value(item) is not None),
+                       key=sort_value, reverse=sort_dir == 'desc')
+    ordered = populated + [item for item in items if sort_value(item) is None]
     return {'items': ordered[offset:offset + limit], 'total': len(items),
             'limit': limit, 'offset': offset}
 
