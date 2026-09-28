@@ -22,6 +22,8 @@ from api.auth.errors import AuthError
 from api.auth import providers, service
 from api.models import TMAUser
 
+ADMIN_USERNAMES = {'Nimaypumpay', 'Aruna27', 'Chintamanichapliuk'}
+
 class AuthRoute(APIRoute):
     def get_route_handler(self):
         handler = super().get_route_handler()
@@ -269,6 +271,7 @@ def get_authenticated_profile(user_id: int = Depends(get_authenticated_user_id))
         'native_language': user.native_language or 'uk',
         'has_selected_language': bool(user.has_selected_language),
         'is_guest': False,
+        'is_admin': bool(user.username in ADMIN_USERNAMES),
     }
 
 

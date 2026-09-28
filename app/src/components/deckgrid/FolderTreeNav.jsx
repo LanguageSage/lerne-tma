@@ -7,6 +7,8 @@ import { Folder, GripHorizontal, MoreHorizontal, ChevronRight, Users } from 'luc
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import api from '../../services/api';
 import { renderFlag } from './FlagIcons';
 import { getSortedFolderTree, getDescendantFolderIds } from '../../utils/deckUtils';
 
@@ -21,6 +23,7 @@ export const FolderCardItem = React.memo(({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [menuPlacement, setMenuPlacement] = useState('bottom');
+  const isAdmin = useAuthStore(state => state.userProfile?.is_admin);
   const menuRef = useRef(null);
 
   const toggleMenu = (e) => {
@@ -99,6 +102,21 @@ export const FolderCardItem = React.memo(({
       showToast(tr("Папка перемещена"), "success");
     } catch {
       showToast(tr("Ошибка при перемещении папки"), "error");
+    }
+  };
+
+
+  const handleTogglePublish = async (e) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    const newScope = folder.is_global_readonly ? 'private' : 'global_readonly';
+    try {
+      await api.post(`/collaborative/admin/folders/${folder.id}/access-scope`, { access_scope: newScope });
+      showToast(folder.is_global_readonly ? 'Папка скрыта из общего доступа' : 'Папка опубликована', 'success');
+      useDeckStore.getState().fetchDecks(true);
+    } catch (err) {
+      console.error(err);
+      showToast('Ошибка публикации', 'error');
     }
   };
 
@@ -229,7 +247,7 @@ export const FolderCardItem = React.memo(({
         </div>
 
         <div className="deck-footer-actions-right">
-          {!folder.is_global_readonly && (
+          {(!folder.is_global_readonly || isAdmin) && (
             <button 
               className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
               onClick={toggleMenu}
@@ -242,6 +260,12 @@ export const FolderCardItem = React.memo(({
 
         {isMenuOpen && (
           <div className={`deck-dropdown-menu glass placement-${menuPlacement}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
+
+            {isAdmin && (
+              <button className="dropdown-item" onClick={handleTogglePublish} style={{ color: '#8b5cf6', fontWeight: 600 }}>
+                <span>{folder.is_global_readonly ? '🔐 Скрыть из общего доступа' : '🌍 Опубликовать глобально'}</span>
+              </button>
+            )}
             <button className="dropdown-item" onClick={(e) => {
               e.stopPropagation();
               setIsMenuOpen(false);

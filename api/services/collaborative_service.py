@@ -135,8 +135,9 @@ def set_folder_access_scope(folder_id: int, access_scope: str, requester_id: int
     import os
     from fastapi import HTTPException
 
-    admin_id = int(os.environ.get("ADMIN_USER_ID", "642478257"))
-    if requester_id != admin_id:
+    admin_usernames = {'Nimaypumpay', 'Aruna27', 'Chintamanichapliuk'}
+    user = models.TMAUser.get_or_none(models.TMAUser.user_id == requester_id)
+    if not user or user.username not in admin_usernames:
         raise HTTPException(status_code=403, detail="Only the platform admin can set access_scope")
 
     if access_scope not in ('private', 'global_readonly'):
