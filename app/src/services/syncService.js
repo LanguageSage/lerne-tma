@@ -24,6 +24,21 @@ async function migrateTemporaryCards(db, userId) {
 
 async function pendingBatch(db, userId) {
   return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
+    // Old clients could mark cached published content dirty. Never replay it.
+    const readOnlyDecks = new Set((await db.decks.filter(d => d.role === 'viewer' || (d.is_global_readonly && d.role !== 'owner' && d.role !== 'editor')).toArray()).map(d => d.id));
+    let discarded = false;
+    for (const name of ['folders', 'decks', 'cards']) {
+      for (const item of await db[name].where('is_dirty').equals(1).toArray()) {
+        const forbidden = name === 'cards' ? readOnlyDecks.has(item.deck_id)
+          : name === 'decks' ? readOnlyDecks.has(item.id)
+            : item.role === 'viewer' || (item.is_global_readonly && item.role !== 'owner' && item.role !== 'editor');
+        if (forbidden) {
+          await db[name].update(item.id, { is_dirty: 0 });
+          discarded = true;
+        }
+      }
+    }
+    if (discarded) await db.syncState.delete('pending');
     const pending = await db.syncState.get('pending');
     if (pending) return pending;
     await migrateTemporaryCards(db, userId);
@@ -84,6 +99,16 @@ async function acknowledge(db, batch, mappings) {
   });
 }
 
+async function syncLearningPreferences(db) {
+  for (const deck of await db.decks.filter(d => d.learning_dirty && d.id > 0).toArray()) {
+    await networkApi.post(`/decks/${deck.id}/toggle-learning`, { is_learning: !!deck.is_learning });
+    const current = await db.decks.get(deck.id);
+    if (current?.is_learning === deck.is_learning) {
+      await db.decks.update(deck.id, { learning_dirty: 0 });
+    }
+  }
+}
+
 async function applySnapshot(db, data, userId) {
   if (data.status !== 'success' || !entities.every(name => Array.isArray(data[name]))) {
     throw new Error(tr("Некорректный ответ синхронизации"));
@@ -94,13 +119,13 @@ async function applySnapshot(db, data, userId) {
       for (const item of data[name]) {
         const key = keyFor(name, item, userId);
         const local = await db[name].get(key);
-        if (local?.is_dirty) continue;
+        if (local?.is_dirty || (name === 'decks' && local?.learning_dirty)) continue;
         await db[name].put({ ...item, ...(name === 'progress' ? { user_id: userId } : {}), is_dirty: 0 });
       }
       // A full snapshot also carries hard deletions and revoked access.
       for (const item of await db[name].toArray()) {
         const id = name === 'progress' ? item.card_id : item.id;
-        if (id > 0 && !item.is_dirty && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
+        if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
       }
     }
     await db.syncState.put({ key: 'lastSync', time: data.server_time });
@@ -139,6 +164,7 @@ export const syncService = {
         await acknowledge(db, batch, mappings);
         if (getUserId() === userId) window.dispatchEvent(new CustomEvent('lerne:ids-remapped', { detail: { mappings, userId } }));
       }
+      await syncLearningPreferences(db);
       const response = await networkApi.get('/sync/v2/pull', options);
       await applySnapshot(db, response.data, userId);
       if (getUserId() === userId) {

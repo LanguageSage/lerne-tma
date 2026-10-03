@@ -98,14 +98,14 @@ class TMA_Card(BaseModel):
     topics = TextField(null=True)
     source = TextField(null=True)
     is_deleted = BooleanField(default=False)
-    want_to_learn = BooleanField(default=False)
+    want_to_learn = BooleanField(default=False)  # DEPRECATED: Use TMAProgress.want_to_learn
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(null=True)
     history = TextField(default='[]')
     creator_id = BigIntegerField(null=True, index=True)
     share_id = CharField(null=True, unique=True)
     position = IntegerField(default=0)
-    flag = IntegerField(default=0)
+    flag = IntegerField(default=0)  # DEPRECATED: Use TMAProgress.flag
     class Meta:
         table_name = 'tma_card'
         indexes = (

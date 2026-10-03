@@ -1,11 +1,18 @@
 import logging
 import datetime
+import os
 from typing import Optional, List, Dict, Any
 from peewee import fn
 
 from api import models
 
 logger = logging.getLogger(__name__)
+
+
+def is_content_maintainer(user_id: int) -> bool:
+    """The configured platform administrator may maintain published content."""
+    admin_id = os.environ.get('ADMIN_USER_ID')
+    return bool(admin_id and str(user_id) == admin_id)
 
 
 # ---------------------------------------------------------------------------
@@ -50,15 +57,41 @@ def _is_globally_readable(folder_id: int, folder_map: Dict[int, Any] = None) -> 
 
 def get_global_readonly_folder_ids(folder_map: Dict[int, Any]) -> set:
     """Returns all folder IDs that are globally readable (root + all descendants)."""
-    global_roots = {
-        f.id for f in folder_map.values()
-        if getattr(f, 'access_scope', 'private') == 'global_readonly'
-        and not getattr(f, 'is_deleted', False)
-    }
-    result = set()
-    for root_id in global_roots:
-        result.update(_get_all_subfolder_ids(root_id, folder_map))
-    return result
+    return set(get_global_readonly_root_owners(folder_map))
+
+
+def get_global_readonly_root_owners(folder_map: Dict[int, Any]) -> Dict[int, int]:
+    """Map every published descendant to its root owner, without DB lookups."""
+    children = {}
+    for folder in folder_map.values():
+        if not folder.is_deleted:
+            children.setdefault(folder.parent_id, []).append(folder)
+    owners = {}
+    for root in folder_map.values():
+        if root.is_deleted or root.access_scope != 'global_readonly' or _is_globally_readable(root.parent_id, folder_map):
+            continue
+        stack = [root]
+        while stack:
+            folder = stack.pop()
+            if folder.id in owners:
+                continue
+            owners[folder.id] = root.user_id
+            stack.extend(children.get(folder.id, ()))
+    return owners
+
+
+def _published_root_owner(folder_id: int) -> Optional[int]:
+    seen = set()
+    owner = None
+    while folder_id and folder_id not in seen:
+        seen.add(folder_id)
+        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == folder_id)
+        if not folder or folder.is_deleted:
+            break
+        if folder.access_scope == 'global_readonly':
+            owner = folder.user_id
+        folder_id = folder.parent_id
+    return owner
 
 
 # ---------------------------------------------------------------------------
@@ -132,12 +165,9 @@ def set_folder_access_scope(folder_id: int, access_scope: str, requester_id: int
     """Admin-only: publish or unpublish a folder as global_readonly.
     Only the ADMIN_USER_ID can call this; the folder owner is unchanged.
     """
-    import os
     from fastapi import HTTPException
 
-    admin_usernames = {'Nimaypumpay', 'Aruna27', 'Chintamanichapliuk'}
-    user = models.TMAUser.get_or_none(models.TMAUser.user_id == requester_id)
-    if not user or user.username not in admin_usernames:
+    if not is_content_maintainer(requester_id):
         raise HTTPException(status_code=403, detail="Only the platform admin can set access_scope")
 
     if access_scope not in ('private', 'global_readonly'):
@@ -186,7 +216,8 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
     all_known_folder_ids = list(folder_map.keys())
 
     # Pre-compute global-readonly folder set (one pass, no extra queries)
-    global_readonly_ids = get_global_readonly_folder_ids(folder_map)
+    global_root_owners = get_global_readonly_root_owners(folder_map)
+    global_readonly_ids = set(global_root_owners)
 
     # Single query for all collaborators
     collabs = []
@@ -218,6 +249,9 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
         if not f or f.is_deleted:
             role_memo[fid] = None
             return None
+        if fid in global_root_owners:
+            role_memo[fid] = 'owner' if global_root_owners[fid] == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+            return role_memo[fid]
         if f.user_id == user_id:
             role_memo[fid] = 'owner'
             return 'owner'
@@ -257,7 +291,9 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
 
     deck_info = {}
     for d in decks:
-        if d.user_id == user_id:
+        if d.folder_id in global_root_owners:
+            deck_role = 'owner' if global_root_owners[d.folder_id] == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+        elif d.user_id == user_id:
             deck_role = 'owner'
         else:
             deck_collabs = collabs_by_target.get(('deck', d.id), [])
@@ -322,6 +358,9 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
         deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
         if not deck or deck.is_deleted:
             return None
+        root_owner = _published_root_owner(deck.folder_id)
+        if root_owner is not None:
+            return 'owner' if root_owner == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
 
         # 1. Direct owner
         if deck.user_id == user_id:
@@ -348,6 +387,9 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
         folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
         if not folder or folder.is_deleted:
             return None
+        root_owner = _published_root_owner(folder.id)
+        if root_owner is not None:
+            return 'owner' if root_owner == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
 
         # 1. Direct owner
         if folder.user_id == user_id:

@@ -40,6 +40,26 @@ def execute_sync_push(request, user_id: int) -> dict:
     card_id_map = {}
 
     try:
+        # Validate the whole legacy batch before applying any canonical writes.
+        from api.services.collaborative_service import get_effective_user_role
+        def require_write(kind, item_id):
+            if item_id and item_id > 0 and get_effective_user_role(user_id, kind, item_id) not in ('owner', 'editor'):
+                raise HTTPException(status_code=403, detail="Нет доступа к записи")
+
+        for folder in request.folders:
+            require_write('folder', folder.id)
+            require_write('folder', folder.parent_id)
+        for deck in request.decks:
+            require_write('deck', deck.id)
+            require_write('folder', deck.folder_id)
+        for card in request.cards:
+            require_write('deck', card.deck_id)
+            if card.id > 0:
+                existing_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card.id)
+                if not existing_card:
+                    raise HTTPException(status_code=409, detail="Карточка удалена на сервере")
+                require_write('deck', existing_card.deck_id)
+
         with models.tma_db.atomic():
             # Preload existing entities to eliminate N+1 queries during bulk sync
             existing_folder_ids = [f.id for f in request.folders if f.id > 0]
@@ -144,7 +164,6 @@ def execute_sync_push(request, user_id: int) -> dict:
                         resolved_deck_id = inbox.id
                 
                 client_updated_at = parse_iso_datetime(c.updated_at)
-                card_flag = getattr(c, 'flag', 0) if getattr(c, 'flag', 0) is not None else 0
                 card_pos = getattr(c, 'position', None)
                 if c.id < 0:
                     new_card = models.TMA_Card.create(
@@ -158,7 +177,6 @@ def execute_sync_push(request, user_id: int) -> dict:
                         video_front_path=c.video_front_path,
                         video_back_path=c.video_back_path,
                         is_deleted=c.is_deleted,
-                        flag=card_flag,
                         position=card_pos,
                         source='user',
                         created_at=parse_iso_datetime(c.created_at),
@@ -180,7 +198,6 @@ def execute_sync_push(request, user_id: int) -> dict:
                                 card.video_front_path = _merge_media_field(c.video_front_path, card.video_front_path)
                                 card.video_back_path = _merge_media_field(c.video_back_path, card.video_back_path)
                                 card.is_deleted = c.is_deleted
-                                card.flag = card_flag
                                 if card_pos is not None:
                                     card.position = card_pos
                                 card.updated_at = client_updated_at
@@ -197,7 +214,6 @@ def execute_sync_push(request, user_id: int) -> dict:
                             video_front_path=c.video_front_path,
                             video_back_path=c.video_back_path,
                             is_deleted=c.is_deleted,
-                            flag=card_flag,
                             position=card_pos,
                             source='user',
                             created_at=parse_iso_datetime(c.created_at),
@@ -212,6 +228,10 @@ def execute_sync_push(request, user_id: int) -> dict:
                     resolved_card_id = card_id_map.get(str(resolved_card_id))
                     if not resolved_card_id:
                         continue
+
+                progress_card = models.TMA_Card.get_or_none(models.TMA_Card.id == resolved_card_id)
+                if not progress_card or get_effective_user_role(user_id, 'deck', progress_card.deck_id) is None:
+                    raise HTTPException(status_code=403, detail="Нет доступа к карточке")
 
                 client_updated_at = parse_iso_datetime(p.updated_at)
                 progress, created = models.TMAProgress.get_or_create(
@@ -231,6 +251,13 @@ def execute_sync_push(request, user_id: int) -> dict:
                     }
                 )
 
+                if created and 'flag' in p.model_fields_set:
+                    progress.flag = p.flag
+                    progress.save()
+                if created and 'want_to_learn' in p.model_fields_set:
+                    progress.want_to_learn = p.want_to_learn
+                    progress.save()
+
                 if not created:
                     if not progress.updated_at or client_updated_at > progress.updated_at:
                         progress.queue = p.queue
@@ -241,6 +268,10 @@ def execute_sync_push(request, user_id: int) -> dict:
                         progress.step_index = p.step_index
                         progress.next_review = parse_iso_datetime(p.next_review)
                         progress.last_reviewed = parse_iso_datetime(p.last_reviewed) if p.last_reviewed else None
+                        if 'flag' in p.model_fields_set:
+                            progress.flag = p.flag
+                        if 'want_to_learn' in p.model_fields_set:
+                            progress.want_to_learn = p.want_to_learn
                         progress.updated_at = client_updated_at
                         progress.save()
 
@@ -252,6 +283,8 @@ def execute_sync_push(request, user_id: int) -> dict:
                 "cards": card_id_map
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Sync Push Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database sync failed: {str(e)}")
@@ -340,7 +373,6 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
                 "video_front_path": c.video_front_path or "",
                 "video_back_path": c.video_back_path or "",
                 "is_deleted": bool(c.is_deleted),
-                "flag": getattr(c, 'flag', 0) or 0,
                 "position": getattr(c, 'position', 0) or 0,
                 "created_at": c.created_at.isoformat() if c.created_at else None,
                 "updated_at": c.updated_at.isoformat() if c.updated_at else None
@@ -356,6 +388,8 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
                 "ease_factor": p.ease_factor,
                 "repetitions": p.repetitions,
                 "lapses": p.lapses,
+                "flag": p.flag,
+                "want_to_learn": p.want_to_learn,
                 "step_index": p.step_index,
                 "next_review": p.next_review.isoformat() if p.next_review else None,
                 "last_reviewed": p.last_reviewed.isoformat() if p.last_reviewed else None,
@@ -470,7 +504,6 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
                     "video_front_path": c.video_front_path or "",
                     "video_back_path": c.video_back_path or "",
                     "is_deleted": bool(c.is_deleted),
-                    "flag": getattr(c, 'flag', 0) or 0,
                     "position": getattr(c, 'position', 0) or 0,
                     "updated_at": c.updated_at.isoformat() if c.updated_at else None
                 })
@@ -486,4 +519,3 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
     except Exception as e:
         logger.error(f"Collab Pull Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Collaborative sync failed: {str(e)}")
-

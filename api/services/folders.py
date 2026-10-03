@@ -95,18 +95,8 @@ def _require_folder_write(folder_id: int, user_id: int) -> TMA_Folder:
     folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.is_deleted == False))
     if not folder:
         raise HTTPException(status_code=404, detail="Папка не найдена")
-    if folder.user_id == user_id:
-        return folder  # owner — fast path
-
-    from .collaborative_service import get_effective_user_role
-    role = get_effective_user_role(user_id, 'folder', folder_id)
-    if role == 'viewer' or getattr(folder, 'access_scope', 'private') == 'global_readonly':
-        raise HTTPException(
-            status_code=403,
-            detail="Этот контент доступен только для чтения (официальный урок Lerne)."
-        )
-    if role not in ('owner', 'editor'):
-        raise HTTPException(status_code=404, detail="Папка не найдена или доступ ограничен")
+    from .collaborative_service import _require_can_mutate
+    _require_can_mutate(user_id, 'folder', folder_id)
     return folder
 
 
@@ -132,21 +122,11 @@ def create_folder(name: str, user_id: int, parent_id: int = None, color: str = N
                 return existing_lid
 
         if parent_id is not None:
-            from .collaborative_service import get_effective_user_role
             parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.is_deleted == False))
             if not parent:
                 raise ValueError("Родительская папка не найдена или нет доступа")
-            # Block creating subfolders inside global_readonly content
-            if getattr(parent, 'access_scope', 'private') == 'global_readonly':
-                raise HTTPException(
-                    status_code=403,
-                    detail="Этот контент доступен только для чтения (официальный урок Lerne)."
-                )
-            role = get_effective_user_role(user_id, 'folder', parent_id)
-            if role == 'viewer':
-                raise HTTPException(status_code=403, detail="У вас роль Слушателя (только чтение). Создавать подпапки в этой папке может только Редактор или Владелец.")
-            elif role is None:
-                raise ValueError("Родительская папка не найдена или нет доступа")
+            from .collaborative_service import _require_can_mutate
+            _require_can_mutate(user_id, 'folder', parent_id)
 
         folder = TMA_Folder.create(
             user_id=user_id,
@@ -211,7 +191,7 @@ def move_folder(folder_id: int, parent_id: int, user_id: int):
             raise ValueError("Нельзя переместить папку саму в себя")
 
         if parent_id is not None:
-            parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.user_id == user_id))
+            parent = _require_folder_write(parent_id, user_id)
             if not parent:
                 raise ValueError("Родительская папка не найдена")
 
@@ -219,7 +199,7 @@ def move_folder(folder_id: int, parent_id: int, user_id: int):
             while curr is not None:
                 if curr.id == folder_id:
                     raise ValueError("Нельзя переместить папку в собственную подпапку")
-                curr = TMA_Folder.get_or_none((TMA_Folder.id == curr.parent_id) & (TMA_Folder.user_id == user_id))
+                curr = TMA_Folder.get_or_none(TMA_Folder.id == curr.parent_id)
 
         folder.parent_id = parent_id
         folder.updated_at = datetime.datetime.now()
@@ -290,13 +270,18 @@ def delete_folder(folder_id: int, user_id: int):
 def reorder_folders(folder_ids: list, user_id: int):
     """Обновляет порядок папок пользователя. Глобальные папки игнорируются."""
     try:
+        from .collaborative_service import _require_can_mutate
+        for folder_id in folder_ids:
+            _require_can_mutate(user_id, 'folder', folder_id)
         with tma_db.atomic():
             for idx, folder_id in enumerate(folder_ids):
                 # Only reorder folders owned by this user (global_readonly owned by another user are silently skipped)
                 TMA_Folder.update(position=idx, updated_at=datetime.datetime.now()).where(
-                    (TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id)
+                    TMA_Folder.id == folder_id
                 ).execute()
         return True
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error reordering folders: {e}")
         raise e

@@ -2,12 +2,16 @@ import os
 import datetime
 import logging
 import json
-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia, TMA_Folder, TMAUser
+from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, TMASetting, Deck, Card, tma_db, TMAMedia, TMA_Folder, TMAUser
 from .. import srs
 from peewee import fn, JOIN
 from functools import lru_cache
 
 logger = logging.getLogger(__name__)
+
+
+def _learning_key(user_id: int, deck_id: int) -> str:
+    return f'DECK_LEARNING_{user_id}_{deck_id}'
 
 from .utils import merge_tags, add_to_history, resolve_deck_metadata
 from .media import resolve_media_url
@@ -322,12 +326,8 @@ def create_deck(name: str, user_id: int, folder_id: int = None, target_language:
     """Создает новую пользовательскую колоду."""
     try:
         if folder_id:
-            from .collaborative_service import get_effective_user_role
-            role = get_effective_user_role(user_id, 'folder', folder_id)
-            if role == 'viewer':
-                raise PermissionError("У вас роль Слушателя (только чтение). Создавать колоды в этой папке может только Редактор или Владелец.")
-            elif role is None:
-                raise PermissionError("Родительская папка не найдена или нет доступа")
+            from .collaborative_service import _require_can_mutate
+            _require_can_mutate(user_id, 'folder', folder_id)
 
         with tma_db.atomic():
             next_position = get_next_deck_position(user_id=user_id, folder_id=folder_id, target_language=target_language)
@@ -477,6 +477,9 @@ def get_active_decks(user_id: int, folder_map: dict = None):
             return []
 
         deck_ids = [d.id for d in decks]
+        learning_keys = {_learning_key(user_id, deck_id): deck_id for deck_id in deck_ids}
+        learning_states = {learning_keys[row.key]: row.value == '1' for row in TMASetting.select(
+            TMASetting.key, TMASetting.value).where(TMASetting.key.in_(list(learning_keys))) }
 
         # Batch resolve collaborative roles and is_shared in 1 query
         collab_info = get_batch_collaborative_info(user_id, decks=decks, folder_map=folder_map)
@@ -561,8 +564,9 @@ def get_active_decks(user_id: int, folder_map: dict = None):
                 "folder_id": deck_folder_id,
                 "has_updates": has_updates,
                 "metadata": parsed_metadata,
-                "is_learning": bool(parsed_metadata.get('is_learning', False)),
+                "is_learning": learning_states.get(d.id, bool(parsed_metadata.get('is_learning', False)) if d.user_id == user_id else False),
                 "is_shared": is_shared,
+                "is_global_readonly": collab_meta.get('is_global_readonly', False),
                 "role": role,
                 "is_owner": role == 'owner',
                 "stats": {
@@ -934,9 +938,11 @@ def import_deck_from_json(data: dict, user_id: int):
 
 def delete_deck(deck_id: int, user_id: int):
     try:
+        from .collaborative_service import _require_can_mutate
+        _require_can_mutate(user_id, 'deck', deck_id)
         # Мягкое удаление: помечаем колоду и её карточки как is_deleted = True
         now = datetime.datetime.now()
-        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
         if not deck:
             return False
         TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id == deck_id).execute()
@@ -1022,12 +1028,15 @@ def reset_deck_progress(user_id: int, deck_id: int):
 def move_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
     """Перемещает колоду в указанную папку (или в корень, если folder_id=None)."""
     try:
-        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        from .collaborative_service import _require_can_mutate
+        _require_can_mutate(user_id, 'deck', deck_id)
+        deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
         if not deck:
             return None
         # Verify folder belongs to user
         if folder_id is not None:
-            folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
+            _require_can_mutate(user_id, 'folder', folder_id)
+            folder = TMA_Folder.get_or_none(TMA_Folder.id == folder_id)
             if not folder:
                 raise ValueError("Target folder not found or access denied")
         
@@ -1092,7 +1101,9 @@ def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
 def rename_deck(deck_id: int, new_name: str, user_id: int):
     """Переименовывает пользовательскую колоду."""
     try:
-        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        from .collaborative_service import _require_can_mutate
+        _require_can_mutate(user_id, 'deck', deck_id)
+        deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
         if not deck:
             return None
         if deck.is_inbox:
@@ -1151,7 +1162,7 @@ def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
 
 
 def toggle_deck_learning(deck_id: int, user_id: int, is_learning: bool = None):
-    """Переключает или устанавливает статус 'Учу' (is_learning) для колоды."""
+    """Set the user's learning preference without changing canonical deck metadata."""
     try:
         from .collaborative_service import get_effective_user_role
         deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
@@ -1162,19 +1173,17 @@ def toggle_deck_learning(deck_id: int, user_id: int, is_learning: bool = None):
         if not role:
             return None
         
-        meta = {}
-        if deck.metadata:
-            try:
-                meta = json.loads(deck.metadata)
-            except Exception:
-                meta = {}
-        
-        current_status = bool(meta.get('is_learning', False))
+        key = _learning_key(user_id, deck_id)
+        setting = TMASetting.get_or_none(TMASetting.key == key)
+        current_status = setting.value == '1' if setting else (
+            bool(resolve_deck_metadata(deck).get('is_learning', False)) if deck.user_id == user_id else False)
         new_status = not current_status if is_learning is None else bool(is_learning)
-        meta['is_learning'] = new_status
-        deck.metadata = json.dumps(meta)
-        deck.updated_at = datetime.datetime.now()
-        deck.save()
+        if setting:
+            setting.value = '1' if new_status else '0'
+            setting.updated_at = datetime.datetime.now()
+            setting.save()
+        else:
+            TMASetting.create(key=key, value='1' if new_status else '0')
         logger.info(f"Deck {deck_id} learning status set to {new_status} by user {user_id}")
         return new_status
     except Exception as e:

@@ -13,6 +13,7 @@ export const DeckGridHeader = ({
   setIsSettingsOpen,
   onLanguageChange,
   activeFolderId,
+  canCreateContent = true,
   onFolderBack,
   isSearchOpen,
   onToggleSearch,
@@ -39,14 +40,14 @@ export const DeckGridHeader = ({
         </div>
         <div className="header-actions">
           <HelpButton topic="decks" />
-          <button 
+          {canCreateContent && <button 
             id="tut-add-deck" 
             className="add-deck-btn" 
             onClick={() => setIsNewDeckModalOpen(true)}
             title={t('decks.add_deck', 'Создать новую колоду')}
           >
             <Plus size={20} />
-          </button>
+          </button>}
           <button 
             className={`header-action-btn search-toggle-btn ${isSearchOpen ? 'active' : ''}`} 
             onClick={onToggleSearch}

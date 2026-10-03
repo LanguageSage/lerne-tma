@@ -31,6 +31,7 @@ export const DeckCardItem = React.memo(({
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
   const [menuPlacement, setMenuPlacement] = useState('bottom');
+  const canEditDeck = deck.role === 'owner' || deck.role === 'editor' || (!deck.role && !deck.is_global_readonly);
   const menuRef = useRef(null);
 
   const toggleMenu = (e) => {
@@ -234,6 +235,7 @@ export const DeckCardItem = React.memo(({
     isDragging
   } = useSortable({
     id: deck.id,
+    disabled: !canEditDeck,
     animateLayoutChanges: () => false,
   });
 
@@ -267,7 +269,7 @@ export const DeckCardItem = React.memo(({
           <h3>
             <span className="deck-title-text">{deck.is_inbox ? tr("📥 Входящие карточки") : deck.name}</span>
 
-            {!deck.is_inbox && !deck.is_global_readonly && (
+            {!deck.is_inbox && canEditDeck && (
               <button
                 type="button"
                 className={`pin-deck-btn ${deck.is_pinned ? 'pinned' : ''}`}
@@ -303,7 +305,7 @@ export const DeckCardItem = React.memo(({
       <div className="deck-footer-actions">
         <div className="deck-footer-actions-left">
           {!deck.is_inbox ? (
-            !deck.is_global_readonly && (
+            canEditDeck && (
               <div
                 className="deck-drag-handle-bottom"
                 {...attributes}
@@ -320,7 +322,7 @@ export const DeckCardItem = React.memo(({
             </div>
           )}
 
-          {!deck.is_inbox && !deck.is_global_readonly && (
+          {!deck.is_inbox && canEditDeck && (
             <div 
               className="deck-flag-badge-inline"
               title={tr("Язык: {{p0}}", { p0: (deck.target_language || 'de').toUpperCase() })}
@@ -329,7 +331,7 @@ export const DeckCardItem = React.memo(({
             </div>
           )}
 
-          {!deck.is_inbox && !deck.is_global_readonly && (
+          {!deck.is_inbox && (
             <button
               type="button"
               className={`deck-learning-action-btn ${deck.is_learning ? 'active' : 'inactive'}`}
@@ -435,7 +437,7 @@ export const DeckCardItem = React.memo(({
             title={tr("Опции колоды")}
           >
             <MoreHorizontal size={18} />
-            {deck.has_updates && !deck.is_inbox && !deck.is_global_readonly && (
+            {deck.has_updates && !deck.is_inbox && canEditDeck && (
               <span className="menu-update-indicator" />
             )}
           </button>
@@ -443,7 +445,7 @@ export const DeckCardItem = React.memo(({
 
         {isMenuOpen && (
           <div className={`deck-dropdown-menu glass placement-${menuPlacement}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
-            {!deck.is_inbox && !deck.is_global_readonly && (
+            {!deck.is_inbox && canEditDeck && (
               <button className="dropdown-item" onClick={(e) => {
                 e.stopPropagation();
                 setIsMenuOpen(false);
@@ -454,7 +456,7 @@ export const DeckCardItem = React.memo(({
               </button>
             )}
 
-            {!deck.is_inbox && !deck.is_global_readonly && (
+            {!deck.is_inbox && (
               <button 
                 className="dropdown-item" 
                 onClick={(e) => {
@@ -466,26 +468,26 @@ export const DeckCardItem = React.memo(({
               </button>
             )}
 
-            {!deck.is_inbox && !deck.is_global_readonly && (
+            {!deck.is_inbox && canEditDeck && (
               <button className="dropdown-item" onClick={handleShare}>
                 <span>{tr("🔗 Поделиться")}</span>
               </button>
             )}
 
 
-            {!deck.is_inbox && !deck.is_global_readonly && (
+            {!deck.is_inbox && canEditDeck && (
               <button className="dropdown-item" onClick={handleSync}>
                 <span>🔄 {deck.has_updates ? tr("❗️ Обновить") : tr("Обновить")}</span>
               </button>
             )}
 
-            {!deck.is_inbox && !deck.is_global_readonly && (
+            {!deck.is_inbox && canEditDeck && (
               <button className="dropdown-item" onClick={handleRename}>
                 <span>{tr("✍️ Переименовать")}</span>
               </button>
             )}
 
-            {!deck.is_inbox && !deck.is_global_readonly && (
+            {!deck.is_inbox && canEditDeck && (
               <>
                 <button 
                   className={`dropdown-item ${isMoveMenuOpen ? 'active' : ''}`} 
@@ -566,13 +568,15 @@ export const DeckCardItem = React.memo(({
                 <button className="dropdown-item" onClick={handleReclassifyDeck}>
                   <span>{tr("✨ Обновить CEFR-уровни")}</span>
                 </button>
-                <button className="dropdown-item warning" onClick={handleReset}>
-                  <span>{tr("🧹 Сбросить прогресс")}</span>
-                </button>
                 <button className="dropdown-item danger" onClick={handleDelete}>
                   <span>{tr("🗑️ Удалить колоду")}</span>
                 </button>
               </>
+            )}
+            {!deck.is_inbox && (
+              <button className="dropdown-item warning" onClick={handleReset}>
+                <span>{tr("🧹 Сбросить прогресс")}</span>
+              </button>
             )}
           </div>
         )}
@@ -580,4 +584,3 @@ export const DeckCardItem = React.memo(({
     </div>
   );
 });
-

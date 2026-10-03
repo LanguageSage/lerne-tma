@@ -248,6 +248,7 @@ export const DeckGrid = ({
   };
 
   const activeFolder = folders?.find(f => f.id === activeFolderId);
+  const canCreateContent = !activeFolder || activeFolder.role === 'owner' || activeFolder.role === 'editor';
   const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
   const isInitialLoading = !hasInitialized || loading || (isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0);
   const isFolderEmpty = !isInitialLoading && !isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0;
@@ -260,6 +261,7 @@ export const DeckGrid = ({
         className="view"
       >
         <DeckGridHeader
+          canCreateContent={canCreateContent}
           startTutorial={startTutorial}
           setIsNewDeckModalOpen={setIsNewDeckModalOpen}
           setIsSettingsOpen={setIsSettingsOpen}

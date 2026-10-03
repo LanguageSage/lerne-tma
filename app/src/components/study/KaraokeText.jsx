@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import './KaraokeText.css';
 
 /**
  * KaraokeText — renders text split into word spans,
- * highlighting the active word during audio playback.
+ * highlighting the active word during audio playback while
+ * strictly preserving newlines and whitespace formatting.
  *
  * Props:
  *  - text (string)
@@ -14,34 +15,45 @@ import './KaraokeText.css';
  */
 export const KaraokeText = React.memo(({
   text = '',
-  wordBoundaries = null,
   activeWordIndex = -1,
   style = {},
   className = '',
 }) => {
-  if (!text) return null;
+  const tokens = useMemo(() => {
+    if (!text) return [];
+    const normalized = text.replace(/\r\n/g, '\n');
+    return normalized.split(/(\s+)/);
+  }, [text]);
 
-  // Use provided boundaries if available, or split text by spaces for word wrapping
-  const wordsToRender = (wordBoundaries && wordBoundaries.length > 0)
-    ? wordBoundaries.map((wb) => wb.word)
-    : text.trim().split(/\s+/);
+  if (!text || tokens.length === 0) return null;
 
-  const spans = wordsToRender.map((w, i) => {
-    const isActive = i === activeWordIndex;
+  let wordIndex = 0;
+  const elements = tokens.map((token, i) => {
+    if (!token) return null;
+
+    if (/^\s+$/.test(token)) {
+      return <React.Fragment key={`ws-${i}`}>{token}</React.Fragment>;
+    }
+
+    const currentWordIndex = wordIndex++;
+    const isActive = currentWordIndex === activeWordIndex;
+
     return (
       <span
-        key={`${w}-${i}`}
+        key={`w-${currentWordIndex}`}
         className={`karaoke-word ${isActive ? 'karaoke-word--active' : ''}`}
       >
-        {w}
-        {i < wordsToRender.length - 1 ? ' ' : ''}
+        {token}
       </span>
     );
   });
 
   return (
-    <span className={`karaoke-text ${className}`} style={style}>
-      {spans}
+    <span
+      className={`karaoke-text ${className}`}
+      style={{ whiteSpace: 'pre-wrap', ...style }}
+    >
+      {elements}
     </span>
   );
 });

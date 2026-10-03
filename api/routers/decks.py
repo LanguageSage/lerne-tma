@@ -4,6 +4,7 @@ import logging
 
 from api import services
 from api.dependencies.auth import get_user_id
+from api.services.collaborative_service import _require_can_mutate
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,9 @@ def create_deck(data: dict, user_id: int = Depends(get_user_id)):
 @router.post("/{deck_id}/move")
 def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     folder_id = data.get('folder_id')
+    _require_can_mutate(user_id, 'deck', deck_id)
+    if folder_id:
+        _require_can_mutate(user_id, 'folder', folder_id)
     try:
         updated = services.move_deck_to_folder(deck_id, folder_id, user_id)
         if updated:
@@ -46,6 +50,8 @@ def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
 @router.post("/{deck_id}/copy")
 def copy_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     folder_id = data.get('folder_id')
+    if folder_id:
+        _require_can_mutate(user_id, 'folder', folder_id)
     try:
         copied = services.copy_deck_to_folder(deck_id, folder_id, user_id)
         if copied:
@@ -58,6 +64,7 @@ def copy_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
 
 @router.delete("/{deck_id}")
 def delete_deck(deck_id: int, user_id: int = Depends(get_user_id)):
+    _require_can_mutate(user_id, 'deck', deck_id)
     if services.delete_deck(deck_id, user_id):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Deck not found or access denied")
@@ -67,6 +74,7 @@ def rename_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     name = data.get('name')
     if not name or not name.strip():
         raise HTTPException(status_code=400, detail="Name cannot be empty")
+    _require_can_mutate(user_id, 'deck', deck_id)
     
     try:
         updated_deck = services.rename_deck(deck_id, name.strip(), user_id)
@@ -111,6 +119,7 @@ class SyncRequest(BaseModel):
 
 @router.post("/{deck_id}/sync")
 def sync_deck(deck_id: int, request: SyncRequest = None, user_id: int = Depends(get_user_id)):
+    _require_can_mutate(user_id, 'deck', deck_id)
     mode = request.mode if request else 'merge'
     if services.sync_deck_with_library(user_id, deck_id, mode=mode):
         return {"status": "success"}
@@ -164,8 +173,9 @@ def toggle_default_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 def toggle_pin_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     from api import models
     import datetime
+    _require_can_mutate(user_id, 'deck', deck_id)
     try:
-        deck = models.TMA_Deck.get_or_none((models.TMA_Deck.id == deck_id) & (models.TMA_Deck.user_id == user_id))
+        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == deck_id)
         if not deck:
             raise HTTPException(status_code=404, detail="Deck not found or access denied")
         deck.is_pinned = not deck.is_pinned
@@ -181,11 +191,13 @@ def toggle_pin_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 def reorder_decks(data: dict, user_id: int = Depends(get_user_id)):
     from api import models
     deck_ids = data.get('deck_ids', [])
+    for deck_id in deck_ids:
+        _require_can_mutate(user_id, 'deck', deck_id)
     try:
         with models.tma_db.atomic():
             for idx, deck_id in enumerate(deck_ids):
                 models.TMA_Deck.update(position=idx).where(
-                    (models.TMA_Deck.id == deck_id) & (models.TMA_Deck.user_id == user_id)
+                    models.TMA_Deck.id == deck_id
                 ).execute()
         return {"status": "success"}
     except Exception as e:
@@ -194,6 +206,7 @@ def reorder_decks(data: dict, user_id: int = Depends(get_user_id)):
 
 @router.post("/{deck_id}/metadata")
 def update_deck_metadata(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+    _require_can_mutate(user_id, 'deck', deck_id)
     try:
         updated_deck = services.update_deck_metadata(deck_id, data, user_id)
         if updated_deck:

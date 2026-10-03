@@ -48,6 +48,7 @@ def save_card(data, user_id, *, _batch=None):
         card = TMA_Card()
         card.creator_id = user_id
     card._is_new = is_new
+    original_deck_id = card.deck_id if card.id else None
         
     raw_deck_id = data.get('deck_id')
     try:
@@ -65,20 +66,17 @@ def save_card(data, user_id, *, _batch=None):
         card.deck_id = inbox.id
 
     target_deck_id = card.deck_id or deck_id
+
+    if card.id and _batch is None:
+        from .collaborative_service import _require_can_mutate
+        _require_can_mutate(user_id, 'deck', original_deck_id)
     cached_deck = None
     if _batch is not None:
         cached_deck = _batch['deck']
     elif target_deck_id:
         cached_deck = TMA_Deck.get_or_none(TMA_Deck.id == target_deck_id)
-        if cached_deck and cached_deck.user_id == user_id:
-            role = 'owner'
-        else:
-            from .collaborative_service import get_effective_user_role
-            role = get_effective_user_role(user_id, 'deck', target_deck_id)
-        if role == 'viewer':
-            raise PermissionError("У вас роль Слушателя (только чтение). Изменение карточек доступно Редакторам и Владельцу.")
-        elif role is None and card.id:
-            raise PermissionError("Нет прав на изменение этой карточки.")
+        from .collaborative_service import _require_can_mutate
+        _require_can_mutate(user_id, 'deck', target_deck_id)
     card._cached_deck = cached_deck
     
     # Обновляем только если передано (используем get с проверкой наличия ключа, чтобы позволить пустые строки)
@@ -142,12 +140,6 @@ def save_card(data, user_id, *, _batch=None):
     elif not card.source:
         card.source = 'user'
         
-    if 'flag' in data:
-        try:
-            card.flag = int(data.get('flag') or 0)
-        except (ValueError, TypeError):
-            card.flag = 0
-
     if 'tags' in data and data.get('tags') is not None:
         card.tags = data.get('tags')
     elif 'level' in data and data.get('level'):
@@ -344,11 +336,8 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
             raise ValueError(f"Card {card_id} not found")
         # Verify user can access this card (has at least viewer role on its deck)
         from .collaborative_service import get_effective_user_role
-        deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id) if card.deck_id else None
-        if deck and deck.user_id != user_id:
-            role = get_effective_user_role(user_id, 'deck', card.deck_id)
-            if not role:
-                raise PermissionError("No access to this card")
+        if not get_effective_user_role(user_id, 'deck', card.deck_id):
+            raise PermissionError("No access to this card")
         # Write to TMAProgress (per-user), not to TMA_Card (canonical)
         progress, _ = TMAProgress.get_or_create(
             card_id=card_id,
@@ -450,8 +439,6 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
                     existing_match.video_back_path = card.video_back_path
                 if card.tags:
                     existing_match.tags = card.tags
-                if card.flag:
-                    existing_match.flag = card.flag
                 if card.metadata:
                     existing_match.metadata = card.metadata
                 # Синхронизируем позицию согласно выбранному порядку (1..N)
@@ -575,8 +562,6 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
                     existing_match.video_back_path = card.video_back_path
                 if card.tags:
                     existing_match.tags = card.tags
-                if card.flag:
-                    existing_match.flag = card.flag
                 if card.metadata:
                     existing_match.metadata = card.metadata
                 # Синхронизируем позицию согласно выбранному порядку (1..N)
@@ -604,7 +589,6 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
                 video_back_path=card.video_back_path,
                 card_type=card.card_type or 'standard',
                 tags=card.tags or '',
-                flag=card.flag or 0,
                 metadata=card.metadata,
                 position=card_pos,
                 source='user',
@@ -730,9 +714,8 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "audio_back_path": audio_back_path,
         "video_front_path": video_front,
         "video_back_path": video_back,
-        # flag and want_to_learn are per-user: read from TMAProgress (p) first
-        "flag": int(get_p('flag') or get_val('flag', 'flag') or 0),
-        "want_to_learn": bool(get_p('want_to_learn') or get_val('want_to_learn', 'want_to_learn') or False),
+        "flag": int(get_p('flag') or 0),
+        "want_to_learn": bool(get_p('want_to_learn') or False),
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
         "is_leech": srs.is_leech(lapses),
@@ -753,6 +736,9 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
 def get_cards_for_study(deck_id: int, user_id: int):
     """Возвращает список всех карточек в колоде. Оптимизировано: проекция полей без BLOB и исключение лишних проверок."""
     try:
+        from .collaborative_service import get_effective_user_role
+        if not get_effective_user_role(user_id, 'deck', deck_id):
+            raise HTTPException(status_code=403, detail="Access denied")
         # Явная проекция колонок без загрузки тяжелого image_data BLOB и history
         cards_query = TMA_Card.select(
             TMA_Card.id,
@@ -768,11 +754,9 @@ def get_cards_for_study(deck_id: int, user_id: int):
             TMA_Card.tags,
             TMA_Card.metadata,
             TMA_Card.card_type,
-            TMA_Card.flag,
             TMA_Card.position,
             TMA_Card.creator_id,
-            TMA_Card.source,
-            TMA_Card.want_to_learn
+            TMA_Card.source
         ).where(
             TMA_Card.deck_id == deck_id, 
             TMA_Card.is_deleted == False
@@ -794,7 +778,9 @@ def get_cards_for_study(deck_id: int, user_id: int):
                                   TMAProgress.queue,
                                   TMAProgress.interval,
                                   TMAProgress.lapses,
-                                  TMAProgress.next_review
+                                  TMAProgress.next_review,
+                                  TMAProgress.flag,
+                                  TMAProgress.want_to_learn
                               )
                               .where((TMAProgress.user_id == user_id) & (TMAProgress.card_id << chunk))
                               .dicts())
@@ -814,6 +800,8 @@ def get_cards_for_study(deck_id: int, user_id: int):
             creator = creators.get(c.get('creator_id'))
             result.append(_build_card_dict(c, p=p, media_exists=None, creator=creator))
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in get_cards_for_study: {e}", exc_info=True)
         raise e
@@ -991,7 +979,6 @@ def get_duplicate_cards(user_id: int):
                              TMA_Card.audio_back_path,
                              TMA_Card.video_front_path,
                              TMA_Card.video_back_path,
-                             TMA_Card.flag,
                              TMA_Card.deck_id,
                              TMA_Deck.name.alias('deck_name')
                          )
@@ -1001,6 +988,10 @@ def get_duplicate_cards(user_id: int):
                          .dicts())
         
         result = []
+        duplicate_ids = [c['id'] for c in all_duplicates]
+        flags = {p.card_id: p.flag for p in TMAProgress.select(TMAProgress.card_id, TMAProgress.flag).where(
+            (TMAProgress.user_id == user_id) & (TMAProgress.card_id.in_(duplicate_ids))
+        )}
         for c in all_duplicates:
             result.append({
                 "id": c.get('id'),
@@ -1012,7 +1003,7 @@ def get_duplicate_cards(user_id: int):
                 "audio_back_path": c.get('audio_back_path'),
                 "video_front_path": c.get('video_front_path'),
                 "video_back_path": c.get('video_back_path'),
-                "flag": int(c.get('flag') or 0),
+                "flag": flags.get(c['id'], 0),
                 "deck_id": c.get('deck_id'),
                 "deck_name": c.get('deck_name') or "Без колоды"
             })
@@ -1118,10 +1109,8 @@ def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None, place
                     deck = TMA_Deck.get_or_none((TMA_Deck.id == target_id) & (TMA_Deck.is_deleted == False))
                     if not deck:
                         raise HTTPException(404, 'Колода не найдена')
-                    if deck.user_id != user_id:
-                        from .collaborative_service import get_effective_user_role
-                        if get_effective_user_role(user_id, 'deck', target_id) not in ('owner', 'editor', 'admin'):
-                            raise HTTPException(403, 'Нет прав на изменение колоды')
+                    from .collaborative_service import _require_can_mutate
+                    _require_can_mutate(user_id, 'deck', target_id)
                     position_function = fn.Min if placement == 'start' else fn.Max
                     edge_position = TMA_Card.select(position_function(TMA_Card.position)).where(
                         (TMA_Card.deck_id == target_id) & (TMA_Card.is_deleted == False)).scalar()
@@ -1299,12 +1288,18 @@ def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_
                     "position": c.position,
                     "card_number": card_num,
                     "total_cards": len(card_ids_in_deck),
-                    "flag": getattr(c, 'flag', None),
+                    "flag": 0,
                     "card_type": getattr(c, 'card_type', 'standard')
                 })
                 if len(matched_cards) >= limit:
                     break
 
+    if matched_cards:
+        flags = {p.card_id: p.flag for p in TMAProgress.select(TMAProgress.card_id, TMAProgress.flag).where(
+            (TMAProgress.user_id == user_id) & (TMAProgress.card_id.in_([c['id'] for c in matched_cards]))
+        )}
+        for card in matched_cards:
+            card['flag'] = flags.get(card['id'], 0)
     return {"folders": matched_folders, "decks": matched_decks, "cards": matched_cards}
 
 

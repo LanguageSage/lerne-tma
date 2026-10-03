@@ -16,6 +16,12 @@ const jsonObject = (value, fallback = {}) => {
 const result = (data = {}) => ({ data });
 const success = (data = {}) => result({ status: 'success', ...data });
 const notFound = () => { throw new Error(tr("Запись не найдена на устройстве. Сначала выполните синхронизацию.")); };
+const readOnly = () => { throw new Error(tr("У вас доступ только для чтения")); };
+async function requireContentWrite(db, entity, item) {
+  if (!item) notFound();
+  const owner = entity === 'cards' ? await db.decks.get(item.deck_id) : item;
+  if (!owner || owner.role === 'viewer' || (owner.is_global_readonly && owner.role !== 'owner' && owner.role !== 'editor')) readOnly();
+}
 
 export const normalizeCardKey = (text) => {
   if (!text) return '';
@@ -36,8 +42,8 @@ async function cardView(db, card, userId) {
     video_back_url: await localMediaURL(db, card.video_back_path, 'videos'),
     intervals: getNextIntervals(progress), is_leech: isLeech(progress?.lapses || 0),
     queue: progress?.queue || 'new', interval: progress?.interval || 0, lapses: progress?.lapses || 0,
-    flag: progress?.flag ?? card.flag ?? 0,
-    want_to_learn: progress?.want_to_learn ?? card.want_to_learn ?? false,
+    flag: progress?.flag ?? 0,
+    want_to_learn: progress?.want_to_learn ?? false,
   };
 }
 
@@ -102,7 +108,7 @@ export const offlineApi = {
       for (const deck of decks) {
         deck.stats = await deckStats(db, deck.id, userId);
         deck.metadata = jsonObject(deck.metadata);
-        deck.is_learning = !!deck.metadata.is_learning;
+        deck.is_learning = deck.is_learning ?? !!deck.metadata.is_learning;
       }
       const folders = ordered(await db.folders.filter(f => !f.is_deleted && (!f.target_language || f.target_language === language)).toArray());
       if (url === '/decks') return result(decks);
@@ -190,14 +196,15 @@ export const offlineApi = {
         const deckId = Number(body.deck_id || previous?.deck_id);
         const deck = await db.decks.get(deckId);
         if (!deck || deck.is_deleted) notFound();
-        if (deck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
+        await requireContentWrite(db, 'decks', deck);
+        if (previous) await requireContentWrite(db, 'cards', previous);
         const siblings = await db.cards.where('deck_id').equals(deckId).toArray();
         const card = { ...previous, id, deck_id: deckId,
           front_text: body.front ?? body.front_text ?? previous?.front_text ?? '',
           back_text: body.back ?? body.back_text ?? previous?.back_text ?? '',
           created_at: previous?.created_at || new Date().toISOString(),
           position: previous?.position ?? Math.max(-1, ...siblings.map(c => c.position || 0)) + 1, ...dirtyFields() };
-        for (const key of ['context', 'level', 'tags', 'card_type', 'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path', 'flag']) {
+        for (const key of ['context', 'level', 'tags', 'card_type', 'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path']) {
           if (Object.hasOwn(body, key)) card[key] = body[key];
         }
         if (body.cefr) card.metadata = { ...jsonObject(previous?.metadata), cefr: body.cefr };
@@ -212,7 +219,7 @@ export const offlineApi = {
       return db.transaction('rw', db.cards, db.decks, async () => {
         const targetDeck = await db.decks.get(targetDeckId);
         if (!targetDeck || targetDeck.is_deleted) notFound();
-        if (targetDeck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
+        await requireContentWrite(db, 'decks', targetDeck);
         const siblings = await db.cards.where('deck_id').equals(targetDeckId).filter(c => !c.is_deleted).toArray();
         const existingByFront = new Map();
         for (const c of siblings) {
@@ -228,6 +235,7 @@ export const offlineApi = {
           const cid = cardIds[idx];
           const card = await db.cards.get(cid);
           if (card && !card.is_deleted && card.deck_id !== targetDeckId) {
+            await requireContentWrite(db, 'cards', card);
             const frontKey = normalizeCardKey(card.front_text || card.front);
             const existingMatch = frontKey ? existingByFront.get(frontKey) : null;
             if (existingMatch && onDuplicate === 'skip') {
@@ -250,7 +258,6 @@ export const offlineApi = {
                 video_front_path: card.video_front_path || existingMatch.video_front_path,
                 video_back_path: card.video_back_path || existingMatch.video_back_path,
                 tags: card.tags || existingMatch.tags,
-                flag: card.flag !== undefined ? card.flag : existingMatch.flag,
                 metadata: card.metadata || existingMatch.metadata,
                 position: updatedPos,
                 ...dirtyFields()
@@ -283,7 +290,7 @@ export const offlineApi = {
       return db.transaction('rw', db.cards, db.decks, async () => {
         const targetDeck = await db.decks.get(targetDeckId);
         if (!targetDeck || targetDeck.is_deleted) notFound();
-        if (targetDeck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
+        await requireContentWrite(db, 'decks', targetDeck);
         const siblings = await db.cards.where('deck_id').equals(targetDeckId).filter(c => !c.is_deleted).toArray();
         const existingByFront = new Map();
         for (const c of siblings) {
@@ -299,6 +306,7 @@ export const offlineApi = {
           const cid = cardIds[idx];
           const card = await db.cards.get(cid);
           if (card && !card.is_deleted) {
+            await requireContentWrite(db, 'cards', card);
             const frontKey = normalizeCardKey(card.front_text || card.front);
             const existingMatch = frontKey ? existingByFront.get(frontKey) : null;
             if (existingMatch && onDuplicate === 'skip') {
@@ -321,7 +329,6 @@ export const offlineApi = {
                 video_front_path: card.video_front_path || existingMatch.video_front_path,
                 video_back_path: card.video_back_path || existingMatch.video_back_path,
                 tags: card.tags || existingMatch.tags,
-                flag: card.flag !== undefined ? card.flag : existingMatch.flag,
                 metadata: card.metadata || existingMatch.metadata,
                 position: updatedPos,
                 ...dirtyFields()
@@ -361,6 +368,7 @@ export const offlineApi = {
         for (const cid of cardIds) {
           const card = await db.cards.get(cid);
           if (card) {
+            await requireContentWrite(db, 'cards', card);
             await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields() });
           }
         }
@@ -374,7 +382,7 @@ export const offlineApi = {
       if (parentId) {
         const parent = await db.folders.get(Number(parentId));
         if (!parent || parent.is_deleted) notFound();
-        if (parent.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
+        await requireContentWrite(db, 'folders', parent);
       }
       const item = { ...body, id: getNextTempId(), user_id: userId, is_deleted: 0,
         position: 0, role: 'owner', is_owner: true, created_at: new Date().toISOString(), ...dirtyFields() };
@@ -387,6 +395,7 @@ export const offlineApi = {
       const table = db[match[1]];
       const ids = body[`${match[1].slice(0, -1)}_ids`] || [];
       await db.transaction('rw', table, db.decks, async () => {
+        for (const id of ids) await requireContentWrite(db, match[1], await table.get(Number(id)));
         for (const [position, id] of ids.entries()) await change(table, Number(id), { position });
       });
       return success();
@@ -419,12 +428,19 @@ export const offlineApi = {
         if (action === 'rename') fields = { name: body.name };
         if (action === 'color') fields = { color: body.color };
         if (action === 'flag') {
+          if (entity !== 'cards') throw unsupported();
           const prog = await db.progress.get([id, userId]) || { card_id: id, user_id: userId, queue: 'new', interval: 0, ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null };
           prog.flag = Number(body.flag) || 0;
           Object.assign(prog, dirtyFields());
           await db.progress.put(prog);
           return success({ id, flag: prog.flag });
         }
+        if (action === 'toggle-learning' && entity === 'decks') {
+          const isLearning = body.is_learning ?? !item.is_learning;
+          await db.decks.put({ ...item, is_learning: isLearning, learning_dirty: 1 });
+          return success({ is_learning: isLearning });
+        }
+        await requireContentWrite(db, entity, item);
         if (action === 'pin') fields = { is_pinned: !item.is_pinned };
         if (action === 'move') {
           const key = entity === 'folders' ? 'parent_id' : 'folder_id';
@@ -436,12 +452,12 @@ export const offlineApi = {
             seen.add(ancestor);
             const folder = await db.folders.get(ancestor);
             if (!folder || folder.is_deleted) notFound();
+            await requireContentWrite(db, 'folders', folder);
             ancestor = folder.parent_id;
           }
           fields = { [key]: target };
         }
         if (action === 'metadata') fields = { metadata: body };
-        if (action === 'toggle-learning') fields = { metadata: { ...jsonObject(item.metadata), is_learning: body.is_learning ?? !jsonObject(item.metadata).is_learning } };
         if (fields) return success(await change(table, id, fields));
         throw unsupported();
       });
@@ -459,6 +475,7 @@ export const offlineApi = {
     }
     match = url.match(/^\/trash\/(deck|card)\/(-?\d+)\/restore$/);
     if (match && m === 'post') {
+      await requireContentWrite(db, `${match[1]}s`, await db[`${match[1]}s`].get(Number(match[2])));
       await change(db[`${match[1]}s`], Number(match[2]), { is_deleted: 0, hard_deleted_locally: false });
       return success();
     }

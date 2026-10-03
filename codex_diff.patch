@@ -1,0 +1,1813 @@
+diff --git a/api/routers/cards.py b/api/routers/cards.py
+index 3f5df06..fd1d4c5 100644
+--- a/api/routers/cards.py
++++ b/api/routers/cards.py
+@@ -13,6 +13,16 @@ router = APIRouter(
+     tags=["cards"],
+ )
+ 
++
++def _require_cards_mutable(card_ids: list[int], user_id: int) -> None:
++    from api import models
++    from api.services.collaborative_service import _require_can_mutate
++    cards = list(models.TMA_Card.select(models.TMA_Card.id, models.TMA_Card.deck_id).where(models.TMA_Card.id.in_(card_ids)))
++    if len(cards) != len(set(card_ids)):
++        raise HTTPException(status_code=404, detail="Карточка не найдена")
++    for deck_id in {card.deck_id for card in cards}:
++        _require_can_mutate(user_id, 'deck', deck_id)
++
+ @router.post("/save")
+ async def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int = Depends(get_user_id)):
+     try:
+@@ -80,6 +90,9 @@ async def batch_move_cards(data: dict, user_id: int = Depends(get_user_id)):
+             raise HTTPException(status_code=400, detail="Список карточек пуст.")
+         if not target_deck_id:
+             raise HTTPException(status_code=400, detail="Не указана целевая колода.")
++        from api.services.collaborative_service import _require_can_mutate
++        _require_can_mutate(user_id, 'deck', int(target_deck_id))
++        _require_cards_mutable(card_ids, user_id)
+         return services.batch_move_cards(card_ids, int(target_deck_id), user_id, on_duplicate=on_duplicate)
+     except HTTPException:
+         raise
+@@ -104,6 +117,9 @@ async def batch_copy_cards(data: dict, user_id: int = Depends(get_user_id)):
+             raise HTTPException(status_code=400, detail="Список карточек пуст.")
+         if not target_deck_id:
+             raise HTTPException(status_code=400, detail="Не указана целевая колода.")
++        from api.services.collaborative_service import _require_can_mutate
++        _require_can_mutate(user_id, 'deck', int(target_deck_id))
++        _require_cards_mutable(card_ids, user_id)
+         return services.batch_copy_cards(card_ids, int(target_deck_id), user_id, on_duplicate=on_duplicate)
+     except HTTPException:
+         raise
+@@ -124,6 +140,7 @@ async def batch_delete_cards(data: dict, user_id: int = Depends(get_user_id)):
+         card_ids = data.get("card_ids", [])
+         if not card_ids:
+             raise HTTPException(status_code=400, detail="Список карточек пуст.")
++        _require_cards_mutable(card_ids, user_id)
+         return services.batch_delete_cards(card_ids, user_id)
+     except HTTPException:
+         raise
+@@ -159,6 +176,7 @@ async def update_card(card_id: int, data: dict, user_id: int = Depends(get_user_
+ 
+ @router.delete("/{card_id}")
+ def delete_card(card_id: int, user_id: int = Depends(get_user_id)):
++    _require_cards_mutable([card_id], user_id)
+     if services.delete_card(card_id, user_id):
+         return {"status": "success"}
+     raise HTTPException(status_code=404, detail="Card not found or access denied")
+@@ -168,7 +186,7 @@ async def set_flag(card_id: int, data: dict, user_id: int = Depends(get_user_id)
+     flag = data.get("flag", 0)
+     card = services.set_card_flag(card_id, user_id, flag)
+     if card:
+-        return services.format_card_for_study(card, user_id)
++        return card
+     raise HTTPException(status_code=404, detail="Card not found")
+     
+ @router.get("/duplicates")
+@@ -178,24 +196,16 @@ def get_duplicates(user_id: int = Depends(get_user_id)):
+ 
+ @router.post("/reorder")
+ def reorder_cards(data: dict, user_id: int = Depends(get_user_id)):
+-    from api import models
+     card_ids = data.get('card_ids', [])
+     try:
+-        user_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id)
+-        collab_decks = models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
+-            (models.TMA_Collaborator.user_id == user_id) &
+-            (models.TMA_Collaborator.target_type == 'deck') &
+-            (models.TMA_Collaborator.role.in_(['owner', 'editor']))
+-        )
+-        valid_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
+-            (models.TMA_Deck.id << user_decks) | (models.TMA_Deck.id << collab_decks)
+-        )
++        _require_cards_mutable(card_ids, user_id)
++        from api import models
+         with models.tma_db.atomic():
+             for idx, card_id in enumerate(card_ids):
+-                models.TMA_Card.update(position=idx).where(
+-                    (models.TMA_Card.id == card_id) & (models.TMA_Card.deck_id << valid_decks)
+-                ).execute()
++                models.TMA_Card.update(position=idx).where(models.TMA_Card.id == card_id).execute()
+         return {"status": "success"}
++    except HTTPException:
++        raise
+     except Exception as e:
+         logger.error(f"Error reordering cards: {e}")
+         raise HTTPException(status_code=500, detail=str(e))
+diff --git a/api/routers/decks.py b/api/routers/decks.py
+index 073e254..b9ea279 100644
+--- a/api/routers/decks.py
++++ b/api/routers/decks.py
+@@ -4,6 +4,7 @@ import logging
+ 
+ from api import services
+ from api.dependencies.auth import get_user_id
++from api.services.collaborative_service import _require_can_mutate
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -33,6 +34,9 @@ def create_deck(data: dict, user_id: int = Depends(get_user_id)):
+ @router.post("/{deck_id}/move")
+ def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+     folder_id = data.get('folder_id')
++    _require_can_mutate(user_id, 'deck', deck_id)
++    if folder_id:
++        _require_can_mutate(user_id, 'folder', folder_id)
+     try:
+         updated = services.move_deck_to_folder(deck_id, folder_id, user_id)
+         if updated:
+@@ -46,6 +50,8 @@ def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+ @router.post("/{deck_id}/copy")
+ def copy_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+     folder_id = data.get('folder_id')
++    if folder_id:
++        _require_can_mutate(user_id, 'folder', folder_id)
+     try:
+         copied = services.copy_deck_to_folder(deck_id, folder_id, user_id)
+         if copied:
+@@ -58,6 +64,7 @@ def copy_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+ 
+ @router.delete("/{deck_id}")
+ def delete_deck(deck_id: int, user_id: int = Depends(get_user_id)):
++    _require_can_mutate(user_id, 'deck', deck_id)
+     if services.delete_deck(deck_id, user_id):
+         return {"status": "success"}
+     raise HTTPException(status_code=404, detail="Deck not found or access denied")
+@@ -67,6 +74,7 @@ def rename_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
+     name = data.get('name')
+     if not name or not name.strip():
+         raise HTTPException(status_code=400, detail="Name cannot be empty")
++    _require_can_mutate(user_id, 'deck', deck_id)
+     
+     try:
+         updated_deck = services.rename_deck(deck_id, name.strip(), user_id)
+@@ -111,6 +119,7 @@ class SyncRequest(BaseModel):
+ 
+ @router.post("/{deck_id}/sync")
+ def sync_deck(deck_id: int, request: SyncRequest = None, user_id: int = Depends(get_user_id)):
++    _require_can_mutate(user_id, 'deck', deck_id)
+     mode = request.mode if request else 'merge'
+     if services.sync_deck_with_library(user_id, deck_id, mode=mode):
+         return {"status": "success"}
+@@ -164,8 +173,9 @@ def toggle_default_deck(deck_id: int, user_id: int = Depends(get_user_id)):
+ def toggle_pin_deck(deck_id: int, user_id: int = Depends(get_user_id)):
+     from api import models
+     import datetime
++    _require_can_mutate(user_id, 'deck', deck_id)
+     try:
+-        deck = models.TMA_Deck.get_or_none((models.TMA_Deck.id == deck_id) & (models.TMA_Deck.user_id == user_id))
++        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == deck_id)
+         if not deck:
+             raise HTTPException(status_code=404, detail="Deck not found or access denied")
+         deck.is_pinned = not deck.is_pinned
+@@ -181,11 +191,13 @@ def toggle_pin_deck(deck_id: int, user_id: int = Depends(get_user_id)):
+ def reorder_decks(data: dict, user_id: int = Depends(get_user_id)):
+     from api import models
+     deck_ids = data.get('deck_ids', [])
++    for deck_id in deck_ids:
++        _require_can_mutate(user_id, 'deck', deck_id)
+     try:
+         with models.tma_db.atomic():
+             for idx, deck_id in enumerate(deck_ids):
+                 models.TMA_Deck.update(position=idx).where(
+-                    (models.TMA_Deck.id == deck_id) & (models.TMA_Deck.user_id == user_id)
++                    models.TMA_Deck.id == deck_id
+                 ).execute()
+         return {"status": "success"}
+     except Exception as e:
+@@ -194,6 +206,7 @@ def reorder_decks(data: dict, user_id: int = Depends(get_user_id)):
+ 
+ @router.post("/{deck_id}/metadata")
+ def update_deck_metadata(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
++    _require_can_mutate(user_id, 'deck', deck_id)
+     try:
+         updated_deck = services.update_deck_metadata(deck_id, data, user_id)
+         if updated_deck:
+diff --git a/api/routers/study.py b/api/routers/study.py
+index 16beee9..37350cd 100644
+--- a/api/routers/study.py
++++ b/api/routers/study.py
+@@ -99,7 +99,7 @@ async def _card_to_response(card, progress, user_id: int):
+         "audio_back_path": card.audio_back_path,
+         "creator_name": creator_name,
+         "creator_avatar": creator_avatar,
+-        "flag": int(getattr(card, 'flag', 0) or 0),
++        "flag": int(getattr(progress, 'flag', 0) or 0),
+         "deck_id": card.deck_id,
+         "deck_name": deck.name if deck else None,
+         "deck_metadata": deck_metadata,
+diff --git a/api/routers/sync.py b/api/routers/sync.py
+index a0c005f..0076dd0 100644
+--- a/api/routers/sync.py
++++ b/api/routers/sync.py
+@@ -56,6 +56,8 @@ class SyncProgressItem(BaseModel):
+     last_reviewed: Optional[str] = None
+     created_at: Optional[str] = None
+     updated_at: Optional[str] = None
++    flag: int = 0
++    want_to_learn: bool = False
+ 
+ class SyncFolderItem(BaseModel):
+     id: int
+diff --git a/api/services/cards.py b/api/services/cards.py
+index 664ee4a..1bc4a0f 100644
+--- a/api/services/cards.py
++++ b/api/services/cards.py
+@@ -48,6 +48,7 @@ def save_card(data, user_id, *, _batch=None):
+         card = TMA_Card()
+         card.creator_id = user_id
+     card._is_new = is_new
++    original_deck_id = card.deck_id if card.id else None
+         
+     raw_deck_id = data.get('deck_id')
+     try:
+@@ -65,20 +66,17 @@ def save_card(data, user_id, *, _batch=None):
+         card.deck_id = inbox.id
+ 
+     target_deck_id = card.deck_id or deck_id
++
++    if card.id and _batch is None:
++        from .collaborative_service import _require_can_mutate
++        _require_can_mutate(user_id, 'deck', original_deck_id)
+     cached_deck = None
+     if _batch is not None:
+         cached_deck = _batch['deck']
+     elif target_deck_id:
+         cached_deck = TMA_Deck.get_or_none(TMA_Deck.id == target_deck_id)
+-        if cached_deck and cached_deck.user_id == user_id:
+-            role = 'owner'
+-        else:
+-            from .collaborative_service import get_effective_user_role
+-            role = get_effective_user_role(user_id, 'deck', target_deck_id)
+-        if role == 'viewer':
+-            raise PermissionError("У вас роль Слушателя (только чтение). Изменение карточек доступно Редакторам и Владельцу.")
+-        elif role is None and card.id:
+-            raise PermissionError("Нет прав на изменение этой карточки.")
++        from .collaborative_service import _require_can_mutate
++        _require_can_mutate(user_id, 'deck', target_deck_id)
+     card._cached_deck = cached_deck
+     
+     # Обновляем только если передано (используем get с проверкой наличия ключа, чтобы позволить пустые строки)
+@@ -142,12 +140,6 @@ def save_card(data, user_id, *, _batch=None):
+     elif not card.source:
+         card.source = 'user'
+         
+-    if 'flag' in data:
+-        try:
+-            card.flag = int(data.get('flag') or 0)
+-        except (ValueError, TypeError):
+-            card.flag = 0
+-
+     if 'tags' in data and data.get('tags') is not None:
+         card.tags = data.get('tags')
+     elif 'level' in data and data.get('level'):
+@@ -344,11 +336,8 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
+             raise ValueError(f"Card {card_id} not found")
+         # Verify user can access this card (has at least viewer role on its deck)
+         from .collaborative_service import get_effective_user_role
+-        deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id) if card.deck_id else None
+-        if deck and deck.user_id != user_id:
+-            role = get_effective_user_role(user_id, 'deck', card.deck_id)
+-            if not role:
+-                raise PermissionError("No access to this card")
++        if not get_effective_user_role(user_id, 'deck', card.deck_id):
++            raise PermissionError("No access to this card")
+         # Write to TMAProgress (per-user), not to TMA_Card (canonical)
+         progress, _ = TMAProgress.get_or_create(
+             card_id=card_id,
+@@ -450,8 +439,6 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
+                     existing_match.video_back_path = card.video_back_path
+                 if card.tags:
+                     existing_match.tags = card.tags
+-                if card.flag:
+-                    existing_match.flag = card.flag
+                 if card.metadata:
+                     existing_match.metadata = card.metadata
+                 # Синхронизируем позицию согласно выбранному порядку (1..N)
+@@ -575,8 +562,6 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
+                     existing_match.video_back_path = card.video_back_path
+                 if card.tags:
+                     existing_match.tags = card.tags
+-                if card.flag:
+-                    existing_match.flag = card.flag
+                 if card.metadata:
+                     existing_match.metadata = card.metadata
+                 # Синхронизируем позицию согласно выбранному порядку (1..N)
+@@ -604,7 +589,6 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
+                 video_back_path=card.video_back_path,
+                 card_type=card.card_type or 'standard',
+                 tags=card.tags or '',
+-                flag=card.flag or 0,
+                 metadata=card.metadata,
+                 position=card_pos,
+                 source='user',
+@@ -730,9 +714,8 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
+         "audio_back_path": audio_back_path,
+         "video_front_path": video_front,
+         "video_back_path": video_back,
+-        # flag and want_to_learn are per-user: read from TMAProgress (p) first
+-        "flag": int(get_p('flag') or get_val('flag', 'flag') or 0),
+-        "want_to_learn": bool(get_p('want_to_learn') or get_val('want_to_learn', 'want_to_learn') or False),
++        "flag": int(get_p('flag') or 0),
++        "want_to_learn": bool(get_p('want_to_learn') or False),
+         "creator_name": creator_name,
+         "creator_avatar": creator_avatar,
+         "is_leech": srs.is_leech(lapses),
+@@ -753,6 +736,9 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
+ def get_cards_for_study(deck_id: int, user_id: int):
+     """Возвращает список всех карточек в колоде. Оптимизировано: проекция полей без BLOB и исключение лишних проверок."""
+     try:
++        from .collaborative_service import get_effective_user_role
++        if not get_effective_user_role(user_id, 'deck', deck_id):
++            raise HTTPException(status_code=403, detail="Access denied")
+         # Явная проекция колонок без загрузки тяжелого image_data BLOB и history
+         cards_query = TMA_Card.select(
+             TMA_Card.id,
+@@ -768,11 +754,9 @@ def get_cards_for_study(deck_id: int, user_id: int):
+             TMA_Card.tags,
+             TMA_Card.metadata,
+             TMA_Card.card_type,
+-            TMA_Card.flag,
+             TMA_Card.position,
+             TMA_Card.creator_id,
+-            TMA_Card.source,
+-            TMA_Card.want_to_learn
++            TMA_Card.source
+         ).where(
+             TMA_Card.deck_id == deck_id, 
+             TMA_Card.is_deleted == False
+@@ -794,7 +778,9 @@ def get_cards_for_study(deck_id: int, user_id: int):
+                                   TMAProgress.queue,
+                                   TMAProgress.interval,
+                                   TMAProgress.lapses,
+-                                  TMAProgress.next_review
++                                  TMAProgress.next_review,
++                                  TMAProgress.flag,
++                                  TMAProgress.want_to_learn
+                               )
+                               .where((TMAProgress.user_id == user_id) & (TMAProgress.card_id << chunk))
+                               .dicts())
+@@ -814,6 +800,8 @@ def get_cards_for_study(deck_id: int, user_id: int):
+             creator = creators.get(c.get('creator_id'))
+             result.append(_build_card_dict(c, p=p, media_exists=None, creator=creator))
+         return result
++    except HTTPException:
++        raise
+     except Exception as e:
+         logger.error(f"Error in get_cards_for_study: {e}", exc_info=True)
+         raise e
+@@ -991,7 +979,6 @@ def get_duplicate_cards(user_id: int):
+                              TMA_Card.audio_back_path,
+                              TMA_Card.video_front_path,
+                              TMA_Card.video_back_path,
+-                             TMA_Card.flag,
+                              TMA_Card.deck_id,
+                              TMA_Deck.name.alias('deck_name')
+                          )
+@@ -1001,6 +988,10 @@ def get_duplicate_cards(user_id: int):
+                          .dicts())
+         
+         result = []
++        duplicate_ids = [c['id'] for c in all_duplicates]
++        flags = {p.card_id: p.flag for p in TMAProgress.select(TMAProgress.card_id, TMAProgress.flag).where(
++            (TMAProgress.user_id == user_id) & (TMAProgress.card_id.in_(duplicate_ids))
++        )}
+         for c in all_duplicates:
+             result.append({
+                 "id": c.get('id'),
+@@ -1012,7 +1003,7 @@ def get_duplicate_cards(user_id: int):
+                 "audio_back_path": c.get('audio_back_path'),
+                 "video_front_path": c.get('video_front_path'),
+                 "video_back_path": c.get('video_back_path'),
+-                "flag": int(c.get('flag') or 0),
++                "flag": flags.get(c['id'], 0),
+                 "deck_id": c.get('deck_id'),
+                 "deck_name": c.get('deck_name') or "Без колоды"
+             })
+@@ -1118,10 +1109,8 @@ def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None, place
+                     deck = TMA_Deck.get_or_none((TMA_Deck.id == target_id) & (TMA_Deck.is_deleted == False))
+                     if not deck:
+                         raise HTTPException(404, 'Колода не найдена')
+-                    if deck.user_id != user_id:
+-                        from .collaborative_service import get_effective_user_role
+-                        if get_effective_user_role(user_id, 'deck', target_id) not in ('owner', 'editor', 'admin'):
+-                            raise HTTPException(403, 'Нет прав на изменение колоды')
++                    from .collaborative_service import _require_can_mutate
++                    _require_can_mutate(user_id, 'deck', target_id)
+                     position_function = fn.Min if placement == 'start' else fn.Max
+                     edge_position = TMA_Card.select(position_function(TMA_Card.position)).where(
+                         (TMA_Card.deck_id == target_id) & (TMA_Card.is_deleted == False)).scalar()
+@@ -1299,12 +1288,18 @@ def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_
+                     "position": c.position,
+                     "card_number": card_num,
+                     "total_cards": len(card_ids_in_deck),
+-                    "flag": getattr(c, 'flag', None),
++                    "flag": 0,
+                     "card_type": getattr(c, 'card_type', 'standard')
+                 })
+                 if len(matched_cards) >= limit:
+                     break
+ 
++    if matched_cards:
++        flags = {p.card_id: p.flag for p in TMAProgress.select(TMAProgress.card_id, TMAProgress.flag).where(
++            (TMAProgress.user_id == user_id) & (TMAProgress.card_id.in_([c['id'] for c in matched_cards]))
++        )}
++        for card in matched_cards:
++            card['flag'] = flags.get(card['id'], 0)
+     return {"folders": matched_folders, "decks": matched_decks, "cards": matched_cards}
+ 
+ 
+diff --git a/api/services/collaborative_service.py b/api/services/collaborative_service.py
+index 22fbaae..e116646 100644
+--- a/api/services/collaborative_service.py
++++ b/api/services/collaborative_service.py
+@@ -1,5 +1,6 @@
+ import logging
+ import datetime
++import os
+ from typing import Optional, List, Dict, Any
+ from peewee import fn
+ 
+@@ -8,6 +9,12 @@ from api import models
+ logger = logging.getLogger(__name__)
+ 
+ 
++def is_content_maintainer(user_id: int) -> bool:
++    """The configured platform administrator may maintain published content."""
++    admin_id = os.environ.get('ADMIN_USER_ID')
++    return bool(admin_id and str(user_id) == admin_id)
++
++
+ # ---------------------------------------------------------------------------
+ # Access version (cache invalidation marker)
+ # ---------------------------------------------------------------------------
+@@ -50,15 +57,41 @@ def _is_globally_readable(folder_id: int, folder_map: Dict[int, Any] = None) ->
+ 
+ def get_global_readonly_folder_ids(folder_map: Dict[int, Any]) -> set:
+     """Returns all folder IDs that are globally readable (root + all descendants)."""
+-    global_roots = {
+-        f.id for f in folder_map.values()
+-        if getattr(f, 'access_scope', 'private') == 'global_readonly'
+-        and not getattr(f, 'is_deleted', False)
+-    }
+-    result = set()
+-    for root_id in global_roots:
+-        result.update(_get_all_subfolder_ids(root_id, folder_map))
+-    return result
++    return set(get_global_readonly_root_owners(folder_map))
++
++
++def get_global_readonly_root_owners(folder_map: Dict[int, Any]) -> Dict[int, int]:
++    """Map every published descendant to its root owner, without DB lookups."""
++    children = {}
++    for folder in folder_map.values():
++        if not folder.is_deleted:
++            children.setdefault(folder.parent_id, []).append(folder)
++    owners = {}
++    for root in folder_map.values():
++        if root.is_deleted or root.access_scope != 'global_readonly' or _is_globally_readable(root.parent_id, folder_map):
++            continue
++        stack = [root]
++        while stack:
++            folder = stack.pop()
++            if folder.id in owners:
++                continue
++            owners[folder.id] = root.user_id
++            stack.extend(children.get(folder.id, ()))
++    return owners
++
++
++def _published_root_owner(folder_id: int) -> Optional[int]:
++    seen = set()
++    owner = None
++    while folder_id and folder_id not in seen:
++        seen.add(folder_id)
++        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == folder_id)
++        if not folder or folder.is_deleted:
++            break
++        if folder.access_scope == 'global_readonly':
++            owner = folder.user_id
++        folder_id = folder.parent_id
++    return owner
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -132,12 +165,9 @@ def set_folder_access_scope(folder_id: int, access_scope: str, requester_id: int
+     """Admin-only: publish or unpublish a folder as global_readonly.
+     Only the ADMIN_USER_ID can call this; the folder owner is unchanged.
+     """
+-    import os
+     from fastapi import HTTPException
+ 
+-    admin_usernames = {'Nimaypumpay', 'Aruna27', 'Chintamanichapliuk'}
+-    user = models.TMAUser.get_or_none(models.TMAUser.user_id == requester_id)
+-    if not user or user.username not in admin_usernames:
++    if not is_content_maintainer(requester_id):
+         raise HTTPException(status_code=403, detail="Only the platform admin can set access_scope")
+ 
+     if access_scope not in ('private', 'global_readonly'):
+@@ -186,7 +216,8 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
+     all_known_folder_ids = list(folder_map.keys())
+ 
+     # Pre-compute global-readonly folder set (one pass, no extra queries)
+-    global_readonly_ids = get_global_readonly_folder_ids(folder_map)
++    global_root_owners = get_global_readonly_root_owners(folder_map)
++    global_readonly_ids = set(global_root_owners)
+ 
+     # Single query for all collaborators
+     collabs = []
+@@ -218,6 +249,9 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
+         if not f or f.is_deleted:
+             role_memo[fid] = None
+             return None
++        if fid in global_root_owners:
++            role_memo[fid] = 'owner' if global_root_owners[fid] == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
++            return role_memo[fid]
+         if f.user_id == user_id:
+             role_memo[fid] = 'owner'
+             return 'owner'
+@@ -257,7 +291,9 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
+ 
+     deck_info = {}
+     for d in decks:
+-        if d.user_id == user_id:
++        if d.folder_id in global_root_owners:
++            deck_role = 'owner' if global_root_owners[d.folder_id] == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
++        elif d.user_id == user_id:
+             deck_role = 'owner'
+         else:
+             deck_collabs = collabs_by_target.get(('deck', d.id), [])
+@@ -322,6 +358,9 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
+         deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
+         if not deck or deck.is_deleted:
+             return None
++        root_owner = _published_root_owner(deck.folder_id)
++        if root_owner is not None:
++            return 'owner' if root_owner == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+ 
+         # 1. Direct owner
+         if deck.user_id == user_id:
+@@ -348,6 +387,9 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
+         folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
+         if not folder or folder.is_deleted:
+             return None
++        root_owner = _published_root_owner(folder.id)
++        if root_owner is not None:
++            return 'owner' if root_owner == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+ 
+         # 1. Direct owner
+         if folder.user_id == user_id:
+diff --git a/api/services/decks.py b/api/services/decks.py
+index 60ab3d8..796d41b 100644
+--- a/api/services/decks.py
++++ b/api/services/decks.py
+@@ -2,13 +2,17 @@ import os
+ import datetime
+ import logging
+ import json
+-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia, TMA_Folder, TMAUser
++from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, TMASetting, Deck, Card, tma_db, TMAMedia, TMA_Folder, TMAUser
+ from .. import srs
+ from peewee import fn, JOIN
+ from functools import lru_cache
+ 
+ logger = logging.getLogger(__name__)
+ 
++
++def _learning_key(user_id: int, deck_id: int) -> str:
++    return f'DECK_LEARNING_{user_id}_{deck_id}'
++
+ from .utils import merge_tags, add_to_history, resolve_deck_metadata
+ from .media import resolve_media_url
+ 
+@@ -322,12 +326,8 @@ def create_deck(name: str, user_id: int, folder_id: int = None, target_language:
+     """Создает новую пользовательскую колоду."""
+     try:
+         if folder_id:
+-            from .collaborative_service import get_effective_user_role
+-            role = get_effective_user_role(user_id, 'folder', folder_id)
+-            if role == 'viewer':
+-                raise PermissionError("У вас роль Слушателя (только чтение). Создавать колоды в этой папке может только Редактор или Владелец.")
+-            elif role is None:
+-                raise PermissionError("Родительская папка не найдена или нет доступа")
++            from .collaborative_service import _require_can_mutate
++            _require_can_mutate(user_id, 'folder', folder_id)
+ 
+         with tma_db.atomic():
+             next_position = get_next_deck_position(user_id=user_id, folder_id=folder_id, target_language=target_language)
+@@ -477,6 +477,9 @@ def get_active_decks(user_id: int, folder_map: dict = None):
+             return []
+ 
+         deck_ids = [d.id for d in decks]
++        learning_keys = {_learning_key(user_id, deck_id): deck_id for deck_id in deck_ids}
++        learning_states = {learning_keys[row.key]: row.value == '1' for row in TMASetting.select(
++            TMASetting.key, TMASetting.value).where(TMASetting.key.in_(list(learning_keys))) }
+ 
+         # Batch resolve collaborative roles and is_shared in 1 query
+         collab_info = get_batch_collaborative_info(user_id, decks=decks, folder_map=folder_map)
+@@ -561,8 +564,9 @@ def get_active_decks(user_id: int, folder_map: dict = None):
+                 "folder_id": deck_folder_id,
+                 "has_updates": has_updates,
+                 "metadata": parsed_metadata,
+-                "is_learning": bool(parsed_metadata.get('is_learning', False)),
++                "is_learning": learning_states.get(d.id, bool(parsed_metadata.get('is_learning', False)) if d.user_id == user_id else False),
+                 "is_shared": is_shared,
++                "is_global_readonly": collab_meta.get('is_global_readonly', False),
+                 "role": role,
+                 "is_owner": role == 'owner',
+                 "stats": {
+@@ -934,9 +938,11 @@ def import_deck_from_json(data: dict, user_id: int):
+ 
+ def delete_deck(deck_id: int, user_id: int):
+     try:
++        from .collaborative_service import _require_can_mutate
++        _require_can_mutate(user_id, 'deck', deck_id)
+         # Мягкое удаление: помечаем колоду и её карточки как is_deleted = True
+         now = datetime.datetime.now()
+-        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
++        deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
+         if not deck:
+             return False
+         TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id == deck_id).execute()
+@@ -1022,12 +1028,15 @@ def reset_deck_progress(user_id: int, deck_id: int):
+ def move_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
+     """Перемещает колоду в указанную папку (или в корень, если folder_id=None)."""
+     try:
+-        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
++        from .collaborative_service import _require_can_mutate
++        _require_can_mutate(user_id, 'deck', deck_id)
++        deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
+         if not deck:
+             return None
+         # Verify folder belongs to user
+         if folder_id is not None:
+-            folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
++            _require_can_mutate(user_id, 'folder', folder_id)
++            folder = TMA_Folder.get_or_none(TMA_Folder.id == folder_id)
+             if not folder:
+                 raise ValueError("Target folder not found or access denied")
+         
+@@ -1092,7 +1101,9 @@ def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
+ def rename_deck(deck_id: int, new_name: str, user_id: int):
+     """Переименовывает пользовательскую колоду."""
+     try:
+-        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
++        from .collaborative_service import _require_can_mutate
++        _require_can_mutate(user_id, 'deck', deck_id)
++        deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
+         if not deck:
+             return None
+         if deck.is_inbox:
+@@ -1151,7 +1162,7 @@ def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
+ 
+ 
+ def toggle_deck_learning(deck_id: int, user_id: int, is_learning: bool = None):
+-    """Переключает или устанавливает статус 'Учу' (is_learning) для колоды."""
++    """Set the user's learning preference without changing canonical deck metadata."""
+     try:
+         from .collaborative_service import get_effective_user_role
+         deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
+@@ -1162,19 +1173,17 @@ def toggle_deck_learning(deck_id: int, user_id: int, is_learning: bool = None):
+         if not role:
+             return None
+         
+-        meta = {}
+-        if deck.metadata:
+-            try:
+-                meta = json.loads(deck.metadata)
+-            except Exception:
+-                meta = {}
+-        
+-        current_status = bool(meta.get('is_learning', False))
++        key = _learning_key(user_id, deck_id)
++        setting = TMASetting.get_or_none(TMASetting.key == key)
++        current_status = setting.value == '1' if setting else (
++            bool(resolve_deck_metadata(deck).get('is_learning', False)) if deck.user_id == user_id else False)
+         new_status = not current_status if is_learning is None else bool(is_learning)
+-        meta['is_learning'] = new_status
+-        deck.metadata = json.dumps(meta)
+-        deck.updated_at = datetime.datetime.now()
+-        deck.save()
++        if setting:
++            setting.value = '1' if new_status else '0'
++            setting.updated_at = datetime.datetime.now()
++            setting.save()
++        else:
++            TMASetting.create(key=key, value='1' if new_status else '0')
+         logger.info(f"Deck {deck_id} learning status set to {new_status} by user {user_id}")
+         return new_status
+     except Exception as e:
+diff --git a/api/services/folders.py b/api/services/folders.py
+index f247ea7..5949e26 100644
+--- a/api/services/folders.py
++++ b/api/services/folders.py
+@@ -95,18 +95,8 @@ def _require_folder_write(folder_id: int, user_id: int) -> TMA_Folder:
+     folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.is_deleted == False))
+     if not folder:
+         raise HTTPException(status_code=404, detail="Папка не найдена")
+-    if folder.user_id == user_id:
+-        return folder  # owner — fast path
+-
+-    from .collaborative_service import get_effective_user_role
+-    role = get_effective_user_role(user_id, 'folder', folder_id)
+-    if role == 'viewer' or getattr(folder, 'access_scope', 'private') == 'global_readonly':
+-        raise HTTPException(
+-            status_code=403,
+-            detail="Этот контент доступен только для чтения (официальный урок Lerne)."
+-        )
+-    if role not in ('owner', 'editor'):
+-        raise HTTPException(status_code=404, detail="Папка не найдена или доступ ограничен")
++    from .collaborative_service import _require_can_mutate
++    _require_can_mutate(user_id, 'folder', folder_id)
+     return folder
+ 
+ 
+@@ -132,21 +122,11 @@ def create_folder(name: str, user_id: int, parent_id: int = None, color: str = N
+                 return existing_lid
+ 
+         if parent_id is not None:
+-            from .collaborative_service import get_effective_user_role
+             parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.is_deleted == False))
+             if not parent:
+                 raise ValueError("Родительская папка не найдена или нет доступа")
+-            # Block creating subfolders inside global_readonly content
+-            if getattr(parent, 'access_scope', 'private') == 'global_readonly':
+-                raise HTTPException(
+-                    status_code=403,
+-                    detail="Этот контент доступен только для чтения (официальный урок Lerne)."
+-                )
+-            role = get_effective_user_role(user_id, 'folder', parent_id)
+-            if role == 'viewer':
+-                raise HTTPException(status_code=403, detail="У вас роль Слушателя (только чтение). Создавать подпапки в этой папке может только Редактор или Владелец.")
+-            elif role is None:
+-                raise ValueError("Родительская папка не найдена или нет доступа")
++            from .collaborative_service import _require_can_mutate
++            _require_can_mutate(user_id, 'folder', parent_id)
+ 
+         folder = TMA_Folder.create(
+             user_id=user_id,
+@@ -211,7 +191,7 @@ def move_folder(folder_id: int, parent_id: int, user_id: int):
+             raise ValueError("Нельзя переместить папку саму в себя")
+ 
+         if parent_id is not None:
+-            parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.user_id == user_id))
++            parent = _require_folder_write(parent_id, user_id)
+             if not parent:
+                 raise ValueError("Родительская папка не найдена")
+ 
+@@ -219,7 +199,7 @@ def move_folder(folder_id: int, parent_id: int, user_id: int):
+             while curr is not None:
+                 if curr.id == folder_id:
+                     raise ValueError("Нельзя переместить папку в собственную подпапку")
+-                curr = TMA_Folder.get_or_none((TMA_Folder.id == curr.parent_id) & (TMA_Folder.user_id == user_id))
++                curr = TMA_Folder.get_or_none(TMA_Folder.id == curr.parent_id)
+ 
+         folder.parent_id = parent_id
+         folder.updated_at = datetime.datetime.now()
+@@ -290,13 +270,18 @@ def delete_folder(folder_id: int, user_id: int):
+ def reorder_folders(folder_ids: list, user_id: int):
+     """Обновляет порядок папок пользователя. Глобальные папки игнорируются."""
+     try:
++        from .collaborative_service import _require_can_mutate
++        for folder_id in folder_ids:
++            _require_can_mutate(user_id, 'folder', folder_id)
+         with tma_db.atomic():
+             for idx, folder_id in enumerate(folder_ids):
+                 # Only reorder folders owned by this user (global_readonly owned by another user are silently skipped)
+                 TMA_Folder.update(position=idx, updated_at=datetime.datetime.now()).where(
+-                    (TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id)
++                    TMA_Folder.id == folder_id
+                 ).execute()
+         return True
++    except HTTPException:
++        raise
+     except Exception as e:
+         logger.error(f"Error reordering folders: {e}")
+         raise e
+diff --git a/api/services/offline_sync.py b/api/services/offline_sync.py
+index a26a9a3..f7e1e1e 100644
+--- a/api/services/offline_sync.py
++++ b/api/services/offline_sync.py
+@@ -17,16 +17,14 @@ FIELDS = {
+     'decks': ('name', 'level', 'topic', 'target_language', 'is_deleted', 'is_pinned', 'position', 'folder_id', 'metadata'),
+     'cards': ('deck_id', 'front_text', 'back_text', 'context', 'image_path', 'audio_path',
+               'audio_back_path', 'video_front_path', 'video_back_path', 'is_deleted',
+-              'flag', 'position', 'tags', 'metadata', 'card_type'),
+-    'progress': ('queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'step_index', 'next_review', 'last_reviewed'),
++              'position', 'tags', 'metadata', 'card_type'),
++    'progress': ('queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'step_index', 'next_review', 'last_reviewed', 'flag', 'want_to_learn'),
+ }
+ 
+ 
+ def require_access(user_id: int, kind: str, item_id: int, write: bool = True) -> None:
+     model = models.TMA_Deck if kind == 'deck' else models.TMA_Folder
+     item = model.get_or_none(model.id == item_id)
+-    if item and item.user_id == user_id:
+-        return
+     role = get_effective_user_role(user_id, kind, item_id)
+     if not role or (write and role not in ('owner', 'editor', 'admin')):
+         raise HTTPException(403, 'Нет доступа к записи. Локальные изменения сохранены.')
+@@ -143,9 +141,11 @@ def push_offline(request, user_id: int) -> dict:
+             if not card:
+                 raise HTTPException(409, 'Карточка удалена на сервере')
+             require_access(user_id, 'deck', card.deck_id, write=False)
+-            values = {field: getattr(item, field) for field in FIELDS['progress']}
++            raw_progress = item.model_dump(exclude_unset=True)
++            values = {field: raw_progress[field] for field in FIELDS['progress'] if field in raw_progress}
+             for field in ('next_review', 'last_reviewed'):
+-                values[field] = timestamp(values[field])
++                if field in values:
++                    values[field] = timestamp(values[field])
+             values['updated_at'] = now
+             progress, _ = models.TMAProgress.get_or_create(card_id=card_id, user_id=user_id)
+             for field, value in values.items():
+@@ -160,6 +160,7 @@ def push_offline(request, user_id: int) -> dict:
+ 
+ def pull_offline(user_id: int) -> dict:
+     from api.services.decks import ensure_starter_decks
++    from api.services.decks import _learning_key
+     user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+     if not user or not user.default_decks_initialized:
+         ensure_starter_decks(user_id)
+@@ -175,6 +176,9 @@ def pull_offline(user_id: int) -> dict:
+     progress = list(models.TMAProgress.select().where(
+         (models.TMAProgress.user_id == user_id) & models.TMAProgress.card_id.in_([c.id for c in cards])))
+     roles = get_batch_collaborative_info(user_id, decks=decks, folders=folders)
++    learning_keys = {_learning_key(user_id, deck.id): deck.id for deck in decks}
++    learning_states = {learning_keys[row.key]: row.value == '1' for row in models.TMASetting.select(
++        models.TMASetting.key, models.TMASetting.value).where(models.TMASetting.key.in_(list(learning_keys)))}
+ 
+     def serialize(name: str, item) -> dict:
+         fields = ['id', *FIELDS[name], 'created_at', 'updated_at']
+@@ -193,6 +197,10 @@ def pull_offline(user_id: int) -> dict:
+             data.update(info)
+             data['role'] = info.get('role') or ('owner' if item.user_id == user_id else 'viewer')
+             data['is_owner'] = data['role'] == 'owner'
++        if name == 'decks':
++            from api.services.utils import resolve_deck_metadata
++            data['is_learning'] = learning_states.get(item.id,
++                bool(resolve_deck_metadata(item).get('is_learning', False)) if item.user_id == user_id else False)
+         return data
+ 
+     return {'status': 'success', 'protocol': 2,
+diff --git a/api/services/sharing_service.py b/api/services/sharing_service.py
+index 9422627..c4815e1 100644
+--- a/api/services/sharing_service.py
++++ b/api/services/sharing_service.py
+@@ -144,7 +144,6 @@ class SharingService:
+                 card_type=card.card_type,
+                 difficulty=card.difficulty,
+                 topics=card.topics,
+-                flag=card.flag if card.flag is not None else 0,
+                 position=card.position if card.position is not None else idx,
+                 source=source_tag,
+                 creator_id=card.creator_id or creator_id,
+@@ -503,7 +502,6 @@ class SharingService:
+                     card_type=source_card.card_type,
+                     difficulty=source_card.difficulty,
+                     topics=source_card.topics,
+-                    flag=source_card.flag if source_card.flag is not None else 0,
+                     position=source_card.position if source_card.position is not None else 0,
+                     source=f"shared_card:{source_card.share_id}",
+                     creator_id=source_creator,
+diff --git a/api/services/sync_service.py b/api/services/sync_service.py
+index 0cb6535..c3e3793 100644
+--- a/api/services/sync_service.py
++++ b/api/services/sync_service.py
+@@ -40,6 +40,26 @@ def execute_sync_push(request, user_id: int) -> dict:
+     card_id_map = {}
+ 
+     try:
++        # Validate the whole legacy batch before applying any canonical writes.
++        from api.services.collaborative_service import get_effective_user_role
++        def require_write(kind, item_id):
++            if item_id and item_id > 0 and get_effective_user_role(user_id, kind, item_id) not in ('owner', 'editor'):
++                raise HTTPException(status_code=403, detail="Нет доступа к записи")
++
++        for folder in request.folders:
++            require_write('folder', folder.id)
++            require_write('folder', folder.parent_id)
++        for deck in request.decks:
++            require_write('deck', deck.id)
++            require_write('folder', deck.folder_id)
++        for card in request.cards:
++            require_write('deck', card.deck_id)
++            if card.id > 0:
++                existing_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card.id)
++                if not existing_card:
++                    raise HTTPException(status_code=409, detail="Карточка удалена на сервере")
++                require_write('deck', existing_card.deck_id)
++
+         with models.tma_db.atomic():
+             # Preload existing entities to eliminate N+1 queries during bulk sync
+             existing_folder_ids = [f.id for f in request.folders if f.id > 0]
+@@ -144,7 +164,6 @@ def execute_sync_push(request, user_id: int) -> dict:
+                         resolved_deck_id = inbox.id
+                 
+                 client_updated_at = parse_iso_datetime(c.updated_at)
+-                card_flag = getattr(c, 'flag', 0) if getattr(c, 'flag', 0) is not None else 0
+                 card_pos = getattr(c, 'position', None)
+                 if c.id < 0:
+                     new_card = models.TMA_Card.create(
+@@ -158,7 +177,6 @@ def execute_sync_push(request, user_id: int) -> dict:
+                         video_front_path=c.video_front_path,
+                         video_back_path=c.video_back_path,
+                         is_deleted=c.is_deleted,
+-                        flag=card_flag,
+                         position=card_pos,
+                         source='user',
+                         created_at=parse_iso_datetime(c.created_at),
+@@ -180,7 +198,6 @@ def execute_sync_push(request, user_id: int) -> dict:
+                                 card.video_front_path = _merge_media_field(c.video_front_path, card.video_front_path)
+                                 card.video_back_path = _merge_media_field(c.video_back_path, card.video_back_path)
+                                 card.is_deleted = c.is_deleted
+-                                card.flag = card_flag
+                                 if card_pos is not None:
+                                     card.position = card_pos
+                                 card.updated_at = client_updated_at
+@@ -197,7 +214,6 @@ def execute_sync_push(request, user_id: int) -> dict:
+                             video_front_path=c.video_front_path,
+                             video_back_path=c.video_back_path,
+                             is_deleted=c.is_deleted,
+-                            flag=card_flag,
+                             position=card_pos,
+                             source='user',
+                             created_at=parse_iso_datetime(c.created_at),
+@@ -213,6 +229,10 @@ def execute_sync_push(request, user_id: int) -> dict:
+                     if not resolved_card_id:
+                         continue
+ 
++                progress_card = models.TMA_Card.get_or_none(models.TMA_Card.id == resolved_card_id)
++                if not progress_card or get_effective_user_role(user_id, 'deck', progress_card.deck_id) is None:
++                    raise HTTPException(status_code=403, detail="Нет доступа к карточке")
++
+                 client_updated_at = parse_iso_datetime(p.updated_at)
+                 progress, created = models.TMAProgress.get_or_create(
+                     card_id=resolved_card_id,
+@@ -231,6 +251,13 @@ def execute_sync_push(request, user_id: int) -> dict:
+                     }
+                 )
+ 
++                if created and 'flag' in p.model_fields_set:
++                    progress.flag = p.flag
++                    progress.save()
++                if created and 'want_to_learn' in p.model_fields_set:
++                    progress.want_to_learn = p.want_to_learn
++                    progress.save()
++
+                 if not created:
+                     if not progress.updated_at or client_updated_at > progress.updated_at:
+                         progress.queue = p.queue
+@@ -241,6 +268,10 @@ def execute_sync_push(request, user_id: int) -> dict:
+                         progress.step_index = p.step_index
+                         progress.next_review = parse_iso_datetime(p.next_review)
+                         progress.last_reviewed = parse_iso_datetime(p.last_reviewed) if p.last_reviewed else None
++                        if 'flag' in p.model_fields_set:
++                            progress.flag = p.flag
++                        if 'want_to_learn' in p.model_fields_set:
++                            progress.want_to_learn = p.want_to_learn
+                         progress.updated_at = client_updated_at
+                         progress.save()
+ 
+@@ -252,6 +283,8 @@ def execute_sync_push(request, user_id: int) -> dict:
+                 "cards": card_id_map
+             }
+         }
++    except HTTPException:
++        raise
+     except Exception as e:
+         logger.error(f"Sync Push Error: {e}", exc_info=True)
+         raise HTTPException(status_code=500, detail=f"Database sync failed: {str(e)}")
+@@ -340,7 +373,6 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
+                 "video_front_path": c.video_front_path or "",
+                 "video_back_path": c.video_back_path or "",
+                 "is_deleted": bool(c.is_deleted),
+-                "flag": getattr(c, 'flag', 0) or 0,
+                 "position": getattr(c, 'position', 0) or 0,
+                 "created_at": c.created_at.isoformat() if c.created_at else None,
+                 "updated_at": c.updated_at.isoformat() if c.updated_at else None
+@@ -356,6 +388,8 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
+                 "ease_factor": p.ease_factor,
+                 "repetitions": p.repetitions,
+                 "lapses": p.lapses,
++                "flag": p.flag,
++                "want_to_learn": p.want_to_learn,
+                 "step_index": p.step_index,
+                 "next_review": p.next_review.isoformat() if p.next_review else None,
+                 "last_reviewed": p.last_reviewed.isoformat() if p.last_reviewed else None,
+@@ -470,7 +504,6 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
+                     "video_front_path": c.video_front_path or "",
+                     "video_back_path": c.video_back_path or "",
+                     "is_deleted": bool(c.is_deleted),
+-                    "flag": getattr(c, 'flag', 0) or 0,
+                     "position": getattr(c, 'position', 0) or 0,
+                     "updated_at": c.updated_at.isoformat() if c.updated_at else None
+                 })
+@@ -486,4 +519,3 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
+     except Exception as e:
+         logger.error(f"Collab Pull Error: {e}", exc_info=True)
+         raise HTTPException(status_code=500, detail=f"Collaborative sync failed: {str(e)}")
+-
+diff --git a/app/src/components/deckgrid/CardList.jsx b/app/src/components/deckgrid/CardList.jsx
+index 309742b..9b60150 100644
+--- a/app/src/components/deckgrid/CardList.jsx
++++ b/app/src/components/deckgrid/CardList.jsx
+@@ -454,6 +454,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+     );
+   }
+ 
++  const canEditContent = currentDeck.role === 'owner' || currentDeck.role === 'editor' || (!currentDeck.role && !currentDeck.is_global_readonly);
++
+   return (
+     <div className="view-cards">
+       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
+@@ -469,13 +471,13 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+ 
+           <div className="header-actions">
+             <UserProfileBadge />
+-            <button 
++            {canEditContent && <button 
+               className="header-action-btn" 
+               onClick={() => setIsBatchModalOpen(true)} 
+               title={tr("Пакетная генерация карточек")}
+             >
+               <ListPlus size={22} />
+-            </button>
++            </button>}
+ 
+             <HelpButton topic="cards" />
+ 
+@@ -499,7 +501,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+             </button>
+ 
+             {/* Selection Mode Toggle Button */}
+-            <button
++            {canEditContent && <button
+               className={`header-action-btn ${isSelectMode ? 'active' : ''}`}
+               onClick={toggleSelectMode}
+               title={isSelectMode ? tr("Выйти из режима выбора") : tr("Выбрать несколько карточек")}
+@@ -510,7 +512,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+               }}
+             >
+               <CheckSquare size={20} />
+-            </button>
++            </button>}
+ 
+             {/* Quick Lines Switcher Button */}
+             <button 
+@@ -550,20 +552,20 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+                   }}
+                   onClick={(e) => e.stopPropagation()}
+                 >
+-                  <button className="dropdown-item" onClick={() => {
++                  {canEditContent && <button className="dropdown-item" onClick={() => {
+                     setIsDeckMenuOpen(false);
+                     setIsMediaModalOpen(true);
+                   }}>
+                     <span>{tr("📎 Ресурсы колоды")}</span>
+-                  </button>
++                  </button>}
+ 
+-                  {!currentDeck?.is_inbox && (
++                  {canEditContent && !currentDeck?.is_inbox && (
+                     <button className="dropdown-item" onClick={handleRename}>
+                       <span>{tr("✍️ Переименовать")}</span>
+                     </button>
+                   )}
+ 
+-                  {!currentDeck?.is_inbox && (
++                  {canEditContent && !currentDeck?.is_inbox && (
+                     <button className="dropdown-item" onClick={() => {
+                       setIsDeckMenuOpen(false);
+                       useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: currentDeck.id, name: currentDeck.name });
+@@ -573,19 +575,19 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+                     </button>
+                   )}
+ 
+-                  {!currentDeck?.is_inbox && (
++                  {canEditContent && !currentDeck?.is_inbox && (
+                     <button className="dropdown-item" onClick={handleShare}>
+                       <span>{tr("🔗 Поделиться")}</span>
+                     </button>
+                   )}
+ 
+-                  {!currentDeck?.is_inbox && (
++                  {canEditContent && !currentDeck?.is_inbox && (
+                     <button className="dropdown-item" onClick={handleSync}>
+                       <span>🔄 {currentDeck?.has_updates ? tr("❗️ Обновить") : tr("Обновить")}</span>
+                     </button>
+                   )}
+ 
+-                  {!currentDeck?.is_inbox && (
++                  {canEditContent && !currentDeck?.is_inbox && (
+                     <>
+                       <button 
+                         className={`dropdown-item ${isMoveMenuOpen ? 'active' : ''}`} 
+@@ -666,14 +668,16 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+                       <button className="dropdown-item" onClick={handleReclassifyDeck}>
+                         <span>{tr("✨ Обновить CEFR-уровни")}</span>
+                       </button>
+-                      <button className="dropdown-item warning" onClick={handleReset}>
+-                        <span>{tr("🧹 Сбросить прогресс")}</span>
+-                      </button>
+                       <button className="dropdown-item danger" onClick={handleDelete}>
+                         <span>{tr("🗑️ Удалить колоду")}</span>
+                       </button>
+                     </>
+                   )}
++                  {!currentDeck?.is_inbox && (
++                    <button className="dropdown-item warning" onClick={handleReset}>
++                      <span>{tr("🧹 Сбросить прогресс")}</span>
++                    </button>
++                  )}
+                 </div>
+               )}
+             </div>
+@@ -1022,12 +1026,12 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+           ) : deckCards.length === 0 ? (
+             <div className="empty-cards-state glass">
+               <h3>{tr("В этой колоде пока нет карточек")}</h3>
+-              <p>{tr("Нажмите на \"+\" в правом верхнем углу или на кнопку ниже, чтобы создать свою первую карточку.")}</p>
+-              <button 
++              {canEditContent && <p>{tr("Нажмите на \"+\" в правом верхнем углу или на кнопку ниже, чтобы создать свою первую карточку.")}</p>}
++              {canEditContent && <button 
+                 className="btn btn-primary" 
+                 style={{ marginTop: '10px' }} 
+                 onClick={() => openCreator(currentDeck?.id)}
+-              >{tr("Создать карточку")}{' '}</button>
++              >{tr("Создать карточку")}{' '}</button>}
+             </div>
+           ) : filteredCards.length === 0 ? (
+             <div className="search-empty-state glass">
+@@ -1047,8 +1051,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+             <DndContext
+               sensors={sensors}
+               collisionDetection={customCollisionDetection}
+-              onDragStart={handleDragStart}
+-              onDragEnd={handleDragEnd}
++              onDragStart={canEditContent ? handleDragStart : undefined}
++              onDragEnd={canEditContent ? handleDragEnd : undefined}
+             >
+               <SortableContext
+                 items={renderedCards.map(c => c.id)}
+@@ -1061,6 +1065,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+                       c={c} 
+                       index={searchQuery.trim() ? getOriginalIndex(c.id) : idx}
+                       currentDeck={currentDeck} 
++                      canEditContent={canEditContent}
+                       startStudyCard={startStudyCard}
+                       frontTypographyStyle={frontTypographyStyle}
+                       backTypographyStyle={backTypographyStyle}
+@@ -1104,17 +1109,17 @@ export const CardList = ({ startStudy, startStudyCard }) => {
+           )}
+         </div>
+         
+-        {!isSelectMode && (
++        {!isSelectMode && canEditContent && (
+           <button id="tut-fab-add" className="fab-add-card" onClick={() => openCreator(currentDeck?.id)}>
+             <Plus size={28} />
+           </button>
+         )}
+ 
+         {/* Floating Batch Actions Dock */}
+-        <FloatingBatchDock
++        {canEditContent && <FloatingBatchDock
+           selectMode={{ ...selectMode, filteredCards }}
+           handleBatchDeleteCards={handleBatchDeleteCards}
+-        />
++        />}
+ 
+         <BatchMoveModal
+           isOpen={isBatchMoveModalOpen}
+diff --git a/app/src/components/deckgrid/DeckCardItem.jsx b/app/src/components/deckgrid/DeckCardItem.jsx
+index d56d6d1..37191a4 100644
+--- a/app/src/components/deckgrid/DeckCardItem.jsx
++++ b/app/src/components/deckgrid/DeckCardItem.jsx
+@@ -31,6 +31,7 @@ export const DeckCardItem = React.memo(({
+   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
+   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
+   const [menuPlacement, setMenuPlacement] = useState('bottom');
++  const canEditDeck = deck.role === 'owner' || deck.role === 'editor' || (!deck.role && !deck.is_global_readonly);
+   const menuRef = useRef(null);
+ 
+   const toggleMenu = (e) => {
+@@ -234,6 +235,7 @@ export const DeckCardItem = React.memo(({
+     isDragging
+   } = useSortable({
+     id: deck.id,
++    disabled: !canEditDeck,
+     animateLayoutChanges: () => false,
+   });
+ 
+@@ -267,7 +269,7 @@ export const DeckCardItem = React.memo(({
+           <h3>
+             <span className="deck-title-text">{deck.is_inbox ? tr("📥 Входящие карточки") : deck.name}</span>
+ 
+-            {!deck.is_inbox && !deck.is_global_readonly && (
++            {!deck.is_inbox && canEditDeck && (
+               <button
+                 type="button"
+                 className={`pin-deck-btn ${deck.is_pinned ? 'pinned' : ''}`}
+@@ -303,7 +305,7 @@ export const DeckCardItem = React.memo(({
+       <div className="deck-footer-actions">
+         <div className="deck-footer-actions-left">
+           {!deck.is_inbox ? (
+-            !deck.is_global_readonly && (
++            canEditDeck && (
+               <div
+                 className="deck-drag-handle-bottom"
+                 {...attributes}
+@@ -320,7 +322,7 @@ export const DeckCardItem = React.memo(({
+             </div>
+           )}
+ 
+-          {!deck.is_inbox && !deck.is_global_readonly && (
++          {!deck.is_inbox && canEditDeck && (
+             <div 
+               className="deck-flag-badge-inline"
+               title={tr("Язык: {{p0}}", { p0: (deck.target_language || 'de').toUpperCase() })}
+@@ -329,7 +331,7 @@ export const DeckCardItem = React.memo(({
+             </div>
+           )}
+ 
+-          {!deck.is_inbox && !deck.is_global_readonly && (
++          {!deck.is_inbox && (
+             <button
+               type="button"
+               className={`deck-learning-action-btn ${deck.is_learning ? 'active' : 'inactive'}`}
+@@ -435,7 +437,7 @@ export const DeckCardItem = React.memo(({
+             title={tr("Опции колоды")}
+           >
+             <MoreHorizontal size={18} />
+-            {deck.has_updates && !deck.is_inbox && !deck.is_global_readonly && (
++            {deck.has_updates && !deck.is_inbox && canEditDeck && (
+               <span className="menu-update-indicator" />
+             )}
+           </button>
+@@ -443,7 +445,7 @@ export const DeckCardItem = React.memo(({
+ 
+         {isMenuOpen && (
+           <div className={`deck-dropdown-menu glass placement-${menuPlacement}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
+-            {!deck.is_inbox && !deck.is_global_readonly && (
++            {!deck.is_inbox && canEditDeck && (
+               <button className="dropdown-item" onClick={(e) => {
+                 e.stopPropagation();
+                 setIsMenuOpen(false);
+@@ -454,7 +456,7 @@ export const DeckCardItem = React.memo(({
+               </button>
+             )}
+ 
+-            {!deck.is_inbox && !deck.is_global_readonly && (
++            {!deck.is_inbox && (
+               <button 
+                 className="dropdown-item" 
+                 onClick={(e) => {
+@@ -466,26 +468,26 @@ export const DeckCardItem = React.memo(({
+               </button>
+             )}
+ 
+-            {!deck.is_inbox && !deck.is_global_readonly && (
++            {!deck.is_inbox && canEditDeck && (
+               <button className="dropdown-item" onClick={handleShare}>
+                 <span>{tr("🔗 Поделиться")}</span>
+               </button>
+             )}
+ 
+ 
+-            {!deck.is_inbox && !deck.is_global_readonly && (
++            {!deck.is_inbox && canEditDeck && (
+               <button className="dropdown-item" onClick={handleSync}>
+                 <span>🔄 {deck.has_updates ? tr("❗️ Обновить") : tr("Обновить")}</span>
+               </button>
+             )}
+ 
+-            {!deck.is_inbox && !deck.is_global_readonly && (
++            {!deck.is_inbox && canEditDeck && (
+               <button className="dropdown-item" onClick={handleRename}>
+                 <span>{tr("✍️ Переименовать")}</span>
+               </button>
+             )}
+ 
+-            {!deck.is_inbox && !deck.is_global_readonly && (
++            {!deck.is_inbox && canEditDeck && (
+               <>
+                 <button 
+                   className={`dropdown-item ${isMoveMenuOpen ? 'active' : ''}`} 
+@@ -566,18 +568,19 @@ export const DeckCardItem = React.memo(({
+                 <button className="dropdown-item" onClick={handleReclassifyDeck}>
+                   <span>{tr("✨ Обновить CEFR-уровни")}</span>
+                 </button>
+-                <button className="dropdown-item warning" onClick={handleReset}>
+-                  <span>{tr("🧹 Сбросить прогресс")}</span>
+-                </button>
+                 <button className="dropdown-item danger" onClick={handleDelete}>
+                   <span>{tr("🗑️ Удалить колоду")}</span>
+                 </button>
+               </>
+             )}
++            {!deck.is_inbox && (
++              <button className="dropdown-item warning" onClick={handleReset}>
++                <span>{tr("🧹 Сбросить прогресс")}</span>
++              </button>
++            )}
+           </div>
+         )}
+       </div>
+     </div>
+   );
+ });
+-
+diff --git a/app/src/components/deckgrid/DeckGrid.jsx b/app/src/components/deckgrid/DeckGrid.jsx
+index e83bf88..75b93e3 100644
+--- a/app/src/components/deckgrid/DeckGrid.jsx
++++ b/app/src/components/deckgrid/DeckGrid.jsx
+@@ -248,6 +248,7 @@ export const DeckGrid = ({
+   };
+ 
+   const activeFolder = folders?.find(f => f.id === activeFolderId);
++  const canCreateContent = !activeFolder || activeFolder.role === 'owner' || activeFolder.role === 'editor';
+   const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
+   const isInitialLoading = !hasInitialized || loading || (isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0);
+   const isFolderEmpty = !isInitialLoading && !isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0;
+@@ -260,6 +261,7 @@ export const DeckGrid = ({
+         className="view"
+       >
+         <DeckGridHeader
++          canCreateContent={canCreateContent}
+           startTutorial={startTutorial}
+           setIsNewDeckModalOpen={setIsNewDeckModalOpen}
+           setIsSettingsOpen={setIsSettingsOpen}
+diff --git a/app/src/components/deckgrid/DeckGridHeader.jsx b/app/src/components/deckgrid/DeckGridHeader.jsx
+index fe23efe..84602a0 100644
+--- a/app/src/components/deckgrid/DeckGridHeader.jsx
++++ b/app/src/components/deckgrid/DeckGridHeader.jsx
+@@ -13,6 +13,7 @@ export const DeckGridHeader = ({
+   setIsSettingsOpen,
+   onLanguageChange,
+   activeFolderId,
++  canCreateContent = true,
+   onFolderBack,
+   isSearchOpen,
+   onToggleSearch,
+@@ -39,14 +40,14 @@ export const DeckGridHeader = ({
+         </div>
+         <div className="header-actions">
+           <HelpButton topic="decks" />
+-          <button 
++          {canCreateContent && <button 
+             id="tut-add-deck" 
+             className="add-deck-btn" 
+             onClick={() => setIsNewDeckModalOpen(true)}
+             title={t('decks.add_deck', 'Создать новую колоду')}
+           >
+             <Plus size={20} />
+-          </button>
++          </button>}
+           <button 
+             className={`header-action-btn search-toggle-btn ${isSearchOpen ? 'active' : ''}`} 
+             onClick={onToggleSearch}
+diff --git a/app/src/components/deckgrid/DraggableCardItem.jsx b/app/src/components/deckgrid/DraggableCardItem.jsx
+index 7180045..85c7307 100644
+--- a/app/src/components/deckgrid/DraggableCardItem.jsx
++++ b/app/src/components/deckgrid/DraggableCardItem.jsx
+@@ -17,6 +17,7 @@ export const DraggableCardItem = React.memo(({
+   c,
+   index,
+   currentDeck,
++  canEditContent = true,
+   startStudyCard,
+   frontTypographyStyle,
+   backTypographyStyle,
+@@ -39,7 +40,7 @@ export const DraggableCardItem = React.memo(({
+     isDragging
+   } = useSortable({
+     id: c.id,
+-    disabled: isSelectMode,
++    disabled: isSelectMode || !canEditContent,
+     animateLayoutChanges: () => false,
+   });
+ 
+@@ -135,7 +136,7 @@ export const DraggableCardItem = React.memo(({
+ 
+       <div className="card-item-footer">
+         <div className="card-item-footer-left">
+-          {!isSelectMode && (
++          {!isSelectMode && canEditContent && (
+             <div
+               className="deck-drag-handle-bottom"
+               {...attributes}
+diff --git a/app/src/components/deckgrid/FolderTreeNav.jsx b/app/src/components/deckgrid/FolderTreeNav.jsx
+index aaf128d..fd6aa53 100644
+--- a/app/src/components/deckgrid/FolderTreeNav.jsx
++++ b/app/src/components/deckgrid/FolderTreeNav.jsx
+@@ -141,6 +141,7 @@ export const FolderCardItem = React.memo(({
+   };
+ 
+   const folderLang = folder.target_language || useLanguageStore.getState().activeLanguage || 'de';
++  const canEditFolder = folder.role === 'owner' || folder.role === 'editor';
+ 
+   const {
+     attributes,
+@@ -151,6 +152,7 @@ export const FolderCardItem = React.memo(({
+     isDragging
+   } = useSortable({
+     id: folder.id,
++    disabled: !canEditFolder,
+     animateLayoutChanges: () => false,
+   });
+ 
+@@ -188,7 +190,7 @@ export const FolderCardItem = React.memo(({
+ 
+       <div className="deck-footer-actions">
+         <div className="deck-footer-actions-left">
+-          <div
++          {canEditFolder && <div
+             className="deck-drag-handle-bottom"
+             {...attributes}
+             {...listeners}
+@@ -196,7 +198,7 @@ export const FolderCardItem = React.memo(({
+             title={tr("Зажмите и потяните для перетаскивания папки")}
+           >
+             <GripHorizontal size={20} />
+-          </div>
++          </div>}
+ 
+           <div 
+             className="deck-flag-badge-inline"
+@@ -247,7 +249,7 @@ export const FolderCardItem = React.memo(({
+         </div>
+ 
+         <div className="deck-footer-actions-right">
+-          {(!folder.is_global_readonly || isAdmin) && (
++          {(canEditFolder || isAdmin) && (
+             <button 
+               className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
+               onClick={toggleMenu}
+@@ -266,6 +268,7 @@ export const FolderCardItem = React.memo(({
+                 <span>{folder.is_global_readonly ? '🔐 Скрыть из общего доступа' : '🌍 Опубликовать глобально'}</span>
+               </button>
+             )}
++            {canEditFolder && <>
+             <button className="dropdown-item" onClick={(e) => {
+               e.stopPropagation();
+               setIsMenuOpen(false);
+@@ -323,6 +326,7 @@ export const FolderCardItem = React.memo(({
+             <button className="dropdown-item danger" onClick={handleDelete}>
+               <span>{tr("🗑️ Удалить папку")}</span>
+             </button>
++            </>}
+           </div>
+         )}
+       </div>
+diff --git a/app/src/components/modals/CardActionModal.jsx b/app/src/components/modals/CardActionModal.jsx
+index 1fe4531..e2860e4 100644
+--- a/app/src/components/modals/CardActionModal.jsx
++++ b/app/src/components/modals/CardActionModal.jsx
+@@ -32,6 +32,8 @@ export const CardActionModal = ({
+   const showToast = useUiStore(s => s.showToast);
+ 
+   const targetDeckId = card?.deck_id != null ? card.deck_id : currentDeck?.id;
++  const actionDeck = decks?.find(d => String(d.id) === String(targetDeckId)) || currentDeck;
++  const canEditContent = actionDeck?.role === 'owner' || actionDeck?.role === 'editor' || (actionDeck && !actionDeck.role && !actionDeck.is_global_readonly);
+   const isCurrentDeck = currentDeck && String(currentDeck.id) === String(targetDeckId);
+   const cardsList = React.useMemo(() => {
+     return (isCurrentDeck && deckCards && deckCards.length > 0)
+@@ -172,7 +174,7 @@ export const CardActionModal = ({
+             {mode === 'main' && (
+               <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+ 
+-                <button 
++                {canEditContent && <button 
+                   className="action-menu-item" 
+                   onClick={() => setMode('move')}
+                 >
+@@ -183,9 +185,9 @@ export const CardActionModal = ({
+                     <strong>{tr("Переместить")}</strong>
+                     <span>{tr("Перенести в другую колоду")}</span>
+                   </div>
+-                </button>
++                </button>}
+                 
+-                <button 
++                {canEditContent && <button 
+                   className="action-menu-item" 
+                   onClick={() => setMode('copy')}
+                 >
+@@ -196,7 +198,7 @@ export const CardActionModal = ({
+                     <strong>{tr("Копировать")}</strong>
+                     <span>{tr("Создать дубликат в другой колоде")}</span>
+                   </div>
+-                </button>
++                </button>}
+                 
+                 <button 
+                   className="action-menu-item" 
+@@ -211,7 +213,7 @@ export const CardActionModal = ({
+                   </div>
+                 </button>
+                 
+-                {onEdit && (
++                {canEditContent && onEdit && (
+                   <button 
+                     className="action-menu-item" 
+                     onClick={() => { onEdit(card); onClose(); }}
+@@ -226,7 +228,7 @@ export const CardActionModal = ({
+                   </button>
+                 )}
+ 
+-                <button 
++                {canEditContent && <button 
+                   className="action-menu-item" 
+                   onClick={() => setMode('position')}
+                 >
+@@ -239,7 +241,7 @@ export const CardActionModal = ({
+                       {tr("Текущий номер: № {{p0}} из {{p1}}", { p0: currentPosition, p1: totalCardsCount })}
+                     </span>
+                   </div>
+-                </button>
++                </button>}
+ 
+                 <FlagPicker 
+                   value={card.flag} 
+@@ -251,7 +253,7 @@ export const CardActionModal = ({
+                 
+                 <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.05)', margin: '6px 0' }} />
+ 
+-                <button 
++                {canEditContent && <button 
+                   className="action-menu-item delete" 
+                   onClick={() => { onDelete(card); onClose(); }}
+                 >
+@@ -262,7 +264,7 @@ export const CardActionModal = ({
+                     <strong style={{ color: '#ef4444' }}>{tr("Удалить карточку")}</strong>
+                     <span>{tr("Это действие нельзя отменить")}</span>
+                   </div>
+-                </button>
++                </button>}
+               </div>
+             )}
+ 
+diff --git a/app/src/hooks/useCardEditor.js b/app/src/hooks/useCardEditor.js
+index 30ec4c5..1e03008 100644
+--- a/app/src/hooks/useCardEditor.js
++++ b/app/src/hooks/useCardEditor.js
+@@ -60,14 +60,18 @@ export const useCardEditor = () => {
+         audio_back_path: data.audio_back_path || cleanMedia(data.audio_back_url),
+         auto_generate_audio: autoGenerateCardAudio,
+         video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
+-        video_back_path: data.video_back_path || cleanMedia(data.video_back_url),
+-        flag: data.flag !== undefined ? Number(data.flag) : 0
++        video_back_path: data.video_back_path || cleanMedia(data.video_back_url)
+       };
+       if (finalCefr) reqData.cefr = finalCefr;
+       if (data.after_card_id) reqData.after_card_id = data.after_card_id;
+ 
+       const res = await api.post('/cards/save', reqData);
+ 
++      if (res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
++        await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
++        res.data.flag = Number(data.flag);
++      }
++
+       showToast(tr("Карточка сохранена"), "success");
+       
+       const { deckCards } = useDeckStore.getState();
+diff --git a/app/src/services/offlineApi.js b/app/src/services/offlineApi.js
+index b991bf5..2d504f8 100644
+--- a/app/src/services/offlineApi.js
++++ b/app/src/services/offlineApi.js
+@@ -16,6 +16,12 @@ const jsonObject = (value, fallback = {}) => {
+ const result = (data = {}) => ({ data });
+ const success = (data = {}) => result({ status: 'success', ...data });
+ const notFound = () => { throw new Error(tr("Запись не найдена на устройстве. Сначала выполните синхронизацию.")); };
++const readOnly = () => { throw new Error(tr("У вас доступ только для чтения")); };
++async function requireContentWrite(db, entity, item) {
++  if (!item) notFound();
++  const owner = entity === 'cards' ? await db.decks.get(item.deck_id) : item;
++  if (!owner || owner.role === 'viewer' || (owner.is_global_readonly && owner.role !== 'owner' && owner.role !== 'editor')) readOnly();
++}
+ 
+ export const normalizeCardKey = (text) => {
+   if (!text) return '';
+@@ -36,8 +42,8 @@ async function cardView(db, card, userId) {
+     video_back_url: await localMediaURL(db, card.video_back_path, 'videos'),
+     intervals: getNextIntervals(progress), is_leech: isLeech(progress?.lapses || 0),
+     queue: progress?.queue || 'new', interval: progress?.interval || 0, lapses: progress?.lapses || 0,
+-    flag: progress?.flag ?? card.flag ?? 0,
+-    want_to_learn: progress?.want_to_learn ?? card.want_to_learn ?? false,
++    flag: progress?.flag ?? 0,
++    want_to_learn: progress?.want_to_learn ?? false,
+   };
+ }
+ 
+@@ -102,7 +108,7 @@ export const offlineApi = {
+       for (const deck of decks) {
+         deck.stats = await deckStats(db, deck.id, userId);
+         deck.metadata = jsonObject(deck.metadata);
+-        deck.is_learning = !!deck.metadata.is_learning;
++        deck.is_learning = deck.is_learning ?? !!deck.metadata.is_learning;
+       }
+       const folders = ordered(await db.folders.filter(f => !f.is_deleted && (!f.target_language || f.target_language === language)).toArray());
+       if (url === '/decks') return result(decks);
+@@ -190,14 +196,15 @@ export const offlineApi = {
+         const deckId = Number(body.deck_id || previous?.deck_id);
+         const deck = await db.decks.get(deckId);
+         if (!deck || deck.is_deleted) notFound();
+-        if (deck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
++        await requireContentWrite(db, 'decks', deck);
++        if (previous) await requireContentWrite(db, 'cards', previous);
+         const siblings = await db.cards.where('deck_id').equals(deckId).toArray();
+         const card = { ...previous, id, deck_id: deckId,
+           front_text: body.front ?? body.front_text ?? previous?.front_text ?? '',
+           back_text: body.back ?? body.back_text ?? previous?.back_text ?? '',
+           created_at: previous?.created_at || new Date().toISOString(),
+           position: previous?.position ?? Math.max(-1, ...siblings.map(c => c.position || 0)) + 1, ...dirtyFields() };
+-        for (const key of ['context', 'level', 'tags', 'card_type', 'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path', 'flag']) {
++        for (const key of ['context', 'level', 'tags', 'card_type', 'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path']) {
+           if (Object.hasOwn(body, key)) card[key] = body[key];
+         }
+         if (body.cefr) card.metadata = { ...jsonObject(previous?.metadata), cefr: body.cefr };
+@@ -212,7 +219,7 @@ export const offlineApi = {
+       return db.transaction('rw', db.cards, db.decks, async () => {
+         const targetDeck = await db.decks.get(targetDeckId);
+         if (!targetDeck || targetDeck.is_deleted) notFound();
+-        if (targetDeck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
++        await requireContentWrite(db, 'decks', targetDeck);
+         const siblings = await db.cards.where('deck_id').equals(targetDeckId).filter(c => !c.is_deleted).toArray();
+         const existingByFront = new Map();
+         for (const c of siblings) {
+@@ -228,6 +235,7 @@ export const offlineApi = {
+           const cid = cardIds[idx];
+           const card = await db.cards.get(cid);
+           if (card && !card.is_deleted && card.deck_id !== targetDeckId) {
++            await requireContentWrite(db, 'cards', card);
+             const frontKey = normalizeCardKey(card.front_text || card.front);
+             const existingMatch = frontKey ? existingByFront.get(frontKey) : null;
+             if (existingMatch && onDuplicate === 'skip') {
+@@ -250,7 +258,6 @@ export const offlineApi = {
+                 video_front_path: card.video_front_path || existingMatch.video_front_path,
+                 video_back_path: card.video_back_path || existingMatch.video_back_path,
+                 tags: card.tags || existingMatch.tags,
+-                flag: card.flag !== undefined ? card.flag : existingMatch.flag,
+                 metadata: card.metadata || existingMatch.metadata,
+                 position: updatedPos,
+                 ...dirtyFields()
+@@ -283,7 +290,7 @@ export const offlineApi = {
+       return db.transaction('rw', db.cards, db.decks, async () => {
+         const targetDeck = await db.decks.get(targetDeckId);
+         if (!targetDeck || targetDeck.is_deleted) notFound();
+-        if (targetDeck.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
++        await requireContentWrite(db, 'decks', targetDeck);
+         const siblings = await db.cards.where('deck_id').equals(targetDeckId).filter(c => !c.is_deleted).toArray();
+         const existingByFront = new Map();
+         for (const c of siblings) {
+@@ -299,6 +306,7 @@ export const offlineApi = {
+           const cid = cardIds[idx];
+           const card = await db.cards.get(cid);
+           if (card && !card.is_deleted) {
++            await requireContentWrite(db, 'cards', card);
+             const frontKey = normalizeCardKey(card.front_text || card.front);
+             const existingMatch = frontKey ? existingByFront.get(frontKey) : null;
+             if (existingMatch && onDuplicate === 'skip') {
+@@ -321,7 +329,6 @@ export const offlineApi = {
+                 video_front_path: card.video_front_path || existingMatch.video_front_path,
+                 video_back_path: card.video_back_path || existingMatch.video_back_path,
+                 tags: card.tags || existingMatch.tags,
+-                flag: card.flag !== undefined ? card.flag : existingMatch.flag,
+                 metadata: card.metadata || existingMatch.metadata,
+                 position: updatedPos,
+                 ...dirtyFields()
+@@ -361,6 +368,7 @@ export const offlineApi = {
+         for (const cid of cardIds) {
+           const card = await db.cards.get(cid);
+           if (card) {
++            await requireContentWrite(db, 'cards', card);
+             await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields() });
+           }
+         }
+@@ -374,7 +382,7 @@ export const offlineApi = {
+       if (parentId) {
+         const parent = await db.folders.get(Number(parentId));
+         if (!parent || parent.is_deleted) notFound();
+-        if (parent.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
++        await requireContentWrite(db, 'folders', parent);
+       }
+       const item = { ...body, id: getNextTempId(), user_id: userId, is_deleted: 0,
+         position: 0, role: 'owner', is_owner: true, created_at: new Date().toISOString(), ...dirtyFields() };
+@@ -387,6 +395,7 @@ export const offlineApi = {
+       const table = db[match[1]];
+       const ids = body[`${match[1].slice(0, -1)}_ids`] || [];
+       await db.transaction('rw', table, db.decks, async () => {
++        for (const id of ids) await requireContentWrite(db, match[1], await table.get(Number(id)));
+         for (const [position, id] of ids.entries()) await change(table, Number(id), { position });
+       });
+       return success();
+@@ -419,12 +428,19 @@ export const offlineApi = {
+         if (action === 'rename') fields = { name: body.name };
+         if (action === 'color') fields = { color: body.color };
+         if (action === 'flag') {
++          if (entity !== 'cards') throw unsupported();
+           const prog = await db.progress.get([id, userId]) || { card_id: id, user_id: userId, queue: 'new', interval: 0, ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null };
+           prog.flag = Number(body.flag) || 0;
+           Object.assign(prog, dirtyFields());
+           await db.progress.put(prog);
+           return success({ id, flag: prog.flag });
+         }
++        if (action === 'toggle-learning' && entity === 'decks') {
++          const isLearning = body.is_learning ?? !item.is_learning;
++          await db.decks.put({ ...item, is_learning: isLearning, learning_dirty: 1 });
++          return success({ is_learning: isLearning });
++        }
++        await requireContentWrite(db, entity, item);
+         if (action === 'pin') fields = { is_pinned: !item.is_pinned };
+         if (action === 'move') {
+           const key = entity === 'folders' ? 'parent_id' : 'folder_id';
+@@ -436,12 +452,12 @@ export const offlineApi = {
+             seen.add(ancestor);
+             const folder = await db.folders.get(ancestor);
+             if (!folder || folder.is_deleted) notFound();
++            await requireContentWrite(db, 'folders', folder);
+             ancestor = folder.parent_id;
+           }
+           fields = { [key]: target };
+         }
+         if (action === 'metadata') fields = { metadata: body };
+-        if (action === 'toggle-learning') fields = { metadata: { ...jsonObject(item.metadata), is_learning: body.is_learning ?? !jsonObject(item.metadata).is_learning } };
+         if (fields) return success(await change(table, id, fields));
+         throw unsupported();
+       });
+@@ -459,6 +475,7 @@ export const offlineApi = {
+     }
+     match = url.match(/^\/trash\/(deck|card)\/(-?\d+)\/restore$/);
+     if (match && m === 'post') {
++      await requireContentWrite(db, `${match[1]}s`, await db[`${match[1]}s`].get(Number(match[2])));
+       await change(db[`${match[1]}s`], Number(match[2]), { is_deleted: 0, hard_deleted_locally: false });
+       return success();
+     }
+diff --git a/app/src/services/syncService.js b/app/src/services/syncService.js
+index c814a73..8efabf4 100644
+--- a/app/src/services/syncService.js
++++ b/app/src/services/syncService.js
+@@ -24,6 +24,21 @@ async function migrateTemporaryCards(db, userId) {
+ 
+ async function pendingBatch(db, userId) {
+   return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
++    // Old clients could mark cached published content dirty. Never replay it.
++    const readOnlyDecks = new Set((await db.decks.filter(d => d.role === 'viewer' || (d.is_global_readonly && d.role !== 'owner' && d.role !== 'editor')).toArray()).map(d => d.id));
++    let discarded = false;
++    for (const name of ['folders', 'decks', 'cards']) {
++      for (const item of await db[name].where('is_dirty').equals(1).toArray()) {
++        const forbidden = name === 'cards' ? readOnlyDecks.has(item.deck_id)
++          : name === 'decks' ? readOnlyDecks.has(item.id)
++            : item.role === 'viewer' || (item.is_global_readonly && item.role !== 'owner' && item.role !== 'editor');
++        if (forbidden) {
++          await db[name].update(item.id, { is_dirty: 0 });
++          discarded = true;
++        }
++      }
++    }
++    if (discarded) await db.syncState.delete('pending');
+     const pending = await db.syncState.get('pending');
+     if (pending) return pending;
+     await migrateTemporaryCards(db, userId);
+@@ -84,6 +99,16 @@ async function acknowledge(db, batch, mappings) {
+   });
+ }
+ 
++async function syncLearningPreferences(db) {
++  for (const deck of await db.decks.filter(d => d.learning_dirty && d.id > 0).toArray()) {
++    await networkApi.post(`/decks/${deck.id}/toggle-learning`, { is_learning: !!deck.is_learning });
++    const current = await db.decks.get(deck.id);
++    if (current?.is_learning === deck.is_learning) {
++      await db.decks.update(deck.id, { learning_dirty: 0 });
++    }
++  }
++}
++
+ async function applySnapshot(db, data, userId) {
+   if (data.status !== 'success' || !entities.every(name => Array.isArray(data[name]))) {
+     throw new Error(tr("Некорректный ответ синхронизации"));
+@@ -94,13 +119,13 @@ async function applySnapshot(db, data, userId) {
+       for (const item of data[name]) {
+         const key = keyFor(name, item, userId);
+         const local = await db[name].get(key);
+-        if (local?.is_dirty) continue;
++        if (local?.is_dirty || (name === 'decks' && local?.learning_dirty)) continue;
+         await db[name].put({ ...item, ...(name === 'progress' ? { user_id: userId } : {}), is_dirty: 0 });
+       }
+       // A full snapshot also carries hard deletions and revoked access.
+       for (const item of await db[name].toArray()) {
+         const id = name === 'progress' ? item.card_id : item.id;
+-        if (id > 0 && !item.is_dirty && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
++        if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
+       }
+     }
+     await db.syncState.put({ key: 'lastSync', time: data.server_time });
+@@ -139,6 +164,7 @@ export const syncService = {
+         await acknowledge(db, batch, mappings);
+         if (getUserId() === userId) window.dispatchEvent(new CustomEvent('lerne:ids-remapped', { detail: { mappings, userId } }));
+       }
++      await syncLearningPreferences(db);
+       const response = await networkApi.get('/sync/v2/pull', options);
+       await applySnapshot(db, response.data, userId);
+       if (getUserId() === userId) {

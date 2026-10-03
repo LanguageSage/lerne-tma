@@ -60,13 +60,17 @@ export const useCardEditor = () => {
         audio_back_path: data.audio_back_path || cleanMedia(data.audio_back_url),
         auto_generate_audio: autoGenerateCardAudio,
         video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
-        video_back_path: data.video_back_path || cleanMedia(data.video_back_url),
-        flag: data.flag !== undefined ? Number(data.flag) : 0
+        video_back_path: data.video_back_path || cleanMedia(data.video_back_url)
       };
       if (finalCefr) reqData.cefr = finalCefr;
       if (data.after_card_id) reqData.after_card_id = data.after_card_id;
 
       const res = await api.post('/cards/save', reqData);
+
+      if (res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
+        await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
+        res.data.flag = Number(data.flag);
+      }
 
       showToast(tr("Карточка сохранена"), "success");
       

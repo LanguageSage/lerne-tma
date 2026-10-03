@@ -141,6 +141,7 @@ export const FolderCardItem = React.memo(({
   };
 
   const folderLang = folder.target_language || useLanguageStore.getState().activeLanguage || 'de';
+  const canEditFolder = folder.role === 'owner' || folder.role === 'editor';
 
   const {
     attributes,
@@ -151,6 +152,7 @@ export const FolderCardItem = React.memo(({
     isDragging
   } = useSortable({
     id: folder.id,
+    disabled: !canEditFolder,
     animateLayoutChanges: () => false,
   });
 
@@ -188,7 +190,7 @@ export const FolderCardItem = React.memo(({
 
       <div className="deck-footer-actions">
         <div className="deck-footer-actions-left">
-          <div
+          {canEditFolder && <div
             className="deck-drag-handle-bottom"
             {...attributes}
             {...listeners}
@@ -196,7 +198,7 @@ export const FolderCardItem = React.memo(({
             title={tr("Зажмите и потяните для перетаскивания папки")}
           >
             <GripHorizontal size={20} />
-          </div>
+          </div>}
 
           <div 
             className="deck-flag-badge-inline"
@@ -247,7 +249,7 @@ export const FolderCardItem = React.memo(({
         </div>
 
         <div className="deck-footer-actions-right">
-          {(!folder.is_global_readonly || isAdmin) && (
+          {(canEditFolder || isAdmin) && (
             <button 
               className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
               onClick={toggleMenu}
@@ -266,6 +268,7 @@ export const FolderCardItem = React.memo(({
                 <span>{folder.is_global_readonly ? '🔐 Скрыть из общего доступа' : '🌍 Опубликовать глобально'}</span>
               </button>
             )}
+            {canEditFolder && <>
             <button className="dropdown-item" onClick={(e) => {
               e.stopPropagation();
               setIsMenuOpen(false);
@@ -323,6 +326,7 @@ export const FolderCardItem = React.memo(({
             <button className="dropdown-item danger" onClick={handleDelete}>
               <span>{tr("🗑️ Удалить папку")}</span>
             </button>
+            </>}
           </div>
         )}
       </div>

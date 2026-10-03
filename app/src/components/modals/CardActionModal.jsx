@@ -32,6 +32,8 @@ export const CardActionModal = ({
   const showToast = useUiStore(s => s.showToast);
 
   const targetDeckId = card?.deck_id != null ? card.deck_id : currentDeck?.id;
+  const actionDeck = decks?.find(d => String(d.id) === String(targetDeckId)) || currentDeck;
+  const canEditContent = actionDeck?.role === 'owner' || actionDeck?.role === 'editor' || (actionDeck && !actionDeck.role && !actionDeck.is_global_readonly);
   const isCurrentDeck = currentDeck && String(currentDeck.id) === String(targetDeckId);
   const cardsList = React.useMemo(() => {
     return (isCurrentDeck && deckCards && deckCards.length > 0)
@@ -172,7 +174,7 @@ export const CardActionModal = ({
             {mode === 'main' && (
               <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
 
-                <button 
+                {canEditContent && <button 
                   className="action-menu-item" 
                   onClick={() => setMode('move')}
                 >
@@ -183,9 +185,9 @@ export const CardActionModal = ({
                     <strong>{tr("Переместить")}</strong>
                     <span>{tr("Перенести в другую колоду")}</span>
                   </div>
-                </button>
+                </button>}
                 
-                <button 
+                {canEditContent && <button 
                   className="action-menu-item" 
                   onClick={() => setMode('copy')}
                 >
@@ -196,7 +198,7 @@ export const CardActionModal = ({
                     <strong>{tr("Копировать")}</strong>
                     <span>{tr("Создать дубликат в другой колоде")}</span>
                   </div>
-                </button>
+                </button>}
                 
                 <button 
                   className="action-menu-item" 
@@ -211,7 +213,7 @@ export const CardActionModal = ({
                   </div>
                 </button>
                 
-                {onEdit && (
+                {canEditContent && onEdit && (
                   <button 
                     className="action-menu-item" 
                     onClick={() => { onEdit(card); onClose(); }}
@@ -226,7 +228,7 @@ export const CardActionModal = ({
                   </button>
                 )}
 
-                <button 
+                {canEditContent && <button 
                   className="action-menu-item" 
                   onClick={() => setMode('position')}
                 >
@@ -239,7 +241,7 @@ export const CardActionModal = ({
                       {tr("Текущий номер: № {{p0}} из {{p1}}", { p0: currentPosition, p1: totalCardsCount })}
                     </span>
                   </div>
-                </button>
+                </button>}
 
                 <FlagPicker 
                   value={card.flag} 
@@ -251,7 +253,7 @@ export const CardActionModal = ({
                 
                 <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.05)', margin: '6px 0' }} />
 
-                <button 
+                {canEditContent && <button 
                   className="action-menu-item delete" 
                   onClick={() => { onDelete(card); onClose(); }}
                 >
@@ -262,7 +264,7 @@ export const CardActionModal = ({
                     <strong style={{ color: '#ef4444' }}>{tr("Удалить карточку")}</strong>
                     <span>{tr("Это действие нельзя отменить")}</span>
                   </div>
-                </button>
+                </button>}
               </div>
             )}
 

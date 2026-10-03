@@ -82,7 +82,7 @@ export const StudyCard = React.memo(({
   const frontText = card ? stripMarkdown(studyMode === 'reverse' ? card.back : card.front) : '';
 
   // Karaoke: sync word boundaries with audio playback position (with fallback estimation)
-  const { activeWordIndex, effectiveBoundaries } = useKaraokeSync(
+  const { activeWordIndex } = useKaraokeSync(
     frontVoicePicker.wordBoundaries,
     frontText,
     audioControls?.duration ?? 0,
@@ -425,10 +425,9 @@ export const StudyCard = React.memo(({
               {/* Classic / Reverse Mode Text */}
               {!exerciseType && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
                 <>
-                  <div id="tut-study-front" className="text-front" style={cardStyle}>
+                  <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
                     <KaraokeText
                       text={cleanBracketSyntax(frontText)}
-                      wordBoundaries={effectiveBoundaries}
                       activeWordIndex={activeWordIndex}
                       style={cardStyle}
                     />
@@ -459,7 +458,7 @@ export const StudyCard = React.memo(({
               {/* Cloze (Fill-in-the-blanks) Mode */}
               {effectiveStudyMode === 'cloze' && clozeData && (
                 <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-                  <div className="text-front cloze-masked-text" style={{ ...cardStyle, margin: '14px 0', lineHeight: 1.35 }}>
+                  <div className="text-front cloze-masked-text" style={{ whiteSpace: 'pre-wrap', ...cardStyle, margin: '14px 0', lineHeight: 1.35 }}>
                     {(() => {
                       const parts = clozeData.maskedText.split('_____');
                       const activeWord = correctSelected || wrongSelected[wrongSelected.length - 1];
@@ -737,7 +736,7 @@ export const StudyCard = React.memo(({
                           }
                           return null;
                         })()}
-                        <div id="tut-study-answer" className="text-back" style={backCardStyle}>
+                        <div id="tut-study-answer" className="text-back" style={{ whiteSpace: 'pre-wrap', ...backCardStyle }}>
                           {backClean}
                         </div>
                       </div>

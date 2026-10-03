@@ -17,16 +17,14 @@ FIELDS = {
     'decks': ('name', 'level', 'topic', 'target_language', 'is_deleted', 'is_pinned', 'position', 'folder_id', 'metadata'),
     'cards': ('deck_id', 'front_text', 'back_text', 'context', 'image_path', 'audio_path',
               'audio_back_path', 'video_front_path', 'video_back_path', 'is_deleted',
-              'flag', 'position', 'tags', 'metadata', 'card_type'),
-    'progress': ('queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'step_index', 'next_review', 'last_reviewed'),
+              'position', 'tags', 'metadata', 'card_type'),
+    'progress': ('queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'step_index', 'next_review', 'last_reviewed', 'flag', 'want_to_learn'),
 }
 
 
 def require_access(user_id: int, kind: str, item_id: int, write: bool = True) -> None:
     model = models.TMA_Deck if kind == 'deck' else models.TMA_Folder
     item = model.get_or_none(model.id == item_id)
-    if item and item.user_id == user_id:
-        return
     role = get_effective_user_role(user_id, kind, item_id)
     if not role or (write and role not in ('owner', 'editor', 'admin')):
         raise HTTPException(403, 'Нет доступа к записи. Локальные изменения сохранены.')
@@ -143,9 +141,11 @@ def push_offline(request, user_id: int) -> dict:
             if not card:
                 raise HTTPException(409, 'Карточка удалена на сервере')
             require_access(user_id, 'deck', card.deck_id, write=False)
-            values = {field: getattr(item, field) for field in FIELDS['progress']}
+            raw_progress = item.model_dump(exclude_unset=True)
+            values = {field: raw_progress[field] for field in FIELDS['progress'] if field in raw_progress}
             for field in ('next_review', 'last_reviewed'):
-                values[field] = timestamp(values[field])
+                if field in values:
+                    values[field] = timestamp(values[field])
             values['updated_at'] = now
             progress, _ = models.TMAProgress.get_or_create(card_id=card_id, user_id=user_id)
             for field, value in values.items():
@@ -160,6 +160,7 @@ def push_offline(request, user_id: int) -> dict:
 
 def pull_offline(user_id: int) -> dict:
     from api.services.decks import ensure_starter_decks
+    from api.services.decks import _learning_key
     user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
     if not user or not user.default_decks_initialized:
         ensure_starter_decks(user_id)
@@ -175,6 +176,9 @@ def pull_offline(user_id: int) -> dict:
     progress = list(models.TMAProgress.select().where(
         (models.TMAProgress.user_id == user_id) & models.TMAProgress.card_id.in_([c.id for c in cards])))
     roles = get_batch_collaborative_info(user_id, decks=decks, folders=folders)
+    learning_keys = {_learning_key(user_id, deck.id): deck.id for deck in decks}
+    learning_states = {learning_keys[row.key]: row.value == '1' for row in models.TMASetting.select(
+        models.TMASetting.key, models.TMASetting.value).where(models.TMASetting.key.in_(list(learning_keys)))}
 
     def serialize(name: str, item) -> dict:
         fields = ['id', *FIELDS[name], 'created_at', 'updated_at']
@@ -193,6 +197,10 @@ def pull_offline(user_id: int) -> dict:
             data.update(info)
             data['role'] = info.get('role') or ('owner' if item.user_id == user_id else 'viewer')
             data['is_owner'] = data['role'] == 'owner'
+        if name == 'decks':
+            from api.services.utils import resolve_deck_metadata
+            data['is_learning'] = learning_states.get(item.id,
+                bool(resolve_deck_metadata(item).get('is_learning', False)) if item.user_id == user_id else False)
         return data
 
     return {'status': 'success', 'protocol': 2,

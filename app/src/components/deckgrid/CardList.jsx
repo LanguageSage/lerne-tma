@@ -454,6 +454,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     );
   }
 
+  const canEditContent = currentDeck.role === 'owner' || currentDeck.role === 'editor' || (!currentDeck.role && !currentDeck.is_global_readonly);
+
   return (
     <div className="view-cards">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
@@ -469,13 +471,13 @@ export const CardList = ({ startStudy, startStudyCard }) => {
 
           <div className="header-actions">
             <UserProfileBadge />
-            <button 
+            {canEditContent && <button 
               className="header-action-btn" 
               onClick={() => setIsBatchModalOpen(true)} 
               title={tr("Пакетная генерация карточек")}
             >
               <ListPlus size={22} />
-            </button>
+            </button>}
 
             <HelpButton topic="cards" />
 
@@ -499,7 +501,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
             </button>
 
             {/* Selection Mode Toggle Button */}
-            <button
+            {canEditContent && <button
               className={`header-action-btn ${isSelectMode ? 'active' : ''}`}
               onClick={toggleSelectMode}
               title={isSelectMode ? tr("Выйти из режима выбора") : tr("Выбрать несколько карточек")}
@@ -510,7 +512,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
               }}
             >
               <CheckSquare size={20} />
-            </button>
+            </button>}
 
             {/* Quick Lines Switcher Button */}
             <button 
@@ -550,20 +552,20 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <button className="dropdown-item" onClick={() => {
+                  {canEditContent && <button className="dropdown-item" onClick={() => {
                     setIsDeckMenuOpen(false);
                     setIsMediaModalOpen(true);
                   }}>
                     <span>{tr("📎 Ресурсы колоды")}</span>
-                  </button>
+                  </button>}
 
-                  {!currentDeck?.is_inbox && (
+                  {canEditContent && !currentDeck?.is_inbox && (
                     <button className="dropdown-item" onClick={handleRename}>
                       <span>{tr("✍️ Переименовать")}</span>
                     </button>
                   )}
 
-                  {!currentDeck?.is_inbox && (
+                  {canEditContent && !currentDeck?.is_inbox && (
                     <button className="dropdown-item" onClick={() => {
                       setIsDeckMenuOpen(false);
                       useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: currentDeck.id, name: currentDeck.name });
@@ -573,19 +575,19 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                     </button>
                   )}
 
-                  {!currentDeck?.is_inbox && (
+                  {canEditContent && !currentDeck?.is_inbox && (
                     <button className="dropdown-item" onClick={handleShare}>
                       <span>{tr("🔗 Поделиться")}</span>
                     </button>
                   )}
 
-                  {!currentDeck?.is_inbox && (
+                  {canEditContent && !currentDeck?.is_inbox && (
                     <button className="dropdown-item" onClick={handleSync}>
                       <span>🔄 {currentDeck?.has_updates ? tr("❗️ Обновить") : tr("Обновить")}</span>
                     </button>
                   )}
 
-                  {!currentDeck?.is_inbox && (
+                  {canEditContent && !currentDeck?.is_inbox && (
                     <>
                       <button 
                         className={`dropdown-item ${isMoveMenuOpen ? 'active' : ''}`} 
@@ -666,13 +668,15 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       <button className="dropdown-item" onClick={handleReclassifyDeck}>
                         <span>{tr("✨ Обновить CEFR-уровни")}</span>
                       </button>
-                      <button className="dropdown-item warning" onClick={handleReset}>
-                        <span>{tr("🧹 Сбросить прогресс")}</span>
-                      </button>
                       <button className="dropdown-item danger" onClick={handleDelete}>
                         <span>{tr("🗑️ Удалить колоду")}</span>
                       </button>
                     </>
+                  )}
+                  {!currentDeck?.is_inbox && (
+                    <button className="dropdown-item warning" onClick={handleReset}>
+                      <span>{tr("🧹 Сбросить прогресс")}</span>
+                    </button>
                   )}
                 </div>
               )}
@@ -1022,12 +1026,12 @@ export const CardList = ({ startStudy, startStudyCard }) => {
           ) : deckCards.length === 0 ? (
             <div className="empty-cards-state glass">
               <h3>{tr("В этой колоде пока нет карточек")}</h3>
-              <p>{tr("Нажмите на \"+\" в правом верхнем углу или на кнопку ниже, чтобы создать свою первую карточку.")}</p>
-              <button 
+              {canEditContent && <p>{tr("Нажмите на \"+\" в правом верхнем углу или на кнопку ниже, чтобы создать свою первую карточку.")}</p>}
+              {canEditContent && <button 
                 className="btn btn-primary" 
                 style={{ marginTop: '10px' }} 
                 onClick={() => openCreator(currentDeck?.id)}
-              >{tr("Создать карточку")}{' '}</button>
+              >{tr("Создать карточку")}{' '}</button>}
             </div>
           ) : filteredCards.length === 0 ? (
             <div className="search-empty-state glass">
@@ -1047,8 +1051,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
             <DndContext
               sensors={sensors}
               collisionDetection={customCollisionDetection}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
+              onDragStart={canEditContent ? handleDragStart : undefined}
+              onDragEnd={canEditContent ? handleDragEnd : undefined}
             >
               <SortableContext
                 items={renderedCards.map(c => c.id)}
@@ -1061,6 +1065,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       c={c} 
                       index={searchQuery.trim() ? getOriginalIndex(c.id) : idx}
                       currentDeck={currentDeck} 
+                      canEditContent={canEditContent}
                       startStudyCard={startStudyCard}
                       frontTypographyStyle={frontTypographyStyle}
                       backTypographyStyle={backTypographyStyle}
@@ -1104,17 +1109,17 @@ export const CardList = ({ startStudy, startStudyCard }) => {
           )}
         </div>
         
-        {!isSelectMode && (
+        {!isSelectMode && canEditContent && (
           <button id="tut-fab-add" className="fab-add-card" onClick={() => openCreator(currentDeck?.id)}>
             <Plus size={28} />
           </button>
         )}
 
         {/* Floating Batch Actions Dock */}
-        <FloatingBatchDock
+        {canEditContent && <FloatingBatchDock
           selectMode={{ ...selectMode, filteredCards }}
           handleBatchDeleteCards={handleBatchDeleteCards}
-        />
+        />}
 
         <BatchMoveModal
           isOpen={isBatchMoveModalOpen}

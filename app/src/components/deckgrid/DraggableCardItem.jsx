@@ -17,6 +17,7 @@ export const DraggableCardItem = React.memo(({
   c,
   index,
   currentDeck,
+  canEditContent = true,
   startStudyCard,
   frontTypographyStyle,
   backTypographyStyle,
@@ -39,7 +40,7 @@ export const DraggableCardItem = React.memo(({
     isDragging
   } = useSortable({
     id: c.id,
-    disabled: isSelectMode,
+    disabled: isSelectMode || !canEditContent,
     animateLayoutChanges: () => false,
   });
 
@@ -135,7 +136,7 @@ export const DraggableCardItem = React.memo(({
 
       <div className="card-item-footer">
         <div className="card-item-footer-left">
-          {!isSelectMode && (
+          {!isSelectMode && canEditContent && (
             <div
               className="deck-drag-handle-bottom"
               {...attributes}
