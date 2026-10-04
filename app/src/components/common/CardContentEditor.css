@@ -1,0 +1,22 @@
+.card-content-editor { min-width: 0; display: grid; gap: 16px; }
+.card-form-secondary { margin: 8px 0 16px; }
+.card-form-secondary > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; cursor: pointer; font-size: .85rem; }
+.card-editor-mode { display: flex; justify-content: flex-end; }
+.card-content-editor .btn-secondary, .card-editor-add summary { min-height: 44px; padding: 8px 12px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+.card-content-editor button:disabled { opacity: .45; cursor: default; }
+.card-editor-field, .card-editor-field label { display: grid; gap: 8px; min-width: 0; }
+.card-editor-field .sub-label { margin: 0; }
+.card-editor-field fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 8px; }
+.card-editor-field input.form-input, .card-editor-field textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+.card-editor-field textarea { resize: vertical; overflow-y: auto; min-height: 88px; }
+.card-editor-raw { font-family: monospace; text-align: left; }
+.card-editor-commands { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
+.card-editor-commands > button { flex: 1 1 140px; }
+.card-editor-choice { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
+.card-editor-choice .card-editor-correct { width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; }
+.card-editor-choice input[type=checkbox] { width: 24px; height: 24px; margin: 0; cursor: pointer; }
+.card-editor-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.card-editor-hint { font-size: .85rem; opacity: .8; margin: 4px 0; }
+.card-editor-fallback { overflow-wrap: anywhere; }
+.card-content-editor :is(button, summary, input, textarea):focus-visible { outline: 2px solid var(--accent-color, #a78bfa) !important; outline-offset: 3px; }
+@media (max-width: 360px) { .card-editor-pair { grid-template-columns: minmax(0, 1fr); } }

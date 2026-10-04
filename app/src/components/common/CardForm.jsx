@@ -3,6 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
+import { CardContentEditor } from './CardContentEditor';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -49,7 +50,6 @@ export const CardForm = ({
   const [isClassifyingLevel, setIsClassifyingLevel] = useState(false);
   const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
   
-  const frontRef = useRef(null);
   const backRef = useRef(null);
   const contextRef = useRef(null);
   const videoFrontRef = useRef(null);
@@ -64,7 +64,6 @@ export const CardForm = ({
 
   useEffect(() => {
     const handleResize = () => {
-      autoResize(frontRef);
       autoResize(backRef);
       autoResize(contextRef);
     };
@@ -76,7 +75,6 @@ export const CardForm = ({
     };
   }, []);
 
-  useEffect(() => { autoResize(frontRef); }, [cardData?.front, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
   useEffect(() => { autoResize(backRef); }, [cardData?.back, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
   useEffect(() => { autoResize(contextRef); }, [cardData?.context, contextFontSize, contextFont, contextFontWeight, contextFontStyle]);
 
@@ -161,55 +159,6 @@ export const CardForm = ({
     showToast(tr("Уровень установлен: {{p0}} (вручную)", { p0: selectedLevel }), 'info');
   };
 
-  const focusBlockContent = (text, marker, startAt = 0) => {
-    requestAnimationFrame(() => {
-      const textarea = frontRef.current;
-      if (!textarea) return;
-      const markerIndex = text.indexOf(marker, startAt);
-      if (markerIndex < 0) return;
-      const lineEnd = text.indexOf('\n', markerIndex);
-      const cursor = lineEnd >= 0 ? lineEnd + 1 : text.length;
-      textarea.focus();
-      textarea.setSelectionRange(cursor, cursor);
-      autoResize(frontRef);
-    });
-  };
-
-  const insertInformationBlock = (type) => {
-    const marker = type === 'exercise' ? '::exercise' : `::${type}`;
-    
-    setCardData(prev => {
-      const raw = String(prev?.front || '');
-      
-      if (type !== 'example') {
-        const markerMatch = new RegExp(`^\\s*${marker}\\s*$`, 'im').exec(raw);
-        if (markerMatch) {
-          focusBlockContent(raw, markerMatch[0], markerMatch.index);
-          return prev;
-        }
-      }
-
-      const textarea = frontRef.current;
-      let insertIndex = raw.length;
-      if (textarea && textarea.selectionStart !== undefined) {
-        insertIndex = textarea.selectionStart;
-      }
-      
-      const before = raw.substring(0, insertIndex);
-      const after = raw.substring(insertIndex);
-      
-      let addition = marker;
-      if (before && !before.endsWith('\n')) addition = '\n' + addition;
-      if (after && !after.startsWith('\n')) addition = addition + '\n';
-      if (!after) addition += '\n';
-
-      const nextFront = before + addition + after;
-      focusBlockContent(nextFront, marker, before.length);
-      
-      return { ...prev, front: nextFront };
-    });
-  };
-
   if (!cardData) return null;
 
   return (
@@ -241,6 +190,8 @@ export const CardForm = ({
         </div>
       )}
 
+      <details className="card-form-secondary">
+        <summary>{tr("Медиа и оформление")}</summary>
       {/* FLAG COLOR SELECTOR */}
       <FlagPicker 
         value={cardData.flag} 
@@ -311,6 +262,8 @@ export const CardForm = ({
         </button>
       </div>
 
+      </details>
+
       <div className="form-group">
         <div 
           id="tut-creator-front" 
@@ -326,180 +279,19 @@ export const CardForm = ({
           <CardBackground styleType={resolvedBgFront} />
           
           <div className="card-preview-body" style={{ padding: '12px 14px 4px 14px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            <textarea 
-              ref={frontRef}
-              className="textarea-preview textarea-front-preview"
+            <CardContentEditor
+              value={cardData.front || ''}
+              onChange={front => setCardData(prev => ({ ...prev, front }))}
               autoFocus={isCreator}
-              value={cardData.front || ''} 
-              onChange={(e) => {
-                setCardData({...cardData, front: e.target.value});
-              }}
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              style={{ 
-                fontFamily: cardFont, 
-                fontWeight: cardFontWeight, 
-                fontStyle: cardFontStyle,
-                color: cardTextColor,
-                fontSize: `${cardFontSize}rem`,
+              textStyle={{
+                fontFamily: cardFont, fontWeight: cardFontWeight, fontStyle: cardFontStyle,
+                color: cardTextColor, fontSize: `${cardFontSize}rem`,
                 textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                textAlign: cardTextAlign || 'center',
-                overflow: 'hidden',
-                height: 'auto',
-                minHeight: '80px'
+                textAlign: cardTextAlign || 'center'
               }}
-              placeholder={t('creator.word_placeholder', 'Слово или фраза...')}
             />
-            {/* Exercise syntax chips toolbar */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 4px 4px 4px',
-              flexWrap: 'wrap',
-              fontSize: '0.72rem'
-            }}>
-              <span style={{ color: 'rgba(255, 255, 255, 0.45)', fontWeight: 600 }}>{tr("Тренажёр:")}</span>
-              
-              <button
-                type="button"
-                onClick={() => {
-                  const addition = '{*richtig|falsch}';
-                  setCardData(prev => ({ ...prev, front: prev.front ? `${prev.front} ${addition}` : addition }));
-                }}
-                title={tr("Вставить выбор из вариантов")}
-                style={{
-                  cursor: 'pointer',
-                  padding: '2px 7px',
-                  borderRadius: '6px',
-                  background: 'rgba(168, 85, 247, 0.15)',
-                  border: '1px solid rgba(168, 85, 247, 0.3)',
-                  color: '#c084fc',
-                  fontWeight: 600,
-                  fontSize: '0.7rem'
-                }}
-              >
-                {'{*выбор|вариант}'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const addition = '[[ответ]]';
-                  setCardData(prev => ({ ...prev, front: prev.front ? `${prev.front} ${addition}` : addition }));
-                }}
-                title={tr("Вставить пропуск для ввода")}
-                style={{
-                  cursor: 'pointer',
-                  padding: '2px 7px',
-                  borderRadius: '6px',
-                  background: 'rgba(56, 189, 248, 0.15)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  color: '#7dd3fc',
-                  fontWeight: 600,
-                  fontSize: '0.7rem'
-                }}
-              >
-                {'[[ввод]]'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setCardData(prev => {
-                    const cleaned = (prev.front || '').replace(/^@(match|free|puzzle)\s*/i, '').trim();
-                    const newFront = cleaned ? `@match\n${cleaned}` : '@match\nА => B\nC => D';
-                    return { ...prev, front: newFront, card_type: 'match' };
-                  });
-                }}
-                title={tr("Вставить сопоставление пар")}
-                style={{
-                  cursor: 'pointer',
-                  padding: '2px 7px',
-                  borderRadius: '6px',
-                  background: 'rgba(245, 158, 11, 0.15)',
-                  border: '1px solid rgba(245, 158, 11, 0.3)',
-                  color: '#fcd34d',
-                  fontWeight: 600,
-                  fontSize: '0.7rem'
-                }}
-              >
-                @match A =&gt; B
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setCardData(prev => {
-                    const cleaned = (prev.front || '').replace(/^@(match|free|puzzle)\s*/i, '').trim();
-                    const newFront = cleaned ? `@free\n${cleaned}` : '@free\n';
-                    return { ...prev, front: newFront, card_type: 'free_text' };
-                  });
-                }}
-                title={tr("Вставить открытый вопрос")}
-                style={{
-                  cursor: 'pointer',
-                  padding: '2px 7px',
-                  borderRadius: '6px',
-                  background: 'rgba(236, 72, 153, 0.15)',
-                  border: '1px solid rgba(236, 72, 153, 0.3)',
-                  color: '#f472b6',
-                  fontWeight: 600,
-                  fontSize: '0.7rem'
-                }}
-              >
-                @free
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setCardData(prev => {
-                    const cleaned = (prev.front || '').replace(/^@(match|free|puzzle)\s*/i, '').trim();
-                    const newFront = cleaned ? `@puzzle\n${cleaned}` : '@puzzle\n';
-                    return { ...prev, front: newFront, card_type: 'puzzle' };
-                  });
-                }}
-                title={tr("Вставить конструктор фразы (Пазл)")}
-                style={{
-                  cursor: 'pointer',
-                  padding: '2px 7px',
-                  borderRadius: '6px',
-                  background: 'rgba(168, 85, 247, 0.15)',
-                  border: '1px solid rgba(168, 85, 247, 0.3)',
-                  color: '#c084fc',
-                  fontWeight: 600,
-                  fontSize: '0.7rem'
-                }}
-              >
-                @puzzle
-              </button>
-            </div>
-            <div className="exercise-info-editor-toolbar" aria-label={tr("Информационные блоки упражнения")}>
-              <span className="exercise-info-editor-label">{tr("Информация:")}</span>
-              {[
-                ['task', tr('+ Задание')],
-                ['options', tr('+ Варианты')],
-                ['source', tr('+ Исходный текст')],
-                ['example', tr('+ Пример')],
-                ['exercise', tr('+ Упражнение')]
-              ].map(([type, label]) => (
-                <button
-                  key={type}
-                  type="button"
-                  className={`exercise-info-editor-button is-${type}`}
-                  onClick={() => insertInformationBlock(type)}
-                  title={tr("Добавить информационный блок")}
-                  aria-label={label}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
-          
+
           {(cardData.image_url || cardData.image_path) && (() => {
             const getDeckH = () => {
               try {
@@ -737,6 +529,86 @@ export const CardForm = ({
         </div>
       </div>
 
+
+      <div className="form-group">
+        <div 
+          className="card-preview-container glass" 
+          style={{ 
+            position: 'relative', 
+            borderRadius: '12px', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            minHeight: '130px' 
+          }}
+        >
+          <CardBackground styleType={resolvedBgBack} />
+          
+          <div className="card-preview-body" style={{ padding: '12px 14px 12px 14px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
+            <label className="sub-label" htmlFor="card-editor-back">{tr("Ответ / обратная сторона")}</label>
+            <textarea
+              id="card-editor-back"
+              ref={backRef}
+              className="textarea-preview textarea-back-preview"
+              value={cardData.back || ''} 
+              onChange={(e) => {
+                setCardData({...cardData, back: e.target.value});
+              }}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              style={{ 
+                fontFamily: cardFont, 
+                fontWeight: cardFontWeight, 
+                fontStyle: cardFontStyle,
+                color: cardTextColor,
+                fontSize: `${cardFontSize}rem`,
+                textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                textAlign: cardTextAlign || 'center',
+                overflow: 'hidden',
+                height: 'auto',
+                minHeight: '80px'
+              }}
+              placeholder={(() => {
+                const isExercise = Boolean(detectExerciseType(cardData));
+                return isExercise ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');
+              })()}
+            />
+            
+            <details className="card-form-secondary" open={cardData.context ? true : undefined}>
+              <summary>{tr("Примеры и пояснения")}</summary>
+            <textarea 
+              ref={contextRef}
+              aria-label={tr("Примеры и пояснения")}
+              className="context-textarea textarea-preview textarea-context-preview"
+              value={cardData.context || ''} 
+              onChange={(e) => {
+                setCardData({...cardData, context: e.target.value});
+              }}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              style={{ 
+                fontFamily: contextFont, 
+                fontSize: `${contextFontSize}rem`,
+                color: contextTextColor,
+                fontWeight: contextFontWeight,
+                fontStyle: contextFontStyle,
+                textShadow: getContextShadow(contextTextShadow, contextTextColor),
+                textAlign: contextTextAlign || 'left',
+                overflow: 'hidden',
+                height: 'auto',
+                minHeight: '80px'
+              }}
+              placeholder={t('creator.context', 'Примеры, грамматика...')}
+            />
+            </details>
+          </div>
+        </div>
+      </div>
+
+
       {(() => {
         const frontText = cardData.front || '';
         const quickActionType = detectAiQuickActionType(frontText);
@@ -825,6 +697,8 @@ export const CardForm = ({
         );
       })()}
 
+      <details className="card-form-secondary">
+        <summary>{tr("Видео")}</summary>
       <div className="media-edit-group" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
          <div className="form-group" style={{ flex: 1 }}>
             <label className="sub-label">{tr("Видео (Лицо)")}</label>
@@ -872,98 +746,7 @@ export const CardForm = ({
          </div>
       </div>
 
-
-      <div className="form-group">
-        <div 
-          className="card-preview-container glass" 
-          style={{ 
-            position: 'relative', 
-            borderRadius: '12px', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            minHeight: '130px' 
-          }}
-        >
-          <CardBackground styleType={resolvedBgBack} />
-          
-          <div className="card-preview-body" style={{ padding: '12px 14px 12px 14px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            <textarea 
-              ref={backRef}
-              className="textarea-preview textarea-back-preview"
-              value={cardData.back || ''} 
-              onChange={(e) => {
-                setCardData({...cardData, back: e.target.value});
-              }}
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              style={{ 
-                fontFamily: cardFont, 
-                fontWeight: cardFontWeight, 
-                fontStyle: cardFontStyle,
-                color: cardTextColor,
-                fontSize: `${cardFontSize}rem`,
-                textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                textAlign: cardTextAlign || 'center',
-                overflow: 'hidden',
-                height: 'auto',
-                minHeight: '80px'
-              }}
-              placeholder={(() => {
-                const isExercise = Boolean(detectExerciseType(cardData));
-                return isExercise ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');
-              })()}
-            />
-            
-            <div 
-              style={{ 
-                width: '100%', 
-                margin: '18px 0 14px 0', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                position: 'relative', 
-                zIndex: 10 
-              }}
-            >
-              <div 
-                style={{ 
-                  width: '100%', 
-                  height: '1px', 
-                  background: 'linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.25) 20%, rgba(168,85,247,0.55) 50%, rgba(255,255,255,0.25) 80%, rgba(255,255,255,0.02) 100%)',
-                  boxShadow: '0 0 8px rgba(168, 85, 247, 0.35)'
-                }} 
-              />
-            </div>
-            <textarea 
-              ref={contextRef}
-              className="context-textarea textarea-preview textarea-context-preview"
-              value={cardData.context || ''} 
-              onChange={(e) => {
-                setCardData({...cardData, context: e.target.value});
-              }}
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              style={{ 
-                fontFamily: contextFont, 
-                fontSize: `${contextFontSize}rem`,
-                color: contextTextColor,
-                fontWeight: contextFontWeight,
-                fontStyle: contextFontStyle,
-                textShadow: getContextShadow(contextTextShadow, contextTextColor),
-                textAlign: contextTextAlign || 'left',
-                overflow: 'hidden',
-                height: 'auto',
-                minHeight: '80px'
-              }}
-              placeholder={t('creator.context', 'Примеры, грамматика...')}
-            />
-          </div>
-        </div>
-      </div>
+      </details>
 
       {/* MODALS FOR CAMERA / IMAGE PICKER */}
       <MediaPicker 
