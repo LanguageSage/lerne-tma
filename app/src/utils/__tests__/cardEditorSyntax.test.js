@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { projectEditorFields, readableFrontText, replaceEditorRange, addVisualElement, insertEditorCommand, editorCommands, setQuizOptionCorrect, syncWordBankAnswer } from '../cardEditorSyntax.js';
+import { projectEditorFields, readableFrontText, replaceEditorRange, addVisualElement, insertEditorCommand, insertEditorLineAfter, editorCommands, setQuizOptionCorrect, syncWordBankAnswer } from '../cardEditorSyntax.js';
 import { parseExerciseContent } from '../exerciseContentParser.js';
 import { parseClozeData } from '../clozeParser.js';
 import { parseMatchData } from '../matchParser.js';
@@ -85,6 +85,30 @@ test('quiz question and options edit without exposing markers', () => {
   const changed = replaceEditorRange(raw, fields[2].start, fields[2].end, setQuizOptionCorrect(fields[2], true));
   assert.equal(changed, 'Wo liegt Berlin?\r\n\r\nA) *Deutschland\r\nB) *Österreich');
   assert.equal(parseQuizData({ front: changed }).options.filter(option => option.isCorrect).length, 2);
+});
+
+test('adding a quiz option creates an editable answer below the existing ones', () => {
+  const raw = 'Wo?\r\n\r\n*Berlin\r\nHamburg';
+  const last = projectEditorFields(raw).at(-1);
+  const added = insertEditorLineAfter(raw, last, '- ');
+  assert.equal(added, 'Wo?\r\n\r\n*Berlin\r\nHamburg\r\n- ');
+  const option = projectEditorFields(added).at(-1);
+  assert.equal(option.kind, 'quiz-option');
+  assert.equal(option.display, '');
+  const filled = replaceEditorRange(added, option.start, option.end, '- München');
+  assert.equal(parseQuizData({ front: filled }).options.length, 3);
+});
+
+test('adding a matching pair creates two editable sides', () => {
+  const raw = '@match\nBerlin => Deutschland\nWien -> Österreich';
+  const last = projectEditorFields(raw).at(-1);
+  const added = insertEditorLineAfter(raw, last, ' => ');
+  const pair = projectEditorFields(added).at(-1);
+  assert.equal(pair.kind, 'pair');
+  assert.equal(pair.value.slice(0, pair.separator), '');
+  assert.equal(pair.value.slice(pair.separator + pair.separatorLength), '');
+  const filled = replaceEditorRange(added, pair.start, pair.end, 'Paris => Frankreich');
+  assert.equal(parseMatchData(filled).pairs.length, 3);
 });
 
 test('wordbank sentence and options project as editable ranges', () => {

@@ -1,7 +1,7 @@
 import React, { useId, useRef, useState } from 'react';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import { editorCommands, projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, setQuizOptionCorrect, syncWordBankAnswer } from '../../utils/cardEditorSyntax';
+import { editorCommands, projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, setQuizOptionCorrect, syncWordBankAnswer } from '../../utils/cardEditorSyntax';
 import './CardContentEditor.css';
 
 export function CardContentEditor({ value, onChange, back = '', onBackChange, textStyle, autoFocus = false }) {
@@ -18,6 +18,10 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
   const replace = (field, next) => {
     setError('');
     onChange(replaceEditorRange(value, field.start, field.end, next));
+  };
+  const addLine = (field, line) => {
+    setError('');
+    onChange(insertEditorLineAfter(value, field, line));
   };
   const safeChange = (next, reserved, apply) => {
     if (reserved.test(next)) {
@@ -104,29 +108,41 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
     </label>;
     if (field.kind === 'input') return renderInput(field, index);
     if (field.kind === 'choice') return renderChoice(field, index);
-    if (field.kind === 'pair') return <div className="card-editor-pair-line" key={index}>
-      {[0, 1].map(side => <input key={side} className="form-input"
-        aria-label={tr(side ? 'Правая сторона' : 'Левая сторона')}
-        value={side ? field.value.slice(field.separator + field.separatorLength) : field.value.slice(0, field.separator)}
-        onChange={e => safeChange(e.target.value, /=>|->|—|=|[\r\n]/, next => replace(field, side
-          ? field.value.slice(0, field.separator + field.separatorLength) + next : next + field.value.slice(field.separator)))} />)}
-    </div>;
+    if (field.kind === 'pair') return <React.Fragment key={index}>
+      <div className="card-editor-pair-line">
+        {[0, 1].map(side => <input key={side} className="form-input"
+          aria-label={tr(side ? 'Правая сторона' : 'Левая сторона')}
+          value={side ? field.value.slice(field.separator + field.separatorLength) : field.value.slice(0, field.separator)}
+          onChange={e => safeChange(e.target.value, /=>|->|—|=|[\r\n]/, next => replace(field, side
+            ? field.value.slice(0, field.separator + field.separatorLength) + next : next + field.value.slice(field.separator)))} />)}
+      </div>
+      {!fields.slice(index + 1).some(item => item.kind === 'pair') &&
+        <button type="button" className="btn-secondary card-editor-add" onClick={() => addLine(field, ' => ')}>
+          {tr('Добавить пару')}
+        </button>}
+    </React.Fragment>;
     if (field.kind === 'quiz-option') {
       const optionNumber = fields.filter(item => item.kind === 'quiz-option' && item.start <= field.start).length;
-      return <div className="card-editor-quiz-option" key={index}>
-      <label className="card-editor-correct"><input type="checkbox" checked={field.correct}
-        aria-label={tr('Правильный вариант {{p0}}', { p0: optionNumber })}
-        onChange={e => {
-          if (!e.target.checked && fields.filter(item => item.kind === 'quiz-option' && item.correct).length <= 1) {
-            setError(tr('Нужен хотя бы один правильный вариант.'));
-            return;
-          }
-          replace(field, setQuizOptionCorrect(field, e.target.checked));
-        }} /></label>
-      <input className="form-input" aria-label={tr('Вариант {{p0}}', { p0: optionNumber })}
-        value={field.display}
-        onChange={e => safeChange(e.target.value, /^(?:\*|\[)|[\r\n]/, next => replace(field, field.prefix + next))} />
-      </div>;
+      return <React.Fragment key={index}>
+        <div className="card-editor-quiz-option">
+          <label className="card-editor-correct"><input type="checkbox" checked={field.correct}
+            aria-label={tr('Правильный вариант {{p0}}', { p0: optionNumber })}
+            onChange={e => {
+              if (!e.target.checked && fields.filter(item => item.kind === 'quiz-option' && item.correct).length <= 1) {
+                setError(tr('Нужен хотя бы один правильный вариант.'));
+                return;
+              }
+              replace(field, setQuizOptionCorrect(field, e.target.checked));
+            }} /></label>
+          <input className="form-input" aria-label={tr('Вариант {{p0}}', { p0: optionNumber })}
+            value={field.display}
+            onChange={e => safeChange(e.target.value, /^(?:\*|\[)|[\r\n]/, next => replace(field, field.prefix + next))} />
+        </div>
+        {!fields.slice(index + 1).some(item => item.kind === 'quiz-option') &&
+          <button type="button" className="btn-secondary card-editor-add" onClick={() => addLine(field, '- ')}>
+            {tr('Добавить вариант')}
+          </button>}
+      </React.Fragment>;
     }
     if (field.kind === 'wordbank-option') return <label className="card-editor-field" key={index}>
       <span className="sub-label">{tr('Вариант {{p0}}', { p0: fields.filter(item => item.kind === 'wordbank-option' && item.start <= field.start).length })}</span>

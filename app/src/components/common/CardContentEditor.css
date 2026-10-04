@@ -3,6 +3,7 @@
 .card-form-secondary > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; cursor: pointer; font-size: .85rem; }
 .card-editor-mode { display: flex; justify-content: flex-end; }
 .card-content-editor .btn-secondary { min-height: 44px; padding: 8px 12px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+.card-content-editor .card-editor-add { justify-self: start; }
 .card-content-editor button:disabled { opacity: .45; cursor: default; }
 .card-editor-field, .card-editor-field label { display: grid; gap: 8px; min-width: 0; }
 .card-editor-field:is(fieldset) { border: 0; padding: 0; margin: 0; }

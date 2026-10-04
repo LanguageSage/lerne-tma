@@ -21,6 +21,11 @@ export function replaceEditorRange(raw, start, end, value) {
   return raw.slice(0, start) + value + raw.slice(end);
 }
 
+export function insertEditorLineAfter(raw, field, line) {
+  const newline = raw.includes('\r\n') ? '\r\n' : '\n';
+  return replaceEditorRange(raw, field.end, field.end, newline + line);
+}
+
 export function syncWordBankAnswer(back, oldOption, newOption) {
   const normalize = value => value.trim().replace(/\s+/g, ' ').toLowerCase();
   if (!oldOption.trim() || normalize(oldOption) === normalize(newOption)) return back;
