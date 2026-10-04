@@ -300,7 +300,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
     }));
     // 3. incorrect (max_retries reached)
     await session.submit('Ich habe Katze.', async () => ({
-      result: { verdict: 'incorrect', accepted: false, error_type: 'vocabulary', error_code: 'vocab.wrong_word', evaluator: 'ai' },
+      result: { verdict: 'incorrect', accepted: false, error_type: 'word_choice', error_code: 'word_choice.wrong_word', evaluator: 'ai' },
       grading_policy: { max_retries: 3 },
     }));
 
@@ -335,8 +335,8 @@ describe('KnowledgeCaptureService - KI-04', () => {
     assert.strictEqual(exEvidence.first_try_correct, false);
     assert.strictEqual(exEvidence.attempt_count, 3);
     assert.strictEqual(exEvidence.mistake_count, 3);
-    assert.deepStrictEqual(exEvidence.grading_summary.error_types_seen, ['grammar', 'vocabulary']);
-    assert.deepStrictEqual(exEvidence.grading_summary.error_codes_seen, ['grammar.article_case', 'vocab.wrong_word']);
+    assert.deepStrictEqual(exEvidence.grading_summary.error_types_seen, ['grammar', 'word_choice']);
+    assert.deepStrictEqual(exEvidence.grading_summary.error_codes_seen, ['grammar.article_case', 'word_choice.wrong_word']);
     assert.strictEqual(exEvidence.grading_summary.final_verdict, 'incorrect');
     assert.strictEqual(exEvidence.grading_summary.final_evaluator, 'ai');
   });

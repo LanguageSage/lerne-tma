@@ -85,8 +85,8 @@ test('grammar error -> grammar error -> incorrect -> max_retries preserves faile
   assert.equal(session.snapshot().attemptCount, 2);
   assert.equal(session.snapshot().mistakeCount, 2);
 
-  // 3rd attempt: incorrect (vocabulary) -> max_retries (3) reached!
-  await session.submit('eine Katze', async () => response('incorrect', 'vocabulary', 'vocab.wrong_word'));
+  // 3rd attempt: incorrect (word_choice) -> max_retries (3) reached!
+  await session.submit('eine Katze', async () => response('incorrect', 'word_choice', 'word_choice.wrong_word'));
   const evidence = session.evidence();
   assert.notEqual(evidence, null);
   assert.equal(evidence.isCorrect, false);
@@ -94,8 +94,8 @@ test('grammar error -> grammar error -> incorrect -> max_retries preserves faile
   assert.equal(evidence.completed, false);
   assert.equal(evidence.attemptCount, 3);
   assert.equal(evidence.mistakeCount, 3);
-  assert.deepEqual(evidence.gradingSummary.error_types_seen, ['grammar', 'vocabulary']);
-  assert.deepEqual(evidence.gradingSummary.error_codes_seen, ['grammar.article_case', 'vocab.wrong_word']);
+  assert.deepEqual(evidence.gradingSummary.error_types_seen, ['grammar', 'word_choice']);
+  assert.deepEqual(evidence.gradingSummary.error_codes_seen, ['grammar.article_case', 'word_choice.wrong_word']);
   assert.deepEqual(evidence.gradingSummary.minor_errors, []);
   assert.equal(evidence.gradingSummary.final_verdict, 'incorrect');
   assert.equal(evidence.gradingSummary.final_evaluator, 'rules');

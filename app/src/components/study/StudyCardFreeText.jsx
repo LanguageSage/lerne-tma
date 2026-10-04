@@ -33,6 +33,7 @@ export const StudyCardFreeText = React.memo(({
 
   const { result, loading } = state;
   const isCompleted = result?.accepted === true;
+  const isExhausted = Boolean(state?.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries);
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
 
@@ -102,7 +103,7 @@ export const StudyCardFreeText = React.memo(({
           </>}
         </div>
       )}
-      {!isCompleted && <button type="submit" className="btn btn-primary free-text-action"
+      {!isCompleted && !isExhausted && <button type="submit" className="btn btn-primary free-text-action"
         disabled={loading || !userInput.trim() || sameRejectedAnswer}>
         {loading && <LoaderCircle size={16} className="spin" />}
         {loading ? tr('Проверяем ответ…') : result ? tr('Проверить ещё раз') : tr('Проверить ответ')}
