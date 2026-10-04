@@ -8,6 +8,7 @@ import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
 import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
+import { AnswerVictoryAnimation } from './AnswerVictoryAnimation.jsx';
 import './StudyCardTrainer.css';
 
 const AutoExpandingInput = React.memo(({
@@ -32,10 +33,15 @@ const AutoExpandingInput = React.memo(({
     }
   };
 
+  const hasValue = Boolean(rawValue && rawValue.trim());
+  const inputTextColor = gap.isAffix
+    ? (status === 'correct' ? '#22c55e' : (status === 'incorrect' ? '#f87171' : (hasValue ? '#c084fc' : 'inherit')))
+    : (status === 'correct' ? '#22c55e' : (status === 'incorrect' ? '#f87171' : (hasValue ? '#f3e8ff' : textColor)));
+
   const input = (
     <input
       type="text"
-      className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || 'idle'}` : undefined}
+      className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (hasValue ? 'selected' : 'idle')}${hasValue ? ' has-value' : ''}` : undefined}
       ref={inputRef}
       aria-invalid={status === 'incorrect'}
       aria-describedby={status === 'incorrect' ? `trainer-hint-${gap.id}` : undefined}
@@ -59,9 +65,9 @@ const AutoExpandingInput = React.memo(({
         borderRadius: gap.isAffix ? 0 : '10px',
         border: gap.isAffix ? undefined : `2px solid ${borderColor}`,
         background: gap.isAffix ? undefined : bgColor,
-        color: gap.isAffix ? 'inherit' : textColor,
+        color: inputTextColor,
         textDecoration,
-        fontWeight: gap.isAffix ? 'inherit' : 700,
+        fontWeight: gap.isAffix ? (hasValue || status ? 700 : 'inherit') : 700,
         fontSize: 'inherit',
         fontFamily: 'inherit',
         textAlign: 'center',
@@ -69,6 +75,8 @@ const AutoExpandingInput = React.memo(({
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         verticalAlign: gap.isAffix ? 'baseline' : 'middle',
+        boxShadow: !gap.isAffix && status === 'correct' ? '0 0 12px rgba(34, 197, 94, 0.35)' : undefined,
+        animation: !gap.isAffix && status === 'correct' ? 'victoryTextPulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : undefined,
         transition: 'border-color 0.15s ease-in-out, background 0.15s ease-in-out, width 0.1s ease-out'
       }}
     />
@@ -232,10 +240,11 @@ export const StudyCardTrainer = React.memo(({
     const status = evaluation.part(gap.id)?.status;
     const locked = evaluation.isLocked(gap.id);
     const isDropdownOpen = openDropdownGapId === gap.id;
+    const hasValue = Boolean(rawValue && rawValue.trim());
     const borderColor = status === 'correct' ? '#22c55e'
-      : status === 'incorrect' ? '#ef4444' : 'rgba(168, 85, 247, 0.45)';
-    const bgColor = status === 'correct' ? 'rgba(34, 197, 94, 0.2)'
-      : status === 'incorrect' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(168, 85, 247, 0.1)';
+      : status === 'incorrect' ? '#ef4444' : (hasValue ? 'rgba(168, 85, 247, 0.8)' : 'rgba(168, 85, 247, 0.45)');
+    const bgColor = status === 'correct' ? 'rgba(34, 197, 94, 0.22)'
+      : status === 'incorrect' ? 'rgba(239, 68, 68, 0.2)' : (hasValue ? 'rgba(168, 85, 247, 0.16)' : 'rgba(168, 85, 247, 0.1)');
     const label = tr('Пропуск {{p0}}', { p0: gap.id + 1 });
     const control = gap.mode === 'input' ? (
       <label className={gap.isAffix ? 'trainer-affix-input' : 'trainer-input-gap'} onClick={e => e.stopPropagation()}>
@@ -243,20 +252,34 @@ export const StudyCardTrainer = React.memo(({
           inputRef={el => { gapRefs.current[gap.id] = el; }}
           borderColor={borderColor} bgColor={bgColor} textColor="inherit" textDecoration="none"
           onInputChange={handleInputChange} onCheck={handleCheck} />
+        {!gap.isAffix && status === 'correct' && <AnswerVictoryAnimation />}
       </label>
     ) : (
       <button type="button" ref={el => { gapRefs.current[gap.id] = el; }}
-        className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (isDropdownOpen ? 'open' : 'idle')}` : 'trainer-choice-gap'}
+        className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (isDropdownOpen ? 'open' : (hasValue ? 'selected' : 'idle'))}${hasValue ? ' has-value' : ''}` : 'trainer-choice-gap'}
         onClick={e => handleOpenDropdown(gap.id, e)} disabled={locked}
         aria-label={label} aria-invalid={status === 'incorrect'}
         aria-describedby={status === 'incorrect' ? `trainer-hint-${gap.id}` : undefined}
         aria-haspopup="dialog" aria-expanded={isDropdownOpen}
         title={locked ? undefined : tr('Нажмите, чтобы выбрать вариант')}
         style={gap.isAffix ? undefined : {
-          borderColor, background: bgColor, color: 'inherit', fontFamily: 'inherit', fontSize: '0.92em',
+          position: 'relative',
+          borderColor,
+          background: bgColor,
+          color: status === 'correct' ? '#22c55e' : (hasValue ? '#e9d5ff' : 'inherit'),
+          fontFamily: 'inherit',
+          fontSize: '0.92em',
+          fontWeight: hasValue || status ? 700 : 'inherit',
+          boxShadow: status === 'correct'
+            ? '0 0 14px rgba(34, 197, 94, 0.4)'
+            : (isDropdownOpen ? '0 0 14px rgba(168, 85, 247, 0.7)' : undefined),
+          animation: status === 'correct'
+            ? 'victoryTextPulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            : undefined
         }}>
         {gap.isAffix ? rawValue || '··'
           : `${rawValue || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____')} ${status === 'correct' ? '✓' : '▾'}`}
+        {!gap.isAffix && status === 'correct' && <AnswerVictoryAnimation />}
       </button>
     );
     return gap.isAffix ? control : (
@@ -315,15 +338,37 @@ export const StudyCardTrainer = React.memo(({
   const renderSnippetWithGaps = snippet => snippet.split(/(\s+)/).map((part, index) => {
     const wordGaps = [...part.matchAll(/___GAP_(\d+)___/g)];
     const attached = wordGaps.some(match => gaps.find(gap => gap.id === Number(match[1]))?.isAffix);
-    return attached
-      ? <span key={index} className="exercise-part-feedback trainer-word-feedback">
-          <span className="trainer-word">{renderSnippetPart(part)}</span>
-          {wordGaps.map(match => {
-            const gap = gaps.find(item => item.id === Number(match[1]));
-            return gap && <React.Fragment key={gap.id}>{renderHint(gap)}</React.Fragment>;
-          })}
+    if (!attached) {
+      return <React.Fragment key={index}>{renderSnippetPart(part)}</React.Fragment>;
+    }
+
+    const leadingMatch = part.match(/^[^\p{L}\p{M}\w]+/u);
+    const leadingPunct = leadingMatch ? leadingMatch[0] : '';
+    const withoutLeading = leadingPunct ? part.slice(leadingPunct.length) : part;
+
+    const trailingMatch = withoutLeading.match(/[^\p{L}\p{M}\w]+$/u);
+    const trailingPunct = trailingMatch ? trailingMatch[0] : '';
+    const wordOnly = trailingPunct ? withoutLeading.slice(0, withoutLeading.length - trailingPunct.length) : withoutLeading;
+
+    const areWordGapsCorrect = wordGaps.length > 0 && wordGaps.every(match => {
+      const gap = gaps.find(item => item.id === Number(match[1]));
+      return gap && evaluation.part(gap.id)?.status === 'correct';
+    });
+
+    return (
+      <span key={index} className="exercise-part-feedback trainer-word-feedback">
+        {leadingPunct}
+        <span className={`trainer-word ${areWordGapsCorrect ? 'is-correct-word' : ''}`}>
+          {renderSnippetPart(wordOnly)}
+          {areWordGapsCorrect && <AnswerVictoryAnimation compact />}
         </span>
-      : <React.Fragment key={index}>{renderSnippetPart(part)}</React.Fragment>;
+        {trailingPunct}
+        {wordGaps.map(match => {
+          const gap = gaps.find(item => item.id === Number(match[1]));
+          return gap && <React.Fragment key={gap.id}>{renderHint(gap)}</React.Fragment>;
+        })}
+      </span>
+    );
   });
 
   // Render the full text with optional line-by-line / paragraph-by-paragraph translation
@@ -354,7 +399,7 @@ export const StudyCardTrainer = React.memo(({
 
           return (
             <div key={`line-${idx}`} style={{ width: '100%', marginBottom: 0 }}>
-              <div style={{ lineHeight: 1.35 }}>
+              <div style={{ lineHeight: 1.75 }}>
                 {renderSnippetWithGaps(line)}
               </div>
               {showTranslation && translationForLine && (
@@ -425,7 +470,8 @@ export const StudyCardTrainer = React.memo(({
           ...cardStyle,
           margin: '4px 0 16px 0',
           cursor: 'default',
-          width: '100%'
+          width: '100%',
+          paddingTop: '20px'
         }}
         onClick={e => e.stopPropagation()}
       >
