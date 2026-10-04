@@ -13,8 +13,53 @@ import { createFreeTextEvaluationSession } from '../../utils/freeTextEvaluationS
 import { createExerciseEvaluationSession } from '../../utils/exerciseEvaluation.js';
 import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
 import { checkWordBankAssignments } from '../../utils/wordBankState.js';
+import { evaluateMatchPair } from '../../utils/matchEvaluation.js';
+import { evaluateQuizOption } from '../../utils/quizEvaluation.js';
 
 describe('KnowledgeCaptureService - KI-04', () => {
+  test('KI-08.2 Match and Quiz first try and retry evidence use the existing Dexie outbox', async () => {
+    const db = getLocalDb('123');
+    const pairs = [{ id: 0, left: 'A', right: 'one' }, { id: 1, left: 'B', right: 'two' }];
+    const options = [{ id: 0, isCorrect: false }, { id: 1, isCorrect: true }];
+    let cardId = 100;
+    for (const type of ['match', 'quiz']) {
+      for (const retry of [false, true]) {
+        cardId += 1;
+        await db.card_knowledge_items.add({ card_id: cardId, knowledge_item_id: 101, role: 'primary' });
+        const session = createExerciseEvaluationSession();
+        if (type === 'match') {
+          if (retry) {
+            const wrong = evaluateMatchPair(pairs, {}, 0, 1);
+            session.check(wrong.result, wrong);
+          }
+          const first = evaluateMatchPair(pairs, {}, 0, 0);
+          session.check(first.result, first);
+          assert.equal(session.evidence(), null);
+          const last = evaluateMatchPair(pairs, { 0: 0 }, 1, 1);
+          session.check(last.result, last);
+        } else {
+          if (retry) session.check(evaluateQuizOption(options, 0));
+          session.check(evaluateQuizOption(options, 1));
+        }
+        await captureStudyKnowledgeAttempt({ userId: '123',
+          card: { id: cardId, front: type === 'match' ? '@match\nA => one\nB => two' : 'Choose\n\n- Wrong\n* Right' },
+          grade: 2, isExtended: false, exerciseEvidence: session.evidence() });
+        const attempt = (await dbService.getPendingKnowledgeAttempts('123')).find(item => item.card_id === cardId);
+        assert.equal(attempt.evaluation_data.card_type, type);
+        assert.equal(attempt.evaluation_data.evaluation_type, 'hybrid');
+        assert.equal(attempt.evaluation_data.schema_version, 2);
+        const evidence = attempt.evaluation_data.exercise_evidence;
+        assert.equal(evidence.completed, true);
+        assert.equal(evidence.first_try_correct, !retry);
+        assert.equal(evidence.attempt_count, retry ? 2 : 1);
+        assert.equal(evidence.mistake_count, retry ? 1 : 0);
+        assert.deepEqual(evidence.grading_summary, session.evidence().gradingSummary);
+        if (type === 'match') assert.equal(evidence.grading_summary.interaction_count, retry ? 3 : 2);
+      }
+    }
+    assert.equal((await dbService.getPendingKnowledgeAttempts('123')).length, 4);
+  });
+
   test('KI-08 cumulative Trainer and Word Bank summaries reach the existing durable outbox', async () => {
     const db = getLocalDb('123');
     for (const type of ['trainer', 'word_bank']) {

@@ -13,8 +13,8 @@ export function useExerciseEvaluation(initial) {
       session.edit(id);
       setState(session.snapshot());
     },
-    check(result) {
-      const next = session.check(result);
+    check(result, options) {
+      const next = session.check(result, options);
       if (!next) return null;
       setState(next);
       return { state: next, evidence: session.evidence() };

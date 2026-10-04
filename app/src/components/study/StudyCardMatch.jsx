@@ -2,9 +2,10 @@ import { tr } from '../../i18n/locale.js';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, RotateCcw, Link2 } from 'lucide-react';
+import { Link2 } from 'lucide-react';
 import { getCardStyle, getContextStyle } from '../../utils/cardStyles.js';
-import { normalizeMatchValue } from '../../utils/matchParser.js';
+import { evaluateMatchPair, matchPartId } from '../../utils/matchEvaluation.js';
+import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 
@@ -33,141 +34,63 @@ export const StudyCardMatch = React.memo(({
   const [selectedLeft, setSelectedLeft] = useState(savedState?.selectedLeft ?? null); // pairId
   const [selectedRight, setSelectedRight] = useState(savedState?.selectedRight ?? null); // originalPairId
   const [userMatches, setUserMatches] = useState(savedState?.userMatches || {}); // { [leftPairId]: rightOriginalPairId }
-  const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
-  
-  const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
-  const [attemptCount, setAttemptCount] = useState(savedState?.attemptCount ?? 0);
-  const [mistakeCount, setMistakeCount] = useState(savedState?.mistakeCount ?? 0);
-
+  const [wrongRightId, setWrongRightId] = useState(savedState?.wrongRightId ?? null);
+  const evaluation = useExerciseEvaluation(savedState?.evaluationState);
+  const isChecked = evaluation.state.completed;
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
-
   const pairs = useMemo(() => matchData?.pairs || [], [matchData?.pairs]);
-  const [shuffledRight, setShuffledRight] = useState(savedState?.shuffledRight || []);
+  const [shuffledRight] = useState(() => {
+    if (savedState?.shuffledRight?.length) return savedState.shuffledRight;
+    const cardSeed = Number(card?.id) || 1;
+    return pairs.map((pair, index) => {
+      const x = Math.sin(cardSeed + index * 7 + 1) * 10000;
+      return { originalPairId: pair.id, id: pair.id, text: pair.right, order: x - Math.floor(x) };
+    }).sort((a, b) => a.order - b.order);
+  });
 
-  // Sync state to parent for flip preservation
   useEffect(() => {
-    onSaveState?.({ selectedLeft, selectedRight, userMatches, isChecked, isFirstTry, shuffledRight, attemptCount, mistakeCount });
-  }, [selectedLeft, selectedRight, userMatches, isChecked, isFirstTry, shuffledRight, onSaveState, attemptCount, mistakeCount]);
-
-  // Reset and shuffle right options on card change when no saved state exists
-  useEffect(() => {
-    if (!savedState) {
-      queueMicrotask(() => {
-        setSelectedLeft(null);
-        setSelectedRight(null);
-        setUserMatches({});
-        setIsChecked(false);
-        setIsFirstTry(true);
-
-        const rights = pairs.map(p => ({ originalPairId: p.id, id: p.id, text: p.right }));
-        const cardSeed = card?.id || 1;
-        const prng = (seed) => {
-          const x = Math.sin(seed + 1) * 10000;
-          return x - Math.floor(x);
-        };
-        const shuffled = rights
-          .map((item, idx) => ({ ...item, r: prng(cardSeed + idx * 7) }))
-          .sort((a, b) => a.r - b.r)
-          .map(({ originalPairId, id, text }) => ({ originalPairId, id, text }));
-
-        setShuffledRight(shuffled);
-      });
-    }
-  }, [card?.id, pairs, savedState]);
+    onSaveState?.({ selectedLeft, selectedRight, userMatches, shuffledRight, wrongRightId, evaluationState: evaluation.state });
+  }, [selectedLeft, selectedRight, userMatches, shuffledRight, wrongRightId, evaluation.state, onSaveState]);
 
   if (!card || !matchData || pairs.length < 2) return null;
-
-  const totalPairs = pairs.length;
   const connectedCount = Object.keys(userMatches).length;
-  const allConnected = connectedCount === totalPairs;
 
-  const isPairCorrect = (leftId, chosenRightOriginalId) => {
-    const leftPair = pairs.find(p => p.id === leftId);
-    const chosenRightPair = pairs.find(p => p.id === chosenRightOriginalId);
-    if (!leftPair || !chosenRightPair) return false;
-    return normalizeMatchValue(leftPair.right) === normalizeMatchValue(chosenRightPair.right);
-  };
-
-  // Handle clicking left item
-  const handleLeftClick = (leftId) => {
-    if (isChecked) return;
-    triggerHaptic('light');
-
-    // If this left item already has a match, unmatch it
-    if (userMatches[leftId] !== undefined) {
-      const nextMatches = { ...userMatches };
-      delete nextMatches[leftId];
-      setUserMatches(nextMatches);
-      setSelectedLeft(null);
-      return;
-    }
-
-    // If right item is already selected, connect them
-    if (selectedRight !== null) {
-      setUserMatches(prev => ({ ...prev, [leftId]: selectedRight }));
-      setSelectedRight(null);
-      setSelectedLeft(null);
-      return;
-    }
-
-    // Otherwise toggle selection
-    setSelectedLeft(prev => (prev === leftId ? null : leftId));
-  };
-
-  // Handle clicking right item
-  const handleRightClick = (rightOriginalId) => {
-    if (isChecked) return;
-    triggerHaptic('light');
-
-    // If this right item is already matched to some left item, unmatch it
-    const existingLeftKey = Object.keys(userMatches).find(k => userMatches[k] === rightOriginalId);
-    if (existingLeftKey !== undefined) {
-      const nextMatches = { ...userMatches };
-      delete nextMatches[existingLeftKey];
-      setUserMatches(nextMatches);
-      setSelectedRight(null);
-      return;
-    }
-
-    // If left item is already selected, connect them
-    if (selectedLeft !== null) {
-      setUserMatches(prev => ({ ...prev, [selectedLeft]: rightOriginalId }));
-      setSelectedLeft(null);
-      setSelectedRight(null);
-      return;
-    }
-
-    // Otherwise toggle selection
-    setSelectedRight(prev => (prev === rightOriginalId ? null : rightOriginalId));
-  };
-
-  const handleReset = () => {
-    if (isChecked) return;
-    setUserMatches({});
+  const handlePair = (leftId, rightId) => {
+    if (evaluation.isLocked(matchPartId(leftId))) return;
+    const attempt = evaluateMatchPair(pairs, userMatches, leftId, rightId);
+    if (!attempt) return;
+    const submission = evaluation.check(attempt.result, attempt);
+    if (!submission) return;
     setSelectedLeft(null);
     setSelectedRight(null);
-    triggerHaptic('medium');
+    if (attempt.interactionCorrect) {
+      setUserMatches(previous => ({ ...previous, [leftId]: rightId }));
+      setWrongRightId(null);
+      triggerHaptic('success');
+      if (submission.evidence) {
+        playSuccessSound();
+        onTrainerAnswer?.(card.id, submission.evidence);
+      }
+    } else {
+      setWrongRightId(rightId);
+      playErrorSound();
+      triggerHaptic('error');
+    }
   };
 
-  const handleCheck = () => {
-    if (!allConnected) return;
-    setIsChecked(true);
-    setAttemptCount(prev => prev + 1);
+  const handleLeftClick = leftId => {
+    if (evaluation.isLocked(matchPartId(leftId))) return;
+    triggerHaptic('light');
+    if (selectedRight !== null) handlePair(leftId, selectedRight);
+    else setSelectedLeft(previous => previous === leftId ? null : leftId);
+  };
 
-    const allCorrect = pairs.every(p => isPairCorrect(p.id, userMatches[p.id]));
-
-    if (allCorrect) {
-      playSuccessSound();
-      triggerHaptic('success');
-      onTrainerAnswer?.(card.id, { isCorrect: true, isFirstTry, attemptCount: attemptCount + 1, mistakeCount });
-    } else {
-      playErrorSound();
-      setIsFirstTry(false);
-      triggerHaptic('error');
-      setMistakeCount(prev => prev + 1);
-      onTrainerAnswer?.(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCount + 1, mistakeCount: mistakeCount + 1 });
-    }
+  const handleRightClick = rightId => {
+    if (isChecked || Object.values(userMatches).includes(rightId)) return;
+    triggerHaptic('light');
+    if (selectedLeft !== null) handlePair(selectedLeft, rightId);
+    else setSelectedRight(previous => previous === rightId ? null : rightId);
   };
 
   // Mapping from leftId -> index for colors
@@ -229,14 +152,15 @@ export const StudyCardMatch = React.memo(({
             const matchedRightId = userMatches[p.id];
             const isMatched = matchedRightId !== undefined;
             const pairColor = isMatched ? getPairColor(p.id) : null;
-            const isCorrect = isChecked && isMatched && isPairCorrect(p.id, matchedRightId);
-            const isWrong = isChecked && isMatched && !isPairCorrect(p.id, matchedRightId);
+            const isCorrect = isMatched;
+            const feedback = evaluation.part(matchPartId(p.id));
+            const isWrong = feedback?.status === 'incorrect';
 
             let border = '1.5px solid rgba(255, 255, 255, 0.12)';
             let bg = 'rgba(255, 255, 255, 0.05)';
             let textColor = '#f1f5f9';
 
-            if (isChecked) {
+            if (isCorrect || isWrong) {
               if (isCorrect) {
                 border = '2px solid #22c55e';
                 bg = 'rgba(34, 197, 94, 0.22)';
@@ -250,19 +174,19 @@ export const StudyCardMatch = React.memo(({
               border = '2px solid #a855f7';
               bg = 'rgba(168, 85, 247, 0.35)';
               textColor = '#ffffff';
-            } else if (isMatched) {
-              border = `2px solid ${pairColor.border}`;
-              bg = pairColor.bg;
-              textColor = '#ffffff';
             }
 
             return (
               <motion.button
                 key={`left-${p.id}`}
                 type="button"
-                whileTap={!isChecked ? { scale: 0.97 } : undefined}
-                disabled={isChecked}
+                whileTap={!isChecked && !isMatched ? { scale: 0.97 } : undefined}
+                disabled={isChecked || isMatched}
                 onClick={() => handleLeftClick(p.id)}
+                aria-pressed={isSelected}
+                aria-invalid={isWrong}
+                aria-describedby={feedback?.hint ? `match-hint-${p.id}` : undefined}
+                data-part-id={matchPartId(p.id)}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -277,7 +201,7 @@ export const StudyCardMatch = React.memo(({
                   fontSize: '0.86rem',
                   fontWeight: 600,
                   textAlign: 'left',
-                  cursor: isChecked ? 'default' : 'pointer',
+                  cursor: isChecked || isMatched ? 'default' : 'pointer',
                   position: 'relative',
                   transition: 'all 0.15s ease',
                   ...cardStyle
@@ -292,7 +216,7 @@ export const StudyCardMatch = React.memo(({
                       width: '18px',
                       height: '18px',
                       borderRadius: '50%',
-                      background: isChecked ? (isCorrect ? '#22c55e' : '#ef4444') : pairColor.border,
+                      background: pairColor.border,
                       color: '#000',
                       fontSize: '0.68rem',
                       fontWeight: 800,
@@ -303,6 +227,7 @@ export const StudyCardMatch = React.memo(({
                   )}
                   <span style={{ flex: 1, wordBreak: 'break-word' }}>{p.left}</span>
                 </div>
+                {feedback?.hint && <span id={`match-hint-${p.id}`} className="exercise-part-hint" role="status">{tr(feedback.hint)}</span>}
               </motion.button>
             );
           })}
@@ -317,14 +242,14 @@ export const StudyCardMatch = React.memo(({
             const isMatched = matchedLeftKey !== undefined;
             const leftIdNum = isMatched ? parseInt(matchedLeftKey, 10) : null;
             const pairColor = isMatched ? getPairColor(leftIdNum) : null;
-            const isCorrect = isChecked && isMatched && isPairCorrect(leftIdNum, r.originalPairId);
-            const isWrong = isChecked && isMatched && !isPairCorrect(leftIdNum, r.originalPairId);
+            const isCorrect = isMatched;
+            const isWrong = wrongRightId === r.originalPairId;
 
             let border = '1.5px solid rgba(255, 255, 255, 0.12)';
             let bg = 'rgba(255, 255, 255, 0.05)';
             let textColor = '#f1f5f9';
 
-            if (isChecked) {
+            if (isCorrect || isWrong) {
               if (isCorrect) {
                 border = '2px solid #22c55e';
                 bg = 'rgba(34, 197, 94, 0.22)';
@@ -338,19 +263,17 @@ export const StudyCardMatch = React.memo(({
               border = '2px solid #a855f7';
               bg = 'rgba(168, 85, 247, 0.35)';
               textColor = '#ffffff';
-            } else if (isMatched) {
-              border = `2px solid ${pairColor.border}`;
-              bg = pairColor.bg;
-              textColor = '#ffffff';
             }
 
             return (
               <motion.button
                 key={`right-${r.originalPairId}-${i}`}
                 type="button"
-                whileTap={!isChecked ? { scale: 0.97 } : undefined}
-                disabled={isChecked}
+                whileTap={!isChecked && !isMatched ? { scale: 0.97 } : undefined}
+                disabled={isChecked || isMatched}
                 onClick={() => handleRightClick(r.originalPairId)}
+                aria-pressed={isSelected}
+                aria-invalid={isWrong}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -365,7 +288,7 @@ export const StudyCardMatch = React.memo(({
                   fontSize: '0.86rem',
                   fontWeight: 600,
                   textAlign: 'left',
-                  cursor: isChecked ? 'default' : 'pointer',
+                  cursor: isChecked || isMatched ? 'default' : 'pointer',
                   position: 'relative',
                   transition: 'all 0.15s ease',
                   ...contextStyle
@@ -380,7 +303,7 @@ export const StudyCardMatch = React.memo(({
                       width: '18px',
                       height: '18px',
                       borderRadius: '50%',
-                      background: isChecked ? (isCorrect ? '#22c55e' : '#ef4444') : pairColor.border,
+                      background: pairColor.border,
                       color: '#000',
                       fontSize: '0.68rem',
                       fontWeight: 800,
@@ -397,99 +320,14 @@ export const StudyCardMatch = React.memo(({
         </div>
       </div>
 
-      {/* When checked with errors, show correct matches list */}
-      {isChecked && pairs.some(p => !isPairCorrect(p.id, userMatches[p.id])) && (
-        <div style={{
-          width: '100%',
-          padding: '14px 16px',
-          borderRadius: '14px',
-          background: 'rgba(239, 68, 68, 0.15)',
-          border: '1.5px solid rgba(239, 68, 68, 0.35)',
-          marginBottom: '16px',
-          fontSize: '1.02rem',
-          color: '#fca5a5',
-          lineHeight: 1.55
-        }}>
-          <div style={{ fontWeight: 700, fontSize: '1.08rem', marginBottom: '8px', color: '#ffb4b4' }}>{tr("Правильные соответствия:")}</div>
-          {pairs.map(p => (
-            <div key={`corr-${p.id}`} style={{ margin: '6px 0', fontSize: '1rem', lineHeight: 1.5 }}>
-              <span style={{ color: '#ffffff', fontWeight: 600 }}>{p.left}</span>
-              {' '}→{' '}
-              <span style={{ color: '#4ade80', fontWeight: 700 }}>{p.right}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Action Footer */}
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-        {!isChecked ? (
-          <div style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '340px' }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{
-                flex: 1,
-                padding: '12px 18px',
-                fontWeight: 700,
-                borderRadius: '16px',
-                fontSize: '0.96rem',
-                cursor: allConnected ? 'pointer' : 'not-allowed',
-                background: allConnected
-                  ? 'linear-gradient(135deg, #a855f7, #7c3aed)'
-                  : 'rgba(25, 20, 42, 0.85)',
-                color: allConnected ? '#ffffff' : '#94a3b8',
-                border: allConnected ? 'none' : '1px solid rgba(168, 85, 247, 0.3)',
-                transition: 'all 0.2s ease'
-              }}
-              disabled={!allConnected}
-              onClick={handleCheck}
-            >
-              {allConnected ? tr("Проверить ответы") : tr("Соедините пары ({{p0}}/{{p1}})", { p0: connectedCount, p1: totalPairs })}
-            </button>
-            {connectedCount > 0 && (
-              <button
-                type="button"
-                onClick={handleReset}
-                title={tr("Сбросить")}
-                style={{
-                  padding: '12px',
-                  borderRadius: '16px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: '#fff',
-                  cursor: 'pointer'
-                }}
-              >
-                <RotateCcw size={18} />
-              </button>
-            )}
-          </div>
-        ) : isPureTrainerMode ? (
-          <button
-            className="btn btn-primary"
-            style={{
-              width: '100%',
-              maxWidth: '320px',
-              padding: '13px 24px',
-              fontWeight: 700,
-              borderRadius: '16px',
-              fontSize: '1.02rem',
-              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-              color: '#ffffff',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-            onClick={onNextCard}
-          >
-            {tr("Дальше →")}
-          </button>
-        ) : null}
+      <div className="match-progress" role="status">
+        {tr('Соедините пары ({{p0}}/{{p1}})', { p0: connectedCount, p1: pairs.length })}
       </div>
+      {isChecked && isPureTrainerMode && (
+        <button type="button" className="btn btn-primary" onClick={onNextCard}>
+          {tr('Дальше →')}
+        </button>
+      )}
     </div>
   );
 });
-
-
-
-

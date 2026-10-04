@@ -1,10 +1,12 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle2, XCircle, Check, Eye } from 'lucide-react';
+import { CheckCircle2, XCircle, Check } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
 import { getCardStyle, getHarmonizedOptionStyles } from '../../utils/cardStyles';
 import { stripMarkdown } from '../../utils/text';
+import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
+import { evaluateQuizOption, quizPartId } from '../../utils/quizEvaluation.js';
 
 export const StudyCardQuiz = ({
   card,
@@ -17,42 +19,27 @@ export const StudyCardQuiz = ({
 }) => {
   useInterfaceLocale();
   const [selectedOptionId, setSelectedOptionId] = useState(savedState?.selectedOptionId ?? null);
-  const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
-  const [isCorrect, setIsCorrect] = useState(savedState?.isCorrect ?? null);
-  
-  const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
-  const [attemptCount, setAttemptCount] = useState(savedState?.attemptCount ?? 0);
-  const [mistakeCount, setMistakeCount] = useState(savedState?.mistakeCount ?? 0);
+  const evaluation = useExerciseEvaluation(savedState?.evaluationState);
+  const isChecked = evaluation.state.completed;
+  const [optionOrder] = useState(() => savedState?.optionOrder || quizData.options.map(option => option.id));
+  const options = useMemo(() => optionOrder.map(id => quizData.options.find(option => option.id === id)).filter(Boolean), [optionOrder, quizData.options]);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(styles?.cardTextColor), [styles?.cardTextColor]);
 
-  // Sync state to parent for flip preservation
   useEffect(() => {
-    onSaveState?.({ selectedOptionId, isChecked, isCorrect, isFirstTry, attemptCount, mistakeCount });
-  }, [selectedOptionId, isChecked, isCorrect, isFirstTry, onSaveState, attemptCount, mistakeCount]);
-
-  // Reset state on card change when no saved state exists
-  useEffect(() => {
-    if (!savedState) {
-      queueMicrotask(() => {
-        setSelectedOptionId(null);
-        setIsChecked(false);
-        setIsCorrect(null);
-        setIsFirstTry(true);
-      });
-    }
-  }, [card?.id, card?.front, card?.back, savedState]);
+    onSaveState?.({ selectedOptionId, optionOrder, evaluationState: evaluation.state });
+  }, [selectedOptionId, optionOrder, evaluation.state, onSaveState]);
 
   if (!card || !quizData) return null;
 
-  const { question, options } = quizData;
+  const { question } = quizData;
   const backText = stripMarkdown(card?.back || '').trim().toLowerCase();
   const displayQuestion = (question && question.trim().toLowerCase() === backText) ? null : question;
 
   const handleSelectOption = (optionId, e) => {
     e.stopPropagation();
-    if (isChecked) return;
+    if (isChecked || evaluation.state.incorrectParts.includes(quizPartId(optionId))) return;
     setSelectedOptionId(optionId);
   };
 
@@ -60,25 +47,16 @@ export const StudyCardQuiz = ({
     e.stopPropagation();
     if (selectedOptionId === null || isChecked) return;
 
-    const chosenOption = options.find(o => o.id === selectedOptionId);
-    const correct = chosenOption ? chosenOption.isCorrect : false;
-
-    setIsChecked(true);
-    setIsCorrect(correct);
-    setAttemptCount(prev => prev + 1);
-
-    if (correct) {
+    const result = evaluateQuizOption(options, selectedOptionId);
+    if (!result) return;
+    const submission = evaluation.check(result);
+    if (!submission) return;
+    if (submission.evidence) {
       triggerHaptic('success');
-      if (onTrainerAnswer) {
-        onTrainerAnswer(card.id, { isCorrect: true, isFirstTry, attemptCount: attemptCount + 1, mistakeCount });
-      }
+      onTrainerAnswer?.(card.id, submission.evidence);
     } else {
       triggerHaptic('error');
-      setIsFirstTry(false);
-        setMistakeCount(prev => prev + 1);
-        if (onTrainerAnswer) {
-          onTrainerAnswer(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCount + 1, mistakeCount: mistakeCount + 1 });
-      }
+      setSelectedOptionId(null);
     }
   };
 
@@ -136,113 +114,106 @@ export const StudyCardQuiz = ({
       }}>
         {options.map((option, index) => {
           const isSelected = selectedOptionId === option.id;
+          const isWrong = evaluation.state.incorrectParts.includes(quizPartId(option.id));
+          const isConfirmed = evaluation.part(quizPartId(option.id))?.status === 'correct';
+          const disabled = isChecked || isWrong;
           let optionClass = 'quiz-option-item';
 
-          if (isChecked) {
-            if (option.isCorrect) {
-              optionClass += ' correct';
-            } else if (isSelected && !option.isCorrect) {
-              optionClass += ' wrong';
-            }
-          } else if (isSelected) {
-            optionClass += ' selected';
-          }
+          if (isConfirmed) optionClass += ' correct';
+          else if (isWrong) optionClass += ' wrong';
+          else if (isSelected) optionClass += ' selected';
 
           // Option background & border calculation
           let bg = harmonizedOptions.buttonBg;
           let borderColor = harmonizedOptions.buttonBorder;
-          let boxShadow = 'none';
-          let textColor = harmonizedOptions.textColor;
+          const boxShadow = 'none';
+          const textColor = harmonizedOptions.textColor;
 
-          if (isChecked) {
-            if (option.isCorrect) {
-              bg = 'rgba(34, 197, 94, 0.22)';
-              borderColor = '#4ade80';
-              boxShadow = '0 0 16px rgba(34, 197, 94, 0.28)';
-              textColor = '#86efac';
-            } else if (isSelected && !option.isCorrect) {
-              bg = 'rgba(239, 68, 68, 0.22)';
-              borderColor = '#f87171';
-              boxShadow = '0 0 16px rgba(239, 68, 68, 0.28)';
-              textColor = '#fca5a5';
-            } else {
-              textColor = 'rgba(241, 245, 249, 0.45)';
-            }
+          if (isConfirmed) {
+            bg = 'rgba(34, 197, 94, 0.22)';
+            borderColor = '#4ade80';
+          } else if (isWrong) {
+            bg = 'rgba(239, 68, 68, 0.22)';
+            borderColor = '#f87171';
           } else if (isSelected) {
             bg = 'rgba(99, 102, 241, 0.25)';
             borderColor = '#818cf8';
-            boxShadow = '0 0 16px rgba(99, 102, 241, 0.35)';
-            textColor = '#ffffff';
           }
 
           return (
-            <button
-              key={option.id}
-              type="button"
-              className={optionClass}
-              onClick={(e) => handleSelectOption(option.id, e)}
-              disabled={isChecked}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-                padding: '14px 16px',
-                borderRadius: '14px',
-                border: `1.5px solid ${borderColor}`,
-                background: bg,
-                color: textColor,
-                textAlign: 'left',
-                cursor: isChecked ? 'default' : 'pointer',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                width: '100%',
-                boxShadow,
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              {/* Option Letter Badge (A, B, C, D) */}
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: isChecked && option.isCorrect 
-                  ? '#22c55e' 
-                  : (isChecked && isSelected && !option.isCorrect 
-                      ? '#ef4444' 
-                      : (isSelected ? '#6366f1' : harmonizedOptions.badgeBg)),
-                border: isSelected || isChecked
-                  ? 'none'
-                  : `1px solid ${harmonizedOptions.badgeBorder}`,
-                color: isSelected || isChecked ? '#ffffff' : harmonizedOptions.badgeColor,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.95rem',
-                fontWeight: 700,
-                flexShrink: 0,
-                boxShadow: isSelected && !isChecked ? '0 2px 8px rgba(99, 102, 241, 0.5)' : 'none'
-              }}>
-                {isChecked && option.isCorrect ? (
-                  <CheckCircle2 size={20} />
-                ) : (isChecked && isSelected && !option.isCorrect ? (
-                  <XCircle size={20} />
-                ) : (
-                  getOptionLetter(index)
-                ))}
-              </div>
+            <div key={option.id} className="quiz-option-feedback">
+              <button
+                type="button"
+                className={optionClass}
+                onClick={(e) => handleSelectOption(option.id, e)}
+                disabled={disabled}
+                aria-pressed={isSelected}
+                aria-invalid={isWrong}
+                aria-describedby={isWrong ? `quiz-hint-${option.id}` : undefined}
+                data-part-id={quizPartId(option.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  border: `1.5px solid ${borderColor}`,
+                  background: bg,
+                  color: textColor,
+                  textAlign: 'left',
+                  cursor: disabled ? 'default' : 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  width: '100%',
+                  boxShadow,
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                {/* Option Letter Badge (A, B, C, D) */}
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: isConfirmed
+                    ? '#22c55e'
+                    : (isWrong
+                        ? '#ef4444'
+                        : (isSelected ? '#6366f1' : harmonizedOptions.badgeBg)),
+                  border: isSelected || isConfirmed || isWrong
+                    ? 'none'
+                    : `1px solid ${harmonizedOptions.badgeBorder}`,
+                  color: isSelected || isConfirmed || isWrong ? '#ffffff' : harmonizedOptions.badgeColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.95rem',
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  boxShadow: isSelected && !isChecked ? '0 2px 8px rgba(99, 102, 241, 0.5)' : 'none'
+                }}>
+                  {isConfirmed ? (
+                    <CheckCircle2 size={20} />
+                  ) : (isWrong ? (
+                    <XCircle size={20} />
+                  ) : (
+                    getOptionLetter(index)
+                  ))}
+                </div>
 
-              {/* Option Text */}
-              <span style={{
-                flex: 1,
-                wordBreak: 'break-word',
-                fontSize: '1.2rem',
-                lineHeight: 1.45,
-                fontWeight: isSelected ? 600 : 400,
-                color: textColor,
-                letterSpacing: '0.01em',
-              }}>
-                {formatPunctuation(option.text)}
-              </span>
-            </button>
+                {/* Option Text */}
+                <span style={{
+                  flex: 1,
+                  wordBreak: 'break-word',
+                  fontSize: '1.2rem',
+                  lineHeight: 1.45,
+                  fontWeight: isSelected ? 600 : 400,
+                  color: textColor,
+                  letterSpacing: '0.01em',
+                }}>
+                  {formatPunctuation(option.text)}
+                </span>
+              </button>
+              {isWrong && <span id={`quiz-hint-${option.id}`} className="exercise-part-hint" role="status">{tr('Попробуй другой вариант.')}</span>}
+            </div>
           );
         })}
       </div>
@@ -262,8 +233,8 @@ export const StudyCardQuiz = ({
               ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
               : 'rgba(255, 255, 255, 0.07)',
             color: selectedOptionId !== null ? '#ffffff' : 'rgba(255, 255, 255, 0.4)',
-            border: selectedOptionId !== null 
-              ? '1px solid rgba(255, 255, 255, 0.25)' 
+            border: selectedOptionId !== null
+              ? '1px solid rgba(255, 255, 255, 0.25)'
               : '1px solid rgba(255, 255, 255, 0.12)',
             fontSize: '1.05rem',
             fontWeight: 600,
@@ -273,8 +244,8 @@ export const StudyCardQuiz = ({
             gap: '8px',
             cursor: selectedOptionId !== null ? 'pointer' : 'not-allowed',
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: selectedOptionId !== null 
-              ? '0 4px 18px rgba(99, 102, 241, 0.45)' 
+            boxShadow: selectedOptionId !== null
+              ? '0 4px 18px rgba(99, 102, 241, 0.45)'
               : 'none'
           }}
         >
@@ -286,22 +257,17 @@ export const StudyCardQuiz = ({
         <div style={{
           padding: '12px 16px',
           borderRadius: '10px',
-          background: isCorrect ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)',
-          border: `1.5px solid ${isCorrect ? '#22c55e' : '#ef4444'}`,
-          color: isCorrect ? '#4ade80' : '#fca5a5',
+          background: 'rgba(34, 197, 94, 0.18)',
+          border: '1.5px solid #22c55e',
+          color: '#4ade80',
           fontSize: '0.92rem',
           fontWeight: 600,
           textAlign: 'center',
           marginTop: '6px'
         }}>
-          {isCorrect ? tr("✅ Правильно!") : tr("❌ Неправильно! Смотри разбор на обороте.")}
+          {tr("✅ Правильно!")}
         </div>
       )}
     </div>
   );
 };
-
-
-
-
-

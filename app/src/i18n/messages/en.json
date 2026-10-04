@@ -1635,5 +1635,7 @@
   "Проверь этот пропуск и выбери другой вариант.": "Check this gap and choose another option.",
   "Проверь этот вариант.": "Check this choice.",
   "Проверь введённую форму в этом месте.": "Check the form entered here.",
-  "Проверь окончание.": "Check the ending."
+  "Проверь окончание.": "Check the ending.",
+  "Эти элементы не образуют правильную пару.": "These items do not form a correct pair.",
+  "Попробуй другой вариант.": "Try another option."
 }

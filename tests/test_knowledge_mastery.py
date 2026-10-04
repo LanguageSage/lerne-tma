@@ -37,6 +37,24 @@ def hybrid(count, rating):
 
 
 class TestMasteryScorer(unittest.TestCase):
+    def test_match_and_quiz_feedback_does_not_change_mastery_scores(self):
+        for card_type, code, part in [('match', 'exercise.wrong_match', 'match:left-2'),
+                                      ('quiz', 'exercise.wrong_choice', 'option-2')]:
+            for count in (1, 2):
+                with self.subTest(card_type=card_type, count=count):
+                    plain = hybrid(count, 'good')
+                    detailed = hybrid(count, 'good')
+                    detailed['card_type'] = card_type
+                    detailed['exercise_evidence']['mistake_count'] = count - 1
+                    detailed['exercise_evidence']['grading_summary'] = {
+                        'final_verdict': 'correct', 'final_evaluator': 'rules',
+                        'error_codes_seen': [code] if count > 1 else [],
+                        'incorrect_parts': [part] if count > 1 else [],
+                        'interaction_count': count + 2,
+                    }
+                    self.assertIsNotNone(score_knowledge_attempt(detailed))
+                    self.assertEqual(score_knowledge_attempt(plain), score_knowledge_attempt(detailed))
+
     def test_part_feedback_summary_is_additive_for_mastery_v1(self):
         plain = hybrid(2, 'good')
         with_parts = hybrid(2, 'good')

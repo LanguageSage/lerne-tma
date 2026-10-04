@@ -132,6 +132,7 @@ export const ExerciseRenderer = React.memo(({
       if (!matchData) return fallback;
       return withInformation(
         <StudyCardMatch
+          key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           matchData={matchData}
           onFlip={onFlip}
@@ -168,6 +169,7 @@ export const ExerciseRenderer = React.memo(({
       if (!quizData) return fallback;
       return withInformation(
         <StudyCardQuiz
+          key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           quizData={quizData}
           isFlipped={isFlipped}
