@@ -1,4 +1,4 @@
-import { tr } from '../i18n/locale';
+import { tr } from '../i18n/locale.js';
 
 const storage = {
   get: (key) => { try { return localStorage.getItem(key); } catch { return null; } },

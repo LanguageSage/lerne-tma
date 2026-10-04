@@ -28,8 +28,10 @@ export const StudyCardPuzzle = React.memo(({
   const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
   const [isCorrect, setIsCorrect] = useState(savedState?.isCorrect ?? null);
   const [showTranslation, setShowTranslation] = useState(false);
-  const isFirstTryRef = useRef(savedState?.isFirstTry ?? true);
   const hasReportedWrongRef = useRef(savedState?.hasReportedWrong ?? false);
+  const isFirstTryRef = useRef(savedState?.isFirstTry ?? true);
+  const attemptCountRef = useRef(savedState?.attemptCount ?? 0);
+  const mistakeCountRef = useRef(savedState?.mistakeCount ?? 0);
 
   const cachedRectsRef = useRef([]);
 
@@ -127,6 +129,7 @@ export const StudyCardPuzzle = React.memo(({
   const handleCheck = () => {
     if (!allWordsPlaced || isChecked) return;
     setIsChecked(true);
+    attemptCountRef.current += 1;
 
     const userText = selectedPuzzles.map(w => w.text.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").toLowerCase()).join(' ');
     const targetText = puzzleData.cleanWords.join(' ');
@@ -135,15 +138,16 @@ export const StudyCardPuzzle = React.memo(({
       setIsCorrect(true);
       playSuccessSound();
       triggerHaptic('success');
-      onTrainerAnswer?.(card.id, isFirstTryRef.current);
+      onTrainerAnswer?.(card.id, { isCorrect: true, isFirstTry: isFirstTryRef.current, attemptCount: attemptCountRef.current, mistakeCount: mistakeCountRef.current });
     } else {
       setIsCorrect(false);
       playErrorSound();
       triggerHaptic('error');
       if (!hasReportedWrongRef.current) {
         hasReportedWrongRef.current = true;
-        isFirstTryRef.current = false;
-        onTrainerAnswer?.(card.id, false);
+          isFirstTryRef.current = false;
+          mistakeCountRef.current += 1;
+          onTrainerAnswer?.(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCountRef.current, mistakeCount: mistakeCountRef.current });
       }
     }
   };
@@ -507,3 +511,9 @@ export const StudyCardPuzzle = React.memo(({
     </div>
   );
 });
+
+
+
+
+
+

@@ -90,7 +90,10 @@ export const StudyCardTrainer = React.memo(({
   const [dropdownPos, setDropdownPos] = useState({});
   const [showTranslation, setShowTranslation] = useState(savedState?.showTranslation || false);
   const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
+  
   const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
+  const [attemptCount, setAttemptCount] = useState(savedState?.attemptCount ?? 0);
+  const [mistakeCount, setMistakeCount] = useState(savedState?.mistakeCount ?? 0);
 
   const gapRefs = useRef({});
   const dropdownRef = useRef(null);
@@ -214,6 +217,7 @@ export const StudyCardTrainer = React.memo(({
     if (!allGapsFilled) return;
     setOpenDropdownGapId(null);
     setIsChecked(true);
+      setAttemptCount(prev => prev + 1);
 
     const allCorrect = gaps.every(g => {
       const userAns = normalizeAnswer(selectedOptions[g.id] || '');
@@ -224,12 +228,13 @@ export const StudyCardTrainer = React.memo(({
     if (allCorrect) {
       playSuccessSound();
       triggerHaptic('success');
-      onTrainerAnswer?.(card.id, isFirstTry);
+        onTrainerAnswer?.(card.id, { isCorrect: true, isFirstTry, attemptCount: attemptCount + 1, mistakeCount });
     } else {
       playErrorSound();
       setIsFirstTry(false);
       triggerHaptic('error');
-      onTrainerAnswer?.(card.id, false);
+        setMistakeCount(prev => prev + 1);
+        onTrainerAnswer?.(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCount + 1, mistakeCount: mistakeCount + 1 });
     }
   };
 
@@ -716,3 +721,6 @@ export const StudyCardTrainer = React.memo(({
     </div>
   );
 });
+
+
+

@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
 import { Capacitor } from '@capacitor/core';
-import { getUserId } from '../utils/auth';
+import { getUserId } from '../utils/auth.js';
 
 const databases = new Map();
 const preparations = new Map();
@@ -112,6 +112,13 @@ db.version(2).stores({
 db.version(3).stores({
   syncState: 'key',
   media: 'url',
+});
+
+db.version(4).stores({
+  knowledge_items: 'id, language, category',
+  card_knowledge_items: '[card_id+knowledge_item_id], card_id, knowledge_item_id, role',
+  knowledge_attempt_outbox: 'client_event_id, user_id, knowledge_item_id, sync_status, created_locally_at',
+  user_knowledge_state: '[user_id+knowledge_item_id], user_id, knowledge_item_id'
 });
 }
 

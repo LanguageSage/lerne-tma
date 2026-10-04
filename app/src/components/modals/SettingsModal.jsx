@@ -18,7 +18,9 @@ import { ProfileTab } from '../settings/ProfileTab';
 import { RemindersTab } from '../settings/RemindersTab';
 import { SrsTab } from '../settings/SrsTab';
 import { AutoplaySettingsTab } from '../settings/AutoplaySettingsTab';
+import { KnowledgeDiagnostics } from '../settings/KnowledgeDiagnostics';
 import { useSessionStore } from '../../store/useSessionStore';
+import { accessibleSettingsTab } from '../../utils/settingsNavigation';
 
 class TabErrorBoundary extends React.Component {
   state = { hasError: false, error: null };
@@ -63,9 +65,7 @@ export const SettingsModal = ({ userId }) => {
   const isAdmin = useSettingsStore(s => s.isAdmin);
 
   // Redirect non-admin away from admin-only tabs
-  const activeSettingsTab = (!isAdmin && (settingsTab === 'ai' || settingsTab === 'design'))
-    ? 'general'
-    : settingsTab;
+  const activeSettingsTab = accessibleSettingsTab(settingsTab, isAdmin);
 
   const [customBackgrounds] = useState([]);
   const handleTabChange = setSettingsTab;
@@ -85,7 +85,7 @@ export const SettingsModal = ({ userId }) => {
             initial={{ opacity: 0, y: 50 }} 
             animate={{ opacity: 1, y: 0 }} 
             exit={{ opacity: 0, y: 50 }} 
-            className="settings-modal wide-modal" 
+            className={`settings-modal wide-modal${activeSettingsTab === 'diagnostics' ? ' kd-modal' : ''}`}
             onClick={e => e.stopPropagation()}
           >
             <div className="settings-header">
@@ -115,6 +115,7 @@ export const SettingsModal = ({ userId }) => {
                 <option value="voice">🗣 {t('settings.tab_voice', 'Озвучка')}</option>
                 {isAdmin && <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>}
                 <option value="prompts">📝 {t('settings.tab_prompts', 'Промпты ИИ')}</option>
+                {isAdmin && <option value="diagnostics">🧪 Knowledge Diagnostics · Debug</option>}
               </select>
             </div>
 
@@ -135,6 +136,7 @@ export const SettingsModal = ({ userId }) => {
               {activeSettingsTab === 'voice' && <VoiceTab />}
               {activeSettingsTab === 'ai' && isAdmin && <AITab />}
               {activeSettingsTab === 'prompts' && <PromptsTab />}
+              {activeSettingsTab === 'diagnostics' && isAdmin && <KnowledgeDiagnostics />}
             </div>
           </motion.div>
         </div>

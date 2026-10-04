@@ -14,6 +14,68 @@ AUTH_FOUNDATION_MIGRATION_ID = 76
 AUTH_CHALLENGE_MIGRATION_ID = 77
 AUTH_PASSWORD_MIGRATION_ID = 78
 AUTH_SESSION_METHOD_MIGRATION_ID = 79
+KNOWLEDGE_MASTERY_MIGRATION_ID = 82
+KNOWLEDGE_MASTERY_LOCK_ID = 76120982
+
+
+def run_knowledge_mastery_migration(database):
+    """Additive, transactional upgrade of the derived state table."""
+    from peewee import PostgresqlDatabase
+
+    database = getattr(database, 'obj', database)
+    if not isinstance(database, (SqliteDatabase, PostgresqlDatabase)):
+        raise RuntimeError('Unsupported knowledge migration database')
+    options = {'lock_type': 'IMMEDIATE'} if isinstance(database, SqliteDatabase) else {}
+    with database.atomic(**options):
+        if isinstance(database, PostgresqlDatabase):
+            database.execute_sql("SET LOCAL lock_timeout = '5s'")
+            database.execute_sql("SET LOCAL statement_timeout = '60s'")
+            database.execute_sql(f'SELECT pg_advisory_xact_lock({KNOWLEDGE_MASTERY_LOCK_ID})')
+        database.execute_sql('''CREATE TABLE IF NOT EXISTS tma_migration_history (
+            migration_id INT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        marker = database.param
+        applied = database.execute_sql(
+            f'SELECT 1 FROM tma_migration_history WHERE migration_id = {marker}',
+            (KNOWLEDGE_MASTERY_MIGRATION_ID,)).fetchone()
+        columns = {column.name: column for column in database.get_columns('tma_user_knowledge_state')}
+        required = {
+            'positive_evidence': 'DOUBLE PRECISION NOT NULL DEFAULT 0',
+            'negative_evidence': 'DOUBLE PRECISION NOT NULL DEFAULT 0',
+            'evidence_mass': 'DOUBLE PRECISION NOT NULL DEFAULT 0',
+            'proficiency': 'DOUBLE PRECISION NOT NULL DEFAULT 0.5',
+            'confidence': 'DOUBLE PRECISION NOT NULL DEFAULT 0',
+            'evidence_event_count': 'INTEGER NOT NULL DEFAULT 0',
+            'objective_event_count': 'INTEGER NOT NULL DEFAULT 0',
+            'self_rating_event_count': 'INTEGER NOT NULL DEFAULT 0',
+            'last_evidence_at': 'TIMESTAMP NULL',
+        }
+        if applied:
+            if not required.keys() <= columns.keys():
+                raise RuntimeError('Knowledge migration history/schema mismatch')
+            return {'applied': False, 'migration_id': KNOWLEDGE_MASTERY_MIGRATION_ID}
+        for name, definition in required.items():
+            if name not in columns:
+                database.execute_sql(
+                    f'ALTER TABLE tma_user_knowledge_state ADD COLUMN {name} {definition}')
+        if isinstance(database, PostgresqlDatabase):
+            version_type = columns['calculation_version'].data_type.lower()
+            if version_type not in ('character varying', 'varchar', 'text'):
+                database.execute_sql('''ALTER TABLE tma_user_knowledge_state
+                    ALTER COLUMN calculation_version DROP DEFAULT''')
+                database.execute_sql('''ALTER TABLE tma_user_knowledge_state
+                    ALTER COLUMN calculation_version TYPE VARCHAR(32)
+                    USING ''::VARCHAR(32)''')
+                database.execute_sql("ALTER TABLE tma_user_knowledge_state "
+                                     "ALTER COLUMN calculation_version SET DEFAULT ''")
+        database.execute_sql("UPDATE tma_user_knowledge_state SET calculation_version = '' "
+                             "WHERE calculation_version IS NULL OR calculation_version <> 'mastery-v1'")
+        migrated_columns = {column.name for column in database.get_columns('tma_user_knowledge_state')}
+        if not required.keys() <= migrated_columns:
+            raise RuntimeError('Knowledge migration left required columns missing')
+        database.execute_sql(
+            f'INSERT INTO tma_migration_history (migration_id) VALUES ({marker})',
+            (KNOWLEDGE_MASTERY_MIGRATION_ID,))
+        return {'applied': True, 'migration_id': KNOWLEDGE_MASTERY_MIGRATION_ID}
 
 
 def run_auth_migrations(database):

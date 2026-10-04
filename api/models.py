@@ -15,16 +15,22 @@ def create_all_tables():
     global _tables_created
     if _tables_created:
         return
-    from api.migrations import run_migrations
+    from api.migrations import run_migrations, run_knowledge_mastery_migration
     try:
         run_migrations(tma_db, lerne_db)
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, TMAAuthCode,
             LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt,
-            TMA_Collaborator, TMAOfflineBatch
+            TMA_Collaborator, TMAOfflineBatch,
+            TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState
         ]
         tma_db.create_tables(models_to_create, safe=True)
+        run_knowledge_mastery_migration(tma_db)
+        try:
+            tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
+        except Exception as e:
+            logger.warning(f"DATABASE: Failed to create partial index: {e}")
         _tables_created = True
         logger.info("DATABASE: All tables created/verified.")
     except Exception as e:
@@ -128,6 +134,80 @@ class TMA_Collaborator(BaseModel):
         table_name = 'tma_collaborator'
         indexes = (
             (('target_type', 'target_id', 'user_id'), True),
+        )
+
+class TMAKnowledgeItem(BaseModel):
+    id = AutoField()
+    language = CharField(default='de', index=True)
+    category = CharField(null=True, index=True) # type/category/topic
+    name = CharField()
+    description = TextField(null=True)
+    rule_code = CharField(null=True)
+    cefr_level = CharField(null=True)
+    is_global = BooleanField(default=True)
+    author_id = BigIntegerField(null=True, index=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(null=True)
+
+    class Meta:
+        table_name = 'tma_knowledge_item'
+
+class TMACardKnowledgeItem(BaseModel):
+    id = AutoField()
+    card_id = IntegerField(index=True)
+    knowledge_item = ForeignKeyField(TMAKnowledgeItem, column_name='knowledge_item_id', backref='cards', on_delete='CASCADE')
+    role = CharField(default='primary', constraints=[Check("role IN ('primary', 'secondary')")])
+    complexity = IntegerField(default=3, constraints=[Check("complexity BETWEEN 1 AND 5")])
+    weight = FloatField(null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = 'tma_card_knowledge_item'
+        indexes = (
+            (('card_id', 'knowledge_item_id'), True),
+        )
+
+class TMAKnowledgeAttempt(BaseModel):
+    id = AutoField()
+    user_id = BigIntegerField(index=True)
+    card_id = IntegerField(null=True, index=True)
+    knowledge_item = ForeignKeyField(TMAKnowledgeItem, column_name='knowledge_item_id', backref='attempts', on_delete='CASCADE')
+    client_event_id = CharField(max_length=255)
+    event_time = DateTimeField(default=datetime.datetime.now)
+    evaluation_data = TextField(null=True)
+    review_id = IntegerField(null=True, index=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = 'tma_knowledge_attempt'
+        indexes = (
+            (('user_id', 'client_event_id'), True),
+        )
+
+class TMAUserKnowledgeState(BaseModel):
+    id = AutoField()
+    user_id = BigIntegerField(index=True)
+    knowledge_item = ForeignKeyField(TMAKnowledgeItem, column_name='knowledge_item_id', backref='user_states', on_delete='CASCADE')
+    attempts_count = IntegerField(default=0)
+    last_attempt_at = DateTimeField(null=True)
+    calculation_version = CharField(max_length=32, default='')
+    state_data = TextField(null=True)
+    positive_evidence = DoubleField(default=0)
+    negative_evidence = DoubleField(default=0)
+    evidence_mass = DoubleField(default=0)
+    proficiency = DoubleField(default=0.5)
+    confidence = DoubleField(default=0)
+    evidence_event_count = IntegerField(default=0)
+    objective_event_count = IntegerField(default=0)
+    self_rating_event_count = IntegerField(default=0)
+    last_evidence_at = DateTimeField(null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(null=True)
+
+    class Meta:
+        table_name = 'tma_user_knowledge_state'
+        indexes = (
+            (('user_id', 'knowledge_item_id'), True),
         )
 
 class TMAProgress(BaseModel):

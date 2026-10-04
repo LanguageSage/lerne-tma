@@ -38,7 +38,10 @@ export const StudyCardWordBank = React.memo(({
     return getFirstEmptyWordBankGapId(gaps, restored);
   });
   const [results, setResults] = useState(savedState?.results || {});
+  
   const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
+  const [attemptCount, setAttemptCount] = useState(savedState?.attemptCount ?? 0);
+  const [mistakeCount, setMistakeCount] = useState(savedState?.mistakeCount ?? 0);
   const [hasReportedWrong, setHasReportedWrong] = useState(savedState?.hasReportedWrong ?? false);
   const [isCompleted, setIsCompleted] = useState(savedState?.isCompleted ?? false);
 
@@ -54,15 +57,8 @@ export const StudyCardWordBank = React.memo(({
   const allFilled = gaps.length > 0 && gaps.every(gap => assignments[gap.id]);
 
   useEffect(() => {
-    onSaveState?.({
-      assignments,
-      activeGapId,
-      results,
-      isFirstTry,
-      hasReportedWrong,
-      isCompleted
-    });
-  }, [assignments, activeGapId, results, isFirstTry, hasReportedWrong, isCompleted, onSaveState]);
+    onSaveState?.({ assignments, activeGapId, results, isFirstTry, hasReportedWrong, isCompleted, attemptCount, mistakeCount });
+  }, [assignments, activeGapId, results, isFirstTry, hasReportedWrong, isCompleted, onSaveState, attemptCount, mistakeCount]);
 
   if (!card || !wordBankData) return null;
 
@@ -109,13 +105,14 @@ export const StudyCardWordBank = React.memo(({
 
     const checked = checkWordBankAssignments(gaps, options, assignments);
     setResults(checked.results);
+      setAttemptCount(prev => prev + 1);
 
     if (checked.allCorrect) {
       setIsCompleted(true);
       setActiveGapId(null);
       playSuccessSound();
       triggerHaptic('success');
-      onTrainerAnswer?.(card.id, isFirstTry);
+        onTrainerAnswer?.(card.id, { isCorrect: true, isFirstTry, attemptCount: attemptCount + 1, mistakeCount });
       return;
     }
 
@@ -125,8 +122,9 @@ export const StudyCardWordBank = React.memo(({
     triggerHaptic('error');
     if (!hasReportedWrong) {
       setHasReportedWrong(true);
-      setIsFirstTry(false);
-      onTrainerAnswer?.(card.id, false);
+        setIsFirstTry(false);
+        setMistakeCount(prev => prev + 1);
+        onTrainerAnswer?.(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCount + 1, mistakeCount: mistakeCount + 1 });
     }
   };
 
@@ -225,3 +223,6 @@ export const StudyCardWordBank = React.memo(({
     </div>
   );
 });
+
+
+

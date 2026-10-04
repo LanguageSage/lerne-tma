@@ -1,4 +1,6 @@
 import { tr } from '../i18n/locale';
+import { captureStudyKnowledgeAttempt } from '../services/knowledgeCaptureService.js';
+import { getUserId } from '../utils/auth.js';
 import { useRef, useCallback } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
@@ -108,7 +110,7 @@ export const useStudySession = () => {
     setLoading(false);
   }, [setLoading, prefetchMedia]);
 
-  const submitGrade = useCallback(async (grade, isExtended = false) => {
+  const submitGrade = useCallback(async (grade, isExtended = false, exerciseEvidence = null) => {
     const session = useSessionStore.getState();
     const { currentDeck } = useDeckStore.getState();
     
@@ -129,6 +131,15 @@ export const useStudySession = () => {
         is_extended: Boolean(isExtended),
         learn_more: session.isLearningMore
       });
+
+        captureStudyKnowledgeAttempt({
+            userId: getUserId(),
+            card: session.card,
+            grade,
+            isExtended: Boolean(isExtended),
+            eventTime: new Date().toISOString(),
+            exerciseEvidence
+        });
 
       if (res.data.finished) {
         session.setIsSessionFinished(true);
@@ -223,3 +234,5 @@ export const useStudySession = () => {
     prefetchMedia
   };
 };
+
+

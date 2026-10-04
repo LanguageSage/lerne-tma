@@ -139,17 +139,7 @@ export const DeckCardItem = React.memo(({
 
   const handleToggleLearning = async (e) => {
     e.stopPropagation();
-    try {
-      const nextStatus = !deck.is_learning;
-      await useDeckStore.getState().toggleDeckLearning(deck.id, nextStatus);
-      if (nextStatus) {
-        showToast(tr("🔥 Колода «{{p0}}» добавлена в изучаемые", { p0: deck.name }), 'success');
-      } else {
-        showToast(tr("Колода «{{p0}}» убрана из изучаемых", { p0: deck.name }), 'info');
-      }
-    } catch {
-      showToast(tr("Ошибка при смене статуса колоды"), 'error');
-    }
+    showToast(tr("Фича «Учить» находится в разработке"), 'info');
   };
 
 
@@ -334,9 +324,11 @@ export const DeckCardItem = React.memo(({
           {!deck.is_inbox && (
             <button
               type="button"
+              disabled
               className={`deck-learning-action-btn ${deck.is_learning ? 'active' : 'inactive'}`}
               onClick={handleToggleLearning}
-              title={deck.is_learning ? tr("Колода в активном изучении (бот напоминает). Нажмите, чтобы отключить") : tr("Нажмите, чтобы включить колоду в изучение")}
+              style={{ opacity: 0.55, cursor: 'not-allowed' }}
+              title={tr("Фича «Учить» находится в разработке")}
             >
               <span className={`learning-btn-icon ${deck.is_learning ? 'pulse' : ''}`}>
                 {deck.is_learning ? '🔥' : '🎯'}
