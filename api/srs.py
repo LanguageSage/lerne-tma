@@ -54,17 +54,33 @@ def _get_learning_8_states(progress):
     step_idx = progress.step_index if progress.step_index is not None else 0
     next_queue = 'learning' if progress.queue == 'new' else progress.queue
     hard_int = steps[1] if len(steps) > 1 else steps[0] * 2
+    mid_min = round((steps[0] + hard_int) / 2)
+    step_1 = mid_min if mid_min > steps[0] else steps[0] + 2
+    step_3 = max(hard_int + 5, round(hard_int * 2.5))
 
-    return [
+    states = [
         (next_queue, steps[0], 0, False),
-        (next_queue, round((steps[0] + hard_int) / 2), 0, False),
+        (next_queue, step_1, 0, False),
         (next_queue, hard_int, step_idx, False),
-        ('review', 1, None, True),
+        (next_queue, step_3, step_idx, False),
         ('review', GRADUATING_INTERVAL_GOOD, None, True),
         ('review', 2, None, True),
         ('review', GRADUATING_INTERVAL_EASY, None, True),
         ('review', max(4, round(GRADUATING_INTERVAL_EASY * 1.6)), None, True)
     ]
+
+    for i in range(1, len(states)):
+        curr_is_days = states[i][3]
+        prev_is_days = states[i-1][3]
+        if curr_is_days and prev_is_days:
+            curr_int = states[i][1]
+            prev_int = states[i-1][1]
+            if curr_int <= prev_int:
+                item = list(states[i])
+                item[1] = prev_int + 1
+                states[i] = tuple(item)
+
+    return states
 
 def _get_review_8_states(progress, now, apply_fuzz_flag=False):
     interval = progress.interval or 1
@@ -75,8 +91,8 @@ def _get_review_8_states(progress, now, apply_fuzz_flag=False):
 
     ef_again = max(MINIMUM_EASE_FACTOR, ef - (0.15 if days_since_due > 7 else 0.20))
     int_hard = 1 if interval <= 1 else max(interval, round(interval * HARD_MULTIPLIER))
-    int_good = max(int_hard + 1, math.ceil((interval + min(days_since_due / 2, interval * 0.5)) * ef))
-    int_easy = max(int_good + 1, math.ceil((interval + min(float(days_since_due), interval)) * ef * EASY_MULTIPLIER))
+    int_good = max(int_hard + 2, math.ceil((interval + min(days_since_due / 2, interval * 0.5)) * ef))
+    int_easy = max(int_good + 2, math.ceil((interval + min(float(days_since_due), interval)) * ef * EASY_MULTIPLIER))
 
     if apply_fuzz_flag:
         if int_hard >= 3: int_hard = apply_fuzz(int_hard)
@@ -84,18 +100,41 @@ def _get_review_8_states(progress, now, apply_fuzz_flag=False):
         if int_easy >= 3: int_easy = apply_fuzz(int_easy)
 
     def mid(low, high):
-        return max(low + 1, min(high - 1, round((low + high) / 2)))
+        m = round((low + high) / 2)
+        return max(low + 1, min(high - 1, m))
 
-    return [
+    mid_hard_good = mid(int_hard, int_good)
+    mid_good_easy = mid(int_good, int_easy)
+    int_max = max(int_easy + 2, round(int_easy * 1.45))
+
+    if int_hard <= 1:
+        state_1 = ('relearning', max(10, RELEARN_STEPS[0] * 2), 0, max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses + 1, False)
+    else:
+        state_1 = ('review', max(1, min(int_hard - 1, round(int_hard / 2))), None, max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses + 1, True)
+
+    states = [
         ('relearning', RELEARN_STEPS[0], 0, ef_again, lapses + 1, False),
-        ('review', max(1, round(int_hard / 2)), None, max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses + 1, True),
+        state_1,
         ('review', int_hard, None, max(MINIMUM_EASE_FACTOR, ef - 0.15), lapses, True),
-        ('review', mid(int_hard, int_good), None, max(MINIMUM_EASE_FACTOR, ef - 0.06), lapses, True),
+        ('review', mid_hard_good, None, max(MINIMUM_EASE_FACTOR, ef - 0.06), lapses, True),
         ('review', int_good, None, min(MAXIMUM_EASE_FACTOR, ef + (0.02 if ef < INITIAL_EASE_FACTOR else 0)), lapses, True),
-        ('review', mid(int_good, int_easy), None, min(MAXIMUM_EASE_FACTOR, ef + 0.08), lapses, True),
+        ('review', mid_good_easy, None, min(MAXIMUM_EASE_FACTOR, ef + 0.08), lapses, True),
         ('review', int_easy, None, min(MAXIMUM_EASE_FACTOR, ef + 0.15), lapses, True),
-        ('review', max(int_easy + 2, round(int_easy * 1.45)), None, min(MAXIMUM_EASE_FACTOR, ef + 0.22), lapses, True)
+        ('review', int_max, None, min(MAXIMUM_EASE_FACTOR, ef + 0.22), lapses, True)
     ]
+
+    for i in range(1, len(states)):
+        curr_is_days = states[i][5]
+        prev_is_days = states[i-1][5]
+        if curr_is_days and prev_is_days:
+            curr_int = states[i][1]
+            prev_int = states[i-1][1]
+            if curr_int <= prev_int:
+                item = list(states[i])
+                item[1] = prev_int + 1
+                states[i] = tuple(item)
+
+    return states
 
 
 def get_next_intervals(progress) -> dict:

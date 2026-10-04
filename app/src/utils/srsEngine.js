@@ -1,4 +1,4 @@
-import { tr } from '../i18n/locale';
+import { tr } from '../i18n/locale.js';
 /**
  * SRS SM-2 Spaced Repetition Engine for Lerne Offline Mode
  * Synchronized with backend logic in api/srs.py
@@ -73,17 +73,28 @@ export const getLearning8States = (progress) => {
   const stepIdx = progress.step_index || 0;
   const nextQueue = progress.queue === 'new' ? 'learning' : progress.queue;
   const hardInt = steps[1] || steps[0] * 2;
+  const midMin = Math.round((steps[0] + hardInt) / 2);
+  const step1 = midMin > steps[0] ? midMin : steps[0] + 2;
+  const step3 = Math.max(hardInt + 5, Math.round(hardInt * 2.5));
 
-  return [
+  const states = [
     { queue: nextQueue, interval: steps[0], stepIndex: 0, isDays: false },
-    { queue: nextQueue, interval: Math.round((steps[0] + hardInt) / 2), stepIndex: 0, isDays: false },
+    { queue: nextQueue, interval: step1, stepIndex: 0, isDays: false },
     { queue: nextQueue, interval: hardInt, stepIndex: stepIdx, isDays: false },
-    { queue: 'review', interval: 1, stepIndex: null, isDays: true },
+    { queue: nextQueue, interval: step3, stepIndex: stepIdx, isDays: false },
     { queue: 'review', interval: GRADUATING_INTERVAL_GOOD, stepIndex: null, isDays: true },
     { queue: 'review', interval: 2, stepIndex: null, isDays: true },
     { queue: 'review', interval: GRADUATING_INTERVAL_EASY, stepIndex: null, isDays: true },
     { queue: 'review', interval: Math.max(4, Math.round(GRADUATING_INTERVAL_EASY * 1.6)), stepIndex: null, isDays: true }
   ];
+
+  for (let i = 1; i < states.length; i++) {
+    if (states[i].isDays && states[i - 1].isDays && states[i].interval <= states[i - 1].interval) {
+      states[i].interval = states[i - 1].interval + 1;
+    }
+  }
+
+  return states;
 };
 
 export const getReview8States = (progress, applyFuzzFlag = false) => {
@@ -103,8 +114,8 @@ export const getReview8States = (progress, applyFuzzFlag = false) => {
   // 4 Core Anchor Calculations
   const efAgain = Math.max(MINIMUM_EASE_FACTOR, ef - (daysSinceDue > 7 ? 0.15 : 0.20));
   let intHard = interval <= 1 ? 1 : Math.max(interval, Math.round(interval * HARD_MULTIPLIER));
-  let intGood = Math.max(intHard + 1, Math.ceil((interval + Math.min(daysSinceDue / 2, interval * 0.5)) * ef));
-  let intEasy = Math.max(intGood + 1, Math.ceil((interval + Math.min(daysSinceDue, interval)) * ef * EASY_MULTIPLIER));
+  let intGood = Math.max(intHard + 2, Math.ceil((interval + Math.min(daysSinceDue / 2, interval * 0.5)) * ef));
+  let intEasy = Math.max(intGood + 2, Math.ceil((interval + Math.min(daysSinceDue, interval)) * ef * EASY_MULTIPLIER));
 
   if (applyFuzzFlag) {
     if (intHard >= 3) intHard = applyFuzz(intHard);
@@ -112,18 +123,37 @@ export const getReview8States = (progress, applyFuzzFlag = false) => {
     if (intEasy >= 3) intEasy = applyFuzz(intEasy);
   }
 
-  const intMid = (low, high) => Math.max(low + 1, Math.min(high - 1, Math.round((low + high) / 2)));
+  const intMid = (low, high) => {
+    const mid = Math.round((low + high) / 2);
+    return Math.max(low + 1, Math.min(high - 1, mid));
+  };
 
-  return [
+  const midHardGood = intMid(intHard, intGood);
+  const midGoodEasy = intMid(intGood, intEasy);
+  const intMax = Math.max(intEasy + 2, Math.round(intEasy * 1.45));
+
+  const state1 = intHard <= 1
+    ? { queue: 'relearning', interval: Math.max(10, RELEARN_STEPS[0] * 2), stepIndex: 0, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses: lapses + 1, isDays: false }
+    : { queue: 'review', interval: Math.max(1, Math.min(intHard - 1, Math.round(intHard / 2))), stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses: lapses + 1, isDays: true };
+
+  const states = [
     { queue: 'relearning', interval: RELEARN_STEPS[0], stepIndex: 0, easeFactor: efAgain, lapses: lapses + 1, isDays: false },
-    { queue: 'review', interval: Math.max(1, Math.round(intHard / 2)), stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses: lapses + 1, isDays: true },
+    state1,
     { queue: 'review', interval: intHard, stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.15), lapses, isDays: true },
-    { queue: 'review', interval: intMid(intHard, intGood), stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.06), lapses, isDays: true },
+    { queue: 'review', interval: midHardGood, stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.06), lapses, isDays: true },
     { queue: 'review', interval: intGood, stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + (ef < INITIAL_EASE_FACTOR ? 0.02 : 0)), lapses, isDays: true },
-    { queue: 'review', interval: intMid(intGood, intEasy), stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + 0.08), lapses, isDays: true },
+    { queue: 'review', interval: midGoodEasy, stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + 0.08), lapses, isDays: true },
     { queue: 'review', interval: intEasy, stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + 0.15), lapses, isDays: true },
-    { queue: 'review', interval: Math.max(intEasy + 2, Math.round(intEasy * 1.45)), stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + 0.22), lapses, isDays: true },
+    { queue: 'review', interval: intMax, stepIndex: null, easeFactor: Math.min(MAXIMUM_EASE_FACTOR, ef + 0.22), lapses, isDays: true },
   ];
+
+  for (let i = 1; i < states.length; i++) {
+    if (states[i].isDays && states[i - 1].isDays && states[i].interval <= states[i - 1].interval) {
+      states[i].interval = states[i - 1].interval + 1;
+    }
+  }
+
+  return states;
 };
 
 /**

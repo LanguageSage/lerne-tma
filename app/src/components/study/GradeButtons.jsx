@@ -50,7 +50,7 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
       { grade: 0, num: 1, fallback: tr("5м") },
       { grade: 1, num: 2, fallback: isNewCard ? tr("8м") : tr("1д") },
       { grade: 2, num: 3, fallback: isNewCard ? tr("10м") : tr("2д") },
-      { grade: 3, num: 4, fallback: isNewCard ? tr("1д") : tr("4д") },
+      { grade: 3, num: 4, fallback: isNewCard ? tr("25м") : tr("4д") },
       { grade: 4, num: 5, fallback: isNewCard ? tr("1д") : tr("8д") },
       { grade: 5, num: 6, fallback: isNewCard ? tr("2д") : tr("11д") },
       { grade: 6, num: 7, fallback: isNewCard ? tr("3д") : tr("13д") },
@@ -59,7 +59,7 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
 
     return wrapControls(
       <div className="grade-buttons grade-buttons-floating grade-buttons-extended">
-        {extGrades.map(({ grade, num, fallback }) => {
+        {extGrades.map(({ grade, fallback }) => {
           const val = dynIntervals?.[grade] || fallback;
           return (
             <button
@@ -67,9 +67,8 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
               disabled={loading}
               className={`btn-grade btn-grade-ext grade-ext-${grade}`}
               onClick={() => onGrade(grade, true)}
-              title={tr("Оценка {{p0}} ({{p1}})", { p0: num, p1: val })}
+              title={tr("Интервал: {{p0}}", { p0: val })}
             >
-              <span className="grade-label grade-num">{num}</span>
               <span className="grade-val">{val}</span>
             </button>
           );

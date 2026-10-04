@@ -37,7 +37,7 @@ export const SrsTab = () => {
         <div className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ paddingRight: '12px' }}>
             <span style={{ fontWeight: 600, display: 'block', fontSize: '0.9rem', color: '#f8fafc' }}>{tr("8 кнопок оценки (Расширенный выбор)")}{' '}</span>
-            <span style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'block', marginTop: '3px', lineHeight: 1.35 }}>{tr("Компактные кнопки 1–8 с динамически рассчитанными интервалами вместо 4 стандартных кнопок.")}{' '}</span>
+            <span style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'block', marginTop: '3px', lineHeight: 1.35 }}>{tr("Компактные кнопки с динамически рассчитанными интервалами вместо 4 стандартных кнопок.")}{' '}</span>
           </div>
           <label className="switch" style={{ flexShrink: 0 }}>
             <input
@@ -59,25 +59,24 @@ export const SrsTab = () => {
             </div>
             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
               {[
-                { n: '1', v: tr("5м"), bg: '#dc2626' },
-                { n: '2', v: tr("1д"), bg: '#ea580c' },
-                { n: '3', v: tr("2д"), bg: '#d97706' },
-                { n: '4', v: tr("4д"), bg: '#65a30d' },
-                { n: '5', v: tr("8д"), bg: '#059669' },
-                { n: '6', v: tr("11д"), bg: '#0891b2' },
-                { n: '7', v: tr("13д"), bg: '#2563eb' },
-                { n: '8', v: tr("20д"), bg: '#7c3aed' },
-              ].map((b) => (
+                { v: tr("5м"), bg: '#dc2626' },
+                { v: tr("8м"), bg: '#ea580c' },
+                { v: tr("10м"), bg: '#d97706' },
+                { v: tr("25м"), bg: '#65a30d' },
+                { v: tr("1д"), bg: '#059669' },
+                { v: tr("2д"), bg: '#0891b2' },
+                { v: tr("3д"), bg: '#2563eb' },
+                { v: tr("5д"), bg: '#7c3aed' },
+              ].map((b, idx) => (
                 <div
-                  key={b.n}
+                  key={idx}
                   style={{
                     flex: 1,
                     maxWidth: '42px',
-                    height: '38px',
+                    height: '34px',
                     background: b.bg,
                     borderRadius: '8px',
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#fff',
@@ -86,8 +85,7 @@ export const SrsTab = () => {
                     fontSize: '0.75rem'
                   }}
                 >
-                  <span style={{ fontSize: '0.8rem', lineHeight: 1 }}>{b.n}</span>
-                  <span style={{ fontSize: '0.62rem', opacity: 0.9 }}>{b.v}</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{b.v}</span>
                 </div>
               ))}
             </div>
