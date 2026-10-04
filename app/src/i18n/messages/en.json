@@ -1611,5 +1611,9 @@
   "Ответ / обратная сторона": "Answer / back",
   "Примеры и пояснения": "Examples and notes",
   "Дополнительно": "Advanced",
-  "Удалить пару": "Remove pair"
+  "Удалить пару": "Remove pair",
+  "Оценить ответ": "Rate your answer",
+  "Свернуть {{p0}}": "Collapse {{p0}}",
+  "Позиция воспроизведения": "Playback position",
+  "Развернуть {{p0}}": "Expand {{p0}}"
 }

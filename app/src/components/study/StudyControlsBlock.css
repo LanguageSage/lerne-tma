@@ -1,0 +1,96 @@
+.study-controls-block {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  color: var(--text-primary, #e2e8f0);
+  background: var(--bg-secondary, #0f172a);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: background-color 0.22s ease, border-color 0.22s ease;
+}
+
+.study-controls-restore {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.study-controls-block.is-collapsed {
+  background: rgba(15, 23, 42, 0.4);
+  border-color: rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+}
+.study-controls-block.is-collapsed .study-controls-restore { opacity: 0.65; pointer-events: auto; }
+.study-controls-block.is-collapsed:hover, .study-controls-block.is-collapsed:has(.study-controls-restore:focus-visible) { background: rgba(15, 23, 42, 0.85); }
+.study-controls-block.is-collapsed .study-controls-restore:hover, .study-controls-block.is-collapsed .study-controls-restore:focus-visible { opacity: 1; }
+.study-controls-block.is-collapsed .study-controls-expanded { pointer-events: none; }
+.study-controls-expanded { display: flex; gap: 4px; align-items: flex-start; padding: 4px; }
+.study-controls-content { flex: 1; min-width: 0; }
+
+.study-controls-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.study-controls-collapse:hover { background: rgba(128, 128, 128, 0.12); }
+.study-controls-restore:focus-visible, .study-controls-collapse:focus-visible { outline: 2px solid var(--accent-color, #a855f7); outline-offset: -2px; }
+
+.study-grading-controls {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 16px);
+  max-width: 440px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.study-grading-controls > * { pointer-events: auto; }
+
+.study-grading-controls .grade-buttons.grade-buttons-floating {
+  position: static !important;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  gap: 4px;
+  animation: none;
+}
+
+.study-grading-controls .btn-grade { min-width: 0; box-shadow: none; }
+.study-grading-controls .grade-label { font-size: 0.6rem; letter-spacing: 0; }
+.study-grading-controls .grade-buttons-extended { flex-wrap: wrap; }
+.study-grading-controls .grade-buttons.grade-buttons-extended .btn-grade-ext { flex: 1 0 calc(25% - 4px); max-width: none; min-width: 0; }
+
+@media (max-width: 350px) {
+  .study-grading-controls { width: calc(100% - 16px); }
+  .study-grading-controls .grade-label { font-size: 0.55rem; }
+}

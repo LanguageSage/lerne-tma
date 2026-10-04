@@ -2,10 +2,12 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Play, Pause, Square, Volume2, RefreshCw, Mic2, ChevronUp, ChevronDown, Settings } from 'lucide-react';
+import { Play, Pause, Square, Volume2, RefreshCw, Mic2, Settings } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { getAudioUrl } from '../../utils/media';
 import './CardAudioPlayer.css';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { StudyControlsBlock } from './StudyControlsBlock';
 
 
 const formatTime = (seconds) => {
@@ -47,7 +49,8 @@ export const CardAudioPlayer = React.memo(({
   wrapperStyle = {}
 }) => {
   useInterfaceLocale();
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const isCollapsed = useSettingsStore(s => s.playerCollapsed);
+  const setIsCollapsed = useSettingsStore(s => s.setPlayerCollapsed);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
 
@@ -87,7 +90,9 @@ export const CardAudioPlayer = React.memo(({
   const handlePlayPauseClick = (e) => {
     e.stopPropagation();
     if (disabled || isLoading) return;
-    if (togglePlayPause) {
+    if (!effectiveUrl) {
+      void generateAndPlay(false);
+    } else if (togglePlayPause) {
       togglePlayPause(effectiveUrl, undefined, handlePlaybackError);
     } else if (isPlaying) {
       pauseAudio?.();
@@ -155,42 +160,9 @@ export const CardAudioPlayer = React.memo(({
     openSettings('voice');
   };
 
-  // If card has no audio yet, allow generating audio on demand
-  if (!effectiveUrl) {
-    if (!voicePicker || !cardText || !cardId) return null;
-    return createPortal(
-      <div className={`card-audio-floating-wrapper ${wrapperClassName}`} style={wrapperStyle}>
-        <div
-          className={`card-audio-floating-pill glass ${className}`}
-          style={{ ...style, gap: '8px', padding: '6px 12px' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            className="pill-btn-play"
-            onClick={handleRegenerateAndSave}
-            disabled={disabled || isLoading}
-            style={{ width: 'auto', padding: '0 8px', borderRadius: '12px', gap: '4px', display: 'flex', alignItems: 'center' }}
-            title={tr("Сгенерировать и сохранить озвучку")}
-          >
-            {isLoading ? (
-              <RefreshCw size={14} className="spin" />
-            ) : (
-              <Volume2 size={14} />
-            )}
-            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{tr("Озвучить")}</span>
-          </button>
-          <button type="button" className="audio-player-btn-settings" onClick={handleOpenAudioSettings}>
-            <Settings size={13} />
-            <span>{tr("Настройки")}</span>
-          </button>
-        </div>
-      </div>,
-      document.body
-    );
-  }
+  if (!effectiveUrl && !canGenerate) return null;
 
-  const progressPercent = duration > 0
+  const progressPercent = isThisActive && duration > 0
     ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
     : 0;
 
@@ -198,83 +170,21 @@ export const CardAudioPlayer = React.memo(({
     ? voicePicker?.voices.find((v) => v.value === voicePicker?.selectedVoice)
     : { value: null, label: tr("Оригинал"), gender: 's' };
 
-  // ── COLLAPSED FLOATING PILL STATE ──────────────────────────────────────────
-  if (isCollapsed) {
-    return createPortal(
-      <div className={`card-audio-floating-wrapper ${wrapperClassName}`} style={wrapperStyle}>
-        <div
-          className={`card-audio-floating-pill glass ${isPlaying ? 'playing' : ''} ${className}`}
-          style={style}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Play/Pause Button */}
-          <button
-            type="button"
-            className="pill-btn-play"
-            onClick={handlePlayPauseClick}
-            disabled={disabled || isLoading}
-            title={isPlaying ? tr("Пауза") : tr("Воспроизвести")}
-          >
-            {isLoading ? (
-              <RefreshCw size={16} className="spin" />
-            ) : isPlaying ? (
-              <Pause size={16} />
-            ) : (
-              <Play size={16} style={{ marginLeft: '1px' }} />
-            )}
-          </button>
-
-          {/* Playback Speed indicator */}
-          <button
-            type="button"
-            className="pill-btn-speed"
-            onClick={(e) => {
-              e.stopPropagation();
-              const nextIdx = (SPEEDS.indexOf(playbackRate) + 1) % SPEEDS.length;
-              setPlaybackSpeed?.(SPEEDS[nextIdx]);
-            }}
-            title={tr("Скорость")}
-          >
-            {playbackRate}x
-          </button>
-
-          {/* Settings Button */}
-          <button
-            type="button"
-            className="audio-player-btn-settings compact"
-            onClick={handleOpenAudioSettings}
-            title={tr("Настройки аудио")}
-          >
-            <Settings size={13} />
-          </button>
-
-          {/* Expand Button */}
-          <button
-            type="button"
-            className="pill-btn-expand"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsCollapsed(false);
-            }}
-            title={tr("Раскрыть плеер")}
-          >
-            <ChevronUp size={16} />
-          </button>
-        </div>
-      </div>,
-      document.body
-    );
-  }
-
-
   // ── EXPANDED FULL PLAYER STATE ────────────────────────────────────────────
   return createPortal(
     <div className={`card-audio-floating-wrapper ${wrapperClassName}`} style={wrapperStyle}>
-      <div
-        className={`card-audio-player-bar floating-expanded glass ${isThisActive ? 'active' : ''} ${className}`}
+      <StudyControlsBlock
+        collapsed={isCollapsed}
+        onCollapsedChange={(value) => {
+          setIsCollapsed(value);
+          setShowSpeedMenu(false);
+          setShowVoiceMenu(false);
+        }}
+        label={tr('Аудио')}
+        className={className}
         style={style}
-        onClick={(e) => e.stopPropagation()}
       >
+      <div className={`card-audio-player-bar floating-expanded ${isThisActive ? 'active' : ''}`}>
         {/* Top Header Row with Voice Picker & Collapse toggle */}
         <div className="audio-player-header-row">
           <div className="audio-player-header-left">
@@ -361,19 +271,6 @@ export const CardAudioPlayer = React.memo(({
             </button>
           </div>
 
-          <button
-            type="button"
-            className="audio-player-btn-collapse"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsCollapsed(true);
-              setShowSpeedMenu(false);
-              setShowVoiceMenu(false);
-            }}
-            title={tr("Свернуть")}
-          >
-            <ChevronDown size={18} />
-          </button>
         </div>
 
         {/* Row 1: Playback Controls */}
@@ -384,7 +281,8 @@ export const CardAudioPlayer = React.memo(({
             className={`audio-player-btn-main ${isPlaying ? 'playing' : ''}`}
             onClick={handlePlayPauseClick}
             disabled={disabled || isLoading}
-            title={isPlaying ? tr("Пауза") : tr("Воспроизвести")}
+            title={!effectiveUrl ? tr("Сгенерировать и сохранить озвучку") : isPlaying ? tr("Пауза") : tr("Воспроизвести")}
+            aria-label={!effectiveUrl ? tr("Сгенерировать и сохранить озвучку") : isPlaying ? tr("Пауза") : tr("Воспроизвести")}
           >
             {isLoading ? (
               <RefreshCw size={20} className="spin" />
@@ -414,7 +312,9 @@ export const CardAudioPlayer = React.memo(({
               min={0}
               max={duration || 100}
               step={0.1}
-              value={currentTime || 0}
+              value={isThisActive ? currentTime || 0 : 0}
+              disabled={!isThisActive || !duration}
+              aria-label={tr("Позиция воспроизведения")}
               onChange={handleSeekChange}
               className="audio-player-slider"
               style={{
@@ -422,8 +322,8 @@ export const CardAudioPlayer = React.memo(({
               }}
             />
             <div className="audio-player-timestamps">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
+              <span>{formatTime(isThisActive ? currentTime : 0)}</span>
+              <span>{formatTime(isThisActive ? duration : 0)}</span>
             </div>
           </div>
 
@@ -458,6 +358,7 @@ export const CardAudioPlayer = React.memo(({
           </div>
         </div>
       </div>
+      </StudyControlsBlock>
     </div>,
     document.body
   );

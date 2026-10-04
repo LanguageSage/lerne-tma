@@ -1,7 +1,8 @@
 import { parseExerciseContent } from './exerciseContentParser.js';
 import { detectExerciseType } from './exerciseDetector.js';
+import { normalizeWordBankValue } from './wordBankParser.js';
 
-// Shared by the visual element picker and the raw insertion toolbar.
+// Templates for the advanced markup toolbar.
 export const editorCommands = [
   { id: 'task', label: 'Задание', template: '::task\n', info: true },
   { id: 'choice', label: 'Варианты ответа', template: '{*Berlin|Hamburg|München}' },
@@ -26,12 +27,13 @@ export function insertEditorLineAfter(raw, field, line) {
   return replaceEditorRange(raw, field.end, field.end, newline + line);
 }
 
-export function syncWordBankAnswer(back, oldOption, newOption) {
-  const normalize = value => value.trim().replace(/\s+/g, ' ').toLowerCase();
-  if (!oldOption.trim() || normalize(oldOption) === normalize(newOption)) return back;
+export function syncWordBankAnswer(back, oldOption, newOption, options = []) {
+  const oldValue = normalizeWordBankValue(oldOption);
+  if (!oldValue || oldValue === normalizeWordBankValue(newOption)
+    || options.filter(option => normalizeWordBankValue(option) === oldValue).length > 1) return back;
   return back.split(/(\r?\n)/).map(line => {
     const answer = /^(\s*[a-zA-Z0-9_-]+\s*=\s*)(.*?)(\s*)$/.exec(line);
-    return answer && normalize(answer[2]) === normalize(oldOption)
+    return answer && normalizeWordBankValue(answer[2]) === oldValue
       ? answer[1] + newOption + answer[3] : line;
   }).join('');
 }
@@ -214,19 +216,4 @@ export function projectEditorFields(raw = '') {
   // Anything the visual controls cannot safely express is kept intact behind Raw.
   if (fields.some(f => f.kind === 'text' && /::|^\s*@|[{}[\]]|<<|>>/m.test(f.value))) return null;
   return fields.length ? fields : [{ kind: 'text', start: 0, end: raw.length, value: raw, label: 'Вопрос / лицевая сторона' }];
-}
-
-export function addVisualElement(raw, id) {
-  const command = editorCommands.find(item => item.id === id);
-  if (!command) return raw;
-  if (command.info && id !== 'exercise') {
-    // Explicit boundary avoids the parser's legacy blank-line heuristic.
-    const body = /^\s*::exercise\s*$/im.test(raw) ? raw : `::exercise\n${raw}`;
-    return `${command.template}\n${body}`;
-  }
-  if (command.directive) {
-    // Preserve existing prose as an instruction, rather than replacing it.
-    return `${raw ? `::task\n${raw}\n\n` : ''}::exercise\n${command.template}`;
-  }
-  return insertEditorCommand(raw, id, raw.length).text;
 }

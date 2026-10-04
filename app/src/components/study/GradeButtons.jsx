@@ -1,18 +1,48 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useTranslation } from '../../i18n/i18nContext';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { getNextIntervals } from '../../utils/srsEngine';
+import { StudyControlsBlock } from './StudyControlsBlock';
 
 export const GradeButtons = ({ card, loading, onGrade }) => {
   useInterfaceLocale();
   const { t } = useTranslation();
   const srsExtendedGrades = useSettingsStore((s) => s.srsExtendedGrades);
+  const gradingCollapsed = useSettingsStore((s) => s.gradingCollapsed);
+  const setGradingCollapsed = useSettingsStore((s) => s.setGradingCollapsed);
+  const containerRef = useRef(null);
+  const hasCard = Boolean(card);
+
+  useEffect(() => {
+    if (!hasCard) return;
+    const container = containerRef.current;
+    const updateHeight = () => document.documentElement.style.setProperty('--study-grading-height', `${container.getBoundingClientRect().height}px`);
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(container);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty('--study-grading-height');
+    };
+  }, [hasCard]);
 
   if (!card) return null;
 
   const isNewCard = !card.queue || card.queue === 'new';
+
+  const wrapControls = (controls) => (
+    <div id="tut-study-grades" className="study-grading-controls" ref={containerRef}>
+      <StudyControlsBlock
+        collapsed={gradingCollapsed}
+        onCollapsedChange={setGradingCollapsed}
+        label={tr('Оценить ответ')}
+      >
+        {controls}
+      </StudyControlsBlock>
+    </div>
+  );
 
   if (srsExtendedGrades) {
     const dynIntervals = card.intervals?.extended || getNextIntervals(card).extended;
@@ -27,8 +57,8 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
       { grade: 7, num: 8, fallback: isNewCard ? tr("5д") : tr("20д") },
     ];
 
-    return (
-      <div id="tut-study-grades" className="grade-buttons grade-buttons-floating grade-buttons-extended">
+    return wrapControls(
+      <div className="grade-buttons grade-buttons-floating grade-buttons-extended">
         {extGrades.map(({ grade, num, fallback }) => {
           const val = dynIntervals?.[grade] || fallback;
           return (
@@ -55,8 +85,8 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
     { grade: 3, label: t('study.grade_easy', 'Легко'), className: 'grade-3', intervalIdx: 3, fallback: isNewCard ? tr("4д") : tr("7д") },
   ];
 
-  return (
-    <div id="tut-study-grades" className="grade-buttons grade-buttons-floating">
+  return wrapControls(
+    <div className="grade-buttons grade-buttons-floating">
       {grades.map(({ grade, label, className, intervalIdx, fallback }) => {
         const val = card.intervals?.[intervalIdx] || card.intervals?.[String(intervalIdx)] || fallback;
         return (

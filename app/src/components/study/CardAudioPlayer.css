@@ -3,14 +3,14 @@
 /* Fixed Screen Container — Pins the audio player above the bottom action bar regardless of card height */
 .card-audio-floating-wrapper {
   position: fixed;
-  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--study-grading-height, env(safe-area-inset-bottom, 0px)) + 8px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 999;
-  width: calc(100% - 32px);
+  width: calc(100% - 16px);
   max-width: 440px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   pointer-events: none;
 }
 
@@ -153,17 +153,10 @@
 
 /* ── Expanded Full Player Bar ────────────────────────────────────────── */
 .card-audio-player-bar.floating-expanded {
-  background: rgba(15, 12, 30, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(168, 85, 247, 0.4);
-  border-radius: 20px;
-  padding: 8px 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(168, 85, 247, 0.25);
   width: 100%;
-  max-width: 440px;
-  z-index: 40;
-  transition: all 0.25s ease;
+  min-width: 0;
+  padding: 4px;
+  box-sizing: border-box;
 }
 
 .audio-player-header-row {

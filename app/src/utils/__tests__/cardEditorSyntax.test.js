@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { projectEditorFields, readableFrontText, replaceEditorRange, addVisualElement, insertEditorCommand, insertEditorLineAfter, editorCommands, setQuizOptionCorrect, syncWordBankAnswer } from '../cardEditorSyntax.js';
+import { projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, editorCommands, setQuizOptionCorrect, syncWordBankAnswer } from '../cardEditorSyntax.js';
 import { parseExerciseContent } from '../exerciseContentParser.js';
 import { parseClozeData } from '../clozeParser.js';
 import { parseMatchData } from '../matchParser.js';
@@ -28,33 +28,33 @@ test('explicit blocks and repeated examples retain whitespace and CRLF on no-op 
   assert.equal(replaceEditorRange(raw, input.start, input.end, '[[dort]]'), raw.replace('[[hier]]', '[[dort]]'));
 });
 
-test('task creation preserves the exercise and exposes an editable empty task', () => {
-  let raw = addVisualElement('Wo?', 'task');
+test('an empty task block is editable without changing the exercise', () => {
+  let raw = '::task\n\n::exercise\nWo?';
   const task = projectEditorFields(raw).find(f => f.label === 'Задание');
   raw = replaceEditorRange(raw, task.start, task.end, 'Wähle.');
   assert.equal(parseExerciseContent(raw).task, 'Wähle.');
   assert.equal(parseExerciseContent(raw).exercise, 'Wo?');
 });
 
-test('visual choice and input templates use the existing trainer parser', () => {
-  const choice = addVisualElement('', 'choice');
+test('choice and input commands use the existing trainer parser', () => {
+  const choice = insertEditorCommand('', 'choice').text;
   assert.equal(parseClozeData({ front: choice }, 'trainer').correctAnswer, 'Berlin');
   assert.equal(projectEditorFields(choice)[0].kind, 'choice');
-  const input = addVisualElement('', 'input');
+  const input = insertEditorCommand('', 'input').text;
   assert.equal(parseClozeData({ front: input }, 'trainer').gaps[0].mode, 'input');
   assert.equal(projectEditorFields(input)[0].kind, 'input');
   assert.equal(projectEditorFields('{*|B}')[0].kind, 'choice');
   assert.equal(projectEditorFields('[[]]')[0].kind, 'input');
 });
 
-test('match/free/puzzle create existing types and retain the preceding question', () => {
-  const match = addVisualElement('Verbinde.', 'match');
+test('match/free/puzzle commands create existing types and retain the preceding question', () => {
+  const match = `::task\nVerbinde.\n\n::exercise\n${insertEditorCommand('', 'match').text}`;
   assert.equal(parseMatchData(match).pairs.length, 2);
   assert.equal(parseExerciseContent(match).task, 'Verbinde.');
   assert.equal(projectEditorFields(match).filter(f => f.kind === 'pair').length, 2);
-  const free = addVisualElement('', 'free');
+  const free = insertEditorCommand('', 'free').text;
   assert.equal(parseFreeTextData({ front: free, back: 'Beispiel' }).exampleAnswer, 'Beispiel');
-  assert.equal(detectExerciseType(addVisualElement('', 'puzzle')), 'puzzle');
+  assert.equal(detectExerciseType(insertEditorCommand('', 'puzzle').text), 'puzzle');
 });
 
 test('trainer sentence segments keep inline gap positions and answers below', () => {
@@ -125,6 +125,8 @@ test('wordbank sentence and options project as editable ranges', () => {
   const updatedFront = replaceEditorRange(raw, milk.start, milk.end, 'Wasser ');
   const updatedBack = syncWordBankAnswer('31=Milch', 'Milch', 'Wasser');
   assert.equal(parseWordBankData({ front: updatedFront, back: updatedBack }).gaps[0].correctAnswer, 'Wasser');
+  assert.equal(syncWordBankAnswer('31=Ice cream', 'Ice cream', 'Sorbet', ['Ice cream', 'ice   cream']),
+    '31=Ice cream');
 });
 
 test('quiz and wordbank stay editable after an implicit information block', () => {
@@ -161,7 +163,7 @@ test('ambiguous front markup has a readable preview without changing stored text
 
 test('every information block is editable without changing other blocks', () => {
   for (const command of editorCommands.filter(c => c.info && c.id !== 'exercise')) {
-    const raw = addVisualElement('Hallo', command.id);
+    const raw = `${command.template}\n::exercise\nHallo`;
     const field = projectEditorFields(raw).find(f => f.label === command.label);
     assert.ok(field, command.id);
     const changed = replaceEditorRange(raw, field.start, field.end, 'Wert ');
@@ -171,7 +173,7 @@ test('every information block is editable without changing other blocks', () => 
 });
 
 test('editor output remains compatible with strict batch import', () => {
-  const front = addVisualElement(addVisualElement('', 'choice'), 'task');
+  const front = `::task\n\n::exercise\n${insertEditorCommand('', 'choice').text}`;
   const imported = parseBatchCardsText(`FRONT:\n${front}\nBACK:\nAnswer\nCONTEXT:\nNote`);
   assert.equal(imported.length, 1);
   assert.equal(imported[0].front, front.trim());

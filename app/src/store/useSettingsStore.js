@@ -157,6 +157,8 @@ export const STUDY_STORAGE_MAP = {
   voiceBack: 'lerne_voice_back',
   randomEnabledModes: 'lerne_random_enabled_modes',
   srsExtendedGrades: 'lerne_srs_extended_grades',
+  playerCollapsed: 'lerne_player_collapsed',
+  gradingCollapsed: 'lerne_grading_collapsed',
 };
 
 export const collectUserSettings = (state) => {
@@ -251,6 +253,8 @@ const getInitialStudyState = () => ({
     ? JSON.parse(storage.get('lerne_random_enabled_modes')).filter(m => m !== 'turbo')
     : ['classic', 'reverse', 'cloze', 'puzzle', 'speak'],
   srsExtendedGrades: storage.get('lerne_srs_extended_grades') !== null ? storage.get('lerne_srs_extended_grades') === 'true' : false,
+  playerCollapsed: storage.get('lerne_player_collapsed') !== 'false',
+  gradingCollapsed: storage.get('lerne_grading_collapsed') === 'true',
   isAdmin: false,
 });
 
@@ -273,6 +277,16 @@ export const useSettingsStore = create((set, get) => {
   return {
     // --- Study Settings ---
     ...getInitialStudyState(),
+    setPlayerCollapsed: (value) => {
+      storage.set('lerne_player_collapsed', value);
+      set({ playerCollapsed: value });
+      debouncedSaveSettings(get);
+    },
+    setGradingCollapsed: (value) => {
+      storage.set('lerne_grading_collapsed', value);
+      set({ gradingCollapsed: value });
+      debouncedSaveSettings(get);
+    },
     setSpeechMatchThreshold: (value) => {
       storage.set('lerne_speech_match_threshold', value);
       set({ speechMatchThreshold: Number(value) });

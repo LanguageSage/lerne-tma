@@ -8,7 +8,6 @@
 .card-editor-field, .card-editor-field label { display: grid; gap: 8px; min-width: 0; }
 .card-editor-field:is(fieldset) { border: 0; padding: 0; margin: 0; }
 .card-editor-field .sub-label { margin: 0; }
-.card-editor-field fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 8px; }
 .card-editor-field input.form-input, .card-editor-field textarea { width: 100%; min-width: 0; box-sizing: border-box; }
 .card-editor-field textarea { resize: vertical; overflow-y: auto; min-height: 88px; }
 .card-editor-raw { font-family: monospace; text-align: left; }

@@ -152,10 +152,9 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
           const trailing = /\s*$/.exec(field.value)[0];
           replace(field, leading + next + trailing);
           const oldOption = field.value.trim();
-          const duplicate = fields.filter(item => item.kind === 'wordbank-option'
-            && item.value.trim().toLowerCase() === oldOption.toLowerCase()).length > 1;
-          if (!duplicate && onBackChange) {
-            const updatedBack = syncWordBankAnswer(back, oldOption, next);
+          if (onBackChange) {
+            const options = fields.filter(item => item.kind === 'wordbank-option').map(item => item.value);
+            const updatedBack = syncWordBankAnswer(back, oldOption, next, options);
             if (updatedBack !== back) onBackChange(updatedBack);
           }
         })} />
