@@ -16,6 +16,7 @@ import { parseClozeData, cleanBracketSyntax, autoGenerateChoices } from '../../u
 import { parseQuizData } from '../../utils/quizParser';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
+import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import { StudyCardTrainer } from './StudyCardTrainer.jsx';
 import { StudyCardQuiz } from './StudyCardQuiz.jsx';
 import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
@@ -40,7 +41,7 @@ import { CardLevelBadge } from '../common/CardLevelBadge';
 export const StudyCard = React.memo(({
   card,
   isFlipped,
-  onFlip,
+  onFlip: requestFlip,
   loading,
   historyIndex,
   playAudio,
@@ -192,6 +193,12 @@ export const StudyCard = React.memo(({
   const exerciseType = useMemo(() => {
     return detectExerciseType(card, studyMode);
   }, [card, studyMode]);
+
+  const blockAnswerReveal = exerciseType === 'free_text' && studyMode !== 'speak' && !isAutoplayActive
+    && !canRevealFreeTextAnswer(exerciseStates[reviewKey]?.evaluationState);
+  const onFlip = next => {
+    if (!next || !blockAnswerReveal) requestFlip(next);
+  };
 
   // Quiz / Exam Data Parsing
   const quizData = useMemo(() => {
@@ -791,7 +798,7 @@ export const StudyCard = React.memo(({
         </motion.div>
         </AnimatePresence>
         </div>
-        <div className="study-card-footer">
+        {!blockAnswerReveal && <div className="study-card-footer">
           <button
             type="button"
             className="study-card-flip-button"
@@ -801,7 +808,7 @@ export const StudyCard = React.memo(({
             <RotateCw size={18} aria-hidden="true" />
             <span>{tr("Перевернуть карточку")}</span>
           </button>
-        </div>
+        </div>}
         {loading && (
           <div className="card-loading-overlay">
             <RefreshCw size={40} className="spin" />

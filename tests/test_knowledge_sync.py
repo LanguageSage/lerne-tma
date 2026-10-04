@@ -48,6 +48,24 @@ class TestKnowledgeSyncAPI(unittest.TestCase):
         self.assertEqual(resp.results[0].status, "created")
         self.assertEqual(TMAKnowledgeAttempt.select().count(), 1)
 
+    def test_free_text_summary_survives_raw_sync_and_duplicate_transport(self):
+        import json
+        evaluation = {'schema_version': 2, 'evaluation_type': 'hybrid', 'rating': 'good',
+                      'card_type': 'free_text', 'exercise_evidence': {
+                          'auto_evaluated': True, 'completed': True, 'attempt_count': 2,
+                          'first_try_correct': False, 'mistake_count': 1,
+                          'grading_summary': {'final_verdict': 'correct',
+                                              'error_types_seen': ['grammar'],
+                                              'error_codes_seen': ['grammar.article_case'],
+                                              'minor_errors': [], 'final_evaluator': 'exact'}}}
+        request = KnowledgeAttemptSyncRequest(attempts=[KnowledgeAttemptSyncItem(
+            client_event_id='free-text-1', knowledge_item_id=self.ki1.id,
+            card_id=self.card.id, evaluation_data=evaluation)])
+        self.assertEqual(sync_knowledge_attempts(request, self.user.user_id).results[0].status, 'created')
+        self.assertEqual(sync_knowledge_attempts(request, self.user.user_id).results[0].status, 'duplicate')
+        self.assertEqual(TMAKnowledgeAttempt.select().count(), 1)
+        self.assertEqual(json.loads(TMAKnowledgeAttempt.get().evaluation_data), evaluation)
+
     def test_duplicate_null_event_time(self):
         # Test 1: null -> created, null -> duplicate
         req = KnowledgeAttemptSyncRequest(attempts=[

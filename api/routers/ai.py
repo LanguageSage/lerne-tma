@@ -1,18 +1,42 @@
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 import logging
 import datetime
 import asyncio
 from api import ai_service, models, services
 from api.dependencies.auth import get_user_id
 from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload, merge_cefr_metadata
+from api.services.answer_contract import AnswerEvaluation, GradingPolicy
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
     tags=["ai"],
 )
+
+
+class AnswerEvaluationRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    card_id: int = Field(gt=0)
+    answer: str = Field(min_length=1, max_length=4000)
+    feedback_language: str = Field(default='ru', pattern=r'^(ru|uk|en)$')
+
+
+class AnswerEvaluationResponse(BaseModel):
+    result: AnswerEvaluation
+    grading_policy: GradingPolicy
+
+
+@router.post('/ai/evaluate-answer', response_model=AnswerEvaluationResponse)
+async def evaluate_free_text(request: AnswerEvaluationRequest, user_id: int = Depends(get_user_id)):
+    from starlette.concurrency import run_in_threadpool
+    from api.services.answer_evaluation import load_answer_context, evaluate_answer
+
+    context, policy = await run_in_threadpool(
+        load_answer_context, request.card_id, user_id, request.feedback_language)
+    result = await evaluate_answer(context, policy, request.answer)
+    return {'result': result.model_dump(), 'grading_policy': policy.model_dump()}
 
 class PhraseRequest(BaseModel):
     phrase: str

@@ -1618,5 +1618,18 @@
   "Развернуть {{p0}}": "Expand {{p0}}",
   "Пропуск {{p0}}": "Gap {{p0}}",
   "Окончание с выбором": "Ending with choices",
-  "Окончания: klein{en} — выбор e / en / em / er / es; klein[[en]] — ввод. Выделите окончание и нажмите «Окончание с выбором».": "Endings: klein{en} offers e / en / em / er / es; klein[[en]] requires typing. Select an ending and click “Ending with choices”."
+  "Окончания: klein{en} — выбор e / en / em / er / es; klein[[en]] — ввод. Выделите окончание и нажмите «Окончание с выбором».": "Endings: klein{en} offers e / en / em / er / es; klein[[en]] requires typing. Select an ending and click “Ending with choices”.",
+  "Верно!": "Correct!",
+  "Верно. Небольшая опечатка.": "Correct. A small typo.",
+  "Не удалось проверить ответ. Попробуйте ещё раз — попытка не засчитана.": "Could not check your answer. Try again — this attempt was not counted.",
+  "Проверьте смысл и полноту ответа. Попробуйте ещё раз.": "Check the meaning and completeness of your answer. Try again.",
+  "Проверяем ответ…": "Checking your answer…",
+  "Проверить ещё раз": "Check again",
+  "Проверить ответ": "Check answer",
+  "Скрыть пример ответа": "Hide example answer",
+  "Верно. Небольшая неточность в написании.": "Correct. A small writing error.",
+  "Свободный ответ / Письмо": "Free response / Writing",
+  "Напишите ваш ответ здесь...": "Write your answer here...",
+  "Показать пример ответа": "Show example answer",
+  "Пример правильного ответа:": "Example answer:"
 }

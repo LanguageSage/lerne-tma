@@ -44,7 +44,8 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
           first_try_correct: exerciseEvidence.isFirstTry,
           attempt_count: exerciseEvidence.attemptCount,
           mistake_count: exerciseEvidence.mistakeCount,
-          partial_score: null
+          partial_score: null,
+          ...(exerciseEvidence.gradingSummary ? { grading_summary: exerciseEvidence.gradingSummary } : {})
         }
       };
     } else {

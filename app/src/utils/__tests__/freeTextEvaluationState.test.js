@@ -1,0 +1,72 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createFreeTextEvaluationSession, canRevealFreeTextAnswer } from '../freeTextEvaluationState.js';
+
+const response = (verdict, error_type = null, error_code = null) => ({
+  result: { verdict, error_type, error_code, evaluator: 'rules', accepted: ['correct', 'accepted_minor'].includes(verdict) },
+  grading_policy: { max_retries: 3 },
+});
+
+test('answer reveal policy applies equally to the example and card flip', () => {
+  assert.equal(Boolean(canRevealFreeTextAnswer()), false);
+  assert.equal(Boolean(canRevealFreeTextAnswer({ attemptCount: 1, gradingPolicy: { max_retries: 2 } })), false);
+  assert.equal(canRevealFreeTextAnswer({ attemptCount: 2, gradingPolicy: { max_retries: 2 } }), true);
+  assert.equal(canRevealFreeTextAnswer({ result: { accepted: true } }), true);
+  assert.equal(canRevealFreeTextAnswer({ loading: true, attemptCount: 3, gradingPolicy: { max_retries: 2 } }), false);
+});
+
+test('accepted_minor is one successful first try with no mastery penalty', async () => {
+  const session = createFreeTextEvaluationSession();
+  await session.submit('Hudn', async () => response('accepted_minor', 'typo', 'typo.single_token'));
+  const evidence = session.evidence();
+  assert.equal(evidence.attemptCount, 1);
+  assert.equal(evidence.isFirstTry, true);
+  assert.equal(evidence.mistakeCount, 0);
+  assert.deepEqual(evidence.gradingSummary.minor_errors, ['typo']);
+});
+
+test('grammar correction is the second educational attempt and keeps structured error history', async () => {
+  const session = createFreeTextEvaluationSession();
+  await session.submit('ein Hund', async () => response('needs_retry', 'grammar', 'grammar.article_case'));
+  assert.equal(session.evidence(), null);
+  await session.submit('einen Hund', async () => response('correct'));
+  assert.equal(session.evidence().attemptCount, 2);
+  assert.equal(session.evidence().isFirstTry, false);
+  assert.equal(session.evidence().mistakeCount, 1);
+  assert.deepEqual(session.evidence().gradingSummary.error_codes_seen, ['grammar.article_case']);
+});
+
+test('duplicate submit during a request and after a classified answer produces one request', async () => {
+  const session = createFreeTextEvaluationSession();
+  let finish;
+  let calls = 0;
+  const evaluate = () => { calls++; return new Promise(resolve => { finish = resolve; }); };
+  const first = session.submit('ein Hund', evaluate);
+  assert.equal(await session.submit('ein Hund', evaluate), null);
+  finish(response('needs_retry', 'grammar'));
+  await first;
+  assert.equal(await session.submit('ein Hund', evaluate), null);
+  assert.equal(calls, 1);
+  assert.equal(session.snapshot().attemptCount, 1);
+});
+
+test('timeout/network/malformed response and repeating evaluation never count as mistakes', async () => {
+  const session = createFreeTextEvaluationSession();
+  for (const evaluate of [async () => response('unavailable'), async () => { throw Error('timeout'); }, async () => ({})]) {
+    await session.submit('Hund', evaluate);
+    assert.equal(session.snapshot().attemptCount, 0);
+    assert.equal(session.snapshot().mistakeCount, 0);
+    assert.equal(session.evidence(), null);
+  }
+  await session.submit('Hund', async () => response('correct'));
+  assert.equal(session.evidence().isFirstTry, true);
+});
+
+test('flip restoration preserves educational history and discards transport loading state', async () => {
+  const first = createFreeTextEvaluationSession();
+  await first.submit('ein Hund', async () => response('needs_retry', 'grammar'));
+  const restored = createFreeTextEvaluationSession({ ...first.snapshot(), loading: true });
+  assert.equal(restored.snapshot().loading, false);
+  await restored.submit('einen Hund', async () => response('correct'));
+  assert.equal(restored.evidence().attemptCount, 2);
+});

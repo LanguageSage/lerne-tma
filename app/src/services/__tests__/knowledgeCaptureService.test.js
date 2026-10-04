@@ -9,8 +9,28 @@ import * as dbService from '../knowledgeDbService.js';
 globalThis.import = { meta: { env: { VITE_KNOWLEDGE_LAYER_ENABLED: 'true' } } };
 
 import { captureStudyKnowledgeAttempt, knowledgeRatingForGrade } from '../knowledgeCaptureService.js';
+import { createFreeTextEvaluationSession } from '../../utils/freeTextEvaluationState.js';
 
 describe('KnowledgeCaptureService - KI-04', () => {
+  test('free-text summary reaches durable outbox without changing objective fields', async () => {
+    const db = getLocalDb('123');
+    await db.card_knowledge_items.add({ card_id: 71, knowledge_item_id: 101, role: 'primary' });
+    const session = createFreeTextEvaluationSession();
+    await session.submit('Hudn', async () => ({
+      result: { verdict: 'accepted_minor', accepted: true, error_type: 'typo', error_code: 'typo.single_token', evaluator: 'rules' },
+      grading_policy: { max_retries: 3 },
+    }));
+    await captureStudyKnowledgeAttempt({ userId: '123', card: { id: 71, front: '@free\nTranslate.' },
+      grade: 2, isExtended: false, exerciseEvidence: session.evidence() });
+    const [attempt] = await dbService.getPendingKnowledgeAttempts('123');
+    assert.equal(attempt.evaluation_data.schema_version, 2);
+    const evidence = attempt.evaluation_data.exercise_evidence;
+    assert.equal(evidence.attempt_count, 1);
+    assert.equal(evidence.first_try_correct, true);
+    assert.equal(evidence.mistake_count, 0);
+    assert.equal(evidence.completed, true);
+    assert.deepEqual(evidence.grading_summary.minor_errors, ['typo']);
+  });
 
   beforeEach(async () => {
     const dbs = await indexedDB.databases();

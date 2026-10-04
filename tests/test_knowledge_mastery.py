@@ -37,6 +37,20 @@ def hybrid(count, rating):
 
 
 class TestMasteryScorer(unittest.TestCase):
+    def test_free_text_grading_summary_is_additive_and_minor_is_not_penalized(self):
+        exact = hybrid(1, 'good')
+        minor = hybrid(1, 'good')
+        minor['exercise_evidence']['grading_summary'] = {
+            'final_verdict': 'accepted_minor', 'error_types_seen': ['typo'], 'minor_errors': ['typo']}
+        self.assertEqual(score_knowledge_attempt(exact), score_knowledge_attempt(minor))
+        retry = hybrid(2, 'good')
+        retry['exercise_evidence']['grading_summary'] = {
+            'final_verdict': 'correct', 'error_types_seen': ['grammar']}
+        self.assertAlmostEqual(score_knowledge_attempt(retry).score, .79)
+        # Descriptive client summary never overrides critical objective fields.
+        minor['exercise_evidence']['completed'] = False
+        self.assertIsNone(score_knowledge_attempt(minor))
+
     def test_self_rating_table(self):
         for rating, expected in [('again', .10), ('hard', .40), ('good', .75), ('easy', .95)]:
             with self.subTest(rating=rating):
