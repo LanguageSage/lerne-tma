@@ -282,6 +282,8 @@ export const CardForm = ({
             <CardContentEditor
               value={cardData.front || ''}
               onChange={front => setCardData(prev => ({ ...prev, front }))}
+              back={cardData.back || ''}
+              onBackChange={back => setCardData(prev => ({ ...prev, back }))}
               autoFocus={isCreator}
               textStyle={{
                 fontFamily: cardFont, fontWeight: cardFontWeight, fontStyle: cardFontStyle,

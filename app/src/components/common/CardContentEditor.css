@@ -2,9 +2,10 @@
 .card-form-secondary { margin: 8px 0 16px; }
 .card-form-secondary > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; cursor: pointer; font-size: .85rem; }
 .card-editor-mode { display: flex; justify-content: flex-end; }
-.card-content-editor .btn-secondary, .card-editor-add summary { min-height: 44px; padding: 8px 12px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+.card-content-editor .btn-secondary { min-height: 44px; padding: 8px 12px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
 .card-content-editor button:disabled { opacity: .45; cursor: default; }
 .card-editor-field, .card-editor-field label { display: grid; gap: 8px; min-width: 0; }
+.card-editor-field:is(fieldset) { border: 0; padding: 0; margin: 0; }
 .card-editor-field .sub-label { margin: 0; }
 .card-editor-field fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 8px; }
 .card-editor-field input.form-input, .card-editor-field textarea { width: 100%; min-width: 0; box-sizing: border-box; }
@@ -15,8 +16,16 @@
 .card-editor-choice { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
 .card-editor-choice .card-editor-correct { width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; }
 .card-editor-choice input[type=checkbox] { width: 24px; height: 24px; margin: 0; cursor: pointer; }
-.card-editor-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.card-editor-sentence { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.card-editor-inline-text { white-space: pre-wrap; border-radius: 4px; outline: none; }
+.card-editor-inline-text:focus-visible { outline: 2px solid var(--accent-color, #a78bfa); outline-offset: 2px; }
+.card-editor-inline-gap { display: inline-block; vertical-align: baseline; min-width: 72px; max-width: 100%; box-sizing: border-box; padding: 2px 8px; margin: 2px 4px; border: 2px solid currentColor; border-radius: 10px; text-align: center; font-weight: 700; white-space: nowrap; opacity: .8; }
+.card-editor-pair-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; min-width: 0; }
+.card-editor-pair-line > input, .card-editor-quiz-option > input { width: 100%; min-width: 0; box-sizing: border-box; }
+.card-editor-quiz-option { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; }
+.card-editor-quiz-option .card-editor-correct { display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer; }
 .card-editor-hint { font-size: .85rem; opacity: .8; margin: 4px 0; }
-.card-editor-fallback { overflow-wrap: anywhere; }
-.card-content-editor :is(button, summary, input, textarea):focus-visible { outline: 2px solid var(--accent-color, #a78bfa) !important; outline-offset: 3px; }
-@media (max-width: 360px) { .card-editor-pair { grid-template-columns: minmax(0, 1fr); } }
+.card-editor-readable { min-height: 88px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-editor-advanced { display: grid; gap: 12px; min-width: 0; }
+.card-content-editor :is(button, input, textarea):focus-visible { outline: 2px solid var(--accent-color, #a78bfa) !important; outline-offset: 3px; }
+@media (max-width: 360px) { .card-editor-pair-line { grid-template-columns: minmax(0, 1fr); } }
