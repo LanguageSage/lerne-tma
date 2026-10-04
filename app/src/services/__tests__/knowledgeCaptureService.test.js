@@ -10,8 +10,39 @@ globalThis.import = { meta: { env: { VITE_KNOWLEDGE_LAYER_ENABLED: 'true' } } };
 
 import { captureStudyKnowledgeAttempt, knowledgeRatingForGrade } from '../knowledgeCaptureService.js';
 import { createFreeTextEvaluationSession } from '../../utils/freeTextEvaluationState.js';
+import { createExerciseEvaluationSession } from '../../utils/exerciseEvaluation.js';
+import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
+import { checkWordBankAssignments } from '../../utils/wordBankState.js';
 
 describe('KnowledgeCaptureService - KI-04', () => {
+  test('KI-08 cumulative Trainer and Word Bank summaries reach the existing durable outbox', async () => {
+    const db = getLocalDb('123');
+    for (const type of ['trainer', 'word_bank']) {
+      const cardId = type === 'trainer' ? 91 : 92;
+      await db.card_knowledge_items.add({ card_id: cardId, knowledge_item_id: 101, role: 'primary' });
+      const session = createExerciseEvaluationSession();
+      const gaps = [{ id: 'gap-1', mode: 'input', correctAnswer: 'Hund' }];
+      const evaluate = type === 'trainer' ? value => evaluateTrainerGaps(gaps, { 'gap-1': value })
+        : value => checkWordBankAssignments(gaps, [{ id: value, value }], { 'gap-1': value }).evaluation;
+      session.check(evaluate('Katze'));
+      assert.equal(session.evidence(), null);
+      session.check(evaluate('Hund'));
+      await captureStudyKnowledgeAttempt({ userId: '123',
+        card: { id: cardId, front: type === 'trainer' ? '[[Hund]]' : '@wordbank\n<<1>>\n@options\nHund', back: '1=Hund' },
+        grade: 2, isExtended: false, exerciseEvidence: session.evidence() });
+      const attempt = (await dbService.getPendingKnowledgeAttempts('123')).find(item => item.card_id === cardId);
+      assert.equal(attempt.evaluation_data.schema_version, 2);
+      assert.equal(attempt.evaluation_data.correct, true);
+      assert.equal(attempt.evaluation_data.card_type, type);
+      const evidence = attempt.evaluation_data.exercise_evidence;
+      assert.equal(evidence.completed, true);
+      assert.equal(evidence.first_try_correct, false);
+      assert.equal(evidence.attempt_count, 2);
+      assert.equal(evidence.mistake_count, 1);
+      assert.deepEqual(evidence.grading_summary, session.evidence().gradingSummary);
+    }
+  });
+
   test('free-text summary reaches durable outbox without changing objective fields', async () => {
     const db = getLocalDb('123');
     await db.card_knowledge_items.add({ card_id: 71, knowledge_item_id: 101, role: 'primary' });

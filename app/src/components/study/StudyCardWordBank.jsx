@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { getCardStyle } from '../../utils/cardStyles.js';
 import { playErrorSound, playSuccessSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
+import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import {
   assignWordBankOption,
   checkWordBankAssignments,
@@ -37,13 +38,8 @@ export const StudyCardWordBank = React.memo(({
     const restored = sanitizeWordBankAssignments(savedState?.assignments, gaps, options);
     return getFirstEmptyWordBankGapId(gaps, restored);
   });
-  const [results, setResults] = useState(savedState?.results || {});
-  
-  const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
-  const [attemptCount, setAttemptCount] = useState(savedState?.attemptCount ?? 0);
-  const [mistakeCount, setMistakeCount] = useState(savedState?.mistakeCount ?? 0);
-  const [hasReportedWrong, setHasReportedWrong] = useState(savedState?.hasReportedWrong ?? false);
-  const [isCompleted, setIsCompleted] = useState(savedState?.isCompleted ?? false);
+  const evaluation = useExerciseEvaluation(savedState?.evaluationState);
+  const { completed: isCompleted } = evaluation.state;
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const optionFontSize = useMemo(() => {
@@ -57,29 +53,20 @@ export const StudyCardWordBank = React.memo(({
   const allFilled = gaps.length > 0 && gaps.every(gap => assignments[gap.id]);
 
   useEffect(() => {
-    onSaveState?.({ assignments, activeGapId, results, isFirstTry, hasReportedWrong, isCompleted, attemptCount, mistakeCount });
-  }, [assignments, activeGapId, results, isFirstTry, hasReportedWrong, isCompleted, onSaveState, attemptCount, mistakeCount]);
+    onSaveState?.({ assignments, activeGapId, evaluationState: evaluation.state });
+  }, [assignments, activeGapId, evaluation.state, onSaveState]);
 
   if (!card || !wordBankData) return null;
 
-  const clearGapResult = (gapId) => {
-    setResults(previous => {
-      if (!previous[gapId]) return previous;
-      const next = { ...previous };
-      delete next[gapId];
-      return next;
-    });
-  };
-
   const handleGapClick = (gapId, event) => {
     event.stopPropagation();
-    if (isCompleted) return;
+    if (evaluation.isLocked(gapId)) return;
     triggerHaptic('selection');
     setActiveGapId(gapId);
 
     if (assignments[gapId]) {
       setAssignments(previous => removeWordBankOption(previous, gapId));
-      clearGapResult(gapId);
+      evaluation.edit(gapId);
     }
   };
 
@@ -88,13 +75,13 @@ export const StudyCardWordBank = React.memo(({
     if (isCompleted || usedOptionIds.has(optionId)) return;
 
     const targetGapId = activeGapId || getFirstEmptyWordBankGapId(gaps, assignments);
-    if (!targetGapId) return;
+    if (!targetGapId || evaluation.isLocked(targetGapId)) return;
 
     const updated = assignWordBankOption(assignments, targetGapId, optionId);
     if (updated === assignments) return;
 
     setAssignments(updated);
-    clearGapResult(targetGapId);
+    evaluation.edit(targetGapId);
     setActiveGapId(getNextEmptyWordBankGapId(gaps, updated, targetGapId));
     triggerHaptic('light');
   };
@@ -104,15 +91,14 @@ export const StudyCardWordBank = React.memo(({
     if (!allFilled || isCompleted) return;
 
     const checked = checkWordBankAssignments(gaps, options, assignments);
-    setResults(checked.results);
-      setAttemptCount(prev => prev + 1);
+    const submission = evaluation.check(checked.evaluation);
+    if (!submission) return;
 
     if (checked.allCorrect) {
-      setIsCompleted(true);
       setActiveGapId(null);
       playSuccessSound();
       triggerHaptic('success');
-        onTrainerAnswer?.(card.id, { isCorrect: true, isFirstTry, attemptCount: attemptCount + 1, mistakeCount });
+      onTrainerAnswer?.(card.id, submission.evidence);
       return;
     }
 
@@ -120,20 +106,15 @@ export const StudyCardWordBank = React.memo(({
     setActiveGapId(firstWrong?.id ?? null);
     playErrorSound();
     triggerHaptic('error');
-    if (!hasReportedWrong) {
-      setHasReportedWrong(true);
-        setIsFirstTry(false);
-        setMistakeCount(prev => prev + 1);
-        onTrainerAnswer?.(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCount + 1, mistakeCount: mistakeCount + 1 });
-    }
   };
 
   const renderGap = (gapId) => {
     const gap = gaps.find(item => item.id === gapId);
     if (!gap) return null;
     const selectedOption = optionById.get(assignments[gapId]);
-    const result = results[gapId];
-    const isActive = activeGapId === gapId && !isCompleted;
+    const part = evaluation.part(gapId);
+    const result = part?.status;
+    const isActive = activeGapId === gapId && !evaluation.isLocked(gapId);
     const classNames = [
       'word-bank-gap',
       isActive ? 'is-active' : '',
@@ -142,20 +123,24 @@ export const StudyCardWordBank = React.memo(({
     ].filter(Boolean).join(' ');
 
     return (
-      <button
-        key={`gap-${gapId}`}
-        type="button"
-        className={classNames}
-        onClick={(event) => handleGapClick(gapId, event)}
-        disabled={isCompleted}
-        style={{ fontSize: cardStyle?.fontSize || 'inherit' }}
-        aria-label={selectedOption
-          ? `${gapId}: ${selectedOption.value}`
-          : `${gapId}: ${tr('Пустой пропуск')}`}
-      >
-        <span className="word-bank-gap-number">{gapId}</span>
-        <span>{selectedOption?.value || '________'}</span>
-      </button>
+      <span key={`gap-${gapId}`} className="exercise-part-feedback">
+        <button
+          type="button"
+          className={classNames}
+          onClick={(event) => handleGapClick(gapId, event)}
+          disabled={evaluation.isLocked(gapId)}
+          aria-invalid={result === 'incorrect'}
+          aria-describedby={part?.hint ? `word-bank-hint-${gapId}` : undefined}
+          style={{ fontSize: cardStyle?.fontSize || 'inherit' }}
+          aria-label={selectedOption
+            ? `${gapId}: ${selectedOption.value}`
+            : `${gapId}: ${tr('Пустой пропуск')}`}
+        >
+          <span className="word-bank-gap-number">{gapId}</span>
+          <span>{selectedOption?.value || '________'}</span>
+        </button>
+        {part?.hint && <span id={`word-bank-hint-${gapId}`} className="exercise-part-hint" role="status">{tr(part.hint)}</span>}
+      </span>
     );
   };
 
@@ -190,7 +175,7 @@ export const StudyCardWordBank = React.memo(({
   );
 
   return (
-    <div className="interactive-mode-container word-bank-exercise" onClick={event => event.stopPropagation()}>
+    <div className={`interactive-mode-container word-bank-exercise${footerActionTarget ? ' has-footer-action' : ''}`} onClick={event => event.stopPropagation()}>
       <div className="word-bank-text-area" style={cardStyle}>
         {renderText()}
       </div>

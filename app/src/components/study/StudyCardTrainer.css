@@ -34,8 +34,15 @@ button.trainer-affix-gap::after, .trainer-affix-input::after {
 .trainer-affix-gap:focus-visible { outline: 2px solid var(--accent-color, currentColor); outline-offset: 3px; }
 .trainer-affix-gap.is-correct { border-color: #22c55e; }
 .trainer-affix-gap.is-wrong { border-color: #ef4444; }
-.trainer-affix-gap del { color: #f87171; margin-right: .2em; }
-.trainer-affix-correction { color: #4ade80; }
+.trainer-input-gap { display: inline-flex; max-width: 100%; position: relative; }
+.trainer-affix-input { display: inline-flex; position: relative; vertical-align: baseline; }
+.trainer-choice-gap {
+  min-height: 44px; min-width: 68px; padding: 4px 10px;
+  border: 1.5px solid; border-radius: 10px; font-weight: 700;
+  vertical-align: baseline; cursor: pointer;
+}
+.trainer-choice-gap:disabled { cursor: default; }
+.trainer-choice-gap:focus-visible { outline: 2px solid var(--accent-color, currentColor); outline-offset: 3px; }
 .gap-dropdown-popover .gap-dropdown-item { min-height: 44px; }
 .gap-dropdown-item:focus-visible { outline: 2px solid var(--accent-color, #a78bfa); outline-offset: -2px; }
 @media (prefers-reduced-motion: reduce) {

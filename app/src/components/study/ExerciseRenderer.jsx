@@ -117,6 +117,7 @@ export const ExerciseRenderer = React.memo(({
       if (!wordBankData) return fallback;
       return withInformation(
         <StudyCardWordBank
+          key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           wordBankData={wordBankData}
           onTrainerAnswer={onTrainerAnswer}
@@ -185,6 +186,7 @@ export const ExerciseRenderer = React.memo(({
       if (!clozeData) return fallback;
       return withInformation(
         <StudyCardTrainer
+          key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           clozeData={clozeData}
           isFlipped={isFlipped}

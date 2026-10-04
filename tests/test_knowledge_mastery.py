@@ -37,6 +37,16 @@ def hybrid(count, rating):
 
 
 class TestMasteryScorer(unittest.TestCase):
+    def test_part_feedback_summary_is_additive_for_mastery_v1(self):
+        plain = hybrid(2, 'good')
+        with_parts = hybrid(2, 'good')
+        with_parts['exercise_evidence']['grading_summary'] = {
+            'final_verdict': 'correct', 'error_types_seen': ['word_choice', 'other'],
+            'error_codes_seen': ['exercise.wrong_choice', 'exercise.affix_mismatch'],
+            'incorrect_parts': ['gap-2', '3'], 'final_evaluator': 'rules',
+        }
+        self.assertEqual(score_knowledge_attempt(plain), score_knowledge_attempt(with_parts))
+
     def test_free_text_grading_summary_is_additive_and_minor_is_not_penalized(self):
         exact = hybrid(1, 'good')
         minor = hybrid(1, 'good')

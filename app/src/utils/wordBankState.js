@@ -1,4 +1,5 @@
 import { normalizeWordBankValue } from './wordBankParser.js';
+import { createExerciseEvaluation } from './exerciseEvaluation.js';
 
 export const getUsedWordBankOptionIds = (assignments = {}) => new Set(Object.values(assignments));
 
@@ -57,6 +58,11 @@ export const checkWordBankAssignments = (gaps = [], options = [], assignments = 
 
   return {
     results,
-    allCorrect: gaps.length > 0 && gaps.every(gap => results[gap.id] === 'correct')
+    allCorrect: gaps.length > 0 && gaps.every(gap => results[gap.id] === 'correct'),
+    evaluation: createExerciseEvaluation(gaps.map(gap => ({
+      id: gap.id, status: results[gap.id], errorType: 'word_choice',
+      errorCode: 'exercise.wrong_choice',
+      hint: 'Проверь этот пропуск и выбери другой вариант.',
+    })))
   };
 };

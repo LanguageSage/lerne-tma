@@ -86,14 +86,14 @@ test('endings stay compact and attached across viewports; choices, typing, corre
   await text.getByRole('button', { name: 'Пропуск 3', exact: true }).click();
   await page.getByRole('dialog', { name: 'Пропуск 3', exact: true }).getByRole('button', { name: 'Der', exact: true }).click();
   await page.getByRole('button', { name: 'Проверить ответы', exact: true }).click();
-  await expect(text.locator('.trainer-affix-gap.is-wrong del')).toHaveText('er');
-  await expect(text.locator('.trainer-affix-correction')).toHaveText('em');
-  await page.screenshot({ path: testInfo.outputPath('endings-correction.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Сбросить', exact: true }).click();
-  await choice.click();
-  await menu.getByRole('button', { name: 'en', exact: true }).click();
-  await text.getByRole('button', { name: 'Пропуск 3', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Пропуск 3', exact: true }).getByRole('button', { name: 'Der', exact: true }).click();
+  await expect(input).toHaveValue('er');
+  await expect(input).toBeEnabled();
+  await expect(input).toHaveAttribute('aria-invalid', 'true');
+  await expect(choice).toBeDisabled();
+  await expect(text.getByRole('button', { name: 'Пропуск 3', exact: true })).toBeDisabled();
+  await expect(text.locator('.trainer-affix-correction')).toHaveCount(0);
+  await expect(text.getByText('Проверь окончание.', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('endings-partial-retry.png'), fullPage: true });
   await input.fill('em');
   expect(await input.evaluate(element => {
     const canvas = document.createElement('canvas');

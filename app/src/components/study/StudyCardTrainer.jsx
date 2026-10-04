@@ -2,17 +2,20 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Languages, RotateCcw } from 'lucide-react';
+import { Languages } from 'lucide-react';
 import { getCardStyle } from '../../utils/cardStyles';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
-import { normalizeAnswer } from '../../utils/clozeParser';
+import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
+import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import './StudyCardTrainer.css';
 
 const AutoExpandingInput = React.memo(({
   rawValue,
   gap,
-  isChecked,
+  disabled,
+  status,
+  inputRef,
   borderColor,
   bgColor,
   textColor,
@@ -20,7 +23,7 @@ const AutoExpandingInput = React.memo(({
   onInputChange,
   onCheck
 }) => {
-  const charLen = Math.max((gap.correctAnswer || '').length + 2, rawValue.length + 2, 7);
+  const charLen = Math.max(rawValue.length + 2, 7);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -32,10 +35,13 @@ const AutoExpandingInput = React.memo(({
   const input = (
     <input
       type="text"
-      className={gap.isAffix ? 'trainer-affix-gap' : undefined}
+      className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || 'idle'}` : undefined}
+      ref={inputRef}
+      aria-invalid={status === 'incorrect'}
+      aria-describedby={status === 'incorrect' ? `trainer-hint-${gap.id}` : undefined}
       aria-label={tr('Пропуск {{p0}}', { p0: gap.id + 1 })}
       value={rawValue}
-      disabled={isChecked}
+      disabled={disabled}
       onChange={(e) => onInputChange(gap.id, e.target.value)}
       onKeyDown={handleKeyDown}
       autoCapitalize="none"
@@ -89,11 +95,8 @@ export const StudyCardTrainer = React.memo(({
   const [openDropdownGapId, setOpenDropdownGapId] = useState(null);
   const [dropdownPos, setDropdownPos] = useState({});
   const [showTranslation, setShowTranslation] = useState(savedState?.showTranslation || false);
-  const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
-  
-  const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
-  const [attemptCount, setAttemptCount] = useState(savedState?.attemptCount ?? 0);
-  const [mistakeCount, setMistakeCount] = useState(savedState?.mistakeCount ?? 0);
+  const evaluation = useExerciseEvaluation(savedState?.evaluationState);
+  const { completed } = evaluation.state;
 
   const gapRefs = useRef({});
   const dropdownRef = useRef(null);
@@ -102,23 +105,10 @@ export const StudyCardTrainer = React.memo(({
 
   const gaps = useMemo(() => clozeData?.gaps || [], [clozeData?.gaps]);
 
-  // Sync state to parent for flip/navigation preservation
+  // Saved under StudyCard's existing reviewKey, including all partial retry evidence.
   useEffect(() => {
-    onSaveState?.({ selectedOptions, isChecked, isFirstTry, showTranslation });
-  }, [selectedOptions, isChecked, isFirstTry, showTranslation, onSaveState]);
-
-  // Reset internal state when card changes and no saved state exists
-  useEffect(() => {
-    if (!savedState) {
-      queueMicrotask(() => {
-        setSelectedOptions({});
-        setOpenDropdownGapId(null);
-        setShowTranslation(false);
-        setIsChecked(false);
-        setIsFirstTry(true);
-      });
-    }
-  }, [card?.id, savedState]);
+    onSaveState?.({ selectedOptions, showTranslation, evaluationState: evaluation.state });
+  }, [selectedOptions, showTranslation, evaluation.state, onSaveState]);
 
   // Close dropdown on window scroll or resize to prevent detached menus
   useEffect(() => {
@@ -151,7 +141,7 @@ export const StudyCardTrainer = React.memo(({
 
   const handleOpenDropdown = (gapId, e) => {
     e.stopPropagation();
-    if (isChecked) return;
+    if (evaluation.isLocked(gapId)) return;
     triggerHaptic('selection');
 
     if (openDropdownGapId === gapId) {
@@ -200,278 +190,80 @@ export const StudyCardTrainer = React.memo(({
   };
 
   const handleSelectOption = (gapId, option) => {
-    if (isChecked) return;
+    if (evaluation.isLocked(gapId)) return;
     const updated = { ...selectedOptions, [gapId]: option };
     setSelectedOptions(updated);
+    evaluation.edit(gapId);
     setOpenDropdownGapId(null);
     gapRefs.current[gapId]?.focus();
     triggerHaptic('light');
   };
 
   const handleInputChange = (gapId, value) => {
-    if (isChecked) return;
+    if (evaluation.isLocked(gapId)) return;
     setSelectedOptions(prev => ({ ...prev, [gapId]: value }));
+    evaluation.edit(gapId);
   };
 
   const handleCheck = () => {
-    if (!allGapsFilled) return;
+    if (!allGapsFilled || completed) return;
     setOpenDropdownGapId(null);
-    setIsChecked(true);
-      setAttemptCount(prev => prev + 1);
-
-    const allCorrect = gaps.every(g => {
-      const userAns = normalizeAnswer(selectedOptions[g.id] || '');
-      const validAnswers = (g.correctAnswer || '').split('|').map(normalizeAnswer);
-      return validAnswers.includes(userAns);
-    });
-
-    if (allCorrect) {
+    const submission = evaluation.check(evaluateTrainerGaps(gaps, selectedOptions));
+    if (!submission) return;
+    if (submission.evidence) {
       playSuccessSound();
       triggerHaptic('success');
-        onTrainerAnswer?.(card.id, { isCorrect: true, isFirstTry, attemptCount: attemptCount + 1, mistakeCount });
+      onTrainerAnswer?.(card.id, submission.evidence);
     } else {
       playErrorSound();
-      setIsFirstTry(false);
       triggerHaptic('error');
-        setMistakeCount(prev => prev + 1);
-        onTrainerAnswer?.(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCount + 1, mistakeCount: mistakeCount + 1 });
+      const firstWrong = gaps.find(gap => evaluation.part(gap.id)?.status === 'incorrect');
+      gapRefs.current[firstWrong?.id]?.focus();
     }
   };
 
-  const handleReset = () => {
-    setSelectedOptions({});
-    setOpenDropdownGapId(null);
-    setIsChecked(false);
-    triggerHaptic('light');
+  const renderHint = gap => {
+    const hint = evaluation.part(gap.id)?.hint;
+    return hint && <span id={`trainer-hint-${gap.id}`} className="exercise-part-hint" role="status">{tr(hint)}</span>;
   };
 
-  // Render a specific gap element (Input gap or Choice gap badge)
-  const renderGapElement = (gap) => {
+  const renderGapElement = gap => {
     const rawValue = selectedOptions[gap.id] || '';
-    const isInputGap = gap.mode === 'input';
-    const normUser = normalizeAnswer(rawValue);
-    const validAnswers = (gap.correctAnswer || '').split('|').map(normalizeAnswer);
-    const isCorrectChoice = validAnswers.includes(normUser);
+    const status = evaluation.part(gap.id)?.status;
+    const locked = evaluation.isLocked(gap.id);
     const isDropdownOpen = openDropdownGapId === gap.id;
-
-    // Word fragments use one quiet underline, with no badge, arrow or gap number.
-    if (gap.isAffix && (isChecked || !isInputGap)) {
-      const answer = (gap.correctAnswer || '').split('|')[0];
-      const state = isChecked ? (isCorrectChoice ? 'correct' : 'wrong') : (isDropdownOpen ? 'open' : 'idle');
-      const label = tr('Пропуск {{p0}}', { p0: gap.id + 1 });
-      const result = isChecked && !isCorrectChoice
-        ? <><del>{rawValue}</del><span className="trainer-affix-correction">{answer}</span></>
-        : rawValue || '··';
-      const className = `trainer-affix-gap is-${state}`;
-      if (isChecked) return <span key={`affix-${gap.id}`} className={className}
-        aria-label={`${label}: ${rawValue}; ${tr('Правильный ответ')}: ${answer}`}>{result}</span>;
-      return <button key={`affix-${gap.id}`} type="button" className={className}
-        ref={el => { gapRefs.current[gap.id] = el; }}
-        onClick={e => handleOpenDropdown(gap.id, e)} aria-label={label}
+    const borderColor = status === 'correct' ? '#22c55e'
+      : status === 'incorrect' ? '#ef4444' : 'rgba(168, 85, 247, 0.45)';
+    const bgColor = status === 'correct' ? 'rgba(34, 197, 94, 0.2)'
+      : status === 'incorrect' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(168, 85, 247, 0.1)';
+    const label = tr('Пропуск {{p0}}', { p0: gap.id + 1 });
+    const control = gap.mode === 'input' ? (
+      <label className={gap.isAffix ? 'trainer-affix-input' : 'trainer-input-gap'} onClick={e => e.stopPropagation()}>
+        <AutoExpandingInput rawValue={rawValue} gap={gap} disabled={locked} status={status}
+          inputRef={el => { gapRefs.current[gap.id] = el; }}
+          borderColor={borderColor} bgColor={bgColor} textColor="inherit" textDecoration="none"
+          onInputChange={handleInputChange} onCheck={handleCheck} />
+      </label>
+    ) : (
+      <button type="button" ref={el => { gapRefs.current[gap.id] = el; }}
+        className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (isDropdownOpen ? 'open' : 'idle')}` : 'trainer-choice-gap'}
+        onClick={e => handleOpenDropdown(gap.id, e)} disabled={locked}
+        aria-label={label} aria-invalid={status === 'incorrect'}
+        aria-describedby={status === 'incorrect' ? `trainer-hint-${gap.id}` : undefined}
         aria-haspopup="dialog" aria-expanded={isDropdownOpen}
-        title={tr('Нажмите, чтобы выбрать вариант')}>
-        {result}
-      </button>;
-    }
-
-    if (isInputGap) {
-      let borderColor = 'rgba(168, 85, 247, 0.45)';
-      let bgColor = 'rgba(168, 85, 247, 0.1)';
-      let textColor = '#ffffff';
-      let textDecoration = 'none';
-
-      if (isChecked) {
-        if (isCorrectChoice) {
-          borderColor = '#22c55e';
-          bgColor = 'rgba(34, 197, 94, 0.25)';
-          textColor = '#4ade80';
-        } else {
-          borderColor = '#ef4444';
-          bgColor = 'rgba(239, 68, 68, 0.25)';
-          textColor = '#f87171';
-          textDecoration = 'line-through';
-        }
-      }
-
-      return (
-        <label
-          key={`gap-input-wrap-${gap.id}`}
-          className={gap.isAffix ? 'trainer-affix-input' : undefined}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            verticalAlign: gap.isAffix ? 'baseline' : 'middle',
-            margin: gap.isAffix ? 0 : '2px 4px',
-            position: 'relative',
-            maxWidth: '100%'
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          <AutoExpandingInput
-            rawValue={rawValue}
-            gap={gap}
-            isChecked={isChecked}
-            borderColor={borderColor}
-            bgColor={bgColor}
-            textColor={textColor}
-            textDecoration={textDecoration}
-            onInputChange={handleInputChange}
-            onCheck={handleCheck}
-          />
-          {isChecked && (
-            isCorrectChoice ? (
-              <span style={{ color: '#22c55e', marginLeft: '5px', fontWeight: 800 }}>✓</span>
-            ) : (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  marginLeft: '4px'
-                }}
-              >
-                <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.9em' }}>✗</span>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '3px',
-                    padding: '3px 8px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #22c55e',
-                    background: 'rgba(34, 197, 94, 0.25)',
-                    color: '#4ade80',
-                    fontWeight: 700,
-                    fontSize: '0.88em'
-                  }}
-                >
-                  <span>{gap.correctAnswer}</span>
-                  <span style={{ color: '#22c55e', fontWeight: 800 }}>✓</span>
-                </span>
-              </span>
-            )
-          )}
-        </label>
-      );
-    }
-
-    // Choice gap when checked & incorrect: render two separate side-by-side badges
-    if (isChecked && !isCorrectChoice) {
-      return (
-        <span
-          key={`gap-choice-result-${gap.id}`}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            verticalAlign: 'baseline',
-            margin: '2px 4px'
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Wrong User Choice Badge */}
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 9px',
-              borderRadius: '10px',
-              border: '1.5px solid #ef4444',
-              background: 'rgba(239, 68, 68, 0.25)',
-              color: '#f87171',
-              fontWeight: 700,
-              fontSize: '0.92em',
-              userSelect: 'none'
-            }}
-          >
-            <span style={{ textDecoration: 'line-through' }}>{rawValue || '—'}</span>
-            <span style={{ color: '#ef4444', fontWeight: 800 }}>✗</span>
-          </span>
-
-          {/* Correct Answer Badge */}
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 9px',
-              borderRadius: '10px',
-              border: '1.5px solid #22c55e',
-              background: 'rgba(34, 197, 94, 0.25)',
-              color: '#4ade80',
-              fontWeight: 700,
-              fontSize: '0.92em',
-              userSelect: 'none'
-            }}
-          >
-            <span>{gap.correctAnswer}</span>
-            <span style={{ color: '#22c55e', fontWeight: 800 }}>✓</span>
-          </span>
-        </span>
-      );
-    }
-
-    // Choice gap: interactive clickable badge (default / correct / open)
-    let borderColor = 'rgba(168, 85, 247, 0.45)';
-    let bgColor = 'rgba(168, 85, 247, 0.08)';
-    let textColor = '#c084fc';
-    let badgeLabel = rawValue ? `${rawValue} ▾` : (gaps.length > 1 ? `[${gap.id + 1}] _____ ▾` : '_____ ▾');
-
-    if (isChecked) {
-      if (isCorrectChoice) {
-        borderColor = '#22c55e';
-        bgColor = 'rgba(34, 197, 94, 0.25)';
-        textColor = '#4ade80';
-        badgeLabel = `${rawValue} ✓`;
-      }
-    } else if (isDropdownOpen) {
-      borderColor = '#a855f7';
-      bgColor = 'rgba(168, 85, 247, 0.35)';
-      textColor = '#ffffff';
-    } else if (rawValue) {
-      borderColor = 'rgba(168, 85, 247, 0.7)';
-      bgColor = 'rgba(168, 85, 247, 0.18)';
-      textColor = '#ffffff';
-    }
-
-    return (
-      <button
-        key={`gap-btn-${gap.id}`}
-        ref={el => { gapRefs.current[gap.id] = el; }}
-        type="button"
-        onClick={(e) => handleOpenDropdown(gap.id, e)}
-        disabled={isChecked}
-        aria-label={tr('Пропуск {{p0}}', { p0: gap.id + 1 })}
-        aria-haspopup="dialog"
-        aria-expanded={isDropdownOpen}
-        style={{
-          position: 'relative',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '2px 4px',
-          minWidth: '68px',
-          padding: '4px 10px',
-          borderRadius: '10px',
-          border: `1.5px ${rawValue || isDropdownOpen ? 'solid' : 'dashed'} ${borderColor}`,
-          background: bgColor,
-          color: textColor,
-          fontWeight: 700,
-          fontSize: '0.92em',
-          fontFamily: 'inherit',
-          textAlign: 'center',
-          cursor: isChecked ? 'default' : 'pointer',
-          boxShadow: isDropdownOpen ? '0 0 14px rgba(168, 85, 247, 0.7)' : undefined,
-          verticalAlign: 'baseline',
-          transition: 'all 0.15s ease-in-out',
-          userSelect: 'none',
-          WebkitUserSelect: 'none'
-        }}
-        title={isChecked ? undefined : tr("Нажмите, чтобы выбрать вариант")}
-      >
-        <span>{badgeLabel}</span>
+        title={locked ? undefined : tr('Нажмите, чтобы выбрать вариант')}
+        style={gap.isAffix ? undefined : {
+          borderColor, background: bgColor, color: 'inherit', fontFamily: 'inherit', fontSize: '0.92em',
+        }}>
+        {gap.isAffix ? rawValue || '··'
+          : `${rawValue || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____')} ${status === 'correct' ? '✓' : '▾'}`}
       </button>
+    );
+    return gap.isAffix ? control : (
+      <span key={`gap-${gap.id}`} className="exercise-part-feedback">
+        {control}
+        {renderHint(gap)}
+      </span>
     );
   };
 
@@ -524,7 +316,13 @@ export const StudyCardTrainer = React.memo(({
     const wordGaps = [...part.matchAll(/___GAP_(\d+)___/g)];
     const attached = wordGaps.some(match => gaps.find(gap => gap.id === Number(match[1]))?.isAffix);
     return attached
-      ? <span key={index} className="trainer-word">{renderSnippetPart(part)}</span>
+      ? <span key={index} className="exercise-part-feedback trainer-word-feedback">
+          <span className="trainer-word">{renderSnippetPart(part)}</span>
+          {wordGaps.map(match => {
+            const gap = gaps.find(item => item.id === Number(match[1]));
+            return gap && <React.Fragment key={gap.id}>{renderHint(gap)}</React.Fragment>;
+          })}
+        </span>
       : <React.Fragment key={index}>{renderSnippetPart(part)}</React.Fragment>;
   });
 
@@ -642,29 +440,13 @@ export const StudyCardTrainer = React.memo(({
 
       {/* Action Footer & Buttons */}
       {(() => {
-        const actionButtonEl = !isChecked ? (
-          <button
-            type="button"
+        const actionButtonEl = (
+          <button type="button"
             className={`btn trainer-footer-action ${allGapsFilled ? 'is-ready' : 'is-disabled'}`}
-            disabled={!allGapsFilled}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCheck();
-            }}
-          >
-            {allGapsFilled ? tr("Проверить ответы") : tr("Заполните пропуски ({{p0}}/{{p1}})", { p0: filledCount, p1: gaps.length })}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn trainer-footer-action is-reset"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleReset();
-            }}
-          >
-            <RotateCcw size={16} />
-            <span>{tr("Сбросить")}</span>
+            disabled={!allGapsFilled || completed}
+            onClick={e => { e.stopPropagation(); handleCheck(); }}>
+            {completed ? tr('Выполнено') : allGapsFilled ? tr('Проверить ответы')
+              : tr('Заполните пропуски ({{p0}}/{{p1}})', { p0: filledCount, p1: gaps.length })}
           </button>
         );
 
