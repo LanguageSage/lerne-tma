@@ -20,6 +20,7 @@
 .card-editor-inline-text { white-space: pre-wrap; border-radius: 4px; outline: none; }
 .card-editor-inline-text:focus-visible { outline: 2px solid var(--accent-color, #a78bfa); outline-offset: 2px; }
 .card-editor-inline-gap { display: inline-block; vertical-align: baseline; min-width: 72px; max-width: 100%; box-sizing: border-box; padding: 2px 8px; margin: 2px 4px; border: 2px solid currentColor; border-radius: 10px; text-align: center; font-weight: 700; white-space: nowrap; opacity: .8; }
+.card-editor-inline-gap.is-affix { min-width: 2ch; padding: 0 1px; margin: 0; border: 0; border-bottom: 2px solid var(--accent-color, currentColor); border-radius: 0; font-weight: inherit; opacity: 1; }
 .card-editor-pair-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; min-width: 0; }
 .card-editor-pair-line > input, .card-editor-quiz-option > input { width: 100%; min-width: 0; box-sizing: border-box; }
 .card-editor-quiz-option { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; }

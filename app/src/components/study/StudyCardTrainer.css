@@ -1,0 +1,44 @@
+.trainer-word { display: inline-block; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.trainer-word-tail { display: inline-block; white-space: nowrap; }
+.trainer-affix-gap {
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: 2ch;
+  margin: 0;
+  padding: 0 1px;
+  border: 0;
+  border-bottom: 2px solid var(--accent-color, currentColor);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: center;
+  vertical-align: baseline;
+}
+button.trainer-affix-gap { position: relative; cursor: pointer; }
+/* Grow the hit area without inserting space into the word. */
+button.trainer-affix-gap::after, .trainer-affix-input::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+.trainer-affix-gap::placeholder { color: currentColor; opacity: .55; }
+.trainer-affix-input-measure { position: relative; display: inline-block; }
+.trainer-affix-input-sizer { display: inline-block; min-width: 2ch; box-sizing: border-box; padding: 0 1px; border-bottom: 2px solid transparent; visibility: hidden; white-space: pre; }
+.trainer-affix-gap:is(:hover, .is-open) { background: var(--accent-soft, rgba(168, 85, 247, .12)); }
+.trainer-affix-gap:focus-visible { outline: 2px solid var(--accent-color, currentColor); outline-offset: 3px; }
+.trainer-affix-gap.is-correct { border-color: #22c55e; }
+.trainer-affix-gap.is-wrong { border-color: #ef4444; }
+.trainer-affix-gap del { color: #f87171; margin-right: .2em; }
+.trainer-affix-correction { color: #4ade80; }
+.gap-dropdown-popover .gap-dropdown-item { min-height: 44px; }
+.gap-dropdown-item:focus-visible { outline: 2px solid var(--accent-color, #a78bfa); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) {
+  .trainer-affix-gap { transition: none !important; }
+  .gap-dropdown-popover { animation: none; }
+}

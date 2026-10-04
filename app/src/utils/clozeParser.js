@@ -30,10 +30,19 @@ export const ARTICLE_GROUPS = [
   ['außerdem', 'ausserdem', 'jedoch', 'sonst']
 ];
 
-export const autoGenerateChoices = (correctWord, existingChoices = []) => {
+export const ADJECTIVE_ENDINGS = ['e', 'en', 'em', 'er', 'es'];
+
+// Only adjacent letters make a gap part of a word; punctuation does not.
+export const isWordGap = (text, start, end) =>
+  /[\p{L}\p{M}]$/u.test(text.slice(0, start)) || /^[\p{L}\p{M}]/u.test(text.slice(end));
+
+export const autoGenerateChoices = (correctWord, existingChoices = [], isAffix = false) => {
   if (existingChoices.length > 1) return existingChoices;
   const rawWord = (correctWord || '').trim();
   const lower = rawWord.toLowerCase();
+  if (isAffix && ADJECTIVE_ENDINGS.includes(lower)) {
+    return [correctWord, ...ADJECTIVE_ENDINGS.filter(ending => ending !== lower)];
+  }
   const isCapitalized = rawWord.length > 0 && rawWord[0] === rawWord[0].toUpperCase() && rawWord[0] !== rawWord[0].toLowerCase();
   for (const group of ARTICLE_GROUPS) {
     if (group.includes(lower)) {
@@ -88,6 +97,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
     const gaps = bracketMatches.map((match, index) => {
       const matchStart = match.index;
       const matchEnd = match.index + match[0].length;
+      const isAffix = isWordGap(originalText, matchStart, matchEnd);
 
       maskedText += originalText.substring(lastEnd, matchStart) + `___GAP_${index}___`;
       lastEnd = matchEnd;
@@ -101,6 +111,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
           id: index,
           rawMatch: match[0],
           mode: 'input',
+          isAffix,
           correctAnswer: innerContent,
           choices: []
         };
@@ -115,7 +126,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
       const cleanCorrect = correctList.filter(Boolean).join('|');
       let cleanChoices = optionsRaw.map(o => o.replace(/^\*/, '').trim());
       if (correctList.length === 1 && cleanCorrect) {
-        cleanChoices = autoGenerateChoices(cleanCorrect, cleanChoices);
+        cleanChoices = autoGenerateChoices(cleanCorrect, cleanChoices, isAffix);
       }
       const shuffledChoices = [...cleanChoices].sort(() => Math.random() - 0.5);
 
@@ -123,6 +134,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
         id: index,
         rawMatch: match[0],
         mode: 'choice',
+        isAffix,
         correctAnswer: cleanCorrect,
         choices: shuffledChoices
       };

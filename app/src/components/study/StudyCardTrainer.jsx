@@ -7,6 +7,7 @@ import { getCardStyle } from '../../utils/cardStyles';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
 import { normalizeAnswer } from '../../utils/clozeParser';
+import './StudyCardTrainer.css';
 
 const AutoExpandingInput = React.memo(({
   rawValue,
@@ -28,9 +29,11 @@ const AutoExpandingInput = React.memo(({
     }
   };
 
-  return (
+  const input = (
     <input
       type="text"
+      className={gap.isAffix ? 'trainer-affix-gap' : undefined}
+      aria-label={tr('Пропуск {{p0}}', { p0: gap.id + 1 })}
       value={rawValue}
       disabled={isChecked}
       onChange={(e) => onInputChange(gap.id, e.target.value)}
@@ -38,30 +41,37 @@ const AutoExpandingInput = React.memo(({
       autoCapitalize="none"
       autoCorrect="off"
       spellCheck={false}
-      placeholder="______"
+      placeholder={gap.isAffix ? '··' : '______'}
       style={{
-        width: `${charLen}ch`,
-        minWidth: '72px',
+        width: gap.isAffix ? '100%' : `${charLen}ch`,
+        position: gap.isAffix ? 'absolute' : undefined,
+        inset: gap.isAffix ? 0 : undefined,
+        minWidth: gap.isAffix ? undefined : '72px',
         maxWidth: '100%',
         boxSizing: 'border-box',
-        padding: '4px 8px',
-        borderRadius: '10px',
-        border: `2px solid ${borderColor}`,
-        background: bgColor,
-        color: textColor,
+        padding: gap.isAffix ? '0 1px' : '4px 8px',
+        borderRadius: gap.isAffix ? 0 : '10px',
+        border: gap.isAffix ? undefined : `2px solid ${borderColor}`,
+        background: gap.isAffix ? undefined : bgColor,
+        color: gap.isAffix ? 'inherit' : textColor,
         textDecoration,
-        fontWeight: 700,
+        fontWeight: gap.isAffix ? 'inherit' : 700,
         fontSize: 'inherit',
         fontFamily: 'inherit',
         textAlign: 'center',
-        outline: 'none',
+        outline: gap.isAffix ? undefined : 'none',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
-        verticalAlign: 'middle',
+        verticalAlign: gap.isAffix ? 'baseline' : 'middle',
         transition: 'border-color 0.15s ease-in-out, background 0.15s ease-in-out, width 0.1s ease-out'
       }}
     />
   );
+  // Size fragments by their actual glyphs, including proportional/custom fonts.
+  return gap.isAffix ? <span className="trainer-affix-input-measure">
+    <span className="trainer-affix-input-sizer" aria-hidden="true">{rawValue || '··'}</span>
+    {input}
+  </span> : input;
 });
 
 export const StudyCardTrainer = React.memo(({
@@ -83,6 +93,7 @@ export const StudyCardTrainer = React.memo(({
   const [isFirstTry, setIsFirstTry] = useState(savedState?.isFirstTry ?? true);
 
   const gapRefs = useRef({});
+  const dropdownRef = useRef(null);
 
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
 
@@ -110,11 +121,20 @@ export const StudyCardTrainer = React.memo(({
   useEffect(() => {
     if (openDropdownGapId === null) return;
     const handleDismiss = () => setOpenDropdownGapId(null);
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') {
+        setOpenDropdownGapId(null);
+        gapRefs.current[openDropdownGapId]?.focus();
+      }
+    };
+    dropdownRef.current?.querySelector('button')?.focus();
     window.addEventListener('scroll', handleDismiss, { passive: true });
     window.addEventListener('resize', handleDismiss, { passive: true });
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('scroll', handleDismiss);
       window.removeEventListener('resize', handleDismiss);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [openDropdownGapId]);
 
@@ -149,7 +169,7 @@ export const StudyCardTrainer = React.memo(({
 
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    const estimatedHeight = Math.min(choicesCount * 38 + 16, 280);
+    const estimatedHeight = Math.min(choicesCount * 48 + 16, 280);
 
     const pos = {
       position: 'fixed',
@@ -181,6 +201,7 @@ export const StudyCardTrainer = React.memo(({
     const updated = { ...selectedOptions, [gapId]: option };
     setSelectedOptions(updated);
     setOpenDropdownGapId(null);
+    gapRefs.current[gapId]?.focus();
     triggerHaptic('light');
   };
 
@@ -228,6 +249,26 @@ export const StudyCardTrainer = React.memo(({
     const isCorrectChoice = validAnswers.includes(normUser);
     const isDropdownOpen = openDropdownGapId === gap.id;
 
+    // Word fragments use one quiet underline, with no badge, arrow or gap number.
+    if (gap.isAffix && (isChecked || !isInputGap)) {
+      const answer = (gap.correctAnswer || '').split('|')[0];
+      const state = isChecked ? (isCorrectChoice ? 'correct' : 'wrong') : (isDropdownOpen ? 'open' : 'idle');
+      const label = tr('Пропуск {{p0}}', { p0: gap.id + 1 });
+      const result = isChecked && !isCorrectChoice
+        ? <><del>{rawValue}</del><span className="trainer-affix-correction">{answer}</span></>
+        : rawValue || '··';
+      const className = `trainer-affix-gap is-${state}`;
+      if (isChecked) return <span key={`affix-${gap.id}`} className={className}
+        aria-label={`${label}: ${rawValue}; ${tr('Правильный ответ')}: ${answer}`}>{result}</span>;
+      return <button key={`affix-${gap.id}`} type="button" className={className}
+        ref={el => { gapRefs.current[gap.id] = el; }}
+        onClick={e => handleOpenDropdown(gap.id, e)} aria-label={label}
+        aria-haspopup="dialog" aria-expanded={isDropdownOpen}
+        title={tr('Нажмите, чтобы выбрать вариант')}>
+        {result}
+      </button>;
+    }
+
     if (isInputGap) {
       let borderColor = 'rgba(168, 85, 247, 0.45)';
       let bgColor = 'rgba(168, 85, 247, 0.1)';
@@ -248,13 +289,14 @@ export const StudyCardTrainer = React.memo(({
       }
 
       return (
-        <span
+        <label
           key={`gap-input-wrap-${gap.id}`}
+          className={gap.isAffix ? 'trainer-affix-input' : undefined}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            verticalAlign: 'middle',
-            margin: '2px 4px',
+            verticalAlign: gap.isAffix ? 'baseline' : 'middle',
+            margin: gap.isAffix ? 0 : '2px 4px',
             position: 'relative',
             maxWidth: '100%'
           }}
@@ -304,7 +346,7 @@ export const StudyCardTrainer = React.memo(({
               </span>
             )
           )}
-        </span>
+        </label>
       );
     }
 
@@ -395,6 +437,9 @@ export const StudyCardTrainer = React.memo(({
         type="button"
         onClick={(e) => handleOpenDropdown(gap.id, e)}
         disabled={isChecked}
+        aria-label={tr('Пропуск {{p0}}', { p0: gap.id + 1 })}
+        aria-haspopup="dialog"
+        aria-expanded={isDropdownOpen}
         style={{
           position: 'relative',
           display: 'inline-flex',
@@ -426,7 +471,7 @@ export const StudyCardTrainer = React.memo(({
   };
 
   // Render a snippet of text with gap placeholders replaced by interactive elements
-  const renderSnippetWithGaps = (snippet) => {
+  const renderSnippetPart = (snippet) => {
     const parts = [];
     const regex = /___GAP_(\d+)___/g;
     let match;
@@ -435,17 +480,27 @@ export const StudyCardTrainer = React.memo(({
     while ((match = regex.exec(snippet)) !== null) {
       const gapIndex = parseInt(match[1], 10);
       const gap = gaps.find(g => g.id === gapIndex);
-      if (match.index > lastIdx) {
+      const before = snippet.substring(lastIdx, match.index);
+      const lastLetter = gap?.isAffix ? /[\p{L}\p{M}]$/u.exec(before)?.[0] || '' : '';
+      const firstLetter = gap?.isAffix ? /^[\p{L}\p{M}]/u.exec(snippet.slice(regex.lastIndex))?.[0] || '' : '';
+      const prefix = before.slice(0, before.length - lastLetter.length);
+      if (prefix) {
         parts.push(
           <span key={`txt-${lastIdx}-${match.index}`} style={{ cursor: 'default' }}>
-            {snippet.substring(lastIdx, match.index)}
+            {prefix}
           </span>
         );
       }
       if (gap) {
-        parts.push(renderGapElement(gap));
+        parts.push(gap.isAffix
+          ? <span key={`tail-${gap.id}`} className="trainer-word-tail">
+              {lastLetter && <span className="trainer-word-letter">{lastLetter}</span>}
+              {renderGapElement(gap)}
+              {firstLetter}
+            </span>
+          : renderGapElement(gap));
       }
-      lastIdx = regex.lastIndex;
+      lastIdx = regex.lastIndex + firstLetter.length;
     }
 
     if (lastIdx < snippet.length) {
@@ -458,6 +513,15 @@ export const StudyCardTrainer = React.memo(({
 
     return parts;
   };
+
+  // Move words together; on emergency wraps, keep neighbouring letters glued to the gap.
+  const renderSnippetWithGaps = snippet => snippet.split(/(\s+)/).map((part, index) => {
+    const wordGaps = [...part.matchAll(/___GAP_(\d+)___/g)];
+    const attached = wordGaps.some(match => gaps.find(gap => gap.id === Number(match[1]))?.isAffix);
+    return attached
+      ? <span key={index} className="trainer-word">{renderSnippetPart(part)}</span>
+      : <React.Fragment key={index}>{renderSnippetPart(part)}</React.Fragment>;
+  });
 
   // Render the full text with optional line-by-line / paragraph-by-paragraph translation
   const renderExerciseContent = () => {
@@ -624,7 +688,9 @@ export const StudyCardTrainer = React.memo(({
               onClick={() => setOpenDropdownGapId(null)}
               onTouchStart={() => setOpenDropdownGapId(null)}
             />
-            <div className="gap-dropdown-popover" style={dropdownPos} onClick={e => e.stopPropagation()}>
+            <div ref={dropdownRef} className="gap-dropdown-popover" style={dropdownPos}
+              role="dialog" aria-label={tr('Пропуск {{p0}}', { p0: openDropdownGapId + 1 })}
+              onClick={e => e.stopPropagation()}>
               {currentChoices.map((opt, i) => {
                 const isSelected = currentChosen === opt;
                 return (

@@ -1615,5 +1615,8 @@
   "Оценить ответ": "Rate your answer",
   "Свернуть {{p0}}": "Collapse {{p0}}",
   "Позиция воспроизведения": "Playback position",
-  "Развернуть {{p0}}": "Expand {{p0}}"
+  "Развернуть {{p0}}": "Expand {{p0}}",
+  "Пропуск {{p0}}": "Gap {{p0}}",
+  "Окончание с выбором": "Ending with choices",
+  "Окончания: klein{en} — выбор e / en / em / er / es; klein[[en]] — ввод. Выделите окончание и нажмите «Окончание с выбором».": "Endings: klein{en} offers e / en / em / er / es; klein[[en]] requires typing. Select an ending and click “Ending with choices”."
 }

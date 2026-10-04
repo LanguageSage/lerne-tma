@@ -7,6 +7,7 @@ export const editorCommands = [
   { id: 'task', label: 'Задание', template: '::task\n', info: true },
   { id: 'choice', label: 'Варианты ответа', template: '{*Berlin|Hamburg|München}' },
   { id: 'input', label: 'Поле для ввода', template: '[[Berlin]]' },
+  { id: 'ending', label: 'Окончание с выбором', template: '{en}' },
   { id: 'match', label: 'Соединение пар', template: '@match\nBerlin => Deutschland\nWien => Österreich', directive: true },
   { id: 'free', label: 'Свободный ответ', template: '@free\n', directive: true },
   { id: 'puzzle', label: 'Собрать предложение', template: '@puzzle\nIch lerne Deutsch.', directive: true },
@@ -52,10 +53,12 @@ export function insertEditorCommand(raw, id, start = raw.length, end = start) {
   if (!command) return { text: raw, cursor: start };
   const before = raw.slice(0, start);
   const after = raw.slice(end);
+  const template = id === 'ending' && /^(?:e|en|em|er|es)$/.test(raw.slice(start, end))
+    ? `{${raw.slice(start, end)}}` : command.template;
   const line = command.info || command.directive;
   const prefix = line && before && !before.endsWith('\n') ? '\n' : '';
   const suffix = line && after && !command.template.endsWith('\n') ? '\n' : '';
-  const addition = prefix + command.template + suffix;
+  const addition = prefix + template + suffix;
   return { text: before + addition + after, cursor: before.length + addition.length };
 }
 

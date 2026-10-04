@@ -2,6 +2,7 @@ import React, { useId, useRef, useState } from 'react';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { editorCommands, projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, setQuizOptionCorrect, syncWordBankAnswer } from '../../utils/cardEditorSyntax';
+import { autoGenerateChoices, isWordGap } from '../../utils/clozeParser';
 import './CardContentEditor.css';
 
 export function CardContentEditor({ value, onChange, back = '', onBackChange, textStyle, autoFocus = false }) {
@@ -60,7 +61,9 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
       onChange={e => safeChange(e.target.value, /[[\]\r\n]/, next => replace(field, `[[${next}]]`))} />
   </label>;
   const renderChoice = (field, key) => {
-    const options = field.value.slice(1, -1).split(/[|;,/]/);
+    const rawOptions = field.value.slice(1, -1).split(/[|;,/]/);
+    const options = rawOptions.length === 1 && isWordGap(value, field.start, field.end)
+      ? autoGenerateChoices(rawOptions[0].trim().replace(/^\*/, ''), rawOptions, true) : rawOptions;
     const starred = options.some(option => option.trimStart().startsWith('*'));
     const update = (at, next) => replace(field, `{${options.map((option, i) => i === at ? next : option).join('|')}}`);
     return <fieldset className="card-editor-field" key={key}>
@@ -168,8 +171,8 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
         ? <span key={slot} className="card-editor-inline-text" contentEditable role="textbox"
             aria-label={tr(field.label)} aria-multiline="true" tabIndex={0} suppressContentEditableWarning
             onBlur={e => commitInlineText(field, e.currentTarget)}>{field.value}</span>
-        : <span key={slot} className="card-editor-inline-gap" aria-label={tr('Пропуск')}>
-            {field.kind === 'wordbank-gap' ? `${field.value.slice(2, -2)} · _____` : '_____'}
+        : <span key={slot} className={`card-editor-inline-gap${field.kind !== 'wordbank-gap' && isWordGap(value, field.start, field.end) ? ' is-affix' : ''}`} aria-label={tr('Пропуск')}>
+            {field.kind === 'wordbank-gap' ? `${field.value.slice(2, -2)} · _____` : isWordGap(value, field.start, field.end) ? '··' : '_____'}
           </span>)}
     </div>
     {group.filter(field => field.kind === 'input').map((field, slot) => renderInput(field, `input-${slot}`))}
@@ -202,6 +205,7 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
           onChange={e => onChange(e.target.value)} spellCheck={false} />
       </label>
       <div className="card-editor-commands" aria-label={tr('Вставить элемент')}>{commandButtons}</div>
+      <p className="card-editor-hint">{tr('Окончания: klein{en} — выбор e / en / em / er / es; klein[[en]] — ввод. Выделите окончание и нажмите «Окончание с выбором».')}</p>
     </div>}
     {error && <p role="alert" className="card-editor-hint">{error}</p>}
   </div>;
