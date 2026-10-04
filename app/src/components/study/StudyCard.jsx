@@ -769,7 +769,7 @@ export const StudyCard = React.memo(({
               {/* 4. CONTEXT BLOCK */}
               {card.context && (
                 <div className="card-context-wrapper">
-                  <div className="text-context" style={contextStyle}>
+                  <div className="text-context" style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>
                     {stripMarkdown(card.context)}
                   </div>
                 </div>

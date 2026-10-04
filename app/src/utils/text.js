@@ -1,10 +1,14 @@
 export const stripMarkdown = (text) => {
   if (!text) return "";
   return text
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/__(.*?)__/g, "$1")
-    .replace(/\*([^*\s|{}]+)\*/g, "$1")
-    .replace(/_([^_\s|{}]+)_/g, "$1")
+    // bold: **text**
+    .replace(/(?<!\*)\*\*(?![\s*])([^*\n]*?)(?<![\s*])\*\*(?!\*)/g, "$1")
+    // bold: __text__ (strictly delimited, content cannot contain newlines or underscores)
+    .replace(/(?<![\p{L}\p{N}_])__(?![\s_])([^\n_]*?)(?<![\s_])__(?![\p{L}\p{N}_])/gu, "$1")
+    // italic: *text*
+    .replace(/(?<!\*)\*(?![\s*])([^*\n]*?)(?<![\s*])\*(?!\*)/g, "$1")
+    // italic: _text_ (strictly delimited, content cannot contain newlines or underscores)
+    .replace(/(?<![\p{L}\p{N}_])_(?![\s_])([^\n_]*?)(?<![\s_])_(?![\p{L}\p{N}_])/gu, "$1")
     .replace(/```/g, "")
     .replace(/`/g, "")
     .replace(/<center>/g, "")
