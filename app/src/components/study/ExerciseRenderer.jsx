@@ -38,7 +38,8 @@ export const ExerciseRenderer = React.memo(({
   savedState,
   onSaveState,
   footerActionTarget,
-  fallback = null
+  fallback = null,
+  reviewKey
 }) => {
   const content = useMemo(() => {
     return parseExerciseContent(card?.front || card?.front_text || '');
@@ -147,6 +148,8 @@ export const ExerciseRenderer = React.memo(({
       if (!freeTextData) return fallback;
       return withInformation(
         <StudyCardFreeText
+          key={reviewKey || exerciseCard.id}
+          reviewKey={reviewKey}
           card={exerciseCard}
           freeTextData={freeTextData}
           onFlip={onFlip}

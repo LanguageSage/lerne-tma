@@ -461,6 +461,7 @@ export const StudyCard = React.memo(({
                   savedState={reviewKey ? exerciseStates[reviewKey] : undefined}
                   onSaveState={handleSaveExerciseState}
                   footerActionTarget={exerciseFooterTarget}
+                  reviewKey={reviewKey}
                 />
               )}
 

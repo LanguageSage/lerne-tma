@@ -122,4 +122,6 @@ test('example answer becomes available only after configured unsuccessful attemp
   await page.getByRole('button', { name: 'Показать пример ответа' }).click();
   await expect(page.locator('.free-text-example')).toContainText(card.back);
   await expect(input).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Перевернуть карточку' })).toBeVisible();
 });
+

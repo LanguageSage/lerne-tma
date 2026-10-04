@@ -11,13 +11,26 @@ import './StudyCardFreeText.css';
 
 export const StudyCardFreeText = React.memo(({
   card, freeTextData, onTrainerAnswer, onNextCard, renderAudioPlayer,
-  styles = {}, isPureTrainerMode = false, savedState, onSaveState,
+  styles = {}, isPureTrainerMode = false, savedState, onSaveState, reviewKey,
 }) => {
   useInterfaceLocale();
+  const currentKey = reviewKey ?? (card?.id != null ? String(card.id) : null);
+  const [prevKey, setPrevKey] = useState(currentKey);
   const [userInput, setUserInput] = useState(savedState?.userInput || '');
   const [showExample, setShowExample] = useState(savedState?.showExample || false);
-  const { state, submit, evidence } = useFreeTextEvaluation(card?.id, savedState?.evaluationState);
-  const reported = useRef(false);
+  const { state, submit, evidence } = useFreeTextEvaluation(card?.id, savedState?.evaluationState, currentKey);
+  const reported = useRef(Boolean(savedState?.isCompleted));
+
+  if (prevKey !== currentKey) {
+    setPrevKey(currentKey);
+    setUserInput(savedState?.userInput || '');
+    setShowExample(savedState?.showExample || false);
+  }
+
+  useEffect(() => {
+    reported.current = Boolean(savedState?.isCompleted);
+  }, [currentKey, savedState?.isCompleted]);
+
   const { result, loading } = state;
   const isCompleted = result?.accepted === true;
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
@@ -44,8 +57,13 @@ export const StudyCardFreeText = React.memo(({
     const outcome = await submit(userInput);
     if (!outcome) return;
     if (outcome.evidence) {
-      playSuccessSound();
-      triggerHaptic('success');
+      if (outcome.evidence.isCorrect) {
+        playSuccessSound();
+        triggerHaptic('success');
+      } else {
+        playErrorSound();
+        triggerHaptic('error');
+      }
       reported.current = true;
       onTrainerAnswer?.(card.id, outcome.evidence);
     } else if (outcome.result.verdict !== 'unavailable') {

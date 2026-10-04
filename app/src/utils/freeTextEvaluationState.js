@@ -14,6 +14,7 @@ export function createFreeTextEvaluationSession(initial = {}) {
     snapshot,
     async submit(answer, evaluate) {
       if (state.loading || state.result?.accepted || !answer.trim()
+        || (state.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries)
         || (answer === state.lastAnswer && state.result?.verdict !== 'unavailable')) return null;
       state = { ...state, loading: true };
       try {
@@ -24,7 +25,7 @@ export function createFreeTextEvaluationSession(initial = {}) {
         } else {
           state = {
             ...state, result, lastAnswer: answer,
-            gradingPolicy: response.grading_policy,
+            gradingPolicy: response.grading_policy || state.gradingPolicy,
             attemptCount: state.attemptCount + 1,
             mistakeCount: state.mistakeCount + (result.accepted ? 0 : 1),
             errors: result.error_type ? [...state.errors, {
@@ -41,18 +42,46 @@ export function createFreeTextEvaluationSession(initial = {}) {
       return snapshot();
     },
     evidence() {
-      if (!state.result?.accepted) return null;
-      return {
-        isCorrect: true, isFirstTry: state.attemptCount === 1,
-        attemptCount: state.attemptCount, mistakeCount: state.mistakeCount,
-        gradingSummary: {
-          final_verdict: state.result.verdict,
-          error_types_seen: [...new Set(state.errors.map(e => e.type))],
-          error_codes_seen: [...new Set(state.errors.map(e => e.code).filter(Boolean))],
-          minor_errors: [...new Set(state.errors.filter(e => e.minor).map(e => e.type))],
-          final_evaluator: state.result.evaluator,
-        },
-      };
+      if (state.result?.accepted) {
+        return {
+          isCorrect: true,
+          isFirstTry: state.attemptCount === 1,
+          attemptCount: state.attemptCount,
+          mistakeCount: state.mistakeCount,
+          completed: true,
+          gradingSummary: {
+            final_verdict: state.result.verdict,
+            error_types_seen: [...new Set(state.errors.map(e => e.type))],
+            error_codes_seen: [...new Set(state.errors.map(e => e.code).filter(Boolean))],
+            minor_errors: [...new Set(state.errors.filter(e => e.minor).map(e => e.type))],
+            final_evaluator: state.result.evaluator,
+          },
+        };
+      }
+      const maxRetries = state.gradingPolicy?.max_retries;
+      const isExhausted = Boolean(
+        maxRetries != null
+        && state.attemptCount >= maxRetries
+        && state.result
+        && state.result.verdict !== 'unavailable'
+      );
+      if (isExhausted) {
+        return {
+          isCorrect: false,
+          isFirstTry: false,
+          attemptCount: state.attemptCount,
+          mistakeCount: state.mistakeCount,
+          completed: false,
+          gradingSummary: {
+            final_verdict: state.result.verdict,
+            error_types_seen: [...new Set(state.errors.map(e => e.type))],
+            error_codes_seen: [...new Set(state.errors.map(e => e.code).filter(Boolean))],
+            minor_errors: [...new Set(state.errors.filter(e => e.minor).map(e => e.type))],
+            final_evaluator: state.result.evaluator,
+          },
+        };
+      }
+      return null;
     },
   };
 }

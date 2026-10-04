@@ -40,8 +40,8 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
         knowledge_difficulty: null,
         exercise_evidence: {
           auto_evaluated: true,
-          completed: exerciseEvidence.isCorrect, // they only reach GradeButtons if they finally solved it
-          first_try_correct: exerciseEvidence.isFirstTry,
+          completed: typeof exerciseEvidence.completed === 'boolean' ? exerciseEvidence.completed : Boolean(exerciseEvidence.isCorrect),
+          first_try_correct: Boolean(exerciseEvidence.isFirstTry),
           attempt_count: exerciseEvidence.attemptCount,
           mistake_count: exerciseEvidence.mistakeCount,
           partial_score: null,

@@ -323,5 +323,45 @@ class TestMasterySync(unittest.TestCase):
         self.assertEqual(self.state().evidence_event_count, 1)
 
 
+    def test_failed_hybrid_attempt_preserved_without_positive_evidence(self):
+        failed_event = {
+            'schema_version': 2,
+            'card_type': 'free_text',
+            'evaluation_type': 'hybrid',
+            'correct': False,
+            'rating': 'again',
+            'exercise_evidence': {
+                'auto_evaluated': True,
+                'completed': False,
+                'first_try_correct': False,
+                'attempt_count': 3,
+                'mistake_count': 3,
+                'grading_summary': {
+                    'final_verdict': 'incorrect',
+                    'error_types_seen': ['grammar'],
+                    'error_codes_seen': ['grammar.article_case'],
+                    'minor_errors': [],
+                    'final_evaluator': 'ai',
+                },
+            },
+        }
+        self.assertEqual(self.send('failed-attempt-1', failed_event), 'created')
+        # 1. Raw attempt is preserved in TMAKnowledgeAttempt
+        attempt = TMAKnowledgeAttempt.get(TMAKnowledgeAttempt.client_event_id == 'failed-attempt-1')
+        self.assertEqual(attempt.user_id, 1)
+        import json
+        eval_data = json.loads(attempt.evaluation_data)
+        self.assertEqual(eval_data['evaluation_type'], 'hybrid')
+        self.assertEqual(eval_data['exercise_evidence']['completed'], False)
+        self.assertEqual(eval_data['exercise_evidence']['attempt_count'], 3)
+        self.assertEqual(eval_data['exercise_evidence']['mistake_count'], 3)
+        self.assertEqual(eval_data['exercise_evidence']['grading_summary']['error_types_seen'], ['grammar'])
+        self.assertEqual(eval_data['exercise_evidence']['grading_summary']['error_codes_seen'], ['grammar.article_case'])
+
+        # 2. Mastery v1 state is NOT created (no positive or negative evidence added)
+        self.assertIsNone(self.state())
+        self.assertIsNone(rebuild_knowledge_state(1, self.ki1.id))
+
+
 if __name__ == '__main__':
     unittest.main()

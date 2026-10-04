@@ -282,5 +282,64 @@ describe('KnowledgeCaptureService - KI-04', () => {
     const stateForReview2 = getSavedState(cardA.id, 11);
     assert.strictEqual(stateForReview2, undefined);
   });
+
+  test('grammar error -> grammar error -> incorrect -> max_retries -> grade captures failed hybrid attempt in Dexie outbox', async () => {
+    const db = getLocalDb('123');
+    await db.card_knowledge_items.add({ card_id: 88, knowledge_item_id: 101, role: 'primary' });
+
+    const session = createFreeTextEvaluationSession();
+    // 1. grammar error
+    await session.submit('Ich habe ein Hund.', async () => ({
+      result: { verdict: 'needs_retry', accepted: false, error_type: 'grammar', error_code: 'grammar.article_case', evaluator: 'ai' },
+      grading_policy: { max_retries: 3 },
+    }));
+    // 2. grammar error
+    await session.submit('Ich habe dem Hund.', async () => ({
+      result: { verdict: 'needs_retry', accepted: false, error_type: 'grammar', error_code: 'grammar.article_case', evaluator: 'ai' },
+      grading_policy: { max_retries: 3 },
+    }));
+    // 3. incorrect (max_retries reached)
+    await session.submit('Ich habe Katze.', async () => ({
+      result: { verdict: 'incorrect', accepted: false, error_type: 'vocabulary', error_code: 'vocab.wrong_word', evaluator: 'ai' },
+      grading_policy: { max_retries: 3 },
+    }));
+
+    const evidence = session.evidence();
+    assert.strictEqual(evidence.isCorrect, false);
+    assert.strictEqual(evidence.completed, false);
+    assert.strictEqual(evidence.attemptCount, 3);
+    assert.strictEqual(evidence.mistakeCount, 3);
+
+    // Grade card (e.g. grade 0 = 'again')
+    await captureStudyKnowledgeAttempt({
+      userId: '123',
+      card: { id: 88, front: '@free\nTranslate.' },
+      grade: 0,
+      isExtended: false,
+      exerciseEvidence: evidence
+    });
+
+    const pending = await dbService.getPendingKnowledgeAttempts('123');
+    const attempt = pending.find(a => a.card_id === 88);
+    assert.ok(attempt, 'Pending attempt should exist in Dexie outbox');
+
+    const evalData = attempt.evaluation_data;
+    assert.strictEqual(evalData.schema_version, 2);
+    assert.strictEqual(evalData.evaluation_type, 'hybrid');
+    assert.strictEqual(evalData.correct, false);
+    assert.strictEqual(evalData.rating, 'again');
+
+    const exEvidence = evalData.exercise_evidence;
+    assert.strictEqual(exEvidence.auto_evaluated, true);
+    assert.strictEqual(exEvidence.completed, false);
+    assert.strictEqual(exEvidence.first_try_correct, false);
+    assert.strictEqual(exEvidence.attempt_count, 3);
+    assert.strictEqual(exEvidence.mistake_count, 3);
+    assert.deepStrictEqual(exEvidence.grading_summary.error_types_seen, ['grammar', 'vocabulary']);
+    assert.deepStrictEqual(exEvidence.grading_summary.error_codes_seen, ['grammar.article_case', 'vocab.wrong_word']);
+    assert.strictEqual(exEvidence.grading_summary.final_verdict, 'incorrect');
+    assert.strictEqual(exEvidence.grading_summary.final_evaluator, 'ai');
+  });
 });
+
 

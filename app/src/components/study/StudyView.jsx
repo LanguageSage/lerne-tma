@@ -597,7 +597,7 @@ export const StudyView = () => {
               onTrainerAnswer={(cardId, evidence) => {
                   if (typeof evidence === 'object') {
                     setExerciseEvidence(evidence);
-                    if (evidence.isCorrect) setIsExerciseAnswered(true);
+                    if (evidence.isCorrect || evidence.completed === false) setIsExerciseAnswered(true);
                   } else {
                     if (evidence !== false) setIsExerciseAnswered(true);
                   }
