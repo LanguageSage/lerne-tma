@@ -9,6 +9,10 @@ export function useExerciseEvaluation(initial) {
     state,
     part: session.part,
     isLocked: session.isLocked,
+    clearCurrentFeedback() {
+      session.clearCurrentFeedback();
+      setState(session.snapshot());
+    },
     edit(id) {
       session.edit(id);
       setState(session.snapshot());

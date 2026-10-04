@@ -1637,5 +1637,9 @@
   "Проверь введённую форму в этом месте.": "Check the form entered here.",
   "Проверь окончание.": "Check the ending.",
   "Эти элементы не образуют правильную пару.": "These items do not form a correct pair.",
-  "Попробуй другой вариант.": "Try another option."
+  "Попробуй другой вариант.": "Try another option.",
+  "Проверь порядок рядом с этим местом.": "Check the word order around this point.",
+  "Проверь порядок возле отмеченных мест.": "Check the word order around the marked points.",
+  "Верное соседство слов.": "Correct word adjacency.",
+  "Сбросить": "Reset"
 }

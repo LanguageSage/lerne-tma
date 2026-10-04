@@ -23,6 +23,10 @@ export function createExerciseEvaluationSession(initial = {}) {
   const union = (previous, next) => [...new Set([...previous, ...next].filter(Boolean))];
   return {
     snapshot, part, isLocked,
+    clearCurrentFeedback() {
+      // Completed feedback is also the final verdict used by evidence().
+      if (!state.completed) state = { ...state, result: null };
+    },
     edit(id) {
       if (isLocked(id)) return;
       if (state.result) state = { ...state, result: {

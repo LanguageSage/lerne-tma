@@ -1403,6 +1403,54 @@
 }
 
 /* Puzzle Constructor Drag Feedback */
+.puzzle-target-slots,
+.puzzle-pool-chips {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/* Keep the boundary attached to its following word even when the row wraps. */
+.puzzle-token-with-boundary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.puzzle-boundary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+  width: 14px;
+  pointer-events: none;
+}
+
+.puzzle-boundary.is-incorrect { color: #f87171; }
+.puzzle-boundary.is-correct { color: #86efac; opacity: 0.8; }
+
+.puzzle-feedback-hint {
+  margin: -8px 0 16px;
+  color: #fca5a5;
+  font-size: 0.85rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.puzzle-slot-chip,
+.btn-puzzle-chip {
+  min-height: 44px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.puzzle-slot-chip:focus-visible {
+  outline: 2px solid #c084fc;
+  outline-offset: 2px;
+}
+
 .puzzle-slot-chip.drag-hover {
   border-color: #c084fc !important;
   background: rgba(168, 85, 247, 0.35) !important;

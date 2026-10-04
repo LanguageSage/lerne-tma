@@ -15,8 +15,36 @@ import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
 import { checkWordBankAssignments } from '../../utils/wordBankState.js';
 import { evaluateMatchPair } from '../../utils/matchEvaluation.js';
 import { evaluateQuizOption } from '../../utils/quizEvaluation.js';
+import { evaluatePuzzleOrder } from '../../utils/puzzleEvaluation.js';
 
 describe('KnowledgeCaptureService - KI-04', () => {
+  test('KI-08.3 Puzzle first try and retry boundary evidence reach the existing outbox', async () => {
+    const db = getLocalDb('123');
+    for (const retry of [false, true]) {
+      const cardId = retry ? 202 : 201;
+      await db.card_knowledge_items.add({ card_id: cardId, knowledge_item_id: 101, role: 'primary' });
+      const session = createExerciseEvaluationSession();
+      if (retry) {
+        session.check(evaluatePuzzleOrder([0, 1, 2], [1, 0, 2]));
+        assert.equal(session.evidence(), null);
+        session.clearCurrentFeedback();
+      }
+      session.check(evaluatePuzzleOrder([0, 1, 2], [0, 1, 2]));
+      await captureStudyKnowledgeAttempt({ userId: '123', card: { id: cardId, front: '@puzzle\nIch sehe Anna.' },
+        grade: 2, isExtended: false, exerciseEvidence: session.evidence() });
+      const attempt = (await dbService.getPendingKnowledgeAttempts('123')).find(item => item.card_id === cardId);
+      assert.equal(attempt.evaluation_data.card_type, 'puzzle');
+      assert.equal(attempt.evaluation_data.schema_version, 2);
+      assert.equal(attempt.evaluation_data.evaluation_type, 'hybrid');
+      assert.deepEqual(attempt.evaluation_data.exercise_evidence, {
+        auto_evaluated: true, completed: true, first_try_correct: !retry, attempt_count: retry ? 2 : 1,
+        mistake_count: retry ? 1 : 0, partial_score: null, grading_summary: session.evidence().gradingSummary,
+      });
+      assert.deepEqual(attempt.evaluation_data.exercise_evidence.grading_summary.error_types_seen, retry ? ['word_order'] : []);
+    }
+    assert.equal((await dbService.getPendingKnowledgeAttempts('123')).length, 2);
+  });
+
   test('KI-08.2 Match and Quiz first try and retry evidence use the existing Dexie outbox', async () => {
     const db = getLocalDb('123');
     const pairs = [{ id: 0, left: 'A', right: 'one' }, { id: 1, left: 'B', right: 'two' }];

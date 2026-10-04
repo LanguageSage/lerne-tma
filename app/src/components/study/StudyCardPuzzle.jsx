@@ -1,14 +1,16 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, RotateCcw, Eye } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Sparkles, RotateCcw, Eye, Check, X } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { getTextShadow } from '../../utils/style';
 import { triggerHaptic } from '../../utils/platform';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { getBackCardStyle } from '../../utils/cardStyles';
 import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
+import { evaluatePuzzleOrder, puzzleBoundaryId } from '../../utils/puzzleEvaluation.js';
+import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 
 export const StudyCardPuzzle = React.memo(({
   card,
@@ -20,18 +22,15 @@ export const StudyCardPuzzle = React.memo(({
   onSaveState
 }) => {
   useInterfaceLocale();
+  const reduceMotion = useReducedMotion();
   const [selectedPuzzles, setSelectedPuzzles] = useState(savedState?.selectedPuzzles || []);
   const [activeDragId, setActiveDragId] = useState(null);
   const [hoverIndex, setHoverIndex] = useState(null);
   const [dragStartPos, setDragStartPos] = useState(null);
   const [dragCurrentPos, setDragCurrentPos] = useState(null);
-  const [isChecked, setIsChecked] = useState(savedState?.isChecked || false);
-  const [isCorrect, setIsCorrect] = useState(savedState?.isCorrect ?? null);
-  const [showTranslation, setShowTranslation] = useState(false);
-  const hasReportedWrongRef = useRef(savedState?.hasReportedWrong ?? false);
-  const isFirstTryRef = useRef(savedState?.isFirstTry ?? true);
-  const attemptCountRef = useRef(savedState?.attemptCount ?? 0);
-  const mistakeCountRef = useRef(savedState?.mistakeCount ?? 0);
+  const [showTranslation, setShowTranslation] = useState(savedState?.showTranslation || false);
+  const evaluation = useExerciseEvaluation(savedState?.evaluationState);
+  const { completed, result } = evaluation.state;
 
   const cachedRectsRef = useRef([]);
 
@@ -50,27 +49,10 @@ export const StudyCardPuzzle = React.memo(({
   useEffect(() => {
     onSaveState?.({
       selectedPuzzles,
-      isChecked,
-      isCorrect,
-      isFirstTry: isFirstTryRef.current,
-      hasReportedWrong: hasReportedWrongRef.current
+      showTranslation,
+      evaluationState: evaluation.state
     });
-  }, [selectedPuzzles, isChecked, isCorrect, onSaveState]);
-
-  // Reset state unconditionally when card changes
-  useEffect(() => {
-    queueMicrotask(() => {
-      setSelectedPuzzles([]);
-      setActiveDragId(null);
-      setHoverIndex(null);
-      setDragStartPos(null);
-      setDragCurrentPos(null);
-      setIsChecked(false);
-      setIsCorrect(null);
-      isFirstTryRef.current = true;
-      hasReportedWrongRef.current = false;
-    });
-  }, [card?.id]);
+  }, [selectedPuzzles, showTranslation, evaluation.state, onSaveState]);
 
   const puzzleData = useMemo(() => {
     if (!card) return null;
@@ -80,8 +62,6 @@ export const StudyCardPuzzle = React.memo(({
       .split(/\s+/)
       .map(w => w.trim())
       .filter(Boolean);
-
-    const cleanWords = originalWords.map(w => w.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").toLowerCase());
 
     const cardSeed = (card?.id || 1);
     const prng = (seed) => {
@@ -95,7 +75,7 @@ export const StudyCardPuzzle = React.memo(({
 
     return {
       originalWords,
-      cleanWords,
+      targetOrder: originalWords.map((_, index) => index),
       shuffledWords
     };
   }, [card]);
@@ -104,11 +84,8 @@ export const StudyCardPuzzle = React.memo(({
 
   const handlePuzzleChipClick = (wordObj, e) => {
     e.stopPropagation();
-    if (isFlipped || (isChecked && isCorrect)) return;
-    if (isChecked) {
-      setIsChecked(false);
-      setIsCorrect(null);
-    }
+    if (isFlipped || completed || selectedPuzzles.some(word => word.id === wordObj.id)) return;
+    evaluation.clearCurrentFeedback();
     const updated = [...selectedPuzzles, wordObj];
     setSelectedPuzzles(updated);
     triggerHaptic('light');
@@ -116,46 +93,31 @@ export const StudyCardPuzzle = React.memo(({
 
   const handleRemovePuzzleWord = (wordObj, index, e) => {
     e.stopPropagation();
-    if (isFlipped || (isChecked && isCorrect)) return;
-    if (isChecked) {
-      setIsChecked(false);
-      setIsCorrect(null);
-    }
+    if (isFlipped || completed) return;
+    evaluation.clearCurrentFeedback();
     const updated = selectedPuzzles.filter((_, i) => i !== index);
     setSelectedPuzzles(updated);
     triggerHaptic('light');
   };
 
   const handleCheck = () => {
-    if (!allWordsPlaced || isChecked) return;
-    setIsChecked(true);
-    attemptCountRef.current += 1;
-
-    const userText = selectedPuzzles.map(w => w.text.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").toLowerCase()).join(' ');
-    const targetText = puzzleData.cleanWords.join(' ');
-
-    if (userText === targetText) {
-      setIsCorrect(true);
+    if (!allWordsPlaced || isFlipped || completed || activeDragId !== null) return;
+    const submission = evaluation.check(evaluatePuzzleOrder(puzzleData.targetOrder, selectedPuzzles.map(word => word.id)));
+    if (!submission) return;
+    if (submission.evidence) {
       playSuccessSound();
       triggerHaptic('success');
-      onTrainerAnswer?.(card.id, { isCorrect: true, isFirstTry: isFirstTryRef.current, attemptCount: attemptCountRef.current, mistakeCount: mistakeCountRef.current });
+      onTrainerAnswer?.(card.id, submission.evidence);
     } else {
-      setIsCorrect(false);
       playErrorSound();
       triggerHaptic('error');
-      if (!hasReportedWrongRef.current) {
-        hasReportedWrongRef.current = true;
-          isFirstTryRef.current = false;
-          mistakeCountRef.current += 1;
-          onTrainerAnswer?.(card.id, { isCorrect: false, isFirstTry: false, attemptCount: attemptCountRef.current, mistakeCount: mistakeCountRef.current });
-      }
     }
   };
 
   const handleReset = () => {
+    if (isFlipped || completed) return;
     setSelectedPuzzles([]);
-    setIsChecked(false);
-    setIsCorrect(null);
+    evaluation.clearCurrentFeedback();
     triggerHaptic('light');
   };
 
@@ -236,15 +198,11 @@ export const StudyCardPuzzle = React.memo(({
           minHeight: '58px',
           padding: '12px',
           borderRadius: '16px',
-          background: isChecked && isCorrect
+          background: completed
             ? 'rgba(34, 197, 94, 0.12)'
-            : isChecked && isCorrect === false
-            ? 'rgba(239, 68, 68, 0.12)'
             : 'rgba(0, 0, 0, 0.2)',
-          border: isChecked && isCorrect
+          border: completed
             ? '1.5px solid #22c55e'
-            : isChecked && isCorrect === false
-            ? '1.5px solid #ef4444'
             : '1px solid rgba(255, 255, 255, 0.06)',
           marginBottom: '16px',
           transition: 'all 0.2s ease-in-out'
@@ -255,6 +213,7 @@ export const StudyCardPuzzle = React.memo(({
         ) : (
           <>
             {selectedPuzzles.map((w, idx) => {
+              const boundary = idx > 0 ? evaluation.part(puzzleBoundaryId(selectedPuzzles[idx - 1].id, w.id)) : null;
               const showIndicator = hoverIndex === idx && activeDragId !== null && activeDragId !== w.id;
               return (
                 <React.Fragment key={w.id}>
@@ -264,109 +223,125 @@ export const StudyCardPuzzle = React.memo(({
                       className="puzzle-drop-indicator"
                     />
                   )}
-                  <motion.span 
-                    data-id={w.id}
-                    layout
-                    drag={!isFlipped}
-                    dragSnapToOrigin={true}
-                    dragElastic={0}
-                    dragMomentum={false}
-                    onDragStart={(event, info) => {
-                      setActiveDragId(w.id);
-                      const chips = document.querySelectorAll('.puzzle-slot-chip');
-                      cachedRectsRef.current = Array.from(chips).map((el, i) => ({
-                        index: i,
-                        id: el.getAttribute('data-id'),
-                        rect: el.getBoundingClientRect()
-                      }));
+                  <span className="puzzle-token-with-boundary">
+                    {idx > 0 && <span
+                      className={`puzzle-boundary ${boundary ? `is-${boundary.status}` : ''}`}
+                      data-part-id={boundary?.id}
+                      role={boundary ? 'img' : undefined}
+                      aria-hidden={boundary ? undefined : true}
+                      aria-label={boundary ? tr(boundary.status === 'incorrect'
+                        ? 'Проверь порядок рядом с этим местом.' : 'Верное соседство слов.') : undefined}
+                    >
+                      {boundary && (boundary.status === 'correct' ? <Check size={14} /> : <X size={14} />)}
+                    </span>}
+                    <motion.button
+                      type="button"
+                      disabled={isFlipped || completed}
+                      data-id={w.id}
+                      layout={!reduceMotion}
+                      drag={!isFlipped && !completed}
+                      dragSnapToOrigin={true}
+                      dragElastic={0}
+                      dragMomentum={false}
+                      onDragStart={(event, info) => {
+                        evaluation.clearCurrentFeedback();
+                        setActiveDragId(w.id);
+                        const chips = event.target.closest('.puzzle-target-slots').querySelectorAll('.puzzle-slot-chip');
+                        cachedRectsRef.current = Array.from(chips).map((el, i) => ({
+                          index: i,
+                          id: el.getAttribute('data-id'),
+                          rect: el.getBoundingClientRect()
+                        }));
 
-                      const currentChip = Array.from(chips).find(el => el.getAttribute('data-id') === String(w.id));
-                      const cardEl = document.getElementById('tut-study-card');
-                      if (currentChip && cardEl) {
-                        const rect = currentChip.getBoundingClientRect();
-                        const cardRect = cardEl.getBoundingClientRect();
-                        setDragStartPos({
-                          x: rect.left + rect.width / 2 - cardRect.left,
-                          y: rect.top + rect.height / 2 - cardRect.top
-                        });
-                        setDragCurrentPos({
-                          x: info.point.x - cardRect.left,
-                          y: info.point.y - cardRect.top
-                        });
-                      }
-                    }}
-                    onDrag={(event, info) => {
-                      const px = info.point.x;
-                      const py = info.point.y;
-                      
-                      const cardEl = document.getElementById('tut-study-card');
-                      if (cardEl) {
-                        const cardRect = cardEl.getBoundingClientRect();
-                        setDragCurrentPos({
-                          x: px - cardRect.left,
-                          y: py - cardRect.top
-                        });
-                      }
-                      
-                      let closestIdx = null;
-                      let minDistance = Infinity;
-                      let isRightOfCenter = false;
-                      
-                      cachedRectsRef.current.forEach(({ index, id, rect }) => {
-                        if (id === w.id) return;
-                        
-                        const cx = rect.left + rect.width / 2;
-                        const cy = rect.top + rect.height / 2;
-                        
-                        const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
-                        if (dist < minDistance) {
-                          minDistance = dist;
-                          closestIdx = index;
-                          isRightOfCenter = px > cx;
+                        const currentChip = Array.from(chips).find(el => el.getAttribute('data-id') === String(w.id));
+                        const cardEl = document.getElementById('tut-study-card');
+                        if (currentChip && cardEl) {
+                          const rect = currentChip.getBoundingClientRect();
+                          const cardRect = cardEl.getBoundingClientRect();
+                          setDragStartPos({
+                            x: rect.left + rect.width / 2 - cardRect.left,
+                            y: rect.top + rect.height / 2 - cardRect.top
+                          });
+                          setDragCurrentPos({
+                            x: info.point.x - cardRect.left,
+                            y: info.point.y - cardRect.top
+                          });
                         }
-                      });
-                      
-                      if (minDistance < 120 && closestIdx !== null) {
-                        setHoverIndex(isRightOfCenter ? closestIdx + 1 : closestIdx);
-                      } else {
+                      }}
+                      onDrag={(event, info) => {
+                        const px = info.point.x;
+                        const py = info.point.y;
+
+                        const cardEl = document.getElementById('tut-study-card');
+                        if (cardEl) {
+                          const cardRect = cardEl.getBoundingClientRect();
+                          setDragCurrentPos({
+                            x: px - cardRect.left,
+                            y: py - cardRect.top
+                          });
+                        }
+
+                        let closestIdx = null;
+                        let minDistance = Infinity;
+                        let isRightOfCenter = false;
+
+                        cachedRectsRef.current.forEach(({ index, id, rect }) => {
+                          if (id === String(w.id)) return;
+
+                          const cx = rect.left + rect.width / 2;
+                          const cy = rect.top + rect.height / 2;
+
+                          const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+                          if (dist < minDistance) {
+                            minDistance = dist;
+                            closestIdx = index;
+                            isRightOfCenter = px > cx;
+                          }
+                        });
+
+                        if (minDistance < 120 && closestIdx !== null) {
+                          setHoverIndex(isRightOfCenter ? closestIdx + 1 : closestIdx);
+                        } else {
+                          setHoverIndex(null);
+                        }
+                      }}
+                      onDragEnd={() => {
+                        if (hoverIndex !== null && hoverIndex !== idx) {
+                          evaluation.clearCurrentFeedback();
+                          const updated = Array.from(selectedPuzzles);
+                          const [removed] = updated.splice(idx, 1);
+                          const insertIdx = idx < hoverIndex ? hoverIndex - 1 : hoverIndex;
+                          updated.splice(insertIdx, 0, removed);
+                          setSelectedPuzzles(updated);
+                        }
+                        setActiveDragId(null);
                         setHoverIndex(null);
-                      }
-                    }}
-                    onDragEnd={() => {
-                      if (hoverIndex !== null && hoverIndex !== idx) {
-                        const updated = Array.from(selectedPuzzles);
-                        const [removed] = updated.splice(idx, 1);
-                        const insertIdx = idx < hoverIndex ? hoverIndex - 1 : hoverIndex;
-                        updated.splice(insertIdx, 0, removed);
-                        setSelectedPuzzles(updated);
-                      }
-                      setActiveDragId(null);
-                      setHoverIndex(null);
-                      setDragStartPos(null);
-                      setDragCurrentPos(null);
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemovePuzzleWord(w, idx, e);
-                    }}
-                    className={`puzzle-slot-chip ${activeDragId === w.id ? 'dragging' : ''} ${hoverIndex === idx && activeDragId !== w.id ? 'drag-hover' : ''}`}
-                    data-index={idx}
-                    style={{
-                      fontFamily: cardFont,
-                      color: cardTextColor,
-                      fontSize: `${cardFontSize}rem`,
-                      fontWeight: cardFontWeight,
-                      fontStyle: cardFontStyle,
-                      textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      cursor: 'grab',
-                      userSelect: 'none',
-                      touchAction: 'none'
-                    }}
-                  >
-                    {w.text}
-                  </motion.span>
+                        setDragStartPos(null);
+                        setDragCurrentPos(null);
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemovePuzzleWord(w, idx, e);
+                      }}
+                      className={`puzzle-slot-chip ${activeDragId === w.id ? 'dragging' : ''} ${hoverIndex === idx && activeDragId !== w.id ? 'drag-hover' : ''}`}
+                      data-index={idx}
+                      style={{
+                        fontFamily: cardFont,
+                        color: cardTextColor,
+                        fontSize: `${cardFontSize}rem`,
+                        fontWeight: cardFontWeight,
+                        fontStyle: cardFontStyle,
+                        textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        cursor: completed ? 'default' : 'grab',
+                        userSelect: 'none',
+                        touchAction: 'none'
+                      }}
+                    >
+                      {w.text}
+                    </motion.button>
+                  </span>
                 </React.Fragment>
               );
             })}
@@ -380,6 +355,10 @@ export const StudyCardPuzzle = React.memo(({
         )}
       </div>
 
+      {result && !completed && <p className="puzzle-feedback-hint" role="status">
+        {tr('Проверь порядок возле отмеченных мест.')}
+      </p>}
+
       {/* Shuffled Pool Chips */}
       <div className="puzzle-pool-chips">
         {puzzleData.shuffledWords.map((w) => {
@@ -387,8 +366,10 @@ export const StudyCardPuzzle = React.memo(({
           return (
             <button
               key={w.id}
+              type="button"
+              data-id={w.id}
               className="btn-puzzle-chip"
-              disabled={isSelected}
+              disabled={isSelected || completed || isFlipped}
               onClick={(e) => handlePuzzleChipClick(w, e)}
               style={{
                 fontFamily: cardFont,
@@ -418,7 +399,7 @@ export const StudyCardPuzzle = React.memo(({
         <button
           type="button"
           className="btn btn-primary"
-          disabled={!allWordsPlaced}
+          disabled={!allWordsPlaced || completed || isFlipped || activeDragId !== null}
           onClick={handleCheck}
           style={{
             flex: 1,
@@ -428,9 +409,7 @@ export const StudyCardPuzzle = React.memo(({
             fontSize: '1rem',
             cursor: allWordsPlaced ? 'pointer' : 'not-allowed',
             background: allWordsPlaced
-              ? (isChecked && isCorrect === false
-                  ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                  : isChecked && isCorrect
+              ? (completed
                   ? 'linear-gradient(135deg, #22c55e, #16a34a)'
                   : 'linear-gradient(135deg, #a855f7, #7c3aed)')
               : 'rgba(25, 20, 42, 0.85)',
@@ -443,10 +422,11 @@ export const StudyCardPuzzle = React.memo(({
           {tr("Проверить ответы")}
         </button>
 
-        {selectedPuzzles.length > 0 && !isCorrect && (
+        {selectedPuzzles.length > 0 && !completed && (
           <button
             type="button"
             onClick={handleReset}
+            disabled={isFlipped || activeDragId !== null}
             title={tr("Сбросить")}
             style={{
               padding: '12px 14px',
@@ -511,9 +491,3 @@ export const StudyCardPuzzle = React.memo(({
     </div>
   );
 });
-
-
-
-
-
-

@@ -37,6 +37,22 @@ def hybrid(count, rating):
 
 
 class TestMasteryScorer(unittest.TestCase):
+    def test_puzzle_boundary_history_does_not_change_mastery_v1(self):
+        for count in (1, 2, 3, 5):
+            with self.subTest(count=count):
+                plain = hybrid(count, 'good')
+                detailed = hybrid(count, 'good')
+                detailed['card_type'] = 'puzzle'
+                detailed['exercise_evidence']['mistake_count'] = count - 1
+                detailed['exercise_evidence']['grading_summary'] = {
+                    'final_verdict': 'correct', 'final_evaluator': 'rules',
+                    'error_types_seen': ['word_order'] if count > 1 else [],
+                    'error_codes_seen': ['exercise.word_order'] if count > 1 else [],
+                    'incorrect_parts': ['puzzle:boundary:0-2', 'puzzle:boundary:2-1'] if count > 1 else [],
+                }
+                self.assertIsNotNone(score_knowledge_attempt(detailed))
+                self.assertEqual(score_knowledge_attempt(plain), score_knowledge_attempt(detailed))
+
     def test_match_and_quiz_feedback_does_not_change_mastery_scores(self):
         for card_type, code, part in [('match', 'exercise.wrong_match', 'match:left-2'),
                                       ('quiz', 'exercise.wrong_choice', 'option-2')]:

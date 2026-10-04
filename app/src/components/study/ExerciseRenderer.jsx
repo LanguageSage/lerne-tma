@@ -208,6 +208,7 @@ export const ExerciseRenderer = React.memo(({
     case 'puzzle':
       return withInformation(
         <StudyCardPuzzle
+          key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           isFlipped={isFlipped}
           onFlip={onFlip}
