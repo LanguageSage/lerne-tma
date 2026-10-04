@@ -1,6 +1,6 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Trash2, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
 import DeckAudioPlayer from '../common/DeckAudioPlayer';
@@ -20,7 +20,6 @@ import { useSessionVoice } from '../../hooks/useSessionVoice';
 import { MediaPicker } from '../common/MediaPicker';
 import { navigateUp } from '../../utils/navigation';
 import { getAudioUrl } from '../../utils/media';
-import { detectExerciseType } from '../../utils/exerciseDetector';
 
 // Sub-components
 import { StudyHeader } from './StudyHeader';
@@ -205,14 +204,9 @@ export const StudyView = () => {
   
   // Local UI & Animation State
   const [activeRandomMode, setActiveRandomMode] = useState(null);
-  const [isExerciseAnswered, setIsExerciseAnswered] = useState(false);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollTopRef = useRef(0);
   const lastCardKeyRef = useRef('');
-
-  useEffect(() => {
-    setIsExerciseAnswered(false);
-  }, [card?.id, studyMode]);
 
   useEffect(() => {
     const container = document.getElementById('app-container');
@@ -442,13 +436,7 @@ export const StudyView = () => {
     }
   };
 
-  const effectiveMode = isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode;
-  const activeExerciseType = useMemo(() => {
-    return detectExerciseType(card, effectiveMode);
-  }, [card, effectiveMode]);
-
-  const isExerciseActive = Boolean(activeExerciseType && !isFlipped && !isExerciseAnswered);
-  const showGradeButtons = currentDeck?.id !== 'duplicates' && !isAutoplayActive && !isExerciseActive;
+  const showGradeButtons = currentDeck?.id !== 'duplicates' && !isAutoplayActive;
 
   if (view !== 'study') return null;
 
@@ -587,7 +575,6 @@ export const StudyView = () => {
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
               studyMode={isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
-              onTrainerAnswer={() => setIsExerciseAnswered(true)}
               onAskQuestion={handleAskQuestion}
               onNextCard={() => {
                 setIsFlipped(false);
@@ -689,14 +676,6 @@ export const StudyView = () => {
               stopAudio?.();
               useSessionStore.getState().stopAutoplay?.();
               useSessionStore.getState().resetSession();
-              const deck = useDeckStore.getState().currentDeck;
-              if (deck && deck.id !== 'duplicates' && !deck.is_learning) {
-                try {
-                  await useDeckStore.getState().toggleDeckLearning(deck.id, true);
-                } catch (e) {
-                  console.warn('Auto toggle learning on finish error:', e);
-                }
-              }
               useDeckStore.getState().fetchDecks(true).catch(console.error);
               setActiveFolderId(null);
               setView('decks');
