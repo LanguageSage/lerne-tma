@@ -359,14 +359,13 @@ export const StudyCard = React.memo(({
   );
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode="sync" initial={false}>
       <motion.div
         id="tut-study-card"
         key={`${card.id}-${card.front}-${historyIndex}`}
         initial={{ opacity: 0, y: reduceMotion ? 0 : 12, scale: reduceMotion ? 1 : 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
-        transition={{ duration: reduceMotion ? 0 : 0.22 }}
+        transition={{ duration: reduceMotion ? 0 : 0.1 }}
         className={`card-container study-flashcard ${loading ? 'loading-card' : ''}`}
         style={flagStyle}
         aria-busy={loading}

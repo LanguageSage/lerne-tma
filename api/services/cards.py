@@ -794,11 +794,16 @@ def get_cards_for_study(deck_id: int, user_id: int):
             for u in TMAUser.select(TMAUser.user_id, TMAUser.username, TMAUser.first_name, TMAUser.photo_url).where(TMAUser.user_id << creator_ids).dicts():
                 creators[u['user_id']] = u
         
+        # Audio URLs resolve directly to Storage; batch only image/video existence checks.
+        media_exists = _build_media_exists_map([
+            {field: card.get(field) for field in ('image_path', 'video_front_path', 'video_back_path')}
+            for card in cards
+        ])
         result = []
         for c in cards:
             p = progress_map.get(c['id'])
             creator = creators.get(c.get('creator_id'))
-            result.append(_build_card_dict(c, p=p, media_exists=None, creator=creator))
+            result.append(_build_card_dict(c, p=p, media_exists=media_exists, creator=creator))
         return result
     except HTTPException:
         raise

@@ -57,3 +57,5 @@ Offline-оценка атомарно сохраняет progress и review:* в
 | **Не воспроизводится аудио карточки** | `app/src/utils/audio.js` $\to$ `mediaCache.js` | `api/routers/media.py` | `api/services/media.py` (генерация edge-tts) |
 | **Не загружается картинка карточки** | `StudyCardImage.jsx` $\to$ `StudyCard.jsx` | `api/routers/media.py` (`/images/`) | `TMAMedia` в БД Supabase / reconnect |
 | **Сбой авторизации в Telegram/Android** | `app/src/store/useAuthStore.js`, `utils/auth.js`, `utils/platform.js` | `api/routers/auth_v2.py`, `bot.py`, `dependencies/auth.py` | `api/auth/providers.py`, TTL/challenge и сессии в `service.py`; deployment-проверки в `api/auth/DEPLOYMENT.md` |
+
+Study performance: `useStudySession.js` shows cached Next/Back cards immediately and refreshes card/history/deck data in the background. Grades and forced selection still wait for the server SRS result. `study.py:_card_to_response` only serializes existing audio; StudyView/useAutoplay generate missing TTS on demand. `get_cards_for_study` batches media existence checks. Card transitions use concurrent 100 ms motion; front/back flip motion is unchanged.

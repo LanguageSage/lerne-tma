@@ -73,11 +73,7 @@ async def _card_to_response(card, progress, user_id: int, review_context='schedu
             if lvl in str(tags_val).upper():
                 level_label = lvl
                 break
-    if not getattr(card, 'audio_path', None) and getattr(card, 'front_text', None):
-        try:
-            await services.ensure_card_audio(card, user_id)
-        except Exception as audio_err:
-            logger.warning(f"Failed to ensure card audio in _card_to_response: {audio_err}")
+    # Audio is generated on demand by the client; Study responses must not wait for TTS.
 
     return {
         "id": card.id,

@@ -9,6 +9,8 @@ import { useUiStore } from '../store/useUiStore';
 
 export const useStudySession = () => {
   const gradingRef = useRef(false);
+  const refreshEpochRef = useRef(0);
+  const refreshRequestsRef = useRef(new Map());
   const { setLoading, showToast } = useUiStore();
 
   const prefetchMedia = useCallback((url) => {
@@ -17,8 +19,44 @@ export const useStudySession = () => {
     img.src = url;
   }, []);
 
+  const refreshCard = useCallback((card) => {
+    const session = useSessionStore.getState();
+    const sessionRevision = session.sessionRevision;
+    const requestKey = String(card.id);
+    const requestToken = {};
+    refreshRequestsRef.current.set(requestKey, requestToken);
+    const epoch = refreshEpochRef.current;
+    api.get(`/study/card/${card.id}`).then(({ data }) => {
+      const latest = useSessionStore.getState();
+      // A reset, newer refresh, or grade invalidates this snapshot. Never navigate on refresh.
+      if (!data?.id || String(data.id) !== String(card.id) || epoch !== refreshEpochRef.current
+        || latest.sessionRevision !== sessionRevision
+        || refreshRequestsRef.current.get(requestKey) !== requestToken) return;
+      const current = latest.studyHistory.find(item => String(item.id) === String(card.id));
+      if (!current) return;
+      const patch = { ...data };
+      // Client TTS can finish while the GET is in flight; preserve its newer result.
+      for (const field of ['audio_path', 'audio_url', 'audio_back_path', 'audio_back_url', 'audio_is_generating']) {
+        if (current[field] !== card[field]) delete patch[field];
+      }
+      latest.updateCardInSession(card.id, patch);
+      useDeckStore.getState().updateCardLocal(card.id, patch);
+    }).catch(err => console.warn('Background study card refresh:', err));
+  }, []);
+
+  const showLocalCard = useCallback((card, prepend = false) => {
+    const session = useSessionStore.getState();
+    if (prepend) {
+      session.setStudyHistory([card, ...session.studyHistory]);
+      session.moveToHistory(0);
+    } else {
+      session.addToHistory(card);
+    }
+    prefetchMedia(card.image_url);
+    refreshCard(card);
+  }, [prefetchMedia, refreshCard]);
+
   const fetchNextCard = useCallback(async (deckId, isFirst = false, excludeIds = []) => {
-    setLoading(true);
     const session = useSessionStore.getState();
     session.setApiError(null);
     try {
@@ -42,10 +80,7 @@ export const useStudySession = () => {
           session.setIsSessionFinished(true);
           session.setCard(null);
         } else {
-          const res = await api.get(`/study/card/${nextDuplicateCard.id}`);
-          const newCard = res.data;
-          session.addToHistory(newCard);
-          prefetchMedia(newCard.image_url);
+          showLocalCard(nextDuplicateCard);
         }
       } else {
         const { deckCards } = useDeckStore.getState();
@@ -66,16 +101,7 @@ export const useStudySession = () => {
         }
 
         if (nextCardInfo) {
-          try {
-            const res = await api.get(`/study/card/${nextCardInfo.id}`);
-            const newCard = res.data;
-            session.addToHistory(newCard);
-            prefetchMedia(newCard.image_url);
-          } catch (err) {
-            console.warn("api.get study card failed in useStudySession, using nextCardInfo fallback:", err);
-            session.addToHistory(nextCardInfo);
-            prefetchMedia(nextCardInfo.image_url);
-          }
+          showLocalCard(nextCardInfo);
         } else if (!isFirst && !session.isLearningMore && currentCard) {
           // Reached end of sequential deckCards traversal! End session cleanly to show summary screen
           session.setIsSessionFinished(true);
@@ -88,6 +114,7 @@ export const useStudySession = () => {
           const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
           const queryString = params ? `?${params}` : '';
           const endpoint = `/decks/${deckId}/next${queryString}`;
+          setLoading(true);
           const res = await api.get(endpoint);
 
           if (res.data.error) {
@@ -109,7 +136,7 @@ export const useStudySession = () => {
       session.setApiError(err.response?.data?.detail || err.message);
     }
     setLoading(false);
-  }, [setLoading, prefetchMedia]);
+  }, [setLoading, prefetchMedia, showLocalCard]);
 
   const submitGrade = useCallback(async (grade, isExtended = false, exerciseEvidence = null) => {
     const session = useSessionStore.getState();
@@ -117,6 +144,7 @@ export const useStudySession = () => {
     
     if (!session.card || gradingRef.current || !currentDeck) return;
     gradingRef.current = true;
+    refreshEpochRef.current += 1;
 
     session.setIsFlipped(false);
     setLoading(true);
@@ -171,6 +199,7 @@ export const useStudySession = () => {
 
     if (session.historyIndex > 0) {
       session.goBack();
+      if (!session.isLearningMore) refreshCard(useSessionStore.getState().card);
     } else if (session.isLearningMore) {
       // A forced pass only navigates its own history; do not wrap to unseen cards.
       return;
@@ -184,19 +213,7 @@ export const useStudySession = () => {
       }
 
       if (prevDuplicateCard) {
-        setLoading(true);
-        try {
-          const res = await api.get(`/study/card/${prevDuplicateCard.id}`);
-          const prevCard = res.data;
-          const newHistory = [prevCard, ...session.studyHistory];
-          session.setStudyHistory(newHistory);
-          session.moveToHistory(0);
-          prefetchMedia(prevCard.image_url);
-        } catch (err) {
-          console.error("goBack Error:", err);
-        } finally {
-          setLoading(false);
-        }
+        showLocalCard(prevDuplicateCard, true);
       }
     } else if (currentDeck && session.card && deckCards && deckCards.length > 0) {
       const currentIndex = deckCards.findIndex(c => c.id === session.card.id);
@@ -208,33 +225,22 @@ export const useStudySession = () => {
       }
 
       if (prevCardInfo) {
-        setLoading(true);
-        try {
-          const res = await api.get(`/study/card/${prevCardInfo.id}`);
-          const prevCard = res.data;
-          const newHistory = [prevCard, ...session.studyHistory];
-          session.setStudyHistory(newHistory);
-          session.moveToHistory(0);
-          prefetchMedia(prevCard.image_url);
-        } catch (err) {
-          console.error("goBack Error:", err);
-        } finally {
-          setLoading(false);
-        }
+        showLocalCard(prevCardInfo, true);
       }
     }
-  }, [setLoading, prefetchMedia]);
+  }, [showLocalCard, refreshCard]);
 
   const goNext = useCallback(async () => {
     const session = useSessionStore.getState();
     const { currentDeck } = useDeckStore.getState();
     if (session.historyIndex < session.studyHistory.length - 1) {
       session.moveToHistory(session.historyIndex + 1);
+      if (!session.isLearningMore) refreshCard(useSessionStore.getState().card);
     } else if (currentDeck) {
       const historyIds = session.studyHistory.map(c => c.id);
       await fetchNextCard(currentDeck.id, false, historyIds);
     }
-  }, [fetchNextCard]);
+  }, [fetchNextCard, refreshCard]);
 
   return {
     fetchNextCard,

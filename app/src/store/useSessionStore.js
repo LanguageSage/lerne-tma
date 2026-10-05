@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 export const useSessionStore = create((set, get) => ({
+  sessionRevision: 0,
   card: null,
   studyHistory: [],
   historyIndex: -1,
@@ -56,11 +57,11 @@ export const useSessionStore = create((set, get) => ({
   setEditorSourceView: (source) => set({ editorSourceView: source }),
 
   addToHistory: (card) => {
-    const { studyHistory, historyIndex } = get();
+    const { studyHistory } = get();
     const newCard = card ? { ...card } : null;
     set({
       studyHistory: [...studyHistory, newCard],
-      historyIndex: historyIndex + 1,
+      historyIndex: studyHistory.length,
       card: newCard,
       isFlipped: false
     });
@@ -110,6 +111,7 @@ export const useSessionStore = create((set, get) => ({
 
   resetSession: () => {
     set({
+      sessionRevision: get().sessionRevision + 1,
       card: null,
       studyHistory: [],
       historyIndex: -1,
