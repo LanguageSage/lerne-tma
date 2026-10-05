@@ -1654,5 +1654,8 @@
   "Не удалось загрузить занятие": "Could not load the study session",
   "Повторить запрос": "Retry",
   "Сервер не подтвердил сохранение оценок. Обновите сервер синхронизации.": "The server did not confirm saving your grades. Update the sync server.",
-  "Некорректный контекст повторения": "Invalid review context"
+  "Некорректный контекст повторения": "Invalid review context",
+  "↻ Дополнительное повторение": "↻ Extra review",
+  "Карточка повторяется раньше запланированного срока": "This card is reviewed before its scheduled date",
+  "К колодам": "Back to decks"
 }

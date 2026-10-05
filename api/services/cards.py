@@ -878,10 +878,15 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                 return c, p
             return None, None
 
-        # Если включен режим learn_more, новые карты приоритетнее,
-        # так как повторять старые раньше времени нужно только когда нет новых.
+        # Forced traversal follows the deck order; SRS only affects grading.
         if learn_more:
-            card = get_new_card()
+            query = TMA_Card.select().where(
+                TMA_Card.deck_id == deck_id,
+                TMA_Card.is_deleted == False,
+            )
+            if exclude_ids:
+                query = query.where(~(TMA_Card.id << exclude_ids))
+            card = query.order_by(TMA_Card.position.asc(), TMA_Card.id.asc()).first()
             if card:
                 progress, _ = TMAProgress.get_or_create(
                     card_id=card.id,
@@ -890,11 +895,7 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                 )
                 return card, progress
             
-            card, progress = get_due_card()
-            if card:
-                return card, progress
-                
-            return get_today_learning_card()
+            return None, None
         else:
             card, progress = get_due_card()
             if card:

@@ -17,7 +17,7 @@ export const StudyFinished = ({ deck, nextDeck, isLastDeck, alreadyDone, nextRev
         <button className={`btn ${nextDeck ? 'btn-secondary' : 'btn-primary'}`} onClick={onRepeat}>
           {alreadyDone ? tr('↻ Повторить колоду сейчас') : tr('↻ Повторить эту колоду')}
         </button>
-        <button className="btn btn-secondary" onClick={onGoToDecks}>{tr('К колодам темы')}</button>
+        <button className="btn btn-secondary" onClick={onGoToDecks}>{deck?.folder_id != null ? tr('К колодам темы') : tr('К колодам')}</button>
       </div>
     </div>
   );

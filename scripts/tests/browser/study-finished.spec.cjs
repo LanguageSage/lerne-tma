@@ -80,9 +80,42 @@ test('last deck and root return have no fabricated next deck', async ({ page, co
   await expect(page.getByRole('heading', { name: 'Тема завершена', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Продолжить →/ })).toHaveCount(0);
   await finish(page, 4);
-  await page.getByRole('button', { name: 'К колодам темы', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'К колодам темы', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'К колодам', exact: true }).click();
   expect(await page.evaluate(() => uiStore.getState().activeFolderId)).toBeNull();
   await expect(page.locator('.view-decks')).toBeVisible();
+});
+
+test('SRS badge distinguishes early forced review from scheduled due review', async ({ page, context }, testInfo) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  await setup(page, context);
+  await finish(page, 1, true);
+  await page.getByRole('button', { name: '↻ Повторить колоду сейчас', exact: true }).click();
+  const badge = page.locator('.current-card-srs-badge');
+  await expect(badge).toHaveText('↻ Дополнительное повторение');
+  await expect(badge).toHaveAttribute('title', 'Карточка повторяется раньше запланированного срока');
+  await badge.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('early-forced-badge-mobile.png'), fullPage: true });
+  // Changing context alone must update the badge for the same card object.
+  await page.evaluate(() => sessionStore.getState().setIsLearningMore(false));
+  await expect(badge).toContainText('🔴 К повторению');
+  await expect(badge).toHaveAttribute('title', 'Настал срок интервального повторения карточки');
+  await page.evaluate(() => {
+    sessionStore.getState().setIsLearningMore(true);
+    sessionStore.getState().setCard(card => ({ ...card, next_review: new Date(Date.now() - 86400000).toISOString() }));
+  });
+  await expect(badge).toContainText('🔴 К повторению');
+  await page.evaluate(() => sessionStore.getState().setIsLearningMore(false));
+  await expect(badge).toHaveAttribute('title', 'Настал срок интервального повторения карточки');
+});
+
+test('root deck error also uses the root return label', async ({ page, context }) => {
+  await setup(page, context);
+  await finish(page, 4);
+  await page.evaluate(() => sessionStore.getState().setApiError('Temporary study failure'));
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'К колодам', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'К колодам темы', exact: true })).toHaveCount(0);
 });
 
 test('already done deck permits a finite graded forced pass', async ({ page, context }) => {

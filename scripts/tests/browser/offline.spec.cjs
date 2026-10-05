@@ -269,6 +269,67 @@ test('forced offline traversal persists every grade and synchronizes history wit
   expect(after.progress.every(p => p.card_id > 0 && p.is_dirty === 0)).toBe(true);
 });
 
+test('forced backend and offline order match position with exclusions, independent of SRS', async ({ page, context }) => {
+  const fixture = {
+    cards: [
+      { id: 101, deck_id: 1, position: 30, queue: 'new' },
+      { id: 102, deck_id: 1, position: 10, queue: 'review', next_review: '2099-01-01T00:00:00Z' },
+      { id: 103, deck_id: 1, position: 20, queue: 'learning', next_review: '2000-01-01T00:00:00Z' },
+      { id: 104, deck_id: 1, position: 10, queue: 'relearning', next_review: '2099-02-01T00:00:00Z' },
+      { id: 105, deck_id: 1, position: 0, is_deleted: true },
+      { id: 106, deck_id: 2, position: 0 },
+      { id: 107, deck_id: 1, position: 15 },
+    ],
+    exclude: [104],
+  };
+  // Execute the real selector against SQLite using the very same browser fixture.
+  const backend = JSON.parse(require('child_process').execFileSync('python', ['-c', `
+import sys, json, datetime
+sys.path.insert(0, 'scripts/tests')
+from test_forced_study import database, models, TABLES, cards
+fixture = json.load(sys.stdin)
+database.create_tables(TABLES)
+models.TMAUser.create(user_id=1)
+for deck_id in [1, 2]:
+    models.TMA_Deck.create(id=deck_id, user_id=1, name='Order')
+for row in fixture['cards']:
+    models.TMA_Card.create(id=row['id'], deck=row['deck_id'], position=row['position'],
+        front_text=str(row['id']), back_text='x', is_deleted=row.get('is_deleted', False))
+    if 'queue' in row:
+        due = datetime.datetime.fromisoformat(row['next_review'].replace('Z', '')) if row.get('next_review') else None
+        models.TMAProgress.create(card_id=row['id'], user_id=1, queue=row['queue'], next_review=due)
+seen = list(fixture['exclude'])
+order = []
+for _ in range(len(fixture['cards']) + 1):
+    card, _ = cards.get_next_card(1, 1, exclude_ids=seen, review_context='forced')
+    if not card:
+        break
+    order.append(card.id)
+    seen.append(card.id)
+print(json.dumps(order))
+database.drop_tables(TABLES)
+`], { cwd: require('path').resolve(__dirname, '../../..'), input: JSON.stringify(fixture), encoding: 'utf8' }));
+  await harness(page, context);
+  const offline = await page.evaluate(async fixture => {
+    for (const id of [1, 2]) await getDb().decks.put({ id, name: 'Order', user_id: 1 });
+    for (const row of fixture.cards) {
+      await getDb().cards.put({ ...row, front_text: String(row.id), back_text: 'x' });
+      if (row.queue) await getDb().progress.put({ card_id: row.id, user_id: 1, queue: row.queue, next_review: row.next_review });
+    }
+    const seen = [...fixture.exclude];
+    const order = [];
+    for (let i = 0; i <= fixture.cards.length; i++) {
+      const card = (await api.get(`/decks/1/next?review_context=forced&exclude_ids=${seen.join(',')}`)).data;
+      if (card.finished) break;
+      order.push(card.id);
+      seen.push(card.id);
+    }
+    return order;
+  }, fixture);
+  expect(backend).toEqual([102, 107, 103, 101]);
+  expect(offline).toEqual(backend);
+});
+
 test('cached audio survives a new page without network', async ({ page, context }) => {
   await harness(page, context);
   await page.evaluate(async () => {

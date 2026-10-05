@@ -77,7 +77,7 @@ async function nextCard(db, deckId, userId, params) {
   const context = params.get('review_context') === 'forced' || params.get('learn_more') === 'true' ? 'forced' : 'scheduled';
   const pool = context === 'forced' ? candidates : due;
   const rank = (p) => !p || p.queue === 'new' ? 2 : ['learning', 'relearning'].includes(p.queue) ? 0 : 1;
-  pool.sort((a, b) => rank(a.p) - rank(b.p)
+  if (context !== 'forced') pool.sort((a, b) => rank(a.p) - rank(b.p)
     || new Date(a.p?.next_review || 0) - new Date(b.p?.next_review || 0)
     || (a.card.position || 0) - (b.card.position || 0));
   if (!pool.length) return result({ finished: true });

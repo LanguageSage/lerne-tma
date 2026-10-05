@@ -153,8 +153,23 @@ stateDiagram-v2
    * При выставлении оценки без сети [`offlineApi.js`](file:///C:/121/Lerne_projekt/tma/app/src/services/offlineApi.js) перехватывает запрос и вызывает [`srsEngine.js`](file:///C:/121/Lerne_projekt/tma/app/src/utils/srsEngine.js).
    * Запись сохраняется в IndexedDB с флагом `is_dirty: 1`.
 2. **Автоматическая синхронизация ([`syncService.js`](file:///C:/121/Lerne_projekt/tma/app/src/services/syncService.js)):**
-   * При восстановлении соединения все `is_dirty` записи пакетом отправляются на эндпоинт `POST /sync/push`.
-   * В ответ сервер возвращает актуальные обновления `GET /sync/pull`.
+   * При восстановлении соединения `is_dirty` записи и события оценок `review:*` из существующей таблицы Dexie `syncState` отправляются в устойчивом пакете `POST /sync/v2/push`.
+   * Сервер атомарно сохраняет итоговый progress и `TMAReviewHistory`, без повторного расчёта SRS. Квитанция `request_id` защищает от повторного применения пакета; `review_count` подтверждает сохранение оценок.
+   * После подтверждения клиент удаляет только отправленные события, обновляет временные ID и получает снимок через `GET /sync/v2/pull`.
+
+### Завершение занятия и принудительный проход (Study completion / forced review)
+
+Обычное открытие колоды по-прежнему ведёт в список карточек. Завершение занятия не сбрасывает progress:
+
+- `StudyFinished.jsx` показывает завершение колоды/темы, переход к следующей обычной колоде текущей папки и повторение текущей. Если обычный SRS сразу вернул `finished`, показывается «На сегодня всё выполнено» и ближайшая дата из имеющихся карточек.
+- Следующая колода определяется в `utils/studyFlow.js`: общая с DeckGrid видимость, только `folder_id` текущей колоды, уже отсортированный порядок store. Запуск следующей колоды и повторение используют `useStudyNavigation.startStudy`.
+- `StudyError.jsx` отображается отдельно от успеха и позволяет повторить загрузку. `returnToStudyTheme` в `utils/navigation.js` останавливает autoplay, сбрасывает сессию и открывает `decks` с папкой текущей колоды. Для root deck текст — «К колодам», для колоды в папке — «К колодам темы»; остановка аудио выполняется обработчиком в `StudyView`.
+- Повторение запускает ту же учебную сессию с `review_context=forced` (`isLearningMore` — существующее внутреннее состояние). `useSessionStore.forcedSeenIds` передаётся через `useStudySession` как `exclude_ids` в запросы выбора и оценки.
+- В forced-проходе серверный `api/services/cards.py:get_next_card` и локальный `offlineApi.js:nextCard` выбирают неудалённые карточки строго по `position`, затем по `id` при одинаковой позиции. Queue и `next_review` не влияют на порядок. Исключённые карточки не возвращаются; после обхода занятие заканчивается. Совместимый `learn_more` также использует этот порядок.
+- Оценки сохраняются в обычный progress и историю. `review_context` передаётся в оба существующих SRS-движка и в прогноз интервалов кнопок. Ранний forced review учитывает прошедшую долю срока; scheduled review сохраняет прежнюю формулу. «Снова» сохраняет relearning и ближайшее повторение для следующего обычного занятия.
+- SRS-бейдж формируется в `StudyView.jsx:currentCardSrsStatus`. Для forced-сессии с `queue=review` и будущим `next_review` показывается «↻ Дополнительное повторение» с пояснением раннего показа. Плановое due review сохраняет красный бейдж «К повторению».
+
+Это расширение существующих компонентов, сессии и sync v2, без отдельного progress и без новой SRS-системы. Новые модули предыдущего изменения: `StudyError.jsx`, `utils/studyFlow.js`; отдельное поле context в PostgreSQL и миграция БД не добавлялись. Регрессии находятся в `scripts/tests/test_forced_study.py`, `scripts/tests/browser/study-finished.spec.cjs`, `scripts/tests/browser/offline.spec.cjs`, `app/src/utils/__tests__/studyFlow.test.js` и `srsEngine.test.js`.
 
 ---
 
@@ -183,8 +198,18 @@ stateDiagram-v2
 | [`api/srs.py`](file:///C:/121/Lerne_projekt/tma/api/srs.py) | Серверное ядро SM-2 PRO: формулы, Fuzzing, Leech check, интервалы |
 | [`api/routers/study.py`](file:///C:/121/Lerne_projekt/tma/api/routers/study.py) | Эндпоинты `/study/card/:id`, `/study/grade`, `/study/stats` |
 | [`api/services/cards.py`](file:///C:/121/Lerne_projekt/tma/api/services/cards.py) | Выбор следующей карточки по SRS-очереди, форматирование |
+| [`api/services/study.py`](../../api/services/study.py) | Атомарное обновление progress и истории оценки с review_context |
+| [`app/src/hooks/useStudySession.js`](../../app/src/hooks/useStudySession.js) | Запросы выбора/оценки, context и forcedSeenIds → exclude_ids |
+| [`app/src/hooks/useStudyNavigation.js`](../../app/src/hooks/useStudyNavigation.js) | Общий startStudy для обычного запуска, следующей колоды и forced review |
+| [`app/src/store/useSessionStore.js`](../../app/src/store/useSessionStore.js) | История сессии, isLearningMore и forcedSeenIds |
+| [`app/src/components/study/StudyView.jsx`](../../app/src/components/study/StudyView.jsx) | Переключение карточки/успеха/ошибки, бейдж раннего forced review |
+| [`app/src/components/study/StudyFinished.jsx`](../../app/src/components/study/StudyFinished.jsx) | Следующие действия после завершения и подпись возврата по folder_id |
+| [`app/src/components/study/StudyError.jsx`](../../app/src/components/study/StudyError.jsx) | Отдельное состояние ошибки с retry и возвратом |
+| [`app/src/utils/studyFlow.js`](../../app/src/utils/studyFlow.js) | Общая видимость колод с DeckGrid, следующая/последняя колода темы |
+| [`app/src/utils/navigation.js`](../../app/src/utils/navigation.js) | Прямой returnToStudyTheme, отдельно от обычного navigateUp |
 | [`app/src/utils/srsEngine.js`](file:///C:/121/Lerne_projekt/tma/app/src/utils/srsEngine.js) | Офлайн клиентское ядро SM-2 PRO (зеркало Python-логики) |
 | [`app/src/services/offlineApi.js`](file:///C:/121/Lerne_projekt/tma/app/src/services/offlineApi.js) | Офлайн-обработчик оценок и локальной аналитики из IndexedDB |
+| [`app/src/services/syncService.js`](../../app/src/services/syncService.js), [`api/services/offline_sync.py`](../../api/services/offline_sync.py) | Устойчивый пакет progress + reviews, квитанция, remap ID и подтверждение истории |
 | [`app/src/components/study/StudyCard.jsx`](file:///C:/121/Lerne_projekt/tma/app/src/components/study/StudyCard.jsx) | Карточка с отображением Leech-бейджа и медиа |
 | [`app/src/components/study/GradeButtons.jsx`](file:///C:/121/Lerne_projekt/tma/app/src/components/study/GradeButtons.jsx) | Кнопки 4 оценок с интервалами |
 | [`app/src/components/study/SrsStatsModal.jsx`](file:///C:/121/Lerne_projekt/tma/app/src/components/study/SrsStatsModal.jsx) | Модальное окно SRS-аналитики (Retention Rate, прогноз 7 дней) |

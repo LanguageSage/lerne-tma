@@ -58,6 +58,30 @@ class ForcedStudyTests(unittest.TestCase):
             result = asyncio.run(router.submit_grade(request, user_id=1))
         self.assertEqual(result, {'id': self.cards[2].id, 'context': 'forced'})
 
+    def test_forced_order_ignores_queue_and_due_date(self):
+        positions = [20, 10, 10]
+        queues = ['new', 'review', 'relearning']
+        for card, position, queue in zip(self.cards, positions, queues):
+            card.position = position
+            card.save()
+            models.TMAProgress.update(queue=queue).where(models.TMAProgress.card_id == card.id).execute()
+        deleted = models.TMA_Card.create(deck=self.deck, front_text='deleted', back_text='x', position=0, is_deleted=True)
+        other_deck = models.TMA_Deck.create(user_id=1, name='Other')
+        models.TMA_Card.create(deck=other_deck, front_text='other', back_text='x', position=0)
+        seen = []
+        while True:
+            card, _ = cards.get_next_card(1, self.deck.id, exclude_ids=seen, review_context='forced')
+            if not card:
+                break
+            self.assertNotIn(card.id, seen)
+            seen.append(card.id)
+        self.assertEqual(seen, [self.cards[1].id, self.cards[2].id, self.cards[0].id])
+        self.assertNotIn(deleted.id, seen)
+        card, _ = cards.get_next_card(1, self.deck.id, exclude_ids=[self.cards[1].id], review_context='forced')
+        self.assertEqual(card.id, self.cards[2].id)
+        card, _ = cards.get_next_card(1, self.deck.id, learn_more=True)
+        self.assertEqual(card.id, self.cards[1].id)
+
     def test_grade_route_rejects_other_users_and_cross_deck_cards(self):
         from fastapi import HTTPException
         request = router.StudyGradeRequest(card_id=self.cards[0].id, deck_id=self.deck.id, grade=2)

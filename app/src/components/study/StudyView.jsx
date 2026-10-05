@@ -36,7 +36,7 @@ export const StudyView = () => {
   useInterfaceLocale();
   const { view, loading, setIsSettingsOpen, showToast, userProfile, setIsAuthModalOpen } = useUiStore();
   const { currentDeck, decks, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
-  const { card, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, studyHistory, autoplayState } = useSessionStore();
+  const { card, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, studyHistory, isLearningMore, autoplayState } = useSessionStore();
   const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard, runAiGenerator } = useCardActions();
   const { startStudy } = useStudyNavigation();
   const { openEditor, openCreator } = useCardNavigation();
@@ -162,6 +162,17 @@ export const StudyView = () => {
       };
     }
     if (queue === 'review') {
+      if (isLearningMore && card.next_review && new Date(card.next_review) > new Date()) {
+        return {
+          label: tr('↻ Дополнительное повторение'),
+          title: tr('Карточка повторяется раньше запланированного срока'),
+          style: {
+            background: 'rgba(59, 130, 246, 0.18)',
+            color: '#93c5fd',
+            border: '1px solid rgba(59, 130, 246, 0.35)'
+          }
+        };
+      }
       const days = card.interval || 1;
       return {
         label: tr("🔴 К повторению (интервал {{p0}} дн)", { p0: days }),
@@ -182,7 +193,7 @@ export const StudyView = () => {
         border: '1px solid rgba(59, 130, 246, 0.35)'
       }
     };
-  }, [card]);
+  }, [card, isLearningMore]);
 
   const autoplay = useAutoplay({ card, playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock });
   const isAutoplayActive = autoplayState === 'playing' || autoplayState === 'paused';
@@ -690,7 +701,7 @@ export const StudyView = () => {
             </div>
           </div>
         ) : apiError ? (
-          <StudyError error={apiError} onRetry={() => fetchNextCard(currentDeck.id, !card)} onGoToDecks={handleGoToTheme} />
+          <StudyError deck={currentDeck} error={apiError} onRetry={() => fetchNextCard(currentDeck.id, !card)} onGoToDecks={handleGoToTheme} />
         ) : isSessionFinished ? (
           <StudyFinished
             deck={currentDeck}
