@@ -1641,5 +1641,18 @@
   "Проверь порядок рядом с этим местом.": "Check the word order around this point.",
   "Проверь порядок возле отмеченных мест.": "Check the word order around the marked points.",
   "Верное соседство слов.": "Correct word adjacency.",
-  "Сбросить": "Reset"
+  "Сбросить": "Reset",
+  "На сегодня всё выполнено": "All done for today",
+  "Тема завершена": "Topic completed",
+  "Колода завершена": "Deck completed",
+  "Вы прошли последнюю колоду этой темы.": "You have completed the last deck in this topic.",
+  "Следующее повторение: {{date}}": "Next review: {{date}}",
+  "Продолжить → {{name}}": "Continue → {{name}}",
+  "↻ Повторить колоду сейчас": "↻ Review this deck now",
+  "↻ Повторить эту колоду": "↻ Repeat this deck",
+  "К колодам темы": "Back to topic decks",
+  "Не удалось загрузить занятие": "Could not load the study session",
+  "Повторить запрос": "Retry",
+  "Сервер не подтвердил сохранение оценок. Обновите сервер синхронизации.": "The server did not confirm saving your grades. Update the sync server.",
+  "Некорректный контекст повторения": "Invalid review context"
 }

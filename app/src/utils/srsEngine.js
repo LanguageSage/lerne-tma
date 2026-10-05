@@ -16,6 +16,11 @@ export const HARD_MULTIPLIER = 1.15;
 export const EASY_MULTIPLIER = 1.3;
 export const LEECH_LAPSE_THRESHOLD = 5;
 
+// Match Python's round-to-even at the existing SRS rounding boundaries.
+const round = value => value % 1 === 0.5
+  ? (Math.floor(value) % 2 === 0 ? Math.floor(value) : Math.ceil(value))
+  : Math.round(value);
+
 /**
  * Checks if card is a leech
  */
@@ -33,11 +38,11 @@ export const applyFuzz = (interval) => {
     const fuzz = Math.floor(Math.random() * 3) - 1; // -1, 0, +1
     return Math.max(2, interval + fuzz);
   } else if (interval <= 30) {
-    const delta = Math.max(1, Math.round(interval * 0.10));
+    const delta = Math.max(1, round(interval * 0.10));
     const fuzz = Math.floor(Math.random() * (delta * 2 + 1)) - delta;
     return Math.max(7, interval + fuzz);
   } else {
-    const delta = Math.max(2, Math.round(interval * 0.05));
+    const delta = Math.max(2, round(interval * 0.05));
     const fuzz = Math.floor(Math.random() * (delta * 2 + 1)) - delta;
     return Math.max(28, interval + fuzz);
   }
@@ -73,9 +78,9 @@ export const getLearning8States = (progress) => {
   const stepIdx = progress.step_index || 0;
   const nextQueue = progress.queue === 'new' ? 'learning' : progress.queue;
   const hardInt = steps[1] || steps[0] * 2;
-  const midMin = Math.round((steps[0] + hardInt) / 2);
+  const midMin = round((steps[0] + hardInt) / 2);
   const step1 = midMin > steps[0] ? midMin : steps[0] + 2;
-  const step3 = Math.max(hardInt + 5, Math.round(hardInt * 2.5));
+  const step3 = Math.max(hardInt + 5, round(hardInt * 2.5));
 
   const states = [
     { queue: nextQueue, interval: steps[0], stepIndex: 0, isDays: false },
@@ -85,7 +90,7 @@ export const getLearning8States = (progress) => {
     { queue: 'review', interval: GRADUATING_INTERVAL_GOOD, stepIndex: null, isDays: true },
     { queue: 'review', interval: 2, stepIndex: null, isDays: true },
     { queue: 'review', interval: GRADUATING_INTERVAL_EASY, stepIndex: null, isDays: true },
-    { queue: 'review', interval: Math.max(4, Math.round(GRADUATING_INTERVAL_EASY * 1.6)), stepIndex: null, isDays: true }
+    { queue: 'review', interval: Math.max(4, round(GRADUATING_INTERVAL_EASY * 1.6)), stepIndex: null, isDays: true }
   ];
 
   for (let i = 1; i < states.length; i++) {
@@ -97,7 +102,7 @@ export const getLearning8States = (progress) => {
   return states;
 };
 
-export const getReview8States = (progress, applyFuzzFlag = false) => {
+export const getReview8States = (progress, applyFuzzFlag = false, reviewContext = 'scheduled', now = new Date()) => {
   const ef = progress.ease_factor || INITIAL_EASE_FACTOR;
   const interval = progress.interval || 1;
   const lapses = progress.lapses || 0;
@@ -105,7 +110,6 @@ export const getReview8States = (progress, applyFuzzFlag = false) => {
   let daysSinceDue = 0;
   if (progress.next_review) {
     const nextDate = new Date(progress.next_review);
-    const now = new Date();
     if (nextDate < now) {
       daysSinceDue = Math.max(0, Math.floor((now.getTime() - nextDate.getTime()) / 86400000));
     }
@@ -113,28 +117,50 @@ export const getReview8States = (progress, applyFuzzFlag = false) => {
 
   // 4 Core Anchor Calculations
   const efAgain = Math.max(MINIMUM_EASE_FACTOR, ef - (daysSinceDue > 7 ? 0.15 : 0.20));
-  let intHard = interval <= 1 ? 1 : Math.max(interval, Math.round(interval * HARD_MULTIPLIER));
+  let intHard = interval <= 1 ? 1 : Math.max(interval, round(interval * HARD_MULTIPLIER));
   let intGood = Math.max(intHard + 2, Math.ceil((interval + Math.min(daysSinceDue / 2, interval * 0.5)) * ef));
   let intEasy = Math.max(intGood + 2, Math.ceil((interval + Math.min(daysSinceDue, interval)) * ef * EASY_MULTIPLIER));
 
-  if (applyFuzzFlag) {
+  if (reviewContext === 'forced' && progress.next_review && new Date(progress.next_review) > now) {
+    const remaining = (new Date(progress.next_review) - now) / 86400000;
+    const elapsed = progress.last_reviewed
+      ? Math.max(0, (now - new Date(progress.last_reviewed)) / 86400000)
+      : Math.max(0, interval - remaining);
+    const fraction = Math.max(0, Math.min(1, elapsed / interval, 1 - remaining / interval));
+    const hard = Math.max(1, Math.floor(interval * (0.5 + 0.5 * fraction)));
+    const good = Math.max(hard, Math.ceil(interval * (1 + (ef - 1) * fraction)));
+    const easy = Math.max(good, Math.ceil(interval * (1 + (ef * EASY_MULTIPLIER - 1) * fraction)));
+    const state = (iv, easeFactor, extraLapses = 0) => ({ queue: 'review', interval: iv, stepIndex: null, easeFactor, lapses: lapses + extraLapses, isDays: true });
+    return [
+      { queue: 'relearning', interval: RELEARN_STEPS[0], stepIndex: 0, easeFactor: efAgain, lapses: lapses + 1, isDays: false },
+      state(Math.max(1, Math.floor(hard / 2)), Math.max(MINIMUM_EASE_FACTOR, ef - 0.18), 1),
+      state(hard, Math.max(MINIMUM_EASE_FACTOR, ef - 0.15)),
+      state(Math.floor((hard + good) / 2), Math.max(MINIMUM_EASE_FACTOR, ef - 0.06)),
+      state(good, Math.min(MAXIMUM_EASE_FACTOR, ef + (ef < INITIAL_EASE_FACTOR ? 0.02 : 0))),
+      state(Math.floor((good + easy) / 2), Math.min(MAXIMUM_EASE_FACTOR, ef + 0.08 * fraction)),
+      state(easy, Math.min(MAXIMUM_EASE_FACTOR, ef + 0.15 * fraction)),
+      state(Math.max(easy, Math.ceil(easy * (1 + 0.45 * fraction))), Math.min(MAXIMUM_EASE_FACTOR, ef + 0.22 * fraction)),
+    ];
+  }
+
+  if (applyFuzzFlag && reviewContext !== 'forced') {
     if (intHard >= 3) intHard = applyFuzz(intHard);
     if (intGood >= 3) intGood = applyFuzz(intGood);
     if (intEasy >= 3) intEasy = applyFuzz(intEasy);
   }
 
   const intMid = (low, high) => {
-    const mid = Math.round((low + high) / 2);
+    const mid = round((low + high) / 2);
     return Math.max(low + 1, Math.min(high - 1, mid));
   };
 
   const midHardGood = intMid(intHard, intGood);
   const midGoodEasy = intMid(intGood, intEasy);
-  const intMax = Math.max(intEasy + 2, Math.round(intEasy * 1.45));
+  const intMax = Math.max(intEasy + 2, round(intEasy * 1.45));
 
   const state1 = intHard <= 1
     ? { queue: 'relearning', interval: Math.max(10, RELEARN_STEPS[0] * 2), stepIndex: 0, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses: lapses + 1, isDays: false }
-    : { queue: 'review', interval: Math.max(1, Math.min(intHard - 1, Math.round(intHard / 2))), stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses: lapses + 1, isDays: true };
+    : { queue: 'review', interval: Math.max(1, Math.min(intHard - 1, round(intHard / 2))), stepIndex: null, easeFactor: Math.max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses: lapses + 1, isDays: true };
 
   const states = [
     { queue: 'relearning', interval: RELEARN_STEPS[0], stepIndex: 0, easeFactor: efAgain, lapses: lapses + 1, isDays: false },
@@ -159,7 +185,7 @@ export const getReview8States = (progress, applyFuzzFlag = false) => {
 /**
  * Returns deterministic next intervals for buttons preview (both 4-grade and 8-grade)
  */
-export const getNextIntervals = (progress) => {
+export const getNextIntervals = (progress, reviewContext = 'scheduled', now = new Date()) => {
   const p = progress || {
     queue: 'new',
     step_index: 0,
@@ -168,7 +194,7 @@ export const getNextIntervals = (progress) => {
     lapses: 0
   };
   const isLearning = ['new', 'learning', 'relearning'].includes(p.queue);
-  const eightStates = isLearning ? getLearning8States(p) : getReview8States(p, false);
+  const eightStates = isLearning ? getLearning8States(p) : getReview8States(p, false, reviewContext, now);
 
   const res = {
     // 4 standard buttons (backward compatible)
@@ -186,8 +212,7 @@ export const getNextIntervals = (progress) => {
 /**
  * Processes card review locally and returns updated progress object
  */
-export const calculateCardReview = (progress, grade, isExtended = false) => {
-  const now = new Date();
+export const calculateCardReview = (progress, grade, isExtended = false, reviewContext = 'scheduled', now = new Date()) => {
   const p = progress || {
     card_id: 0,
     user_id: 0,
@@ -200,7 +225,7 @@ export const calculateCardReview = (progress, grade, isExtended = false) => {
   };
 
   const isLearning = ['new', 'learning', 'relearning'].includes(p.queue);
-  const states = isLearning ? getLearning8States(p) : getReview8States(p, true);
+  const states = isLearning ? getLearning8States(p) : getReview8States(p, true, reviewContext, now);
 
   let nextState;
   if (isExtended) {
@@ -215,7 +240,7 @@ export const calculateCardReview = (progress, grade, isExtended = false) => {
 
   const nextReviewDate = new Date(now);
   if (nextState.queue === 'review' && nextState.interval >= 1) {
-    nextReviewDate.setDate(nextReviewDate.getDate() + nextState.interval);
+    nextReviewDate.setTime(now.getTime() + nextState.interval * 86400000);
   } else {
     nextReviewDate.setMinutes(nextReviewDate.getMinutes() + (nextState.interval || 5));
   }
@@ -229,7 +254,7 @@ export const calculateCardReview = (progress, grade, isExtended = false) => {
     step_index: nextState.stepIndex,
     ease_factor: nextState.easeFactor || p.ease_factor || INITIAL_EASE_FACTOR,
     lapses: newLapses,
-    repetitions: (p.repetitions || 0) + 1,
+    repetitions: (p.repetitions || 0) + (nextState.queue === 'review' ? 1 : 0),
     is_leech: isLeech(newLapses),
     next_review: nextReviewDate.toISOString(),
     last_reviewed: now.toISOString(),

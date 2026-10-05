@@ -1,4 +1,5 @@
 import { tr } from '../../i18n/locale';
+import { getThemeDecks } from '../../utils/studyFlow';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -133,11 +134,7 @@ export const DeckGrid = ({
   }, [folders, activeFolderId, activeLanguage]);
 
   const currentDecks = React.useMemo(() => {
-    return decks ? decks.filter(d => {
-      if (d.folder_id !== activeFolderId) return false;
-      if (activeFolderId !== null) return true;
-      return (d.target_language || 'de') === activeLanguage;
-    }) : [];
+    return getThemeDecks(decks || [], activeFolderId, activeLanguage);
   }, [decks, activeFolderId, activeLanguage]);
 
   const scopedFolders = React.useMemo(() => {

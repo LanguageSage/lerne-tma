@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from uuid import UUID
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from api.dependencies.auth import get_user_id
 from api.services.sync_service import execute_sync_push, execute_sync_pull, execute_collab_pull
@@ -89,12 +89,22 @@ class OfflineCardItem(SyncCardItem):
     card_type: str = 'standard'
 
 
+class OfflineReviewItem(BaseModel):
+    card_id: int
+    rating: int = Field(ge=0, le=7)
+    is_extended: bool = False
+    review_context: Literal['scheduled', 'forced'] = 'scheduled'
+    review_time: str
+    scheduled_interval: int = Field(ge=0)
+
+
 class OfflinePushRequest(BaseModel):
     request_id: UUID
     folders: List[SyncFolderItem] = Field(default_factory=list)
     decks: List[OfflineDeckItem] = Field(default_factory=list)
     cards: List[OfflineCardItem] = Field(default_factory=list)
     progress: List[SyncProgressItem] = Field(default_factory=list)
+    reviews: List[OfflineReviewItem] = Field(default_factory=list)
 
 
 @router.post('/v2/push')

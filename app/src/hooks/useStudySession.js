@@ -82,9 +82,9 @@ export const useStudySession = () => {
           session.setCard(null);
         } else {
           // Fetch from SRS when starting session (isFirst), or in learn_more mode (early review by next_review asc)
-          const effectiveExclude = session.isLearningMore ? (isFirst ? [] : excludeIds) : excludeIds;
+          const effectiveExclude = session.isLearningMore ? session.forcedSeenIds : excludeIds;
           const excludeParam = effectiveExclude.length > 0 ? `exclude_ids=${effectiveExclude.join(',')}` : '';
-          const learnMoreParam = session.isLearningMore ? 'learn_more=true' : '';
+          const learnMoreParam = session.isLearningMore ? 'review_context=forced' : '';
           const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
           const queryString = params ? `?${params}` : '';
           const endpoint = `/decks/${deckId}/next${queryString}`;
@@ -98,6 +98,7 @@ export const useStudySession = () => {
             session.setCard(null);
           } else {
             const newCard = res.data;
+            if (session.isLearningMore) session.markForcedSeen(newCard.id);
             session.addToHistory(newCard);
             prefetchMedia(newCard.image_url);
           }
@@ -129,7 +130,8 @@ export const useStudySession = () => {
         deck_id: currentDeck.id,
         grade,
         is_extended: Boolean(isExtended),
-        learn_more: session.isLearningMore
+        review_context: session.isLearningMore ? 'forced' : 'scheduled',
+        exclude_ids: session.isLearningMore ? session.forcedSeenIds : []
       });
 
         captureStudyKnowledgeAttempt({
@@ -141,11 +143,16 @@ export const useStudySession = () => {
             exerciseEvidence
         });
 
+      if (res.data.error) {
+        session.setApiError(res.data.error);
+        return;
+      }
       if (res.data.finished) {
         session.setIsSessionFinished(true);
         session.setCard(null);
       } else {
         const nextCard = res.data;
+        if (session.isLearningMore) session.markForcedSeen(nextCard.id);
         session.addToHistory(nextCard);
         prefetchMedia(nextCard.image_url);
       }
@@ -164,6 +171,9 @@ export const useStudySession = () => {
 
     if (session.historyIndex > 0) {
       session.goBack();
+    } else if (session.isLearningMore) {
+      // A forced pass only navigates its own history; do not wrap to unseen cards.
+      return;
     } else if (currentDeck?.id === 'duplicates' && session.card) {
       const currentIndex = duplicateCards.findIndex(c => c.id === session.card.id);
       let prevDuplicateCard = null;

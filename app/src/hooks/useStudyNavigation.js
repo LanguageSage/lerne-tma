@@ -16,11 +16,12 @@ export function useStudyNavigation() {
   const setCurrentDeck = useDeckStore(state => state.setCurrentDeck);
   const { fetchNextCard } = useCardActions();
 
-  const startStudy = useCallback(async (deck) => {
+  const startStudy = useCallback(async (deck, { reviewContext = 'scheduled' } = {}) => {
     setIsOpeningDeck(true);
     try {
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
+      useSessionStore.getState().setIsLearningMore(reviewContext === 'forced');
       const state = useDeckStore.getState();
       const hasCards = state.currentDeck?.id === deck.id && state.deckCards && state.deckCards.length > 0;
       if (deck.id === 'duplicates') {
@@ -31,6 +32,9 @@ export function useStudyNavigation() {
 
       setView('study');
       await fetchNextCard(deck.id, true);
+    } catch (err) {
+      useSessionStore.getState().setApiError(err.response?.data?.detail || err.message);
+      setView('study');
     } finally {
       setIsOpeningDeck(false);
     }

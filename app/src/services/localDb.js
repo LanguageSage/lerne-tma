@@ -151,5 +151,6 @@ export async function resolveLocalRequest(url, body) {
   if (Array.isArray(copy.card_ids)) {
     copy.card_ids = copy.card_ids.map(c => id('cards', c));
   }
+  if (Array.isArray(copy.exclude_ids)) copy.exclude_ids = copy.exclude_ids.map(c => id('cards', c));
   return { url: resolvedUrl, body: copy };
 }

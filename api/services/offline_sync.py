@@ -41,6 +41,9 @@ def timestamp(value: str | None) -> datetime.datetime | None:
 
 def push_offline(request, user_id: int) -> dict:
     payload = request.model_dump(mode='json')
+    # Keep fingerprints of batches created by older clients compatible.
+    if not payload.get('reviews'):
+        payload.pop('reviews', None)
     fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     key = f'{user_id}:{request.request_id}'
     maps = {'folders': {}, 'decks': {}, 'cards': {}}
@@ -152,7 +155,18 @@ def push_offline(request, user_id: int) -> dict:
                 setattr(progress, field, value)
             progress.save()
 
-        response = {'status': 'success', 'mappings': maps}
+        for event in request.reviews:
+            card_id = resolve('cards', event.card_id)
+            card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+            if not card:
+                raise HTTPException(409, 'Карточка удалена на сервере')
+            require_access(user_id, 'deck', card.deck_id, write=False)
+            if not event.is_extended and event.rating > 3:
+                raise HTTPException(422, 'Некорректная оценка')
+            models.TMAReviewHistory.create(card_id=card_id, user_id=user_id, rating=event.rating,
+                scheduled_interval=event.scheduled_interval, review_time=timestamp(event.review_time))
+
+        response = {'status': 'success', 'mappings': maps, 'review_count': len(request.reviews)}
         receipt.response = json.dumps(response)
         receipt.save()
         return response

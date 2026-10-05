@@ -807,11 +807,12 @@ def get_cards_for_study(deck_id: int, user_id: int):
         raise e
 
 
-def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_more: bool = False):
+def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_more: bool = False, review_context='scheduled'):
     """Выбирает следующую карту для изучения (SRS). Оптимизировано: JOIN вместо 2 запросов."""
     try:
         now = datetime.datetime.now()
         exclude_ids = exclude_ids or []
+        learn_more = learn_more or review_context == 'forced'
         
         # Функция для поиска новой карты
         def get_new_card():

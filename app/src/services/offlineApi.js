@@ -28,7 +28,7 @@ export const normalizeCardKey = (text) => {
   return String(text).normalize('NFKC').replace(/[\W_]+/g, '').toLowerCase();
 };
 
-async function cardView(db, card, userId) {
+async function cardView(db, card, userId, reviewContext = 'scheduled') {
   const progress = await db.progress.get([card.id, userId]);
   const metadata = jsonObject(card.metadata);
   return {
@@ -40,7 +40,8 @@ async function cardView(db, card, userId) {
     audio_back_url: await localMediaURL(db, card.audio_back_path, 'audio'),
     video_front_url: await localMediaURL(db, card.video_front_path, 'videos'),
     video_back_url: await localMediaURL(db, card.video_back_path, 'videos'),
-    intervals: getNextIntervals(progress), is_leech: isLeech(progress?.lapses || 0),
+    intervals: getNextIntervals(progress, reviewContext), is_leech: isLeech(progress?.lapses || 0),
+    next_review: progress?.next_review, last_reviewed: progress?.last_reviewed,
     queue: progress?.queue || 'new', interval: progress?.interval || 0, lapses: progress?.lapses || 0,
     flag: progress?.flag ?? 0,
     want_to_learn: progress?.want_to_learn ?? false,
@@ -73,13 +74,14 @@ async function nextCard(db, deckId, userId, params) {
   const now = Date.now();
   const candidates = cards.filter(c => !exclude.has(c.id)).map(card => ({ card, p: progress.get(card.id) }));
   const due = candidates.filter(({ p }) => !p || p.queue === 'new' || !p.next_review || new Date(p.next_review).getTime() <= now);
-  const pool = params.get('learn_more') === 'true' ? candidates : due;
+  const context = params.get('review_context') === 'forced' || params.get('learn_more') === 'true' ? 'forced' : 'scheduled';
+  const pool = context === 'forced' ? candidates : due;
   const rank = (p) => !p || p.queue === 'new' ? 2 : ['learning', 'relearning'].includes(p.queue) ? 0 : 1;
   pool.sort((a, b) => rank(a.p) - rank(b.p)
     || new Date(a.p?.next_review || 0) - new Date(b.p?.next_review || 0)
     || (a.card.position || 0) - (b.card.position || 0));
   if (!pool.length) return result({ finished: true });
-  return result({ ...await cardView(db, pool[0].card, userId), deck_stats: await deckStats(db, deckId, userId) });
+  return result({ ...await cardView(db, pool[0].card, userId, context), deck_stats: await deckStats(db, deckId, userId) });
 }
 
 export const offlineApi = {
@@ -175,18 +177,26 @@ export const offlineApi = {
       return result({ ...await cardView(db, card, userId), deck_stats: await deckStats(db, card.deck_id, userId) });
     }
     if (m === 'post' && ['/study/grade', '/study/duplicates/grade'].includes(url)) {
-      const allowedGrades = body.is_extended ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6, 7];
+      const allowedGrades = body.is_extended ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3];
       if (!allowedGrades.includes(body.grade)) throw new Error(tr("Некорректная оценка"));
       const id = Number(body.card_id);
       const card = await db.cards.get(id);
       if (!card || card.is_deleted) notFound();
-      await db.transaction('rw', db.progress, async () => {
+      if (body.review_context && !['scheduled', 'forced'].includes(body.review_context)) throw new Error(tr('Некорректный контекст повторения'));
+      const context = body.learn_more || body.review_context === 'forced' ? 'forced' : 'scheduled';
+      await db.transaction('rw', db.progress, db.syncState, async () => {
         const progress = await db.progress.get([id, userId]) || {
           card_id: id, user_id: userId, queue: 'new', ease_factor: 2.5, interval: 0, lapses: 0, repetitions: 0,
         };
-        await db.progress.put({ ...calculateCardReview(progress, body.grade, Boolean(body.is_extended)), ...dirtyFields() });
+        const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context), ...dirtyFields() };
+        await db.progress.put(updated);
+        // Same transaction as progress; every grade survives reload and batch retry.
+        await db.syncState.put({ key: `review:${crypto.randomUUID()}`, card_id: id,
+          rating: body.grade, review_context: context, is_extended: Boolean(body.is_extended),
+          review_time: updated.last_reviewed, scheduled_interval: updated.interval });
       });
-      const nextParams = new URLSearchParams({ exclude_ids: String(id), learn_more: String(!!body.learn_more) });
+      const exclude = [...new Set([...(body.exclude_ids || []), id])];
+      const nextParams = new URLSearchParams({ exclude_ids: exclude.join(','), review_context: context });
       return nextCard(db, card.deck_id, userId, nextParams);
     }
     if (m === 'post' && url === '/cards/save') {

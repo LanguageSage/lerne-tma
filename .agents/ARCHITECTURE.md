@@ -33,6 +33,15 @@
 
 ---
 
+Study completion uses `StudyFinished.jsx` / `StudyError.jsx`, `useStudyNavigation.startStudy`,
+and `utils/studyFlow.js` (DeckGrid visibility with the store's existing order). `returnToStudyTheme`
+returns directly to the current folder. `useSessionStore.forcedSeenIds` bounds each forced traversal;
+`review_context=forced` flows through `useStudySession` → study routes → both SRS engines and interval previews.
+Early review scales interval growth by elapsed/scheduled time; scheduled review keeps its existing formula.
+Offline grades atomically commit progress and `review:*` events in the existing Dexie `syncState` table.
+`syncService` sends events in the durable v2 batch; `offline_sync` atomically writes supplied progress
+and `TMAReviewHistory`, acknowledging `review_count` without recomputing SRS or adding a DB migration.
+
 ## 2. Дерево решений: Где искать проблему (Diagnostic Guide)
 
 | Симптом / Проблема | Шаг 1: Проверить на клиенте | Шаг 2: Проверить на сервере | Корневой источник истины |

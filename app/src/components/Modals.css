@@ -130,7 +130,16 @@ input:checked + .slider:before {
   padding: 13px 20px;
   border-radius: 12px;
   width: 100%;
+  min-height: 44px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
+
+.finished-view h2 { margin: 0; font-size: 1.75rem; line-height: 1.25; }
+.finished-view p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; max-width: 100%; }
+.study-finished-deck { font-size: 1.1rem; }
+.study-finished-icon { color: var(--success-color, #22c55e); flex-shrink: 0; }
+.study-error-message { color: var(--error-color, #f87171); }
 
 .finished-actions .btn.btn-finished-ok {
   font-size: 1.2rem;

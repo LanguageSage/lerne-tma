@@ -1,6 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { getLearning8States, getReview8States, getNextIntervals } from '../srsEngine.js';
+import { getLearning8States, getReview8States, getNextIntervals, calculateCardReview } from '../srsEngine.js';
+
+const now = new Date('2026-10-05T12:00:00Z');
+const early = { queue: 'review', interval: 10, ease_factor: 2.5, lapses: 0, repetitions: 3,
+  last_reviewed: '2026-10-03T12:00:00Z', next_review: '2026-10-13T12:00:00Z' };
+
+test('forced early Good grows in proportion to elapsed time; Hard shortens and Again relearns', () => {
+  assert.equal(getReview8States(early, false, 'scheduled', now)[4].interval, 25);
+  assert.equal(calculateCardReview(early, 2, false, 'forced', now).interval, 13);
+  assert.equal(calculateCardReview(early, 1, false, 'forced', now).interval, 6);
+  const again = calculateCardReview(early, 0, false, 'forced', now);
+  assert.equal(again.queue, 'relearning');
+  assert.equal(again.lapses, 1);
+  assert.equal(again.repetitions, early.repetitions);
+  assert.equal(again.next_review, '2026-10-05T12:05:00.000Z');
+});
+
+test('same-day forced Good cannot multiply the interval; overdue forced follows scheduled anchors', () => {
+  assert.equal(calculateCardReview({ ...early, last_reviewed: now.toISOString(), next_review: '2026-10-15T12:00:00Z' }, 2, false, 'forced', now).interval, 10);
+  const overdue = { ...early, next_review: '2026-10-01T12:00:00Z' };
+  assert.deepEqual(getReview8States(overdue, false, 'forced', now), getReview8States(overdue, false, 'scheduled', now));
+});
 
 test('SRS Engine - 8 extended buttons for learning cards have no duplicate intervals and strictly increase', () => {
   const newCard = { queue: 'new', step_index: 0, interval: 0, lapses: 0 };

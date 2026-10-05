@@ -82,7 +82,7 @@ def _get_learning_8_states(progress):
 
     return states
 
-def _get_review_8_states(progress, now, apply_fuzz_flag=False):
+def _get_review_8_states(progress, now, apply_fuzz_flag=False, review_context='scheduled'):
     interval = progress.interval or 1
     ef = progress.ease_factor or INITIAL_EASE_FACTOR
     lapses = progress.lapses or 0
@@ -94,7 +94,29 @@ def _get_review_8_states(progress, now, apply_fuzz_flag=False):
     int_good = max(int_hard + 2, math.ceil((interval + min(days_since_due / 2, interval * 0.5)) * ef))
     int_easy = max(int_good + 2, math.ceil((interval + min(float(days_since_due), interval)) * ef * EASY_MULTIPLIER))
 
-    if apply_fuzz_flag:
+    if review_context == 'forced' and progress.next_review and progress.next_review > now:
+        remaining = (progress.next_review - now).total_seconds() / 86400
+        last = getattr(progress, 'last_reviewed', None)
+        elapsed = max(0, (now - last).total_seconds() / 86400) if last else max(0, interval - remaining)
+        # Both the elapsed time and the actual deadline limit the evidence gained.
+        fraction = max(0, min(1, elapsed / interval, 1 - remaining / interval))
+        hard = max(1, math.floor(interval * (0.5 + 0.5 * fraction)))
+        good = max(hard, math.ceil(interval * (1 + (ef - 1) * fraction)))
+        easy = max(good, math.ceil(interval * (1 + (ef * EASY_MULTIPLIER - 1) * fraction)))
+        # Coarse day intervals may coincide; do not inflate short early intervals
+        # just to give the extended scale eight distinct labels.
+        return [
+            ('relearning', RELEARN_STEPS[0], 0, ef_again, lapses + 1, False),
+            ('review', max(1, hard // 2), None, max(MINIMUM_EASE_FACTOR, ef - 0.18), lapses + 1, True),
+            ('review', hard, None, max(MINIMUM_EASE_FACTOR, ef - 0.15), lapses, True),
+            ('review', (hard + good) // 2, None, max(MINIMUM_EASE_FACTOR, ef - 0.06), lapses, True),
+            ('review', good, None, min(MAXIMUM_EASE_FACTOR, ef + (0.02 if ef < INITIAL_EASE_FACTOR else 0)), lapses, True),
+            ('review', (good + easy) // 2, None, min(MAXIMUM_EASE_FACTOR, ef + 0.08 * fraction), lapses, True),
+            ('review', easy, None, min(MAXIMUM_EASE_FACTOR, ef + 0.15 * fraction), lapses, True),
+            ('review', max(easy, math.ceil(easy * (1 + 0.45 * fraction))), None, min(MAXIMUM_EASE_FACTOR, ef + 0.22 * fraction), lapses, True),
+        ]
+
+    if apply_fuzz_flag and review_context != 'forced':
         if int_hard >= 3: int_hard = apply_fuzz(int_hard)
         if int_good >= 3: int_good = apply_fuzz(int_good)
         if int_easy >= 3: int_easy = apply_fuzz(int_easy)
@@ -137,16 +159,16 @@ def _get_review_8_states(progress, now, apply_fuzz_flag=False):
     return states
 
 
-def get_next_intervals(progress) -> dict:
+def get_next_intervals(progress, review_context='scheduled', now=None) -> dict:
     """Возвращает текстовые описания следующих детерминированных интервалов для 4 и 8 кнопок."""
     p = progress if progress is not None else _DummyProgress()
-    now = datetime.datetime.now()
+    now = now or datetime.datetime.now()
     if p.queue in ['new', 'learning', 'relearning']:
         eight = _get_learning_8_states(p)
         # eight item: (queue, interval, step, is_days)
         ext = [format_interval(s[1], s[3]) for s in eight]
     else:
-        eight = _get_review_8_states(p, now, apply_fuzz_flag=False)
+        eight = _get_review_8_states(p, now, apply_fuzz_flag=False, review_context=review_context)
         # eight item: (queue, interval, step, ef, lapses, is_days)
         ext = [format_interval(s[1], s[5]) for s in eight]
 
@@ -174,9 +196,9 @@ def format_interval(value, is_days=False):
             return f"{months:.1f} мес" if months % 1 != 0 else f"{int(months)} мес"
         return f"{value/365.0:.1f} г."
 
-def review_card(progress, grade: int, is_extended: bool = False):
+def review_card(progress, grade: int, is_extended: bool = False, review_context='scheduled', now=None):
     """Обновляет объект progress на основе оценки с поддержкой 4- и 8-балльной шкал."""
-    now = datetime.datetime.now()
+    now = now or datetime.datetime.now()
     
     if progress.queue in ['new', 'learning', 'relearning']:
         eight = _get_learning_8_states(progress)
@@ -196,7 +218,7 @@ def review_card(progress, grade: int, is_extended: bool = False):
         else:
             progress.next_review = now + datetime.timedelta(minutes=new_interval)
     else:
-        eight = _get_review_8_states(progress, now, apply_fuzz_flag=True)
+        eight = _get_review_8_states(progress, now, apply_fuzz_flag=True, review_context=review_context)
         if is_extended:
             idx = min(max(0, grade), 7)
         else:

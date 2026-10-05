@@ -1,5 +1,6 @@
 """Run against an isolated in-memory database, never the configured cloud database."""
 import importlib
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -40,7 +41,7 @@ models = importlib.import_module('api.models')
 sync = importlib.import_module('api.services.offline_sync')
 Request = importlib.import_module('api.routers.sync').OfflinePushRequest
 TABLES = [models.TMA_Folder, models.TMA_Deck, models.TMA_Card, models.TMAProgress,
-          models.TMAUser, models.TMA_Collaborator, models.TMAOfflineBatch]
+          models.TMAUser, models.TMA_Collaborator, models.TMAOfflineBatch, models.TMAReviewHistory]
 
 
 class OfflineSyncTests(unittest.TestCase):
@@ -125,6 +126,49 @@ class OfflineSyncTests(unittest.TestCase):
         deck = models.TMA_Deck.create(user_id=1, name='Trash', is_deleted=True)
         sync.push_offline(self.request(decks=[{'id': deck.id, 'name': 'Restored', 'is_deleted': False}]), 1)
         self.assertFalse(models.TMA_Deck.get_by_id(deck.id).is_deleted)
+
+    def test_forced_history_and_progress_are_atomic_and_retry_safe(self):
+        request = self.request(decks=[{'id': -1, 'name': 'Forced'}],
+            cards=[{'id': -2, 'deck_id': -1, 'front_text': 'x', 'back_text': 'y'}],
+            progress=[{'card_id': -2, 'queue': 'review', 'interval': 13, 'ease_factor': 2.5,
+                'repetitions': 2, 'lapses': 0, 'last_reviewed': '2026-10-05T12:00:00Z',
+                'next_review': '2026-10-18T12:00:00Z'}],
+            reviews=[{'card_id': -2, 'rating': 2, 'review_context': 'forced',
+                'scheduled_interval': 13, 'review_time': '2026-10-05T12:00:00Z'}])
+        response = sync.push_offline(request, 1)
+        self.assertEqual(response['review_count'], 1)
+        self.assertEqual(sync.push_offline(request, 1), response)
+        self.assertEqual(models.TMAReviewHistory.select().count(), 1)
+        history = models.TMAReviewHistory.get()
+        progress = models.TMAProgress.get()
+        self.assertEqual(history.card_id, response['mappings']['cards']['-2'])
+        self.assertEqual(history.scheduled_interval, progress.interval)
+        self.assertEqual(history.review_time, progress.last_reviewed)
+
+    def test_unauthorized_history_rolls_back_progress(self):
+        own = models.TMA_Deck.create(user_id=1, name='Own')
+        own_card = models.TMA_Card.create(deck=own, front_text='a', back_text='b')
+        other = models.TMA_Deck.create(user_id=2, name='Private')
+        other_card = models.TMA_Card.create(deck=other, front_text='x', back_text='y')
+        request = self.request(progress=[{'card_id': own_card.id, 'queue': 'review', 'interval': 13,
+            'ease_factor': 2.5, 'repetitions': 2, 'lapses': 0}],
+            reviews=[{'card_id': other_card.id, 'rating': 2, 'review_context': 'forced',
+                'scheduled_interval': 13, 'review_time': '2026-10-05T12:00:00Z'}])
+        with self.assertRaises(HTTPException):
+            sync.push_offline(request, 1)
+        self.assertEqual(models.TMAProgress.select().count(), 0)
+        self.assertEqual(models.TMAReviewHistory.select().count(), 0)
+        self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
+
+    def test_legacy_batch_fingerprint_still_retries_after_server_upgrade(self):
+        request = self.request()
+        old_payload = request.model_dump(mode='json')
+        old_payload.pop('reviews')
+        old_hash = hashlib.sha256(json.dumps(old_payload, sort_keys=True).encode()).hexdigest()
+        old_response = {'status': 'success', 'mappings': {'folders': {}, 'decks': {}, 'cards': {}}}
+        models.TMAOfflineBatch.create(key=f'1:{request.request_id}', payload_hash=old_hash,
+            response=json.dumps(old_response))
+        self.assertEqual(sync.push_offline(request, 1), old_response)
 
 
 if __name__ == '__main__':

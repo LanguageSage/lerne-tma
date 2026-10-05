@@ -18,7 +18,10 @@ import { useAutoplay } from '../../hooks/useAutoplay';
 import { useCardNavigation } from '../../hooks/useCardNavigation';
 import { useSessionVoice } from '../../hooks/useSessionVoice';
 import { MediaPicker } from '../common/MediaPicker';
-import { navigateUp } from '../../utils/navigation';
+import { navigateUp, returnToStudyTheme } from '../../utils/navigation';
+import { getNextThemeDeck, isLastThemeDeck } from '../../utils/studyFlow';
+import { useStudyNavigation } from '../../hooks/useStudyNavigation';
+import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
 import { detectExerciseType } from '../../utils/exerciseDetector';
 
@@ -31,10 +34,11 @@ import { StudyCard } from './StudyCard';
 
 export const StudyView = () => {
   useInterfaceLocale();
-  const { view, loading, setIsSettingsOpen, showToast, setView, setActiveFolderId, userProfile, setIsAuthModalOpen } = useUiStore();
-  const { currentDeck, handleSyncDeck, handleResetProgress, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
-  const { card, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, setIsLearningMore, autoplayState } = useSessionStore();
+  const { view, loading, setIsSettingsOpen, showToast, userProfile, setIsAuthModalOpen } = useUiStore();
+  const { currentDeck, decks, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
+  const { card, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, studyHistory, autoplayState } = useSessionStore();
   const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard, runAiGenerator } = useCardActions();
+  const { startStudy } = useStudyNavigation();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
 
@@ -379,14 +383,18 @@ export const StudyView = () => {
   const resolvedBgFront = getResolvedStyle(cardBgFront, card?.id);
   const resolvedBgBack = getResolvedStyle(cardBgBack, card?.id);
 
-  const handleLearnMore = async () => {
-    setIsLearningMore(true);
-    useSessionStore.getState().setStudyHistory([]);
-    useSessionStore.getState().setHistoryIndex(-1);
-    useSessionStore.getState().setCard(null);
-    if (currentDeck?.id) {
-      await fetchNextCard(currentDeck.id, true, []);
-    }
+  const nextDeck = getNextThemeDeck(decks, currentDeck);
+  const lastDeck = isLastThemeDeck(decks, currentDeck);
+  const nextReview = deckCards.map(c => c.next_review).filter(date => date && new Date(date) > new Date()).sort()[0];
+  const handleGoToTheme = () => {
+    stopAudio();
+    returnToStudyTheme();
+    useDeckStore.getState().fetchDecks(true).catch(console.error);
+  };
+  const handleStartStudy = (deck, reviewContext = 'scheduled') => {
+    stopAudio();
+    autoplay.stop();
+    return startStudy(deck, { reviewContext });
   };
 
   const handleAskQuestion = async (userRequest) => {
@@ -427,21 +435,6 @@ export const StudyView = () => {
       return;
     }
     await goNext();
-  };
-
-  const handleResetProgressConfirmed = async () => {
-    if (window.confirm(tr("Вы уверены, что хотите сбросить прогресс этой колоды? Все ваши успехи будут обнулены."))) {
-      try {
-        await handleResetProgress(currentDeck.id);
-        showToast(tr("Прогресс успешно сброшен"), 'success');
-        
-        useSessionStore.getState().resetSession();
-        await useDeckStore.getState().fetchDeckCards(currentDeck.id);
-        await fetchNextCard(currentDeck.id, true, []);
-      } catch {
-        showToast(tr("Ошибка при сбросе прогресса"));
-      }
-    }
   };
 
   const effectiveMode = isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode;
@@ -576,7 +569,7 @@ export const StudyView = () => {
             <RefreshCw size={48} className="spin" color="#a855f7" />
             <h3>{tr("Загрузка карточек...")}</h3>
           </div>
-        ) : card ? (
+        ) : card && !apiError ? (
           <div className="study-flow">
 
             <StudyCard
@@ -696,24 +689,18 @@ export const StudyView = () => {
               </div>
             </div>
           </div>
-        ) : (isSessionFinished || apiError) ? (
+        ) : apiError ? (
+          <StudyError error={apiError} onRetry={() => fetchNextCard(currentDeck.id, !card)} onGoToDecks={handleGoToTheme} />
+        ) : isSessionFinished ? (
           <StudyFinished
-            apiError={apiError}
-            onGoHome={async () => {
-              stopAudio?.();
-              useSessionStore.getState().stopAutoplay?.();
-              useSessionStore.getState().resetSession();
-              useDeckStore.getState().fetchDecks(true).catch(console.error);
-              setActiveFolderId(null);
-              setView('decks');
-            }}
-            onGoToDecks={() => {
-              useDeckStore.getState().fetchDecks(true).catch(console.error);
-              navigateUp();
-            }}
-            onLearnMore={handleLearnMore}
-            onSyncDeck={() => handleSyncDeck(currentDeck?.id)}
-            onResetProgress={handleResetProgressConfirmed}
+            deck={currentDeck}
+            nextDeck={nextDeck}
+            isLastDeck={lastDeck}
+            alreadyDone={studyHistory.length === 0}
+            nextReview={nextReview}
+            onContinue={() => handleStartStudy(nextDeck)}
+            onRepeat={() => handleStartStudy(currentDeck, 'forced')}
+            onGoToDecks={handleGoToTheme}
           />
         ) : null}
       </motion.div>

@@ -9,6 +9,7 @@ export const useSessionStore = create((set, get) => ({
   editingCard: null,
   editorSourceView: 'cards', // 'cards' | 'study'
   isLearningMore: false,
+  forcedSeenIds: [],
   isSessionFinished: false,
   autoplayState: 'stopped', // 'stopped' | 'playing' | 'paused'
   startAutoplayFn: null,
@@ -18,6 +19,7 @@ export const useSessionStore = create((set, get) => ({
 
   setIsSessionFinished: (val) => set({ isSessionFinished: val }),
   setIsLearningMore: (val) => set({ isLearningMore: val }),
+  markForcedSeen: (id) => set(state => ({ forcedSeenIds: [...new Set([...state.forcedSeenIds, id])] })),
   setAutoplayState: (autoplayState) => set({ autoplayState }),
   pauseAutoplay: () => set({ autoplayState: 'paused' }),
   stopAutoplay: () => set({ autoplayState: 'stopped' }),
@@ -114,6 +116,7 @@ export const useSessionStore = create((set, get) => ({
       isFlipped: false,
       apiError: null,
       isLearningMore: false,
+      forcedSeenIds: [],
       isSessionFinished: false,
       autoplayState: 'stopped'
     });

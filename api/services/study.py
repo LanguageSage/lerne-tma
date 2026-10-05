@@ -9,13 +9,14 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
-def update_card_progress(card_id: int, user_id: int, grade: int, is_extended: bool = False):
+def update_card_progress(card_id: int, user_id: int, grade: int, is_extended: bool = False, review_context='scheduled'):
     try:
-        progress = TMAProgress.get_or_none(TMAProgress.card_id == card_id, TMAProgress.user_id == user_id)
-        if not progress:
-            progress = TMAProgress.create(card_id=card_id, user_id=user_id, next_review=datetime.datetime.now())
-        srs.review_card(progress, grade, is_extended=is_extended)
-        TMAReviewHistory.create(card_id=card_id, user_id=user_id, rating=grade, scheduled_interval=progress.interval)
+        with tma_db.atomic():
+            progress = TMAProgress.get_or_none(TMAProgress.card_id == card_id, TMAProgress.user_id == user_id)
+            if not progress:
+                progress = TMAProgress.create(card_id=card_id, user_id=user_id, next_review=datetime.datetime.now())
+            srs.review_card(progress, grade, is_extended=is_extended, review_context=review_context)
+            TMAReviewHistory.create(card_id=card_id, user_id=user_id, rating=grade, scheduled_interval=progress.interval)
         return {"status": "success", "next_review": progress.next_review}
     except Exception as e:
         logger.error(f"Error updating progress: {e}")

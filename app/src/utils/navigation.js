@@ -4,6 +4,16 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { useLidStore } from '../store/useLidStore';
 
+export const returnToStudyTheme = () => {
+  const session = useSessionStore.getState();
+  session.stopAutoplayFn?.();
+  session.stopAutoplay();
+  session.resetSession();
+  const ui = useUiStore.getState();
+  ui.setActiveFolderId(useDeckStore.getState().currentDeck?.folder_id ?? null);
+  ui.setView('decks');
+};
+
 /**
  * Navigates strictly ONE level up in the application hierarchy:
  * - Level 4 (Modals): Closes the active modal, stays on current view.

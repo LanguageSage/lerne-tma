@@ -170,8 +170,9 @@ test('ID remapping preserves nested references and progress', async ({ page, con
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        status: 'success',
-        mappings: {
+          status: 'success',
+          review_count: route.request().postDataJSON().reviews?.length || 0,
+          mappings: {
           folders: { [ids.parent]: 10, [ids.child]: 11 },
           decks: { [ids.deck]: 12 },
           cards: { [ids.card]: 13 },
@@ -213,6 +214,59 @@ test('accounts remain isolated and retain unsent data', async ({ page, context }
   });
   expect(state.before).toEqual([]);
   expect(state.after.map(d => d.name)).toEqual(['Account one']);
+});
+
+test('forced offline traversal persists every grade and synchronizes history with progress', async ({ page, context }) => {
+  await harness(page, context);
+  const state = await page.evaluate(async () => {
+    const deck = (await api.post('/decks', { name: 'Forced' })).data;
+    const ids = [];
+    for (let i = 0; i < 3; i++) {
+      const card = (await api.post('/cards/save', { deck_id: deck.id, front: `Word ${i}`, back: 'Back' })).data;
+      ids.push(card.id);
+      await getDb().progress.put({ card_id: card.id, user_id: 1, queue: 'review', interval: 10,
+        ease_factor: 2.5, lapses: 0, repetitions: 1,
+        last_reviewed: new Date(Date.now() - 2 * 86400000).toISOString(),
+        next_review: new Date(Date.now() + 8 * 86400000).toISOString() });
+    }
+    if (!(await api.get(`/decks/${deck.id}/next`)).data.finished) throw new Error('Expected scheduled completion');
+    let card = (await api.get(`/decks/${deck.id}/next?review_context=forced`)).data;
+    const seen = [];
+    while (!card.finished) {
+      if (seen.includes(card.id)) throw new Error('Forced pass loop');
+      seen.push(card.id);
+      card = (await api.post('/study/grade', { card_id: card.id, deck_id: deck.id,
+        grade: seen.length === 1 ? 0 : 2, review_context: 'forced', exclude_ids: seen })).data;
+    }
+    return { ids, seen, deckId: deck.id };
+  });
+  expect(new Set(state.seen)).toEqual(new Set(state.ids));
+  await page.reload();
+  await loadModules(page);
+  const persisted = await page.evaluate(async () => ({
+    events: await getDb().syncState.filter(item => item.key.startsWith('review:')).toArray(),
+    progress: await getDb().progress.toArray(),
+  }));
+  expect(persisted.events).toHaveLength(3);
+  expect(persisted.events.every(e => e.review_context === 'forced')).toBe(true);
+  expect(persisted.progress.find(p => p.card_id === state.seen[0])).toMatchObject({ queue: 'relearning', lapses: 1 });
+  expect(persisted.progress.filter(p => p.queue === 'review').every(p => p.interval >= 13 && p.interval <= 14)).toBe(true);
+  let payload;
+  await page.route('**/api/sync/v2/push', route => {
+    payload = route.request().postDataJSON();
+    return route.fulfill({ json: { status: 'success', review_count: payload.reviews.length,
+      mappings: { folders: {}, decks: { [state.deckId]: 50 }, cards: Object.fromEntries(state.ids.map((id, i) => [id, 60 + i])) } } });
+  });
+  await page.route('**/api/sync/v2/pull*', route => route.abort());
+  await page.evaluate(async () => sync.sync());
+  expect(payload.reviews).toHaveLength(3);
+  const after = await page.evaluate(async () => ({
+    events: await getDb().syncState.filter(item => item.key.startsWith('review:')).toArray(),
+    progress: await getDb().progress.toArray(), pending: await getDb().syncState.get('pending'),
+  }));
+  expect(after.events).toEqual([]);
+  expect(after.pending).toBeUndefined();
+  expect(after.progress.every(p => p.card_id > 0 && p.is_dirty === 0)).toBe(true);
 });
 
 test('cached audio survives a new page without network', async ({ page, context }) => {

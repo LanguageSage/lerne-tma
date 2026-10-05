@@ -1,5 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
+from typing import Literal
+from pydantic import BaseModel, Field, model_validator
+from api.services.collaborative_service import get_effective_user_role
 
 try:
     from api import services, srs, models
@@ -13,7 +16,7 @@ router = APIRouter(
     tags=["study"],
 )
 
-async def _card_to_response(card, progress, user_id: int):
+async def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
     """Формирует ответ с данными карты. Вынесено для переиспользования."""
     creator_name = None
     creator_avatar = None
@@ -88,7 +91,9 @@ async def _card_to_response(card, progress, user_id: int):
         "image_url": services.resolve_media_url(card.image_path, "images"),
         "video_front_url": services.resolve_media_url(card.video_front_path, "videos"),
         "video_back_url": services.resolve_media_url(card.video_back_path, "videos"),
-        "intervals": srs.get_next_intervals(progress),
+        "intervals": srs.get_next_intervals(progress, review_context=review_context),
+        "next_review": progress.next_review.isoformat() if progress.next_review else None,
+        "last_reviewed": progress.last_reviewed.isoformat() if progress.last_reviewed else None,
         "is_leech": is_leech_flag,
         "lapses": lapses,
         "queue": queue,
@@ -241,7 +246,7 @@ async def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
     return await _card_to_response(card, progress, user_id)
 
 @router.get("/decks/{deck_id}/next")
-async def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = False, user_id: int = Depends(get_user_id)):
+async def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = False, user_id: int = Depends(get_user_id), review_context: Literal['scheduled', 'forced'] = 'scheduled'):
     """Выбор следующей карты для изучения (SRS)."""
     parsed_exclude = []
     if exclude_ids:
@@ -250,7 +255,9 @@ async def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool 
         except ValueError:
             pass
 
-    card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude, learn_more=learn_more)
+    _require_study_access(user_id, deck_id)
+    context = 'forced' if learn_more else review_context
+    card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude, review_context=context)
     
     if isinstance(card, dict) and "error" in card:
         return card # Возвращаем ошибку для отладки
@@ -260,28 +267,57 @@ async def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool 
         return {"finished": True}
     
     logger.info(f"NEXT CARD: user={user_id}, deck={deck_id}, card={card.id}")
-    return await _card_to_response(card, progress, user_id)
+    return await _card_to_response(card, progress, user_id, context)
+
+
+def _require_study_access(user_id, deck_id, card_id=None):
+    deck = models.TMA_Deck.get_or_none((models.TMA_Deck.id == deck_id) & (models.TMA_Deck.is_deleted == False))
+    if not deck or not get_effective_user_role(user_id, 'deck', deck_id):
+        raise HTTPException(403, 'Нет доступа к колоде')
+    if card_id is not None and not models.TMA_Card.get_or_none(
+        (models.TMA_Card.id == card_id) & (models.TMA_Card.deck_id == deck_id) & (models.TMA_Card.is_deleted == False)
+    ):
+        raise HTTPException(404, 'Card not found in deck')
+
+
+class StudyGradeRequest(BaseModel):
+    card_id: int
+    deck_id: int
+    grade: int = Field(ge=0, le=7)
+    is_extended: bool = False
+    learn_more: bool = False
+    review_context: Literal['scheduled', 'forced'] = 'scheduled'
+    exclude_ids: list[int] = Field(default_factory=list)
+
+    @model_validator(mode='after')
+    def standard_scale(self):
+        if not self.is_extended and self.grade > 3:
+            raise ValueError('Standard grade must be between 0 and 3')
+        return self
 
 @router.post("/study/grade")
-async def submit_grade(data: dict, user_id: int = Depends(get_user_id)):
+async def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
+    _require_study_access(user_id, data.deck_id, data.card_id)
+    context = 'forced' if data.learn_more else data.review_context
     async def run_grade():
         logger.info(f"submit_grade: User {user_id}, Data: {data}")
         services.update_card_progress(
-            data['card_id'], 
+            data.card_id,
             user_id, 
-            data['grade'], 
-            is_extended=bool(data.get('is_extended', False))
+            data.grade,
+            is_extended=data.is_extended,
+            review_context=context
         )
         logger.info("submit_grade: Progress updated successfully")
         
-        learn_more = data.get('learn_more', False)
         # Сразу получаем следующую карту (без повторного HTTP-вызова)
-        card, progress = services.get_next_card(user_id, data['deck_id'], learn_more=learn_more)
+        exclude = list(set([*data.exclude_ids, data.card_id])) if context == 'forced' else data.exclude_ids
+        card, progress = services.get_next_card(user_id, data.deck_id, exclude_ids=exclude, review_context=context)
         if isinstance(card, dict) and "error" in card:
             return card
         if not card:
             return {"finished": True}
-        return await _card_to_response(card, progress, user_id)
+        return await _card_to_response(card, progress, user_id, context)
 
     try:
         return await run_grade()

@@ -44,7 +44,8 @@ async function pendingBatch(db, userId) {
     await migrateTemporaryCards(db, userId);
     const batch = { key: 'pending', request_id: crypto.randomUUID(), userId };
     for (const name of entities) batch[name] = await db[name].where('is_dirty').equals(1).toArray();
-    if (!entities.some(name => batch[name].length)) return null;
+    batch.reviews = await db.syncState.filter(item => item.key.startsWith('review:')).toArray();
+    if (!entities.some(name => batch[name].length) && !batch.reviews.length) return null;
     await db.syncState.put(batch);
     return batch;
   });
@@ -52,6 +53,7 @@ async function pendingBatch(db, userId) {
 
 function payloadFor(batch) {
   const payload = { request_id: batch.request_id };
+  if (batch.reviews?.length) payload.reviews = batch.reviews;
   for (const name of entities) {
     payload[name] = batch[name].map(item => {
       const copy = { ...item };
@@ -91,6 +93,10 @@ async function acknowledge(db, batch, mappings) {
         await db.progress.delete([p.card_id, p.user_id]);
         await db.progress.put({ ...p, card_id: id });
       }
+    }
+    for (const sent of batch.reviews || []) await db.syncState.delete(sent.key);
+    for (const event of await db.syncState.filter(item => item.key.startsWith('review:')).toArray()) {
+      await db.syncState.put({ ...event, card_id: remap(mappings.cards, event.card_id) });
     }
     await db.syncState.delete('pending');
     const aliases = (await db.syncState.get('aliases'))?.mappings || {};
@@ -155,6 +161,9 @@ export const syncService = {
       if (batch) {
         const response = await networkApi.post('/sync/v2/push', payloadFor(batch), options);
         if (response.data?.status !== 'success' || !response.data.mappings) throw new Error(tr("Сервер не подтвердил сохранение изменений"));
+        if (batch.reviews?.length && response.data.review_count !== batch.reviews.length) {
+          throw new Error(tr("Сервер не подтвердил сохранение оценок. Обновите сервер синхронизации."));
+        }
         mappings = response.data.mappings;
         for (const name of ['folders', 'decks', 'cards']) {
           for (const item of batch[name].filter(item => item.id < 0)) {
