@@ -1,7 +1,6 @@
 const BLOCK_TYPES = new Set(['task', 'options', 'source', 'example', 'level', 'topic']);
 const MARKER_TO_BLOCK_TYPE = Object.freeze({
   task: 'task',
-  hint: 'source', // Read saved legacy hints as source; generated markup stays canonical.
   options: 'options',
   source: 'source',
   example: 'example',
@@ -14,7 +13,7 @@ const normalizeLineEndings = (value) => String(value ?? '').replace(/\r\n?/g, '\
 const isExerciseMarker = (line) => /^\s*::exercise\s*$/i.test(line || '');
 
 const getBlockType = (line) => {
-  const match = /^\s*::(task|hint|options|source|example|level|topic)\s*$/i.exec(line || '');
+  const match = /^\s*::(task|options|source|example|level|topic)\s*$/i.exec(line || '');
   const type = MARKER_TO_BLOCK_TYPE[match?.[1]?.toLowerCase()];
   return BLOCK_TYPES.has(type) ? type : null;
 };
@@ -35,8 +34,6 @@ const cleanRawExercise = (text) => {
 
 const emptyResult = (raw) => ({
   task: '',
-  hint: '',
-  hints: [],
   options: [],
   source: '',
   level: '',
@@ -136,8 +133,6 @@ export const parseExerciseContent = (rawText) => {
 
   return {
     task: firstContent('task'),
-    hint: firstContent('hint'),
-    hints: blocks.filter(block => block.type === 'hint' && block.content).map(block => block.content),
     options: blocks.filter(block => block.type === 'options').flatMap(block => block.options || []),
     source: firstContent('source'),
     level: firstContent('level'),

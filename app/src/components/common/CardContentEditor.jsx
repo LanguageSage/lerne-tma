@@ -1,7 +1,7 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useId, useLayoutEffect, useRef, useState } from 'react';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import { editorCommandGroups, projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, setQuizOptionCorrect, syncWordBankAnswer } from '../../utils/cardEditorSyntax';
+import { editorCommandGroups, projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, editorSourceOffset, insertEditorLineAfter, setQuizOptionCorrect, syncWordBankAnswer } from '../../utils/cardEditorSyntax';
 import { autoGenerateChoices, isWordGap } from '../../utils/clozeParser';
 import './CardContentEditor.css';
 
@@ -11,6 +11,24 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
   const [error, setError] = useState('');
   const advancedId = useId();
   const rawRef = useRef(null);
+  const selectionRef = useRef(null);
+  const insertionRef = useRef(null);
+  useLayoutEffect(() => {
+    const insertion = insertionRef.current;
+    const area = rawRef.current;
+    if (!insertion || !area || insertion.text !== value) return;
+    insertionRef.current = null;
+    const offset = at => value.slice(0, at).replace(/\r\n?/g, '\n').length;
+    const start = offset(insertion.selectionStart ?? insertion.cursor);
+    const end = offset(insertion.selectionEnd ?? insertion.cursor);
+    area.focus({ preventScroll: true });
+    area.setSelectionRange(start, end);
+    selectionRef.current = { start, end };
+    for (const { element, top, left } of insertion.scroll) {
+      element.scrollTop = top;
+      element.scrollLeft = left;
+    }
+  }, [value]);
   const fields = projectEditorFields(value);
   const toggle = () => {
     setAdvanced(current => !current);
@@ -18,10 +36,12 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
   };
   const replace = (field, next) => {
     setError('');
+    selectionRef.current = null;
     onChange(replaceEditorRange(value, field.start, field.end, next));
   };
   const addLine = (field, line) => {
     setError('');
+    selectionRef.current = null;
     onChange(insertEditorLineAfter(value, field, line));
   };
   const safeChange = (next, reserved, apply) => {
@@ -32,16 +52,27 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
     setError('');
     apply(next);
   };
+  const rememberSelection = event => {
+    const area = event.currentTarget;
+    selectionRef.current = { start: area.selectionStart, end: area.selectionEnd };
+  };
   const insert = id => {
     const area = rawRef.current;
-    const result = insertEditorCommand(value, id, area?.selectionStart ?? value.length, area?.selectionEnd ?? value.length);
+    if (!area) return;
+    const selection = document.activeElement === area
+      ? { start: area.selectionStart, end: area.selectionEnd } : selectionRef.current;
+    const result = insertEditorCommand(value, id,
+      selection ? editorSourceOffset(value, selection.start) : value.length,
+      selection ? editorSourceOffset(value, selection.end) : value.length);
+    const scroll = [];
+    for (let element = area; element; element = element.parentElement) {
+      if (element === area || element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth) {
+        scroll.push({ element, top: element.scrollTop, left: element.scrollLeft });
+      }
+    }
+    insertionRef.current = { ...result, scroll };
+    setError('');
     onChange(result.text);
-    requestAnimationFrame(() => {
-      area?.focus();
-      // Textareas expose LF offsets even when the stored FRONT uses CRLF.
-      const cursor = result.text.slice(0, result.cursor).replace(/\r\n?/g, '\n').length;
-      area?.setSelectionRange(cursor, cursor);
-    });
   };
   const commitInlineText = (field, element) => {
     const next = element.innerText.replace(/\r\n?/g, '\n');
@@ -200,7 +231,9 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
       <label className="card-editor-field">
         <span className="sub-label">{tr('Исходная разметка')}</span>
         <textarea ref={rawRef} className="form-input card-editor-raw" rows={7} value={value}
-          onChange={e => onChange(e.target.value)} spellCheck={false} />
+          onSelect={rememberSelection} onFocus={rememberSelection} onBlur={rememberSelection}
+          onClick={rememberSelection} onKeyUp={rememberSelection}
+          onChange={e => { rememberSelection(e); onChange(e.target.value); }} spellCheck={false} />
       </label>
       <div className="card-editor-toolbar" role="region" aria-label={tr('Панель быстрой вставки')}>
         {editorCommandGroups.map(group => (
@@ -215,6 +248,7 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
                   key={command.id}
                   type="button"
                   className={`btn-secondary card-editor-btn card-editor-btn-${command.group}`}
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => insert(command.id)}
                 >
                   {tr(command.label)}

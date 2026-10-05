@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, editorCommands, editorCommandGroups, setQuizOptionCorrect, syncWordBankAnswer } from '../cardEditorSyntax.js';
-import { parseExerciseContent, restoreExerciseContent } from '../exerciseContentParser.js';
+import { projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, editorSourceOffset, insertEditorLineAfter, editorCommands, editorCommandGroups, setQuizOptionCorrect, syncWordBankAnswer } from '../cardEditorSyntax.js';
+import { parseExerciseContent } from '../exerciseContentParser.js';
 import { parseClozeData } from '../clozeParser.js';
 import { parseMatchData } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
@@ -187,82 +187,84 @@ test('hint toolbar action generates only the official source marker', () => {
 
   assert.ok(exerciseGroup);
   assert.ok(markerGroup);
-  assert.deepEqual(exerciseGroup.commands.map(c => c.id), ['puzzle', 'match', 'free', 'choice', 'input', 'ending']);
+  assert.deepEqual(exerciseGroup.commands.map(c => c.id), ['puzzle', 'match', 'free', 'wordbank', 'choice', 'input', 'ending']);
   assert.deepEqual(markerGroup.commands.map(c => c.id), ['task', 'hint', 'example', 'source', 'exercise', 'options', 'topic', 'level']);
 
   const withHint = insertEditorCommand('', 'hint').text;
   assert.equal(withHint, '::source\n');
-  assert.ok(editorCommands.every(command => !command.template.includes('::hint')));
+  const markers = ['::task', '::source', '::options', '::example', '::exercise', '::level', '::topic'];
+  assert.ok(editorCommands.filter(command => command.info).every(command => markers.includes(command.template.trim())));
 });
 
-test('saved hint blocks remain editable and are read as source', () => {
-  const cardWithHint = `::task\nAufgabe\n\n::hint\nTipp\n\n::exercise\nHallo [[Welt]].`;
-  const fields = projectEditorFields(cardWithHint);
-  assert.ok(fields);
-  const hintField = fields.find(f => f.label === 'Исходный текст');
-  assert.ok(hintField);
-  assert.equal(hintField.value.trim(), 'Tipp');
-
-  const parsed = parseExerciseContent(cardWithHint);
-  assert.equal(parsed.source, 'Tipp');
-  assert.equal(parsed.blocks[1].type, 'source');
-  assert.equal(parsed.task, 'Aufgabe');
-  assert.equal(parsed.exercise, 'Hallo [[Welt]].');
-  assert.equal(replaceEditorRange(cardWithHint, hintField.start, hintField.end, hintField.value), cardWithHint);
-  const restored = restoreExerciseContent(parsed, 'Neu [[hier]].');
-  assert.ok(restored.includes('::source\nTipp'));
-  assert.ok(!restored.includes('::hint'));
-});
-
-test('source insertion follows task content without replacing selected text', () => {
-  const exercise = '::exercise\nDas ist ein [[schönes]] Haus.';
-  for (const task of ['Заполни пропуск.', 'Первая строка.\nВторая строка.\n\nПоследняя строка.']) {
-    for (const next of [exercise, `::example\nEin Haus.\n\n${exercise}`, `::options\nschönes | schönes?\n\n${exercise}`,
-      `::options\nschönes\n\n::example\nEin Haus.\n\n${exercise}`]) {
-      const before = `::task\n${task}\n\n`;
-      const raw = before + next;
-      for (const id of ['hint', 'source']) {
-        for (const [start, end] of [[0, 0], [0, raw.length], [raw.length, raw.length]]) {
-          const result = insertEditorCommand(raw, id, start, end);
-          assert.equal(result.text, before + '::source\n\n\n' + next);
-          assert.equal(result.cursor, before.length + '::source\n'.length);
-          const parsed = parseExerciseContent(result.text);
-          assert.equal(parsed.task, task);
-          assert.equal(parsed.exercise, parseExerciseContent(raw).exercise);
-        }
-      }
+test('all syntax buttons replace only the selected range at the cursor', () => {
+  for (const command of editorCommands) {
+    for (const [start, end] of [[0, 0], [2, 2], [2, 4], [6, 6]]) {
+      const raw = 'AA\nBB\n';
+      const result = insertEditorCommand(raw, command.id, start, end);
+      assert.ok(result.text.startsWith(raw.slice(0, start)), command.id);
+      assert.ok(result.text.endsWith(raw.slice(end)), command.id);
+      assert.ok(result.text.includes(command.template), command.id);
+      assert.ok(result.cursor > start, command.id);
     }
   }
 });
 
-test('existing source or legacy hint is focused without duplicate markers or text changes', () => {
-  for (const marker of ['::source', '  ::SOURCE  ', '::hint']) {
-    for (const content of ['', 'Перевод.\nКонтекст.']) {
-      const before = `::task\nЗадание.\n\n${marker}\n`;
-      const raw = before + content + '\n\n::exercise\nHallo [[Welt]].';
-      for (const id of ['hint', 'source']) {
-        assert.deepEqual(insertEditorCommand(raw, id, 0, raw.length), { text: raw, cursor: before.length });
-      }
-    }
+test('puzzle inserts between blocks and selects its sample sentence', () => {
+  const before = '::task\nЗаполни пропуск.\n\n';
+  const after = '\n\n::exercise\nDas ist ein [[schönes]] Haus.';
+  const result = insertEditorCommand(before + after, 'puzzle', before.length);
+  assert.equal(result.text, before + '@puzzle\nIch lerne Deutsch.' + after);
+  assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), 'Ich lerne Deutsch.');
+  assert.equal(replaceEditorRange(result.text, result.selectionStart, result.selectionEnd, 'Mein Satz.'), before + '@puzzle\nMein Satz.' + after);
+});
+
+test('hint and source insert at the cursor even when a source block exists', () => {
+  const before = '::task\nЗадание.\n\n';
+  const after = '::source\nКонтекст.\n\n::exercise\nHallo.';
+  for (const id of ['source', 'hint']) {
+    assert.equal(insertEditorCommand(before + after, id, before.length).text, before + '::source\n' + after);
+    assert.equal(insertEditorCommand('SELECT\n' + after, id, 0, 6).text, '::source\n\n' + after);
   }
 });
 
-test('without task source is inserted directly before exercise, preserving preamble', () => {
-  for (const preamble of ['', 'Вступление.\n\n', '::example\nПример.\n\n']) {
-    const exercise = '::exercise\nHallo [[Welt]].';
-    const result = insertEditorCommand(preamble + exercise, 'hint', 0);
-    assert.equal(result.text, preamble + '::source\n\n\n' + exercise);
-    assert.equal(result.cursor, preamble.length + '::source\n'.length);
+test('block insertion retains CRLF and existing blank lines', () => {
+  const before = '::task\r\nЗадание.\r\n\r\n';
+  const after = '\r\n\r\n::exercise\r\nHallo [[Welt]].';
+  for (const command of editorCommands) {
+    const result = insertEditorCommand(before + after, command.id, before.length);
+    assert.ok(result.text.startsWith(before), command.id);
+    assert.ok(result.text.endsWith(after), command.id);
+    assert.ok(!/(?<!\r)\n/.test(result.text), command.id);
   }
-  assert.equal(insertEditorCommand('Обычный текст.', 'hint', 0).text, 'Обычный текст.\n\n::source\n');
 });
 
-test('source insertion preserves CRLF, marker casing, indentation and missing blank separators', () => {
-  const raw = '  ::TASK  \r\n  Первая строка. \r\nВторая.\r\n ::EXERCISE \r\nHallo [[Welt]].';
-  const before = '  ::TASK  \r\n  Первая строка. \r\nВторая.\r\n';
-  const result = insertEditorCommand(raw, 'hint', 0);
-  assert.equal(result.text, before + '\r\n::source\r\n\r\n\r\n' + raw.slice(before.length));
-  assert.equal(result.cursor, before.length + '\r\n::source\r\n'.length);
-  assert.equal(insertEditorCommand(result.text, 'hint').text, result.text);
-  assert.equal(insertEditorCommand('::task\nМного\nстрок', 'hint', 0).text, '::task\nМного\nстрок\n\n::source\n');
+test('information parser recognizes only the official markers', () => {
+  for (const type of ['task', 'source', 'options', 'example', 'level', 'topic']) {
+    const parsed = parseExerciseContent('::' + type + '\nInformation\n\n::exercise\nHallo.');
+    assert.equal(parsed.blocks[0].type, type);
+    assert.equal(parsed.exercise, 'Hallo.');
+  }
+  const unsupported = '::future';
+  const raw = unsupported + '\nOrdinary exercise text';
+  const parsed = parseExerciseContent(raw);
+  assert.equal(parsed.hasBlocks, false);
+  assert.equal(parsed.source, '');
+  assert.equal(parsed.exercise, raw);
+  assert.equal(projectEditorFields(raw), null);
+});
+
+test('textarea LF offsets map both selection ends to CRLF source ranges', () => {
+  const raw = 'A\r\nSELECT\r\nB';
+  const start = editorSourceOffset(raw, 2);
+  const end = editorSourceOffset(raw, 8);
+  assert.equal(start, 3);
+  assert.equal(end, 9);
+  assert.equal(insertEditorCommand(raw, 'input', start, end).text, 'A\r\n[[Berlin]]\r\nB');
+  assert.equal(editorSourceOffset(raw, 999), raw.length);
+});
+
+test('all four directive templates use the existing exercise detector', () => {
+  for (const [id, type] of [['puzzle', 'puzzle'], ['match', 'match'], ['free', 'free_text'], ['wordbank', 'word_bank']]) {
+    assert.equal(detectExerciseType(insertEditorCommand('', id).text), type);
+  }
 });

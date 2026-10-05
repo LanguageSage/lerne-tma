@@ -13,6 +13,7 @@ export const editorCommandGroups = [
       { id: 'puzzle', label: 'Собрать предложение', template: '@puzzle\nIch lerne Deutsch.', directive: true, group: 'exercise' },
       { id: 'match', label: 'Соединение пар', template: '@match\nBerlin => Deutschland\nWien => Österreich', directive: true, group: 'exercise' },
       { id: 'free', label: 'Свободный ответ', template: '@free\n', directive: true, group: 'exercise' },
+      { id: 'wordbank', label: 'Банк слов', template: '@wordbank\nIch lerne <<1>>.\n@options\nDeutsch | Englisch', directive: true, group: 'exercise' },
       { id: 'choice', label: 'Варианты ответа', template: '{*Berlin|Hamburg|München}', group: 'exercise' },
       { id: 'input', label: 'Поле для ввода', template: '[[Berlin]]', group: 'exercise' },
       { id: 'ending', label: 'Окончание с выбором', template: '{en}', group: 'exercise' },
@@ -40,29 +41,17 @@ function editorMarkers(raw) {
   return [...raw.matchAll(/^[ \t]*::(\w+)[ \t]*\r?$/gm)].map(match => {
     const type = match[1].toLowerCase();
     const end = match.index + match[0].length;
-    // Saved ::hint is a legacy alias; it is never an insertion template.
-    return { index: match.index, type: type === 'hint' ? 'source' : type, end: end + (raw[end] === '\n' ? 1 : 0) };
+    return { index: match.index, type, end: end + (raw[end] === '\n' ? 1 : 0) };
   });
 }
 
-function insertSourceBlock(raw) {
-  const markers = editorMarkers(raw);
-  const existing = markers.find(marker => marker.type === 'source');
-  if (existing) return { text: raw, cursor: existing.end };
-
-  const taskIndex = markers.findIndex(marker => marker.type === 'task');
-  const boundary = taskIndex >= 0 ? markers[taskIndex + 1] : markers.find(marker => marker.type === 'exercise');
-  const at = boundary?.index ?? raw.length;
-  const before = raw.slice(0, at);
-  const after = raw.slice(at);
-  const newline = raw.includes('\r\n') ? '\r\n' : '\n';
-  const prefix = !before || before.endsWith(newline + newline) ? ''
-    : before.endsWith(newline) ? newline : newline + newline;
-  const addition = prefix + '::source' + newline;
-  return {
-    text: before + addition + (after ? newline + newline : '') + after,
-    cursor: before.length + addition.length
-  };
+/** Textareas count CRLF as one character; stored source ranges count both. */
+export function editorSourceOffset(raw, offset) {
+  let at = 0;
+  for (let count = 0; count < offset && at < raw.length; count++, at++) {
+    if (raw[at] === '\r' && raw[at + 1] === '\n') at++;
+  }
+  return at;
 }
 
 export function replaceEditorRange(raw, start, end, value) {
@@ -97,16 +86,23 @@ export function readableFrontText(raw = '') {
 export function insertEditorCommand(raw, id, start = raw.length, end = start) {
   const command = editorCommands.find(item => item.id === id);
   if (!command) return { text: raw, cursor: start };
-  if (id === 'hint' || id === 'source') return insertSourceBlock(raw);
+  start = Math.max(0, Math.min(start, raw.length));
+  end = Math.max(start, Math.min(end, raw.length));
   const before = raw.slice(0, start);
   const after = raw.slice(end);
-  const template = id === 'ending' && /^(?:e|en|em|er|es)$/.test(raw.slice(start, end))
-    ? `{${raw.slice(start, end)}}` : command.template;
+  const newline = raw.includes('\r\n') ? '\r\n' : '\n';
+  const template = (id === 'ending' && /^(?:e|en|em|er|es)$/.test(raw.slice(start, end))
+    ? `{${raw.slice(start, end)}}` : command.template).replace(/\n/g, newline);
   const line = command.info || command.directive;
-  const prefix = line && before && !before.endsWith('\n') ? '\n' : '';
-  const suffix = line && after && !command.template.endsWith('\n') ? '\n' : '';
+  const prefix = line && before && !before.endsWith('\n') ? newline : '';
+  const suffix = line && after && !template.endsWith('\n') && !/^[\r\n]/.test(after) ? newline : '';
   const addition = prefix + template + suffix;
-  return { text: before + addition + after, cursor: before.length + addition.length };
+  const result = { text: before + addition + after, cursor: before.length + addition.length };
+  if (id === 'puzzle') {
+    result.selectionStart = before.length + prefix.length + '@puzzle'.length + newline.length;
+    result.selectionEnd = result.selectionStart + 'Ich lerne Deutsch.'.length;
+  }
+  return result;
 }
 
 function quizOptionParts(line) {
@@ -187,7 +183,7 @@ export function projectEditorFields(raw = '') {
   const explicitExercise = /^\s*::exercise\s*$/im.test(raw);
   if (parsed.hasBlocks && !explicitExercise && !['quiz', 'word_bank'].includes(exerciseType)) return null;
   const markers = editorMarkers(raw);
-  if (markers.some(m => !editorCommands.some(c => c.info && c.id === m.type))) return null;
+  if (markers.some(m => !editorCommands.some(c => c.info && c.template.trim() === `::${m.type}`))) return null;
   if (parsed.hasBlocks && !explicitExercise) {
     const exercise = parsed.exercise;
     const pattern = new RegExp(exercise.split('\n').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\r?\\n'), 'g');
