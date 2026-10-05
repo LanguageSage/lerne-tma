@@ -1523,6 +1523,24 @@ test('43. ::exercise officially supported as the first marker in FRONT', () => {
   assert.equal(card.context, 'Lektion 4');
 });
 
+test('44. Standard cards with ::task retain null exerciseType, parse task into info blocks and clean exercise', () => {
+  const front = `::task\nА здесь окончание лишнее.\n\n::exercise\nDer Wald ist ruhige.`;
+  const parsed = parseExerciseContent(front);
 
+  assert.equal(parsed.task, 'А здесь окончание лишнее.');
+  assert.equal(parsed.exercise, 'Der Wald ist ruhige.');
+  assert.equal(parsed.hasBlocks, true);
 
+  const detected = detectExerciseType({ front });
+  assert.equal(detected, null, 'Plain text in ::exercise must remain standard (null exerciseType)');
 
+  const blocks = parsed.blocks;
+  const exerciseIndex = blocks.findIndex(b => b.type === 'exercise');
+  const topBlocks = exerciseIndex !== -1 ? blocks.slice(0, exerciseIndex) : blocks;
+  const bottomBlocks = exerciseIndex !== -1 ? blocks.slice(exerciseIndex + 1) : [];
+
+  assert.equal(topBlocks.length, 1);
+  assert.equal(topBlocks[0].type, 'task');
+  assert.equal(topBlocks[0].content, 'А здесь окончание лишнее.');
+  assert.equal(bottomBlocks.length, 0);
+});

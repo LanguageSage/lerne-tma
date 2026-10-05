@@ -109,7 +109,7 @@ export const ExerciseRenderer = React.memo(({
   };
 
   if (!detectedType) {
-    return fallback;
+    return fallback ? withInformation(fallback) : null;
   }
 
   switch (detectedType) {
@@ -225,6 +225,6 @@ export const ExerciseRenderer = React.memo(({
       );
 
     default:
-      return fallback;
+      return fallback ? withInformation(fallback) : null;
   }
 });

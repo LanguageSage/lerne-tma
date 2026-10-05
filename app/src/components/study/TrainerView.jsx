@@ -13,6 +13,8 @@ import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/car
 
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
+import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
+import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 import { StudyCardTrainer } from './StudyCardTrainer.jsx';
 import { TrainerFinished } from './TrainerFinished.jsx';
 import { navigateUp } from '../../utils/navigation';
@@ -341,9 +343,20 @@ export const TrainerView = () => {
                 >
                   {/* Top full original phrase */}
                   <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'pre-wrap', ...cardStyle }}>
-                      {cleanBracketSyntax(stripMarkdown(currentCard.front))}
-                    </div>
+                    {(() => {
+                      const parsed = parseExerciseContent(currentCard.front || '');
+                      const blocks = parsed.blocks || [];
+                      const exIdx = blocks.findIndex(b => b.type === 'exercise');
+                      const top = exIdx !== -1 ? blocks.slice(0, exIdx) : blocks;
+                      return (
+                        <>
+                          {top.length > 0 && <ExerciseInfoBlocks blocks={top} />}
+                          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'pre-wrap', ...cardStyle }}>
+                            {cleanBracketSyntax(stripMarkdown(parsed.exercise))}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Translation or Exercise Answer */}

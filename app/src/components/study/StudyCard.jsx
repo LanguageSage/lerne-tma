@@ -16,6 +16,8 @@ import { parseClozeData, cleanBracketSyntax, autoGenerateChoices } from '../../u
 import { parseQuizData } from '../../utils/quizParser';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
+import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
+import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import { StudyCardTrainer } from './StudyCardTrainer.jsx';
 import { StudyCardQuiz } from './StudyCardQuiz.jsx';
@@ -79,8 +81,27 @@ export const StudyCard = React.memo(({
   const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, false);
 
   // Provide current card text to the picker so auto-generate works on voice switch
-  const rawFrontText = card ? (studyMode === 'reverse' ? card.back : card.front) : '';
-  const frontText = card ? stripMarkdown(studyMode === 'reverse' ? card.back : card.front) : '';
+  const rawFrontText = card ? (studyMode === 'reverse' ? (card.back || card.back_text || '') : (card.front || card.front_text || '')) : '';
+
+  const parsedFrontContent = useMemo(() => {
+    return parseExerciseContent(rawFrontText);
+  }, [rawFrontText]);
+
+  const frontText = useMemo(() => {
+    return stripMarkdown(parsedFrontContent.exercise);
+  }, [parsedFrontContent.exercise]);
+
+  const { topBlocks, bottomBlocks } = useMemo(() => {
+    const blocks = parsedFrontContent?.blocks || [];
+    const exerciseIndex = blocks.findIndex(b => b.type === 'exercise');
+    if (exerciseIndex === -1) {
+      return { topBlocks: blocks, bottomBlocks: [] };
+    }
+    return {
+      topBlocks: blocks.slice(0, exerciseIndex),
+      bottomBlocks: blocks.slice(exerciseIndex + 1)
+    };
+  }, [parsedFrontContent]);
 
   // Karaoke: sync word boundaries with audio playback position (with fallback estimation)
   const { activeWordIndex } = useKaraokeSync(
@@ -92,8 +113,8 @@ export const StudyCard = React.memo(({
   );
 
   useEffect(() => {
-    frontVoicePicker.setCardText(rawFrontText);
-  }, [rawFrontText]); // eslint-disable-line react-hooks/exhaustive-deps
+    frontVoicePicker.setCardText(frontText);
+  }, [frontText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // On card change: keep voice selection (session) but clear stale preview URL
   useEffect(() => {
@@ -433,6 +454,9 @@ export const StudyCard = React.memo(({
               {/* Classic / Reverse Mode Text */}
               {!exerciseType && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
                 <>
+                  {topBlocks.length > 0 && (
+                    <ExerciseInfoBlocks blocks={topBlocks} />
+                  )}
                   <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
                     <KaraokeText
                       text={cleanBracketSyntax(frontText)}
@@ -441,6 +465,9 @@ export const StudyCard = React.memo(({
                     />
                   </div>
                   {renderFrontAudioPlayer()}
+                  {bottomBlocks.length > 0 && (
+                    <ExerciseInfoBlocks blocks={bottomBlocks} />
+                  )}
                 </>
               )}
 
@@ -467,6 +494,9 @@ export const StudyCard = React.memo(({
               {/* Cloze (Fill-in-the-blanks) Mode */}
               {effectiveStudyMode === 'cloze' && clozeData && (
                 <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
+                  {topBlocks.length > 0 && (
+                    <ExerciseInfoBlocks blocks={topBlocks} />
+                  )}
                   <div className="text-front cloze-masked-text" style={{ whiteSpace: 'pre-wrap', ...cardStyle, margin: '14px 0', lineHeight: 1.35 }}>
                     {(() => {
                       const parts = clozeData.maskedText.split('_____');
@@ -548,6 +578,9 @@ export const StudyCard = React.memo(({
                   <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
                     {renderRevealButton()}
                   </div>
+                  {bottomBlocks.length > 0 && (
+                    <ExerciseInfoBlocks blocks={bottomBlocks} />
+                  )}
                 </div>
               )}
 
@@ -646,9 +679,15 @@ export const StudyCard = React.memo(({
                   </div>
                 ) : (
                   <div className="front-mini-container" style={{ position: 'relative', width: '100%' }}>
+                    {topBlocks.length > 0 && (
+                      <ExerciseInfoBlocks blocks={topBlocks} />
+                    )}
                     <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.95, whiteSpace: 'pre-wrap', ...cardStyle }}>
-                      {cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front))}
+                      {cleanBracketSyntax(frontText)}
                     </div>
+                    {bottomBlocks.length > 0 && (
+                      <ExerciseInfoBlocks blocks={bottomBlocks} />
+                    )}
                   </div>
                 )}
 
@@ -690,8 +729,10 @@ export const StudyCard = React.memo(({
 
               {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
               {(() => {
-                const frontClean = cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.back : card.front)).trim();
-                const backClean = cleanBracketSyntax(stripMarkdown(studyMode === 'reverse' ? card.front : card.back)).trim();
+                const frontClean = cleanBracketSyntax(frontText).trim();
+                const rawBackText = studyMode === 'reverse' ? (card.front || card.front_text || '') : (card.back || card.back_text || '');
+                const backParsed = parseExerciseContent(rawBackText);
+                const backClean = cleanBracketSyntax(stripMarkdown(backParsed.exercise)).trim();
                 const hasDistinctBack = Boolean(backClean && backClean !== frontClean);
                 if (!hasDistinctBack && !card.video_back_url && !deckVideo?.url) return null;
 
