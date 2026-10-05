@@ -38,7 +38,9 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
     onChange(result.text);
     requestAnimationFrame(() => {
       area?.focus();
-      area?.setSelectionRange(result.cursor, result.cursor);
+      // Textareas expose LF offsets even when the stored FRONT uses CRLF.
+      const cursor = result.text.slice(0, result.cursor).replace(/\r\n?/g, '\n').length;
+      area?.setSelectionRange(cursor, cursor);
     });
   };
   const commitInlineText = (field, element) => {

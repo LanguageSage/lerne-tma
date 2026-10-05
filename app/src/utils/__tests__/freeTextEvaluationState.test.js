@@ -62,6 +62,39 @@ test('timeout/network/malformed response and repeating evaluation never count as
   assert.equal(session.evidence().isFirstTry, true);
 });
 
+test('first evaluator call catches synchronous throws, rejected Promises and invalid evaluators', async () => {
+  for (const evaluate of [() => { throw Error('initialization failed'); },
+    () => Promise.reject(Error('provider failed')), null,
+    async () => ({ result: { verdict: 'correct', accepted: false } }),
+    async () => ({ result: { verdict: 'unknown', accepted: false } })]) {
+    const session = createFreeTextEvaluationSession();
+    const state = await session.submit('main Nachbar ist ruhig', evaluate);
+    assert.equal(state.result.verdict, 'unavailable');
+    assert.equal(state.attemptCount, 0);
+    assert.equal(state.mistakeCount, 0);
+    assert.equal(state.loading, false);
+    assert.equal(state.lastAnswer, null);
+    assert.equal(session.evidence(), null);
+    await session.submit('main Nachbar ist ruhig', async () => response('accepted_minor', 'typo'));
+    assert.equal(session.evidence().attemptCount, 1);
+    assert.equal(session.evidence().mistakeCount, 0);
+    assert.equal(session.evidence().isFirstTry, true);
+  }
+});
+
+test('unavailable after a learner mistake preserves counts and history', async () => {
+  const session = createFreeTextEvaluationSession();
+  await session.submit('ein Hund', async () => response('needs_retry', 'grammar'));
+  const before = session.snapshot();
+  const after = await session.submit('einen Hund', () => Promise.reject(Error('network')));
+  assert.equal(after.result.verdict, 'unavailable');
+  assert.equal(after.attemptCount, before.attemptCount);
+  assert.equal(after.mistakeCount, before.mistakeCount);
+  assert.equal(after.lastAnswer, before.lastAnswer);
+  assert.deepEqual(after.errors, before.errors);
+  assert.equal(session.evidence(), null);
+});
+
 test('flip restoration preserves educational history and discards transport loading state', async () => {
   const first = createFreeTextEvaluationSession();
   await first.submit('ein Hund', async () => response('needs_retry', 'grammar'));

@@ -2,12 +2,12 @@
 import asyncio
 import json
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic import ValidationError
 
 from api.services.answer_contract import AnswerEvaluation, GradingPolicy
-from api.services.answer_rules import evaluate_deterministic
+from api.services.answer_rules import evaluate_deterministic, answer_token_diff
 from api.services.answer_evaluation import evaluate_answer
 from api.services.answer_ai import evaluate_with_ai
 
@@ -30,6 +30,22 @@ def ai_result(verdict='correct', error_type=None, **kwargs):
 
 
 class DeterministicTests(unittest.TestCase):
+    def test_diff_selects_nearest_variant_and_preserves_policy_and_structural_edits(self):
+        variants = ['Ich habe einen Hund.', 'Mein Nachbar ist ruhig.']
+        diff = answer_token_diff('main Nachbar ist ruhig', variants, GradingPolicy())
+        self.assertEqual(diff['nearest_expected_answer'], variants[1])
+        self.assertEqual(len(diff['token_differences']), 1)
+        sensitive = answer_token_diff('mein Nachbar ist ruhig', [variants[1]],
+            GradingPolicy(case_sensitive=True, punctuation_sensitive=True))
+        self.assertEqual([edit['expected'] for edit in sensitive['token_differences']], ['Mein', 'ruhig.'])
+        self.assertEqual(answer_token_diff('anything', [], GradingPolicy())['token_differences'], [])
+        for actual, expected, operation in [
+            ('Ich habe Hund', 'Ich habe einen Hund', 'insert'),
+            ('Ich habe keinen Hund', 'Ich habe Hund', 'delete'),
+        ]:
+            edit = answer_token_diff(actual, [expected], GradingPolicy())['token_differences'][0]
+            self.assertEqual(edit['operation'], operation)
+
     def evaluate(self, text, expected=EXPECTED, **policy):
         return evaluate_deterministic(text, [expected], GradingPolicy(**policy))
 
@@ -68,6 +84,7 @@ class DeterministicTests(unittest.TestCase):
             ('Ich habe 12 Hunde.', 'Ich habe 21 Hunde.'), ('Hund', 'Hunde'),
             ('Ich liebe Minden.', 'Ich lebe Minden.'),
             ('Wein', 'Wien'), ('Leid', 'Lied'), ('veir', 'vier'),
+            ('Maus', 'Haus'), ('main Nachbar ist ruhig', 'Mein Nachbar ist ruhig.'),
         ]:
             with self.subTest(actual=actual):
                 self.assertIsNone(self.evaluate(actual, expected=expected))
@@ -84,6 +101,112 @@ class DeterministicTests(unittest.TestCase):
 
 
 class AIFallbackTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reported_main_mein_case_uses_ai_with_only_the_real_edit(self):
+        expected, actual = 'Mein Nachbar ist ruhig.', 'main Nachbar ist ruhig'
+        client = AsyncMock()
+        client.chat_completion.return_value = (ai_result('accepted_minor', 'typo',
+            corrected_answer=expected, error_code='typo.spelling'), True)
+        result = await evaluate_answer(context(expected), GradingPolicy(), actual,
+                                       lambda: (client, 'test'))
+        self.assertEqual(result.verdict, 'accepted_minor')
+        self.assertEqual(result.evaluator, 'ai')
+        client.chat_completion.assert_awaited_once()
+        kwargs = client.chat_completion.call_args.kwargs
+        self.assertEqual(kwargs['temperature'], 0)
+        payload = json.loads(kwargs['user_message'])
+        self.assertEqual(payload['nearest_expected_answer'], expected)
+        self.assertEqual(payload['normalized_actual'], 'main nachbar ist ruhig')
+        self.assertEqual(payload['normalized_expected'], 'mein nachbar ist ruhig')
+        self.assertEqual(payload['token_differences'], [{
+            'operation': 'replace', 'actual': 'main', 'expected': 'mein',
+            'actual_start': 0, 'actual_end': 1, 'expected_start': 0, 'expected_end': 1}])
+        self.assertNotIn('nachbar', json.dumps(payload['token_differences']))
+        self.assertIn('never invent spelling or capitalization errors in unchanged tokens',
+                      kwargs['system_prompt'])
+        # The same diff is advisory: the AI still owns classification.
+        client.chat_completion.return_value = (ai_result('needs_retry', 'orthography',
+            hint='Проверь написание первого слова.'), True)
+        result = await evaluate_answer(context(expected), GradingPolicy(), actual,
+                                       lambda: (client, 'test'))
+        self.assertEqual(result.verdict, 'needs_retry')
+
+    async def test_malformed_or_schema_invalid_response_gets_one_structured_retry(self):
+        for malformed, reason in [('not JSON', 'invalid_json'),
+                                  ('{"verdict":"correct"}', 'schema_validation')]:
+            with self.subTest(reason=reason):
+                client = AsyncMock()
+                client.chat_completion.side_effect = [(malformed, True), (ai_result(), True)]
+                with self.assertLogs('api.services.answer_ai', level='WARNING') as logs:
+                    result = await evaluate_with_ai(context(), GradingPolicy(), client, 'test')
+                self.assertEqual(result.verdict, 'correct')
+                self.assertEqual(client.chat_completion.await_count, 2)
+                first, second = client.chat_completion.call_args_list
+                self.assertEqual(first.kwargs['user_message'], second.kwargs['user_message'])
+                self.assertEqual(second.kwargs['temperature'], 0)
+                self.assertIn(reason, second.kwargs['system_prompt'])
+                self.assertIn(reason, ''.join(logs.output))
+
+    async def test_second_malformed_response_is_unavailable_and_logs_no_answer(self):
+        secret = 'private learner response / api-key-secret'
+        client = AsyncMock()
+        client.chat_completion.return_value = (secret, True)
+        with self.assertLogs('api.services.answer_ai', level='WARNING') as logs:
+            result = await evaluate_with_ai({**context(), 'user_answer': secret},
+                                           GradingPolicy(), client, 'test')
+        self.assertEqual(result.verdict, 'unavailable')
+        self.assertEqual(client.chat_completion.await_count, 2)
+        self.assertIn('invalid_json', ''.join(logs.output))
+        self.assertNotIn(secret, ''.join(logs.output))
+
+    async def test_non_structural_failures_do_not_retry_and_have_safe_reason_codes(self):
+        fixtures = [
+            (('private provider failure', False), None, 'provider_failure'),
+            ((ai_result().replace('"confidence":0.98', '"confidence":0.2'), True), None, 'low_confidence'),
+            ((ai_result().replace('"evaluator":"ai"', '"evaluator":"rules"'), True), None, 'invalid_evaluator'),
+            (None, asyncio.TimeoutError('private timeout'), 'timeout'),
+            (None, RuntimeError('private answer or API key'), 'provider_failure'),
+        ]
+        for response, error, reason in fixtures:
+            with self.subTest(reason=reason):
+                client = AsyncMock()
+                client.chat_completion.return_value = response
+                client.chat_completion.side_effect = error
+                with self.assertLogs('api.services.answer_ai', level='WARNING') as logs:
+                    result = await evaluate_with_ai(context(), GradingPolicy(), client, 'test')
+                self.assertEqual(result.verdict, 'unavailable')
+                client.chat_completion.assert_awaited_once()
+                self.assertIn(reason, ''.join(logs.output))
+                self.assertNotIn('private', ''.join(logs.output))
+        with self.assertLogs('api.services.answer_ai', level='WARNING') as logs:
+            result = await evaluate_with_ai(context(), GradingPolicy(), object(), 'test')
+        self.assertEqual(result.verdict, 'unavailable')
+        self.assertIn('invalid_evaluator', ''.join(logs.output))
+
+    async def test_structured_retry_shares_original_timeout_and_cancels_provider(self):
+        client = AsyncMock()
+        cancelled = asyncio.Event()
+        calls = 0
+
+        async def delayed_response(**kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                await asyncio.sleep(.06)
+                return 'not JSON', True
+            try:
+                await asyncio.sleep(.06)
+                return ai_result(), True
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        client.chat_completion.side_effect = delayed_response
+        with patch('api.services.answer_ai.AI_TIMEOUT_SECONDS', .1):
+            result = await evaluate_with_ai(context(), GradingPolicy(), client, 'test')
+        self.assertEqual(result.verdict, 'unavailable')
+        self.assertEqual(calls, 2)
+        self.assertTrue(cancelled.is_set())
+
     async def test_obvious_results_never_configure_or_call_ai(self):
         def fail_factory():
             self.fail('AI must not be configured for an obvious answer')
@@ -156,6 +279,59 @@ class AIFallbackTests(unittest.IsolatedAsyncioTestCase):
         kwargs = client.chat_completion.call_args.kwargs
         self.assertNotIn(attack, kwargs['system_prompt'])
         self.assertEqual(json.loads(kwargs['user_message'])['user_answer'], attack)
+
+
+class ProviderSamplingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_evaluator_temperature_reaches_all_providers_without_changing_defaults(self):
+        from api.ai_clients import AIService
+        response = {'candidates': [{'content': {'parts': [{'text': 'ok'}]}}],
+                    'choices': [{'message': {'content': 'ok'}}], 'message': {'content': 'ok'}}
+        for provider in ['google', 'groq', 'openrouter', 'ollama']:
+            with self.subTest(provider=provider):
+                client = AIService(provider=provider, api_key='test-key')
+                client._make_request = AsyncMock(return_value=(response, True))
+                self.assertEqual(await client.chat_completion('system', 'data', 'gemini-test', temperature=0), ('ok', True))
+                payload = client._make_request.call_args.kwargs['json_data']
+                if provider == 'google':
+                    self.assertEqual(payload['generationConfig']['temperature'], 0)
+                elif provider == 'ollama':
+                    self.assertEqual(payload['options']['temperature'], 0)
+                else:
+                    self.assertEqual(payload['temperature'], 0)
+                await client.chat_completion('system', 'data', 'gemini-test')
+                payload = client._make_request.call_args.kwargs['json_data']
+                if provider == 'google':
+                    self.assertEqual(payload['generationConfig']['temperature'], .7)
+                elif provider == 'groq':
+                    self.assertEqual(payload['temperature'], .7)
+                else:
+                    self.assertNotIn('temperature', payload)
+                    self.assertNotIn('options', payload)
+
+    async def test_temperature_survives_model_routing_and_key_failover(self):
+        from api.ai_clients import AIService
+        for model, method in [('ollama/test', '_ollama_chat'), ('groq/test', '_groq_chat'),
+                              ('gemini-test', '_google_chat'), ('vendor/test', '_openrouter_chat')]:
+            client = AIService(provider='auto', api_key=['first-key', 'second-key'])
+            with patch.object(client, method, new_callable=AsyncMock) as chat:
+                chat.side_effect = [('429 quota', False), ('ok', True)]
+                self.assertEqual(await client.chat_completion('system', 'data', model, temperature=0), ('ok', True))
+                self.assertEqual(chat.await_count, 2)
+                self.assertTrue(all(call.kwargs['temperature'] == 0 for call in chat.call_args_list))
+
+    async def test_client_exception_logs_do_not_expose_keys_or_request_content(self):
+        from api.ai_clients import AIService
+        session = MagicMock()
+        session.request.side_effect = RuntimeError('private answer / https://provider?key=secret-key')
+        manager = MagicMock()
+        manager.__aenter__.return_value = session
+        with patch('api.ai_clients.aiohttp.ClientSession', return_value=manager), \
+             patch('api.ai_clients.asyncio.sleep', new_callable=AsyncMock), \
+             self.assertLogs('api.ai_clients', level='WARNING') as logs:
+            _, success = await AIService()._make_request('https://test')
+        self.assertFalse(success)
+        self.assertNotIn('private answer', ''.join(logs.output))
+        self.assertNotIn('secret-key', ''.join(logs.output))
 
 
 class ContractTests(unittest.TestCase):

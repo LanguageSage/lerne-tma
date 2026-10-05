@@ -4,7 +4,7 @@ import { normalizeWordBankValue } from './wordBankParser.js';
 
 // Templates for the advanced markup toolbar grouped by category:
 // - exercise: card types and interactive gaps (directives & inputs)
-// - marker: structural information blocks (::task, ::hint, ::example, etc.)
+// - marker: structural information blocks (::task, ::source, ::example, etc.)
 export const editorCommandGroups = [
   {
     id: 'exercise',
@@ -23,7 +23,7 @@ export const editorCommandGroups = [
     label: 'Маркеры структуры',
     commands: [
       { id: 'task', label: 'Задание', template: '::task\n', info: true, group: 'marker' },
-      { id: 'hint', label: 'Подсказка', template: '::hint\n', info: true, group: 'marker' },
+      { id: 'hint', label: 'Подсказка', template: '::source\n', info: true, group: 'marker' },
       { id: 'example', label: 'Пример', template: '::example\n', info: true, group: 'marker' },
       { id: 'source', label: 'Исходный текст', template: '::source\n', info: true, group: 'marker' },
       { id: 'exercise', label: 'Содержимое упражнения', template: '::exercise\n', info: true, group: 'marker' },
@@ -35,6 +35,35 @@ export const editorCommandGroups = [
 ];
 
 export const editorCommands = editorCommandGroups.flatMap(group => group.commands);
+
+function editorMarkers(raw) {
+  return [...raw.matchAll(/^[ \t]*::(\w+)[ \t]*\r?$/gm)].map(match => {
+    const type = match[1].toLowerCase();
+    const end = match.index + match[0].length;
+    // Saved ::hint is a legacy alias; it is never an insertion template.
+    return { index: match.index, type: type === 'hint' ? 'source' : type, end: end + (raw[end] === '\n' ? 1 : 0) };
+  });
+}
+
+function insertSourceBlock(raw) {
+  const markers = editorMarkers(raw);
+  const existing = markers.find(marker => marker.type === 'source');
+  if (existing) return { text: raw, cursor: existing.end };
+
+  const taskIndex = markers.findIndex(marker => marker.type === 'task');
+  const boundary = taskIndex >= 0 ? markers[taskIndex + 1] : markers.find(marker => marker.type === 'exercise');
+  const at = boundary?.index ?? raw.length;
+  const before = raw.slice(0, at);
+  const after = raw.slice(at);
+  const newline = raw.includes('\r\n') ? '\r\n' : '\n';
+  const prefix = !before || before.endsWith(newline + newline) ? ''
+    : before.endsWith(newline) ? newline : newline + newline;
+  const addition = prefix + '::source' + newline;
+  return {
+    text: before + addition + (after ? newline + newline : '') + after,
+    cursor: before.length + addition.length
+  };
+}
 
 export function replaceEditorRange(raw, start, end, value) {
   return raw.slice(0, start) + value + raw.slice(end);
@@ -68,6 +97,7 @@ export function readableFrontText(raw = '') {
 export function insertEditorCommand(raw, id, start = raw.length, end = start) {
   const command = editorCommands.find(item => item.id === id);
   if (!command) return { text: raw, cursor: start };
+  if (id === 'hint' || id === 'source') return insertSourceBlock(raw);
   const before = raw.slice(0, start);
   const after = raw.slice(end);
   const template = id === 'ending' && /^(?:e|en|em|er|es)$/.test(raw.slice(start, end))
@@ -156,8 +186,7 @@ export function projectEditorFields(raw = '') {
   const exerciseType = detectExerciseType(raw);
   const explicitExercise = /^\s*::exercise\s*$/im.test(raw);
   if (parsed.hasBlocks && !explicitExercise && !['quiz', 'word_bank'].includes(exerciseType)) return null;
-  const markers = [...raw.matchAll(/^[ \t]*::(\w+)[ \t]*\r?$/gm)]
-    .map(m => ({ index: m.index, type: m[1].toLowerCase(), end: m.index + m[0].length + (raw[m.index + m[0].length] === '\n' ? 1 : 0) }));
+  const markers = editorMarkers(raw);
   if (markers.some(m => !editorCommands.some(c => c.info && c.id === m.type))) return null;
   if (parsed.hasBlocks && !explicitExercise) {
     const exercise = parsed.exercise;

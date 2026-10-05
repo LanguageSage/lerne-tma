@@ -16,6 +16,7 @@ async function openExercise(page, context, language = 'ru') {
     localStorage.setItem('lerne_target_language', 'de');
   }, language);
   await page.routeWebSocket('**/*', () => {});
+  await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
     if (pathname === '/api/init') return route.fulfill({ json: {
@@ -33,6 +34,72 @@ async function openExercise(page, context, language = 'ru') {
   await page.getByText('Переведите: У меня есть собака.', { exact: true }).first().click();
   await expect(page.locator('.free-text-exercise textarea')).toBeVisible();
   return errors;
+}
+
+for (const failure of ['default', 'throw', 'reject', 'invalid']) {
+  test(`first hook submit handles ${failure} evaluator without escaping or counting`, async ({ page }) => {
+    const errors = [];
+    let evaluatorLoads = 0;
+    let navigations = 0;
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('framenavigated', frame => { if (frame === page.mainFrame()) navigations++; });
+    await page.routeWebSocket('**/*', () => {});
+    await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+    await page.route('**/src/services/answerEvaluationService.js*', route => {
+      evaluatorLoads++;
+      return route.fulfill({ contentType: 'application/javascript', body: `
+        export function evaluateFreeTextAnswer() {
+          if (window.failEvaluation) return Promise.reject(new Error('evaluator unavailable'));
+          return Promise.resolve({ result: { verdict: 'accepted_minor', accepted: true, error_type: 'typo' } });
+        }
+      ` });
+    });
+    await page.route('**/__free-evaluation-hook', route => route.fulfill({ contentType: 'text/html', body: `
+      <div id="root"></div><script type="module">
+      import React from '/node_modules/.vite/deps/react.js';
+      import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
+      import { useFreeTextEvaluation } from '/src/hooks/useFreeTextEvaluation.js';
+      window.failEvaluation = true;
+      window.addEventListener('vite:preloadError', event => { event.preventDefault(); location.reload(); });
+      const failure = ${JSON.stringify(failure)};
+      function Probe() {
+        const custom = failure === 'default' ? null : failure === 'invalid' ? {} : () => {
+          if (window.failEvaluation) {
+            if (failure === 'throw') throw new Error('initialization failed');
+            return Promise.reject(new Error('provider failed'));
+          }
+          return Promise.resolve({ result: { verdict: 'accepted_minor', accepted: true, error_type: 'typo' } });
+        };
+        const { state, submit, evidence } = useFreeTextEvaluation(1, undefined, 'review-1', custom);
+        return React.createElement('div', null,
+          React.createElement('button', { onClick: async () => {
+            try { window.outcome = await submit('main Nachbar ist ruhig'); }
+            catch (error) { window.escaped = error.message; }
+          } }, 'Submit'),
+          React.createElement('pre', { id: 'state' }, JSON.stringify({ state, evidence })));
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Probe));
+      </script>` }));
+    await page.goto('/__free-evaluation-hook');
+    await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
+    // Static loading finishes before the first submit, so a stale chunk cannot reload it.
+    expect(evaluatorLoads).toBe(1);
+    await page.route('**/src/services/answerEvaluationService.js*', route => route.abort());
+    await page.getByRole('button', { name: 'Submit' }).click();
+    await expect.poll(async () => JSON.parse(await page.locator('#state').textContent()).state.result?.verdict).toBe('unavailable');
+    const { state, evidence } = JSON.parse(await page.locator('#state').textContent());
+    expect(state).toMatchObject({ attemptCount: 0, mistakeCount: 0, loading: false, lastAnswer: null });
+    expect(evidence).toBeNull();
+    expect(await page.evaluate(() => window.escaped)).toBeUndefined();
+    expect(navigations).toBe(1);
+    if (failure !== 'invalid') {
+      await page.evaluate(() => { window.failEvaluation = false; });
+      await page.getByRole('button', { name: 'Submit' }).click();
+      await expect.poll(async () => JSON.parse(await page.locator('#state').textContent()).evidence?.attemptCount).toBe(1);
+      expect(JSON.parse(await page.locator('#state').textContent()).evidence).toMatchObject({ isFirstTry: true, mistakeCount: 0 });
+    }
+    expect(errors).toEqual([]);
+  });
 }
 
 test('grammar retry preserves text, blocks duplicate submits, and completes on correction', async ({ page, context }, testInfo) => {

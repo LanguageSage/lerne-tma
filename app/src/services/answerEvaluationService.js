@@ -1,6 +1,7 @@
 import api from './api.js';
 import { getUserId } from '../utils/auth.js';
 import { getInterfaceLanguage } from '../i18n/locale.js';
+import { isValidAnswerEvaluationResult } from '../utils/freeTextEvaluationState.js';
 
 const pending = new Map();
 
@@ -11,8 +12,7 @@ export async function evaluateFreeTextAnswer(cardId, answer) {
   const request = api.post('/ai/evaluate-answer', {
     card_id: cardId, answer, feedback_language: language,
   }).then(({ data }) => {
-    if (!['correct', 'accepted_minor', 'needs_retry', 'incorrect', 'unavailable'].includes(data?.result?.verdict)
-      || data.result.accepted !== ['correct', 'accepted_minor'].includes(data.result.verdict)) {
+    if (!isValidAnswerEvaluationResult(data?.result)) {
       throw new Error('Invalid answer evaluation response');
     }
     return data;

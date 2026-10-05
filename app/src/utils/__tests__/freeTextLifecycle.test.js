@@ -1,7 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { useFreeTextEvaluation } from '../../hooks/useFreeTextEvaluation.js';
+import { registerHooks } from 'node:module';
+
+// This hook suite injects its evaluator; the browser transport belongs to service/browser tests.
+const transportUrl = new URL('../../services/answerEvaluationService.js', import.meta.url).href;
+const loader = registerHooks({ load(url, context, nextLoad) {
+  if (url === transportUrl) return { format: 'module', shortCircuit: true,
+    source: 'export function evaluateFreeTextAnswer() { throw new Error("Unexpected default transport"); }' };
+  return nextLoad(url, context);
+} });
+const { useFreeTextEvaluation } = await import('../../hooks/useFreeTextEvaluation.js');
+loader.deregister();
 
 const evaluateHandler = async (_cardId, answer) => {
   if (answer.toLowerCase().includes('wrong')) {

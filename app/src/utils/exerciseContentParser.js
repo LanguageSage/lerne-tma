@@ -1,7 +1,7 @@
-const BLOCK_TYPES = new Set(['task', 'hint', 'options', 'source', 'example', 'level', 'topic']);
+const BLOCK_TYPES = new Set(['task', 'options', 'source', 'example', 'level', 'topic']);
 const MARKER_TO_BLOCK_TYPE = Object.freeze({
   task: 'task',
-  hint: 'hint',
+  hint: 'source', // Read saved legacy hints as source; generated markup stays canonical.
   options: 'options',
   source: 'source',
   example: 'example',

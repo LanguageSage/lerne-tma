@@ -106,7 +106,7 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
       borderRadius: '12px',
       padding: '8px 12px',
     },
-    /** Блок ::hint */
+    /** Legacy hint appearance settings retained for saved user configurations. */
     hint: {
       font: 'Inter',
       size: 0.88,

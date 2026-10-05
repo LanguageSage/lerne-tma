@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, editorCommands, editorCommandGroups, setQuizOptionCorrect, syncWordBankAnswer } from '../cardEditorSyntax.js';
-import { parseExerciseContent } from '../exerciseContentParser.js';
+import { parseExerciseContent, restoreExerciseContent } from '../exerciseContentParser.js';
 import { parseClozeData } from '../clozeParser.js';
 import { parseMatchData } from '../matchParser.js';
 import { parseFreeTextData } from '../freeTextParser.js';
@@ -162,7 +162,7 @@ test('ambiguous front markup has a readable preview without changing stored text
 });
 
 test('every information block is editable without changing other blocks', () => {
-  for (const command of editorCommands.filter(c => c.info && c.id !== 'exercise')) {
+  for (const command of editorCommands.filter(c => c.info && !['exercise', 'hint'].includes(c.id))) {
     const raw = `${command.template}\n::exercise\nHallo`;
     const field = projectEditorFields(raw).find(f => f.label === command.label);
     assert.ok(field, command.id);
@@ -180,7 +180,7 @@ test('editor output remains compatible with strict batch import', () => {
   assert.equal(imported[0].back, 'Answer');
 });
 
-test('commands are categorized into distinct exercise and marker groups with hint support', () => {
+test('hint toolbar action generates only the official source marker', () => {
   assert.equal(editorCommandGroups.length, 2);
   const exerciseGroup = editorCommandGroups.find(g => g.id === 'exercise');
   const markerGroup = editorCommandGroups.find(g => g.id === 'marker');
@@ -190,18 +190,79 @@ test('commands are categorized into distinct exercise and marker groups with hin
   assert.deepEqual(exerciseGroup.commands.map(c => c.id), ['puzzle', 'match', 'free', 'choice', 'input', 'ending']);
   assert.deepEqual(markerGroup.commands.map(c => c.id), ['task', 'hint', 'example', 'source', 'exercise', 'options', 'topic', 'level']);
 
-  // Hint insertion and projection
   const withHint = insertEditorCommand('', 'hint').text;
-  assert.equal(withHint, '::hint\n');
+  assert.equal(withHint, '::source\n');
+  assert.ok(editorCommands.every(command => !command.template.includes('::hint')));
+});
+
+test('saved hint blocks remain editable and are read as source', () => {
   const cardWithHint = `::task\nAufgabe\n\n::hint\nTipp\n\n::exercise\nHallo [[Welt]].`;
   const fields = projectEditorFields(cardWithHint);
   assert.ok(fields);
-  const hintField = fields.find(f => f.label === 'Подсказка');
+  const hintField = fields.find(f => f.label === 'Исходный текст');
   assert.ok(hintField);
   assert.equal(hintField.value.trim(), 'Tipp');
 
   const parsed = parseExerciseContent(cardWithHint);
-  assert.equal(parsed.hint, 'Tipp');
+  assert.equal(parsed.source, 'Tipp');
+  assert.equal(parsed.blocks[1].type, 'source');
   assert.equal(parsed.task, 'Aufgabe');
   assert.equal(parsed.exercise, 'Hallo [[Welt]].');
+  assert.equal(replaceEditorRange(cardWithHint, hintField.start, hintField.end, hintField.value), cardWithHint);
+  const restored = restoreExerciseContent(parsed, 'Neu [[hier]].');
+  assert.ok(restored.includes('::source\nTipp'));
+  assert.ok(!restored.includes('::hint'));
+});
+
+test('source insertion follows task content without replacing selected text', () => {
+  const exercise = '::exercise\nDas ist ein [[schönes]] Haus.';
+  for (const task of ['Заполни пропуск.', 'Первая строка.\nВторая строка.\n\nПоследняя строка.']) {
+    for (const next of [exercise, `::example\nEin Haus.\n\n${exercise}`, `::options\nschönes | schönes?\n\n${exercise}`,
+      `::options\nschönes\n\n::example\nEin Haus.\n\n${exercise}`]) {
+      const before = `::task\n${task}\n\n`;
+      const raw = before + next;
+      for (const id of ['hint', 'source']) {
+        for (const [start, end] of [[0, 0], [0, raw.length], [raw.length, raw.length]]) {
+          const result = insertEditorCommand(raw, id, start, end);
+          assert.equal(result.text, before + '::source\n\n\n' + next);
+          assert.equal(result.cursor, before.length + '::source\n'.length);
+          const parsed = parseExerciseContent(result.text);
+          assert.equal(parsed.task, task);
+          assert.equal(parsed.exercise, parseExerciseContent(raw).exercise);
+        }
+      }
+    }
+  }
+});
+
+test('existing source or legacy hint is focused without duplicate markers or text changes', () => {
+  for (const marker of ['::source', '  ::SOURCE  ', '::hint']) {
+    for (const content of ['', 'Перевод.\nКонтекст.']) {
+      const before = `::task\nЗадание.\n\n${marker}\n`;
+      const raw = before + content + '\n\n::exercise\nHallo [[Welt]].';
+      for (const id of ['hint', 'source']) {
+        assert.deepEqual(insertEditorCommand(raw, id, 0, raw.length), { text: raw, cursor: before.length });
+      }
+    }
+  }
+});
+
+test('without task source is inserted directly before exercise, preserving preamble', () => {
+  for (const preamble of ['', 'Вступление.\n\n', '::example\nПример.\n\n']) {
+    const exercise = '::exercise\nHallo [[Welt]].';
+    const result = insertEditorCommand(preamble + exercise, 'hint', 0);
+    assert.equal(result.text, preamble + '::source\n\n\n' + exercise);
+    assert.equal(result.cursor, preamble.length + '::source\n'.length);
+  }
+  assert.equal(insertEditorCommand('Обычный текст.', 'hint', 0).text, 'Обычный текст.\n\n::source\n');
+});
+
+test('source insertion preserves CRLF, marker casing, indentation and missing blank separators', () => {
+  const raw = '  ::TASK  \r\n  Первая строка. \r\nВторая.\r\n ::EXERCISE \r\nHallo [[Welt]].';
+  const before = '  ::TASK  \r\n  Первая строка. \r\nВторая.\r\n';
+  const result = insertEditorCommand(raw, 'hint', 0);
+  assert.equal(result.text, before + '\r\n::source\r\n\r\n\r\n' + raw.slice(before.length));
+  assert.equal(result.cursor, before.length + '\r\n::source\r\n'.length);
+  assert.equal(insertEditorCommand(result.text, 'hint').text, result.text);
+  assert.equal(insertEditorCommand('::task\nМного\nстрок', 'hint', 0).text, '::task\nМного\nстрок\n\n::source\n');
 });

@@ -1,6 +1,7 @@
 """Answer Evaluation Engine orchestration; no mastery writes or new persistence pipeline."""
 import json
 import re
+import logging
 
 from fastapi import HTTPException
 from starlette.concurrency import run_in_threadpool
@@ -9,6 +10,8 @@ from pydantic import ValidationError
 from api.services.answer_contract import GradingPolicy, unavailable
 from api.services.answer_rules import evaluate_deterministic
 from api.services.answer_ai import evaluate_with_ai
+
+logger = logging.getLogger(__name__)
 
 
 def load_answer_context(card_id: int, user_id: int, feedback_language: str) -> tuple[dict, GradingPolicy]:
@@ -70,6 +73,7 @@ def configured_ai():
 
 async def evaluate_answer(context: dict, policy: GradingPolicy, answer: str, ai_factory=None):
     if policy.mode != 'open_text' and not any(v.strip() for v in context['expected_answers']):
+        logger.warning('Answer evaluator unavailable: missing_expected_answer')
         return unavailable('rules')
     result = evaluate_deterministic(answer, context['expected_answers'], policy,
                                     context['target_language'])
@@ -80,8 +84,14 @@ async def evaluate_answer(context: dict, policy: GradingPolicy, answer: str, ai_
     try:
         configured = await run_in_threadpool(ai_factory)
     except Exception:
+        logger.warning('Answer evaluator unavailable: provider_failure')
         return unavailable()
     if not configured:
+        logger.warning('Answer evaluator unavailable: invalid_evaluator')
         return unavailable()
-    client, model = configured
+    try:
+        client, model = configured
+    except (TypeError, ValueError):
+        logger.warning('Answer evaluator unavailable: invalid_evaluator')
+        return unavailable()
     return await evaluate_with_ai({**context, 'user_answer': answer}, policy, client, model)

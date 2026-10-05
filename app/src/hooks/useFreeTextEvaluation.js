@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createFreeTextEvaluationSession } from '../utils/freeTextEvaluationState.js';
-
-let defaultEvaluator = null;
-async function resolveEvaluator(customEvaluator) {
-  if (customEvaluator) return customEvaluator;
-  if (!defaultEvaluator) {
-    const mod = await import('../services/answerEvaluationService.js');
-    defaultEvaluator = mod.evaluateFreeTextAnswer;
-  }
-  return defaultEvaluator;
-}
+import { evaluateFreeTextAnswer } from '../services/answerEvaluationService.js';
 
 export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAnswer = null) {
   const currentKey = reviewKey ?? cardId;
@@ -41,8 +32,8 @@ export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAns
   const submit = async answer => {
     const activeSession = effectiveSession;
     const activeKey = currentKey;
-    const evaluateFn = await resolveEvaluator(evaluateAnswer);
-    const promise = activeSession.submit(answer, text => evaluateFn(cardId, text));
+    // Resolve and invoke inside the session's error boundary, including the first submit.
+    const promise = activeSession.submit(answer, text => (evaluateAnswer ?? evaluateFreeTextAnswer)(cardId, text));
     setSessionState(prev => prev.key === activeKey ? { ...prev, state: activeSession.snapshot() } : prev);
     const next = await promise;
     if (!mounted.current || !next) return null;

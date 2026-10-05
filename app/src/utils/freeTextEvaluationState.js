@@ -1,4 +1,9 @@
 /** One owner of educational attempts. Transport failures and duplicate submits never count. */
+export const isValidAnswerEvaluationResult = result => (
+  ['correct', 'accepted_minor', 'needs_retry', 'incorrect', 'unavailable'].includes(result?.verdict)
+  && result.accepted === ['correct', 'accepted_minor'].includes(result.verdict)
+);
+
 export const canRevealFreeTextAnswer = state => Boolean(!state?.loading && (
   state?.result?.accepted === true
   || (state?.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries)
@@ -13,13 +18,18 @@ export function createFreeTextEvaluationSession(initial = {}) {
   return {
     snapshot,
     async submit(answer, evaluate) {
-      if (state.loading || state.result?.accepted || !answer.trim()
+      if (state.loading || state.result?.accepted
+        || (typeof answer === 'string' && !answer.trim())
         || (state.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries)
         || (answer === state.lastAnswer && state.result?.verdict !== 'unavailable')) return null;
       state = { ...state, loading: true };
       try {
+        if (typeof answer !== 'string') throw new TypeError('Invalid answer');
         const response = await evaluate(answer);
         const result = response.result;
+        if (!isValidAnswerEvaluationResult(result)) {
+          throw new Error('Invalid answer evaluation response');
+        }
         if (result.verdict === 'unavailable') {
           state = { ...state, result, gradingPolicy: response.grading_policy || state.gradingPolicy };
         } else {

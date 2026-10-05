@@ -1,6 +1,7 @@
 """Pure conservative checks. None means ambiguous, never an incorrect answer."""
 import re
 import unicodedata
+from difflib import SequenceMatcher
 
 from api.services.answer_contract import AnswerEvaluation, GradingPolicy
 
@@ -39,6 +40,29 @@ def normalize_answer(text: str, policy: GradingPolicy) -> str:
     if not policy.punctuation_sensitive and re.search(r'[^\W\d_]\.$', value, re.UNICODE):
         value = value[:-1].rstrip()
     return value if policy.case_sensitive else value.lower()
+
+
+def answer_token_diff(answer: str, variants: list[str], policy: GradingPolicy) -> dict:
+    """Describe edits to the closest reference, without deciding correctness."""
+    actual = normalize_answer(answer, policy)
+    candidates = [(variant, normalize_answer(variant, policy))
+                  for variant in variants if variant.strip()]
+    if not candidates:
+        return {'nearest_expected_answer': None, 'token_differences': []}
+    # Character similarity also distinguishes references with the same token mismatch count.
+    variant, expected = max(candidates, key=lambda item: SequenceMatcher(
+        None, actual, item[1]).ratio())
+    actual_tokens, expected_tokens = actual.split(), expected.split()
+    differences = [
+        {'operation': operation, 'actual': ' '.join(actual_tokens[a:b]),
+         'expected': ' '.join(expected_tokens[c:d]),
+         'actual_start': a, 'actual_end': b, 'expected_start': c, 'expected_end': d}
+        for operation, a, b, c, d in SequenceMatcher(
+            None, actual_tokens, expected_tokens, autojunk=False).get_opcodes()
+        if operation != 'equal'
+    ]
+    return {'nearest_expected_answer': variant, 'normalized_actual': actual,
+            'normalized_expected': expected, 'token_differences': differences}
 
 
 def safe_token_typo(actual: str, expected: str, language: str) -> bool:
