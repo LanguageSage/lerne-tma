@@ -2,22 +2,39 @@ import { parseExerciseContent } from './exerciseContentParser.js';
 import { detectExerciseType } from './exerciseDetector.js';
 import { normalizeWordBankValue } from './wordBankParser.js';
 
-// Templates for the advanced markup toolbar.
-export const editorCommands = [
-  { id: 'task', label: 'Задание', template: '::task\n', info: true },
-  { id: 'choice', label: 'Варианты ответа', template: '{*Berlin|Hamburg|München}' },
-  { id: 'input', label: 'Поле для ввода', template: '[[Berlin]]' },
-  { id: 'ending', label: 'Окончание с выбором', template: '{en}' },
-  { id: 'match', label: 'Соединение пар', template: '@match\nBerlin => Deutschland\nWien => Österreich', directive: true },
-  { id: 'free', label: 'Свободный ответ', template: '@free\n', directive: true },
-  { id: 'puzzle', label: 'Собрать предложение', template: '@puzzle\nIch lerne Deutsch.', directive: true },
-  { id: 'options', label: 'Список вариантов', template: '::options\n', info: true },
-  { id: 'source', label: 'Исходный текст', template: '::source\n', info: true },
-  { id: 'example', label: 'Пример', template: '::example\n', info: true },
-  { id: 'exercise', label: 'Содержимое упражнения', template: '::exercise\n', info: true },
-  { id: 'level', label: 'Уровень сложности', template: '::level\n', info: true },
-  { id: 'topic', label: 'Тема', template: '::topic\n', info: true },
+// Templates for the advanced markup toolbar grouped by category:
+// - exercise: card types and interactive gaps (directives & inputs)
+// - marker: structural information blocks (::task, ::hint, ::example, etc.)
+export const editorCommandGroups = [
+  {
+    id: 'exercise',
+    label: 'Тип карточки и элементы',
+    commands: [
+      { id: 'puzzle', label: 'Собрать предложение', template: '@puzzle\nIch lerne Deutsch.', directive: true, group: 'exercise' },
+      { id: 'match', label: 'Соединение пар', template: '@match\nBerlin => Deutschland\nWien => Österreich', directive: true, group: 'exercise' },
+      { id: 'free', label: 'Свободный ответ', template: '@free\n', directive: true, group: 'exercise' },
+      { id: 'choice', label: 'Варианты ответа', template: '{*Berlin|Hamburg|München}', group: 'exercise' },
+      { id: 'input', label: 'Поле для ввода', template: '[[Berlin]]', group: 'exercise' },
+      { id: 'ending', label: 'Окончание с выбором', template: '{en}', group: 'exercise' },
+    ]
+  },
+  {
+    id: 'marker',
+    label: 'Маркеры структуры',
+    commands: [
+      { id: 'task', label: 'Задание', template: '::task\n', info: true, group: 'marker' },
+      { id: 'hint', label: 'Подсказка', template: '::hint\n', info: true, group: 'marker' },
+      { id: 'example', label: 'Пример', template: '::example\n', info: true, group: 'marker' },
+      { id: 'source', label: 'Исходный текст', template: '::source\n', info: true, group: 'marker' },
+      { id: 'exercise', label: 'Содержимое упражнения', template: '::exercise\n', info: true, group: 'marker' },
+      { id: 'options', label: 'Список вариантов', template: '::options\n', info: true, group: 'marker' },
+      { id: 'topic', label: 'Тема', template: '::topic\n', info: true, group: 'marker' },
+      { id: 'level', label: 'Уровень сложности', template: '::level\n', info: true, group: 'marker' },
+    ]
+  }
 ];
+
+export const editorCommands = editorCommandGroups.flatMap(group => group.commands);
 
 export function replaceEditorRange(raw, start, end, value) {
   return raw.slice(0, start) + value + raw.slice(end);

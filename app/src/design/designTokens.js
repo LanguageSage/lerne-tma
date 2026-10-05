@@ -85,6 +85,19 @@ export function designConfigToCssVariables(config) {
   vars['--design-example-radius']   = c.front.example.borderRadius;
   vars['--design-example-padding']  = c.front.example.padding;
 
+  // Hint block
+  if (c.front.hint) {
+    vars['--design-hint-font']        = c.front.hint.font;
+    vars['--design-hint-font-size']   = `${c.front.hint.size}rem`;
+    vars['--design-hint-weight']      = c.front.hint.weight;
+    vars['--design-hint-style']       = c.front.hint.style;
+    vars['--design-hint-color']       = c.front.hint.color;
+    vars['--design-hint-bg']          = c.front.hint.bg;
+    vars['--design-hint-border']      = c.front.hint.borderColor;
+    vars['--design-hint-radius']      = c.front.hint.borderRadius;
+    vars['--design-hint-padding']     = c.front.hint.padding;
+  }
+
   // Options block
   vars['--design-options-label-font']  = c.front.options.label.font;
   vars['--design-options-label-size']  = `${c.front.options.label.size}rem`;

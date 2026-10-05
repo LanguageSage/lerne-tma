@@ -1,7 +1,7 @@
 import React, { useId, useRef, useState } from 'react';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import { editorCommands, projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, setQuizOptionCorrect, syncWordBankAnswer } from '../../utils/cardEditorSyntax';
+import { editorCommandGroups, projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, setQuizOptionCorrect, syncWordBankAnswer } from '../../utils/cardEditorSyntax';
 import { autoGenerateChoices, isWordGap } from '../../utils/clozeParser';
 import './CardContentEditor.css';
 
@@ -41,10 +41,6 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
       area?.setSelectionRange(result.cursor, result.cursor);
     });
   };
-  const commandButtons = editorCommands.map(command => (
-    <button type="button" className="btn-secondary" key={command.id}
-      onClick={() => insert(command.id)}>{tr(command.label)}</button>
-  ));
   const commitInlineText = (field, element) => {
     const next = element.innerText.replace(/\r\n?/g, '\n');
     if (next === field.value.replace(/\r\n?/g, '\n')) return;
@@ -204,7 +200,28 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
         <textarea ref={rawRef} className="form-input card-editor-raw" rows={7} value={value}
           onChange={e => onChange(e.target.value)} spellCheck={false} />
       </label>
-      <div className="card-editor-commands" aria-label={tr('Вставить элемент')}>{commandButtons}</div>
+      <div className="card-editor-toolbar" role="region" aria-label={tr('Панель быстрой вставки')}>
+        {editorCommandGroups.map(group => (
+          <div key={group.id} className={`card-editor-cluster card-editor-cluster-${group.id}`}>
+            <div className="card-editor-cluster-header">
+              <span className={`card-editor-cluster-dot card-editor-dot-${group.id}`} aria-hidden="true" />
+              <span className="card-editor-cluster-title">{tr(group.label)}</span>
+            </div>
+            <div className="card-editor-cluster-buttons">
+              {group.commands.map(command => (
+                <button
+                  key={command.id}
+                  type="button"
+                  className={`btn-secondary card-editor-btn card-editor-btn-${command.group}`}
+                  onClick={() => insert(command.id)}
+                >
+                  {tr(command.label)}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
       <p className="card-editor-hint">{tr('Окончания: klein{en} — выбор e / en / em / er / es; klein[[en]] — ввод. Выделите окончание и нажмите «Окончание с выбором».')}</p>
     </div>}
     {error && <p role="alert" className="card-editor-hint">{error}</p>}

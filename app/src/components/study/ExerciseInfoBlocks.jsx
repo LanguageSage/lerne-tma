@@ -78,6 +78,18 @@ export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks }) =
               borderRadius: 'var(--design-example-radius)',
               padding: 'var(--design-example-padding)'
             }
+          : block.type === 'hint'
+          ? {
+              fontFamily: 'var(--design-hint-font)',
+              fontSize: 'var(--design-hint-font-size)',
+              fontWeight: 'var(--design-hint-weight)',
+              fontStyle: 'var(--design-hint-style)',
+              color: 'var(--design-hint-color)',
+              background: 'var(--design-hint-bg)',
+              borderColor: 'var(--design-hint-border)',
+              borderRadius: 'var(--design-hint-radius)',
+              padding: 'var(--design-hint-padding)'
+            }
           : {};
 
         return (

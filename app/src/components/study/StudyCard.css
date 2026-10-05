@@ -201,6 +201,13 @@
   color: var(--design-example-color, rgba(241, 245, 249, 0.88));
 }
 
+.exercise-info-hint {
+  border-color: var(--design-hint-border, rgba(251, 191, 36, 0.4));
+  border-left: 3px solid var(--design-hint-border, rgba(251, 191, 36, 0.75));
+  background: var(--design-hint-bg, rgba(245, 158, 11, 0.08));
+  color: var(--design-hint-color, rgba(254, 243, 199, 0.95));
+}
+
 .exercise-info-label {
   margin-bottom: 5px;
   color: rgba(203, 213, 225, 0.72);

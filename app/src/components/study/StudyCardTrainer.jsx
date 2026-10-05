@@ -12,7 +12,7 @@ import { AnswerVictoryAnimation } from './AnswerVictoryAnimation.jsx';
 import './StudyCardTrainer.css';
 
 const AutoExpandingInput = React.memo(({
-  rawValue,
+  rawValue = '',
   gap,
   disabled,
   status,
@@ -24,8 +24,6 @@ const AutoExpandingInput = React.memo(({
   onInputChange,
   onCheck
 }) => {
-  const charLen = Math.max(rawValue.length + 2, 7);
-
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -38,10 +36,12 @@ const AutoExpandingInput = React.memo(({
     ? (status === 'correct' ? '#22c55e' : (status === 'incorrect' ? '#f87171' : (hasValue ? '#c084fc' : 'inherit')))
     : (status === 'correct' ? '#22c55e' : (status === 'incorrect' ? '#f87171' : (hasValue ? '#f3e8ff' : textColor)));
 
+  const isAffix = Boolean(gap.isAffix);
+
   const input = (
     <input
       type="text"
-      className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (hasValue ? 'selected' : 'idle')}${hasValue ? ' has-value' : ''}` : undefined}
+      className={isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (hasValue ? 'selected' : 'idle')}${hasValue ? ' has-value' : ''}` : undefined}
       ref={inputRef}
       aria-invalid={status === 'incorrect'}
       aria-describedby={status === 'incorrect' ? `trainer-hint-${gap.id}` : undefined}
@@ -53,39 +53,42 @@ const AutoExpandingInput = React.memo(({
       autoCapitalize="none"
       autoCorrect="off"
       spellCheck={false}
-      placeholder={gap.isAffix ? '··' : '______'}
+      placeholder={isAffix ? '··' : '______'}
       style={{
-        width: gap.isAffix ? '100%' : `${charLen}ch`,
-        position: gap.isAffix ? 'absolute' : undefined,
-        inset: gap.isAffix ? 0 : undefined,
-        minWidth: gap.isAffix ? undefined : '72px',
-        maxWidth: '100%',
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
         boxSizing: 'border-box',
-        padding: gap.isAffix ? '0 1px' : '4px 8px',
-        borderRadius: gap.isAffix ? 0 : '10px',
-        border: gap.isAffix ? undefined : `2px solid ${borderColor}`,
-        background: gap.isAffix ? undefined : bgColor,
+        padding: isAffix ? '0 1px' : '4px 10px',
+        borderRadius: isAffix ? 0 : '10px',
+        border: isAffix ? undefined : `2px solid ${borderColor}`,
+        background: isAffix ? undefined : bgColor,
         color: inputTextColor,
         textDecoration,
-        fontWeight: gap.isAffix ? (hasValue || status ? 700 : 'inherit') : 700,
+        fontWeight: isAffix ? (hasValue || status ? 700 : 'inherit') : 700,
         fontSize: 'inherit',
         fontFamily: 'inherit',
         textAlign: 'center',
-        outline: gap.isAffix ? undefined : 'none',
+        outline: isAffix ? undefined : 'none',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
-        verticalAlign: gap.isAffix ? 'baseline' : 'middle',
-        boxShadow: !gap.isAffix && status === 'correct' ? '0 0 12px rgba(34, 197, 94, 0.35)' : undefined,
-        animation: !gap.isAffix && status === 'correct' ? 'victoryTextPulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : undefined,
-        transition: 'border-color 0.15s ease-in-out, background 0.15s ease-in-out, width 0.1s ease-out'
+        verticalAlign: isAffix ? 'baseline' : 'middle',
+        boxShadow: !isAffix && status === 'correct' ? '0 0 12px rgba(34, 197, 94, 0.35)' : undefined,
+        animation: !isAffix && status === 'correct' ? 'victoryTextPulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : undefined,
+        transition: 'border-color 0.15s ease-in-out, background 0.15s ease-in-out'
       }}
     />
   );
-  // Size fragments by their actual glyphs, including proportional/custom fonts.
-  return gap.isAffix ? <span className="trainer-affix-input-measure">
-    <span className="trainer-affix-input-sizer" aria-hidden="true">{rawValue || '··'}</span>
-    {input}
-  </span> : input;
+
+  return (
+    <span className={isAffix ? 'trainer-affix-input-measure' : 'trainer-input-measure'}>
+      <span className={isAffix ? 'trainer-affix-input-sizer' : 'trainer-input-sizer'} aria-hidden="true">
+        {rawValue || (isAffix ? '··' : '______')}
+      </span>
+      {input}
+    </span>
+  );
 });
 
 export const StudyCardTrainer = React.memo(({

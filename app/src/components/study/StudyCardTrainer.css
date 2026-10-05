@@ -105,8 +105,12 @@ input.trainer-affix-gap:not(:placeholder-shown) {
 .trainer-affix-gap del { color: #f87171; margin-right: .2em; }
 .trainer-affix-correction { color: #4ade80; }
 
-.trainer-input-gap { display: inline-flex; max-width: 100%; position: relative; }
+.trainer-input-gap { display: inline-flex; max-width: 100%; position: relative; vertical-align: middle; }
 .trainer-affix-input { display: inline-flex; position: relative; vertical-align: baseline; }
+
+.trainer-input-measure { position: relative; display: inline-flex; align-items: center; max-width: 100%; vertical-align: middle; }
+.trainer-input-sizer { display: inline-block; min-width: 76px; max-width: 100%; box-sizing: border-box; padding: 4px 16px; border: 2px solid transparent; visibility: hidden; white-space: pre; font: inherit; font-weight: 700; }
+
 
 .trainer-choice-gap {
   min-height: 44px; min-width: 68px; padding: 4px 10px;

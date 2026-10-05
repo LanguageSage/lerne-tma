@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, editorCommands, setQuizOptionCorrect, syncWordBankAnswer } from '../cardEditorSyntax.js';
+import { projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, insertEditorLineAfter, editorCommands, editorCommandGroups, setQuizOptionCorrect, syncWordBankAnswer } from '../cardEditorSyntax.js';
 import { parseExerciseContent } from '../exerciseContentParser.js';
 import { parseClozeData } from '../clozeParser.js';
 import { parseMatchData } from '../matchParser.js';
@@ -178,4 +178,30 @@ test('editor output remains compatible with strict batch import', () => {
   assert.equal(imported.length, 1);
   assert.equal(imported[0].front, front.trim());
   assert.equal(imported[0].back, 'Answer');
+});
+
+test('commands are categorized into distinct exercise and marker groups with hint support', () => {
+  assert.equal(editorCommandGroups.length, 2);
+  const exerciseGroup = editorCommandGroups.find(g => g.id === 'exercise');
+  const markerGroup = editorCommandGroups.find(g => g.id === 'marker');
+
+  assert.ok(exerciseGroup);
+  assert.ok(markerGroup);
+  assert.deepEqual(exerciseGroup.commands.map(c => c.id), ['puzzle', 'match', 'free', 'choice', 'input', 'ending']);
+  assert.deepEqual(markerGroup.commands.map(c => c.id), ['task', 'hint', 'example', 'source', 'exercise', 'options', 'topic', 'level']);
+
+  // Hint insertion and projection
+  const withHint = insertEditorCommand('', 'hint').text;
+  assert.equal(withHint, '::hint\n');
+  const cardWithHint = `::task\nAufgabe\n\n::hint\nTipp\n\n::exercise\nHallo [[Welt]].`;
+  const fields = projectEditorFields(cardWithHint);
+  assert.ok(fields);
+  const hintField = fields.find(f => f.label === 'Подсказка');
+  assert.ok(hintField);
+  assert.equal(hintField.value.trim(), 'Tipp');
+
+  const parsed = parseExerciseContent(cardWithHint);
+  assert.equal(parsed.hint, 'Tipp');
+  assert.equal(parsed.task, 'Aufgabe');
+  assert.equal(parsed.exercise, 'Hallo [[Welt]].');
 });

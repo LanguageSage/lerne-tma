@@ -1660,5 +1660,9 @@
   "Некорректный контекст повторения": "Invalid review context",
   "↻ Дополнительное повторение": "↻ Extra review",
   "Карточка повторяется раньше запланированного срока": "This card is reviewed before its scheduled date",
-  "К колодам": "Back to decks"
+  "К колодам": "Back to decks",
+  "Подсказка": "Hint",
+  "Тип карточки и элементы": "Card type & elements",
+  "Маркеры структуры": "Structure markers",
+  "Панель быстрой вставки": "Quick insert toolbar"
 }

@@ -106,6 +106,18 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
       borderRadius: '12px',
       padding: '8px 12px',
     },
+    /** Блок ::hint */
+    hint: {
+      font: 'Inter',
+      size: 0.88,
+      weight: '400',
+      style: 'normal',
+      color: '#fef3c7',
+      bg: 'rgba(245, 158, 11, 0.08)',
+      borderColor: 'rgba(251, 191, 36, 0.45)',
+      borderRadius: '12px',
+      padding: '8px 12px',
+    },
     /** Блок ::options */
     options: {
       label: {

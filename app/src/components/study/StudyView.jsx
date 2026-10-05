@@ -1,6 +1,6 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Trash2, Music, ChevronDown, ChevronUp, Pause, Play as PlayIcon } from 'lucide-react';
 import DeckAudioPlayer from '../common/DeckAudioPlayer';
@@ -23,7 +23,7 @@ import { getNextThemeDeck, isLastThemeDeck } from '../../utils/studyFlow';
 import { useStudyNavigation } from '../../hooks/useStudyNavigation';
 import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
-import { detectExerciseType } from '../../utils/exerciseDetector';
+
 
 // Sub-components
 import { StudyHeader } from './StudyHeader';
@@ -220,14 +220,12 @@ export const StudyView = () => {
   
   // Local UI & Animation State
   const [activeRandomMode, setActiveRandomMode] = useState(null);
-  const [isExerciseAnswered, setIsExerciseAnswered] = useState(false);
   const [exerciseEvidence, setExerciseEvidence] = useState(null);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollTopRef = useRef(0);
   const lastCardKeyRef = useRef('');
 
   useEffect(() => {
-    setIsExerciseAnswered(false);
     setExerciseEvidence(null);
   }, [card?.id, historyIndex, studyMode]);
 
@@ -448,19 +446,12 @@ export const StudyView = () => {
     await goNext();
   };
 
-  const effectiveMode = isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode;
-  const activeExerciseType = useMemo(() => {
-    return detectExerciseType(card, effectiveMode);
-  }, [card, effectiveMode]);
-
-  const isExerciseActive = Boolean(activeExerciseType && !isFlipped && !isExerciseAnswered);
-  const showGradeButtons = currentDeck?.id !== 'duplicates' && !isAutoplayActive && !isExerciseActive;
+  const showGradeButtons = currentDeck?.id !== 'duplicates' && !isAutoplayActive;
 
   const handleGrade = useCallback((grade, isExtended) => {
     stopAudio();
     const evidence = exerciseEvidence;
     setExerciseEvidence(null);
-    setIsExerciseAnswered(false);
     submitGrade(grade, isExtended, evidence);
   }, [stopAudio, exerciseEvidence, submitGrade]);
 
@@ -599,13 +590,10 @@ export const StudyView = () => {
               resolvedBgBack={resolvedBgBack}
               studyMode={isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
               onTrainerAnswer={(cardId, evidence) => {
-                  if (typeof evidence === 'object') {
-                    setExerciseEvidence(evidence);
-                    if (evidence.isCorrect || evidence.completed === false) setIsExerciseAnswered(true);
-                  } else {
-                    if (evidence !== false) setIsExerciseAnswered(true);
-                  }
-                }}
+                if (evidence && typeof evidence === 'object') {
+                  setExerciseEvidence(evidence);
+                }
+              }}
               onAskQuestion={handleAskQuestion}
               onNextCard={() => {
                 setIsFlipped(false);
