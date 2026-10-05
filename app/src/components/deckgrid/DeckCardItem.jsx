@@ -30,6 +30,7 @@ export const DeckCardItem = React.memo(({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
+  const [isTogglingLearning, setIsTogglingLearning] = useState(false);
   const [menuPlacement, setMenuPlacement] = useState('bottom');
   const canEditDeck = deck.role === 'owner' || deck.role === 'editor' || (!deck.role && !deck.is_global_readonly);
   const menuRef = useRef(null);
@@ -139,7 +140,21 @@ export const DeckCardItem = React.memo(({
 
   const handleToggleLearning = async (e) => {
     e.stopPropagation();
-    showToast(tr("Фича «Учить» находится в разработке"), 'info');
+    setIsMenuOpen(false);
+    if (isTogglingLearning) return;
+    setIsTogglingLearning(true);
+    try {
+      await useDeckStore.getState().toggleDeckLearning(deck.id);
+      const updatedDeck = useDeckStore.getState().decks.find(d => d.id === deck.id);
+      const isLearning = updatedDeck ? updatedDeck.is_learning === true : !deck.is_learning;
+      showToast(isLearning
+        ? tr("Колода добавлена в изучение")
+        : tr("Колода исключена из изучения"), 'success');
+    } catch {
+      showToast(tr("Ошибка при изменении состояния изучения колоды"), 'error');
+    } finally {
+      setIsTogglingLearning(false);
+    }
   };
 
 
@@ -324,17 +339,17 @@ export const DeckCardItem = React.memo(({
           {!deck.is_inbox && (
             <button
               type="button"
-              disabled
-              className={`deck-learning-action-btn ${deck.is_learning ? 'active' : 'inactive'}`}
+              className={`deck-learning-action-btn ${deck.is_learning === true ? 'active' : 'inactive'}`}
               onClick={handleToggleLearning}
-              style={{ opacity: 0.55, cursor: 'not-allowed' }}
-              title={tr("Фича «Учить» находится в разработке")}
+              aria-pressed={deck.is_learning === true}
+              aria-busy={isTogglingLearning}
+              title={deck.is_learning === true ? tr("⏸ Отключить изучение") : tr("🔥 Включить в изучение")}
             >
-              <span className={`learning-btn-icon ${deck.is_learning ? 'pulse' : ''}`}>
-                {deck.is_learning ? '🔥' : '🎯'}
+              <span className={`learning-btn-icon ${deck.is_learning === true ? 'pulse' : ''}`}>
+                {deck.is_learning === true ? '🔥' : '🎯'}
               </span>
               <span className="learning-btn-text">
-                {deck.is_learning ? tr("Учу") : tr("Учить")}
+                {deck.is_learning === true ? tr("Учу") : tr("Учить")}
               </span>
             </button>
           )}
@@ -451,12 +466,10 @@ export const DeckCardItem = React.memo(({
             {!deck.is_inbox && (
               <button 
                 className="dropdown-item" 
-                onClick={(e) => {
-                  handleToggleLearning(e);
-                  setIsMenuOpen(false);
-                }}
+                onClick={handleToggleLearning}
+                aria-busy={isTogglingLearning}
               >
-                <span>{deck.is_learning ? tr("⏸ Отключить напоминания (Не учу)") : tr("🔥 Включить в изучение (Учить)")}</span>
+                <span>{deck.is_learning === true ? tr("⏸ Отключить изучение") : tr("🔥 Включить в изучение")}</span>
               </button>
             )}
 

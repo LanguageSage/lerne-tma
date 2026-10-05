@@ -11,6 +11,7 @@ from api import models
 from api.services import cards, collaborative_service, decks, folders
 from api.services.offline_sync import push_offline
 from api.routers.sync import OfflinePushRequest
+from api.routers.decks import toggle_deck_learning, get_decks
 
 
 class GlobalReadonlyTests(unittest.TestCase):
@@ -121,6 +122,31 @@ class GlobalReadonlyTests(unittest.TestCase):
         self.assertEqual(models.TMA_Deck.get_by_id(self.deck.id).metadata, before)
         self.assertEqual(models.TMASetting.get(key=f'DECK_LEARNING_2_{self.deck.id}').value, '1')
         self.assertIsNone(models.TMASetting.get_or_none(key=f'DECK_LEARNING_4_{self.deck.id}'))
+
+    def test_learning_preference_reloads_and_stays_personal(self):
+        before = models.TMA_Deck.get_by_id(self.deck.id)
+        with patch.object(decks, 'ensure_starter_decks'), \
+                patch.object(decks, 'deduplicate_lid_folders'), \
+                patch.object(decks, '_get_cached_library_info', return_value=({}, {})):
+            def learning_state(user_id):
+                return next(d['is_learning'] for d in get_decks(user_id)
+                            if d['id'] == self.deck.id)
+
+            self.assertFalse(learning_state(2))
+            self.assertEqual(toggle_deck_learning(self.deck.id, {'is_learning': True}, 2),
+                             {'status': 'success', 'is_learning': True})
+            self.assertTrue(learning_state(2))
+            self.assertTrue(learning_state(2))  # Fresh query, without an in-memory deck.
+            self.assertFalse(learning_state(4))
+            self.assertTrue(toggle_deck_learning(self.deck.id, {'is_learning': True}, 4)['is_learning'])
+            self.assertEqual(toggle_deck_learning(self.deck.id, {'is_learning': False}, 2),
+                             {'status': 'success', 'is_learning': False})
+            self.assertFalse(learning_state(2))
+            self.assertTrue(learning_state(4))
+            self.assertEqual(models.TMASetting.get(key=f'DECK_LEARNING_2_{self.deck.id}').value, '0')
+            after = models.TMA_Deck.get_by_id(self.deck.id)
+            self.assertEqual(after.metadata, before.metadata)
+            self.assertEqual(after.updated_at, before.updated_at)
 
 
 if __name__ == '__main__':
