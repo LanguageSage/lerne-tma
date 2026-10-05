@@ -75,62 +75,75 @@ async def test_ai_connection(request: TestAIRequest):
     else:
         return {"status": "error", "message": response}
 
-import datetime
-from api.models import TMA_Card
+from typing import Literal
+from uuid import UUID
+from starlette.concurrency import run_in_threadpool
+from api.services.cards import prepare_ai_batch, save_ai_batch_result
 
-class BatchRequest(BaseModel):
-    text: str
-    target_language: str = "de"
-    native_language: str = None
-    deck_id: str = None
 
-class EnrichBatchRequest(BaseModel):
-    cards: list
+class BatchOptions(BaseModel):
     target_language: str = "de"
-    native_language: str = None
-    deck_id: str = None
+    native_language: Optional[str] = None
+    deck_id: Optional[int] = Field(default=None, gt=0)
+    import_id: Optional[UUID] = None
+    placement: Literal['start', 'end'] = 'end'
+
+
+class BatchRequest(BatchOptions):
+    text: str = Field(min_length=1, max_length=60000)
+
+
+class EnrichBatchRequest(BatchOptions):
+    cards: list[dict] = Field(min_length=1, max_length=30)
+
+
+async def _run_ai_batch(request, user_id, mode):
+    request_data = {**request.model_dump(mode='json', exclude={'import_id'}), 'mode': mode}
+    import_id = str(request.import_id) if request.import_id else None
+    prepared = await run_in_threadpool(prepare_ai_batch, request_data, user_id, import_id)
+    if prepared['response'] is not None:
+        return prepared['response']
+    target_lang = prepared['target_language']
+    try:
+        # A batch can make several provider calls. Bound the complete operation,
+        # including optional classification, before any cards are written.
+        async with asyncio.timeout(110):
+            if mode == 'enrich':
+                res = await ai_service.enrich_batch_quiz_fields(
+                    user_id, request.cards, target_lang, request.native_language)
+            else:
+                res = await ai_service.generate_batch_card_fields(
+                    user_id, request.text, target_lang, request.native_language)
+            if 'error' in res:
+                raise HTTPException(status_code=res.get('status_code', 400), detail=res['error'])
+            if not res.get('cards'):
+                raise HTTPException(502, 'ИИ не вернул карточки. Ничего не сохранено.')
+            if mode == 'generate':
+                setting = models.TMASetting.get_or_none(models.TMASetting.key == 'AI_DETECT_LEVEL')
+                if not setting or setting.value.lower() != 'false':
+                    try:
+                        levels = await asyncio.wait_for(ai_service.classify_phrases_batch(
+                            [c['front'] for c in res['cards']], target_lang), timeout=10)
+                    except Exception:
+                        logger.warning('Batch CEFR classification unavailable; using generated levels')
+                        levels = []
+                    for idx, card in enumerate(res['cards']):
+                        level = levels[idx] if idx < len(levels) else card.get('level', 'A1')
+                        card.update(level=level, tags=level, cefr=build_ai_cefr_payload(level))
+                else:
+                    for card in res['cards']:
+                        card.update(level=None, tags=None, cefr=None)
+    except TimeoutError:
+        raise HTTPException(504, 'Истекло время генерации ИИ. Ничего не сохранено.')
+    if request.deck_id:
+        return await run_in_threadpool(save_ai_batch_result, res, request_data, user_id, import_id)
+    return res
+
 
 @router.post("/ai/enrich-batch")
 @router.post("/cards/ai-enrich-batch")
 async def enrich_batch_cards(request: EnrichBatchRequest, user_id: int = Depends(get_user_id)):
-    target_lang = request.target_language
-    if request.deck_id and (not target_lang or target_lang == "de"):
-        target_deck_id = int(request.deck_id) if str(request.deck_id).isdigit() else None
-        if target_deck_id:
-            deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_deck_id)
-            if deck and deck.target_language:
-                target_lang = deck.target_language
-
-    res = await ai_service.enrich_batch_quiz_fields(
-        user_id=user_id,
-        cards=request.cards,
-        target_language=target_lang,
-        native_language=request.native_language
-    )
-    if "error" in res:
-        raise HTTPException(status_code=400, detail=res["error"])
-
-    # If deck_id is provided, auto-create the cards in DB
-    if request.deck_id and "cards" in res and res["cards"]:
-        target_deck_id = int(request.deck_id) if str(request.deck_id).isdigit() else None
-        if target_deck_id:
-            payload_to_save = []
-            for c in res["cards"]:
-                payload_to_save.append({
-                    "deck_id": target_deck_id,
-                    "front_text": c.get("front") or c.get("front_text", ""),
-                    "back_text": c.get("back") or c.get("back_text", ""),
-                    "context": c.get("context", ""),
-                    "tags": c.get("tags") or c.get("level", "A1"),
-                    "level": c.get("level", "A1"),
-                    "cefr": c.get("cefr") or build_ai_cefr_payload(c.get("level", "A1")),
-                    "card_type": c.get("card_type") or "standard",
-                    "source": "ai_batch_quiz"
-                })
-            saved = services.bulk_save_cards(payload_to_save, user_id)
-            res["saved_cards"] = saved
-
-    return res
+    return await _run_ai_batch(request, user_id, 'enrich')
 
 
 @router.post("/ai/generate")
@@ -145,89 +158,11 @@ async def generate_card(request: PhraseRequest, user_id: int = Depends(get_user_
         user_request=request.user_request,
     )
 
+
 @router.post("/ai/generate-batch")
 @router.post("/cards/ai-generate-batch")
 async def generate_batch_cards(request: BatchRequest, user_id: int = Depends(get_user_id)):
-    target_lang = request.target_language
-    if request.deck_id and (not target_lang or target_lang == "de"):
-        target_deck_id = int(request.deck_id) if str(request.deck_id).isdigit() else None
-        if target_deck_id:
-            deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_deck_id)
-            if deck and deck.target_language:
-                target_lang = deck.target_language
-
-    res = await ai_service.generate_batch_card_fields(
-        user_id=user_id,
-        text=request.text,
-        target_language=target_lang,
-        native_language=request.native_language
-    )
-    if "error" in res:
-        raise HTTPException(status_code=400, detail=res["error"])
-
-    # Check if AI level detection is enabled (Pass 2)
-    from api import models, services
-    detect_level_setting = models.TMASetting.get_or_none(models.TMASetting.key == "AI_DETECT_LEVEL")
-    detect_level = (detect_level_setting.value.lower() != "false") if detect_level_setting else True
-
-    levels = []
-    if detect_level and "cards" in res and res["cards"]:
-        phrases = [c.get("front") or c.get("front_text") or "" for c in res["cards"]]
-        try:
-            levels = await ai_service.classify_phrases_batch(phrases, target_lang or "de")
-        except Exception as e:
-            logger.warning(f"Pass 2 level classification error: {e}")
-            levels = ["A1"] * len(res["cards"])
-
-    # If deck_id is provided, auto-create the cards in DB
-    if request.deck_id and "cards" in res and res["cards"]:
-        target_deck_id = int(request.deck_id) if str(request.deck_id).isdigit() else None
-        if target_deck_id:
-            from peewee import fn
-            created_cards = []
-            with models.tma_db.atomic():
-                max_pos = models.TMA_Card.select(fn.MAX(models.TMA_Card.position)).where(
-                    (models.TMA_Card.deck_id == target_deck_id) & (models.TMA_Card.is_deleted == False)
-                ).scalar() or 0
-
-                for idx, card_data in enumerate(res["cards"]):
-                    card_level = levels[idx] if idx < len(levels) else (card_data.get("level") if detect_level else None)
-                    card_tags = card_level if card_level else None
-                    card_pos = max_pos + idx + 1
-                    new_c = models.TMA_Card.create(
-                        deck_id=target_deck_id,
-                        front_text=card_data.get("front", ""),
-                        back_text=card_data.get("back", ""),
-                        context=card_data.get("context", ""),
-                        tags=card_tags,
-                        metadata=merge_cefr_metadata(None, card_data.get("cefr") or build_ai_cefr_payload(card_level)) if card_level else None,
-                        source="ai_batch",
-                        position=card_pos,
-                        created_at=datetime.datetime.now(),
-                        updated_at=datetime.datetime.now()
-                    )
-                    created_cards.append({
-                        "id": new_c.id,
-                        "deck_id": new_c.deck_id,
-                        "front_text": new_c.front_text,
-                        "front": new_c.front_text,
-                        "back_text": new_c.back_text,
-                        "back": new_c.back_text,
-                        "context": new_c.context,
-                        "level": card_level,
-                        "tags": new_c.tags,
-                        "cefr": card_data.get("cefr") or (build_ai_cefr_payload(card_level) if card_level else None),
-                        "position": card_pos
-                    })
-            res["saved_cards"] = created_cards
-    elif "cards" in res and res["cards"]:
-        for idx, card_data in enumerate(res["cards"]):
-            if detect_level and idx < len(levels):
-                card_data["level"] = levels[idx]
-                card_data["tags"] = levels[idx]
-                card_data["cefr"] = build_ai_cefr_payload(levels[idx])
-
-    return res
+    return await _run_ai_batch(request, user_id, 'generate')
 
 
 class ClassifyBatchRequest(BaseModel):

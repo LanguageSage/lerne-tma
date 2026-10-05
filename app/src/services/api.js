@@ -14,7 +14,9 @@ const axiosInstance = axios.create({
 // The server supports both Bearer token and X-User-ID headers.
 axiosInstance.interceptors.request.use((config) => {
   const url = config.url || '';
-  if (url.includes('/cards/bulk-save')) {
+  if (/(?:\/ai\/|\/cards\/ai-)(?:enrich|generate)-batch/.test(url)) {
+    config.timeout = 150000;
+  } else if (url.includes('/cards/bulk-save')) {
     config.timeout = 120000;
   } else if (url.includes('/ai') || url.includes('/cards/ai-generate') || url.includes('/cards/save')) {
     config.timeout = 45000;
@@ -71,7 +73,7 @@ axiosInstance.interceptors.response.use(
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       const isAiUrl = url.includes('/ai') || url.includes('/cards/ai-generate');
       const detailMsg = isAiUrl 
-        ? 'Таймаут ожидания ИИ (45с): ИИ-провайдер не ответил вовремя. Возможно, модель перегружена (503) или задерживается сеть.'
+        ? `Таймаут ожидания ИИ (${Math.round((originalRequest.timeout || 45000) / 1000)}с): результат запроса пока неизвестен. Повторите тот же запрос.`
         : `Таймаут соединения: сервер не ответил в течение ${originalRequest?.timeout ? Math.round(originalRequest.timeout / 1000) : 30}с.`;
       error.customTimeoutMsg = detailMsg;
       if (!error.response) {

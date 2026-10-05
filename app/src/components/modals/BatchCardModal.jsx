@@ -1,12 +1,11 @@
 import { tr, getInterfaceLanguage } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Layers, Loader2, CheckCircle2, AlertCircle, FileText, Check, Zap } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
-import { useCardActions } from '../../hooks/useCardActions';
 import { usePendingImport } from '../../hooks/usePendingImport';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardTypeBadge } from '../common/CardTypeBadge';
@@ -14,13 +13,14 @@ import { db } from '../../services/localDb';
 import { hasCardSeparatorLine, LERNE_CARD_SEPARATOR, parseBatchCardsText } from '../../utils/batchCardParser';
 import { detectExerciseType } from '../../utils/exerciseDetector';
 import api from '../../services/api';
+import { normalizeBatchAiResult } from '../../utils/batchAiResult';
 
 
 export const BatchCardModal = () => {
   useInterfaceLocale();
   const { isBatchModalOpen, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck } = useDeckStore();
-  const { runBatchAiGenerator } = useCardActions();
+  const processingRef = useRef(false);
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
   const targetLanguage = currentDeck?.target_language || activeLanguage || 'de';
   const pendingImport = usePendingImport(currentDeck?.id);
@@ -40,7 +40,7 @@ export const BatchCardModal = () => {
       setRawText(text => text || pending.rawText);
       setImportPlacement(pending.placement || 'end');
       setImportOutcome('unknown');
-      setActiveTab('import');
+      setActiveTab(pending.mode === 'generate' ? 'ai' : 'import');
     }
   }, [isBatchModalOpen, currentDeck?.id, pendingImport]);
 
@@ -159,86 +159,77 @@ BACK:
     }
   };
 
-  // ── 1. Batch AI Generator (Plain phrase list) ──────────────────────────────
-  const handleAiGenerate = async () => {
-    if (lineCount === 0) {
-      showToast(tr("Введите хотя бы одну фразу для генерации"), 'error');
-      return;
-    }
-
+  // Keep the exact AI request until the server result is acknowledged.
+  const handleBatchAi = async (mode) => {
+    if (processingRef.current || (mode === 'enrich' ? !parsedCards.length : !lineCount)) return;
+    processingRef.current = true;
     setIsProcessing(true);
-    setProcessingMode('ai');
-    setGeneratedCards(null);
-
-    const targetText = lines.slice(0, 30).join('\n');
-    const result = await runBatchAiGenerator(targetText, currentDeck?.id);
-
-    setIsProcessing(false);
-    setProcessingMode('');
-
-    if (result && result.cards && result.cards.length > 0) {
-      const cardsList = result.saved_cards || result.cards;
-      setGeneratedCards(cardsList);
-      await updateLocalStores(cardsList);
-    }
-  };
-
-  // ── 2. AI Quiz/Card Enrichment (Generates explanations & translations) ─────
-  const handleAiEnrichImport = async () => {
-    if (parsedCards.length === 0) {
-      showToast(tr("Не удалось распознать карточки в тексте. Проверьте строку-разделитель <<<LERNE_CARD>>>"), 'error');
-      return;
-    }
-
-    setIsProcessing(true);
-    setProcessingMode('ai_enrich');
+    setProcessingMode(mode === 'enrich' ? 'ai_enrich' : 'ai');
+    let attempt;
     try {
-      const payloadCards = parsedCards.map((c, idx) => ({
-        deck_id: currentDeck?.id || null,
-        front: c.front,
-        front_text: c.front,
-        back: c.back,
-        back_text: c.back,
-        context: c.context || '',
-        card_type: detectExerciseType(c) || c.card_type || 'standard',
-        level: c.level,
-        tags: c.tags,
-        cefr: c.cefr,
-        topics: c.topics || '',
-        position: idx
-      }));
-
-      const nativeLang = getInterfaceLanguage();
-
-      const res = await api.post('/ai/enrich-batch', {
-        cards: payloadCards,
-        deck_id: currentDeck?.id ? String(currentDeck.id) : null,
-        target_language: targetLanguage,
-        native_language: nativeLang
+      attempt = pendingImport.findByText(rawText);
+      if (attempt && attempt.mode !== mode) return;
+      if (!attempt) {
+        const request = {
+          deck_id: currentDeck?.id ? String(currentDeck.id) : null,
+          target_language: targetLanguage,
+          native_language: getInterfaceLanguage(),
+          placement: importPlacement,
+          ...(mode === 'enrich' ? { cards: parsedCards.map(c => ({
+            ...c, card_type: detectExerciseType(c) || c.card_type || 'standard'
+          })) } : { text: lines.slice(0, 30).join('\n') })
+        };
+        attempt = { import_id: crypto.randomUUID(), rawText, mode, request, placement: importPlacement };
+        pendingImport.add(attempt);
+      }
+      setImportOutcome('in_progress');
+      const res = await api.post(`/ai/${mode === 'enrich' ? 'enrich' : 'generate'}-batch`, {
+        ...attempt.request, import_id: attempt.import_id
       });
-
-      const cardsList = res.data?.saved_cards || res.data?.cards || payloadCards;
-      setGeneratedCards(cardsList);
-      await updateLocalStores(cardsList);
-
-      showToast(tr("ИИ успешно сгенерировал ответы для {{p0}} карточек!", { p0: cardsList.length }), 'success');
+      const { cards, failedCount } = normalizeBatchAiResult(res.data, !!attempt.request.deck_id);
+      setGeneratedCards(cards);
+      setImportOutcome(null);
+      await updateLocalStores(cards);
+      pendingImport.remove(attempt.import_id);
+      if (failedCount) {
+        showToast(tr("Добавлено {{p0}} карточек, пропущено с ошибкой: {{p1}}", { p0: cards.length, p1: failedCount }), 'warning');
+      } else {
+        showToast(tr("Успешно добавлено {{p0}} карточек!", { p0: cards.length }), 'success');
+      }
     } catch (err) {
-      console.error('AI enrich error:', err);
-      showToast(tr("Ошибка генерации ИИ: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');
+      // A response may have been lost after commit, including a client parse error.
+      const unknown = !err.response || err.code === 'ECONNABORTED' || err.response.status >= 500;
+      if (unknown) {
+        setImportOutcome('unknown');
+        if (err.response?.data?.detail && !err.customTimeoutMsg) {
+          showToast(tr("Ошибка генерации ИИ: {{p0}}", { p0: err.response.data.detail }), 'error');
+        } else {
+          showToast(tr("Результат импорта пока неизвестен. Сервер может продолжать работу. Повторите запрос с тем же импортом."), 'warning');
+        }
+      } else {
+        if (attempt) pendingImport.remove(attempt.import_id);
+        setImportOutcome(null);
+        showToast(tr("Ошибка генерации ИИ: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');
+      }
     } finally {
+      processingRef.current = false;
       setIsProcessing(false);
       setProcessingMode('');
     }
   };
+  const handleAiGenerate = () => handleBatchAi('generate');
+  const handleAiEnrichImport = () => handleBatchAi('enrich');
 
   // ── 3. Direct Fast Import (Quizzes, Trainers, Standard without AI) ─────────
   const handleDirectImport = async () => {
+    if (processingRef.current) return;
     if (parsedCards.length === 0) {
       showToast(tr("Не удалось распознать карточки в тексте. Проверьте строку-разделитель <<<LERNE_CARD>>>"), 'error');
       return;
     }
 
     setIsProcessing(true);
+    processingRef.current = true;
     setProcessingMode('direct');
     let attempt;
     try {
@@ -257,6 +248,7 @@ BACK:
         source: 'batch_import'
       }));
       attempt = pendingImport.findByText(rawText);
+      if (attempt?.mode) return;
       if (!attempt) {
         attempt = { import_id: crypto.randomUUID(), rawText, cards: payloadCards, placement: importPlacement };
         pendingImport.add(attempt);
@@ -293,6 +285,7 @@ BACK:
         showToast(tr("Ошибка импорта: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');
       }
     } finally {
+      processingRef.current = false;
       setIsProcessing(false);
       setProcessingMode('');
     }
@@ -644,7 +637,7 @@ BACK:
                     <button
                       className="btn btn-secondary"
                       onClick={handleDirectImport}
-                      disabled={isProcessing || parsedCards.length === 0}
+                      disabled={isProcessing || parsedCards.length === 0 || !!pendingForCurrentText?.mode}
                       title={tr("Мгновенно сохранить карточки без вызова ИИ")}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
@@ -657,13 +650,13 @@ BACK:
                       ) : (
                         <Zap size={16} />
                       )}
-                      <span>{importOutcome === 'unknown' ? tr("Проверить результат и повторить") : tr("Создать ({{p0}})", { p0: parsedCards.length })}</span>
+                      <span>{importOutcome === 'unknown' && !pendingForCurrentText?.mode ? tr("Проверить результат и повторить") : tr("Создать ({{p0}})", { p0: parsedCards.length })}</span>
                     </button>
 
                     <button
                       className="btn btn-primary"
                       onClick={handleAiEnrichImport}
-                      disabled={isProcessing || parsedCards.length === 0}
+                      disabled={isProcessing || parsedCards.length === 0 || parsedCards.length > 30 || (!!pendingForCurrentText && pendingForCurrentText.mode !== 'enrich')}
                       title={tr("ИИ найдет правильный ответ, переведет вопрос и составит подробное объяснение")}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8,
@@ -677,7 +670,7 @@ BACK:
                         </>
                       ) : (
                         <>
-                          <Sparkles size={18} />{tr("Сгенерировать с ИИ (")}{parsedCards.length})
+                          <Sparkles size={18} />{pendingForCurrentText?.mode === 'enrich' ? tr("Проверить результат и повторить") : <>{tr("Сгенерировать с ИИ (")}{parsedCards.length})</>}
                         </>
                       )}
                     </button>
@@ -686,7 +679,7 @@ BACK:
                   <button
                     className="btn btn-primary"
                     onClick={handleAiGenerate}
-                    disabled={isProcessing || lineCount === 0}
+                    disabled={isProcessing || lineCount === 0 || (!!pendingForCurrentText && pendingForCurrentText.mode !== 'generate')}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '10px 20px', borderRadius: 12, fontWeight: 600
@@ -698,7 +691,7 @@ BACK:
                       </>
                     ) : (
                       <>
-                        <Sparkles size={18} />{tr("Сгенерировать (")}{effectiveCount})
+                        <Sparkles size={18} />{pendingForCurrentText?.mode === 'generate' ? tr("Проверить результат и повторить") : <>{tr("Сгенерировать (")}{effectiveCount})</>}
                       </>
                     )}
                   </button>

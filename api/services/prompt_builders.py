@@ -145,6 +145,27 @@ def build_trainer_prompt(phrase: str, target_lang: str = "de", native_lang: str 
     )
     return prompt
 
+def build_batch_enrichment_prompt(cards, target_lang='de', native_lang='ru') -> str:
+    lang_name = get_language_config(target_lang, native_lang)['name']
+    native_name = get_native_config(native_lang)['name']
+    return (
+        f'Ты преподаватель языка {lang_name}. Обогати ровно {len(cards)} карточек в исходном порядке.\n'
+        f'Верни только JSON-массив объектов с полями front, back, context, level. '
+        f'back — перевод на {native_name}; context — объяснение и словарь на {native_name}; '
+        'level — CEFR A1–C2. Не добавляй и не удаляй карточки.\n'
+        'Тип каждой карточки указан во входном JSON. Сохраняй его и синтаксис упражнения. '
+        'Для quiz отметь правильный вариант символом *. '
+        'Для остальных типов сохраняй front без изменений, переводи и объясняй упражнение. '
+        'Не заменяй ответы BACK у интерактивных упражнений (word_bank, match, puzzle, trainer) '
+        'переводом: сохраняй их ключи ответа. '
+        'Сохраняй @wordbank, @options, @match, @puzzle, @free, [[...]], {...}, <<...>>.\n'
+        '<<<LERNE_CARD>>> и FRONT:/BACK:/CONTEXT: — формат импорта, не формат ответа. '
+        'Ответ должен быть JSON, без этих внешних маркеров. '
+        'Задание ::task и другие информационные блоки перед ::exercise даны для понимания; '
+        'верни в front только само упражнение, сервер восстановит исходные блоки.'
+    )
+
+
 def build_quiz_prompt(phrase_or_items, target_lang: str = "de", native_lang: str = "ru", is_batch: bool = False, detect_level: bool = True) -> str:
     """
     Единый источник истины (Single Source of Truth) для генерации экзаменационных тестов.

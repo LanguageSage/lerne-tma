@@ -510,19 +510,20 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
 
             if not success:
                 logger.error(f"Batch AI chunk {index+1} failed: {response}")
-                if len(chunks) == 1:
-                    return {"error": str(response)}
-                continue
+                return {"error": str(response), "status_code": 502}
 
             if response:
                 try:
-                    items = parse_ai_batch_json_response(response)
+                    items = parse_ai_batch_json_response(response, expected_count=len(chunk))
                     if items:
                         all_results.extend(items)
                     else:
                         logger.warning(f"Batch parse empty items on chunk {index}: {str(response)[:200]}")
                 except Exception as parse_err:
                     logger.warning(f"Batch parse warning on chunk {index}: {parse_err}")
+                    return {"error": str(parse_err), "status_code": 502}
+            else:
+                return {"error": "ИИ вернул пустой ответ", "status_code": 502}
 
         duration = time.time() - start_time
         logger.info(f"Batch AI Generation complete for {len(raw_lines)} lines in {duration:.2f}s")
@@ -695,28 +696,20 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
             if index > 0:
                 await asyncio.sleep(2.5)
 
-            chunk_items_formatted = []
+            from api.services.prompt_builders import build_batch_enrichment_prompt
             chunk_for_prompt = []
-            for idx, c in enumerate(chunk):
-                f = c.get("front") or c.get("front_text") or ""
-                parsed_content = parse_exercise_content(f)
-                exercise = parsed_content["exercise"] if parsed_content["has_blocks"] else f.strip()
-                chunk_items_formatted.append(f"--- БЛОК {idx+1} ---\n{exercise}")
-                prompt_card = dict(c)
-                prompt_card["front"] = exercise
-                prompt_card["front_text"] = exercise
-                chunk_for_prompt.append(prompt_card)
-
-            prompt_text = "\n\n".join(chunk_items_formatted)
-
-            from api.services.language_service import build_quiz_prompt
-            system_prompt = build_quiz_prompt(
-                phrase_or_items=chunk_for_prompt,
-                target_lang=target_lang,
-                native_lang=native_lang,
-                is_batch=True,
-                detect_level=True
-            )
+            for c in chunk:
+                front = c.get('front') or c.get('front_text') or ''
+                parsed = parse_exercise_content(front)
+                chunk_for_prompt.append({
+                    'front': parsed['exercise'], 'task': parsed['task'],
+                    'options': parsed['options'], 'source': parsed['context'],
+                    'examples': parsed['examples'],
+                    'back': c.get('back') or c.get('back_text') or '',
+                    'card_type': c.get('card_type') or detect_ai_input_type(front),
+                })
+            prompt_text = json.dumps(chunk_for_prompt, ensure_ascii=False)
+            system_prompt = build_batch_enrichment_prompt(chunk_for_prompt, target_lang, native_lang)
 
             logger.info(f"Batch Quiz AI: processing chunk {index+1}/{len(chunks)} ({len(chunk)} items)...")
             response, success = await client.chat_completion(
@@ -727,11 +720,13 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
 
             if success and response:
                 try:
-                    items = parse_ai_batch_json_response(response)
+                    items = parse_ai_batch_json_response(response, expected_count=len(chunk))
                     if items and len(items) > 0:
                         for original_card, generated_item in zip(chunk, items):
                             merged = dict(original_card)
-                            if generated_item.get("front"):
+                            card_type = original_card.get('card_type') or detect_ai_input_type(
+                                original_card.get('front') or original_card.get('front_text') or '')
+                            if generated_item.get("front") and card_type == 'quiz':
                                 original_front = original_card.get("front") or original_card.get("front_text") or ""
                                 protected_front = restore_exercise_content(
                                     parse_exercise_content(original_front),
@@ -739,7 +734,7 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
                                 )
                                 merged["front"] = protected_front
                                 merged["front_text"] = protected_front
-                            if generated_item.get("back"):
+                            if generated_item.get("back") and card_type in ('standard', 'quiz', 'free_text'):
                                 merged["back"] = generated_item["back"]
                                 merged["back_text"] = generated_item["back"]
                             if generated_item.get("context"):
@@ -749,17 +744,17 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
                                 merged["level"] = generated_item["level"]
                                 merged["tags"] = generated_item["level"]
                                 merged["cefr"] = build_ai_cefr_payload(generated_item["level"])
-                            merged["card_type"] = original_card.get("card_type") or generated_item.get("card_type") or "standard"
+                            merged["card_type"] = card_type
                             enriched_cards.append(merged)
                     else:
                         logger.warning(f"Could not parse AI response chunk {index}")
-                        enriched_cards.extend(chunk)
+                        return {"error": "ИИ не вернул карточки", "status_code": 502}
                 except Exception as parse_e:
                     logger.warning(f"Error parsing AI enriched cards chunk {index}: {parse_e}")
-                    enriched_cards.extend(chunk)
+                    return {"error": str(parse_e), "status_code": 502}
             else:
                 logger.error(f"Batch Quiz AI chunk {index+1} failed: {response}")
-                enriched_cards.extend(chunk)
+                return {"error": str(response or "ИИ вернул пустой ответ"), "status_code": 502}
 
         duration = time.time() - start_time
         logger.info(f"Batch Quiz AI finished in {duration:.2f}s, total cards: {len(enriched_cards)}")

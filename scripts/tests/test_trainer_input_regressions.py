@@ -297,7 +297,9 @@ class GenerateCardFieldsRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Ich weiß, [[dass er kommt]].", _FakeAIClient.last_user_message)
         self.assertTrue(enriched.startswith("::task\nWählen Sie das passende Wort."))
         self.assertIn("::options\nob | dass | wie", enriched)
-        self.assertTrue(enriched.endswith("Ich weiß jetzt, [[dass er kommt]]."))
+        # Enrichment keeps the interactive source and answer keys intact.
+        self.assertEqual(enriched, phrase)
+        self.assertEqual(result["cards"][0]["context"], "Правило")
 
 
 if __name__ == "__main__":

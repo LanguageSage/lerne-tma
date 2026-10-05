@@ -1065,6 +1065,71 @@ def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
         raise e
 
 
+def prepare_ai_batch(request_data: dict, user_id: int, import_id: str = None) -> dict:
+    """Authorize before provider work and replay a committed AI batch receipt."""
+    with tma_db.connection_context():
+        deck_id = request_data.get('deck_id')
+        target_language = request_data.get('target_language') or 'de'
+        if deck_id:
+            deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
+            if not deck:
+                raise HTTPException(404, 'Колода не найдена')
+            from .collaborative_service import _require_can_mutate
+            _require_can_mutate(user_id, 'deck', deck_id)
+            if target_language == 'de' and deck.target_language:
+                target_language = deck.target_language
+        response = None
+        if import_id:
+            receipt = TMAOfflineBatch.get_or_none(TMAOfflineBatch.key == f'ai:{user_id}:{import_id}')
+            if receipt:
+                response = _replay_ai_batch(receipt, request_data)
+        return {'target_language': target_language, 'response': response}
+
+
+def _ai_batch_hash(request_data):
+    return hashlib.sha256(json.dumps(request_data, sort_keys=True, ensure_ascii=False,
+                                     separators=(',', ':')).encode('utf-8')).hexdigest()
+
+
+def _replay_ai_batch(receipt, request_data):
+    if receipt.payload_hash != _ai_batch_hash(request_data):
+        raise HTTPException(409, 'Идентификатор импорта уже использован с другими данными')
+    return json.loads(receipt.response)
+
+
+def save_ai_batch_result(result: dict, request_data: dict, user_id: int, import_id: str = None) -> dict:
+    """Commit cards and their complete AI response together; concurrent retries replay."""
+    with tma_db.connection_context(), tma_db.atomic():
+        receipt = None
+        if import_id:
+            key = f'ai:{user_id}:{import_id}'
+            inserted = list(TMAOfflineBatch.insert(
+                key=key, payload_hash=_ai_batch_hash(request_data), response='')
+                .on_conflict_ignore().returning(TMAOfflineBatch.key).execute())
+            receipt = TMAOfflineBatch.get_by_id(key)
+            if not inserted:
+                return _replay_ai_batch(receipt, request_data)
+
+        payload = [{
+            'deck_id': request_data['deck_id'],
+            'front': card.get('front') or card.get('front_text', ''),
+            'back': card.get('back') or card.get('back_text', ''),
+            'context': card.get('context', ''),
+            'tags': card.get('tags'), 'cefr': card.get('cefr'),
+            'card_type': card.get('card_type') or 'standard',
+            'topics': card.get('topics', ''),
+            'source': 'ai_batch_quiz' if request_data['mode'] == 'enrich' else 'ai_batch',
+        } for card in result['cards']]
+        saved = bulk_save_cards(payload, user_id, placement=request_data.get('placement', 'end'))
+        response = {**result, 'saved_cards': saved['cards'], 'save_result': saved,
+                    'status': 'partial' if saved['failed_count'] else 'success'}
+        serialized = json.dumps(response, ensure_ascii=False)
+        if receipt:
+            receipt.response = serialized
+            receipt.save()
+        return json.loads(serialized)
+
+
 def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None, placement: str = 'end') -> dict:
     """Save a batch; an import receipt and its cards commit in the same transaction."""
     if placement not in ('start', 'end'):

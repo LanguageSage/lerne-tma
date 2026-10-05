@@ -315,12 +315,14 @@ def parse_ai_json_response(text: str) -> Optional[dict]:
     return None
 
 
-def parse_ai_batch_json_response(text: str) -> list:
+def parse_ai_batch_json_response(text: str, *, expected_count: int = None) -> list:
     """
     Extracts and parses a JSON array of cards from AI response text.
     Normalizes front, back, context, level, and tags for each card item.
     """
     if not text:
+        if expected_count is not None:
+            raise ValueError('ИИ вернул пустой ответ')
         return []
 
     clean_text = str(text).replace("END_JSON", "").strip()
@@ -363,9 +365,15 @@ def parse_ai_batch_json_response(text: str) -> list:
     if isinstance(items, list) and items:
         for item in items:
             if isinstance(item, dict):
-                front = item.get("front", "")
-                back = item.get("back", "")
+                front = item.get("front", item.get("front_text", ""))
+                back = item.get("back", item.get("back_text", ""))
                 context = item.get("context", "")
+                if expected_count is not None and (
+                    not isinstance(front, str) or not front.strip()
+                    or not isinstance(back, str) or not back.strip()
+                    or not isinstance(context, str)
+                ):
+                    raise ValueError('ИИ вернул карточку с некорректными полями front/back/context')
                 raw_lvl = str(item.get("level", "")).upper().strip()
                 lvl = raw_lvl if raw_lvl in valid_levels else "A1"
                 results.append({
@@ -376,4 +384,6 @@ def parse_ai_batch_json_response(text: str) -> list:
                     "tags": lvl
                 })
 
+    if expected_count is not None and len(results) != expected_count:
+        raise ValueError(f'ИИ вернул {len(results)} карточек вместо {expected_count}')
     return results
