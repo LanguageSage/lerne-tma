@@ -1723,5 +1723,22 @@
   "Применить изменения": "Apply changes",
   "Для обновления колоды подключитесь к серверу и выйдите из автономного режима.": "To update the deck, connect to the server and leave offline mode.",
   "Сначала синхронизируйте локальные изменения колоды.": "Sync local deck changes first.",
-  "Для обновления карточек сначала синхронизируйте их и экспортируйте заново.": "To update cards, sync them first and export again."
+  "Для обновления карточек сначала синхронизируйте их и экспортируйте заново.": "To update cards, sync them first and export again.",
+  "Обновить папку из файла": "Update folder from file",
+  "Папка доступна только для чтения.": "This folder is read-only.",
+  "Для обновления папки у каждой карточки нужен deck_id из экспорта.": "Every card needs a deck_id from the export to update a folder.",
+  "Колода с указанным ID не найдена.": "No deck was found with this ID.",
+  "Колода не входит в выбранную папку или её вложенные папки.": "The deck is outside the selected folder and its subfolders.",
+  "В файле больше 5000 карточек. Разделите файл на части.": "The file contains more than 5000 cards. Split it into smaller files.",
+  "Затронутые колоды папки изменились после предпросмотра. Обновите предпросмотр перед применением.": "Affected decks changed after preview. Refresh the preview before applying.",
+  "Нет права редактировать папку или одну из её колод.": "You do not have permission to edit the folder or one of its decks.",
+  "Сначала синхронизируйте локальные изменения затронутых колод и папок.": "Sync local changes in the affected decks and folders first.",
+  "Сначала проверьте результат предыдущего обновления этих колод.": "Check the outcome of the previous update to these decks first.",
+  "Колоды и карточки сопоставляются по ID. Отсутствующие в файле элементы, названия и структура папки сохраняются. Прогресс обучения сохранится.": "Decks and cards are matched by ID. Items missing from the file, names and folder structure are preserved. Learning progress is preserved.",
+  "Файл для обновления папки": "Folder update file",
+  "Колоды в файле": "Decks in file",
+  "Карточек в файле": "Cards in file",
+  "Колода ID {{id}}": "Deck ID {{id}}",
+  "Колода не указана": "Deck not specified",
+  "Изменений: {{updated}}. Без изменений: {{unchanged}}. Новых: {{new}}. Ошибок: {{errors}}. Не найдено ID: {{missing}}.": "Changes: {{updated}}. Unchanged: {{unchanged}}. New: {{new}}. Errors: {{errors}}. Missing IDs: {{missing}}."
 }

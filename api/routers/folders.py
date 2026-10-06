@@ -3,6 +3,9 @@ import logging
 
 from api import services
 from api.dependencies.auth import get_user_id
+from api.models import tma_db
+from api.routers.card_text_update_models import TextUpdatePreviewRequest, TextUpdateApplyRequest
+from api.services.card_text_update import preview_folder_text_update, apply_folder_text_update
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +13,19 @@ router = APIRouter(
     prefix="/folders",
     tags=["folders"],
 )
+
+
+@router.post("/{folder_id}/text-update/preview")
+def preview_folder_from_text(folder_id: int, data: TextUpdatePreviewRequest, user_id: int = Depends(get_user_id)):
+    with tma_db.connection_context():
+        return preview_folder_text_update(folder_id, user_id, [card.model_dump() for card in data.cards])
+
+
+@router.post("/{folder_id}/text-update/apply")
+def apply_folder_from_text(folder_id: int, data: TextUpdateApplyRequest, user_id: int = Depends(get_user_id)):
+    with tma_db.connection_context():
+        return apply_folder_text_update(folder_id, user_id, [card.model_dump() for card in data.cards],
+                                      data.preview_token, str(data.request_id), data.include_new)
 
 @router.get("")
 def get_folders(user_id: int = Depends(get_user_id)):

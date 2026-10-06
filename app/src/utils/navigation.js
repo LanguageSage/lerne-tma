@@ -42,6 +42,7 @@ export const navigateUp = () => {
     uiState.isAuthModalOpen ||
     uiState.isBatchModalOpen ||
     uiState.textUpdateDeck ||
+    uiState.textUpdateFolder ||
     uiState.isCollaboratorsModalOpen ||
     uiState.importShareId ||
     deckState.syncModalOpen ||
@@ -51,7 +52,7 @@ export const navigateUp = () => {
   );
 
   if (isAnyModalOpen) {
-    if (uiState.textUpdateDeck && uiState.textUpdateBusy) return true;
+    if ((uiState.textUpdateDeck || uiState.textUpdateFolder) && uiState.textUpdateBusy) return true;
     if (uiState.isFullGuideOpen) {
       uiState.closeFullGuide();
       return true;

@@ -94,8 +94,10 @@ export const useUiStore = create((set, get) => ({
   setIsBatchModalOpen: (isOpen) => set({ isBatchModalOpen: isOpen }),
 
   textUpdateDeck: null,
+  textUpdateFolder: null,
   textUpdateBusy: false,
-  setTextUpdateDeck: (deck) => set({ textUpdateDeck: deck, textUpdateBusy: Boolean(deck) }),
+  setTextUpdateDeck: (deck) => set({ textUpdateDeck: deck, textUpdateFolder: null, textUpdateBusy: Boolean(deck) }),
+  setTextUpdateFolder: (folder) => set({ textUpdateFolder: folder, textUpdateDeck: null, textUpdateBusy: Boolean(folder) }),
   setTextUpdateBusy: (busy) => set({ textUpdateBusy: busy }),
 
   importShareId: null,

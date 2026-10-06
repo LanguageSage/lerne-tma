@@ -3,7 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Folder, GripHorizontal, MoreHorizontal, ChevronRight, Users, Download, Loader2 } from 'lucide-react';
+import { Folder, GripHorizontal, MoreHorizontal, ChevronRight, Users, Download, Loader2, Upload } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
@@ -277,6 +277,15 @@ export const FolderCardItem = React.memo(({
                 <span>{folder.is_global_readonly ? '🔐 Скрыть из общего доступа' : '🌍 Опубликовать глобально'}</span>
               </button>
             )}
+            <button className="dropdown-item card-text-update-action folder-text-update-action" disabled={!canEditFolder}
+              title={!canEditFolder ? tr('Папка доступна только для чтения.') : undefined}
+              onClick={event => {
+                event.stopPropagation();
+                setIsMenuOpen(false);
+                useUiStore.getState().setTextUpdateFolder(folder);
+              }}>
+              <Upload size={16} /><span>{tr('Обновить папку из файла')}</span>
+            </button>
             {canEditFolder && <>
             <button className="dropdown-item" onClick={(e) => {
               e.stopPropagation();

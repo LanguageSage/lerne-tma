@@ -82,3 +82,11 @@ Integration/browser scripts могут менять данные; сначала
 - POST `/decks/{id}/text-update/preview` и `/apply` в `api/routers/decks.py`: строгие контентные модели, авторизация, синхронный сервис в собственном connection context. Учебный контент принадлежит существующей колоде; обновление не меняет SRS/пользовательский прогресс.
 - Только одна online-колода. Локальные dirty изменения сначала синхронизировать; применение неизвестного/чужого ID, критических ошибок и устаревшего preview блокируется целиком. Новые карточки без ID добавляются только явно; отсутствующие не удаляются.
 - Идентификация, транзакции, retry и тесты: [CARD_TEXT_UPDATE](../../docs/CARD_TEXT_UPDATE.md).
+
+## Обновить папку из файла
+
+- Пункт FolderTreeNav вызывает тот же DeckTextUpdateModal, с folder target в useUiStore/App/navigation. Preview показывает общие счётчики и группы колод; карточки раскрываются с «было/стало». Новые требуют явного флажка.
+- POST `/folders/{id}/text-update/preview` и `/apply` в `api/routers/folders.py`. Pydantic-проекции общие с deck-router: `api/routers/card_text_update_models.py`. Общий сервис `api/services/card_text_update.py` переиспользует compare, content UPDATE и receipt.
+- Backend проверяет owner/editor папки и каждой колоды, а также цепочку parent_id от колоды до выбранной папки. Apply всех групп — одна транзакция, на PostgreSQL stable row locks. Fingerprint охватывает только затронутые колоды/их контент/состав и relevant пути; SRS и колоды вне файла его не меняют.
+- Account-scoped Dexie `folder-text-update:{id}` хранит exact request до HTTP apply. Shared TMAOfflineBatch receipt делает повтор безопасным; pending пересекающийся deck/folder запрос нужно разрешить до нового обслуживания. Миграций нет.
+- Тесты: `folderTextUpdate.test.js`, `test_folder_text_update.py`, `browser/folder-text-update.spec.cjs`. Размер/совместимость/транзакция/limitations: [FOLDER_TEXT_UPDATE](../../docs/FOLDER_TEXT_UPDATE.md).

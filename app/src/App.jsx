@@ -91,6 +91,7 @@ function AppContent() {
   const authModalTitle = useUiStore(state => state.authModalTitle);
   const isBatchModalOpen = useUiStore(state => state.isBatchModalOpen);
   const textUpdateDeck = useUiStore(state => state.textUpdateDeck);
+  const textUpdateFolder = useUiStore(state => state.textUpdateFolder);
   const isCollaboratorsModalOpen = useUiStore(state => state.isCollaboratorsModalOpen);
   const importShareId = useUiStore(state => state.importShareId);
   const isLanguageModalOpen = useLanguageStore(state => state.isLanguageModalOpen);
@@ -108,6 +109,7 @@ function AppContent() {
     isAuthModalOpen ||
     isBatchModalOpen ||
     textUpdateDeck ||
+    textUpdateFolder ||
     isCollaboratorsModalOpen ||
     isLanguageModalOpen ||
     importShareId
@@ -287,7 +289,7 @@ function AppContent() {
       {view === 'creator' && <CardCreator />}
       {view === 'editor' && <CardEditor />}
       {isBatchModalOpen && <BatchCardModal />}
-      {textUpdateDeck && <DeckTextUpdateModal key={textUpdateDeck.id} />}
+      {(textUpdateDeck || textUpdateFolder) && <DeckTextUpdateModal key={`${textUpdateFolder ? 'folder' : 'deck'}:${(textUpdateFolder || textUpdateDeck).id}`} />}
       {isNewDeckModalOpen && <DeckModals />}
       {isRenameModalOpen && <RenameDeckModal />}
       {isCollaboratorsModalOpen && <CollaboratorsModal />}

@@ -87,3 +87,10 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
 - Сервер: `api/services/card_text_update.py`; preview сравнивает только front/back/context, CEFR и topics. Apply проверяет роль owner/editor, принадлежность card_id/deck_id, fingerprint текущего контента и выполняет content UPDATE одной транзакцией. SRS/история/медиа сохраняются, отсутствующие в файле карточки не удаляются.
 - UI: `DeckTextUpdateModal.jsx`; online service `cardTextUpdate.js` сохраняет точный запрос в account-scoped Dexie syncState до HTTP apply. Квитанция TMAOfflineBatch защищает повтор после потерянного ответа; новые карточки требуют отдельного флажка.
 - Тесты: `cardTextUpdate.test.js`, `scripts/tests/test_card_text_update.py`, `scripts/tests/browser/card-text-update.spec.cjs`. Формат, поведение и ограничения: [CARD_TEXT_UPDATE](../../docs/CARD_TEXT_UPDATE.md).
+
+## Обновление карточек в дереве папки
+
+- Folder mode того же `cardTextUpdateParser.js` требует deck_id каждой карточки; metadata extractor/serializer и обычный импорт сохранены. Служебные IDs до FRONT не становятся контентом, повтор deck_id между карточками допустим, повтор card_id между любыми группами критичен.
+- `card_text_update.py` теперь общий для deck/folder compare/write/idempotency; folder scope валидируется отдельно. Одна транзакция нескольких колод сохраняет SRS/history/media/provenance/ownership/позиции. Пропущенные карточки/колоды не удаляются, названия/структура не меняются.
+- Folder apply оставляет deck/folder timestamps прежними; deck apply сохраняет свой существующий touch ancestors. Общий client сохраняет payload в Dexie до запроса и блокирует overlapping pending updates, UI группирует diff по колодам.
+- Доказательства сохранности и compatibility: [FOLDER_TEXT_UPDATE](../../docs/FOLDER_TEXT_UPDATE.md).

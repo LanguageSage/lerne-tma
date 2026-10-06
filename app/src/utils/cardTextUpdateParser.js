@@ -27,16 +27,19 @@ export function validateUpdateExercise(card) {
 }
 
 /** Metadata extraction + the existing Lerne parsers, with every rejected block reported. */
-export function parseCardTextUpdate(rawText) {
+export function parseCardTextUpdate(rawText, { requireDeckId = false } = {}) {
   const blocks = splitImportedCards(rawText);
   const cards = [];
   const errors = [];
   const identifiers = new Map();
+  const deckIds = new Set();
   blocks.forEach((block, index) => {
     // Export folder headings/notes for an empty deck are not cards.
     if (block.split('\n').every(line => !line.trim() || line.trim().startsWith('#'))) return;
     const metadata = extractCardTextMetadata(block);
+    if (metadata.deck_id) deckIds.add(metadata.deck_id);
     const blockErrors = [...metadata.errors];
+    if (requireDeckId && !metadata.deck_id) blockErrors.push('missing_deck_id');
     const sections = parseImportedCardSections(metadata.content);
     // Duplicate section markers are ambiguous; use the importer's own recognition.
     const sectionNames = block.split('\n').map(line => /^\s*(FRONT|BACK|CONTEXT)\s*:/i.exec(line)?.[1]?.toUpperCase()).filter(Boolean);
@@ -45,8 +48,9 @@ export function parseCardTextUpdate(rawText) {
     if (metadata.card_id) {
       if (identifiers.has(metadata.card_id)) {
         blockErrors.push('duplicate_card_id');
-        errors.push({ number: identifiers.get(metadata.card_id), code: 'duplicate_card_id' });
-      } else identifiers.set(metadata.card_id, index + 1);
+        const first = identifiers.get(metadata.card_id);
+        errors.push({ number: first.number, code: 'duplicate_card_id', ...(requireDeckId ? { deck_id: first.deck_id } : {}) });
+      } else identifiers.set(metadata.card_id, { number: index + 1, deck_id: metadata.deck_id });
     }
     if (sections) {
       const parsed = parseBatchCardsText(metadata.content)[0];
@@ -62,8 +66,10 @@ export function parseCardTextUpdate(rawText) {
       blockErrors.push(...validateUpdateExercise(card));
       if (!blockErrors.length) cards.push(card);
     }
-    for (const code of new Set(blockErrors)) errors.push({ number: index + 1, code });
+    for (const code of new Set(blockErrors)) errors.push({ number: index + 1, code, ...(requireDeckId ? { deck_id: metadata.deck_id } : {}) });
   });
   if (!cards.length && !errors.length) errors.push({ number: 0, code: 'empty_file' });
-  return { cards, errors, total: blocks.filter(block => !block.split('\n').every(line => !line.trim() || line.trim().startsWith('#'))).length };
+  const total = blocks.filter(block => !block.split('\n').every(line => !line.trim() || line.trim().startsWith('#'))).length;
+  if (total > 5000) errors.push({ number: 0, code: 'too_many_cards' });
+  return { cards, errors, total, ...(requireDeckId ? { deck_ids: [...deckIds] } : {}) };
 }
