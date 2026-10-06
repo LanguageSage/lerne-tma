@@ -157,5 +157,18 @@ class TestAuthorService(unittest.TestCase):
         deck = MockDeck(id=1, name="D", user_id=555)
         self.assertEqual(get_effective_user_id(None, deck), 555)
 
+        # 3. Cannot determine author -> raises ValueError
+        old_auth = os.environ.pop('AUTHOR_USER_ID', None)
+        old_admin = os.environ.pop('ADMIN_USER_ID', None)
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                get_effective_user_id(None, None)
+            self.assertIn("Не удалось определить автора", str(ctx.exception))
+        finally:
+            if old_auth is not None:
+                os.environ['AUTHOR_USER_ID'] = old_auth
+            if old_admin is not None:
+                os.environ['ADMIN_USER_ID'] = old_admin
+
 if __name__ == '__main__':
     unittest.main()
