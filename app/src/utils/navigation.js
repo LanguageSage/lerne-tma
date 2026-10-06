@@ -41,8 +41,6 @@ export const navigateUp = () => {
     uiState.isCardActionModalOpen ||
     uiState.isAuthModalOpen ||
     uiState.isBatchModalOpen ||
-    uiState.textUpdateDeck ||
-    uiState.textUpdateFolder ||
     uiState.isCollaboratorsModalOpen ||
     uiState.importShareId ||
     deckState.syncModalOpen ||
@@ -52,7 +50,6 @@ export const navigateUp = () => {
   );
 
   if (isAnyModalOpen) {
-    if ((uiState.textUpdateDeck || uiState.textUpdateFolder) && uiState.textUpdateBusy) return true;
     if (uiState.isFullGuideOpen) {
       uiState.closeFullGuide();
       return true;
@@ -67,7 +64,6 @@ export const navigateUp = () => {
     uiState.setIsCardActionModalOpen(false);
     uiState.setIsAuthModalOpen(false);
     uiState.setIsBatchModalOpen(false);
-    uiState.setTextUpdateDeck(null);
     uiState.setIsCollaboratorsModalOpen(false);
     uiState.clearImportShareId();
     deckState.setSyncModalOpen(false);

@@ -3,7 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Folder, GripHorizontal, MoreHorizontal, ChevronRight, Users, Download, Loader2, Upload } from 'lucide-react';
+import { Folder, GripHorizontal, MoreHorizontal, ChevronRight, Users } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
@@ -11,7 +11,6 @@ import { useAuthStore } from '../../store/useAuthStore';
 import api from '../../services/api';
 import { renderFlag } from './FlagIcons';
 import { getSortedFolderTree, getDescendantFolderIds } from '../../utils/deckUtils';
-import { useCardTextExport } from '../../hooks/useCardTextExport';
 
 export const FolderCardItem = React.memo(({
   folder,
@@ -21,7 +20,6 @@ export const FolderCardItem = React.memo(({
   showToast
 }) => {
   useInterfaceLocale();
-  const { exportText, isExporting } = useCardTextExport();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [menuPlacement, setMenuPlacement] = useState('bottom');
@@ -251,41 +249,25 @@ export const FolderCardItem = React.memo(({
         </div>
 
         <div className="deck-footer-actions-right">
-          <button
-            className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
-            onClick={toggleMenu}
-            title={tr("Опции папки")}
-          >
-            <MoreHorizontal size={18} />
-          </button>
+          {(canEditFolder || isAdmin) && (
+            <button 
+              className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
+              onClick={toggleMenu}
+              title={tr("Опции папки")}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+          )}
         </div>
 
         {isMenuOpen && (
           <div className={`deck-dropdown-menu glass placement-${menuPlacement}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
-            <button
-              className="dropdown-item card-text-export-action"
-              disabled={isExporting}
-              aria-busy={isExporting}
-              onClick={() => exportText({ folder })}
-            >
-              {isExporting ? <Loader2 size={16} className="spin" /> : <Download size={16} />}
-              <span>{isExporting ? tr('Экспорт...') : tr('Экспортировать папку')}</span>
-            </button>
 
             {isAdmin && (
               <button className="dropdown-item" onClick={handleTogglePublish} style={{ color: '#8b5cf6', fontWeight: 600 }}>
                 <span>{folder.is_global_readonly ? '🔐 Скрыть из общего доступа' : '🌍 Опубликовать глобально'}</span>
               </button>
             )}
-            <button className="dropdown-item card-text-update-action folder-text-update-action" disabled={!canEditFolder}
-              title={!canEditFolder ? tr('Папка доступна только для чтения.') : undefined}
-              onClick={event => {
-                event.stopPropagation();
-                setIsMenuOpen(false);
-                useUiStore.getState().setTextUpdateFolder(folder);
-              }}>
-              <Upload size={16} /><span>{tr('Обновить папку из файла')}</span>
-            </button>
             {canEditFolder && <>
             <button className="dropdown-item" onClick={(e) => {
               e.stopPropagation();

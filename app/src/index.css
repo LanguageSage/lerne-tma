@@ -1085,23 +1085,6 @@ h1, h2, h3 {
   color: white;
 }
 
-.card-text-export-action {
-  min-height: 44px;
-}
-
-.card-text-export-action svg {
-  flex-shrink: 0;
-}
-
-.card-text-export-action:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.card-text-export-action:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: -2px;
-}
 
 .dropdown-item.text-red {
   color: #f87171;
