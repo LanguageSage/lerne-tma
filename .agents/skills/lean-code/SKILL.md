@@ -24,6 +24,7 @@ Use `rg` and `rg --files` to find behavior and callers before adding components,
 - Keep domain rules consistent across callers. A simple router query does not require a new service solely for layering.
 ## Architecture map maintenance
 
-- Whenever introducing a new feature module, store slice, API router/service, or DB model, or when changing architectural boundaries, update `.agents/ARCHITECTURE.md` to reflect the new files and data flow in the Intent-to-Code Matrix.
+- Update the affected document in `.agents/subsystems/` when entry points, data flow, ownership or tests change. Use [AGENT_INDEX](../../AGENT_INDEX.md) to find it.
+- Update `.agents/ARCHITECTURE.md` and the index when a subsystem or architectural boundary changes. Keep implementation details in the subsystem document; avoid expanding the high-level map for each local edit.
 
 Review the diff for scope expansion and duplicate sources of truth. For code changes, use [verification guidance](../ai-harness-eval/SKILL.md).

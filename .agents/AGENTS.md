@@ -1,32 +1,59 @@
-# AI Harness Architecture & Agent Guidelines (Lerne)
+# Lerne: общие инструкции для агента
 
-Welcome to the **Lerne — React Web Application** repository. This project is configured for **AI-Native Engineering** following the Stanford AI Engineering Practices Benchmark (L3/L4 Maturity Level).
+## Начало задачи
 
-## Core Principles
+- Уточните ожидаемый результат и границы задачи по запросу пользователя; сохраните его существующие изменения.
+- Для новой области откройте [AGENT_INDEX](AGENT_INDEX.md), выберите одну подсистему и прочитайте её документ.
+- Если нужные файлы/символы уже определены, используйте имеющийся контекст; карту открывайте при необходимости.
+- [ARCHITECTURE](ARCHITECTURE.md) описывает общие границы; [ADMIN_ARCHITECTURE](ADMIN_ARCHITECTURE.md) — локальную админку.
+- Primary entry points и Search anchors выбранной подсистемы задают область первого поиска.
+- Правила [architectural_integrity](rules/architectural_integrity.md) подключайте при затрагивании описанных инвариантов.
 
-1. **Code is Cheap; Verification is Asset**: Never consider a task completed until it is empirically verified via unit tests, lints (`npm run lint`), or runtime verification logs.
-2. **Context Window Efficiency**: Keep prompts and context precise. Focus on minimal relevant code snippets, explicit interfaces, and concrete requirements.
-3. **No Superficial Symptom Patches**: Fix root causes; never swallow errors, return dummy fallbacks, or comment out failing assertions.
-4. **Deterministic Evaluation**: Every output is treated as a probabilistic candidate until passed through the Verification Layer.
-5. **Reuse-First & Pre-Check (Strict DRY)**: Never write duplicate code or reinvent components from scratch. Search existing modules (`app/src/components/common/`, `app/src/store/`, `app/src/services/`, `api/services/`) before creating new logic. If a function or UI element already exists, reuse or extend it. If a pattern appears > 1 time, extract it into a shared module immediately.
-6. **Anti-Bloat & YAGNI (Radical Minimalism)**: Write the minimal, cleanest code required to fulfill requirements. Avoid premature abstractions, speculative wrappers, redundant state, and unnecessary boilerplate. If 15 lines do the job cleanly, never write 80.
+## Поиск и чтение
 
-## Tech Stack Overview
+- Сначала найдите файл или символ через `rg --files`, `rg -n` или `git grep -n` в указанной подсистеме.
+- Читайте определение и нужный диапазон строк вместе с ближайшими вызовами/контрактами; небольшой файл можно читать целиком.
+- Расширяйте поиск на прямые зависимости, если найденного недостаточно. Поиск по всему репозиторию используйте при отсутствии локальных совпадений или свидетельствах сквозной проблемы.
+- Не перечитывайте неизменённые большие файлы и не повторяйте общий поиск без новой причины; для повторной проверки используйте diff и ранее найденные ориентиры.
+- Исключайте из поиска зависимости, сборки, coverage, логи, сгенерированные медиа и большие экспорты, кроме задач о самих этих данных.
+- Документация помогает найти владельца; реальные пути, API-контракты, поля и символы проверяйте в коде.
 
-- **Frontend (`/app`)**: React 19, Vite, Zustand (State), Dexie.js (Offline IndexedDB), Framer Motion, Lucide React.
-- **Backend (`/api`)**: Python FastAPI, Peewee ORM, Supabase PostgreSQL, edge-tts (Audio), python-telegram-bot.
-- **Scripts**: `run_dev.bat`, `run_tma.ps1`, `clean_run.bat`.
+## Изменения
 
-## Repository Structure & AI Harness Layers
+- Исправляйте причину и переиспользуйте существующий модуль, если совпадают его ответственность и поведение.
+- Не выделяйте новый модуль автоматически из-за двух похожих фрагментов или размера файла; извлечение оправдано общей логикой и текущей задачей.
+- Сохраняйте владельцев состояния, online/offline совместимость, серверные permissions и пользовательские настройки.
+- Не расширяйте задачу посторонним рефакторингом, новыми абстракциями или зависимостями.
+- Деструктивные операции с БД требуют явного разрешения; наличие конфигурации или backup не заменяет его.
 
-- **`.agents/ARCHITECTURE.md`**: Architectural map and intent-to-code trace matrix. **Consult first** to immediately locate where to find issues and make changes.
-- **`.agents/rules/`**: Declarative engineering constraints, offline mode rules, architecture boundaries, and safety guardrails.
-- **`.agents/skills/`**: Operational cheatsheets and reusable workflows (`lean-code`, `fastapi-backend`, `tma-ui`, `db-mgmt`, `ai-harness-eval`).
+## Проверка результата
 
-## Agent Loop Workflow
+- До значимых изменений определите наблюдаемый результат и подходящую проверку; для небольшой правки достаточно короткого обоснования.
+- Сначала запускайте относящиеся к изменённому поведению тесты и статические проверки затронутых файлов.
+- Для документации проверяйте содержимое, ссылки, ключевые пути и diff; для изменённых skills также запускайте их валидатор.
+- Для UI проверяйте фактическое взаимодействие и видимые состояния по UI skill; успешная сборка не заменяет такую проверку.
+- Полный lint/build/test suite запускайте при изменении общей инфраструктуры, конфигурации или зависимостей, значительном сквозном изменении, признаках более широкой ошибки либо прямом требовании пользователя/CI.
+- Повторяйте прошедшие проверки только после новых изменений или при нерешённых сомнениях. Не ослабляйте assertions/rules и не скрывайте ошибки ради PASS.
+- Проверяйте окружение integration/browser scripts до запуска: они могут менять БД или вызывать внешние сервисы.
+- Подробная политика и команды — в [ai-harness-eval](skills/ai-harness-eval/SKILL.md).
 
-1. **Context Alignment & Reconnaissance**: Consult `.agents/ARCHITECTURE.md` to locate the target subsystem. Then search the codebase (`grep_search`, `find_by_name`) to verify existing components, hooks, stores, and endpoints before writing new ones. Do not guess variable names or API contracts.
-2. **Specification & Plan**: For non-trivial changes, outline an implementation plan with explicit verification steps.
-3. **Autonomous Execution**: Make surgical edits using tool declarations. Favor minimal diffs over large file rewrites.
-4. **Diff Self-Review**: Review your own changes for duplicate logic, unused imports, redundant state, or unnecessary wrappers before proceeding.
-5. **Verification & Evals**: Run linting (`npm --prefix app run lint`), API syntax checks, and test suites. Fix any failures before reporting results directly and concisely to the user.
+## Документация и завершение
+
+- При изменении поведения обновляйте соответствующий документ в `subsystems/`; подробности алгоритмов и тестов держите там.
+- При появлении новой подсистемы или изменении архитектурных границ обновляйте карту и индекс, сохраняя их компактными.
+- Проверьте `git diff --stat`, целевой diff и `git status --short`; новые untracked файлы просмотрите отдельно.
+- Сверьте итог с запросом и остановитесь после выполнения требований.
+- Сообщите, что изменилось, какие проверки выполнены и какие ограничения остались. Не выдавайте статическую проверку за проверку поведения.
+- Commit/push, создание ветки и другие действия с Git выполняйте по запросу пользователя.
+
+## Skills по необходимости
+
+Читайте только применимые к задаче инструкции:
+
+| Задача | Skill |
+| --- | --- |
+| UI, layout, взаимодействие и визуальная проверка | [tma-ui](skills/tma-ui/SKILL.md) |
+| FastAPI, контракты, серверные сервисы | [fastapi-backend](skills/fastapi-backend/SKILL.md) |
+| Peewee, миграции, Dexie и целостность данных | [db-mgmt](skills/db-mgmt/SKILL.md) |
+| Переиспользование и границы модулей | [lean-code](skills/lean-code/SKILL.md) |
+| Проверки изменений и доказательства результата | [ai-harness-eval](skills/ai-harness-eval/SKILL.md) |

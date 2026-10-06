@@ -1,13 +1,16 @@
 # Rule: Architectural Integrity & Verification Standards (Lerne TMA)
 
-## 1. Zero Verification Tax Policy
-- Every generated code block must be validated by running concrete verification commands (e.g., `npm --prefix app run lint`, Vite build checks, FastAPI endpoint checks).
-- Agents must inspect execution logs completely before reporting success.
-- If a build or test fails, diagnose the root cause instead of suppressing errors.
+## 1. Verification proportional to the change
+- Use [verification guidance](../skills/ai-harness-eval/SKILL.md): start with behavior checks and static checks for the affected files; broaden for shared infrastructure, configuration/dependencies, significant cross-subsystem changes, wider failure evidence, or user/CI requirements.
+- Documentation-only changes require content, link, path and diff checks; changed skills also require skill validation. Application builds are unnecessary for these edits.
+- Inspect relevant execution output before reporting success. A targeted pass does not establish that the entire application passed.
+- If a check fails, diagnose the root cause instead of suppressing errors; distinguish existing failures without discarding user changes.
 
 ## 2. Context Engineering
-- Limit token bloat by focusing strictly on relevant files and direct dependencies in `/app` or `/api`.
-- Read exact symbol definitions (FastAPI routes, Pydantic schemas, Zustand stores) rather than relying on high-level assumptions.
+- Use [AGENT_INDEX](../AGENT_INDEX.md) and the relevant subsystem document for a new area; continue directly with known files when the current task already identified them.
+- Search the subsystem first, then read matching definitions, callers and contracts. Expand to direct dependencies or repository-wide search when evidence requires it.
+- Reuse known paths and inspect diffs after edits; do not repeat broad searches or full-file reads without a new reason.
+- Detailed navigation and verification policy lives in [AGENTS.md](../AGENTS.md).
 
 ## 3. Offline & Sync Safeguards
 - TMA operates both online and offline (backed by Dexie.js in `/app` and `offlineApi.js`).

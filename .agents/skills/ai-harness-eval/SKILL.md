@@ -9,15 +9,17 @@ description: Verify Lerne TMA code changes or review findings with targeted beha
 
 Define an observable expected outcome. For a bug, reproduce the trigger when possible; otherwise state the evidence and reproduction gap. Select checks for changed behavior and material failure modes.
 
-- Frontend code: run `npm --prefix app run lint` and `npm --prefix app run build`. Vite bundling is not a TypeScript type check or browser interaction test.
+- Frontend code: start with ESLint on explicit changed JS/JSX paths using the existing configuration from `app/` (`npx --no-install eslint` followed by those paths), and relevant behavior tests. Include affected callers when shared behavior changed. Vite bundling is not a TypeScript type check or browser interaction test.
 - Backend code: run `python -m py_compile` on changed Python files and targeted behavioral or contract checks. Compilation does not execute imports, routes, queries, or permissions.
 - UI behavior: exercise the changed flow and relevant loading/error states. For locale-dependent bugs, use the reported locale and another supported locale; check persistence when selection changes.
 - API and data integrity: cover relevant validation, permissions, transaction failure, or repeated requests according to risk.
-- Documentation or instruction-only edits: inspect content, links, and diff; validate skill files with the skill validator. Application builds are unnecessary unless application code changed.
+- Documentation or instruction-only edits: inspect content, links, key paths, and diff; validate changed skill files with the skill validator. Application builds are unnecessary unless application code changed.
+
+Run full `npm --prefix app run lint`, `npm --prefix app run build`, or broader test suites when shared infrastructure, configuration/dependencies, significant cross-subsystem changes, wider failure evidence, or explicit user/CI requirements justify them. Select the relevant full checks for that risk; do not automatically run every suite for a local edit. Do not describe targeted checks as a full-project pass.
 
 ## Tests with a purpose
 
-Look for relevant checks in `scripts/tests/` and `tools/`; inspect setup before execution. Scripts may contact a backend, modify data, or call paid services. Prefer isolated fixtures and local test data; names do not establish safety or coverage.
+Start with Relevant tests in the affected [subsystem document](../../AGENT_INDEX.md), then search the relevant test directories if coverage is missing. Tests live in `app/src/utils/__tests__/`, `app/src/services/__tests__/`, `tests/`, `scripts/tests/`, and `tools/`; inspect setup before execution. Scripts may contact a backend, modify data, or call paid services. Prefer isolated fixtures and local test data; names do not establish safety or coverage.
 
 Add focused regression tests for significant logic or repeatable bugs when practical. Assert observable behavior or meaningful invariants, not implementation wording. Do not add a test framework solely for a trivial reversible edit.
 
