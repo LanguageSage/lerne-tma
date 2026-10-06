@@ -76,6 +76,15 @@ class StudyLatencyTests(unittest.TestCase):
         media_queries = [call for call in query.call_args_list if 'FROM "tmamedia"' in call.args[0]]
         self.assertEqual(len(media_queries), 1)
 
+    def test_card_list_exposes_topics_for_text_export_in_card_order(self):
+        self.cards[0].topics = 'Adjektive'
+        self.cards[0].save()
+        self.cards[1].topics = 'Konjunktionen'
+        self.cards[1].save()
+        result = cards.get_cards_for_study(self.deck.id, 1)
+        self.assertEqual([card['id'] for card in result], [card.id for card in self.cards])
+        self.assertEqual([card['topics'] for card in result], ['Adjektive', 'Konjunktionen', None])
+
 
 if __name__ == '__main__':
     unittest.main()

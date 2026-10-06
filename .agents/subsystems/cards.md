@@ -72,3 +72,11 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
 - [Study: renderer и feedback](study.md), [Decks: владение и навигация](decks.md), [Sync](sync.md), [AI](ai.md).
 - [USER_MANUAL](../../docs/USER_MANUAL.md) — пользовательские сценарии; точные контракты сверяйте с парсерами.
 - [Architectural integrity](../rules/architectural_integrity.md), [UI skill](../skills/tma-ui/SKILL.md).
+
+## Экспорт учебного текста
+
+- Канонический сериализатор: `app/src/utils/cardTextSerializer.js`; использует существующий `batchCardParser.js` для границ, проверки секций и round-trip, не пересобирает исходный `FRONT`.
+- Чтение online/offline и скачивание UTF-8: `app/src/services/cardTextExport.js`; UI состояния: `app/src/hooks/useCardTextExport.js`.
+- Сохраняет front/back/context, эффективный CEFR и topics. Ответ чтения карточек в `api/services/cards.py` включает topics. SRS, история, ID, timestamps и аудио исключены.
+- Тесты: `app/src/utils/__tests__/cardTextSerializer.test.js`, `scripts/tests/browser/card-text-export.spec.cjs`, проверка topics в `scripts/tests/test_study_latency.py`.
+- Ограничения действующего импорта, формат папки и сценарий использования: [CARD_TEXT_EXPORT](../../docs/CARD_TEXT_EXPORT.md). Изображения/видео, произвольные теги и нормализация CONTEXT/пустого BACK сопровождаются явным сообщением и преамбулой файла; конфликт границ останавливает экспорт.

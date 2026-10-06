@@ -3,13 +3,14 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users, Dumbbell } from 'lucide-react';
+import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users, Dumbbell, Download, Loader2 } from 'lucide-react';
 
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { renderFlag } from './FlagIcons';
 import { getSortedFolderTree } from '../../utils/deckUtils';
+import { useCardTextExport } from '../../hooks/useCardTextExport';
 
 export const DeckCardItem = React.memo(({
   deck,
@@ -27,6 +28,7 @@ export const DeckCardItem = React.memo(({
   activeFolderColor
 }) => {
   useInterfaceLocale();
+  const { exportText, isExporting } = useCardTextExport();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
@@ -452,6 +454,15 @@ export const DeckCardItem = React.memo(({
 
         {isMenuOpen && (
           <div className={`deck-dropdown-menu glass placement-${menuPlacement}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
+            <button
+              className="dropdown-item card-text-export-action"
+              disabled={isExporting}
+              aria-busy={isExporting}
+              onClick={() => exportText({ deck })}
+            >
+              {isExporting ? <Loader2 size={16} className="spin" /> : <Download size={16} />}
+              <span>{isExporting ? tr('Экспорт...') : tr('Экспортировать колоду')}</span>
+            </button>
             {!deck.is_inbox && canEditDeck && (
               <button className="dropdown-item" onClick={(e) => {
                 e.stopPropagation();

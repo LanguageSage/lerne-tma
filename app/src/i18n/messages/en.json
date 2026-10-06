@@ -1665,5 +1665,17 @@
   "Тип карточки и элементы": "Card type & elements",
   "Маркеры структуры": "Structure markers",
   "Панель быстрой вставки": "Quick insert toolbar",
-  "Банк слов": "Word bank"
+  "Банк слов": "Word bank",
+  "Заголовки колод служат для навигации. Импорт добавляет все карточки в выбранную колоду.": "Deck headings are for navigation. Import adds all cards to the selected deck.",
+  "Экспортировать колоду": "Export deck",
+  "Экспортировать папку": "Export folder",
+  "Экспорт...": "Exporting...",
+  "Нет карточек для экспорта": "No cards to export",
+  "Экспортировано карточек: {{count}}": "Exported cards: {{count}}",
+  "Файл скачан. Ограничения импорта:": "File downloaded. Import limitations:",
+  "Импорт изменяет пустые ответы и формат или метаданные CONTEXT.": "Import changes empty answers and CONTEXT formatting or metadata.",
+  "Изображения и видео не восстанавливаются текстовым импортом.": "Text import cannot restore images or videos.",
+  "Произвольные теги не восстанавливаются текстовым импортом.": "Text import cannot restore custom tags.",
+  "Не удалось экспортировать «{{deck}}», карточка {{number}}: пустой FRONT или конфликт с маркерами импорта.": "Cannot export “{{deck}}”, card {{number}}: empty FRONT or a conflict with import markers.",
+  "Не удалось экспортировать карточки. Повторите попытку.": "Could not export cards. Please try again."
 }
