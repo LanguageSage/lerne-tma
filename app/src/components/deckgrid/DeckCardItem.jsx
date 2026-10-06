@@ -3,7 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users, Dumbbell, Download, Loader2 } from 'lucide-react';
+import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users, Dumbbell, Download, Loader2, Upload } from 'lucide-react';
 
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -462,6 +462,14 @@ export const DeckCardItem = React.memo(({
             >
               {isExporting ? <Loader2 size={16} className="spin" /> : <Download size={16} />}
               <span>{isExporting ? tr('Экспорт...') : tr('Экспортировать колоду')}</span>
+            </button>
+            <button className="dropdown-item card-text-update-action" disabled={!canEditDeck}
+              title={!canEditDeck ? tr('Колода доступна только для чтения.') : undefined}
+              onClick={() => {
+                setIsMenuOpen(false);
+                useUiStore.getState().setTextUpdateDeck(deck);
+              }}>
+              <Upload size={16} /><span>{tr('Обновить из файла')}</span>
             </button>
             {!deck.is_inbox && canEditDeck && (
               <button className="dropdown-item" onClick={(e) => {

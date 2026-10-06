@@ -5,6 +5,35 @@ import logging
 from api import services
 from api.dependencies.auth import get_user_id
 from api.services.collaborative_service import _require_can_mutate
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from typing import Literal
+from uuid import UUID
+from api.services.card_text_update import preview_text_update, apply_text_update
+from api.models import tma_db
+
+
+class TextUpdateCard(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    number: int = Field(gt=0, strict=True)
+    card_id: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
+    deck_id: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
+    front: StrictStr = Field(max_length=100000)
+    back: StrictStr = Field(max_length=100000)
+    context: StrictStr = Field(max_length=100000)
+    topics: StrictStr = Field(max_length=10000)
+    level: Literal['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] | None = None
+    card_type: Literal['standard', 'trainer', 'quiz', 'match', 'free_text', 'puzzle', 'word_bank']
+
+
+class TextUpdatePreviewRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    cards: list[TextUpdateCard] = Field(min_length=1, max_length=5000)
+
+
+class TextUpdateApplyRequest(TextUpdatePreviewRequest):
+    preview_token: str = Field(pattern=r'^[a-f0-9]{64}$')
+    request_id: UUID
+    include_new: bool = Field(default=False, strict=True)
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +140,19 @@ def reset_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 @router.get("/{deck_id}/cards")
 def get_deck_cards(deck_id: int, user_id: int = Depends(get_user_id)):
     return services.get_cards_for_study(deck_id, user_id)
+
+
+@router.post("/{deck_id}/text-update/preview")
+def preview_deck_text_update(deck_id: int, data: TextUpdatePreviewRequest, user_id: int = Depends(get_user_id)):
+    with tma_db.connection_context():
+        return preview_text_update(deck_id, user_id, [card.model_dump() for card in data.cards])
+
+
+@router.post("/{deck_id}/text-update/apply")
+def apply_deck_text_update(deck_id: int, data: TextUpdateApplyRequest, user_id: int = Depends(get_user_id)):
+    with tma_db.connection_context():
+        return apply_text_update(deck_id, user_id, [card.model_dump() for card in data.cards],
+                                 data.preview_token, str(data.request_id), data.include_new)
 
 from pydantic import BaseModel
 

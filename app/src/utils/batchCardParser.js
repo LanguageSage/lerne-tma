@@ -111,7 +111,7 @@ export function detectCardTypeByContent(front = '') {
   return detectExerciseType({ front }) || 'standard';
 }
 
-export function extractContextMetadata(context) {
+export function extractContextMetadata(context, { preserveFormatting = false } = {}) {
   if (!context) return { level: null, topic: null, cleanContext: '' };
 
   let level = null;
@@ -157,7 +157,7 @@ export function extractContextMetadata(context) {
     }
   }
 
-  const lines = cleanContext.split(/\r?\n/).filter(l => l.trim() !== '');
+  const lines = cleanContext.split(/\r?\n/).filter(l => preserveFormatting || l.trim() !== '');
   return { level, topic, cleanContext: lines.join('\n').trim() };
 }
 

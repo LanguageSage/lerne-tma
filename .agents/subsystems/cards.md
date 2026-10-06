@@ -77,6 +77,13 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
 
 - Канонический сериализатор: `app/src/utils/cardTextSerializer.js`; использует существующий `batchCardParser.js` для границ, проверки секций и round-trip, не пересобирает исходный `FRONT`.
 - Чтение online/offline и скачивание UTF-8: `app/src/services/cardTextExport.js`; UI состояния: `app/src/hooks/useCardTextExport.js`.
-- Сохраняет front/back/context, эффективный CEFR и topics. Ответ чтения карточек в `api/services/cards.py` включает topics. SRS, история, ID, timestamps и аудио исключены.
+- Сохраняет front/back/context, эффективный CEFR и topics. Ответ чтения карточек в `api/services/cards.py` включает topics. Стабильные card_id/deck_id записываются до FRONT; SRS, история, timestamps и аудио исключены.
 - Тесты: `app/src/utils/__tests__/cardTextSerializer.test.js`, `scripts/tests/browser/card-text-export.spec.cjs`, проверка topics в `scripts/tests/test_study_latency.py`.
 - Ограничения действующего импорта, формат папки и сценарий использования: [CARD_TEXT_EXPORT](../../docs/CARD_TEXT_EXPORT.md). Изображения/видео, произвольные теги и нормализация CONTEXT/пустого BACK сопровождаются явным сообщением и преамбулой файла; конфликт границ останавливает экспорт.
+
+## Обновление контента по ID
+
+- Извлечение служебных ID: `cardTextMetadata.js`; `cardTextUpdateParser.js` передаёт содержимое существующему batch/exercise parser, собирает все ошибки и сохраняет пустой BACK/формат CONTEXT. Обычный импорт по-прежнему создаёт новые карточки и игнорирует ID в преамбуле.
+- Сервер: `api/services/card_text_update.py`; preview сравнивает только front/back/context, CEFR и topics. Apply проверяет роль owner/editor, принадлежность card_id/deck_id, fingerprint текущего контента и выполняет content UPDATE одной транзакцией. SRS/история/медиа сохраняются, отсутствующие в файле карточки не удаляются.
+- UI: `DeckTextUpdateModal.jsx`; online service `cardTextUpdate.js` сохраняет точный запрос в account-scoped Dexie syncState до HTTP apply. Квитанция TMAOfflineBatch защищает повтор после потерянного ответа; новые карточки требуют отдельного флажка.
+- Тесты: `cardTextUpdate.test.js`, `scripts/tests/test_card_text_update.py`, `scripts/tests/browser/card-text-update.spec.cjs`. Формат, поведение и ограничения: [CARD_TEXT_UPDATE](../../docs/CARD_TEXT_UPDATE.md).

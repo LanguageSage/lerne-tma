@@ -8,11 +8,13 @@ import {
 import { getLevelInfo } from './levelUtils.js';
 import { getDescendantFolderIds, getSortedFolderAndDeckTree } from './deckUtils.js';
 import { tr } from '../i18n/locale.js';
+import { cardTextMetadata, persistentTextId } from './cardTextMetadata.js';
 
 export const CARD_TEXT_EXPORT_WARNINGS = {
   'import-normalization': 'Импорт изменяет пустые ответы и формат или метаданные CONTEXT.',
   media: 'Изображения и видео не восстанавливаются текстовым импортом.',
-  tags: 'Произвольные теги не восстанавливаются текстовым импортом.'
+  tags: 'Произвольные теги не восстанавливаются текстовым импортом.',
+  unsynced: 'Для обновления карточек сначала синхронизируйте их и экспортируйте заново.'
 };
 
 const textValue = value => String(value ?? '').replace(/\r\n?/g, '\n').trim();
@@ -36,7 +38,7 @@ export class CardTextExportError extends Error {
 }
 
 /** Keep the stored source intact; exercise syntax belongs to the existing parser. */
-export function serializeCard(card, deckName = '', cardNumber = 1) {
+export function serializeCard(card, deckName = '', cardNumber = 1, deckId = card.deck_id) {
   const front = textValue(card.front ?? card.front_text);
   const back = textValue(card.back ?? card.back_text);
   const context = textValue(card.context);
@@ -69,13 +71,17 @@ export function serializeCard(card, deckName = '', cardNumber = 1) {
   if (textValue(card.tags) && textValue(card.tags) !== imported.tags) {
     warnings.push('tags');
   }
-  return { text, warnings };
+  if ((card.id != null && !persistentTextId(card.id)) || (deckId != null && !persistentTextId(deckId))) {
+    warnings.push('unsynced');
+  }
+  const metadata = cardTextMetadata(card.id, deckId);
+  return { text: metadata ? `${metadata}\n${text}` : text, warnings };
 }
 
 /** Input order is the canonical API/store order, never a study queue or UI filter. */
 export function serializeDeck(deck, cards) {
   const serialized = cards.filter(card => !card.is_deleted)
-    .map((card, index) => serializeCard(card, deck.name, index + 1));
+    .map((card, index) => serializeCard(card, deck.name, index + 1, deck.id));
   return withImportNotes({
     text: serialized.map(card => card.text).join(`\n\n${LERNE_CARD_SEPARATOR}\n\n`),
     cardCount: serialized.length,
