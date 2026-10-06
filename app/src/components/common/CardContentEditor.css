@@ -1,49 +1,74 @@
-.card-content-editor { min-width: 0; display: grid; gap: 16px; }
-.card-form-secondary { margin: 8px 0 16px; }
-.card-form-secondary > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; cursor: pointer; font-size: .85rem; }
-.card-editor-mode { display: flex; justify-content: flex-end; }
-.card-content-editor .btn-secondary { min-height: 44px; padding: 8px 12px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
-.card-content-editor .card-editor-add { justify-self: start; }
+.card-content-editor { min-width: 0; display: grid; gap: 6px; }
+.card-form-secondary { margin: 4px 0 6px; }
+.card-form-secondary > summary { min-height: 28px; padding: 4px 0; box-sizing: border-box; cursor: pointer; font-size: .8rem; }
+.card-editor-mode { display: flex; justify-content: flex-end; margin: 0; }
+.card-editor-mode .btn-secondary { min-height: 26px; padding: 2px 8px; font-size: 0.74rem; border-radius: 6px; }
+.card-content-editor .btn-secondary { min-height: 32px; padding: 4px 8px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+.card-content-editor .card-editor-add { justify-self: start; min-height: 26px; padding: 2px 8px; font-size: 0.75rem; margin-top: 2px; }
 .card-content-editor button:disabled { opacity: .45; cursor: default; }
-.card-editor-field, .card-editor-field label { display: grid; gap: 8px; min-width: 0; }
+.card-editor-field, .card-editor-field label { display: grid; gap: 4px; min-width: 0; }
 .card-editor-field:is(fieldset) { border: 0; padding: 0; margin: 0; }
-.card-editor-field .sub-label { margin: 0; }
+.card-editor-field .sub-label { margin: 0; font-size: 0.72rem; opacity: 0.8; font-weight: 600; }
 .card-editor-field input.form-input, .card-editor-field textarea { width: 100%; min-width: 0; box-sizing: border-box; }
-.card-editor-field textarea { resize: vertical; overflow-y: auto; min-height: 88px; }
-.card-editor-raw { font-family: monospace; text-align: left; }
-.card-editor-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding-top: 6px; min-width: 0; }
-.card-editor-cluster { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; box-sizing: border-box; min-width: 0; }
-.card-editor-cluster-exercise { background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(167, 139, 250, 0.18); }
-.card-editor-cluster-marker { background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(56, 189, 248, 0.18); }
-.card-editor-cluster-header { display: flex; align-items: center; gap: 6px; padding: 0 2px 2px; min-width: 0; }
-.card-editor-cluster-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.card-editor-dot-exercise { background: #a78bfa; box-shadow: 0 0 6px rgba(167, 139, 250, 0.65); }
-.card-editor-dot-marker { background: #38bdf8; box-shadow: 0 0 6px rgba(56, 189, 248, 0.65); }
-.card-editor-cluster-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(226, 232, 240, 0.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card-editor-cluster-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; min-width: 0; }
-.card-content-editor .card-editor-btn { min-height: 40px; padding: 6px 10px; border-radius: 9px; font-size: 0.8rem; font-weight: 600; line-height: 1.25; text-align: center; cursor: pointer; box-sizing: border-box; transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease; display: flex; align-items: center; justify-content: center; }
+.card-editor-field textarea { resize: vertical; overflow-y: auto; min-height: 64px; }
+.card-editor-raw { font-family: monospace; text-align: left; min-height: 72px; padding: 6px 8px; font-size: 0.82rem; line-height: 1.35; }
+
+/* Compact Syntax Toolbar */
+.card-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 2px; min-width: 0; }
+.card-editor-cluster { display: inline-flex; align-items: center; gap: 4px; padding: 2px 5px; border-radius: 8px; box-sizing: border-box; min-width: 0; }
+.card-editor-cluster-exercise { background: rgba(124, 58, 237, 0.06); border: 1px solid rgba(167, 139, 250, 0.22); }
+.card-editor-cluster-marker { background: rgba(14, 165, 233, 0.06); border: 1px solid rgba(56, 189, 248, 0.22); }
+.card-editor-cluster-edit { background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(52, 211, 153, 0.22); }
+.card-editor-cluster-header { display: inline-flex; align-items: center; gap: 4px; padding: 0 2px; flex-shrink: 0; }
+.card-editor-cluster-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.card-editor-dot-exercise { background: #a78bfa; box-shadow: 0 0 5px rgba(167, 139, 250, 0.65); }
+.card-editor-dot-marker { background: #38bdf8; box-shadow: 0 0 5px rgba(56, 189, 248, 0.65); }
+.card-editor-dot-edit { background: #34d399; box-shadow: 0 0 5px rgba(52, 211, 153, 0.65); }
+.card-editor-cluster-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(226, 232, 240, 0.75); white-space: nowrap; }
+.card-editor-cluster-buttons { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+
+.card-content-editor .card-editor-btn { min-height: 28px; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; box-sizing: border-box; transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
 .card-content-editor .card-editor-btn-exercise { background: rgba(167, 139, 250, 0.12); border: 1px solid rgba(167, 139, 250, 0.28); color: #ddd6fe; }
 .card-content-editor .card-editor-btn-exercise:hover, .card-content-editor .card-editor-btn-exercise:focus-visible { background: rgba(167, 139, 250, 0.22); border-color: rgba(196, 181, 253, 0.55); color: #ffffff; transform: translateY(-1px); }
 .card-content-editor .card-editor-btn-exercise:active { background: rgba(167, 139, 250, 0.3); transform: translateY(0); }
 .card-content-editor .card-editor-btn-marker { background: rgba(56, 189, 248, 0.09); border: 1px solid rgba(56, 189, 248, 0.24); color: #bae6fd; }
 .card-content-editor .card-editor-btn-marker:hover, .card-content-editor .card-editor-btn-marker:focus-visible { background: rgba(56, 189, 248, 0.18); border-color: rgba(125, 211, 252, 0.55); color: #ffffff; transform: translateY(-1px); }
 .card-content-editor .card-editor-btn-marker:active { background: rgba(56, 189, 248, 0.26); transform: translateY(0); }
-@media (max-width: 680px) { .card-editor-toolbar { grid-template-columns: 1fr; gap: 12px; } }
-@media (max-width: 430px) { .card-content-editor .card-editor-btn { min-height: 44px; font-size: 0.78rem; } }
-.card-editor-choice { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; align-items: center; }
-.card-editor-choice .card-editor-correct { width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; }
-.card-editor-choice input[type=checkbox] { width: 24px; height: 24px; margin: 0; cursor: pointer; }
-.card-editor-sentence { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.card-content-editor .card-editor-btn-edit { background: rgba(52, 211, 153, 0.09); border: 1px solid rgba(52, 211, 153, 0.24); color: #a7f3d0; }
+.card-content-editor .card-editor-btn-edit:hover, .card-content-editor .card-editor-btn-edit:focus-visible { background: rgba(52, 211, 153, 0.18); border-color: rgba(110, 231, 183, 0.55); color: #ffffff; transform: translateY(-1px); }
+.card-content-editor .card-editor-btn-edit:active { background: rgba(52, 211, 153, 0.26); transform: translateY(0); }
+.card-content-editor .card-editor-btn-more { opacity: 0.85; font-size: 0.72rem; }
+
+/* Popover Menu for Secondary Commands */
+.card-editor-popover-wrap { position: relative; display: inline-flex; }
+.card-editor-popover { position: absolute; top: calc(100% + 4px); left: 0; min-width: 170px; background: rgba(15, 23, 42, 0.96); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px; padding: 4px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65); z-index: 100; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); display: flex; flex-direction: column; gap: 3px; }
+.card-content-editor .card-editor-popover-btn { width: 100%; justify-content: flex-start; min-height: 28px; padding: 4px 8px; font-size: 0.75rem; border-radius: 5px; text-align: left; }
+
+.card-editor-choice { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; gap: 6px; align-items: center; }
+.card-editor-choice .card-editor-correct { width: 36px; height: 36px; display: grid; place-items: center; cursor: pointer; }
+.card-editor-choice input[type=checkbox] { width: 20px; height: 20px; margin: 0; cursor: pointer; }
+.card-editor-sentence { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
 .card-editor-inline-text { white-space: pre-wrap; border-radius: 4px; outline: none; }
 .card-editor-inline-text:focus-visible { outline: 2px solid var(--accent-color, #a78bfa); outline-offset: 2px; }
-.card-editor-inline-gap { display: inline-block; vertical-align: baseline; min-width: 72px; max-width: 100%; box-sizing: border-box; padding: 2px 8px; margin: 2px 4px; border: 2px solid currentColor; border-radius: 10px; text-align: center; font-weight: 700; white-space: nowrap; opacity: .8; }
+.card-editor-inline-gap { display: inline-block; vertical-align: baseline; min-width: 60px; max-width: 100%; box-sizing: border-box; padding: 1px 6px; margin: 1px 3px; border: 2px solid currentColor; border-radius: 8px; text-align: center; font-weight: 700; white-space: nowrap; opacity: .8; font-size: 0.9em; }
 .card-editor-inline-gap.is-affix { min-width: 2ch; padding: 0 1px; margin: 0; border: 0; border-bottom: 2px solid var(--accent-color, currentColor); border-radius: 0; font-weight: inherit; opacity: 1; }
-.card-editor-pair-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; min-width: 0; }
+.card-editor-pair-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; min-width: 0; }
 .card-editor-pair-line > input, .card-editor-quiz-option > input { width: 100%; min-width: 0; box-sizing: border-box; }
-.card-editor-quiz-option { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; align-items: center; min-width: 0; }
-.card-editor-quiz-option .card-editor-correct { display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer; }
-.card-editor-hint { font-size: .85rem; opacity: .8; margin: 4px 0; }
-.card-editor-readable { min-height: 88px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.card-editor-advanced { display: grid; gap: 12px; min-width: 0; }
-.card-content-editor :is(button, input, textarea):focus-visible { outline: 2px solid var(--accent-color, #a78bfa) !important; outline-offset: 3px; }
-@media (max-width: 360px) { .card-editor-pair-line { grid-template-columns: minmax(0, 1fr); } }
+.card-editor-quiz-option { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 6px; align-items: center; min-width: 0; }
+.card-editor-quiz-option .card-editor-correct { display: grid; place-items: center; width: 36px; height: 36px; cursor: pointer; }
+.card-editor-hint { font-size: .76rem; opacity: .75; margin: 2px 0; }
+.card-editor-readable { min-height: 60px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-editor-advanced { display: grid; gap: 6px; min-width: 0; }
+.card-content-editor :is(button, input, textarea):focus-visible { outline: 2px solid var(--accent-color, #a78bfa) !important; outline-offset: 2px; }
+
+@media (max-width: 680px) {
+  .card-editor-toolbar { gap: 4px; }
+  .card-editor-cluster { padding: 2px 3px; }
+}
+@media (max-width: 480px) {
+  .card-editor-cluster-title { display: none; }
+  .card-content-editor .card-editor-btn { min-height: 28px; font-size: 0.72rem; padding: 2px 6px; }
+}
+@media (max-width: 360px) {
+  .card-editor-pair-line { grid-template-columns: minmax(0, 1fr); }
+}

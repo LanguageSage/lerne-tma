@@ -7,7 +7,7 @@ description: Develop Lerne TMA FastAPI routes and Python services while preservi
 
 ## Contracts and permissions
 
-Inspect `api/main.py`, affected `api/routers/` and `api/services/` modules, and consumers in `app/src/services/` and store actions. Check request and response shapes, errors, defaults, and authentication dependencies.
+Use the relevant [subsystem document](../../AGENT_INDEX.md) to locate the affected router, service and client consumers. Inspect their definitions and contracts; read `api/main.py` when router registration or middleware is relevant. Check request and response shapes, errors, defaults, and authentication dependencies.
 
 - Preserve contracts used by existing clients. Making a parameter optional is safe only when omission has defined behavior.
 - Thin routers, logic in services: Routers only validate request models, authenticate, and delegate to `api/services/`. Isolate SRS calculations, card parsing, and complex business logic in services.
@@ -25,6 +25,6 @@ Inspect `api/main.py`, affected `api/routers/` and `api/services/` modules, and 
 - Bound external requests with timeouts. Retry only safe operations and relevant transient failures. Inspect existing TTS and image caching before adding generation.
 - Media streaming: Serve images and audio exclusively via `/api/media/<folder>/<filename>` backed by `TMAMedia`. Do not bind routes or serializers to static frontend folders.
 - Evaluate query counts for list endpoints. Use joins or prefetching for demonstrated N+1 patterns while preserving permissions and result semantics.
-- When adding a new router, service, or changing subsystem architecture, update the corresponding rows in `.agents/ARCHITECTURE.md`.
+- Update the affected `.agents/subsystems/` document for new routes/services or changed contracts and ownership. Update `.agents/ARCHITECTURE.md` and `.agents/AGENT_INDEX.md` when subsystem boundaries or routing change; keep local implementation details in the subsystem document.
 
 Use [verification guidance](../ai-harness-eval/SKILL.md), including relevant failure paths. Syntax checks do not validate contracts or authorization.

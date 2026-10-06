@@ -1,61 +1,115 @@
-# Lerne: Архитектурная карта (Architecture & Feature Topology)
+# Lerne: архитектурная карта
 
-> **Назначение**: Быстрая локализация кода для агента и разработчика. Перед поиском или внесением изменений определите фичу по таблице ниже и сразу переходите к целевым модулям.
-> **Консоль администратора**: Архитектура и сквозная матрица админ-панели вынесены в отдельный документ: [ADMIN_ARCHITECTURE.md](file:///c:/121/Lerne_projekt/tma/.agents/ADMIN_ARCHITECTURE.md).
+Карта описывает устойчивые границы приложения и владельцев данных.
+Для поиска по симптому откройте [AGENT_INDEX.md](AGENT_INDEX.md), затем один документ подсистемы.
+Пути ниже указаны от корня репозитория; API-маршруты имеют общий префикс `/api`.
+Контракты и актуальные имена символов сверяйте с кодом по Search anchors выбранной подсистемы.
 
----
+## Слои приложения
 
-## 1. Сквозная матрица фич (Intent-to-Code Matrix)
+| Слой | Точка входа | Ответственность |
+| --- | --- | --- |
+| React / Vite | `app/src/main.jsx`, `app/src/App.jsx` | Запуск клиента, экраны и модальные окна |
+| UI | `app/src/components/` | Колоды, редактор, обучение, настройки |
+| Hooks | `app/src/hooks/` | Пользовательские действия и жизненный цикл сессий |
+| Zustand | `app/src/store/` | Общее состояние и доменные действия |
+| API-клиент | `app/src/services/api.js` | Авторизация, refresh, выбор сети или offline API |
+| Локальная БД | `app/src/services/localDb.js` | Dexie / IndexedDB, отдельная БД аккаунта |
+| FastAPI | `api/main.py`, `api/routers/` | Регистрация маршрутов, запросы и зависимости |
+| Серверная логика | `api/services/` | CRUD, синхронизация, оценивание и проекции |
+| ORM / БД | `api/models.py`, `api/database.py`, `api/migrations.py` | Peewee, подключение и эволюция схемы |
+| Android | `android/`, `capacitor.config.json` | Оболочка Capacitor для того же клиента |
+| Локальная админка | `tools/admin/server.py` | Отдельное приложение с прямым доступом к ORM |
 
-Каждая строка связывает бизнес-фичу со всей цепочкой файлов от пользовательского интерфейса до базы данных:
+## Основные потоки данных
 
-| Подсистема / Фича | Frontend UI (`app/src/components/`) | Client State & Storage (`app/src/store/`, `services/`) | Backend Router (`api/routers/`) | Backend Service / Logic (`api/services/`) | DB Model (`api/models.py`) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Колоды (Decks)** | `deckgrid/DeckGrid.jsx`, `deckgrid/DeckCard.jsx` | `useDeckStore.js` (`createDeckSlice.js`), `offlineApi.js`, `localDb.js` | `decks.py` | `decks.py` | `TMA_Deck` |
-| **Папки (Folders)** | `deckgrid/FolderCard.jsx`, `modals/FolderModal.jsx` | `useDeckStore.js` (`createFolderSlice.js`), `offlineApi.js` | `folders.py` | `folders.py` | `TMA_Folder` |
-| **Карточки (Cards & Batch)** | `CardList.jsx`, `modals/BatchMoveModal.jsx`, `modals/BatchCardModal.jsx`, `modals/CardEditModal.jsx` | `useDeckStore.js`, `useCardActions.js`, `services/api.js` (bulk timeout 120 с), `offlineApi.js`, `localDb.js`; `BatchCardModal.jsx` хранит ожидающий `import_id`, payload и положение `start/end` в localStorage | `cards.py` (`/bulk-save`, `/batch-move`, `/batch-delete`) | `cards.py` (атомарная квитанция импорта, batch-сохранение и положение новых карточек в колоде) | `TMA_Card`, `TMAOfflineBatch` (ключ `import:{user_id}:{import_id}`) |
-| **Редактор содержимого карточки** | `common/CardForm.jsx`, `common/CardContentEditor.jsx`, `common/CardContentEditor.css` | `cardData.front` — единственный исходный текст; `utils/cardEditorSyntax.js` проецирует безопасные диапазоны через `parseExerciseContent`, группирует команды быстрой вставки по категориям (`exercise` — типы карточек и интерактив; `marker` — маркеры структуры; все команды используют `insertEditorCommand` у текущего выделения textarea; последнее выделение хранится в ref, LF-позиции переводятся в CRLF-позиции через `editorSourceOffset`; `useLayoutEffect` восстанавливает фокус, выделение примера puzzle и прокрутку после обновления текста; «Подсказка» и «Исходный текст» вставляют `::source` по общему правилу); `utils/exerciseContentParser.js` распознаёт только официальные маркеры информации и `::exercise`; Simple/Raw не сериализуют текст при переключении; предпочтение `lerne.cardEditor.mode` в localStorage; неоднозначные конструкции доступны в Raw | существующий `/cards/save` через `useCardEditor.js` | Без изменения parser/import/trainer | Без изменения модели |
-| **Обучение, SRS & Авто-режим** | `study/StudyView.jsx`, `study/CardView.jsx`, `study/AutoplayControls.jsx`, `study/StudyCardWordBank.jsx`, `study/StudyCardTrainer.jsx`, `study/StudyCardMatch.jsx`, `study/StudyCardQuiz.jsx`, `study/StudyCardPuzzle.jsx`, `study/ExerciseRenderer.jsx`, `settings/AutoplaySettingsTab.jsx` | `useSessionStore.js`, `useSettingsStore.js`, `hooks/useAutoplay.js`, `utils/autoplaySequence.js`, `utils/wordBankParser.js`, `utils/wordBankState.js`, `utils/trainerEvaluation.js`, `utils/matchEvaluation.js`, `utils/quizEvaluation.js`, `utils/puzzleEvaluation.js` (directed token-ID boundaries; один authored порядок; correct boundaries не блокируют tokens), `utils/exerciseEvaluation.js` (part feedback v1 + cumulative attempt/error evidence; requiredPartIds для incremental completion, check options для educational attempts и descriptive interaction_count; clearCurrentFeedback очищает только текущий result до completion), `hooks/useExerciseEvaluation.js`; Trainer/Word Bank/Match/Quiz/Puzzle state сохраняется в существующем `StudyCard.exerciseStates[reviewKey]`, success → `onTrainerAnswer` → `knowledgeCaptureService.js`; `offlineApi.js` | `study.py`, `media.py` (перегенерация TTS) | `study.py`, `srs.py`, `media.py` | `TMAProgress`, `TMAReviewHistory`, `TMAMedia` |
-| **Завершение Study & forced review** | `study/StudyView.jsx` (currentCardSrsStatus: ранний forced-бейдж), `study/StudyFinished.jsx`, `study/StudyError.jsx` | `hooks/useStudyNavigation.js` (общий startStudy), `hooks/useStudySession.js` (context/exclude_ids), `useSessionStore.js` (isLearningMore/forcedSeenIds), `utils/studyFlow.js` (видимость DeckGrid и следующая/последняя колода в порядке store), `utils/navigation.js` (returnToStudyTheme), `offlineApi.js` | `study.py`: `/decks/{id}/next`, `/study/grade`; `sync.py`: `/v2/push` | `cards.py:get_next_card` и offline nextCard: forced по position/id, без сортировки по SRS; `study.py` → `srs.py` / `utils/srsEngine.js` (context влияет на оценку); `offline_sync.py` | Существующие `TMAProgress`, `TMAReviewHistory`, `TMAOfflineBatch`; Dexie progress + события review:* в syncState, без миграции |
-| **Сворачиваемые блоки обучения** | `study/StudyControlsBlock.jsx`, `study/CardAudioPlayer.jsx`, `study/GradeButtons.jsx` | `useSettingsStore.js`: отдельные `playerCollapsed` / `gradingCollapsed`, localStorage и существующая синхронизация настроек; высота оценок задаёт отступ плеера | существующий `/user/settings` | Без изменения | Без изменения |
-| **Offline-First & Синхронизация** | `common/SyncIndicator.jsx`, `offlineUi.js` | `localDb.js` (Dexie), `offlineApi.js`, `syncService.js` | `sync.py` | `sync_service.py`, `offline_sync.py` | `TMAOfflineBatch` |
-| **Knowledge Layer & Sync (KI)** | `study/StudyCard.jsx` | `knowledgeCaptureService.js`, `knowledgeDbService.js`, `knowledgeSyncService.js`, `knowledgeSyncOrchestrator.js`, `hooks/useKnowledgeSync.js`, `localDb.js` | `knowledge.py` (sync, read-only diagnostics) | `knowledge_mastery.py` (mastery-v1, rebuild из raw Attempts), `knowledge_diagnostics.py` (read-only projections and state comparison) | `TMAKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` |
-| **Answer Evaluation (KI-07)** | `study/StudyCardFreeText.jsx` (feedback/retry) | `hooks/useFreeTextEvaluation.js`, `utils/freeTextEvaluationState.js` (one attempt counter), `services/answerEvaluationService.js` (authenticated single-flight); existing `knowledgeCaptureService.js` → Dexie outbox → Knowledge Sync | `ai.py`: `/ai/evaluate-answer` (authenticated; server loads card/variants/policy/KI) | `answer_contract.py` (result v1 + policy), `answer_rules.py` (pure exact/typo), `answer_ai.py` (validated timeout-bounded fallback via `AIService`), `answer_evaluation.py` (orchestration) | Existing `TMA_Card.metadata` policy/variants, raw `TMAKnowledgeAttempt.evaluation_data.exercise_evidence.grading_summary`; Mastery v1 unchanged; no migration |
-| **AI-генерация & Промпты** | `modals/AiGenerateModal.jsx`, `study/AiExplainer.jsx` | `useSessionStore.js` | `ai.py` | `ai_service.py`, `prompt_builders.py`, `ai_clients.py` | `TMAUserPrompt`, `TMACustomPrompt` |
-| **Озвучка & Медиа (TTS)** | `utils/audio.js`, `mediaCache.js` | `mediaCache.js` | `media.py` | `media.py` (edge-tts / кэш) | `TMAMedia` |
-| **LiD (Экзамен, Тренировка & Карточки)** | `lid/LidExamView.jsx`, `lid/LidQuestionCard.jsx`, `lid/LidClassifier.jsx` | `useLidStore.js`, `utils/lidCardAdapter.js`, `lidFolderManager.js` | `lid.py` (`/ticket`) | `resolve_media_url`, `serialize_card` | `tma_card`, `tma_deck`, `tma_media` (строго из БД, без внешних JSON) |
-| **Шеринг колод & Импорт** | `modals/ShareModal.jsx`, `modals/ImportModal.jsx` | `useDeckStore.js` (`createShareSlice.js`) | `share.py` | `sharing_service.py` | `TMA_Deck.share_id`, `TMA_Folder.share_id` |
-| **Коллаборация (Co-op)** | `collaborative/CollaborativeHub.jsx` | `useCollaborativeStore.js` | `collaborative.py` | `collaborative_service.py` | `TMA_Collaborator` |
-| **Корзина (Trash)** | `TrashManager.jsx` | `useDeckStore.js` (`createTrashSlice.js`) | `trash.py` | `trash.py` | `is_deleted=True` (Soft delete) |
-| **Авторизация v2: вход и привязки** | `modals/AuthRequiredModal.jsx`, `settings/ProfileTab.jsx` | `useAuthStore.js`, `utils/auth.js`, `services/api.js` (авто-рефреш 401 + очередь); изоляция аккаунтов в `localDb.js` и `useDeckStore.js` | `auth_v2.py`, `bot.py`, строгая `dependencies/auth.py`; старый кодовый вход закрыт | `api/auth/providers.py`, `service.py`, `transactions.py` | `TMAAuthAccount`, `TMAAuthIdentity`, `TMAAuthSession`, `TMAAuthToken`, `TMAAuthProof`, `TMAAuthChallenge`; миграции 76–77 |
-| **Email/пароль и восстановление без писем** | Предложение Telegram после регистрации; восстановление через вход привязанным провайдером и профиль | `useAuthStore.js`: настройки пароля отдельно от полей профиля | `auth_v2.py`: `email-password/register`, `login`, `link`, `set`, `password-settings` | `api/auth/service.py`: Argon2id, throttling, свежая social-сессия, отзыв остальных сессий | `TMAAuthPassword`, `TMAAuthPasswordThrottle`; миграция 78; provenance сессии — 79 |
-| **Настройки & Профиль** | `modals/SettingsModal.jsx`, `settings/*.jsx` (включая `SrsTab.jsx`) | `useSettingsStore.js` (авто-синхронизация Web/Android через `/user/settings`), `useAppInitialization.js` | `settings.py` (`/user/settings`, `/admin/settings`), `main.py` (`/init`) | `reminder_service.py` | `TMASetting` (`USER_SETTINGS_{id}`, `REMINDER_SETTINGS_{id}`) |
-| **Сквозной поиск (Search)** | `common/SearchBar.jsx`, `deckgrid/DeckGrid.jsx` | `search.js`, `offlineApi.js` | `cards.py` (`/search`) | `cards.py` (`search_all_in_scope`) | `TMA_Card`, `TMA_Deck`, `TMA_Folder` |
+```text
+UI → hooks / Zustand → services/api.js
+  online:  FastAPI router → server logic → Peewee
+  offline: offlineApi.js → Dexie → syncService.js → /sync/v2/* → Peewee
 
----
+Study grade → useStudySession.js → knowledgeCaptureService.js
+  → knowledge_attempt_outbox → knowledgeSyncService.js
+  → /knowledge/attempts/sync → raw Attempts → mastery projection
+```
 
-Завершение занятия и forced review подробно описаны в [архитектуре SRS](../project_docs/ARCHITECTURE/SRS_SYSTEM.md#завершение-занятия-и-принудительный-проход-study-completion--forced-review).
-`StudyFinished.jsx` отвечает за следующий шаг пользователя, `StudyError.jsx` — за отдельное состояние ошибки.
-`utils/studyFlow.js` сохраняет существующий порядок store и общую видимость с DeckGrid; `returnToStudyTheme`
-возвращает в текущую папку. Надпись возврата определяется в StudyFinished/StudyError по folder_id: «К колодам темы» или «К колодам».
-`forcedSeenIds` ограничивает один принудительный проход. Online/offline выбирают forced-карточки по position, затем id,
-с учётом exclude_ids и удаления, независимо от queue/next_review. Ранний forced-бейдж в StudyView зависит от isLearningMore и будущего next_review.
-`review_context=forced` проходит через useStudySession → study routes → оба SRS-движка и прогноз интервалов.
-Offline-оценка атомарно сохраняет progress и review:* в существующем Dexie syncState. Sync v2 сохраняет итоговый progress
-и TMAReviewHistory по устойчивому пакету с request_id и review_count, без повторного применения SRS и без миграции.
-Проверки: `scripts/tests/test_forced_study.py`, `scripts/tests/browser/study-finished.spec.cjs`, `scripts/tests/browser/offline.spec.cjs`, `app/src/utils/__tests__/studyFlow.test.js`, `srsEngine.test.js`.
+Online и offline CRUD выбираются в API-клиенте; offline очередь отправляется отдельно.
+Синхронизация Knowledge Attempts имеет собственную очередь и жизненный цикл.
+Медиа разрешаются через URL, серверное хранилище и локальный кэш; см. [media](subsystems/media.md).
 
-## 2. Дерево решений: Где искать проблему (Diagnostic Guide)
+## Подсистемы: Intent-to-Code Matrix
 
-| Симптом / Проблема | Шаг 1: Проверить на клиенте | Шаг 2: Проверить на сервере | Корневой источник истины |
-| :--- | :--- | :--- | :--- |
-| **Изменения пропали после перезагрузки** | `localDb.js` (IndexedDB tables) $\to$ `offlineApi.js` | Проверить, прошел ли запрос в `api/routers/sync.py` | `sync_service.py` / конфликт версий |
-| **Кнопка/модалка не реагирует или ломает верстку** | `app/src/components/modals/` $\to$ `useUiStore.js` | — | Локальный стейт модалки / Browser & Mobile Viewport resize |
-| **Ошибка при пересчете интервала SRS (SuperMemo/Leitner)** | `app/src/components/study/StudyView.jsx` | `api/routers/study.py` | `api/srs.py` (алгоритм интервалов) |
-| **Карточки создаются на сервере, но не видны в UI** | `createDeckSlice.js` (селектор фильтрации/папок) | `api/services/cards.py` | Флаги `is_deleted` или несоответствие `folder_id` |
-| **Ошибка генерации карточек нейросетью** | Логи сетевого запроса к `/api/ai/...` | `api/routers/ai.py` $\to$ `api/ai_service.py` | Промпты в `prompt_builders.py` или API-ключи провайдера |
-| **Не воспроизводится аудио карточки** | `app/src/utils/audio.js` $\to$ `mediaCache.js` | `api/routers/media.py` | `api/services/media.py` (генерация edge-tts) |
-| **Не загружается картинка карточки** | `StudyCardImage.jsx` $\to$ `StudyCard.jsx` | `api/routers/media.py` (`/images/`) | `TMAMedia` в БД Supabase / reconnect |
-| **Сбой авторизации в Telegram/Android** | `app/src/store/useAuthStore.js`, `utils/auth.js`, `utils/platform.js` | `api/routers/auth_v2.py`, `bot.py`, `dependencies/auth.py` | `api/auth/providers.py`, TTL/challenge и сессии в `service.py`; deployment-проверки в `api/auth/DEPLOYMENT.md` |
+| Подсистема | Основной вход UI / клиента | Серверный вход | Документ |
+| --- | --- | --- | --- |
+| Карточки, синтаксис, редактор, batch import | `app/src/components/common/CardForm.jsx`, `app/src/hooks/useCardEditor.js` | `api/routers/cards.py`, `api/services/cards.py` | [cards](subsystems/cards.md) |
+| Колоды, папки, библиотека, sharing, trash | `app/src/components/deckgrid/DeckGrid.jsx`, `app/src/store/useDeckStore.js` | `api/routers/decks.py`, `api/routers/folders.py` | [decks](subsystems/decks.md) |
+| Обучение, упражнения, SRS, autoplay | `app/src/components/study/StudyView.jsx`, `app/src/hooks/useStudySession.js` | `api/routers/study.py`, `api/srs.py` | [study](subsystems/study.md) |
+| Offline CRUD и синхронизация сущностей | `app/src/services/offlineApi.js`, `app/src/services/syncService.js` | `api/routers/sync.py`, `api/services/offline_sync.py` | [sync](subsystems/sync.md) |
+| AI generation и free-text evaluation | `app/src/hooks/useAiActions.js`, `app/src/hooks/useFreeTextEvaluation.js` | `api/routers/ai.py`, `api/ai_service.py` | [ai](subsystems/ai.md) |
+| Вход, привязки, пароли, refresh | `app/src/store/useAuthStore.js`, `app/src/utils/auth.js` | `api/routers/auth_v2.py`, `api/auth/service.py` | [auth](subsystems/auth.md) |
+| TTS, изображения, аудио, кэш | `app/src/hooks/useAudio.js`, `app/src/services/mediaCache.js` | `api/routers/media.py`, `api/services/media.py` | [media](subsystems/media.md) |
+| Knowledge Items, Attempts, mastery, diagnostics | `app/src/services/knowledgeCaptureService.js`, `app/src/hooks/useKnowledgeSync.js` | `api/routers/knowledge.py`, `api/services/knowledge_mastery.py` | [knowledge](subsystems/knowledge.md) |
 
-Study performance: `useStudySession.js` shows cached Next/Back cards immediately and refreshes card/history/deck data in the background. Grades and forced selection still wait for the server SRS result. `study.py:_card_to_response` only serializes existing audio; StudyView/useAutoplay generate missing TTS on demand. `get_cards_for_study` batches media existence checks. Card transitions use concurrent 100 ms motion; front/back flip motion is unchanged.
+## Владельцы состояния и данных
+
+| Область | Клиентский владелец | Серверные модели в `api/models.py` |
+| --- | --- | --- |
+| Колоды / карточки / папки | `app/src/store/useDeckStore.js`, Dexie `decks/cards/folders` | `TMA_Deck`, `TMA_Card`, `TMA_Folder` |
+| Учебная сессия | `app/src/store/useSessionStore.js` | Сессия UI локальна; сохранённый прогресс — `TMAProgress` |
+| SRS и история повторений | Dexie `progress`, очередь review в `syncState` | `TMAProgress`, `TMAReviewHistory` |
+| Настройки пользователя | `app/src/store/useSettingsStore.js` | `TMASetting`; маршруты в `api/routers/settings.py` |
+| Аккаунт / сессии входа | `app/src/store/useAuthStore.js`, `app/src/utils/auth.js` | `TMAUser`, семейство `TMAAuth*` |
+| Синхронизация сущностей | Dexie `syncState`, dirty-записи | `TMAOfflineBatch` |
+| Медиа | Dexie `media`, URL и состояние плеера | `TMAMedia`; аудио также использует Supabase Storage |
+| Knowledge | Dexie KI-таблицы и outbox | `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` |
+| AI-промпты / конфигурация | Настройки и формы генерации | `TMASetting`, `TMAUserPrompt`, `TMACustomPrompt` |
+| Совместный доступ | `app/src/store/useCollaborativeStore.js` | `TMA_Collaborator` |
+| Библиотека | `app/src/store/slices/createLibrarySlice.js` | `LibraryCategory`, `Deck`, `Card` |
+
+## Смежные области
+
+- LiD exam/practice: `app/src/components/lid/LidExamView.jsx`, `app/src/store/useLidStore.js`, `api/routers/lid.py`.
+  Их quiz policy отличается от обычных учебных упражнений; вход через [study](subsystems/study.md).
+- Collaboration: `app/src/hooks/useCollaborativeSync.js`, `api/routers/collaborative.py`, `api/services/collaborative_service.py`.
+  Доступ и доменные действия описаны в [decks](subsystems/decks.md), transport — в [sync](subsystems/sync.md).
+- Поиск: `app/src/hooks/useSearch.js`, `app/src/utils/search.js`, `api/routers/cards.py`.
+  Область поиска определяется колодой/папкой; вход через [cards](subsystems/cards.md).
+- Настройки и стартовая загрузка: `app/src/hooks/useAppInitialization.js`, `app/src/store/useSettingsStore.js`, `api/routers/settings.py`.
+  Для переноса между устройствами см. [sync](subsystems/sync.md); для профиля — [auth](subsystems/auth.md).
+- Язык интерфейса: `app/src/i18n/i18nContext.jsx`; язык обучения: `app/src/store/useLanguageStore.js`.
+- Админ-консоль, массовая регенерация и бэкапы: [ADMIN_ARCHITECTURE.md](ADMIN_ARCHITECTURE.md).
+
+## Архитектурные границы
+
+- Исходный текст карточки и синтаксис упражнений принадлежат [cards](subsystems/cards.md).
+  Рендеринг, feedback и completion принадлежат [study](subsystems/study.md).
+- SRS рассчитывает повторения карточек; Knowledge mastery строится из Attempts.
+  Это разные модели прогресса с разными механизмами сохранения.
+- Авторизация запроса проходит через `api/dependencies/auth.py`; доступ к сущности проверяется сервером.
+- Offline-записи, временные ID и повторные запросы обслуживает [sync](subsystems/sync.md).
+- AI-ответ становится данными карточки через существующее сохранение; evaluator возвращает verdict.
+  Детали контрактов и провайдеров находятся в [ai](subsystems/ai.md).
+- Локальная админка использует `tools/admin/`, отдельно от React-клиента и его offline API.
+
+## Документация, правила и skills
+
+Рабочие правила находятся в [AGENTS.md](AGENTS.md) и [корневом AGENTS.md](../AGENTS.md).
+Эта карта служит навигацией; процедуры работы остаются в существующих rules/skills.
+
+| Когда читать | Документ |
+| --- | --- |
+| Архитектурные ограничения | [architectural_integrity](rules/architectural_integrity.md) |
+| Задача явно касается режима offline | [offline_mode](rules/offline_mode.md), затем текущий [sync](subsystems/sync.md) |
+| Работа с UI | [tma-ui](skills/tma-ui/SKILL.md) |
+| Серверные маршруты и сервисы | [fastapi-backend](skills/fastapi-backend/SKILL.md) |
+| ORM, миграции, Dexie | [db-mgmt](skills/db-mgmt/SKILL.md) |
+| Границы модулей и переиспользование | [lean-code](skills/lean-code/SKILL.md) |
+| Проверки изменений | [ai-harness-eval](skills/ai-harness-eval/SKILL.md) |
+| Подробная схема SRS | [SRS_SYSTEM](../project_docs/ARCHITECTURE/SRS_SYSTEM.md) |
+| Авторизация v2 | [AUTH_V2](../project_docs/ARCHITECTURE/AUTH_V2.md) |
+| Обзор хранилищ | [DATABASE_AND_STORAGE](../project_docs/ARCHITECTURE/DATABASE_AND_STORAGE.md) |
+| Поиск других проектных документов | [DOCS_MAP](../project_docs/DOCS_MAP.md) |
+
+Проектные обзоры могут содержать исторические пути; точные ссылки здесь сверены с рабочим деревом.
+`SMART_SYNC_PLAN.md` — план развития, а не контракт действующей offline sync v2.
+Детали алгоритмов, параметров, миграций и сценариев тестирования находятся в документах подсистем.

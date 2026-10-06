@@ -51,6 +51,25 @@ async function openEditor(page, context, front = null) {
 
 const raw = page => page.getByRole('textbox', { name: 'Исходная разметка', exact: true });
 const command = (page, name) => page.locator('.card-editor-toolbar').getByRole('button', { name, exact: true });
+async function clickCommand(page, name) {
+  const direct = page.locator('.card-editor-toolbar').getByRole('button', { name, exact: true });
+  if (await direct.isVisible()) {
+    await direct.click();
+    return;
+  }
+  const mores = page.locator('.card-editor-btn-more');
+  const count = await mores.count();
+  for (let i = 0; i < count; i++) {
+    await mores.nth(i).click();
+    const inMenu = page.locator('.card-editor-popover').getByRole('menuitem', { name, exact: true });
+    if (await inMenu.isVisible()) {
+      await inMenu.click();
+      return;
+    }
+    await page.keyboard.press('Escape');
+  }
+  await direct.click();
+}
 async function sourceEditor(page, context, front) {
   await openEditor(page, context, front);
   await page.getByRole('button', { name: 'Дополнительно', exact: true }).click();
@@ -85,7 +104,7 @@ test('every toolbar command replaces selection and preserves both surrounding pa
   for (const item of commands) {
     await raw(page).fill('AA\nREPLACE\nZZ');
     await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(3, 10); });
-    await command(page, item.label).click();
+    await clickCommand(page, item.label);
     await expect(raw(page)).toHaveValue('AA\n' + item.template + '\nZZ');
     await expect(raw(page)).toBeFocused();
   }
@@ -99,7 +118,7 @@ test('repeated source and inline insertions use the cursor after typing and arro
   await command(page, 'Подсказка').click();
   await expect(raw(page)).toBeFocused();
   await page.keyboard.insertText('Перевод.\n');
-  await command(page, 'Исходный текст').click();
+  await command(page, 'Подсказка').click();
   await expect(raw(page)).toHaveValue('AA\n::source\nПеревод.\n::source\nBB');
   await expect(raw(page)).toBeFocused();
   await page.keyboard.insertText('X');
@@ -207,15 +226,20 @@ test('responsive toolbar fits narrow and desktop widths in Russian and English',
   await sourceEditor(page, context, '::task\nЗадание.\n\n::source\nПодсказка.\n\n::exercise\nHallo [[Welt]].');
   for (const [width, height] of [[1920, 1080], [1366, 768], [768, 900], [430, 900], [375, 812], [320, 740]]) {
     await page.setViewportSize({ width, height });
-    await command(page, 'Банк слов').scrollIntoViewIfNeeded();
-    await expect(command(page, 'Банк слов')).toBeVisible();
+    await command(page, 'Подсказка').scrollIntoViewIfNeeded();
+    await expect(command(page, 'Подсказка')).toBeVisible();
+    await command(page, 'Собрать предложение').scrollIntoViewIfNeeded();
+    await expect(command(page, 'Собрать предложение')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await page.locator('.card-content-editor').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('toolbar-' + width + '.png'), fullPage: true });
   }
   await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
   await expect(command(page, 'Hint')).toBeVisible();
-  await expect(command(page, 'Word bank')).toBeVisible();
+  const moreBtn = page.locator('.card-editor-cluster-exercise .card-editor-btn-more');
+  await moreBtn.click();
+  await expect(page.locator('.card-editor-popover').getByRole('menuitem', { name: 'Word bank', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
   await page.screenshot({ path: testInfo.outputPath('toolbar-en-320.png'), fullPage: true });
   expect(errors).toEqual([]);
 });

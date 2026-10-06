@@ -180,18 +180,23 @@ test('editor output remains compatible with strict batch import', () => {
   assert.equal(imported[0].back, 'Answer');
 });
 
-test('hint toolbar action generates only the official source marker', () => {
-  assert.equal(editorCommandGroups.length, 2);
+test('source toolbar action generates only the official source marker and hint is not a command', () => {
+  assert.equal(editorCommandGroups.length, 3);
   const exerciseGroup = editorCommandGroups.find(g => g.id === 'exercise');
   const markerGroup = editorCommandGroups.find(g => g.id === 'marker');
+  const editGroup = editorCommandGroups.find(g => g.id === 'edit');
 
   assert.ok(exerciseGroup);
   assert.ok(markerGroup);
-  assert.deepEqual(exerciseGroup.commands.map(c => c.id), ['puzzle', 'match', 'free', 'wordbank', 'choice', 'input', 'ending']);
-  assert.deepEqual(markerGroup.commands.map(c => c.id), ['task', 'hint', 'example', 'source', 'exercise', 'options', 'topic', 'level']);
+  assert.ok(editGroup);
+  assert.deepEqual(exerciseGroup.commands.map(c => c.id), ['puzzle', 'match', 'free', 'wordbank', 'choice', 'input']);
+  assert.deepEqual(markerGroup.commands.map(c => c.id), ['task', 'source', 'example', 'exercise', 'options', 'topic', 'level']);
+  assert.deepEqual(editGroup.commands.map(c => c.id), ['ending']);
 
   const withHint = insertEditorCommand('', 'hint').text;
   assert.equal(withHint, '::source\n');
+  const withSource = insertEditorCommand('', 'source').text;
+  assert.equal(withSource, '::source\n');
   const markers = ['::task', '::source', '::options', '::example', '::exercise', '::level', '::topic'];
   assert.ok(editorCommands.filter(command => command.info).every(command => markers.includes(command.template.trim())));
 });
@@ -216,6 +221,12 @@ test('puzzle inserts between blocks and selects its sample sentence', () => {
   assert.equal(result.text, before + '@puzzle\nIch lerne Deutsch.' + after);
   assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), 'Ich lerne Deutsch.');
   assert.equal(replaceEditorRange(result.text, result.selectionStart, result.selectionEnd, 'Mein Satz.'), before + '@puzzle\nMein Satz.' + after);
+});
+
+test('input inserts at cursor and selects its demo placeholder when nothing is selected', () => {
+  const result = insertEditorCommand('Hallo ', 'input', 6);
+  assert.equal(result.text, 'Hallo [[Berlin]]');
+  assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), 'Berlin');
 });
 
 test('hint and source insert at the cursor even when a source block exists', () => {

@@ -1,0 +1,1954 @@
+[
+  {
+    "card_id": 344841,
+    "deck_id": 6964,
+    "deck_name": "Начало практики",
+    "reason": "Cannot reliably determine Russian translation for [[bin]]",
+    "front_text": "::exercise\nErgänzen Sie das Verb.\n\nObwohl ich müde [[bin]], lerne ich Deutsch.",
+    "back_text": "Obwohl ich müde bin, lerne ich Deutsch.\n\nХотя я устал, я учу немецкий.\n\nobwohl → глагол в конце придаточной части."
+  },
+  {
+    "card_id": 344842,
+    "deck_id": 6964,
+    "deck_name": "Начало практики",
+    "reason": "Cannot reliably determine Russian translation for [[regnet]]",
+    "front_text": "::exercise\nErgänzen Sie das Verb.\n\nObwohl es heute [[regnet]], gehen wir spazieren.",
+    "back_text": "Obwohl es heute regnet, gehen wir spazieren.\n\nХотя сегодня идёт дождь, мы идём гулять."
+  },
+  {
+    "card_id": 344843,
+    "deck_id": 6964,
+    "deck_name": "Начало практики",
+    "reason": "Cannot reliably determine Russian translation for [[bin]]",
+    "front_text": "::exercise\nErgänzen Sie das Verb.\n\nIch gehe zur Arbeit, obwohl ich krank [[bin]].",
+    "back_text": "Ich gehe zur Arbeit, obwohl ich krank bin.\n\nЯ иду на работу, хотя я болен."
+  },
+  {
+    "card_id": 344844,
+    "deck_id": 6964,
+    "deck_name": "Начало практики",
+    "reason": "Cannot reliably determine Russian translation for [[hat]]",
+    "front_text": "::exercise\nErgänzen Sie das Verb.\n\nSie lernt weiter, obwohl sie keine Zeit [[hat]].",
+    "back_text": "Sie lernt weiter, obwohl sie keine Zeit hat.\n\nОна продолжает учиться, хотя у неё нет времени."
+  },
+  {
+    "card_id": 344845,
+    "deck_id": 6964,
+    "deck_name": "Начало практики",
+    "reason": "Cannot reliably determine Russian translation for [[ist]]",
+    "front_text": "::exercise\nErgänzen Sie das Verb.\n\nWir gehen raus, obwohl es sehr kalt [[ist]].",
+    "back_text": "Wir gehen raus, obwohl es sehr kalt ist.\n\nМы выходим на улицу, хотя очень холодно."
+  },
+  {
+    "card_id": 344846,
+    "deck_id": 6964,
+    "deck_name": "Начало практики",
+    "reason": "Cannot reliably determine Russian translation for [[Trotzdem]]",
+    "front_text": "::exercise\nErgänzen Sie das richtige Wort.\n\nIch bin müde. [[Trotzdem]] lerne ich weiter.",
+    "back_text": "Ich bin müde. Trotzdem lerne ich weiter.\n\nЯ устал. Несмотря на это, я продолжаю учиться."
+  },
+  {
+    "card_id": 344847,
+    "deck_id": 6964,
+    "deck_name": "Начало практики",
+    "reason": "Cannot reliably determine Russian translation for [[Trotzdem]]",
+    "front_text": "::exercise\nErgänzen Sie das richtige Wort.\n\nEs regnet. [[Trotzdem]] gehen wir spazieren.",
+    "back_text": "Es regnet. Trotzdem gehen wir spazieren.\n\nИдёт дождь. Несмотря на это, мы идём гулять."
+  },
+  {
+    "card_id": 344848,
+    "deck_id": 6964,
+    "deck_name": "Начало практики",
+    "reason": "Cannot reliably determine Russian translation for [[Trotzdem]]",
+    "front_text": "::exercise\nErgänzen Sie das richtige Wort.\n\nEr ist krank. [[Trotzdem]] arbeitet er heute.",
+    "back_text": "Er ist krank. Trotzdem arbeitet er heute.\n\nОн болен. Тем не менее сегодня он работает."
+  },
+  {
+    "card_id": 344849,
+    "deck_id": 6964,
+    "deck_name": "Начало практики",
+    "reason": "Cannot reliably determine Russian translation for [[Trotzdem]]",
+    "front_text": "::exercise\nErgänzen Sie das richtige Wort.\n\nSie hat wenig Zeit. [[Trotzdem]] hilft sie uns.",
+    "back_text": "Sie hat wenig Zeit. Trotzdem hilft sie uns.\n\nУ неё мало времени. Несмотря на это, она нам помогает."
+  },
+  {
+    "card_id": 344953,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[bin]]",
+    "front_text": "::exercise\nSetzen Sie das Verb an die richtige Stelle.\n\nObwohl ich müde [[bin]], gehe ich noch spazieren.",
+    "back_text": "Obwohl ich müde bin, gehe ich noch spazieren.\n\nХотя я устал, я всё ещё иду гулять.\n\nПосле obwohl глагол находится в конце придаточной части."
+  },
+  {
+    "card_id": 344954,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[ist]]",
+    "front_text": "::exercise\nSetzen Sie das Verb an die richtige Stelle.\n\nObwohl er krank [[ist]], geht er zur Arbeit.",
+    "back_text": "Obwohl er krank ist, geht er zur Arbeit.\n\nХотя он болен, он идёт на работу."
+  },
+  {
+    "card_id": 344955,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[haben]]",
+    "front_text": "::exercise\nSetzen Sie das Verb an die richtige Stelle.\n\nObwohl wir wenig Zeit [[haben]], machen wir die Aufgabe.",
+    "back_text": "Obwohl wir wenig Zeit haben, machen wir die Aufgabe.\n\nХотя у нас мало времени, мы выполняем задание."
+  },
+  {
+    "card_id": 344956,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[ist]]",
+    "front_text": "::exercise\nSetzen Sie das Verb an die richtige Stelle.\n\nObwohl das Wetter schlecht [[ist]], fahren wir ans Meer.",
+    "back_text": "Obwohl das Wetter schlecht ist, fahren wir к морю.\n\nХотя погода плохая, мы едем к морю."
+  },
+  {
+    "card_id": 344957,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[regnet]]",
+    "front_text": "::exercise\nSetzen Sie das Verb an die richtige Stelle.\n\nIch gehe spazieren, obwohl es stark [[regnet]].",
+    "back_text": "Ich gehe spazieren, obwohl es stark regnet.\n\nЯ иду гулять, хотя идёт сильный дождь."
+  },
+  {
+    "card_id": 344958,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[ist]]",
+    "front_text": "::exercise\nSetzen Sie das Verb an die richtige Stelle.\n\nSie fährt mit dem Fahrrad, obwohl es sehr kalt [[ist]].",
+    "back_text": "Sie fährt mit dem Fahrrad, obwohl es sehr kalt ist.\n\nОна едет на велосипеде, хотя очень холодно."
+  },
+  {
+    "card_id": 344959,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[muss]]",
+    "front_text": "::exercise\nSetzen Sie das Modalverb an die richtige Stelle.\n\nObwohl ich morgen früh arbeiten [[muss]], gehe ich heute Abend aus.",
+    "back_text": "Obwohl ich morgen früh arbeiten muss, gehe ich heute Abend aus.\n\nХотя завтра утром мне нужно работать, сегодня вечером я иду куда-нибудь.\n\nС модальным глаголом:\n\narbeiten muss\n\nоба элемента находятся в конце придаточной части."
+  },
+  {
+    "card_id": 344960,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[kann]]",
+    "front_text": "::exercise\nSetzen Sie das Modalverb an die richtige Stelle.\n\nObwohl er nicht kommen [[kann]], ruft er uns an.",
+    "back_text": "Obwohl er nicht kommen kann, ruft er uns an.\n\nХотя он не может прийти, он нам звонит."
+  },
+  {
+    "card_id": 344961,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[möchte]]",
+    "front_text": "::exercise\nSetzen Sie das Modalverb an die richtige Stelle.\n\nSie geht zur Arbeit, obwohl sie zu Hause bleiben [[möchte]].",
+    "back_text": "Sie geht zur Arbeit, obwohl sie zu Hause bleiben möchte.\n\nОна идёт на работу, хотя хотела бы остаться дома."
+  },
+  {
+    "card_id": 344962,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[geschlafen habe]]",
+    "front_text": "::exercise\nSetzen Sie die Verben in die richtige Reihenfolge.\n\nObwohl ich wenig [[geschlafen habe]], bin ich heute fit.",
+    "back_text": "Obwohl ich wenig geschlafen habe, bin ich heute fit.\n\nХотя я мало спал, сегодня я в форме.\n\nВ Perfekt после obwohl глагольная группа стоит в конце:\n\ngeschlafen habe"
+  },
+  {
+    "card_id": 344963,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[gekommen ist]]",
+    "front_text": "::exercise\nSetzen Sie die Verben in die richtige Reihenfolge.\n\nObwohl er spät [[gekommen ist]], hat er noch gearbeitet.",
+    "back_text": "Obwohl er spät gekommen ist, hat er noch gearbeitet.\n\nХотя он пришёл поздно, он ещё работал."
+  },
+  {
+    "card_id": 344964,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[geschneit hat]]",
+    "front_text": "::exercise\nSetzen Sie die Verben in die richtige Reihenfolge.\n\nWir fahren heute los, obwohl es die ganze Nacht [[geschneit hat]].",
+    "back_text": "Wir fahren heute los, obwohl es die ganze Nacht geschneit hat.\n\nМы сегодня выезжаем, хотя всю ночь шёл снег."
+  },
+  {
+    "card_id": 344972,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[gehe]]",
+    "front_text": "::exercise\nErgänzen Sie den Satz.\n\nIch bin müde. Trotzdem [[gehe]] ich heute zum Deutschkurs.",
+    "back_text": "Ich bin müde. Trotzdem gehe ich heute zum Deutschkurs.\n\nЯ устал. Несмотря на это, сегодня я иду на курс немецкого.\n\nПосле trotzdem глагол стоит на второй позиции."
+  },
+  {
+    "card_id": 344973,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[fahren]]",
+    "front_text": "::exercise\nErgänzen Sie den Satz.\n\nEs regnet. Trotzdem [[fahren]] wir mit dem Fahrrad.",
+    "back_text": "Es regnet. Trotzdem fahren wir mit dem Fahrrad.\n\nИдёт дождь. Несмотря на это, мы едем на велосипеде."
+  },
+  {
+    "card_id": 344974,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[kommt]]",
+    "front_text": "::exercise\nErgänzen Sie den Satz.\n\nEr ist krank. Trotzdem [[kommt]] er zur Arbeit.",
+    "back_text": "Er ist krank. Trotzdem kommt er zur Arbeit.\n\nОн болен. Тем не менее он приходит на работу."
+  },
+  {
+    "card_id": 344975,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[hilft]]",
+    "front_text": "::exercise\nErgänzen Sie den Satz.\n\nSie hat wenig Zeit. Trotzdem [[hilft]] sie uns.",
+    "back_text": "Sie hat wenig Zeit. Trotzdem hilft sie uns.\n\nУ неё мало времени. Несмотря на это, она нам помогает."
+  },
+  {
+    "card_id": 344994,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[bin]]",
+    "front_text": "::exercise\nMerken Sie sich das Muster.\n\nObwohl ich müde [[bin]], [[gehe]] ich arbeiten.",
+    "back_text": "Obwohl ich müde bin, gehe ich arbeiten.\n\nКлючевая модель:\n\nobwohl ... VERB,\nVERB + Subjekt ...\n\nobwohl ich müde BIN,\nGEHE ich ..."
+  },
+  {
+    "card_id": 344995,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[gehe]]",
+    "front_text": "::exercise\nMerken Sie sich das Muster.\n\nIch bin müde. Trotzdem [[gehe]] ich arbeiten.",
+    "back_text": "Ich bin müde. Trotzdem gehe ich arbeiten.\n\nКлючевая модель:\n\nTrotzdem + VERB + Subjekt\n\nTrotzdem GEHE ich ..."
+  },
+  {
+    "card_id": 344996,
+    "deck_id": 6965,
+    "deck_name": "Практика порядок слов",
+    "reason": "Cannot reliably determine Russian translation for [[bin]]",
+    "front_text": "::exercise\nVergleichen Sie die beiden Strukturen.\n\nObwohl ich müde [[bin]], [[lerne]] ich weiter.\n\nIch bin müde. Trotzdem [[lerne]] ich weiter.",
+    "back_text": "Obwohl ich müde bin, lerne ich weiter.\n\nIch bin müde. Trotzdem lerne ich weiter.\n\nДва правила одновременно:\n\nobwohl → глагол придаточной части в конец\n\ntrotzdem → глагол главного предложения на второе место"
+  },
+  {
+    "card_id": 345037,
+    "deck_id": 6966,
+    "deck_name": "Перестроить предложение",
+    "reason": "Cannot reliably determine Russian translation for [[bin]]",
+    "front_text": "::exercise\nMerken Sie sich die Umwandlung.\n\nobwohl ich müde [[bin]]\n→\nIch [[bin]] müde. Trotzdem [[lerne]] ich weiter.",
+    "back_text": "Beim Umformen verändert sich die Satzstruktur.\n\nOBWOHL:\n\nobwohl ich müde bin\n\n→ Verb am Ende\n\nTROTZDEM:\n\nIch bin müde. Trotzdem lerne ich weiter.\n\n→ Verb auf Position 2\n\nНе нужно просто заменять одно слово другим. Нужно перестроить всё предложение."
+  },
+  {
+    "card_id": 345038,
+    "deck_id": 6966,
+    "deck_name": "Перестроить предложение",
+    "reason": "Cannot reliably determine Russian translation for [[lerne]]",
+    "front_text": "::exercise\nMerken Sie sich die Umwandlung.\n\nIch bin müde. Trotzdem [[lerne]] ich weiter.\n→\nIch lerne weiter, obwohl ich müde [[bin]].",
+    "back_text": "Главная мысль этой колоды:\n\nobwohl и trotzdem нельзя просто поменять местами.\n\nНужно изменить структуру.\n\nTROTZDEM:\n\nTrotzdem lerne ich ...\n\nOBWOHL:\n\nobwohl ich ... bin\n\nИменно это преобразование нужно довести до автоматизма."
+  },
+  {
+    "card_id": 345077,
+    "deck_id": 6966,
+    "deck_name": "Перестроить предложение",
+    "reason": "Cannot reliably determine Russian translation for [[bin]]",
+    "front_text": "::exercise\nMerken Sie sich die Umwandlung.\n\nobwohl ich müde [[bin]]\n→\nIch [[bin]] müde. Trotzdem [[lerne]] ich weiter.",
+    "back_text": "Beim Umformen verändert sich die Satzstruktur.\n\nOBWOHL:\n\nobwohl ich müde bin\n\n→ Verb am Ende\n\nTROTZDEM:\n\nIch bin müde. Trotzdem lerne ich weiter.\n\n→ Verb auf Position 2\n\nНе нужно просто заменять одно слово другим. Нужно перестроить всё предложение."
+  },
+  {
+    "card_id": 345078,
+    "deck_id": 6966,
+    "deck_name": "Перестроить предложение",
+    "reason": "Cannot reliably determine Russian translation for [[lerne]]",
+    "front_text": "::exercise\nMerken Sie sich die Umwandlung.\n\nIch bin müde. Trotzdem [[lerne]] ich weiter.\n→\nIch lerne weiter, obwohl ich müde [[bin]].",
+    "back_text": "Главная мысль этой колоды:\n\nobwohl и trotzdem нельзя просто поменять местами.\n\nНужно изменить структуру.\n\nTROTZDEM:\n\nTrotzdem lerne ich ...\n\nOBWOHL:\n\nobwohl ich ... bin\n\nИменно это преобразование нужно довести до автоматизма."
+  },
+  {
+    "card_id": 345183,
+    "deck_id": 6968,
+    "deck_name": "Смешанная практика с другими темами",
+    "reason": "Cannot reliably determine Russian translation for [[Deshalb]]",
+    "front_text": "::exercise\nErgänzen Sie das passende Wort.\n\nIch habe morgen eine Prüfung. [[Deshalb]] lerne ich heute Abend.",
+    "back_text": "Ich habe morgen eine Prüfung. Deshalb lerne ich heute Abend.\n\nЗавтра у меня экзамен. Поэтому сегодня вечером я занимаюсь."
+  },
+  {
+    "card_id": 345184,
+    "deck_id": 6968,
+    "deck_name": "Смешанная практика с другими темами",
+    "reason": "Cannot reliably determine Russian translation for [[Trotzdem]]",
+    "front_text": "::exercise\nErgänzen Sie das passende Wort.\n\nIch habe morgen eine Prüfung. [[Trotzdem]] gehe ich heute Abend zur Party.",
+    "back_text": "Ich habe morgen eine Prüfung. Trotzdem gehe ich heute Abend zur Party.\n\nЗавтра у меня экзамен. Несмотря на это, сегодня вечером я иду на вечеринку."
+  },
+  {
+    "card_id": 345185,
+    "deck_id": 6968,
+    "deck_name": "Смешанная практика с другими темами",
+    "reason": "Cannot reliably determine Russian translation for [[obwohl]]",
+    "front_text": "::exercise\nErgänzen Sie das passende Wort.\n\nIch gehe heute Abend zur Party, [[obwohl]] ich morgen eine Prüfung habe.",
+    "back_text": "Ich gehe heute Abend zur Party, obwohl ich morgen eine Prüfung habe.\n\nЯ иду сегодня вечером на вечеринку, хотя завтра у меня экзамен."
+  },
+  {
+    "card_id": 348675,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas ist der Lehrer, [[der]] Deutsch unterrichtet.",
+    "back_text": "Das ist der Lehrer, der Deutsch unterrichtet.\n\nЭто учитель, который преподаёт немецкий.\n\nКто преподаёт?\n\nder Lehrer\n\n→ Nominativ"
+  },
+  {
+    "card_id": 348676,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas ist die Nachbarin, [[die]] im zweiten Stock wohnt.",
+    "back_text": "Das ist die Nachbarin, die im zweiten Stock wohnt.\n\nЭто соседка, которая живёт на втором этаже."
+  },
+  {
+    "card_id": 348677,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[das]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas ist das Auto, [[das]] vor dem Haus steht.",
+    "back_text": "Das ist das Auto, das vor dem Haus steht.\n\nЭто машина, которая стоит перед домом."
+  },
+  {
+    "card_id": 348678,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas sind die Studenten, [[die]] heute eine Prüfung schreiben.",
+    "back_text": "Das sind die Studenten, die heute eine Prüfung schreiben.\n\nЭто студенты, которые сегодня пишут экзамен."
+  },
+  {
+    "card_id": 348693,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas ist der Kollege, [[den]] ich gut kenne.",
+    "back_text": "Das ist der Kollege, den ich gut kenne.\n\nЭто коллега, которого я хорошо знаю.\n\nIch kenne den Kollegen.\n\n→ Akkusativ"
+  },
+  {
+    "card_id": 348694,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas ist die Wohnung, [[die]] wir kaufen möchten.",
+    "back_text": "Das ist die Wohnung, die wir kaufen möchten.\n\nЭто квартира, которую мы хотим купить.\n\nWir möchten die Wohnung kaufen.\n\n→ Akkusativ"
+  },
+  {
+    "card_id": 348695,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[das]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas ist das Handy, [[das]] ich gestern gekauft habe.",
+    "back_text": "Das ist das Handy, das ich gestern gekauft habe.\n\nЭто телефон, который я вчера купил."
+  },
+  {
+    "card_id": 348696,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas sind die Bücher, [[die]] ich noch lesen möchte.",
+    "back_text": "Das sind die Bücher, die ich noch lesen möchte.\n\nЭто книги, которые я ещё хочу прочитать."
+  },
+  {
+    "card_id": 348717,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::exercise\nSetzen Sie das passende Relativpronomen ein.\n\nDer Mann, [[der]] dort steht, ist mein Nachbar.",
+    "back_text": "Der Mann, der dort steht, ist mein Nachbar.\n\nМужчина, который стоит там, — мой сосед."
+  },
+  {
+    "card_id": 348718,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::exercise\nSetzen Sie das passende Relativpronomen ein.\n\nDer Mann, [[den]] du dort siehst, ist mein Nachbar.",
+    "back_text": "Der Mann, den du dort siehst, ist mein Nachbar.\n\nМужчина, которого ты там видишь, — мой сосед.\n\nСравните:\n\nder dort steht\n\nden du siehst"
+  },
+  {
+    "card_id": 348719,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::exercise\nSetzen Sie das passende Relativpronomen ein.\n\nDie Frau, [[die]] dort arbeitet, ist meine Lehrerin.",
+    "back_text": "Die Frau, die dort arbeitet, ist meine Lehrerin.\n\nЖенщина, которая там работает, — моя учительница."
+  },
+  {
+    "card_id": 348720,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::exercise\nSetzen Sie das passende Relativpronomen ein.\n\nDie Frau, [[die]] ich dort sehe, ist meine Lehrerin.",
+    "back_text": "Die Frau, die ich dort sehe, ist meine Lehrerin.\n\nЖенщина, которую я там вижу, — моя учительница.\n\nОбратите внимание:\n\nформа die одинаковая, но:\n\ndie dort arbeitet → Nominativ\n\ndie ich sehe → Akkusativ"
+  },
+  {
+    "card_id": 348729,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::exercise\nVergleichen Sie die beiden Sätze.\n\nDas ist der Mann, [[der]] mich kennt.\n\nDas ist der Mann, [[den]] ich kenne.",
+    "back_text": "Das ist der Mann, der mich kennt.\n\nМужчина знает меня.\n\n→ der = Nominativ\n\nDas ist der Mann, den ich kenne.\n\nЯ знаю мужчину.\n\n→ den = Akkusativ\n\nЭто одна из самых важных пар всей темы."
+  },
+  {
+    "card_id": 348730,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::exercise\nVergleichen Sie die beiden Sätze.\n\nDas ist die Frau, [[die]] mich jeden Tag sieht.\n\nDas ist die Frau, [[die]] ich jeden Tag sehe.",
+    "back_text": "Обе формы:\n\ndie\n\nНо падеж разный.\n\nDie Frau sieht mich.\n\n→ Nominativ\n\nIch sehe die Frau.\n\n→ Akkusativ\n\nФорма одинаковая, функция разная."
+  },
+  {
+    "card_id": 348731,
+    "deck_id": 6985,
+    "deck_name": "Урок 3 практика",
+    "reason": "Cannot reliably determine Russian translation for [[das]]",
+    "front_text": "::exercise\nVergleichen Sie die beiden Sätze.\n\nDas ist das Kind, [[das]] mich ruft.\n\nDas ist das Kind, [[das]] ich rufe.",
+    "back_text": "Обе формы:\n\ndas\n\nНо:\n\nDas Kind ruft mich.\n\n→ Nominativ\n\nIch rufe das Kind.\n\n→ Akkusativ\n\nСмысл определяет падеж, даже если форма не меняется."
+  },
+  {
+    "card_id": 348812,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::exercise\nLetzte Kontrolle: Ergänzen Sie.\n\nder Mann, [[dem]] ich helfe\n\ndie Frau, [[der]] ich helfe\n\ndas Kind, [[dem]] ich helfe\n\ndie Leute, [[denen]] ich helfe",
+    "back_text": "Dativ:"
+  },
+  {
+    "card_id": 348816,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas ist der Kollege, [[dem]] ich jeden Morgen schreibe.",
+    "back_text": "Das ist der Kollege, dem ich jeden Morgen schreibe.\n\nЭто коллега, которому я каждое утро пишу.\n\njemandem schreiben → Dativ"
+  },
+  {
+    "card_id": 348817,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas ist die Lehrerin, [[der]] ich eine E-Mail geschickt habe.",
+    "back_text": "Das ist die Lehrerin, der ich eine E-Mail geschickt habe.\n\nЭто учительница, которой я отправил электронное письмо.\n\njemandem etwas schicken → Dativ"
+  },
+  {
+    "card_id": 348818,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas ist das Kind, [[dem]] der Lehrer die Aufgabe erklärt.",
+    "back_text": "Das ist das Kind, dem der Lehrer die Aufgabe erklärt.\n\nЭто ребёнок, которому учитель объясняет задание.\n\njemandem etwas erklären → Dativ"
+  },
+  {
+    "card_id": 348819,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::exercise\nErgänzen Sie das Relativpronomen.\n\nDas sind die Studenten, [[denen]] die Lehrerin hilft.",
+    "back_text": "Das sind die Studenten, denen die Lehrerin hilft.\n\nЭто студенты, которым помогает учительница."
+  },
+  {
+    "card_id": 348828,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::exercise\nNominativ, Akkusativ oder Dativ?\n\nDas ist der Mann, [[der]] dort wartet.",
+    "back_text": "Nominativ\n\nDer Mann wartet.\n\n→ der"
+  },
+  {
+    "card_id": 348829,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::exercise\nNominativ, Akkusativ oder Dativ?\n\nDas ist der Mann, [[den]] ich suche.",
+    "back_text": "Akkusativ\n\nIch suche den Mann.\n\n→ den"
+  },
+  {
+    "card_id": 348830,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::exercise\nNominativ, Akkusativ oder Dativ?\n\nDas ist der Mann, [[dem]] ich helfe.",
+    "back_text": "Dativ\n\nIch helfe dem Mann.\n\n→ dem"
+  },
+  {
+    "card_id": 348831,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::exercise\nVergleichen Sie die drei Formen.\n\nder Mann, [[der]] dort arbeitet\n\nder Mann, [[den]] ich kenne\n\nder Mann, [[dem]] ich helfe",
+    "back_text": "der → Nominativ\n\nden → Akkusativ\n\ndem → Dativ\n\nОдин и тот же \"der Mann\", но разные роли внутри Relativsatz."
+  },
+  {
+    "card_id": 348836,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::exercise\nErgänzen Sie.\n\nDas ist der Freund, von [[dem]] ich dir erzählt habe.",
+    "back_text": "Das ist der Freund, von dem ich dir erzählt habe.\n\nЭто друг, о котором я тебе рассказывал.\n\nvon + Dativ\n\nMaskulin → dem"
+  },
+  {
+    "card_id": 348837,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::exercise\nErgänzen Sie.\n\nDas ist die Kollegin, von [[der]] ich gesprochen habe.",
+    "back_text": "Das ist die Kollegin, von der ich gesprochen habe.\n\nЭто коллега, о которой я говорил.\n\nvon + Dativ\n\nFeminin → der"
+  },
+  {
+    "card_id": 348838,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::exercise\nErgänzen Sie.\n\nDas ist das Problem, von [[dem]] wir gestern gesprochen haben.",
+    "back_text": "Das ist das Problem, von dem wir gestern gesprochen haben.\n\nЭто проблема, о которой мы вчера говорили."
+  },
+  {
+    "card_id": 348839,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::exercise\nErgänzen Sie.\n\nDas sind die Themen, von [[denen]] wir gesprochen haben.",
+    "back_text": "Das sind die Themen, von denen wir gesprochen haben.\n\nЭто темы, о которых мы говорили."
+  },
+  {
+    "card_id": 348867,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::exercise\nVergleichen Sie.\n\nDas ist der Mann, [[dem]] ich helfe.\n\nDas ist der Mann, mit [[dem]] ich arbeite.",
+    "back_text": "В обоих случаях используется:\n\ndem\n\nНо причина разная.\n\ndem ich helfe\n\n→ helfen требует Dativ\n\nmit dem ich arbeite\n\n→ mit требует Dativ\n\nПадеж может определяться:\n\n1. глаголом;\n2. предлогом."
+  },
+  {
+    "card_id": 348868,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::exercise\nVergleichen Sie.\n\nDas ist der Mann, [[den]] ich kenne.\n\nDas ist der Mann, für [[den]] ich arbeite.",
+    "back_text": "Обе формы:\n\nden\n\nНо:\n\nden ich kenne\n\n→ kennen + Akkusativ\n\nfür den ich arbeite\n\n→ für + Akkusativ"
+  },
+  {
+    "card_id": 348886,
+    "deck_id": 6986,
+    "deck_name": "Урок 4",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::exercise\nLetzte Kontrolle: Ergänzen Sie.\n\nder Mann, [[dem]] ich helfe\n\ndie Frau, [[der]] ich helfe\n\ndas Kind, [[dem]] ich helfe\n\ndie Leute, [[denen]] ich helfe",
+    "back_text": "Dativ:"
+  },
+  {
+    "card_id": 348888,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[gibt]]",
+    "front_text": "::task\nWählen Sie die richtige Präposition und ergänzen Sie das Verb.\n\n::exercise\n\nKommst du mit in das Eiscafe, {in|*aus|auf} dem es so leckeres Eis [[gibt]]?",
+    "back_text": "Ты пойдешь со мной в кафе-мороженое, в котором подают такое вкусное мороженое?"
+  },
+  {
+    "card_id": 348889,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[heißt]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen und ergänzen Sie das Verb.\n\n::exercise\nDas Mädchen, {*mit|ohne|für} dem ich ins Kino gehe, [[heißt]] Anna.",
+    "back_text": "mit ... heißt"
+  },
+  {
+    "card_id": 348890,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[bezahlt]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen und ergänzen Sie das Verb.\n\n::exercise\n\nDas ist das Bild, {*für|gegen|aus} das jemand 1 Million Euro [[bezahlt]] hat.",
+    "back_text": "Это картина, за которую кто-то заплатил 1 миллион евро."
+  },
+  {
+    "card_id": 348891,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[gestohlen]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen und ergänzen Sie das Verb.\n\n::exercise\n\nHast du den Mann gesehen, {*der|den|dem} dir das Geld [[gestohlen]] hat?",
+    "back_text": "Ты видел мужчину, который украл у тебя деньги?"
+  },
+  {
+    "card_id": 348892,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[gestohlen]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen und ergänzen Sie das Verb.\n\n::exercise\n\nIst das die Frau, {*deren|dessen|die} Handtasche [[gestohlen]] wurde?",
+    "back_text": "Это та женщина, у которой украли сумочку?"
+  },
+  {
+    "card_id": 348893,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[sitzt]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen und ergänzen Sie das Verb.\n\n::exercise\nWie alt ist das Mädchen, {*das|dem|dessen} links vorn [[sitzt]]?",
+    "back_text": "Сколько лет девочке, которая сидит слева впереди?"
+  },
+  {
+    "card_id": 348900,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[wohnt]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen im Nominativ und ergänzen Sie das Verb.\n\n::exercise\nDas ist der Mann, {*der|den|dem} neben mir [[wohnt]].",
+    "back_text": "der ... wohnt"
+  },
+  {
+    "card_id": 348901,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[ist]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen im Genitiv und ergänzen Sie das Verb.\n\n::exercise\nDas ist der Mann, {*dessen|deren|dem} Frau blond [[ist]].",
+    "back_text": "dessen ... ist"
+  },
+  {
+    "card_id": 348902,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[danke]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen im Dativ und ergänzen Sie das Verb.\n\n::exercise\nDas ist der Mann, {*dem|den|der} ich [[danke]].",
+    "back_text": "dem ... danke"
+  },
+  {
+    "card_id": 348903,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[sehe]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen im Akkusativ und ergänzen Sie das Verb.\n\n::exercise\nDas ist der Mann, {*den|dem|der} ich jeden Tag [[sehe]].",
+    "back_text": "den ... sehe"
+  },
+  {
+    "card_id": 348904,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[hat]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen (feminin) und ergänzen Sie das Verb.\n\n::exercise\nDas ist die Frau, {*die|deren|der} ein kleines Kind [[hat]].",
+    "back_text": "die ... hat"
+  },
+  {
+    "card_id": 348905,
+    "deck_id": 6987,
+    "deck_name": "тесты школы 2",
+    "reason": "Cannot reliably determine Russian translation for [[heißt]]",
+    "front_text": "::task\nWählen Sie das passende Relativpronomen im Genitiv (feminin) und ergänzen Sie das Verb.\n\n::exercise\nDas ist die Frau, {*deren|dessen|die} Tochter Anna [[heißt]].",
+    "back_text": "deren ... heißt"
+  },
+  {
+    "card_id": 348918,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[in dem]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen mit Präposition.\n\n::exercise\nKommst du mit in das Eiscafe, [[in dem]] es so leckeres Eis gibt?",
+    "back_text": "in dem"
+  },
+  {
+    "card_id": 348919,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[mit dem]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen mit Präposition.\n\n::exercise\nDas Mädchen, [[mit dem]] ich ins Kino gehe, heißt Anna.",
+    "back_text": "mit dem"
+  },
+  {
+    "card_id": 348920,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[für das]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen mit Präposition.\n\n::exercise\nDas ist das Bild, [[für das]] jemand 1 Million Euro bezahlt hat.",
+    "back_text": "für das"
+  },
+  {
+    "card_id": 348921,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nHast du den Mann gesehen, [[der]] dir das Geld gestohlen hat?",
+    "back_text": "der"
+  },
+  {
+    "card_id": 348922,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[deren]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nIst das die Frau, [[deren]] Handtasche gestohlen wurde?",
+    "back_text": "deren"
+  },
+  {
+    "card_id": 348923,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[das]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nWie alt ist das Mädchen, [[das]] links vorn sitzt?",
+    "back_text": "das"
+  },
+  {
+    "card_id": 348930,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das Relativpronomen (maskulin, Nominativ).\n\n::exercise\nDas ist der Mann, [[der]] neben mir wohnt.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 348931,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[dessen]]",
+    "front_text": "::task\nErgänzen Sie das Relativpronomen (maskulin, Genitiv).\n\n::exercise\nDas ist der Mann, [[dessen]] Frau blond ist.",
+    "back_text": "dessen"
+  },
+  {
+    "card_id": 348932,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie das Relativpronomen (maskulin, Dativ).\n\n::exercise\nDas ist der Mann, [[dem]] ich danke.",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 348933,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das Relativpronomen (maskulin, Akkusativ).\n\n::exercise\nDas ist der Mann, [[den]] ich jeden Tag sehe.",
+    "back_text": "den"
+  },
+  {
+    "card_id": 348934,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das Relativpronomen (feminin, Nominativ).\n\n::exercise\nDas ist die Frau, [[die]] ein kleines Kind hat.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 348935,
+    "deck_id": 6988,
+    "deck_name": "тесты школы 1",
+    "reason": "Cannot reliably determine Russian translation for [[deren]]",
+    "front_text": "::task\nErgänzen Sie das Relativpronomen (feminin, Genitiv).\n\n::exercise\nDas ist die Frau, [[deren]] Tochter Anna heißt.",
+    "back_text": "deren"
+  },
+  {
+    "card_id": 348977,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nEin Neunmalkluger ist ein Mensch, [[der]] immer alles besser weiß.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 348978,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nEine Quasselstrippe ist eine Frau, [[die]] gern und lange redet.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 348979,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[das]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nEine Nervensäge ist ein Kind, [[das]] laut ist und immer stört.",
+    "back_text": "das"
+  },
+  {
+    "card_id": 348980,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nEin Großmaul ist eine Person, [[die]] eine große Klappe hat.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 348981,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nEine Schlafmütze ist ein Schüler, [[der]] im Unterricht nicht aufpasst.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 348982,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nDer Arbeitslohn ist der Lohn, [[den]] ich für meine Arbeit bekomme.",
+    "back_text": "den"
+  },
+  {
+    "card_id": 348983,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen und das Verb.\n\n::exercise\nDer Schulabschluss ist der Abschluss, [[den]] ich nach der 10. Klasse [[bekomme]].",
+    "back_text": "den ... bekomme"
+  },
+  {
+    "card_id": 348984,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nEin Hilfsarbeiter ist ein Arbeiter, [[der]] nicht selbstständig arbeitet.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 348985,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[von dem]]",
+    "front_text": "::task\nErgänzen Sie die Präposition und das Relativpronomen.\n\n::exercise\nDer Traumberuf ist der Beruf, [[von dem]] ich träume.",
+    "back_text": "von dem"
+  },
+  {
+    "card_id": 348986,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[mit dem]]",
+    "front_text": "::task\nErgänzen Sie die Präposition und das Relativpronomen.\n\n::exercise\nDer Mitarbeiter ist der Arbeiter, [[mit dem]] ich zusammen arbeite.",
+    "back_text": "mit dem"
+  },
+  {
+    "card_id": 348987,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nDie Schwarzarbeit ist eine Arbeit, [[die]] ich nicht offiziell mache.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 348988,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nEine Berufskrankheit ist eine Krankheit, [[die]] ich durch meinen Beruf bekommen habe.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 348989,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Akkusativ.\n\n::exercise\nWer ist der Mann, [[den]] du gestern getroffen hast?",
+    "back_text": "den"
+  },
+  {
+    "card_id": 348990,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Nominativ.\n\n::exercise\nWer ist der Mann, [[der]] dort steht?",
+    "back_text": "der"
+  },
+  {
+    "card_id": 348991,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nWer ist der Mann, [[dem]] du dauernd Nachrichten schreibst?",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 348992,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Nominativ.\n\n::exercise\nWer ist die Frau, [[die]] so toll singen kann?",
+    "back_text": "die"
+  },
+  {
+    "card_id": 348993,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Akkusativ.\n\n::exercise\nWer ist die Frau, [[die]] du gestern Abend angerufen hast?",
+    "back_text": "die"
+  },
+  {
+    "card_id": 348994,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nWer ist die Frau, [[der]] du gerade zum Geburtstag gratuliert hast?",
+    "back_text": "der"
+  },
+  {
+    "card_id": 348995,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ (Plural).\n\n::exercise\nWer sind die Jugendlichen, [[denen]] die Sportsachen hier gehören?",
+    "back_text": "denen"
+  },
+  {
+    "card_id": 348996,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Nominativ (Plural).\n\n::exercise\nWer sind die Jugendlichen, [[die]] mit dem Lehrer sprechen wollten?",
+    "back_text": "die"
+  },
+  {
+    "card_id": 348997,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Akkusativ (Plural).\n\n::exercise\nWer sind die Jugendlichen, [[die]] du morgen treffen willst?",
+    "back_text": "die"
+  },
+  {
+    "card_id": 348998,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nBernd ist der Freund, [[der]] schöne Frauen liebt.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 348999,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nBernd ist der Freund, [[dem]] ein roter Sportwagen gehört.",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 349000,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Akkusativ.\n\n::exercise\nBernd ist der Freund, [[den]] ich meistens im Fitness-Studio treffe.",
+    "back_text": "den"
+  },
+  {
+    "card_id": 349001,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nBruno ist der Freund, [[der]] teure Anzüge trägt.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349002,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Akkusativ.\n\n::exercise\nBruno ist der Freund, [[den]] nur seine Arbeit interessiert.",
+    "back_text": "den"
+  },
+  {
+    "card_id": 349003,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nBruno ist der Freund, [[dem]] ich oft Geld leihen muss.",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 349004,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen (Plural).\n\n::exercise\nAnna und Hanna sind die Freundinnen, [[die]] immer moderne Kleider tragen.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349005,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Akkusativ (Plural).\n\n::exercise\nAnna und Hanna sind die Freundinnen, [[die]] ich jedes Wochenende im Club sehe.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349006,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ (Plural).\n\n::exercise\nAnna und Hanna sind die Freundinnen, [[denen]] Rap und Hip-Hop gefallen.",
+    "back_text": "denen"
+  },
+  {
+    "card_id": 349007,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nOlga ist die Freundin, [[der]] ich oft im Garten helfe.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349008,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nOlga ist die Freundin, [[die]] nur Bio-Obst isst.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349009,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Akkusativ.\n\n::exercise\nOlga ist die Freundin, [[die]] ich manchmal auch in einem normalen Supermarkt treffe.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349010,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nDas ist Tino, [[dem]] ich meine alte Gitarre geschenkt habe.",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 349011,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nUnd das hier ist meine Cousine Effi, [[der]] ich früher immer bei den Hausaufgaben geholfen habe.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349012,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ (Plural).\n\n::exercise\nDas hier sind meine alten Schulfreunde Klaas und Pit, [[denen]] ich sehr viele E-Mails schreibe.",
+    "back_text": "denen"
+  },
+  {
+    "card_id": 349013,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nUnd hier ist meine liebe Nachbarin Julia, [[der]] ich übrigens mein altes Auto verkauft habe.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349014,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ (Plural).\n\n::exercise\nDas hier sind die Bekannten aus dem Urlaub, [[denen]] ein großes Haus am See gehört.",
+    "back_text": "denen"
+  },
+  {
+    "card_id": 349015,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nHier links ist mein bester Freund Diallo, [[dem]] ich unglaublich gern zuhöre.",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 349016,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nIch habe einen Freund, [[dem]] ich eine Konzertkarte schenke.",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 349017,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nAbdul hat eine Freundin, [[der]] Hip-Hop nicht gefällt.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349018,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ (Plural).\n\n::exercise\nDas sind Kollegen, [[denen]] ich bei der Partyvorbereitung helfe.",
+    "back_text": "denen"
+  },
+  {
+    "card_id": 349019,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nWo ist der Mann, [[der]] alles für mich tun würde?",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349020,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nIch suche eine Frau, [[die]] mir ein neues Auto kauft!",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349021,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nBist du der Mann, [[dem]] Hausarbeit Spaß macht?",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 349022,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nSuche gute Band, [[die]] auf meiner Hochzeit elektronische Musik macht.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349023,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie die passenden Relativpronomen.\n\n::exercise\nEine Frau, ohne [[die]] Action sofort langweilig wird, sucht Mann, [[dem]] es auch so geht.",
+    "back_text": "die ... dem"
+  },
+  {
+    "card_id": 349024,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen (Plural).\n\n::exercise\nWir sind zwei starke Jungs, [[die]] Liebesfilme und Popcorn mögen.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349025,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Akkusativ.\n\n::exercise\nBitte melde dich, wenn du der Mann mit der roten Hose bist, [[den]] ich gestern im Fitnessclub gesehen habe!",
+    "back_text": "den"
+  },
+  {
+    "card_id": 349026,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ.\n\n::exercise\nBist du die Frau, [[der]] ich gestern mit ihrem schweren Koffer geholfen habe?",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349027,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Dativ (Plural).\n\n::exercise\nIch suche Radfahrer, [[denen]] das Fahren auch nach 100 Kilometern noch Spaß macht.",
+    "back_text": "denen"
+  },
+  {
+    "card_id": 349028,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen im Akkusativ.\n\n::exercise\nIch bin der Handwerker, [[den]] Sie Ihrem besten Freund empfehlen würden.",
+    "back_text": "den"
+  },
+  {
+    "card_id": 349029,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nIst das der Mann, [[den]] du zu deinem Geburtstag eingeladen hast?",
+    "back_text": "den"
+  },
+  {
+    "card_id": 349030,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie die Präposition und das Relativpronomen.\n\n::exercise\nWie heißt eigentlich das Restaurant, in [[dem]] man so gut bedient wird?",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 349031,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nAus welchem Land kommt eigentlich die fleißige Studentin, [[die]] das Studium so schnell beendet hat?",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349032,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie die Präposition und das Relativpronomen.\n\n::exercise\nKennst du die hübsche Frau, mit [[der]] sich Thomas schon seit Stunden unterhält?",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349033,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nWarum müssen die Aufgaben, [[die]] uns unser Lehrer stellt, eigentlich immer so schwierig sein?",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349034,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nHast du auch den Wagen gesehen, [[der]] so schnell um die Kurve gefahren ist?",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349035,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nKarl-Heinz, [[der]] in seiner Jugend in Claudia verliebt war, hatte vor kurzem einen schweren Verkehrsunfall.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349036,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nDer Patient, [[den]] man heute Nacht operiert hatte, ist heute Morgen gestorben.",
+    "back_text": "den"
+  },
+  {
+    "card_id": 349037,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das passende Relativpronomen.\n\n::exercise\nDie Fotos, [[die]] der Fotograf im Krisengebiet gemacht hatte, erhielten einen Preis.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349038,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nErgänzen Sie die Präposition und das Relativpronomen.\n\n::exercise\nBeates Auto, mit [[dem]] wir nach Italien gefahren sind, ist gestern gestohlen worden.",
+    "back_text": "dem"
+  },
+  {
+    "card_id": 349039,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie das Relativpronomen.\n\n::exercise\nDer Mann, [[der]] das Geld gestohlen hat, hat große finanzielle Schwierigkeiten.",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349040,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie das Relativpronomen.\n\n::exercise\nDie Studentin, [[die]] erst seit kurzem im Wohnheim wohnt, feiert heute ihren Geburtstag.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349041,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[das]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie das Relativpronomen.\n\n::exercise\nEin Passant hat dem Kind geholfen, [[das]] von einem großen Hund angegriffen wurde.",
+    "back_text": "das"
+  },
+  {
+    "card_id": 349042,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie das Relativpronomen.\n\n::exercise\nDie Touristen, [[die]] mit dem Service äußerst unzufrieden waren, verlangten ihr Geld zurück.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349043,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie das Relativpronomen.\n\n::exercise\nDie Fotos, [[die]] man mit einer Canon gemacht hat, sind von sehr guter Qualität.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349044,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen.\n\n::exercise\nUnsere Aushilfe, in [[die]] sich unser Abteilungsleiter verliebt hat, ist sehr hübsch.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349045,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen.\n\n::exercise\nDie Kinder, mit [[denen]] unser Sohn öfters Fußball spielt, wohnen am Ostpark.",
+    "back_text": "denen"
+  },
+  {
+    "card_id": 349046,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen.\n\n::exercise\nUnsere Großmutter, für [[die]] wir schon seit Jahren sorgen, ist schwer erkrankt.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349047,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen.\n\n::exercise\nDas ist der alte Herr aus Dülmen, an [[den]] sich die Kinder nicht mehr erinnern können.",
+    "back_text": "den"
+  },
+  {
+    "card_id": 349048,
+    "deck_id": 6989,
+    "deck_name": "тесты школы 3",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen.\n\n::exercise\nDie Prüfung, auf [[die]] wir uns wochenlang vorbereiten müssen, ist sehr schwer.",
+    "back_text": "die"
+  },
+  {
+    "card_id": 349121,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[dessen]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen.\n\n::exercise\nIst das der Mann, mit [[dessen]] Hut unsere Kinder gespielt haben?",
+    "back_text": "dessen"
+  },
+  {
+    "card_id": 349122,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[dessen]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen.\n\n::exercise\n\nIst das der Mann, in [[dessen]] Haus neulich eingebrochen wurde?",
+    "back_text": "Это тот мужчина, в дом которого недавно забрались воры?"
+  },
+  {
+    "card_id": 349123,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[dessen]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen.\n\n::exercise\n\nIst das der Mann, in [[dessen]] jüngere Schwester unser Sohn verliebt ist?",
+    "back_text": "Это тот мужчина, в младшую сестру которого влюблен наш сын?"
+  },
+  {
+    "card_id": 349124,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[dessen]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie das Relativpronomen im Genitiv.\n\n::exercise\nIst das der Mann, [[dessen]] Schwester Zwillinge bekommen hat?",
+    "back_text": "dessen"
+  },
+  {
+    "card_id": 349125,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[deren]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie das Relativpronomen im Genitiv (feminin).\n\n::exercise\nIst das die Frau, [[deren]] Mann sich scheiden lassen will?",
+    "back_text": "deren"
+  },
+  {
+    "card_id": 349126,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[deren]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie das Relativpronomen im Genitiv (feminin).\n\n::exercise\nIst das die Frau, [[deren]] Auto gestohlen worden ist?",
+    "back_text": "deren"
+  },
+  {
+    "card_id": 349127,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[deren]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen.\n\n::exercise\nIst das die Frau, auf [[deren]] Mann man stets warten muss?",
+    "back_text": "deren"
+  },
+  {
+    "card_id": 349128,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie das Relativpronomen im Dativ.\n\n::exercise\nIst das die Frau, [[der]] die Bilder des Museums gehören?",
+    "back_text": "der"
+  },
+  {
+    "card_id": 349129,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[deren]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen (Plural).\n\n::exercise\nSind das die Leute, um [[deren]] Kinder man sich kümmern sollte?",
+    "back_text": "deren"
+  },
+  {
+    "card_id": 349130,
+    "deck_id": 6990,
+    "deck_name": "тесты школы 4",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::task\nBilden Sie einen Relativsatz und ergänzen Sie die Präposition mit Relativpronomen (Plural).\n\n::exercise\nSind das die Leute, mit [[denen]] niemand etwas zu tun haben will?",
+    "back_text": "denen"
+  },
+  {
+    "card_id": 349413,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das richtige Relativpronomen.\n\n::exercise\nDas ist die Frau, [[die]] im Sprachkurs neben mir sitzt.",
+    "back_text": "Это женщина, которая сидит рядом со мной на языковом курсе."
+  },
+  {
+    "card_id": 349414,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das richtige Relativpronomen.\n\n::exercise\nDas ist die Frau, [[die]] ich aus dem Sprachkurs kenne.",
+    "back_text": "Это женщина, которую я знаю по языковому курсу."
+  },
+  {
+    "card_id": 349415,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das richtige Relativpronomen.\n\n::exercise\nDas ist die Frau, [[der]] ich gestern eine E-Mail geschickt habe.",
+    "back_text": "Это женщина, которой я вчера отправил электронное письмо."
+  },
+  {
+    "card_id": 349419,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das richtige Relativpronomen.\n\n::exercise\nDas sind die Leute, [[die]] im ersten Stock wohnen.",
+    "back_text": "Это люди, которые живут на первом этаже."
+  },
+  {
+    "card_id": 349420,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das richtige Relativpronomen.\n\n::exercise\nDas sind die Leute, [[die]] wir gestern eingeladen haben.",
+    "back_text": "Это те люди, которых мы вчера пригласили."
+  },
+  {
+    "card_id": 349421,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[denen]]",
+    "front_text": "::task\nErgänzen Sie das richtige Relativpronomen.\n\n::exercise\nDas sind die Leute, [[denen]] wir geholfen haben.",
+    "back_text": "Это люди, которым мы помогли."
+  },
+  {
+    "card_id": 349422,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nEntscheiden Sie selbst.\n\n::exercise\nDas ist der Lehrer, [[der]] uns Deutsch unterrichtet.",
+    "back_text": "Это учитель, который преподает нам немецкий."
+  },
+  {
+    "card_id": 349423,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nEntscheiden Sie selbst.\n\n::exercise\nDas ist der Lehrer, [[den]] wir sehr mögen.",
+    "back_text": "Это учитель, который нам очень нравится."
+  },
+  {
+    "card_id": 349424,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nEntscheiden Sie selbst.\n\n::exercise\nDas ist der Lehrer, [[dem]] ich eine Frage gestellt habe.",
+    "back_text": "Это учитель, которому я задал вопрос."
+  },
+  {
+    "card_id": 349428,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das Relativpronomen.\n\n::exercise\nWir suchen eine Wohnung, [[die]] einen Balkon hat.",
+    "back_text": "Мы ищем квартиру, у которой есть балкон."
+  },
+  {
+    "card_id": 349429,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie das Relativpronomen.\n\n::exercise\nWir suchen eine Wohnung, [[die]] wir sofort mieten können.",
+    "back_text": "Мы ищем квартиру, которую можем сразу снять."
+  },
+  {
+    "card_id": 349430,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie das Relativpronomen.\n\n::exercise\nDas ist die Vermieterin, [[der]] wir gestern geschrieben haben.",
+    "back_text": "Это хозяйка квартиры, которой мы вчера написали."
+  },
+  {
+    "card_id": 349434,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nWelche Form passt?\n\n::exercise\nDer Mann, [[der]] mich jeden Morgen grüßt, ist mein Nachbar.",
+    "back_text": "Мужчина, который здоровается со мной каждое утро, — мой сосед."
+  },
+  {
+    "card_id": 349435,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nWelche Form passt?\n\n::exercise\nDer Mann, [[den]] ich jeden Morgen grüße, ist mein Nachbar.",
+    "back_text": "Мужчина, с которым я здороваюсь каждое утро, — мой сосед."
+  },
+  {
+    "card_id": 349436,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nWelche Form passt?\n\n::exercise\nDer Mann, [[dem]] ich jeden Morgen begegne, ist mein Nachbar.",
+    "back_text": "Мужчина, которого я встречаю каждое утро, — мой сосед."
+  },
+  {
+    "card_id": 349440,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie.\n\n::exercise\nDie Lehrerin, [[die]] uns heute unterrichtet, kommt aus Köln.",
+    "back_text": "Учительница, которая сегодня нас учит, родом из Кёльна."
+  },
+  {
+    "card_id": 349441,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie.\n\n::exercise\nDie Lehrerin, [[die]] wir gestern kennengelernt haben, kommt aus Köln.",
+    "back_text": "Учительница, с которой мы познакомились вчера, родом из Кёльна."
+  },
+  {
+    "card_id": 349442,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie.\n\n::exercise\nDie Lehrerin, [[der]] ich gestern geschrieben habe, kommt aus Köln.",
+    "back_text": "Учительница, которой я вчера написал, родом из Кёльна."
+  },
+  {
+    "card_id": 349446,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nDenken Sie Schritt für Schritt und ergänzen Sie.\n\n::exercise\nIch kenne einen Mann, [[der]] drei Sprachen spricht.",
+    "back_text": "Я знаю мужчину, который говорит на трёх языках."
+  },
+  {
+    "card_id": 349447,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[den]]",
+    "front_text": "::task\nDenken Sie Schritt für Schritt und ergänzen Sie.\n\n::exercise\nIch kenne einen Mann, [[den]] du auch kennst.",
+    "back_text": "Я знаю мужчину, которого ты тоже знаешь."
+  },
+  {
+    "card_id": 349448,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[dem]]",
+    "front_text": "::task\nDenken Sie Schritt für Schritt und ergänzen Sie.\n\n::exercise\nIch kenne einen Mann, [[dem]] viele Menschen vertrauen.",
+    "back_text": "Я знаю мужчину, которому доверяют многие люди."
+  },
+  {
+    "card_id": 349452,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie ohne Hinweis.\n\n::exercise\nDas ist die Person, [[die]] mich angerufen hat.",
+    "back_text": "Это человек, который мне позвонил."
+  },
+  {
+    "card_id": 349453,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nErgänzen Sie ohne Hinweis.\n\n::exercise\nDas ist die Person, [[die]] ich angerufen habe.",
+    "back_text": "Это человек, которому я позвонил."
+  },
+  {
+    "card_id": 349454,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nErgänzen Sie ohne Hinweis.\n\n::exercise\nDas ist die Person, [[der]] ich vertraue.",
+    "back_text": "Это человек, которому я доверяю."
+  },
+  {
+    "card_id": 349455,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[der]]",
+    "front_text": "::task\nVergleichen Sie die drei Rollen und ergänzen Sie.\n\n::exercise\nDas ist der Mann, [[der]] mich kennt.\n\nDas ist der Mann, [[den]] ich kenne.\n\nDas ist der Mann, [[dem]] ich helfe.",
+    "back_text": "Это мужчина, который меня знает.\n\nЭто мужчина, которого я знаю.\n\nЭто мужчина, которому я помогаю."
+  },
+  {
+    "card_id": 349456,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nVergleichen Sie die drei Rollen und ergänzen Sie.\n\n::exercise\nDas ist die Frau, [[die]] mich kennt.\n\nDas ist die Frau, [[die]] ich kenne.\n\nDas ist die Frau, [[der]] ich helfe.",
+    "back_text": "Это женщина, которая меня знает.\n\nЭто женщина, которую я знаю.\n\nЭто женщина, которой я помогаю."
+  },
+  {
+    "card_id": 349457,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[das]]",
+    "front_text": "::task\nVergleichen Sie die drei Rollen und ergänzen Sie.\n\n::exercise\nDas ist das Kind, [[das]] mich kennt.\n\nDas ist das Kind, [[das]] ich kenne.\n\nDas ist das Kind, [[dem]] ich helfe.",
+    "back_text": "Это ребёнок, который меня знает.\n\nЭто ребёнок, которого я знаю.\n\nЭто ребёнок, которому я помогаю."
+  },
+  {
+    "card_id": 349458,
+    "deck_id": 6993,
+    "deck_name": "урок 5",
+    "reason": "Cannot reliably determine Russian translation for [[die]]",
+    "front_text": "::task\nVergleichen Sie die drei Rollen und ergänzen Sie.\n\n::exercise\nDas sind die Leute, [[die]] mich kennen.\n\nDas sind die Leute, [[die]] ich kenne.\n\nDas sind die Leute, [[denen]] ich helfe.",
+    "back_text": "Это люди, которые меня знают.\n\nЭто люди, которых я знаю.\n\nЭто люди, которым я помогаю."
+  },
+  {
+    "card_id": 349643,
+    "deck_id": 6998,
+    "deck_name": "3 базовая практика Akkusativ",
+    "reason": "Cannot reliably determine Russian translation for [[mich]]",
+    "front_text": "::task\nMerken Sie sich die Formen.\n\n::exercise\nich → [[mich]]\ndu → [[dich]]\ner → [[ihn]]\nsie → [[sie]]\nes → [[es]]\nwir → [[uns]]\nihr → [[euch]]\nsie → [[sie]]\nSie → [[Sie]]",
+    "back_text": "Формы личных местоимений в Akkusativ:\nменя, тебя, его, её, его/это, нас, вас, их, Вас."
+  },
+  {
+    "card_id": 349779,
+    "deck_id": 7000,
+    "deck_name": "4 базовая практика - Dativ",
+    "reason": "Cannot reliably determine Russian translation for [[mir]]",
+    "front_text": "::task\nMerken Sie sich die Formen.\n\n::exercise\nich → [[mir]]\ndu → [[dir]]\ner → [[ihm]]\nsie → [[ihr]]\nes → [[ihm]]\nwir → [[uns]]\nihr → [[euch]]\nsie → [[ihnen]]\nSie → [[Ihnen]]",
+    "back_text": "Формы личных местоимений в Dativ:\nмне, тебе, ему, ей, ему, нам, вам, им, Вам."
+  },
+  {
+    "card_id": 349651,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[gab]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\n\nAuf dem Betriebsausflug [[gab]] es dieses Jahr ein Problem.\n\n*gab\nhat\nist\nwar",
+    "back_text": "На корпоративной экскурсии в этом году была одна проблема.\n\n1. ✅ была (простые прошедшее время от geben)\n2. имеет\n3. есть (вспомогательный глагол)\n4. был / была / было"
+  },
+  {
+    "card_id": 349660,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[gab]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\nAuf dem Betriebsausflug [[gab]] es dieses Jahr ein Problem.",
+    "back_text": "В этом году во время корпоративной поездки возникла проблема."
+  },
+  {
+    "card_id": 349652,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[wussten]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\n\nDie Kollegen [[wussten]] nicht, dass der Bus nach Berlin schon um 8 Uhr abfahren sollte.\n\n*wussten\nkannten\nkonnten\nwußten",
+    "back_text": "Коллеги не знали, что автобус в Берлин должен был отправиться уже в 8 часов.\n\n1. ✅ знали\n2. были знакомы (знали кого-то/что-то)\n3. могли\n4. знали (устаревшее написание через ß)"
+  },
+  {
+    "card_id": 349662,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[wussten]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\nDie Kollegen [[wussten]] nicht, dass der Bus nach Berlin schon um 8 Uhr abfahren sollte.",
+    "back_text": "Коллеги не знали, что автобус в Берлин должен был отправиться уже в 8 часов."
+  },
+  {
+    "card_id": 349653,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[kamen]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\n\nDeshalb [[kamen]] alle eine Stunde zu spät.\n\n*kamen\ngingen\nwaren\nblieben",
+    "back_text": "Поэтому все опоздали на один час (пришли на час позже).\n\n1. ✅ пришли\n2. шли / ходили пешком\n3. были\n4. оставались"
+  },
+  {
+    "card_id": 349664,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[kamen]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\nDeshalb [[kamen]] alle eine Stunde zu spät.",
+    "back_text": "Поэтому все опоздали на один час."
+  },
+  {
+    "card_id": 349654,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[sagte]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\n\nDer Busfahrer [[sagte]], dass der Ausflug nicht stattfindet, und fuhr wieder nach Hause.\n\n*sagte\nsprach\nerzählte\nmeinte",
+    "back_text": "Водитель автобуса сказал, что экскурсия не состоится, и уехал обратно домой.\n\n1. ✅ сказал\n2. разговаривал / говорил на языке\n3. рассказывал\n4. полагал / имел в виду"
+  },
+  {
+    "card_id": 349666,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[sagte]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\nDer Busfahrer [[sagte]], dass der Ausflug nicht stattfindet, und fuhr wieder nach Hause.",
+    "back_text": "Водитель автобуса сказал, что поездка не состоится, и снова поехал домой."
+  },
+  {
+    "card_id": 349655,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[hatte]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\n\nDie Sekretärin [[hatte]] eine Idee.\n\n*hatte\nwar\ngab\nnahm",
+    "back_text": "У секретарши была идея (она придумала идею).\n\n1. ✅ имела (была)\n2. была\n3. дала\n4. взяла"
+  },
+  {
+    "card_id": 349668,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[hatte]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\nDie Sekretärin [[hatte]] eine Idee.",
+    "back_text": "У секретаря была идея."
+  },
+  {
+    "card_id": 349656,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[sagte]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\n\nSie [[sagte]] dem Chef am Telefon, dass der Betriebsausflug spontan im Restaurant „Panorama“ stattfindet.\n\nOption 1\nOption 2\n*Option 3",
+    "back_text": "Перевод этого блока находится в контексте упражнения на грамматику и лексику.\n\n1. Вариант 1\n2. Вариант 2\n3. ✅ Правильный вариант"
+  },
+  {
+    "card_id": 349670,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[sagte]]",
+    "front_text": "::task\nErgänze das Verb im Präteritum.\n\n::exercise\nSie [[sagte]] dem Chef am Telefon, dass der Betriebsausflug spontan im Restaurant „Panorama“ stattfindet.",
+    "back_text": "Она сказала начальнику по телефону, что корпоративная поездка спонтанно состоится в ресторане «Панорама»."
+  },
+  {
+    "card_id": 349661,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[gefällt]]",
+    "front_text": "::task\nErgänze das passende Verb.\n\n::exercise\n\nDiese Idee [[gefällt]] mir nicht. ",
+    "back_text": "Эта идея мне не нравится.\n\n1. Вариант 1\n2. Вариант 2\n3. ✅ Правильный вариант (глагол gefällt в предложении)"
+  },
+  {
+    "card_id": 349678,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[gefällt]]",
+    "front_text": "::task\nErgänze das passende Verb.\n\n::exercise\nDiese Idee [[gefällt]] mir nicht.",
+    "back_text": "Эта идея мне не нравится."
+  },
+  {
+    "card_id": 349663,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[meine]]",
+    "front_text": "::task\nErgänze das passende Verb.\n\n::exercise\n\nIch [[meine]], dass wir in einen Vergnügungspark fahren.",
+    "back_text": "Я считаю, что мы едем в парк развлечений."
+  },
+  {
+    "card_id": 349680,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[meine]]",
+    "front_text": "::task\nErgänze das passende Verb.\n\n::exercise\nIch [[meine]], dass wir in einen Vergnügungspark fahren.",
+    "back_text": "Я думаю, что мы поедем в парк развлечений."
+  },
+  {
+    "card_id": 349694,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[windig]]",
+    "front_text": "::task\nErgänze das passende Wort zum Wetter.\n\n::exercise\nAm Samstag ist es im Norden [[windig]].",
+    "back_text": "В субботу на севере ветрено."
+  },
+  {
+    "card_id": 349696,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[sonnig]]",
+    "front_text": "::task\nErgänze das passende Wort zum Wetter.\n\n::exercise\nIm Süden ist es [[sonnig]].",
+    "back_text": "На юге солнечно."
+  },
+  {
+    "card_id": 349698,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[Schnee]]",
+    "front_text": "::task\nErgänze das passende Wort.\n\n::exercise\nIn den Alpen kann es noch [[Schnee]] geben, bei 2 Grad Celsius.",
+    "back_text": "В Альпах ещё возможен снег при температуре 2 градуса."
+  },
+  {
+    "card_id": 349700,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[regnet]]",
+    "front_text": "::task\nErgänze das passende Verb.\n\n::exercise\nAm Sonntag [[regnet]] es überall.",
+    "back_text": "В воскресенье повсюду идёт дождь."
+  },
+  {
+    "card_id": 349702,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[bewölkt]]",
+    "front_text": "::task\nErgänze das passende Adjektiv.\n\n::exercise\nAm Sonntagabend ist es nur noch [[bewölkt]].",
+    "back_text": "В воскресенье вечером будет уже только облачно."
+  },
+  {
+    "card_id": 349719,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[tolles]]",
+    "front_text": "::task\nErgänze das passende Adjektiv.\n\n::exercise\nWir sind gerade in Luzern, in der Schweiz. Es ist ein [[tolles]] Wochenende!",
+    "back_text": "Мы сейчас в Люцерне, в Швейцарии. Это отличные выходные!"
+  },
+  {
+    "card_id": 349725,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[typisches]]",
+    "front_text": "::task\nErgänze das passende Adjektiv.\n\n::exercise\nKäsefondue ist ein [[typisches]] Gericht in der Schweiz.",
+    "back_text": "Сырное фондю — типичное блюдо в Швейцарии."
+  },
+  {
+    "card_id": 349726,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[lustiges]]",
+    "front_text": "::task\nErgänze das passende Adjektiv.\n\n::exercise\nMein Freund hat ein [[lustiges]] Foto von mir gemacht.",
+    "back_text": "Мой друг сделал мою смешную фотографию."
+  },
+  {
+    "card_id": 349727,
+    "deck_id": 7001,
+    "deck_name": "1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[deutsche]]",
+    "front_text": "::task\nErgänze das passende Adjektiv.\n\n::exercise\nDie [[deutsche]] Sprache klingt hier ganz anders.",
+    "back_text": "Немецкий язык здесь звучит совсем иначе."
+  },
+  {
+    "card_id": 349862,
+    "deck_id": 7003,
+    "deck_name": "аккузатив или датив + новые слова",
+    "reason": "Cannot reliably determine Russian translation for [[uns]]",
+    "front_text": "::task\nBestimmen Sie selbst die richtige Form.\n\n::exercise\nDer Weg zur Haltestelle ist [[uns]] bekannt.",
+    "back_text": "Дорога к остановке нам знакома."
+  },
+  {
+    "card_id": 349864,
+    "deck_id": 7003,
+    "deck_name": "аккузатив или датив + новые слова",
+    "reason": "Cannot reliably determine Russian translation for [[euch]]",
+    "front_text": "::task\nBestimmen Sie selbst die richtige Form.\n\n::exercise\nDiese Übung fällt [[euch]] noch schwer.",
+    "back_text": "Это упражнение пока даётся вам тяжело."
+  },
+  {
+    "card_id": 349889,
+    "deck_id": 7003,
+    "deck_name": "аккузатив или датив + новые слова",
+    "reason": "Cannot reliably determine Russian translation for [[Akkusativ]]",
+    "front_text": "::task\nMerken Sie sich neue Verbgruppen.\n\n::exercise\ntreffen → [[Akkusativ]]\nvertrauen → [[Dativ]]\nbegleiten → [[Akkusativ]]\ngratulieren → [[Dativ]]\nberaten → [[Akkusativ]]\ngehören → [[Dativ]]\neinladen → [[Akkusativ]]\npassen → [[Dativ]]\nbegrüßen → [[Akkusativ]]\nschmecken → [[Dativ]]",
+    "back_text": "treffen — встречать\nvertrauen — доверять\nbegleiten — сопровождать\ngratulieren — поздравлять\nberaten — консультировать\ngehören — принадлежать\neinladen — приглашать\npassen — подходить\nbegrüßen — приветствовать\nschmecken — быть вкусным / нравиться на вкус"
+  },
+  {
+    "card_id": 349901,
+    "deck_id": 7004,
+    "deck_name": "сделано на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[Dieser]]",
+    "front_text": "::task\nErgänzen Sie den richtigen Demonstrativartikel.\n\n::exercise\n1. [[Dieser]] Stadtrundgang klingt interessant. Ich buche ihn gleich.\n2. Ich finde [[diesen]] Plan nicht gut. Wir haben keine Zeit zum Essen.\n3. Einige Kollegen wollen ins Kunstmuseum gehen. Wie findest du [[diesen]] Vorschlag?\n4. Ja, [[diese]] Idee ist super!\n5. Es regnet morgen. Bei [[diesem]] Wetter komme ich nicht mit zum Betriebsausflug.",
+    "back_text": "1. Эта экскурсия звучит интересно... 2. Я считаю этот план нехорошим... 3. Как тебе это предложение? 4. Да, эта идея супер! 5. При такой погоде я не пойду..."
+  },
+  {
+    "card_id": 349902,
+    "deck_id": 7004,
+    "deck_name": "сделано на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[sonnig]]",
+    "front_text": "::task\nErgänzen Sie den Wetterbericht.\n\n::exercise\nAm Samstag ist es im Norden windig. Im Süden ist es [[sonnig]]. In den Alpen kann es noch [[Schnee]] geben, bei 2 Grad Celsius. Am Sonntag [[regnet]] es überall. Am Sonntagabend ist es nur noch [[bewölkt]] und mit 15 Grad Celsius nicht mehr so [[kalt]].",
+    "back_text": "В субботу на севере ветрено. На юге солнечно. В Альпах еще может быть снег... В воскресенье везде идет дождь. В воскресенье вечером облачно и не так холодно."
+  },
+  {
+    "card_id": 349914,
+    "deck_id": 7004,
+    "deck_name": "сделано на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[in]]",
+    "front_text": "::task\nErgänzen Sie die richtigen Präpositionen für die Wegbeschreibung.\n\n::exercise\n1. Dann gehen Sie links [[in]] die Blumenstraße.\n2. Danach gehen Sie [[über]] den großen Platz und immer geradeaus.\n3. Nach 500 Metern kommen Sie [[an]] den Fluss.\n4. Gehen Sie [[über]] die Brücke.\n5. Dann fahren Sie [[auf]] den Turm. Ganz oben finden Sie das Restaurant „Panorama“.",
+    "back_text": "1. Затем поверните налево на улицу Блюменштрассе. 2. Затем идите через большую площадь... 3. Через 500 метров вы выйдете к реке. 4. Идите по мосту. 5. Затем поднимитесь на башню."
+  },
+  {
+    "card_id": 349916,
+    "deck_id": 7004,
+    "deck_name": "сделано на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[Übernachten Sie doch in der Jugendherberge.]]",
+    "front_text": "::task\nFormulieren Sie Höflichkeitsempfehlungen mit \"Gehen Sie doch...\", \"Übernachten Sie doch...\" etc.\n\n::exercise\n1. Das Hotel ist zu teuer. -> [[Übernachten Sie doch in der Jugendherberge.]]\n2. Es ist so laut in der Stadt. -> [[Machen Sie doch einen Ausflug aufs Land.]]\n3. Ich habe Hunger. -> [[Essen Sie doch ein Brötchen.]]\n4. Es ist so heiß. -> [[Gehen Sie doch ins Schwimmbad.]]\n5. Ich kann nicht mehr laufen. -> [[Fahren Sie doch mit dem Bus.]]",
+    "back_text": "Формулирование советов и рекомендаций в повелительном наклонении (Imperativ Sie + doch)."
+  },
+  {
+    "card_id": 349935,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[Dieser]]",
+    "front_text": "::task\nErgänzen Sie den richtigen Demonstrativartikel.\n\n::exercise\n[[Dieser]] Stadtrundgang klingt interessant. Ich buche ihn gleich.",
+    "back_text": "Эта экскурсия по городу звучит интересно. Я сразу забронирую ее."
+  },
+  {
+    "card_id": 349936,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[diesen]]",
+    "front_text": "::task\nErgänzen Sie den richtigen Demonstrativartikel.\n\n::exercise\nIch finde [[diesen]] Plan nicht gut. Wir haben keine Zeit zum Essen.",
+    "back_text": "Я считаю этот план неудачным. У нас нет времени на еду."
+  },
+  {
+    "card_id": 349937,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[diesen]]",
+    "front_text": "::task\nErgänzen Sie den richtigen Demonstrativartikel.\n\n::exercise\nEinige Kollegen wollen ins Kunstmuseum gehen. Wie findest du [[diesen]] Vorschlag?",
+    "back_text": "Некоторые коллеги хотят пойти в художественный музей. Как тебе это предложение?"
+  },
+  {
+    "card_id": 349938,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[diese]]",
+    "front_text": "::task\nErgänzen Sie den richtigen Demonstrativartikel.\n\n::exercise\nJa, [[diese]] Idee ist super!",
+    "back_text": "Да, эта идея отличная!"
+  },
+  {
+    "card_id": 349939,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[diesem]]",
+    "front_text": "::task\nErgänzen Sie den richtigen Demonstrativartikel.\n\n::exercise\nEs regnet morgen. Bei [[diesem]] Wetter komme ich nicht mit zum Betriebsausflug.",
+    "back_text": "Завтра идет дождь. В такую погоду я не поеду на корпоративную поездку."
+  },
+  {
+    "card_id": 349947,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[in]]",
+    "front_text": "::task\nErgänzen Sie die richtige lokale Präposition.\n\n::exercise\nDann gehen Sie links [[in]] die Blumenstraße.",
+    "back_text": "Затем поверните налево на Блюменштрассе."
+  },
+  {
+    "card_id": 349948,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[über]]",
+    "front_text": "::task\nErgänzen Sie die richtige lokale Präposition.\n\n::exercise\nDanach gehen Sie [[über]] den großen Platz und immer geradeaus.",
+    "back_text": "Затем перейдите через большую площадь и идите все время прямо."
+  },
+  {
+    "card_id": 349949,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[an]]",
+    "front_text": "::task\nErgänzen Sie die richtige lokale Präposition.\n\n::exercise\nNach 500 Metern kommen Sie [[an]] den Fluss.",
+    "back_text": "Через 500 метров вы подойдете к реке."
+  },
+  {
+    "card_id": 349950,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[über]]",
+    "front_text": "::task\nErgänzen Sie die richtige lokale Präposition.\n\n::exercise\nGehen Sie [[über]] die Brücke.",
+    "back_text": "Перейдите через мост."
+  },
+  {
+    "card_id": 349951,
+    "deck_id": 7005,
+    "deck_name": "лучшие на основе тестов на уроке 1 октября",
+    "reason": "Cannot reliably determine Russian translation for [[auf]]",
+    "front_text": "::task\nErgänzen Sie die richtige lokale Präposition.\n\n::exercise\nDann fahren Sie [[auf]] den Turm. Ganz oben finden Sie das Restaurant „Panorama“.",
+    "back_text": "Затем поднимитесь на башню. На самом верху вы найдете ресторан «Панорама»."
+  }
+]

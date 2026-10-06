@@ -3,12 +3,23 @@ import { detectExerciseType } from './exerciseDetector.js';
 import { normalizeWordBankValue } from './wordBankParser.js';
 
 // Templates for the advanced markup toolbar grouped by category:
-// - exercise: card types and interactive gaps (directives & inputs)
+// - exercise: interactive learning elements & card types
 // - marker: structural information blocks (::task, ::source, ::example, etc.)
+// - edit: inline editing helpers
 export const editorCommandGroups = [
   {
     id: 'exercise',
-    label: 'Тип карточки и элементы',
+    label: 'Тренажёр',
+    primary: [
+      { id: 'input', label: 'Поле для ввода', template: '[[Berlin]]', group: 'exercise' },
+      { id: 'choice', label: 'Варианты ответа', template: '{*Berlin|Hamburg|München}', group: 'exercise' },
+      { id: 'puzzle', label: 'Собрать предложение', template: '@puzzle\nIch lerne Deutsch.', directive: true, group: 'exercise' },
+    ],
+    secondary: [
+      { id: 'wordbank', label: 'Банк слов', template: '@wordbank\nIch lerne <<1>>.\n@options\nDeutsch | Englisch', directive: true, group: 'exercise' },
+      { id: 'match', label: 'Соединение пар', template: '@match\nBerlin => Deutschland\nWien => Österreich', directive: true, group: 'exercise' },
+      { id: 'free', label: 'Свободный ответ', template: '@free\n', directive: true, group: 'exercise' },
+    ],
     commands: [
       { id: 'puzzle', label: 'Собрать предложение', template: '@puzzle\nIch lerne Deutsch.', directive: true, group: 'exercise' },
       { id: 'match', label: 'Соединение пар', template: '@match\nBerlin => Deutschland\nWien => Österreich', directive: true, group: 'exercise' },
@@ -16,21 +27,41 @@ export const editorCommandGroups = [
       { id: 'wordbank', label: 'Банк слов', template: '@wordbank\nIch lerne <<1>>.\n@options\nDeutsch | Englisch', directive: true, group: 'exercise' },
       { id: 'choice', label: 'Варианты ответа', template: '{*Berlin|Hamburg|München}', group: 'exercise' },
       { id: 'input', label: 'Поле для ввода', template: '[[Berlin]]', group: 'exercise' },
-      { id: 'ending', label: 'Окончание с выбором', template: '{en}', group: 'exercise' },
     ]
   },
   {
     id: 'marker',
-    label: 'Маркеры структуры',
-    commands: [
+    label: 'Информация',
+    primary: [
       { id: 'task', label: 'Задание', template: '::task\n', info: true, group: 'marker' },
-      { id: 'hint', label: 'Подсказка', template: '::source\n', info: true, group: 'marker' },
+      { id: 'source', label: 'Подсказка', template: '::source\n', info: true, group: 'marker' },
+    ],
+    secondary: [
       { id: 'example', label: 'Пример', template: '::example\n', info: true, group: 'marker' },
-      { id: 'source', label: 'Исходный текст', template: '::source\n', info: true, group: 'marker' },
       { id: 'exercise', label: 'Содержимое упражнения', template: '::exercise\n', info: true, group: 'marker' },
       { id: 'options', label: 'Список вариантов', template: '::options\n', info: true, group: 'marker' },
       { id: 'topic', label: 'Тема', template: '::topic\n', info: true, group: 'marker' },
       { id: 'level', label: 'Уровень сложности', template: '::level\n', info: true, group: 'marker' },
+    ],
+    commands: [
+      { id: 'task', label: 'Задание', template: '::task\n', info: true, group: 'marker' },
+      { id: 'source', label: 'Подсказка', template: '::source\n', info: true, group: 'marker' },
+      { id: 'example', label: 'Пример', template: '::example\n', info: true, group: 'marker' },
+      { id: 'exercise', label: 'Содержимое упражнения', template: '::exercise\n', info: true, group: 'marker' },
+      { id: 'options', label: 'Список вариантов', template: '::options\n', info: true, group: 'marker' },
+      { id: 'topic', label: 'Тема', template: '::topic\n', info: true, group: 'marker' },
+      { id: 'level', label: 'Уровень сложности', template: '::level\n', info: true, group: 'marker' },
+    ]
+  },
+  {
+    id: 'edit',
+    label: 'Правка',
+    primary: [
+      { id: 'ending', label: 'Окончание с выбором', template: '{en}', group: 'exercise' },
+    ],
+    secondary: [],
+    commands: [
+      { id: 'ending', label: 'Окончание с выбором', template: '{en}', group: 'exercise' },
     ]
   }
 ];
@@ -84,7 +115,8 @@ export function readableFrontText(raw = '') {
 }
 
 export function insertEditorCommand(raw, id, start = raw.length, end = start) {
-  const command = editorCommands.find(item => item.id === id);
+  const command = editorCommands.find(item => item.id === id)
+    || (id === 'hint' ? editorCommands.find(item => item.id === 'source') : null);
   if (!command) return { text: raw, cursor: start };
   start = Math.max(0, Math.min(start, raw.length));
   end = Math.max(start, Math.min(end, raw.length));
@@ -101,6 +133,9 @@ export function insertEditorCommand(raw, id, start = raw.length, end = start) {
   if (id === 'puzzle') {
     result.selectionStart = before.length + prefix.length + '@puzzle'.length + newline.length;
     result.selectionEnd = result.selectionStart + 'Ich lerne Deutsch.'.length;
+  } else if (id === 'input' && start === end) {
+    result.selectionStart = before.length + prefix.length + '[['.length;
+    result.selectionEnd = result.selectionStart + 'Berlin'.length;
   }
   return result;
 }
