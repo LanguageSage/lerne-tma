@@ -195,6 +195,7 @@ export const offlineApi = {
           rating: body.grade, review_context: context, is_extended: Boolean(body.is_extended),
           review_time: updated.last_reviewed, scheduled_interval: updated.interval });
       });
+      if (body.return_next === false) return result({ status: 'success' });
       const exclude = [...new Set([...(body.exclude_ids || []), id])];
       const nextParams = new URLSearchParams({ exclude_ids: exclude.join(','), review_context: context });
       return nextCard(db, card.deck_id, userId, nextParams);

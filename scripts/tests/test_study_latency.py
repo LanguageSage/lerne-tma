@@ -63,6 +63,36 @@ class StudyLatencyTests(unittest.TestCase):
         self.assertEqual(result['id'], selected.id)
         self.assertEqual(models.TMAReviewHistory.select().count(), 1)
 
+    def test_grade_save_only_commits_srs_without_selection_or_serialization(self):
+        for duplicate in [False, True]:
+            with self.subTest(duplicate=duplicate), patch.object(services, 'get_next_card') as select, patch.object(
+                    services, 'get_next_duplicate_card', create=True) as select_duplicate, patch.object(
+                    router, '_card_to_response', AsyncMock()) as serialize:
+                payload = dict(card_id=self.cards[0].id, deck_id=self.deck.id, grade=2, return_next=False)
+                if duplicate:
+                    result = asyncio.run(router.submit_duplicate_grade(payload, user_id=1))
+                else:
+                    result = asyncio.run(router.submit_grade(router.StudyGradeRequest(**payload), user_id=1))
+                self.assertEqual(result, {'status': 'success'})
+                select.assert_not_called()
+                select_duplicate.assert_not_called()
+                serialize.assert_not_awaited()
+        self.assertEqual(models.TMAReviewHistory.select().count(), 2)
+        progress = models.TMAProgress.get(models.TMAProgress.card_id == self.cards[0].id)
+        self.assertIsNotNone(progress.last_reviewed)
+
+    def test_save_only_failure_rolls_back_and_access_checks_still_apply(self):
+        from fastapi import HTTPException
+        request = router.StudyGradeRequest(card_id=self.cards[0].id, deck_id=self.deck.id, grade=2, return_next=False)
+        with self.assertRaises(HTTPException):
+            asyncio.run(router.submit_grade(request, user_id=2))
+        with patch.object(models.TMAReviewHistory, 'create', side_effect=RuntimeError('history failed')):
+            with self.assertRaises(HTTPException):
+                asyncio.run(router.submit_grade(request, user_id=1))
+        self.assertEqual(models.TMAReviewHistory.select().count(), 0)
+        progress = models.TMAProgress.get(models.TMAProgress.card_id == self.cards[0].id)
+        self.assertIsNone(progress.last_reviewed)
+
     def test_card_list_batches_media_checks_and_preserves_missing_media(self):
         for card in self.cards:
             card.image_path = f'image-{card.id}.png'

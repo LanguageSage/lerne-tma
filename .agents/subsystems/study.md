@@ -36,7 +36,9 @@
 - `clearCurrentFeedback` очищает текущий feedback до completion, сохраняя учебную историю.
 - Puzzle проверяет authored token IDs и направленные соседства; правильная boundary не блокирует перемещение отдельного token.
 - Счётчики Match/Quiz/Puzzle имеют разные учебные policies; `interaction_count` не заменяет `attempt_count` для mastery.
-- Next/Back может показывать кэш сразу; grade и forced selection ожидают серверный результат. TTS создаётся по запросу клиента.
+- Next/Back и grade показывают локальную карточку сразу (forward history, затем сосед в списке для scheduled). Grade с `return_next: false` только сохраняет SRS; старые клиенты без этого поля по-прежнему получают серверный выбор. Без локального кандидата, включая forced selection, grade ожидает предыдущие pending writes и серверный выбор. TTS создаётся по запросу клиента.
+- Pending grades и неподтверждённые ошибки принадлежат session store и переживают reset в памяти, без новой persistent queue. Блокировка привязана к user/card; stale handlers и mouse double-click не оценивают новую карточку. Ошибка остаётся видимой до подтверждения пользователем; автоматического повторения POST нет (сетевой сбой может означать потерю подтверждения уже сохранённой оценки).
+- Background refresh используется также при `startStudyCard`: он обновляет только совпадающую карточку/history/cache, сохраняет новые audio fields и отбрасывает ответы после grade, reset, смены deck/view. Grade response после локального перехода не управляет навигацией; fallback response дополнительно инвалидируется при Next/Back.
 
 ## Common symptoms
 
@@ -64,7 +66,7 @@ rg -n 'clearCurrentFeedback|requiredPartIds|interaction_count' app/src/utils/exe
 - Completion/offline: `scripts/tests/browser/study-finished.spec.cjs`, `scripts/tests/browser/offline.spec.cjs`.
 - Feedback: `app/src/utils/__tests__/exerciseEvaluation.test.js`, `app/src/utils/__tests__/puzzleEvaluation.test.js`, `app/src/utils/__tests__/matchQuizEvaluation.test.js`, `app/src/utils/__tests__/trainerEndings.test.js`.
 - Browser feedback: `scripts/tests/browser/exercise-feedback.spec.cjs`, `scripts/tests/browser/match-quiz-feedback.spec.cjs`, `scripts/tests/browser/puzzle-feedback.spec.cjs`.
-- Autoplay/latency: `scripts/tests/autoplay_sequence.mjs`, `scripts/tests/browser/autoplay-ui.spec.cjs`, `scripts/tests/test_study_latency.py`.
+- Autoplay/latency: `scripts/tests/autoplay_sequence.mjs`, `scripts/tests/browser/autoplay-ui.spec.cjs`, `scripts/tests/browser/study-latency.spec.cjs` (instant grade, races, failures, audio, responsive), `scripts/tests/test_study_latency.py` (save-only contract, rollback, permissions).
 
 ## Related docs
 

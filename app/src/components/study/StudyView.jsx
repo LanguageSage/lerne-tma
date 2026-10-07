@@ -23,6 +23,7 @@ import { getNextThemeDeck, isLastThemeDeck } from '../../utils/studyFlow';
 import { useStudyNavigation } from '../../hooks/useStudyNavigation';
 import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
+import { getUserId } from '../../utils/auth';
 import { useStudyStepFlow } from '../../hooks/useStudyStepFlow.js';
 import { canGradeStudyFlow, isSuccessfulStudyAnswer, STUDY_ACTION } from '../../utils/studySteps.js';
 
@@ -38,7 +39,7 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   useInterfaceLocale();
   const { view, loading, setIsSettingsOpen, showToast, userProfile, setIsAuthModalOpen } = useUiStore();
   const { currentDeck, decks, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
-  const { card, isFlipped, setIsFlipped, historyIndex, sessionRevision, apiError, isSessionFinished, studyHistory, isLearningMore, autoplayState } = useSessionStore();
+  const { card, isFlipped, setIsFlipped, historyIndex, sessionRevision, apiError, isSessionFinished, studyHistory, isLearningMore, autoplayState, pendingGrades, gradeErrors, dismissGradeError } = useSessionStore();
   const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard, runAiGenerator } = useCardActions();
   const { startStudy } = useStudyNavigation();
   const { openEditor, openCreator } = useCardNavigation();
@@ -472,13 +473,17 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
 
   const handleGrade = useCallback((grade, isExtended) => {
     if (!canGrade) return;
+    const latest = useSessionStore.getState();
+    const key = `${getUserId()}:${card?.id}`;
+    if (latest.card?.id !== card?.id || latest.historyIndex !== historyIndex || latest.sessionRevision !== sessionRevision
+      || latest.pendingGrades[key] || latest.gradeErrors[key]) return;
     // Unconfigured reviews may still be self-assessed without an interactive evaluator.
     if (!hasRequiredActions && currentStep?.action === STUDY_ACTION.ANSWER) completeStep({ selfAssessed: true });
     stopAudio();
     const evidence = exerciseEvidence;
     setExerciseEvidence(null);
     submitGrade(grade, isExtended, evidence);
-  }, [canGrade, hasRequiredActions, currentStep?.action, completeStep, stopAudio, exerciseEvidence, submitGrade]);
+  }, [card?.id, historyIndex, sessionRevision, canGrade, hasRequiredActions, currentStep?.action, completeStep, stopAudio, exerciseEvidence, submitGrade]);
 
   if (view !== 'study') return null;
 
@@ -487,7 +492,7 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
       {showGradeButtons && (
         <GradeButtons 
           card={card} 
-          loading={loading || !canGrade}
+          loading={loading || !canGrade || Boolean(pendingGrades[`${getUserId()}:${card?.id}`] || gradeErrors[`${getUserId()}:${card?.id}`])}
           onGrade={handleGrade} 
         />
       )}
@@ -590,6 +595,13 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
             loading={loading}
           />
         )}
+
+        {Object.entries(gradeErrors).filter(([key]) => key.startsWith(`${getUserId()}:`)).map(([key, error]) => (
+          <div className="study-grade-error" role="alert" key={key}>
+            <p className="study-error-message">{tr('Оценка карточки №{{p0}} не подтверждена: {{p1}}. Проверьте прогресс перед повторной оценкой.', { p0: error.card.id, p1: error.message })}</p>
+            <button className="btn btn-secondary" onClick={() => dismissGradeError(key)}>{tr('Понятно')}</button>
+          </div>
+        ))}
 
         {loading && !card ? (
           <div className="finished-view glass">

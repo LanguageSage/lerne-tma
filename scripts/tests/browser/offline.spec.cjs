@@ -33,6 +33,22 @@ async function loadModules(page) {
   });
 }
 
+test('offline save-only grade keeps its atomic progress and durable review event', async ({ page, context }) => {
+  await harness(page, context);
+  await context.setOffline(true);
+  const saved = await page.evaluate(async () => {
+    const deck = (await api.post('/decks', { name: 'Save only', target_language: 'de' })).data;
+    const card = (await api.post('/cards/save', { deck_id: deck.id, front: 'Hallo', back: 'Hello' })).data;
+    const response = (await api.post('/study/grade', { card_id: card.id, deck_id: deck.id, grade: 2, return_next: false })).data;
+    return { response, progress: await getDb().progress.get([card.id, 1]),
+      reviews: (await getDb().syncState.toArray()).filter(item => item.key.startsWith('review:')) };
+  });
+  expect(saved.response).toEqual({ status: 'success' });
+  expect(saved.progress.last_reviewed).toBeTruthy();
+  expect(saved.reviews).toHaveLength(1);
+  expect(saved.reviews[0].rating).toBe(2);
+});
+
 test('offline CRUD, due scheduling, restart and persistent progress', async ({ page, context }) => {
   await harness(page, context);
   await context.setOffline(true);

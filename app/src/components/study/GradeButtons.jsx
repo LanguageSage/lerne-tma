@@ -66,7 +66,7 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
               key={grade}
               disabled={loading}
               className={`btn-grade btn-grade-ext grade-ext-${grade}`}
-              onClick={() => onGrade(grade, true)}
+              onClick={event => { if (event.detail <= 1) onGrade(grade, true); }}
               title={tr("Интервал: {{p0}}", { p0: val })}
             >
               <span className="grade-val">{val}</span>
@@ -93,7 +93,7 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
             key={grade}
             disabled={loading}
             className={`btn-grade ${className}`}
-            onClick={() => onGrade(grade, false)}
+            onClick={event => { if (event.detail <= 1) onGrade(grade, false); }}
           >
             <span className="grade-label">{label}</span>
             <span className="grade-val">{val}</span>

@@ -1665,5 +1665,8 @@
   "Тип карточки и элементы": "Card type & elements",
   "Маркеры структуры": "Structure markers",
   "Панель быстрой вставки": "Quick insert toolbar",
-  "Банк слов": "Word bank"
+  "Банк слов": "Word bank",
+  "Оценка карточки №{{p0}} не подтверждена: {{p1}}. Проверьте прогресс перед повторной оценкой.": "The grade for card #{{p0}} is unconfirmed: {{p1}}. Check its progress before grading again.",
+  "Пользователь изменился до отправки оценки": "The account changed before the grade was sent",
+  "Понятно": "Got it"
 }

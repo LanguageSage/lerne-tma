@@ -284,6 +284,7 @@ class StudyGradeRequest(BaseModel):
     learn_more: bool = False
     review_context: Literal['scheduled', 'forced'] = 'scheduled'
     exclude_ids: list[int] = Field(default_factory=list)
+    return_next: bool = True
 
     @model_validator(mode='after')
     def standard_scale(self):
@@ -305,6 +306,8 @@ async def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_
             review_context=context
         )
         logger.info("submit_grade: Progress updated successfully")
+        if not data.return_next:
+            return {"status": "success"}
         
         # Сразу получаем следующую карту (без повторного HTTP-вызова)
         exclude = list(set([*data.exclude_ids, data.card_id])) if context == 'forced' else data.exclude_ids
@@ -355,6 +358,8 @@ async def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)
         data['grade'], 
         is_extended=bool(data.get('is_extended', False))
     )
+    if data.get('return_next') is False:
+        return {"status": "success"}
     card, progress = services.get_next_duplicate_card(user_id)
     if not card:
         return {"finished": True}

@@ -2,6 +2,10 @@ import { create } from 'zustand';
 
 export const useSessionStore = create((set, get) => ({
   sessionRevision: 0,
+  gradeRevision: 0,
+  // Shared by all hook instances; requests and unacknowledged failures survive session reset.
+  pendingGrades: {},
+  gradeErrors: {},
   card: null,
   studyHistory: [],
   historyIndex: -1,
@@ -17,6 +21,23 @@ export const useSessionStore = create((set, get) => ({
   stopAutoplayFn: null,
   pauseAutoplayFn: null,
   resumeAutoplayFn: null,
+
+  startGrade: (key, request) => {
+    if (get().pendingGrades[key] || get().gradeErrors[key]) return false;
+    set(state => ({ pendingGrades: { ...state.pendingGrades, [key]: request }, gradeRevision: state.gradeRevision + 1 }));
+    return true;
+  },
+  finishGrade: (key, request, error = null) => set(state => {
+    if (state.pendingGrades[key] !== request) return {};
+    const pendingGrades = { ...state.pendingGrades };
+    delete pendingGrades[key];
+    return { pendingGrades, gradeErrors: error ? { ...state.gradeErrors, [key]: error } : state.gradeErrors };
+  }),
+  dismissGradeError: (key) => set(state => {
+    const gradeErrors = { ...state.gradeErrors };
+    delete gradeErrors[key];
+    return { gradeErrors };
+  }),
 
   setIsSessionFinished: (val) => set({ isSessionFinished: val }),
   setIsLearningMore: (val) => set({ isLearningMore: val }),

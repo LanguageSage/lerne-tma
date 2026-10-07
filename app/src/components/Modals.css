@@ -140,6 +140,8 @@ input:checked + .slider:before {
 .study-finished-deck { font-size: 1.1rem; }
 .study-finished-icon { color: var(--success-color, #22c55e); flex-shrink: 0; }
 .study-error-message { color: var(--error-color, #f87171); }
+.study-grade-error { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.study-grade-error p { flex: 1 1 240px; margin: 0; overflow-wrap: anywhere; }
 
 .finished-actions .btn.btn-finished-ok {
   font-size: 1.2rem;

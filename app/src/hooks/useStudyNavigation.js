@@ -14,7 +14,7 @@ export function useStudyNavigation() {
   const setIsOpeningDeck = useUiStore(state => state.setIsOpeningDeck);
   const showToast = useUiStore(state => state.showToast);
   const setCurrentDeck = useDeckStore(state => state.setCurrentDeck);
-  const { fetchNextCard } = useCardActions();
+  const { fetchNextCard, refreshCard } = useCardActions();
 
   const startStudy = useCallback(async (deck, { reviewContext = 'scheduled' } = {}) => {
     setIsOpeningDeck(true);
@@ -61,19 +61,7 @@ export function useStudyNavigation() {
         setIsOpeningDeck(false);
 
         // Fetch fresh card details/intervals in background without blocking UI
-        api.get(`/study/card/${cardId}`).then((res) => {
-          if (res?.data) {
-            useSessionStore.getState().setCard(res.data);
-            const history = useSessionStore.getState().studyHistory;
-            if (history.length > 0) {
-              const updatedHistory = [...history];
-              updatedHistory[history.length - 1] = res.data;
-              useSessionStore.getState().setStudyHistory(updatedHistory);
-            }
-          }
-        }).catch((err) => {
-          console.warn("Background study card refresh:", err);
-        });
+        refreshCard(localCard);
         return;
       }
 
@@ -99,20 +87,18 @@ export function useStudyNavigation() {
 
       setView('study');
 
+      if (localCard) {
+        refreshCard(localCard);
+        return;
+      }
+
       try {
+        const revision = useSessionStore.getState().sessionRevision;
         const res = await api.get(`/study/card/${cardId}`);
+        if (useSessionStore.getState().sessionRevision !== revision || useDeckStore.getState().currentDeck?.id !== deck.id
+          || useUiStore.getState().view !== 'study') return;
         if (res?.data) {
-          if (localCard) {
-            useSessionStore.getState().setCard(res.data);
-            const history = useSessionStore.getState().studyHistory;
-            if (history.length > 0) {
-              const updatedHistory = [...history];
-              updatedHistory[history.length - 1] = res.data;
-              useSessionStore.getState().setStudyHistory(updatedHistory);
-            }
-          } else {
-            useSessionStore.getState().addToHistory(res.data);
-          }
+          useSessionStore.getState().addToHistory(res.data);
         }
       } catch (apiErr) {
         console.warn("api.get study card failed in startStudyCard:", apiErr);
@@ -134,7 +120,7 @@ export function useStudyNavigation() {
     } finally {
       setIsOpeningDeck(false);
     }
-  }, [setCurrentDeck, setIsOpeningDeck, setView, showToast]);
+  }, [setCurrentDeck, setIsOpeningDeck, setView, showToast, refreshCard]);
 
   return {
     startStudy,
