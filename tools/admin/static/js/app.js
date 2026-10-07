@@ -6,7 +6,7 @@ function switchTab(tab) {
         localStorage.setItem('lerne_admin_tab', tab);
       } catch (e) {}
 
-      ['users', 'decks', 'folders', 'ai', 'bulk', 'classification', 'backups', 'backup-explorer', 'media-manager'].forEach(t => {
+      ['users', 'decks', 'folders', 'ai', 'bulk', 'classification', 'backups', 'backup-explorer', 'media-manager', 'author'].forEach(t => {
         const contentEl = document.getElementById(`content-${t}`);
         if (contentEl) contentEl.classList.add('hidden');
         const btn = document.getElementById(`tab-${t}`);
@@ -38,6 +38,8 @@ function switchTab(tab) {
         lucide.createIcons();
       } else if (tab === 'media-manager') {
         initMediaManager();
+      } else if (tab === 'author') {
+        if (typeof initAuthorTab === 'function') initAuthorTab();
       }
       lucide.createIcons();
     }

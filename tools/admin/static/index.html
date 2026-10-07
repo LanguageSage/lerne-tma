@@ -46,6 +46,9 @@
       <button onclick="switchTab('folders')" id="tab-folders" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
         <i data-lucide="folder" class="w-3.5 h-3.5 text-indigo-400"></i> <span>Папки</span> (<span id="folders-tab-badge">0</span>)
       </button>
+      <button onclick="switchTab('author')" id="tab-author" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <i data-lucide="pen-tool" class="w-3.5 h-3.5 text-violet-400"></i> <span>Автор уроков</span>
+      </button>
       <button onclick="switchTab('ai')" id="tab-ai" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
         <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> <span>ИИ Перегенерация</span>
       </button>
@@ -1520,7 +1523,385 @@
       </div>
     </section>
 
+    <!-- Tab 10: Author Content Workspace (Автор уроков) -->
+    <section id="content-author" class="space-y-6 hidden">
+      <!-- Top Title & Sub-Navigation Header -->
+      <div class="glass p-5 rounded-2xl border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+              <i data-lucide="pen-tool" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-xl font-bold text-white tracking-tight">Автор уроков</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Публикация новых уроков, экспорт и безопасное обновление карточек без сброса SRS.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 Modes Sub-Navigation & Quick Actions -->
+        <div class="flex items-center gap-2 flex-wrap w-full md:w-auto">
+          <div class="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 shadow-inner">
+            <button onclick="switchAuthorSubtab('publish')" id="author-subtab-publish" class="px-3 py-1.5 text-xs font-bold rounded-xl transition bg-indigo-600 text-white shadow-md shadow-indigo-500/20 flex items-center gap-1.5">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i> <span>Публикация</span>
+            </button>
+            <button onclick="switchAuthorSubtab('export')" id="author-subtab-export" class="px-3 py-1.5 text-xs font-medium rounded-xl transition text-slate-400 hover:text-white flex items-center gap-1.5">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> <span>Экспорт</span>
+            </button>
+            <button onclick="switchAuthorSubtab('update')" id="author-subtab-update" class="px-3 py-1.5 text-xs font-medium rounded-xl transition text-slate-400 hover:text-white flex items-center gap-1.5">
+              <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> <span>Обновление</span>
+            </button>
+          </div>
+
+          <button onclick="populateAuthorFolderSelects(); populateAuthorDeckSelects(); showToast('Списки папок и колод обновлены', 'info');" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 flex items-center gap-1.5 transition" title="Обновить списки папок и колод">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- SUBTAB 1: PUBLISH (Публикация) -->
+      <!-- ================================================================= -->
+      <div id="author-panel-publish" class="space-y-6">
+
+        <!-- Loading State Indicator -->
+        <div id="author-publish-loading-wrap" class="glass p-12 rounded-2xl border border-slate-800 text-center space-y-3 hidden">
+          <i data-lucide="loader-2" class="w-8 h-8 text-indigo-400 animate-spin mx-auto"></i>
+          <h4 class="font-bold text-sm text-white">Анализ файла урока...</h4>
+          <p class="text-xs text-slate-400">Парсинг разметки, поиск колод и проверка синтаксиса</p>
+        </div>
+
+        <!-- Error State Banner -->
+        <div id="author-publish-error-wrap" class="p-4 rounded-xl border border-rose-500/30 bg-rose-950/30 text-rose-300 hidden"></div>
+
+        <!-- Success State Banner -->
+        <div id="author-publish-success-wrap" class="hidden"></div>
+
+        <!-- Dropzone Box (Empty state) -->
+        <div id="author-publish-dropzone-wrap" class="space-y-4">
+          <div id="author-publish-dropzone"
+               ondragover="handleAuthorPublishDragOver(event)"
+               ondragleave="handleAuthorPublishDragLeave(event)"
+               ondrop="handleAuthorPublishDrop(event)"
+               onclick="document.getElementById('author-publish-file-input').click()"
+               class="glass border-2 border-dashed border-slate-700 hover:border-indigo-500/80 rounded-2xl p-10 text-center cursor-pointer transition-all bg-slate-900/40 hover:bg-indigo-950/20 group">
+            <input type="file" id="author-publish-file-input" accept=".txt,.md,.text" onchange="handleAuthorPublishFileSelect(this)" class="hidden">
+            <div class="w-14 h-14 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mx-auto mb-4 group-hover:scale-105 group-hover:bg-indigo-600/20 transition-transform">
+              <i data-lucide="file-up" class="w-7 h-7"></i>
+            </div>
+            <h3 class="font-bold text-base text-white">Перетащите файл урока (.txt / .md) сюда</h3>
+            <p class="text-xs text-slate-400 mt-1">или <span class="text-indigo-400 underline font-semibold">нажмите для выбора файла</span> на компьютере</p>
+            <div class="flex items-center justify-center gap-2 mt-4 text-[11px] text-slate-500 font-mono">
+              <span class="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60">Канонический Lerne Codex</span>
+              <span>•</span>
+              <span class="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60">До 10 МБ</span>
+              <span>•</span>
+              <span class="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60">UTF-8</span>
+            </div>
+          </div>
+
+          <!-- Direct Text Input Accordion -->
+          <div class="glass p-4 rounded-xl border border-slate-800">
+            <button onclick="toggleAuthorManualTextInput()" class="w-full flex items-center justify-between text-xs font-semibold text-slate-300 hover:text-white transition">
+              <span class="flex items-center gap-2">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5 text-indigo-400"></i> Или вставьте текст разметки напрямую
+              </span>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500"></i>
+            </button>
+            <div id="author-publish-manual-text-container" class="mt-3 space-y-3 hidden">
+              <textarea id="author-publish-manual-text" rows="7" placeholder="# Deck: Моя колода&#10;FRONT:&#10;Guten Tag&#10;BACK:&#10;Добрый день" class="w-full bg-slate-950 font-mono text-xs text-slate-200 p-3 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500"></textarea>
+              <div class="flex justify-end">
+                <button onclick="handleAuthorManualTextSubmit()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow transition flex items-center gap-1.5">
+                  <i data-lucide="play" class="w-3.5 h-3.5"></i> Разобрать текст
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result View (After parse) -->
+        <div id="author-publish-result-wrap" class="space-y-6 hidden">
+          <!-- 4 Stat Metric Cards -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase">Всего карточек</p>
+              <h3 id="author-publish-stat-cards" class="text-2xl font-bold text-white mt-1">0</h3>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase">Найдено колод</p>
+              <h3 id="author-publish-stat-decks" class="text-2xl font-bold text-white mt-1">0</h3>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1.5">Уровни CEFR</p>
+              <div id="author-publish-stat-levels" class="flex flex-wrap gap-1 min-h-[28px] items-center">
+                <span class="text-slate-500 text-xs">—</span>
+              </div>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1.5">Типы заданий</p>
+              <div id="author-publish-stat-types" class="flex flex-wrap gap-1 min-h-[28px] items-center">
+                <span class="text-slate-500 text-xs">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Syntax Issues Alert Container -->
+          <div id="author-publish-syntax-wrap" class="hidden"></div>
+
+          <!-- Decks Preview Table -->
+          <div class="glass rounded-2xl border border-slate-800 overflow-hidden">
+            <div class="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
+              <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i data-lucide="layers" class="w-4 h-4 text-indigo-400"></i> Список колод для импорта
+              </h3>
+              <span class="text-xs text-slate-400">Все колоды будут помещены в выбранную папку</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-slate-800 text-left text-xs">
+                <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase">
+                  <tr>
+                    <th class="px-4 py-2.5 w-12">#</th>
+                    <th class="px-4 py-2.5">Название колоды</th>
+                    <th class="px-4 py-2.5 w-32">Количество карт</th>
+                  </tr>
+                </thead>
+                <tbody id="author-publish-decks-tbody" class="divide-y divide-slate-800/60 font-mono">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Destination Folder Selector Box -->
+          <div class="glass p-5 rounded-2xl border border-slate-800 space-y-3">
+            <label class="block text-xs font-semibold uppercase text-slate-300">Целевая папка для урока:</label>
+
+            <!-- Mode A: Select existing folder -->
+            <div id="author-publish-folder-existing-wrap" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <select id="author-publish-folder-select" onchange="onAuthorPublishFolderSelectChange(this)" class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <!-- Populated via JS -->
+              </select>
+              <button onclick="toggleAuthorNewFolderInput(true)" class="px-3.5 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-bold rounded-xl border border-indigo-500/30 flex items-center justify-center gap-1.5 transition whitespace-nowrap">
+                <i data-lucide="folder-plus" class="w-4 h-4"></i> + Создать новую папку
+              </button>
+            </div>
+
+            <!-- Mode B: Create new folder input -->
+            <div id="author-publish-folder-new-wrap" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 hidden">
+              <input type="text" id="author-publish-new-folder-name" placeholder="Название новой папки (например: Немецкий A1 • Урок 4)" class="flex-1 bg-slate-900 border border-emerald-500/50 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-400">
+              <button onclick="toggleAuthorNewFolderInput(false)" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 flex items-center justify-center gap-1.5 transition whitespace-nowrap">
+                Отмена (выбрать существующую)
+              </button>
+            </div>
+          </div>
+
+          <!-- Preview Validation Banner -->
+          <div id="author-publish-preview-banner" class="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-xs hidden"></div>
+
+          <!-- Actions Footer Toolbar -->
+          <div class="glass p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <button onclick="resetAuthorPublish()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition flex items-center justify-center gap-2">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Сбросить / Другой файл
+            </button>
+
+            <div class="flex items-center gap-3">
+              <button onclick="runAuthorPublishPreview()" class="px-4 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-bold rounded-xl border border-indigo-500/30 transition flex items-center justify-center gap-1.5">
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Предпросмотр (Preview)
+              </button>
+              <button onclick="runAuthorPublish()" class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2">
+                <i data-lucide="check" class="w-4 h-4"></i> Опубликовать в базу
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- SUBTAB 2: EXPORT (Экспорт) -->
+      <!-- ================================================================= -->
+      <div id="author-panel-export" class="space-y-6 hidden">
+        <div class="glass p-6 rounded-2xl border border-slate-800 max-w-2xl mx-auto space-y-6">
+          <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+              <i data-lucide="download" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-base text-white">Экспорт учебных материалов</h3>
+              <p class="text-xs text-slate-400">Выгрузка колоды или папки в канонический текстовый формат Lerne Codex (.txt).</p>
+            </div>
+          </div>
+
+          <!-- Mode Switcher: Deck vs Folder -->
+          <div class="space-y-2">
+            <label class="block text-xs font-semibold uppercase text-slate-400">Тип объекта для экспорта:</label>
+            <div class="flex items-center gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800 w-fit">
+              <button onclick="onAuthorExportModeChange('deck')" id="author-export-mode-deck" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow transition">
+                🗂️ Колода
+              </button>
+              <button onclick="onAuthorExportModeChange('folder')" id="author-export-mode-folder" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition">
+                📁 Папка целиком
+              </button>
+            </div>
+          </div>
+
+          <!-- Deck Selector Box -->
+          <div id="author-export-deck-wrap" class="space-y-2">
+            <label class="block text-xs font-semibold uppercase text-slate-400">Выберите колоду:</label>
+            <select id="author-export-deck-select" onchange="onAuthorExportDeckSelectChange(this)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <!-- Populated via JS -->
+            </select>
+            <div id="author-export-deck-stats" class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80"></div>
+          </div>
+
+          <!-- Folder Selector Box -->
+          <div id="author-export-folder-wrap" class="space-y-2 hidden">
+            <label class="block text-xs font-semibold uppercase text-slate-400">Выберите папку:</label>
+            <select id="author-export-folder-select" onchange="onAuthorExportFolderSelectChange(this)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <!-- Populated via JS -->
+            </select>
+            <div id="author-export-folder-stats" class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80"></div>
+          </div>
+
+          <!-- Export Action Buttons -->
+          <div class="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 border-t border-slate-800">
+            <button onclick="triggerAuthorExport(false)" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition flex items-center justify-center gap-1.5">
+              <i data-lucide="eye" class="w-3.5 h-3.5"></i> Посмотреть текст
+            </button>
+            <button onclick="triggerAuthorExport(true)" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2">
+              <i data-lucide="download" class="w-4 h-4"></i> Экспортировать (.txt)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- SUBTAB 3: UPDATE (Обновление) -->
+      <!-- ================================================================= -->
+      <div id="author-panel-update" class="space-y-6 hidden">
+
+        <!-- Loading State Indicator -->
+        <div id="author-update-loading-wrap" class="glass p-12 rounded-2xl border border-slate-800 text-center space-y-3 hidden">
+          <i data-lucide="loader-2" class="w-8 h-8 text-indigo-400 animate-spin mx-auto"></i>
+          <h4 class="font-bold text-sm text-white">Расчёт изменений (diff)...</h4>
+          <p class="text-xs text-slate-400">Сравнение карточек из файла с базой данных</p>
+        </div>
+
+        <!-- Error State Banner -->
+        <div id="author-update-error-wrap" class="p-4 rounded-xl border border-rose-500/30 bg-rose-950/30 text-rose-300 hidden"></div>
+
+        <!-- Success State Banner -->
+        <div id="author-update-success-wrap" class="hidden"></div>
+
+        <!-- Dropzone Box (Empty state) -->
+        <div id="author-update-dropzone-wrap" class="space-y-4">
+          <div id="author-update-dropzone"
+               ondragover="handleAuthorUpdateDragOver(event)"
+               ondragleave="handleAuthorUpdateDragLeave(event)"
+               ondrop="handleAuthorUpdateDrop(event)"
+               onclick="document.getElementById('author-update-file-input').click()"
+               class="glass border-2 border-dashed border-slate-700 hover:border-indigo-500/80 rounded-2xl p-10 text-center cursor-pointer transition-all bg-slate-900/40 hover:bg-indigo-950/20 group">
+            <input type="file" id="author-update-file-input" accept=".txt,.md,.text" onchange="handleAuthorUpdateFileSelect(this)" class="hidden">
+            <div class="w-14 h-14 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mx-auto mb-4 group-hover:scale-105 group-hover:bg-indigo-600/20 transition-transform">
+              <i data-lucide="refresh-cw" class="w-7 h-7"></i>
+            </div>
+            <h3 class="font-bold text-base text-white">Загрузите отредактированный файл урока (.txt / .md)</h3>
+            <p class="text-xs text-slate-400 mt-1">Файл с директивами <span class="font-mono text-indigo-400">::card_id</span> и <span class="font-mono text-indigo-400">::deck_id</span></p>
+            <div class="flex items-center justify-center gap-2 mt-4 text-[11px] text-slate-500 font-mono">
+              <span class="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60">Безопасный 2-фазный diff</span>
+              <span>•</span>
+              <span class="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60">Сохранение SRS интервалов</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result View (After preview) -->
+        <div id="author-update-result-wrap" class="space-y-6 hidden">
+          <!-- 4 Stat Summary Cards -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase">Обновляемых карт</p>
+              <h3 id="author-update-stat-updated" class="text-2xl font-bold text-emerald-400 mt-1">0</h3>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase">Без изменений</p>
+              <h3 id="author-update-stat-unchanged" class="text-2xl font-bold text-slate-300 mt-1">0</h3>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase">Новых карточек</p>
+              <h3 id="author-update-stat-new" class="text-2xl font-bold text-amber-400 mt-1">0</h3>
+            </div>
+            <div class="glass p-4 rounded-xl border border-slate-800">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase">Ошибок синтаксиса</p>
+              <h3 id="author-update-stat-errors" class="text-2xl font-bold text-rose-400 mt-1">0</h3>
+            </div>
+          </div>
+
+          <!-- Permission Checkbox for New Cards -->
+          <div id="author-update-new-cards-wrap" class="glass p-4 rounded-xl border border-amber-500/30 bg-amber-950/20 hidden">
+            <label class="flex items-center gap-2.5 text-xs font-semibold text-amber-300 cursor-pointer">
+              <input type="checkbox" id="author-update-include-new" class="w-4 h-4 rounded text-amber-500 focus:ring-0">
+              <span>Добавить новые карточки в колоду (найдено: <span id="author-update-new-count" class="font-bold underline">0</span> шт.)</span>
+            </label>
+            <p class="text-[11px] text-amber-400/80 mt-1 ml-6.5">По умолчанию новые карточки пропускаются и не добавляются без этой галочки.</p>
+          </div>
+
+          <!-- Collapsible Diff Accordion Container -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i data-lucide="git-commit" class="w-4 h-4 text-indigo-400"></i> Изменения в карточках (Было / Стало)
+              </h3>
+              <span class="text-xs text-slate-400">Нажмите на карточку для просмотра diff</span>
+            </div>
+            <div id="author-update-diff-container" class="space-y-2">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Actions Footer Toolbar -->
+          <div class="glass p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <button onclick="resetAuthorUpdate()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition flex items-center justify-center gap-2">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Сбросить / Другой файл
+            </button>
+
+            <button onclick="runAuthorUpdateApply()" id="btn-author-update-apply" class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2">
+              <i data-lucide="check-check" class="w-4 h-4"></i> Применить обновления
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
   </main>
+
+  <!-- Modal: Author Export Text Preview -->
+  <div id="modal-author-export-preview" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass max-w-4xl w-full max-h-[90vh] flex flex-col rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
+      <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/90">
+        <div class="flex items-center gap-2">
+          <i data-lucide="file-text" class="w-4 h-4 text-indigo-400"></i>
+          <h3 id="author-export-preview-title" class="font-bold text-sm text-white">Экспорт урока</h3>
+        </div>
+        <button onclick="closeModal('modal-author-export-preview')" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div class="p-4 flex-1 overflow-y-auto">
+        <textarea id="author-export-preview-content" readonly rows="18" class="w-full bg-slate-950 font-mono text-xs text-slate-200 p-3 rounded-xl border border-slate-800 focus:outline-none"></textarea>
+      </div>
+      <div class="p-4 border-t border-slate-800 bg-slate-900/60 flex justify-between items-center">
+        <button onclick="copyAuthorExportContent()" class="px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-semibold rounded-xl border border-indigo-500/30 flex items-center gap-1.5 transition">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i> Скопировать в буфер
+        </button>
+        <button onclick="closeModal('modal-author-export-preview')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl">
+          Закрыть
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal: Interactive Deck Preview & Health Check -->
   <div id="modal-deck-preview" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
@@ -2120,6 +2501,7 @@
   <script src="/static/js/backups.js?v=20260912_3"></script>
   <script src="/static/js/backup_explorer.js?v=20260912_3"></script>
   <script src="/static/js/media_manager.js?v=20260912_3"></script>
+  <script src="/static/js/author.js?v=20261006_1"></script>
   <script src="/static/js/app.js?v=20260912_3"></script>
 
 </body>

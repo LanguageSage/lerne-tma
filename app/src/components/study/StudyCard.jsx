@@ -30,6 +30,7 @@ import { KaraokeText } from './KaraokeText';
 import { useVoicePicker } from '../../hooks/useVoicePicker';
 import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 import { getAudioUrl } from '../../utils/media';
+import { getPhysicalSideAudioSource, getPhysicalSideText, getStudyRolePhysicalSide, PEDAGOGICAL_ROLE } from '../../utils/studyCardRoles.js';
 
 // Re-export for backward compatibility
 // eslint-disable-next-line react-refresh/only-export-components
@@ -56,6 +57,9 @@ export const StudyCard = React.memo(({
   resolvedBgBack,
   studyMode = 'classic',
   onTrainerAnswer,
+  onSpeechSuccess,
+  stepFlow,
+  renderRequiredAction,
   onAskQuestion,
   onNextCard
 }) => {
@@ -81,7 +85,8 @@ export const StudyCard = React.memo(({
   const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, false);
 
   // Provide current card text to the picker so auto-generate works on voice switch
-  const rawFrontText = card ? (studyMode === 'reverse' ? (card.back || card.back_text || '') : (card.front || card.front_text || '')) : '';
+  const promptPhysicalSide = getStudyRolePhysicalSide(PEDAGOGICAL_ROLE.PROMPT, studyMode);
+  const rawFrontText = getPhysicalSideText(card, promptPhysicalSide);
 
   const parsedFrontContent = useMemo(() => {
     return parseExerciseContent(rawFrontText);
@@ -127,7 +132,9 @@ export const StudyCard = React.memo(({
   const [exerciseStates, setExerciseStates] = useState({});
   const [exerciseFooterTarget, setExerciseFooterTarget] = useState(null);
 
-  const reviewKey = card?.id ? `${card.id}:${historyIndex}` : null;
+  const reviewKey = card?.id != null
+    ? (stepFlow?.hasRequiredActions ? stepFlow.reviewKey : null) || `${card.id}:${historyIndex}`
+    : null;
 
   const handleSaveExerciseState = useCallback((state) => {
     if (!reviewKey) return;
@@ -234,14 +241,12 @@ export const StudyCard = React.memo(({
 
   const getResolvedAudioUrl = (c, isBack = false) => {
     if (!c) return '';
-    const target = isBack
-      ? (c.audio_back_url || c.audio_back_path)
-      : (c.audio_url || c.audio_path);
+    const target = getPhysicalSideAudioSource(c, isBack ? 'back' : 'front');
     return getAudioUrl(target);
   };
 
   const renderFrontAudioPlayer = () => {
-    const isBackSide = studyMode === 'reverse';
+    const isBackSide = promptPhysicalSide === 'back';
     const audioUrl = getResolvedAudioUrl(card, isBackSide);
     // The reverse-mode front is the translation. Ordinary study may play an
     // existing translation recording, but only Auto is allowed to generate it.
@@ -320,6 +325,11 @@ export const StudyCard = React.memo(({
     ? 'classic'
     : (exerciseType || (studyMode === 'trainer' ? 'classic' : studyMode));
 
+  // A future step renderer can reuse speech/listening UI without a new card type.
+  const requiredActionContent = stepFlow?.currentStep && stepFlow.currentStep.action !== 'answer'
+    ? renderRequiredAction?.({ card, stepFlow, audioControls, styles })
+    : null;
+
   const handleClozeClick = (option, e) => {
     e.stopPropagation();
     if (correctSelected || isFlipped) return;
@@ -328,9 +338,12 @@ export const StudyCard = React.memo(({
       setCorrectSelected(option);
       triggerHaptic('success');
       
-      if (studyMode === 'trainer' && onTrainerAnswer) {
+      if (onTrainerAnswer) {
         const isFirstTry = wrongSelected.length === 0;
-        onTrainerAnswer(card.id, isFirstTry);
+        onTrainerAnswer(card.id, {
+          isCorrect: true, completed: true, isFirstTry,
+          attemptCount: wrongSelected.length + 1, mistakeCount: wrongSelected.length,
+        });
       }
     } else {
       if (!wrongSelected.includes(option)) {
@@ -451,6 +464,7 @@ export const StudyCard = React.memo(({
                 />
               )}
 
+              {requiredActionContent ?? <>
               {/* Classic / Reverse Mode Text */}
               {!exerciseType && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
                 <>
@@ -587,7 +601,10 @@ export const StudyCard = React.memo(({
               {/* Speech Recognition Mode */}
               {studyMode === 'speak' && (
                 <StudyCardSpeech
+                  key={stepFlow?.reviewKey || reviewKey}
                   card={card}
+                  reviewKey={stepFlow?.reviewKey || reviewKey}
+                  onSuccess={onSpeechSuccess}
                   onFlip={onFlip}
                   loading={loading}
                   playAudio={playAudio}
@@ -601,6 +618,7 @@ export const StudyCard = React.memo(({
                   styles={styles}
                 />
               )}
+              </>}
 
               {/* Bottom Level & Action Bar (Pinned to bottom of card window) */}
               <div

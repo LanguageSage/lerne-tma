@@ -2,7 +2,8 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RefreshCw, Eye, Volume2, Mic, Check, AlertCircle, Sparkles, Sliders } from 'lucide-react';
-import { stripMarkdown, normalizeSpeechText } from '../../utils/text';
+import { stripMarkdown } from '../../utils/text';
+import { evaluateStudySpeech } from '../../utils/speechEvaluation.js';
 import { getTextShadow } from '../../utils/style';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -18,6 +19,9 @@ import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 
 export const StudyCardSpeech = React.memo(({
   card,
+  targetText,
+  reviewKey,
+  onSuccess,
   onFlip,
   loading,
   playAudio,
@@ -35,8 +39,8 @@ export const StudyCardSpeech = React.memo(({
 
   const exerciseContent = useMemo(() => parseExerciseContent(card?.front || ''), [card?.front]);
   const spokenFront = useMemo(
-    () => cleanBracketSyntax(exerciseContent.exercise),
-    [exerciseContent]
+    () => targetText ?? cleanBracketSyntax(exerciseContent.exercise),
+    [targetText, exerciseContent]
   );
 
   const recognitionRef = useRef(null);
@@ -84,23 +88,26 @@ export const StudyCardSpeech = React.memo(({
   // Reset speech state on card change
   useEffect(() => {
     stopSpeechRecognition();
+    setIsListening(false);
     setRecognizedText("");
     setSpeechError("");
     setSpeechSuccess(false);
 
     speechSuccessRef.current = false;
     recognizedTextRef.current = "";
-  }, [card?.id]);
-
-  // Cleanup on unmount
-  useEffect(() => {
+    // Retired recognition instances must not report into another card/step.
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (recognitionRef.current) {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onerror = null;
         try { recognitionRef.current.abort(); } catch { /* ignore */ }
+        recognitionRef.current = null;
       }
     };
-  }, []);
+  }, [card?.id, reviewKey, spokenFront]);
 
   const stopSpeechRecognition = (e) => {
     e?.stopPropagation();
@@ -121,32 +128,12 @@ export const StudyCardSpeech = React.memo(({
     const currentDeck = useDeckStore.getState().currentDeck;
     const activeLang = useLanguageStore.getState().activeLanguage;
     const cardLang = card.target_language || currentDeck?.target_language || activeLang || 'de';
-    const cleanTranscript = normalizeSpeechText(transcript, cardLang);
-    const cleanOriginal = normalizeSpeechText(cardFrontRef.current || spokenFront, cardLang);
-
-    if (!cleanTranscript || !cleanOriginal) return false;
-
-    const originalWords = cleanOriginal.split(/\s+/).filter(Boolean);
-    const transcriptWords = cleanTranscript.split(/\s+/).filter(Boolean);
-
-    let matchCount = 0;
-    originalWords.forEach(w => {
-      if (transcriptWords.includes(w)) {
-        matchCount++;
-      }
+    const currentThreshold = overrideThreshold !== null ? overrideThreshold : (speechMatchThreshold || 75);
+    const result = evaluateStudySpeech({
+      transcript, targetText: cardFrontRef.current || spokenFront, language: cardLang, threshold: currentThreshold,
     });
 
-    const matchRatio = originalWords.length > 0 ? matchCount / originalWords.length : 0;
-    const currentThreshold = overrideThreshold !== null ? overrideThreshold : (speechMatchThreshold || 75);
-
-    const ratioMatched = (matchRatio * 100) >= currentThreshold;
-    const exactMatched = cleanTranscript === cleanOriginal;
-    const extraSpokenMatched = cleanTranscript.includes(cleanOriginal) && (originalWords.length / transcriptWords.length >= 0.6);
-    const fragmentMatched = cleanOriginal.includes(cleanTranscript) && ((matchRatio * 100) >= currentThreshold);
-
-    const isMatched = ratioMatched || exactMatched || extraSpokenMatched || fragmentMatched;
-
-    if (isMatched) {
+    if (result.success) {
       speechSuccessRef.current = true;
       setSpeechSuccess(true);
       setIsListening(false);
@@ -154,6 +141,7 @@ export const StudyCardSpeech = React.memo(({
       stopSpeechRecognition();
 
       triggerHaptic('success');
+      onSuccess?.({ ...result, transcript, targetText: cardFrontRef.current || spokenFront });
       return true;
     } else if (isFinalCheck) {
       setSpeechSuccess(false);

@@ -329,6 +329,150 @@ class TestAuthorRouter(unittest.TestCase):
             if old_admin is not None:
                 os.environ['ADMIN_USER_ID'] = old_admin
 
+    # ------------------------------------------------------------------------
+    # 9. MULTI-DECK PUBLICATION & NEW FOLDER CREATION
+    # ------------------------------------------------------------------------
+
+    def test_multi_deck_file_parse_and_publish(self):
+        text = (
+            "# Deck: Deck Alpha\n\n"
+            "FRONT:\nA1\nBACK:\nB1\n\n"
+            "---\n\n"
+            "# Deck: Deck Beta\n\n"
+            "FRONT:\nA2\nBACK:\nB2\n"
+        )
+        # 1. Parse multi-deck
+        parse_resp = self.client.post("/api/admin/author/parse", json={"text": text})
+        self.assertEqual(parse_resp.status_code, 200)
+        pdata = parse_resp.json()
+        self.assertEqual(pdata["decks_count"], 2)
+        self.assertEqual(pdata["total_cards"], 2)
+
+        # 2. Publish multi-deck into a brand new folder
+        pub_resp = self.client.post("/api/admin/author/publish", json={
+            "text": text,
+            "new_folder_name": "Multi Course Folder",
+            "user_id": 42
+        })
+        self.assertEqual(pub_resp.status_code, 200)
+        pub_data = pub_resp.json()
+        self.assertEqual(pub_data["total_saved_cards"], 2)
+        self.assertEqual(len(pub_data["published_decks"]), 2)
+        self.assertEqual(pub_data["folder_name"], "Multi Course Folder")
+
+        # Verify DB decks
+        folder_id = pub_data["folder_id"]
+        decks_in_db = list(models.TMA_Deck.select().where(models.TMA_Deck.folder_id == folder_id))
+        self.assertEqual(len(decks_in_db), 2)
+        deck_names = {d.name for d in decks_in_db}
+        self.assertEqual(deck_names, {"Deck Alpha", "Deck Beta"})
+
+    # ------------------------------------------------------------------------
+    # 10. SYNTAX ERROR DETECTION
+    # ------------------------------------------------------------------------
+
+    def test_syntax_error_detection(self):
+        # Card with unclosed cloze bracket
+        bad_syntax_text = (
+            "# Deck: SyntaxDeck\n\n"
+            "FRONT:\n::exercise\nIch [[lerne Deutsch ohne Ende\n\n"
+            "BACK:\nЯ учу немецкий\n"
+        )
+        resp = self.client.post("/api/admin/author/parse", json={"text": bad_syntax_text})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(len(data["syntax_issues"]), 1)
+        issue = data["syntax_issues"][0]
+        self.assertEqual(issue["card_number"], 1)
+        self.assertIn("скобки", issue["issue"].lower())
+
+    # ------------------------------------------------------------------------
+    # 11. NEW CARDS HANDLING IN UPDATE (include_new flag)
+    # ------------------------------------------------------------------------
+
+    def test_new_cards_handling_in_update(self):
+        # Update text contains: 1 existing card modified + 1 new card
+        update_text = (
+            f"# Deck: {self.deck.name}\n\n"
+            f"::deck_id {self.deck.id}\n"
+            f"::card_id {self.card.id}\n\n"
+            f"FRONT:\nFront Modified\n\n"
+            f"BACK:\nBack Modified\n\n"
+            f"---\n\n"
+            f"::deck_id {self.deck.id}\n\n"
+            f"FRONT:\nBrand New Front\n\n"
+            f"BACK:\nBrand New Back\n"
+        )
+
+        # 1. Preview
+        prev_res = self.client.post("/api/admin/author/update-preview", json={
+            "text": update_text,
+            "deck_id": self.deck.id,
+            "user_id": 42
+        })
+        self.assertEqual(prev_res.status_code, 200)
+        prev_data = prev_res.json()
+        self.assertEqual(prev_data["updated"], 1)
+        self.assertEqual(prev_data["new"], 1)
+        preview_token = prev_data["preview_token"]
+
+        # 2. Apply with include_new = False (default: new cards skipped)
+        apply_res_skip = self.client.post("/api/admin/author/update-apply", json={
+            "text": update_text,
+            "preview_token": preview_token,
+            "deck_id": self.deck.id,
+            "user_id": 42,
+            "include_new": False
+        })
+        self.assertEqual(apply_res_skip.status_code, 200)
+        self.assertEqual(apply_res_skip.json()["updated"], 1)
+        self.assertEqual(apply_res_skip.json()["created"], 0)
+        # Verify brand new card was NOT added to DB
+        self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck_id == self.deck.id).count(), 1)
+
+        # 3. Apply with include_new = True -> new card added
+        # Regenerate preview token for second apply
+        prev_res2 = self.client.post("/api/admin/author/update-preview", json={
+            "text": update_text,
+            "deck_id": self.deck.id,
+            "user_id": 42
+        })
+        prev_token2 = prev_res2.json()["preview_token"]
+        apply_res_add = self.client.post("/api/admin/author/update-apply", json={
+            "text": update_text,
+            "preview_token": prev_token2,
+            "deck_id": self.deck.id,
+            "user_id": 42,
+            "include_new": True
+        })
+        self.assertEqual(apply_res_add.status_code, 200)
+        self.assertEqual(apply_res_add.json()["created"], 1)
+        self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck_id == self.deck.id).count(), 2)
+
+    # ------------------------------------------------------------------------
+    # 12. ADMIN UI & STATIC INTEGRATION
+    # ------------------------------------------------------------------------
+
+    def test_admin_ui_static_integration(self):
+        # 1. Main index.html serves author tab and controls
+        resp_index = self.client.get("/")
+        self.assertEqual(resp_index.status_code, 200)
+        self.assertIn("tab-author", resp_index.text)
+        self.assertIn("content-author", resp_index.text)
+        self.assertIn("author-panel-publish", resp_index.text)
+        self.assertIn("author-panel-export", resp_index.text)
+        self.assertIn("author-panel-update", resp_index.text)
+        self.assertIn("author.js", resp_index.text)
+
+        # 2. author.js static script is served cleanly
+        resp_js = self.client.get("/static/js/author.js")
+        self.assertEqual(resp_js.status_code, 200)
+        self.assertIn("initAuthorTab", resp_js.text)
+        self.assertIn("switchAuthorSubtab", resp_js.text)
+        self.assertIn("runAuthorPublish", resp_js.text)
+        self.assertIn("triggerAuthorExport", resp_js.text)
+        self.assertIn("runAuthorUpdateApply", resp_js.text)
+
 
 if __name__ == "__main__":
     unittest.main()

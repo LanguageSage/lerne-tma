@@ -23,6 +23,8 @@ import { getNextThemeDeck, isLastThemeDeck } from '../../utils/studyFlow';
 import { useStudyNavigation } from '../../hooks/useStudyNavigation';
 import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
+import { useStudyStepFlow } from '../../hooks/useStudyStepFlow.js';
+import { canGradeStudyFlow, isSuccessfulStudyAnswer, STUDY_ACTION } from '../../utils/studySteps.js';
 
 
 // Sub-components
@@ -32,11 +34,11 @@ import { GradeButtons } from './GradeButtons';
 import { StudyFinished } from './StudyFinished';
 import { StudyCard } from './StudyCard';
 
-export const StudyView = () => {
+export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   useInterfaceLocale();
   const { view, loading, setIsSettingsOpen, showToast, userProfile, setIsAuthModalOpen } = useUiStore();
   const { currentDeck, decks, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
-  const { card, isFlipped, setIsFlipped, historyIndex, apiError, isSessionFinished, studyHistory, isLearningMore, autoplayState } = useSessionStore();
+  const { card, isFlipped, setIsFlipped, historyIndex, sessionRevision, apiError, isSessionFinished, studyHistory, isLearningMore, autoplayState } = useSessionStore();
   const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard, runAiGenerator } = useCardActions();
   const { startStudy } = useStudyNavigation();
   const { openEditor, openCreator } = useCardNavigation();
@@ -221,6 +223,26 @@ export const StudyView = () => {
   // Local UI & Animation State
   const [activeRandomMode, setActiveRandomMode] = useState(null);
   const [exerciseEvidence, setExerciseEvidence] = useState(null);
+  const effectiveStudyMode = isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode;
+  const configuredActions = requiredActions ?? card?.requiredActions;
+  const hasRequiredActions = configuredActions != null && !isAutoplayActive;
+  const stepFlow = useStudyStepFlow({
+    cardId: card?.id, historyIndex, sessionRevision, studyMode: effectiveStudyMode,
+    requiredActions: hasRequiredActions ? configuredActions : undefined,
+  });
+  const { currentStep, completeStep } = stepFlow;
+  const canGrade = canGradeStudyFlow(stepFlow, hasRequiredActions);
+  const handleExerciseAnswer = useCallback((cardId, evidence) => {
+    const latest = useSessionStore.getState();
+    if (String(cardId) !== String(card?.id) || String(latest.card?.id) !== String(cardId)
+      || latest.historyIndex !== historyIndex || latest.sessionRevision !== sessionRevision) return;
+    if (evidence && typeof evidence === 'object') setExerciseEvidence(evidence);
+    if (currentStep?.action === STUDY_ACTION.ANSWER && isSuccessfulStudyAnswer(evidence)) completeStep(evidence);
+  }, [card?.id, historyIndex, sessionRevision, currentStep?.action, completeStep]);
+  const handleSpeechSuccess = useCallback((result) => {
+    if (currentStep?.action === STUDY_ACTION.SPEAK
+      || (!hasRequiredActions && currentStep?.action === STUDY_ACTION.ANSWER)) completeStep(result);
+  }, [currentStep?.action, hasRequiredActions, completeStep]);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollTopRef = useRef(0);
   const lastCardKeyRef = useRef('');
@@ -449,11 +471,14 @@ export const StudyView = () => {
   const showGradeButtons = currentDeck?.id !== 'duplicates' && !isAutoplayActive;
 
   const handleGrade = useCallback((grade, isExtended) => {
+    if (!canGrade) return;
+    // Unconfigured reviews may still be self-assessed without an interactive evaluator.
+    if (!hasRequiredActions && currentStep?.action === STUDY_ACTION.ANSWER) completeStep({ selfAssessed: true });
     stopAudio();
     const evidence = exerciseEvidence;
     setExerciseEvidence(null);
     submitGrade(grade, isExtended, evidence);
-  }, [stopAudio, exerciseEvidence, submitGrade]);
+  }, [canGrade, hasRequiredActions, currentStep?.action, completeStep, stopAudio, exerciseEvidence, submitGrade]);
 
   if (view !== 'study') return null;
 
@@ -462,7 +487,7 @@ export const StudyView = () => {
       {showGradeButtons && (
         <GradeButtons 
           card={card} 
-          loading={loading} 
+          loading={loading || !canGrade}
           onGrade={handleGrade} 
         />
       )}
@@ -588,14 +613,14 @@ export const StudyView = () => {
               styles={styleSettings}
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
-              studyMode={isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode}
-              onTrainerAnswer={(cardId, evidence) => {
-                if (evidence && typeof evidence === 'object') {
-                  setExerciseEvidence(evidence);
-                }
-              }}
+              studyMode={effectiveStudyMode}
+              onTrainerAnswer={handleExerciseAnswer}
+              onSpeechSuccess={handleSpeechSuccess}
+              stepFlow={stepFlow}
+              renderRequiredAction={renderRequiredAction}
               onAskQuestion={handleAskQuestion}
               onNextCard={() => {
+                if (!canGrade) return;
                 setIsFlipped(false);
                 goNext();
               }}

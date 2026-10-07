@@ -21,7 +21,7 @@
 
 1. `useStudyNavigation` запускает сессию; `useStudySession` получает карточки и держит историю в session store.
 2. StudyCard → ExerciseRenderer → тип упражнения → feedback session/adapters; сохранение состояния привязано к `reviewKey`.
-3. Completion передаёт evidence через `onTrainerAnswer`; grade сохраняется через `/study/grade` и запускает Knowledge capture.
+3. Exercise completion передаёт evidence через `onTrainerAnswer`; `StudyView` завершает шаг answer. Явная цепочка required actions завершается после всех шагов; default сохраняет ручную оценку. Grade сохраняется через `/study/grade` и запускает Knowledge capture.
 4. Online SRS: study router → `update_card_progress` → `api/srs.py` → `TMAProgress` / `TMAReviewHistory`.
 5. Offline SRS: `offlineApi.js` → `srsEngine.js` → Dexie progress + review event; доставка — [sync](sync.md).
 6. StudyFinished предлагает следующий шаг; StudyError представляет отдельный исход ошибки.
@@ -70,3 +70,11 @@ rg -n 'clearCurrentFeedback|requiredPartIds|interaction_count' app/src/utils/exe
 
 - [SRS_SYSTEM](../../project_docs/ARCHITECTURE/SRS_SYSTEM.md), [Cards](cards.md), [Sync](sync.md), [Media](media.md), [Knowledge](knowledge.md).
 - Детали feedback: [KI-08.1](../../docs/KI-08.1.md), [KI-08.2](../../docs/KI-08.2.md), [KI-08.3](../../docs/KI-08.3.md).
+
+## Required actions foundation
+
+- Review flow: `app/src/utils/studySteps.js`, `app/src/hooks/useStudyStepFlow.js`; владелец — `StudyView`, отдельно от exercise feedback и session navigation.
+- Роли: `app/src/utils/studyCardRoles.js`. Physical side неизменна; reverse меняет bindings ролей.
+- Speech API: `app/src/utils/speechEvaluation.js`, `StudyCardSpeech` (`targetText`, `reviewKey`, `onSuccess`).
+- [Completion API и будущие pronunciation/dialogue renderers](../../project_docs/ARCHITECTURE/STUDY_STEPS.md).
+- Unit tests: `app/src/utils/__tests__/studySteps.test.js`, `studyCardRoles.test.js`, `speechEvaluation.test.js`; browser: `scripts/tests/browser/study-steps.spec.cjs`.
