@@ -275,7 +275,7 @@ function AppContent() {
   };
 
   return (
-    <motion.div id="app-container" className="app-container" layoutScroll>
+    <div id="app-container" className="app-container">
       <GuestBanner />
       
       {/* Active View */}
@@ -368,7 +368,7 @@ function AppContent() {
 
       <Toast toast={toast} />
       <GlobalLoader isVisible={isOpeningDeck} />
-    </motion.div>
+    </div>
   );
 }
 
