@@ -281,8 +281,8 @@ export const TrainerView = () => {
       </div>
 
       {/* Card Content Area */}
-      <div className="view" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-        <div className="study-card-wrapper" style={{ width: '100%', maxWidth: '440px' }}>
+      <div className="view" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', flex: 1 }}>
+        <div className="study-card-wrapper" style={{ width: '100%', maxWidth: '440px', position: 'relative' }}>
           <div className="card-container-outer">
             <div className={`card-inner-interactive ${isFlipped ? 'flipped' : ''}`}>
               

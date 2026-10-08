@@ -608,6 +608,9 @@
 /* Ensure card content doesn't get hidden under the floating bar */
 .study-flow {
   padding-bottom: 120px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .btn-card-action-trigger:hover {

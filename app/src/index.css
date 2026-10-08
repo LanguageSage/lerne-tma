@@ -88,6 +88,10 @@ body {
   margin-left: -1rem;
   margin-right: -1rem;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 100%;
 }
 
 @media (max-width: 480px) {
