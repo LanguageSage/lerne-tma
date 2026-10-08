@@ -252,28 +252,7 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
     setExerciseEvidence(null);
   }, [card?.id, historyIndex, studyMode]);
 
-  useEffect(() => {
-    const container = document.getElementById('app-container');
-    if (!container) return;
-
-    const handleScroll = () => {
-      const currentScrollTop = container.scrollTop;
-      const delta = currentScrollTop - lastScrollTopRef.current;
-
-      if (currentScrollTop <= 24) {
-        setIsHeaderVisible(true);
-      } else if (delta > 10) {
-        setIsHeaderVisible(false);
-      } else if (delta < -10) {
-        setIsHeaderVisible(true);
-      }
-      lastScrollTopRef.current = currentScrollTop;
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
-
+  // Scroll logic removed to prevent scrollHeight jumps and geometry instability
   useEffect(() => {
     const container = document.getElementById('app-container');
     if (container) {
@@ -444,8 +423,7 @@ ${wbData.maskedText}
 
 Доступные варианты: ${wbData.options.map(o => o.value).join(' | ')}
 Правильные ответы:
-${wbData.gaps.map(g => `${g.id}: ${g.correctAnswer}`).join('
-')}`;
+${wbData.gaps.map(g => `${g.id}: ${g.correctAnswer}`).join('\n')}`;
          }
       } else if (computedType === 'quiz') {
          const { parseQuizData } = await import('../../utils/quizParser.js');
@@ -454,8 +432,7 @@ ${wbData.gaps.map(g => `${g.id}: ${g.correctAnswer}`).join('
            return `Тест (Quiz).
 Вопрос: ${quizData.question}
 Варианты ответов:
-${quizData.options.map((o, i) => `${i + 1}. ${o.text}${o.isCorrect ? ' (Правильный ответ)' : ''}`).join('
-')}`;
+${quizData.options.map((o, i) => `${i + 1}. ${o.text}${o.isCorrect ? ' (Правильный ответ)' : ''}`).join('\n')}`;
          }
       } else if (computedType === 'cloze' || computedType === 'trainer') {
          const { parseClozeData } = await import('../../utils/clozeParser.js');
