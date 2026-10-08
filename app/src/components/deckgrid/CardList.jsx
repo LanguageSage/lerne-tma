@@ -55,7 +55,6 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const previewCardFontStyle = useSettingsStore(s => s.previewCardFontStyle);
   const previewTextShadow = useSettingsStore(s => s.previewTextShadow);
   const previewCardBg = useSettingsStore(s => s.previewCardBg);
-  const cardListBg = React.useMemo(() => getCardListBgStyle(previewCardBg), [previewCardBg]);
   const previewCardLines = useSettingsStore(s => s.previewCardLines);
   const previewCardTextAlign = useSettingsStore(s => s.previewCardTextAlign);
   const isAdmin = useSettingsStore(s => s.isAdmin);
@@ -65,6 +64,9 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const effectiveCardListConfig = (isAdmin && adminDraftDesignV2)
     ? adminDraftDesignV2.cardList
     : publishedDesignV2?.config?.cardList;
+
+  const effectiveCardBg = effectiveCardListConfig?.card?.bg || previewCardBg || 'dark_obsidian';
+  const cardListBg = React.useMemo(() => getCardListBgStyle(effectiveCardBg), [effectiveCardBg]);
 
   const frontColor = previewCardTextColor || '#ffffff';
   const frontTypographyStyle = React.useMemo(() => {

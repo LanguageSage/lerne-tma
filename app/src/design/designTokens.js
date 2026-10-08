@@ -15,6 +15,7 @@
  */
 
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2 } from './designConfig.js';
+import { CARD_LIST_PRESET_GRADIENTS } from '../utils/style.js';
 
 /**
  * Преобразует Design Config V2 в объект CSS custom properties.
@@ -233,6 +234,9 @@ export function designConfigToCssVariables(config) {
 
   // ── Card List ──────────────────────────────────────────────────────────────
   const cl = c.cardList;
+  const rawClBg = cl.card.bg;
+  const resolvedClBg = CARD_LIST_PRESET_GRADIENTS[rawClBg] || rawClBg || 'rgba(15,23,42,0.55)';
+  vars['--design-cl-card-bg']      = resolvedClBg;
   vars['--design-cl-card-border']  = cl.card.borderColor;
   vars['--design-cl-card-bw']      = cl.card.borderWidth;
   vars['--design-cl-card-radius']  = cl.card.borderRadius;

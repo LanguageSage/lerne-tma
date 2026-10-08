@@ -4,10 +4,21 @@ import { TypographyControls } from '../controls/TypographyControls';
 import { ColorControl } from '../controls/ColorControl';
 import { SliderControl } from '../controls/SliderControl';
 import { DesignPreviewScope } from '../DesignPreviewScope';
+import { CARD_LIST_BG_PRESETS } from '../../../../constants/appConstants';
+import { getCardListBgStyle, CARD_LIST_PRESET_GRADIENTS } from '../../../../utils/style';
+import { useSettingsStore } from '../../../../store/useSettingsStore';
 
 export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
-  const [subTab, setSubTab] = useState('frontText'); // 'frontText' | 'backText' | 'divider'
+  const [subTab, setSubTab] = useState('frontText'); // 'frontText' | 'backText' | 'divider' | 'cardBg'
   const cardList = config?.cardList || {};
+  const previewCardBg = useSettingsStore(s => s.previewCardBg);
+  const currentCardBg = cardList.card?.bg || previewCardBg || 'rgba(15,23,42,0.55)';
+  const liveCardListBg = getCardListBgStyle(currentCardBg);
+
+  const handleSelectBg = (val) => {
+    onChangeField('cardList.card.bg', val);
+    useSettingsStore.getState().setPreviewCardBg?.(val);
+  };
 
   return (
     <div className="card-list-design-section">
@@ -20,13 +31,16 @@ export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
           padding: '12px',
           marginBottom: '20px'
         }}>
-          <div style={{
-            background: 'var(--design-glass-bg, rgba(255,255,255,0.05))',
-            borderRadius: 'var(--design-cl-card-radius, 12px)',
-            border: 'var(--design-cl-card-bw, 1px) solid var(--design-cl-card-border, rgba(255,255,255,0.08))',
-            padding: 'var(--design-cl-card-padding, 12px 14px)',
-            position: 'relative'
-          }}>
+          <div 
+            className={`card-item card-front glass ${liveCardListBg.className || ''}`}
+            style={{
+              borderRadius: 'var(--design-cl-card-radius, 12px)',
+              border: 'var(--design-cl-card-bw, 1px) solid var(--design-cl-card-border, rgba(255,255,255,0.08))',
+              padding: 'var(--design-cl-card-padding, 12px 14px)',
+              position: 'relative',
+              ...liveCardListBg.style
+            }}
+          >
             {/* Front text */}
             <div style={{
               fontFamily: 'var(--design-cl-front-font)',
@@ -64,12 +78,12 @@ export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
       </DesignPreviewScope>
 
       {/* Sub tabs */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px', flexWrap: 'wrap' }}>
         <button
           type="button"
           className={`btn-secondary btn-tiny ${subTab === 'frontText' ? 'active' : ''}`}
           onClick={() => setSubTab('frontText')}
-          style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
+          style={{ flex: 1, minWidth: '70px', padding: '6px 4px', fontSize: '0.8rem' }}
         >
           {tr('Лицевая сторона')}
         </button>
@@ -77,7 +91,7 @@ export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
           type="button"
           className={`btn-secondary btn-tiny ${subTab === 'backText' ? 'active' : ''}`}
           onClick={() => setSubTab('backText')}
-          style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
+          style={{ flex: 1, minWidth: '70px', padding: '6px 4px', fontSize: '0.8rem' }}
         >
           {tr('Обратная сторона')}
         </button>
@@ -85,9 +99,17 @@ export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
           type="button"
           className={`btn-secondary btn-tiny ${subTab === 'divider' ? 'active' : ''}`}
           onClick={() => setSubTab('divider')}
-          style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
+          style={{ flex: 1, minWidth: '70px', padding: '6px 4px', fontSize: '0.8rem' }}
         >
           {tr('Разделитель')}
+        </button>
+        <button
+          type="button"
+          className={`btn-secondary btn-tiny ${subTab === 'cardBg' ? 'active' : ''}`}
+          onClick={() => setSubTab('cardBg')}
+          style={{ flex: 1, minWidth: '70px', padding: '6px 4px', fontSize: '0.8rem' }}
+        >
+          {tr('Цвет фона')}
         </button>
       </div>
 
@@ -139,6 +161,67 @@ export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
             step={0.05}
             unit=""
             onChange={val => onChangeField('cardList.divider.opacity', val)}
+          />
+        </div>
+      )}
+
+      {subTab === 'cardBg' && (
+        <div className="design-cardlist-bg-controls">
+          {/* Preset themes */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+              {tr('Готовые темы фона')}
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
+              {CARD_LIST_BG_PRESETS.map(preset => {
+                const isSelected = currentCardBg === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={`btn-secondary btn-tiny ${isSelected ? 'active' : ''}`}
+                    onClick={() => handleSelectBg(preset.id)}
+                    style={{
+                      padding: '8px 10px',
+                      fontSize: '0.78rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      border: isSelected ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.1)',
+                      background: isSelected ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.04)',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '14px',
+                        height: '14px',
+                        borderRadius: '50%',
+                        background: CARD_LIST_PRESET_GRADIENTS[preset.id] || preset.accent,
+                        flexShrink: 0,
+                        border: '1px solid rgba(255,255,255,0.3)'
+                      }}
+                    />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {preset.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ColorControl: Palette + Rainbow custom color picker */}
+          <ColorControl
+            label={tr('Выбор цвета фона')}
+            value={
+              currentCardBg && !CARD_LIST_BG_PRESETS.some(p => p.id === currentCardBg)
+                ? currentCardBg
+                : '#1e293b'
+            }
+            onChange={handleSelectBg}
           />
         </div>
       )}

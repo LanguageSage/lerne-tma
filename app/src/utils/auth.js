@@ -137,8 +137,9 @@ export const getUserProfile = () => {
     }
 
     // 5. Localhost Vite dev fallback
+    if (storage.get('lerne_force_guest') === 'true') return null;
     const fallbackId = parseUserId(FALLBACK_USER_ID) || 642478257;
-    if (typeof window !== 'undefined' && import.meta.env?.DEV && isLocalHost(window.location.hostname) && !window.Capacitor) {
+    if (typeof window !== 'undefined' && import.meta.env?.DEV && isLocalHost(window.location.hostname) && !window.Capacitor?.isNativePlatform?.()) {
       const profile = { user_id: fallbackId, is_guest: false, first_name: 'Aruna Андрей', username: 'Aruna27' };
       storage.set('lerne_user_id', String(fallbackId));
       storage.set(PROFILE_KEY, JSON.stringify(profile));

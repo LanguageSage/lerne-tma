@@ -8,10 +8,11 @@ async function setup(page, context, identified = false) {
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
-    // Reproduce production: no implicit development account on localhost.
-    window.Capacitor = { isNativePlatform: () => false };
+    // Reproduce production: unauthenticated guest in browser without dev fallback
     if (identified) {
       localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Learner', is_guest: false }));
+    } else {
+      localStorage.setItem('lerne_force_guest', 'true');
     }
   }, identified);
   await page.routeWebSocket('**/*', () => {});

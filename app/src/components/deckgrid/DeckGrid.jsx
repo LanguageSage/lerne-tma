@@ -504,7 +504,7 @@ export const DeckGrid = ({
                 </div>
               )}
             </div>
-          ) : (!isFetchingDecks && decks.length === 0 && folders.length === 0) ? (
+          ) : (hasInitialized && !isFetchingDecks && decks.length === 0 && folders.length === 0) ? (
             <div className="empty-decks-state glass">
               <Layers size={48} opacity={0.3} />
               {!userProfile?.user_id ? <>

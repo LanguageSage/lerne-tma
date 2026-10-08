@@ -8,19 +8,22 @@ import './UserBadge.css';
 
 export const UserProfileBadge = () => {
   useInterfaceLocale();
-  const { userProfile, openSettings, setIsAuthModalOpen } = useUiStore();
+  const { userProfile, openSettings, setIsAuthModalOpen, hasInitialized } = useUiStore();
   const [imgError, setImgError] = useState(false);
   
-  if (!userProfile) return (
-    <button
-      type="button"
-      className="user-badge-container user-signin-button"
-      onClick={() => setIsAuthModalOpen(true, tr('Вход в аккаунт'))}
-    >
-      <User size={20} aria-hidden="true" />
-      <span>{tr('Войти')}</span>
-    </button>
-  );
+  if (!userProfile) {
+    if (!hasInitialized) return null;
+    return (
+      <button
+        type="button"
+        className="user-badge-container user-signin-button"
+        onClick={() => setIsAuthModalOpen(true, tr('Вход в аккаунт'))}
+      >
+        <User size={20} aria-hidden="true" />
+        <span>{tr('Войти')}</span>
+      </button>
+    );
+  }
 
   const { first_name, last_name, username, photo_url, is_guest } = userProfile;
   
@@ -78,13 +81,13 @@ export const UserProfileBadge = () => {
 
 export const GuestBanner = () => {
   useInterfaceLocale();
-  const { userProfile } = useUiStore();
+  const { userProfile, hasInitialized } = useUiStore();
   const { 
     isPolling, 
     checkPendingSession 
   } = useAuthStore();
   
-  if (userProfile && !userProfile.is_guest) return null;
+  if (!hasInitialized || (userProfile && !userProfile.is_guest)) return null;
 
   const handleOpenAuthModal = () => {
     useUiStore.getState().setIsAuthModalOpen(true, tr("Вход в аккаунт"));

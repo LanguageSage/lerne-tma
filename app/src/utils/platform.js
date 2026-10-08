@@ -184,9 +184,7 @@ export const prepareExternalLink = () => {
     const popup = window.open('', '_blank');
     if (!popup) return null;
     // Write loading content immediately so the browser keeps the popup alive
-    // while the async challenge request is in flight. Without this, Edge and
-    // Chrome leave about:blank and then block the deferred navigation because
-    // user activation has already expired.
+    // while the async challenge request is in flight.
     try {
       popup.document.write(
         '<!doctype html><html lang="ru"><head><meta charset="utf-8">' +
@@ -196,8 +194,7 @@ export const prepareExternalLink = () => {
         '</head><body><p>Загрузка\u2026</p></body></html>'
       );
       popup.document.close();
-    } catch { /* cross-origin guard — cannot happen for a freshly opened blank window */ }
-    popup.opener = null;
+    } catch { /* cross-origin guard */ }
     return popup;
   } catch {
     return null;
@@ -206,14 +203,17 @@ export const prepareExternalLink = () => {
 
 export const openExternalLink = (url, preparedWindow = null) => {
   try {
-    // Use Telegram's openLink only when genuinely running inside the Telegram
-    // client (initData is non-empty). telegram-web-app.js is always loaded by
-    // index.html, so window.Telegram.WebApp.openLink exists even in a plain
-    // browser, but outside Telegram it does nothing — the preparedWindow would
-    // stay on "Загрузка..." forever without this guard.
-    if (isTelegram() && window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(url);
-      return;
+    // Inside Telegram client:
+    if (isTelegram()) {
+      const isTgUrl = /^https?:\/\/t\.me\//i.test(url) || /^tg:\/\//i.test(url);
+      if (isTgUrl && window.Telegram?.WebApp?.openTelegramLink) {
+        window.Telegram.WebApp.openTelegramLink(url);
+        return;
+      }
+      if (window.Telegram?.WebApp?.openLink) {
+        window.Telegram.WebApp.openLink(url);
+        return;
+      }
     }
     if (window.Capacitor?.Plugins?.Browser?.open) {
       window.Capacitor.Plugins.Browser.open({ url });

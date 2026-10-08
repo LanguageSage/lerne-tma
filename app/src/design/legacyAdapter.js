@@ -46,6 +46,7 @@ const LEGACY_FIELD_MAP = {
   previewTextShadow:    'cardList.frontText.shadow',
   previewCardTextAlign: 'cardList.frontText.align',
   previewCardLines:     'cardList.frontText.lines',
+  previewCardBg:        'cardList.card.bg',
 
   // Exercise base color для auto-palette
   cardTextColor_exercises: 'exercises.baseColor',
@@ -110,8 +111,11 @@ export function migrateLegacyDesignSettings(flat) {
   if (flat.cardBgFront) v2.global._legacyBgFront = flat.cardBgFront;
   if (flat.cardBgBack)  v2.global._legacyBgBack  = flat.cardBgBack;
 
-  // 3. previewCardBg → cardList.card.bg — также styleType, не CSS
-  if (flat.previewCardBg) v2.cardList._legacyBg = flat.previewCardBg;
+  // 3. previewCardBg → cardList.card.bg
+  if (flat.previewCardBg) {
+    if (!v2.cardList.card) v2.cardList.card = {};
+    v2.cardList.card.bg = flat.previewCardBg;
+  }
 
   // Финальная нормализация (убирает _legacy* ключи, заполняет пропуски)
   return normalizeDesignConfig(v2);

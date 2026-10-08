@@ -82,7 +82,7 @@ export const StudyCard = React.memo(({
         return true;
       }
       return false;
-    } catch (e) {
+    } catch {
       return false;
     }
   };

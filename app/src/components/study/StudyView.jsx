@@ -231,18 +231,16 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const effectiveStudyMode = isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode;
   // Opt-in: attach a speak step only where a complete target sentence is known.
   // Snapshot the toggle for each review; changing it mid-exercise must not reset a solved answer.
-  const [speechPlan, setSpeechPlan] = useState({ key: null, target: null });
-  const speechPlanKey = JSON.stringify([sessionRevision, card?.id, historyIndex, effectiveStudyMode, isAutoplayActive]);
-  let currentSpeechPlan = speechPlan;
-  if (speechPlan.key !== speechPlanKey) {
-    currentSpeechPlan = {
+  const speechPlanRef = useRef({ key: null, target: null });
+  const speechPlanKey = `${sessionRevision}:${card?.id}:${historyIndex}:${effectiveStudyMode}:${isAutoplayActive}`;
+  if (speechPlanRef.current.key !== speechPlanKey) {
+    speechPlanRef.current = {
       key: speechPlanKey,
       target: speechFollowupEnabled && !isAutoplayActive && effectiveStudyMode !== 'speak'
         ? getSpeechFollowupTarget(card, effectiveStudyMode) : null,
     };
-    setSpeechPlan(currentSpeechPlan);
   }
-  const speechFollowupTarget = currentSpeechPlan.target;
+  const speechFollowupTarget = speechPlanRef.current.target;
   const autoSpeechActions = speechFollowupTarget && requiredActions == null && card?.requiredActions == null
     ? ['answer', 'speak'] : null;
   const configuredActions = requiredActions ?? card?.requiredActions ?? autoSpeechActions;
@@ -286,7 +284,6 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
       || (!hasRequiredActions && currentStep?.action === STUDY_ACTION.ANSWER)) completeStep(result);
   }, [currentStep?.action, hasRequiredActions, completeStep]);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const lastScrollTopRef = useRef(0);
   const lastCardKeyRef = useRef('');
 
   useEffect(() => {
@@ -518,11 +515,15 @@ ${targetCard.back}`;
   const handleSaveExplanation = async (explanation) => {
     if (!explanation || !card) return;
     const currentContext = String(card.context || '').trim();
-    const nextContext = currentContext ? `${explanation}
-
-${currentContext}` : explanation;
-    await saveCard({ ...card, context: nextContext });
-    showToast(tr("Ответ сохранен в контекст!"), "success");
+    const nextContext = currentContext ? `${explanation}\n\n${currentContext}` : explanation;
+    try {
+      await api.put(`/cards/${card.id}`, { context: nextContext });
+      useSessionStore.getState().updateCardInSession?.(card.id, { context: nextContext });
+      useDeckStore.getState().updateCardLocal?.(card.id, { context: nextContext });
+      showToast(tr("Ответ сохранен в контекст!"), "success");
+    } catch {
+      showToast(tr("Не удалось сохранить контекст"), "error");
+    }
   };
 
   const handleAutoplayAwareBack = async () => {

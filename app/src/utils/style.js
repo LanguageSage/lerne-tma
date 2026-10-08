@@ -43,12 +43,25 @@ export const getResolvedStyle = (settingStyle, cardId) => {
   return availableStyles[sum % availableStyles.length];
 };
 
+export const CARD_LIST_PRESET_GRADIENTS = {
+  dark_obsidian: 'radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%)',
+  dark_minimal: 'linear-gradient(180deg, #18181b 0%, #09090b 100%)',
+  dark_midnight: 'radial-gradient(ellipse at top, #0f1d3a 0%, #070d1e 65%, #020617 100%)',
+  dark_emerald: 'radial-gradient(ellipse at top, #06281e 0%, #021a13 60%, #010d0a 100%)',
+  dark_mocha: 'radial-gradient(ellipse at top, #24160f 0%, #150c07 60%, #0a0503 100%)',
+  emerald_soft: 'radial-gradient(ellipse at top left, #064e3b 0%, #06281e 50%, #021a13 100%)',
+  ocean_soft: 'radial-gradient(ellipse at top left, #0c4a6e 0%, #0f1d3a 50%, #020617 100%)',
+  sunset_soft: 'radial-gradient(ellipse at top left, #451a03 0%, #24160f 50%, #0a0503 100%)',
+};
+
 export const getCardListBgStyle = (previewCardBg = 'dark_obsidian') => {
   const preset = CARD_LIST_BG_PRESETS.find(p => p.id === previewCardBg);
+  const presetGradient = CARD_LIST_PRESET_GRADIENTS[previewCardBg];
   if (preset) {
     return {
       className: preset.bgClass,
       style: {
+        ...(presetGradient ? { background: presetGradient } : {}),
         '--card-list-accent': preset.accent,
         '--card-list-hover-border': `${preset.accent}66`,
       }
@@ -61,6 +74,7 @@ export const getCardListBgStyle = (previewCardBg = 'dark_obsidian') => {
     return {
       className: `bg-${previewCardBg.replace('_', '-')}`,
       style: {
+        ...(presetGradient ? { background: presetGradient } : {}),
         '--card-list-accent': '#38bdf8',
         '--card-list-hover-border': 'rgba(56, 189, 248, 0.4)',
       }

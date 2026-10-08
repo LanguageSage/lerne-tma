@@ -88,6 +88,7 @@ export const useAuthStore = create((set, get) => ({
     get().setUserProfile(profile);
     storage.remove('lerne_init_cache');
     storage.remove('lerne_last_sync_time');
+    storage.remove('lerne_force_guest');
     clearPending();
     stopPolling();
     const methods = await get().refreshAuthMethods();

@@ -109,7 +109,9 @@ axiosInstance.interceptors.response.use(
 
     if (!refreshToken) {
       isRefreshing = false;
-      clearAuthSession();
+      if (session) {
+        clearAuthSession();
+      }
       processQueue(error, null);
       return Promise.reject(error);
     }
