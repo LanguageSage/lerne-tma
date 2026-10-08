@@ -56,7 +56,7 @@ export const DeckGrid = ({
 
   const { 
     view, loading, hasInitialized, setIsNewDeckModalOpen, setIsSettingsOpen, 
-    showToast, setIsRenameModalOpen, setDeckToRename, 
+    showToast, setIsRenameModalOpen, setDeckToRename, userProfile, setIsAuthModalOpen,
     activeFolderId, setActiveFolderId 
   } = useUiStore();
 
@@ -507,9 +507,15 @@ export const DeckGrid = ({
           ) : (!isFetchingDecks && decks.length === 0 && folders.length === 0) ? (
             <div className="empty-decks-state glass">
               <Layers size={48} opacity={0.3} />
-              <h3>{tr("У вас пока нет колод")}</h3>
-              <p>{tr("Нажмите \"+\", чтобы создать свою или импортировать из библиотеки.")}</p>
-              <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду")}</button>
+              {!userProfile?.user_id ? <>
+                <h3>{tr('Войдите в аккаунт')}</h3>
+                <p>{tr('Войдите в свой аккаунт, чтобы открыть ваши колоды и прогресс.')}</p>
+                <button className="btn btn-primary" onClick={() => setIsAuthModalOpen(true, tr('Вход в аккаунт'))}>{tr('Войти в аккаунт')}</button>
+              </> : <>
+                <h3>{tr("У вас пока нет колод")}</h3>
+                <p>{tr("Нажмите \"+\", чтобы создать свою или импортировать из библиотеки.")}</p>
+                <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду")}</button>
+              </>}
             </div>
           ) : isFolderEmpty ? (
             isLidRootFolder(activeFolder) ? (

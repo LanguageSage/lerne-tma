@@ -8,10 +8,19 @@ import './UserBadge.css';
 
 export const UserProfileBadge = () => {
   useInterfaceLocale();
-  const { userProfile, openSettings } = useUiStore();
+  const { userProfile, openSettings, setIsAuthModalOpen } = useUiStore();
   const [imgError, setImgError] = useState(false);
   
-  if (!userProfile) return null;
+  if (!userProfile) return (
+    <button
+      type="button"
+      className="user-badge-container user-signin-button"
+      onClick={() => setIsAuthModalOpen(true, tr('Вход в аккаунт'))}
+    >
+      <User size={20} aria-hidden="true" />
+      <span>{tr('Войти')}</span>
+    </button>
+  );
 
   const { first_name, last_name, username, photo_url, is_guest } = userProfile;
   
@@ -75,7 +84,7 @@ export const GuestBanner = () => {
     checkPendingSession 
   } = useAuthStore();
   
-  if (!userProfile?.is_guest) return null;
+  if (userProfile && !userProfile.is_guest) return null;
 
   const handleOpenAuthModal = () => {
     useUiStore.getState().setIsAuthModalOpen(true, tr("Вход в аккаунт"));
@@ -88,7 +97,7 @@ export const GuestBanner = () => {
         <p>
           {isPolling 
             ? tr("Ожидание подтверждения в боте... Нажмите кнопку «Старт» в Telegram и вернитесь сюда.")
-            : tr("Вы вошли как гость. Авторизуйтесь через Telegram или по 6-значному коду, чтобы сохранить колоды!")}
+            : tr('Войдите в свой аккаунт, чтобы открыть ваши колоды и прогресс.')}
         </p>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {isPolling ? (

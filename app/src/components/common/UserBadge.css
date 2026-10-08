@@ -15,6 +15,22 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.user-signin-button {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--text-primary, #fff);
+  font: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.user-signin-button:focus-visible,
+.banner-btn:focus-visible {
+  outline: 2px solid var(--primary-color, #a855f7);
+  outline-offset: 3px;
+}
+
 .avatar-wrapper {
   width: 32px;
   height: 32px;
@@ -90,6 +106,7 @@
 }
 
 .banner-btn {
+  min-height: 44px;
   background: #ff9800;
   color: white;
   border: none;
@@ -129,4 +146,5 @@
   .user-badge-container {
     padding: 4px;
   }
+  .user-signin-button { padding: 4px 8px; }
 }

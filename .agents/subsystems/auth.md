@@ -26,6 +26,12 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 5. Password register/login/link/set используют отдельные password settings и правила свежести social session.
 6. При смене аккаунта очищается представление store и выбирается его Dexie БД; локальные очереди сохраняются у владельца.
 
+## Вход из браузера без сохранённой сессии
+
+- `UserBadge.jsx` показывает кнопку входа и баннер при отсутствии профиля; оба открывают существующее окно auth v2.
+- `DeckGrid.jsx` предлагает войти, если в браузере нет профиля и колод. Для определённого аккаунта без колод сохраняется действие создания колоды.
+- Ответ 401 в новом браузере не должен означать, что в аккаунте нет колод. Вход продолжает использовать `useAuthStore.finishLogin`, который восстанавливает профиль и загружает колоды/папки.
+
 ## Source of truth
 
 - `api/auth/service.py` владеет auth-транзакциями, TTL, token rotation, password throttling и отзывом сессий.
@@ -60,6 +66,7 @@ rg -n 'refresh_session|link_verified|set_email_password|create_challenge|exchang
 
 - Foundation: `scripts/tests/test_auth_foundation.py`.
 - Client state: `scripts/tests/auth_store_regression.mjs`.
+- Новый браузер, локализованные адаптивные элементы входа и загрузка колод после входа (изолированные ответы API): `scripts/tests/browser/guest-entry.spec.cjs`.
 - Refresh queue: `scripts/tests/test_api_silent_refresh.mjs`.
 Перед integration checks сверяйте fixtures/DB configuration; deployment checks описаны отдельно.
 
