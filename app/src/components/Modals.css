@@ -1041,11 +1041,11 @@ input[type=range]:active::-webkit-slider-thumb {
   box-shadow: 0 5px 15px rgba(0, 136, 204, 0.3);
 }
 .creator-form {
-  padding: 12px !important;
+  padding: 8px 10px !important;
 }
 
 .creator-form .form-group {
-  margin-bottom: 8px !important;
+  margin-bottom: 6px !important;
 }
 
 /* Force colors for select and options */

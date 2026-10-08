@@ -162,7 +162,7 @@ export const CardForm = ({
   if (!cardData) return null;
 
   return (
-    <div className="creator-form glass" style={{ marginTop: '20px' }}>
+    <div className="creator-form glass" style={{ marginTop: '4px' }}>
       
       {isCreator && (
         <div className="form-group" style={{ marginBottom: '8px' }}>
@@ -273,12 +273,12 @@ export const CardForm = ({
             borderRadius: '12px',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: '130px'
+            minHeight: '80px'
           }}
         >
           <CardBackground styleType={resolvedBgFront} />
           
-          <div className="card-preview-body" style={{ padding: '12px 14px 4px 14px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
+          <div className="card-preview-body" style={{ padding: '6px 10px 4px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
             <CardContentEditor
               value={cardData.front || ''}
               onChange={front => setCardData(prev => ({ ...prev, front }))}
@@ -389,11 +389,11 @@ export const CardForm = ({
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'space-between',
-              padding: '6px 12px 10px 12px',
+              padding: '4px 8px 6px 8px',
               position: 'relative', 
               zIndex: 15, 
               pointerEvents: 'auto',
-              gap: '8px',
+              gap: '6px',
               marginTop: 'auto'
             }}
           >
@@ -540,12 +540,12 @@ export const CardForm = ({
             borderRadius: '12px', 
             display: 'flex', 
             flexDirection: 'column', 
-            minHeight: '130px' 
+            minHeight: '80px' 
           }}
         >
           <CardBackground styleType={resolvedBgBack} />
           
-          <div className="card-preview-body" style={{ padding: '12px 14px 12px 14px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
+          <div className="card-preview-body" style={{ padding: '6px 10px 6px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
             <label className="sub-label" htmlFor="card-editor-back">{tr("Ответ / обратная сторона")}</label>
             <textarea
               id="card-editor-back"
@@ -569,7 +569,7 @@ export const CardForm = ({
                 textAlign: cardTextAlign || 'center',
                 overflow: 'hidden',
                 height: 'auto',
-                minHeight: '80px'
+                minHeight: '52px'
               }}
               placeholder={(() => {
                 const isExercise = Boolean(detectExerciseType(cardData));
@@ -601,7 +601,7 @@ export const CardForm = ({
                 textAlign: contextTextAlign || 'left',
                 overflow: 'hidden',
                 height: 'auto',
-                minHeight: '80px'
+                minHeight: '52px'
               }}
               placeholder={t('creator.context', 'Примеры, грамматика...')}
             />
@@ -633,7 +633,7 @@ export const CardForm = ({
         const DynamicIcon = dynamicAction?.icon || BookOpen;
 
         return (
-          <div className={`ai-quick-actions ${dynamicAction && !loading ? 'has-dynamic' : 'no-dynamic'} ${!isCreator ? 'has-request' : ''}`} style={{ gap: '10px' }}>
+          <div className={`ai-quick-actions ${dynamicAction && !loading ? 'has-dynamic' : 'no-dynamic'} ${!isCreator ? 'has-request' : ''}`} style={{ gap: '6px' }}>
             {loading ? (
               <button 
                 type="button"
@@ -691,7 +691,7 @@ export const CardForm = ({
               className="btn btn-primary btn-save-action" 
               onClick={onSave} 
               disabled={loading}
-              style={{ padding: '12px 20px' }}
+              style={{ padding: '8px 16px', minHeight: '38px' }}
             >
               {loading ? <RefreshCw className="spin" size={18} /> : t('creator.save', 'Сохранить')}
             </button>

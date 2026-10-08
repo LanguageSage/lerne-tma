@@ -1,4 +1,4 @@
-import React, { useId, useLayoutEffect, useRef, useState } from 'react';
+import React, { useId, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { editorCommandGroups, projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, editorSourceOffset, insertEditorLineAfter, setQuizOptionCorrect, syncWordBankAnswer } from '../../utils/cardEditorSyntax';
@@ -8,11 +8,24 @@ import './CardContentEditor.css';
 export function CardContentEditor({ value, onChange, back = '', onBackChange, textStyle, autoFocus = false }) {
   useInterfaceLocale();
   const [advanced, setAdvanced] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null);
   const [error, setError] = useState('');
   const advancedId = useId();
   const rawRef = useRef(null);
+  const menuRef = useRef(null);
   const selectionRef = useRef(null);
   const insertionRef = useRef(null);
+
+  useEffect(() => {
+    if (!openMenu) return;
+    const handleOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutside);
+    return () => document.removeEventListener('pointerdown', handleOutside);
+  }, [openMenu]);
   useLayoutEffect(() => {
     const insertion = insertionRef.current;
     const area = rawRef.current;
@@ -57,6 +70,7 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
     selectionRef.current = { start: area.selectionStart, end: area.selectionEnd };
   };
   const insert = id => {
+    setOpenMenu(null);
     const area = rawRef.current;
     if (!area) return;
     const selection = document.activeElement === area
@@ -230,33 +244,71 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
     {advanced && <div id={advancedId} className="card-editor-advanced">
       <label className="card-editor-field">
         <span className="sub-label">{tr('Исходная разметка')}</span>
-        <textarea ref={rawRef} className="form-input card-editor-raw" rows={7} value={value}
+        <textarea ref={rawRef} className="form-input card-editor-raw" rows={4} value={value}
           onSelect={rememberSelection} onFocus={rememberSelection} onBlur={rememberSelection}
           onClick={rememberSelection} onKeyUp={rememberSelection}
           onChange={e => { rememberSelection(e); onChange(e.target.value); }} spellCheck={false} />
       </label>
       <div className="card-editor-toolbar" role="region" aria-label={tr('Панель быстрой вставки')}>
-        {editorCommandGroups.map(group => (
-          <div key={group.id} className={`card-editor-cluster card-editor-cluster-${group.id}`}>
-            <div className="card-editor-cluster-header">
-              <span className={`card-editor-cluster-dot card-editor-dot-${group.id}`} aria-hidden="true" />
-              <span className="card-editor-cluster-title">{tr(group.label)}</span>
+        {editorCommandGroups.map(group => {
+          const primaryList = group.primary || group.commands || [];
+          const secondaryList = group.secondary || [];
+          const hasSecondary = secondaryList.length > 0;
+          const isOpen = openMenu === group.id;
+          return (
+            <div key={group.id} className={`card-editor-cluster card-editor-cluster-${group.id}`}>
+              <div className="card-editor-cluster-header">
+                <span className={`card-editor-cluster-dot card-editor-dot-${group.id}`} aria-hidden="true" />
+                <span className="card-editor-cluster-title">{tr(group.label)}</span>
+              </div>
+              <div className="card-editor-cluster-buttons">
+                {primaryList.map(command => (
+                  <button
+                    key={command.id}
+                    type="button"
+                    className={`btn-secondary card-editor-btn card-editor-btn-${command.group}`}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => insert(command.id)}
+                    title={tr(command.label)}
+                  >
+                    {tr(command.label)}
+                  </button>
+                ))}
+                {hasSecondary && (
+                  <div className="card-editor-popover-wrap" ref={isOpen ? menuRef : null}>
+                    <button
+                      type="button"
+                      className={`btn-secondary card-editor-btn card-editor-btn-more card-editor-btn-${group.id === 'marker' ? 'marker' : 'exercise'}`}
+                      aria-expanded={isOpen}
+                      aria-haspopup="true"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => setOpenMenu(isOpen ? null : group.id)}
+                      title={tr('Ещё')}
+                    >
+                      {tr('Ещё')} ▾
+                    </button>
+                    {isOpen && (
+                      <div className="card-editor-popover" role="menu">
+                        {secondaryList.map(command => (
+                          <button
+                            key={command.id}
+                            type="button"
+                            role="menuitem"
+                            className={`btn-secondary card-editor-popover-btn card-editor-btn-${command.group}`}
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => insert(command.id)}
+                          >
+                            {tr(command.label)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="card-editor-cluster-buttons">
-              {group.commands.map(command => (
-                <button
-                  key={command.id}
-                  type="button"
-                  className={`btn-secondary card-editor-btn card-editor-btn-${command.group}`}
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => insert(command.id)}
-                >
-                  {tr(command.label)}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <p className="card-editor-hint">{tr('Окончания: klein{en} — выбор e / en / em / er / es; klein[[en]] — ввод. Выделите окончание и нажмите «Окончание с выбором».')}</p>
     </div>}
