@@ -39,6 +39,9 @@ export function CardQuestionComposer({
         setQuestion('');
         setIsOpen(false);
       }
+    } catch (err) {
+      console.error('Error submitting question:', err);
+      // Ensure we don't close the composer or clear the text on error
     } finally {
       setIsSubmitting(false);
     }
