@@ -61,11 +61,32 @@ export const StudyCard = React.memo(({
   stepFlow,
   renderRequiredAction,
   onAskQuestion,
+  onSaveExplanation,
   onNextCard
 }) => {
   useInterfaceLocale();
   const reduceMotion = useReducedMotion();
   const flagStyle = useMemo(() => getFlagStyle(card?.flag), [card?.flag]);
+
+  const [aiExplanation, setAiExplanation] = useState(null);
+
+  useEffect(() => {
+    setAiExplanation(null);
+  }, [card?.id]);
+
+  const handleAsk = async (req) => {
+    try {
+      const res = await onAskQuestion(req);
+      if (res && res.answer) {
+        setAiExplanation({ question: req, answer: res.answer });
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
 
   // Card language: prefer card-level, then deck-level, then global active language
   const cardLang = card?.target_language
@@ -743,7 +764,25 @@ export const StudyCard = React.memo(({
                 })()}
               </div>
 
-              <CardQuestionComposer onSubmit={onAskQuestion} submitLabel={tr('Задать')} />
+              <CardQuestionComposer onSubmit={handleAsk} submitLabel={tr('Задать')} />
+
+              {aiExplanation && (
+                <div className="ai-explanation-block" style={{ marginTop: '16px', padding: '12px', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '12px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '8px', color: '#38bdf8' }}>{tr("Ответ ИИ:")}</div>
+                  <div style={{ fontSize: '0.95rem', whiteSpace: 'pre-wrap', marginBottom: '12px' }}>{aiExplanation.answer}</div>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: 'none' }}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await onSaveExplanation?.(aiExplanation.answer);
+                      setAiExplanation(null);
+                    }}
+                  >
+                    {tr("Сохранить в Контекст")}
+                  </button>
+                </div>
+              )}
 
               {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
               {(() => {

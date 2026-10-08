@@ -252,28 +252,7 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
     setExerciseEvidence(null);
   }, [card?.id, historyIndex, studyMode]);
 
-  useEffect(() => {
-    const container = document.getElementById('app-container');
-    if (!container) return;
-
-    const handleScroll = () => {
-      const currentScrollTop = container.scrollTop;
-      const delta = currentScrollTop - lastScrollTopRef.current;
-
-      if (currentScrollTop <= 24) {
-        setIsHeaderVisible(true);
-      } else if (delta > 10) {
-        setIsHeaderVisible(false);
-      } else if (delta < -10) {
-        setIsHeaderVisible(true);
-      }
-      lastScrollTopRef.current = currentScrollTop;
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
-
+  // Scroll logic removed to prevent scrollHeight jumps and geometry instability
   useEffect(() => {
     const container = document.getElementById('app-container');
     if (container) {
@@ -429,6 +408,54 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
     return startStudy(deck, { reviewContext });
   };
 
+  const buildStudyContext = async (targetCard, mode) => {
+    try {
+      const { detectExerciseType } = await import('../../utils/exerciseDetector.js');
+      const computedType = detectExerciseType(targetCard, mode);
+      
+      if (computedType === 'word_bank') {
+         const { parseWordBankData } = await import('../../utils/wordBankParser.js');
+         const wbData = parseWordBankData(targetCard);
+         if (wbData) {
+           return `Упражнение Wordbank (заполнение пропусков из списка).
+Текст упражнения:
+${wbData.maskedText}
+
+Доступные варианты: ${wbData.options.map(o => o.value).join(' | ')}
+Правильные ответы:
+${wbData.gaps.map(g => `${g.id}: ${g.correctAnswer}`).join('\n')}`;
+         }
+      } else if (computedType === 'quiz') {
+         const { parseQuizData } = await import('../../utils/quizParser.js');
+         const quizData = parseQuizData(targetCard);
+         if (quizData) {
+           return `Тест (Quiz).
+Вопрос: ${quizData.question}
+Варианты ответов:
+${quizData.options.map((o, i) => `${i + 1}. ${o.text}${o.isCorrect ? ' (Правильный ответ)' : ''}`).join('\n')}`;
+         }
+      } else if (computedType === 'cloze' || computedType === 'trainer') {
+         const { parseClozeData } = await import('../../utils/clozeParser.js');
+         const clozeData = parseClozeData(targetCard, mode, []);
+         if (clozeData) {
+            return `Упражнение на заполнение пропуска.
+Текст: ${clozeData.maskedText}
+Правильный ответ: ${clozeData.correctAnswer}`;
+         }
+      }
+    } catch (e) {
+      console.warn("Failed to build detailed AI context", e);
+    }
+    
+    let fallback = `Лицевая сторона:
+${targetCard.front}`;
+    if (targetCard.back) fallback += `
+
+Обратная сторона:
+${targetCard.back}`;
+    return fallback;
+  };
+
   const handleAskQuestion = async (userRequest) => {
     if (!card?.front) return false;
     if (userProfile?.is_guest) {
@@ -436,19 +463,25 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
       return false;
     }
 
-    const result = await runAiGenerator(card.front, true, 'custom_directive', userRequest);
+    const promptContext = await buildStudyContext(card, studyMode);
+    const result = await runAiGenerator(promptContext, true, 'custom_directive', userRequest);
     if (!result) return false;
 
     const answer = String(result.context || '').trim();
-    const currentContext = String(card.context || '').trim();
-    const nextContext = answer && currentContext
-      ? `${answer}\n\n${currentContext}`
-      : (answer || currentContext);
+    if (!answer) return false;
 
     stopAudio();
-    openEditor(card.deck_id || currentDeck?.id, { ...card, context: nextContext }, 'study');
-    showToast(tr("Ответ добавлен в Контекст!"), 'success');
-    return true;
+    return { success: true, answer };
+  };
+
+  const handleSaveExplanation = async (explanation) => {
+    if (!explanation || !card) return;
+    const currentContext = String(card.context || '').trim();
+    const nextContext = currentContext ? `${explanation}
+
+${currentContext}` : explanation;
+    await saveCard({ ...card, context: nextContext });
+    showToast(tr("Ответ сохранен в контекст!"), "success");
   };
 
   const handleAutoplayAwareBack = async () => {
@@ -631,6 +664,7 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
               stepFlow={stepFlow}
               renderRequiredAction={renderRequiredAction}
               onAskQuestion={handleAskQuestion}
+              onSaveExplanation={handleSaveExplanation}
               onNextCard={() => {
                 if (!canGrade) return;
                 setIsFlipped(false);
