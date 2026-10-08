@@ -59,8 +59,12 @@ Render prop заменяет область упражнения на front дл
 
 Correct phrase выбирает адаптер: quiz front содержит вопрос/варианты и не является
 автоматически целью произношения. `speechEvaluation.js` сохраняет прежний
-word-overlap evaluator. Speech сообщает success один раз. Renderer speech-after-answer
-не включён в продукт; unsupported/permission/retry UI прежнего speech сохранён.
+word-overlap evaluator. Speech сообщает success один раз. Opt-in renderer speech-after-answer включён через `speechFollowupEnabled`: адаптер
+`speechFollowup.js` выбирает короткую однозначную фразу из authored Puzzle, Trainer
+или Wordbank. Настройка фиксируется на review, явные flows имеют приоритет;
+autoplay отключает follow-up. Микрофон запускается при переходе к speak, повтор —
+кнопкой; пропуск завершает шаг без изменения exercise evidence. См.
+[Study subsystem](../../.agents/subsystems/study.md).
 
 ## Dialogue/listening
 

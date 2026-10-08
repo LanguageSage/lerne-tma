@@ -1,6 +1,6 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useEffectEvent, useRef, useMemo } from 'react';
 import { RefreshCw, Eye, Volume2, Mic, Check, AlertCircle, Sparkles, Sliders } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { evaluateStudySpeech } from '../../utils/speechEvaluation.js';
@@ -22,6 +22,8 @@ export const StudyCardSpeech = React.memo(({
   targetText,
   reviewKey,
   onSuccess,
+  onSkip,
+  followUp = false,
   onFlip,
   loading,
   playAudio,
@@ -98,16 +100,20 @@ export const StudyCardSpeech = React.memo(({
     // Retired recognition instances must not report into another card/step.
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      if (recognitionRef.current) {
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onstart = null;
-        recognitionRef.current.onerror = null;
-        try { recognitionRef.current.abort(); } catch { /* ignore */ }
-        recognitionRef.current = null;
-      }
+      retireSpeechRecognition();
     };
   }, [card?.id, reviewKey, spokenFront]);
+
+  const retireSpeechRecognition = () => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    recognition.onresult = null;
+    recognition.onend = null;
+    recognition.onstart = null;
+    recognition.onerror = null;
+    recognitionRef.current = null;
+    try { recognition.abort(); } catch { /* ignore */ }
+  };
 
   const stopSpeechRecognition = (e) => {
     e?.stopPropagation();
@@ -168,9 +174,7 @@ export const StudyCardSpeech = React.memo(({
       stopGlobalAudio();
     } catch { /* ignore */ }
 
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch { /* ignore */ }
-    }
+    retireSpeechRecognition();
 
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
@@ -288,11 +292,23 @@ export const StudyCardSpeech = React.memo(({
     }
   };
 
+  // Start once per follow-up review. Retry remains an explicit microphone action.
+  const startFollowupRecognition = useEffectEvent(() => startSpeechRecognition());
+  useEffect(() => {
+    if (followUp) startFollowupRecognition();
+  }, [followUp, card?.id, reviewKey, spokenFront]);
+
   if (!card) return null;
 
   return (
     <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-      <ExerciseInfoBlocks content={exerciseContent} />
+      {!followUp && <ExerciseInfoBlocks content={exerciseContent} />}
+      {followUp && (
+        <div className="speech-followup-intro" role="status">
+          <strong>{tr('Шаг 2 из 2 — произнесите предложение')}</strong>
+          <span>{tr('Теперь скажите вслух фразу, которую вы только что построили.')}</span>
+        </div>
+      )}
 
       <div
         className="text-front speak-target-text" 
@@ -305,13 +321,14 @@ export const StudyCardSpeech = React.memo(({
       </div>
 
       {/* Accuracy Threshold Selector */}
-      <div className="speak-threshold-selector" onClick={e => e.stopPropagation()}>
-        <span className="threshold-label"><Sliders size={14} />{' '}{tr("Точность:")}</span>
+      <div className={`speak-threshold-selector${followUp ? ' speech-followup-threshold' : ''}`} onClick={e => e.stopPropagation()}>
+        <span className="threshold-label"><Sliders size={14} />{' '}{tr("Совпадение слов:")}</span>
         {[50, 75, 85, 100].map(val => (
           <button
             key={val}
             type="button"
             className={`btn-threshold-pill ${speechMatchThreshold === val ? 'active' : ''}`}
+            aria-pressed={speechMatchThreshold === val}
             onClick={(e) => {
               e.stopPropagation();
               setSpeechMatchThreshold(val);
@@ -330,6 +347,8 @@ export const StudyCardSpeech = React.memo(({
             type="button"
             className={`btn-speak-mic ${isListening ? 'listening' : ''} ${speechSuccess ? 'success' : ''}`}
             onClick={handleMicClick}
+            aria-label={isListening ? tr('Остановить запись и проверить') : tr('Начать запись')}
+            disabled={speechSuccess}
           >
             {isListening ? (
               <div className="recording-wave-rings">
@@ -341,7 +360,7 @@ export const StudyCardSpeech = React.memo(({
             {speechSuccess ? <Check size={32} /> : <Mic size={32} />}
           </button>
 
-          {(card.audio_url || onPlayCardAudio) && (
+          {(onPlayCardAudio || (!followUp && card.audio_url)) && (
             <button
               type="button"
               className="btn-speak-audio"
@@ -414,17 +433,32 @@ export const StudyCardSpeech = React.memo(({
         </div>
       )}
 
-      {/* Reveal Answer Button */}
-      <button 
-        className="btn-interactive-reveal"
-        onClick={(e) => {
-          e.stopPropagation();
-          onFlip(true);
-        }}
-      >
-        <Eye size={18} />
-        <span>{tr("Показать ответ")}</span>
-      </button>
+      {followUp ? (
+        <button
+          type="button"
+          className="speech-followup-skip"
+          onClick={e => {
+            e.stopPropagation();
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            retireSpeechRecognition();
+            setIsListening(false);
+            onSkip?.();
+          }}
+        >
+          {tr('Пропустить устную часть')}
+        </button>
+      ) : (
+        <button
+          className="btn-interactive-reveal"
+          onClick={e => {
+            e.stopPropagation();
+            onFlip?.(true);
+          }}
+        >
+          <Eye size={18} />
+          <span>{tr("Показать ответ")}</span>
+        </button>
+      )}
     </div>
   );
 });

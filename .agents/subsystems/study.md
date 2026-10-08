@@ -80,3 +80,14 @@ rg -n 'clearCurrentFeedback|requiredPartIds|interaction_count' app/src/utils/exe
 - Speech API: `app/src/utils/speechEvaluation.js`, `StudyCardSpeech` (`targetText`, `reviewKey`, `onSuccess`).
 - [Completion API и будущие pronunciation/dialogue renderers](../../project_docs/ARCHITECTURE/STUDY_STEPS.md).
 - Unit tests: `app/src/utils/__tests__/studySteps.test.js`, `studyCardRoles.test.js`, `speechEvaluation.test.js`; browser: `scripts/tests/browser/study-steps.spec.cjs`.
+
+
+## Speech follow-up MVP (opt-in)
+
+- `speechFollowupEnabled` is saved through `useSettingsStore` locally and via user-settings sync; default off.
+- StudyView snapshots the toggle per review and enables `['answer', 'speak']` only without explicit requiredActions or autoplay and with a short deterministic target from `speechFollowup.js`.
+- Supported authored exercises: single-line `@puzzle`, trainer (`[[...]]`/`{...}`) with one unambiguous answer per gap, and single-line `@wordbank` with a valid answer map. Quiz/free-text/match, synthetic puzzles, ambiguous and multiline targets keep the existing flow.
+- `StudyCardSpeech` starts recognition on entering the follow-up; retries use the microphone button. It reuses the word-overlap checker, not a phonetic/accent score. Success completes the speak step; skip completes it with `{skipped:true}` and does not alter exercise evidence/SRS penalties.
+- Unsupported browsers, denied access and microphone startup failure show an error and permit skip. Retired recognition handlers are removed on retry, skip and navigation.
+- The toggle appears under the mode selector and applies from the next review; autoplay suspends it. Existing explicit flows take precedence; legacy speak mode still starts manually.
+- Unit tests: `speechFollowup.test.js`, `studySteps.test.js`, `speechEvaluation.test.js`. Browser tests: `scripts/tests/browser/speech-followup.spec.cjs` (mocked recognition/API, answer-to-speech, retry, skip, navigation, persistence/server settings, autoplay, locales and responsive appearance).

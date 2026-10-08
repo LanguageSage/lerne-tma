@@ -34,6 +34,8 @@ import { StudyNavigation } from './StudyNavigation';
 import { GradeButtons } from './GradeButtons';
 import { StudyFinished } from './StudyFinished';
 import { StudyCard } from './StudyCard';
+import { StudyCardSpeech } from './StudyCardSpeech.jsx';
+import { getSpeechFollowupTarget } from '../../utils/speechFollowup.js';
 
 export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   useInterfaceLocale();
@@ -52,6 +54,8 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const setStudyMode = useSettingsStore(s => s.setStudyMode);
   const randomEnabledModes = useSettingsStore(s => s.randomEnabledModes);
   const setRandomEnabledModes = useSettingsStore(s => s.setRandomEnabledModes);
+  const speechFollowupEnabled = useSettingsStore(s => s.speechFollowupEnabled);
+  const setSpeechFollowupEnabled = useSettingsStore(s => s.setSpeechFollowupEnabled);
   const autoplayLoop = useSettingsStore(s => s.autoplayLoop);
   const alwaysRegenerateAudio = useSettingsStore(s => s.alwaysRegenerateAudio);
   const cardFont = useSettingsStore(s => s.cardFont);
@@ -225,7 +229,23 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const [activeRandomMode, setActiveRandomMode] = useState(null);
   const [exerciseEvidence, setExerciseEvidence] = useState(null);
   const effectiveStudyMode = isAutoplayActive ? 'classic' : studyMode === 'random' ? (activeRandomMode || 'classic') : studyMode;
-  const configuredActions = requiredActions ?? card?.requiredActions;
+  // Opt-in: attach a speak step only where a complete target sentence is known.
+  // Snapshot the toggle for each review; changing it mid-exercise must not reset a solved answer.
+  const [speechPlan, setSpeechPlan] = useState({ key: null, target: null });
+  const speechPlanKey = JSON.stringify([sessionRevision, card?.id, historyIndex, effectiveStudyMode, isAutoplayActive]);
+  let currentSpeechPlan = speechPlan;
+  if (speechPlan.key !== speechPlanKey) {
+    currentSpeechPlan = {
+      key: speechPlanKey,
+      target: speechFollowupEnabled && !isAutoplayActive && effectiveStudyMode !== 'speak'
+        ? getSpeechFollowupTarget(card, effectiveStudyMode) : null,
+    };
+    setSpeechPlan(currentSpeechPlan);
+  }
+  const speechFollowupTarget = currentSpeechPlan.target;
+  const autoSpeechActions = speechFollowupTarget && requiredActions == null && card?.requiredActions == null
+    ? ['answer', 'speak'] : null;
+  const configuredActions = requiredActions ?? card?.requiredActions ?? autoSpeechActions;
   const hasRequiredActions = configuredActions != null && !isAutoplayActive;
   const stepFlow = useStudyStepFlow({
     cardId: card?.id, historyIndex, sessionRevision, studyMode: effectiveStudyMode,
@@ -233,6 +253,27 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   });
   const { currentStep, completeStep } = stepFlow;
   const canGrade = canGradeStudyFlow(stepFlow, hasRequiredActions);
+  const isAutoSpeechReview = Boolean(autoSpeechActions);
+  const renderSpeechFollowup = useCallback(({ card: actionCard, stepFlow: actionFlow, audioControls: controls, styles }) => {
+    if (!speechFollowupTarget || actionFlow.currentStep?.action !== STUDY_ACTION.SPEAK) return null;
+    return (
+      <StudyCardSpeech
+        key={`${actionFlow.reviewKey}:${actionFlow.currentStep.id}`}
+        card={actionCard}
+        reviewKey={actionFlow.reviewKey}
+        targetText={speechFollowupTarget}
+        styles={styles}
+        stopAudio={controls?.stopAudio}
+        onSuccess={actionFlow.completeStep}
+        onSkip={() => actionFlow.completeStep({ skipped: true, action: 'speak' })}
+        followUp
+      />
+    );
+  }, [speechFollowupTarget]);
+  // The speech step lives on the front: don't strand learners on a flipped card.
+  useEffect(() => {
+    if (isAutoSpeechReview && currentStep?.action === STUDY_ACTION.SPEAK && isFlipped) setIsFlipped(false);
+  }, [isAutoSpeechReview, currentStep?.action, isFlipped, setIsFlipped]);
   const handleExerciseAnswer = useCallback((cardId, evidence) => {
     const latest = useSessionStore.getState();
     if (String(cardId) !== String(card?.id) || String(latest.card?.id) !== String(cardId)
@@ -578,6 +619,16 @@ ${currentContext}` : explanation;
             </select>
           </div>
 
+          <label className="study-voice-followup-toggle">
+            <input
+              type="checkbox"
+              checked={speechFollowupEnabled}
+              disabled={isAutoplayActive}
+              onChange={e => setSpeechFollowupEnabled(e.target.checked)}
+            />
+            <span title={tr('Настройка применяется со следующей карточки')}>{tr('Произносить фразу после правильного ответа')}</span>
+          </label>
+
           {studyMode === 'random' && !isAutoplayActive && (
             <div className="random-mode-config glass">
               <div className="random-config-title">{tr("Случайные режимы в пуле 🎲")}</div>
@@ -662,7 +713,7 @@ ${currentContext}` : explanation;
               onTrainerAnswer={handleExerciseAnswer}
               onSpeechSuccess={handleSpeechSuccess}
               stepFlow={stepFlow}
-              renderRequiredAction={renderRequiredAction}
+              renderRequiredAction={renderRequiredAction ?? (autoSpeechActions ? renderSpeechFollowup : undefined)}
               onAskQuestion={handleAskQuestion}
               onSaveExplanation={handleSaveExplanation}
               onNextCard={() => {

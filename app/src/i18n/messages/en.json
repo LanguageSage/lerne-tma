@@ -1668,5 +1668,13 @@
   "Банк слов": "Word bank",
   "Оценка карточки №{{p0}} не подтверждена: {{p1}}. Проверьте прогресс перед повторной оценкой.": "The grade for card #{{p0}} is unconfirmed: {{p1}}. Check its progress before grading again.",
   "Пользователь изменился до отправки оценки": "The account changed before the grade was sent",
-  "Понятно": "Got it"
+  "Понятно": "Got it",
+  "Произносить фразу после правильного ответа": "Say the phrase after a correct answer",
+  "Настройка применяется со следующей карточки": "Applies from the next card",
+  "Шаг 2 из 2 — произнесите предложение": "Step 2 of 2 — say the sentence",
+  "Теперь скажите вслух фразу, которую вы только что построили.": "Now say the phrase you just completed aloud.",
+  "Совпадение слов:": "Word match:",
+  "Пропустить устную часть": "Skip speaking",
+  "Остановить запись и проверить": "Stop recording and check",
+  "Начать запись": "Start recording"
 }

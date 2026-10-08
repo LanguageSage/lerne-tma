@@ -154,6 +154,7 @@ export const STUDY_STORAGE_MAP = {
   autoGenerateCardAudio: 'lerne_auto_generate_card_audio',
   studyMode: 'lerne_study_mode',
   speechMatchThreshold: 'lerne_speech_match_threshold',
+  speechFollowupEnabled: 'lerne_speech_followup_enabled',
   voiceBack: 'lerne_voice_back',
   randomEnabledModes: 'lerne_random_enabled_modes',
   srsExtendedGrades: 'lerne_srs_extended_grades',
@@ -248,6 +249,7 @@ const getInitialStudyState = () => ({
   autoGenerateCardAudio: storage.get('lerne_auto_generate_card_audio') !== 'false',
   studyMode: (storage.get('lerne_study_mode') && storage.get('lerne_study_mode') !== 'turbo') ? storage.get('lerne_study_mode') : 'classic',
   speechMatchThreshold: storage.get('lerne_speech_match_threshold') !== null ? Number(storage.get('lerne_speech_match_threshold')) : 75,
+  speechFollowupEnabled: storage.get('lerne_speech_followup_enabled') === 'true',
   voiceBack: storage.get('lerne_voice_back') || '',
   randomEnabledModes: storage.get('lerne_random_enabled_modes')
     ? JSON.parse(storage.get('lerne_random_enabled_modes')).filter(m => m !== 'turbo')
@@ -290,6 +292,12 @@ export const useSettingsStore = create((set, get) => {
     setSpeechMatchThreshold: (value) => {
       storage.set('lerne_speech_match_threshold', value);
       set({ speechMatchThreshold: Number(value) });
+      debouncedSaveSettings(get);
+    },
+    setSpeechFollowupEnabled: (value) => {
+      const enabled = Boolean(value);
+      storage.set('lerne_speech_followup_enabled', enabled);
+      set({ speechFollowupEnabled: enabled });
       debouncedSaveSettings(get);
     },
     setStudyMode: (value) => {
