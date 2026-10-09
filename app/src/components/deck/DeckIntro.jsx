@@ -310,7 +310,7 @@ export const DeckIntro = ({ startStudy }) => {
           className="deck-intro-btn-start"
           onClick={handleStart}
         >
-          <Play size={20} fill="currentColor" />
+          <Play size={22} fill="currentColor" />
           <span>{tr("Начать занятие")}</span>
         </button>
 
