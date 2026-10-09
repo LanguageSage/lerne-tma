@@ -249,6 +249,43 @@ export const StudyCardTrainer = React.memo(({
     const bgColor = status === 'correct' ? 'rgba(34, 197, 94, 0.22)'
       : status === 'incorrect' ? 'rgba(239, 68, 68, 0.2)' : (hasValue ? 'rgba(168, 85, 247, 0.16)' : 'rgba(168, 85, 247, 0.1)');
     const label = tr('Пропуск {{p0}}', { p0: gap.id + 1 });
+    const longestChoice = gap.mode === 'choice' ? (gap.choices || []).reduce((a, b) => a.length > b.length ? a : b, '') : '';
+    const sizerContent = gap.isAffix 
+      ? (longestChoice || '··')
+      : `${longestChoice || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____')} ▾`;
+    const displayContent = gap.isAffix 
+      ? rawValue || '··'
+      : `${rawValue || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____')} ${status === 'correct' ? '✓' : '▾'}`;
+
+    const buttonControl = (
+        <button type="button" ref={el => { gapRefs.current[gap.id] = el; }}
+          className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (isDropdownOpen ? 'open' : (hasValue ? 'selected' : 'idle'))}${hasValue ? ' has-value' : ''}` : 'trainer-choice-gap'}
+          onClick={e => handleOpenDropdown(gap.id, e)} disabled={locked}
+          aria-label={label} aria-invalid={status === 'incorrect'}
+          aria-describedby={status === 'incorrect' ? `trainer-hint-${gap.id}` : undefined}
+          aria-haspopup="dialog" aria-expanded={isDropdownOpen}
+          title={locked ? undefined : tr('Нажмите, чтобы выбрать вариант')}
+          style={gap.isAffix ? undefined : {
+            gridArea: '1 / 1', width: '100%', height: '100%', boxSizing: 'border-box',
+            position: 'relative',
+            borderColor,
+            background: bgColor,
+            color: status === 'correct' ? '#22c55e' : (hasValue ? '#e9d5ff' : 'inherit'),
+            fontFamily: 'inherit',
+            fontSize: '1em',
+            fontWeight: hasValue || status ? 700 : 'inherit',
+            boxShadow: status === 'correct'
+              ? '0 0 14px rgba(34, 197, 94, 0.4)'
+              : (isDropdownOpen ? '0 0 14px rgba(168, 85, 247, 0.7)' : undefined),
+            animation: status === 'correct'
+              ? 'victoryTextPulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+              : undefined
+          }}>
+          {displayContent}
+          {!gap.isAffix && status === 'correct' && <AnswerVictoryAnimation />}
+        </button>
+    );
+
     const control = gap.mode === 'input' ? (
       <label className={gap.isAffix ? 'trainer-affix-input' : 'trainer-input-gap'} onClick={e => e.stopPropagation()}>
         <AutoExpandingInput rawValue={rawValue} gap={gap} disabled={locked} status={status}
@@ -257,33 +294,22 @@ export const StudyCardTrainer = React.memo(({
           onInputChange={handleInputChange} onCheck={handleCheck} />
         {!gap.isAffix && status === 'correct' && <AnswerVictoryAnimation />}
       </label>
+    ) : gap.isAffix ? (
+      buttonControl
     ) : (
-      <button type="button" ref={el => { gapRefs.current[gap.id] = el; }}
-        className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (isDropdownOpen ? 'open' : (hasValue ? 'selected' : 'idle'))}${hasValue ? ' has-value' : ''}` : 'trainer-choice-gap'}
-        onClick={e => handleOpenDropdown(gap.id, e)} disabled={locked}
-        aria-label={label} aria-invalid={status === 'incorrect'}
-        aria-describedby={status === 'incorrect' ? `trainer-hint-${gap.id}` : undefined}
-        aria-haspopup="dialog" aria-expanded={isDropdownOpen}
-        title={locked ? undefined : tr('Нажмите, чтобы выбрать вариант')}
-        style={gap.isAffix ? undefined : {
-          position: 'relative',
-          borderColor,
-          background: bgColor,
-          color: status === 'correct' ? '#22c55e' : (hasValue ? '#e9d5ff' : 'inherit'),
-          fontFamily: 'inherit',
-          fontSize: '0.92em',
-          fontWeight: hasValue || status ? 700 : 'inherit',
-          boxShadow: status === 'correct'
-            ? '0 0 14px rgba(34, 197, 94, 0.4)'
-            : (isDropdownOpen ? '0 0 14px rgba(168, 85, 247, 0.7)' : undefined),
-          animation: status === 'correct'
-            ? 'victoryTextPulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-            : undefined
+      <span style={{ display: 'inline-grid', placeItems: 'center', maxWidth: '100%' }}>
+        <span aria-hidden="true" style={{ 
+          gridArea: '1 / 1', 
+          visibility: 'hidden', 
+          whiteSpace: 'pre', 
+          padding: '4px 10px', 
+          fontSize: '1em', 
+          fontWeight: 700 
         }}>
-        {gap.isAffix ? rawValue || '··'
-          : `${rawValue || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____')} ${status === 'correct' ? '✓' : '▾'}`}
-        {!gap.isAffix && status === 'correct' && <AnswerVictoryAnimation />}
-      </button>
+          {sizerContent}
+        </span>
+        {buttonControl}
+      </span>
     );
     return gap.isAffix ? control : (
       <span key={`gap-${gap.id}`} className="exercise-part-feedback">

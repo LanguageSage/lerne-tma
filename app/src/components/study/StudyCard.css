@@ -629,10 +629,10 @@
 .gap-dropdown-popover {
   position: fixed;
   z-index: 99999;
-  background: rgba(15, 23, 42, 0.94);
+  background: var(--design-gap-dd-bg, rgba(15, 23, 42, 0.94));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(168, 85, 247, 0.4);
+  border: 1px solid var(--design-gap-dd-border, rgba(168, 85, 247, 0.4));
   border-radius: 14px;
   padding: 5px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(168, 85, 247, 0.25);
@@ -664,13 +664,14 @@
   align-items: center;
   justify-content: flex-start;
   width: 100%;
-  min-height: 38px;
-  padding: 6px 12px;
+  min-height: 44px;
+  padding: 8px 14px;
   border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f1f5f9;
-  font-size: 0.94rem;
+  border: 1px solid var(--design-gap-dd-item-border, rgba(255, 255, 255, 0.08));
+  background: var(--design-gap-dd-item-bg, rgba(255, 255, 255, 0.04));
+  color: var(--design-gap-dd-item-color, #f1f5f9);
+  font-family: var(--design-gap-dd-font, inherit);
+  font-size: var(--design-gap-dd-size, 1.15rem);
   font-weight: 600;
   cursor: pointer;
   text-align: left;
@@ -683,14 +684,14 @@
 
 .gap-dropdown-item:active {
   background: rgba(168, 85, 247, 0.35);
-  border-color: #a855f7;
+  border-color: var(--design-gap-dd-item-sel-border, #a855f7);
   transform: scale(0.98);
 }
 
 .gap-dropdown-item.is-selected {
-  background: rgba(168, 85, 247, 0.25);
-  border-color: #a855f7;
-  color: #c084fc;
+  background: var(--design-gap-dd-item-sel-bg, rgba(168, 85, 247, 0.25));
+  border-color: var(--design-gap-dd-item-sel-border, #a855f7);
+  color: var(--design-gap-dd-item-sel-color, #c084fc);
   font-weight: 700;
 }
 

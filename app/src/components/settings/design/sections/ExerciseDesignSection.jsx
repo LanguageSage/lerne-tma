@@ -3,6 +3,7 @@ import { tr } from '../../../../i18n/locale';
 import { ColorControl } from '../controls/ColorControl';
 import { SliderControl } from '../controls/SliderControl';
 import { DesignPreviewScope } from '../DesignPreviewScope';
+import { FONT_OPTIONS } from '../designConstants';
 
 export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
   const [previewType, setPreviewType] = useState('quiz'); // 'quiz' | 'cloze' | 'match' | 'wordBank'
@@ -190,6 +191,14 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
         >
           {tr('Пропуски')}
         </button>
+        <button
+          type="button"
+          className={`btn-secondary btn-tiny ${subTab === 'gapDropdown' ? 'active' : ''}`}
+          onClick={() => setSubTab('gapDropdown')}
+          style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
+        >
+          {tr('Меню')}
+        </button>
       </div>
 
       {/* Palette Mode */}
@@ -300,6 +309,80 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
             label={tr('Цвет фона')}
             value={ex.clozeGap?.correct?.bg || 'rgba(34,197,94,0.2)'}
             onChange={val => onChangeField('exercises.clozeGap.correct.bg', val)}
+          />
+        </div>
+      )}
+
+      {/* Gap Dropdown Menu */}
+      {subTab === 'gapDropdown' && (
+        <div>
+          <h4 style={{ fontSize: '0.9rem', color: '#f8fafc', margin: '0 0 10px 0' }}>
+            {tr('Выпадающий список вариантов')}
+          </h4>
+          
+          <div className="form-group" style={{ marginBottom: '10px' }}>
+            <label style={{ fontSize: '0.82rem', color: '#94a3b8' }}>{tr('Шрифт')}</label>
+            <select
+              value={ex.gapDropdown?.font || 'Comfortaa'}
+              onChange={e => onChangeField('exercises.gapDropdown.font', e.target.value)}
+              style={{ width: '100%', padding: '6px 10px', borderRadius: '8px' }}
+            >
+              <option value="inherit">{tr('По умолчанию (как в карточке)')}</option>
+              {FONT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {tr(opt.label)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <SliderControl
+            label={tr('Размер шрифта')}
+            value={Number(ex.gapDropdown?.size) || 1.15}
+            min={0.8}
+            max={2.5}
+            step={0.05}
+            unit="rem"
+            onChange={val => onChangeField('exercises.gapDropdown.size', val)}
+          />
+
+          <ColorControl
+            label={tr('Фон списка')}
+            value={ex.gapDropdown?.bg || 'rgba(15,23,42,0.94)'}
+            onChange={val => onChangeField('exercises.gapDropdown.bg', val)}
+          />
+          <ColorControl
+            label={tr('Цвет рамки списка')}
+            value={ex.gapDropdown?.borderColor || 'rgba(168,85,247,0.4)'}
+            onChange={val => onChangeField('exercises.gapDropdown.borderColor', val)}
+          />
+
+          <h4 style={{ fontSize: '0.9rem', color: '#f8fafc', margin: '16px 0 10px 0' }}>
+            {tr('Обычный вариант')}
+          </h4>
+          <ColorControl
+            label={tr('Цвет текста')}
+            value={ex.gapDropdown?.item?.color || '#f1f5f9'}
+            onChange={val => onChangeField('exercises.gapDropdown.item.color', val)}
+          />
+          <ColorControl
+            label={tr('Фон пункта')}
+            value={ex.gapDropdown?.item?.bg || 'rgba(255,255,255,0.04)'}
+            onChange={val => onChangeField('exercises.gapDropdown.item.bg', val)}
+          />
+
+          <h4 style={{ fontSize: '0.9rem', color: '#c084fc', margin: '16px 0 10px 0' }}>
+            {tr('Выбранный вариант')}
+          </h4>
+          <ColorControl
+            label={tr('Цвет текста')}
+            value={ex.gapDropdown?.selected?.color || '#c084fc'}
+            onChange={val => onChangeField('exercises.gapDropdown.selected.color', val)}
+          />
+          <ColorControl
+            label={tr('Фон пункта')}
+            value={ex.gapDropdown?.selected?.bg || 'rgba(168,85,247,0.25)'}
+            onChange={val => onChangeField('exercises.gapDropdown.selected.bg', val)}
           />
         </div>
       )}

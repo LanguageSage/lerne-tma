@@ -13,6 +13,7 @@ Use `rg` and `rg --files` to find behavior and callers before adding components,
 - `app/src/store/` and `slices/`: shared application state and actions.
 - `app/src/services/api.js`: authenticated API access; `offlineApi.js`, `localDb.js`, and `syncService.js`: offline storage and sync; `mediaCache.js`: media caching.
 - `app/src/i18n/i18nContext.jsx`: interface language. `app/src/store/useLanguageStore.js`: learning language. These are different concepts.
+- `app/src/design/designConfig.js` and `app/src/design/designTokens.js`: existing design configuration and published CSS variables. The card-style helpers bridge that config to rendering.
 - `api/routers/`, `api/services/`, `api/models.py`, `api/database.py`: routes, business logic, models, and connection setup.
 
 ## Keep responsibilities clear
@@ -22,6 +23,9 @@ Use `rg` and `rg --files` to find behavior and callers before adding components,
 - Keep shared entities in their owning store and derive values when possible. Local form drafts and temporary UI state are valid local state.
 - Route authenticated application requests through the existing API service to preserve authentication, error handling, and offline behavior.
 - Keep domain rules consistent across callers. A simple router query does not require a new service solely for layering.
+- For UI work, treat **learning flow/state**, **user-configurable appearance** and **presentation effects** as distinct concerns. A visual change must not duplicate SRS/progress calculations in components or silently change educational data.
+- Reuse existing component and design sources before creating a second theme/provider; avoid moving working UI into a new architecture merely for cosmetic polish. Consult [tma-ui](../tma-ui/SKILL.md) when presentation changes.
+
 ## Architecture map maintenance
 
 - Update the affected document in `.agents/subsystems/` when entry points, data flow, ownership or tests change. Use [AGENT_INDEX](../../AGENT_INDEX.md) to find it.

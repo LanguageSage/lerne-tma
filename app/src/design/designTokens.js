@@ -192,6 +192,20 @@ export function designConfigToCssVariables(config) {
   vars['--design-cloze-wrong-border']   = ex.clozeGap.wrong.borderColor;
   vars['--design-cloze-wrong-color']    = ex.clozeGap.wrong.color;
 
+  // Gap Dropdown
+  if (ex.gapDropdown) {
+    vars['--design-gap-dd-font']          = ex.gapDropdown.font;
+    vars['--design-gap-dd-size']          = ex.gapDropdown.size ? `${ex.gapDropdown.size}rem` : undefined;
+    vars['--design-gap-dd-bg']            = ex.gapDropdown.bg;
+    vars['--design-gap-dd-border']        = ex.gapDropdown.borderColor;
+    vars['--design-gap-dd-item-bg']       = ex.gapDropdown.item.bg;
+    vars['--design-gap-dd-item-border']   = ex.gapDropdown.item.borderColor;
+    vars['--design-gap-dd-item-color']    = ex.gapDropdown.item.color;
+    vars['--design-gap-dd-item-sel-bg']   = ex.gapDropdown.selected.bg;
+    vars['--design-gap-dd-item-sel-border']= ex.gapDropdown.selected.borderColor;
+    vars['--design-gap-dd-item-sel-color']= ex.gapDropdown.selected.color;
+  }
+
   // Word bank
   vars['--design-wb-word-bg']          = ex.wordBank.word.bg;
   vars['--design-wb-word-color']       = ex.wordBank.word.color;

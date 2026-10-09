@@ -224,6 +224,24 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
       wrong:   { borderColor: '#ef4444', bg: 'rgba(239,68,68,0.2)',  color: '#f87171' },
     },
 
+    /** Gap Dropdown Menu */
+    gapDropdown: {
+      font: 'Inter',
+      size: 1.15,
+      bg: 'rgba(15,23,42,0.94)',
+      borderColor: 'rgba(168,85,247,0.4)',
+      item: {
+        bg: 'rgba(255,255,255,0.04)',
+        borderColor: 'rgba(255,255,255,0.08)',
+        color: '#f1f5f9'
+      },
+      selected: {
+        bg: 'rgba(168,85,247,0.25)',
+        borderColor: '#a855f7',
+        color: '#c084fc'
+      }
+    },
+
     /** Word bank */
     wordBank: {
       container: { bg: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', radius: '12px' },
