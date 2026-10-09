@@ -12,6 +12,7 @@ import { Toast } from './components/common/Toast';
 import { GlobalLoader } from './components/common/Loader';
 import { GuestBanner } from './components/common/UserBadge';
 import { DeckGrid, CardList, CardEditor, CardCreator } from './components/deckgrid';
+import { DeckIntro } from './components/deck/DeckIntro';
 import { StudyView, TrainerView } from './components/study';
 import { 
   CardActionModal, DeckModals, SettingsModal, RenameDeckModal, 
@@ -159,15 +160,17 @@ function AppContent() {
       }
     }
 
-    const isSubView = (view === 'study' || view === 'trainer' || view === 'editor' || view === 'creator');
-    const isDeckView = (view === 'cards' || view === 'duplicates' || view === 'trash' || view === 'lid' || view === 'lid_exam');
-    const currentLevel = anyModalOpen 
-      ? (isSubView ? folderDepth + 3 : isDeckView ? folderDepth + 2 : folderDepth + 1)
-      : isSubView 
-      ? folderDepth + 2 
-      : isDeckView 
-      ? folderDepth + 1 
+    const isDeepSubView = (view === 'study' || view === 'trainer' || view === 'editor' || view === 'creator');
+    const isCardListView = (view === 'cards');
+    const isDeckView = (view === 'deck_intro' || view === 'duplicates' || view === 'trash' || view === 'lid' || view === 'lid_exam');
+    const baseViewLevel = isDeepSubView
+      ? folderDepth + 3
+      : isCardListView
+      ? folderDepth + 2
+      : isDeckView
+      ? folderDepth + 1
       : folderDepth;
+    const currentLevel = anyModalOpen ? baseViewLevel + 1 : baseViewLevel;
 
     if (isPopStateRef.current) {
       lastLevelRef.current = currentLevel;
@@ -248,6 +251,12 @@ function AppContent() {
       case 'study':
       case 'trainer':
         return <StudyView />;
+      case 'deck_intro':
+        return (
+          <DeckIntro
+            startStudy={startStudy}
+          />
+        );
       case 'cards':
         return (
           <CardList

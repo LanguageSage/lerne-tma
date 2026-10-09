@@ -4,6 +4,15 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { useLidStore } from '../store/useLidStore';
 
+export const returnToDeckIntro = () => {
+  const session = useSessionStore.getState();
+  session.stopAutoplayFn?.();
+  session.stopAutoplay();
+  session.resetSession();
+  const ui = useUiStore.getState();
+  ui.setView('deck_intro');
+};
+
 export const returnToStudyTheme = () => {
   const session = useSessionStore.getState();
   session.stopAutoplayFn?.();
@@ -73,17 +82,20 @@ export const navigateUp = () => {
     return true;
   }
 
-  // 2. Study or Trainer mode -> Return to Cards list or Duplicates
+  // 2. Study or Trainer mode -> Return to source view (cards, deck_intro, duplicates)
   if (uiState.view === 'study' || uiState.view === 'trainer') {
     session.stopAutoplay?.();
-    if (session.card?.id) {
+    const activeCardId = session.card?.id || session.studyHistory[session.studyHistory.length - 1]?.id;
+    if (activeCardId) {
       if (deckState.currentDeck?.id === 'duplicates') {
-        deckState.setLastDuplicateCardId(session.card.id);
+        deckState.setLastDuplicateCardId(activeCardId);
       } else {
-        uiState.setLastSelectedCardId(session.card.id);
+        uiState.setLastSelectedCardId(activeCardId);
       }
     }
-    const targetView = deckState.currentDeck?.id === 'duplicates' ? 'duplicates' : 'cards';
+    const targetView = deckState.currentDeck?.id === 'duplicates' 
+      ? 'duplicates' 
+      : (uiState.studySourceView === 'cards' ? 'cards' : 'deck_intro');
     uiState.setView(targetView);
     session.resetSession();
     return true;
@@ -105,13 +117,28 @@ export const navigateUp = () => {
     return true;
   }
 
-  // 4. Cards list, Duplicates, or Trash -> Return to Decks grid (into parent folder if cards in folder)
-  if (uiState.view === 'cards' || uiState.view === 'duplicates' || uiState.view === 'trash') {
-    if (uiState.view === 'cards' && deckState.currentDeck?.folder_id) {
-      uiState.setActiveFolderId(deckState.currentDeck.folder_id);
-    } else if (uiState.view === 'duplicates' || uiState.view === 'trash') {
-      uiState.setActiveFolderId(null);
+  // 4. Cards list -> Return to Deck Intro (or Decks if special)
+  if (uiState.view === 'cards') {
+    if (deckState.currentDeck?.id && deckState.currentDeck.id !== 'duplicates') {
+      uiState.setView('deck_intro');
+      return true;
     }
+    uiState.setView('decks');
+    return true;
+  }
+
+  // 4b. Deck Intro -> Return to Decks grid (into parent folder if deck in folder)
+  if (uiState.view === 'deck_intro') {
+    if (deckState.currentDeck?.folder_id) {
+      uiState.setActiveFolderId(deckState.currentDeck.folder_id);
+    }
+    uiState.setView('decks');
+    return true;
+  }
+
+  // 4c. Duplicates or Trash -> Return to Decks grid
+  if (uiState.view === 'duplicates' || uiState.view === 'trash') {
+    uiState.setActiveFolderId(null);
     uiState.setView('decks');
     return true;
   }

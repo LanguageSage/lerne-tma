@@ -7,7 +7,14 @@ import { useTranslation } from '../../i18n/i18nContext';
 
 export const GeneralTab = ({ userId }) => {
   useInterfaceLocale();
-  const { autoShow, setAutoShow } = useSettingsStore();
+  const { 
+    autoShow, 
+    setAutoShow,
+    showLessonCompletion,
+    setShowLessonCompletion,
+    showCompletionCelebration,
+    setShowCompletionCelebration
+  } = useSettingsStore();
   const { t } = useTranslation();
 
   return (
@@ -27,6 +34,30 @@ export const GeneralTab = ({ userId }) => {
             type="checkbox" 
             checked={autoShow} 
             onChange={e => setAutoShow(e.target.checked)} 
+          />
+          <span className="slider"></span>
+        </label>
+      </div>
+
+      <div className="settings-row">
+        <span>{tr("Показывать экран завершения")}</span>
+        <label className="switch">
+          <input 
+            type="checkbox" 
+            checked={showLessonCompletion} 
+            onChange={e => setShowLessonCompletion(e.target.checked)} 
+          />
+          <span className="slider"></span>
+        </label>
+      </div>
+
+      <div className="settings-row">
+        <span>{tr("Показывать анимации достижений")}</span>
+        <label className="switch">
+          <input 
+            type="checkbox" 
+            checked={showCompletionCelebration} 
+            onChange={e => setShowCompletionCelebration(e.target.checked)} 
           />
           <span className="slider"></span>
         </label>

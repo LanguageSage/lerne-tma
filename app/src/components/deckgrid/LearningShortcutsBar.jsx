@@ -22,7 +22,7 @@ export const LearningShortcutsBar = ({
     setCurrentDeck(deck);
     useUiStore.getState().setCardsScrollTop(0);
     useUiStore.getState().setLastSelectedCardId(null);
-    useUiStore.getState().setView('cards');
+    useUiStore.getState().setView('deck_intro');
     if (fetchDeckCards) fetchDeckCards(deck.id);
   };
 

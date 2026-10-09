@@ -86,7 +86,7 @@ export const DeckCardItem = React.memo(({
     setCurrentDeck(deck);
     useUiStore.getState().setCardsScrollTop(0);
     useUiStore.getState().setLastSelectedCardId(null);
-    useUiStore.getState().setView('cards');
+    useUiStore.getState().setView('deck_intro');
     fetchDeckCards(deck.id);
   };
 

@@ -16,6 +16,27 @@ export const useSessionStore = create((set, get) => ({
   isLearningMore: false,
   forcedSeenIds: [],
   isSessionFinished: false,
+  sessionStats: {
+    reviewsCount: 0,
+    correctCount: 0,
+    mistakeCount: 0,
+    startedAt: null,
+    endedAt: null
+  },
+  recordReview: (evaluation) => set(state => {
+    const isCorrect = Boolean(evaluation?.isCorrect);
+    const mistakes = typeof evaluation?.mistakes === 'number' ? evaluation.mistakes : (isCorrect ? 0 : 1);
+    const prev = state.sessionStats || { reviewsCount: 0, correctCount: 0, mistakeCount: 0, startedAt: null, endedAt: null };
+    return {
+      sessionStats: {
+        reviewsCount: prev.reviewsCount + 1,
+        correctCount: prev.correctCount + (isCorrect ? 1 : 0),
+        mistakeCount: prev.mistakeCount + mistakes,
+        startedAt: prev.startedAt || Date.now(),
+        endedAt: null
+      }
+    };
+  }),
   autoplayState: 'stopped', // 'stopped' | 'playing' | 'paused'
   startAutoplayFn: null,
   stopAutoplayFn: null,
@@ -39,7 +60,16 @@ export const useSessionStore = create((set, get) => ({
     return { gradeErrors };
   }),
 
-  setIsSessionFinished: (val) => set({ isSessionFinished: val }),
+  setIsSessionFinished: (val) => set(state => {
+    const prev = state.sessionStats || { reviewsCount: 0, correctCount: 0, mistakeCount: 0, startedAt: null, endedAt: null };
+    return {
+      isSessionFinished: val,
+      sessionStats: {
+        ...prev,
+        endedAt: val ? (prev.endedAt || Date.now()) : null
+      }
+    };
+  }),
   setIsLearningMore: (val) => set({ isLearningMore: val }),
   markForcedSeen: (id) => set(state => ({ forcedSeenIds: [...new Set([...state.forcedSeenIds, id])] })),
   setAutoplayState: (autoplayState) => set({ autoplayState }),
@@ -141,7 +171,14 @@ export const useSessionStore = create((set, get) => ({
       isLearningMore: false,
       forcedSeenIds: [],
       isSessionFinished: false,
-      autoplayState: 'stopped'
+      autoplayState: 'stopped',
+      sessionStats: {
+        reviewsCount: 0,
+        correctCount: 0,
+        mistakeCount: 0,
+        startedAt: Date.now(),
+        endedAt: null
+      }
     });
   }
 }

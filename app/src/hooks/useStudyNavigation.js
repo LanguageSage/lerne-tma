@@ -19,6 +19,10 @@ export function useStudyNavigation() {
   const startStudy = useCallback(async (deck, { reviewContext = 'scheduled' } = {}) => {
     setIsOpeningDeck(true);
     try {
+      const currentView = useUiStore.getState().view;
+      if (currentView !== 'study' && currentView !== 'trainer') {
+        useUiStore.getState().setStudySourceView(currentView);
+      }
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
       useSessionStore.getState().setIsLearningMore(reviewContext === 'forced');
@@ -42,6 +46,10 @@ export function useStudyNavigation() {
 
   const startStudyCard = useCallback(async (deck, cardId) => {
     try {
+      const currentView = useUiStore.getState().view;
+      if (currentView !== 'study' && currentView !== 'trainer') {
+        useUiStore.getState().setStudySourceView(currentView);
+      }
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
       

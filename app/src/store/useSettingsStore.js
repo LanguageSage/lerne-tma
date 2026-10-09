@@ -160,6 +160,8 @@ export const STUDY_STORAGE_MAP = {
   srsExtendedGrades: 'lerne_srs_extended_grades',
   playerCollapsed: 'lerne_player_collapsed',
   gradingCollapsed: 'lerne_grading_collapsed',
+  showLessonCompletion: 'lerne_show_lesson_completion',
+  showCompletionCelebration: 'lerne_show_completion_celebration',
 };
 
 export const collectUserSettings = (state) => {
@@ -257,6 +259,8 @@ const getInitialStudyState = () => ({
   srsExtendedGrades: storage.get('lerne_srs_extended_grades') !== null ? storage.get('lerne_srs_extended_grades') === 'true' : false,
   playerCollapsed: storage.get('lerne_player_collapsed') !== 'false',
   gradingCollapsed: storage.get('lerne_grading_collapsed') === 'true',
+  showLessonCompletion: storage.get('lerne_show_lesson_completion') !== 'false',
+  showCompletionCelebration: storage.get('lerne_show_completion_celebration') !== 'false',
   isAdmin: false,
 });
 
@@ -287,6 +291,18 @@ export const useSettingsStore = create((set, get) => {
     setGradingCollapsed: (value) => {
       storage.set('lerne_grading_collapsed', value);
       set({ gradingCollapsed: value });
+      debouncedSaveSettings(get);
+    },
+    setShowLessonCompletion: (value) => {
+      const enabled = Boolean(value);
+      storage.set('lerne_show_lesson_completion', String(enabled));
+      set({ showLessonCompletion: enabled });
+      debouncedSaveSettings(get);
+    },
+    setShowCompletionCelebration: (value) => {
+      const enabled = Boolean(value);
+      storage.set('lerne_show_completion_celebration', String(enabled));
+      set({ showCompletionCelebration: enabled });
       debouncedSaveSettings(get);
     },
     setSpeechMatchThreshold: (value) => {

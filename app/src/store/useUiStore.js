@@ -69,6 +69,9 @@ export const useUiStore = create((set, get) => ({
   editorSourceView: 'cards', // 'cards' | 'study' | 'decks'
   setEditorSourceView: (source) => set({ editorSourceView: source }),
 
+  studySourceView: 'deck_intro', // 'deck_intro' | 'cards' | 'duplicates'
+  setStudySourceView: (source) => set({ studySourceView: source }),
+
   lastSelectedCardId: null,
   setLastSelectedCardId: (id) => set({ lastSelectedCardId: id }),
 

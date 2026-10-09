@@ -18,7 +18,7 @@ import { useAutoplay } from '../../hooks/useAutoplay';
 import { useCardNavigation } from '../../hooks/useCardNavigation';
 import { useSessionVoice } from '../../hooks/useSessionVoice';
 import { MediaPicker } from '../common/MediaPicker';
-import { navigateUp, returnToStudyTheme } from '../../utils/navigation';
+import { navigateUp, returnToStudyTheme, returnToDeckIntro } from '../../utils/navigation';
 import { getNextThemeDeck, isLastThemeDeck } from '../../utils/studyFlow';
 import { useStudyNavigation } from '../../hooks/useStudyNavigation';
 import { StudyError } from './StudyError';
@@ -33,15 +33,17 @@ import { StudyHeader } from './StudyHeader';
 import { StudyNavigation } from './StudyNavigation';
 import { GradeButtons } from './GradeButtons';
 import { StudyFinished } from './StudyFinished';
+import { LessonCompletion } from './LessonCompletion';
 import { StudyCard } from './StudyCard';
 import { StudyCardSpeech } from './StudyCardSpeech.jsx';
 import { getSpeechFollowupTarget } from '../../utils/speechFollowup.js';
+import { evaluateReviewResult, calculateSessionStats } from '../../utils/sessionStats.js';
 
 export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   useInterfaceLocale();
   const { view, loading, setIsSettingsOpen, showToast, userProfile, setIsAuthModalOpen } = useUiStore();
   const { currentDeck, decks, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
-  const { card, isFlipped, setIsFlipped, historyIndex, sessionRevision, apiError, isSessionFinished, studyHistory, isLearningMore, autoplayState, pendingGrades, gradeErrors, dismissGradeError } = useSessionStore();
+  const { card, isFlipped, setIsFlipped, historyIndex, sessionRevision, apiError, isSessionFinished, sessionStats, studyHistory, isLearningMore, autoplayState, pendingGrades, gradeErrors, dismissGradeError } = useSessionStore();
   const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard, runAiGenerator } = useCardActions();
   const { startStudy } = useStudyNavigation();
   const { openEditor, openCreator } = useCardNavigation();
@@ -73,6 +75,12 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const contextFontStyle = useSettingsStore(s => s.contextFontStyle);
   const contextTextShadow = useSettingsStore(s => s.contextTextShadow);
   const contextTextAlign = useSettingsStore(s => s.contextTextAlign);
+  const showLessonCompletion = useSettingsStore(s => s.showLessonCompletion);
+  const [isCompletionDismissed, setIsCompletionDismissed] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsCompletionDismissed(false);
+  }, [sessionRevision]);
 
   const styleSettings = React.useMemo(() => ({
     cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign,
@@ -435,10 +443,26 @@ export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const nextDeck = getNextThemeDeck(decks, currentDeck);
   const lastDeck = isLastThemeDeck(decks, currentDeck);
   const nextReview = deckCards.map(c => c.next_review).filter(date => date && new Date(date) > new Date()).sort()[0];
+
+  const formattedSessionStats = React.useMemo(() => {
+    if (!isSessionFinished) return null;
+    return calculateSessionStats({
+      reviewsCount: sessionStats?.reviewsCount,
+      correctCount: sessionStats?.correctCount,
+      mistakeCount: sessionStats?.mistakeCount,
+      startedAt: sessionStats?.startedAt,
+      endedAt: sessionStats?.endedAt,
+      studyHistory
+    });
+  }, [isSessionFinished, sessionStats, studyHistory]);
   const handleGoToTheme = () => {
     stopAudio();
     returnToStudyTheme();
     useDeckStore.getState().fetchDecks(true).catch(console.error);
+  };
+  const handleGoToDeckIntro = () => {
+    stopAudio();
+    returnToDeckIntro();
   };
   const handleStartStudy = (deck, reviewContext = 'scheduled') => {
     stopAudio();
@@ -557,6 +581,8 @@ ${targetCard.back}`;
     stopAudio();
     const evidence = exerciseEvidence;
     setExerciseEvidence(null);
+    const evaluation = evaluateReviewResult({ grade, isExtended, exerciseEvidence: evidence });
+    latest.recordReview?.(evaluation);
     submitGrade(grade, isExtended, evidence);
   }, [card?.id, historyIndex, sessionRevision, canGrade, hasRequiredActions, currentStep?.action, completeStep, stopAudio, exerciseEvidence, submitGrade]);
 
@@ -814,16 +840,25 @@ ${targetCard.back}`;
         ) : apiError ? (
           <StudyError deck={currentDeck} error={apiError} onRetry={() => fetchNextCard(currentDeck.id, !card)} onGoToDecks={handleGoToTheme} />
         ) : isSessionFinished ? (
-          <StudyFinished
-            deck={currentDeck}
-            nextDeck={nextDeck}
-            isLastDeck={lastDeck}
-            alreadyDone={studyHistory.length === 0}
-            nextReview={nextReview}
-            onContinue={() => handleStartStudy(nextDeck)}
-            onRepeat={() => handleStartStudy(currentDeck, 'forced')}
-            onGoToDecks={handleGoToTheme}
-          />
+          showLessonCompletion && !isCompletionDismissed && studyHistory.length > 0 ? (
+            <LessonCompletion
+              deck={currentDeck}
+              stats={formattedSessionStats}
+              onGoToDeck={handleGoToDeckIntro}
+              onClose={() => setIsCompletionDismissed(true)}
+            />
+          ) : (
+            <StudyFinished
+              deck={currentDeck}
+              nextDeck={nextDeck}
+              isLastDeck={lastDeck}
+              alreadyDone={studyHistory.length === 0}
+              nextReview={nextReview}
+              onContinue={() => handleStartStudy(nextDeck)}
+              onRepeat={() => handleStartStudy(currentDeck, 'forced')}
+              onGoToDecks={handleGoToTheme}
+            />
+          )
         ) : null}
       </motion.div>
     </div>
