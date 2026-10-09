@@ -8,6 +8,8 @@
   box-sizing: border-box;
   gap: 16px;
   min-height: 100%;
+
+  font-family: var(--design-ui-font), sans-serif;
 }
 
 .deck-intro-header-bar {
@@ -21,9 +23,9 @@
 .deck-intro-back-btn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: inherit;
-  width: 42px;
-  height: 42px;
+  color: var(--design-icon-color);
+  width: 44px;
+  height: 44px;
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -66,18 +68,18 @@
 /* Card hero - Premium Glassmorphic Card */
 .deck-intro-hero {
   padding: 24px 22px;
-  border-radius: 22px;
+  border-radius: var(--design-radius);
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.72) 0%, rgba(15, 23, 42, 0.88) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    0 16px 36px -8px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(16px);
+  background: var(--design-glass-bg);
+  border: 1px solid var(--design-glass-border);
+  box-shadow: var(--design-panel-shadow);
+  backdrop-filter: blur(var(--design-glass-blur));
+
+  -webkit-backdrop-filter: blur(var(--design-glass-blur));
 }
 
 .deck-intro-hero::before {
@@ -87,7 +89,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), rgba(168, 85, 247, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, var(--design-accent-secondary), var(--design-accent), transparent);
   pointer-events: none;
 }
 
@@ -109,30 +111,36 @@
 }
 
 .deck-intro-topic-badge {
-  font-size: 0.8rem;
+  font-size: var(--design-service-size);
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--design-info-color);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 4px 12px;
   border-radius: 8px;
+
+  border-color: var(--design-divider);
 }
 
 .deck-intro-title {
   margin: 0;
-  font-size: 1.65rem;
+  font-size: var(--design-heading-size);
   font-weight: 800;
-  line-height: 1.25;
-  color: #ffffff;
+  line-height: var(--design-heading-lh);
+  color: var(--design-heading-color);
   letter-spacing: -0.02em;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+
+  background: none;
+
+  -webkit-text-fill-color: currentColor;
 }
 
 .deck-intro-desc {
   margin: 0;
   font-size: 0.95rem;
-  color: #cbd5e1;
-  line-height: 1.55;
+  color: var(--design-text-color);
+  line-height: var(--design-ui-lh);
 }
 
 /* Indicators */
@@ -144,15 +152,17 @@
 
 .deck-intro-indicator-card {
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: var(--design-radius);
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
+  background: var(--design-glass-bg);
+  border: 1px solid var(--design-glass-border);
+  box-shadow: var(--design-panel-shadow);
+  backdrop-filter: blur(var(--design-glass-blur));
   transition: all 0.2s ease;
+
+  -webkit-backdrop-filter: blur(var(--design-glass-blur));
 }
 
 .deck-intro-indicator-card:hover {
@@ -170,7 +180,7 @@
   justify-content: center;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.07);
-  color: #38bdf8;
+  color: var(--design-icon-color);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
@@ -181,10 +191,10 @@
 }
 
 .deck-intro-indicator-label {
-  font-size: 0.75rem;
+  font-size: var(--design-service-size);
   font-weight: 500;
-  color: #94a3b8;
-  line-height: 1.2;
+  color: var(--design-secondary-color);
+  line-height: var(--design-ui-lh);
 }
 
 .deck-intro-indicator-value {
@@ -197,14 +207,16 @@
 /* SRS Progress Block */
 .deck-intro-srs-block {
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: var(--design-radius);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
+  background: var(--design-glass-bg);
+  border: 1px solid var(--design-glass-border);
+  box-shadow: var(--design-panel-shadow);
+  backdrop-filter: blur(var(--design-glass-blur));
+
+  -webkit-backdrop-filter: blur(var(--design-glass-blur));
 }
 
 .deck-intro-srs-header {
@@ -214,11 +226,13 @@
 }
 
 .deck-intro-srs-title {
-  font-size: 0.75rem;
+  font-size: var(--design-service-size);
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--design-secondary-color);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+
+  line-height: var(--design-ui-lh);
 }
 
 .deck-intro-srs-grid {
@@ -275,24 +289,28 @@
 }
 
 .deck-intro-srs-label {
-  font-size: 0.7rem;
+  font-size: var(--design-service-size);
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--design-secondary-color);
   margin-top: 3px;
   text-transform: lowercase;
+
+  line-height: var(--design-ui-lh);
 }
 
 /* Sections - Goal, Outcomes, Recommendations */
 .deck-intro-section {
   padding: 18px 20px;
-  border-radius: 18px;
+  border-radius: var(--design-radius);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
+  background: var(--design-glass-bg);
+  border: 1px solid var(--design-glass-border);
+  box-shadow: var(--design-panel-shadow);
+  backdrop-filter: blur(var(--design-glass-blur));
+
+  -webkit-backdrop-filter: blur(var(--design-glass-blur));
 }
 
 .deck-intro-section-header {
@@ -301,18 +319,20 @@
   gap: 8px;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--design-heading-color);
+
+  line-height: var(--design-heading-lh);
 }
 
 .deck-intro-section-icon {
-  color: #818cf8;
+  color: var(--design-accent);
 }
 
 .deck-intro-section-text {
   margin: 0;
   font-size: 0.92rem;
-  color: #cbd5e1;
-  line-height: 1.55;
+  color: var(--design-text-color);
+  line-height: var(--design-ui-lh);
 }
 
 /* Learning outcomes */
@@ -330,8 +350,8 @@
   align-items: flex-start;
   gap: 10px;
   font-size: 0.9rem;
-  color: #cbd5e1;
-  line-height: 1.45;
+  color: var(--design-text-color);
+  line-height: var(--design-ui-lh);
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 8px 12px;
@@ -361,42 +381,33 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 16px 44px;
-  min-width: 250px;
-  max-width: 85%;
-  border-radius: 9999px;
+  padding: 4px 20px;
+  min-width: 0;
+  max-width: 100%;
+
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: 0.015em;
-  color: #ffffff;
-  background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: 
-    0 10px 25px -4px rgba(16, 185, 129, 0.5),
-    0 4px 10px rgba(0, 0, 0, 0.25),
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.5);
+
+
+
+
   cursor: pointer;
   position: relative;
   overflow: hidden;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+
 }
 
 .deck-intro-btn-start:hover {
-  background: linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%);
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 
-    0 14px 32px -4px rgba(16, 185, 129, 0.65),
-    0 6px 14px rgba(0, 0, 0, 0.3),
-    inset 0 1px 2px rgba(255, 255, 255, 0.6);
+
   border-color: rgba(255, 255, 255, 0.5);
 }
 
 .deck-intro-btn-start:active {
   transform: translateY(1px) scale(0.99);
-  box-shadow: 
-    0 6px 16px rgba(16, 185, 129, 0.4),
-    inset 0 2px 4px rgba(0, 0, 0, 0.2);
+
 }
 
 /* Второстепенная кнопка «Показать список» */
@@ -405,25 +416,28 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 26px;
-  border-radius: 9999px;
+  padding: 4px 20px;
+
   font-size: 0.9rem;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
+
+
+
   cursor: pointer;
   transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
+
 }
 
 .deck-intro-btn-list:hover {
-  background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.24);
-  color: #ffffff;
+
   transform: translateY(-1px);
 }
 
 .deck-intro-btn-list:active {
   transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-intro-container *, .deck-intro-container *::before { transition: none; animation: none; transform: none; }
 }

@@ -64,6 +64,8 @@ export const ColorControl = React.memo(({
                 }}
                 onClick={() => onChange(color)}
                 title={color}
+                aria-label={`${label}: ${color}`}
+                aria-pressed={isSelected}
               />
             );
           })}
@@ -84,6 +86,7 @@ export const ColorControl = React.memo(({
           >
             <input
               type="color"
+              aria-label={label}
               value={toSafeHex(value)}
               onChange={e => onChange(e.target.value)}
               style={{
@@ -97,6 +100,7 @@ export const ColorControl = React.memo(({
               }}
             />
           </label>
+          <output aria-label={`${label} HEX`}>{value}</output>
         </div>
       )}
     </div>

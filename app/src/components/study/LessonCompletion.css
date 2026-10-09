@@ -9,13 +9,15 @@
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
+
+  font-family: var(--design-ui-font), sans-serif;
 }
 
 .lesson-completion-card {
   width: 100%;
   max-width: 500px;
   padding: 34px 24px 28px 24px;
-  border-radius: 26px;
+  border-radius: var(--design-radius);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -23,12 +25,12 @@
   position: relative;
   box-sizing: border-box;
   gap: 20px;
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.78) 0%, rgba(15, 23, 42, 0.92) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 
-    0 24px 56px -12px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(20px);
+  background: var(--design-glass-bg);
+  border: 1px solid var(--design-glass-border);
+  box-shadow: var(--design-panel-shadow);
+  backdrop-filter: blur(var(--design-glass-blur));
+
+  -webkit-backdrop-filter: blur(var(--design-glass-blur));
 }
 
 .lesson-completion-close-btn {
@@ -37,9 +39,9 @@
   right: 16px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #94a3b8;
-  width: 38px;
-  height: 38px;
+  color: var(--design-icon-color);
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -173,52 +175,64 @@
 
 .lesson-completion-title {
   margin: 0;
-  font-size: 1.85rem;
+  font-size: var(--design-heading-size);
   font-weight: 800;
-  color: #ffffff;
+  color: var(--design-heading-color);
   letter-spacing: -0.02em;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+
+  line-height: var(--design-heading-lh);
+
+  background: none;
+
+  -webkit-text-fill-color: currentColor;
 }
 
 .lesson-completion-subtitle {
   margin: 0;
   font-size: 0.98rem;
-  color: #cbd5e1;
-  line-height: 1.45;
+  color: var(--design-text-color);
+  line-height: var(--design-ui-lh);
   max-width: 360px;
 }
 
 .lesson-completion-deck-pill {
-  font-size: 0.8rem;
+  font-size: var(--design-service-size);
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--design-info-color);
   background: rgba(255, 255, 255, 0.06);
   padding: 4px 14px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   margin-top: 4px;
+
+  border-color: var(--design-divider);
 }
 
 /* Results section styling */
 .completion-results-placeholder {
   width: 100%;
   padding: 16px 14px;
-  border-radius: 18px;
+  border-radius: var(--design-radius);
   box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.3);
+  background: var(--design-glass-bg);
+  border: 1px solid var(--design-glass-border);
+  box-shadow: var(--design-panel-shadow);
+
+  backdrop-filter: blur(var(--design-glass-blur));
+
+  -webkit-backdrop-filter: blur(var(--design-glass-blur));
 }
 
 .completion-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
 @media (max-width: 440px) {
   .completion-metrics-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -252,20 +266,26 @@
 }
 
 .completion-metric-label {
-  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  font-size: var(--design-service-size);
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--design-secondary-color);
   text-align: center;
+
+  line-height: var(--design-ui-lh);
 }
 
 .completion-metrics-note {
   margin-top: 12px;
-  font-size: 0.78rem;
+  font-size: var(--design-service-size);
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--design-secondary-color);
   text-align: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--design-divider);
   padding-top: 10px;
+
+  line-height: var(--design-ui-lh);
 }
 
 /* Actions */
@@ -280,35 +300,29 @@
 
 .lesson-completion-btn-primary {
   width: auto;
-  min-width: 240px;
-  max-width: 85%;
-  padding: 15px 36px;
-  border-radius: 9999px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 20px;
+
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 0.015em;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+
+
+
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  box-shadow: 
-    0 10px 25px -4px rgba(37, 99, 235, 0.5),
-    0 4px 10px rgba(0, 0, 0, 0.25),
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.4);
+
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+
 }
 
 .lesson-completion-btn-primary:hover {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 
-    0 14px 32px -4px rgba(37, 99, 235, 0.65),
-    inset 0 1px 2px rgba(255, 255, 255, 0.6);
+
   border-color: rgba(255, 255, 255, 0.4);
 }
 
@@ -359,4 +373,19 @@
     animation: none !important;
     filter: none !important;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lesson-completion-overlay *, .lesson-completion-overlay *::before { transition: none; animation: none; transform: none; }
+}
+
+@container (max-width: 440px) {
+  .completion-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 360px) {
+  .completion-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 340px) {
+  .completion-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

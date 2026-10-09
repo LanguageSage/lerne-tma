@@ -57,13 +57,9 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const previewCardBg = useSettingsStore(s => s.previewCardBg);
   const previewCardLines = useSettingsStore(s => s.previewCardLines);
   const previewCardTextAlign = useSettingsStore(s => s.previewCardTextAlign);
-  const isAdmin = useSettingsStore(s => s.isAdmin);
-  const adminDraftDesignV2 = useSettingsStore(s => s.adminDraftDesignV2);
   const publishedDesignV2 = useSettingsStore(s => s.publishedDesignV2);
 
-  const effectiveCardListConfig = (isAdmin && adminDraftDesignV2)
-    ? adminDraftDesignV2.cardList
-    : publishedDesignV2?.config?.cardList;
+  const effectiveCardListConfig = publishedDesignV2?.config?.cardList;
 
   const effectiveCardBg = effectiveCardListConfig?.card?.bg || previewCardBg || 'dark_obsidian';
   const cardListBg = React.useMemo(() => getCardListBgStyle(effectiveCardBg), [effectiveCardBg]);

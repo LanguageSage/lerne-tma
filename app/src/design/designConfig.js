@@ -8,6 +8,19 @@
  * - Admin draft изолирован внутри preview контейнера (CSS scoped vars).
  */
 
+
+// App chrome is independent of learning-card typography and exercise semantics.
+const buttonState = (color1, color2, textColor, borderColor, mode = 'solid') => ({
+  mode, color1, color2, angle: 135, textColor, iconColor: textColor, borderColor,
+});
+const buttonConfig = (primary) => ({
+  normal: buttonState(primary ? '#6366f1' : '#1e293b', primary ? '#a855f7' : '#334155', '#ffffff', '#64748b', primary ? 'linear' : 'solid'),
+  hover: buttonState(primary ? '#818cf8' : '#334155', primary ? '#c084fc' : '#475569', '#ffffff', '#a78bfa', primary ? 'linear' : 'solid'),
+  pressed: buttonState(primary ? '#4f46e5' : '#0f172a', primary ? '#9333ea' : '#1e293b', '#ffffff', '#a78bfa', primary ? 'linear' : 'solid'),
+  disabled: buttonState('#1e293b', '#1e293b', '#94a3b8', '#334155'),
+  borderWidth: 1, radius: 12, height: 48, shadow: primary ? 0.3 : 0.1,
+});
+
 // ── Typography shape (используется во многих местах) ──────────────────────────
 const DEFAULT_TYPOGRAPHY = {
   font: 'Inter',
@@ -48,6 +61,24 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
     glassBorder: 'rgba(255,255,255,0.1)',
     /** Базовый радиус для компонентов */
     commonRadius: '12px',
+    background: {
+      // Keep legacy appBg unchanged until an administrator selects a new mode.
+      mode: 'legacy', color1: '#1a1a2e', color2: '#16213e', color3: '#0f3460',
+      colorCount: 3, angle: 135, positionX: 100, positionY: 0, glow: 0,
+    },
+    panels: {
+      // Empty tint retains existing glassBg / glassBorder from old V2 JSON.
+      color: '', borderColor: '', borderOpacity: 0.1, shadow: 0.3, innerLight: 0.06,
+    },
+    typography: {
+      headingColor: '#ffffff', textColor: '#cbd5e1', secondaryColor: '#94a3b8',
+      headingSize: 1.65, serviceSize: 0.8, headingLineHeight: 1.25, lineHeight: 1.5,
+    },
+    details: {
+      secondaryAccent: '#38bdf8', infoColor: '#a5b4fc', iconColor: '#94a3b8',
+      dividerColor: '#334155', activeIntensity: 0.25,
+    },
+    buttons: { primary: buttonConfig(true), secondary: buttonConfig(false) },
   },
 
   front: {
@@ -341,7 +372,7 @@ function filterKnownKeys(patch, schema) {
   if (!schema || typeof schema !== 'object') return undefined;
   const result = {};
   for (const key of Object.keys(schema)) {
-    if (!(key in patch)) continue;
+    if (!Object.hasOwn(patch, key)) continue;
     const schemaVal = schema[key];
     const patchVal = patch[key];
     if (schemaVal !== null && typeof schemaVal === 'object' && !Array.isArray(schemaVal)
@@ -350,7 +381,8 @@ function filterKnownKeys(patch, schema) {
       if (nested !== undefined) result[key] = nested;
     } else {
       // Принимаем примитив, только если тип совместим
-      if (patchVal !== undefined) result[key] = patchVal;
+      if (typeof schemaVal !== 'object' && typeof patchVal === typeof schemaVal
+          && (typeof patchVal !== 'number' || Number.isFinite(patchVal))) result[key] = patchVal;
     }
   }
   return result;
@@ -361,7 +393,7 @@ function deepMergeKnown(base, patch) {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return base;
   const result = { ...base };
   for (const key of Object.keys(base)) {
-    if (!(key in patch)) continue;
+    if (!Object.hasOwn(patch, key)) continue;
     const bv = base[key];
     const pv = patch[key];
     if (bv !== null && typeof bv === 'object' && !Array.isArray(bv)
@@ -392,7 +424,10 @@ export function normalizeDesignConfig(partial) {
   }
   // Отбрасываем неизвестные ключи верхнего уровня через filterKnownKeys
   const safe = filterKnownKeys(partial, base) || {};
-  return deepMergeKnown(base, safe);
+  const merged = deepMergeKnown(structuredClone(base), safe);
+  normalizeGlobalFields(merged.global);
+  merged.schemaVersion = 2;
+  return merged;
 }
 
 /**
@@ -403,7 +438,7 @@ export function mergeDesignConfig(base, patch) {
   const safeBase = normalizeDesignConfig(base);
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return safeBase;
   const safePatch = filterKnownKeys(patch, DEFAULT_DESIGN_CONFIG_V2) || {};
-  return deepMergeKnown(safeBase, safePatch);
+  return normalizeDesignConfig(deepMergeKnown(safeBase, safePatch));
 }
 
 /**
@@ -433,4 +468,48 @@ export function patchDesignValue(config, path, value) {
   }
   obj[keys[keys.length - 1]] = value;
   return cloned;
+}
+
+/** Bound the new editor values before generating CSS; old card settings stay intact. */
+function normalizeGlobalFields(global) {
+  const defaults = DEFAULT_DESIGN_CONFIG_V2.global;
+  const bound = (obj, key, min, max, fallback) => {
+    obj[key] = typeof obj[key] === 'number' && Number.isFinite(obj[key])
+      ? Math.min(max, Math.max(min, obj[key])) : fallback;
+  };
+  const color = (obj, key, fallback, allowEmpty = false) => {
+    if (!(allowEmpty && obj[key] === '') && !/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(obj[key])) obj[key] = fallback;
+  };
+  const bg = global.background;
+  if (!['legacy', 'solid', 'linear', 'radial'].includes(bg.mode)) bg.mode = defaults.background.mode;
+  for (const key of ['color1', 'color2', 'color3']) color(bg, key, defaults.background[key]);
+  bg.colorCount = bg.colorCount === 2 ? 2 : 3;
+  for (const [key, max] of [['angle', 360], ['positionX', 100], ['positionY', 100], ['glow', 1]]) bound(bg, key, 0, max, defaults.background[key]);
+  bound(global, 'glassOpacity', 0, 1, defaults.glassOpacity);
+  for (const key of ['glassBlur', 'commonRadius']) {
+    if (!/^\d+(\.\d+)?px$/.test(global[key])) global[key] = defaults[key];
+    global[key] = `${Math.min(40, parseFloat(global[key]))}px`;
+  }
+  const panel = global.panels;
+  color(panel, 'color', '', true);
+  color(panel, 'borderColor', '', true);
+  for (const key of ['borderOpacity', 'shadow', 'innerLight']) bound(panel, key, 0, 1, defaults.panels[key]);
+  const type = global.typography;
+  for (const key of ['headingColor', 'textColor', 'secondaryColor']) color(type, key, defaults.typography[key]);
+  bound(type, 'headingSize', 1, 3, defaults.typography.headingSize);
+  bound(type, 'serviceSize', 0.65, 1.25, defaults.typography.serviceSize);
+  for (const key of ['headingLineHeight', 'lineHeight']) bound(type, key, 1, 2, defaults.typography[key]);
+  for (const key of ['secondaryAccent', 'infoColor', 'iconColor', 'dividerColor']) color(global.details, key, defaults.details[key]);
+  bound(global.details, 'activeIntensity', 0, 1, defaults.details.activeIntensity);
+  for (const role of ['primary', 'secondary']) {
+    const button = global.buttons[role];
+    const def = defaults.buttons[role];
+    for (const [key, min, max] of [['borderWidth', 0, 4], ['radius', 0, 40], ['height', 36, 72], ['shadow', 0, 1]]) bound(button, key, min, max, def[key]);
+    for (const state of ['normal', 'hover', 'pressed', 'disabled']) {
+      const value = button[state];
+      if (!['solid', 'linear'].includes(value.mode)) value.mode = def[state].mode;
+      for (const key of ['color1', 'color2', 'textColor', 'iconColor', 'borderColor']) color(value, key, def[state][key]);
+      bound(value, 'angle', 0, 360, def[state].angle);
+    }
+  }
 }

@@ -17,7 +17,6 @@ export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
 
   const handleSelectBg = (val) => {
     onChangeField('cardList.card.bg', val);
-    useSettingsStore.getState().setPreviewCardBg?.(val);
   };
 
   return (

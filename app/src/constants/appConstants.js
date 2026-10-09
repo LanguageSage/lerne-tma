@@ -1,4 +1,4 @@
-import { tr } from '../i18n/locale';
+import { tr } from '../i18n/locale.js';
 export const TUTORIAL_STEPS = {
   welcome: [
     { 

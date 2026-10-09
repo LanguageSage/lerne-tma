@@ -1,4 +1,4 @@
-import { CARD_LIST_BG_PRESETS } from '../constants/appConstants';
+import { CARD_LIST_BG_PRESETS } from '../constants/appConstants.js';
 
 export const getTextShadow = (effect, color) => {
   switch (effect) {

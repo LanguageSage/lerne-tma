@@ -265,7 +265,7 @@ export const DeckCardItem = React.memo(({
             {deck.is_inbox ? (
               <Inbox size={24} />
             ) : deck.is_trainer ? (
-              <Dumbbell size={24} color="#c084fc" />
+              <Dumbbell size={24} color="var(--design-accent-secondary, #c084fc)" />
             ) : (
               <Layers size={24} />
             )}

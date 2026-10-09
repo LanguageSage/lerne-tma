@@ -192,7 +192,7 @@ export const LessonCompletion = ({ deck, stats, onGoToDeck, onClose }) => {
         <div className="lesson-completion-actions">
           <button
             type="button"
-            className="lesson-completion-btn-primary"
+            className="lesson-completion-btn-primary design-ui-button design-ui-button-primary"
             onClick={onGoToDeck}
           >
             <ArrowLeft size={20} />

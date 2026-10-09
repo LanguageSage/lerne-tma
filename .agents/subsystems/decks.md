@@ -90,3 +90,14 @@ Integration/browser scripts могут менять данные; сначала
 - Backend проверяет owner/editor папки и каждой колоды, а также цепочку parent_id от колоды до выбранной папки. Apply всех групп — одна транзакция, на PostgreSQL stable row locks. Fingerprint охватывает только затронутые колоды/их контент/состав и relevant пути; SRS и колоды вне файла его не меняют.
 - Account-scoped Dexie `folder-text-update:{id}` хранит exact request до HTTP apply. Shared TMAOfflineBatch receipt делает повтор безопасным; pending пересекающийся deck/folder запрос нужно разрешить до нового обслуживания. Миграций нет.
 - Тесты: `folderTextUpdate.test.js`, `test_folder_text_update.py`, `browser/folder-text-update.spec.cjs`. Размер/совместимость/транзакция/limitations: [FOLDER_TEXT_UPDATE](../../docs/FOLDER_TEXT_UPDATE.md).
+
+
+## Classic: глобальный дизайн и предпросмотр
+
+- `app/src/components/settings/DesignTab.jsx` остаётся встроенной административной вкладкой. В «Общее» находятся фон, панели, кнопки, типографика интерфейса и независимые акценты.
+- Новые поля принадлежат `global.background`, `global.panels`, `global.buttons`, `global.typography`, `global.details` в `DEFAULT_DESIGN_CONFIG_V2`. Нормализация дополняет старые V2, ограничивает новые числа/цвета и не меняет front/back/exercises/cardList.
+- `background.mode: legacy` сохраняет старый `appBg`; пустые цвета panels сохраняют `glassBg`/`glassBorder` вместе с их исходной прозрачностью. Новый цвет и alpha генерируются независимо. Общие кнопки используют `designUi.css`; SRS `.btn-grade` и отдельные семантические exercise-токены исключены.
+- `useSettingsStore` сохраняет тот же черновик в существующий кеш и `/admin/design/draft`. Draft/init/reset/revert/load не вызывают `applyPublishedDesignTokens`; корень получает только published, в том числе при старте. Публикация проходит существующий явный confirm и `/admin/design/publish`.
+- `GeneralDesignPreview` использует `DesignPreviewScope`, реальные FolderCardItem/DeckCardItem, DeckIntro с необязательным `previewData` и LessonCompletion с демонстрационными props. Данные колод/сессии не записываются в store; capture-обработчики блокируют навигацию и запись из preview. Доступная ширина ограничивает выбранный размер. Примеры кнопок позволяют проверить hover/pressed/disabled.
+- Учебные карточки и обычный CardList читают только опубликованный V2; личные typography/front/back настройки и SRS/статистика не изменяются.
+- Проверки: `app/src/design/__tests__/designConfig.test.js`, `designTokens.test.js`; `scripts/tests/browser/design-editor.spec.cjs` перехватывает API и внешние запросы, покрывает JSON, черновик, confirm/cancel, ошибки, восстановление, реальные CSS-значения и 320/375/430/768/1080px. Внешние данные и production-публикация в тестах не используются.

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { 
   ArrowLeft, 
   Play, 
@@ -35,12 +35,16 @@ const LEVEL_CONFIG = {
   C2: { color: "#f59e0b", bgColor: "rgba(245, 158, 11, 0.18)", borderColor: "rgba(245, 158, 11, 0.35)" }
 };
 
-export const DeckIntro = ({ startStudy }) => {
+export const DeckIntro = ({ startStudy, previewData = null }) => {
   useInterfaceLocale();
+  const reducedMotion = useReducedMotion();
 
-  const currentDeck = useDeckStore(state => state.currentDeck);
-  const deckCards = useDeckStore(state => state.deckCards);
-  const folders = useDeckStore(state => state.folders);
+  const storedDeck = useDeckStore(state => state.currentDeck);
+  const currentDeck = previewData?.deck ?? storedDeck;
+  const storedCards = useDeckStore(state => state.deckCards);
+  const deckCards = previewData?.cards ?? storedCards;
+  const storedFolders = useDeckStore(state => state.folders);
+  const folders = previewData?.folders ?? storedFolders;
   const updateDeckMetadata = useDeckStore(state => state.updateDeckMetadata);
 
   const setView = useUiStore(state => state.setView);
@@ -57,12 +61,12 @@ export const DeckIntro = ({ startStudy }) => {
 
   // Check editing permissions
   const canEdit = useMemo(() => {
-    if (!currentDeck) return false;
+    if (previewData || !currentDeck) return false;
     if (isAdmin) return true;
     if (currentDeck.role === 'owner' || currentDeck.role === 'editor') return true;
     if (currentDeck.is_global_readonly) return false;
     return !currentDeck.role;
-  }, [currentDeck, isAdmin]);
+  }, [currentDeck, isAdmin, previewData]);
 
   // Determine CEFR level reliably from existing data
   const detectedLevel = useMemo(() => {
@@ -167,7 +171,8 @@ export const DeckIntro = ({ startStudy }) => {
 
       {/* Hero Header */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+        transition={{ duration: reducedMotion ? 0 : 0.2 }}
         animate={{ opacity: 1, y: 0 }}
         className="deck-intro-hero glass"
       >
@@ -251,7 +256,8 @@ export const DeckIntro = ({ startStudy }) => {
       {/* Goal section (only if present) */}
       {goal && (
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+        transition={{ duration: reducedMotion ? 0 : 0.2 }}
           animate={{ opacity: 1, y: 0 }}
           className="deck-intro-section glass"
         >
@@ -266,7 +272,8 @@ export const DeckIntro = ({ startStudy }) => {
       {/* Learning outcomes (only if present) */}
       {learningOutcomes.length > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+        transition={{ duration: reducedMotion ? 0 : 0.2 }}
           animate={{ opacity: 1, y: 0 }}
           className="deck-intro-section glass"
         >
@@ -288,7 +295,8 @@ export const DeckIntro = ({ startStudy }) => {
       {/* Recommendations (only if present) */}
       {recommendations && (
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 10 }}
+        transition={{ duration: reducedMotion ? 0 : 0.2 }}
           animate={{ opacity: 1, y: 0 }}
           className="deck-intro-section glass"
         >
@@ -307,7 +315,7 @@ export const DeckIntro = ({ startStudy }) => {
       <div className="deck-intro-actions">
         <button
           type="button"
-          className="deck-intro-btn-start"
+          className="deck-intro-btn-start design-ui-button design-ui-button-primary"
           onClick={handleStart}
         >
           <Play size={22} fill="currentColor" />
@@ -316,7 +324,7 @@ export const DeckIntro = ({ startStudy }) => {
 
         <button
           type="button"
-          className="deck-intro-btn-list"
+          className="deck-intro-btn-list design-ui-button design-ui-button-secondary"
           onClick={handleShowList}
         >
           <List size={18} />

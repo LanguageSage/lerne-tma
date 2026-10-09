@@ -106,7 +106,7 @@
 
 /* ---------------------------------------------------------
    Deck Card (Обычные колоды)
-   
+
    👉 НАСТРОЙКА ЦВЕТА ФОНА ОБЫЧНЫХ КОЛОД:
    Если захотите сделать карточки колод светлее/темнее,
    отредактируйте свойства background ниже в .deck-card и .deck-card::before
@@ -118,13 +118,15 @@
   transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
   position: relative;
   overflow: visible !important;
-  border: 1px solid var(--folder-color-border, rgba(255, 255, 255, 0.12));
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--design-glass-border);
+  box-shadow: var(--design-panel-shadow);
   /* Цвет фона колод: приятный затемнённый полупрозрачный оттенок */
-  background: rgba(13, 18, 30, 0.72);
-  backdrop-filter: blur(16px);
-  border-radius: 20px;
+  background: var(--design-glass-bg);
+  backdrop-filter: blur(var(--design-glass-blur));
+  border-radius: var(--design-radius);
   box-sizing: border-box;
+
+  -webkit-backdrop-filter: blur(var(--design-glass-blur));
 }
 
 .deck-card.has-open-menu {
@@ -136,23 +138,23 @@
   position: absolute;
   top: 0; left: 0; right: 0; height: 100%;
   /* Мягкий градиентный отблеск сверху вниз */
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 45%, var(--folder-color-bg-tint, rgba(168, 85, 247, 0.06)) 100%);
+  background: var(--design-panel-light);
   z-index: 0;
   pointer-events: none;
-  border-radius: 20px;
+  border-radius: var(--design-radius);
 }
 
 .deck-card:hover {
-  background: rgba(18, 24, 38, 0.85);
-  border-color: var(--folder-color-hover, rgba(168, 85, 247, 0.6));
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), 0 0 20px var(--folder-color-shadow, rgba(168, 85, 247, 0.3)), inset 0 0 15px rgba(255, 255, 255, 0.05);
+  background: var(--design-glass-bg);
+  border-color: var(--folder-color-hover, var(--design-accent));
+  box-shadow: var(--design-panel-shadow), var(--design-active-shadow);
 }
 
 .deck-icon {
   background: linear-gradient(135deg, var(--folder-color-bg-tint, rgba(99, 102, 241, 0.25)), var(--folder-color-bg-tint, rgba(168, 85, 247, 0.25)));
   padding: 12px;
   border-radius: 14px;
-  color: var(--folder-color, #d8b4fe);
+  color: var(--design-icon-color);
   position: relative;
   z-index: 1;
   transition: all 0.4s ease;
@@ -161,27 +163,31 @@
 }
 
 .deck-card:hover .deck-icon {
-  background: linear-gradient(135deg, var(--folder-color-bg-tint, rgba(99, 102, 241, 0.4)), var(--folder-color-hover, rgba(168, 85, 247, 0.5)));
+  background: var(--design-active-bg);
   transform: scale(1.08) rotate(5deg);
-  box-shadow: 0 0 20px var(--folder-color-shadow, rgba(168, 85, 247, 0.6));
-  color: #fff;
-  border-color: var(--folder-color-hover, rgba(168, 85, 247, 0.6));
+  box-shadow: var(--design-active-shadow);
+  color: var(--design-icon-color);
+  border-color: var(--design-accent);
 }
 
 .deck-card h3 {
   flex: 1;
-  font-size: 1.05rem;
-  color: white;
+  font-size: calc(var(--design-heading-size) * .64);
+  color: var(--design-heading-color);
   text-align: left;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
-  line-height: 1.2;
+  line-height: var(--design-heading-lh);
   overflow-wrap: anywhere;
   word-break: normal;
   padding: 2px 0;
   overflow: hidden;
+
+  background: none;
+
+  -webkit-text-fill-color: currentColor;
 }
 
 .deck-title-text {
@@ -194,8 +200,8 @@
 .deck-level {
   font-size: 0.65rem;
   font-weight: 800;
-  background: rgba(168, 85, 247, 0.3);
-  color: #fff;
+  background: var(--design-active-bg);
+  color: var(--design-info-color);
   padding: 2px 6px;
   border-radius: 6px;
   border: 1px solid rgba(168, 85, 247, 0.4);
@@ -282,9 +288,9 @@
 }
 
 .deck-stat-label {
-  font-size: 0.65rem;
+  font-size: calc(var(--design-service-size) * .85);
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--design-secondary-color);
   text-transform: lowercase;
   letter-spacing: 0.02em;
 }
@@ -313,8 +319,10 @@
     font-size: 0.85rem;
   }
   .deck-stat-label {
-    font-size: 0.6rem;
-  }
+    font-size: calc(var(--design-service-size) * .85);
+
+  color: var(--design-secondary-color);
+}
 }
 
 /* User Folders & Breadcrumbs Styling */
@@ -353,12 +361,12 @@
   align-items: center;
   padding: 8px 12px;
   width: 100%;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--design-divider);
   background: rgba(0, 0, 0, 0.08);
   position: relative;
   box-sizing: border-box;
   gap: 8px;
-  border-radius: 0 0 20px 20px;
+  border-radius: 0 0 var(--design-radius) var(--design-radius);
   min-height: 48px;
 }
 
@@ -588,8 +596,18 @@
 /* Larger Card & Folder Scaling for Tablet and Desktop (Single Column) */
 @media (min-width: 640px) {
   .deck-card {
-    border-radius: 24px;
-  }
+    border-radius: var(--design-radius);
+
+  background: var(--design-glass-bg);
+
+  border: 1px solid var(--design-glass-border);
+
+  box-shadow: var(--design-panel-shadow);
+
+  backdrop-filter: blur(var(--design-glass-blur));
+
+  -webkit-backdrop-filter: blur(var(--design-glass-blur));
+}
 
   .deck-main-action-with-stats {
     padding: 18px 22px !important;
@@ -603,18 +621,32 @@
   .deck-icon {
     padding: 15px;
     border-radius: 16px;
-  }
+
+  color: var(--design-icon-color);
+}
 
   .deck-card h3 {
-    font-size: 1.25rem;
+    font-size: calc(var(--design-heading-size) * .64);
     gap: 8px;
-  }
+
+  color: var(--design-heading-color);
+
+  line-height: var(--design-heading-lh);
+
+  background: none;
+
+  -webkit-text-fill-color: currentColor;
+}
 
   .deck-level {
     font-size: 0.75rem;
     padding: 3px 8px;
     border-radius: 8px;
-  }
+
+  background: var(--design-active-bg);
+
+  color: var(--design-info-color);
+}
 
   .deck-stats-container {
     gap: 10px;
@@ -631,8 +663,10 @@
   }
 
   .deck-stat-label {
-    font-size: 0.72rem;
-  }
+    font-size: calc(var(--design-service-size) * .85);
+
+  color: var(--design-secondary-color);
+}
 
   .bottom-tools-toggle {
     max-width: 100%;
@@ -1007,3 +1041,7 @@
 
 
 
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-card, .deck-card *, .deck-card::before { transition: none; animation: none; }
+}

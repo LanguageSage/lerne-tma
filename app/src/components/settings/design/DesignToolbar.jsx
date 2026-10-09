@@ -25,6 +25,7 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
   const [publishing, setPublishing] = useState(false);
   const [publishConfirm, setPublishConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [toolMessage, setToolMessage] = useState('');
   const [publishError, setPublishError] = useState(null);
   const [publishSuccess, setPublishSuccess] = useState(false);
   const importRef = useRef(null);
@@ -36,8 +37,9 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
 
   const handleSaveDraft = async () => {
     setSaving(true);
-    await saveAdminDraftToServer();
+    const result = await saveAdminDraftToServer();
     setSaving(false);
+    setToolMessage(result?.success ? tr('Черновик сохранён') : (result?.error || tr('Ошибка сохранения')));
   };
 
   const handlePublishClick = () => {
@@ -62,10 +64,21 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
 
   const handleCopyJson = () => {
     if (!adminDraftDesignV2) return;
-    navigator.clipboard.writeText(JSON.stringify(adminDraftDesignV2, null, 2)).then(() => {
+    navigator.clipboard.writeText(JSON.stringify(normalizeDesignConfig(adminDraftDesignV2), null, 2)).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch(() => setToolMessage(tr('Не удалось скопировать JSON')));
+  };
+
+  const handleExportJson = () => {
+    if (!adminDraftDesignV2) return;
+    const blob = new Blob([JSON.stringify(normalizeDesignConfig(adminDraftDesignV2), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'lerne-design-v2.json';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const handleImportJson = (e) => {
@@ -75,12 +88,15 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
     reader.onload = (ev) => {
       try {
         const parsed = JSON.parse(ev.target.result);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid config');
         const normalized = normalizeDesignConfig(parsed);
         setAdminDraftDesignV2(normalized);
+        setToolMessage(tr('JSON импортирован в черновик'));
       } catch {
-        // Silently ignore invalid JSON
+        setToolMessage(tr('Некорректный JSON: черновик не изменён'));
       }
     };
+    reader.onerror = () => setToolMessage(tr('Не удалось прочитать файл'));
     reader.readAsText(file);
     e.target.value = '';
   };
@@ -117,7 +133,7 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
         <button
           className="design-toolbar-btn"
           onClick={handleSaveDraft}
-          disabled={saving}
+          disabled={saving || publishing || !adminDraftDesignV2}
           title={tr('Сохранить черновик на сервере')}
         >
           <Save size={15} />
@@ -127,7 +143,7 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
         {publishConfirm ? (
           <>
             <span className="design-toolbar-confirm-text">{tr('Опубликовать для всех?')}</span>
-            <button className="design-toolbar-btn design-toolbar-publish-confirm" onClick={handlePublishConfirm}>
+            <button className="design-toolbar-btn design-toolbar-publish-confirm" onClick={handlePublishConfirm} disabled={publishing || saving}>
               ✓ {tr('Да')}
             </button>
             <button className="design-toolbar-btn" onClick={() => setPublishConfirm(false)}>
@@ -138,7 +154,7 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
           <button
             className={`design-toolbar-btn design-toolbar-publish ${publishSuccess ? 'design-toolbar-publish--success' : ''}`}
             onClick={handlePublishClick}
-            disabled={publishing || !adminDraftDesignV2}
+            disabled={publishing || saving || !adminDraftDesignV2}
             title={tr('Опубликовать для всех пользователей')}
           >
             {publishSuccess ? <Check size={15} /> : <Globe size={15} />}
@@ -149,14 +165,15 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
 
       {/* JSON tools */}
       <div className="design-toolbar-group">
-        <button className="design-toolbar-btn" onClick={handleCopyJson} title={tr('Копировать JSON')}>
+        <button type="button" className="design-toolbar-btn" onClick={handleExportJson} title={tr('Экспорт JSON')} aria-label={tr('Экспорт JSON')}><Download size={15} /></button>
+        <button className="design-toolbar-btn" onClick={handleCopyJson} title={tr('Копировать JSON')} aria-label={tr('Копировать JSON')}>
           {copied ? <Check size={15} /> : <Copy size={15} />}
         </button>
 
         <button
           className="design-toolbar-btn"
           onClick={() => importRef.current?.click()}
-          title={tr('Импорт JSON')}
+          title={tr('Импорт JSON')} aria-label={tr('Импорт JSON')}
         >
           <Upload size={15} />
         </button>
@@ -171,7 +188,7 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
         <button
           className="design-toolbar-btn"
           onClick={() => onResetSection?.(activeSection)}
-          title={tr('Сбросить раздел')}
+          title={tr('Сбросить раздел')} aria-label={tr('Сбросить раздел')}
         >
           <RotateCcw size={15} />
         </button>
@@ -180,14 +197,15 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
           className="design-toolbar-btn"
           onClick={revertDraftToPublished}
           disabled={!publishedDesignV2}
-          title={tr('Вернуть опубликованный')}
+          title={tr('Вернуть опубликованный')} aria-label={tr('Вернуть опубликованный')}
         >
           <Download size={15} />
         </button>
       </div>
 
+      {toolMessage && <div role="status" className="design-toolbar-status">{toolMessage}</div>}
       {publishError && (
-        <div className="design-toolbar-error">{publishError}</div>
+        <div role="alert" className="design-toolbar-error">{publishError}</div>
       )}
     </div>
   );

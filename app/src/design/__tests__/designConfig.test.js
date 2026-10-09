@@ -392,3 +392,43 @@ test('adaptDesignPresetsToV2: empty array safe', () => {
   const adapted = adaptDesignPresetsToV2([]);
   assert.strictEqual(adapted.length, 0);
 });
+
+
+test('new global fields survive JSON export/import and keep learning settings independent', () => {
+  const draft = mergeDesignConfig(DEFAULT_DESIGN_CONFIG_V2, { global: {
+    background: { mode: 'linear', color1: '#123456', colorCount: 2, angle: 270 },
+    panels: { color: '#102030', innerLight: 0.2 },
+    typography: { headingColor: '#abcdef', serviceSize: 1 },
+    details: { infoColor: '#ffcc00', secondaryAccent: '#00ccff' },
+    buttons: { primary: { height: 64, pressed: { iconColor: '#ffdd00' } } },
+  } });
+  assert.deepEqual(normalizeDesignConfig(JSON.parse(JSON.stringify(draft))), draft);
+  for (const section of ['front', 'back', 'exercises', 'cardList']) assert.deepEqual(draft[section], DEFAULT_DESIGN_CONFIG_V2[section]);
+});
+
+test('old V2 fills new defaults and preserves legacy background and card text', () => {
+  const old = normalizeDesignConfig({ schemaVersion: 2, global: { appBg: 'linear-gradient(90deg, #111, #222)', glassBg: 'rgba(20,30,40,0.05)' }, front: { mainText: { color: '#ffeedd' } } });
+  assert.equal(old.global.background.mode, 'legacy');
+  assert.equal(old.global.appBg, 'linear-gradient(90deg, #111, #222)');
+  assert.equal(old.front.mainText.color, '#ffeedd');
+  assert.deepEqual(old.global.buttons, DEFAULT_DESIGN_CONFIG_V2.global.buttons);
+});
+
+test('malformed imports cannot replace sections or generate unbounded new CSS values', () => {
+  const result = normalizeDesignConfig({ global: { background: { mode: 'url(evil)', color1: 'url(evil)', angle: 9999, glow: -1 }, panels: null, buttons: { primary: { height: -50, hover: null } } }, front: null });
+  assert.deepEqual(result.front, DEFAULT_DESIGN_CONFIG_V2.front);
+  assert.deepEqual(result.global.panels, DEFAULT_DESIGN_CONFIG_V2.global.panels);
+  assert.equal(result.global.background.angle, 360);
+  assert.equal(result.global.background.glow, 0);
+  assert.equal(result.global.background.color1, DEFAULT_DESIGN_CONFIG_V2.global.background.color1);
+  assert.equal(result.global.buttons.primary.height, 36);
+});
+
+test('normalization gives independent defaults and leaves input untouched', () => {
+  const input = { global: { panels: { shadow: 0 } } };
+  const before = JSON.stringify(input);
+  const first = normalizeDesignConfig(input);
+  first.global.buttons.primary.hover.color1 = '#000000';
+  assert.equal(JSON.stringify(input), before);
+  assert.notEqual(normalizeDesignConfig({}).global.buttons.primary.hover.color1, '#000000');
+});

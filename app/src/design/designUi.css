@@ -1,0 +1,90 @@
+/* Shared Classic interface button roles. Never targets SRS grade or exercise selectors. */
+.design-ui-button-primary, .btn-primary:not(.btn-grade):not(.btn-tiny) {
+  --ui-button-normal-bg: var(--design-ui-btn-primary-normal-bg);
+  --ui-button-normal-color: var(--design-ui-btn-primary-normal-color);
+  --ui-button-normal-icon: var(--design-ui-btn-primary-normal-icon);
+  --ui-button-normal-border: var(--design-ui-btn-primary-normal-border);
+  --ui-button-hover-bg: var(--design-ui-btn-primary-hover-bg);
+  --ui-button-hover-color: var(--design-ui-btn-primary-hover-color);
+  --ui-button-hover-icon: var(--design-ui-btn-primary-hover-icon);
+  --ui-button-hover-border: var(--design-ui-btn-primary-hover-border);
+  --ui-button-pressed-bg: var(--design-ui-btn-primary-pressed-bg);
+  --ui-button-pressed-color: var(--design-ui-btn-primary-pressed-color);
+  --ui-button-pressed-icon: var(--design-ui-btn-primary-pressed-icon);
+  --ui-button-pressed-border: var(--design-ui-btn-primary-pressed-border);
+  --ui-button-disabled-bg: var(--design-ui-btn-primary-disabled-bg);
+  --ui-button-disabled-color: var(--design-ui-btn-primary-disabled-color);
+  --ui-button-disabled-icon: var(--design-ui-btn-primary-disabled-icon);
+  --ui-button-disabled-border: var(--design-ui-btn-primary-disabled-border);
+  --ui-button-bw: var(--design-ui-btn-primary-bw);
+  --ui-button-radius: var(--design-ui-btn-primary-radius);
+  --ui-button-height: var(--design-ui-btn-primary-height);
+  --ui-button-shadow: var(--design-ui-btn-primary-shadow);
+}
+.design-ui-button-secondary, .btn-secondary:not(.btn-grade):not(.btn-tiny) {
+  --ui-button-normal-bg: var(--design-ui-btn-secondary-normal-bg);
+  --ui-button-normal-color: var(--design-ui-btn-secondary-normal-color);
+  --ui-button-normal-icon: var(--design-ui-btn-secondary-normal-icon);
+  --ui-button-normal-border: var(--design-ui-btn-secondary-normal-border);
+  --ui-button-hover-bg: var(--design-ui-btn-secondary-hover-bg);
+  --ui-button-hover-color: var(--design-ui-btn-secondary-hover-color);
+  --ui-button-hover-icon: var(--design-ui-btn-secondary-hover-icon);
+  --ui-button-hover-border: var(--design-ui-btn-secondary-hover-border);
+  --ui-button-pressed-bg: var(--design-ui-btn-secondary-pressed-bg);
+  --ui-button-pressed-color: var(--design-ui-btn-secondary-pressed-color);
+  --ui-button-pressed-icon: var(--design-ui-btn-secondary-pressed-icon);
+  --ui-button-pressed-border: var(--design-ui-btn-secondary-pressed-border);
+  --ui-button-disabled-bg: var(--design-ui-btn-secondary-disabled-bg);
+  --ui-button-disabled-color: var(--design-ui-btn-secondary-disabled-color);
+  --ui-button-disabled-icon: var(--design-ui-btn-secondary-disabled-icon);
+  --ui-button-disabled-border: var(--design-ui-btn-secondary-disabled-border);
+  --ui-button-bw: var(--design-ui-btn-secondary-bw);
+  --ui-button-radius: var(--design-ui-btn-secondary-radius);
+  --ui-button-height: var(--design-ui-btn-secondary-height);
+  --ui-button-shadow: var(--design-ui-btn-secondary-shadow);
+}
+.design-ui-button, .btn-primary:not(.btn-grade):not(.btn-tiny), .btn-secondary:not(.btn-grade):not(.btn-tiny) {
+  background: var(--ui-button-normal-bg);
+  color: var(--ui-button-normal-color);
+  border: var(--ui-button-bw) solid var(--ui-button-normal-border);
+  border-radius: var(--ui-button-radius);
+  min-height: var(--ui-button-height);
+  box-shadow: var(--ui-button-shadow);
+  padding: 6px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  font-family: var(--design-ui-font), sans-serif;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.design-ui-button:hover:not(:disabled), .btn-primary:not(.btn-grade):not(.btn-tiny):hover:not(:disabled), .btn-secondary:not(.btn-grade):not(.btn-tiny):hover:not(:disabled) {
+  background: var(--ui-button-hover-bg);
+  color: var(--ui-button-hover-color);
+  border-color: var(--ui-button-hover-border);
+}
+.design-ui-button:active:not(:disabled), .btn-primary:not(.btn-grade):not(.btn-tiny):active:not(:disabled), .btn-secondary:not(.btn-grade):not(.btn-tiny):active:not(:disabled) {
+  background: var(--ui-button-pressed-bg);
+  color: var(--ui-button-pressed-color);
+  border-color: var(--ui-button-pressed-border);
+}
+.design-ui-button:disabled, .btn-primary:not(.btn-grade):not(.btn-tiny):disabled, .btn-secondary:not(.btn-grade):not(.btn-tiny):disabled {
+  background: var(--ui-button-disabled-bg);
+  color: var(--ui-button-disabled-color);
+  border-color: var(--ui-button-disabled-border);
+  opacity: 1; cursor: not-allowed; transform: none; box-shadow: none;
+}
+.design-ui-button svg, .btn-primary:not(.btn-grade):not(.btn-tiny) svg, .btn-secondary:not(.btn-grade):not(.btn-tiny) svg { color: var(--ui-button-normal-icon); flex-shrink: 0; }
+.design-ui-button:hover:not(:disabled) svg, .btn-primary:not(.btn-grade):not(.btn-tiny):hover:not(:disabled) svg, .btn-secondary:not(.btn-grade):not(.btn-tiny):hover:not(:disabled) svg { color: var(--ui-button-hover-icon); }
+.design-ui-button:active:not(:disabled) svg, .btn-primary:not(.btn-grade):not(.btn-tiny):active:not(:disabled) svg, .btn-secondary:not(.btn-grade):not(.btn-tiny):active:not(:disabled) svg { color: var(--ui-button-pressed-icon); }
+.design-ui-button:disabled svg, .btn-primary:not(.btn-grade):not(.btn-tiny):disabled svg, .btn-secondary:not(.btn-grade):not(.btn-tiny):disabled svg { color: var(--ui-button-disabled-icon); }
+.design-ui-button:focus-visible, .btn-primary:not(.btn-grade):not(.btn-tiny):focus-visible, .btn-secondary:not(.btn-grade):not(.btn-tiny):focus-visible { outline: 2px solid var(--design-accent); outline-offset: 3px; box-shadow: var(--design-active-shadow); }
+@media (prefers-reduced-motion: reduce) {
+  .design-ui-button, .btn-primary:not(.btn-grade), .btn-secondary:not(.btn-grade) { transition: none; transform: none; }
+}

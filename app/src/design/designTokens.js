@@ -29,13 +29,48 @@ export function designConfigToCssVariables(config) {
   const vars = {};
 
   // ── Global ─────────────────────────────────────────────────────────────────
-  vars['--design-app-bg']        = c.global.appBg;
+  const bg = c.global.background;
+  const stops = [bg.color1, bg.color2, ...(bg.colorCount === 3 ? [bg.color3] : [])].join(', ');
+  const appBg = bg.mode === 'legacy' ? c.global.appBg
+    : bg.mode === 'solid' ? bg.color1
+    : bg.mode === 'linear' ? `linear-gradient(${bg.angle}deg, ${stops})`
+    : `radial-gradient(circle at ${bg.positionX}% ${bg.positionY}%, ${stops})`;
+  const glow = `radial-gradient(ellipse at ${bg.positionX}% ${bg.positionY}%, ${withOpacity(c.global.accentColor, bg.glow)}, transparent 65%)`;
+  vars['--design-app-bg'] = bg.glow > 0 ? `${glow}, ${appBg}` : appBg;
   vars['--design-accent']        = c.global.accentColor;
   vars['--design-ui-font']       = c.global.uiFont;
-  vars['--design-glass-bg']      = c.global.glassBg;
+  vars['--design-glass-bg']      = c.global.panels.color ? withOpacity(c.global.panels.color, c.global.glassOpacity) : c.global.glassBg;
   vars['--design-glass-blur']    = c.global.glassBlur;
-  vars['--design-glass-border']  = c.global.glassBorder;
+  vars['--design-glass-border']  = c.global.panels.borderColor ? withOpacity(c.global.panels.borderColor, c.global.panels.borderOpacity) : c.global.glassBorder;
   vars['--design-radius']        = c.global.commonRadius;
+
+  vars['--design-panel-shadow'] = `0 12px 32px rgba(0,0,0,${c.global.panels.shadow}), inset 0 1px 0 rgba(255,255,255,${c.global.panels.innerLight})`;
+  vars['--design-panel-light'] = `linear-gradient(135deg, rgba(255,255,255,${c.global.panels.innerLight}), transparent 60%)`;
+  const type = c.global.typography;
+  for (const [name, value] of Object.entries({
+    'heading-color': type.headingColor, 'text-color': type.textColor, 'secondary-color': type.secondaryColor,
+    'heading-size': `${type.headingSize}rem`, 'service-size': `${type.serviceSize}rem`,
+    'heading-lh': type.headingLineHeight, 'ui-lh': type.lineHeight,
+    'accent-secondary': c.global.details.secondaryAccent, 'info-color': c.global.details.infoColor,
+    'icon-color': c.global.details.iconColor, 'divider': c.global.details.dividerColor,
+    'active-bg': withOpacity(c.global.accentColor, c.global.details.activeIntensity),
+    'active-shadow': `0 0 ${24 * c.global.details.activeIntensity}px ${withOpacity(c.global.accentColor, c.global.details.activeIntensity)}`,
+  })) vars[`--design-${name}`] = String(value);
+  for (const [role, button] of Object.entries(c.global.buttons)) {
+    const prefix = `--design-ui-btn-${role}`;
+    vars[`${prefix}-bw`] = `${button.borderWidth}px`;
+    vars[`${prefix}-radius`] = `${button.radius}px`;
+    vars[`${prefix}-height`] = `${button.height}px`;
+    vars[`${prefix}-shadow`] = `0 6px 18px rgba(0,0,0,${button.shadow})`;
+    for (const state of ['normal', 'hover', 'pressed', 'disabled']) {
+      const value = button[state];
+      vars[`${prefix}-${state}-bg`] = value.mode === 'linear'
+        ? `linear-gradient(${value.angle}deg, ${value.color1}, ${value.color2})` : value.color1;
+      vars[`${prefix}-${state}-color`] = value.textColor;
+      vars[`${prefix}-${state}-icon`] = value.iconColor;
+      vars[`${prefix}-${state}-border`] = value.borderColor;
+    }
+  }
 
   // ── Front Card ─────────────────────────────────────────────────────────────
   vars['--design-front-card-border']  = c.front.card.borderColor;
@@ -307,4 +342,15 @@ export function applyPublishedDesignTokens(config) {
  */
 export function resetDesignTokens() {
   applyPublishedDesignTokens(DEFAULT_DESIGN_CONFIG_V2);
+}
+
+/** Convert editable hex or legacy rgba colors into a surface with independent alpha. */
+export function withOpacity(value, opacity) {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value || '');
+  if (hex) {
+    const raw = hex[1].length === 3 ? [...hex[1]].map(v => v + v).join('') : hex[1];
+    return `rgba(${[0, 2, 4].map(i => parseInt(raw.slice(i, i + 2), 16)).join(',')},${opacity})`;
+  }
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[\d.]+)?\s*\)$/i.exec(value || '');
+  return rgb ? `rgba(${rgb.slice(1, 4).join(',')},${opacity})` : value;
 }

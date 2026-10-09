@@ -61,13 +61,17 @@
 }
 
 .header-title-section h1, .header h1 {
-  font-size: 2.2rem;
+  font-size: calc(var(--design-heading-size, 1.65rem) * 1.33);
   margin: 0 0 0.2rem 0;
-  line-height: 1.15;
+  line-height: var(--design-heading-lh, 1.15);
+  color: var(--design-heading-color, #fff);
+  background: none;
+  -webkit-text-fill-color: currentColor;
 }
 
 .header-title-section p, .header p {
-  color: #94a3b8;
+  color: var(--design-secondary-color, #94a3b8);
+  line-height: var(--design-ui-lh, 1.5);
   margin: 0;
   font-size: 0.95rem;
 }
@@ -97,15 +101,15 @@
 }
 
 .header-lang-label {
-  font-size: 0.8rem;
+  font-size: var(--design-service-size, 0.8rem);
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--design-secondary-color, rgba(255,255,255,.7));
   white-space: nowrap;
 }
 
 @media (max-width: 480px) {
   .header-title-section h1, .header h1 {
-    font-size: 1.8rem;
+    font-size: calc(var(--design-heading-size, 1.65rem) * 1.09);
   }
   .header-languages-bar {
     flex-direction: column;
