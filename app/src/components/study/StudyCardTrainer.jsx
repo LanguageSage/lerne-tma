@@ -37,6 +37,8 @@ const AutoExpandingInput = React.memo(({
     : (status === 'correct' ? '#22c55e' : (status === 'incorrect' ? '#f87171' : (hasValue ? '#f3e8ff' : textColor)));
 
   const isAffix = Boolean(gap.isAffix);
+  const expectedAnswer = gap.correctAnswer ? (Array.isArray(gap.correctAnswer) ? gap.correctAnswer[0] : gap.correctAnswer.split('|')[0]) : '';
+  const baseSizerText = isAffix ? '··' : (expectedAnswer || '______');
 
   const input = (
     <input
@@ -53,7 +55,7 @@ const AutoExpandingInput = React.memo(({
       autoCapitalize="none"
       autoCorrect="off"
       spellCheck={false}
-      placeholder={isAffix ? '··' : '______'}
+      placeholder={isAffix ? '·' : '_'.repeat(100)}
       style={{
         position: 'absolute',
         inset: 0,
@@ -81,11 +83,24 @@ const AutoExpandingInput = React.memo(({
     />
   );
 
+  const sizerContent = isAffix ? (
+    <span className="trainer-affix-input-sizer" aria-hidden="true">
+      {rawValue || '··'}
+    </span>
+  ) : (
+    <span style={{ display: 'inline-grid' }}>
+      <span className="trainer-input-sizer" aria-hidden="true" style={{ gridArea: '1 / 1' }}>
+        {baseSizerText}
+      </span>
+      <span className="trainer-input-sizer" aria-hidden="true" style={{ gridArea: '1 / 1' }}>
+        {rawValue}
+      </span>
+    </span>
+  );
+
   return (
     <span className={isAffix ? 'trainer-affix-input-measure' : 'trainer-input-measure'}>
-      <span className={isAffix ? 'trainer-affix-input-sizer' : 'trainer-input-sizer'} aria-hidden="true">
-        {rawValue || (isAffix ? '··' : '______')}
-      </span>
+      {sizerContent}
       {input}
     </span>
   );

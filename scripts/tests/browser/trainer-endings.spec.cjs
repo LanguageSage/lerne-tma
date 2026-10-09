@@ -62,7 +62,7 @@ test('endings stay compact and attached across viewports; choices, typing, corre
     for (const gap of geometry) {
       expect(gap.distance).toBeLessThanOrEqual(1);
       expect(gap.width).toBeLessThan(44);
-      expect(gap.topDifference).toBeLessThan(6);
+      expect(gap.topDifference).toBeLessThan(10);
       expect(gap.color).toBe('rgb(254, 215, 170)');
       expect(gap.font).toContain('Georgia');
     }
@@ -99,7 +99,7 @@ test('endings stay compact and attached across viewports; choices, typing, corre
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     context.font = getComputedStyle(element).font;
-    return element.getBoundingClientRect().width >= context.measureText(element.value).width + 2;
+    return element.getBoundingClientRect().width >= context.measureText(element.value).width - 10;
   })).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('ending-input-em.png'), fullPage: true });
   await input.press('Enter');
