@@ -38,6 +38,7 @@ from api.services.author_service import (
     serialize_deck,
     serialize_folder,
     parse_cards_text,
+    parse_document,
     export_deck_content,
     export_folder_content,
     preview_update_content,
@@ -102,7 +103,11 @@ def handle_update(args) -> int:
     with open(args.file, 'r', encoding='utf-8') as f:
         text = f.read()
 
-    cards = parse_cards_text(text, default_deck_id=args.deck_id)
+    document = parse_document(text, default_deck_id=args.deck_id)
+    if document['errors']:
+        print('\n'.join(document['errors']), file=sys.stderr)
+        return 1
+    cards = document['cards']
     if not cards:
         print("❌ В файле не найдено ни одной карточки для обновления.", file=sys.stderr)
         return 1
@@ -116,7 +121,8 @@ def handle_update(args) -> int:
             cards=cards,
             deck_id=args.deck_id,
             folder_id=args.folder_id,
-            user_id=args.user_id
+            user_id=args.user_id,
+            passports=document['passports']
         )
     except Exception as e:
         print(f"❌ Ошибка предпросмотра: {e}", file=sys.stderr)
@@ -167,7 +173,8 @@ def handle_update(args) -> int:
             deck_id=args.deck_id,
             folder_id=args.folder_id,
             user_id=args.user_id,
-            include_new=args.include_new
+            include_new=args.include_new,
+            passports=document['passports']
         )
 
         print("\n" + "=" * 60)
@@ -196,14 +203,18 @@ def handle_publish(args) -> int:
     with open(args.file, 'r', encoding='utf-8') as f:
         text = f.read()
 
-    cards = parse_cards_text(text, default_deck_name=args.deck_name)
-    if not cards:
+    document = parse_document(text, default_deck_name=args.deck_name)
+    if document['errors']:
+        print('\n'.join(document['errors']), file=sys.stderr)
+        return 1
+    cards = document['cards']
+    if not cards and not args.passport_only:
         print("❌ В файле не найдено ни одной карточки для публикации.", file=sys.stderr)
         return 1
 
     # Анализ перед публикацией через общий сервис
     try:
-        preview = preview_publish_content(cards, default_deck_name=args.deck_name)
+        preview = preview_publish_content(cards, default_deck_name=args.deck_name, passports=document['passports'])
     except Exception as e:
         print(f"❌ Ошибка анализа файла: {e}", file=sys.stderr)
         return 1
@@ -265,7 +276,9 @@ def handle_publish(args) -> int:
             new_folder_name=new_folder_name,
             default_deck_name=args.deck_name,
             force_new_deck=args.force_new_deck,
-            user_id=args.user_id
+            user_id=args.user_id,
+            passports=document['passports'],
+            passport_only=args.passport_only
         )
 
         print("\n" + "=" * 60)
@@ -318,6 +331,7 @@ def main():
     p_publish.add_argument("--folder-id", type=int, help="ID целевой папки.")
     p_publish.add_argument("--new-folder", type=str, help="Создать новую папку с указанным именем.")
     p_publish.add_argument("--deck-name", type=str, help="Переопределить название колоды.")
+    p_publish.add_argument("--passport-only", action="store_true", help="Обновить только паспорта существующих колод, без карточек.")
     p_publish.add_argument("--force-new-deck", action="store_true", help="Создать новую колоду, даже если уже есть колода с таким именем.")
     p_publish.add_argument("--user-id", type=int, default=None, help="ID пользователя (по умолчанию определяется автоматически).")
     pub_mode_group = p_publish.add_mutually_exclusive_group()

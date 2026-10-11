@@ -83,6 +83,7 @@ def get_admin_folders(user_id: Optional[int] = None):
             "target_language": f.target_language or "de",
             "user_id": f.user_id, "user_name": user_name, "user_photo": user_photo,
             "user_is_guest": user_is_guest,
+            "parent_id": f.parent_id,
             "deck_count": len(decks), "cards_count": total_cards, "is_default": all_default,
             "decks": [
                 {

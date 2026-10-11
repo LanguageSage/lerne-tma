@@ -19,7 +19,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { navigateUp } from '../../utils/navigation';
-import { parseDeckMetadata } from '../../utils/deckUtils';
+import { parseDeckMetadata, getDeckPedagogy } from '../../utils/deckUtils';
 import { computeDeckSrsStats } from '../../utils/sessionStats';
 import { CourseProgressPlaceholder } from './CourseProgressPlaceholder';
 import { DeckIntroEditModal } from './DeckIntroEditModal';
@@ -58,6 +58,11 @@ export const DeckIntro = ({ startStudy, previewData = null }) => {
   // Parse existing metadata
   const metadata = useMemo(() => parseDeckMetadata(currentDeck), [currentDeck]);
   const intro = metadata.intro || {};
+  const pedagogy = getDeckPedagogy(currentDeck);
+  const supportLabels = {
+    high: tr('Высокая поддержка'), medium: tr('Умеренная поддержка'),
+    low: tr('Минимальная поддержка'), independent: tr('Самостоятельная работа')
+  };
 
   // Check editing permissions
   const canEdit = useMemo(() => {
@@ -134,12 +139,13 @@ export const DeckIntro = ({ startStudy, previewData = null }) => {
     try {
       const nextMetadata = {
         ...metadata,
-        intro: updatedIntro
+        intro: { ...intro, ...updatedIntro }
       };
       await updateDeckMetadata(currentDeck.id, nextMetadata);
       showToast(tr("Вступительная информация сохранена"), 'success');
-    } catch {
+    } catch (error) {
       showToast(tr("Ошибка сохранения"), 'error');
+      throw error;
     }
   };
 
@@ -162,9 +168,10 @@ export const DeckIntro = ({ startStudy, previewData = null }) => {
             type="button"
             className="deck-intro-edit-btn"
             onClick={() => setIsEditModalOpen(true)}
+            aria-label={tr("Редактировать")}
+            title={tr("Редактировать")}
           >
-            <Edit3 size={15} />
-            <span>{tr("Редактировать")}</span>
+            <Edit3 size={18} />
           </button>
         )}
       </div>
@@ -293,6 +300,22 @@ export const DeckIntro = ({ startStudy, previewData = null }) => {
       )}
 
       {/* Recommendations (only if present) */}
+      {pedagogy?.stages.length > 0 && (
+        <details className="deck-intro-section glass deck-intro-route">
+          <summary>{tr('Как проходит занятие')}</summary>
+          <p className="deck-intro-section-text">{tr('Авторский план занятия. Порядок повторения SRS может отличаться.')}</p>
+          <ol>
+            {pedagogy.stages.map(stage => (
+              <li key={stage.id}>
+                <strong>{stage.title}</strong>
+                {stage.goal && <p>{stage.goal}</p>}
+                <small>{[stage.range && `${tr('Карточки')}: ${stage.range}`, supportLabels[stage.support]].filter(Boolean).join(' · ')}</small>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+
       {recommendations && (
         <motion.div
           initial={reducedMotion ? false : { opacity: 0, y: 10 }}
@@ -311,14 +334,14 @@ export const DeckIntro = ({ startStudy, previewData = null }) => {
       {/* Course progress placeholder (isolated, hidden by default for users) */}
       <CourseProgressPlaceholder isVisible={false} />
 
-      {/* Primary Actions */}
-      <div className="deck-intro-actions">
+      {/* Primary Actions Card */}
+      <div className="deck-intro-actions-card glass">
         <button
           type="button"
           className="deck-intro-btn-start design-ui-button design-ui-button-primary"
           onClick={handleStart}
         >
-          <Play size={22} fill="currentColor" />
+          <Play size={20} fill="currentColor" />
           <span>{tr("Начать занятие")}</span>
         </button>
 

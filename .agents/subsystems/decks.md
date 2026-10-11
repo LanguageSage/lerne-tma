@@ -101,3 +101,14 @@ Integration/browser scripts могут менять данные; сначала
 - `GeneralDesignPreview` использует `DesignPreviewScope`, реальные FolderCardItem/DeckCardItem, DeckIntro с необязательным `previewData` и LessonCompletion с демонстрационными props. Данные колод/сессии не записываются в store; capture-обработчики блокируют навигацию и запись из preview. Доступная ширина ограничивает выбранный размер. Примеры кнопок позволяют проверить hover/pressed/disabled.
 - Учебные карточки и обычный CardList читают только опубликованный V2; личные typography/front/back настройки и SRS/статистика не изменяются.
 - Проверки: `app/src/design/__tests__/designConfig.test.js`, `designTokens.test.js`; `scripts/tests/browser/design-editor.spec.cjs` перехватывает API и внешние запросы, покрывает JSON, черновик, confirm/cancel, ошибки, восстановление, реальные CSS-значения и 320/375/430/768/1080px. Внешние данные и production-публикация в тестах не используются.
+
+## Методический паспорт (локальный Автор)
+
+- Контракт и инструкция: [DECK_PASSPORT](../../docs/DECK_PASSPORT.md).
+- `api/services/deck_passport.py` — чистая валидация и объединение только переданных intro/pedagogy; `author_service.parse_document` извлекает отдельные блоки паспорта до разбора карточек. `parse_cards_text` сохраняет прежнюю проекцию карточек и явно отклоняет неверный паспорт.
+- `metadata.intro` совместим с существующим редактором; `metadata.pedagogy.schema_version: 1` хранит план, компетенции, критерии и явные условные рекомендации. Другие ключи metadata сохраняются, миграций нет.
+- Локальная админка «Автор»: parse/preview, структурированный черновик основных полей и этапов, JSON остальных полей, сравнение с текущей колодой; `passport_only` обновляет только существующие колоды выбранной папки без записи карточек/SRS. Обычная публикация по-прежнему добавляет карточки при повторе, что явно показано в интерфейсе.
+- Все колоды, паспорта, карточки и новая папка публикуются в общей транзакции; partial bulk-save отменяет весь импорт. Обновление карточек с паспортом использует внешний fingerprint/receipt и существующие card update permissions/транзакции.
+- Экспорт Автора сохраняет индивидуальные паспорта, включая пустые колоды, и author order position/id. CLI поддерживает паспорт вместе с карточками и publish --passport-only.
+- DeckIntro показывает сворачиваемый авторский маршрут, LessonCompletion — учебное описание и рекомендации без вывода об освоении. Метрики занятия остаются в sessionStats; пользовательские настройки и offline metadata API сохранены.
+- Проверки: `scripts/tests/test_deck_passport.py`, `app/src/utils/__tests__/deckPedagogy.test.js`, `scripts/tests/browser/deck-passport.spec.cjs`; DB одноразовая SQLite, browser API подменены.

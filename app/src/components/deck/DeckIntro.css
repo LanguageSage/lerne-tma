@@ -46,16 +46,17 @@
   background: rgba(168, 85, 247, 0.12);
   border: 1px solid rgba(168, 85, 247, 0.28);
   color: #c084fc;
-  padding: 8px 16px;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  flex-shrink: 0;
 }
 
 .deck-intro-edit-btn:hover {
@@ -364,73 +365,78 @@
   flex-shrink: 0;
 }
 
-/* Primary Actions Footer */
-.deck-intro-actions {
+/* Primary Actions Card Window */
+.deck-intro-actions-card {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 14px;
-  margin-top: 14px;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  background: var(--design-glass-bg);
+  border: 1px solid var(--design-glass-border);
+  backdrop-filter: blur(var(--design-glass-blur));
+  -webkit-backdrop-filter: blur(var(--design-glass-blur));
+  border-radius: var(--design-radius);
+  box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.4);
 }
 
-/* Большая, зеленая, четкая, почти круглая кнопка, НЕ на всю ширину экрана */
+/* Кнопка «Начать занятие» (слева): зеленая, выразительная */
 .deck-intro-btn-start {
+  flex: 1 1 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 4px 20px;
-  min-width: 0;
-  max-width: 100%;
+  gap: 10px;
+  padding: 10px 16px;
+  min-height: 48px;
+  box-sizing: border-box;
 
-  font-size: 1.15rem;
-  font-weight: 800;
+  font-size: 1rem;
+  font-weight: 700;
   letter-spacing: 0.015em;
-
-
-
+  white-space: nowrap;
 
   cursor: pointer;
   position: relative;
   overflow: hidden;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-
 }
 
 .deck-intro-btn-start:hover {
   transform: translateY(-2px) scale(1.02);
-
   border-color: rgba(255, 255, 255, 0.5);
 }
 
 .deck-intro-btn-start:active {
   transform: translateY(1px) scale(0.99);
-
 }
 
-/* Второстепенная кнопка «Показать список» */
+/* Кнопка «Показать список» (справа): аккуратная второстепенная */
 .deck-intro-btn-list {
+  flex: 1 1 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 4px 20px;
+  padding: 10px 16px;
+  min-height: 48px;
+  box-sizing: border-box;
 
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
-
-
+  white-space: nowrap;
 
   cursor: pointer;
   transition: all 0.2s ease;
-
 }
 
 .deck-intro-btn-list:hover {
   border-color: rgba(255, 255, 255, 0.24);
-
   transform: translateY(-1px);
 }
 
@@ -438,6 +444,38 @@
   transform: translateY(0);
 }
 
+@media (max-width: 440px) {
+  .deck-intro-actions-card {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .deck-intro-btn-start,
+  .deck-intro-btn-list {
+    min-height: 44px;
+    padding: 8px 10px;
+    font-size: 0.88rem;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 320px) {
+  .deck-intro-actions-card {
+    flex-direction: column;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .deck-intro-container *, .deck-intro-container *::before { transition: none; animation: none; transform: none; }
 }
+/* Optional authored route; inherits Classic and published typography. */
+.deck-intro-route summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: list-item;
+  font-weight: 600;
+}
+.deck-intro-route ol { padding-inline-start: 24px; margin-bottom: 0; }
+.deck-intro-route li { padding: 8px 0; overflow-wrap: anywhere; }
+.deck-intro-route li p { margin: 4px 0; }
+.deck-intro-route small { color: var(--design-secondary-color); }
+.deck-intro-route summary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }

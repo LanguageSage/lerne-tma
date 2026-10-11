@@ -101,6 +101,31 @@ class TestAuthorRouter(unittest.TestCase):
         self.assertEqual(data["total_cards"], 1)
         self.assertEqual(data["decks"][0]["deck_name"], "Tiere")
 
+    def test_parse_multiple_files_upload(self):
+        content1 = (
+            "# Deck: Verben\n\n"
+            "FRONT:\ngehen\n\n"
+            "BACK:\nидти\n"
+        ).encode("utf-8")
+        content2 = (
+            "FRONT:\nder Apfel\n\n"
+            "BACK:\nяблоко\n"
+        ).encode("utf-8")
+
+        files = [
+            ("files", ("Verben.txt", content1, "text/plain")),
+            ("files", ("Obst.txt", content2, "text/plain"))
+        ]
+        resp = self.client.post("/api/admin/author/parse", files=files)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["total_cards"], 2)
+        self.assertEqual(data["decks_count"], 2)
+        deck_names = {d["deck_name"] for d in data["decks"]}
+        self.assertEqual(deck_names, {"Verben", "Obst"})
+        self.assertEqual(data["files"], ["Verben.txt", "Obst.txt"])
+
     def test_parse_empty_and_no_cards_error(self):
         # Empty text
         resp = self.client.post("/api/admin/author/parse", json={"text": "   "})

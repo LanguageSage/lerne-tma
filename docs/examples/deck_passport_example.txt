@@ -1,0 +1,73 @@
+# Deck: Пример · Самостоятельно выражать мысли
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "Самостоятельно выражать мысли",
+    "level": "B1",
+    "topic": "Противопоставление",
+    "description": "Небольшой пример формата паспорта",
+    "goal": "Выбирать конструкцию и формулировать собственную мысль",
+    "learning_outcomes": ["Строить предложение", "Объяснять выбор конструкции"],
+    "estimated_time": "5–10 минут",
+    "recommendations": "Вспомните основные правила порядка слов"
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "guided",
+        "title": "С опорой",
+        "goal": "Восстановить знакомую модель",
+        "from_card": 1,
+        "to_card": 1,
+        "support": "high",
+        "expected_skill": "Выбирать связку по смыслу"
+      },
+      {
+        "id": "independent",
+        "title": "Самостоятельная мысль",
+        "goal": "Сформулировать свой пример",
+        "from_card": 2,
+        "to_card": 2,
+        "support": "independent",
+        "expected_skill": "Использовать конструкцию без шаблона"
+      }
+    ],
+    "expected_result": "Самостоятельно выражать противопоставление",
+    "competencies": [{"id": "meaning", "title": "Смысловая связь"}],
+    "assessment_criteria": [{"id": "word_order", "title": "Порядок слов"}],
+    "review_recommendations": [
+      {
+        "id": "review_basics",
+        "title": "Базовая практика",
+        "when": "Если трудно выбирать связку",
+        "reason": "Повторить основные модели",
+        "competency_ids": ["meaning"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+FRONT:
+::task
+Выберите конструкцию.
+::exercise
+{*Obwohl/Trotzdem} es regnet, gehen wir spazieren.
+BACK:
+Obwohl es regnet, gehen wir spazieren.
+CONTEXT:
+::level B1
+::topic Противопоставление
+
+<<<LERNE_CARD>>>
+
+FRONT:
+Составьте своё предложение со значением «несмотря на это».
+BACK:
+Например: Es regnet. Trotzdem gehen wir spazieren.
+CONTEXT:
+::level B1
+::topic Противопоставление

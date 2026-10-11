@@ -201,6 +201,10 @@ function renderFoldersList() {
                     <span class="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" style="background-color: ${f.color}"></span>
                     <span class="font-bold text-base text-white truncate">${f.name}</span>
                     <span class="px-2 py-0.5 rounded-md text-[11px] font-mono text-slate-400 bg-slate-800 border border-slate-700">#${f.id}</span>
+                    ${f.parent_id ? (() => {
+                      const parentFolder = (foldersData || []).find(p => p.id === f.parent_id);
+                      return `<span class="px-2 py-0.5 rounded-md text-[11px] font-mono text-purple-300 bg-purple-950/60 border border-purple-500/30 flex items-center gap-1" title="Родительская папка #${f.parent_id}"><i data-lucide="corner-down-right" class="w-3 h-3 text-purple-400"></i> ${parentFolder ? parentFolder.name : ('Папка #' + f.parent_id)}</span>`;
+                    })() : ''}
                     <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-indigo-950/80 text-indigo-300 border border-indigo-500/30">
                       📁 ${f.deck_count} колод • 🗂️ ${f.cards_count} карт.
                     </span>

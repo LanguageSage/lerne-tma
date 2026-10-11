@@ -4,6 +4,7 @@ import { Trophy, X, ArrowLeft, Sparkles } from 'lucide-react';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { getDeckPedagogy } from '../../utils/deckUtils';
 import { ResultsPlaceholder } from './completion/ResultsPlaceholder';
 import { MistakesPlaceholder } from './completion/MistakesPlaceholder';
 import { ProgressPlaceholder } from './completion/ProgressPlaceholder';
@@ -24,6 +25,7 @@ export const LessonCompletion = ({ deck, stats, onGoToDeck, onClose }) => {
   }, []);
 
   const shouldAnimate = showCompletionCelebration && !prefersReducedMotion;
+  const pedagogy = getDeckPedagogy(deck);
 
   // Emotionally personalized messaging based on accuracy & effort
   const celebrationData = useMemo(() => {
@@ -35,7 +37,7 @@ export const LessonCompletion = ({ deck, stats, onGoToDeck, onClose }) => {
       if (acc >= 90) {
         return {
           title: tr("Великолепно! 🎉"),
-          subtitle: tr("Ты блестяще усвоил материал занятия!"),
+          subtitle: tr("Ты отлично справился с заданиями занятия!"),
           badge: tr("🏆 Превосходный результат"),
           badgeClass: "badge-gold"
         };
@@ -44,7 +46,7 @@ export const LessonCompletion = ({ deck, stats, onGoToDeck, onClose }) => {
         return {
           title: tr("Отличная работа! 🌟"),
           subtitle: tr("Уверенный шаг вперёд, так держать!"),
-          badge: tr("⚡️ Твёрдые знания"),
+          badge: tr("⚡️ Хороший результат"),
           badgeClass: "badge-blue"
         };
       }
@@ -59,7 +61,7 @@ export const LessonCompletion = ({ deck, stats, onGoToDeck, onClose }) => {
     return {
       title: tr("Занятие завершено! 🎉"),
       subtitle: tr("Ты сделал ещё один уверенный шаг в изучении языка!"),
-      badge: tr("✨ Занятие усвоено"),
+      badge: tr("✨ Занятие завершено"),
       badgeClass: "badge-gold"
     };
   }, [stats?.accuracy]);
@@ -183,6 +185,30 @@ export const LessonCompletion = ({ deck, stats, onGoToDeck, onClose }) => {
         />
 
         {/* Error breakdown placeholder (isolated, hidden at this stage) */}
+        {pedagogy && (pedagogy.expectedResult || pedagogy.competencies.length > 0) && (
+          <section className="lesson-completion-pedagogy">
+            <h2>{tr('Что вы тренировали')}</h2>
+            {pedagogy.expectedResult && <p>{pedagogy.expectedResult}</p>}
+            {pedagogy.competencies.length > 0 && (
+              <ul>{pedagogy.competencies.map(item => <li key={item.id}>{item.title}</li>)}</ul>
+            )}
+            <small>{tr('Это учебная цель колоды. Освоение отдельных навыков здесь не оценивалось.')}</small>
+          </section>
+        )}
+        {pedagogy?.recommendations.length > 0 && (
+          <section className="lesson-completion-pedagogy">
+            <h2>{tr('Что можно повторить')}</h2>
+            <p>{tr('Рекомендации автора; они не основаны на автоматической диагностике ошибок.')}</p>
+            <ul>{pedagogy.recommendations.map(item => (
+              <li key={item.id}>
+                <strong>{item.title}</strong>
+                {item.when && <p>{item.when}</p>}
+                {item.reason && <p>{item.reason}</p>}
+              </li>
+            ))}</ul>
+          </section>
+        )}
+
         <MistakesPlaceholder isVisible={false} />
 
         {/* Progress breakdown placeholder (isolated, hidden at this stage) */}

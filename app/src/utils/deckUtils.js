@@ -14,6 +14,31 @@ export const parseDeckMetadata = (deck) => {
   }
 };
 
+/** Authored plan only. No stage completion / competence scores inferred from SRS. */
+export const getDeckPedagogy = (deck) => {
+  const pedagogy = parseDeckMetadata(deck)?.pedagogy;
+  if (!pedagogy || pedagogy.schema_version !== 1) return null;
+  const text = value => typeof value === 'string' ? value : '';
+  const entries = value => Array.isArray(value)
+    ? value.filter(item => item && typeof item === 'object' && text(item.id) && text(item.title))
+    : [];
+  return {
+    lessonType: text(pedagogy.lesson_type),
+    expectedResult: text(pedagogy.expected_result),
+    stages: entries(pedagogy.stages).map(stage => ({
+      id: stage.id, title: stage.title, goal: text(stage.goal), support: text(stage.support),
+      expectedSkill: text(stage.expected_skill),
+      range: Number.isInteger(stage.from_card) && Number.isInteger(stage.to_card)
+        && stage.from_card >= 1 && stage.to_card >= stage.from_card
+        ? `${stage.from_card}–${stage.to_card}` : ''
+    })),
+    competencies: entries(pedagogy.competencies).map(item => ({ id: item.id, title: item.title })),
+    recommendations: entries(pedagogy.review_recommendations).map(item => ({
+      id: item.id, title: item.title, when: text(item.when), reason: text(item.reason)
+    }))
+  };
+};
+
 export const getDescendantFolderIds = (folderId, foldersList = []) => {
   const descendantIds = [];
   const traverse = (parentId) => {

@@ -58,6 +58,7 @@ export const DeckIntroEditModal = ({ isOpen, onClose, deck, currentIntro = {}, o
     try {
       const filteredOutcomes = learningOutcomes.map(o => o.trim()).filter(Boolean);
       const updatedIntro = {
+        ...currentIntro,
         title: title.trim(),
         topic: topic.trim(),
         description: description.trim(),

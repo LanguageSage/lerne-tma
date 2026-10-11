@@ -128,6 +128,37 @@ class TestAuthorService(unittest.TestCase):
         self.assertEqual(parsed[1]['deck_name'], "Колода B")
         self.assertEqual(parsed[2]['deck_name'], "Колода B")  # Inherits previous deck header
 
+    def test_parse_cards_text_lerne_card_separator_and_multiline_meta(self):
+        raw = (
+            "FRONT:\n"
+            "::task\nFrage 1\n\n"
+            "::exercise\n{A/*B}\n\n"
+            "BACK:\nОтвет 1\n\n"
+            "CONTEXT:\n"
+            "Объяснение 1\n"
+            "::level\n"
+            "B1\n"
+            "::topic\n"
+            "Grammatik\n\n"
+            "<<<LERNE_CARD>>>\n\n"
+            "FRONT:\n"
+            "::task\nFrage 2\n\n"
+            "::exercise\n{C/*D}\n\n"
+            "BACK:\nОтвет 2\n\n"
+            "CONTEXT:\n"
+            "Объяснение 2\n"
+            "::level A2\n"
+            "::topic Wortschatz\n"
+        )
+        parsed = parse_cards_text(raw, default_deck_name="TestDeck")
+        self.assertEqual(len(parsed), 2)
+        self.assertEqual(parsed[0]['level'], "B1")
+        self.assertEqual(parsed[0]['topics'], "Grammatik")
+        self.assertNotIn("::level", parsed[0]['context'])
+        self.assertNotIn("::topic", parsed[0]['context'])
+        self.assertEqual(parsed[1]['level'], "A2")
+        self.assertEqual(parsed[1]['topics'], "Wortschatz")
+
     def test_preview_publish_content(self):
         cards = [
             {'number': 1, 'deck_name': 'D1', 'front': '::exercise\n{A/*B}', 'back': 'B', 'card_type': 'quiz'},

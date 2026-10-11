@@ -15,6 +15,7 @@ let authorState = {
 
   // Mode 1: Publish
   publish: {
+    files: [],
     file: null,
     text: '',
     parseResult: null,
@@ -36,6 +37,7 @@ let authorState = {
 
   // Mode 3: Update
   update: {
+    files: [],
     file: null,
     text: '',
     previewResult: null,
@@ -96,43 +98,109 @@ function switchAuthorSubtab(subtab) {
   }
 }
 
+/**
+ * Builds a hierarchical list of folders preserving parent-child relationships,
+ * identical to Lerne TMA's getSortedFolderTree.
+ */
+function buildSortedFolderTree(foldersList = []) {
+  if (!foldersList || foldersList.length === 0) return [];
+  const map = new Map();
+  foldersList.forEach(f => map.set(f.id, f));
+
+  // Determine root folders: parent_id is null/undefined or points to missing parent in list
+  const roots = [];
+  foldersList.forEach(f => {
+    if (!f.parent_id || !map.has(f.parent_id)) {
+      roots.push(f);
+    }
+  });
+
+  // Sort roots alphabetically
+  roots.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const result = [];
+  const visited = new Set();
+
+  function traverse(folder, depth, parentBreadcrumb = '') {
+    if (visited.has(folder.id)) return;
+    visited.add(folder.id);
+
+    const fullPath = parentBreadcrumb ? `${parentBreadcrumb} / ${folder.name}` : folder.name;
+    const prefix = depth === 0 ? '' : `${'\u00A0'.repeat((depth - 1) * 3 + 2)}↳ `;
+
+    result.push({
+      ...folder,
+      depth: depth,
+      fullPath: fullPath,
+      treeName: `${prefix}${folder.name}`
+    });
+
+    // Children sorted alphabetically
+    const children = foldersList
+      .filter(f => f.parent_id === folder.id && !visited.has(f.id))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    children.forEach(child => traverse(child, depth + 1, fullPath));
+  }
+
+  roots.forEach(root => traverse(root, 0, ''));
+
+  // Fallback for any unvisited folders
+  foldersList.forEach(f => {
+    if (!visited.has(f.id)) {
+      result.push({
+        ...f,
+        depth: 0,
+        fullPath: f.name,
+        treeName: f.name
+      });
+    }
+  });
+
+  return result;
+}
+
 function populateAuthorFolderSelects() {
   const pubSelect = document.getElementById('author-publish-folder-select');
   const expSelect = document.getElementById('author-export-folder-select');
 
-  const folders = (foldersData || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const treeFolders = buildSortedFolderTree(foldersData || []);
 
   if (pubSelect) {
     const currentVal = pubSelect.value;
     pubSelect.innerHTML = '<option value="">-- Выберите существующую папку --</option>';
-    folders.forEach(f => {
+    treeFolders.forEach(f => {
       const opt = document.createElement('option');
       opt.value = f.id;
-      opt.textContent = `${f.name} (ID: ${f.id}, колод: ${f.decks_count || (f.decks ? f.decks.length : 0)})`;
+      const count = f.deck_count !== undefined ? f.deck_count : (f.decks_count || (f.decks ? f.decks.length : 0));
+      opt.textContent = `${f.treeName} (ID: ${f.id}, колод: ${count})`;
+      opt.title = f.fullPath;
       pubSelect.appendChild(opt);
     });
-    if (currentVal && folders.some(f => String(f.id) === String(currentVal))) {
+    if (currentVal && treeFolders.some(f => String(f.id) === String(currentVal))) {
       pubSelect.value = currentVal;
-    } else if (folders.length > 0) {
-      pubSelect.value = folders[0].id;
-      authorState.publish.targetFolderId = folders[0].id;
+    } else if (treeFolders.length > 0) {
+      pubSelect.value = treeFolders[0].id;
+      authorState.publish.targetFolderId = treeFolders[0].id;
     }
+    updateAuthorPublishFolderPath();
   }
 
   if (expSelect) {
     const currentExpVal = expSelect.value;
     expSelect.innerHTML = '<option value="">-- Выберите папку для экспорта --</option>';
-    folders.forEach(f => {
+    treeFolders.forEach(f => {
       const opt = document.createElement('option');
       opt.value = f.id;
-      opt.textContent = `${f.name} (ID: ${f.id})`;
+      opt.textContent = `${f.treeName} (ID: ${f.id})`;
+      opt.title = f.fullPath;
       expSelect.appendChild(opt);
     });
-    if (currentExpVal && folders.some(f => String(f.id) === String(currentExpVal))) {
+    if (currentExpVal && treeFolders.some(f => String(f.id) === String(currentExpVal))) {
       expSelect.value = currentExpVal;
-    } else if (folders.length > 0) {
-      expSelect.value = folders[0].id;
-      authorState.export.selectedFolderId = folders[0].id;
+    } else if (treeFolders.length > 0) {
+      expSelect.value = treeFolders[0].id;
+      authorState.export.selectedFolderId = treeFolders[0].id;
     }
     updateAuthorExportFolderStats();
   }
@@ -190,20 +258,26 @@ function handleAuthorPublishDrop(event) {
 
   const files = event.dataTransfer && event.dataTransfer.files;
   if (files && files.length > 0) {
-    handleAuthorPublishFile(files[0]);
+    handleAuthorPublishFiles(Array.from(files));
   }
 }
 
 function handleAuthorPublishFileSelect(input) {
-  if (input.files && input.files[0]) {
-    handleAuthorPublishFile(input.files[0]);
+  if (input.files && input.files.length > 0) {
+    handleAuthorPublishFiles(Array.from(input.files));
   }
 }
 
-async function handleAuthorPublishFile(file) {
-  authorState.publish.file = file;
+async function handleAuthorPublishFiles(files) {
+  if (!files || files.length === 0) return;
+  authorState.publish.files = files;
+  authorState.publish.file = files[0];
   authorState.publish.text = '';
-  await runAuthorParse({ file });
+  await runAuthorParse({ files });
+}
+
+async function handleAuthorPublishFile(file) {
+  await handleAuthorPublishFiles(file ? [file] : []);
 }
 
 function toggleAuthorManualTextInput() {
@@ -219,22 +293,26 @@ async function handleAuthorManualTextSubmit() {
     showToast('Введите текст разметки урока', 'error');
     return;
   }
+  authorState.publish.files = [];
   authorState.publish.file = null;
   authorState.publish.text = text;
   await runAuthorParse({ text });
 }
 
-async function runAuthorParse({ file, text }) {
+async function runAuthorParse({ files, file, text }) {
   authorState.publish.isLoading = true;
   authorState.publish.error = null;
   authorState.publish.success = null;
+  authorState.publish.parseResult = null;
+  invalidateAuthorPassportPreview();
   renderAuthorPublishState();
 
   try {
     let res;
-    if (file) {
+    const fileList = files || (file ? [file] : null);
+    if (fileList && fileList.length > 0) {
       const formData = new FormData();
-      formData.append('file', file);
+      fileList.forEach(f => formData.append('files', f));
       res = await fetch('/api/admin/author/parse', {
         method: 'POST',
         body: formData
@@ -255,7 +333,8 @@ async function runAuthorParse({ file, text }) {
     authorState.publish.parseResult = data;
     authorState.publish.isLoading = false;
     renderAuthorPublishState();
-    showToast(`Успешно разобрано: ${data.total_cards} карточек в ${data.decks_count} колодах`, 'success');
+    const filesCountText = (fileList && fileList.length > 1) ? ` из ${fileList.length} файлов` : '';
+    showToast(`Успешно разобрано: ${data.total_cards} карточек в ${data.decks_count} колодах${filesCountText}`, 'success');
   } catch (err) {
     authorState.publish.isLoading = false;
     authorState.publish.error = err.message || 'Ошибка соединения с сервером';
@@ -265,6 +344,7 @@ async function runAuthorParse({ file, text }) {
 }
 
 function toggleAuthorNewFolderInput(isNew) {
+  invalidateAuthorPassportPreview();
   authorState.publish.isNewFolder = isNew;
   const existingWrap = document.getElementById('author-publish-folder-existing-wrap');
   const newWrap = document.getElementById('author-publish-folder-new-wrap');
@@ -279,7 +359,43 @@ function toggleAuthorNewFolderInput(isNew) {
 }
 
 function onAuthorPublishFolderSelectChange(select) {
+  invalidateAuthorPassportPreview();
   authorState.publish.targetFolderId = select.value ? parseInt(select.value, 10) : null;
+  updateAuthorPublishFolderPath();
+}
+
+function updateAuthorPublishFolderPath() {
+  const pathEl = document.getElementById('author-publish-folder-path');
+  if (!pathEl) return;
+  const select = document.getElementById('author-publish-folder-select');
+  const folderId = select ? parseInt(select.value, 10) : null;
+  if (!folderId) {
+    pathEl.classList.add('hidden');
+    pathEl.innerHTML = '';
+    return;
+  }
+  const treeFolders = buildSortedFolderTree(foldersData || []);
+  const f = treeFolders.find(item => item.id === folderId);
+  if (f && f.fullPath) {
+    pathEl.classList.remove('hidden');
+    pathEl.innerHTML = `
+      <i data-lucide="folder-tree" class="w-3.5 h-3.5 text-indigo-400 shrink-0"></i>
+      <span class="text-slate-400">Иерархия:</span>
+      <span class="text-indigo-300 font-semibold">${escapeHtml(f.fullPath)}</span>
+    `;
+    if (window.lucide) lucide.createIcons();
+  } else {
+    pathEl.classList.add('hidden');
+    pathEl.innerHTML = '';
+  }
+}
+
+function authorPublishPayload(result) {
+  return {
+    cards: result.cards,
+    passports: result.passports || [],
+    passport_only: !!document.getElementById('author-passport-only')?.checked
+  };
 }
 
 async function runAuthorPublishPreview() {
@@ -289,9 +405,11 @@ async function runAuthorPublishPreview() {
     return;
   }
 
-  const payload = {
-    cards: result.cards
-  };
+  if ((result.passport_errors || []).length) {
+    showToast('Исправьте и проверьте ошибки паспорта перед публикацией', 'error');
+    return;
+  }
+  const payload = authorPublishPayload(result);
 
   if (authorState.publish.isNewFolder) {
     const input = document.getElementById('author-publish-new-folder-name');
@@ -320,6 +438,8 @@ async function runAuthorPublishPreview() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Ошибка предпросмотра публикации');
 
+    authorState.publish.passportPreview = data.passports || [];
+    renderAuthorPassportChanges();
     const previewMsg = `Превью готово: Папка «${data.target_folder_name}», ${data.decks_count} колод, ${data.total_cards} карт.`;
     showToast(`✅ ${previewMsg}`, 'success');
 
@@ -339,15 +459,18 @@ async function runAuthorPublishPreview() {
 }
 
 async function runAuthorPublish() {
+  if (authorState.publish.isLoading) return;
   const result = authorState.publish.parseResult;
   if (!result || !result.cards) {
     showToast('Сначала загрузите и разберите файл урока', 'error');
     return;
   }
 
-  const payload = {
-    cards: result.cards
-  };
+  if ((result.passport_errors || []).length) {
+    showToast('Исправьте и проверьте ошибки паспорта перед публикацией', 'error');
+    return;
+  }
+  const payload = authorPublishPayload(result);
 
   if (authorState.publish.isNewFolder) {
     const input = document.getElementById('author-publish-new-folder-name');
@@ -384,7 +507,9 @@ async function runAuthorPublish() {
     authorState.publish.success = data;
     renderAuthorPublishState();
 
-    showToast(`🎉 Опубликовано: ${data.total_saved_cards} карточек в папку «${data.folder_name}»!`, 'success');
+    showToast(data.passport_only
+      ? `Паспорта сохранены: ${data.updated_passports}. Карточки не изменялись.`
+      : `🎉 Опубликовано: ${data.total_saved_cards} карточек в папку «${data.folder_name}»!`, 'success');
 
     // Trigger instant refresh of folders and decks across entire admin
     if (typeof loadAdminFolders === 'function') await loadAdminFolders();
@@ -401,6 +526,7 @@ async function runAuthorPublish() {
 
 function resetAuthorPublish() {
   authorState.publish = {
+    files: [],
     file: null,
     text: '',
     parseResult: null,
@@ -415,6 +541,9 @@ function resetAuthorPublish() {
   if (fileInput) fileInput.value = '';
   const manualText = document.getElementById('author-publish-manual-text');
   if (manualText) manualText.value = '';
+  const passportOnly = document.getElementById('author-passport-only');
+  if (passportOnly) passportOnly.checked = false;
+  invalidateAuthorPassportPreview();
   renderAuthorPublishState();
 }
 
@@ -472,8 +601,8 @@ function renderAuthorPublishState() {
               <i data-lucide="check-circle-2" class="w-6 h-6"></i>
             </div>
             <div>
-              <h3 class="text-base font-bold text-white">Урок успешно опубликован в базу данных!</h3>
-              <p class="text-xs text-emerald-300">Папка ID ${succ.folder_id}: <b>${escapeHtml(succ.folder_name)}</b> • Всего сохранено: <b>${succ.total_saved_cards}</b> карточек</p>
+              <h3 class="text-base font-bold text-white">${succ.passport_only ? 'Паспорта сохранены. Карточки не изменялись.' : 'Урок успешно опубликован в базу данных!'}</h3>
+              <p class="text-xs text-emerald-300">Папка ID ${succ.folder_id}: <b>${escapeHtml(succ.folder_name)}</b> • ${succ.passport_only ? `Паспортов: <b>${succ.updated_passports}</b>` : `Всего сохранено: <b>${succ.total_saved_cards}</b> карточек`}</p>
             </div>
           </div>
           <div class="space-y-1">
@@ -505,6 +634,33 @@ function renderAuthorPublishState() {
   if (parseResult) {
     if (dropzoneWrap) dropzoneWrap.classList.add('hidden');
     if (resultWrap) resultWrap.classList.remove('hidden');
+
+    // Files badges
+    const filesWrap = document.getElementById('author-publish-files-badge-wrap');
+    if (filesWrap) {
+      const fileNames = (authorState.publish.files && authorState.publish.files.length > 0)
+        ? authorState.publish.files.map(f => f.name)
+        : (parseResult.files || []);
+      if (fileNames.length > 0) {
+        filesWrap.classList.remove('hidden');
+        filesWrap.innerHTML = `
+          <div class="flex items-center gap-1.5 text-xs text-slate-400 font-semibold mr-2 shrink-0">
+            <i data-lucide="files" class="w-4 h-4 text-indigo-400"></i>
+            <span>Загружено файлов (${fileNames.length}):</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            ${fileNames.map(n => `
+              <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[11px] flex items-center gap-1.5">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-400"></i>
+                ${escapeHtml(n)}
+              </span>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        filesWrap.classList.add('hidden');
+      }
+    }
 
     // Metrics
     document.getElementById('author-publish-stat-cards').innerText = parseResult.total_cards || 0;
@@ -554,11 +710,17 @@ function renderAuthorPublishState() {
       const decks = parseResult.decks || [];
       decksTbody.innerHTML = decks.map((d, idx) => `
         <tr class="hover:bg-slate-900/50 transition border-b border-slate-800/60">
-          <td class="px-4 py-3 font-mono text-slate-400 text-xs">${idx + 1}</td>
-          <td class="px-4 py-3 font-semibold text-white text-xs">${escapeHtml(d.deck_name)}</td>
+          <td class="px-4 py-3 text-slate-400 text-xs">${idx + 1}</td>
+          <td class="px-4 py-3 text-white text-xs" style="overflow-wrap:anywhere">
+            <b>${escapeHtml(d.deck_name)}</b> · ${escapeHtml(d.level || '—')}
+            <div class="text-slate-400 mt-1">${d.has_passport ? `Паспорт · этапов: ${d.stages_count}` : 'Без паспорта'}</div>
+            ${d.goal ? `<p class="mt-1">Цель: ${escapeHtml(d.goal)}</p>` : ''}
+            ${d.expected_result ? `<p class="mt-1 text-slate-300">Ожидаемый результат: ${escapeHtml(d.expected_result)}</p>` : ''}
+          </td>
           <td class="px-4 py-3 text-xs text-slate-300">${d.cards_count} шт.</td>
         </tr>
       `).join('');
+      renderAuthorPassports();
     }
   } else {
     // Empty state
@@ -646,22 +808,27 @@ function updateAuthorExportFolderStats() {
     return;
   }
 
-  const folder = (foldersData || []).find(f => f.id === folderId);
+  const treeFolders = buildSortedFolderTree(foldersData || []);
+  const folder = treeFolders.find(f => f.id === folderId) || (foldersData || []).find(f => f.id === folderId);
   if (!folder) {
     statBox.innerHTML = '<span class="text-slate-500 text-xs">Папка не найдена</span>';
     return;
   }
 
-  const decksCount = folder.decks_count !== undefined ? folder.decks_count : (folder.decks ? folder.decks.length : 0);
-  const cardsCount = folder.total_cards !== undefined ? folder.total_cards : '—';
+  const decksCount = folder.deck_count !== undefined ? folder.deck_count : (folder.decks_count !== undefined ? folder.decks_count : (folder.decks ? folder.decks.length : 0));
+  const cardsCount = folder.cards_count !== undefined ? folder.cards_count : (folder.total_cards !== undefined ? folder.total_cards : '—');
 
   statBox.innerHTML = `
-    <div class="flex items-center gap-3 text-xs">
-      <span class="text-slate-400">ID: <b class="text-white">${folder.id}</b></span>
-      <span class="text-slate-400">Входящих колод: <b class="text-indigo-400">${decksCount}</b></span>
-      <span class="text-slate-400">Всего карточек: <b class="text-white">${cardsCount}</b></span>
+    <div class="space-y-1 text-xs">
+      <div class="flex items-center gap-3">
+        <span class="text-slate-400">ID: <b class="text-white">${folder.id}</b></span>
+        <span class="text-slate-400">Входящих колод: <b class="text-indigo-400">${decksCount}</b></span>
+        <span class="text-slate-400">Всего карточек: <b class="text-white">${cardsCount}</b></span>
+      </div>
+      ${folder.fullPath && folder.depth > 0 ? `<div class="text-[11px] text-slate-400 flex items-center gap-1 font-mono pt-0.5"><i data-lucide="folder-tree" class="w-3 h-3 text-indigo-400"></i> ${escapeHtml(folder.fullPath)}</div>` : ''}
     </div>
   `;
+  if (window.lucide) lucide.createIcons();
 }
 
 async function triggerAuthorExport(asFile = true) {
@@ -760,26 +927,42 @@ function handleAuthorUpdateDrop(event) {
 
   const files = event.dataTransfer && event.dataTransfer.files;
   if (files && files.length > 0) {
-    handleAuthorUpdateFile(files[0]);
+    handleAuthorUpdateFiles(Array.from(files));
   }
 }
 
 function handleAuthorUpdateFileSelect(input) {
-  if (input.files && input.files[0]) {
-    handleAuthorUpdateFile(input.files[0]);
+  if (input.files && input.files.length > 0) {
+    handleAuthorUpdateFiles(Array.from(input.files));
+  }
+}
+
+async function handleAuthorUpdateFiles(files) {
+  if (!files || files.length === 0) return;
+  authorState.update.files = files;
+  authorState.update.file = files[0];
+  authorState.update.text = '';
+
+  try {
+    const textPromises = files.map(file => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error(`Ошибка чтения файла "${file.name}"`));
+        reader.readAsText(file, 'utf-8');
+      });
+    });
+    const texts = await Promise.all(textPromises);
+    const combinedText = texts.join('\n\n---\n\n');
+    authorState.update.text = combinedText;
+    await runAuthorUpdatePreview(combinedText);
+  } catch (err) {
+    showToast(err.message, 'error');
   }
 }
 
 async function handleAuthorUpdateFile(file) {
-  authorState.update.file = file;
-  authorState.update.text = '';
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    const text = e.target.result;
-    authorState.update.text = text;
-    await runAuthorUpdatePreview(text);
-  };
-  reader.readAsText(file);
+  await handleAuthorUpdateFiles(file ? [file] : []);
 }
 
 async function runAuthorUpdatePreview(text) {
@@ -799,6 +982,7 @@ async function runAuthorUpdatePreview(text) {
     if (!res.ok) throw new Error(data.detail || `Ошибка расчёта изменений (HTTP ${res.status})`);
 
     authorState.update.previewResult = data;
+    authorState.update.requestId = crypto.randomUUID();
     authorState.update.isLoading = false;
     renderAuthorUpdateState();
     showToast(`Предпросмотр: обновляемых карт — ${data.updated}, новых — ${data.new || 0}`, 'success');
@@ -833,7 +1017,8 @@ async function runAuthorUpdateApply() {
         preview_token: prev.preview_token,
         deck_id: prev.deck_id,
         folder_id: prev.folder_id,
-        include_new: includeNew
+        include_new: includeNew,
+        request_id: authorState.update.requestId
       })
     });
 
@@ -844,7 +1029,7 @@ async function runAuthorUpdateApply() {
     authorState.update.success = data;
     renderAuthorUpdateState();
 
-    showToast(`🎉 Обновлено ${data.updated} карточек! (Создано новых: ${data.created || 0})`, 'success');
+    showToast(`🎉 Обновлено ${data.updated} карточек! (Создано новых: ${data.created || 0}; паспортов: ${data.updated_passports || 0})`, 'success');
 
     // Trigger instant refresh across admin
     if (typeof loadDecks === 'function') await loadDecks();
@@ -859,6 +1044,7 @@ async function runAuthorUpdateApply() {
 
 function resetAuthorUpdate() {
   authorState.update = {
+    files: [],
     file: null,
     text: '',
     previewResult: null,
@@ -950,6 +1136,33 @@ function renderAuthorUpdateState() {
     if (dropzoneWrap) dropzoneWrap.classList.add('hidden');
     if (resultWrap) resultWrap.classList.remove('hidden');
 
+    // Files badges
+    const updateFilesWrap = document.getElementById('author-update-files-badge-wrap');
+    if (updateFilesWrap) {
+      const fileNames = (authorState.update.files && authorState.update.files.length > 0)
+        ? authorState.update.files.map(f => f.name)
+        : [];
+      if (fileNames.length > 0) {
+        updateFilesWrap.classList.remove('hidden');
+        updateFilesWrap.innerHTML = `
+          <div class="flex items-center gap-1.5 text-xs text-slate-400 font-semibold mr-2 shrink-0">
+            <i data-lucide="files" class="w-4 h-4 text-indigo-400"></i>
+            <span>Загружено файлов (${fileNames.length}):</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            ${fileNames.map(n => `
+              <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[11px] flex items-center gap-1.5">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-400"></i>
+                ${escapeHtml(n)}
+              </span>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        updateFilesWrap.classList.add('hidden');
+      }
+    }
+
     // Stats
     document.getElementById('author-update-stat-updated').innerText = prev.updated || 0;
     document.getElementById('author-update-stat-unchanged').innerText = prev.unchanged || 0;
@@ -981,6 +1194,7 @@ function renderAuthorUpdateState() {
 
     // Render Diff List
     renderAuthorDiffList(prev.cards || []);
+    renderAuthorUpdatePassports(prev.passports || []);
   } else {
     // Empty state
     if (dropzoneWrap) dropzoneWrap.classList.remove('hidden');
@@ -1067,6 +1281,25 @@ function renderAuthorDiffList(cards) {
   }).join('');
 }
 
+function renderAuthorUpdatePassports(passports) {
+  const diff = document.getElementById('author-update-diff-container');
+  if (!diff) return;
+  let container = document.getElementById('author-update-passports');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'author-update-passports';
+    container.className = 'space-y-3 mb-4';
+    diff.before(container);
+  }
+  container.innerHTML = passports.map(entry => `<details class="p-3 rounded-xl border border-slate-700">
+    <summary class="cursor-pointer text-sm text-slate-200" style="min-height:44px;overflow-wrap:anywhere">Паспорт: ${escapeHtml(entry.deck_name)} (колода #${entry.deck_id})</summary>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-300">
+      <div><b>Было</b><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(JSON.stringify(entry.before, null, 2))}</pre></div>
+      <div><b>Из файла (только указанные поля)</b><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(JSON.stringify(entry.passport, null, 2))}</pre></div>
+    </div>
+  </details>`).join('');
+}
+
 function toggleAuthorDiffItem(idx) {
   const body = document.getElementById(`author-diff-body-${idx}`);
   const chevron = document.getElementById(`author-diff-chevron-${idx}`);
@@ -1076,4 +1309,179 @@ function toggleAuthorDiffItem(idx) {
   if (chevron) {
     chevron.classList.toggle('rotate-180');
   }
+}
+
+// Passport drafts stay attached to their parsed deck; no database writes while editing.
+function invalidateAuthorPassportPreview() {
+  authorState.publish.passportPreview = [];
+  document.getElementById('author-publish-preview-banner')?.classList.add('hidden');
+  renderAuthorPassportChanges();
+}
+
+function renderAuthorPassportChanges() {
+  const container = document.getElementById('author-passport-changes');
+  if (!container) return;
+  container.innerHTML = (authorState.publish.passportPreview || []).map(entry => `
+    <details class="p-3 rounded-lg border border-slate-700">
+      <summary class="cursor-pointer" style="min-height:44px">${escapeHtml(entry.deck_name)}:
+        ${entry.target_deck_id ? `существующая колода #${entry.target_deck_id}` : 'новая колода'} · изменений: ${entry.changes.length}</summary>
+      ${entry.changes.map(change => `<div class="my-2" style="overflow-wrap:anywhere">
+        <b>${escapeHtml(change.field)}</b>
+        <p>Было: ${escapeHtml(JSON.stringify(change.before) ?? '—')}</p>
+        <p>Станет: ${escapeHtml(JSON.stringify(change.after))}</p>
+      </div>`).join('')}
+    </details>`).join('');
+}
+
+function renderAuthorPassportMessages() {
+  const result = authorState.publish.parseResult;
+  const container = document.getElementById('author-passport-messages');
+  if (!result || !container) return;
+  container.innerHTML = [
+    ...(result.passport_errors || []).map(message => `<p class="text-rose-300">${escapeHtml(message)}</p>`),
+    ...(result.passport_warnings || []).map(message => `<p class="text-amber-200">${escapeHtml(message)}</p>`)
+  ].join('');
+}
+
+function renderAuthorPassports() {
+  const result = authorState.publish.parseResult;
+  const container = document.getElementById('author-passport-editors');
+  if (!result || !container) return;
+  const openDetails = [...container.querySelectorAll('details[open]')].map(element => element.id);
+  renderAuthorPassportMessages();
+  const input = (index, section, field, label, value) => `
+    <label class="block text-xs text-slate-300">${label}
+      <input class="w-full mt-1 p-2 rounded bg-slate-950 border border-slate-700 text-white"
+        style="min-height:44px" value="${escapeHtml(String(value ?? ''))}"
+        onchange="editAuthorPassportField(${index}, '${section}', '${field}', this.value)">
+    </label>`;
+  container.innerHTML = (result.passports || []).map((entry, index) => {
+    const passport = entry.passport && typeof entry.passport === 'object' ? entry.passport : {};
+    const intro = passport.intro || {};
+    const pedagogy = passport.pedagogy || {};
+    return `<details id="author-passport-editor-${index}" class="p-3 rounded-xl border border-slate-700">
+      <summary class="cursor-pointer text-sm text-white" style="min-height:44px;overflow-wrap:anywhere">Просмотреть / редактировать паспорт: ${escapeHtml(entry.deck_name || 'Без названия')}</summary>
+      <div class="space-y-3">
+        ${['title', 'level', 'topic', 'description', 'goal', 'estimated_time', 'recommendations'].map((field, i) =>
+          input(index, 'intro', field, ['Название занятия', 'CEFR', 'Тема', 'Описание', 'Цель', 'Ориентировочное время', 'Перед началом'][i], intro[field])).join('')}
+        <label class="block text-xs text-slate-300">Чему научится ученик (по одному пункту на строку)
+          <textarea class="w-full mt-1 p-2 bg-slate-950 rounded border border-slate-700" rows="3"
+            onchange="editAuthorPassportField(${index}, 'intro', 'learning_outcomes', this.value.split('\\n').filter(Boolean))">${escapeHtml((Array.isArray(intro.learning_outcomes) ? intro.learning_outcomes : []).join('\n'))}</textarea>
+        </label>
+        <label class="block text-xs text-slate-300">Тип занятия
+          <select class="w-full mt-1 p-2 bg-slate-950 rounded border border-slate-700" style="min-height:44px"
+            onchange="editAuthorPassportField(${index}, 'pedagogy', 'lesson_type', this.value)">
+            <option value="">— Не задан —</option>
+            ${['theory', 'practice', 'review', 'assessment'].map((type, i) => `<option value="${type}" ${pedagogy.lesson_type === type ? 'selected' : ''}>${['Теория', 'Практика', 'Восстановление знаний', 'Диагностика'][i]}</option>`).join('')}
+          </select>
+        </label>
+        ${input(index, 'pedagogy', 'expected_result', 'Ожидаемый результат', pedagogy.expected_result)}
+        <div class="space-y-3">
+          ${(Array.isArray(pedagogy.stages) ? pedagogy.stages : []).map((stage, si) => `
+            <fieldset class="p-3 border border-slate-800 rounded-lg space-y-2">
+              <legend class="text-xs text-slate-300">Этап ${si + 1}</legend>
+              <details id="author-passport-stage-${index}-${si}">
+                <summary class="text-xs text-slate-200 cursor-pointer" style="min-height:44px;overflow-wrap:anywhere">${escapeHtml(String(stage?.title || 'Новый этап'))}</summary>
+                <div class="space-y-2">
+              ${['id', 'title', 'goal', 'expected_skill', 'from_card', 'to_card'].map((field, i) => `
+                <label class="block text-xs text-slate-300">${['Стабильный ID', 'Название', 'Цель', 'Ожидаемый навык', 'С карточки', 'По карточку'][i]}
+                  <input class="w-full mt-1 p-2 bg-slate-950 rounded border border-slate-700" style="min-height:44px"
+                    value="${escapeHtml(String(stage?.[field] ?? ''))}"
+                    onchange="editAuthorPassportStage(${index}, ${si}, '${field}', this.value)">
+                </label>`).join('')}
+              <label class="block text-xs text-slate-300">Поддержка
+                <select class="w-full mt-1 p-2 bg-slate-950 rounded border border-slate-700" style="min-height:44px"
+                  onchange="editAuthorPassportStage(${index}, ${si}, 'support', this.value)">
+                  <option value="">— Выберите —</option>
+                  ${['high', 'medium', 'low', 'independent'].map((support, i) => `<option value="${support}" ${stage?.support === support ? 'selected' : ''}>${['Высокая', 'Умеренная', 'Минимальная', 'Самостоятельно'][i]}</option>`).join('')}
+                </select>
+              </label>
+              <button class="text-xs text-slate-300 p-2" style="min-height:44px" onclick="removeAuthorPassportStage(${index}, ${si})">Удалить этап</button>
+                </div>
+              </details>
+            </fieldset>`).join('')}
+          <button class="text-xs text-slate-200 p-2" style="min-height:44px" onclick="addAuthorPassportStage(${index})">Добавить этап</button>
+        </div>
+        <details id="author-passport-advanced-${index}">
+          <summary class="text-xs text-slate-400 cursor-pointer" style="min-height:44px">Все поля JSON: компетенции, критерии и рекомендации</summary>
+          <label class="block text-xs text-slate-300">Полный паспорт
+            <textarea id="author-passport-json-${index}" class="w-full p-3 font-mono text-xs bg-slate-950 rounded border border-slate-700" rows="12">${escapeHtml(JSON.stringify(passport, null, 2))}</textarea>
+          </label>
+          <button class="text-xs text-slate-200 p-2" style="min-height:44px" onclick="applyAuthorPassportJson(${index})">Применить JSON к черновику</button>
+        </details>
+        <button class="px-3 py-2 bg-indigo-600 rounded-lg text-sm text-white" style="min-height:44px" onclick="validateAuthorPassportDrafts()">Проверить изменения</button>
+      </div>
+    </details>`;
+  }).join('');
+  openDetails.forEach(id => { const element = document.getElementById(id); if (element) element.open = true; });
+}
+
+function markAuthorPassportEdited() {
+  const result = authorState.publish.parseResult;
+  result.passport_errors = [...(result.document_errors || []), 'Черновик изменён. Нажмите «Проверить изменения».'];
+  invalidateAuthorPassportPreview();
+  renderAuthorPassportMessages();
+}
+
+function editAuthorPassportField(index, section, field, value) {
+  const passport = authorState.publish.parseResult.passports[index].passport;
+  passport[section] ??= {};
+  if (field === 'level' && !value) delete passport[section][field];
+  else passport[section][field] = value;
+  markAuthorPassportEdited();
+  document.getElementById(`author-passport-json-${index}`).value = JSON.stringify(passport, null, 2);
+}
+
+function editAuthorPassportStage(index, stageIndex, field, value) {
+  const passport = authorState.publish.parseResult.passports[index].passport;
+  const stage = passport.pedagogy.stages[stageIndex];
+  if (field === 'from_card' || field === 'to_card') {
+    if (!value.trim()) delete stage[field];
+    else stage[field] = Number(value);
+  } else stage[field] = value;
+  markAuthorPassportEdited();
+  document.getElementById(`author-passport-json-${index}`).value = JSON.stringify(passport, null, 2);
+}
+
+function addAuthorPassportStage(index) {
+  const passport = authorState.publish.parseResult.passports[index].passport;
+  passport.pedagogy ??= { lesson_type: 'practice' };
+  passport.pedagogy.stages ??= [];
+  passport.pedagogy.stages.push({ id: '', title: '', goal: '', support: 'high' });
+  markAuthorPassportEdited();
+  renderAuthorPassports();
+}
+
+function removeAuthorPassportStage(index, stageIndex) {
+  authorState.publish.parseResult.passports[index].passport.pedagogy.stages.splice(stageIndex, 1);
+  markAuthorPassportEdited();
+  renderAuthorPassports();
+}
+
+function applyAuthorPassportJson(index) {
+  try {
+    const value = JSON.parse(document.getElementById(`author-passport-json-${index}`).value);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Требуется JSON-объект');
+    authorState.publish.parseResult.passports[index].passport = value;
+    markAuthorPassportEdited();
+    renderAuthorPassports();
+  } catch (error) { showToast(error.message, 'error'); }
+}
+
+async function validateAuthorPassportDrafts() {
+  const result = authorState.publish.parseResult;
+  try {
+    const response = await fetch('/api/admin/author/passport-validate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorPublishPayload(result))
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || 'Ошибка проверки');
+    result.passport_errors = [...(result.document_errors || []), ...(data.errors || [])];
+    if (!result.passport_errors.length) {
+      result.decks = data.decks;
+      showToast('Паспорт проверен', 'success');
+      renderAuthorPublishState();
+    }
+    renderAuthorPassportMessages();
+  } catch (error) { showToast(error.message, 'error'); }
 }

@@ -389,3 +389,14 @@
 @container (max-width: 340px) {
   .completion-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.lesson-completion-pedagogy {
+  width: 100%;
+  text-align: start;
+  overflow-wrap: anywhere;
+  color: var(--design-text-color);
+}
+.lesson-completion-pedagogy h2 { font-size: 1rem; margin: 0 0 8px; }
+.lesson-completion-pedagogy p { margin: 4px 0 8px; }
+.lesson-completion-pedagogy ul { padding-inline-start: 20px; }
+.lesson-completion-pedagogy li { margin: 8px 0; }
+.lesson-completion-pedagogy small { color: var(--design-secondary-color); }
