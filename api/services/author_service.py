@@ -35,7 +35,7 @@ from api.services.card_text_update import (
 from api.services.input_parser import detect_ai_input_type
 from api.services.deck_passport import validate_passport, merge_passport, passport_from_metadata, read_metadata
 
-CARD_SEPARATOR = "---"
+CARD_SEPARATOR = "<<<LERNE_CARD>>>"
 
 
 # ============================================================================
@@ -105,7 +105,7 @@ def serialize_deck(deck: TMA_Deck, cards: List[TMA_Card]) -> str:
                    + json.dumps(passport, ensure_ascii=False, indent=2, allow_nan=False)
                    + "\n<<<END_LERNE_PASSPORT>>>")
     cards_text = [serialize_card(c, deck.name) for c in cards]
-    return f"{header}\n\n" + f"\n\n{CARD_SEPARATOR}\n\n".join(cards_text) + "\n"
+    return header + ''.join(f"\n\n{CARD_SEPARATOR}\n\n{card}" for card in cards_text) + "\n"
 
 
 def serialize_folder(folder: TMA_Folder, decks_with_cards: List[Tuple[TMA_Deck, List[TMA_Card]]]) -> str:
@@ -166,6 +166,7 @@ def _parse_card_blocks(
             meta_part = block[:front_idx.start()]
             card_content = block[front_idx.start():]
         else:
+            meta_part = block
             card_content = block
 
         deck_m = re.search(r'::deck_id\s+(\d+)', meta_part)
@@ -314,6 +315,12 @@ def parse_document(text, default_deck_id=None, default_deck_name=None):
             validation_errors.extend(f'{name}: {error}' for error in validation)
             passports.append({'deck_name': name, 'deck_id': resolved_id, 'passport': passport})
             if not validation and parsed:
+                intro = passport.get('intro', {})
+                for card in parsed:
+                    if card['level'] is None:
+                        card['level'] = intro.get('level')
+                    if card['topics'] is None:
+                        card['topics'] = intro.get('topic')
                 for stage in passport.get('pedagogy', {}).get('stages', []):
                     if stage.get('to_card', 0) > len(parsed):
                         warnings.append(f"{name}: этап {stage['id']} выходит за число карточек файла; проверьте авторский диапазон.")

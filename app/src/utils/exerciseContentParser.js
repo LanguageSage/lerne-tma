@@ -11,6 +11,7 @@ const MARKER_TO_BLOCK_TYPE = Object.freeze({
 const normalizeLineEndings = (value) => String(value ?? '').replace(/\r\n?/g, '\n');
 
 const isExerciseMarker = (line) => /^\s*::exercise\s*$/i.test(line || '');
+const isInteractiveMarker = (line) => /^[ \t]*@(puzzle|match|wordbank|free)[ \t]*$/i.test(line || '');
 
 const getBlockType = (line) => {
   const match = /^\s*::(task|options|source|example|level|topic)\s*$/i.exec(line || '');
@@ -70,6 +71,7 @@ export const parseExerciseContent = (rawText) => {
   const blocks = [];
   
   let currentType = null;
+  let currentMarker = null;
   let currentLines = [];
   
   const saveBlock = () => {
@@ -77,7 +79,7 @@ export const parseExerciseContent = (rawText) => {
     if (currentType || content) {
       blocks.push({
         type: currentType || 'exercise',
-        marker: currentType ? markerForBlockType(currentType) : null,
+        marker: currentMarker,
         content,
         ...(currentType === 'options' ? {
           options: content.split(/\s*\|\s*|\n+/).map(v => v.trim()).filter(Boolean)
@@ -85,6 +87,7 @@ export const parseExerciseContent = (rawText) => {
       });
     }
     currentType = null;
+    currentMarker = null;
     currentLines = [];
   };
 
@@ -97,14 +100,15 @@ export const parseExerciseContent = (rawText) => {
     if (infoType || isEx) {
       saveBlock();
       currentType = infoType || (isEx ? 'exercise' : null);
+      currentMarker = markerForBlockType(currentType);
       i++;
       continue;
     }
     
-    // Mode B Implicit Boundary Detection:
-    // If we are inside an info block, we hit an empty line, AND there is NO explicit ::exercise marker in the file,
-    // we look ahead. If the next non-blank line is NOT a marker, then the current info block ends.
-    if (!hasExplicitExerciseMarker && currentType && currentType !== 'exercise' && !line.trim()) {
+    // Keep legacy blank-line boundaries for plain exercises. A standalone
+    // directive after a blank starts a block regardless of ::exercise elsewhere.
+    // Contiguous directives inside information blocks remain literal text.
+    if (currentType && currentType !== 'exercise' && !line.trim()) {
       let nextIndex = i;
       while (nextIndex < lines.length && !lines[nextIndex].trim()) {
         nextIndex++;
@@ -112,11 +116,16 @@ export const parseExerciseContent = (rawText) => {
       if (nextIndex < lines.length) {
         const nextInfoType = getBlockType(lines[nextIndex]);
         
-        if (!nextInfoType) {
+        if (isInteractiveMarker(lines[nextIndex]) || (!hasExplicitExerciseMarker && !nextInfoType)) {
            saveBlock();
            currentType = 'exercise';
         }
       }
+    }
+
+    if (isInteractiveMarker(line) && (!currentType || currentType === 'exercise')) {
+      if (currentLines.some(value => value.trim())) saveBlock();
+      currentType = 'exercise';
     }
     
     currentLines.push(line);
@@ -143,6 +152,13 @@ export const parseExerciseContent = (rawText) => {
     rawPreamble,
     hasBlocks: blocks.length > 0 && blocks.some(b => b.type !== 'exercise')
   };
+};
+
+/** Select one directive's body, keeping other exercise blocks out of its parser. */
+export const getInteractiveExerciseContent = (rawText, marker) => {
+  const parsed = parseExerciseContent(rawText);
+  return parsed.blocks.find(block => block.type === 'exercise'
+    && block.content.split('\n')[0].trim().toLowerCase() === `@${marker}`)?.content || '';
 };
 
 /** Restore the original information preamble around AI-generated exercise text. */

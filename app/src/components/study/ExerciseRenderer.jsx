@@ -45,10 +45,9 @@ export const ExerciseRenderer = React.memo(({
     return parseExerciseContent(card?.front || card?.front_text || '');
   }, [card?.front, card?.front_text]);
 
-  const exerciseCard = useMemo(() => {
-    if (!card || !content.hasBlocks) return card;
-    return { ...card, front: content.exercise, front_text: content.exercise };
-  }, [card, content]);
+  // Each parser owns its projection. Joining exercises here would erase the
+  // structural boundaries needed to select one interactive block.
+  const exerciseCard = card;
 
   const detectedType = useMemo(() => {
     return detectExerciseType(exerciseCard, studyMode);

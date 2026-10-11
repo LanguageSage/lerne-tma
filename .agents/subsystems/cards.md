@@ -94,3 +94,29 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
 - `card_text_update.py` теперь общий для deck/folder compare/write/idempotency; folder scope валидируется отдельно. Одна транзакция нескольких колод сохраняет SRS/history/media/provenance/ownership/позиции. Пропущенные карточки/колоды не удаляются, названия/структура не меняются.
 - Folder apply оставляет deck/folder timestamps прежними; deck apply сохраняет свой существующий touch ancestors. Общий client сохраняет payload в Dexie до запроса и блокирует overlapping pending updates, UI группирует diff по колодам.
 - Доказательства сохранности и compatibility: [FOLDER_TEXT_UPDATE](../../docs/FOLDER_TEXT_UPDATE.md).
+
+## Границы интерактивных блоков и паспорт
+
+- `exerciseContentParser.js` и серверный `api/services/input_parser.py` разбирают
+  отдельные строки `@puzzle`, `@match`, `@wordbank`, `@free` до следующего
+  структурного маркера или конца FRONT; пустые строки сохраняются, `@options`
+  остаётся частью Word Bank. `::exercise` необязателен для этих директив.
+- Информационные блоки непрозрачны для определения типа: директива внутри
+  непрерывного `::task`, `::source`, `::example` остаётся текстом. Пустая строка
+  перед отдельной директивой завершает информационный блок независимо от
+  `::exercise` в другом месте. Старые границы обычного текста и многоабзацный
+  source с явным `::exercise` сохранены.
+- `getInteractiveExerciseContent` выбирает один блок для Match, Free Text,
+  Word Bank и Puzzle, исключая соседние упражнения и информационные блоки.
+- Документы с паспортом принадлежат `api/services/author_service.py` («Автор» /
+  CLI): отсутствующие level/topics наследуются независимо из intro своей колоды,
+  явные значения CONTEXT важнее. Существующий save записывает CEFR metadata/tags
+  и topics карточки. `serialize_deck` ставит `<<<LERNE_CARD>>>` перед каждой
+  карточкой, включая первую после паспорта; старые файлы без первого разделителя
+  и с `---` принимаются. Колодный ID до разделителя сохраняет область действия.
+- Регрессии: `app/src/utils/__tests__/interactiveMarkers.test.js`,
+  `scripts/tests/test_interactive_markers.py`, `scripts/tests/test_deck_passport.py`
+  (наследование, приоритет, область колоды, изолированное сохранение, round-trip и
+  оба формата первой карточки).
+- Формат и правила генерации: [DECK_PASSPORT](../../docs/DECK_PASSPORT.md),
+  [common.md](../../lerne-card-prompts/common.md), [validation.md](../../lerne-card-prompts/validation.md).

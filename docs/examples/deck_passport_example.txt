@@ -51,6 +51,8 @@
 }
 <<<END_LERNE_PASSPORT>>>
 
+<<<LERNE_CARD>>>
+
 FRONT:
 ::task
 Выберите конструкцию.

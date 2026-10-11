@@ -264,3 +264,25 @@ test('mobile touch drag clears feedback, changes order without attempts, and kee
   expect(await page.evaluate(() => window.exerciseTest.saved['13:0'].evaluationState.attemptCount)).toBe(1);
   await page.screenshot({ path: testInfo.outputPath('puzzle-touch-edit-375.png'), fullPage: true });
 });
+
+test('Puzzle keeps its own block with optional or later ::exercise and literal info markers', async ({ page, context }, testInfo) => {
+  const card = {
+    ...puzzle,
+    front: '::task\nСобери предложение.\n@match\nЭто пример маркера.\n\n' + puzzle.front
+      + '\n::exercise\nДругой текст\n::example\nПример после упражнения.',
+  };
+  await openStudy(page, context, card);
+  await rendererHarness(page, card);
+  await expect(page.locator('.btn-puzzle-chip:visible')).toHaveCount(7);
+  await expect(page.locator('.exercise-info-text:visible').filter({ hasText: '@puzzle' })).toHaveCount(0);
+  await expect(page.locator('.exercise-info-text:visible').filter({ hasText: 'Пример после упражнения.' })).toBeVisible();
+  await assemble(page, [0, 1, 2, 3, 4, 5, 6]);
+  await check(page).click();
+  await expect.poll(() => page.evaluate(() => window.exerciseTest.answers.length)).toBe(1);
+  await screenshotWidths(page, testInfo, 'puzzle-block-boundary');
+  await page.evaluate(async card => {
+    window.exerciseTest.card = { ...card, id: 100, front: card.front.replace('\n::exercise\nДругой текст', '') };
+    window.exerciseTest.render('100:0');
+  }, card);
+  await expect(page.locator('.btn-puzzle-chip:visible')).toHaveCount(7);
+});

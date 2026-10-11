@@ -27,8 +27,12 @@ def _exercise_block_marker(block_type: str) -> str:
     return f"::{'source' if block_type == 'context' else block_type}"
 
 
+def _interactive_marker(line: str) -> bool:
+    return bool(re.fullmatch(r"[ \t]*@(puzzle|match|wordbank|free)[ \t]*", line or "", re.IGNORECASE))
+
+
 def parse_exercise_content(raw_text: str) -> dict:
-    """Split leading visual blocks from the exercise without changing storage."""
+    """Split visual information and standalone interactive blocks without changing storage."""
     raw = str(raw_text or "").replace("\r\n", "\n").replace("\r", "\n")
     empty = {
         "task": "",
@@ -44,110 +48,62 @@ def parse_exercise_content(raw_text: str) -> dict:
         return empty
 
     lines = raw.split("\n")
-    first_non_empty = 0
-    while first_non_empty < len(lines) and not lines[first_non_empty].strip():
-        first_non_empty += 1
-    if first_non_empty >= len(lines) or not _exercise_block_type(lines[first_non_empty]):
-        return empty
-
-    explicit_exercise_idx = -1
-    for idx, line in enumerate(lines):
-        if _is_exercise_marker(line):
-            explicit_exercise_idx = idx
-            break
-
+    has_explicit_exercise = any(_is_exercise_marker(line) for line in lines)
     blocks = []
-    exercise_start = len(lines)
-    index = first_non_empty
+    current_type = None
+    current_marker = None
+    current_lines = []
+    exercise_start = None
 
-    if explicit_exercise_idx != -1 and explicit_exercise_idx >= first_non_empty:
-        # Mode A: Explicit ::exercise marker present
-        while index < explicit_exercise_idx:
-            if not lines[index].strip():
-                index += 1
-                continue
-
-            block_type = _exercise_block_type(lines[index])
-            if not block_type:
-                index += 1
-                continue
-
-            marker = _exercise_block_marker(block_type)
-            index += 1
-            content_lines = []
-
-            while index < explicit_exercise_idx:
-                if _exercise_block_type(lines[index]):
-                    break
-                content_lines.append(lines[index])
-                index += 1
-
-            content = "\n".join(content_lines).strip()
-            block = {"type": block_type, "marker": marker, "content": content}
-            if block_type == "options":
-                block["options"] = [
-                    value.strip()
-                    for value in re.split(r"\s*\|\s*|\n+", content)
-                    if value.strip()
-                ]
+    def save_block():
+        nonlocal current_type, current_marker, current_lines
+        content = "\n".join(current_lines).strip()
+        if current_type or content:
+            block = {"type": current_type or "exercise", "marker": current_marker, "content": content}
+            if current_type == "options":
+                block["options"] = [v.strip() for v in re.split(r"\s*\|\s*|\n+", content) if v.strip()]
             blocks.append(block)
+        current_type, current_marker, current_lines = None, None, []
 
-        exercise_start = explicit_exercise_idx + 1
-    else:
-        # Mode B: Implicit boundary (no ::exercise marker)
-        finished_preamble = False
+    for index, line in enumerate(lines):
+        info_type = _exercise_block_type(line)
+        is_exercise = _is_exercise_marker(line)
+        if info_type or is_exercise:
+            save_block()
+            current_type = info_type or "exercise"
+            current_marker = _exercise_block_marker(current_type)
+            if is_exercise and exercise_start is None:
+                exercise_start = index + 1
+            continue
 
-        while index < len(lines) and not finished_preamble:
-            block_type = _exercise_block_type(lines[index])
-            if not block_type:
-                exercise_start = index
-                break
-
-            marker = _exercise_block_marker(block_type)
-            index += 1
-            content_lines = []
-
-            while index < len(lines):
-                if _is_exercise_marker(lines[index]):
-                    exercise_start = index + 1
-                    finished_preamble = True
-                    break
-
-                if _exercise_block_type(lines[index]):
-                    break
-
-                if not lines[index].strip():
-                    next_index = index
-                    while next_index < len(lines) and not lines[next_index].strip():
-                        next_index += 1
-                    if next_index < len(lines) and _is_exercise_marker(lines[next_index]):
-                        exercise_start = next_index + 1
-                        finished_preamble = True
-                        break
-                    if next_index < len(lines) and _exercise_block_type(lines[next_index]):
-                        index = next_index
-                    else:
+        # Retain legacy blank-line boundaries for plain exercises. A standalone
+        # directive after a blank line starts an exercise even if ::exercise is
+        # elsewhere; contiguous directives inside information remain literal.
+        if current_type and current_type != "exercise" and not line.strip():
+            next_index = index
+            while next_index < len(lines) and not lines[next_index].strip():
+                next_index += 1
+            if next_index < len(lines):
+                next_line = lines[next_index]
+                if _interactive_marker(next_line) or (
+                    not has_explicit_exercise and not _exercise_block_type(next_line)
+                ):
+                    save_block()
+                    current_type = "exercise"
+                    if exercise_start is None:
                         exercise_start = next_index
-                        finished_preamble = True
-                    break
 
-                content_lines.append(lines[index])
-                index += 1
+        if _interactive_marker(line) and current_type in (None, "exercise"):
+            if any(value.strip() for value in current_lines):
+                save_block()
+            current_type = "exercise"
+        if current_type in (None, "exercise") and line.strip() and exercise_start is None:
+            exercise_start = index
+        current_lines.append(line)
+    save_block()
 
-            content = "\n".join(content_lines).strip()
-            block = {"type": block_type, "marker": marker, "content": content}
-            if block_type == "options":
-                block["options"] = [
-                    value.strip()
-                    for value in re.split(r"\s*\|\s*|\n+", content)
-                    if value.strip()
-                ]
-            blocks.append(block)
-
-    raw_exercise_lines = lines[exercise_start:]
-    while raw_exercise_lines and _is_exercise_marker(raw_exercise_lines[0]):
-        raw_exercise_lines = raw_exercise_lines[1:]
-    exercise = "\n".join(raw_exercise_lines).strip()
+    exercise = "\n\n".join(b["content"] for b in blocks if b["type"] == "exercise").strip()
+    raw_preamble = "\n".join(lines[:exercise_start]).strip()
 
     def first_content(block_type: str) -> str:
         return next(
@@ -172,9 +128,9 @@ def parse_exercise_content(raw_text: str) -> dict:
             if block["type"] == "example" and block["content"]
         ],
         "blocks": blocks,
-        "exercise": "\n".join(lines[exercise_start:]).strip(),
-        "raw_preamble": "\n".join(lines[:exercise_start]).strip(),
-        "has_blocks": bool(blocks),
+        "exercise": exercise,
+        "raw_preamble": raw_preamble,
+        "has_blocks": any(b["type"] != "exercise" for b in blocks),
     }
 
 
@@ -185,13 +141,20 @@ def restore_exercise_content(parsed_content: dict, generated_exercise: str) -> s
         generated["exercise"] if generated["has_blocks"] else str(generated_exercise or "")
     ).strip()
     preamble = str((parsed_content or {}).get("raw_preamble") or "").strip()
+    blocks = (parsed_content or {}).get("blocks", [])
+    first_exercise = next((i for i, b in enumerate(blocks) if b['type'] == 'exercise'), len(blocks))
+    trailing_info = '\n\n'.join(
+        b['marker'] + '\n' + b['content'] for b in blocks[first_exercise + 1:] if b['type'] != 'exercise'
+    )
     if not preamble:
-        return exercise
-    has_source = bool((parsed_content or {}).get("context"))
-    has_exercise_marker = bool(re.search(r"(?im)^\s*::exercise\s*$", preamble))
-    if has_source and not has_exercise_marker:
-        return f"{preamble}\n\n::exercise\n{exercise}" if exercise else f"{preamble}\n\n::exercise"
-    return f"{preamble}\n\n{exercise}" if exercise else preamble
+        restored = exercise
+    else:
+        has_source = bool((parsed_content or {}).get("context"))
+        has_exercise_marker = bool(re.search(r"(?im)^\s*::exercise\s*$", preamble))
+        if has_source and not has_exercise_marker:
+            preamble += '\n\n::exercise'
+        restored = f"{preamble}\n\n{exercise}" if exercise else preamble
+    return '\n\n'.join(part for part in (restored, trailing_info) if part)
 
 
 def detect_ai_input_type(text: str) -> str:
@@ -204,19 +167,19 @@ def detect_ai_input_type(text: str) -> str:
     - parsed["exercise"] is the ONLY front text allowed to be passed to specialized exercise analyzers.
     """
     parsed = parse_exercise_content(text)
-    normalized = str(parsed["exercise"] if parsed["has_blocks"] else (text or "")).strip()
+    normalized = str(parsed["exercise"]).strip()
     if not normalized:
         return "standard"
 
     # Explicit exercise markers own the card even when their content contains
     # cloze or quiz-like characters.
-    if re.search(r"(?im)^\s*@match\b", normalized):
+    if re.search(r"(?im)^[ \t]*@match[ \t]*$", normalized):
         return "match"
-    if re.search(r"(?im)^\s*@puzzle\b", normalized):
+    if re.search(r"(?im)^[ \t]*@puzzle[ \t]*$", normalized):
         return "puzzle"
-    if re.search(r"(?im)^\s*@wordbank\b", normalized):
+    if re.search(r"(?im)^[ \t]*@wordbank[ \t]*$", normalized):
         return "word_bank"
-    if re.search(r"(?im)^\s*@free\b", normalized):
+    if re.search(r"(?im)^[ \t]*@free[ \t]*$", normalized):
         return "free_text"
 
     # Keep the established backend priority: quiz markers win over cloze.

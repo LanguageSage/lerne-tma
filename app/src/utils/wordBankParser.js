@@ -1,4 +1,4 @@
-import { parseExerciseContent } from './exerciseContentParser.js';
+import { getInteractiveExerciseContent } from './exerciseContentParser.js';
 
 const normalizeWordBankValue = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -28,7 +28,7 @@ export const parseWordBankData = (card) => {
   const rawBack = getCardField(card, 'back', 'back_text').trim();
   if (!rawFront || !rawBack) return null;
 
-  const exerciseText = parseExerciseContent(rawFront).exercise.trim();
+  const exerciseText = getInteractiveExerciseContent(rawFront, 'wordbank');
   if (!exerciseText) return null;
 
   const directiveMatch = /^@wordbank[ \t]*$/im.exec(exerciseText);

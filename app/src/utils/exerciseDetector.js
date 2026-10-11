@@ -47,22 +47,22 @@ export const detectExerciseType = (cardOrFront, studyMode = 'classic') => {
   if (!trimmed) return null;
 
   // 1. Match directive: @match
-  if (/^@match\b/i.test(trimmed) || /\n@match\b/i.test(trimmed)) {
+  if (/^[ \t]*@match[ \t]*$/im.test(trimmed)) {
     return 'match';
   }
 
   // 2. Free text writing directive: @free
-  if (/^@free\b/i.test(trimmed) || /\n@free\b/i.test(trimmed)) {
+  if (/^[ \t]*@free[ \t]*$/im.test(trimmed)) {
     return 'free_text';
   }
 
   // 3. Sentence builder / puzzle directive: @puzzle
-  if (/^@puzzle\b/i.test(trimmed) || /\n@puzzle\b/i.test(trimmed)) {
+  if (/^[ \t]*@puzzle[ \t]*$/im.test(trimmed)) {
     return 'puzzle';
   }
 
   // 4. Shared word bank. Must win over trainer syntax if malformed legacy tokens are present.
-  if (/^@wordbank\b/i.test(trimmed) || /\n@wordbank\b/i.test(trimmed)) {
+  if (/^[ \t]*@wordbank[ \t]*$/im.test(trimmed)) {
     return 'word_bank';
   }
 

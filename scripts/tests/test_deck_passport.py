@@ -43,6 +43,51 @@ def lesson(name='Test Deck', passport=None, cards=1, deck_id=None):
 
 
 class TestPassportParsing(unittest.TestCase):
+    def test_inherited_metadata_and_explicit_overrides_both_first_card_formats(self):
+        passport = {'schema_version': 1, 'intro': {'level': 'B2', 'topic': 'Deck topic'}}
+        header = lesson(passport=passport, cards=0, deck_id=99)
+        bodies = [
+            'FRONT:\nOne\nBACK:\n1\nCONTEXT:\nExplanation',
+            'FRONT:\nTwo\nBACK:\n2\nCONTEXT:\n::level A2',
+            'FRONT:\nThree\nBACK:\n3\nCONTEXT:\n::topic\nCard topic',
+            'FRONT:\nFour\nBACK:\n4\nCONTEXT:\n::level\nC1\n::topic Explicit',
+        ]
+        for separator in ('---', '<<<LERNE_CARD>>>'):
+            for leading in ('', separator + '\n'):
+                for newline in ('\n', '\r\n'):
+                    with self.subTest(separator=separator, leading=leading, newline=newline):
+                        text = header + leading + ('\n' + separator + '\n').join(bodies)
+                        doc = author.parse_document(text.replace('\n', newline))
+                        self.assertEqual(doc['errors'], [])
+                        self.assertEqual([(c['level'], c['topics']) for c in doc['cards']],
+                                         [('B2', 'Deck topic'), ('A2', 'Deck topic'),
+                                          ('B2', 'Card topic'), ('C1', 'Explicit')])
+                        self.assertEqual([c['deck_id'] for c in doc['cards']], [99] * 4)
+                        self.assertEqual(doc['cards'][0]['context'], 'Explanation')
+
+    def test_inheritance_is_scoped_to_each_deck_and_optional_fields(self):
+        text = '\n'.join([
+            lesson('A', {'schema_version': 1, 'intro': {'level': 'B2', 'topic': 'A'}}).replace('::level B1', ''),
+            lesson('B', {'schema_version': 1, 'intro': {'topic': 'B'}}).replace('::level B1', ''),
+            lesson('C', {'schema_version': 1, 'intro': {'level': 'C2'}}).replace('::level B1', ''),
+            lesson('Legacy').replace('::level B1', ''),
+        ])
+        doc = author.parse_document(text)
+        self.assertEqual(doc['errors'], [])
+        self.assertEqual([(c['level'], c['topics']) for c in doc['cards']],
+                         [('B2', 'A'), (None, 'B'), ('C2', None), (None, None)])
+
+    def test_export_uses_separator_before_first_card_and_keeps_ids(self):
+        deck = SimpleNamespace(id=99, name='D', metadata=json.dumps({'intro': {'level': 'B2', 'topic': 'T'}}))
+        cards = [SimpleNamespace(id=i, deck_id=99, front_text=f'Front {i}', back_text='Back',
+                                 context='', tags='', topics='', metadata={}) for i in (1, 2)]
+        text = author.serialize_deck(deck, cards)
+        self.assertEqual(text.count('<<<LERNE_CARD>>>'), 2)
+        self.assertRegex(text, r'<<<END_LERNE_PASSPORT>>>\s*<<<LERNE_CARD>>>\s*::deck_id 99')
+        parsed = author.parse_cards_text(text)
+        self.assertEqual([c['card_id'] for c in parsed], [1, 2])
+        self.assertEqual([c['deck_id'] for c in parsed], [99, 99])
+
     def test_documented_example_and_cli_keep_passport(self):
         from scripts import lerne_author_cli as cli
         example = Path(__file__).resolve().parents[2] / 'docs/examples/deck_passport_example.txt'
@@ -133,6 +178,24 @@ class TestPassportPersistence(unittest.TestCase):
         return {'target_folder_id': self.folder.id, 'user_id': 42, 'passport_only': only,
                 'cards': [], 'passports': [{'deck_name': self.deck.name, 'deck_id': self.deck.id,
                                           'passport': passport or sample()}]}
+
+    def test_inherited_metadata_is_persisted_and_exported(self):
+        passport = {'schema_version': 1, 'intro': {'level': 'B2', 'topic': 'Inherited'}}
+        text = lesson(passport=passport, cards=0, deck_id=self.deck.id) + '<<<LERNE_CARD>>>\n'
+        text += 'FRONT:\n@puzzle\nIch lerne Deutsch.\nBACK:\nTranslation\nCONTEXT:\nExplanation'
+        parsed = self.post('parse', {'text': text}).json()
+        self.assertEqual((parsed['cards'][0]['level'], parsed['cards'][0]['topics']), ('B2', 'Inherited'))
+        result = self.post('publish', {'cards': parsed['cards'], 'passports': parsed['passports'],
+                                      'target_folder_id': self.folder.id, 'user_id': 42})
+        self.assertEqual(result.status_code, 200, result.text)
+        card = models.TMA_Card.select().where(models.TMA_Card.front_text == '@puzzle\nIch lerne Deutsch.').get()
+        self.assertEqual(json.loads(card.metadata)['cefr']['level'], 'B2')
+        self.assertEqual(card.tags, 'B2')
+        self.assertEqual(card.topics, 'Inherited')
+        self.assertEqual(card.context, 'Explanation')
+        exported = author.parse_cards_text(author.export_deck_content(self.deck.id)['text'])
+        saved = next(c for c in exported if c['card_id'] == card.id)
+        self.assertEqual((saved['level'], saved['topics']), ('B2', 'Inherited'))
 
     def test_passport_only_repeated_preserves_cards_srs_and_metadata(self):
         self.deck.metadata = json.dumps({'resources': [{'url': 'https://example.org'}], 'is_learning': True,
