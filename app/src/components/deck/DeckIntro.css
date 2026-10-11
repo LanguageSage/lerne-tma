@@ -12,6 +12,10 @@
   font-family: var(--design-ui-font), sans-serif;
 }
 
+.deck-intro-container > * {
+  flex-shrink: 0;
+}
+
 .deck-intro-header-bar {
   display: flex;
   align-items: center;
@@ -75,6 +79,9 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex-shrink: 0;
+  min-height: min-content;
+  box-sizing: border-box;
   background: var(--design-glass-bg);
   border: 1px solid var(--design-glass-border);
   box-shadow: var(--design-panel-shadow);
@@ -114,13 +121,15 @@
 .deck-intro-topic-badge {
   font-size: var(--design-service-size);
   font-weight: 600;
-  color: var(--design-info-color);
+  color: var(--design-info-color, #a5b4fc);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 4px 12px;
   border-radius: 8px;
-
-  border-color: var(--design-divider);
+  border-color: var(--design-divider, rgba(255, 255, 255, 0.12));
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
 }
 
 .deck-intro-title {
@@ -375,8 +384,7 @@
   width: 100%;
   box-sizing: border-box;
   padding: 14px 16px;
-  margin-top: 8px;
-  margin-bottom: 8px;
+  margin: 0;
   background: var(--design-glass-bg);
   border: 1px solid var(--design-glass-border);
   backdrop-filter: blur(var(--design-glass-blur));

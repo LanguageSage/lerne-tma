@@ -14,9 +14,9 @@ const passport = { schema_version: 1, intro: { title: '09 · Самостоят�
 const deck = { id: 1, name: '09 · Самостоятельно построить мысль', target_language: 'de', role: 'owner',
   metadata: { resources: [], intro: passport.intro, pedagogy: passport.pedagogy }, stats: { total: 40, new: 40 } };
 
-async function setup(page, context, locale = 'ru') {
+async function setup(page, context, locale = 'ru', customDeck = null) {
   const writes = [];
-  const currentDeck = structuredClone(deck);
+  const currentDeck = structuredClone(customDeck || deck);
   await page.routeWebSocket('**/*', () => {});
   await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await context.addInitScript(locale => {
@@ -44,7 +44,7 @@ async function setup(page, context, locale = 'ru') {
     const { useUiStore } = await import('/src/store/useUiStore.js');
     useDeckStore.setState({ currentDeck: deck, deckCards: [] });
     useUiStore.getState().setView('deck_intro');
-  }, deck);
+  }, currentDeck);
   return writes;
 }
 
@@ -183,3 +183,48 @@ test('author preview edits passport drafts, escapes HTML and sends passport-only
   expect(importedPassport.pedagogy.stages[0].goal).toBe(hostile);
   expect(await page.locator('#author-update-passports img').count()).toBe(0);
 });
+
+test('mobile deck passport renders topic badge without clipping and places start button above goal and srs at bottom', async ({ page, context }, testInfo) => {
+  const userDeck = {
+    id: 1, name: '', target_language: 'de', role: 'owner',
+    metadata: {
+      intro: {
+        level: 'B1',
+        topic: 'Противопоставление: obwohl и trotzdem',
+        goal: 'Понять смысл противопоставления и научиться распознавать правильные конструкции с obwohl и trotzdem.',
+        learning_outcomes: [
+          'Объяснять разницу между obwohl и trotzdem на простых примерах.',
+          'Понимать порядок слов в придаточном с obwohl и главном предложении с trotzdem.',
+          'Различать obwohl в начале и в конце сложного предложения.'
+        ],
+        estimated_time: '25–35 минут'
+      }
+    },
+    stats: { total: 18, new: 18, learning: 0, due: 0 }
+  };
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await setup(page, context, 'ru', userDeck);
+
+  // 1. Topic badge is fully visible and not clipped
+  const topicBadge = page.locator('.deck-intro-topic-badge');
+  await expect(topicBadge).toBeVisible();
+  await expect(topicBadge).toHaveText('Противопоставление: obwohl и trotzdem');
+
+  const heroRect = await page.locator('.deck-intro-hero').boundingBox();
+  const badgeRect = await topicBadge.boundingBox();
+  expect(badgeRect.y + badgeRect.height).toBeLessThanOrEqual(heroRect.y + heroRect.height + 1);
+
+  // 2. Action buttons are right after indicators (above Goal)
+  const actionsRect = await page.locator('.deck-intro-actions-card').boundingBox();
+  const goalSection = page.locator('.deck-intro-section').first();
+  const goalRect = await goalSection.boundingBox();
+  expect(actionsRect.y).toBeLessThan(goalRect.y);
+
+  // 3. SRS repetition block is placed at the bottom (below Goal and Outcomes)
+  const srsRect = await page.locator('.deck-intro-srs-block').boundingBox();
+  expect(srsRect.y).toBeGreaterThan(goalRect.y);
+
+  await page.screenshot({ path: testInfo.outputPath('mobile-passport-final-375.png') });
+});
+

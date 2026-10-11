@@ -204,7 +204,7 @@ export const DeckIntro = ({ startStudy, previewData = null }) => {
           )}
         </div>
 
-        <h1 className="deck-intro-title">{title}</h1>
+        {title && <h1 className="deck-intro-title">{title}</h1>}
 
         {description && (
           <p className="deck-intro-desc">{description}</p>
@@ -236,28 +236,25 @@ export const DeckIntro = ({ startStudy, previewData = null }) => {
         )}
       </div>
 
-      {/* SRS Queue Progress Breakdown */}
-      <div className="deck-intro-srs-block glass">
-        <div className="deck-intro-srs-header">
-          <span className="deck-intro-srs-title">{tr("Прогресс повторения")}</span>
-        </div>
-        <div className="deck-intro-srs-grid">
-          <div className="deck-intro-srs-item">
-            <span className="deck-intro-srs-dot dot-blue" />
-            <span className="deck-intro-srs-value">{srsStats.new}</span>
-            <span className="deck-intro-srs-label">{tr("новые")}</span>
-          </div>
-          <div className="deck-intro-srs-item">
-            <span className="deck-intro-srs-dot dot-yellow" />
-            <span className="deck-intro-srs-value">{srsStats.learning}</span>
-            <span className="deck-intro-srs-label">{tr("изучаю")}</span>
-          </div>
-          <div className="deck-intro-srs-item">
-            <span className="deck-intro-srs-dot dot-red" />
-            <span className="deck-intro-srs-value">{srsStats.due}</span>
-            <span className="deck-intro-srs-label">{tr("повторить")}</span>
-          </div>
-        </div>
+      {/* Primary Actions Card */}
+      <div className="deck-intro-actions-card glass">
+        <button
+          type="button"
+          className="deck-intro-btn-start design-ui-button design-ui-button-primary"
+          onClick={handleStart}
+        >
+          <Play size={20} fill="currentColor" />
+          <span>{tr("Начать занятие")}</span>
+        </button>
+
+        <button
+          type="button"
+          className="deck-intro-btn-list design-ui-button design-ui-button-secondary"
+          onClick={handleShowList}
+        >
+          <List size={18} />
+          <span>{tr("Показать список")}</span>
+        </button>
       </div>
 
       {/* Goal section (only if present) */}
@@ -331,29 +328,32 @@ export const DeckIntro = ({ startStudy, previewData = null }) => {
         </motion.div>
       )}
 
+      {/* SRS Queue Progress Breakdown */}
+      <div className="deck-intro-srs-block glass">
+        <div className="deck-intro-srs-header">
+          <span className="deck-intro-srs-title">{tr("Прогресс повторения")}</span>
+        </div>
+        <div className="deck-intro-srs-grid">
+          <div className="deck-intro-srs-item">
+            <span className="deck-intro-srs-dot dot-blue" />
+            <span className="deck-intro-srs-value">{srsStats.new}</span>
+            <span className="deck-intro-srs-label">{tr("новые")}</span>
+          </div>
+          <div className="deck-intro-srs-item">
+            <span className="deck-intro-srs-dot dot-yellow" />
+            <span className="deck-intro-srs-value">{srsStats.learning}</span>
+            <span className="deck-intro-srs-label">{tr("изучаю")}</span>
+          </div>
+          <div className="deck-intro-srs-item">
+            <span className="deck-intro-srs-dot dot-red" />
+            <span className="deck-intro-srs-value">{srsStats.due}</span>
+            <span className="deck-intro-srs-label">{tr("повторить")}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Course progress placeholder (isolated, hidden by default for users) */}
       <CourseProgressPlaceholder isVisible={false} />
-
-      {/* Primary Actions Card */}
-      <div className="deck-intro-actions-card glass">
-        <button
-          type="button"
-          className="deck-intro-btn-start design-ui-button design-ui-button-primary"
-          onClick={handleStart}
-        >
-          <Play size={20} fill="currentColor" />
-          <span>{tr("Начать занятие")}</span>
-        </button>
-
-        <button
-          type="button"
-          className="deck-intro-btn-list design-ui-button design-ui-button-secondary"
-          onClick={handleShowList}
-        >
-          <List size={18} />
-          <span>{tr("Показать список")}</span>
-        </button>
-      </div>
 
       {/* Admin edit modal */}
       {canEdit && (
