@@ -1,0 +1,1073 @@
+# Deck: B1-02-D12 · Perfekt und Präteritum in Erzählungen — независимая проверка
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-02-D12 · Perfekt und Präteritum in Erzählungen — независимая проверка",
+    "level": "B1",
+    "topic": "Perfekt und Präteritum in Erzählungen",
+    "description": "Итоговый независимый диагностический экзамен: 6 блоков навыков (распознавание, Perfekt, Präteritum, синтаксис, употребление и связное повествование) без теоретических подсказок",
+    "goal": "Не повторять правило, а независимо проверить, научился ли ученик понимать и выражать события прошлого. Контроль охватывает строение Perfekt, выбор haben/sein и Partizip II, частотные формы Präteritum, порядок слов, значение модальных глаголов, стилевую уместность и связное повествование. Выявить точную причину ошибок, чтобы предложить адресное повторение конкретной предыдущей колоды.",
+    "learning_outcomes": [
+      "Отличать Präsens, Perfekt и Präteritum, безошибочно выделяя целое сказуемое",
+      "Правильно использовать haben/sein и 4 типа Partizip II",
+      "Узнавать и образовывать частотные формы Präteritum по лицу, числу и смыслу",
+      "Соблюдать порядок слов в Hauptsatz, вопросах и придаточных с weil, преобразовывать времена без искажения фактов",
+      "Понимать короткие рассказы, отличать модальное намерение от факта и выбирать форму по регистру",
+      "Самостоятельно строить связный разговорный пересказ и письменную повествовательную историю"
+    ],
+    "estimated_time": "45–60 минут",
+    "recommendations": "При дефиците блока R — повторить D01–D03 и D11; при дефиците блока P — D04 (01–16) и D08 (01–08); при дефиците блока T — D06 (01–32); при дефиците блока S — B1-01 и D08 (09–24); при дефиците блока U — D05, D07, D09; при дефиците блока N — D07–D09."
+  },
+  "pedagogy": {
+    "lesson_type": "assessment",
+    "stages": [
+      {
+        "id": "diagnostic_r_recognition",
+        "title": "Блок R: Распознавание формы и сказуемого",
+        "goal": "Проверить умение определять грамматическое время (Präsens, Perfekt, Präteritum) и видеть обе части сложного сказуемого",
+        "from_card": 1,
+        "to_card": 8,
+        "support": "independent",
+        "expected_skill": "Безошибочно классифицировать формы времени сказуемого"
+      },
+      {
+        "id": "diagnostic_p_perfekt",
+        "title": "Блок P: Perfekt — вспомогательные глаголы и причастия",
+        "goal": "Проверить выбор haben vs. sein и правильность образования Partizip II с приставками и без ge-",
+        "from_card": 9,
+        "to_card": 16,
+        "support": "independent",
+        "expected_skill": "Выбирать правильный вспомогательный глагол и нормативное причастие"
+      },
+      {
+        "id": "diagnostic_t_praeteritum",
+        "title": "Блок T: Частотный Präteritum и модальные глаголы",
+        "goal": "Проверить знание форм war, hatte, модальных глаголов, сильных форм и различие факта и сослагательного наклонения",
+        "from_card": 17,
+        "to_card": 24,
+        "support": "independent",
+        "expected_skill": "Точно воспроизводить формы Präteritum и понимать модальные смыслы"
+      },
+      {
+        "id": "diagnostic_s_syntax_transformation",
+        "title": "Блок S: Синтаксис, порядок слов и преобразование",
+        "goal": "Проверить построение рамки в главном и придаточном с weil, инверсию и взаимную трансформацию Perfekt ↔ Präteritum",
+        "from_card": 25,
+        "to_card": 32,
+        "support": "independent",
+        "expected_skill": "Собирать предложения без ошибок порядка слов и преобразовывать времена"
+      },
+      {
+        "id": "diagnostic_u_usage_comprehension",
+        "title": "Блок U: Употребление, стили и понимание рассказа",
+        "goal": "Проверить стилистический выбор (разговор vs книга), понимание смешанных времён и хронологии событий",
+        "from_card": 33,
+        "to_card": 40,
+        "support": "independent",
+        "expected_skill": "Выбирать форму по жанру и точно считывать факты и намерения из текста"
+      },
+      {
+        "id": "diagnostic_n_narrative_production",
+        "title": "Блок N: Самостоятельное повествование и свободная речь",
+        "goal": "Проверить способность строить связные ответы, диалоговые реплики и полноценный рассказ из 4–6 фраз по критериям",
+        "from_card": 41,
+        "to_card": 48,
+        "support": "independent",
+        "expected_skill": "Продуцировать связную немецкую речь о прошлом по 3-балльной критериальной шкале"
+      }
+    ],
+    "expected_result": "Экзаменуемый набирает ≥56 из 64 баллов (R/P/T/S/U ≥6/8 каждый, N ≥18/24), демонстрируя устойчивое понимание и свободное продуктивное владение системой прошедших времён немецкого языка уровня B1",
+    "competencies": [
+      {
+        "id": "assessment_r_comp",
+        "title": "Распознавание временных структур",
+        "description": "Точное определение времени и рамочной структуры глаголов"
+      },
+      {
+        "id": "assessment_p_comp",
+        "title": "Построение Perfekt",
+        "description": "Безошибочный выбор haben/sein и построение всех 4 моделей Partizip II"
+      },
+      {
+        "id": "assessment_t_comp",
+        "title": "Владение Präteritum",
+        "description": "Спряжение war, hatte, модальных глаголов и ключевых сильных форм"
+      },
+      {
+        "id": "assessment_s_comp",
+        "title": "Синтаксис и рамочная конструкция",
+        "description": "Соблюдение правил V2, инверсии и конечной позиции глагола в Nebensatz"
+      },
+      {
+        "id": "assessment_u_comp",
+        "title": "Стилистическая и смысловая адекватность",
+        "description": "Различение регистров общения и отсутствие домысливания факта из модальности"
+      },
+      {
+        "id": "assessment_n_comp",
+        "title": "Связное текстовое производство",
+        "description": "Создание многофразовых текстов о прошлом с временными и причинными связками"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "section_r",
+        "title": "Блок R: Распознавание сказуемого",
+        "description": "Максимум 8 баллов (по 1 баллу за карточки 01–08). Минимум освоения: 6/8"
+      },
+      {
+        "id": "section_p",
+        "title": "Блок P: Построение Perfekt",
+        "description": "Максимум 8 баллов (по 1 баллу за карточки 09–16). Минимум освоения: 6/8"
+      },
+      {
+        "id": "section_t",
+        "title": "Блок T: Формы Präteritum и модальные",
+        "description": "Максимум 8 баллов (по 1 баллу за карточки 17–24). Минимум освоения: 6/8"
+      },
+      {
+        "id": "section_s",
+        "title": "Блок S: Синтаксис и трансформация",
+        "description": "Максимум 8 баллов (по 1 баллу за карточки 25–32). Минимум освоения: 6/8"
+      },
+      {
+        "id": "section_u",
+        "title": "Блок U: Употребление и понимание",
+        "description": "Максимум 8 баллов (по 1 баллу за карточки 33–40). Минимум освоения: 6/8"
+      },
+      {
+        "id": "section_n",
+        "title": "Блок N: Самостоятельное повествование",
+        "description": "Максимум 24 балла (по 0–3 балла за карточки 41–48). Минимум освоения: 18/24"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "route_r_defect",
+        "title": "Маршрут при дефиците блока R",
+        "when": "При балле блока R менее 6 из 8",
+        "reason": "Повторить D01–D03 и D11",
+        "competency_ids": ["assessment_r_comp"]
+      },
+      {
+        "id": "route_p_defect",
+        "title": "Маршрут при дефиците блока P",
+        "when": "При балле блока P менее 6 из 8",
+        "reason": "Повторить D04 (01–16) и D08 (01–08)",
+        "competency_ids": ["assessment_p_comp"]
+      },
+      {
+        "id": "route_t_defect",
+        "title": "Маршрут при дефиците блока T",
+        "when": "При балле блока T менее 6 из 8",
+        "reason": "Повторить D06 (01–32)",
+        "competency_ids": ["assessment_t_comp"]
+      },
+      {
+        "id": "route_s_defect",
+        "title": "Маршрут при дефиците блока S",
+        "when": "При балле блока S менее 6 из 8",
+        "reason": "Повторить B1-01 и D08 (09–24)",
+        "competency_ids": ["assessment_s_comp"]
+      },
+      {
+        "id": "route_u_defect",
+        "title": "Маршрут при дефиците блока U",
+        "when": "При балле блока U менее 6 из 8",
+        "reason": "Повторить D05, D07, D09",
+        "competency_ids": ["assessment_u_comp"]
+      },
+      {
+        "id": "route_n_defect",
+        "title": "Маршрут при дефиците блока N",
+        "when": "При балле блока N менее 18 из 24",
+        "reason": "Повторить D07–D09 и пройти речевую практику D10",
+        "competency_ids": ["assessment_n_comp"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время сказуемого. [Блок R · 1 балл]
+::source
+Die Mitarbeiterin hat den Termin bestätigt.
+::exercise
+Какое время у сказуемого?
+А. Präsens
+Б. Perfekt
+В. Präteritum
+
+BACK:
+Б — Perfekt: hat ... bestätigt.
+Перевод: «Сотрудница подтвердила запись на приём».
+
+CONTEXT:
+hat (вспомогательный глагол) + bestätigt (Partizip II от bestätigen). Сказуемое образует глагольную рамку Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время сказуемого. [Блок R · 1 балл]
+::source
+Im Treppenhaus stand ein alter Schrank.
+::exercise
+Какое время у глагола stand?
+А. Präteritum
+Б. Perfekt
+В. Präsens
+
+BACK:
+А — Präteritum: stand от stehen.
+Перевод: «В подъезде стоял старый шкаф».
+
+CONTEXT:
+stehen — stand — gestanden (сильный глагол). Форма прошедшего времени выражена одним словом stand без вспомогательного глагола.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время сказуемого. [Блок R · 1 балл]
+::source
+Unser Nachbar hat heute keine Zeit.
+::exercise
+К какому времени относится сказуемое?
+А. Perfekt
+Б. Präteritum
+В. Präsens
+
+BACK:
+В — Präsens: hat означает «имеет / у него есть».
+Перевод: «У нашего соседа сегодня нет времени».
+
+CONTEXT:
+Здесь нет Partizip II. Одно лишь слово hat не делает предложение временем Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Назовите время каждой глагольной конструкции. [Блок R · 1 балл]
+::source
+Während Mila wartete, hat sie eine Nachricht geschrieben.
+::exercise
+Определите время для wartete и для hat ... geschrieben через точку с запятой.
+
+BACK:
+wartete — Präteritum; hat ... geschrieben — Perfekt.
+Перевод: «Пока Мила ждала, она написала сообщение».
+
+CONTEXT:
+wartete — простая форма Präteritum; hat geschrieben — сложная форма Perfekt (вспомогательный глагол + причастие). 1 балл только за оба верных ответа.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время глагола с отделяемой приставкой. [Блок R · 1 балл]
+::source
+Plötzlich fiel im ganzen Haus das Licht aus.
+::exercise
+Какое время у сказуемого fiel ... aus?
+А. Perfekt
+Б. Präteritum
+В. Präsens
+
+BACK:
+Б — Präteritum: fiel ... aus от ausfallen.
+Перевод: «Вдруг во всём доме погас свет».
+
+CONTEXT:
+ausfallen — fiel aus — ausgefallen. Форму прошедшего времени несёт спрягаемый глагол fiel; приставка aus отделена в конец.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время сказуемого в вопросительном предложении. [Блок R · 1 балл]
+::source
+Hat der Kunde das Paket schon abgeholt?
+::exercise
+Какое время у сказуемого?
+А. Präsens
+Б. Präteritum
+В. Perfekt
+
+BACK:
+В — Perfekt: Hat ... abgeholt.
+Перевод: «Клиент уже забрал посылку?»
+
+CONTEXT:
+В вопросе вспомогательный глагол Hat занимает 1-ю позицию, а Partizip II abgeholt — конец предложения. Время сказуемого — Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время сказуемого в придаточном предложении. [Блок R · 1 балл]
+::source
+Ich bin erleichtert, weil wir das Formular ausgefüllt haben.
+::exercise
+Какое время в придаточной части после союза weil?
+А. Perfekt
+Б. Präteritum
+В. Präsens
+
+BACK:
+А — Perfekt: ausgefüllt haben.
+Перевод: «Я испытываю облегчение, потому что мы заполнили формуляр».
+
+CONTEXT:
+В придаточном предложении с союзом weil вспомогательный глагол haben стоит после Partizip II ausgefüllt. Конструкция остаётся временем Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Распределите три сказуемых по временам. [Блок R · 1 балл]
+::source
+Gestern war das Büro geschlossen. Heute ist das Büro offen. Die Leitung hat eine Nachricht geschickt.
+::exercise
+Определите времена сказуемых по порядку через точку с запятой (war / ist / hat geschickt).
+
+BACK:
+war — Präteritum; ist — Präsens; hat ... geschickt — Perfekt.
+Перевод: «Вчера офис был закрыт. Сегодня офис открыт. Руководство отправило сообщение».
+
+CONTEXT:
+ist с прилагательным offen образует настоящее время (Präsens), а не Perfekt. Балл засчитывается за все три верных ответа.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите вспомогательный глагол в Perfekt. [Блок P · 1 балл]
+::source
+Am Montag ___ der Kurier zum Lager gefahren.
+::exercise
+Какой вспомогательный глагол пропущен?
+А. hat
+Б. ist
+
+BACK:
+Б — ist.
+Полное предложение: «Am Montag ist der Kurier zum Lager gefahren». Перевод: «В понедельник курьер поехал на склад».
+
+CONTEXT:
+fahren в значении перемещения в пространстве к цели образует Perfekt с sein: ist gefahren.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите вспомогательный глагол для действия над объектом. [Блок P · 1 балл]
+::source
+Die Freiwilligen ___ im Park Müll gesammelt.
+::exercise
+Какой вспомогательный глагол пропущен?
+А. sind
+Б. haben
+
+BACK:
+Б — haben.
+Полное предложение: «Die Freiwilligen haben im Park Müll gesammelt». Перевод: «Волонтёры собирали мусор в парке».
+
+CONTEXT:
+sammeln (собирать) — глагол деятельности с дополнением, образует Perfekt с haben: haben gesammelt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму вспомогательного глагола. [Блок P · 1 балл]
+::source
+Das alte Radio ___ gestern kaputtgegangen.
+::exercise
+Вставьте вспомогательный глагол sein в нужной форме (одно слово).
+
+BACK:
+ist.
+Полное предложение: «Das alte Radio ist gestern kaputtgegangen». Перевод: «Старое радио вчера сломалось».
+
+CONTEXT:
+kaputtgehen обозначает изменение состояния и образует Perfekt с sein: ist kaputtgegangen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Partizip II глагола на -ieren. [Блок P · 1 балл]
+::source
+Wir haben das Nachbarschaftsfest ___ (organisieren).
+::exercise
+Вставьте форму Partizip II (одно слово).
+
+BACK:
+organisiert.
+Полное предложение: «Wir haben das Nachbarschaftsfest organisiert». Перевод: «Мы организовали соседский праздник».
+
+CONTEXT:
+Глаголы на -ieren образуют Partizip II без приставки ge-: organisieren → organisiert.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте Partizip II глагола с отделяемой приставкой. [Блок P · 1 балл]
+::source
+Meine Kollegin hat frische Brötchen ___ (mitbringen).
+::exercise
+Вставьте форму Partizip II (одно слово).
+
+BACK:
+mitgebracht.
+Полное предложение: «Meine Kollegin hat frische Brötchen mitgebracht». Перевод: «Коллега принесла свежие булочки».
+
+CONTEXT:
+mitbringen — смешанный глагол с отделяемой приставкой: mit-ge-bracht.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите причастие с неотделяемой приставкой. [Блок P · 1 балл]
+::source
+Der Verein hat die Sitzung ___ (verlegen — перенести).
+::exercise
+Какая форма Partizip II правильна?
+А. geverlegt
+Б. verlegt
+В. verlegen
+
+BACK:
+Б — verlegt.
+Полное предложение: «Der Verein hat die Sitzung verlegt». Перевод: «Объединение перенесло заседание».
+
+CONTEXT:
+Неотделяемая приставка ver- не принимает приставку ge-: verlegen → verlegt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте Partizip II сильного глагола schreiben. [Блок P · 1 балл]
+::source
+Die Besucherin hat eine Bewertung ___ (schreiben).
+(die Bewertung — отзыв)
+::exercise
+Вставьте форму Partizip II (одно слово).
+
+BACK:
+geschrieben.
+Полное предложение: «Die Besucherin hat eine Bewertung geschrieben». Перевод: «Посетительница написала отзыв».
+
+CONTEXT:
+schreiben — schrieb — geschrieben (сильный глагол).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму причастия глагола besuchen. [Блок P · 1 балл]
+::source
+Die Schüler haben die Ausstellung ___ (besuchen).
+::exercise
+Какая форма Partizip II правильна?
+А. besucht
+Б. gebesucht
+В. besuchen
+
+BACK:
+А — besucht.
+Полное предложение: «Die Schüler haben die Ausstellung besucht». Перевод: «Школьники посетили выставку».
+
+CONTEXT:
+Неотделяемая приставка be- исключает добавление ge-: besuchen → besucht.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Präteritum от haben для лица ich. [Блок T · 1 балл]
+::source
+Früher ___ ich keine Erfahrung mit diesem Gerät.
+::exercise
+Вставьте форму глагола haben в Präteritum (одно слово).
+
+BACK:
+hatte.
+Полное предложение: «Früher hatte ich keine Erfahrung mit diesem Gerät». Перевод: «Раньше у меня не было опыта работы с этим прибором».
+
+CONTEXT:
+hatte — форма прошедшего времени от haben для лица ich. Форма hätte относится к Konjunktiv II.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Präteritum от sein для лица ihr. [Блок T · 1 балл]
+::source
+Wo ___ ihr am Sonntag?
+::exercise
+Вставьте форму глагола sein в Präteritum (одно слово).
+
+BACK:
+wart.
+Полное предложение: «Wo wart ihr am Sonntag?» Перевод: «Где вы были в воскресенье?»
+
+CONTEXT:
+Для местоимения ihr форма Präteritum глагола sein — wart (не путать с warst для du).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разграничьте реальный факт и гипотетическую возможность. [Блок T · 1 балл]
+::source
+Речь о реальном затруднении вчера: «Вчера я не мог найти дорогу».
+Gestern ___ ich den Weg nicht finden.
+::exercise
+Какая форма глагола передаёт факт прошлого?
+А. könnte
+Б. konnte
+
+BACK:
+Б — konnte.
+Полное предложение: «Gestern konnte ich den Weg nicht finden». Перевод: «Вчера я не мог найти дорогу».
+
+CONTEXT:
+konnte — реальное прошедшее время (Präteritum). könnte — сослагательное наклонение («мог бы»).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите модальный глагол со значением вынужденности. [Блок T · 1 балл]
+::source
+Die Straße war gesperrt. Deshalb ___ wir einen Umweg machen.
+(der Umweg — объезд)
+::exercise
+Какая форма передаёт вынужденную необходимость?
+А. wollten
+Б. mussten
+В. durften
+
+BACK:
+Б — mussten.
+Полное предложение: «Die Straße war gesperrt. Deshalb mussten wir einen Umweg machen». Перевод: «Дорога была перекрыта. Поэтому нам пришлось ехать в объезд».
+
+CONTEXT:
+müssen → mussten выражает объективную необходимость / вынужденность; wollten — желание, durften — разрешение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите подтверждённый факт по тексту. [Блок T · 1 балл]
+::source
+Nora wollte sich für den Kurs anmelden. Ob sie es wirklich getan hat, weiß ich nicht.
+::exercise
+Что точно известно из текста?
+А. Нора записалась на курс.
+Б. Нора хотела записаться, но неизвестно, сделала ли это.
+В. Норе запретили записываться.
+
+BACK:
+Б — Нора хотела записаться, но неизвестно, сделала ли это.
+Перевод: «Нора хотела записаться на курс. Сделала ли она это на самом деле, я не знаю».
+
+CONTEXT:
+wollte выражает лишь намерение, а не выполненный факт. Вторая фраза прямо подтверждает отсутствие информации об итоге.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Präteritum от sein после придаточного. [Блок T · 1 балл]
+::source
+Als er ankam, ___ er sehr müde.
+::exercise
+Вставьте форму глагола sein в Präteritum (одно слово).
+
+BACK:
+war.
+Полное предложение: «Als er ankam, war er sehr müde». Перевод: «Когда он приехал, он был очень уставшим».
+
+CONTEXT:
+Придаточное предложение занимает 1-ю позицию в сложном, поэтому спрягаемый глагол главного предложения war стоит на 2-й позиции (сразу после запятой).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Präteritum от wissen для лица ich. [Блок T · 1 балл]
+::source
+Damals ___ ich die richtige Antwort nicht.
+::exercise
+Вставьте форму Präteritum (одно слово).
+
+BACK:
+wusste.
+Полное предложение: «Damals wusste ich die richtige Antwort nicht». Перевод: «Тогда я не знал правильного ответа».
+
+CONTEXT:
+wissen — wusste — gewusst (смешанный глагол). Форма wüsste относится к Konjunktiv II.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму Präteritum от сильного глагола verstehen. [Блок T · 1 балл]
+::source
+Der Teilnehmer ___ die Erklärung nicht.
+::exercise
+Какая форма Präteritum правильна?
+А. verstehte
+Б. verstanden
+В. verstand
+
+BACK:
+В — verstand.
+Полное предложение: «Der Teilnehmer verstand die Erklärung nicht». Перевод: «Участник не понял объяснение».
+
+CONTEXT:
+verstehen — verstand — verstanden. Форма verstanden — Partizip II, формы verstehte не существует.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение в Perfekt со словом Gestern на 1-м месте. [Блок S · 1 балл]
+::source
+Слова: gestern / habe / ich / die Rechnung / bezahlt
+::exercise
+Составьте правильное немецкое предложение.
+
+BACK:
+Gestern habe ich die Rechnung bezahlt.
+Перевод: «Вчера я оплатил счёт».
+
+CONTEXT:
+Gestern занимает 1-ю позицию, спрягаемый вспомогательный глагол habe — строго 2-ю, причастие bezahlt замыкает предложение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите придаточную часть после союза weil. [Блок S · 1 балл]
+::source
+Слова: weil / der Bus / zu spät / angekommen / ist
+::exercise
+Составьте правильное придаточное предложение.
+
+BACK:
+weil der Bus zu spät angekommen ist
+Перевод: «...потому что автобус приехал слишком поздно».
+
+CONTEXT:
+В придаточном предложении с союзом weil спрягаемый глагол ist ставится в самый конец предложения, следуя за Partizip II angekommen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте предложение строго в Präteritum. [Блок S · 1 балл]
+::source
+Die Gäste haben lange gewartet.
+::exercise
+Напишите предложение в Präteritum (для множественного числа).
+
+BACK:
+Die Gäste warteten lange.
+Перевод: «Гости долго ждали».
+
+CONTEXT:
+warten — слабый глагол: warteten для множественного числа. Ответ в Perfekt условие задачи не выполняет.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте предложение строго в Perfekt. [Блок S · 1 балл]
+::source
+Die Kinder fanden einen Igel. (der Igel — ёж)
+::exercise
+Напишите предложение в Perfekt.
+
+BACK:
+Die Киндер haben einen Igel gefunden.
+(Die Kinder haben einen Igel gefunden.)
+Перевод: «Дети нашли ежа».
+
+CONTEXT:
+finden — fand — gefunden. Perfekt образуется с haben: haben gefunden.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку порядка слов в главном предложении. [Блок S · 1 балл]
+::source
+❌ Als ich nach Hause kam, ich war müde.
+::exercise
+Напишите правильное предложение с сохранением Präteritum.
+
+BACK:
+Als ich nach Hause kam, war ich müde.
+Перевод: «Когда я пришёл домой, я был уставшим».
+
+CONTEXT:
+Придаточное предложение с als занимает 1-ю позицию, поэтому в главном предложении спрягаемый глагол war обязан стоять на 2-й позиции (сразу после запятой).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте утверждение в общий вопрос без вопросительного слова. [Блок S · 1 балл]
+::source
+Du warst gestern dort.
+::exercise
+Напишите вопросительное предложение в Präteritum.
+
+BACK:
+Warst du gestern dort?
+Перевод: «Ты вчера был там?»
+
+CONTEXT:
+Общий вопрос начинается со спрягаемого глагола (1-я позиция): Warst du...
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку во вспомогательном глаголе движения. [Блок S · 1 балл]
+::source
+❌ Am Abend habe ich nach Hause gegangen.
+::exercise
+Напишите правильное предложение, исправив только вспомогательный глагол.
+
+BACK:
+Am Abend bin ich nach Hause gegangen.
+Перевод: «Вечером я пошёл домой».
+
+CONTEXT:
+gehen в значении перемещения образует Perfekt строго с sein (bin gegangen). Использование habe — грубая ошибка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Измените сказуемое на Präteritum. [Блок S · 1 балл]
+::source
+Wir müssen früher losfahren.
+::exercise
+Напишите предложение в Präteritum, сохранив лицо wir.
+
+BACK:
+Wir mussten früher losfahren.
+Перевод: «Нам пришлось уехать раньше».
+
+CONTEXT:
+müssen в Präteritum для wir имеет форму mussten; инфинитив losfahren остаётся в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените грамматическую правильность двух вариантов. [Блок U · 1 балл]
+::source
+1. Ich habe den Schlüssel gefunden.
+2. Ich fand den Schlüssel.
+::exercise
+Какое суждение верно?
+А. Правильно только 1.
+Б. Правильно только 2.
+В. Оба грамматически верны; употребление зависит от стиля.
+
+BACK:
+В — оба предложения грамматически верны.
+Перевод обоих: «Я нашёл ключ».
+
+CONTEXT:
+1 — Perfekt (привычнее для устной беседы); 2 — Präteritum (привычнее для книги). Ни давность, ни завершённость не делают ни один вариант ошибкой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите более типичный вариант для дружеского чата. [Блок U · 1 балл]
+::source
+Ты пишешь другу неформальное сообщение о вчерашней встрече:
+::exercise
+Какой вариант более типичен для неформальной переписки?
+А. Gestern traf ich meinen Cousin.
+Б. Gestern habe ich meinen Cousin getroffen.
+
+BACK:
+Б — типичнее для неформального сообщения: «Gestern habe ich meinen Cousin getroffen».
+Перевод: «Вчера я встретил двоюродного брата».
+
+CONTEXT:
+В диалоге и чатах преобладает Perfekt. Вариант А грамматически верен, но звучит книжно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите вариант для последовательной художественной сцены. [Блок U · 1 балл]
+::source
+Автор пишет сцену повести в прошедшем времени Präteritum:
+::exercise
+Какой вариант согласуется со стилем повести?
+А. Der Junge trat ins Haus und schloss die Tür.
+Б. Der Junge ist ins Haus getreten und hat die Tür geschlossen.
+
+BACK:
+А — соответствует заданному стилю: «Der Junge trat ins Haus und schloss die Tür».
+Перевод: «Мальчик вошёл в дом и закрыл дверь».
+
+CONTEXT:
+trat и schloss выдержаны в Präteritum художественного повествования. Вариант Б грамматически верен, но принадлежит разговорному регистру.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените утверждение о временной дистанции. [Блок U · 1 балл]
+::source
+Утверждение: «Perfekt выражает только недавнее прошлое, а Präteritum — только далёкое».
+::exercise
+Верно ли это утверждение?
+А. Верно.
+Б. Неверно.
+
+BACK:
+Б — неверно.
+Оба времени могут описывать события любой давности.
+
+CONTEXT:
+Пример: «Vor zehn Jahren habe ich in Bremen gearbeitet» (Perfekt для 10 лет назад). Выбор времени определяется стилем речи и типом глагола, а не числом лет.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите подтверждённый факт по тексту. [Блок U · 1 балл]
+::source
+Lena wollte ihrem Nachbarn beim Umzug helfen. Aber am Samstag wurde sie krank und blieb zu Hause.
+::exercise
+Какой вывод подтверждается текстом?
+А. Лена помогла соседу при переезде.
+Б. Лена хотела помочь, но заболела и осталась дома.
+В. Сосед запретил Лене приходить.
+
+BACK:
+Б — Лена хотела помочь, но заболела и осталась дома.
+Перевод: «Лена хотела помочь соседу с переездом. Но в субботу заболела и осталась дома».
+
+CONTEXT:
+wollte выражает намерение, а не свершившийся факт. Факты подтверждаются глаголами wurde krank и blieb zu Hause.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите точный смысл отчёта. [Блок U · 1 балл]
+::source
+Tim konnte das Fahrrad reparieren. Ob er es an diesem Tag tatsächlich repariert hat, steht nicht im Bericht.
+::exercise
+Что известно наверняка?
+А. Тим починил велосипед в тот день.
+Б. Тим умел починить велосипед, но сам факт ремонта не подтверждён.
+В. Тим не умел чинить велосипеды.
+
+BACK:
+Б — Тим умел/мог его починить, но факт ремонта не подтверждён.
+Перевод: «Тим мог починить велосипед. Сделал ли он это на самом деле в тот день, в отчёте не сказано».
+
+CONTEXT:
+konnte выражает физическую возможность/умение, а не факт совершения действия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените сочетание времён в устном рассказе. [Блок U · 1 балл]
+::source
+Wir hatten wenig Zeit. Trotzdem haben wir das Gerät geprüft und den Fehler gefunden.
+::exercise
+Какое суждение верно?
+А. Смешение времён в этом предложении ошибочно.
+Б. hatten — Präteritum, haben geprüft/gefunden — Perfekt; сочетание допустимо.
+В. Все глаголы стоят в Perfekt.
+
+BACK:
+Б — сочетание Präteritum (hatten) и Perfekt действий допустимо и естественно.
+Перевод: «У нас было мало времени. Тем не менее мы проверили прибор и нашли неисправность».
+
+CONTEXT:
+Форма hatten в устной речи гармонично соседствует с Perfekt действий. Одно вспомогательное haben обслуживает два однородных причастия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Восстановите хронологию событий с забытым рюкзаком. [Блок U · 1 балл]
+::source
+Zuerst stieg Amir in den Bus. An der nächsten Haltestelle bemerkte er, dass sein Rucksack fehlte. Danach rief er seine Schwester an.
+::exercise
+Какова подтверждённая хронологическая последовательность?
+А. Позвонил сестре → сел в автобус → заметил пропажу.
+Б. Сел в автобус → заметил отсутствие рюкзака → позвонил сестре.
+В. Нашёл рюкзак → позвонил сестре → сел в автобус.
+
+BACK:
+Б — Сел в автобус → заметил отсутствие рюкзака → позвонил сестре.
+Перевод: «Сначала Амир сел в автобус. На следующей остановке заметил, что рюкзака нет. Потом позвонил сестре».
+
+CONTEXT:
+Хронология задана связками Zuerst и Danach. Факт нахождения рюкзака в тексте не упоминается (домысливать нельзя).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте рассказ из двух фактов в разговорном стиле. [Блок N · 0–3 балла]
+::source
+Факты:
+1. Вчера был у врача.
+2. После приёма купил лекарство (ein Medikament kaufen).
+::exercise
+Напишите 1–2 предложения на немецком языке.
+
+BACK:
+Один естественный ответ:
+«Gestern war ich beim Arzt. Danach habe ich ein Medikament gekauft».
+Перевод: «Вчера я был у врача. После этого я купил лекарство».
+
+CONTEXT:
+Критерии оценки (0–3 балла):
+(1) Оба факта и их хронология переданы верно (1 балл).
+(2) Прошедшие формы образованы корректно (war, habe gekauft) (1 балл).
+(3) Порядок слов и синтаксическая связь соблюдены (1 балл). Дословное совпадение не требуется.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте обе фразы целиком в Präteritum. [Блок N · 0–3 балла]
+::source
+Ich bin zum Laden gegangen. Dort habe ich Brot gekauft.
+::exercise
+Напишите оба предложения в Präteritum для книжного рассказа.
+
+BACK:
+Эталон:
+«Ich ging zum Laden. Dort kaufte ich Brot».
+Перевод: «Я пошёл в магазин. Там я купил хлеб».
+
+CONTEXT:
+Критерии оценки (0–3 балла):
+(1) bin gegangen преобразовано в ging (1 балл).
+(2) habe gekauft преобразовано в kaufte (1 балл).
+(3) Факты сохранены, порядок слов верный (1 балл). Ответ в Perfekt условие задачи не выполняет.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос в диалоге о причине опоздания. [Блок N · 0–3 балла]
+::source
+Вопрос: Warum bist du zu spät gekommen?
+Факты: поезд опоздал (Verspätung haben); прибыл позже запланированного (später als geplant ankommen).
+::exercise
+Ответьте 1–2 предложениями в разговорном стиле.
+
+BACK:
+Один естественный ответ:
+«Mein Zug hatte Verspätung. Deshalb bin я später als geplant angekommen».
+(Mein Zug hatte Verspätung. Deshalb bin ich später als geplant angekommen.)
+Перевод: «Мой поезд опоздал. Поэтому я приехал позже, чем планировалось».
+
+CONTEXT:
+Критерии оценки (0–3 балла):
+(1) Названа причина — опоздание поезда (1 балл).
+(2) Прошедшие формы (hatte, bin angekommen) корректны (1 балл).
+(3) Ответ логичен, глагол после Deshalb на 2-й позиции (1 балл). Допустимо использование weil.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите мысль о несостоявшейся поездке. [Блок N · 0–3 балла]
+::source
+Смысл: «В субботу мы хотели поехать на экскурсию. Но мы не смогли поехать, потому что автобус сломался».
+Опоры: einen Ausflug machen; kaputtgehen.
+::exercise
+Напишите две немецкие фразы в разговорном стиле.
+
+BACK:
+Один естественный ответ:
+«Am Samstag wollten wir einen Ausflug machen. Aber wir konnten nicht fahren, weil der Bus kaputtgegangen ist».
+Перевод: «В субботу мы хотели поехать на экскурсию. Но мы не смогли поехать, потому что автобус сломался».
+
+CONTEXT:
+Критерии оценки (0–3 балла):
+(1) Переданы намерение (wollten) и невозможность поездки (konnten nicht) (1 балл).
+(2) Придаточное с weil построено с ist в конце (kaputtgegangen ist) (1 балл).
+(3) Логика причинно-следственной связи соблюдена (1 балл).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте мини-рассказ о пропавшем кошельке (3–4 фразы). [Блок N · 0–3 балла]
+::source
+Факты: был в магазине; заметил пропажу кошелька (das Portemonnaie); спросил сотрудника; сотрудник нашёл кошелёк у кассы (die Kasse).
+::exercise
+Напишите 3–4 предложения в разговорном стиле.
+
+BACK:
+Один естественный ответ:
+«Gestern war ich im Supermarkt. Plötzlich habe ich bemerkt, dass mein Portemonnaie weg war. Ich habe einen Mitarbeiter gefragt. Er hat es neben der Kasse gefunden».
+Перевод: «Вчера я был в супермаркете. Вдруг заметил, что кошелька нет. Я спросил сотрудника. Он нашёл его возле кассы».
+
+CONTEXT:
+Критерии оценки (0–3 балла):
+(1) Все 4 факта переданы в логичном порядке (1 балл).
+(2) Формы Perfekt и Präteritum грамматически верны (1 балл).
+(3) Текст связен, местоимения и рамка сказуемого корректны (1 балл).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Перескажите историю своими словами (2–3 фразы). [Блок N · 0–3 балла]
+::source
+Исходный текст: Auf dem Weg zu einem Konzert blieb Marias Auto plötzlich stehen. Sie rief einen Freund an. Er holte sie ab, und zusammen kamen sie noch rechtzeitig zum Konzert.
+::exercise
+Перескажите историю в 2–3 предложениях, не копируя дословно.
+
+BACK:
+Один естественный пересказ:
+«Marias Auto ist auf dem Weg zum Konzert plötzlich stehen geblieben. Deshalb hat sie einen Freund angerufen. Er hat sie abgeholt, und sie sind rechtzeitig angekommen».
+Перевод: «Машина Марии внезапно остановилась по дороге на концерт. Поэтому она позвонила другу. Он забрал её, и они приехали вовремя».
+
+CONTEXT:
+Критерии оценки (0–3 балла):
+(1) Проблема, помощь друга и итог сохранены без выдуманных деталей (1 балл).
+(2) Прошедшие формы образованы верно (1 балл).
+(3) Пересказ логичен и самостоятелен (1 балл). Дословное копирование снижает оценку.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите сцену повести строго в Präteritum (3–4 фразы). [Блок N · 0–3 балла]
+::source
+Факты:
+1. Вечером женщина услышала шум за дверью (hören).
+2. Она открыла дверь (öffnen).
+3. Там стоял сосед (stehen).
+4. Он принёс ей письмо (bringen).
+::exercise
+Напишите 3–4 предложения строго в Präteritum.
+
+BACK:
+Эталон:
+«Am Abend hörte eine Frau ein Geräusch vor der Tür. Sie öffnete die Tür. Dort stand ihr Nachbar. Er brachte ihr einen Brief».
+Перевод: «Вечером женщина услышала шум за дверью. Она открыла дверь. Там стоял сосед. Он принёс ей письмо».
+
+CONTEXT:
+Критерии оценки (0–3 балла):
+(1) Все 4 факта отражены по порядку (1 балл).
+(2) Все 4 глагола стоят строго в Präteritum: hörte, öffnete, stand, brachte (1 балл).
+(3) Синтаксис и связность предложений корректны (1 балл). Замена на Perfekt нарушает условие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите итоговый связный рассказ о неожиданном дне (4–6 фраз). [Блок N · 0–3 балла]
+::source
+Смысловые опоры:
+1. Когда и где происходили события?
+2. Что вы планировали сделать?
+3. Что неожиданно произошло?
+4. Что вам пришлось или удалось предпринять?
+5. Чем всё завершилось?
+Требования: 4–6 предложений; минимум две конструкции Perfekt, одна форма Präteritum (war/hatte/musste/konnte/wollte); минимум две связки (dann, plötzlich, deshalb, am Ende).
+::exercise
+Напишите самостоятельный рассказ на немецком языке.
+
+BACK:
+Один естественный ответ:
+«Letzten Freitag wollte ich meine Freunde besuchen. Zuerst war alles in Ordnung. Dann ist mein Fahrrad plötzlich kaputtgegangen. Deshalb musste ich zu Fuß gehen. Ich habe meine Freunde später erreicht. Am Ende haben wir trotzdem einen schönen Abend verbracht».
+Перевод: «В прошлую пятницу я хотел навестить друзей. Сначала всё было в порядке. Затем велосипед внезапно сломался. Поэтому мне пришлось идти пешком. Я добрался до друзей позже. В итоге мы всё равно хорошо провели вечер».
+
+CONTEXT:
+Критерии оценки (0–3 балла):
+(1) Присутствуют все 5 смысловых этапов в 4–6 предложениях (1 балл).
+(2) Использованы минимум 2 верные формы Perfekt и минимум 1 верная форма Präteritum (1 балл).
+(3) Логика связана минимум 2 словами-связками, порядок слов понятен (1 балл).
+Общий порог уверенного освоения всей темы B1-02: ≥56 из 64 баллов (R/P/T/S/U ≥6/8 каждый, N ≥18/24).

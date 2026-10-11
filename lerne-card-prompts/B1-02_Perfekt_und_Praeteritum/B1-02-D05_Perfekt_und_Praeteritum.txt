@@ -1,0 +1,965 @@
+# Deck: B1-02-D05 · Perfekt vs Präteritum — практика осознанного выбора
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-02-D05 · Perfekt vs Präteritum — практика осознанного выбора",
+    "level": "B1",
+    "topic": "Perfekt und Präteritum in Erzählungen",
+    "description": "Практика осознанного выбора между Perfekt и Präteritum в зависимости от регистра общения, типа глагола и связности рассказа",
+    "goal": "Перенести навык D04 («выбираю готовую правильную форму») на осмысленный выбор в контексте рассказа. Ученик должен различать три независимые задачи: (1) грамматически ли образована конструкция; (2) какую форму чаще выбирают для такого жанра и ситуации общения; (3) как поддерживать связность истории, когда некоторые формы естественно чередуются. Не формировать ложную систему «Perfekt = недавнее/закончено, Präteritum = давно/длительно» и не считать стилистически менее типичный, но допустимый вариант грамматической ошибкой.",
+    "learning_outcomes": [
+      "Выбирать более типичную форму прошедшего времени для устной беседы, личного сообщения или книги",
+      "Употреблять war, hatte, konnte, musste, wollte в устной речи без механической замены на Perfekt",
+      "Различать стилистическое предпочтение и абсолютную грамматическую правильность",
+      "Сопоставлять разговорный пересказ и книжную сцену с сохранением всех событий и смысла",
+      "Читать и анализировать истории с естественным сочетанием обеих прошедших форм",
+      "Не путать формы настоящего/сослагательного наклонения (möchte, könnte, hätte) с прошедшими (wollte, konnte, hatte)",
+      "Находить ошибки вспомогательного глагола и причастия, не путая их со стилистической вариативностью",
+      "Обосновывать выбор формы с опорой на жанр и коммуникативную задачу"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "При трудностях с жанром (01–08, 17–24) — повторить контрасты D02 (01–06, 21–27); при стремлении ставить Perfekt повсюду (09–16) — повторить формы war, hatte, модальные глаголы из D01/D02; при путанице событий и союзов (25–32) — перечитать связные истории D03; при объявлении допустимых стилей ошибкой (33–40) — карточки 08, 16, 32, 40 этой колоды. После освоения перейти к B1-02-D06 «Частотные Präteritum»."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "context_driven_choice",
+        "title": "Контекст и жанр управляют выбором",
+        "goal": "Освоить выбор формы на основе заданного регистра общения (диалог, чат, книга)",
+        "from_card": 1,
+        "to_card": 8,
+        "support": "high",
+        "expected_skill": "Выбирать более типичную форму по явно указанному жанру общения"
+      },
+      {
+        "id": "conversational_mixing",
+        "title": "Разговорный рассказ и естественное смешение",
+        "goal": "Научиться органично сочетать war, hatte и модальные глаголы с Perfekt действий в устном рассказе",
+        "from_card": 9,
+        "to_card": 16,
+        "support": "high",
+        "expected_skill": "Использовать частотный Präteritum в устной речи рядом с Perfekt"
+      },
+      {
+        "id": "one_plot_two_registers",
+        "title": "Один сюжет — два регистра",
+        "goal": "Освоить переключение между разговорным и книжным регистром без изменения смысла событий",
+        "from_card": 17,
+        "to_card": 24,
+        "support": "medium",
+        "expected_skill": "Переформулировать высказывание из Perfekt в Präteritum и обратно"
+      },
+      {
+        "id": "sentence_logic_and_clauses",
+        "title": "Смысл, союзы и сложные предложения",
+        "goal": "Понимать сочетание времён с als, weil, dann, plötzlich и отличать синтаксис от выбора времени",
+        "from_card": 25,
+        "to_card": 32,
+        "support": "medium",
+        "expected_skill": "Правильно строить сложное предложение с прошедшими временами"
+      },
+      {
+        "id": "correctness_vs_preference",
+        "title": "Грамматика, стиль или допустимость",
+        "goal": "Чётко разграничивать грамматическую ошибку, стилевое предпочтение и смысловое различие",
+        "from_card": 33,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Квалифицировать статус языкового варианта без ложного навешивания ярлыка «ошибка»"
+      },
+      {
+        "id": "realistic_story_evaluation",
+        "title": "Связные истории и итоговый выбор",
+        "goal": "Выбирать цельные фрагменты и анализировать двухвариантные истории с пониманием стилистики",
+        "from_card": 41,
+        "to_card": 48,
+        "support": "independent",
+        "expected_skill": "Осознанно анализировать и выбирать стиль в связном многофразовом тексте"
+      }
+    ],
+    "expected_result": "Ученик осознанно выбирает форму прошедшего времени под коммуникативную задачу, свободно сочетает war/hatte/модальные с Perfekt в диалоге и отличает стилевое предпочтение от грамматической нормы",
+    "competencies": [
+      {
+        "id": "register_competency",
+        "title": "Выбор регистра общения",
+        "description": "Понимание уместности разговорного Perfekt и книжного Präteritum в конкретных ситуациях"
+      },
+      {
+        "id": "mixing_competency",
+        "title": "Органичное смешение времён",
+        "description": "Сочетание war, hatte и модальных глаголов с действиями в Perfekt в естественном рассказе"
+      },
+      {
+        "id": "error_vs_style_competency",
+        "title": "Различение ошибки и стиля",
+        "description": "Квалификация языкового явления: грамматическая ошибка, стилевое предпочтение или равноправный вариант"
+      },
+      {
+        "id": "complex_narrative_competency",
+        "title": "Анализ сложного повествования",
+        "description": "Понимание логики времени в сложноподчинённых предложениях с als, weil и в связных текстах"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "stylistic_judgment",
+        "title": "Точность стилевой оценки",
+        "description": "Правильный выбор более типичного варианта для заданного жанра общения"
+      },
+      {
+        "id": "grammatical_rigor",
+        "title": "Грамматическая точность",
+        "description": "Точное нахождение реальных грамматических ошибок вспомогательного глагола и порядка слов"
+      },
+      {
+        "id": "semantic_accuracy",
+        "title": "Смысловая точность",
+        "description": "Различение реального прошедшего (wollte, konnte, hatte) и сослагательного (möchte, könnte, hätte)"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_genres",
+        "title": "Повторение регистров общения",
+        "when": "При затруднениях с пониманием жанра рассказа",
+        "reason": "Повторить карточки 01–08 и 17–24",
+        "competency_ids": ["register_competency"]
+      },
+      {
+        "id": "review_conversational_mixing",
+        "title": "Повторение war/hatte в устной речи",
+        "when": "При попытках механически заменять war/hatte на Perfekt",
+        "reason": "Повторить карточки 09–16",
+        "competency_ids": ["mixing_competency"]
+      },
+      {
+        "id": "review_error_criteria",
+        "title": "Повторение критериев ошибки и стиля",
+        "when": "При объявлении допустимого стиля грамматической ошибкой",
+        "reason": "Повторить карточки 33–40",
+        "competency_ids": ["error_vs_style_competency"]
+      },
+      {
+        "id": "review_complex_stories",
+        "title": "Повторение анализа связных историй",
+        "when": "При трудностях удержания многофразового контекста",
+        "reason": "Повторить карточки 25–32 и 41–48",
+        "competency_ids": ["complex_narrative_competency"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите более типичный вариант для разговора.
+::source
+Друг спрашивает: Was hast du am Samstag gemacht? — «Что ты делал в субботу?»
+::exercise
+Какой ответ более обычен для разговорной речи?
+А. Ich habe auf dem Flohmarkt einen alten Stuhl gekauft.
+Б. Ich kaufte auf dem Flohmarkt einen alten Stuhl.
+
+BACK:
+А — более типичный разговорный ответ: «Ich habe auf dem Flohmarkt einen alten Stuhl gekauft». Перевод: «Я купил на блошином рынке старый стул».
+
+CONTEXT:
+Для конкретных действий в нейтральной беседе обычно выбирают Perfekt (habe gekauft). Вариант Б грамматически верен, но звучит книжно. Это различие регистра, а не ошибка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите типичное начало для литературного повествования.
+::source
+Художественный рассказ с основным ходом событий в Präteritum.
+::exercise
+Какое начало типичнее для книжного стиля?
+А. Die Besucherin öffnete die schwere Holztür.
+Б. Die Besucherin hat die schwere Holztür geöffnet.
+
+BACK:
+А — более характерный литературный стиль: «Die Besucherin öffnete die schwere Holztür». Перевод: «Посетительница открыла тяжёлую деревянную дверь».
+
+CONTEXT:
+Präteritum (öffnete) — классическая форма художественного повествования. Вариант Б грамматически корректен, но принадлежит устному регистру.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите типичную форму для сообщения в мессенджере.
+::source
+Пишешь знакомому в чате: «Сегодня я забыл зонт».
+::exercise
+Что более обычно для такого сообщения?
+А. Heute vergaß ich meinen Regenschirm.
+Б. Heute habe ich meinen Regenschirm vergessen.
+
+BACK:
+Б — типичный вариант личного сообщения: «Heute habe ich meinen Regenschirm vergessen». Перевод: «Сегодня я забыл зонт».
+
+CONTEXT:
+В неформальной переписке преобладает Perfekt. Сам факт написания текста не делает сообщение «книгой» — чат отражает живую разговорную речь.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соотнесите ситуацию и подходящую форму глагола.
+::source
+Ситуации:
+1. Устно рассказываешь соседу о ремонте.
+2. Автор описывает ремонт в художественной сцене.
+::exercise
+Какой вариант более типичен для каждой ситуации?
+А. Der Maler strich die Wand weiß.
+Б. Der Maler hat die Wand weiß gestrichen.
+
+BACK:
+1 → Б, 2 → А.
+Перевод обоих: «Маляр покрасил стену в белый цвет».
+
+CONTEXT:
+Б (Perfekt) типичнее для устного пересказа; А (Präteritum) — для книжного повествования. Обе фразы грамматически безупречны.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите продолжение сцены в романе.
+::source
+Автор последовательно рассказывает о поисках тайного прохода в Präteritum.
+::exercise
+Что естественнее для сцены в Präteritum?
+А. Hinter dem Vorhang entdeckte er eine kleine Tür.
+Б. Hinter dem Vorhang hat er eine kleine Tür entdeckt.
+
+BACK:
+А — типичное продолжение повествовательной сцены: «Hinter dem Vorhang entdeckte er eine kleine Tür». Перевод: «За занавеской он обнаружил маленькую дверь».
+
+CONTEXT:
+Präteritum (entdeckte) сохраняет единство повествовательного стиля книги. Вариант Б грамматически верен, но нарушает книжный тон сцены.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму для личного дружеского письма.
+::source
+В письме другу сообщаешь новость о переезде библиотеки.
+::exercise
+Какой вариант ближе к стилю личного письма?
+А. Die Stadtbibliothek zog letzte Woche in ein anderes Gebäude um.
+Б. Die Stadtbibliothek ist letzte Woche in ein anderes Gebäude umgezogen.
+
+BACK:
+Б — более естественный для личного письма: «Die Stadtbibliothek ist letzte Woche in ein anderes Gebäude umgezogen». Перевод: «Городская библиотека на прошлой неделе переехала в другое здание».
+
+CONTEXT:
+Непринуждённое дружеское письмо ориентируется на разговорный язык (Perfekt). Präteritum (zog um) характерно для официальной заметки или повести.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените грамматическую правильность описания давнего события.
+::source
+Событие произошло 15 лет назад:
+А. Vor fünfzehn Jahren habe ich in einem kleinen Dorf gelebt.
+Б. Vor fünfzehn Jahren lebte ich in einem kleinen Dorf.
+::exercise
+Правда ли, что вариант А грамматически ошибочен из-за давности события?
+
+BACK:
+Нет, неправда. Обе формы грамматически абсолютно правильны. Перевод: «Пятнадцать лет назад я жил в маленькой деревне».
+
+CONTEXT:
+Выбор Perfekt или Präteritum не определяется количеством прошедших лет. В разговоре Perfekt (А) абсолютно естественен даже для далёкого детства.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сформулируйте главный вопрос для выбора времени действия.
+::exercise
+Какой вопрос нужно задать себе перед выбором Perfekt или Präteritum для обычного действия?
+
+BACK:
+«Я сейчас рассказываю об этом человеку в беседе или веду письменное художественное повествование?»
+
+CONTEXT:
+В диалоге для большинства действий естественен Perfekt (Ich habe den Schlüssel gefunden). В книге — Präteritum (Ich fand den Schlüssel). Это ориентир стиля, а не жёсткий запрет.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите естественный разговорный рассказ об экспозиции.
+::source
+Ты рассказываешь устно: «Вчера у нас была выставка. Там я познакомился с художницей».
+::exercise
+Какой ответ естественнее в обычном разговоре?
+А. Gestern war bei uns eine Ausstellung. Dort habe ich eine Künstlerin kennengelernt.
+Б. Gestern ist bei uns eine Ausstellung gewesen. Dort lernte ich eine Künstlerin kennen.
+
+BACK:
+А — более типичный разговорный вариант: «Gestern war bei uns eine Ausstellung. Dort habe ich eine Künstlerin kennengelernt».
+
+CONTEXT:
+war — привычная разговорная форма sein, а действие передачи знакомства оформлено в Perfekt (habe kennengelernt). Вариант Б звучит неестественно тяжело.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите разговорную реплику с глаголом haben.
+::source
+Скажи по-разговорному: «У меня было мало времени, поэтому я быстро закончил работу».
+::exercise
+Какой вариант звучит естественнее в живой речи?
+А. Ich hatte wenig Zeit. Deshalb habe ich die Arbeit schnell beendet.
+Б. Ich habe wenig Zeit gehabt. Deshalb beendete ich die Arbeit schnell.
+
+BACK:
+А — обычно естественнее: «Ich hatte wenig Zeit. Deshalb habe ich die Arbeit schnell beendet».
+
+CONTEXT:
+hatte — сверхчастотное разговорное Präteritum, а для завершённого действия beenden естественен Perfekt (habe beendet).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите естественную реплику с модальным глаголом.
+::source
+Разговор после собрания волонтёров:
+::exercise
+Что естественнее для непринуждённой устной речи?
+А. Ich konnte die Organisatorin nicht erreichen. Später habe ich ihr eine Nachricht geschickt.
+Б. Ich konnte die Organisatorin nicht erreichen. Später schickte ich ihr eine Nachricht.
+
+BACK:
+А — более естественно в обычном разговоре: «Ich konnte die Organisatorin nicht erreichen. Später habe ich ihr eine Nachricht geschickt». Перевод: «Я не мог связаться с организатором. Позже отправил ей сообщение».
+
+CONTEXT:
+konnte — привычный разговорный модальный Präteritum, а последующее действие передано естественным для речи Perfekt (habe geschickt).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите обычный устный пересказ событий.
+::source
+После собрания рассказываешь другу:
+::exercise
+Какой устный пересказ более обычен?
+А. Wir mussten länger bleiben. Danach sind wir nach Hause gegangen.
+Б. Wir mussten länger bleiben. Danach gingen мы nach Hause.
+
+BACK:
+А — обычно предпочтительнее: «Wir mussten länger bleiben. Danach sind wir nach Hause gegangen». Перевод: «Нам пришлось остаться дольше. Потом мы пошли домой».
+
+CONTEXT:
+mussten — модальный Präteritum в устной речи; sind gegangen — Perfekt перемещения. Вариант Б с gingen характерен для книжной повести.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите типичную реплику с глаголом wollen.
+::source
+Устно рассказываешь знакомому о записи в кружок:
+::exercise
+Какая версия звучит естественнее в разговоре?
+А. Meine Tochter wollte zum Malkurs gehen. Gestern hat sie sich angemeldet.
+Б. Meine Tochter wollte zum Malkurs gehen. Gestern meldete sie sich an.
+
+BACK:
+А — более типичная: «Meine Tochter wollte zum Malkurs gehen. Gestern hat sie sich angemeldet». Перевод: «Моя дочь хотела пойти на курс рисования. Вчера она записалась».
+
+CONTEXT:
+wollte — естественное разговорное Präteritum желания; hat sich angemeldet — стандартный Perfekt действия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените сочетание двух прошедших времён в одной реплике.
+::source
+Реплика: Es war sonnig. Wir haben im Garten gearbeitet.
+Ученик утверждает: «Так нельзя! Нужно всё ставить в одно время».
+::exercise
+Прав ли ученик?
+
+BACK:
+Нет, неправ. Это абсолютно нормальный устный рассказ: «Было солнечно. Мы работали в саду».
+
+CONTEXT:
+war (Präteritum) передаёт состояние, haben gearbeitet (Perfekt) — конкретную деятельность. В немецком языке нет запрета на сочетание времён в одной истории.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разграничьте прошедшее желание и вежливое желание сейчас.
+::source
+Ты рассказываешь, чего хотел на прошлой неделе (прошедший факт):
+::exercise
+Какой вариант точно соответствует этому смыслу?
+А. Letzte Woche wollte ich an einem Zeichenkurs teilnehmen.
+Б. Letzte Woche möchte ich an einem Zeichenkurs teilnehmen.
+
+BACK:
+А — правильная форма: «Letzte Woche wollte ich an einem Zeichenkurs teilnehmen». Перевод: «На прошлой неделе я хотел участвовать в курсе рисования».
+
+CONTEXT:
+wollte — прошедшее время (Präteritum). möchte выражает вежливое желание в настоящем («хотел бы сейчас») и с обстоятельством Letzte Woche некорректно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Назовите пять ключевых форм Präteritum для устной речи.
+::exercise
+Какие пять форм Präteritum естественно звучат в обычном разговоре рядом с Perfekt?
+
+BACK:
+war (был), hatte (имел/было), konnte (мог), musste (должен был / пришлось), wollte (хотел).
+
+CONTEXT:
+Пример: «Ich war müde, hatte keine Zeit und musste gehen. Danach habe ich geschlafen». Эти пять форм не считаются сугубо «книжными» и живут прямо в разговоре.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соотнесите задачи пересказа с регистрами.
+::source
+Ситуации:
+1. Разговор с другом о вчерашнем дне.
+2. Начало художественного эпизода в Präteritum.
+::exercise
+Какой вариант подходит для каждой задачи?
+А. Der Bildhauer formte eine kleine Figur aus Ton.
+Б. Der Bildhauer hat eine kleine Figur aus Ton geformt.
+
+BACK:
+1 → Б, 2 → А.
+Перевод обоих: «Скульптор вылепил маленькую фигурку из глины».
+
+CONTEXT:
+Б — разговорный пересказ (Perfekt); А — художественный эпизод книги (Präteritum). Событие и факты полностью совпадают.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите продолжение действия в книжном стиле.
+::source
+Герой книги открыл шкатулку: Er öffnete die Schatulle.
+Повествование ведётся в Präteritum.
+::exercise
+Какое продолжение типично для этого стиля?
+А. Darin fand er einen Brief.
+Б. Darin hat er einen Brief gefunden.
+
+BACK:
+А — характерное книжное продолжение: «Darin fand er einen Brief». Перевод: «Внутри он нашёл письмо».
+
+CONTEXT:
+fand — сильное Präteritum, сохраняет единый повествовательный стиль сцены. Вариант Б звучит как внезапный переход в устную речь.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите продолжение устного рассказа.
+::source
+Ты рассказал другу: Gestern habe ich einen Töpferkurs besucht.
+::exercise
+Какая следующая фраза естественнее в том же разговорном стиле?
+А. Dort lernte ich eine neue Technik.
+Б. Dort habe ich eine neue Technik gelernt.
+
+BACK:
+Б — типичное разговорное продолжение: «Dort habe ich eine neue Technik gelernt». Перевод: «Там я освоил новую технику».
+
+CONTEXT:
+В диалоге последовательные действия естественно продолжаются в Perfekt (habe gelernt). Вариант А звучит как фраза из книги.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Перестройте книжный фрагмент в разговорную речь.
+::source
+В книге написано: Die Frau betrat das Atelier und betrachtete ein Gemälde.
+::exercise
+Какая версия звучит естественно для рассказа приятелю?
+А. Sie hat das Atelier betreten und ein Gemälde betrachtet.
+Б. Sie betrat das Atelier und betrachtete ein Gemälde.
+
+BACK:
+А — естественная разговорная версия: «Sie hat das Atelier betreten und ein Gemälde betrachtet». Перевод: «Она вошла в мастерскую и рассмотрела картину».
+
+CONTEXT:
+Для устной речи действия переводятся в Perfekt (hat betreten / betrachtet). Вариант Б остаётся литературным Präteritum.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разделите фразы по временам и стилям.
+::source
+1. Sie hat den Entwurf verbessert.
+2. Sie verbesserte den Entwurf.
+3. Er hat die Skizze gezeigt.
+4. Er zeigte die Skizze.
+::exercise
+Какие фразы стоят в Perfekt (для диалога), а какие в Präteritum (для книги)?
+
+BACK:
+Perfekt (диалог): 1 (hat verbessert), 3 (hat gezeigt). Präteritum (книга): 2 (verbesserte), 4 (zeigte).
+
+CONTEXT:
+Перевод: «Она улучшила проект»; «Он показал набросок». Все 4 предложения грамматически верны; выбор между ними зависит от ситуации общения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите эквивалентные смысловые пары Perfekt и Präteritum.
+::source
+А. Die Führung begann pünktlich.
+Б. Die Gäste haben den Saal verlassen.
+В. Die Führung hat pünktlich begonnen.
+Г. Die Gäste verließen den Saal.
+::exercise
+Соедините пары с одинаковым смыслом.
+
+BACK:
+А ↔ В («Экскурсия началась вовремя»: begann / hat begonnen).
+Б ↔ Г («Гости покинули зал»: haben verlassen / verließen).
+
+CONTEXT:
+Смысл и последовательность фактов одинаковы, меняется только грамматический регистр (Perfekt ↔ Präteritum).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите продолжение для сцены в архиве.
+::source
+Начало сцены в романе: Der Archivar suchte eine alte Akte.
+Повествование ведётся в Präteritum.
+::exercise
+Какое продолжение типично для этой книжной сцены?
+А. Nach einer Stunde fand er das Dokument.
+Б. Nach einer Stunde hat er das Dokument gefunden.
+
+BACK:
+А — более последовательный книжный вариант: «Nach einer Stunde fand er das Dokument». Перевод: «Через час он нашёл документ».
+
+CONTEXT:
+fand — сильное Präteritum, удерживающее тон повествования. Вариант Б грамматически верен, но стилистически выпадает из контекста книги.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разграничьте смену грамматической формы и изменение смысла.
+::source
+Пара: Er hat die Akte gefunden. / Er fand die Akte.
+::exercise
+Что в этой паре меняется точно, а что не обязательно меняется?
+
+BACK:
+Точно меняется грамматическая форма (Perfekt ↔ Präteritum).
+Не меняются дата, завершённость и сам факт события («он нашёл дело»).
+
+CONTEXT:
+Не приписывайте Präteritum «большую дальность» или «незавершённость». Оба предложения сообщают об одном и том же факте в разных стилях.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите разговорный рассказ о грозе.
+::source
+Рассказываешь другу: «Была гроза. Мы спрятались на остановке».
+::exercise
+Какая версия нейтральнее и естественнее для разговора?
+А. Es gab ein Gewitter. Wir haben an der Haltestelle Schutz gesucht.
+Б. Es hat ein Gewitter gegeben. Wir suchten an der Haltestelle Schutz.
+
+BACK:
+А — естественнее в разговоре: «Es gab ein Gewitter. Wir haben an der Haltestelle Schutz gesucht». Перевод: «Была гроза. Мы искали укрытие на остановке».
+
+CONTEXT:
+Es gab — стандартный разговорный оборот («было»); haben Schutz gesucht — Perfekt конкретного действия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите грамматически верный порядок слов в придаточном.
+::source
+Смысл: «Я остался дома, потому что потерял билет». Время Perfekt.
+::exercise
+Какой вариант грамматически верен?
+А. Ich bin zu Hause geblieben, weil ich meine Fahrkarte verloren habe.
+Б. Ich bin zu Hause geblieben, weil ich habe meine Fahrkarte verloren.
+
+BACK:
+А — грамматически верно: «Ich bin zu Hause geblieben, weil ich meine Fahrkarte verloren habe».
+
+CONTEXT:
+В придаточном предложении с союзом weil личная форма глагола habe обязана стоять в абсолютном конце предложения, после причастия verloren. В Б грубая ошибка порядка слов.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите продолжение придаточного с als в книге.
+::source
+Отрывок книги в Präteritum: Als die Sirene ertönte, ...
+::exercise
+Какое продолжение типичнее для литературного стиля?
+А. ... liefen alle Besucher zum Ausgang.
+Б. ... sind alle Besucher zum Ausgang gelaufen.
+
+BACK:
+А — последовательный выбор для повести: «Als die Sirene ertönte, liefen alle Besucher zum Ausgang». Перевод: «Когда раздалась сирена, все посетители побежали к выходу».
+
+CONTEXT:
+ertönte и liefen согласованы в Präteritum. Вариант Б возможен, но для художественного текста предпочтителен вариант А.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите естественный устный ответ с союзом weil.
+::source
+Сосед спрашивает, почему ты вернулся так поздно:
+::exercise
+Что естественнее для разговорной реплики?
+А. Ich bin spät zurückgekommen, weil mein Zug ausgefallen ist.
+Б. Ich kam spät zurück, weil mein Zug ausfiel.
+
+BACK:
+А — типичный разговорный ответ: «Ich bin spät zurückgekommen, weil mein Zug ausgefallen ist». Перевод: «Я поздно вернулся, потому что поезд отменили».
+
+CONTEXT:
+Оба действия в разговоре естественно оформляются в Perfekt. Союз weil меняет порядок слов (ist в конце), но не диктует выбор времени.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените влияние слова plötzlich на выбор времени.
+::source
+А. Plötzlich hörte ich ein lautes Geräusch.
+Б. Plötzlich habe ich ein lautes Geräusch gehört.
+::exercise
+Означает ли слово plötzlich («вдруг»), что разрешён только Präteritum?
+
+BACK:
+Нет, обе формы абсолютно допустимы: «Вдруг я услышал громкий звук».
+
+CONTEXT:
+В книге типичнее А (hörte), в разговорном рассказе — Б (habe gehört). Слово plötzlich выражает неожиданность, но не навязывает конкретное время.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите книжное продолжение со словом dann.
+::source
+Автор пишет: Er verließ die Werkstatt. Dann ...
+::exercise
+Какое продолжение характерно для Präteritum?
+А. ... überquerte er die Straße und verschwand im Park.
+Б. ... hat er die Straße überquert und ist im Park verschwunden.
+
+BACK:
+А — последовательное книжное продолжение: «...überquerte er die Straße und verschwand im Park». Перевод: «...он пересёк улицу и исчез в парке».
+
+CONTEXT:
+überquerte и verschwand продолжают цепочку повествования в Präteritum. Вариант Б принадлежит разговорному регистру.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите грамматически верный вспомогательный глагол движения.
+::source
+Ты рассказываешь вслух о возвращении домой на велосипеде:
+::exercise
+Какое предложение грамматически верно?
+А. Danach bin ich mit dem Fahrrad nach Hause gefahren.
+Б. Danach habe ich mit dem Fahrrad nach Hause gefahren.
+
+BACK:
+А — грамматически верно: «Danach bin ich mit dem Fahrrad nach Hause gefahren». Перевод: «После этого я поехал домой на велосипеде».
+
+CONTEXT:
+fahren в значении перемещения требует вспомогательного sein (bin gefahren). Вариант Б содержит грубую грамматическую ошибку вспомогательного глагола.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разделите три фактора построения фразы.
+::source
+В рассказе встретились: als, weil, gestern, dann.
+::exercise
+Что из этого влияет на стиль, что на время, а что на порядок слов?
+
+BACK:
+1. Время события задают gestern, damals (но не диктуют выбор Perfekt/Präteritum). 2. Стиль рассказа определяет выбор Perfekt (разговор) или Präteritum (книга). 3. Союзы weil, als определяют порядок слов в придаточном.
+
+CONTEXT:
+Пример: «Ich war zu Hause, als der Strom ausgefallen ist». Время и порядок слов настраиваются независимо.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Квалифицируйте тип различия между фразами.
+::source
+А. Ich habe die Rechnung bezahlt.
+Б. Ich bin die Rechnung bezahlt.
+::exercise
+Это стилистическая разница или грубая грамматическая ошибка?
+
+BACK:
+Это грубая грамматическая ошибка в варианте Б.
+
+CONTEXT:
+bezahlen требует haben: «Ich habe die Rechnung bezahlt» («Я оплатил счёт»). Вариант с bin ошибочен грамматически и не может быть оправдан «другим стилем».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените статус двух вариантов рассказа экскурсовода.
+::source
+А. Die Museumsführerin erklärte die Geschichte des Bildes.
+Б. Die Museumsführerin hat die Geschichte des Bildes erklärt.
+::exercise
+Что верно: «вариант Б ошибочен» или «обе конструкции допустимы»?
+
+BACK:
+Обе конструкции грамматически абсолютно допустимы. Перевод: «Экскурсовод объяснила историю картины».
+
+CONTEXT:
+А (Präteritum) типичнее для письменного описания, Б (Perfekt) — для устного рассказа о визите в музей. Не превращайте стилевое отличие в грамматическую ошибку.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму реального прошедшего факта.
+::source
+Ты сообщаешь факт: «Вчера я не мог открыть дверь».
+::exercise
+Какой вариант выражает реальную невозможность в прошлом?
+А. Gestern konnte ich die Tür nicht öffnen.
+Б. Gestern könnte ich die Tür nicht öffnen.
+
+BACK:
+А — реальный прошедший факт: «Gestern konnte ich die Tür nicht öffnen».
+
+CONTEXT:
+konnte — реальное прошедшее время (Präteritum). könnte — сослагательное наклонение (Konjunktiv II: «мог бы») и не выражает факт в прошлом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму прошедшего факта от haben.
+::source
+«Раньше у нашего клуба было два помещения» (реальный факт прошлого).
+::exercise
+Какая форма выражает этот факт?
+А. Früher hatte unser Verein zwei Räume.
+Б. Früher hätte unser Verein zwei Räume.
+
+BACK:
+А — реальный прошедший факт: «Früher hatte unser Verein zwei Räume». Перевод: «Раньше у нашего клуба было два помещения».
+
+CONTEXT:
+hatte — Präteritum глагола haben. hätte — Konjunktiv II («имел бы») и меняет смысл на гипотетический.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените влияние длительности действия на выбор времени.
+::source
+А. Gestern hat es den ganzen Nachmittag geregnet.
+Б. Gestern regnete es den ganzen Nachmittag.
+Утверждение: «Раз дождь шёл долго, возможен только Präteritum».
+::exercise
+Верно ли это утверждение?
+
+BACK:
+Нет, неверно. Обе формы грамматически правильны. Перевод: «Вчера весь день после обеда шёл дождь».
+
+CONTEXT:
+Длительность события не навязывает выбор Präteritum. В живой беседе Perfekt (А) абсолютно естественен.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите естественную форму прямой речи в романе.
+::source
+В романе автор пишет в Präteritum, но персонаж говорит вслух другому герою:
+::exercise
+Что естественнее в разговорной реплике героя?
+А. Heute verlor ich mein Handy.
+Б. Heute habe ich mein Handy verloren.
+
+BACK:
+Б — естественная реплика в диалоге: «Heute habe ich mein Handy verloren». Перевод: «Сегодня я потерял телефон».
+
+CONTEXT:
+Прямая речь персонажей отражает законы устного языка (Perfekt), даже если всё повествование вокруг неё написано в Präteritum.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите разговорный вариант новости.
+::source
+Ты рассказываешь соседу: «В нашем районе открыли новую пешеходную зону».
+::exercise
+Какой вариант естественнее в непринуждённой беседе?
+А. Die Stadt hat in unserem Viertel eine neue Fußgängerzone eingerichtet.
+Б. Die Stadt richtete in unserem Viertel eine neue Fußgängerzone ein.
+
+BACK:
+А — более типичный разговорный вариант: «Die Stadt hat in unserem Viertel eine neue Fußgängerzone eingerichtet».
+
+CONTEXT:
+В диалоге используется Perfekt (hat eingerichtet). Вариант Б грамматически верен, но звучит как отрывок из газетного репортажа.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните три категории оценки языковых вариантов.
+::exercise
+Почему нельзя оценивать каждую пару прошедших предложений простой меткой «правильно/неправильно»?
+
+BACK:
+Потому что различия бывают трёх типов:
+1. Грамматическая ошибка (bin bezahlt ❌).
+2. Стилистическое предпочтение по жанру (habe erzählt vs. erzählte).
+3. Смысловое различие (konnte vs. könnte).
+
+CONTEXT:
+На уровне B1 важно отличать реальную грамматическую ошибку от уместности в конкретном регистре общения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите разговорное продолжение мини-рассказа.
+::source
+Ты устно рассказываешь о визите в культурный центр:
+Am Freitag war ich im Kulturzentrum. Dort ...
+::exercise
+Какое продолжение типичнее для разговора?
+А. ... habe ich an einem Workshop teilgenommen und neue Leute kennengelernt.
+Б. ... nahm ich an einem Workshop teil und lernte neue Leute kennen.
+
+BACK:
+А — типичное разговорное продолжение: «...habe ich an einem Workshop teilgenommen und neue Leute kennengelernt». Перевод: «...я участвовал в мастер-классе и познакомился с новыми людьми».
+
+CONTEXT:
+war (Präteritum) органично задаёт фон, а действия передаются в Perfekt (habe teilgenommen / kennengelernt).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите продолжение литературной сцены.
+::source
+Книжная сцена написана в Präteritum:
+Im Flur hörte Anna ein Geräusch. Langsam ...
+::exercise
+Какое продолжение типично для этого книжного стиля?
+А. ... öffnete sie eine Schublade und entdeckte eine alte Karte.
+Б. ... hat sie eine Schublade geöffnet und eine alte Karte entdeckt.
+
+BACK:
+А — гармоничное книжное продолжение: «...öffnete sie eine Schublade und entdeckte eine alte Karte». Перевод: «...она открыла ящик и обнаружила старую карту».
+
+CONTEXT:
+öffnete и entdeckte выдерживают единый повествовательный ряд в Präteritum. Вариант Б сбивает литературный ритм сцены.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите грамматически корректную историю.
+::source
+Устный рассказ о ярмарке:
+::exercise
+Какой вариант составлен грамматически правильно?
+А. Gestern war auf dem Platz ein Markt. Ich habe dort regionale Produkte probiert.
+Б. Gestern war auf dem Platz ein Markt. Ich bin dort regionale Produkte probiert.
+
+BACK:
+А — грамматически верно: «Gestern war auf dem Platz ein Markt. Ich habe dort regionale Produkte probiert». Перевод: «Вчера на площади был рынок. Я попробовал там местные продукты».
+
+CONTEXT:
+probieren требует вспомогательного глагола haben (habe probiert). Вариант Б содержит грубую ошибку во вспомогательном глаголе.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите типичный устный пересказ дорожного инцидента.
+::source
+Друг спрашивает, что произошло в аэропорту:
+::exercise
+Какое устное объяснение более типично?
+А. Mein Flug fiel aus. Deshalb wartete ich zwei Stunden am Schalter.
+Б. Mein Flug ist ausgefallen. Deshalb habe ich zwei Stunden am Schalter gewartet.
+
+BACK:
+Б — типичный устный пересказ: «Mein Flug ist ausgefallen. Deshalb habe ich zwei Stunden am Schalter gewartet». Перевод: «Мой рейс отменили. Поэтому я два часа ждал у стойки».
+
+CONTEXT:
+ist ausgefallen и habe gewartet оформлены в Perfekt, естественном для диалога. Вариант А грамматически верен, но принадлежит книжному регистру.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму реального разрешения в прошлом.
+::source
+Преподаватель разрешил уйти раньше (прошедший факт):
+::exercise
+Какой вариант передаёт реальный факт?
+А. Wir durften früher gehen. Danach haben wir noch im Café gesprochen.
+Б. Wir dürften früher gehen. Danach haben wir noch im Café gesprochen.
+
+BACK:
+А — реальный прошедший факт: «Wir durften früher gehen. Danach haben мы noch im Café gesprochen». Перевод: «Нам разрешили уйти раньше. Потом мы ещё поговорили в кафе».
+
+CONTEXT:
+durften — прошедшее время (Präteritum от dürfen). dürften — форма Konjunktiv II («нам, пожалуй, можно / вероятно»).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените сочетание времён в отчёте о субботнике.
+::source
+А. Die Helfer sammelten den Müll. Am Abend waren sie müde.
+Б. Die Helfer haben den Müll gesammelt. Am Abend waren sie müde.
+::exercise
+Может ли вариант Б быть нормальным устным рассказом?
+
+BACK:
+Да, вариант Б абсолютно естественен для устной речи. Вариант А также безупречен для письменного отчёта.
+
+CONTEXT:
+Перевод: «Помощники собрали мусор. Вечером они устали». В варианте Б haben gesammelt передаёт действие, а waren — состояние. Обе истории грамматически верны.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните алгоритм выбора подходящей версии.
+::exercise
+Как за несколько секунд выбрать между версиями в Perfekt и Präteritum?
+
+BACK:
+1. Проверьте грамматику (вспомогательный глагол, причастие, рамка). 2. Определите ситуацию (разговор/чат → Perfekt; повесть/книга → Präteritum). 3. Оставьте war, hatte, konnte, musste в устной речи. 4. Не привязывайте выбор к давности событий.
+
+CONTEXT:
+Пример: «Ich war dort und habe mitgeholfen» — гармоничный образец устной речи, сочетающий оба времени.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте две версии описания одного вечера.
+::source
+Версии:
+А. Gestern war ich im Stadtteilzentrum. Dort habe ich eine Lesung besucht. Danach habe ich mit der Autorin gesprochen.
+Б. Gestern war ich im Stadtteilzentrum. Dort besuchte ich eine Lesung. Danach sprach ich mit der Autorin.
+::exercise
+Какая версия типичнее для разговора, какая для книги и есть ли в них ошибки?
+
+BACK:
+1. А — типичный разговорный вариант с другом.
+2. Б — повествовательный книжный вариант.
+3. Ошибок нет ни в А, ни в Б.
+
+CONTEXT:
+Перевод: «Вчера я был в районном центре. Там я посетил литературные чтения. Потом поговорил с автором». war присутствует в обоих, а действия переключаются между Perfekt и Präteritum в зависимости от регистра.

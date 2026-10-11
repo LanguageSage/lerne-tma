@@ -227,8 +227,12 @@ export const StudyCard = React.memo(({
   }, [cardImageHeight]);
 
   const publishedDesignV2 = useSettingsStore(state => state.publishedDesignV2);
+  const isLocalDesignPreviewActive = useSettingsStore(state => state.isLocalDesignPreviewActive);
+  const adminDraftDesignV2 = useSettingsStore(state => state.adminDraftDesignV2);
 
-  const effectiveConfig = publishedDesignV2?.config;
+  const effectiveConfig = (isLocalDesignPreviewActive && adminDraftDesignV2)
+    ? adminDraftDesignV2
+    : publishedDesignV2?.config;
   const v2Styles = useMemo(() => getDesignStylesFromV2(effectiveConfig), [effectiveConfig]);
 
   const cardStyle = useMemo(() => v2Styles?.frontText || getCardStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps

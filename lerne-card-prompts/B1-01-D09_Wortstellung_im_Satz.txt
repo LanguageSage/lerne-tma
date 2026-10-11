@@ -1,0 +1,1064 @@
+# Deck: B1-01-D09 · Wortstellung im Satz — смешанная практика
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-01-D09 · Wortstellung im Satz — смешанная практика",
+    "level": "B1",
+    "topic": "Wortstellung im Satz",
+    "description": "Смешанная практика: самостоятельный выбор и построение синтаксических конструкций (V2, инверсия, рамка, weil/denn, deshalb/trotzdem, obwohl, wenn) по коммуникативной цели",
+    "goal": "Научить ученика сначала определять смысловую задачу (причина, следствие, условие, уступка), а затем самостоятельно выбирать и корректно строить подходящую немецкую синтаксическую модель.",
+    "learning_outcomes": [
+      "Выбирать между Hauptsatz и Nebensatz в зависимости от коммуникативной цели",
+      "Различать причину (weil/denn) и следствие (deshalb/deswegen), уступку (obwohl/trotzdem) и условие (wenn)",
+      "Самостоятельно строить предложения с правильным положением спрягаемого глагола и глагольной рамки",
+      "Применять порядок V2 в главном предложении после предшествующего придаточного",
+      "Объединять несколько синтаксических схем в связных мини-сообщениях и историях"
+    ],
+    "estimated_time": "45–60 минут",
+    "recommendations": "При ошибках в V2/инверсии вернуться к D05; в рамках — к D06; в союзах — к D07; при трудности строить с нуля — к D08. Затем перейти к B1-01-D10."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "context_frame_v2",
+        "title": "Смысл и привычные V2/рамки",
+        "goal": "Подготовка к самостоятельному выбору конструкции в коротком контексте",
+        "from_card": 1,
+        "to_card": 10,
+        "support": "high",
+        "expected_skill": "Выбирать и применять порядок V2 и рамочную конструкцию по контексту"
+      },
+      {
+        "id": "cause_vs_consequence",
+        "title": "Причина против следствия",
+        "goal": "Различать причинные и следственные связки и строить правильный порядок",
+        "from_card": 11,
+        "to_card": 20,
+        "support": "medium",
+        "expected_skill": "Использовать weil, denn, deshalb с соответствующим порядком глагола"
+      },
+      {
+        "id": "concession_condition",
+        "title": "Уступка, условие и обстоятельства",
+        "goal": "Различать obwohl, trotzdem, wenn и строить главное предложение после них",
+        "from_card": 21,
+        "to_card": 30,
+        "support": "medium",
+        "expected_skill": "Применять obwohl, trotzdem, wenn с правильным V2 в главном предложении"
+      },
+      {
+        "id": "situational_dialogues",
+        "title": "Рабочие и бытовые ситуации",
+        "goal": "Формулировать реплики и описания без прямых подсказок правил",
+        "from_card": 31,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Самостоятельно выбирать грамматическую конструкцию под речевую цель"
+      },
+      {
+        "id": "autonomous_integration",
+        "title": "Самостоятельная интеграция",
+        "goal": "Строить связные микросообщения и истории с несколькими конструкциями",
+        "from_card": 41,
+        "to_card": 50,
+        "support": "low",
+        "expected_skill": "Удерживать несколько моделей порядка слов в связном высказывании"
+      }
+    ],
+    "expected_result": "Ученик уверенно выбирает и конструирует сложные и простые синтаксические структуры B1 с точностью не менее 85%",
+    "competencies": [
+      {
+        "id": "mix_context",
+        "title": "V2 и рамка в контексте",
+        "description": "Применение V2 и рамочных конструкций в бытовых ситуациях"
+      },
+      {
+        "id": "mix_frame",
+        "title": "Тип и порядок рамки",
+        "description": "Выбор подходящей формы рамки сказуемого"
+      },
+      {
+        "id": "mix_cause",
+        "title": "Причина и следствие",
+        "description": "Различение weil, denn, deshalb и построение фраз с ними"
+      },
+      {
+        "id": "mix_contrast",
+        "title": "Уступка и контраст",
+        "description": "Различение obwohl, trotzdem и построение уступительных фраз"
+      },
+      {
+        "id": "mix_condition",
+        "title": "Условие и порядок после wenn",
+        "description": "Построение условных предложений с wenn"
+      },
+      {
+        "id": "mix_application",
+        "title": "Интеграция в связной речи",
+        "description": "Свободное построение связных текстов из нескольких предложений"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "crit_meaning_choice",
+        "title": "Выбор конструкции по смыслу",
+        "description": "Соответствие грамматической схемы поставленной коммуникативной задаче"
+      },
+      {
+        "id": "crit_verb_position",
+        "title": "Позиция спрягаемого глагола",
+        "description": "Позиция 2 в Hauptsatz и конечная позиция в Nebensatz"
+      },
+      {
+        "id": "crit_frame_coherence",
+        "title": "Целостность рамки",
+        "description": "Корректное замыкание сказуемого в конце предложения"
+      },
+      {
+        "id": "crit_connector_syntax",
+        "title": "Синтаксис союзов и связок",
+        "description": "Правильный порядок слов после выбранного связующего слова"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "rev_inv",
+        "title": "Повторение V2 и инверсии",
+        "when": "При ошибках в позиции глагола в главном предложении",
+        "reason": "Вернуться к колоде D05",
+        "competency_ids": [
+          "mix_context"
+        ]
+      },
+      {
+        "id": "rev_klammer",
+        "title": "Повторение рамочной конструкции",
+        "when": "При ошибках в замыкании рамки",
+        "reason": "Вернуться к колоде D06",
+        "competency_ids": [
+          "mix_frame"
+        ]
+      },
+      {
+        "id": "rev_syntax_mix",
+        "title": "Повторение союзов и связок",
+        "when": "При путанице weil/deshalb или obwohl/trotzdem",
+        "reason": "Вернуться к колоде D07",
+        "competency_ids": [
+          "mix_cause",
+          "mix_contrast",
+          "mix_condition"
+        ]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напоминание о стратегии.
+::exercise
+Перед построением предложения решите, что именно вы хотите сообщить. Какие три вопроса помогают выбрать порядок слов?
+
+BACK:
+1. Это факт, причина, следствие, условие или противопоставление?
+2. Я строю новое главное предложение (Hauptsatz) или придаточное (Nebensatz)?
+3. Где находится спрягаемый глагол, и есть ли глагольная рамка?
+
+CONTEXT:
+Один смысл можно передать разными путями:
+Der Platz ist nass. Deshalb spielen wir drinnen. (следствие, Hauptsatz)
+Wir spielen drinnen, weil der Platz nass ist. (причина, Nebensatz)
+Грамматика определяется выбранной конструкцией.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+В туристическом центре вам говорят: «Экскурсия начинается через десять минут». Выберите ответ, который правильно сообщает место встречи:
+
+*Vor dem Brunnen treffen wir uns.
+Vor dem Brunnen wir treffen uns.
+
+BACK:
+Vor dem Brunnen treffen wir uns.
+Перевод: Мы встречаемся перед фонтаном.
+
+CONTEXT:
+Смысл — сообщить место встречи. Vor dem Brunnen занимает позицию 1, а спрягаемый глагол treffen стоит на позиции 2 (инверсия).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сотрудник спрашивает: «Wann können Sie die Bescheinigung abholen?»
+::source
+Ответьте одним полным предложением: «в следующий понедельник». Начните со времени.
+::exercise
+@free
+Nächsten Montag...
+
+BACK:
+Nächsten Montag kann ich die Bescheinigung abholen.
+
+CONTEXT:
+В следующий понедельник я могу забрать справку.
+Nächsten Montag занимает позицию 1, спрягаемый kann — позицию 2, инфинитив abholen завершает модальную рамку.
+Допустимо: Am nächsten Montag kann ich die Bescheinigung abholen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Вы сообщаете о завершённом действии: «Книжный магазин доставил заказ вчера». Какая фраза верна?
+
+*Die Buchhandlung hat die Bestellung gestern geliefert.
+Die Buchhandlung hat geliefert die Bestellung gestern.
+
+BACK:
+Die Buchhandlung hat die Bestellung gestern geliefert.
+Перевод: Книжный магазин доставил заказ вчера.
+
+CONTEXT:
+В Perfekt вспомогательный hat занимает позицию 2, а Partizip II geliefert закрывает глагольную рамку в конце предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Перестройте предложение так, чтобы оно начиналось с ответа о месте.
+::source
+Вопрос: Wo findet der Flohmarkt statt?
+Исходное предложение: Der Flohmarkt findet auf dem Schulhof statt.
+::exercise
+Auf dem Schulhof [[findet der Flohmarkt statt]].
+
+BACK:
+Auf dem Schulhof findet der Flohmarkt statt.
+Перевод: Блошиный рынок проходит во дворе школы.
+
+CONTEXT:
+Обстоятельство места Auf dem Schulhof вынесено в начало (позиция 1), спрягаемый findet стоит на позиции 2, отделяемая приставка statt — в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите правильную форму глагола «müssen».
+::source
+Соседи обсуждают план на вечер: «Сегодня нам необходимо убрать общую комнату».
+::exercise
+Heute [[müssen]] wir den Gemeinschaftsraum aufräumen.
+
+BACK:
+Сегодня нам нужно убрать общую комнату.
+
+CONTEXT:
+Heute занимает позицию 1, спрягаемый müssen стоит на позиции 2, инфинитив aufräumen завершает рамку в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Подберите сообщение к каждой речевой ситуации.
+::exercise
+@match
+Действие уже выполнено. => Wir haben die Stühle aufgestellt.
+Действие необходимо выполнить. => Wir müssen die Stühle aufstellen.
+Действие происходит сейчас. => Wir stellen die Stühle auf.
+
+BACK:
+Мы расставили стулья. / Нам нужно расставить стулья. / Мы расставляем стулья.
+
+CONTEXT:
+haben ... aufgestellt — рамка Perfekt; müssen ... aufstellen — модальная рамка; stellen ... auf — отделяемый глагол в Präsens.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение. Начните с указания времени «Gegen Mittag».
+::exercise
+@puzzle
+Gegen Mittag haben die Händler ihre Stände aufgebaut.
+
+BACK:
+Ближе к полудню торговцы установили свои прилавки.
+
+CONTEXT:
+Gegen Mittag занимает позицию 1, вспомогательный haben — позицию 2, причастие aufgebaut завершает рамку Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте порядок слов в объявлении на двери мастерской.
+::source
+❌ Heute der Betrieb macht schon um vier Uhr zu.
+::exercise
+Heute [[macht der Betrieb schon um vier Uhr zu]].
+
+BACK:
+Heute macht der Betrieb schon um vier Uhr zu.
+Перевод: Сегодня предприятие закрывается уже в четыре часа.
+
+CONTEXT:
+После начального Heute спрягаемая основа macht обязана стоять на позиции 2. Отделяемая приставка zu остаётся в конце предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Знакомый спрашивает: «Habt ihr die Plätze reserviert?»
+::source
+Ответьте полным предложением: «Мы забронировали места вчера вечером».
+::exercise
+@free
+Wir...
+
+BACK:
+Wir haben die Plätze gestern Abend reserviert.
+
+CONTEXT:
+Мы забронировали места вчера вечером.
+Вспомогательный haben на позиции 2, Partizip II reserviert в конце.
+Допустимо: Gestern Abend haben wir die Plätze reserviert.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Есть две мысли: «Банкомат не выдаёт деньги. У меня нет наличных». Какой вариант выражает следствие («поэтому»), а не причину?
+
+*Der Geldautomat gibt kein Geld aus. Deshalb habe ich kein Bargeld.
+Ich habe kein Bargeld, weil der Geldautomat kein Geld ausgibt.
+
+BACK:
+Der Geldautomat gibt kein Geld aus. Deshalb habe ich kein Bargeld.
+Перевод: Банкомат не выдаёт деньги. Поэтому у меня нет наличных.
+
+CONTEXT:
+Следствие выражается с помощью Deshalb в начале нового главного предложения (V2: Deshalb habe ich...). Вариант с weil называет причину.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните, почему не удалось позвонить, объединив факты в одно предложение.
+::source
+Факты: Ich konnte nicht anrufen. Mein Handy war leer.
+::exercise
+@free
+Ich konnte nicht anrufen, ...
+
+BACK:
+Ich konnte nicht anrufen, weil mein Handy leer war.
+
+CONTEXT:
+Я не мог позвонить, потому что телефон был разряжен.
+Причина передаётся союзом weil, глагол war уходит в конец придаточного.
+Допустимо: Ich konnte nicht anrufen, denn mein Handy war leer.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте два главных предложения со значением следствия.
+::source
+Ситуация: в помещении не работает отопление, поэтому людям выдали пледы.
+Словарь: die Heizung — отопление; die Decke — плед
+::exercise
+@free
+Die Heizung...
+Deshalb...
+
+BACK:
+Die Heizung funktioniert nicht. Deshalb bekommen die Leute Decken.
+
+CONTEXT:
+Отопление не работает. Поэтому людям выдают пледы.
+Deshalb открывает второе главное предложение (позиция 1), спрягаемый bekommen стоит на позиции 2.
+Допустимо: Die Heizung funktioniert nicht. Deshalb hat man den Leuten Decken gegeben.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Клиент говорит, что придёт позже из-за отмены автобуса. Какая грамматика верна для придаточного с «weil»?
+
+*Ich komme später, weil der Bus ausgefallen ist.
+Ich komme später, weil der Bus ist ausgefallen.
+
+BACK:
+Ich komme später, weil der Bus ausgefallen ist.
+Перевод: Я приду позже, потому что автобус отменили.
+
+CONTEXT:
+В придаточном предложении с weil форма времени Perfekt закрывается спрягаемым вспомогательным глаголом ist: ausgefallen ist.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте два главных предложения со значением следствия («поэтому»).
+::source
+Смысл: «На дороге ведутся ремонтные работы. Поэтому объезд длиннее».
+Словарь: die Umleitung — объезд; länger — длиннее
+::exercise
+@free
+Auf der Straße...
+Deshalb...
+
+BACK:
+Auf der Straße gibt es Bauarbeiten. Deshalb ist die Umleitung länger.
+
+CONTEXT:
+На дороге ведутся ремонтные работы. Поэтому объезд длиннее.
+В первом предложении: V2 (gibt es). Во втором: Deshalb на позиции 1, спрягаемый ist на позиции 2.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Перестройте фразу так, чтобы она начиналась с причины.
+::source
+Мысль: Мы выходим на свежий воздух, потому что в комнате плохой воздух.
+Исходное: Wir gehen ins Freie, weil die Luft im Zimmer schlecht ist.
+::exercise
+Weil die Luft im Zimmer schlecht ist, [[gehen wir ins Freie]].
+
+BACK:
+Weil die Luft im Zimmer schlecht ist, gehen wir ins Freie.
+Перевод: Мы выходим на свежий воздух, потому что в комнате плохой воздух.
+
+CONTEXT:
+Придаточное предложение с weil стоит на первом месте. Главное предложение начинается со спрягаемого глагола gehen сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте порядок слов во втором предложении.
+::source
+❌ Der Parkplatz ist voll. Deshalb wir suchen einen anderen.
+::exercise
+Der Parkplatz ist voll. Deshalb [[suchen wir einen anderen]].
+
+BACK:
+Der Parkplatz ist voll. Deshalb suchen wir einen anderen.
+Перевод: Парковка заполнена. Поэтому мы ищем другую.
+
+CONTEXT:
+Слово Deshalb занимает первую позицию во втором главном предложении, поэтому спрягаемый suchen обязан стоять на позиции 2 перед wir.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните сотруднику кафе, почему вы пересели: «возле окна было слишком холодно».
+::source
+Одно сложное предложение; выберите причинную связку сами.
+::exercise
+@free
+Ich habe den Platz gewechselt, ...
+
+BACK:
+Ich habe den Platz gewechselt, weil es am Fenster zu kalt war.
+
+CONTEXT:
+Я пересел, потому что возле окна было слишком холодно.
+Причина естественно передаётся через weil, спрягаемый глагол war стоит в самом конце придаточного.
+Допустимо: Ich sitze jetzt hier, weil es am Fenster zu kalt war.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите короткое сообщение соседу двумя главными предложениями.
+::source
+Смысл: «Лифт временно не работает. Поэтому я иду по лестнице».
+Словарь: vorübergehend — временно; die Treppe — лестница
+::exercise
+@free
+Der Aufzug...
+Deshalb...
+
+BACK:
+Der Aufzug ist vorübergehend außer Betrieb. Deshalb nehme ich die Treppe.
+
+CONTEXT:
+Лифт временно не работает. Поэтому я иду по лестнице.
+Первое предложение сообщает факт. Второе начинается с Deshalb (позиция 1), спрягаемый nehme стоит на позиции 2.
+Допустимо: Der Aufzug funktioniert zurzeit nicht. Deshalb gehe ich zu Fuß nach oben.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините две мысли в одно предложение, объясняющее отмену приёма.
+::source
+Факты: Der Termin fällt heute aus. Die Ärztin ist krank.
+::exercise
+@free
+Der Termin fällt heute aus, ...
+
+BACK:
+Der Termin fällt heute aus, weil die Ärztin krank ist.
+
+CONTEXT:
+Сегодня приём отменяется, потому что врач болеет.
+С союзом weil спрягаемый ist стоит в конце придаточного.
+Допустимо: Der Termin fällt heute aus, denn die Ärztin ist krank.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+На улице сильный ветер, но люди всё равно сидят на террасе. Какой вариант подчёркивает противопоставление («тем не менее»), а не следствие?
+
+*Es ist windig. Trotzdem sitzen die Gäste auf der Terrasse.
+Es ist windig. Deshalb sitzen die Gäste auf der Terrasse.
+
+BACK:
+Es ist windig. Trotzdem sitzen die Gäste auf der Terrasse.
+Перевод: Ветрено. Тем не менее гости сидят на террасе.
+
+CONTEXT:
+Trotzdem передаёт уступку и противопоставление («тем не менее»), в отличие от deshalb («поэтому»). Оба слова требуют глагол на позиции 2.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два предложения в одно сложное с уступчивым союзом «obwohl».
+::source
+Факты: Das Konzert dauert lange. Die Besucher bleiben bis zum Schluss.
+::exercise
+@free
+Obwohl...
+
+BACK:
+Obwohl das Konzert lange dauert, bleiben die Besucher bis zum Schluss.
+
+CONTEXT:
+Хотя концерт длится долго, посетители остаются до конца.
+Obwohl вводит придаточное со спрягаемым dauert в конце. После запятой главное предложение начинается с глагола bleiben.
+Допустимо: Die Besucher bleiben bis zum Schluss, obwohl das Konzert lange dauert.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите две главные фразы, подчеркнув контраст со словом «Trotzdem».
+::source
+Смысл: «Холодно. Тем не менее я хотел бы покататься на велосипеде».
+::exercise
+@free
+Es ist kalt.
+Trotzdem...
+
+BACK:
+Es ist kalt. Trotzdem möchte ich Fahrrad fahren.
+
+CONTEXT:
+Холодно. Тем не менее я хотел бы покататься на велосипеде.
+Trotzdem начинает второе главное предложение (позиция 1), модальный möchte стоит на позиции 2, инфинитив Fahrrad fahren — в конце.
+Допустимо: Es ist kalt. Trotzdem fahre ich Fahrrad.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Выберите правильный порядок слов для предложения с уступчивым союзом «Obwohl»:
+
+*Obwohl der Laden klein ist, findet man dort vieles.
+Obwohl der Laden ist klein, man findet dort vieles.
+
+BACK:
+Obwohl der Laden klein ist, findet man dort vieles.
+Перевод: Хотя магазин маленький, там можно найти многое.
+
+CONTEXT:
+В придаточном предложении с obwohl глагол ist стоит в конце. Главное предложение после запятой начинается со спрягаемого глагола findet.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Продолжите мысль отдельным предложением: «Тем не менее я ношу их каждый день».
+::source
+Первая фраза: Die Schuhe sind nicht bequem.
+::exercise
+@free
+Die Schuhe sind nicht bequem.
+Trotzdem...
+
+BACK:
+Trotzdem trage ich sie jeden Tag.
+
+CONTEXT:
+Тем не менее я ношу их каждый день.
+Слово Trotzdem стоит на позиции 1, спрягаемый trage — на позиции 2, подлежащее ich следует за глаголом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Передайте по-немецки: «Если ветер усилится, мы останемся дома».
+::source
+Словарь: stärker werden — усиливаться
+::exercise
+@free
+Wenn...
+
+BACK:
+Wenn der Wind stärker wird, bleiben wir zu Hause.
+
+CONTEXT:
+Если ветер усилится, мы останемся дома.
+В придаточном условии с wenn спрягаемый wird стоит в конце. Главное предложение начинается со спрягаемого глагола bleiben сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Появление письма — ещё не факт. Если оно придёт, нужно сразу ответить. Какое предложение передаёт это условие?
+
+*Wenn der Brief kommt, antworten wir sofort.
+Obwohl der Brief kommt, antworten wir sofort.
+
+BACK:
+Wenn der Brief kommt, antworten wir sofort.
+Перевод: Если письмо придёт, мы ответим сразу.
+
+CONTEXT:
+Союз wenn вводит условие («если»). Союз obwohl выражает уступку («хотя»). После начального придаточного главное начинается с antworten.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Свяжите мысли в одно условное сложноподчинённое предложение с «wenn».
+::source
+Смысл: «Если у тебя есть членская карта, тебе разрешено войти в зал».
+Словарь: die Mitgliedskarte — карта; den Saal betreten — войти в зал
+::exercise
+@free
+Wenn du...
+
+BACK:
+Wenn du deine Mitgliedskarte hast, darfst du den Saal betreten.
+
+CONTEXT:
+Если у тебя есть членская карта, тебе разрешено войти в зал.
+В придаточном hast стоит в конце. Главное предложение начинается с darfst на позиции 2, инфинитив betreten закрывает рамку.
+Допустимо: Du darfst den Saal betreten, wenn du deine Mitgliedskarte hast.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте порядок слов в обеих частях сложного предложения.
+::source
+❌ Obwohl der Weg ist lang, wir gehen zu Fuß.
+::exercise
+Obwohl der Weg lang ist, [[gehen wir zu Fuß]].
+
+BACK:
+Obwohl der Weg lang ist, gehen wir zu Fuß.
+Перевод: Хотя путь длинный, мы идём пешком.
+
+CONTEXT:
+В придаточном с obwohl глагол ist обязан стоять в конце. Главное предложение сразу после запятой открывается спрягаемым глаголом gehen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соотнесите смысловую задачу и немецкое предложение.
+::exercise
+@match
+Условие: сухая погода — пикник. => Wenn es trocken bleibt, machen wir ein Picknick.
+Уступка: холодно, но идём на пикник. => Es ist kalt. Trotzdem machen wir ein Picknick.
+Следствие: идёт дождь, поэтому остаёмся дома. => Es regnet. Deshalb bleiben wir zu Hause.
+
+BACK:
+Если сухо, устроим пикник. / Холодно, но устроим пикник. / Дождь, поэтому остаёмся дома.
+
+CONTEXT:
+Wenn = условие; trotzdem = уступка/контраст; deshalb = следствие. В каждом главном предложении строго соблюдается правило V2.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите организатору два немецких предложения.
+::source
+1. «В субботу я могу приехать» (начните с «Am Samstag»).
+2. «Если экскурсия начнётся раньше, пожалуйста, сообщите мне» (начните с «Wenn»).
+Словарь: Bescheid sagen — сообщать
+::exercise
+@free
+Am Samstag...
+Wenn...
+
+BACK:
+Am Samstag kann ich kommen. Wenn die Führung früher beginnt, sagen Sie mir bitte Bescheid.
+
+CONTEXT:
+В субботу я могу приехать. Если экскурсия начнётся раньше, сообщите мне.
+В 1-м: инверсия Am Samstag kann ich kommen. Во 2-м: wenn-придаточное со спрягаемым beginnt в конце и повелительное главное sagen Sie.
+Допустимо: Bitte informieren Sie mich, wenn die Führung früher beginnt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Продавец предлагает забрать заказ сегодня. Ответьте, что можете только завтра из-за работы.
+::source
+Смысл: «Я могу забрать заказ только завтра, потому что сегодня работаю до вечера».
+::exercise
+@free
+Ich kann die Bestellung erst morgen abholen, ...
+
+BACK:
+Ich kann die Bestellung erst morgen abholen, weil ich heute bis zum Abend arbeite.
+
+CONTEXT:
+Я могу забрать заказ только завтра, потому что сегодня работаю до вечера.
+В главном модальная рамка kann ... abholen. В придаточном после weil спрягаемый глагол arbeite стоит в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте две фразы участникам репетиции со словом «Deshalb».
+::source
+Смысл: «Репетиция закончилась. Поэтому теперь мы можем открыть двери».
+::exercise
+@free
+Die Probe...
+Deshalb...
+
+BACK:
+Die Probe ist zu Ende. Deshalb können wir jetzt die Türen öffnen.
+
+CONTEXT:
+Репетиция закончилась. Поэтому теперь мы можем открыть двери.
+Deshalb занимает позицию 1 во втором предложении, модальный können — позицию 2, инфинитив öffnen замыкает рамку.
+Допустимо: Die Probe ist vorbei. Deswegen können wir jetzt die Türen öffnen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Скажите по-немецки одним предложением: «Я рад, что сдал экзамен».
+::source
+Словарь: bestehen → bestanden; froh — рад
+::exercise
+@free
+Ich bin froh, ...
+
+BACK:
+Ich bin froh, dass ich die Prüfung bestanden habe.
+
+CONTEXT:
+Я рад, что сдал экзамен.
+Главное Ich bin froh имеет прямой порядок. В придаточном с dass комплекс Perfekt bestanden habe стоит в конце.
+Допустимо: Ich freue mich, dass ich die Prüfung bestanden habe.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку в первой части предложения.
+::source
+❌ Morgen ich habe frei, aber ich muss trotzdem früh aufstehen.
+::exercise
+Morgen [[habe ich frei]], aber ich muss trotzdem früh aufstehen.
+
+BACK:
+Morgen habe ich frei, aber ich muss trotzdem früh aufstehen.
+Перевод: Завтра у меня выходной, но мне всё равно нужно рано вставать.
+
+CONTEXT:
+После начального обстоятельства времени Morgen спрягаемый habe обязан стоять на позиции 2. Вторая часть после aber уже грамматически верна.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите: «Когда библиотека откроется, я возьму книгу на время».
+::source
+Словарь: öffnen — открываться; ein Buch ausleihen — взять книгу на время
+::exercise
+@free
+Wenn...
+
+BACK:
+Wenn die Bibliothek öffnet, leihe ich ein Buch aus.
+
+CONTEXT:
+Когда библиотека откроется, я возьму книгу на время.
+В придаточном öffnet стоит в конце. В главном после запятой спрягаемая основа leihe стоит сразу первой (позиция 2), приставка aus — в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните другу: вы не можете пойти на фестиваль, потому что все билеты распроданы.
+::source
+Словарь: ausverkauft — распроданный
+::exercise
+@free
+Ich kann nicht...
+
+BACK:
+Ich kann nicht zum Festival gehen, weil die Tickets ausverkauft sind.
+
+CONTEXT:
+Я не могу пойти на фестиваль, потому что билеты распроданы.
+Главное: kann ... gehen. В придаточном с weil спрягаемый глагол sind стоит в конце.
+Допустимо: Die Tickets sind ausverkauft. Deshalb kann ich nicht zum Festival gehen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите одно сложное предложение с уступкой: «Хотя соседи шумят, я продолжаю учить немецкий».
+::source
+Начните с союза «Obwohl».
+::exercise
+@free
+Obwohl...
+
+BACK:
+Obwohl die Nachbarn laut sind, lerne ich weiter Deutsch.
+
+CONTEXT:
+Хотя соседи шумят, я продолжаю учить немецкий.
+В придаточном sind стоит в конце; главное после запятой начинается со спрягаемого глагола lerne ich.
+Допустимо: Ich lerne weiter Deutsch, obwohl die Nachbarn laut sind.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте полным предложением: «Warum hat der Laden schon geschlossen?»
+::source
+Факт: сегодня государственный праздник.
+Словарь: der Feiertag — праздник
+::exercise
+@free
+Der Laden hat schon geschlossen, ...
+
+BACK:
+Der Laden hat schon geschlossen, weil heute ein Feiertag ist.
+
+CONTEXT:
+Магазин уже закрылся, потому что сегодня государственный праздник.
+Главное: Perfekt hat ... geschlossen. В придаточном с weil спрягаемый ist стоит в самом конце.
+Допустимо: Heute ist ein Feiertag. Deshalb hat der Laden schon geschlossen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Передайте ту же мысль одним сложноподчинённым предложением с «Obwohl».
+::source
+Исходное: Die Strecke ist kurz. Trotzdem nehmen wir den Bus.
+::exercise
+@free
+Obwohl...
+
+BACK:
+Obwohl die Strecke kurz ist, nehmen wir den Bus.
+
+CONTEXT:
+Хотя расстояние небольшое, мы едем на автобусе.
+В придаточном с obwohl глагол ist стоит в конце, а главное предложение после запятой начинается со спрягаемого nehmen wir.
+Допустимо: Wir nehmen den Bus, obwohl die Strecke kurz ist.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Коллега спрашивает: «Kannst du morgen die Schlüssel zurückgeben?»
+::source
+Ответьте: «Да, после обеда я смогу вернуть ключи». Начните с «Ja, am Nachmittag...»
+::exercise
+@free
+Ja, am Nachmittag...
+
+BACK:
+Ja, am Nachmittag kann ich die Schlüssel zurückgeben.
+
+CONTEXT:
+Да, после обеда я смогу вернуть ключи.
+После частицы Ja главное предложение открывается временем: am Nachmittag (позиция 1), kann (позиция 2), zurückgeben (инфинитив в конце).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте две фразы о посещении выставки.
+::source
+1. «Вчера мы увидели интересную выставку» (Perfekt, начните с «Gestern»).
+2. «Она нам понравилась, хотя пришлось долго ждать» (союз «obwohl»).
+Опоры: sie hat uns gefallen; wir mussten lange warten
+::exercise
+@free
+Gestern...
+Sie hat...
+
+BACK:
+Gestern haben wir eine interessante Ausstellung gesehen. Sie hat uns gefallen, obwohl wir lange warten mussten.
+
+CONTEXT:
+Вчера мы увидели интересную выставку. Она понравилась нам, хотя пришлось долго ждать.
+В первом предложении: Perfekt haben ... gesehen. Во втором: hat ... gefallen и уступчивое придаточное с warten mussten в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите клиенту два предложения, используя вежливую форму «Sie».
+::source
+1. «Посылка пришла сегодня утром» (Perfekt).
+2. «Поэтому вы можете забрать её завтра» (начните с «Deshalb»).
+::exercise
+@free
+Das Paket...
+Deshalb...
+
+BACK:
+Das Paket ist heute Morgen angekommen. Deshalb können Sie es morgen abholen.
+
+CONTEXT:
+Посылка прибыла сегодня утром. Поэтому завтра вы можете её забрать.
+В 1-м: Perfekt ist ... angekommen. Во 2-м: Deshalb на позиции 1, können на позиции 2, abholen в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите две короткие фразы о спешащем человеке со словом «Trotzdem».
+::source
+Смысл: «Он спешит. Тем не менее он ненадолго останавливается и говорит со мной».
+Опоры: er hat es eilig; stehen bleiben; mit mir sprechen
+::exercise
+@free
+Er hat es eilig.
+Trotzdem...
+
+BACK:
+Er hat es eilig. Trotzdem bleibt er kurz stehen und spricht mit mir.
+
+CONTEXT:
+Он спешит. Тем не менее ненадолго останавливается и говорит со мной.
+Trotzdem начинает второе главное предложение (позиция 1), спрягаемый bleibt стоит на позиции 2, образуя рамку bleibt ... stehen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Передайте двумя предложениями информацию о городском празднике.
+::source
+1. «Завтра проходит городской праздник» (начните с «Morgen»).
+2. «Если погода испортится, мы будем праздновать внутри» (начните с «Wenn»).
+Словарь: das Stadtfest, drinnen, feiern
+::exercise
+@free
+Morgen...
+Wenn...
+
+BACK:
+Morgen findet das Stadtfest statt. Wenn das Wetter schlecht wird, feiern wir drinnen.
+
+CONTEXT:
+Завтра проходит городской праздник. Если погода испортится, мы будем праздновать внутри.
+В 1-м: Morgen | findet ... statt. Во 2-м: wenn ... wird и главное предложение feiern wir drinnen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите однокурснику три связанных предложения.
+::source
+1. Сегодня преподавательница отменила занятие (Perfekt, начните с «Heute»).
+2. Поэтому я делаю домашнюю работу дома (начните с «Deshalb»).
+3. Если будет время, повторю новые слова (начните с «Wenn»).
+::exercise
+@free
+Heute...
+Deshalb...
+Wenn...
+
+BACK:
+Heute hat die Lehrerin den Unterricht abgesagt. Deshalb mache ich die Hausaufgaben zu Hause. Wenn ich Zeit habe, wiederhole ich die neuen Wörter.
+
+CONTEXT:
+Сегодня преподавательница отменила занятие. Поэтому я делаю домашнее задание дома. Если будет время, повторю новые слова.
+Сочетание трёх структур: инверсия с Perfekt, следствие с Deshalb (V2) и условное придаточное с wenn.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите управляющему домом три предложения о проблеме с почтовым ящиком.
+::source
+1. Вчера заметил, что почтовый ящик повреждён (Perfekt + dass).
+2. Поэтому некоторые письма промокли (Perfekt, начните с «Deshalb»).
+3. Прошу вас о ремонте: Ich möchte Sie um eine Reparatur bitten.
+Словарь: der Briefkasten, beschädigt, nass
+::exercise
+@free
+Gestern...
+Deshalb...
+Ich möchte...
+
+BACK:
+Gestern habe ich bemerkt, dass der Briefkasten beschädigt ist. Deshalb sind einige Briefe nass geworden. Ich möchte Sie um eine Reparatur bitten.
+
+CONTEXT:
+Вчера заметил, что почтовый ящик повреждён. Поэтому некоторые письма промокли. Хотел бы попросить вас о ремонте.
+В 1-м: Gestern habe ich ... bemerkt, dass ... ist. Во 2-м: Deshalb sind ... geworden. В 3-м: модальная рамка möchte ... bitten.
+Допустимо в конце: Können Sie den Briefkasten bitte reparieren?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните изменение планов тремя предложениями.
+::source
+1. Хотели поехать в горы (wollten ... fahren).
+2. Но машина сломалась (aber + Perfekt: ist kaputtgegangen).
+3. Поэтому поедем поездом, если удастся купить билеты (Deshalb ... wenn ...).
+::exercise
+@free
+Wir wollten...
+Aber...
+Deshalb...
+
+BACK:
+Wir wollten in die Berge fahren. Aber unser Auto ist kaputtgegangen. Deshalb fahren wir mit dem Zug, wenn wir Fahrkarten bekommen.
+
+CONTEXT:
+Мы хотели ехать в горы. Но машина сломалась. Поэтому поедем поездом, если достанем билеты.
+1. wollten ... fahren. 2. aber unser Auto ist kaputtgegangen. 3. Deshalb fahren wir ... wenn wir Fahrkarten bekommen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Напишите знакомому три предложения о собрании жильцов.
+::source
+1. Вчера получил приглашение на собрание жильцов (Perfekt, начните с «Gestern»).
+2. Хотел бы прийти, хотя мало времени (союз «obwohl»).
+3. Если закончим до восьми, сможем после поговорить (начните с «Wenn»).
+::exercise
+@free
+Gestern...
+Ich möchte...
+Wenn...
+
+BACK:
+Gestern habe ich eine Einladung zur Hausversammlung bekommen. Ich möchte kommen, obwohl ich wenig Zeit habe. Wenn die Versammlung vor acht Uhr zu Ende ist, können wir danach noch sprechen.
+
+CONTEXT:
+Вчера получил приглашение на собрание жильцов. Хотел бы прийти, хотя времени мало. Если закончим до восьми, сможем поговорить.
+1. Gestern habe ich ... bekommen. 2. möchte kommen, obwohl ich ... habe. 3. Wenn ... ist, können wir ... sprechen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте финальное сообщение из 4 связанных предложений.
+::source
+1. Вчера получил письмо с датой встречи (Perfekt, начните с «Gestern»).
+2. Сегодня не могу ответить из-за занятости (начните с «Heute», союз «weil»).
+3. Завтра отвечу, даже если времени будет мало (начните с «Morgen», «auch wenn»).
+4. Попросите сообщить, сможет ли он прийти: «Sag mir bitte Bescheid, ob du auch kommen kannst».
+::exercise
+@free
+Gestern...
+Heute...
+Morgen...
+Sag mir...
+
+BACK:
+Gestern habe ich einen Brief mit dem Termin bekommen. Heute kann ich nicht antworten, weil ich beschäftigt bin. Morgen antworte ich, auch wenn ich wenig Zeit habe. Sag mir bitte Bescheid, ob du auch kommen kannst.
+
+CONTEXT:
+Вчера я получил письмо с датой встречи. Сегодня не могу ответить, потому что занят. Завтра отвечу, даже если времени будет мало. Сообщи, сможешь ли ты тоже прийти.
+1. Инверсия и Perfekt. 2. Модальная рамка и причина weil ... bin. 3. Инверсия и уступка auch wenn ... habe. 4. Косвенный вопрос с ob ... kannst.

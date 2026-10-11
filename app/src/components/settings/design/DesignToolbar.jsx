@@ -3,7 +3,7 @@
  * Preset picker, Save draft, Publish (с confirm), Copy JSON, Import JSON, Reset section, Revert.
  */
 import React, { useRef, useState } from 'react';
-import { Save, Upload, Download, RotateCcw, Globe, ChevronDown, Copy, Check } from 'lucide-react';
+import { Save, Upload, Download, RotateCcw, Globe, ChevronDown, Copy, Check, Eye } from 'lucide-react';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { normalizeDesignConfig } from '../../../design/designConfig.js';
 import { DESIGN_PRESETS } from '../../../constants/appConstants';
@@ -15,6 +15,8 @@ const ADAPTED_PRESETS = adaptDesignPresetsToV2(DESIGN_PRESETS);
 export const DesignToolbar = ({ activeSection, onResetSection }) => {
   const adminDraftDesignV2 = useSettingsStore(s => s.adminDraftDesignV2);
   const publishedDesignV2 = useSettingsStore(s => s.publishedDesignV2);
+  const isLocalPreviewActive = useSettingsStore(s => s.isLocalDesignPreviewActive);
+  const toggleLocalDesignPreview = useSettingsStore(s => s.toggleLocalDesignPreview);
   const setAdminDraftDesignV2 = useSettingsStore(s => s.setAdminDraftDesignV2);
   const revertDraftToPublished = useSettingsStore(s => s.revertDraftToPublished);
   const saveAdminDraftToServer = useSettingsStore(s => s.saveAdminDraftToServer);
@@ -40,6 +42,12 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
     const result = await saveAdminDraftToServer();
     setSaving(false);
     setToolMessage(result?.success ? tr('Черновик сохранён') : (result?.error || tr('Ошибка сохранения')));
+  };
+
+  const handleToggleLocalPreview = () => {
+    const next = toggleLocalDesignPreview();
+    setToolMessage(next ? tr('Черновик применён в вашем браузере') : tr('Локальный просмотр выключен'));
+    setTimeout(() => setToolMessage(''), 3000);
   };
 
   const handlePublishClick = () => {
@@ -131,6 +139,7 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
       {/* Save / Publish */}
       <div className="design-toolbar-group">
         <button
+          type="button"
           className="design-toolbar-btn"
           onClick={handleSaveDraft}
           disabled={saving || publishing || !adminDraftDesignV2}
@@ -138,6 +147,17 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
         >
           <Save size={15} />
           {saving ? tr('Сохранение...') : tr('Сохранить черновик')}
+        </button>
+
+        <button
+          type="button"
+          className={`design-toolbar-btn ${isLocalPreviewActive ? 'design-toolbar-local-active' : ''}`}
+          onClick={handleToggleLocalPreview}
+          disabled={!adminDraftDesignV2}
+          title={isLocalPreviewActive ? tr('Отключить локальный просмотр черновика') : tr('Применить черновик только в моем браузере')}
+        >
+          <Eye size={15} />
+          {isLocalPreviewActive ? tr('Только у меня: ВКЛ') : tr('Применить только у меня')}
         </button>
 
         {publishConfirm ? (

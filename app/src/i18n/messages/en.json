@@ -1776,5 +1776,11 @@
   "Рекомендации автора; они не основаны на автоматической диагностике ошибок.": "Author recommendations; these are not based on automatic error diagnostics.",
   "Ты отлично справился с заданиями занятия!": "You did very well on the lesson exercises!",
   "⚡️ Хороший результат": "⚡️ Good result",
-  "✨ Занятие завершено": "✨ Lesson completed"
+  "✨ Занятие завершено": "✨ Lesson completed",
+  "Применить только у меня": "Apply only for me",
+  "Только у меня: ВКЛ": "Only for me: ON",
+  "Черновик применён в вашем браузере": "Draft applied in your browser",
+  "Локальный просмотр выключен": "Local preview disabled",
+  "Отключить локальный просмотр черновика": "Disable local draft preview",
+  "Применить черновик только в моем браузере": "Apply draft only in my browser"
 }

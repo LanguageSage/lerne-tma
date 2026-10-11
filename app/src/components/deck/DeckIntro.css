@@ -401,7 +401,7 @@
   justify-content: center;
   gap: 10px;
   padding: 10px 16px;
-  min-height: 48px;
+  min-height: var(--ui-button-height, 48px);
   box-sizing: border-box;
 
   font-size: 1rem;
@@ -432,7 +432,7 @@
   justify-content: center;
   gap: 8px;
   padding: 10px 16px;
-  min-height: 48px;
+  min-height: var(--ui-button-height, 48px);
   box-sizing: border-box;
 
   font-size: 0.95rem;

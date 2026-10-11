@@ -58,8 +58,12 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const previewCardLines = useSettingsStore(s => s.previewCardLines);
   const previewCardTextAlign = useSettingsStore(s => s.previewCardTextAlign);
   const publishedDesignV2 = useSettingsStore(s => s.publishedDesignV2);
+  const isLocalDesignPreviewActive = useSettingsStore(s => s.isLocalDesignPreviewActive);
+  const adminDraftDesignV2 = useSettingsStore(s => s.adminDraftDesignV2);
 
-  const effectiveCardListConfig = publishedDesignV2?.config?.cardList;
+  const effectiveCardListConfig = (isLocalDesignPreviewActive && adminDraftDesignV2)
+    ? adminDraftDesignV2.cardList
+    : publishedDesignV2?.config?.cardList;
 
   const effectiveCardBg = effectiveCardListConfig?.card?.bg || previewCardBg || 'dark_obsidian';
   const cardListBg = React.useMemo(() => getCardListBgStyle(effectiveCardBg), [effectiveCardBg]);
@@ -1068,7 +1072,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       frontTypographyStyle={frontTypographyStyle}
                       backTypographyStyle={backTypographyStyle}
                       cardListBg={cardListBg}
-                      previewCardLines={publishedDesignV2?.config?.cardList?.frontText?.lines ?? previewCardLines}
+                      previewCardLines={effectiveCardListConfig?.frontText?.lines ?? previewCardLines}
                       isSelectMode={isSelectMode}
                       isSelected={selectedCardIds.has(c.id)}
                       onToggleSelect={handleToggleSelectCard}

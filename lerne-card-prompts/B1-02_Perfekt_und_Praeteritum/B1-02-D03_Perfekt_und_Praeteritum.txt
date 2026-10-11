@@ -1,0 +1,881 @@
+# Deck: B1-02-D03 · Perfekt und Präteritum in Erzählungen — распознавание форм
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-02-D03 · Perfekt und Präteritum in Erzählungen — распознавание форм",
+    "level": "B1",
+    "topic": "Perfekt und Präteritum in Erzählungen",
+    "description": "Практика быстрого распознавания форм Perfekt, Präteritum и Präsens в предложениях и связных рассказах",
+    "goal": "Научить ученика без долгих размышлений узнавать прошедшие формы в реальных немецких предложениях и коротких историях. После двух теоретических колод переходим к распознаванию, но пока не заставляем самостоятельно спрягать сильные глаголы или составлять длинные рассказы. Главный вопрос: «Какое время использовано и какие слова это доказывают?» Важно узнавать не только типичные формы на -te, но и war, hatte, konnte, wollte, ging, sah, fand, а также отличать Perfekt от внешне похожих конструкций в Präsens.",
+    "learning_outcomes": [
+      "Находить в предложении обе части Perfekt: спрягаемое haben/sein + Partizip II",
+      "Узнавать Präteritum слабых, сильных, смешанных и модальных глаголов",
+      "Не путать hat как самостоятельный глагол в Präsens с hat ... gemacht как Perfekt",
+      "Не считать каждое предложение с sein конструкцией Perfekt",
+      "Различать Präsens, Perfekt и Präteritum в простых контрастах",
+      "Распознавать оба прошедших времени в вопросах, отрицаниях и придаточных",
+      "Выделять все прошедшие формы в коротком рассказе, в том числе смешанном",
+      "Находить главное доказательство своего ответа: конкретную форму глагола, а не только слова времени"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "Если ученик не видит конструкцию Perfekt — повторить карточки 01, 03, 05, 10, 15 (и D02: 02, 07–13); если не узнаёт Präteritum сильных и модальных глаголов — 06, 11–16, 20–21; если путает Präsens и Perfekt из-за haben/sein — 07, 16, 19, 35–36, 40; если теряется в длинных фразах и историях — 25–32, затем 33–48. При успешном освоении перейти к B1-02-D04 «Первый выбор»."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "clear_forms_recognition",
+        "title": "Базовое распознавание форм",
+        "goal": "Научиться уверенно определять Perfekt, Präteritum и Präsens в прозрачных коротких фразах",
+        "from_card": 1,
+        "to_card": 8,
+        "support": "high",
+        "expected_skill": "Находить две части Perfekt и отличать их от Präteritum и Präsens"
+      },
+      {
+        "id": "irregular_and_modal_forms",
+        "title": "Сильные, смешанные и модальные формы",
+        "goal": "Распознавать регулярные и нерегулярные формы Präteritum, модальные глаголы и изменения состояния в Perfekt",
+        "from_card": 9,
+        "to_card": 16,
+        "support": "high",
+        "expected_skill": "Узнавать сильный Präteritum без суффикса -te и отличать инфинитив от причастия"
+      },
+      {
+        "id": "contrasts_and_coexistence",
+        "title": "Контрасты и соседство времён",
+        "goal": "Сопоставлять времена, различать три времени глагола sein/haben и видеть два времени в одной реплике",
+        "from_card": 17,
+        "to_card": 24,
+        "support": "medium",
+        "expected_skill": "Различать три времени (Präsens/Perfekt/Präteritum) и анализировать сложные высказывания"
+      },
+      {
+        "id": "syntax_variations",
+        "title": "Вопросы, отрицания и придаточные",
+        "goal": "Находить формы времени при изменении порядка слов: в вопросах, отрицаниях и придаточных предложениях",
+        "from_card": 25,
+        "to_card": 32,
+        "support": "medium",
+        "expected_skill": "Опознавать формы прошедшего времени независимо от позиции глагола в предложении"
+      },
+      {
+        "id": "narrative_texts",
+        "title": "Распознавание в связных мини-историях",
+        "goal": "Находить все формы прошедшего времени в коротких сюжетных текстах из реальной жизни",
+        "from_card": 33,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Выделять полный набор прошедших форм в многофразовом тексте"
+      },
+      {
+        "id": "independent_recognition",
+        "title": "Автономное распознавание и перенос навыка",
+        "goal": "Определять времена без подсказок в незнакомом контексте и провести итоговую самопроверку",
+        "from_card": 41,
+        "to_card": 48,
+        "support": "independent",
+        "expected_skill": "Безошибочно классифицировать все глаголы отрывка по временам без внешних подсказок"
+      }
+    ],
+    "expected_result": "Ученик быстро и безошибочно узнаёт Perfekt и Präteritum в любых синтаксических позициях, отличает их от Präsens и находит все формы в связном рассказе",
+    "competencies": [
+      {
+        "id": "perfekt_identification",
+        "title": "Распознавание двух частей Perfekt",
+        "description": "Нахождение вспомогательного haben/sein и Partizip II независимо от дистанции между ними"
+      },
+      {
+        "id": "praeteritum_identification",
+        "title": "Распознавание Präteritum",
+        "description": "Опознавание слабых форм на -te-, аблаутных форм сильных глаголов и модальных глаголов"
+      },
+      {
+        "id": "tense_contrast_awareness",
+        "title": "Контраст временных форм",
+        "description": "Различение Präsens, Perfekt и Präteritum, разграничение индикатива и конъюнктива (hatte vs. hätte)"
+      },
+      {
+        "id": "text_level_analysis",
+        "title": "Анализ связного текста",
+        "description": "Выделение и правильная классификация всех глагольных форм в сюжетных рассказах"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "form_accuracy",
+        "title": "Точность определения времени",
+        "description": "Правильное соотнесение глагольной группы с Perfekt, Präteritum или Präsens"
+      },
+      {
+        "id": "structural_proof",
+        "title": "Обоснование ответа структурой",
+        "description": "Указание конкретных элементов сказуемого, подтверждающих грамматическое время"
+      },
+      {
+        "id": "narrative_completeness",
+        "title": "Полнота выделения форм в рассказе",
+        "description": "Нахождение 100% целевых прошедших форм в связном тексте без пропуска элементов"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_perfekt_two_parts",
+        "title": "Повторение структуры Perfekt",
+        "when": "При трудностях с нахождением двух частей конструкции",
+        "reason": "Повторить карточки 01, 03, 05, 10, 15",
+        "competency_ids": ["perfekt_identification"]
+      },
+      {
+        "id": "review_praeteritum_strong_modals",
+        "title": "Повторение сильных и модальных форм",
+        "when": "Если не узнаются формы без -te- или модальные глаголы",
+        "reason": "Повторить карточки 06, 11–16, 20–21",
+        "competency_ids": ["praeteritum_identification"]
+      },
+      {
+        "id": "review_praesens_contrast",
+        "title": "Повторение контраста с Präsens",
+        "when": "При путанице из-за глаголов haben и sein",
+        "reason": "Повторить карточки 07, 16, 19, 35–36, 40",
+        "competency_ids": ["tense_contrast_awareness"]
+      },
+      {
+        "id": "review_complex_sentences",
+        "title": "Повторение анализа сложных предложений и текстов",
+        "when": "При потерях глаголов в длинных предложениях или рассказах",
+        "reason": "Повторить карточки 25–32 и 33–48",
+        "competency_ids": ["text_level_analysis"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время и назовите опорные слова.
+::source
+Die Ärztin hat den Bericht unterschrieben.
+::exercise
+Это Perfekt или Präteritum? Найдите слова, на которых держится ответ.
+
+BACK:
+Perfekt: hat ... unterschrieben. Перевод: «Врач подписала отчёт».
+
+CONTEXT:
+hat — вспомогательный глагол, unterschrieben — Partizip II от unterschreiben. Само по себе hat ещё не означает Perfekt: важна вся конструкция целиком.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите грамматическое время сказуемого.
+::source
+Der Hausmeister überprüfte die Heizung.
+::exercise
+Это Perfekt или Präteritum?
+
+BACK:
+Präteritum: überprüfte (от überprüfen). Перевод: «Домоуправитель проверил отопление».
+
+CONTEXT:
+Вспомогательного глагола нет: прошедшее время выражено формой самого глагола с суффиксом -te-.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите обе составные части прошедшего времени.
+::source
+Der Bus ist an der Endhaltestelle angekommen.
+::exercise
+Назовите обе части прошедшего времени.
+
+BACK:
+ist ... angekommen — Perfekt. Перевод: «Автобус прибыл на конечную остановку».
+
+CONTEXT:
+ankommen («прибывать») — глагол перемещения с изменением места, поэтому вспомогательный глагол — sein (ist). Причастие angekommen закрывает рамку в конце предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время частотного глагола.
+::source
+Während der Veranstaltung war ich nervös.
+::exercise
+Какое время использовано у глагола war?
+
+BACK:
+Präteritum: war — прошедшая форма глагола sein. Перевод: «Во время мероприятия я нервничал / был взволнован».
+
+CONTEXT:
+Форма war сама по себе обозначает прошлое. Отдельного причастия ей не требуется.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время и выделите сказуемое.
+::source
+Die Freiwilligen haben den Park gereinigt.
+::exercise
+Определите время и выделите конструкцию.
+
+BACK:
+Perfekt: haben ... gereinigt. Перевод: «Добровольцы убрали парк».
+
+CONTEXT:
+die Freiwilligen — добровольцы, reinigen — убирать/очищать. Спрягаемое haben на 2-й позиции и Partizip II gereinigt в конце образуют единую форму Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите форму сильного глагола.
+::source
+Während des Konzerts sang der Chor ein altes Lied.
+::exercise
+Какое время у глагола sang?
+
+BACK:
+Präteritum: sang (от singen). Перевод: «Во время концерта хор пел старую песню».
+
+CONTEXT:
+Отсутствие суффикса -te не мешает форме быть Präteritum: сильные глаголы меняют корневую гласную (singen → sang).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разграничьте настоящее и прошедшее время.
+::source
+Meine Kollegin hat heute einen freien Tag.
+::exercise
+Здесь Perfekt, Präteritum или Präsens?
+
+BACK:
+Präsens: hat означает «имеет / у неё есть». Перевод: «Сегодня у моей коллеги выходной».
+
+CONTEXT:
+Здесь нет Partizip II, поэтому hat — смысловой глагол в настоящем времени (Präsens). Не определяйте Perfekt по одному лишь слову hat.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните ключевые маячки трёх времён.
+::exercise
+Как отличать три формы (Präsens, Perfekt, Präteritum) в короткой немецкой фразе?
+
+BACK:
+Perfekt: спрягаемое haben/sein + Partizip II (hat geschrieben). Präteritum: самостоятельная прошедшая форма глагола (schrieb, war, hatte). Präsens: личная форма настоящего времени (schreibt, hat, ist).
+
+CONTEXT:
+Смотрите в первую очередь на структуру сказуемого, а не на слова времени (gestern, heute, früher), которые могут использоваться вариативно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите форму регулярного прошедшего времени.
+::source
+Der Gärtner pflanzte junge Bäume am Fluss.
+::exercise
+Определите время и форму глагола.
+
+BACK:
+Präteritum: pflanzte (от pflanzen — «сажать»). Перевод: «Садовник посадил молодые деревья у реки».
+
+CONTEXT:
+Регулярный слабый глагол: основа pflanz- + суффикс прошедшего времени -te-.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Узнайте прошедшую конструкцию.
+::source
+Wir haben im Herbst Gemüse geerntet.
+::exercise
+Какое прошедшее время использовано?
+
+BACK:
+Perfekt: haben ... geerntet (от ernten — «собирать урожай»). Перевод: «Осенью мы собрали овощи».
+
+CONTEXT:
+Решающий признак Perfekt — две части сказуемого: вспомогательный haben + причастие geerntet.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время модального глагола.
+::source
+Sie musste die Unterlagen rechtzeitig abgeben.
+::exercise
+musste — какое это время и от какого глагола?
+
+BACK:
+Präteritum от müssen. Перевод: «Ей нужно было вовремя сдать документы».
+
+CONTEXT:
+abgeben — смысловой инфинитив в конце предложения, а не причастие. Поэтому musste abgeben — это Präteritum модального глагола, а не Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите форму прошедшего намерения.
+::source
+Seine Nachbarin wollte beim Umzug helfen.
+::exercise
+Узнайте форму хотела: какое это время?
+
+BACK:
+Präteritum от wollen («хотела»). Перевод: «Его соседка хотела помочь с переездом».
+
+CONTEXT:
+wollte — форма Präteritum; глагол helfen стоит в инфинитиве. Это модальная конструкция в Präteritum.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите две части рамки Perfekt.
+::source
+Ich habe lange über den Vorschlag nachgedacht.
+::exercise
+Найдите две части прошедшего времени.
+
+BACK:
+Perfekt: habe ... nachgedacht (от nachdenken — «размышлять / обдумывать»). Перевод: «Я долго обдумывал предложение».
+
+CONTEXT:
+Вспомогательный habe стоит на 2-м месте, а Partizip II nachgedacht замыкает предложение, несмотря на группу слов между ними.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время по форме глагола.
+::source
+Er dachte zuerst an eine Verspätung.
+::exercise
+dachte — Perfekt или Präteritum?
+
+BACK:
+Präteritum: dachte (от denken — «думать»). Перевод: «Сначала он подумал о задержке».
+
+CONTEXT:
+Здесь прошедшее время выражено одним словом dachte. В Perfekt было бы две детали: «hat an eine Verspätung gedacht».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время глагола изменения состояния.
+::source
+Die Temperatur ist in der Nacht gesunken.
+::exercise
+Определите форму времени.
+
+BACK:
+Perfekt: ist ... gesunken (от sinken — «понижаться / опускаться»). Перевод: «Ночью температура понизилась».
+
+CONTEXT:
+Изменение состояния требует вспомогательного sein (ist). Не путайте ist внутри Perfekt с отдельным глаголом sein в Präsens.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните три разные формы глаголов.
+::source
+stieg / pflanzte / hat geerntet
+::exercise
+Как распознать каждую из трёх форм?
+
+BACK:
+stieg — Präteritum от steigen (сильный глагол, смена гласной). pflanzte — Präteritum от pflanzen (слабый глагол, суффикс -te). hat geerntet — Perfekt (вспомогательный hat + Partizip II).
+
+CONTEXT:
+Нельзя определять времена по какому-то одному окончанию: сильный Präteritum не имеет -te-, а Perfekt распознаётся по наличию двух частей.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соотнесите глагольные формы с временами.
+::source
+1. hat abgeholt
+2. war
+3. las
+4. hat verbessert
+::exercise
+Какие формы относятся к Perfekt, а какие к Präteritum?
+
+BACK:
+1 → Perfekt (hat abgeholt — «забрал / встретил»); 2 → Präteritum (war — «был»); 3 → Präteritum (las от lesen — «читал»); 4 → Perfekt (hat verbessert — «улучшил»).
+
+CONTEXT:
+Главные сигналы: вспомогательный глагол + причастие (Perfekt) либо единая форма прошедшего времени (Präteritum).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните два способа выразить одно действие.
+::source
+1. Die Sekretärin hat mit dem Kunden telefoniert.
+2. Die Sekretärin telefonierte mit dem Kunden.
+::exercise
+Какое предложение в Perfekt, а какое в Präteritum?
+
+BACK:
+1 — Perfekt (hat telefoniert); 2 — Präteritum (telefonierte). Перевод обоих: «Секретарь поговорила с клиентом по телефону».
+
+CONTEXT:
+Глаголы на -ieren образуют причастие без ge- (telefoniert), но наличие hat чётко указывает на Perfekt. Во 2-м предложении время выражено суффиксом -te-.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Распределите предложения по трём временам.
+::source
+А. Der Fahrer ist pünktlich.
+Б. Der Fahrer war pünktlich.
+В. Der Fahrer ist pünktlich angekommen.
+::exercise
+Определите время каждого предложения (Präsens / Präteritum / Perfekt).
+
+BACK:
+А — Präsens (ist — «есть / является»); Б — Präteritum (war — «был»); В — Perfekt (ist ... angekommen — «прибыл»).
+
+CONTEXT:
+Слово ist само по себе — настоящее время (А). Оно становится частью прошедшего времени только в паре с причастием (В).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время формы fanden.
+::source
+Die Gäste fanden den Eingang nicht.
+::exercise
+Какое время у формы fanden?
+
+BACK:
+Präteritum от finden («находить»). Перевод: «Гости не нашли вход».
+
+CONTEXT:
+Не путайте с Perfekt: «Die Gäste haben den Eingang nicht gefunden». В Präteritum форма выражена одним словом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите все прошедшие глаголы в предложении.
+::source
+Die Besucher betraten den Saal und betrachteten die Gemälde.
+::exercise
+Сколько здесь глаголов в Präteritum? Назовите их.
+
+BACK:
+Два глагола в Präteritum: betraten (сильный, от betreten — «вошли») и betrachteten (слабый, от betrachten — «рассматривали»).
+
+CONTEXT:
+Перевод: «Посетители вошли в зал и рассматривали картины». В повествовании сильные и слабые формы Präteritum органично соседствуют.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите два разных прошедших времени.
+::source
+Es war windig, deshalb haben wir das Picknick verschoben.
+::exercise
+Найдите Perfekt и Präteritum в этом высказывании.
+
+BACK:
+Präteritum: war («было ветрено»). Perfekt: haben ... verschoben («мы перенесли пикник»).
+
+CONTEXT:
+Перевод: «Было ветрено, поэтому мы перенесли пикник». Такое сочетание Präteritum состояния (war) и Perfekt действия абсолютно естественно для живой речи.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите прошедшие формы в одном высказывании.
+::source
+Die Lehrerin war geduldig und hat jede Frage beantwortet.
+::exercise
+Сколько разных прошедших времён здесь использовано?
+
+BACK:
+Два разных времени: war — Präteritum; hat ... beantwortet — Perfekt. Перевод: «Учительница была терпеливой и ответила на каждый вопрос».
+
+CONTEXT:
+Не нужно механически заменять war на Perfekt: живой язык свободно сочетает эти формы.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените грамматическую корректность сочетания времён.
+::source
+В устном рассказе встретились: hat erzählt, war и konnte.
+::exercise
+Нужно ли считать одно из этих времён грамматической ошибкой?
+
+BACK:
+Нет, ошибки нет. hat erzählt — Perfekt, war и konnte — Präteritum.
+
+CONTEXT:
+В разговорной речи формы war, hatte и модальные глаголы в Präteritum используются наравне с Perfekt других действий.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время вопроса и найдите обе части сказуемого.
+::source
+Hast du den Termin verschoben?
+::exercise
+Какое здесь прошедшее время? Найдите обе части сказуемого.
+
+BACK:
+Perfekt: hast ... verschoben. Перевод: «Ты перенёс встречу?»
+
+CONTEXT:
+В вопросе без вопросительного слова вспомогательный hast выходит на 1-ю позицию, а verschoben стоит в конце. Формула времени та же: haben + Partizip II.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите форму времени в вопросительном предложении.
+::source
+Wann begann die Sitzung?
+::exercise
+Какое время у глагола begann?
+
+BACK:
+Präteritum: begann (от beginnen — «начинаться»). Перевод: «Когда началось заседание?»
+
+CONTEXT:
+Время определяется глагольной формой begann, а не вопросительным словом Wann.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите форму времени в предложении с отрицанием nicht.
+::source
+Er hat die Schlüssel nicht gefunden.
+::exercise
+Найдите форму времени. Влияет ли отрицание nicht на название времени?
+
+BACK:
+Perfekt: hat ... gefunden. Перевод: «Он не нашёл ключи».
+
+CONTEXT:
+Отрицание nicht относится к действию, но никак не меняет грамматическое время: сказуемое остаётся в Perfekt (hat + gefunden).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время в предложении с отрицанием kein.
+::source
+Wir hatten keine Ersatzteile.
+::exercise
+Какое время использовано? Какое слово даёт ответ?
+
+BACK:
+Präteritum: hatten (от haben). Перевод: «У нас не было запасных деталей».
+
+CONTEXT:
+Отрицание keine относится к существительному, а форму прошедшего времени Präteritum несёт глагол hatten.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите прошедшее время в придаточном предложении.
+::source
+Ich bin erleichtert, weil die Lieferung heute angekommen ist.
+::exercise
+Найдите прошедшее время в части предложения после weil.
+
+BACK:
+После weil стоит Perfekt: angekommen ist. Перевод: «Я испытываю облегчение, потому что доставка сегодня прибыла».
+
+CONTEXT:
+В придаточном предложении спрягаемый глагол ist встаёт после Partizip II angekommen. В главном предложении (Ich bin erleichtert) использован Präsens.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите формы Präteritum в сложном предложении.
+::source
+Als die Probe begann, wurde es im Saal still.
+::exercise
+Найдите Präteritum в обеих частях предложения.
+
+BACK:
+begann (от beginnen) и wurde (от werden). Оба глагола стоят в Präteritum. Перевод: «Когда репетиция началась, в зале стало тихо».
+
+CONTEXT:
+Союз als вводит придаточное времени (begann в конце). wurde здесь выступает полнозначным глаголом становления («стало»), а не пассивом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время глагола с предложной группой.
+::source
+Der Postbote hat die Pakete vor die Tür gestellt.
+::exercise
+Какое здесь прошедшее время?
+
+BACK:
+Perfekt: hat ... gestellt (от stellen — «ставить»). Перевод: «Почтальон поставил посылки перед дверью».
+
+CONTEXT:
+vor die Tür — обстоятельство места внутри рамки сказуемого. Сказуемое — hat ... gestellt (Perfekt).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разграничьте обычный Präteritum и сослагательное наклонение.
+::source
+Пары: konnte / könnte и hatte / hätte.
+::exercise
+Какие из этих форм относятся к реальному прошедшему времени (Präteritum)?
+
+BACK:
+konnte и hatte — обычный Präteritum. könnte и hätte — формы сослагательного наклонения (Konjunktiv II).
+
+CONTEXT:
+Умлаут полностью меняет наклонение: «Ich konnte gestern kommen» (реальный факт в прошлом) против «Ich könnte morgen kommen» (гипотетическая возможность).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Классифицируйте глагольные формы в мини-рассказе.
+::source
+Am Freitag hatte Lea einen freien Tag. Sie hat im Tierheim geholfen und die Tiere gefüttert.
+::exercise
+Сколько здесь форм Präteritum и Perfekt? Назовите их.
+
+BACK:
+Präteritum — одна: hatte. Perfekt — две формы: hat ... geholfen и (hat) ... gefüttert.
+
+CONTEXT:
+Перевод: «В пятницу у Леи был выходной. Она помогала в приюте и кормила животных». Одно вспомогательное hat здесь обслуживает сразу два причастия (geholfen и gefüttert).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время сказуемых в описании на вокзале.
+::source
+Der Zug hielt plötzlich an. Die Fahrgäste stiegen aus. Der Schaffner öffnete eine Tür.
+::exercise
+Определите время всех трёх сказуемых.
+
+BACK:
+Все три сказуемых в Präteritum: hielt ... an (anhalten), stiegen ... aus (aussteigen), öffnete (öffnen).
+
+CONTEXT:
+Перевод: «Поезд внезапно остановился. Пассажиры вышли. Проводник открыл дверь». Отделяемые приставки an и aus стоят в конце, но времени Perfekt не создают.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите три разных времени в коротком рассказе.
+::source
+Heute habe ich frei. Gestern habe ich im Verein gearbeitet. Danach war ich sehr müde.
+::exercise
+Найдите Präsens, Perfekt и Präteritum.
+
+BACK:
+Präsens: habe frei («сегодня свободен»). Perfekt: habe ... gearbeitet («вчера работал»). Präteritum: war («был уставшим»).
+
+CONTEXT:
+Слово habe встречается дважды, но в первом случае это смысловой глагол в настоящем времени, а во втором — вспомогательный элемент Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Подсчитайте количество прошедших времён.
+::source
+Ich habe die Einladung gelesen. Meine Schwester kann heute nicht kommen, weil sie arbeiten muss.
+::exercise
+Сколько здесь прошедших времён?
+
+BACK:
+Одно: habe ... gelesen (Perfekt). Перевод: «Я прочитал приглашение».
+
+CONTEXT:
+Глаголы kann и muss стоят в настоящем времени (Präsens модальных глаголов). Не считайте всё предложение прошлым из-за первой фразы.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите обе формы прошедшего времени в рассказе.
+::source
+Beim Spaziergang entdeckten die Kinder einen Igel. Dann liefen sie vorsichtig weiter.
+::exercise
+Назовите обе формы прошедшего времени.
+
+BACK:
+entdeckten и liefen — обе формы стоят в Präteritum. Перевод: «Во время прогулки дети обнаружили ежа. Затем они осторожно пошли дальше».
+
+CONTEXT:
+entdeckten — слабое Präteritum с суффиксом -te-; liefen — сильное Präteritum (от laufen) с изменением гласной.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разделите формы между Perfekt и Präteritum.
+::source
+Es hat stark geregnet, und die Wege waren rutschig. Deshalb sind wir umgekehrt.
+::exercise
+Какие формы относятся к Perfekt, а какие к Präteritum?
+
+BACK:
+Perfekt: hat ... geregnet и sind ... umgekehrt. Präteritum: waren.
+
+CONTEXT:
+Перевод: «Шёл сильный дождь, и дорожки были скользкими. Поэтому мы повернули назад». Разговорный рассказ свободно сочетает эти формы.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проверьте наличие форм Perfekt в отрывке.
+::source
+Der Handwerker kam spät. Er hatte aber alle Werkzeuge dabei. Danach reparierte er die Tür.
+::exercise
+Есть ли здесь хотя бы одна форма Perfekt?
+
+BACK:
+Нет. Все три глагола стоят в Präteritum: kam (пришёл), hatte (имел при себе), reparierte (отремонтировал).
+
+CONTEXT:
+Слово hatte здесь — самостоятельный глагол в Präteritum, а не вспомогательная часть Perfekt, так как причастия нет.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сформулируйте правило проверки глагола haben.
+::exercise
+В предложении есть hatte или hat. Как безошибочно определить время сказуемого?
+
+BACK:
+Ищите соседние части сказуемого: 1. Er hatte Werkzeug — Präteritum (без причастия); 2. Er hat Werkzeug — Präsens (без причастия); 3. Er hat das Werkzeug geholt — Perfekt (вспомогательный hat + Partizip II).
+
+CONTEXT:
+Слово haben само по себе не определяет время предложения без анализа всей структуры сказуемого.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите времена сказуемых без подсказок.
+::source
+In der Nacht ist der Alarm losgegangen, aber niemand hat ihn gehört.
+::exercise
+Определите прошедшие времена обоих действий.
+
+BACK:
+Оба действия выражены в Perfekt: ist ... losgegangen («сработал») и hat ... gehört («услышал»).
+
+CONTEXT:
+Перевод: «Ночью сработала сигнализация, но никто её не услышал». Разные вспомогательные глаголы (sein и haben) не означают разные времена — оба сказуемых стоят в Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите все прошедшие формы в сообщении.
+::source
+Die Sitzung dauerte länger als geplant. Einige Teilnehmer gingen früher.
+::exercise
+Найдите все прошедшие формы и назовите их время.
+
+BACK:
+Обе формы в Präteritum: dauerte («длилось», слабое) и gingen («ушли», сильное).
+
+CONTEXT:
+Перевод: «Заседание длилось дольше, чем планировалось. Некоторые участники ушли раньше».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разграничьте прошедшее и настоящее время.
+::source
+Im Jahr 2018 wohnte Omar in Leipzig. Heute arbeitet er in Dresden.
+::exercise
+Какая форма прошедшая, а какая настоящая?
+
+BACK:
+wohnte — прошедшее время (Präteritum: «жил в Лейпциге»). arbeitet — настоящее время (Präsens: «работает в Дрездене»).
+
+CONTEXT:
+Слова 2018 и Heute задают контекст, но грамматическое время подтверждается формами глаголов wohnte и arbeitet.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите время сказуемых в контексте со словом seit.
+::source
+Seit zwei Jahren wohnt Nika hier. Letztes Jahr hat sie eine neue Stelle gefunden.
+::exercise
+Назовите время каждого сказуемого.
+
+BACK:
+wohnt — Präsens («Ника живёт здесь уже два года»); hat ... gefunden — Perfekt («В прошлом году она нашла новую работу»).
+
+CONTEXT:
+Конструкция с seit выражает действие, начавшееся в прошлом и продолжающееся сейчас, поэтому требует Präsens. Вторая фраза сообщает о законченном факте в Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Распределите четыре предложения по трём временам.
+::source
+А. Der Techniker meldete den Fehler.
+Б. Die Gäste haben das Formular ausgefüllt.
+В. Der Raum ist hell.
+Г. Wir konnten den Weg nicht finden.
+::exercise
+Определите время каждой записи (Präsens / Perfekt / Präteritum).
+
+BACK:
+А — Präteritum (meldete); Б — Perfekt (haben ... ausgefüllt); В — Präsens (ist); Г — Präteritum (konnten ... finden).
+
+CONTEXT:
+В пункте Г модальный глагол konnten стоит в Präteritum; инфинитив finden в конце не делает конструкцию временем Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите форму каждого сказуемого в рассказе.
+::source
+Gestern bin ich zum Training gegangen. Danach war ich erschöpft und habe tief geschlafen.
+::exercise
+Определите временную форму каждого действия или состояния.
+
+BACK:
+bin ... gegangen — Perfekt; war — Präteritum; habe ... geschlafen — Perfekt.
+
+CONTEXT:
+Перевод: «Вчера я пошёл на тренировку. Потом я был измотан и крепко спал». Выделяйте всю глагольную группу целиком, а не отдельные слова.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Опровергните ложное правило о давности событий.
+::source
+Vor zwanzig Jahren hat sie eine Reise gemacht.
+Gestern machte sie einen Ausflug.
+::exercise
+Какое ложное правило о временах опровергают эти два предложения?
+
+BACK:
+Они опровергают миф: «Perfekt — только для недавнего прошлого, а Präteritum — для далёкого».
+
+CONTEXT:
+В первом предложении событие 20-летней давности передано Perfekt (hat gemacht), а вчерашнее — Präteritum (machte). Выбор времени определяется стилем речи и ситуацией, а не числом лет.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выделите и классифицируйте все прошедшие формы в тексте.
+::source
+Als das Fest begann, war die Straße voller Menschen. Einige Gäste tanzten. Später hat die Band ein neues Lied gespielt, und viele Besucher haben mitgesungen.
+::exercise
+Найдите все прошедшие глагольные формы и разделите их на Präteritum и Perfekt.
+
+BACK:
+Präteritum (три формы): begann, war, tanzten. Perfekt (две конструкции): hat ... gespielt, haben ... mitgesungen.
+
+CONTEXT:
+Перевод: «Когда праздник начался, улица была полна людей. Некоторые гости танцевали. Позже группа сыграла новую песню, и многие подпевали». Считайте полные сказуемые: 3 в Präteritum и 2 в Perfekt.

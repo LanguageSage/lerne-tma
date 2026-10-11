@@ -274,7 +274,11 @@ export const DeckCardItem = React.memo(({
           <h3>
             <span className="deck-title-text">{deck.is_inbox ? tr("📥 Входящие карточки") : deck.name}</span>
 
+<<<<<<< Updated upstream
             {!deck.is_inbox && canEditDeck && (
+=======
+            {!deck.is_inbox && !deck.is_global_readonly && (
+>>>>>>> Stashed changes
               <button
                 type="button"
                 className={`pin-deck-btn ${deck.is_pinned ? 'pinned' : ''}`}
@@ -310,6 +314,7 @@ export const DeckCardItem = React.memo(({
       <div className="deck-footer-actions">
         <div className="deck-footer-actions-left">
           {!deck.is_inbox ? (
+<<<<<<< Updated upstream
             canEditDeck && (
               <div
                 className="deck-drag-handle-bottom"
@@ -321,13 +326,28 @@ export const DeckCardItem = React.memo(({
                 <GripHorizontal size={20} />
               </div>
             )
+=======
+            {!deck.is_global_readonly && (<div
+              className="deck-drag-handle-bottom"
+              {...attributes}
+              {...listeners}
+              onClick={(e) => e.stopPropagation()}
+              title={tr("Зажмите и потяните для перетаскивания колоды")}
+            >
+              <GripHorizontal size={20} />
+            </div>)}
+>>>>>>> Stashed changes
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>{tr("📥 Входящие")}{' '}</span>
             </div>
           )}
 
+<<<<<<< Updated upstream
           {!deck.is_inbox && canEditDeck && (
+=======
+          {!deck.is_inbox && !deck.is_global_readonly && (
+>>>>>>> Stashed changes
             <div 
               className="deck-flag-badge-inline"
               title={tr("Язык: {{p0}}", { p0: (deck.target_language || 'de').toUpperCase() })}
@@ -336,7 +356,7 @@ export const DeckCardItem = React.memo(({
             </div>
           )}
 
-          {!deck.is_inbox && (
+          {!deck.is_inbox && !deck.is_global_readonly && (
             <button
               type="button"
               className={`deck-learning-action-btn ${deck.is_learning === true ? 'active' : 'inactive'}`}
@@ -444,7 +464,11 @@ export const DeckCardItem = React.memo(({
             title={tr("Опции колоды")}
           >
             <MoreHorizontal size={18} />
+<<<<<<< Updated upstream
             {deck.has_updates && !deck.is_inbox && canEditDeck && (
+=======
+            {deck.has_updates && !deck.is_inbox && !deck.is_global_readonly && (
+>>>>>>> Stashed changes
               <span className="menu-update-indicator" />
             )}
           </button>
@@ -452,7 +476,11 @@ export const DeckCardItem = React.memo(({
 
         {isMenuOpen && (
           <div className={`deck-dropdown-menu glass placement-${menuPlacement}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
+<<<<<<< Updated upstream
             {!deck.is_inbox && canEditDeck && (
+=======
+            {!deck.is_inbox && !deck.is_global_readonly && (
+>>>>>>> Stashed changes
               <button className="dropdown-item" onClick={(e) => {
                 e.stopPropagation();
                 setIsMenuOpen(false);
@@ -463,7 +491,7 @@ export const DeckCardItem = React.memo(({
               </button>
             )}
 
-            {!deck.is_inbox && (
+            {!deck.is_inbox && !deck.is_global_readonly && (
               <button 
                 className="dropdown-item" 
                 onClick={handleToggleLearning}
@@ -473,26 +501,42 @@ export const DeckCardItem = React.memo(({
               </button>
             )}
 
+<<<<<<< Updated upstream
             {!deck.is_inbox && canEditDeck && (
+=======
+            {!deck.is_inbox && !deck.is_global_readonly && (
+>>>>>>> Stashed changes
               <button className="dropdown-item" onClick={handleShare}>
                 <span>{tr("🔗 Поделиться")}</span>
               </button>
             )}
 
 
+<<<<<<< Updated upstream
             {!deck.is_inbox && canEditDeck && (
+=======
+            {!deck.is_inbox && !deck.is_global_readonly && (
+>>>>>>> Stashed changes
               <button className="dropdown-item" onClick={handleSync}>
                 <span>🔄 {deck.has_updates ? tr("❗️ Обновить") : tr("Обновить")}</span>
               </button>
             )}
 
+<<<<<<< Updated upstream
             {!deck.is_inbox && canEditDeck && (
+=======
+            {!deck.is_inbox && !deck.is_global_readonly && (
+>>>>>>> Stashed changes
               <button className="dropdown-item" onClick={handleRename}>
                 <span>{tr("✍️ Переименовать")}</span>
               </button>
             )}
 
+<<<<<<< Updated upstream
             {!deck.is_inbox && canEditDeck && (
+=======
+            {!deck.is_inbox && !deck.is_global_readonly && (
+>>>>>>> Stashed changes
               <>
                 <button 
                   className={`dropdown-item ${isMoveMenuOpen ? 'active' : ''}`} 

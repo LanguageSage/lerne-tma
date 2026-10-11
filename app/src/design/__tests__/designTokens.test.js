@@ -56,3 +56,15 @@ test('legacy V2 surface and border values retain their original transparency', (
   assert.equal(vars['--design-glass-bg'], 'rgba(20,30,40,0.65)');
   assert.equal(vars['--design-glass-border'], 'rgba(50,60,70,0.3)');
 });
+
+test('local preview tokens can update root properties without server publication', () => {
+  const writes = new Map();
+  const original = globalThis.document;
+  globalThis.document = { documentElement: { style: { setProperty: (key, value) => writes.set(key, value) } } };
+  try {
+    const draft = normalizeDesignConfig({ global: { background: { mode: 'solid', color1: '#445566' } } });
+    applyPublishedDesignTokens(draft);
+    assert.equal(writes.get('--design-app-bg'), '#445566');
+  } finally { globalThis.document = original; }
+});
+

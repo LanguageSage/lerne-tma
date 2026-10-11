@@ -9,12 +9,15 @@ from api import models
 logger = logging.getLogger(__name__)
 
 
+<<<<<<< Updated upstream
 def is_content_maintainer(user_id: int) -> bool:
     """The configured platform administrator may maintain published content."""
     admin_id = os.environ.get('ADMIN_USER_ID')
     return bool(admin_id and str(user_id) == admin_id)
 
 
+=======
+>>>>>>> Stashed changes
 # ---------------------------------------------------------------------------
 # Access version (cache invalidation marker)
 # ---------------------------------------------------------------------------
@@ -57,6 +60,7 @@ def _is_globally_readable(folder_id: int, folder_map: Dict[int, Any] = None) -> 
 
 def get_global_readonly_folder_ids(folder_map: Dict[int, Any]) -> set:
     """Returns all folder IDs that are globally readable (root + all descendants)."""
+<<<<<<< Updated upstream
     return set(get_global_readonly_root_owners(folder_map))
 
 
@@ -92,6 +96,17 @@ def _published_root_owner(folder_id: int) -> Optional[int]:
             owner = folder.user_id
         folder_id = folder.parent_id
     return owner
+=======
+    global_roots = {
+        f.id for f in folder_map.values()
+        if getattr(f, 'access_scope', 'private') == 'global_readonly'
+        and not getattr(f, 'is_deleted', False)
+    }
+    result = set()
+    for root_id in global_roots:
+        result.update(_get_all_subfolder_ids(root_id, folder_map))
+    return result
+>>>>>>> Stashed changes
 
 
 # ---------------------------------------------------------------------------
@@ -165,9 +180,17 @@ def set_folder_access_scope(folder_id: int, access_scope: str, requester_id: int
     """Admin-only: publish or unpublish a folder as global_readonly.
     Only the ADMIN_USER_ID can call this; the folder owner is unchanged.
     """
+<<<<<<< Updated upstream
     from fastapi import HTTPException
 
     if not is_content_maintainer(requester_id):
+=======
+    import os
+    from fastapi import HTTPException
+
+    admin_id = int(os.environ.get("ADMIN_USER_ID", "642478257"))
+    if requester_id != admin_id:
+>>>>>>> Stashed changes
         raise HTTPException(status_code=403, detail="Only the platform admin can set access_scope")
 
     if access_scope not in ('private', 'global_readonly'):
@@ -216,8 +239,12 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
     all_known_folder_ids = list(folder_map.keys())
 
     # Pre-compute global-readonly folder set (one pass, no extra queries)
+<<<<<<< Updated upstream
     global_root_owners = get_global_readonly_root_owners(folder_map)
     global_readonly_ids = set(global_root_owners)
+=======
+    global_readonly_ids = get_global_readonly_folder_ids(folder_map)
+>>>>>>> Stashed changes
 
     # Single query for all collaborators
     collabs = []
@@ -358,9 +385,12 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
         deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
         if not deck or deck.is_deleted:
             return None
+<<<<<<< Updated upstream
         root_owner = _published_root_owner(deck.folder_id)
         if root_owner is not None:
             return 'owner' if root_owner == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+=======
+>>>>>>> Stashed changes
 
         # 1. Direct owner
         if deck.user_id == user_id:
@@ -387,9 +417,12 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
         folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
         if not folder or folder.is_deleted:
             return None
+<<<<<<< Updated upstream
         root_owner = _published_root_owner(folder.id)
         if root_owner is not None:
             return 'owner' if root_owner == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+=======
+>>>>>>> Stashed changes
 
         # 1. Direct owner
         if folder.user_id == user_id:

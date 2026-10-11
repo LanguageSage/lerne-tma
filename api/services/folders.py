@@ -95,8 +95,23 @@ def _require_folder_write(folder_id: int, user_id: int) -> TMA_Folder:
     folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.is_deleted == False))
     if not folder:
         raise HTTPException(status_code=404, detail="Папка не найдена")
+<<<<<<< Updated upstream
     from .collaborative_service import _require_can_mutate
     _require_can_mutate(user_id, 'folder', folder_id)
+=======
+    if folder.user_id == user_id:
+        return folder  # owner — fast path
+
+    from .collaborative_service import get_effective_user_role
+    role = get_effective_user_role(user_id, 'folder', folder_id)
+    if role == 'viewer' or getattr(folder, 'access_scope', 'private') == 'global_readonly':
+        raise HTTPException(
+            status_code=403,
+            detail="Этот контент доступен только для чтения (официальный урок Lerne)."
+        )
+    if role not in ('owner', 'editor'):
+        raise HTTPException(status_code=404, detail="Папка не найдена или доступ ограничен")
+>>>>>>> Stashed changes
     return folder
 
 
@@ -122,11 +137,29 @@ def create_folder(name: str, user_id: int, parent_id: int = None, color: str = N
                 return existing_lid
 
         if parent_id is not None:
+<<<<<<< Updated upstream
             parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.is_deleted == False))
             if not parent:
                 raise ValueError("Родительская папка не найдена или нет доступа")
             from .collaborative_service import _require_can_mutate
             _require_can_mutate(user_id, 'folder', parent_id)
+=======
+            from .collaborative_service import get_effective_user_role
+            parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.is_deleted == False))
+            if not parent:
+                raise ValueError("Родительская папка не найдена или нет доступа")
+            # Block creating subfolders inside global_readonly content
+            if getattr(parent, 'access_scope', 'private') == 'global_readonly':
+                raise HTTPException(
+                    status_code=403,
+                    detail="Этот контент доступен только для чтения (официальный урок Lerne)."
+                )
+            role = get_effective_user_role(user_id, 'folder', parent_id)
+            if role == 'viewer':
+                raise HTTPException(status_code=403, detail="У вас роль Слушателя (только чтение). Создавать подпапки в этой папке может только Редактор или Владелец.")
+            elif role is None:
+                raise ValueError("Родительская папка не найдена или нет доступа")
+>>>>>>> Stashed changes
 
         folder = TMA_Folder.create(
             user_id=user_id,

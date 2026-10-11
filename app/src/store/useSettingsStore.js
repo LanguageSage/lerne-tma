@@ -29,6 +29,7 @@ function saveCachedPublishedDesign(doc) {
 }
 
 const DESIGN_V2_DRAFT_CACHE_KEY = 'lerne:admin-draft:v2';
+const LOCAL_DESIGN_PREVIEW_KEY = 'lerne:local-design-preview';
 
 function loadCachedAdminDraft() {
   try {
@@ -50,11 +51,32 @@ function saveCachedAdminDraft(config) {
   } catch { /* quota exceeded — silently ignore */ }
 }
 
-// Immediately apply design tokens on startup (cached published design or defaults)
+function loadCachedLocalPreviewState() {
+  try {
+    return localStorage.getItem(LOCAL_DESIGN_PREVIEW_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveCachedLocalPreviewState(active) {
+  try {
+    if (active) {
+      localStorage.setItem(LOCAL_DESIGN_PREVIEW_KEY, 'true');
+    } else {
+      localStorage.removeItem(LOCAL_DESIGN_PREVIEW_KEY);
+    }
+  } catch { /* quota exceeded — silently ignore */ }
+}
+
+// Immediately apply design tokens on startup (cached published design, local preview draft, or defaults)
 const initialPublishedDesign = loadCachedPublishedDesign();
 const initialAdminDraft = loadCachedAdminDraft();
+const initialLocalPreviewActive = loadCachedLocalPreviewState();
 
-if (initialPublishedDesign?.config) {
+if (initialLocalPreviewActive && initialAdminDraft) {
+  applyPublishedDesignTokens(initialAdminDraft);
+} else if (initialPublishedDesign?.config) {
   applyPublishedDesignTokens(initialPublishedDesign.config);
 } else {
   applyPublishedDesignTokens(DEFAULT_DESIGN_CONFIG_V2);
@@ -552,27 +574,47 @@ export const useSettingsStore = create((set, get) => {
     // --- Design Config V2 ────────────────────────────────────────────────────
     // publishedDesignV2: глобальный дизайн, применяется к app root.
     //   null → дизайн ещё не опубликован → использовать DEFAULT_DESIGN_CONFIG_V2.
-    // adminDraftDesignV2: черновик администратора, изолирован внутри preview.
-    //   Не влияет на реальное приложение до публикации.
+    // adminDraftDesignV2: черновик администратора, изолирован внутри preview (или в локальном превью).
     publishedDesignV2: initialPublishedDesign,
     adminDraftDesignV2: initialAdminDraft,
+    isLocalDesignPreviewActive: initialLocalPreviewActive,
 
     /** Применяет опубликованный global design (из /init или /design/global).
-     *  Сохраняет в localStorage-кеш и применяет CSS tokens к app root. */
+     *  Сохраняет в localStorage-кеш и применяет CSS tokens к app root (если не включён локальный черновик). */
     setPublishedDesignV2: (serverDoc) => {
       if (!serverDoc?.config) return;
       const normalized = normalizeDesignConfig(serverDoc.config);
       const doc = { ...serverDoc, config: normalized };
       saveCachedPublishedDesign(doc);
       set({ publishedDesignV2: doc });
-      applyPublishedDesignTokens(normalized);
+      if (!get().isLocalDesignPreviewActive) {
+        applyPublishedDesignTokens(normalized);
+      }
     },
 
-    /** Обновляет admin draft (сохраняет в кеш; токены применяются только в preview). */
+    /** Переключает локальный просмотр черновика только в текущем браузере */
+    toggleLocalDesignPreview: () => {
+      const next = !get().isLocalDesignPreviewActive;
+      saveCachedLocalPreviewState(next);
+      set({ isLocalDesignPreviewActive: next });
+      if (next) {
+        const draft = get().adminDraftDesignV2 ?? normalizeDesignConfig(get().publishedDesignV2?.config);
+        applyPublishedDesignTokens(draft);
+      } else {
+        const published = get().publishedDesignV2?.config ?? DEFAULT_DESIGN_CONFIG_V2;
+        applyPublishedDesignTokens(published);
+      }
+      return next;
+    },
+
+    /** Обновляет admin draft (сохраняет в кеш; токены применяются в preview и в root при активном локальном просмотре). */
     setAdminDraftDesignV2: (config) => {
       const normalized = normalizeDesignConfig(config);
       saveCachedAdminDraft(normalized);
       set({ adminDraftDesignV2: normalized });
+      if (get().isLocalDesignPreviewActive) {
+        applyPublishedDesignTokens(normalized);
+      }
     },
 
     /** Патчит одно поле в admin draft по dot-path. */
@@ -581,6 +623,9 @@ export const useSettingsStore = create((set, get) => {
       const updated = normalizeDesignConfig(patchDesignValue(current, path, value));
       saveCachedAdminDraft(updated);
       set({ adminDraftDesignV2: updated });
+      if (get().isLocalDesignPreviewActive) {
+        applyPublishedDesignTokens(updated);
+      }
     },
 
     /** Публикует admin draft: отправляет на сервер, при успехе обновляет published. */
@@ -590,6 +635,8 @@ export const useSettingsStore = create((set, get) => {
       try {
         const res = await api.post('/admin/design/publish', { config: normalizeDesignConfig(draft) });
         if (res.data?.config) {
+          saveCachedLocalPreviewState(false);
+          set({ isLocalDesignPreviewActive: false });
           get().setPublishedDesignV2(res.data);
           return { success: true, doc: res.data };
         }
@@ -621,6 +668,9 @@ export const useSettingsStore = create((set, get) => {
           const normalized = normalizeDesignConfig(res.data.config);
           saveCachedAdminDraft(normalized);
           set({ adminDraftDesignV2: normalized });
+          if (get().isLocalDesignPreviewActive) {
+            applyPublishedDesignTokens(normalized);
+          }
         }
       } catch (e) {
         console.warn('Failed to load admin draft:', e);
@@ -633,6 +683,9 @@ export const useSettingsStore = create((set, get) => {
       const target = published ? normalizeDesignConfig(published) : normalizeDesignConfig(null);
       saveCachedAdminDraft(target);
       set({ adminDraftDesignV2: target });
+      if (get().isLocalDesignPreviewActive) {
+        applyPublishedDesignTokens(target);
+      }
     },
 
     /** Сбрасывает конкретную секцию в draft до defaults. */
@@ -642,6 +695,9 @@ export const useSettingsStore = create((set, get) => {
       const updated = { ...current, [section]: JSON.parse(JSON.stringify(DEFAULT_DESIGN_CONFIG_V2[section])) };
       saveCachedAdminDraft(updated);
       set({ adminDraftDesignV2: updated });
+      if (get().isLocalDesignPreviewActive) {
+        applyPublishedDesignTokens(updated);
+      }
     },
 
     /** Инициализирует admin draft из опубликованного дизайна (при открытии редактора). */

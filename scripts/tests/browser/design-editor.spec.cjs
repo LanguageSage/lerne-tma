@@ -257,3 +257,18 @@ test('preview allows Tab navigation and shared button styling excludes SRS grade
   });
   expect(after).toBe(gradeColor);
 });
+
+test('local preview applies draft tokens to root without publishing and can be toggled off', async ({ page, context }) => {
+  const backend = await setup(page, context);
+  expect(await rootBg(page)).toBe('#101522');
+  await page.getByLabel('Режим фона').selectOption('solid');
+  await page.getByLabel('Оттенок 1', { exact: true }).fill('#334455');
+  expect(await rootBg(page)).toBe('#101522');
+  await page.getByRole('button', { name: 'Применить только у меня', exact: true }).click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Черновик применён в вашем браузере');
+  expect(await rootBg(page)).toBe('#334455');
+  expect(backend.writes).not.toContain('publish');
+  await page.getByRole('button', { name: 'Только у меня: ВКЛ', exact: true }).click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Локальный просмотр выключен');
+  expect(await rootBg(page)).toBe('#101522');
+});

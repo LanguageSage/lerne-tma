@@ -1,0 +1,965 @@
+# Deck: B1-02-D08 · Perfekt und Präteritum in Erzählungen — построй самостоятельно
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-02-D08 · Perfekt und Präteritum in Erzählungen — построй самостоятельно",
+    "level": "B1",
+    "topic": "Perfekt und Präteritum in Erzählungen",
+    "description": "Продуктивная практика самостоятельного построения фраз, преобразования временных форм и создания связных рассказов без готовых вариантов",
+    "goal": "Перейти от D07, где ученик понимал, восстанавливал и завершал предложенные истории, к умению самостоятельно строить немецкое высказывание о прошлом. Ученик должен без подсказанного ответа использовать конструкции hat/ist + Partizip II, war, hatte, Präteritum модальных и сильных глаголов, связывать 2–5 предложений словами zuerst, dann, danach, plötzlich, deshalb, weil, am Ende и выбирать естественный регистр.",
+    "learning_outcomes": [
+      "Самостоятельно восстанавливать формы Perfekt и Präteritum без готового списка вариантов",
+      "Собирать правильный порядок слов в главном предложении, вопросе и придаточном с weil",
+      "Переводить русскую мысль в прошедшее время с учётом заданного регистра",
+      "Преобразовывать предложения из Perfekt в Präteritum и обратно без искажения фактов",
+      "Органично сочетать war, hatte, модальные глаголы и Perfekt в живом устном воспоминании",
+      "Формулировать развёрнутые ответы на вопросы собеседника о произошедших событиях",
+      "Строить связную историю из 4–5 предложений по заданным смысловым критериям",
+      "Самостоятельно проверять свой текст по критериям формы, порядка слов и логики"
+    ],
+    "estimated_time": "40–55 минут",
+    "recommendations": "При забывании форм war/hatte/сильных — повторить D06 (01–32) и 01–07 этой колоды; при сбоях в порядке слов — карточки 09–16; при трудностях с преобразованием регистра — D05 и карточки 17–24; при калькировании с русского — карточки 25–32; при трудностях со связностью текста — D07 и карточки 41–48. После освоения перейти к B1-02-D09 «Смешанная практика»."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "form_reconstruction",
+        "title": "Самостоятельное восстановление форм",
+        "goal": "Научиться воспроизводить формы Perfekt и Präteritum по инфинитиву без готовых вариантов",
+        "from_card": 1,
+        "to_card": 8,
+        "support": "high",
+        "expected_skill": "Вводить точные прошедшие формы с соблюдением лица, числа и рамочной конструкции"
+      },
+      {
+        "id": "sentence_assembly",
+        "title": "Сборка предложений и синтаксис",
+        "goal": "Собирать предложения из разрозненных слов, удерживая V2, отрицание, модальные глаголы и придаточные с weil",
+        "from_card": 9,
+        "to_card": 16,
+        "support": "high",
+        "expected_skill": "Строить правильный синтаксический каркас в Hauptsatz и Nebensatz"
+      },
+      {
+        "id": "register_transformation",
+        "title": "Преобразование регистров (Perfekt ↔ Präteritum)",
+        "goal": "Преобразовывать готовые фразы из одного регистра в другой с сохранением фактов",
+        "from_card": 17,
+        "to_card": 24,
+        "support": "medium",
+        "expected_skill": "Переводить разговорный Perfekt в книжный Präteritum и наоборот без смысловых потерь"
+      },
+      {
+        "id": "thought_translation",
+        "title": "Перевод собственной мысли без кальки",
+        "goal": "Переводить русские предложения в немецкое прошедшее время с правильной рамкой и глаголом",
+        "from_card": 25,
+        "to_card": 32,
+        "support": "medium",
+        "expected_skill": "Строить немецкие фразы о прошлом без калькирования русского порядка слов"
+      },
+      {
+        "id": "dialogue_responses",
+        "title": "Развёрнутый ответ собеседнику",
+        "goal": "Формулировать ответы из 1–2 фраз на реальные жизненные вопросы о прошедших событиях",
+        "from_card": 33,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Связно отвечать на вопросы собеседника с обоснованием причины через deshalb и weil"
+      },
+      {
+        "id": "independent_story_generation",
+        "title": "Создание собственного связного рассказа",
+        "goal": "Создавать законченные истории из 3–5 предложений по заданным смысловым критериям",
+        "from_card": 41,
+        "to_card": 48,
+        "support": "independent",
+        "expected_skill": "Продуцировать связный 4–5-частный текст о прошлом с чередованием времён и связками"
+      }
+    ],
+    "expected_result": "Ученик продуктивно и безошибочно строит немецкие фразы о прошлом, свободно переключает регистры общения, переводит мысли на немецкий язык с соблюдением синтаксической рамки и создаёт связные истории из 4–5 фраз",
+    "competencies": [
+      {
+        "id": "productive_form_mastery",
+        "title": "Продуктивное владение формами",
+        "description": "Точное самостоятельное воспроизведение форм Perfekt и Präteritum без подсказок"
+      },
+      {
+        "id": "syntactic_assembly_mastery",
+        "title": "Синтаксическая сборка",
+        "description": "Сборка предложений с инверсией, рамкой сказуемого и придаточным порядком слов"
+      },
+      {
+        "id": "bilingual_expression",
+        "title": "Выражение мысли без кальки",
+        "description": "Перевод русскоязычных мыслей в немецкие конструкции прошедшего времени"
+      },
+      {
+        "id": "story_production_autonomous",
+        "title": "Автономное построение рассказа",
+        "description": "Создание связного многофразового рассказа с логичной последовательностью и причиной"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "form_generation_accuracy",
+        "title": "Точность образования форм",
+        "description": "Безошибочное написание вспомогательных глаголов, причастий и форм Präteritum"
+      },
+      {
+        "id": "word_order_compliance",
+        "title": "Соблюдение порядка слов",
+        "description": "Корректная позиция спрягаемого глагола (V2 в главном, конец в придаточном с weil)"
+      },
+      {
+        "id": "narrative_rubric_mastery",
+        "title": "Критериальное качество рассказа",
+        "description": "Наличие всех 5 смысловых компонентов (время/место, неожиданность, проблема, действие, итог)"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_forms_retrieval",
+        "title": "Повторение извлечения форм",
+        "when": "При ошибках в написании или выборе форм",
+        "reason": "Повторить карточки 01–08 и D06",
+        "competency_ids": ["productive_form_mastery"]
+      },
+      {
+        "id": "review_syntax_bracket",
+        "title": "Повторение порядка слов и рамки",
+        "when": "При нарушении позиций глагола",
+        "reason": "Повторить карточки 09–16 и B1-01",
+        "competency_ids": ["syntactic_assembly_mastery"]
+      },
+      {
+        "id": "review_thought_transfer",
+        "title": "Повторение перевода без кальки",
+        "when": "При калькировании русского порядка слов",
+        "reason": "Повторить карточки 25–32",
+        "competency_ids": ["bilingual_expression"]
+      },
+      {
+        "id": "review_story_rubrics",
+        "title": "Тренировка создания связного текста",
+        "when": "При трудностях создания рассказа из 4–5 фраз",
+        "reason": "Повторить карточки 41–48",
+        "competency_ids": ["story_production_autonomous"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Präteritum от глагола haben для лица ich.
+::source
+Gestern ___ ich keine Zeit für den Anruf.
+::exercise
+Вставьте пропущенный глагол в Präteritum (одно слово).
+
+BACK:
+hatte.
+Полное предложение: «Gestern hatte ich keine Zeit für den Anruf». Перевод: «Вчера у меня не было времени на звонок».
+
+CONTEXT:
+hatte — самостоятельная форма глагола haben для ich в Präteritum. Вспомогательный глагол не нужен. der Anruf — телефонный звонок.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Präteritum от глагола sein для лица wir.
+::source
+Vor dem Vorstellungsgespräch ___ wir ziemlich nervös.
+::exercise
+Вставьте пропущенную форму глагола sein (одно слово).
+
+BACK:
+waren.
+Полное предложение: «Vor dem Vorstellungsgespräch waren wir ziemlich nervös». Перевод: «Перед собеседованием мы довольно сильно нервничали».
+
+CONTEXT:
+wir waren — множественное число, Präteritum от sein. das Vorstellungsgespräch — собеседование при приёме на работу.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте две части Perfekt глагола abgeben для лица sie (она).
+::source
+Am Dienstag ___ sie den Antrag ___.
+::exercise
+Вставьте вспомогательный глагол и причастие через многоточие.
+
+BACK:
+hat ... abgegeben.
+Полное предложение: «Am Dienstag hat sie den Antrag abgegeben». Перевод: «Во вторник она подала заявление».
+
+CONTEXT:
+abgeben — сдавать, подавать заявление; der Antrag — заявление. Perfekt образуется с haben; у отделяемой приставки ab- элемент ge- стоит внутри: abgegeben.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте две части Perfekt глагола gehen для лица ich.
+::source
+Gestern ___ ich zur Beratungsstelle ___.
+::exercise
+Вставьте вспомогательный глагол и причастие через многоточие.
+
+BACK:
+bin ... gegangen.
+Полное предложение: «Gestern bin ich zur Beratungsstelle gegangen». Перевод: «Вчера я ходил в консультационный центр».
+
+CONTEXT:
+gehen в значении перемещения образует Perfekt с sein (bin gegangen). die Beratungsstelle — консультационный центр.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Präteritum от beginnen для 3-го лица ед. числа.
+::source
+Die Besprechung ___ pünktlich.
+::exercise
+Вставьте форму Präteritum (одно слово).
+
+BACK:
+begann.
+Полное предложение: «Die Besprechung begann pünktlich». Перевод: «Совещание началось вовремя».
+
+CONTEXT:
+beginnen — begann — begonnen (сильный глагол). В Präteritum вспомогательный глагол отсутствует. die Besprechung — совещание.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Präteritum модального глагола können для лица ich.
+::source
+Ich ___ gestern wegen der Störung nicht kommen.
+::exercise
+Вставьте форму Präteritum (одно слово).
+
+BACK:
+konnte.
+Полное предложение: «Ich konnte gestern wegen der Störung nicht kommen». Перевод: «Вчера я не мог приехать из-за сбоя в движении».
+
+CONTEXT:
+konnte передаёт реальную невозможность в прошлом. Инфинитив kommen замыкает предложение. die Störung — сбой, техническая неполадка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму Präteritum от wollen для лица der Kunde (он).
+::source
+Der Kunde ___ den Vertrag nicht unterschreiben.
+::exercise
+Вставьте форму Präteritum (одно слово).
+
+BACK:
+wollte.
+Полное предложение: «Der Kunde wollte den Vertrag nicht unterschreiben». Перевод: «Клиент не хотел подписывать договор».
+
+CONTEXT:
+wollte выражает намерение или нежелание в прошлом. der Vertrag — договор; unterschreiben — подписывать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните три вопроса перед построением фразы о прошлом.
+::exercise
+Какие три вопроса нужно задать себе перед написанием сказуемого о прошлом?
+
+BACK:
+1. Какой глагол и какой смысл (движение, состояние, действие)?
+2. Какое время требуется по контексту (Perfekt или Präteritum)?
+3. Где стоят части сказуемого (рамка в главном, инверсия, глагол в конце придаточного)?
+
+CONTEXT:
+Пример: «Ich habe die Rechnung bezahlt» — вспомогательный глагол на 2-м месте, причастие bezahlt — в абсолютном конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение из готовых слов.
+::source
+Слова: am Dienstag / hat / der Elektriker / den Zähler / geprüft
+::exercise
+Составьте правильное утвердительное предложение.
+
+BACK:
+Am Dienstag hat der Elektriker den Zähler geprüft.
+Перевод: «Во вторник электрик проверил счётчик».
+
+CONTEXT:
+Am Dienstag занимает 1-ю позицию, вспомогательный глагол hat — строго 2-ю, причастие geprüft — в конце. der Zähler — счётчик.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение в Präteritum со связкой wegen.
+::source
+Слова: wegen der Baustelle / die Straße / war / gesperrt
+::exercise
+Составьте правильное предложение в Präteritum.
+
+BACK:
+Wegen der Baustelle war die Straße gesperrt.
+Перевод: «Из-за стройки дорога была перекрыта».
+
+CONTEXT:
+Wegen der Baustelle занимает 1-ю позицию, спрягаемый глагол war стоит на 2-й позиции. die Baustelle — стройка; gesperrt — перекрытый, закрытый.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите фразу с модальным глаголом и отрицанием.
+::source
+Слова: ich / leider / konnte / den Termin / nicht / wahrnehmen
+::exercise
+Составьте правильное предложение со словом Leider на 1-м месте.
+
+BACK:
+Leider konnte ich den Termin nicht wahrnehmen.
+Перевод: «К сожалению, я не смог прийти на назначенную встречу».
+
+CONTEXT:
+einen Termin wahrnehmen — прийти на назначенную встречу. Leider занимает 1-е место, konnte — 2-е место, инфинитив wahrnehmen — в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите сообщение о поступлении документов в Perfekt.
+::source
+Слова: die Unterlagen / sind / gestern / angekommen
+::exercise
+Составьте правильное предложение в Perfekt.
+
+BACK:
+Die Unterlagen sind gestern angekommen.
+Перевод: «Документы вчера поступили / пришли».
+
+CONTEXT:
+die Unterlagen — документы (множественное число). ankommen образует Perfekt с sein: sind angekommen. Допустим вариант: «Gestern sind die Unterlagen angekommen».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите сложноподчинённое предложение с союзом weil.
+::source
+Слова: ich / habe / den Termin / abgesagt / weil / ich / krank / war
+::exercise
+Составьте правильное предложение, начав с главного.
+
+BACK:
+Ich habe den Termin abgesagt, weil ich krank war.
+Перевод: «Я отменил встречу, потому что болел».
+
+CONTEXT:
+В главном: habe abgesagt (Perfekt). В придаточном с weil спрягаемый глагол war стоит в абсолютном конце предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите фразу с модальным глаголом müssen в Präteritum.
+::source
+Слова: vor dem Schalter / wir / mussten / fast eine Stunde / warten
+::exercise
+Составьте правильное предложение.
+
+BACK:
+Wir mussten vor dem Schalter fast eine Stunde warten.
+Перевод: «Нам пришлось почти час ждать перед окошком обслуживания».
+
+CONTEXT:
+mussten занимает 2-ю позицию, инфинитив warten — конец предложения. der Schalter — окно обслуживания / стойка. Допустимо: «Vor dem Schalter mussten wir...».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение со связкой Danach на 1-й позиции.
+::source
+Слова: danach / hat / meine Kollegin / die Kundin / zurückgerufen
+::exercise
+Составьте правильное предложение.
+
+BACK:
+Danach hat meine Kollegin die Kundin zurückgerufen.
+Перевод: «После этого моя коллега перезвонила клиентке».
+
+CONTEXT:
+Danach на 1-й позиции, вспомогательный глагол hat — строго на 2-й. zurückrufen образует Partizip II с отделяемой приставкой: zurückgerufen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните три схемы порядка слов в прошедшем времени.
+::exercise
+В чём разница в позициях глаголов между главным в Perfekt, модальной фразой и придаточным с weil?
+
+BACK:
+1. Главное в Perfekt: вспомогательный на 2-й позиции, Partizip II в конце (Ich habe den Antrag abgegeben).
+2. Модальный глагол в Präteritum: модальный на 2-й позиции, инфинитив в конце (Ich musste lange warten).
+3. Придаточное с weil: спрягаемый глагол в самом конце (..., weil ich keine Zeit hatte).
+
+CONTEXT:
+Считайте не порядковые номера слов, а синтаксические позиции и структуру рамки (Satzklammer).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте предложение из Perfekt в Präteritum.
+::source
+Исходное предложение: Die Mitarbeiterin hat die Unterlagen gesucht.
+::exercise
+Напишите предложение в Präteritum (письменный стиль).
+
+BACK:
+Die Mitarbeiterin suchte die Unterlagen.
+Перевод: «Сотрудница искала документы».
+
+CONTEXT:
+suchen — регулярный слабый глагол: suchte. Факт действия сохраняется, меняется грамматический регистр на книжный.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте книжное предложение в разговорный Perfekt.
+::source
+Исходное предложение: Der Kurier brachte den Brief am Vormittag.
+::exercise
+Напишите предложение в Perfekt для устного разговора.
+
+BACK:
+Der Kurier hat den Brief am Vormittag gebracht.
+Перевод: «Курьер принёс письмо в первой половине дня».
+
+CONTEXT:
+bringen — brachte — gebracht. В разговорном регистре глагол переходит в Perfekt: hat gebracht. der Kurier — курьер.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте предложение с глаголом движения в Präteritum.
+::source
+Исходное предложение: Die Zuhörer sind bis zum Ende geblieben.
+::exercise
+Напишите предложение в Präteritum (письменный стиль).
+
+BACK:
+Die Zuhörer blieben bis zum Ende.
+Перевод: «Слушатели остались до конца».
+
+CONTEXT:
+bleiben — blieb — geblieben. Для множественного числа die Zuhörer форма Präteritum — blieben.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте глагол с неотделяемой приставкой в Perfekt.
+::source
+Исходное предложение: Die Technikerin erklärte die Einstellungen.
+::exercise
+Напишите предложение в Perfekt для устного пересказа.
+
+BACK:
+Die Technikerin hat die Einstellungen erklärt.
+Перевод: «Техник объяснила настройки».
+
+CONTEXT:
+erklären имеет неотделяемую приставку er-, поэтому Partizip II образуется без ge-: erklärt (hat erklärt). die Einstellungen — настройки.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте отрицание в Präteritum о вчерашнем дне.
+::source
+Исходное предложение: Ich weiß die Antwort nicht.
+::exercise
+Напишите предложение о вчерашнем дне в Präteritum, начав со слова Gestern.
+
+BACK:
+Gestern wusste ich die Antwort nicht.
+Перевод: «Вчера я не знал ответа».
+
+CONTEXT:
+wissen → wusste в Präteritum. После Gestern спрягаемый глагол wusste встаёт на 2-ю позицию, затем подлежащее ich.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте глагол изменения состояния в Perfekt.
+::source
+Исходное предложение: Das Kind schlief im Zug ein.
+::exercise
+Напишите предложение в Perfekt.
+
+BACK:
+Das Kind ist im Zug eingeschlafen.
+Перевод: «Ребёнок заснул в поезде».
+
+CONTEXT:
+einschlafen (засыпать) обозначает смену состояния и образует Perfekt с sein: ist eingeschlafen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте два последовательных действия в Präteritum.
+::source
+Исходное предложение: Er hat angerufen und um Hilfe gebeten.
+::exercise
+Напишите предложение в Präteritum для книжного рассказа.
+
+BACK:
+Er rief an und bat um Hilfe.
+Перевод: «Он позвонил и попросил о помощи».
+
+CONTEXT:
+anrufen → rief an; bitten → bat (um Hilfe bitten — просить о помощи). В письменном повествовании обе формы стоят в Präteritum.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните, что обязательно сохраняется при смене времени.
+::exercise
+Что должно остаться неизменным при преобразовании Perfekt в Präteritum?
+
+BACK:
+Действующее лицо, само действие, объект, отрицание и последовательность событий.
+
+CONTEXT:
+Меняется только грамматическое оформление (регистр), а не смысл истории. «Sie öffnete die Tür» и «Sie hat die Tür geöffnet» сообщают об одном и том же событии.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите мысль на немецкий в разговорном Perfekt.
+::source
+Смысл: «Вчера я отправил заявление о приёме на работу».
+Опора: die Bewerbung abschicken.
+::exercise
+Напишите немецкое предложение в разговорном Perfekt.
+
+BACK:
+Gestern habe ich meine Bewerbung abgeschickt.
+Перевод: «Вчера я отправил заявление о приёме на работу».
+
+CONTEXT:
+abschicken — глагол с отделяемой приставкой: hat abgeschickt. После Gestern вспомогательный глагол habe занимает 2-ю позицию.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите фразу о профессии в прошлом с Präteritum от sein.
+::source
+Смысл: «Раньше мой дедушка был садовником».
+Опора: der Gärtner.
+::exercise
+Напишите немецкое предложение, начав со слова Früher.
+
+BACK:
+Früher war mein Großvater Gärtner.
+Перевод: «Раньше мой дедушка был садовником».
+
+CONTEXT:
+Früher занимает 1-е место, спрягаемый глагол war — 2-е место. Названия профессий после sein употребляются без артикля. Допустимо: mein Opa.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите фразу с модальным глаголом müssen в Präteritum.
+::source
+Смысл: «Нам пришлось отменить встречу».
+Опора: den Termin absagen.
+::exercise
+Напишите немецкое предложение в Präteritum.
+
+BACK:
+Wir mussten den Termin absagen.
+Перевод: «Нам пришлось отменить встречу».
+
+CONTEXT:
+mussten выражает вынужденность/необходимость для wir. Инфинитив absagen стоит в конце предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите сложное предложение для книжного рассказа в Präteritum.
+::source
+Смысл: «Когда я пришёл в мастерскую, там никого не было».
+Опоры: als; die Werkstatt; da sein.
+::exercise
+Напишите немецкое предложение в Präteritum.
+
+BACK:
+Als ich in die Werkstatt kam, war niemand da.
+Перевод: «Когда я пришёл в мастерскую, там никого не было».
+
+CONTEXT:
+В придаточном времени с als глагол kam уходит в конец; в главном предложении глагол war стоит сразу после придаточного на 2-й позиции.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите два действия в разговорном Perfekt.
+::source
+Смысл: «Я нашёл номер и позвонил в сервисную службу».
+Опоры: die Nummer finden; beim Kundendienst anrufen.
+::exercise
+Напишите немецкое предложение в Perfekt.
+
+BACK:
+Ich habe die Nummer gefunden und beim Kundendienst angerufen.
+Перевод: «Я нашёл номер и позвонил в сервисную службу».
+
+CONTEXT:
+Два однородных действия с вспомогательным habe: gefunden и angerufen. Повторять habe во второй части не обязательно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите устный рассказ с сочетанием Perfekt и Präteritum.
+::source
+Смысл: «Мы опоздали, потому что поезд задержался».
+Опоры: zu spät kommen (Perfekt); Verspätung haben (Präteritum с weil).
+::exercise
+Напишите связное немецкое предложение.
+
+BACK:
+Wir sind zu spät gekommen, weil der Zug Verspätung hatte.
+Перевод: «Мы опоздали, потому что поезд задержался».
+
+CONTEXT:
+В главном: sind gekommen (Perfekt движения). В придаточном причины с weil глагол hatte уходит в самый конец предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите фразу с двумя глаголами в Präteritum.
+::source
+Смысл: «Я хотел подать заявление, но у меня не было документов».
+Опоры: den Antrag abgeben; die Unterlagen.
+::exercise
+Напишите немецкое предложение в Präteritum с союзом aber.
+
+BACK:
+Ich wollte den Antrag abgeben, aber ich hatte die Unterlagen nicht.
+Перевод: «Я хотел подать заявление, но у меня не было документов».
+
+CONTEXT:
+wollte (намерение) и hatte nicht (отсутствие) выдержаны в Präteritum. Из фразы следует, что подать заявление не удалось.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните 4 шага перевода мысли без кальки с русского.
+::exercise
+Как переводить русские предложения о прошлом, не копируя русский порядок слов?
+
+BACK:
+1. Назовите действие и его участников (кто и что сделал).
+2. Подберите немецкое выражение и нужное время (Perfekt или Präteritum).
+3. Соберите немецкую глагольную рамку (V2 + элемент в конце).
+4. Проверьте результат обратным переводом.
+
+CONTEXT:
+Пример: русское «Вчера я отменил встречу» в немецком становится «Gestern habe ich den Termin abgesagt» (глагол строго на 2-й позиции).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о собеседовании в разговорном стиле.
+::source
+Вопрос: Wie war dein Vorstellungsgespräch?
+Смысл ответа: «Я волновался, но ответил на все вопросы» (war + Perfekt от beantworten).
+::exercise
+Сформулируйте связный ответ из двух частей с союзом aber.
+
+BACK:
+Ich war nervös, aber ich habe alle Fragen beantwortet.
+Перевод: «Я нервничал, но ответил на все вопросы».
+
+CONTEXT:
+war описывает состояние, habe beantwortet передаёт выполненное действие в Perfekt. beantworten образует причастие без ge-.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о причине задержки в Präteritum.
+::source
+Вопрос: Warum bist du erst jetzt hier?
+Смысл ответа: «Мне пришлось ждать мастера» (müssen + auf den Handwerker warten).
+::exercise
+Сформулируйте ответ в Präteritum.
+
+BACK:
+Ich musste auf den Handwerker warten.
+Перевод: «Мне пришлось ждать мастера».
+
+CONTEXT:
+musste выражает вынужденную необходимость; инфинитив warten замыкает фразу. der Handwerker — мастер, специалист по ремонту.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о доставке документов в Perfekt.
+::source
+Вопрос: Sind die Unterlagen schon angekommen?
+Смысл ответа: «Да, они пришли сегодня утром».
+::exercise
+Сформулируйте утвердительный ответ в Perfekt.
+
+BACK:
+Ja, sie sind heute Morgen angekommen.
+Перевод: «Да, они пришли сегодня утром».
+
+CONTEXT:
+die Unterlagen заменяются местоимением sie (они), глагол ankommen требует sein: sind angekommen. Допустимо: «Ja, heute Morgen sind sie angekommen».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о причине отключения света через weil.
+::source
+Вопрос: Warum war das Licht plötzlich aus?
+Смысл ответа: «Потому что отключилось электричество» (weil + der Strom ausfallen в Perfekt).
+::exercise
+Сформулируйте ответ с придаточным предложением.
+
+BACK:
+Weil der Strom ausgefallen ist.
+Перевод: «Потому что отключилось электричество».
+
+CONTEXT:
+В придаточном предложении с союзом weil спрягаемый вспомогательный глагол ist занимает абсолютный конец фразы, следуя за причастием ausgefallen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте о визите в бюро обслуживания граждан в Perfekt.
+::source
+Вопрос: Was hast du im Bürgerbüro gemacht?
+Смысл ответа: «Я подал заявление и получил справку» (den Antrag abgeben; eine Bescheinigung bekommen).
+::exercise
+Сформулируйте ответ с двумя однородными действиями в Perfekt.
+
+BACK:
+Ich habe den Antrag abgegeben und eine Bescheinigung bekommen.
+Перевод: «Я подал заявление и получил справку».
+
+CONTEXT:
+Вспомогательный глагол habe обслуживает оба причастия: abgegeben и bekommen. die Bescheinigung — справка, подтверждение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте о первой ночи в новой квартире двумя фразами.
+::source
+Вопрос: Wie war die erste Nacht in der neuen Wohnung?
+Смысл ответа: «Было очень тихо. Я хорошо спал» (Präteritum sein + разговорный Perfekt).
+::exercise
+Сформулируйте ответ из двух предложений.
+
+BACK:
+Es war sehr ruhig. Ich habe gut geschlafen.
+Перевод: «Было очень тихо. Я хорошо спал».
+
+CONTEXT:
+war (состояние в Präteritum) и habe geschlafen (Perfekt действия) гармонично сочетаются в устном воспоминании. Допустимо объединение через запятую и und.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте о причине пропуска занятий через deshalb.
+::source
+Вопрос: Warum konntest du gestern nicht zum Kurs kommen?
+Смысл ответа: «У меня была запись к врачу. Поэтому я не смог прийти» (hatte + deshalb + konnte).
+::exercise
+Сформулируйте ответ из двух предложений.
+
+BACK:
+Ich hatte einen Arzttermin. Deshalb konnte ich nicht zum Kurs kommen.
+Перевод: «У меня была запись к врачу. Поэтому я не смог прийти на курс».
+
+CONTEXT:
+После Deshalb спрягаемый модальный глагол konnte занимает 2-ю позицию, инфинитив kommen — в конце. der Arzttermin — приём у врача.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните формулу уверенного ответа о прошлом.
+::exercise
+Как построить понятный ответ собеседнику, не путаясь в длинных конструкциях?
+
+BACK:
+Разделите ответ на две короткие ступени:
+1. Главный факт: Ich hatte einen Termin.
+2. Причина или следствие: Deshalb bin ich später gekommen.
+
+CONTEXT:
+Короткие, грамматически безупречные предложения звучат намного естественнее и увереннее, чем длинные фразы с потерянными в конце глаголами.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте три предложения о визите в учреждение по опорам.
+::source
+Опоры:
+1. В пятницу был в учреждении (im Bürgerbüro sein).
+2. Волновался (nervös sein).
+3. Но договорился о встрече (einen Termin vereinbaren).
+::exercise
+Напишите связный рассказ из трёх фраз в разговорном стиле.
+
+BACK:
+Один естественный вариант:
+«Am Freitag war ich im Bürgerbüro. Ich war nervös. Aber ich habe einen Termin vereinbart».
+Перевод: «В пятницу я был в бюро обслуживания. Я волновался. Но я договорился о встрече».
+
+CONTEXT:
+Критерии: сохранены три факта; war употреблён корректно; vereinbart оформлен в Perfekt (habe vereinbart); соблюдён порядок слов.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте три предложения о задержке доставки по опорам.
+::source
+Опоры:
+1. Ждал посылку во вторник (auf ein Paket warten).
+2. У водителя случилась поломка (eine Panne haben).
+3. Поэтому посылка пришла только в среду (erst am Mittwoch ankommen).
+::exercise
+Напишите связный рассказ из трёх фраз в разговорном стиле.
+
+BACK:
+Один естественный вариант:
+«Am Dienstag habe ich auf ein Paket gewartet. Der Fahrer hatte eine Panne. Deshalb ist das Paket erst am Mittwoch angekommen».
+Перевод: «Во вторник я ждал посылку. У водителя случилась поломка. Поэтому посылка пришла только в среду».
+
+CONTEXT:
+Критерии: вторник → причина поломки → среда; habe gewartet (Perfekt), hatte (Präteritum), ist angekommen (Perfekt); связь через Deshalb с глаголом ist на 2-й позиции.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте три книжных предложения в разговорный рассказ.
+::source
+Текст в Präteritum:
+Sie ging ins Café. Sie bestellte einen Tee. Danach traf sie eine Bekannte.
+::exercise
+Перескажите этот сюжет в разговорном Perfekt, сохранив последовательность.
+
+BACK:
+Один естественный вариант:
+«Sie ist ins Café gegangen. Sie hat einen Tee bestellt. Danach hat sie eine Bekannte getroffen».
+Перевод: «Она зашла в кафе. Заказала чай. Затем встретила знакомую».
+
+CONTEXT:
+ging → ist gegangen; bestellte → hat bestellt; traf → hat getroffen. Все три действия переведены в разговорный Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте разговорный пересказ в книжный эпизод в Präteritum.
+::source
+Текст в Perfekt:
+Ich habe die Nachricht gelesen. Dann habe ich meine Schwester angerufen. Wir haben lange gesprochen.
+::exercise
+Перепишите рассказ в Präteritum для книги, не меняя порядок действий.
+
+BACK:
+Один естественный вариант:
+«Ich las die Nachricht. Dann rief ich meine Schwester an. Wir sprachen lange».
+Перевод: «Я прочитал сообщение. Затем позвонил сестре. Мы долго разговаривали».
+
+CONTEXT:
+habe gelesen → las; habe angerufen → rief an (отделяемая приставка an в конце); haben gesprochen → sprachen. Все формы выдержаны в Präteritum.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте рассказ-объяснение опоздания из 3–4 предложений.
+::source
+Смысловые пункты:
+1. Собирался прийти вовремя (wollte pünktlich kommen).
+2. Неожиданная задержка транспорта (der Bus hatte Verspätung).
+3. Пришлось долго ждать (musste lange warten).
+4. В итоге прибыл с опозданием (zu spät ankommen).
+::exercise
+Напишите связный разговорный рассказ из 3–4 предложений.
+
+BACK:
+Один естественный вариант:
+«Ich wollte pünktlich kommen. Aber mein Bus hatte Verspätung. Deshalb musste ich lange warten. Am Ende bin ich zu spät angekommen».
+Перевод: «Я хотел прийти вовремя. Но автобус задержался. Поэтому мне пришлось долго ждать. В итоге я приехал с опозданием».
+
+CONTEXT:
+Критерии: намерение (wollte) → причина (hatte) → вынужденность (musste) → итог (bin angekommen); логика связок Aber, Deshalb, Am Ende.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте рассказ о подготовке к важной встрече.
+::source
+Смысловые пункты:
+1. Состояние сильного волнения перед встречей (war sehr nervös).
+2. Трудность со сном из-за мыслей (konnte kaum schlafen, weil... hatte).
+3. Спокойный ответ на вопросы во время встречи (habe ruhig geantwortet).
+4. Облегчение после окончания (war erleichtert).
+::exercise
+Напишите связный рассказ из 3–4 предложений.
+
+BACK:
+Один естественный вариант:
+«Vor dem Gespräch war ich sehr nervös. Ich konnte in der Nacht kaum schlafen, weil ich viele Fragen hatte. Beim Gespräch habe ich ruhig geantwortet. Danach war ich erleichtert».
+Перевод: «Перед беседой я сильно нервничал. Ночью почти не мог спать, так как было много вопросов. Во время беседы я отвечал спокойно. Потом почувствовал облегчение».
+
+CONTEXT:
+Критерии: 4 смысловых этапа; корректные формы war, konnte, hatte, habe geantwortet; глагол hatte в конце придаточного после weil; логичный финал.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните 4 пункта чек-листа перед созданием истории.
+::exercise
+Какие 4 проверки помогают сделать самостоятельный рассказ понятным и грамотным?
+
+BACK:
+1. Есть ли завязка (где и когда)?
+2. Понятна ли хронология (zuerst, danach, plötzlich)?
+3. Оформлена ли рамка каждого сказуемого (V2, причастие или инфинитив в конце)?
+4. Есть ли понятная причина и итог (weil, deshalb, am Ende)?
+
+CONTEXT:
+Смешение естественного Präteritum (war, hatte, модальные) и Perfekt действий в устном рассказе абсолютно нормативно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте самостоятельный рассказ о дне, когда всё пошло не по плану.
+::source
+Обязательные смысловые пункты:
+1. Когда и где это было?
+2. Что произошло неожиданно (выключился телефон / сломался транспорт)?
+3. В чём заключалась проблема (не помнил адрес / не было билета)?
+4. Что вы предприняли (спросил прохожего / вызвал такси)?
+5. Чем всё завершилось?
+Требования: 4–5 связанных предложений; минимум две формы Perfekt, одна форма Präteritum (war/hatte/musste/konnte) и два связующих слова.
+::exercise
+Напишите законченную историю на немецком языке.
+
+BACK:
+Один естественный вариант:
+«Letzten Dienstag war ich auf dem Weg zu einem Termin. Plötzlich ist mein Handy ausgegangen. Ich hatte die Adresse nicht im Kopf. Deshalb habe ich einen Passanten nach dem Weg gefragt. Am Ende bin ich trotzdem pünktlich angekommen».
+Перевод: «В прошлый вторник я шёл на встречу. Вдруг у меня выключился телефон. Я не помнил адрес. Поэтому я спросил дорогу у прохожего. В конце концов я всё равно пришёл вовремя».
+
+CONTEXT:
+Критерии самопроверки (по 1 баллу за пункт, максимум 5):
+1. Все 5 смысловых этапов отражены.
+2. Минимум 2 конструкции Perfekt построены верно (ist ausgegangen, habe gefragt, bin angekommen).
+3. Формы Präteritum (war, hatte) употреблены к месту.
+4. Порядок слов и рамка сказуемого соблюдены.
+5. Логика связана словами plötzlich, deshalb, am Ende.
