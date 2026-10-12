@@ -32,23 +32,63 @@
   color: #e2e8f0;
   box-sizing: border-box;
 }
+.design-live-preview {
+  display: contents;
+}
 .design-preview-selectors { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; }
 .design-editor-note { font-size: .8rem; color: #94a3b8; line-height: 1.5; }
 .design-editor-palettes button { display: grid; gap: 6px; flex: 1 1 88px; }
 .design-editor-palettes span { height: 18px; width: 100%; border-radius: 4px; }
 .design-general-preview {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   width: 100%;
-  margin: 12px auto 20px;
-  max-height: 560px;
-  overflow: auto;
+  margin: 8px auto 16px;
+  max-height: clamp(140px, 28vh, 210px);
+  max-height: clamp(140px, 28dvh, 210px);
+  overflow-y: auto;
+  overflow-x: hidden;
   box-sizing: border-box;
   border-radius: 16px;
-  border: 1px solid rgba(255,255,255,.15);
-  background: var(--design-app-bg);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--design-app-bg), #0f172a;
+  background-color: #0f172a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   color: var(--design-text-color);
   font-family: var(--design-ui-font), sans-serif;
   line-height: var(--design-ui-lh);
   container-type: inline-size;
+}
+.design-general-preview::-webkit-scrollbar {
+  width: 5px;
+}
+.design-general-preview::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+.design-general-preview::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.35);
+  border-radius: 4px;
+}
+.design-general-preview::-webkit-scrollbar-thumb:hover {
+  background: rgba(167, 139, 250, 0.6);
+}
+.front-design-section > .design-preview-scope,
+.back-design-section > .design-preview-scope,
+.exercise-design-section > .design-preview-scope,
+.card-list-design-section > .design-preview-scope {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  max-height: clamp(140px, 28vh, 210px);
+  max-height: clamp(140px, 28dvh, 210px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 .design-home-preview { display: grid; gap: 12px; padding: 16px; }
 .design-home-preview h2 { margin-bottom: 8px; font-size: var(--design-heading-size); line-height: var(--design-heading-lh); color: var(--design-heading-color); background: none; -webkit-text-fill-color: currentColor; }
