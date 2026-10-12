@@ -13,6 +13,20 @@ export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks }) =
         if (block.type === 'options') {
           return (
             <div key={`${block.type}-${index}`} className="exercise-info-block exercise-info-options">
+              {block.label && (
+                <div
+                  className="exercise-options-label"
+                  style={{
+                    fontFamily: 'var(--design-options-label-font)',
+                    fontSize: 'var(--design-options-label-size)',
+                    color: 'var(--design-options-label-color)',
+                    fontWeight: 'var(--design-options-label-w)',
+                    marginBottom: '4px',
+                  }}
+                >
+                  {block.label}
+                </div>
+              )}
               <div
                 className="exercise-option-chips"
                 role="list"

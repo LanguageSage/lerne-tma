@@ -238,6 +238,7 @@ export const StudyCard = React.memo(({
   const cardStyle = useMemo(() => v2Styles?.frontText || getCardStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
   const backCardStyle = useMemo(() => v2Styles?.backText || getBackCardStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
   const contextStyle = useMemo(() => v2Styles?.contextText || getContextStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
+  const referenceStyle = useMemo(() => v2Styles?.referenceText || cardStyle, [v2Styles, cardStyle]);
   const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(effectiveConfig?.exercises?.baseColor || styles?.cardTextColor), [effectiveConfig, styles?.cardTextColor]);
 
   // Interactive Exercise Type Detection
@@ -723,7 +724,7 @@ export const StudyCard = React.memo(({
                     {topBlocks.length > 0 && (
                       <ExerciseInfoBlocks blocks={topBlocks} />
                     )}
-                    <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.95, whiteSpace: 'pre-wrap', ...cardStyle }}>
+                    <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.95, whiteSpace: 'pre-wrap', ...referenceStyle }}>
                       {cleanBracketSyntax(frontText)}
                     </div>
                     {bottomBlocks.length > 0 && (

@@ -15,16 +15,16 @@
   width: 100%;
   max-width: 380px;
   padding: 12px 16px;
-  border-radius: 12px;
-  border: 1px solid currentColor;
-  background: transparent;
-  color: inherit;
+  border-radius: var(--design-ft-radius, 12px);
+  border: 1px solid var(--design-ft-border, currentColor);
+  background: var(--design-ft-bg, transparent);
+  color: var(--design-ft-color, inherit);
   font-family: inherit;
   font-size: inherit;
   line-height: 1.5;
   resize: vertical;
 }
-.free-text-exercise textarea:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.free-text-exercise textarea:focus-visible { outline: 2px solid var(--design-ft-focus-border, currentColor); outline-offset: 4px; }
 .free-text-action { width: 100%; max-width: 340px; min-height: 44px; display: inline-flex; gap: 8px; align-items: center; justify-content: center; white-space: normal; }
 .free-text-feedback, .free-text-example { width: 100%; max-width: 380px; line-height: 1.5; overflow-wrap: anywhere; }
 .free-text-feedback p, .free-text-example p { margin: 0 0 8px; }

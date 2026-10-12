@@ -1782,5 +1782,15 @@
   "Черновик применён в вашем браузере": "Draft applied in your browser",
   "Локальный просмотр выключен": "Local preview disabled",
   "Отключить локальный просмотр черновика": "Disable local draft preview",
-  "Применить черновик только в моем браузере": "Apply draft only in my browser"
+  "Применить черновик только в моем браузере": "Apply draft only in my browser",
+  "Пресет применён. Раздел «Общее» не изменён.": "Preset applied. \"General\" section unchanged.",
+  "Изменение отменено": "Change undone",
+  "Ошибка загрузки": "Load error",
+  "Черновик восстановлен с сервера": "Draft restored from server",
+  "На сервере нет сохранённого черновика": "No saved draft on the server",
+  "Прежние личные настройки перенесены в черновик": "Previous personal settings imported into the draft",
+  "Восстановить с сервера": "Restore from server",
+  "Импорт прежних настроек": "Import previous settings",
+  "Дизайн: только у меня": "Design: only for me",
+  "Выключить": "Turn off"
 }

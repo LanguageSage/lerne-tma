@@ -191,7 +191,7 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
     },
     /** Разделитель между вопросом и ответом */
     separator: {
-      color: 'rgba(255,255,255,0.12)',
+      color: 'rgba(168, 85, 247, 0.45)',
       opacity: 1,
       width: '1px',
     },
@@ -241,9 +241,9 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
     choice: {
       normal:   { bg: 'rgba(15,23,42,0.55)', color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.12)' },
       hover:    { bg: 'rgba(255,255,255,0.08)', color: '#ffffff', borderColor: 'rgba(255,255,255,0.2)' },
-      selected: { bg: 'rgba(167,139,250,0.18)', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.35)' },
-      correct:  { bg: 'rgba(34,197,94,0.18)',  color: '#4ade80', borderColor: 'rgba(34,197,94,0.35)' },
-      wrong:    { bg: 'rgba(239,68,68,0.18)',   color: '#f87171', borderColor: 'rgba(239,68,68,0.35)' },
+      selected: { bg: 'rgba(99,102,241,0.25)', color: '#ffffff', borderColor: '#818cf8' },
+      correct:  { bg: 'rgba(34,197,94,0.22)',  color: '#4ade80', borderColor: '#4ade80' },
+      wrong:    { bg: 'rgba(239,68,68,0.22)',   color: '#f87171', borderColor: '#f87171' },
       disabled: { bg: 'rgba(255,255,255,0.03)', color: '#475569', borderColor: 'rgba(255,255,255,0.06)' },
     },
 
@@ -292,35 +292,35 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
 
     /** Match exercise */
     match: {
-      item:     { bg: 'rgba(255,255,255,0.06)', color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.12)', radius: '8px' },
-      selected: { bg: 'rgba(167,139,250,0.18)', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.4)' },
-      matched:  { bg: 'rgba(34,197,94,0.15)',   color: '#4ade80', borderColor: 'rgba(34,197,94,0.3)' },
-      wrong:    { bg: 'rgba(239,68,68,0.15)',    color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' },
+      item:     { bg: 'rgba(255,255,255,0.05)', color: '#f1f5f9', borderColor: 'rgba(255,255,255,0.12)', radius: '12px' },
+      selected: { bg: 'rgba(168,85,247,0.35)', color: '#ffffff', borderColor: '#a855f7' },
+      matched:  { bg: 'rgba(34,197,94,0.22)',   color: '#4ade80', borderColor: '#22c55e' },
+      wrong:    { bg: 'rgba(239,68,68,0.22)',    color: '#f87171', borderColor: '#ef4444' },
     },
 
     /** Puzzle */
     puzzle: {
       container: { bg: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', radius: '12px' },
-      item:      { bg: 'rgba(255,255,255,0.07)', color: '#e2e8f0', borderColor: 'rgba(255,255,255,0.12)', radius: '8px' },
-      selected:  { bg: 'rgba(167,139,250,0.2)',  color: '#a78bfa', borderColor: 'rgba(167,139,250,0.4)' },
+      item:      { bg: 'linear-gradient(135deg, rgba(168,85,247,0.2), rgba(99,102,241,0.2))', color: '#e9d5ff', borderColor: 'rgba(168,85,247,0.3)', radius: '99px' },
+      selected:  { bg: 'rgba(168,85,247,0.35)',  color: '#a78bfa', borderColor: 'rgba(168,85,247,0.4)' },
     },
 
     /** Action buttons (Check, Next, Submit) */
     actionButton: {
-      primary:   { bg: 'rgba(167,139,250,0.2)',  color: '#a78bfa', borderColor: 'rgba(167,139,250,0.4)' },
-      secondary: { bg: 'rgba(255,255,255,0.06)', color: '#94a3b8', borderColor: 'rgba(255,255,255,0.12)' },
-      disabled:  { bg: 'rgba(255,255,255,0.03)', color: '#475569', borderColor: 'rgba(255,255,255,0.06)' },
+      primary:   { bg: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',  color: '#ffffff', borderColor: 'rgba(255,255,255,0.25)' },
+      secondary: { bg: 'rgba(255,255,255,0.08)', color: '#94a3b8', borderColor: 'rgba(255,255,255,0.12)' },
+      disabled:  { bg: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.4)', borderColor: 'rgba(255,255,255,0.06)' },
     },
   },
 
   cardList: {
     card: {
-      bg: 'rgba(15,23,42,0.55)',
-      borderColor: 'rgba(255,255,255,0.08)',
+      bg: 'rgba(30, 41, 59, 0.75)',
+      borderColor: 'rgba(255, 255, 255, 0.16)',
       borderWidth: '1px',
-      borderRadius: '12px',
-      padding: '12px 14px',
-      shadow: 'none',
+      borderRadius: '18px',
+      padding: '14px 16px 12px 16px',
+      shadow: '0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25)',
       gap: '8px',
     },
     frontText: {

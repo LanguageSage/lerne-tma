@@ -9,6 +9,7 @@ import { navigateUp } from './utils/navigation';
 
 // Components
 import { Toast } from './components/common/Toast';
+import { LocalDesignBadge } from './components/common/LocalDesignBadge';
 import { GlobalLoader } from './components/common/Loader';
 import { GuestBanner } from './components/common/UserBadge';
 import { DeckGrid, CardList, CardEditor, CardCreator } from './components/deckgrid';
@@ -375,6 +376,7 @@ function AppContent() {
       )}
 
       <Toast toast={toast} />
+      <LocalDesignBadge />
       <GlobalLoader isVisible={isOpeningDeck} />
     </div>
   );

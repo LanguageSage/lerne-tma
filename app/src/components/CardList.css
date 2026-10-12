@@ -9,15 +9,15 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 14px 16px 12px 16px;
+  padding: var(--design-cl-card-padding, 14px 16px 12px 16px);
   text-align: left;
-  gap: 8px;
-  background: rgba(30, 41, 59, 0.75);
+  gap: var(--design-cl-card-gap, 8px);
+  background: var(--design-cl-card-bg, rgba(30, 41, 59, 0.75));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 18px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25);
+  border: var(--design-cl-card-bw, 1px) solid var(--design-cl-card-border, rgba(255, 255, 255, 0.16));
+  border-radius: var(--design-cl-card-radius, 18px) !important;
+  box-shadow: var(--design-cl-card-shadow, 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25));
   transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
   position: relative;
   overflow: hidden;
@@ -105,7 +105,7 @@
   color: #ffffff;
   line-height: 1.4;
   word-break: break-word;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  text-shadow: var(--design-cl-front-shadow, 0 1px 2px rgba(0, 0, 0, 0.15));
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -138,7 +138,8 @@
   white-space: pre-line;
   margin-top: 6px;
   padding-top: 6px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  border-top: var(--design-cl-divider-width, 1px) dashed var(--design-cl-divider-color, rgba(255, 255, 255, 0.08));
+  opacity: var(--design-cl-divider-opacity, 1);
   transition: all 0.2s ease;
 }
 
@@ -217,7 +218,7 @@
   height: 30px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--design-cl-menu-color, rgba(255, 255, 255, 0.55));
   border: 1px solid rgba(255, 255, 255, 0.09);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;

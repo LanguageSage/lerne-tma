@@ -124,20 +124,26 @@ export const StudyCardQuiz = ({
           else if (isSelected) optionClass += ' selected';
 
           // Option background & border calculation
-          let bg = harmonizedOptions.buttonBg;
-          let borderColor = harmonizedOptions.buttonBorder;
+          let bg = `var(--design-choice-normal-bg, ${harmonizedOptions.buttonBg})`;
+          let borderColor = `var(--design-choice-normal-border, ${harmonizedOptions.buttonBorder})`;
           const boxShadow = 'none';
-          const textColor = harmonizedOptions.textColor;
+          let textColor = `var(--design-choice-normal-color, ${harmonizedOptions.textColor})`;
 
           if (isConfirmed) {
-            bg = 'rgba(34, 197, 94, 0.22)';
-            borderColor = '#4ade80';
+            bg = 'var(--design-choice-correct-bg, var(--design-correct-bg, rgba(34, 197, 94, 0.22)))';
+            borderColor = 'var(--design-choice-correct-border, var(--design-correct-border, #4ade80))';
+            textColor = 'var(--design-choice-correct-color, var(--design-correct-color, #4ade80))';
           } else if (isWrong) {
-            bg = 'rgba(239, 68, 68, 0.22)';
-            borderColor = '#f87171';
+            bg = 'var(--design-choice-wrong-bg, var(--design-wrong-bg, rgba(239, 68, 68, 0.22)))';
+            borderColor = 'var(--design-choice-wrong-border, var(--design-wrong-border, #f87171))';
+            textColor = 'var(--design-choice-wrong-color, var(--design-wrong-color, #f87171))';
           } else if (isSelected) {
-            bg = 'rgba(99, 102, 241, 0.25)';
-            borderColor = '#818cf8';
+            bg = 'var(--design-choice-selected-bg, var(--design-selected-bg, rgba(99, 102, 241, 0.25)))';
+            borderColor = 'var(--design-choice-selected-border, var(--design-selected-border, #818cf8))';
+            textColor = 'var(--design-choice-selected-color, var(--design-selected-color, #ffffff))';
+          } else if (disabled) {
+            bg = 'var(--design-choice-disabled-bg, rgba(255, 255, 255, 0.03))';
+            textColor = 'var(--design-choice-disabled-color, #475569)';
           }
 
           return (
@@ -174,10 +180,10 @@ export const StudyCardQuiz = ({
                   height: '32px',
                   borderRadius: '50%',
                   background: isConfirmed
-                    ? '#22c55e'
+                    ? 'var(--design-choice-correct-border, var(--design-correct-border, #22c55e))'
                     : (isWrong
-                        ? '#ef4444'
-                        : (isSelected ? '#6366f1' : harmonizedOptions.badgeBg)),
+                        ? 'var(--design-choice-wrong-border, var(--design-wrong-border, #ef4444))'
+                        : (isSelected ? 'var(--design-choice-selected-border, var(--design-selected-border, #6366f1))' : harmonizedOptions.badgeBg)),
                   border: isSelected || isConfirmed || isWrong
                     ? 'none'
                     : `1px solid ${harmonizedOptions.badgeBorder}`,
@@ -230,12 +236,14 @@ export const StudyCardQuiz = ({
             padding: '14px 20px',
             borderRadius: '14px',
             background: selectedOptionId !== null
-              ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
-              : 'rgba(255, 255, 255, 0.07)',
-            color: selectedOptionId !== null ? '#ffffff' : 'rgba(255, 255, 255, 0.4)',
+              ? 'var(--design-btn-primary-bg, linear-gradient(135deg, #6366f1 0%, #4f46e5 100%))'
+              : 'var(--design-btn-disabled-bg, rgba(255, 255, 255, 0.07))',
+            color: selectedOptionId !== null
+              ? 'var(--design-btn-primary-color, #ffffff)'
+              : 'var(--design-btn-disabled-color, rgba(255, 255, 255, 0.4))',
             border: selectedOptionId !== null
-              ? '1px solid rgba(255, 255, 255, 0.25)'
-              : '1px solid rgba(255, 255, 255, 0.12)',
+              ? '1px solid var(--design-btn-primary-border, rgba(255, 255, 255, 0.25))'
+              : '1px solid var(--design-btn-secondary-bg, rgba(255, 255, 255, 0.12))',
             fontSize: '1.05rem',
             fontWeight: 600,
             display: 'flex',

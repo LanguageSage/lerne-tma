@@ -156,24 +156,24 @@ export const StudyCardMatch = React.memo(({
             const feedback = evaluation.part(matchPartId(p.id));
             const isWrong = feedback?.status === 'incorrect';
 
-            let border = '1.5px solid rgba(255, 255, 255, 0.12)';
-            let bg = 'rgba(255, 255, 255, 0.05)';
-            let textColor = '#f1f5f9';
+            let border = '1.5px solid var(--design-match-item-border, rgba(255, 255, 255, 0.12))';
+            let bg = 'var(--design-match-item-bg, rgba(255, 255, 255, 0.05))';
+            let textColor = 'var(--design-match-item-color, #f1f5f9)';
 
             if (isCorrect || isWrong) {
               if (isCorrect) {
-                border = '2px solid #22c55e';
-                bg = 'rgba(34, 197, 94, 0.22)';
-                textColor = '#4ade80';
+                border = '2px solid var(--design-correct-border, #22c55e)';
+                bg = 'var(--design-match-matched-bg, var(--design-correct-bg, rgba(34, 197, 94, 0.22)))';
+                textColor = 'var(--design-match-matched-color, var(--design-correct-color, #4ade80))';
               } else if (isWrong) {
-                border = '2px solid #ef4444';
-                bg = 'rgba(239, 68, 68, 0.22)';
-                textColor = '#f87171';
+                border = '2px solid var(--design-wrong-border, #ef4444)';
+                bg = 'var(--design-match-wrong-bg, var(--design-wrong-bg, rgba(239, 68, 68, 0.22)))';
+                textColor = 'var(--design-wrong-color, #f87171)';
               }
             } else if (isSelected) {
-              border = '2px solid #a855f7';
-              bg = 'rgba(168, 85, 247, 0.35)';
-              textColor = '#ffffff';
+              border = '2px solid var(--design-selected-border, #a855f7)';
+              bg = 'var(--design-match-selected-bg, var(--design-selected-bg, rgba(168, 85, 247, 0.35)))';
+              textColor = 'var(--design-selected-color, #ffffff)';
             }
 
             return (
@@ -194,7 +194,7 @@ export const StudyCardMatch = React.memo(({
                   justifyContent: 'center',
                   minHeight: '52px',
                   padding: '8px 10px',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--design-match-item-radius, 12px)',
                   border,
                   background: bg,
                   color: textColor,
@@ -245,24 +245,24 @@ export const StudyCardMatch = React.memo(({
             const isCorrect = isMatched;
             const isWrong = wrongRightId === r.originalPairId;
 
-            let border = '1.5px solid rgba(255, 255, 255, 0.12)';
-            let bg = 'rgba(255, 255, 255, 0.05)';
-            let textColor = '#f1f5f9';
+            let border = '1.5px solid var(--design-match-item-border, rgba(255, 255, 255, 0.12))';
+            let bg = 'var(--design-match-item-bg, rgba(255, 255, 255, 0.05))';
+            let textColor = 'var(--design-match-item-color, #f1f5f9)';
 
             if (isCorrect || isWrong) {
               if (isCorrect) {
-                border = '2px solid #22c55e';
-                bg = 'rgba(34, 197, 94, 0.22)';
-                textColor = '#4ade80';
+                border = '2px solid var(--design-correct-border, #22c55e)';
+                bg = 'var(--design-match-matched-bg, var(--design-correct-bg, rgba(34, 197, 94, 0.22)))';
+                textColor = 'var(--design-match-matched-color, var(--design-correct-color, #4ade80))';
               } else if (isWrong) {
-                border = '2px solid #ef4444';
-                bg = 'rgba(239, 68, 68, 0.22)';
-                textColor = '#f87171';
+                border = '2px solid var(--design-wrong-border, #ef4444)';
+                bg = 'var(--design-match-wrong-bg, var(--design-wrong-bg, rgba(239, 68, 68, 0.22)))';
+                textColor = 'var(--design-wrong-color, #f87171)';
               }
             } else if (isSelected) {
-              border = '2px solid #a855f7';
-              bg = 'rgba(168, 85, 247, 0.35)';
-              textColor = '#ffffff';
+              border = '2px solid var(--design-selected-border, #a855f7)';
+              bg = 'var(--design-match-selected-bg, var(--design-selected-bg, rgba(168, 85, 247, 0.35)))';
+              textColor = 'var(--design-selected-color, #ffffff)';
             }
 
             return (
@@ -281,7 +281,7 @@ export const StudyCardMatch = React.memo(({
                   justifyContent: 'center',
                   minHeight: '52px',
                   padding: '8px 10px',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--design-match-item-radius, 12px)',
                   border,
                   background: bg,
                   color: textColor,

@@ -61,7 +61,8 @@ test('JSON, draft persistence, server load, revert and explicit publication keep
   await page.getByLabel('Оттенок 1', { exact: true }).fill('#223344');
   await page.getByLabel('Количество оттенков').selectOption('2');
   expect(await previewBg(page)).toContain('34, 51, 68');
-  expect(await rootBg(page)).toBe('#101522');
+  expect(await rootBg(page)).toContain('#223344');
+  await expect(page.locator('.local-design-badge')).toBeVisible();
   await page.getByRole('button', { name: 'Сохранить черновик', exact: true }).click();
   await expect(page.locator('.design-toolbar-status')).toHaveText('Черновик сохранён');
   expect(backend.draft.global.background.color1).toBe('#223344');
@@ -69,7 +70,7 @@ test('JSON, draft persistence, server load, revert and explicit publication keep
   await page.reload();
   await openEditor(page);
   await expect(page.getByLabel('Режим фона')).toHaveValue('linear');
-  expect(await rootBg(page)).toBe('#101522');
+  expect(await rootBg(page)).toContain('#223344');
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Экспорт JSON', exact: true }).click();
   const download = await downloadPromise;
@@ -80,11 +81,11 @@ test('JSON, draft persistence, server load, revert and explicit publication keep
   await expect(page.locator('.design-toolbar-status')).toHaveText('Некорректный JSON: черновик не изменён');
   await page.locator('input[type=file]').setInputFiles({ name: 'design.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...exported, global: { ...exported.global, background: { ...exported.global.background, color1: '#556677' } } })) });
   await expect(page.locator('.design-toolbar-status')).toHaveText('JSON импортирован в черновик');
-  expect(await rootBg(page)).toBe('#101522');
+  expect(await rootBg(page)).toContain('#556677');
   await page.getByRole('button', { name: 'Опубликовать для всех', exact: true }).click();
   expect(backend.writes).not.toContain('publish');
   await page.locator('.design-toolbar').getByRole('button', { name: '✕ Нет', exact: true }).click();
-  expect(await rootBg(page)).toBe('#101522');
+  expect(await rootBg(page)).toContain('#556677');
   await page.getByRole('button', { name: 'Опубликовать для всех', exact: true }).click();
   await page.locator('.design-toolbar-publish-confirm').click();
   await expect(page.getByRole('button', { name: 'Опубликовано!', exact: true })).toBeVisible();
@@ -100,7 +101,7 @@ test('JSON, draft persistence, server load, revert and explicit publication keep
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     await useSettingsStore.getState().loadAdminDraftFromServer();
   });
-  expect(await rootBg(page)).toContain('#556677');
+  expect(await rootBg(page)).toContain('#223344');
   await expect(page.getByLabel('Режим фона')).toHaveValue('linear');
 });
 
@@ -113,6 +114,8 @@ test('save/publish failures preserve draft and published design', async ({ page,
   await page.getByRole('button', { name: 'Опубликовать для всех', exact: true }).click();
   await page.locator('.design-toolbar-publish-confirm').click();
   await expect(page.getByRole('alert')).toHaveText('Test publish failure');
+  expect(backend.published.revision).toBe(1);
+  await page.locator('.local-design-badge button').click();
   expect(await rootBg(page)).toBe('#101522');
   await expect(page.getByLabel('Режим фона')).toHaveValue('solid');
 });
@@ -258,17 +261,37 @@ test('preview allows Tab navigation and shared button styling excludes SRS grade
   expect(after).toBe(gradeColor);
 });
 
-test('local preview applies draft tokens to root without publishing and can be toggled off', async ({ page, context }) => {
+test('local preview auto-enables for admin on edit, shows badge, and can be toggled off', async ({ page, context }) => {
   const backend = await setup(page, context);
   expect(await rootBg(page)).toBe('#101522');
   await page.getByLabel('Режим фона').selectOption('solid');
   await page.getByLabel('Оттенок 1', { exact: true }).fill('#334455');
+  expect(await rootBg(page)).toBe('#334455');
+  await expect(page.locator('.local-design-badge')).toBeVisible();
+  expect(backend.writes).not.toContain('publish');
+  // Off button on badge toggles off local preview
+  await page.locator('.local-design-badge button').click();
   expect(await rootBg(page)).toBe('#101522');
+  await expect(page.locator('.local-design-badge')).not.toBeVisible();
+  // Toggle back on via toolbar button
   await page.getByRole('button', { name: 'Применить только у меня', exact: true }).click();
   await expect(page.locator('.design-toolbar-status')).toHaveText('Черновик применён в вашем браузере');
   expect(await rootBg(page)).toBe('#334455');
-  expect(backend.writes).not.toContain('publish');
-  await page.getByRole('button', { name: 'Только у меня: ВКЛ', exact: true }).click();
-  await expect(page.locator('.design-toolbar-status')).toHaveText('Локальный просмотр выключен');
-  expect(await rootBg(page)).toBe('#101522');
+  await expect(page.locator('.local-design-badge')).toBeVisible();
+});
+
+test('preset applies only card sides and list, preserving global and exercises, and can be undone', async ({ page, context }) => {
+  await setup(page, context);
+  await page.getByLabel('Режим фона').selectOption('linear');
+  await page.getByLabel('Оттенок 1', { exact: true }).fill('#123456');
+  await page.locator('.design-toolbar-preset').click();
+  await expect(page.locator('.design-preset-menu')).toBeVisible();
+  await page.locator('.design-preset-item').first().click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Пресет применён. Раздел «Общее» не изменён.');
+  await expect(page.getByLabel('Режим фона')).toHaveValue('linear');
+  await expect(page.getByLabel('Оттенок 1', { exact: true })).toHaveValue('#123456');
+  const undoBtn = page.getByRole('button', { name: 'Отменить', exact: true });
+  await expect(undoBtn).toBeEnabled();
+  await undoBtn.click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Изменение отменено');
 });

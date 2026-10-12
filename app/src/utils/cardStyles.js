@@ -198,5 +198,13 @@ export const getDesignStylesFromV2 = (designConfig) => {
       textAlign: back?.context?.align || 'left',
       lineHeight: back?.context?.lineHeight,
     },
+    referenceText: {
+      fontFamily: back?.referenceText?.font,
+      color: back?.referenceText?.color,
+      fontSize: back?.referenceText?.size ? `${back.referenceText.size}rem` : undefined,
+      fontWeight: back?.referenceText?.weight,
+      fontStyle: back?.referenceText?.style,
+      textAlign: back?.referenceText?.align || 'left',
+    },
   };
 };

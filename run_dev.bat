@@ -9,13 +9,18 @@ if not exist venv (
     exit /b
 )
 
-:: 2. Start API
+:: 2. Free ports 8001 and 5173 if occupied
+echo Checking and freeing ports 8001 and 5173...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8001 ^| findstr LISTENING') do taskkill /f /pid %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5173 ^| findstr LISTENING') do taskkill /f /pid %%a >nul 2>&1
+ping -n 2 127.0.0.1 >nul
+
+:: 3. Start API
 echo Launching API on port 8001...
-:: Using a more robust path for python
 set PYTHON_PATH=%CD%\venv\Scripts\python.exe
 start "Lerne-API" cmd /k "echo API Window && set FORCE_LOCAL_DB=true&& "%PYTHON_PATH%" -m uvicorn api.main:app --port 8001"
 
-:: 3. Start Frontend
+:: 4. Start Frontend
 echo Launching Frontend...
 cd app
 if not exist node_modules (

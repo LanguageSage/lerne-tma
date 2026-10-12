@@ -4,6 +4,7 @@ import api from '../services/api';
 import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence';
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2, patchDesignValue } from '../design/designConfig.js';
 import { applyPublishedDesignTokens } from '../design/designTokens.js';
+import { migrateLegacyDesignSettings } from '../design/legacyAdapter.js';
 
 // ─── Design V2 localStorage cache (offline fallback) ──────────────────────────
 const DESIGN_V2_CACHE_KEY = 'lerne:published-design:v2';
@@ -607,25 +608,37 @@ export const useSettingsStore = create((set, get) => {
       return next;
     },
 
-    /** Обновляет admin draft (сохраняет в кеш; токены применяются в preview и в root при активном локальном просмотре). */
-    setAdminDraftDesignV2: (config) => {
-      const normalized = normalizeDesignConfig(config);
-      saveCachedAdminDraft(normalized);
-      set({ adminDraftDesignV2: normalized });
-      if (get().isLocalDesignPreviewActive) {
-        applyPublishedDesignTokens(normalized);
+    /** Единая точка записи черновика: кеш + store; для администратора первая правка
+     *  автоматически включает просмотр «только у меня» на всём приложении. */
+    commitAdminDraft: (config, { autoPreview = true } = {}) => {
+      saveCachedAdminDraft(config);
+      set({ adminDraftDesignV2: config });
+      if (autoPreview && get().isAdmin && !get().isLocalDesignPreviewActive) {
+        saveCachedLocalPreviewState(true);
+        set({ isLocalDesignPreviewActive: true });
       }
+      if (get().isLocalDesignPreviewActive) applyPublishedDesignTokens(config);
     },
+
+    /** Обновляет admin draft целиком. */
+    setAdminDraftDesignV2: (config) => get().commitAdminDraft(normalizeDesignConfig(config)),
 
     /** Патчит одно поле в admin draft по dot-path. */
     patchAdminDraft: (path, value) => {
       const current = get().adminDraftDesignV2 ?? normalizeDesignConfig(get().publishedDesignV2?.config);
-      const updated = normalizeDesignConfig(patchDesignValue(current, path, value));
-      saveCachedAdminDraft(updated);
-      set({ adminDraftDesignV2: updated });
-      if (get().isLocalDesignPreviewActive) {
-        applyPublishedDesignTokens(updated);
+      get().commitAdminDraft(normalizeDesignConfig(patchDesignValue(current, path, value)));
+    },
+
+    /** Копирует из source только перечисленные разделы; возвращает прежний черновик для отмены. */
+    applyDraftSections: (source, sections) => {
+      const previous = get().adminDraftDesignV2 ?? normalizeDesignConfig(get().publishedDesignV2?.config);
+      const next = structuredClone(previous);
+      const incoming = normalizeDesignConfig(source);
+      for (const section of sections) {
+        if (section in DEFAULT_DESIGN_CONFIG_V2 && section !== 'schemaVersion') next[section] = structuredClone(incoming[section]);
       }
+      get().commitAdminDraft(normalizeDesignConfig(next));
+      return previous;
     },
 
     /** Публикует admin draft: отправляет на сервер, при успехе обновляет published. */
@@ -660,44 +673,40 @@ export const useSettingsStore = create((set, get) => {
       }
     },
 
-    /** Загружает admin draft с сервера. */
+    /** Загружает сохранённый на сервере admin draft; возвращает прежний черновик для отмены. */
     loadAdminDraftFromServer: async () => {
       try {
         const res = await api.get('/admin/design/draft');
-        if (res.data?.config) {
-          const normalized = normalizeDesignConfig(res.data.config);
-          saveCachedAdminDraft(normalized);
-          set({ adminDraftDesignV2: normalized });
-          if (get().isLocalDesignPreviewActive) {
-            applyPublishedDesignTokens(normalized);
-          }
-        }
+        if (!res.data?.config) return { success: true, found: false };
+        const previous = get().adminDraftDesignV2;
+        get().commitAdminDraft(normalizeDesignConfig(res.data.config));
+        return { success: true, found: true, previous };
       } catch (e) {
         console.warn('Failed to load admin draft:', e);
+        return { success: false, error: e?.response?.data?.detail || e.message };
       }
+    },
+
+    /** Однократно переносит прежние личные настройки шрифтов/цветов этого браузера в разделы
+     *  лицевая/обратная/список черновика; возвращает прежний черновик для отмены. */
+    importLegacyPersonalDesign: () => {
+      const state = get();
+      const flat = {};
+      Object.keys(DESIGN_STORAGE_MAP).forEach((key) => { flat[key] = state[key]; });
+      return state.applyDraftSections(migrateLegacyDesignSettings(flat), ['front', 'back', 'cardList']);
     },
 
     /** Возвращает draft к текущему published design. */
     revertDraftToPublished: () => {
       const published = get().publishedDesignV2?.config;
-      const target = published ? normalizeDesignConfig(published) : normalizeDesignConfig(null);
-      saveCachedAdminDraft(target);
-      set({ adminDraftDesignV2: target });
-      if (get().isLocalDesignPreviewActive) {
-        applyPublishedDesignTokens(target);
-      }
+      get().commitAdminDraft(published ? normalizeDesignConfig(published) : normalizeDesignConfig(null), { autoPreview: false });
     },
 
     /** Сбрасывает конкретную секцию в draft до defaults. */
     resetDraftSection: (section) => {
       const current = get().adminDraftDesignV2 ?? normalizeDesignConfig(null);
       if (!(section in DEFAULT_DESIGN_CONFIG_V2)) return;
-      const updated = { ...current, [section]: JSON.parse(JSON.stringify(DEFAULT_DESIGN_CONFIG_V2[section])) };
-      saveCachedAdminDraft(updated);
-      set({ adminDraftDesignV2: updated });
-      if (get().isLocalDesignPreviewActive) {
-        applyPublishedDesignTokens(updated);
-      }
+      get().commitAdminDraft({ ...current, [section]: JSON.parse(JSON.stringify(DEFAULT_DESIGN_CONFIG_V2[section])) });
     },
 
     /** Инициализирует admin draft из опубликованного дизайна (при открытии редактора). */
