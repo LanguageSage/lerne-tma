@@ -249,11 +249,7 @@ export const FolderCardItem = React.memo(({
         </div>
 
         <div className="deck-footer-actions-right">
-<<<<<<< Updated upstream
           {(canEditFolder || isAdmin) && (
-=======
-          {!folder.is_global_readonly && (
->>>>>>> Stashed changes
             <button 
               className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
               onClick={toggleMenu}

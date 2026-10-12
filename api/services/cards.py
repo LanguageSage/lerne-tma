@@ -336,16 +336,11 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
             raise ValueError(f"Card {card_id} not found")
         # Verify user can access this card (has at least viewer role on its deck)
         from .collaborative_service import get_effective_user_role
-<<<<<<< Updated upstream
-        if not get_effective_user_role(user_id, 'deck', card.deck_id):
-            raise PermissionError("No access to this card")
-=======
         deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id) if card.deck_id else None
         if deck and deck.user_id != user_id:
             role = get_effective_user_role(user_id, 'deck', card.deck_id)
             if not role:
                 raise PermissionError("No access to this card")
->>>>>>> Stashed changes
         # Write to TMAProgress (per-user), not to TMA_Card (canonical)
         progress, _ = TMAProgress.get_or_create(
             card_id=card_id,
@@ -723,14 +718,9 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "audio_back_path": audio_back_path,
         "video_front_path": video_front,
         "video_back_path": video_back,
-<<<<<<< Updated upstream
-        "flag": int(get_p('flag') or 0),
-        "want_to_learn": bool(get_p('want_to_learn') or False),
-=======
         # flag and want_to_learn are per-user: read from TMAProgress (p) first
         "flag": int(get_p('flag') or get_val('flag', 'flag') or 0),
         "want_to_learn": bool(get_p('want_to_learn') or get_val('want_to_learn', 'want_to_learn') or False),
->>>>>>> Stashed changes
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
         "is_leech": srs.is_leech(lapses),

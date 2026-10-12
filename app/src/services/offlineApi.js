@@ -43,13 +43,8 @@ async function cardView(db, card, userId, reviewContext = 'scheduled') {
     intervals: getNextIntervals(progress, reviewContext), is_leech: isLeech(progress?.lapses || 0),
     next_review: progress?.next_review, last_reviewed: progress?.last_reviewed,
     queue: progress?.queue || 'new', interval: progress?.interval || 0, lapses: progress?.lapses || 0,
-<<<<<<< Updated upstream
-    flag: progress?.flag ?? 0,
-    want_to_learn: progress?.want_to_learn ?? false,
-=======
     flag: progress?.flag ?? card.flag ?? 0,
     want_to_learn: progress?.want_to_learn ?? card.want_to_learn ?? false,
->>>>>>> Stashed changes
   };
 }
 
@@ -444,25 +439,19 @@ export const offlineApi = {
         if (action === 'rename') fields = { name: body.name };
         if (action === 'color') fields = { color: body.color };
         if (action === 'flag') {
-<<<<<<< Updated upstream
           if (entity !== 'cards') throw unsupported();
-=======
->>>>>>> Stashed changes
           const prog = await db.progress.get([id, userId]) || { card_id: id, user_id: userId, queue: 'new', interval: 0, ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null };
           prog.flag = Number(body.flag) || 0;
           Object.assign(prog, dirtyFields());
           await db.progress.put(prog);
           return success({ id, flag: prog.flag });
         }
-<<<<<<< Updated upstream
         if (action === 'toggle-learning' && entity === 'decks') {
           const isLearning = body.is_learning ?? !item.is_learning;
           await db.decks.put({ ...item, is_learning: isLearning, learning_dirty: 1 });
           return success({ is_learning: isLearning });
         }
         await requireContentWrite(db, entity, item);
-=======
->>>>>>> Stashed changes
         if (action === 'pin') fields = { is_pinned: !item.is_pinned };
         if (action === 'move') {
           const key = entity === 'folders' ? 'parent_id' : 'folder_id';
