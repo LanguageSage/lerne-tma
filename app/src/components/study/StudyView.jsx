@@ -38,8 +38,14 @@ import { StudyCard } from './StudyCard';
 import { StudyCardSpeech } from './StudyCardSpeech.jsx';
 import { getSpeechFollowupTarget } from '../../utils/speechFollowup.js';
 import { evaluateReviewResult, calculateSessionStats } from '../../utils/sessionStats.js';
+import { AssessmentView } from './AssessmentView.jsx';
 
-export const StudyView = ({ requiredActions, renderRequiredAction } = {}) => {
+export const StudyView = (props) => {
+  const assessment = useSessionStore(state => state.assessment);
+  return assessment ? <AssessmentView /> : <ClassicStudyView {...props} />;
+};
+
+const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   useInterfaceLocale();
   const { view, loading, setIsSettingsOpen, showToast, userProfile, setIsAuthModalOpen } = useUiStore();
   const { currentDeck, decks, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();

@@ -1,0 +1,1143 @@
+# Deck: B1-15-D04 · Infinitiv mit zu — первый выбор
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-15-D04 · Infinitiv mit zu — первый выбор",
+    "level": "B1",
+    "topic": "Infinitiv mit zu",
+    "description": "Первая управляемая практика выбора формы инфинитива: точное принятие грамматического решения (с zu или без zu) по управляющему выражению в предложении. Тренировка ключевых глаголов (versuchen, hoffen, planen, vergessen, beschließen), модальных глаголов и исключений (lassen, hören, spazieren gehen), конструкций с существительными (Lust, Zeit, Angst) и прилагательными (wichtig, schwierig), отделяемых глаголов (zurückzurufen, einzuladen) и различий с придаточными dass.",
+    "goal": "Научить ученика безошибочно выбирать грамматически корректную форму глагола (инфинитив с zu или чистый инфинитив без zu) на основе структуры главного предложения и управляющих связей, исключая угадывание.",
+    "learning_outcomes": [
+      "Точно выбирать инфинитив с zu после глаголов намерения, попытки, надежды и решения (versuchen, hoffen, planen, beschließen, vorhaben, vergessen, anfangen, aufhören, versprechen)",
+      "Выбирать чистый инфинитив без zu после модальных глаголов (müssen, können, wollen, sollen, dürfen, möchten)",
+      "Не ставить zu после глагола lassen, глаголов восприятия (hören, sehen) и в связке spazieren gehen",
+      "Корректно завершать предложения с устойчивыми моделями Nomen + haben (Lust, Zeit, Angst) и es ist + Adjektiv (wichtig, schwierig, bereit)",
+      "Выбирать слитную форму с отделяемой приставкой (zurückzurufen, einzuladen, vorzubereiten)",
+      "Различать конструкции с одним исполнителем (zu-инфинитив) и ситуации с другим исполнителем (придаточное с dass)"
+    ],
+    "estimated_time": "30–45 минут",
+    "recommendations": "При ошибках в базовых триггерах (versuchen, hoffen) — повторить карточки 01–10; при добавлении лишнего zu к модальным глаголам или lassen — карточки 02, 06, 22, 26, 32, 34; при ошибках в конструкциях с существительными и прилагательными — карточки 11–20, 21–25; при ошибках в отделяемых приставках (zurückzurufen) — карточки 31–40; при путанице dass и zu — карточки 27, 47–50. Следующий шаг: B1-15-D05 · Положение zu."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "block_a_basic_verbs",
+        "title": "Блок A: Базовые управляющие глаголы и модальный контраст",
+        "goal": "Закрепить контраст между глаголами намерения/попытки (versuchen, hoffen, planen) и модальными глаголами (müssen, können, wollen)",
+        "from_card": 1,
+        "to_card": 10,
+        "support": "high",
+        "expected_skill": "Выбирать zu + Infinitiv после глаголов отношения и чистый инфинитив после модальных глаголов"
+      },
+      {
+        "id": "block_b_intentions_and_nouns",
+        "title": "Блок B: Намерения, обещания и конструкции с существительными",
+        "goal": "Освоить выбор формы после vorhaben, beschließen, versprechen, Lust/Zeit haben",
+        "from_card": 11,
+        "to_card": 20,
+        "support": "medium-high",
+        "expected_skill": "Уверенно ставить zu в моделях с haben + Nomen и отделяемым глаголом vorhaben"
+      },
+      {
+        "id": "block_c_adjectives_and_exceptions",
+        "title": "Блок C: Оценочные прилагательные, lassen и восприятие",
+        "goal": "Закрепить zu после es ist wichtig/schwierig и чистый инфинитив после lassen, hören, spazieren gehen",
+        "from_card": 21,
+        "to_card": 30,
+        "support": "medium",
+        "expected_skill": "Дифференцировать оценочные предикаты (с zu) и глаголы восприятия/поручения (без zu)"
+      },
+      {
+        "id": "block_d_separable_prefixes",
+        "title": "Блок D: Отделяемые приставки и слитное написание",
+        "goal": "Освоить безошибочный выбор формы [приставка] + zu + [основа] (zurückzurufen, mitzubringen, einzuladen)",
+        "from_card": 31,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Выбирать правильную слитную морфологическую форму с отделяемой приставкой"
+      },
+      {
+        "id": "block_e_mixed_application",
+        "title": "Блок E: Смешанный выбор в бытовых контекстах и контраст с dass",
+        "goal": "Автоматизировать выбор в реальных ситуациях (работа, звонки, быт) и разграничивать dass и zu",
+        "from_card": 41,
+        "to_card": 50,
+        "support": "low-medium",
+        "expected_skill": "Выбирать правильную конструкцию в жизненных контекстах без предварительных подсказок"
+      }
+    ],
+    "expected_result": "Ученик автоматически определяет необходимость частицы zu по первому глаголу или конструкции, выбирает правильную форму отделяемых глаголов и избегает лишнего zu после модальных глаголов и lassen.",
+    "competencies": [
+      {
+        "id": "verb_governance_choice",
+        "title": "Выбор по глагольному управлению",
+        "description": "Точный выбор между zu + Infinitiv и чистым инфинитивом по первому сказуемому"
+      },
+      {
+        "id": "nominal_adjectival_governance",
+        "title": "Выбор по существительным и прилагательным",
+        "description": "Применение инфинитива с zu после устойчивых сочетаний Lust/Zeit haben и es ist wichtig"
+      },
+      {
+        "id": "prefix_morphology_choice",
+        "title": "Выбор морфологической формы приставки",
+        "description": "Безошибочный выбор слитного anzurufen в отличие от zu anrufen или чистого anrufen"
+      },
+      {
+        "id": "clause_structure_differentiation",
+        "title": "Различение придаточного dass и оборота zu",
+        "description": "Выбор придаточного dass при смене действующего лица и инфинитива при совпадении субъекта"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "choice_accuracy",
+        "title": "Точность выбора грамматической формы",
+        "description": "Безошибочный выбор одного из 3 вариантов в контексте предложения"
+      },
+      {
+        "id": "modal_accuracy",
+        "title": "Точность модальных конструкций",
+        "description": "Недопущение частицы zu после müssen, können, wollen, lassen"
+      },
+      {
+        "id": "prefix_accuracy",
+        "title": "Точность отделяемых приставок",
+        "description": "Выбор формы со слитным zu внутри отделяемого глагола"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_modal_contrast",
+        "title": "Повторение модального контраста",
+        "when": "При выборе zu после müssen, können, lassen",
+        "reason": "Повторить карточки 02, 06, 22, 26, 32, 34",
+        "competency_ids": [
+          "verb_governance_choice"
+        ]
+      },
+      {
+        "id": "review_prefixes",
+        "title": "Повторение отделяемых приставок",
+        "when": "При ошибках в слитных формах типа zurückzurufen",
+        "reason": "Повторить карточки 31–40",
+        "competency_ids": [
+          "prefix_morphology_choice"
+        ]
+      },
+      {
+        "id": "review_dass_contrast",
+        "title": "Повторение союза dass",
+        "when": "При попытке поставить инфинитив при чужом действии",
+        "reason": "Повторить карточки 27, 47–50",
+        "competency_ids": [
+          "clause_structure_differentiation"
+        ]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Мастер старается определить причину поломки.
+::exercise
+Der Mechaniker versucht, den Defekt ___.
+
+finden
+*zu finden
+gefunden
+
+BACK:
+Der Mechaniker versucht, den Defekt zu finden.
+Перевод: «Механик пытается найти неисправность.».
+
+CONTEXT:
+После versuchen действие попытки оформляется через zu + Infinitiv.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Есть обязанность оплатить квитанцию.
+::exercise
+Ich muss die Stromrechnung heute ___.
+
+zu bezahlen
+*bezahlen
+bezahlt
+
+BACK:
+Ich muss die Stromrechnung heute bezahlen.
+Перевод: «Я должен сегодня оплатить счёт за электричество.».
+
+CONTEXT:
+müssen — модальный глагол; следующий инфинитив употребляется без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Студент рассчитывает успешно сдать проверку.
+::exercise
+Sami hofft, die Sprachprüfung ___.
+
+bestehen
+*zu bestehen
+besteht
+
+BACK:
+Sami hofft, die Sprachprüfung zu bestehen.
+Перевод: «Сами надеется сдать языковой экзамен.».
+
+CONTEXT:
+После hoffen для действия того же человека используем zu bestehen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Человек сообщает о возможности.
+::exercise
+Wir können morgen früher ___.
+
+*kommen
+zu kommen
+gekommen
+
+BACK:
+Wir können morgen früher kommen.
+Перевод: «Мы можем завтра прийти раньше.».
+
+CONTEXT:
+После модального können ставим чистый инфинитив без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Семья планирует организовать переезд.
+::exercise
+Die Familie plant, den Umzug ___.
+
+*zu organisieren
+organisiert
+organisieren
+
+BACK:
+Die Familie plant, den Umzug zu organisieren.
+Перевод: «Семья планирует организовать переезд.».
+
+CONTEXT:
+planen + zu-Infinitiv выражает запланированное действие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Несколько человек собираются заполнить форму.
+::exercise
+Die Eltern wollen das Formular ___.
+
+auszufüllen
+füllen aus
+*ausfüllen
+
+BACK:
+Die Eltern wollen das Formular ausfüllen.
+Перевод: «Родители хотят заполнить бланк.».
+
+CONTEXT:
+wollen + Infinitiv без zu; у отделяемого ausfüllen здесь zu не вставляем.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Перед поездкой кто-то забыл закрыть окно.
+::exercise
+Nora hat vergessen, das Fenster ___.
+
+schließt
+schließen
+*zu schließen
+
+BACK:
+Nora hat vergessen, das Fenster zu schließen.
+Перевод: «Нора забыла закрыть окно.».
+
+CONTEXT:
+После vergessen («забыть сделать») используется zu + Infinitiv.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Инструкция разрешает воспользоваться входом.
+::exercise
+Sie dürfen diesen Eingang ___.
+
+*benutzen
+zu benutzen
+benutzt
+
+BACK:
+Sie dürfen diesen Eingang benutzen.
+Перевод: «Вам разрешено пользоваться этим входом.».
+
+CONTEXT:
+dürfen — модальный глагол, поэтому benutzen без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Сотрудник пообещал прислать подтверждение.
+::exercise
+Er hat versprochen, die Bescheinigung ___.
+
+schicken
+*zu schicken
+schickt
+
+BACK:
+Er hat versprochen, die Bescheinigung zu schicken.
+Перевод: «Он пообещал отправить справку.».
+
+CONTEXT:
+versprechen + zu-Infinitiv называет действие, которое обещают совершить.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+После обсуждения принято решение.
+::exercise
+Wir haben beschlossen, das alte Fahrrad ___.
+
+*zu verkaufen
+verkaufen
+verkauft
+
+BACK:
+Wir haben beschlossen, das alte Fahrrad zu verkaufen.
+Перевод: «Мы решили продать старый велосипед.».
+
+CONTEXT:
+После beschließen следует инфинитивное дополнение с zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+У человека есть конкретное намерение.
+::exercise
+Ich habe vor, meine Nachbarin ___.
+
+besuchen
+besucht
+*zu besuchen
+
+BACK:
+Ich habe vor, meine Nachbarin zu besuchen.
+Перевод: «Я собираюсь навестить соседку.».
+
+CONTEXT:
+vorhaben, … zu + Infinitiv — «собираться сделать».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Речь о рекомендации/поручении.
+::exercise
+Du sollst die Kursleiterin ___.
+
+zu informieren
+*informieren
+informiert
+
+BACK:
+Du sollst die Kursleiterin informieren.
+Перевод: «Тебе следует сообщить руководительнице курса.».
+
+CONTEXT:
+sollen + Infinitiv без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Контролёр приступает к проверке счёта.
+::exercise
+Der Mitarbeiter fängt an, die Rechnung ___.
+
+*zu prüfen
+prüfen
+geprüft
+
+BACK:
+Der Mitarbeiter fängt an, die Rechnung zu prüfen.
+Перевод: «Сотрудник начинает проверять счёт.».
+
+CONTEXT:
+anfangen, … zu + Infinitiv. Не путать с модальными глаголами.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Вежливое желание с möchten.
+::exercise
+Ich möchte den Termin ___.
+
+zu verschieben
+verschoben
+*verschieben
+
+BACK:
+Ich möchte den Termin verschieben.
+Перевод: «Я хотел бы перенести встречу.».
+
+CONTEXT:
+После möchte (форма möchten) второй глагол стоит без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Речь о прекращении привычки, а не о возможности.
+::exercise
+Leo hört auf, abends Kaffee ___.
+
+trinkt
+trinken
+*zu trinken
+
+BACK:
+Leo hört auf, abends Kaffee zu trinken.
+Перевод: «Лео перестаёт пить кофе по вечерам.».
+
+CONTEXT:
+aufhören, … zu + Infinitiv означает прекратить действие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Хозяин отдаёт машину на проверку.
+::exercise
+Ich lasse das Auto ___.
+
+*kontrollieren
+zu kontrollieren
+kontrolliert
+
+BACK:
+Ich lasse das Auto kontrollieren.
+Перевод: «Я поручаю проверить машину / отдаю машину на проверку.».
+
+CONTEXT:
+lassen + Infinitiv в конструкции поручения употребляется без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Человек старается выражаться понятнее.
+::exercise
+Die Verkäuferin bemüht sich, deutlicher ___.
+
+sprechen
+*zu sprechen
+spricht
+
+BACK:
+Die Verkäuferin bemüht sich, deutlicher zu sprechen.
+Перевод: «Продавщица старается говорить отчётливее.».
+
+CONTEXT:
+sich bemühen, … zu + Infinitiv: усилие относится к зависимому действию.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Речь о непосредственном наблюдении.
+::exercise
+Ich sehe die Kinder im Hof ___.
+
+zu spielen
+*spielen
+gespielt
+
+BACK:
+Ich sehe die Kinder im Hof spielen.
+Перевод: «Я вижу, как дети играют во дворе.».
+
+CONTEXT:
+sehen + Infinitiv в конструкции восприятия: без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Человек объясняет, почему спешит.
+::exercise
+Ich habe keine Zeit, eine Stunde ___.
+
+warten
+*zu warten
+gewartet
+
+BACK:
+Ich habe keine Zeit, eine Stunde zu warten.
+Перевод: «У меня нет времени ждать целый час.».
+
+CONTEXT:
+keine Zeit haben, … zu + Infinitiv: группа уточняет, на что не хватает времени.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+У человека есть желание посетить мероприятие.
+::exercise
+Wir haben Lust, heute ins Konzert ___.
+
+gehen
+gegangen
+*zu gehen
+
+BACK:
+Wir haben Lust, heute ins Konzert zu gehen.
+Перевод: «Нам хочется сегодня пойти на концерт.».
+
+CONTEXT:
+Lust haben, … zu + Infinitiv — хочется сделать что-то.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+На собеседовании человек волнуется.
+::exercise
+Sie hat Angst, beim Gespräch einen Fehler ___.
+
+*zu machen
+machen
+macht
+
+BACK:
+Sie hat Angst, beim Gespräch einen Fehler zu machen.
+Перевод: «Она боится допустить ошибку на собеседовании.».
+
+CONTEXT:
+Angst haben, … zu + Infinitiv: действие называет источник страха.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Человек слышит процесс, который происходит прямо сейчас.
+::exercise
+Wir hören den Motor ___.
+
+gelaufen
+zu laufen
+*laufen
+
+BACK:
+Wir hören den Motor laufen.
+Перевод: «Мы слышим, как работает мотор.».
+
+CONTEXT:
+hören + Infinitiv для непосредственного восприятия обычно требует форму без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Арендатору предложили просмотр жилья.
+::exercise
+Wir haben die Chance, die Wohnung morgen ___.
+
+besichtigen
+*zu besichtigen
+besichtigt
+
+BACK:
+Wir haben die Chance, die Wohnung morgen zu besichtigen.
+Перевод: «У нас есть шанс завтра осмотреть квартиру.».
+
+CONTEXT:
+Существительное Chance раскрывается зависимой группой с zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Устойчивое сочетание с gehen.
+::exercise
+Oma geht nach dem Mittagessen ___.
+
+*spazieren
+zu spazieren
+spaziert
+
+BACK:
+Oma geht nach dem Mittagessen spazieren.
+Перевод: «Бабушка идёт гулять после обеда.».
+
+CONTEXT:
+spazieren gehen — обычное сочетание с инфинитивом без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Работнику дали возможность пройти семинар.
+::exercise
+Sie hat die Möglichkeit, an einem Seminar ___.
+
+teilnehmen
+teilgenommen
+*teilzunehmen
+
+BACK:
+Sie hat die Möglichkeit, an einem Seminar teilzunehmen.
+Перевод: «У неё есть возможность принять участие в семинаре.».
+
+CONTEXT:
+Möglichkeit + zu-Infinitiv; teilnehmen отделяемый: teil + zu + nehmen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Общая рекомендация на официальном сайте.
+::exercise
+Es ist wichtig, die Bestätigung ___.
+
+*aufzubewahren
+aufbewahren
+bewahrt auf
+
+BACK:
+Es ist wichtig, die Bestätigung aufzubewahren.
+Перевод: «Важно сохранить подтверждение.».
+
+CONTEXT:
+es ist wichtig, … zu + Infinitiv; aufbewahren — отделяемый глагол.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Сервис сообщает о дефиците детали.
+::exercise
+Es ist schwierig, dieses Ersatzteil ___.
+
+finden
+*zu finden
+findet
+
+BACK:
+Es ist schwierig, dieses Ersatzteil zu finden.
+Перевод: «Трудно найти эту запасную часть.».
+
+CONTEXT:
+es ist schwierig, … zu + Infinitiv: оценивается сложность действия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Сотрудник предлагает остаться на работе дольше.
+::exercise
+Ich bin bereit, heute länger ___.
+
+bleibe
+bleiben
+*zu bleiben
+
+BACK:
+Ich bin bereit, heute länger zu bleiben.
+Перевод: «Я готов сегодня остаться подольше.».
+
+CONTEXT:
+bereit sein, … zu + Infinitiv — быть готовым совершить действие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Просит один, закрывает другой.
+::exercise
+Ich bitte den Hausmeister, die Haustür ___.
+
+*abzuschließen
+abschließen
+schließt ab
+
+BACK:
+Ich bitte den Hausmeister, die Haustür abzuschließen.
+Перевод: «Я прошу смотрителя запереть входную дверь.».
+
+CONTEXT:
+bitten + Akkusativ + zu-Infinitiv: действие выполняет адресат просьбы (Hausmeister).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Пациентка получает рекомендацию.
+::exercise
+Der Arzt rät der Patientin, regelmäßig Pausen ___.
+
+machen
+*zu machen
+gemacht
+
+BACK:
+Der Arzt rät der Patientin, regelmäßig Pausen zu machen.
+Перевод: «Врач советует пациентке регулярно делать перерывы.».
+
+CONTEXT:
+raten + Dativ + zu-Infinitiv: паузы делает пациентка, а не врач.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Выбери правильное написание глагола zurückrufen с zu.
+::exercise
+Ich verspreche, den Kunden morgen ___.
+
+zu zurückrufen
+*zurückzurufen
+zurückrufen
+
+BACK:
+Ich verspreche, den Kunden morgen zurückzurufen.
+Перевод: «Я обещаю завтра перезвонить клиенту.».
+
+CONTEXT:
+zurückrufen — отделяемый глагол; zurück + zu + rufen пишем слитно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Выполни обещание забрать отправление.
+::exercise
+Sie plant, das Paket am Montag ___.
+
+*abzuholen
+zu abholen
+abholen
+
+BACK:
+Sie plant, das Paket am Montag abzuholen.
+Перевод: «Она планирует забрать посылку в понедельник.».
+
+CONTEXT:
+abholen → abzuholen: zu вставляем после отделяемой приставки ab-.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Перед отправкой нужно заполнить анкету.
+::exercise
+Er versucht, den Fragebogen vollständig ___.
+
+zu ausfüllen
+ausfüllen
+*auszufüllen
+
+BACK:
+Er versucht, den Fragebogen vollständig auszufüllen.
+Перевод: «Он пытается полностью заполнить анкету.».
+
+CONTEXT:
+ausfüllen → auszufüllen; zu внутри отделяемого глагола.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Девушка решила зарегистрироваться.
+::exercise
+Mira hat beschlossen, sich für den Sprachkurs ___.
+
+zu anmelden
+*anzumelden
+anmelden
+
+BACK:
+Mira hat beschlossen, sich für den Sprachkurs anzumelden.
+Перевод: «Мира решила записаться на языковые курсы.».
+
+CONTEXT:
+sich anmelden → sich anzumelden. Местоимение sich сохраняем; an- + zu + melden.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+В разговоре мастер сообщает об обязанности.
+::exercise
+Wir müssen heute die Leitung ___.
+
+zu prüfen
+*prüfen
+geprüft
+
+BACK:
+Wir müssen heute die Leitung prüfen.
+Перевод: «Мы должны сегодня проверить проводку.».
+
+CONTEXT:
+müssen + Infinitiv без zu, даже если предложение техническое и длиннее обычного.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+На телефоне хотят связаться с технической поддержкой.
+::exercise
+Ich möchte den Kundendienst ___.
+
+*anrufen
+anzurufen
+zu anrufen
+
+BACK:
+Ich möchte den Kundendienst anrufen.
+Перевод: «Я хотел бы позвонить в службу поддержки.».
+
+CONTEXT:
+möchte — модальная форма; anrufen остаётся инфинитивом без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Человек собирается участвовать в совещании.
+::exercise
+Ich versuche, am Treffen ___.
+
+zu teilnehmen
+*teilzunehmen
+teilnehmen
+
+BACK:
+Ich versuche, am Treffen teilzunehmen.
+Перевод: «Я стараюсь принять участие во встрече.».
+
+CONTEXT:
+teilnehmen отделяемый: teil + zu + nehmen → teilzunehmen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Заявитель хочет дозвониться до учреждения.
+::exercise
+Die Frau versucht, das Amt telefonisch ___.
+
+*zu erreichen
+erreichen
+erreicht
+
+BACK:
+Die Frau versucht, das Amt telefonisch zu erreichen.
+Перевод: «Женщина пытается связаться с ведомством по телефону.».
+
+CONTEXT:
+erreichen → zu erreichen: er- неотделяемая приставка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Работник хочет избежать опозданий.
+::exercise
+Er versucht, morgens nicht zu spät ___.
+
+kommen
+*zu kommen
+gekommen
+
+BACK:
+Er versucht, morgens nicht zu spät zu kommen.
+Перевод: «Он старается по утрам не опаздывать.».
+
+CONTEXT:
+nicht zu spät kommen — не опаздывать: отрицание относится к действию, zu нужно после versuchen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Первый глагол модальный, второй обозначает попытку, третий — действие.
+::exercise
+Ich will versuchen, das Problem ___.
+
+lösen
+gelöst
+*zu lösen
+
+BACK:
+Ich will versuchen, das Problem zu lösen.
+Перевод: «Я хочу попробовать решить проблему.».
+
+CONTEXT:
+После will → versuchen без zu; после versuchen → zu lösen. Смотрим на связь двух глаголов.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Нужно выбрать форму обычного глагола reparieren.
+::exercise
+Ich hoffe, den Wasserhahn selbst ___.
+
+*zu reparieren
+reparieren
+repariert
+
+BACK:
+Ich hoffe, den Wasserhahn selbst zu reparieren.
+Перевод: «Я надеюсь самостоятельно починить водопроводный кран.».
+
+CONTEXT:
+reparieren не имеет отделяемой приставки: zu стоит отдельно перед инфинитивом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Хозяин запланировал замену счётчика воды.
+::exercise
+Der Vermieter hat vor, den Wasserzähler ___.
+
+*auszutauschen
+zu austauschen
+austauschen
+
+BACK:
+Der Vermieter hat vor, den Wasserzähler auszutauschen.
+Перевод: «Арендодатель собирается заменить водосчётчик.».
+
+CONTEXT:
+vorhaben требует здесь zu, а austauschen отделяемый: aus + zu + tauschen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Надеется отец; успешно сдать экзамен должен сын.
+::exercise
+Der Vater hofft, ___.
+
+die Prüfung selbst zu bestehen
+*dass sein Sohn die Prüfung besteht
+seinen Sohn die Prüfung zu bestehen
+
+BACK:
+Der Vater hofft, dass sein Sohn die Prüfung besteht.
+Перевод: «Отец надеется, что его сын сдаст экзамен.».
+
+CONTEXT:
+В данном смысле исполнители разные: надеется отец, экзамен сдаёт сын. dass явно называет исполнителя. A грамматично, но меняет заданный смысл.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Руководитель разрешает сотруднице уйти пораньше.
+::exercise
+Die Chefin erlaubt der Mitarbeiterin, früher ___.
+
+gehen
+gegangen
+*zu gehen
+
+BACK:
+Die Chefin erlaubt der Mitarbeiterin, früher zu gehen.
+Перевод: «Руководительница разрешает сотруднице уйти раньше.».
+
+CONTEXT:
+erlauben + Dativ + zu-Infinitiv: уйдёт сотрудница. Разные исполнители не запрещают zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Клиент собирается погасить штраф.
+::exercise
+Sie hat vor, die Geldbuße heute ___.
+
+bezuzahlen
+bezahlen
+*zu bezahlen
+
+BACK:
+Sie hat vor, die Geldbuße heute zu bezahlen.
+Перевод: «Она намерена оплатить штраф сегодня.».
+
+CONTEXT:
+be- — неотделяемая приставка: zu bezahlen отдельно перед целым глаголом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Человек не принёс запасные ключи на работу.
+::exercise
+Die Kollegin hat vergessen, den Ersatzschlüssel ___.
+
+mitbringen
+*mitzubringen
+zu mitbringen
+
+BACK:
+Die Kollegin hat vergessen, den Ersatzschlüssel mitzubringen.
+Перевод: «Коллега забыла принести запасной ключ.».
+
+CONTEXT:
+vergessen требует zu-инфинитива; mitbringen → mitzubringen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Совет по безопасной подготовке к ремонту.
+::exercise
+Es ist sinnvoll, vorher den Strom ___.
+
+abschalten
+zu abschalten
+*abzuschalten
+
+BACK:
+Es ist sinnvoll, vorher den Strom abzuschalten.
+Перевод: «Разумно сначала отключить электричество.».
+
+CONTEXT:
+sinnvoll → zu-Infinitiv; abschalten → abzuschalten (отделяемая приставка ab-).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+По звуку понятно, что кто-то говорит в коридоре.
+::exercise
+Ich höre jemanden im Flur ___.
+
+*telefonieren
+zu telefonieren
+telefoniert
+
+BACK:
+Ich höre jemanden im Flur telefonieren.
+Перевод: «Я слышу, как кто-то разговаривает по телефону в коридоре.».
+
+CONTEXT:
+hören + Infinitiv для восприятия действия → без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Человек радуется будущей встрече.
+::exercise
+Ich freue mich, euch bald ___.
+
+zu wiedersehen
+*wiederzusehen
+wiedersehen
+
+BACK:
+Ich freue mich, euch bald wiederzusehen.
+Перевод: «Я рад скоро снова вас увидеть.».
+
+CONTEXT:
+sich freuen, … zu + Infinitiv; wiedersehen → wiederzusehen, приставка wieder- отделяемая в этом значении.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Мама выражает желание о действии другого человека.
+::exercise
+Die Mutter möchte, ___.
+
+ihre Tochter pünktlich zu kommen
+dass sie selbst pünktlich kommt
+*dass ihre Tochter pünktlich kommt
+
+BACK:
+Die Mutter möchte, dass ihre Tochter pünktlich kommt.
+Перевод: «Мама хочет, чтобы её дочь пришла вовремя.».
+
+CONTEXT:
+В варианте с möchte в значении пожелания о чужом действии используем придаточное с dass. B говорит о матери, поэтому смысл другой.

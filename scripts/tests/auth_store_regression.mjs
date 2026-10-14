@@ -31,14 +31,15 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test' 
   const closedDbUserIds = [];
   let resetAllDatabasesCount = 0;
   let currentUserId = null;
+  let accessToken = null;
   const context = { create: createStore, tr: value => value, api,
     getUserProfile: () => (currentUserId ? { user_id: currentUserId } : null),
     saveUserProfile(p) { currentUserId = p?.user_id; },
-    saveAuthSession() {}, clearAuthSession() { currentUserId = null; },
-    getUserId: () => currentUserId,
+    saveAuthSession(session) { accessToken = session.access_token; }, clearAuthSession() { currentUserId = null; accessToken = null; },
+    getUserId: () => currentUserId, getAccessToken: () => accessToken,
     closeLocalDb: (id) => { closedDbUserIds.push(id); },
     resetAllDatabases: () => { resetAllDatabasesCount++; },
-    storage: { remove() {} }, openExternalLink() {},
+    storage: { remove() {}, set() {}, get() { return null; } }, openExternalLink() {},
     prepareExternalLink: () => ({ navigate() {}, close() {} }),
     useUiStore: { getState: () => ui, setState: value => Object.assign(ui, value) },
     useDeckStore: { getState: () => ({
@@ -57,6 +58,7 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test' 
     get closedDbUserIds() { return closedDbUserIds; },
     get resetAllDatabasesCount() { return resetAllDatabasesCount; },
     set currentUserId(id) { currentUserId = id; },
+    set accessToken(token) { accessToken = token; },
   };
 }
 
@@ -155,5 +157,52 @@ test('finishLogin isolates state when switching user accounts', async () => {
   assert.equal(f.deckStoreResetCount, 1);
   assert.deepEqual(f.closedDbUserIds, [-999]);
   assert.equal(f.store.getState().userProfile.user_id, -123);
+});
+
+test('restoration is shared while pending and publishes the canonical profile before ready', async () => {
+  const f = fixture(); f.accessToken = 'synthetic';
+  let resolve;
+  f.api.get = () => new Promise(done => { resolve = done; });
+  const first = f.store.getState().restoreSession();
+  assert.equal(f.store.getState().restoreSession(), first);
+  assert.equal(f.store.getState().isRestoring, true);
+  resolve({ data: { user_id: -123 }, config: { headers: { Authorization: 'Bearer synthetic' } } });
+  await first;
+  assert.equal(f.store.getState().isRestoring, false);
+  assert.equal(f.store.getState().userProfile.user_id, -123);
+});
+
+test('late restoration response cannot restore a logged-out account', async () => {
+  const f = fixture(); f.accessToken = 'synthetic';
+  let resolve;
+  f.api.get = () => new Promise(done => { resolve = done; });
+  const restoration = f.store.getState().restoreSession();
+  f.store.getState().logout();
+  resolve({ data: { user_id: -123 }, config: { headers: { Authorization: 'Bearer synthetic' } } });
+  await restoration;
+  assert.equal(f.store.getState().userProfile, null);
+  assert.equal(f.store.getState().isRestoring, false);
+});
+
+test('logout retires an in-flight login before it can save tokens', async () => {
+  const f = fixture();
+  let resolve;
+  f.api.post = () => new Promise(done => { resolve = done; });
+  const login = f.store.getState().loginWithEmailPassword('fixture@example.test', 'synthetic password');
+  f.store.getState().logout();
+  resolve({ data: { access_token: 'late', refresh_token: 'late-refresh' } });
+  assert.equal((await login).success, false);
+  assert.equal(f.store.getState().userProfile, null);
+});
+
+test('logout retires a login already waiting for its profile', async () => {
+  const f = fixture();
+  let resolve;
+  f.api.get = () => new Promise(done => { resolve = done; });
+  const login = f.store.getState().finishLogin({ access_token: 'synthetic', refresh_token: 'synthetic' });
+  f.store.getState().logout();
+  resolve({ data: { user_id: -123 } });
+  assert.equal(await login, null);
+  assert.equal(f.store.getState().userProfile, null);
 });
 

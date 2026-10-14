@@ -39,6 +39,7 @@ test('auto controls stay compact and open their dedicated settings tab', async (
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/?user_id=1');
   await page.getByText('Auto Test', { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Начать занятие', exact: true }).click();
   await expect(page.getByText('Guten Morgen', { exact: true }).first()).toBeVisible();
   await page.getByText('Guten Morgen', { exact: true }).first().click();
 

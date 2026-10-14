@@ -31,6 +31,7 @@ axiosInstance.interceptors.request.use((config) => {
     config.headers = config.headers || {};
     config.headers['X-User-ID'] = String(userId);
   }
+  if (!config._retry) config._authUserId = userId;
   if (config.method && config.method.toLowerCase() === 'get') {
     if (/_t=\d+/.test(config.url)) {
       config.url = config.url.replace(/_t=\d+/, `_t=${Date.now()}`);
@@ -85,11 +86,13 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    originalRequest._retry = true;
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
       })
         .then((newToken) => {
+          if (getUserId() !== originalRequest._authUserId || getAccessToken() !== newToken) throw error;
           if (typeof originalRequest.headers?.set === 'function') {
             originalRequest.headers.set('Authorization', `Bearer ${newToken}`);
           } else {
@@ -101,7 +104,6 @@ axiosInstance.interceptors.response.use(
         .catch((err) => Promise.reject(err));
     }
 
-    originalRequest._retry = true;
     isRefreshing = true;
 
     const session = getAuthSession();
@@ -117,16 +119,29 @@ axiosInstance.interceptors.response.use(
     }
 
     try {
-      const response = await axios.post(`${baseURL}/auth/v2/refresh`, {
-        refresh_token: refreshToken,
-      }, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 10000,
-      });
-
-      const newSession = response.data;
-      saveAuthSession(newSession);
+      const refresh = async () => {
+        const current = getAuthSession();
+        // Another tab may have rotated while this tab waited for the lock.
+        if (!current) throw error;
+        if (getUserId() !== originalRequest._authUserId) throw error;
+        if (current.refresh_token !== refreshToken) return current;
+        const response = await axios.post(`${baseURL}/auth/v2/refresh`, {
+          refresh_token: refreshToken,
+        }, {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000,
+        });
+        // Logout/account switching must not be undone by a late refresh response.
+        if (getAuthSession()?.refresh_token !== refreshToken) throw error;
+        saveAuthSession(response.data);
+        return response.data;
+      };
+      const newSession = typeof navigator !== 'undefined' && navigator.locks?.request
+        ? await navigator.locks.request('lerne-auth-v2-refresh', refresh)
+        : await refresh();
       const newToken = newSession.access_token;
+
+      if (getUserId() !== originalRequest._authUserId || getAccessToken() !== newToken) throw error;
 
       if (typeof originalRequest.headers?.set === 'function') {
         originalRequest.headers.set('Authorization', `Bearer ${newToken}`);
@@ -139,11 +154,14 @@ axiosInstance.interceptors.response.use(
       return axiosInstance(originalRequest);
     } catch (refreshErr) {
       processQueue(refreshErr, null);
-      clearAuthSession();
-      try {
-        const { useUiStore } = await import('../store/useUiStore');
-        useUiStore.getState().setIsAuthModalOpen(true);
-      } catch { /* ignore */ }
+      // Only a rejected credential requires login. Network/5xx failures are retryable.
+      if (refreshErr.response?.status === 401 && getAuthSession()?.refresh_token === refreshToken) {
+        clearAuthSession();
+        try {
+          const { useUiStore } = await import('../store/useUiStore');
+          useUiStore.getState().setIsAuthModalOpen(true);
+        } catch { /* ignore */ }
+      }
       return Promise.reject(refreshErr);
     } finally {
       isRefreshing = false;

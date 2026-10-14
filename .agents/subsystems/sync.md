@@ -74,3 +74,7 @@ rg -n 'TMAOfflineBatch|request_id|mappings|review_count' api/services/offline_sy
 - [SMART_SYNC_PLAN](../../project_docs/ARCHITECTURE/SMART_SYNC_PLAN.md) — план будущего merge, не спецификация sync v2.
 - [Offline rule](../rules/offline_mode.md) содержит историческую инструкцию восстановления; текущие владельцы перечислены выше.
 - [DB skill](../skills/db-mgmt/SKILL.md), [Architectural integrity](../rules/architectural_integrity.md).
+
+## Restore owner access
+
+require_access разрешает владельцу восстановление его soft-deleted deck/folder: collaborative lookup исключает удалённые targets. Исключение применяется только к deleted records собственника; активные/published permissions остаются прежними. Изолированный test_offline_sync.py проверяет restore, viewer/editor и rollback чужого пакета.

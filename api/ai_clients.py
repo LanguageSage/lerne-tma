@@ -20,6 +20,8 @@ class AIService:
         self.api_key = self.api_keys[0] if self.api_keys else ""
         self.ollama_url = (ollama_url or "http://localhost:11434").rstrip("/")
         self.groq_url = "https://api.groq.com/openai/v1"
+        self.request_attempts = 2
+        self.key_attempts = None
 
     @staticmethod
     def _parse_keys(raw_key):
@@ -57,9 +59,11 @@ class AIService:
             ordered.insert(0, working_key)
             _PROVIDER_KEY_CACHE[self.provider] = ordered
 
-    async def chat_completion(self, system_prompt, user_message, model, *, temperature=None):
+    async def chat_completion(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         """Route with per-request sampling; None preserves each provider's generation defaults."""
         keys_to_try = self._get_ordered_keys()
+        if self.key_attempts is not None:
+            keys_to_try = keys_to_try[:self.key_attempts]
         if not keys_to_try or (not keys_to_try[0] and self.provider != "ollama"):
             return "API Key is missing", False
 
@@ -68,7 +72,10 @@ class AIService:
         for idx, current_key in enumerate(keys_to_try):
             self.api_key = current_key
 
-            res, success = await self._dispatch_chat(system_prompt, user_message, model, temperature=temperature)
+            options = {'temperature': temperature}
+            if max_output_tokens is not None:
+                options['max_output_tokens'] = max_output_tokens
+            res, success = await self._dispatch_chat(system_prompt, user_message, model, **options)
             if success:
                 if idx > 0:
                     logger.info(f"{self.provider}: Key #{idx+1} succeeded! Promoting to primary key.")
@@ -86,31 +93,31 @@ class AIService:
 
         return f"Ошибка {self.provider}: Все доступные ключи ({len(keys_to_try)}) завершились ошибкой. Ошибка последнего ключа: {last_error}", False
 
-    async def _dispatch_chat(self, system_prompt, user_message, model, *, temperature=None):
+    async def _dispatch_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         # Priority 1: Explicit provider
         if self.provider == "google":
-            return await self._google_chat(system_prompt, user_message, model, temperature=temperature)
+            return await self._google_chat(system_prompt, user_message, model, temperature=temperature, max_output_tokens=max_output_tokens)
         elif self.provider == "groq":
-            return await self._groq_chat(system_prompt, user_message, model, temperature=temperature)
+            return await self._groq_chat(system_prompt, user_message, model, temperature=temperature, max_output_tokens=max_output_tokens)
         elif self.provider == "ollama":
-            return await self._ollama_chat(system_prompt, user_message, model, temperature=temperature)
+            return await self._ollama_chat(system_prompt, user_message, model, temperature=temperature, max_output_tokens=max_output_tokens)
         elif self.provider == "openrouter":
-            return await self._openrouter_chat(system_prompt, user_message, model, temperature=temperature)
+            return await self._openrouter_chat(system_prompt, user_message, model, temperature=temperature, max_output_tokens=max_output_tokens)
 
         # Priority 2: Fallback based on model name hints
         model_lower = model.lower()
         if model_lower.startswith("ollama/") or self.provider == "ollama":
-            return await self._ollama_chat(system_prompt, user_message, model, temperature=temperature)
+            return await self._ollama_chat(system_prompt, user_message, model, temperature=temperature, max_output_tokens=max_output_tokens)
         elif model_lower.startswith("groq/"):
-            return await self._groq_chat(system_prompt, user_message, model, temperature=temperature)
+            return await self._groq_chat(system_prompt, user_message, model, temperature=temperature, max_output_tokens=max_output_tokens)
         elif "gemini" in model_lower and "/" not in model:
-            return await self._google_chat(system_prompt, user_message, model, temperature=temperature)
+            return await self._google_chat(system_prompt, user_message, model, temperature=temperature, max_output_tokens=max_output_tokens)
         else:
-            return await self._openrouter_chat(system_prompt, user_message, model, temperature=temperature)
+            return await self._openrouter_chat(system_prompt, user_message, model, temperature=temperature, max_output_tokens=max_output_tokens)
 
     async def _make_request(self, url, method="POST", headers=None, json_data=None, timeout=30, provider_name="AI"):
         """Unified request handler with exponential backoff for 429 and 5xx errors."""
-        max_retries = 2
+        max_retries = self.request_attempts
         base_delay = 2
 
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
@@ -176,7 +183,7 @@ class AIService:
 
         return "Unknown error occurred", False
 
-    async def _google_chat(self, system_prompt, user_message, model, *, temperature=None):
+    async def _google_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         """Direct call to Google Gemini API."""
         model_name = model if "gemini" in model.lower() else "gemini-2.0-flash"
         if "/" in model_name:
@@ -188,7 +195,7 @@ class AIService:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
         payload = {
             "contents": [{"role": "user", "parts": [{"text": f"System: {system_prompt}\n\nUser: {user_message}"}]}],
-            "generationConfig": {"temperature": 0.7 if temperature is None else temperature, "maxOutputTokens": 2048}
+            "generationConfig": {"temperature": 0.7 if temperature is None else temperature, "maxOutputTokens": max_output_tokens or 2048}
         }
 
         data, success = await self._make_request(url, json_data=payload, provider_name="Google")
@@ -201,7 +208,7 @@ class AIService:
         except (KeyError, IndexError):
             return "Parsing Error: Unexpected response format from Google", False
 
-    async def _ollama_chat(self, system_prompt, user_message, model, *, temperature=None):
+    async def _ollama_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         model_name = model.split("/", 1)[1] if "/" in model else model
         url = f"{self.ollama_url}/api/chat"
         payload = {
@@ -211,13 +218,15 @@ class AIService:
         }
         if temperature is not None:
             payload["options"] = {"temperature": temperature}
+        if max_output_tokens is not None:
+            payload.setdefault("options", {})["num_predict"] = max_output_tokens
 
         data, success = await self._make_request(url, json_data=payload, timeout=45, provider_name="Ollama")
         if not success:
             return data, False
         return data["message"]["content"], True
 
-    async def _groq_chat(self, system_prompt, user_message, model, *, temperature=None):
+    async def _groq_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         model_name = model.split("/", 1)[1] if "/" in model else model
         url = f"{self.groq_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
@@ -227,12 +236,14 @@ class AIService:
             "temperature": 0.7 if temperature is None else temperature
         }
 
+        if max_output_tokens is not None:
+            payload["max_completion_tokens"] = max_output_tokens
         data, success = await self._make_request(url, headers=headers, json_data=payload, provider_name="Groq")
         if not success:
             return data, False
         return data["choices"][0]["message"]["content"], True
 
-    async def _openrouter_chat(self, system_prompt, user_message, model, *, temperature=None):
+    async def _openrouter_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json", "X-Title": "Lerne TMA"}
         payload = {
@@ -242,6 +253,8 @@ class AIService:
         if temperature is not None:
             payload["temperature"] = temperature
 
+        if max_output_tokens is not None:
+            payload["max_tokens"] = max_output_tokens
         data, success = await self._make_request(url, headers=headers, json_data=payload, timeout=45, provider_name="OpenRouter")
         if not success:
             return data, False

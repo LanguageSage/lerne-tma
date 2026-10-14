@@ -91,3 +91,9 @@ rg -n 'clearCurrentFeedback|requiredPartIds|interaction_count' app/src/utils/exe
 - Unsupported browsers, denied access and microphone startup failure show an error and permit skip. Retired recognition handlers are removed on retry, skip and navigation.
 - The toggle appears under the mode selector and applies from the next review; autoplay suspends it. Existing explicit flows take precedence; legacy speak mode still starts manually.
 - Unit tests: `speechFollowup.test.js`, `studySteps.test.js`, `speechEvaluation.test.js`. Browser tests: `scripts/tests/browser/speech-followup.spec.cjs` (mocked recognition/API, answer-to-speech, retry, skip, navigation, persistence/server settings, autoplay, locales and responsive appearance).
+
+## Проверенный контракт экзамена и Lesson QA
+
+`pedagogy.assessment` версии 1 включает отдельный AssessmentView через useStudyNavigation и useSessionStore.assessment. Без конфигурации действует Classic. Trainer/Free фиксируют первую проверку, пропуски дают 0, required/bonus считаются отдельно, рекомендации используют authored competency_ids и deck_ids. Сессия и objective Knowledge outbox сохраняются атомарно в существующем Dexie; SRS-оценки и review history не создаются. Resume требует неизменённых заданий/контекста/metadata. Владельцы, API и ограничения — [ASSESSMENT](../../docs/ASSESSMENT.md), тесты assessment.test.js и browser/assessment.spec.cjs. Предыдущий lesson-qa.spec.cjs сохраняет baseline контракта исходного D14 без новой конфигурации.
+
+Session completion accuracy uses actual reviewsCount/correctCount/mistakeCount only. Navigation studyHistory is not correctness evidence; when reviewsCount=0, calculateSessionStats returns null and LessonCompletion shows the no-statistics state. Regression: lessonQa.test.js and the isolated skip-all-D14 browser scenario.

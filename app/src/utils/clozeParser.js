@@ -83,7 +83,12 @@ export const cleanBracketSyntax = (text) => {
 export const parseClozeData = (card, studyMode, sourceCards = []) => {
   if (!card) return null;
   const content = parseExerciseContent(card.front || card.front_text || '');
-  const originalText = stripMarkdown(content.exercise);
+  // Parse answer markers before Markdown: {*a|*b|c} must not become an
+  // italic span that silently removes both stars and accepts the wrong option.
+  const originalText = content.exercise
+    .split(/(\[\[[^\]]+\]\]|\{[^}]+\}|\[[^\]]+\](?!\())/g)
+    .map((part, index) => index % 2 ? part : part.replace(/\S(?:[\s\S]*\S)?/g, stripMarkdown))
+    .join('').trim();
 
   // 1. Explicit bracket syntax:
   // - [[...]] -> input gap (self-typed)
@@ -112,7 +117,7 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
           rawMatch: match[0],
           mode: 'input',
           isAffix,
-          correctAnswer: innerContent,
+          correctAnswer: stripMarkdown(innerContent),
           choices: []
         };
       }
@@ -121,10 +126,10 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
       const optionsRaw = innerContent.split(/[|;,/]/).map(o => o.trim()).filter(Boolean);
       const starredOptions = optionsRaw.filter(o => o.startsWith('*'));
       const correctList = starredOptions.length > 0
-        ? starredOptions.map(o => o.replace(/^\*/, '').trim())
-        : [optionsRaw[0] ? optionsRaw[0].replace(/^\*/, '').trim() : ''];
+        ? starredOptions.map(o => stripMarkdown(o.replace(/^\*/, '')))
+        : [optionsRaw[0] ? stripMarkdown(optionsRaw[0].replace(/^\*/, '')) : ''];
       const cleanCorrect = correctList.filter(Boolean).join('|');
-      let cleanChoices = optionsRaw.map(o => o.replace(/^\*/, '').trim());
+      let cleanChoices = optionsRaw.map(o => stripMarkdown(o.replace(/^\*/, '')));
       if (correctList.length === 1 && cleanCorrect) {
         cleanChoices = autoGenerateChoices(cleanCorrect, cleanChoices, isAffix);
       }

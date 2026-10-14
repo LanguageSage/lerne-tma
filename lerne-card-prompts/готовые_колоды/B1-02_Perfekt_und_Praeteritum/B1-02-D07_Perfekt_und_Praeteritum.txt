@@ -1,0 +1,1003 @@
+# Deck: B1-02-D07 · Perfekt und Präteritum in Erzählungen — истории и воспоминания
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-02-D07 · Perfekt und Präteritum in Erzählungen — истории и воспоминания",
+    "level": "B1",
+    "topic": "Perfekt und Präteritum in Erzählungen",
+    "description": "Практика связного повествования: построение хронологии, причинно-следственных связей и переход от готовых историй к собственным воспоминаниям",
+    "goal": "Перевести освоенные формы прошедшего времени из отдельных фраз в связные воспоминания и короткие истории. Важно не только верно выбрать war, hatte, konnte или hat ... gemacht, но и ясно сообщить, когда, где, что произошло сначала, что потом, почему и чем закончилось. Сначала читаем и восстанавливаем готовые истории, затем связываем предложения и к концу создаём 2–4 короткие фразы по опорам.",
+    "learning_outcomes": [
+      "Понимать в тексте из 3–5 предложений развитие событий, участников и обстановку",
+      "Узнавать знакомые формы Perfekt и Präteritum в общем связном контексте",
+      "Выстраивать хронологию событий с помощью zuerst, dann, danach, später, schließlich, plötzlich",
+      "Отличать причину от очередного события, корректно используя weil с глаголом в конце",
+      "Органично сочетать war, hatte, модальные глаголы и Perfekt в устном воспоминании",
+      "Передавать один сюжет в разговорном и книжном регистрах без потери смысла",
+      "Соединять отдельные факты в связный мини-рассказ по опорным пунктам",
+      "Различать реальные грамматические ошибки и стилистическую вариативность"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "Если забываются формы Präteritum — повторить D06; если путается хронология событий — карточки 01–08, 17, 19, 25–27, 37, 41; если путается причина и следствие — карточки 18, 26, 29, 32, 44; если смешение времён кажется ошибкой — карточки 07, 16, 33–40 и D05; при трудностях со связыванием 3–4 фраз — карточки 21, 31, 39, 45, 48. После освоения перейти к B1-02-D08 «Построй самостоятельно»."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "narrative_arc_basics",
+        "title": "Структура события: начало, развитие, финал",
+        "goal": "Освоить понимание трёхчастной структуры истории (городская ярмарка) и базовые связки zuerst, danach, schließlich",
+        "from_card": 1,
+        "to_card": 8,
+        "support": "high",
+        "expected_skill": "Выстраивать хронологическую последовательность и видеть сочетание war и Perfekt в бытовом рассказе"
+      },
+      {
+        "id": "personal_memories_causality",
+        "title": "Личные воспоминания и причинные связи",
+        "goal": "Связывать воспоминания о детстве и поездках, различать способность (konnte) и намерение (wollte), использовать weil",
+        "from_card": 9,
+        "to_card": 16,
+        "support": "high",
+        "expected_skill": "Понимать модальный смысл в воспоминаниях и связывать причину с событием"
+      },
+      {
+        "id": "workplace_narrative",
+        "title": "Первый рабочий опыт и развитие ситуации",
+        "goal": "Анализировать повествование о первом рабочем дне, различать модальные намерения и фактические действия",
+        "from_card": 17,
+        "to_card": 24,
+        "support": "medium",
+        "expected_skill": "Удерживать логику событий и не приравнивать желание/возможность к выполненному факту"
+      },
+      {
+        "id": "incident_problem_solving",
+        "title": "Непредвиденное происшествие в дороге",
+        "goal": "Описывать поломку, задержку и поиск решения, соединяя факты через deshalb, plötzlich и weil",
+        "from_card": 25,
+        "to_card": 32,
+        "support": "medium",
+        "expected_skill": "Строить логичные переходы от проблемы к решению в связном рассказе"
+      },
+      {
+        "id": "dual_register_retelling",
+        "title": "Один сюжет в двух манерах рассказа",
+        "goal": "Освоить параллельный пересказ фотопрогулки: в разговорном Perfekt и книжном Präteritum",
+        "from_card": 33,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Переводить историю из разговорного стиля в повествовательный без искажения фактов"
+      },
+      {
+        "id": "guided_independent_storytelling",
+        "title": "Самостоятельные воспоминания по опорам",
+        "goal": "Восстанавливать пропущенные элементы, исправлять порядок слов и строить связный рассказ из 3–4 фраз по опорам",
+        "from_card": 41,
+        "to_card": 48,
+        "support": "independent",
+        "expected_skill": "Создавать цельное 4-частное воспоминание по опорным пунктам с соблюдением грамматики и стиля"
+      }
+    ],
+    "expected_result": "Ученик уверенно читает, восстанавливает и строит связные немецкие истории из 3–5 предложений, соблюдает хронологию и причинно-следственные связи, органично сочетает war/hatte/модальные с Perfekt и пересказывает события по опорам",
+    "competencies": [
+      {
+        "id": "chronology_connectors",
+        "title": "Хронология и слова-связки",
+        "description": "Построение логичной временной цепочки с помощью zuerst, dann, danach, später, schließlich, am Ende"
+      },
+      {
+        "id": "causality_and_clauses",
+        "title": "Причинность и синтаксис придаточных",
+        "description": "Связывание событий через weil и deshalb с соблюдением порядка слов"
+      },
+      {
+        "id": "modal_narrative_precision",
+        "title": "Точность модальных смыслов в истории",
+        "description": "Различение намерений (wollte), возможностей (konnte), вынужденности (musste) и свершившихся фактов"
+      },
+      {
+        "id": "story_construction_supported",
+        "title": "Построение рассказа по опорам",
+        "description": "Создание связного микрорассказа из 3–4 фраз по ключевым ориентирам в естественном регистре"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "chronology_accuracy",
+        "title": "Хронологическая точность",
+        "description": "Правильное определение и выстраивание последовательности событий истории"
+      },
+      {
+        "id": "clause_word_order",
+        "title": "Порядок слов в придаточных",
+        "description": "Безошибочное расположение вспомогательного глагола в конце придаточного после weil"
+      },
+      {
+        "id": "narrative_coherence",
+        "title": "Связность и полнота пересказа",
+        "description": "Сохранение всех опорных фактов и логики перехода между фразами"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_connectors",
+        "title": "Повторение хронологических связок",
+        "when": "При нарушении последовательности событий",
+        "reason": "Повторить карточки 01–08, 17, 25–27, 37",
+        "competency_ids": ["chronology_connectors"]
+      },
+      {
+        "id": "review_because_clauses",
+        "title": "Повторение союза weil и порядка слов",
+        "when": "При ошибках в придаточных предложениях причины",
+        "reason": "Повторить карточки 13, 16, 26, 44",
+        "competency_ids": ["causality_and_clauses"]
+      },
+      {
+        "id": "review_modals_meaning",
+        "title": "Повторение значений модальных глаголов",
+        "when": "При приравнивании намерения к действию",
+        "reason": "Повторить карточки 10, 12, 15, 22, 24, 30",
+        "competency_ids": ["modal_narrative_precision"]
+      },
+      {
+        "id": "review_story_generation",
+        "title": "Тренировка построения рассказа по опорам",
+        "when": "При трудностях со связыванием фраз в цельный текст",
+        "reason": "Повторить карточки 31, 39, 45, 48",
+        "competency_ids": ["story_construction_supported"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите место действия по контексту мини-истории.
+::source
+Am Samstag war in unserer Stadt ein Jahrmarkt. Ich bin mit meiner Schwester hingegangen. Dort haben wir gebrannte Mandeln gekauft.
+::exercise
+Где происходят события истории?
+А. На городской ярмарке.
+Б. На школьном уроке.
+В. В поликлинике.
+
+BACK:
+А — на городской ярмарке.
+Перевод: «В субботу в нашем городе была ярмарка. Я сходил туда с сестрой. Там мы купили жареный миндаль в сахаре».
+
+CONTEXT:
+der Jahrmarkt — ярмарка; gebrannte Mandeln — глазированный миндаль. war — Präteritum, bin hingegangen и haben gekauft — Perfekt. Важно сначала понять общую ситуацию.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Расставьте события истории в логической хронологии.
+::source
+События:
+А. Wir haben gebrannte Mandeln gekauft.
+Б. Wir sind zum Jahrmarkt gegangen.
+В. Wir sind wieder nach Hause gefahren.
+::exercise
+Каков правильный хронологический порядок событий?
+
+BACK:
+Б → А → В.
+«Сначала мы пошли на ярмарку → купили миндаль → поехали обратно домой».
+
+CONTEXT:
+Образец со связками: «Zuerst sind wir zum Jahrmarkt gegangen. Dann haben wir Mandeln gekauft. Schließlich sind wir nach Hause gefahren». Хронологию задают события и слова-связки.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите последующее действие по связующему слову danach.
+::source
+Zuerst haben wir uns die Stände angesehen. Danach haben wir etwas gegessen.
+::exercise
+Что произошло после осмотра палаток?
+А. Они поели.
+Б. Они приехали в город.
+В. Они проспали весь день.
+
+BACK:
+А — они поели.
+Перевод: «Сначала мы осмотрели палатки. После этого мы что-то поели».
+
+CONTEXT:
+der Stand (die Stände) — торговая палатка/прилавок. danach указывает на следующее по времени действие. Обе фразы оформлены в Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму глагола sein в Präteritum.
+::source
+Auf dem Jahrmarkt ___ sehr viele Menschen.
+::exercise
+Вставьте пропущенное слово в Präteritum (одно слово).
+
+BACK:
+waren.
+Полное предложение: «Auf dem Jahrmarkt waren sehr viele Menschen». Перевод: «На ярмарке было очень много людей».
+
+CONTEXT:
+sehr viele Menschen — подлежащее во множественном числе, поэтому форма sein — waren. В повествовании спрягаемый глагол стоит на 2-й позиции.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соотнесите фразы с их смысловой ролью в истории.
+::source
+Фразы:
+1. Am Abend war es schon dunkel.
+2. Dann haben wir ein Konzert gehört.
+3. Zum Schluss sind wir nach Hause gegangen.
+::exercise
+Какую роль выполняет каждая фраза?
+Варианты: А — завершение истории; Б — описание обстановки; В — следующее действие.
+
+BACK:
+1 → Б (описание обстановки: war es dunkel)
+2 → В (следующее действие: dann haben gehört)
+3 → А (завершение истории: zum Schluss sind gegangen)
+
+CONTEXT:
+war (Präteritum) описывает фон, haben gehört и sind gegangen (Perfekt) передают цепочку действий в устном пересказе.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение со связкой danach на первом месте.
+::source
+Слова: haben / Danach / wir / die Musiker / fotografiert.
+::exercise
+Составьте правильное немецкое предложение.
+
+BACK:
+Danach haben wir die Musiker fotografiert.
+Перевод: «После этого мы сфотографировали музыкантов».
+
+CONTEXT:
+Danach занимает 1-ю позицию, вспомогательный глагол haben — строго 2-ю. die Musiker — музыканты. Причастие fotografiert замыкает рамку.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените сочетание двух прошедших времён в одном воспоминании.
+::source
+Фраза: Der Jahrmarkt war laut, aber wir haben viel gelacht.
+::exercise
+Какое объяснение верно?
+А. Это ошибка: в одном предложении нельзя смешивать времена.
+Б. Это естественно: war передаёт обстановку, haben gelacht — действие в устной речи.
+
+BACK:
+Б — это естественно и грамматически корректно.
+Перевод: «На ярмарке было шумно, но мы много смеялись».
+
+CONTEXT:
+war — частотная форма sein в устной речи, haben gelacht — Perfekt действия. Смешение двух времён в одном рассказе абсолютно нормативно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните три опорных вопроса для анализа короткой истории.
+::exercise
+Какие три вопроса помогают мгновенно понять суть любого воспоминания?
+
+BACK:
+1. Где и когда? (обстановка и время)
+2. Что случилось? (основные действия)
+3. Чем всё закончилось? (финал истории)
+
+CONTEXT:
+Пример: «Am Samstag war ich auf dem Jahrmarkt. Dort habe ich ein Konzert gehört. Danach bin ich nach Hause gefahren». Сначала уловите сюжетную нить, затем анализируйте формы.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите место проведения летних каникул по отрывку.
+::source
+Als ich klein war, verbrachte ich die Sommer oft bei meinem Großvater. Er wohnte an einem See.
+::exercise
+Где рассказчик часто проводил лето в детстве?
+А. У дедушки возле озера.
+Б. В большом городе на работе.
+В. На горнолыжном курорте.
+
+BACK:
+А — у дедушки возле озера.
+Перевод: «Когда я был маленьким, я часто проводил лето у дедушки. Он жил у озера».
+
+CONTEXT:
+verbrachte — Präteritum от verbringen (проводить время), wohnte — от wohnen. В литературном воспоминании последовательно выдержан Präteritum.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соотнесите немецкие реплики воспоминания с русским переводом.
+::source
+Реплики:
+1. Wir sind mit dem Boot gefahren.
+2. Ich hatte zuerst Angst.
+3. Später konnte ich selbst rudern.
+::exercise
+Найдите перевод для каждой фразы:
+А. Сначала я боялся.
+Б. Позже я уже мог грести сам.
+В. Мы катались на лодке.
+
+BACK:
+1 → В (катались на лодке: sind gefahren)
+2 → А (сначала боялся: hatte Angst)
+3 → Б (позже мог грести сам: konnte rudern)
+
+CONTEXT:
+das Boot — лодка; rudern — грести. sind gefahren — Perfekt; hatte, konnte — Präteritum. Разные времена свободно соседствуют в связном рассказе.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму глагола haben в устное воспоминание.
+::source
+Am Anfang ___ ich Angst, aber mein Großvater hat mir geholfen.
+::exercise
+Вставьте форму Präteritum от haben для лица ich (одно слово).
+
+BACK:
+hatte.
+Полное предложение: «Am Anfang hatte ich Angst, aber mein Großvater hat mir geholfen». Перевод: «Сначала я боялся, но дедушка мне помог».
+
+CONTEXT:
+Angst haben — бояться. Форма hatte естественна для устного рассказа, а действие дедушки передано в Perfekt (hat geholfen).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите изменение ситуации по контексту с глаголом konnte.
+::source
+Am Anfang konnte ich nicht schwimmen. Nach einigen Wochen konnte ich schon ein Stück allein schwimmen.
+::exercise
+Как изменилась ситуация к концу лета?
+А. Рассказчик разучился плавать.
+Б. Рассказчик научился немного плавать самостоятельно.
+
+BACK:
+Б — рассказчик научился немного плавать самостоятельно.
+Перевод: «Сначала я не умел плавать. Через несколько недель я уже мог немного проплыть один».
+
+CONTEXT:
+konnte выражает физическую способность или навык в прошлом. ein Stück — небольшое расстояние / кусочек пути.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите причину возвращения по придаточному предложению с weil.
+::source
+Wir mussten früh zurückfahren, weil ein Gewitter begann.
+::exercise
+Почему им пришлось вернуться раньше времени?
+А. Потому что началась гроза.
+Б. Потому что у них закончились продукты.
+В. Потому что они выиграли соревнование.
+
+BACK:
+А — потому что началась гроза.
+Перевод: «Нам пришлось рано возвращаться, потому что началась гроза».
+
+CONTEXT:
+das Gewitter — гроза; begann — Präteritum от beginnen. Союз weil вводит причину, глагол begann стоит в конце придаточного.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение связки из банка слов.
+::source
+Смысл: «После этого мы пошли домой».
+Банк слов: Danach / sind / wir / nach Hause / gegangen.
+::exercise
+Составьте правильное предложение.
+
+BACK:
+Danach sind wir nach Hause gegangen.
+Перевод: «После этого мы пошли домой».
+
+CONTEXT:
+Danach начинает фразу, вспомогательный sind стоит на 2-й позиции, причастие gegangen — в конце. Это Perfekt движения с sein.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разграничьте намерение и свершившийся факт в воспоминании.
+::source
+Ich wollte meinem Großvater später noch schreiben, aber ich habe es immer wieder vergessen.
+::exercise
+Было ли у рассказчика намерение написать и написал ли он в итоге?
+
+BACK:
+Намерение написать было (wollte schreiben), но фактически он так и не написал (immer wieder vergessen).
+
+CONTEXT:
+wollte выражает лишь желание или намерение, но не факт совершения действия. immer wieder — снова и снова / постоянно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните разницу между связками последовательности и причины.
+::exercise
+Как различать функции слов dann/danach и союза weil в рассказе?
+
+BACK:
+dann и danach показывают хронологический шаг («что произошло дальше»).
+weil объясняет причину события («почему это произошло») и требует глагол в конце.
+
+CONTEXT:
+Пример: «Wir sind nach Hause gefahren, weil es stark geregnet hat». Связки выбираются по смысловой логике, а не по названию времени.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Восстановите хронологию событий первого дня стажировки.
+::source
+События:
+А. Danach hat mir die Chefin die Werkzeuge gezeigt.
+Б. Zuerst bin ich zur Bäckerei gekommen.
+В. Am Ende habe ich die Arbeitsfläche sauber gemacht.
+::exercise
+Каков правильный порядок действий?
+
+BACK:
+Б → А → В.
+«Сначала я пришёл в пекарню → Затем начальница показала инструменты → В конце я убрал рабочее место».
+
+CONTEXT:
+die Bäckerei — пекарня; die Arbeitsfläche — рабочая поверхность стола. Связки zuerst, danach, am Ende выстраивают чёткую цепь событий.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите причину опоздания в письменном отрывке.
+::source
+Ich kam zehn Minuten zu spät, weil die Straßenbahn nicht fuhr.
+::exercise
+Что послужило причиной опоздания?
+А. Не ходил трамвай.
+Б. Человек не хотел идти на работу.
+В. Он забыл ключи от дома.
+
+BACK:
+А — не ходил трамвай.
+Перевод: «Я пришёл на десять минут позже, потому что трамвай не ходил».
+
+CONTEXT:
+kam и fuhr — Präteritum в литературном повествовании. die Straßenbahn — трамвай. weil связывает факт опоздания с его причиной.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите типичный вариант для устного рассказа другу.
+::source
+Ты рассказываешь другу о первом дне и знакомстве с коллегой:
+::exercise
+Какой вариант более типичен для нейтральной разговорной речи?
+А. Ich lernte eine neue Kollegin kennen.
+Б. Ich habe eine neue Kollegin kennengelernt.
+
+BACK:
+Б — типично для устной разговорной речи: «Ich habe eine neue Kollegin kennengelernt». Перевод: «Я познакомился с новой коллегой».
+
+CONTEXT:
+Вариант А грамматически корректен, но звучит книжно. В диалоге для завершённых действий естественен Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте реплики с состояниями и действиями рассказчика.
+::source
+Реплики:
+1. Ich war nervös.
+2. Ich musste früh aufstehen.
+3. Ich habe viel gelernt.
+::exercise
+Какое значение выражает каждая реплика?
+А. Узнал много нового.
+Б. Был взволнован / нервничал.
+В. Пришлось рано вставать.
+
+BACK:
+1 → Б (был взволнован: war nervös)
+2 → В (пришлось рано встать: musste aufstehen)
+3 → А (узнал много нового: habe gelernt)
+
+CONTEXT:
+war (состояние), musste (вынужденность) и habe gelernt (действие) объединяются в живое многоплановое воспоминание.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение со связкой времени на 1-й позиции.
+::source
+Слова: Am Abend / ich / sehr müde / war.
+Смысл: «Вечером я был очень уставшим».
+::exercise
+Составьте правильное предложение.
+
+BACK:
+Am Abend war ich sehr müde.
+Перевод: «Вечером я был очень уставшим».
+
+CONTEXT:
+Am Abend занимает 1-ю позицию, спрягаемый глагол war стоит на 2-й позиции (инверсия). Form war естественна для устного рассказа.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите факт, который НЕ следует из текста.
+::source
+Текст: Ich wollte den Kunden anrufen, aber ich hatte seine Telefonnummer nicht.
+::exercise
+Какой вывод НЕЛЬЗЯ сделать из этого предложения?
+А. Он хотел позвонить клиенту.
+Б. У него не было номера телефона.
+В. Он позвонил клиенту.
+
+BACK:
+В — вывод «он позвонил клиенту» неверен и противоречит тексту.
+Перевод: «Я хотел позвонить клиенту, но у меня не было его номера».
+
+CONTEXT:
+wollte выражает намерение, а hatte nicht указывает на отсутствие возможности. Звонок не состоялся.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте две формы Präteritum от sein и müssen для лица ich.
+::source
+Am Anfang ___ ich unsicher. Deshalb ___ ich oft nachfragen.
+::exercise
+Вставьте две формы Präteritum через точку с запятой.
+
+BACK:
+war; musste.
+Полный текст: «Am Anfang war ich unsicher. Deshalb musste ich oft nachfragen». Перевод: «Сначала я чувствовал себя неуверенно. Поэтому мне часто приходилось переспрашивать».
+
+CONTEXT:
+unsicher — неуверенный; nachfragen — переспрашивать, уточнять. war передаёт состояние, musste — необходимость. После deshalb глагол стоит на 2-м месте.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните главное предостережение при анализе модальных глаголов.
+::exercise
+Почему из фраз «Ich wollte helfen» или «Ich konnte helfen» нельзя автоматически заключить факт помощи?
+
+BACK:
+Потому что wollte выражает только желание, а konnte — только возможность. Сам факт свершения действия они не гарантируют.
+
+CONTEXT:
+Для сообщения о реальном завершённом действии используется глагол действия: «Ich habe geholfen» («Я помог»).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Расставьте события истории о поломке велосипеда по порядку.
+::source
+События:
+А. Schließlich habe ich mein Fahrrad nach Hause geschoben.
+Б. Unterwegs war plötzlich ein Reifen platt.
+В. Ich bin am Morgen mit dem Fahrrad losgefahren.
+::exercise
+Каков правильный хронологический порядок?
+
+BACK:
+В → Б → А.
+«Утром выехал на велосипеде → В пути спустило колесо → В итоге докатил велосипед домой».
+
+CONTEXT:
+unterwegs — в пути; ein Reifen ist platt — колесо спущено; schieben — катить рядом с собой. Хронология ясна из сюжета и связок.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите логичное придаточное причины после запятой.
+::source
+Начало фразы: Ich musste das Fahrrad schieben, ...
+::exercise
+Какое продолжение объясняет причину?
+А. weil ich keinen Ersatzschlauch hatte.
+Б. danach habe ich einen Freund angerufen.
+
+BACK:
+А — weil ich keinen Ersatzschlauch hatte.
+Перевод: «Мне пришлось катить велосипед, потому что у меня не было запасной камеры».
+
+CONTEXT:
+der Ersatzschlauch — запасная камера. weil вводит причину, глагол hatte стоит в конце придаточного. Вариант Б выражает следующее действие, а не причину.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение со звонком брату из банка слов.
+::source
+Слова: Danach / habe / ich / meinen Bruder / angerufen.
+::exercise
+Составьте правильное немецкое предложение.
+
+BACK:
+Danach habe ich meinen Bruder angerufen.
+Перевод: «После этого я позвонил брату».
+
+CONTEXT:
+Danach на 1-м месте, habe на 2-м. anrufen образует Partizip II с приставкой: an-ge-rufen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку во вспомогательном глаголе движения.
+::source
+❌ Mein Bruder hat nach zwanzig Minuten gekommen.
+::exercise
+Исправьте только вспомогательный глагол.
+
+BACK:
+Mein Bruder ist nach zwanzig Minuten gekommen.
+Перевод: «Мой брат приехал / пришёл через двадцать минут».
+
+CONTEXT:
+kommen в значении прибытия всегда образует Perfekt с sein: ist gekommen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопросы по тексту о ремонте колеса.
+::source
+Mein Bruder konnte den Reifen nicht sofort reparieren. Deshalb haben wir das Fahrrad ins Auto geladen.
+::exercise
+Удалось ли починить колесо сразу и что они сделали?
+
+BACK:
+Сразу починить не удалось (konnte nicht sofort reparieren). Они погрузили велосипед в машину (haben ins Auto geladen).
+
+CONTEXT:
+konnte nicht — невозможность в прошлом; haben geladen — выполненное действие. deshalb (поэтому) вводит логическое следствие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите модальный глагол вынужденности для воспоминания.
+::source
+Ситуация: выбора не было, пришлось идти пешком.
+Ich ___ den letzten Kilometer zu Fuß gehen.
+::exercise
+Какой глагол выражает вынужденность?
+А. wollte
+Б. musste
+В. durfte
+
+BACK:
+Б — musste.
+Полное предложение: «Ich musste den letzten Kilometer zu Fuß gehen». Перевод: «Последний километр мне пришлось идти пешком».
+
+CONTEXT:
+musste выражает объективную необходимость или вынужденность. wollte означает личное желание, durfte — разрешение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Составьте три коротких предложения по опорным словам.
+::source
+Опоры для устного рассказа:
+1. Am Morgen — Fahrrad — losfahren
+2. Unterwegs — Reifen — platt sein
+3. Danach — Bruder — anrufen
+::exercise
+Постройте связный рассказ из трёх фраз в разговорном стиле.
+
+BACK:
+Один естественный вариант:
+«Am Morgen bin ich mit dem Fahrrad losgefahren. Unterwegs war ein Reifen platt. Danach habe ich meinen Bruder angerufen».
+
+CONTEXT:
+Перевод: «Утром я выехал на велосипеде. По дороге спустило колесо. Затем я позвонил брату». Использованы Perfekt движения, Präteritum состояния (war) и связка danach.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните, что делает набор предложений связной историей.
+::exercise
+Достаточно ли просто сказать три предложения в Perfekt, чтобы получилась хорошая история?
+
+BACK:
+Нет. Историю делают связной логика событий и связующие слова (zuerst, plötzlich, danach, deshalb, am Ende).
+
+CONTEXT:
+Пример: «Zuerst bin ich losgefahren. Plötzlich hatte ich eine Panne. Danach habe ich Hilfe gerufen». Время глагола само по себе не передаёт хронологию.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите более типичный разговорный вариант рассказа о фотопрогулке.
+::source
+Ты рассказываешь знакомому о вчерашней фотопрогулке:
+::exercise
+Какой вариант более типичен для нейтрального устного пересказа?
+А. Ich entdeckte einen schönen Aussichtspunkt und machte mehrere Fotos.
+Б. Ich habe einen schönen Aussichtspunkt entdeckt und mehrere Fotos gemacht.
+
+BACK:
+Б — типично для устной разговорной речи: «Ich habe einen schönen Aussichtspunkt entdeckt und mehrere Fotos gemacht». Перевод: «Я обнаружил красивую смотровую площадку и сделал несколько фото».
+
+CONTEXT:
+der Aussichtspunkt — смотровая площадка. Вариант А грамматически безупречен, но принадлежит книжному стилю.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите продолжение художественной сцены в Präteritum.
+::source
+Текст книги: Die Sonne ging unter. Ein Fotograf blieb am Fluss stehen. ...
+::exercise
+Какое продолжение выдерживает стиль повествования?
+А. Er sah einen Vogel und machte ein Foto.
+Б. Er hat einen Vogel gesehen und ein Foto gemacht.
+
+BACK:
+А — гармонично продолжает книжный стиль: «Er sah einen Vogel und machte ein Foto». Перевод: «Он увидел птицу и сделал снимок».
+
+CONTEXT:
+ging unter, blieb stehen, sah, machte — все глаголы выдержаны в едином ряду Präteritum. Вариант Б сбивает повествовательный тон.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите эквиваленты в Präteritum для выражений в Perfekt.
+::source
+Выражения в Perfekt:
+1. hat einen Schatten gesehen
+2. ist zur Brücke gegangen
+3. hat eine Skizze gezeichnet
+::exercise
+Подберите эквивалент в Präteritum к каждому действию:
+А. zeichnete eine Skizze
+Б. ging zur Brücke
+В. sah einen Schatten
+
+BACK:
+1 → В (sah einen Schatten)
+2 → Б (ging zur Brücke)
+3 → А (zeichnete eine Skizze)
+
+CONTEXT:
+der Schatten — тень; die Skizze — эскиз, набросок. Смысл действий идентичен, меняется только грамматический регистр (Perfekt ↔ Präteritum).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите книжное предложение со словом plötzlich на 1-м месте.
+::source
+Слова: Plötzlich / der Fotograf / einen Regenbogen / sah.
+::exercise
+Составьте правильное предложение в Präteritum.
+
+BACK:
+Plötzlich sah der Fotograf einen Regenbogen.
+Перевод: «Вдруг фотограф увидел радугу».
+
+CONTEXT:
+Plötzlich занимает 1-ю позицию, спрягаемый глагол sah стоит на 2-й позиции. der Regenbogen — радуга.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Восстановите хронологический порядок фотосессии.
+::source
+События:
+А. Später hat sie die besten Bilder ausgewählt.
+Б. Zuerst hat Lina ihre Kamera eingestellt.
+В. Danach hat sie die alten Häuser fotografiert.
+::exercise
+Каков правильный порядок действий?
+
+BACK:
+Б → В → А.
+«Сначала Лина настроила камеру → Затем сфотографировала старые дома → Позже выбрала лучшие снимки».
+
+CONTEXT:
+einstellen — настраивать; auswählen — отбирать. Все глаголы стоят в Perfekt, а последовательность задают zuerst, danach, später.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените грамматическую правильность двух вариантов.
+::source
+Варианты:
+А. Am Sonntag haben wir eine Fotoausstellung besucht.
+Б. Am Sonntag besuchten wir eine Fotoausstellung.
+::exercise
+Какое суждение верно?
+1. Только А верно.
+2. Только Б верно.
+3. Оба варианта абсолютно верны; выбор зависит от контекста.
+
+BACK:
+3 — оба варианта грамматически абсолютно верны.
+Перевод: «В воскресенье мы посетили фотовыставку».
+
+CONTEXT:
+А (Perfekt) типично для разговорного отчёта, Б (Präteritum) — для письменной статьи или дневника. Ни один из вариантов не является ошибкой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте две фразы устного рассказа по опорным словам.
+::source
+Опоры:
+1. gestern — Ausstellung — besuchen
+2. dort — bekannte Fotografin — kennenlernen
+::exercise
+Составьте две связные фразы в Perfekt для рассказа другу.
+
+BACK:
+Один естественный вариант:
+«Gestern habe ich eine Ausstellung besucht. Dort habe ich eine bekannte Fotografin kennengelernt».
+
+CONTEXT:
+Перевод: «Вчера я посетил выставку. Там я познакомился с известной женщиной-фотографом». Сохранены оба события, форма Perfekt и связка dort.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните, почему стилевое различие не является ошибкой.
+::exercise
+Как объяснить, что habe fotografiert и fotografierte — это не «правильно против неправильного»?
+
+BACK:
+Обе формы передают одно и то же действие («я сфотографировал»). Perfekt естественнее для живого разговора, а Präteritum — для книги.
+
+CONTEXT:
+Дата и длительность действия не обязывают выбирать одно конкретное время. Различие лежит в плоскости регистра общения, а не грамматической ошибки.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите логичное сюжетное продолжение встречи в поезде.
+::source
+Gestern bin ich mit der Regionalbahn gefahren. Plötzlich habe ich eine ehemalige Mitschülerin gesehen. ...
+::exercise
+Какое продолжение логично развивает сюжет?
+А. Wir haben uns unterhalten und über unsere Schulzeit gesprochen.
+Б. Wir haben beide den Zug nie benutzt.
+
+BACK:
+А — логичное сюжетное продолжение.
+Полный рассказ: «Вчера я ехал на пригородном поезде. Вдруг увидел бывшую одноклассницу. Мы пообщались и поговорили о школьных временах».
+
+CONTEXT:
+die ehemalige Mitschülerin — бывшая одноклассница; sich unterhalten — беседовать. Вариант Б логически противоречит первой фразе.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, что изменилось в жизни семьи по тексту.
+::source
+Früher hatten wir keinen Garten. Vor zwei Jahren sind wir umgezogen. Jetzt bauen wir Gemüse an.
+::exercise
+Что изменилось в жизни семьи (ответьте кратко)?
+
+BACK:
+Раньше сада не было, два года назад семья переехала, и теперь они выращивают овощи.
+
+CONTEXT:
+hatten (Präteritum прошлого состояния), sind umgezogen (Perfekt перемены места) и bauen an (Präsens текущего положения). Рассказ плавно переходит в настоящее.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте две формы глагола haben в микро-историю.
+::source
+Gestern ___ ich wenig Zeit (haben). Trotzdem ___ ich meine Nachbarin besucht (haben).
+::exercise
+Вставьте Präteritum и вспомогательный глагол Perfekt через точку с запятой.
+
+BACK:
+hatte; habe.
+Полный текст: «Gestern hatte ich wenig Zeit. Trotzdem habe ich meine Nachbarin besucht». Перевод: «Вчера у меня было мало времени. Тем не менее я навестил соседку».
+
+CONTEXT:
+hatte — самостоятельное Präteritum; habe ... besucht — Perfekt. После Trotzdem (тем не менее) спрягаемый глагол steht на 2-й позиции.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку порядка слов в придаточном предложении причины.
+::source
+❌ Ich bin später gekommen, weil ich habe den Schlüssel verloren.
+::exercise
+Исправьте порядок слов в части после weil.
+
+BACK:
+Ich bin später gekommen, weil ich den Schlüssel verloren habe.
+Перевод: «Я пришёл позже, потому что потерял ключ».
+
+CONTEXT:
+В придаточном предложении с союзом weil вспомогательный глагол habe обязан стоять в самом конце предложения, после причастия verloren.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос собеседника двумя-тремя фразами по опорам.
+::source
+Вопрос: Was ist dir gestern auf dem Weg nach Hause passiert?
+Опоры:
+1. Es war sehr windig.
+2. meinen Regenschirm verlieren
+3. später zu Hause ankommen
+::exercise
+Сформулируйте связный устный ответ.
+
+BACK:
+Один естественный вариант:
+«Es war sehr windig. Ich habe meinen Regenschirm verloren. Deshalb bin ich später zu Hause angekommen».
+
+CONTEXT:
+Перевод: «Было очень ветрено. Я потерял зонт. Поэтому пришёл домой позже». Использованы war, Perfekt действий и логическая связка deshalb.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите утверждение, которое НЕ подтверждается текстом.
+::source
+Als Lea ihren ersten Deutschkurs besuchte, war sie sehr schüchtern. Sie wollte mehr sprechen, aber am Anfang konnte sie nur kurze Sätze bilden. Nach einigen Monaten hat sie sich oft im Unterricht gemeldet.
+::exercise
+Какой вывод НЕ подтверждается текстом?
+А. Сначала Лее было трудно говорить длинными фразами.
+Б. Позже она стала чаще вызываться отвечать на уроке.
+В. С самого начала она уверенно говорила длинными фразами.
+
+BACK:
+В — утверждение противоречит тексту.
+Перевод: «Сначала она могла строить только короткие фразы, но через несколько месяцев стала часто поднимать руку».
+
+CONTEXT:
+schüchtern — застенчивый; sich melden — поднимать руку / вызываться отвечать. Смысловое развитие сюжета важнее механического разбора грамматики.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните 4 шага построения связного воспоминания.
+::exercise
+Как построить понятную историю из 3–4 предложений, не путаясь в грамматике?
+
+BACK:
+1. Когда и где? (Letztes Jahr war ich...)
+2. Что произошло сначала? (Zuerst habe ich...)
+3. Что случилось потом или почему? (Danach... / weil...)
+4. Чем закончилось? (Am Ende bin ich...)
+
+CONTEXT:
+Пример: «Ich war nervös, aber am Ende habe ich es geschafft» («Я волновался, но в конце концов справился»). История должна быть понятна живому слушателю.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте личное воспоминание из четырёх предложений по опорам.
+::source
+Опорные пункты:
+1. letzten Sommer — auf einem Stadtfest sein
+2. dort — Bekannte treffen
+3. plötzlich — anfangen zu regnen
+4. deshalb — nach Hause gehen
+::exercise
+Составьте 4 коротких предложения в разговорном стиле.
+
+BACK:
+Один естественный вариант:
+«Letzten Sommer war ich auf einem Stadtfest. Dort habe ich ein paar Bekannte getroffen. Plötzlich hat es angefangen zu regnen. Deshalb bin ich nach Hause gegangen».
+
+CONTEXT:
+Перевод: «Прошлым летом я был на городском празднике. Там я встретил знакомых. Вдруг пошёл дождь. Поэтому я пошёл домой».
+war задаёт обстановку, habe getroffen, hat angefangen и bin gegangen передают цепь действий со связками dort, plötzlich, deshalb.

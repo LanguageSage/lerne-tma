@@ -10,20 +10,20 @@ const SESSION_KEY = 'lerne_auth_v2_session';
 const PROFILE_KEY = 'lerne_user_profile';
 
 let memorySession = null;
+let resetHandled = false;
 
 export const getAuthSession = () => {
-  if (memorySession?.access_token && memorySession?.refresh_token) {
-    return memorySession;
-  }
   try {
-    const value = storage.get(SESSION_KEY);
+    // Read shared storage on every request: another tab may rotate or clear it.
+    const value = localStorage.getItem(SESSION_KEY);
     const parsed = value ? JSON.parse(value) : null;
     if (parsed?.access_token && parsed?.refresh_token) {
       memorySession = parsed;
       return memorySession;
     }
+    memorySession = null;
     return null;
-  } catch { return null; }
+  } catch { return memorySession; }
 };
 
 export const getAccessToken = () => getAuthSession()?.access_token || null;
@@ -65,9 +65,18 @@ export const getUserProfile = () => {
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const isResetRequested = params?.get('guest') === '1' || params?.get('reset') === '1';
 
-    if (isResetRequested) {
+    if (isResetRequested && !resetHandled) {
+      resetHandled = true;
       clearAuthSession();
     }
+
+    // A verified v2 account can differ from its linked Telegram identity.
+    // URL/testing hints must never replace that account or delete its tokens.
+    if (getAuthSession()) {
+      const value = storage.get(PROFILE_KEY);
+      return value ? JSON.parse(value) : null;
+    }
+    if (storage.get('lerne_force_guest') === 'true') return null;
 
     // 1. Check URL (?user_id=123) for testing or switching accounts
     const urlIdStr = params?.get('user_id');

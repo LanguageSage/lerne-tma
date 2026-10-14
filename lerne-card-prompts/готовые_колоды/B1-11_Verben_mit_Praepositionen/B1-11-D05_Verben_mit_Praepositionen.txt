@@ -1,0 +1,973 @@
+# Deck: B1-11-D05 · Verben mit Präpositionen — Erweiterung — первый самостоятельный ввод
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-11-D05 · Verben mit Präpositionen — Erweiterung — первый самостоятельный ввод",
+    "level": "B1",
+    "topic": "Verben mit Präpositionen — Erweiterung",
+    "description": "Практика активного самостоятельного ввода глагольного управления: предлоги, связки предлог + артикль (Akkusativ/Dativ), двойные дополнения, возвратные местоимения, вопросительные и указательные формы wo(r)-/da(r)- и конструкции с dass/zu",
+    "goal": "Перевести изученные связки из узнавания и выбора ответа в активное воспроизведение. Ученик должен сам вписывать нужный предлог, затем сочетание предлога и правильного артикля, затем два управляемых дополнения, возвратные формы, вопросительные и указательные слова. Подсказки последовательно сокращаются, но ученик пока не обязан сочинять длинные предложения целиком.",
+    "learning_outcomes": [
+      "Вспоминать по смыслу основные предлоги с warten, fragen, sich interessieren, teilnehmen, sich kümmern, träumen, sich erinnern, sich beschäftigen, sich vorbereiten",
+      "Вводить сочетания «предлог + артикль» с правильным Akkusativ и Dativ у знакомого глагола",
+      "Использовать обе связи у sich bewerben bei/um, sprechen mit/über, sich beschweren bei/über, sich bedanken bei/für",
+      "Самостоятельно подбирать возвратное местоимение по лицу",
+      "Формулировать короткие вопросы: Worauf? Auf wen? Worüber? Mit wem? Womit? Woran? An wen? Wovon? Wofür?",
+      "Использовать daran, darüber, davon, darauf для фактов и предметов и предлог + местоимение — для людей",
+      "Отличать радость от факта (darüber, dass ...) и предвкушение действия (darauf, ... zu ...)",
+      "Удерживать сразу две связи при короткой ситуации уровня B1"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "При ошибках в самом предлоге (карточки 01–10) повторить D02 по значениям связок и D03; при ошибках в артикле/падеже (11–20) — отдельная практика Akkusativ/Dativ + D04 11–20; при трудностях с двумя дополнениями или местоимениями (21–30) — D02 по возвратности и двум ролям; при ошибках в вопросах (31–40) — D03 33–42; при путанице в da(r)-формах и dass/zu (41–50) — D01/D02 раздел wo(r)-/da(r)-. После освоения перейти к B1-11-D06."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "block1_single_preposition_input",
+        "title": "Блок 1 · Ввод одного предлога по смыслу",
+        "goal": "Активно воспроизводить нужный предлог управления для ключевых глаголов B1",
+        "from_card": 1,
+        "to_card": 10,
+        "support": "medium",
+        "expected_skill": "Точно вписывать требуемый предлог управления без вариантов выбора"
+      },
+      {
+        "id": "block2_prep_article_input",
+        "title": "Блок 2 · Ввод предлога вместе с артиклем",
+        "goal": "Объединять предлог и правильную форму артикля в Akkusativ или Dativ",
+        "from_card": 11,
+        "to_card": 20,
+        "support": "medium",
+        "expected_skill": "Вводить связку предлог + артикль с учётом рода и падежа дополнения"
+      },
+      {
+        "id": "block3_dual_roles_and_reflexives",
+        "title": "Блок 3 · Два предлога, возвратность и отделяемые приставки",
+        "goal": "Одновременно воспроизводить два предложных дополнения и согласовывать возвратные местоимения",
+        "from_card": 21,
+        "to_card": 30,
+        "support": "medium",
+        "expected_skill": "Заполнять оба предложных пропуска и подбирать возвратные местоимения по лицу"
+      },
+      {
+        "id": "block4_questions_wo_forms",
+        "title": "Блок 4 · Вопросы к человеку и предмету, формы wo(r)-",
+        "goal": "Самостоятельно формулировать вопросы (Worauf? Auf wen? Mit wem? Womit?)",
+        "from_card": 31,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Вводить точные вопросительные формы с учётом одушевлённости дополнения"
+      },
+      {
+        "id": "block5_da_forms_complex_syntax",
+        "title": "Блок 5 · Местоименные наречия da(r)-, конструкции dass/zu и контексты",
+        "goal": "Использовать слова-заменители daran, darüber, davon, darauf и корреляты перед dass и zu",
+        "from_card": 41,
+        "to_card": 50,
+        "support": "medium",
+        "expected_skill": "Применять местоименные наречия и строить сложные связи в связных контекстах"
+      }
+    ],
+    "expected_result": "Ученик безошибочно вписывает предлоги, формы артиклей, возвратные местоимения, вопросительные группы и da(r)-наречия в типичных коммуникативных ситуациях B1.",
+    "competencies": [
+      {
+        "id": "preposition_retrieval",
+        "title": "Воспроизведение предлогов",
+        "description": "Активное извлечение из памяти правильного предлога управления"
+      },
+      {
+        "id": "case_morphology_production",
+        "title": "Продуцирование падежных форм",
+        "description": "Безошибочное написание артиклей в требуемом глаголом падеже"
+      },
+      {
+        "id": "reflexive_and_dual_control",
+        "title": "Контроль возвратности и двойных связок",
+        "description": "Точное употребление местоимений sich/uns/dich и одновременное удержание двух дополнений"
+      },
+      {
+        "id": "pronominal_syntax_production",
+        "title": "Образование вопросительных и указательных форм",
+        "description": "Корректное написание форм wo(r)- и da(r)-, а также одушевлённых эквивалентов"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "single_prep_success",
+        "title": "Точность отдельных предлогов",
+        "description": "Не менее 8 верных ответов в блоке 01–10"
+      },
+      {
+        "id": "prep_article_success",
+        "title": "Точность связок предлог + артикль",
+        "description": "Не менее 8 верных ответов в блоке 11–20 (оба слова должны быть верны)"
+      },
+      {
+        "id": "dual_and_reflexive_success",
+        "title": "Точность двойных дополнений и возвратности",
+        "description": "Не менее 8 верных ответов в блоке 21–30"
+      },
+      {
+        "id": "questions_success",
+        "title": "Точность вопросов",
+        "description": "Не менее 8 верных ответов в блоке 31–40"
+      },
+      {
+        "id": "da_syntax_success",
+        "title": "Точность da(r)-форм и конструкций",
+        "description": "Не менее 8 верных ответов в блоке 41–50"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_prepositions",
+        "title": "Повторение предлогов глаголов",
+        "when": "При ошибках в карточках 01–10",
+        "reason": "Повторить D02 по значениям связок и D03",
+        "competency_ids": ["preposition_retrieval"]
+      },
+      {
+        "id": "review_articles_cases",
+        "title": "Повторение склонения артиклей",
+        "when": "При ошибках в карточках 11–20",
+        "reason": "Повторить D01 о глагольном управлении и D04 11–20",
+        "competency_ids": ["case_morphology_production"]
+      },
+      {
+        "id": "review_reflexives_pairs",
+        "title": "Повторение возвратных форм и пар дополнений",
+        "when": "При ошибках в карточках 21–30",
+        "reason": "Повторить D02 (возвратность и двойные роли), D04 23–30",
+        "competency_ids": ["reflexive_and_dual_control"]
+      },
+      {
+        "id": "review_pronominal_syntax",
+        "title": "Повторение местоименных наречий и вопросов",
+        "when": "При ошибках в карточках 31–50",
+        "reason": "Повторить D01/D02 раздел wo(r)-/da(r)- и D03 33–42",
+        "competency_ids": ["pronominal_syntax_production"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящий предлог.
+::source
+Ты ждёшь приглашение на городской праздник.
+das Stadtfest — городской праздник.
+::exercise
+Ich warte [[auf]] die Einladung zum Stadtfest.
+
+BACK:
+Ich warte auf die Einladung zum Stadtfest. — «Я жду приглашение на городской праздник».
+
+CONTEXT:
+warten auf + Akkusativ = ждать кого-то/чего-то. die Einladung — Akkusativ женского рода.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящий предлог.
+::source
+Ты хочешь узнать часы приёма в ратуше.
+die Sprechzeiten — часы приёма; das Rathaus — ратуша.
+::exercise
+Ich frage [[nach]] den Sprechzeiten im Rathaus.
+
+BACK:
+Ich frage nach den Sprechzeiten im Rathaus. — «Я спрашиваю о часах приёма в ратуше».
+
+CONTEXT:
+fragen nach + Dativ = наводить справки, узнавать информацию. den Sprechzeiten — Dativ мн. ч.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящий предлог.
+::source
+Филипп интересуется фотографией природы.
+die Naturfotografie — съёмка природы.
+::exercise
+Philipp interessiert sich [[für]] Naturfotografie.
+
+BACK:
+Philipp interessiert sich für Naturfotografie. — «Филипп интересуется фотографией природы».
+
+CONTEXT:
+sich interessieren für + Akkusativ = интересоваться чем-либо.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящий предлог.
+::source
+Девушка участвует в курсе первой помощи.
+der Erste-Hilfe-Kurs — курс первой помощи.
+::exercise
+Sie nimmt [[an]] einem Erste-Hilfe-Kurs teil.
+
+BACK:
+Sie nimmt an einem Erste-Hilfe-Kurs teil. — «Она участвует в курсе первой помощи».
+
+CONTEXT:
+teilnehmen an + Dativ = участвовать в чём-то. einem Erste-Hilfe-Kurs — Dativ мужского рода. Отделяемая приставка: nimmt ... teil.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящий предлог.
+::source
+Мартин заботится о пожилой соседке.
+die Nachbarin — соседка.
+::exercise
+Martin kümmert sich [[um]] seine ältere Nachbarin.
+
+BACK:
+Martin kümmert sich um seine ältere Nachbarin. — «Мартин заботится о своей пожилой соседке».
+
+CONTEXT:
+sich kümmern um + Akkusativ = заботиться, ухаживать за кем-то. seine ältere Nachbarin — Akkusativ.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящий предлог.
+::source
+Мы мечтаем о долгом путешествии по Европе.
+die Europareise — поездка по Европе.
+::exercise
+Wir träumen [[von]] einer langen Europareise.
+
+BACK:
+Wir träumen von einer langen Europareise. — «Мы мечтаем о долгой поездке по Европе».
+
+CONTEXT:
+träumen von + Dativ = мечтать о чём-либо. einer langen Europareise — Dativ женского рода.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящий предлог.
+::source
+Нина вспоминает свою первую учительницу.
+die Lehrerin — учительница.
+::exercise
+Nina erinnert sich [[an]] ihre erste Lehrerin.
+
+BACK:
+Nina erinnert sich an ihre erste Lehrerin. — «Нина вспоминает свою первую учительницу».
+
+CONTEXT:
+sich erinnern an + Akkusativ = вспоминать о ком-то/чём-то. ihre erste Lehrerin — Akkusativ.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящий предлог.
+::source
+Техник разбирается с новой программой для измерений.
+die Messsoftware — измерительное программное обеспечение.
+::exercise
+Der Techniker beschäftigt sich [[mit]] der neuen Messsoftware.
+
+BACK:
+Der Techniker beschäftigt sich mit der neuen Messsoftware. — «Техник изучает новую измерительную программу».
+
+CONTEXT:
+sich beschäftigen mit + Dativ = заниматься темой/вопросом. der neuen Messsoftware — Dativ.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о глагольном управлении.
+::exercise
+Почему нельзя выбрать немецкий предлог только по русскому «о» в предложениях «говорить о концерте» и «думать о концерте»?
+
+*У глаголов разные немецкие связки: sprechen über + Akk., но denken an + Akk.
+Потому что русское «о» всегда переводится предлогом über
+Потому что в одном случае нужен Dativ, а во втором Nominativ
+
+BACK:
+У глаголов разные немецкие связки: sprechen über + Akk., но denken an + Akk.
+Wir sprechen über das Konzert. — «Мы говорим о концерте».
+Wir denken an das Konzert. — «Мы думаем о концерте».
+
+CONTEXT:
+Немецкий предлог задаётся конкретным немецким глаголом, а не русским переводом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящий предлог.
+::source
+Завтра проверка оборудования, и мы к ней готовимся.
+die Geräteprüfung — проверка приборов/оборудования.
+::exercise
+Wir bereiten uns [[auf]] die Geräteprüfung vor.
+
+BACK:
+Wir bereiten uns auf die Geräteprüfung vor. — «Мы готовимся к проверке оборудования».
+
+CONTEXT:
+sich vorbereiten auf + Akkusativ = готовиться к чему-либо. die Geräteprüfung — Akkusativ женского рода.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и неопределённый артикль через пробел.
+::source
+Ты ждёшь звонка.
+der Anruf — телефонный звонок.
+::exercise
+Ich warte [[auf einen]] Anruf.
+
+BACK:
+Ich warte auf einen Anruf. — «Я жду звонка».
+
+CONTEXT:
+warten auf + Akkusativ: der Anruf мужского рода в Akkusativ принимает форму einen Anruf.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и определённый артикль через пробел.
+::source
+Она спрашивает о коммерческом предложении.
+das Angebot — предложение.
+::exercise
+Sie fragt [[nach dem]] Angebot.
+
+BACK:
+Sie fragt nach dem Angebot. — «Она спрашивает о предложении».
+
+CONTEXT:
+fragen nach + Dativ: das Angebot среднего рода в Dativ принимает форму dem Angebot.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и неопределённый артикль через пробел.
+::source
+Мы участвуем в экскурсии с гидом.
+die Führung — экскурсия.
+::exercise
+Wir nehmen [[an einer]] Führung teil.
+
+BACK:
+Wir nehmen an einer Führung teil. — «Мы участвуем в экскурсии с гидом».
+
+CONTEXT:
+teilnehmen an + Dativ: die Führung женского рода в Dativ принимает форму einer Führung.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и неопределённый артикль через пробел.
+::source
+Ты вежливо просишь назначить другую дату встречи.
+der Ersatztermin — альтернативная/перенесённая дата.
+::exercise
+Ich bitte [[um einen]] Ersatztermin.
+
+BACK:
+Ich bitte um einen Ersatztermin. — «Прошу назначить другую дату встречи».
+
+CONTEXT:
+bitten um + Akkusativ: der Ersatztermin мужского рода в Akkusativ принимает форму einen Ersatztermin.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и определённый артикль (два раздельных слова).
+::source
+Пикник зависит от погоды.
+das Wetter — погода. Напишите два раздельных слова без слияния.
+::exercise
+Das Picknick hängt [[von dem]] Wetter ab.
+
+BACK:
+Das Picknick hängt von dem Wetter ab. — «Пикник зависит от погоды».
+
+CONTEXT:
+abhängen von + Dativ: das Wetter в Dativ принимает форму dem Wetter (в разговорной речи чаще сокращается до vom).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и неопределённый артикль через пробел.
+::source
+Сотрудница работает над отчётом.
+der Bericht — отчёт.
+::exercise
+Die Mitarbeiterin arbeitet [[an einem]] Bericht.
+
+BACK:
+Die Mitarbeiterin arbeitet an einem Bericht. — «Сотрудница работает над отчётом».
+
+CONTEXT:
+arbeiten an + Dativ: der Bericht мужского рода в Dativ принимает форму einem Bericht.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и определённый артикль через пробел.
+::source
+Том искренне рад полученному положительному ответу.
+die Zusage — согласие, положительный ответ.
+::exercise
+Tom freut sich [[über die]] Zusage.
+
+BACK:
+Tom freut sich über die Zusage. — «Том рад полученному согласию / положительному ответу».
+
+CONTEXT:
+sich freuen über + Akkusativ = радоваться уже свершившемуся факту. die Zusage в Akkusativ — die Zusage.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и определённый артикль через пробел.
+::source
+Девочка боится предстоящего экзамена.
+die Prüfung — экзамен.
+::exercise
+Das Mädchen hat Angst [[vor der]] Prüfung.
+
+BACK:
+Das Mädchen hat Angst vor der Prüfung. — «Девочка боится экзамена».
+
+CONTEXT:
+Angst haben vor + Dativ: die Prüfung женского рода в Dativ принимает форму der Prüfung.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните управление двух глаголов с одинаковым предлогом an.
+::source
+1. denken an den Termin
+2. teilnehmen an dem Treffen
+::exercise
+Какой из двух глаголов управляет дательным падежом (Dativ)?
+
+*teilnehmen an (+ Dativ)
+denken an (+ Dativ)
+Оба глагола требуют Akkusativ
+
+BACK:
+teilnehmen an (+ Dativ):
+- teilnehmen an dem Treffen (Dativ) — «участвовать во встрече».
+- denken an den Termin (Akkusativ) — «думать о встрече».
+
+CONTEXT:
+Один и тот же предлог an требует Dativ после teilnehmen и Akkusativ после denken.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и неопределённый артикль через пробел.
+::source
+Они выбирают одно из предложенных решений.
+die Lösung — решение.
+::exercise
+Sie entscheiden sich [[für eine]] Lösung.
+
+BACK:
+Sie entscheiden sich für eine Lösung. — «Они выбирают одно из решений».
+
+CONTEXT:
+sich entscheiden für + Akkusativ: die Lösung женского рода в Akkusativ принимает форму eine Lösung.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите два предлога в соответствующие пропуски.
+::source
+Ты подаёшь заявление в логистическую компанию на открытую вакансию.
+die Logistikfirma — логистическая фирма; die Stelle — вакансия, рабочее место.
+::exercise
+Ich bewerbe mich [[bei]] einer Logistikfirma [[um]] eine Stelle.
+
+BACK:
+Ich bewerbe mich bei einer Logistikfirma um eine Stelle. — «Я подаю заявление в логистическую компанию на вакансию».
+
+CONTEXT:
+sich bewerben bei + Dativ (организация) / um + Akkusativ (желаемая должность/вакансия).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите два предлога в соответствующие пропуски.
+::source
+Эмма разговаривает с консультантом об условиях страхования.
+der Berater — консультант; die Versicherungsbedingungen — условия страхования.
+::exercise
+Emma spricht [[mit]] dem Berater [[über]] die Versicherungsbedingungen.
+
+BACK:
+Emma spricht mit dem Berater über die Versicherungsbedingungen. — «Эмма говорит с консультантом об условиях страхования».
+
+CONTEXT:
+sprechen mit + Dativ (собеседник) / über + Akkusativ (тема обсуждения).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите два предлога в соответствующие пропуски.
+::source
+Гость жалуется официанту на остывший суп.
+der Kellner — официант; die kalte Suppe — холодный суп.
+::exercise
+Der Gast beschwert sich [[bei]] dem Kellner [[über]] die kalte Suppe.
+
+BACK:
+Der Gast beschwert sich bei dem Kellner über die kalte Suppe. — «Гость жалуется официанту на холодный суп».
+
+CONTEXT:
+sich beschweren bei + Dativ (адресат жалобы) / über + Akkusativ (причина недовольства).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите два предлога в соответствующие пропуски.
+::source
+Мы благодарим нашего тренера за проявленное терпение.
+der Trainer — тренер; die Geduld — терпение.
+::exercise
+Wir bedanken uns [[bei]] unserem Trainer [[für]] seine Geduld.
+
+BACK:
+Wir bedanken uns bei unserem Trainer für seine Geduld. — «Мы благодарим тренера за терпение».
+
+CONTEXT:
+sich bedanken bei + Dativ (кому адресована благодарность) / für + Akkusativ (за что благодарят).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите в каждый пропуск предлог и определённый артикль.
+::source
+Ты беседуешь с директором о новом расписании уроков.
+der Direktor — директор; der Stundenplan — расписание.
+::exercise
+Ich spreche [[mit dem]] Direktor [[über den]] neuen Stundenplan.
+
+BACK:
+Ich spreche mit dem Direktor über den neuen Stundenplan. — «Я разговариваю с директором о новом расписании».
+
+CONTEXT:
+sprechen mit + Dativ (mit dem Direktor) и über + Akkusativ (über den neuen Stundenplan).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите правильные предлоги в зависимости от оттенка смысла.
+::source
+1. Ты радуешься уже полученному подарку (das Geschenk).
+2. Ты с нетерпением предвкушаешь предстоящий поход (die Wanderung).
+::exercise
+1. Ich freue mich [[über]] das Geschenk.
+2. Ich freue mich [[auf]] die Wanderung.
+
+BACK:
+1. Ich freue mich über das Geschenk. — «Я рад подарку».
+2. Ich freue mich auf die Wanderung. — «Я с нетерпением жду похода».
+
+CONTEXT:
+sich freuen über + Akkusativ = радость свершившемуся факту. sich freuen auf + Akkusativ = предвкушение будущего события.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите правильное возвратное местоимение.
+::source
+Мы интересуемся историей нашего города.
+die Stadtgeschichte — история города.
+::exercise
+Wir interessieren [[uns]] für die Stadtgeschichte.
+
+BACK:
+Wir interessieren uns für die Stadtgeschichte. — «Мы интересуемся историей города».
+
+CONTEXT:
+Подлежащее wir требует возвратного местоимения uns (wir interessieren uns für + Akkusativ).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите правильное возвратное местоимение.
+::source
+Ты тщательно готовишься к собеседованию.
+das Vorstellungsgespräch — собеседование.
+::exercise
+Du bereitest [[dich]] auf das Vorstellungsgespräch vor.
+
+BACK:
+Du bereitest dich auf das Vorstellungsgespräch vor. — «Ты готовишься к собеседованию».
+
+CONTEXT:
+Подлежащее du требует возвратного местоимения dich (du bereitest dich auf + Akkusativ vor).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о возвратном местоимении.
+::source
+Глагол: sich kümmern um + Akkusativ.
+Подлежащее: wir (мы).
+::exercise
+Какую форму принимает возвратное местоимение sich при подлежащем wir?
+
+*uns (Wir kümmern uns um ...)
+sich (Wir kümmern sich um ...)
+euch (Wir kümmern euch um ...)
+
+BACK:
+uns: Wir kümmern uns um die Gäste. — «Мы заботимся о гостях».
+
+CONTEXT:
+Возвратное местоимение всегда согласуется с лицом подлежащего: ich → mich, du → dich, wir → uns, ihr → euch.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите возвратное местоимение и предлог в соответствующие пропуски.
+::source
+Она готовится к открытию художественной выставки.
+die Ausstellung — выставка.
+::exercise
+Sie bereitet [[sich]] [[auf]] die Ausstellung vor.
+
+BACK:
+Sie bereitet sich auf die Ausstellung vor. — «Она готовится к выставке».
+
+CONTEXT:
+sich vorbereiten auf + Akkusativ: подлежащее sie (3-е лицо ед. ч.) требует sich, управление — предлог auf.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вопросительное слово для неодушевлённого предмета.
+::source
+Ты спрашиваешь коллегу: «Чего ты ждёшь?» Ответ: Auf das Paket (Посылку).
+::exercise
+[[Worauf]] wartest du?
+
+BACK:
+Worauf wartest du? — «Чего ты ждёшь? — Посылку».
+
+CONTEXT:
+Вопрос о неодушевлённом предмете строится через wo(r)- + предлог: warten auf → Worauf?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вопросительную группу для одушевлённого лица.
+::source
+Ты спрашиваешь: «Кого ты ждёшь?» Ответ: Auf die Ärztin (Врача).
+::exercise
+[[Auf wen]] wartest du?
+
+BACK:
+Auf wen wartest du? — «Кого ты ждёшь? — Врача».
+
+CONTEXT:
+Вопрос о человеке в Akkusativ строится через предлог + wen: warten auf → Auf wen?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вопросительное слово для темы разговора.
+::source
+«О чём вы говорите?» Ответ: Über den neuen Vertrag (О новом договоре).
+::exercise
+[[Worüber]] sprecht ihr?
+
+BACK:
+Worüber sprecht ihr? — «О чём вы говорите? — О новом договоре».
+
+CONTEXT:
+Вопрос к неодушевлённой теме строится через wo(r)- + über: sprechen über → Worüber?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вопросительную группу для собеседника-человека.
+::source
+Ты хочешь узнать, с кем разговаривает София. Ответ: Mit ihrem Ausbilder (С наставником).
+::exercise
+[[Mit wem]] spricht Sofia?
+
+BACK:
+Mit wem spricht Sofia? — «С кем разговаривает София? — Со своим наставником».
+
+CONTEXT:
+Вопрос о человеке в дательном падеже строится через предлог + wem: sprechen mit → Mit wem?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вопросительное слово для темы работы.
+::source
+Ответ: Mit der neuen Software. Ты спрашиваешь: «Чем он занимается?» (о предмете изучения).
+::exercise
+[[Womit]] beschäftigt er sich?
+
+BACK:
+Womit beschäftigt er sich? — «Чем он занимается? — Новым программным обеспечением».
+
+CONTEXT:
+Вопрос к неодушевлённой теме деятельности: sich beschäftigen mit → Womit?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вопросительное слово для неодушевлённого воспоминания.
+::source
+Ответ: An unseren letzten Urlaub. Спроси: «О чём она вспоминает?»
+::exercise
+[[Woran]] erinnert sie sich?
+
+BACK:
+Woran erinnert sie sich? — «О чём она вспоминает? — О нашем последнем отпуске».
+
+CONTEXT:
+Вопрос к неодушевлённому событию/памяти: sich erinnern an → Woran? (wo- + r- + an).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вопросительную группу для воспоминания о человеке.
+::source
+Ответ: An meinen ehemaligen Nachbarn. Спроси: «Кого он вспоминает?»
+::exercise
+[[An wen]] erinnert er sich?
+
+BACK:
+An wen erinnert er sich? — «Кого он вспоминает? — Бывшего соседа».
+
+CONTEXT:
+Вопрос о человеке в винительном падеже: sich erinnern an → An wen?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вопросительное слово для выражения зависимости.
+::source
+Открытие бассейна зависит от погоды. Спроси: «От чего это зависит?»
+::exercise
+[[Wovon]] hängt das ab?
+
+BACK:
+Wovon hängt das ab? — «От чего это зависит? — От погоды».
+
+CONTEXT:
+Вопрос к неодушевлённой причине зависимости: abhängen von → Wovon?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните правило выбора вопросительной формы.
+::source
+Сравните: Worauf wartest du? и Auf wen wartest du?
+::exercise
+По какому признаку выбирается вопросительная конструкция?
+
+*Worauf — для неодушевлённых вещей и событий; Auf wen — для людей
+Worauf используется для женского рода, а Auf wen — для мужского рода
+Оба варианта абсолютно взаимозаменяемы в любой ситуации
+
+BACK:
+Worauf — для неодушевлённых вещей и событий; Auf wen — для людей.
+Worauf wartest du? – Auf den Bus. (вещь/событие).
+Auf wen wartest du? – Auf meinen Kollegen. (человек).
+
+CONTEXT:
+Дифференциация одушевлённости: форма wo(r)- используется для предметов, а предлог + wen/wem — для людей.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вопросительное слово для причины интереса.
+::source
+Ответ: Für erneuerbare Energien (Возобновляемыми источниками энергии). Спроси: «Чем вы интересуетесь?»
+::exercise
+[[Wofür]] interessiert ihr euch?
+
+BACK:
+Wofür interessiert ihr euch? — «Чем вы интересуетесь? — Возобновляемыми источниками энергии».
+
+CONTEXT:
+Вопрос к неодушевлённой области интересов: sich interessieren für → Wofür?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите местоименное наречие, чтобы не повторять название проекта.
+::source
+Проект уже назван. Скажи: «Я работаю над этим».
+Связка: an dem Projekt arbeiten.
+::exercise
+Ich arbeite [[daran]].
+
+BACK:
+Ich arbeite daran. — «Я работаю над этим».
+
+CONTEXT:
+arbeiten an + Dativ → замена предложной группы местоименным наречием daran (da- + r- + an).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлог и личное местоимение через пробел.
+::source
+Вопрос: Verlässt du dich auf deinen Chef?
+Ответ: «Да, я полагаюсь на него».
+::exercise
+Ja, ich verlasse mich [[auf ihn]].
+
+BACK:
+Ja, ich verlasse mich auf ihn. — «Да, я полагаюсь на него».
+
+CONTEXT:
+О человеке говорят через предлог + личное местоимение (auf ihn), а не через наречие darauf.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите местоименное наречие, заменяющее тему разговора.
+::source
+Решение уже упоминалось в диалоге. Скажи: «Мы говорили об этом».
+Связка: über die Entscheidung sprechen.
+::exercise
+Wir haben [[darüber]] gesprochen.
+
+BACK:
+Wir haben darüber gesprochen. — «Мы говорили об этом».
+
+CONTEXT:
+sprechen über + Akkusativ → замена темы разговора наречием darüber (da- + r- + über).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите местоименное наречие в устойчивую конструкцию.
+::source
+Причина уже известна собеседникам. Скажи: «Это зависит от этого».
+Связка: von der Situation abhängen.
+::exercise
+Das hängt [[davon]] ab.
+
+BACK:
+Das hängt davon ab. — «Это зависит от этого».
+
+CONTEXT:
+abhängen von + Dativ → замена дополнения наречием davon.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите местоименное наречие перед придаточным предложением о факте.
+::source
+Она уже получила место на курсах и очень рада этому свершившемуся факту.
+::exercise
+Sie freut sich [[darüber]], dass sie einen Kursplatz bekommen hat.
+
+BACK:
+Sie freut sich darüber, dass sie einen Kursplatz bekommen hat. — «Она рада тому, что получила место на курсах».
+
+CONTEXT:
+sich freuen über + Akkusativ → коррелят darüber указывает на свершившийся факт в придаточном с dass.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите местоименное наречие перед инфинитивным оборотом ожидания.
+::source
+Ты с нетерпением предвкушаешь свою будущую встречу со старыми друзьями.
+::exercise
+Ich freue mich [[darauf]], meine Freunde wiederzusehen.
+
+BACK:
+Ich freue mich darauf, meine Freunde wiederzusehen. — «Я с нетерпением жду встречи со своими друзьями».
+
+CONTEXT:
+sich freuen auf + Akkusativ → коррелят darauf связывается с инфинитивным оборотом с zu (предвкушение будущего действия).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните смысловую разницу между darüber и darauf при глаголе sich freuen.
+::source
+1. Ich freue mich darüber, dass ich den Brief bekommen habe.
+2. Ich freue mich darauf, den Brief zu bekommen.
+::exercise
+Чем обусловлен выбор zwischen darüber и darauf?
+
+*darüber выражает радость свершившемуся факту; darauf — предвкушение будущего действия
+darüber используется только в официальной речи, а darauf — в разговорной
+Выбор зависит исключительно от длины следующего предложения
+
+BACK:
+darüber выражает радость свершившемуся факту; darauf — предвкушение будущего действия.
+1. радость факту: sich freuen über → darüber, dass...
+2. ожидание предстоящего: sich freuen auf → darauf, ... zu...
+
+CONTEXT:
+Разница смысловых связок: радость свершившемуся (über) vs. предвкушение будущего (auf).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите в каждый пропуск предлог и определённый артикль.
+::source
+Ты жалуешься директору школы на постоянный шум.
+der Schulleiter — директор школы; der Lärm — шум.
+::exercise
+Ich beschwere mich [[bei dem]] Schulleiter [[über den]] Lärm.
+
+BACK:
+Ich beschwere mich bei dem Schulleiter über den Lärm. — «Я жалуюсь директору школы на шум».
+
+CONTEXT:
+sich beschweren bei + Dativ (bei dem Schulleiter / beim Schulleiter) и über + Akkusativ (über den Lärm).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите два предлога в соответствующие пропуски.
+::source
+Ты подаёшь заявление в больницу на должность помощника по уходу.
+das Krankenhaus — больница; der Pflegehelfer — помощник по уходу.
+::exercise
+Ich bewerbe mich [[bei]] einem Krankenhaus [[um]] eine Stelle als Pflegehelfer.
+
+BACK:
+Ich bewerbe mich bei einem Krankenhaus um eine Stelle als Pflegehelfer. — «Я подаю заявление в больницу на должность помощника по уходу».
+
+CONTEXT:
+sich bewerben bei + Dativ (организация) / um + Akkusativ (вакансия).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите предлоги в зависимости от смыслового контекста.
+::source
+1. Фрида рада уже полученному ответу на письмо.
+2. Она с нетерпением предвкушает предстоящее собеседование.
+::exercise
+1. Frida freut sich [[über]] die Antwort.
+2. Sie freut sich [[auf]] das Bewerbungsgespräch.
+
+BACK:
+1. Frida freut sich über die Antwort. — «Фрида рада ответу».
+2. Sie freut sich auf das Bewerbungsgespräch. — «Она с нетерпением ждёт собеседования».
+
+CONTEXT:
+sich freuen über + Akkusativ (радость полученному) vs. sich freuen auf + Akkusativ (предвкушение предстоящего).

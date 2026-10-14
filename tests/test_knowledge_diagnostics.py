@@ -1,7 +1,10 @@
 import datetime
 import json
 import unittest
+import os
 from unittest.mock import patch
+
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

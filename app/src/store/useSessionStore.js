@@ -7,6 +7,8 @@ export const useSessionStore = create((set, get) => ({
   pendingGrades: {},
   gradeErrors: {},
   card: null,
+  assessment: null,
+  setAssessment: assessment => set({ assessment }),
   studyHistory: [],
   historyIndex: -1,
   isFlipped: false,
@@ -164,6 +166,7 @@ export const useSessionStore = create((set, get) => ({
     set({
       sessionRevision: get().sessionRevision + 1,
       card: null,
+      assessment: null,
       studyHistory: [],
       historyIndex: -1,
       isFlipped: false,

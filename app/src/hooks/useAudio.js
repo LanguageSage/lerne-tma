@@ -89,6 +89,7 @@ export const useAudio = (autoPlay, showToast) => {
   const playAudioRef = useRef(null);
   const cacheRef = useRef(new Map());
   const retryCountRef = useRef({});
+  const retryTimerRef = useRef(null);
 
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [audioState, setAudioState] = useState('idle'); // 'idle' | 'loading' | 'playing' | 'paused'
@@ -117,6 +118,8 @@ export const useAudio = (autoPlay, showToast) => {
   }, []);
 
   const stopAudio = useCallback(() => {
+    clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = null;
     if (globalActiveAudio) {
       try {
         globalActiveAudio.pause();
@@ -280,7 +283,9 @@ export const useAudio = (autoPlay, showToast) => {
       console.warn(`[useAudio] Audio load failed for ${url} (code: ${errCode}, msg: ${errMsg}, retry: ${retries})`);
       if (retries < 1) {
         retryCountRef.current[url] = retries + 1;
-        setTimeout(() => playAudioRef.current?.(url, onEndedCallback, onPlaybackError), 500);
+        retryTimerRef.current = setTimeout(() => {
+          if (audioRef.current === audio) playAudioRef.current?.(url, onEndedCallback, onPlaybackError);
+        }, 500);
       } else {
         handleTerminalError(new Error(`Audio load failed (code ${errCode || 'unknown'})`));
       }
@@ -301,10 +306,12 @@ export const useAudio = (autoPlay, showToast) => {
     };
 
     return audio.play().then(() => {
+      if (audioRef.current !== audio) return false;
       retryCountRef.current[url] = 0;
       setAudioState('playing');
       return true;
     }).catch(err => {
+      if (audioRef.current !== audio) return false;
       setIsAudioLoading(false);
       setAudioState('idle');
       setCurrentUrl(null);

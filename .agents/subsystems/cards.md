@@ -120,3 +120,11 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
   оба формата первой карточки).
 - Формат и правила генерации: [DECK_PASSPORT](../../docs/DECK_PASSPORT.md),
   [common.md](../../lerne-card-prompts/common.md), [validation.md](../../lerne-card-prompts/validation.md).
+
+## Lesson QA и регрессии Relativsätze
+
+- Read-only операторский CLI: `scripts/lesson_qa.py`; frontend diagnostics `app/src/utils/lessonQa.js`, Node adapter `tools/lesson_qa.mjs`. Использует текущие parsers/evaluator и канонический `deck_passport.py`, принимает folder/deck ID, snapshot или импорт «Автора».
+- До API-import отключает legacy bootstrap/migrations; ID-режим открывает PostgreSQL-транзакцию `SET TRANSACTION READ ONLY`. Не читает learner history и не обновляет контент, SRS или metadata.
+- `ExerciseRenderer` выбирает действительный directive block для Puzzle/Match/Free/Word Bank. Другие интерактивные exercise blocks не выводятся как information: иначе raw target/ключи становятся видимыми до ответа. Обычные инструкции и информационные блоки сохраняются.
+- `clozeParser` отделяет bracket syntax до удаления Markdown, сохраняя несколько starred answers вместо ошибочной интерпретации как курсива.
+- Инструкция: [LESSON_QA](../../docs/LESSON_QA.md). Реальные fixtures и отдельные неисполненные предложения: `reports/lesson-qa/`. Regression: `lessonQa.test.js`, `test_lesson_qa.py`, `test_lesson_qa_database.py`, `browser/lesson-qa.spec.cjs`.

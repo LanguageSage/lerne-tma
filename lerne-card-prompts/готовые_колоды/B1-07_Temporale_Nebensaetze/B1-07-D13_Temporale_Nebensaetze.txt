@@ -1,0 +1,946 @@
+# Deck: B1-07-D13 · Temporale Nebensätze — Слушай, отвечай, говори
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-07-D13 · Temporale Nebensätze — Слушай, отвечай, говори",
+    "level": "B1",
+    "topic": "Temporale Nebensätze",
+    "description": "Автоматизация аудирования и устной речи с временными придаточными предложениями: восприятие на слух ключевых союзов, быстрая реакция на реплики собеседника, участие в диалогах, фиксация хронологии событий и построение самостоятельных монологов",
+    "goal": "Перевести понимание временных придаточных в автоматизированный речевой навык: научить распознавать на слух смысл высказываний с союзами als, wenn, während, bevor, nachdem, seitdem, bis, sobald, solange без зрительной опоры на текст, быстро формулировать грамматически точный ответ с правильным порядком слов, вести живой диалог и связно рассказывать о событиях.",
+    "learning_outcomes": [
+      "Распознавать на слух тип временной связи (разовое прошлое, повторение, одновременность, до/после, предел, длительность)",
+      "Строить быстрые и точные устные ответы с правильным порядком слов (V2 в главном, глагол в конце придаточного)",
+      "Поддерживать диалог, уточнять непонятую хронологию и разграничивать вопрос wann и союз wenn",
+      "Избегать кальки с русского «пока не» при аудировании и говорении с союзом bis",
+      "Извлекать точную последовательность событий из многосоставных устных историй",
+      "Строить связный монолог из 4–5 предложений с использованием минимум двух временных связей"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "При ошибках в слуховом восприятии (LISTENING, TIME_RELATION) — карточки 02–08, 26–32 и колода D03; при трудностях с als и wenn — карточки 02–03, 14–15, 28, 48/1 и колода D04; при путанице одновременности (GLEICHZEITIG) — карточки 04, 11, 18, 29, 39, 45 и колода D05; при ошибках до/после (BEFORE_AFTER) — карточки 05–06, 16, 19–20, 26–27, 32 и колода D06; при трудностях с границей (START_END, BIS_NEGATION) — карточки 07–08, 12, 21, 24, 30, 37, 46 и колода D07; при путанице момента и периода (SOFORT_DAUER) — карточки 10, 13, 22–23, 34, 42, 44, 48 и колода D08; при нарушении порядка слов (VERB_FINAL, MAIN_ORDER) — карточки 09–24, 36, 42–48 и колода D10. Следующая колода в серии — D14 (Быстрое восстановление)."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "listening_recognition",
+        "title": "Слушаю и узнаю: первичное слуховое распознавание",
+        "goal": "Узнавание типа временной связи на слух без опоры на немецкий текст на лицевой стороне",
+        "from_card": 1,
+        "to_card": 8,
+        "support": "high",
+        "expected_skill": "Определять характер временной связи на слух в изолированных фразах"
+      },
+      {
+        "id": "one_sentence_response",
+        "title": "Отвечаю одной фразой: автоматизация речевой реакции",
+        "goal": "Построение быстрой устной реплики по смысловой подсказке с контролем порядка слов",
+        "from_card": 9,
+        "to_card": 16,
+        "support": "medium",
+        "expected_skill": "Формулировать лаконичный грамматически верный ответ на звучащий вопрос"
+      },
+      {
+        "id": "dialogue_interaction",
+        "title": "Участвую в диалоге: бытовая интеракция",
+        "goal": "Роль второго собеседника в бытовых ситуациях, согласование планов и условий",
+        "from_card": 17,
+        "to_card": 24,
+        "support": "medium",
+        "expected_skill": "Естественно реагировать на реплику партнёра с использованием временных союзов"
+      },
+      {
+        "id": "multi_event_listening",
+        "title": "Держу линию событий: многосоставные устные истории",
+        "goal": "Извлечение цепочки из 2–3 событий, фоновых процессов и предыстории на слух",
+        "from_card": 25,
+        "to_card": 32,
+        "support": "medium",
+        "expected_skill": "Восстанавливать хронологическую последовательность из связного звучащего текста"
+      },
+      {
+        "id": "situational_reaction",
+        "title": "Реагирую в ситуации: сложные жизненные сценарии",
+        "goal": "Понимание сервисных объявлений, устранение ошибок, тактика переспроса и пересказ",
+        "from_card": 33,
+        "to_card": 40,
+        "support": "low",
+        "expected_skill": "Понимать указания в стрессовых ситуациях и вежливо реагировать"
+      },
+      {
+        "id": "autonomous_speech_and_control",
+        "title": "Говорю сам: связный монолог и комплексный срез",
+        "goal": "Самостоятельный монолог, ролевая игра и итоговая 6-компонентная слухо-речевая проверка",
+        "from_card": 41,
+        "to_card": 48,
+        "support": "low",
+        "expected_skill": "Свободно говорить и безупречно воспринимать на слух всю систему союзов"
+      }
+    ],
+    "expected_result": "Ученик спонтанно воспринимает немецкую речь с временными придаточными на слух, быстро формулирует грамматически точные устные реплики и свободно ведёт диалог о событиях и планах.",
+    "competencies": [
+      {
+        "id": "auditory_time_recognition",
+        "title": "Слуховое распознавание временных отношений",
+        "description": "Мгновенная идентификация типа временной связи в звучащей речи без зрительной подсказки"
+      },
+      {
+        "id": "spontaneous_speech_response",
+        "title": "Спонтанное устное реагирование",
+        "description": "Построение грамматически корректной реплики с соблюдением порядка слов и инверсии"
+      },
+      {
+        "id": "multi_clause_listening_retention",
+        "title": "Удержание цепочки событий на слух",
+        "description": "Извлечение правильной хронологии из нескольких связанных предложений со сложными союзами"
+      },
+      {
+        "id": "monologic_speech_production",
+        "title": "Связная монологическая речь",
+        "description": "Построение устного рассказа из 4–5 фраз с естественным сочетанием временных союзов"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "auditory_comprehension_accuracy",
+        "title": "Точность понимания на слух",
+        "description": "Правильный выбор смысловой интерпретации прослушанной аудиофразы"
+      },
+      {
+        "id": "speech_syntax_and_flow",
+        "title": "Грамматическая чистота устной речи",
+        "description": "Правильное размещение глаголов, отсутствие калек и логическая связность реплик"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_auditory",
+        "title": "Повторение аудирования",
+        "when": "При трудностях восприятия союзов на слух",
+        "reason": "Повторить карточки 02–08, 26–32",
+        "competency_ids": ["auditory_time_recognition"]
+      },
+      {
+        "id": "review_spontaneous_syntax",
+        "title": "Повторение порядка слов в речи",
+        "when": "При синтаксических сбоях в устных ответах",
+        "reason": "Повторить карточки 09–24, 36, 42–48 и колоду D10",
+        "competency_ids": ["spontaneous_speech_response"]
+      },
+      {
+        "id": "review_multi_event",
+        "title": "Повторение хронологии на слух",
+        "when": "При путанице порядка событий в рассказах",
+        "reason": "Повторить карточки 25–32, 40",
+        "competency_ids": ["multi_clause_listening_retention"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите главный ориентир при восприятии временного предложения на слух.
+::exercise
+Что важнее всего уловить в первую очередь при прослушивании немецкой фразы с придаточным?
+
+*Тип связи двух событий (конкретный прошлый момент, повтор, одновременность, до/после, предел или период)
+Количество слогов в каждом слове
+Точный род всех существительных во фразе
+
+BACK:
+Сначала определяем тип временной связи двух действий.
+
+CONTEXT:
+При аудировании сначала важно уловить временной союз и связь событий (например: während = параллельность двух процессов), а затем уже вникать в лексические детали.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте фразу и определите характер события в прошлом.
+::source
+Аудиозапись: «Als ich die Haustür öffnete, klingelte das Telefon».
+::exercise
+Какая ситуация описана в прослушанном предложении?
+
+*Один конкретный единичный эпизод в прошлом
+Многократно повторяющееся регулярное действие
+План на завтрашний вечер
+
+BACK:
+Когда я открыл входную дверь, зазвонил телефон.
+
+CONTEXT:
+Союз "als" в сочетании с прошедшим временем ("öffnete", "klingelte") указывает на разовый эпизод в прошлом. "Die Haustür" — входная дверь.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте фразу и определите регулярность действия после тренировки.
+::source
+Аудиозапись: «Immer wenn wir vom Training zurückkamen, waren wir hungrig».
+::exercise
+Что именно сообщает говорящий?
+
+*Многократно повторяющееся действие в прошлом (каждый раз после тренировок)
+Один-единственный вечер в прошлом
+Предстоящая тренировка на следующей неделе
+
+BACK:
+Всякий раз, когда мы возвращались с тренировки, мы были голодны.
+
+CONTEXT:
+Маркер "Immer wenn" однозначно указывает на многократную повторяемость ситуации в прошлом, несмотря на формы Präteritum.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте фразу и определите временное соотношение утренних дел.
+::source
+Аудиозапись: «Während der Vater das Frühstück vorbereitet, packt seine Tochter die Schultasche».
+::exercise
+Как соотносятся действия отца и дочери во времени?
+
+*Оба действия протекают одновременно (параллельно)
+Сначала дочь собирает портфель, затем отец готовит завтрак
+Отец закончил готовить завтрак задолго до того, как дочь проснулась
+
+BACK:
+Пока отец готовит завтрак, его дочь собирает школьный рюкзак.
+
+CONTEXT:
+Союз "während" выражает одновременность: два действия протекают параллельно в один отрезок времени. "Die Schultasche" — школьный портфель/рюкзак.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте фразу и определите хронологическую последовательность.
+::source
+Аудиозапись: «Bevor wir den Rucksack packen, prüfen wir den Wetterbericht».
+::exercise
+Какое действие совершается первым по времени?
+
+*Проверка прогноза погоды (prüfen den Wetterbericht)
+Сбор рюкзака (den Rucksack packen)
+Оба действия происходят строго одновременно
+
+BACK:
+Прежде чем собрать рюкзак, мы проверяем прогноз погоды.
+
+CONTEXT:
+С союзом "bevor" главное действие (проверка прогноза) предшествует событию придаточного (сбор рюкзака). "Der Wetterbericht" — прогноз погоды.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте фразу и определите, какое действие произошло раньше.
+::source
+Аудиозапись: «Nachdem ich die Anfrage abgeschickt hatte, bekam ich eine Antwort».
+::exercise
+Что произошло в первую очередь?
+
+*Отправка запроса (Anfrage abgeschickt hatte)
+Получение ответа (bekam eine Antwort)
+События начались одновременно
+
+BACK:
+После того как я отправил запрос, я получил ответ.
+
+CONTEXT:
+Союз "nachdem" вводит предшествующее действие: сначала отправка запроса, затем получение ответа. "Die Anfrage" — запрос/заявка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте фразу и определите направление временной стрелки.
+::source
+Аудиозапись: «Seitdem ich mit dem Fahrrad zur Arbeit fahre, bin ich morgens wacher».
+::exercise
+О чём именно сообщает говорящий?
+
+*О состоянии, изменившемся с определённого момента в прошлом и продолжающемся сейчас
+О действии, которое прекратится завтра утром
+О разовом непредвиденном происшествии
+
+BACK:
+С тех пор как я езжу на работу на велосипеде, по утрам я бодрее.
+
+CONTEXT:
+"Seitdem" отмечает исходную точку отсчёта перемены, длящейся вплоть до настоящего момента речи. "Wacher" — бодрее.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте фразу и определите границу пребывания перед зданием.
+::source
+Аудиозапись: «Ich bleibe vor dem Gebäude, bis der Kurs beginnt».
+::exercise
+До какого момента человек будет оставаться перед зданием?
+
+*Вплоть до момента, когда начнётся занятие (конечная граница)
+Он уйдёт немедленно, не дожидаясь начала
+Он останется там на весь день после окончания курса
+
+BACK:
+Я остаюсь перед зданием, пока не начнётся курс.
+
+CONTEXT:
+Союз "bis" фиксирует конечную границу ожидания: начало занятия завершит пребывание перед входом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите синтаксическое правило для быстрого ответа с начальным придаточным.
+::exercise
+С какой структуры начинается главное предложение, если ответ открывается союзом sobald?
+
+*Со спрягаемого глагола главной части сразу после запятой (Sobald ich frei bin, rufe ich an)
+С местоимения ich (Sobald ich frei bin, ich rufe an)
+С отделяемой приставки глагола
+
+BACK:
+Sobald ich frei bin, rufe ich zurück. (Как только освобожусь, перезвоню).
+
+CONTEXT:
+Придаточное предложение занимает позицию 1, поэтому главное предложение сразу после запятой открывается сказуемым: "rufe ich".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте устный ответ на вопрос «Wann schickst du mir die Aufnahme?».
+::source
+Вопрос: Wann schickst du mir die Aufnahme?
+Смысл ответа: «Как только закончу монтаж, пришлю тебе запись».
+::exercise
+Sobald ich mit dem Schneiden fertig {*bin, schicke ich dir die Aufnahme|bin, ich schicke dir die Aufnahme|werde sein, schicke ich dir die Aufnahme}.
+
+BACK:
+Как только я закончу монтаж, я пришлю тебе запись.
+
+CONTEXT:
+"Sobald" задаёт момент окончания работы, глагол "bin" стоит в конце придаточного, а сказуемое главного "schicke ich" — сразу после запятой. "Die Aufnahme" — запись; "das Schneiden" — монтаж/нарезка видео или аудио.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте ответ об одновременных делах на вопрос «Was machst du, während ich telefoniere?».
+::source
+Смысл ответа: «Пока ты разговариваешь по телефону, я заканчиваю список».
+::exercise
+Während du telefonierst, {*mache ich die Liste fertig|ich mache die Liste fertig|mache die Liste fertig ich}.
+
+BACK:
+Пока ты разговариваешь по телефону, я заканчиваю список.
+
+CONTEXT:
+В придаточном сказуемое стоит в конце ("telefonierst"), а в главном предложении сказуемое стоит на 2-й позиции сразу после запятой: "mache ich".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на приглашение выйти на улицу: «Я подожду, пока дождь не прекратится».
+::source
+Вопрос собеседника: Kommst du jetzt mit nach draußen?
+::exercise
+Ich warte, bis der Regen {*aufhört|nicht aufhört}.
+
+BACK:
+Я подожду, пока дождь не прекратится.
+
+CONTEXT:
+После союза "bis" отрицание "nicht" не требуется: глагол "aufhört" сам по себе обозначает наступление границы ожидания. "Aufhören" — прекращаться.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о возможности поговорить во время собрания.
+::source
+Вопрос: Kannst du kurz mit mir sprechen?
+Смысл ответа: «Пока идёт совещание, я не могу говорить».
+::exercise
+Solange die Besprechung {*läuft, kann ich nicht sprechen|läuft, ich kann nicht sprechen|dauert, nicht kann ich sprechen}.
+
+BACK:
+Пока идёт совещание, я не могу говорить.
+
+CONTEXT:
+"Solange" охватывает весь период совещания. После придаточного сказуемое главной части стоит на позиции 2: "kann ich". "Die Besprechung" — совещание.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о реакции в прошлом: «Когда я получил результаты, я обрадовался».
+::source
+Вопрос: Wie hast du reagiert, als die Ergebnisse kamen?
+::exercise
+Als ich die Ergebnisse {*bekam, habe ich mich gefreut|bekam, ich habe mich gefreut|bekommen habe, mich habe ich gefreut}.
+
+BACK:
+Когда я получил результаты, я обрадовался.
+
+CONTEXT:
+Разовый конкретный факт в прошлом оформляется союзом "Als", сказуемое "bekam" стоит в конце придаточного, а в главной части сказуемое стоит сразу после запятой: "habe ich mich gefreut".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте о повторявшейся привычке на вопрос «Was hast du früher gemacht, wenn du Freizeit hattest?».
+::source
+Смысл: «Каждый раз, когда у меня было свободное время, я читал».
+::exercise
+Immer wenn ich Freizeit {*hatte, habe ich gelesen|hatte, ich habe gelesen|habe, las ich}.
+
+BACK:
+Всякий раз, когда у меня было свободное время, я читал.
+
+CONTEXT:
+Повторяющаяся ситуация в прошлом требует конструкции с "Immer wenn", сказуемое придаточного "hatte" стоит в конце, а сказуемое главного предложения "habe ich" — сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о подготовке: «Прежде чем придут гости, я накрою на стол».
+::source
+Вопрос: Was machst du, bevor die Gäste kommen?
+::exercise
+Bevor die Gäste kommen, {*decke ich den Tisch|ich decke den Tisch|gedeckt habe ich den Tisch}.
+
+BACK:
+Прежде чем придут гости, я накрою на стол.
+
+CONTEXT:
+В придаточном сказуемое стоит в конце ("kommen"). В главном предложении сказуемое стоит сразу после запятой: "decke ich". "Den Tisch decken" — накрывать на стол.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите естественную тактику поведения в диалоге, если временной ориентир не расслышан.
+::exercise
+Как естественнее всего отреагировать в живом диалоге B1, если вы не расслышали время действия?
+
+*Вежливо переспросить и уточнить временную связь (например: Meinst du, bevor oder nachdem wir essen?)
+Просто молчать и кивать
+Придумать любое случайное время наугад
+
+BACK:
+Meinst du, bevor oder nachdem wir essen? (Ты имеешь в виду до или после еды?).
+
+CONTEXT:
+Естественный переспрос на немецком языке демонстрирует высокую коммуникативную компетенцию и помогает сохранить точную хронологию разговора.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте собеседнику в фойе театра: «Пока ты забираешь билеты, я поищу наши места».
+::source
+Реплика: Ich hole die Eintrittskarten. Was machst du in der Zeit?
+::exercise
+Während du die Karten {*holst, suche ich unsere Plätze|holst, ich suche unsere Plätze|hast geholt, suche ich unsere Plätze}.
+
+BACK:
+Пока ты забираешь билеты, я поищу наши места.
+
+CONTEXT:
+Параллельные действия оформляются союзом "Während". В главной части сказуемое стоит сразу после запятой: "suche ich".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте реплику о подготовке напитков до прихода гостей.
+::source
+Собеседник: Die Gäste sind um sechs da. Was machen wir vorher?
+Смысл: «Прежде чем гости придут, мы приготовим напитки».
+::exercise
+Bevor die Gäste kommen, {*bereiten wir die Getränke vor|wir bereiten die Getränke vor|bereiten vor wir die Getränke}.
+
+BACK:
+Перед тем как гости придут, мы приготовим напитки.
+
+CONTEXT:
+В главной части отделяемый глагол делится: спрягаемая основа "bereiten" стоит сразу после запятой перед "wir", а приставка "vor" уходит в самый конец.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о вчерашней регистрации: подтверждение пришло после отправки формы.
+::source
+Собеседник: Wie ist die Anmeldung gestern gelaufen?
+::exercise
+Nachdem ich das Formular abgeschickt {*hatte, kam die Bestätigung|hatte, die Bestätigung kam|habe, kam die Bestätigung}.
+
+BACK:
+После того как я отправил формуляр, пришло подтверждение.
+
+CONTEXT:
+Предшествующее действие оформляется Plusquamperfekt ("abgeschickt hatte"), а следующее за ним событие — Präteritum ("kam die Bestätigung"). "Das Formular" — формуляр/бланк.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о причине уверенной речи: успехи начались с момента посещения клуба.
+::source
+Собеседник: Warum sprichst du jetzt so viel sicherer?
+::exercise
+Seitdem ich zum Gesprächskreis {*gehe, fällt mir das Sprechen leichter|gehe, mir fällt das Sprechen leichter|ging, fällt mir das Sprechen leichter}.
+
+BACK:
+С тех пор как я хожу в разговорный кружок, мне легче говорить.
+
+CONTEXT:
+"Seitdem" задаёт начальную точку регулярной практики, глагол "gehe" стоит в конце придаточного, а в главном предложении сказуемое "fällt" занимает позицию 2 сразу после запятой. "Der Gesprächskreis" — разговорный клуб.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос «Wann können wir gehen?»: уйдём сразу по окончании встречи.
+::source
+Собеседник: Wann können wir gehen?
+::exercise
+Sobald das Treffen zu Ende {*ist, können wir gehen|ist, wir können gehen|sein wird, können wir gehen}.
+
+BACK:
+Как только встреча закончится, мы можем идти.
+
+CONTEXT:
+"Sobald" акцентирует моментальный уход сразу по завершении встречи. В главной части модальный глагол "können" стоит сразу после запятой перед "wir".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о колонках: оставь их включенными, пока длится трансляция.
+::source
+Собеседник: Darf ich die Lautsprecher ausschalten?
+::exercise
+Bitte lass die Lautsprecher an, {*solange die Übertragung läuft|sobald die Übertragung läuft|während läuft die Übertragung}.
+
+BACK:
+Пожалуйста, оставь динамики включёнными, пока идёт трансляция.
+
+CONTEXT:
+"Solange" подчеркивает непрерывность работы колонок на протяжении всего периода трансляции. "Die Lautsprecher" — динамики/колонки; "die Übertragung" — трансляция.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ответьте на вопрос о начале собрания: подожди, пока все не соберутся.
+::source
+Собеседник: Soll ich schon mit der Besprechung anfangen?
+::exercise
+Warte bitte, bis alle da {*sind|nicht sind}.
+
+BACK:
+Подожди, пожалуйста, пока все не будут на месте.
+
+CONTEXT:
+С союзом "bis" отрицание "nicht" не ставится: "bis alle da sind" означает ожидание предела сбора всех участников.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите правило удержания хронологии при прослушивании мини-истории.
+::exercise
+Какое правило помогает не запутаться в хронологии трех событий на слух?
+
+*Опираться на смысловые маркеры и союзы (bevor, nachdem, während), а не считать первое услышанное слово первым событием
+Считать, что первое упомянутое действие всегда происходит раньше всех остальных
+Игнорировать союзы и запоминать только существительные
+
+BACK:
+Ориентируемся на временные союзы и смысловую схему событий.
+
+CONTEXT:
+Союзы задают реальную последовательность: "Nachdem ich aufgestanden war, frühstückte ich" сообщает, что подъём произошёл раньше завтрака, независимо от порядка слов.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и расставьте события перед концертом по порядку.
+::source
+Аудиозапись: «Bevor die Zuschauer hereinkamen, stimmte das Orchester seine Instrumente. Als alle saßen, begann das Konzert».
+::exercise
+В какой последовательности произошли три события?
+
+*Оркестр настроился $\rightarrow$ зрители вошли в зал $\rightarrow$ начался концерт
+Зрители вошли $\rightarrow$ концерт начался $\rightarrow$ оркестр настроился
+Концерт начался $\rightarrow$ оркестр настроился $\rightarrow$ зрители вошли
+
+BACK:
+Оркестр настроил инструменты $\rightarrow$ зрители вошли $\rightarrow$ концерт начался.
+
+CONTEXT:
+"Bevor" указывает, что настройка инструментов произошла ДО входа публики. "Als alle saßen" указывает, что концерт начался ПОСЛЕ того, как все сели. "Das Orchester" — оркестр; "Instrumente stimmen" — настраивать инструменты.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись о потерянном ключе и определите первое действие.
+::source
+Аудиозапись: «Als ich vor der Tür stand, bemerkte ich, dass ich meinen Schlüssel verloren hatte. Danach rief ich meine Nachbarin an».
+::exercise
+Что произошло раньше всего по времени?
+
+*Потеря ключа (Schlüssel verloren hatte)
+Обнаружение пропажи перед дверью (vor der Tür stand)
+Звонок соседке (rief Nachbarin an)
+
+BACK:
+Сначала человек потерял ключ, затем заметил пропажу перед дверью и позвонил соседке.
+
+CONTEXT:
+Форма Plusquamperfekt ("verloren hatte") указывает на действие, завершившееся задолго до прихода к двери.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите регулярность визитов к бабушке.
+::source
+Аудиозапись: «Immer wenn wir Ferien hatten, besuchten wir unsere Großeltern».
+::exercise
+О скольких поездках сообщает говорящий?
+
+*О повторяющихся регулярных поездках на каждых каникулах в те годы
+О единственной разовой поездке
+О поездке, которая запланирована на следующие каникулы
+
+BACK:
+Всякий раз, когда у нас были каникулы, мы навещали бабушку и дедушку.
+
+CONTEXT:
+"Immer wenn" подчеркивает систематический повтор ситуации в прошлом. "Die Großeltern" — дедушка и бабушка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите момент звонка сестры.
+::source
+Аудиозапись: «Während ich die Regale aufräumte, rief meine Schwester an».
+::exercise
+В какой момент позвонила сестра?
+
+*Непосредственно во время уборки полок (параллельно процессу)
+Строго до того, как началась уборка
+Спустя два часа после окончания уборки
+
+BACK:
+Пока я наводил порядок на полках, позвонила моя сестра.
+
+CONTEXT:
+Союз "Während" обозначает событие на фоне длительного процесса: звонок сестры прозвучал во время наведения порядка. "Die Regale" — полки.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите исходное событие для смены привычки.
+::source
+Аудиозапись: «Seitdem wir umgezogen sind, gehen wir häufiger zu Fuß. Früher fuhren wir fast immer mit dem Auto».
+::exercise
+Что послужило отправной точкой для пеших прогулок?
+
+*Переезд в новое жилье (umgezogen sind)
+Покупка нового автомобиля
+Смена рабочего графика
+
+BACK:
+С тех пор как мы переехали, мы чаще ходим пешком.
+
+CONTEXT:
+"Seitdem" связывает новую привычку с моментом переезда в прошлом. "Umziehen" — переезжать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите первое действие при публикации новости.
+::source
+Аудиозапись: «Bevor wir die Nachricht veröffentlichen, überprüfen wir die Angaben».
+::exercise
+Какое действие выполняется первым по времени?
+
+*Проверка сведений и данных (überprüfen die Angaben)
+Публикация новости на сайте (Nachricht veröffentlichen)
+Оба действия происходят строго одновременно
+
+BACK:
+Прежде чем опубликовать новость, мы проверяем сведения.
+
+CONTEXT:
+Союз "bevor" вводит последующее действие (публикацию). Сначала обязательно выполняется проверка данных в главной части. "Veröffentlichen" — публиковать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и расставьте три события с отчетом по порядку.
+::source
+Аудиозапись: «Nachdem ich die Zahlen geprüft hatte, schickte ich den Bericht ab. Am nächsten Tag bekam ich eine Rückmeldung».
+::exercise
+В каком порядке произошли события?
+
+*Проверка цифр $\rightarrow$ отправка отчёта $\rightarrow$ получение отзыва на следующий день
+Отправка отчёта $\rightarrow$ получение отзыва $\rightarrow$ проверка цифр
+Получение отзыва $\rightarrow$ проверка цифр $\rightarrow$ отправка отчёта
+
+BACK:
+Сначала проверил цифры, затем отправил отчёт, на следующий день получил отзыв.
+
+CONTEXT:
+Цепочка событий: 1) проверка цифр (Plusquamperfekt); 2) отправка отчёта (Präteritum); 3) получение ответа (Rückmeldung). "Die Rückmeldung" — обратная связь/отзыв.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите естественную фразу для вежливого переспроса времени визита.
+::exercise
+Как вежливо переспросить собеседника, если вы не расслышали время встречи?
+
+*Entschuldigung, soll ich vorher oder danach kommen?
+Warum sprichst du so leise?
+Ich habe keine Lust zu warten.
+
+BACK:
+Извините, мне прийти до или после?
+
+CONTEXT:
+"Entschuldigung, soll ich vorher oder danach kommen?" — вежливая и точная реакция для прояснения хронологии в живом разговоре уровня B1.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте указание сотрудника службы выдачи и выберите правильное действие.
+::source
+Аудиозапись: «Sobald Ihr Paket angekommen ist, bekommen Sie eine Nachricht».
+::exercise
+Что именно должен сделать получатель посылки?
+
+*Дождаться уведомления о прибытии посылки
+Прийти в пункт выдачи немедленно прямо сейчас
+Отказаться от получения посылки
+
+BACK:
+Как только ваша посылка прибудет, вы получите сообщение.
+
+CONTEXT:
+"Sobald" указывает, что сообщение поступит сразу по факту прибытия посылки, поэтому получателю следует спокойно ждать уведомления.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте подтверждение врачу: «Хорошо, я позвоню после того, как получу результаты».
+::source
+Указание врача: Bitte rufen Sie uns an, wenn Sie die Ergebnisse haben.
+::exercise
+Gut, ich rufe an, {*nachdem ich die Ergebnisse bekommen habe|bevor ich die Ergebnisse bekommen habe|nachdem habe ich die Ergebnisse bekommen}.
+
+BACK:
+Хорошо, я позвоню после того, как получу результаты.
+
+CONTEXT:
+Звонок произойдёт ПОСЛЕ получения результатов, поэтому используется союз "nachdem" с завершённым будущим шагом в Perfekt ("bekommen habe").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку в порядке слов в обещании перезвонить.
+::source
+Неправильно: Sobald ich bin fertig, rufe ich an.
+::exercise
+Sobald ich fertig {*bin, rufe ich an|bin, ich rufe an|werde sein, rufe ich an}.
+
+BACK:
+Как только я закончу, я позвоню.
+
+CONTEXT:
+В придаточном предложении связка "bin" обязана стоять на последнем месте: "Sobald ich fertig bin". В главном предложении сказуемое стоит сразу после запятой: "rufe ich an".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте вежливый ответ посетителю: «Пожалуйста, подождите, пока занятие не закончится».
+::source
+Вопрос посетителя: Kann ich jetzt mit dem Lehrer sprechen?
+::exercise
+Bitte warten Sie, bis der Unterricht {*zu Ende ist|nicht zu Ende ist}.
+
+BACK:
+Пожалуйста, подождите, пока занятие не закончится.
+
+CONTEXT:
+С союзом "bis" отрицание "nicht" не ставится: связка "ist" замыкает придаточную часть ("zu Ende ist").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите вежливую фразу уточнения при плохой телефонной связи.
+::source
+Собеседник говорит неразборчиво: Rufen Sie mich bitte nach dem Termin zurück.
+::exercise
+{*Ich kann Sie schlecht verstehen. Können Sie bitte wiederholen, wann ich zurückrufen soll?|Ich verstehe nichts. Sagen Sie wenn ich anrufen soll.}
+
+BACK:
+Я плохо вас слышу. Не могли бы вы повторить, когда мне перезвонить?
+
+CONTEXT:
+В вежливом косвенном вопросе о времени используется вопросительное слово "wann" ("wann ich zurückrufen soll"), а не условный союз wenn.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте две фразы и сопоставьте их со смысловым оттенком слова «пока».
+::source
+Аудио 1: «Solange die Tür offen ist, bleibt die Heizung aus».
+Аудио 2: «Wir warten, bis die Tür geschlossen ist».
+::exercise
+@match
+Solange die Tür offen ist... => Непрерывный интервал времени («всё то время, пока»)
+Wir warten, bis die Tür geschlossen ist. => Конечная граница ожидания («до момента границы»)
+
+BACK:
+длительность периода (solange) / предел ожидания (bis)
+
+CONTEXT:
+"Solange" описывает сохранение правила на протяжении всего периода открытой двери. "Bis" фиксирует момент завершения ожидания при закрытии двери.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте диалог организаторов и определите действие сразу после готовности зала.
+::source
+Аудиозапись:
+Sprecher 1: Bevor die Gäste kommen, prüfen wir den Raum.
+Sprecher 2: Sobald alles fertig ist, öffnen wir den Eingang.
+Sprecher 1: Während die Gäste hereinkommen, verteilen wir die Programme.
+::exercise
+Что произойдёт сразу, как только всё будет готово?
+
+*Организаторы откроют вход для гостей (öffnen den Eingang)
+Организаторы начнут проверять зал
+Организаторы уйдут домой
+
+BACK:
+Как только всё будет готово, мы откроем вход.
+
+CONTEXT:
+Хронология: 1) проверка зала ДО прихода гостей (bevor); 2) открытие входа СРАЗУ по готовности (sobald); 3) раздача программ ВО ВРЕМЯ входа публики (während).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите три опорные точки для короткого устного рассказа B1.
+::exercise
+Какие три ключевых шага позволяют быстро выстроить связный монолог на 20–30 секунд?
+
+*Действие до события (bevor) $\rightarrow$ момент или фон происшествия (als/während) $\rightarrow$ действие после завершения (nachdem/danach)
+Случайный набор любых немецких слов без глаголов
+Перечисление всех девяти временных союзов в алфавитном порядке
+
+BACK:
+до события $\rightarrow$ в момент происшествия $\rightarrow$ после завершения.
+
+CONTEXT:
+Чёткая схема (до события $\rightarrow$ в момент происшествия $\rightarrow$ после завершения) обеспечивает уверенную связную речь без заучивания длинных монологов наизусть.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте реплику о переносе встречи: «Я занят до 16:00. Как только освобожусь, напишу вам».
+::exercise
+Ich bin bis 16 Uhr beschäftigt. Sobald ich frei {*bin, schreibe ich Ihnen|bin, ich schreibe Ihnen|sein werde, schreibe ich Ihnen}.
+
+BACK:
+Я занят до 16:00. Как только я освобожусь, я напишу вам.
+
+CONTEXT:
+В первом предложении "bis" выступает как предлог времени. Во втором предложении союз "sobald" требует глагол в конце ("bin"), а сказуемое главного предложения стоит сразу после запятой ("schreibe ich").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте ответ другу о домашнем деле перед встречей.
+::source
+Смысл: «Прежде чем мы встретимся, мне нужно сделать кое-что дома. Когда тебе подходит?».
+::exercise
+Bevor wir uns treffen, {*muss ich zu Hause etwas erledigen. Wann passt es dir?|ich muss zu Hause etwas erledigen. Wenn passt es dir?}.
+
+BACK:
+Прежде чем мы встретимся, мне нужно сделать кое-что дома. Когда тебе удобно?
+
+CONTEXT:
+В главной части сказуемое стоит сразу после запятой ("muss ich"). В прямом вопросе о времени используется вопросительное слово "Wann" ("Wann passt es dir?").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте реплики диалога с клиентом об ожидании во время проверки.
+::source
+Смысл: «Пожалуйста, подождите, пока идёт проверка. Как только узнаю результат, сообщу вам».
+::exercise
+Bitte warten Sie, {*solange die Prüfung läuft. Sobald ich das Ergebnis kenne, sage ich Ihnen Bescheid.|sobald die Prüfung läuft. Solange ich das Ergebnis kenne, sage ich Ihnen Bescheid.}
+
+BACK:
+Пожалуйста, подождите, пока идёт проверка. Как только я узнаю результат, я сообщу вам.
+
+CONTEXT:
+"Solange" охватывает весь период ожидания во время проверки; "sobald" задаёт немедленное информирование по факту получения результата.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите связный мини-монолог о дожде во время ожидания автобуса.
+::exercise
+{*Während ich auf den Bus wartete, begann es zu regnen. Als der Bus endlich kam, war meine Jacke schon nass. Danach fuhr ich nach Hause.|Nachdem ich auf den Bus wartete, begann es regnen. Wenn der Bus endlich kam, Jacke war nass. Bis fuhr ich nach Hause.}
+
+BACK:
+Пока я ждал автобус, начался дождь. Когда автобус наконец пришёл, моя куртка уже промокла. После этого я поехал домой.
+
+CONTEXT:
+Логичная последовательность: фоновое ожидание (während) $\rightarrow$ разовое прибытие автобуса (als) с завершённым намоканием куртки $\rightarrow$ поездка домой (danach).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте объявление и определите новое правило доступа в аудиторию.
+::source
+Аудиозапись: «Seitdem der neue Kurs begonnen hat, bleibt die Tür während des Unterrichts geschlossen. Bitte warten Sie, bis die Pause anfängt».
+::exercise
+@match
+С какого момента изменилось правило? => С момента начала нового курса (Seitdem der neue Kurs begonnen hat)
+Как долго дверь остаётся закрытой? => Во время проведения занятий (während des Unterrichts)
+До какого момента нужно ждать снаружи? => До начала перемены (bis die Pause anfängt)
+
+BACK:
+старт правила (seitdem) / длительность урока (während) / предел ожидания (bis)
+
+CONTEXT:
+Аудиосообщение объединяет три временных параметра: точку старта режима (seitdem), период закрытых дверей (während) и момент допуска (bis).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите безупречный рассказ о подготовке к языковому занятию.
+::exercise
+{*Bevor ich zum Sprachkurs ging, wiederholte ich die neuen Wörter. Während der Unterricht lief, machte ich mir Notizen. Als der Unterricht zu Ende war, sprach ich noch mit einer Mitschülerin.|Nachdem ich zum Sprachkurs ging, wiederholte Wörter. Bevor der Unterricht lief, machte Notizen. Wenn der Unterricht zu Ende war, ich sprach mit Mitschülerin.}
+
+BACK:
+Перед тем как пойти на языковой курс, я повторил новые слова. Пока шло занятие, я делал заметки. Когда урок закончился, я ещё поговорил с однокурсницей.
+
+CONTEXT:
+Идеальная сюжетная цепочка: повторение слов ДО занятия (bevor) $\rightarrow$ параллельные заметки ВО ВРЕМЯ урока (während) $\rightarrow$ беседа ПОСЛЕ окончания (als/nachdem).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выполните комплексный итоговый срез слухо-речевых навыков темы.
+::exercise
+1) Аудио «Immer wenn mein Bruder kam...» выражает: {*повторяемость|разовый факт}.
+2) В фразе «Bevor wir die Tür öffnen, prüfen wir den Namen» первым действием является: {*проверка имени|открытие двери}.
+3) Во фразе «Ich warte, bis der Zug kommt» конец ожидания обозначает: {*прибытие поезда|уход с перрона}.
+4) Во фразе «Solange das Licht an ist, lesen wir» союз solange означает: {*весь период горения света|момент выключения}.
+5) «Как только я закончу, перезвоню»: Sobald ich fertig {*bin, rufe ich zurück|bin, ich rufe zurück}.
+6) «Пока ты читаешь, я готовлю ужин»: {*Während du liest, koche ich das Abendessen|Nachdem du liest, koche ich das Abendessen}.
+
+BACK:
+1 повторяемость · 2 проверка имени · 3 прибытие поезда · 4 весь период горения света · 5 bin, rufe ich zurück · 6 Während du liest, koche ich das Abendessen
+
+CONTEXT:
+Комплексный финал темы: 1 — регулярный повтор (Immer wenn); 2 — проверка ДО открытия (bevor); 3 — граница ожидания (bis); 4 — протяжённость интервала (solange); 5 — немедленный старт (sobald) с инверсией; 6 — параллельность (während).

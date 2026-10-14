@@ -1,0 +1,932 @@
+# Deck: B1-07-D10 · Temporale Nebensätze — Порядок слов и преобразование предложений
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-07-D10 · Temporale Nebensätze — Порядок слов и преобразование предложений",
+    "level": "B1",
+    "topic": "Temporale Nebensätze",
+    "description": "Практический тренажёр трансформации и синтаксиса временных сложноподчинённых предложений: два порядка следования частей (прямой и обратный), конечная позиция сказуемого в придаточном, инверсия (V2) в главном предложении, слитность отделяемых приставок, модальные глаголы, аналитические формы времени и пунктуация",
+    "goal": "Автоматизировать два порядка следования частей предложения (Hauptsatz + Nebensatz и Nebensatz + Hauptsatz), научить свободно переходить между ними без потери временного смысла и искажения действующих лиц, соблюдать рамочную конструкцию, слитность отделяемых приставок и инверсию после запятой.",
+    "learning_outcomes": [
+      "Безошибочно переставлять главную и придаточную части предложения, сохраняя исходную хронологию и действующих лиц",
+      "Соблюдать правило конечной позиции спрягаемого глагола в придаточном предложении (VERB_FINAL)",
+      "Применять инверсию в главном предложении (спрягаемый глагол на 2-й позиции сразу после запятой при начальном придаточном)",
+      "Правильно писать глаголы с отделяемыми приставками слитно в конце придаточного предложения (SEPARABLE_VERB)",
+      "Размещать модальный глагол на самом последнем месте после смыслового инфинитива (MODAL_FINAL)",
+      "Ставить спрягаемый вспомогательный глагол после Partizip II в сложных временах Perfekt и Plusquamperfekt (AUX_FINAL)",
+      "Соблюдать пунктуационную границу (запятую) между главной и придаточной частями"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "При ошибках в конечной позиции глагола в придаточном (VERB_FINAL) повторять карточки 02–08, 12, 18–20, 24; при нарушении порядка слов в главном предложении после запятой (MAIN_ORDER) — карточки 03, 07–16, 22, 42; при трудностях с отделяемыми глаголами (SEPARABLE_VERB) — карточки 17–22; с модальными глаголами (MODAL_FINAL) — карточки 23–24; с аналитическими временами (AUX_FINAL) — карточки 25–30; при пунктуационных ошибках (PUNCTUATION) — карточки 33–34, 48. Следующая колода в серии — D11 (Реальные жизненные ситуации)."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "two_core_schemes",
+        "title": "Две рабочие схемы: прямой и обратный порядок",
+        "goal": "Автоматизация понимания двух схем: Hauptsatz + Nebensatz vs. Nebensatz + V2-Hauptsatz",
+        "from_card": 1,
+        "to_card": 8,
+        "support": "high",
+        "expected_skill": "Распознавать границы частей и ставить глагол на 2-е место главного после вводного придаточного"
+      },
+      {
+        "id": "direct_clause_reversal",
+        "title": "Прямая перестановка частей предложения",
+        "goal": "Практика трансформации предложений с выносом придаточного в начало и перенос в конец без потери смысла",
+        "from_card": 9,
+        "to_card": 16,
+        "support": "medium",
+        "expected_skill": "Переносить придаточную часть в начало или конец предложения с сохранением структуры"
+      },
+      {
+        "id": "complex_predicates",
+        "title": "Сложные сказуемые: отделяемые приставки и модальные глаголы",
+        "goal": "Отработка слитности отделяемых приставок в конце придаточного и позиционирование модального глагола после инфинитива",
+        "from_card": 17,
+        "to_card": 24,
+        "support": "medium",
+        "expected_skill": "Правильно оформлять сказуемые с приставками и модальными глаголами в придаточных"
+      },
+      {
+        "id": "compound_tenses_negation",
+        "title": "Аналитические времена (Perfekt/Plusquamperfekt) и отрицание",
+        "goal": "Размещение Partizip II + вспомогательный глагол в конце придаточного, сохранение области отрицания (nicht)",
+        "from_card": 25,
+        "to_card": 32,
+        "support": "medium",
+        "expected_skill": "Безошибочно ставить вспомогательные глаголы в конец и удерживать фокус отрицания"
+      },
+      {
+        "id": "connected_text_punctuation",
+        "title": "Связный текст, объединение предложений и пунктуация",
+        "goal": "Обязательная запятая между частями, объединение двух простых предложений в одно сложное через союзы времени",
+        "from_card": 33,
+        "to_card": 40,
+        "support": "low",
+        "expected_skill": "Объединять простые фразы в сложноподчинённые с соблюдением пунктуации"
+      },
+      {
+        "id": "independent_transfer_and_control",
+        "title": "Самостоятельный перенос, исправление ошибок и контрольный срез",
+        "goal": "Устранение комплексных синтаксических ошибок, деловая переписка, устная речь и диагностический срез из 7 задач",
+        "from_card": 41,
+        "to_card": 50,
+        "support": "low",
+        "expected_skill": "Самостоятельно строить предложения в обоих порядках в речи и письменном тексте"
+      }
+    ],
+    "expected_result": "Ученик свободно трансформирует сложноподчинённые предложения времени между прямым и обратным порядком, безупречно соблюдает глагольную рамку и инверсию, удерживая исходный смысл и хронологию.",
+    "competencies": [
+      {
+        "id": "clause_transformation_flow",
+        "title": "Трансформация сложноподчинённых предложений",
+        "description": "Свободный перенос придаточного предложения в начало или в конец с перестройкой главной части"
+      },
+      {
+        "id": "subordinate_verb_final_mastery",
+        "title": "Глагольная рамка в придаточном (VERB_FINAL)",
+        "description": "Размещение сказуемого, отделяемых глаголов, модальных глаголов и вспомогательных глаголов в конце"
+      },
+      {
+        "id": "main_clause_inversion_mastery",
+        "title": "Инверсия в главном предложении (MAIN_ORDER)",
+        "description": "Позиционирование спрягаемого глагола главной части на 2-м месте сразу после запятой"
+      },
+      {
+        "id": "meaning_negation_preservation",
+        "title": "Сохранение смысла и области отрицания",
+        "description": "Удержание действующих лиц, хронологии и области отрицания nicht при трансформации"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "word_order_accuracy",
+        "title": "Синтаксическая точность",
+        "description": "Безошибочная расстановка сказуемого в главной и придаточной частях"
+      },
+      {
+        "id": "transformation_integrity",
+        "title": "Целостность смысла при трансформации",
+        "description": "Сохранение исходного смысла, временных отношений и правильной пунктуации"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_verb_final",
+        "title": "Повторение конца придаточного",
+        "when": "При смещении глагола в начало или середину придаточного",
+        "reason": "Повторить карточки 02–08, 12, 18–20, 24",
+        "competency_ids": ["subordinate_verb_final_mastery"]
+      },
+      {
+        "id": "review_main_order",
+        "title": "Повторение инверсии главного предложения",
+        "when": "При структуре «придаточное, ich + глагол»",
+        "reason": "Повторить карточки 03, 07–16, 22, 42",
+        "competency_ids": ["main_clause_inversion_mastery"]
+      },
+      {
+        "id": "review_complex_verbs",
+        "title": "Повторение приставок и вспомогательных глаголов",
+        "when": "При ошибках с отделяемыми приставками или Perfekt/Plusquamperfekt",
+        "reason": "Повторить карточки 17–30",
+        "competency_ids": ["subordinate_verb_final_mastery"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните две структуры сложноподчинённого предложения.
+::source
+1) Ich lerne neue Wörter, während ich auf den Bus warte.
+2) Während ich auf den Bus warte, lerne ich neue Wörter.
+::exercise
+Что именно меняется при перестановке частей сложноподчинённого предложения?
+
+*Меняется только порядок следования частей в тексте (с инверсией в главном), а фактический временной смысл остаётся неизменным
+Полностью меняется хронологический порядок событий на противоположный
+В придаточном предложении глагол переходит на второе место
+
+BACK:
+Я учу новые слова, пока жду автобус. / Пока я жду автобус, я учу новые слова.
+
+CONTEXT:
+В обеих схемах сохраняется один и тот же смысл. В придаточном глагол "warte" стоит в конце. При выносе придаточного в начало в главном предложении сказуемое "lerne ich" стоит сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите верный порядок слов для придаточного предложения с союзом wenn.
+::source
+Смысл: «Я убираю со стола, когда гости уходят».
+::exercise
+Ich räume den Tisch ab, wenn {*die Gäste gehen|gehen die Gäste}.
+
+BACK:
+Я убираю со стола, когда гости уходят.
+
+CONTEXT:
+В придаточном предложении с подчинительным союзом "wenn" спрягаемый глагол "gehen" обязан стоять на самом последнем месте.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильное продолжение главного предложения сразу после запятой.
+::source
+Смысл: «Когда совещание закончится, я уберу стулья».
+::exercise
+Wenn die Besprechung endet, {*räume ich die Stühle weg|ich räume die Stühle weg}.
+
+BACK:
+Когда совещание закончится, я уберу стулья.
+
+CONTEXT:
+Начальное придаточное предложение занимает позицию 1. Поэтому главное предложение сразу после запятой на позиции 2 обязано начинаться со сказуемого: "räume ich". "Wegräumen" — убирать на место.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте спрягаемый глагол regnen в конец придаточного предложения.
+::source
+Смысл: «Я закрываю мансардное окно, как только начинается сильный дождь».
+::exercise
+Ich schließe das Dachfenster, sobald es stark [[regnet]].
+
+BACK:
+Я закрываю мансардное окно, как только идёт сильный дождь.
+
+CONTEXT:
+Союз "sobald" вводит придаточное предложение, поэтому личная форма глагола "regnet" завершает придаточную часть. "Das Dachfenster" — мансардное окно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте начало предложений с их правильным синтаксическим продолжением.
+::exercise
+@match
+Während die Kinder schlafen, ... => ... bereite ich das Frühstück vor.
+Ich warte, ... => ... bis der Fahrer ankommt.
+Bevor der Laden schließt, ... => ... kaufen wir noch Brot.
+
+BACK:
+Пока дети спят, я готовлю завтрак. / Я жду, пока водитель не приедет. / Перед тем как магазин закроется, мы ещё купим хлеб.
+
+CONTEXT:
+При начальном придаточном главное предложение начинается со сказуемого сразу после запятой ("bereite ich", "kaufen wir"). Если главное стоит первым, в придаточном глагол уходит в конец ("ankommt").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение с союзом Sobald в правильном порядке слов.
+::source
+Смысл: «Как только запасная деталь прибудет, я с тобой свяжусь».
+::exercise
+Sobald das Ersatzteil eintrifft, {*melde ich mich bei dir|ich melde mich bei dir|melde mich ich bei dir}.
+
+BACK:
+Как только запчасть прибудет, я свяжусь с тобой.
+
+CONTEXT:
+В придаточном сказуемое "eintrifft" стоит в конце. В главной части сразу после запятой сказуемое занимает 2-ю позицию: "melde ich mich". "Das Ersatzteil" — запчасть.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку в порядке слов после начального придаточного предложения.
+::source
+Неправильно: Wenn ich die Schlüssel finde, ich rufe den Hausmeister an.
+::exercise
+Wenn ich die Schlüssel finde, {*rufe ich den Hausmeister an|ich rufe den Hausmeister an|rufe an ich den Hausmeister}.
+
+BACK:
+Когда я найду ключи, я позвоню смотрителю дома.
+
+CONTEXT:
+После начального придаточного сказуемое главной части стоит на позиции 2 сразу после запятой ("rufe ich"), а отделяемая приставка остаётся в конце ("an"). "Der Hausmeister" — управляющий/смотритель дома.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите единственный грамматически безупречный вариант с союзом solange.
+::exercise
+Какой вариант построен грамматически правильно?
+
+*Solange du hilfst, arbeiten wir schneller.
+Solange du hilfst, wir arbeiten schneller.
+Solange hilfst du, arbeiten wir schneller.
+
+BACK:
+Пока ты помогаешь, мы работаем быстрее.
+
+CONTEXT:
+В придаточном сказуемое "hilfst" стоит в конце. В главной части сказуемое "arbeiten" стоит сразу после запятой на 2-й позиции.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, почему после начального придаточного сказуемое стоит сразу после запятой.
+::source
+Nachdem die Gäste gegangen waren, begann die Musik.
+::exercise
+Почему спрягаемый глагол begann стоит сразу после запятой?
+
+*Потому что всё начальное придаточное предложение целиком занимает 1-ю позицию для главного предложения
+Потому что в немецком языке любые два глагола всегда обязаны стоять рядом
+Потому что союз nachdem требует ставить глагол на второе слово
+
+BACK:
+После того как гости ушли, заиграла музыка.
+
+CONTEXT:
+Для правила V2 (глагол на втором месте) считается не число отдельных слов, а целый член предложения: всё придаточное занимает позицию 1, а глагол главной части — позицию 2.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов перед началом занятия.
+::source
+Смысл: «Перед началом языкового курса мы повторяем новые слова».
+::exercise
+Bevor der Sprachkurs beginnt, {*wiederholen wir die neuen Wörter|wir wiederholen die neuen Wörter}.
+
+BACK:
+Перед тем как языковой курс начнётся, мы повторяем новые слова.
+
+CONTEXT:
+После начального придаточного спрягаемый глагол главной части "wiederholen" стоит сразу после запятой перед подлежащим "wir".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов при параллельной работе коллег.
+::source
+Смысл: «Пока я проверяю доставку, мой коллега сортирует коробки».
+::exercise
+Während ich die Lieferung kontrolliere, {*sortiert mein Kollege die Kartons|mein Kollege sortiert die Kartons}.
+
+BACK:
+Пока я проверяю поставку, мой коллега сортирует коробки.
+
+CONTEXT:
+В придаточном сказуемое "kontrolliere" стоит в конце, а главное предложение после запятой открывается сказуемым: "sortiert mein Kollege". "Die Lieferung" — поставка/доставка; "die Kartons" — коробки.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте предложение, поставив придаточное с Als в начало.
+::source
+Исходное: Die Werkstatt war leer, als ich am Sonntag vorbeikam.
+::exercise
+Als ich am Sonntag vorbeikam, {*war die Werkstatt leer|die Werkstatt war leer|war leer die Werkstatt}.
+
+BACK:
+Когда я зашёл в воскресенье, мастерская была пустой.
+
+CONTEXT:
+Придаточное переносится целиком, сохраняя глагол в конце ("vorbeikam"), а главное предложение после запятой начинается со сказуемого: "war die Werkstatt leer". "Vorbeikommen" — заходить/заглядывать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте предложение, начав с главного Wir sparen Geld...
+::source
+Исходное: Seitdem wir ein Fahrrad teilen, sparen wir Geld.
+::exercise
+Wir sparen Geld, {*seitdem wir ein Fahrrad teilen|seitdem teilen wir ein Fahrrad|seitdem wir teilen ein Fahrrad}.
+
+BACK:
+Мы экономим деньги с тех пор, как пользуемся одним велосипедом.
+
+CONTEXT:
+При переносе придаточного в конец главное предложение сохраняет прямой порядок ("Wir sparen Geld"), а в придаточном глагол "teilen" замыкает часть.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте спрягаемый глагол ausfüllen в главное предложение после запятой.
+::source
+Смысл: «Пока клиентка ждёт, техник заполняет бланк».
+::exercise
+Während die Kundin wartet, [[füllt]] der Techniker das Formular aus.
+
+BACK:
+Пока клиентка ждёт, техник заполняет формуляр.
+
+CONTEXT:
+Глагол главной части "füllt" занимает 2-ю позицию сразу после запятой, а отделяемая приставка "aus" остаётся в самом конце предложения. "Das Formular" — формуляр/бланк.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически безупречный вариант для окончания смены.
+::source
+Смысл: «Я вернусь, когда закончится смена».
+::exercise
+{*Ich komme zurück, wenn die Schicht endet.|Ich komme zurück, wenn endet die Schicht.|Ich zurückkomme, wenn die Schicht endet.}
+
+BACK:
+Я вернусь, когда закончится смена.
+
+CONTEXT:
+В главном предложении сказуемое делится ("komme ... zurück"), а в придаточном сказуемое замыкает предложение ("endet"). "Die Schicht" — рабочая смена.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибки в порядке слов в обеих частях предложения.
+::source
+Неправильно: Nachdem ich hatte gefrühstückt, ich fuhr zur Arbeit.
+::exercise
+Nachdem ich gefrühstückt {*hatte, fuhr ich|hatte, ich fuhr|habe, fuhr ich} zur Arbeit.
+
+BACK:
+После того как я позавтракал, я поехал на работу.
+
+CONTEXT:
+В придаточном вспомогательный глагол стоит в самом конце ("gefrühstückt hatte"). В главном предложении сказуемое стоит сразу после запятой ("fuhr ich").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, как ведёт себя отделяемая приставка в придаточном предложении.
+::source
+В главном: Der Zug kommt pünktlich an.
+::exercise
+Что происходит с отделяемой приставкой an- в придаточном предложении?
+
+*Приставка соединяется с глаголом, и вся форма ставится слитно в самый конец (ankommt)
+Приставка отделяется и ставится сразу после союза
+Приставка полностью удаляется из предложения
+
+BACK:
+Ich freue mich, wenn der Zug pünktlich ankommt. (Я радуюсь, когда поезд прибывает вовремя).
+
+CONTEXT:
+В придаточном предложении отделяемая приставка не отделяется: глагол уходит в конец и пишется слитно ("ankommt").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильную форму глагола aufstehen в придаточном предложении.
+::source
+Смысл: «Я готовлю кофе, как только сестра встаёт».
+::exercise
+Ich bereite den Kaffee vor, sobald meine Schwester {*aufsteht|steht auf}.
+
+BACK:
+Я готовлю кофе, как только моя сестра встаёт.
+
+CONTEXT:
+В придаточном предложении отделяемый глагол пишется слитно на самом последнем месте: "aufsteht".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте глагол anfangen в правильной форме в конец придаточного предложения.
+::source
+Смысл: «Мы заходим в зал, как только начинается показ».
+::exercise
+Wir gehen in den Saal, sobald die Vorführung [[anfängt]].
+
+BACK:
+Мы заходим в зал, как только начинается показ.
+
+CONTEXT:
+Глагол с отделяемой приставкой в придаточном пишется слитно и стоит в самом конце: "anfängt". "Die Vorführung" — показ/представление.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте положение отделяемой приставки в придаточном предложении.
+::source
+Неправильно: Ich schreibe dir, wenn der Kurier kommt an.
+::exercise
+Ich schreibe dir, wenn der Kurier {*ankommt|kommt an|an kommen wird}.
+
+BACK:
+Я напишу тебе, когда прибудет курьер.
+
+CONTEXT:
+В придаточном предложении отделяемая приставка соединяется с глаголом в конце предложения: "ankommt". "Der Kurier" — курьер.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение с отделяемым глаголом aufschließen.
+::source
+Смысл: «Когда смотритель отпирает дверь, мы входим в здание».
+::exercise
+Wenn der Hausmeister die Tür aufschließt, {*betreten wir das Gebäude|wir betreten das Gebäude|betreten das Gebäude wir}.
+
+BACK:
+Когда смотритель отпирает дверь, мы входим в здание.
+
+CONTEXT:
+В придаточном сказуемое стоит слитно в конце ("aufschließt"). В главной части сказуемое стоит сразу после запятой ("betreten wir"). "Aufschließen" — отпирать ключом; "betreten" — входить.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переставьте части предложения, начав с союза Während.
+::source
+Исходное: Meine Kollegin macht die Kisten auf, während ich die Etiketten prüfe.
+::exercise
+Während ich die Etiketten prüfe, {*macht meine Kollegin die Kisten auf|meine Kollegin macht die Kisten auf|macht auf meine Kollegin die Kisten}.
+
+BACK:
+Пока я проверяю этикетки, моя коллега открывает ящики.
+
+CONTEXT:
+В придаточном сказуемое "prüfe" стоит в конце. Главное предложение начинается со сказуемого сразу после запятой: "macht meine Kollegin ... auf" (приставка в конце). "Das Etikett" — этикетка; "die Kiste" — ящик.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите верный порядок слов с модальным глаголом в придаточном предложении.
+::source
+Смысл: «Я подожду, пока ты не сможешь сдать документы».
+::exercise
+Ich warte, bis du die Unterlagen {*abgeben kannst|kannst abgeben}.
+
+BACK:
+Я подожду, пока ты не сможешь сдать документы.
+
+CONTEXT:
+В придаточном предложении смысловой инфинитив "abgeben" стоит перед спрягаемым модальным глаголом "kannst", который замыкает часть. "Die Unterlagen abgeben" — сдавать документы.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму модального глагола müssen в конец придаточного предложения.
+::source
+Смысл: «Пока участники вынуждены ждать, помещение остаётся открытым».
+::exercise
+Solange die Teilnehmer warten [[müssen]], bleibt der Raum geöffnet.
+
+BACK:
+Пока участники должны ждать, помещение остаётся открытым.
+
+CONTEXT:
+Спрягаемый модальный глагол "müssen" замыкает придаточную часть после инфинитива "warten".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите порядок аналитических форм времени (Perfekt / Plusquamperfekt) в придаточном.
+::source
+Nachdem sie den Bericht gelesen hatte, beantwortete sie die Fragen.
+::exercise
+Каков порядок причастия и вспомогательного глагола в придаточном предложении?
+
+*Сначала стоит неизменяемое Partizip II, а спрягаемый вспомогательный глагол стоит в самом конце (gelesen hatte)
+Сначала стоит вспомогательный глагол, а причастие стоит в самом конце
+Оба глагола ставятся в начале предложения сразу после союза
+
+BACK:
+После того как она прочитала отчёт, она ответила на вопросы.
+
+CONTEXT:
+В придаточном предложении в сложных временах спрягаемый вспомогательный глагол (hatte, hat, war, bin) завершает всю придаточную часть, стоя после Partizip II.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов для проверки заказа перед отправкой в прошлом.
+::source
+Рассказ о прошлом: сначала проверил заказ, затем отправил посылку.
+::exercise
+{*Nachdem er die Bestellung geprüft hatte, verschickte er das Paket.|Nachdem er hatte die Bestellung geprüft, verschickte er das Paket.}
+
+BACK:
+После того как он проверил заказ, он отправил посылку.
+
+CONTEXT:
+В придаточном: "geprüft hatte" (вспомогательный глагол в конце). В главном после запятой: "verschickte er" (глагол на позиции 2). "Die Bestellung" — заказ.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте вспомогательный глагол hat в конец придаточного предложения.
+::source
+Смысл: «Как только она оплатит счёт, она отправит подтверждение».
+::exercise
+Sobald sie die Rechnung bezahlt [[hat]], schickt sie die Bestätigung.
+
+BACK:
+Как только она оплатит счёт, она отправит подтверждение.
+
+CONTEXT:
+В придаточном со значением завершённости о будущем вспомогательный глагол "hat" стоит на последнем месте: "bezahlt hat". "Die Bestätigung" — подтверждение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение о начале праздника после прибытия гостей.
+::source
+Смысл: «После того как гости прибыли, начался праздник».
+::exercise
+Nachdem die Gäste angekommen waren, {*begann das Fest|das Fest begann|hat begonnen das Fest}.
+
+BACK:
+После того как гости прибыли, начался праздник.
+
+CONTEXT:
+В придаточном глагол движения стоит в конце ("angekommen waren"). В главном предложении сказуемое стоит сразу после запятой ("begann das Fest").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Перенесите придаточную часть с nachdem в конец предложения.
+::source
+Исходное: Nachdem der Regen aufgehört hatte, gingen wir spazieren.
+::exercise
+Wir gingen spazieren, {*nachdem der Regen aufgehört hatte|nachdem hatte der Regen aufgehört|nachdem der Regen hatte aufgehört}.
+
+BACK:
+Мы пошли гулять после того, как дождь прекратился.
+
+CONTEXT:
+В главном предложении сохраняется прямой порядок ("Wir gingen spazieren"), а в придаточном форма "aufgehört hatte" остаётся в самом конце без изменений.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте порядок слов с вспомогательным глаголом bin в придаточном предложении.
+::source
+Неправильно: Ich habe angerufen, nachdem ich bin zu Hause angekommen.
+::exercise
+Ich habe angerufen, nachdem ich zu Hause {*angekommen bin|bin angekommen|angekommen war bin}.
+
+BACK:
+Я позвонил после того, как приехал домой.
+
+CONTEXT:
+В придаточном предложении спрягаемый вспомогательный глагол "bin" обязан стоять на последнем месте, после причастия ("angekommen bin").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите предложение, точно передающее смысл «Я останусь дома, когда не будет дождя».
+::source
+Смысл: остаться дома при условии отсутствия дождя.
+::exercise
+{*Ich bleibe zu Hause, wenn es nicht regnet.|Ich bleibe nicht zu Hause, wenn es regnet.}
+
+BACK:
+Я остаюсь дома, когда нет дождя.
+
+CONTEXT:
+Отрицание "nicht" должно относиться именно к дождю в придаточном предложении ("wenn es nicht regnet"). Вариант "Ich bleibe nicht zu Hause..." меняет смысл на «Я НЕ остаюсь дома...».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Перенесите придаточное в начало, сохранив область отрицания nicht.
+::source
+Исходное: Ich gehe nicht nach draußen, wenn der Wind zu stark ist.
+::exercise
+Wenn der Wind zu stark ist, {*gehe ich nicht nach draußen|gehe nicht ich nach draußen|nicht gehe ich nach draußen}.
+
+BACK:
+Когда ветер слишком сильный, я не выхожу на улицу.
+
+CONTEXT:
+Отрицание "nicht" остаётся в главной части и относится к действию выхода ("gehe ich nicht nach draußen"). Сказуемое "gehe" стоит сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите правило пунктуации между частями сложноподчинённого предложения.
+::source
+1) Ich rufe an, sobald die Lieferung da ist.
+2) Sobald die Lieferung da ist, rufe ich an.
+::exercise
+Как оформляется граница между главной и придаточной частями на письме?
+
+*Запятая обязательно разделяет части предложения в обеих схемах
+Запятая ставится только если придаточное предложение стоит в начале
+Запятая в немецких сложноподчинённых предложениях не ставится
+
+BACK:
+Запятая обязательно разделяет главное и придаточное предложения в любом порядке следования.
+
+CONTEXT:
+В немецком языке граница между главной и придаточной частями всегда строго маркируется запятой, независимо от порядка их следования.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Расставьте пропущенную запятую в предложении с solange.
+::source
+Текст: Solange die Farbe trocknet darf niemand die Tür berühren.
+::exercise
+Solange die Farbe {*trocknet, darf|trocknet darf,|trocknet darf} niemand die Tür berühren.
+
+BACK:
+Пока краска сохнет, никто не должен трогать дверь.
+
+CONTEXT:
+Запятая ставится точно на границе частей, сразу после глагола придаточного "trocknet", перед сказуемым главной части "darf".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два простых предложения в одно, начав с Während der Vater...
+::source
+Der Vater kocht. Die Tochter deckt den Tisch.
+Оба действия одновременны.
+::exercise
+Während der Vater kocht, {*deckt die Tochter den Tisch|die Tochter deckt den Tisch|deckt den Tisch die Tochter}.
+
+BACK:
+Пока отец готовит, дочь накрывает на стол.
+
+CONTEXT:
+В придаточном сказуемое стоит в конце ("kocht"), а в главной части сказуемое стоит сразу после запятой ("deckt die Tochter").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два действия через союз Bevor, начав с Bevor der Kunde...
+::source
+Хронология: 1) клиент проверяет размер; 2) затем заказывает деталь.
+::exercise
+Bevor der Kunde das Ersatzteil bestellt, {*prüft er die Größe|er prüft die Größe|geprüft hat er die Größe}.
+
+BACK:
+Перед тем как клиент заказывает запчасть, он проверяет размер.
+
+CONTEXT:
+Хотя придаточное с bevor стоит первым, фактическая хронология сохраняется: сначала проверка ("prüft er"), затем заказ ("bestellt"). Сказуемое главной части стоит на позиции 2 сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два прошлых события через Nachdem, сохранив времена.
+::source
+Sie hatte die Datei gespeichert. Danach schloss sie den Laptop.
+::exercise
+Nachdem sie die Datei gespeichert hatte, {*schloss sie den Laptop|sie schloss den Laptop|schloss den Laptop sie}.
+
+BACK:
+После того как она сохранила файл, она закрыла ноутбук.
+
+CONTEXT:
+В придаточном сказуемое стоит в конце ("gespeichert hatte"), а в главном предложении сказуемое стоит сразу после запятой ("schloss sie"). Наречие "danach" убирается.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите вариант перестановки, полностью сохраняющий исходный смысл.
+::source
+Исходное: Wenn du mit der Arbeit fertig bist, fahren wir los.
+::exercise
+Какое предложение сохраняет исходную временную связь без искажений?
+
+*Wir fahren los, wenn du mit der Arbeit fertig bist.
+Wir fahren nicht los, wenn du mit der Arbeit fertig bist.
+
+BACK:
+Мы поедем, когда ты закончишь работу.
+
+CONTEXT:
+Перенос придаточного в конец сохраняет утвердительный смысл. Добавление "nicht" во втором варианте исказило бы смысл на противоположный.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте исходные предложения с их точной синтаксической перестановкой.
+::exercise
+@match
+Ich lese, solange du zeichnest. => Solange du zeichnest, lese ich.
+Wir warten, bis die Tür geöffnet wird. => Bis die Tür geöffnet wird, warten wir.
+Ich schlief, als der Wecker klingelte. => Als der Wecker klingelte, schlief ich.
+
+BACK:
+Я читаю, пока ты рисуешь. / Мы ждём, пока дверь не откроют. / Я спал, когда прозвенел будильник.
+
+CONTEXT:
+Во всех парах при выносе придаточного в начало сказуемое главной части ("lese ich", "warten wir", "schlief ich") встаёт на 2-ю позицию сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильную пару формулировок для одновременных действий.
+::source
+Смысл: «Пока я готовлю ужин, мой брат моет посуду».
+::exercise
+{*Während ich das Abendessen zubereite, spült mein Bruder das Geschirr. / Mein Bruder spült das Geschirr, während ich das Abendessen zubereite.|Während ich das Abendessen zubereite, mein Bruder spült das Geschirr. / Mein Bruder das Geschirr spült, während ich das Abendessen zubereite.}
+
+BACK:
+Пока я готовлю ужин, мой брат моет посуду. / Мой брат моет посуду, пока я готовлю ужин.
+
+CONTEXT:
+Оба варианта безупречно соблюдают порядок слов: "zubereite" в конце придаточного, "spült mein Bruder" после запятой при начальном придаточном и прямой порядок "Mein Bruder spült..." при конечном придаточном.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените опасность подмены действующих лиц при синтаксической перестановке.
+::source
+Исходное: Während ich die Rechnung prüfe, telefoniert meine Kollegin.
+::exercise
+Почему при перестановке нельзя поменять местами подлежащие ich и meine Kollegin?
+
+*Потому что изменится фактический смысл того, кто какое действие выполняет
+Потому что в немецком языке подлежащие обязаны всегда стоять строго на первом месте
+Потому что местоимение ich запрещено использовать в главной части
+
+BACK:
+Моя коллега разговаривает по телефону, пока я проверяю счёт.
+
+CONTEXT:
+Правильная перестановка: "Meine Kollegin telefoniert, während ich die Rechnung prüfe." Замена подлежащих между частями создала бы совершенно другую смысловую ситуацию.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку в порядке слов в предложении с двумя придаточными.
+::source
+Неправильно: Wenn du die App öffnest, du siehst die neuen Aufgaben, bevor der Kurs beginnt.
+::exercise
+Wenn du die App öffnest, {*siehst du die neuen Aufgaben|du siehst die neuen Aufgaben|die neuen Aufgaben siehst du}, bevor der Kurs beginnt.
+
+BACK:
+Когда ты открываешь приложение, ты видишь новые задания перед тем, как начнётся курс.
+
+CONTEXT:
+После начального придаточного сказуемое главной части обязано стоять сразу после запятой: "siehst du". Второе придаточное с bevor в конце предложения уже имеет правильный порядок слов.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите перестановку, сохраняющую точное положение отрицания nicht.
+::source
+Исходное: Solange die Maschine nicht läuft, prüfe ich die Anzeige.
+::exercise
+Какое предложение сохраняет точно такой же смысл?
+
+*Ich prüfe die Anzeige, solange die Maschine nicht läuft.
+Ich prüfe die Anzeige nicht, solange die Maschine läuft.
+
+BACK:
+Я проверяю индикатор, пока станок не работает.
+
+CONTEXT:
+Отрицание "nicht" относится к работе станка в придаточном предложении. Вариант B перемещает отрицание на проверку индикатора, что полностью искажает смысл.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Перенесите придаточную часть с союзом bis в начало предложения.
+::source
+Исходное: Ich bleibe hier, bis meine Schwester zurückkommt.
+::exercise
+Bis meine Schwester zurückkommt, {*bleibe ich hier|ich bleibe hier|hier bleibe ich}.
+
+BACK:
+Пока моя сестра не вернётся, я останусь здесь.
+
+CONTEXT:
+В придаточном сказуемое стоит слитно в конце ("zurückkommt"). В главной части сказуемое стоит сразу после запятой на позиции 2: "bleibe ich hier".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Преобразуйте обе фразы так, чтобы каждая начиналась с временного союза.
+::source
+1) Die Gäste warteten vor dem Saal, während die Mitarbeiterin die Technik prüfte.
+2) Die Türen wurden geöffnet, nachdem die Prüfung beendet war.
+::exercise
+{*Während die Mitarbeiterin die Technik prüfte, warteten die Gäste vor dem Saal. Nachdem die Prüfung beendet war, wurden die Türen geöffnet.|Während die Mitarbeiterin die Technik prüfte, die Gäste warteten vor dem Saal. Nachdem die Prüfung beendet war, die Türen wurden geöffnet.}
+
+BACK:
+Пока сотрудница проверяла технику, гости ждали перед залом. После того как проверка закончилась, двери открыли.
+
+CONTEXT:
+В обоих предложениях после выноса придаточного в начало сказуемое главной части стоит сразу после запятой на 2-й позиции: "warteten die Gäste" и "wurden die Türen geöffnet".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный ответ на вопрос клиента «Wann bekomme ich Bescheid?».
+::source
+Смысл: «Как только заказ прибудет, я сообщу вам».
+::exercise
+Sobald die Bestellung eintrifft, {*gebe ich Ihnen Bescheid|ich gebe Ihnen Bescheid|gebe Ihnen ich Bescheid}.
+
+BACK:
+Как только заказ прибудет, я сообщу вам.
+
+CONTEXT:
+В придаточном сказуемое стоит в конце ("eintrifft"). В главной части сказуемое стоит сразу после запятой ("gebe ich"), вежливая форма "Ihnen" сохраняется. "Bescheid geben" — сообщать/давать знать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение с союзом Solange в начале предложения.
+::source
+Смысл: «Пока занятие продолжается, участники остаются в помещении».
+::exercise
+Solange der Unterricht dauert, {*bleiben die Teilnehmer im Raum|die Teilnehmer bleiben im Raum|bleiben im Raum die Teilnehmer}.
+
+BACK:
+Пока занятие длится, участники остаются в помещении.
+
+CONTEXT:
+В придаточном сказуемое стоит в конце ("dauert"). В главной части сказуемое стоит сразу после запятой перед подлежащим: "bleiben die Teilnehmer".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте пунктуацию и порядок слов в первом предложении делового письма.
+::source
+Неправильно: Sobald ich die Bestätigung bekomme ich schicke Ihnen die Unterlagen.
+::exercise
+Sobald ich die Bestätigung {*bekomme, schicke ich Ihnen die Unterlagen|bekomme ich schicke Ihnen die Unterlagen|bekomme, ich schicke Ihnen die Unterlagen}.
+
+BACK:
+Как только я получу подтверждение, я отправлю вам документы.
+
+CONTEXT:
+Необходимы запятая на границе придаточного после "bekomme" и инверсия в главном предложении: "schicke ich Ihnen".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите пару предложений с безупречным чередованием прямого и обратного порядка.
+::exercise
+{*Bevor ich das Wohnzimmer putze, räume ich den Tisch ab. Ich mache eine Pause, sobald ich mit der Arbeit fertig bin.|Bevor ich putze das Wohnzimmer, ich räume den Tisch ab. Ich mache eine Pause, sobald ich bin mit der Arbeit fertig.}
+
+BACK:
+Перед тем как убирать гостиную, я убираю со стола. Я делаю перерыв, как только заканчиваю работу.
+
+CONTEXT:
+Оба предложения безупречно соблюдают правила: в первом — "putze" в конце придаточного и "räume ich" в главном; во втором — прямой порядок "Ich mache..." и конечное положение "fertig bin".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выполните 7 контрольных пунктов итоговой проверки синтаксиса и порядка слов.
+::exercise
+1) Глагол в конце придаточного: Ich bleibe zu Hause, wenn es {*regnet|regnete}.
+2) Инверсия в главном: Während meine Schwester kocht, {*decke|gedeckt habe} ich den Tisch.
+3) Отделяемый глагол: ..., sobald der Zug {*ankommt|kommt an}.
+4) Модальный глагол в конце: Ich warte, bis du gehen {*kannst|können}.
+5) Plusquamperfekt в придаточном: Nachdem er die Liste geprüft {*hatte|war}, ging er los.
+6) Пунктуация: Bevor die Gäste eintreffen{*|,|} decke ich den Tisch.
+7) Перестановка с Wenn: Wenn es stark regnet, {*gehe ich nicht spazieren|ich gehe nicht spazieren}.
+
+BACK:
+1 regnet · 2 decke · 3 ankommt · 4 kannst · 5 hatte · 6 , · 7 gehe ich nicht spazieren
+
+CONTEXT:
+Итоговый диагностический срез темы: 1 — глагол в конце (VERB_FINAL); 2 — сказуемое после запятой (MAIN_ORDER); 3 — слитность приставки (SEPARABLE_VERB); 4 — модальный глагол в конце (MODAL_FINAL); 5 — вспомогательный глагол в конце (AUX_FINAL); 6 — запятая (PUNCTUATION); 7 — инверсия при сохранении отрицания (TRANSFORM).

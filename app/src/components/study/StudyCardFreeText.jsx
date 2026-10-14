@@ -12,6 +12,7 @@ import './StudyCardFreeText.css';
 export const StudyCardFreeText = React.memo(({
   card, freeTextData, onTrainerAnswer, onNextCard, renderAudioPlayer,
   styles = {}, isPureTrainerMode = false, savedState, onSaveState, reviewKey,
+  assessmentMode = false,
 }) => {
   useInterfaceLocale();
   const currentKey = reviewKey ?? (card?.id != null ? String(card.id) : null);
@@ -33,7 +34,7 @@ export const StudyCardFreeText = React.memo(({
 
   const { result, loading } = state;
   const isCompleted = result?.accepted === true;
-  const isExhausted = Boolean(state?.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries);
+  const isExhausted = Boolean((assessmentMode && state.attemptCount > 0) || (state?.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries));
   const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
   const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
 
@@ -50,13 +51,22 @@ export const StudyCardFreeText = React.memo(({
 
   if (!card || !freeTextData) return null;
   const exampleAnswer = freeTextData.exampleAnswer;
-  const canShowExample = !isCompleted && canRevealFreeTextAnswer(state);
+  const canShowExample = !assessmentMode && !isCompleted && canRevealFreeTextAnswer(state);
   const sameRejectedAnswer = userInput === state.lastAnswer && result?.verdict !== 'unavailable';
 
   const handleSubmit = async event => {
     event.preventDefault();
     const outcome = await submit(userInput);
     if (!outcome) return;
+    if (assessmentMode && outcome.result.verdict !== 'unavailable') {
+      reported.current = true;
+      onTrainerAnswer?.(card.id, { isCorrect: outcome.result.accepted, completed: true, isFirstTry: true,
+        attemptCount: 1, mistakeCount: outcome.result.accepted ? 0 : 1,
+        gradingSummary: { final_verdict: outcome.result.verdict, final_evaluator: outcome.result.evaluator,
+          error_types_seen: outcome.result.error_type ? [outcome.result.error_type] : [],
+          error_codes_seen: outcome.result.error_code ? [outcome.result.error_code] : [] } });
+      return;
+    }
     if (outcome.evidence) {
       if (outcome.evidence.isCorrect) {
         playSuccessSound();
@@ -84,7 +94,7 @@ export const StudyCardFreeText = React.memo(({
         value={userInput}
         onChange={event => setUserInput(event.target.value)}
         placeholder={tr('Напишите ваш ответ здесь...')}
-        disabled={isCompleted || loading}
+        disabled={isCompleted || isExhausted || loading}
         maxLength={4000} rows={3} style={contextStyle}
         aria-describedby={result ? `answer-feedback-${card.id}` : undefined}
       />

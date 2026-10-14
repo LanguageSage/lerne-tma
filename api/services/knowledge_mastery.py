@@ -60,6 +60,16 @@ def explain_knowledge_attempt(evaluation_data):
     evaluation_type = evaluation_data.get('evaluation_type')
     version = evaluation_data.get('schema_version')
     rating = evaluation_data.get('rating')
+    if evaluation_type == 'assessment':
+        if type(version) is not int or version != 3:
+            return None, 'unsupported_schema_version'
+        status = evaluation_data.get('status')
+        if status == 'skipped':
+            return None, 'assessment_skipped'
+        correct = evaluation_data.get('correct')
+        if status not in ('correct', 'incorrect') or type(correct) is not bool or correct != (status == 'correct'):
+            return None, 'invalid_assessment_result'
+        return Evidence(float(correct), 1.0, True, False), None
     if evaluation_type not in ('self_rating', 'hybrid'):
         return None, 'unsupported_evaluation_type'
     if type(version) is not int or version != (1 if evaluation_type == 'self_rating' else 2):

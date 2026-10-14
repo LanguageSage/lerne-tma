@@ -39,7 +39,8 @@ export const ExerciseRenderer = React.memo(({
   onSaveState,
   footerActionTarget,
   fallback = null,
-  reviewKey
+  reviewKey,
+  assessmentMode = false
 }) => {
   const content = useMemo(() => {
     return parseExerciseContent(card?.front || card?.front_text || '');
@@ -84,14 +85,20 @@ export const ExerciseRenderer = React.memo(({
 
   const withInformation = (exercise) => {
     const blocks = content?.blocks || [];
-    const exerciseIndex = blocks.findIndex(b => b.type === 'exercise');
+    const directive = { puzzle: 'puzzle', match: 'match', free_text: 'free', word_bank: 'wordbank' }[detectedType];
+    const exerciseIndex = blocks.findIndex(b => b.type === 'exercise'
+      && (!directive || b.content.split('\n')[0].trim().toLowerCase() === `@${directive}`));
     
     let topBlocks = blocks;
     let bottomBlocks = [];
     
     if (exerciseIndex !== -1) {
-      topBlocks = blocks.slice(0, exerciseIndex);
-      bottomBlocks = blocks.slice(exerciseIndex + 1);
+      // A directive may follow a plain instruction block. Keep that instruction,
+      // but never print authored exercise syntax (including its correct answers)
+      // as an information block beside the interactive renderer. Trainer/Quiz
+      // already consume the combined exercise projection in their own parser.
+      topBlocks = blocks.slice(0, exerciseIndex).filter(b => b.type !== 'exercise' || !detectExerciseType(b.content));
+      bottomBlocks = blocks.slice(exerciseIndex + 1).filter(b => b.type !== 'exercise' || !detectExerciseType(b.content));
     }
 
     return (
@@ -149,6 +156,7 @@ export const ExerciseRenderer = React.memo(({
       if (!freeTextData) return fallback;
       return withInformation(
         <StudyCardFreeText
+          assessmentMode={assessmentMode}
           key={reviewKey || exerciseCard.id}
           reviewKey={reviewKey}
           card={exerciseCard}
@@ -187,6 +195,7 @@ export const ExerciseRenderer = React.memo(({
       if (!clozeData) return fallback;
       return withInformation(
         <StudyCardTrainer
+          assessmentMode={assessmentMode}
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           clozeData={clozeData}

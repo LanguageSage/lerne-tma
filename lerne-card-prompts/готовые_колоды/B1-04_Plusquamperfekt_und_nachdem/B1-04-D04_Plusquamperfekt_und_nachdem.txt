@@ -1,0 +1,1092 @@
+# Deck: B1-04-D04 · Plusquamperfekt und nachdem — первый выбор
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-04-D04 · Plusquamperfekt und nachdem — первый выбор",
+    "level": "B1",
+    "topic": "Plusquamperfekt und nachdem",
+    "description": "Начальная управляемая практика: выбор временной формы, выбор hatte или war, порядок слов с nachdem и различение союзов и наречий времени",
+    "goal": "Перевести знание из первых колод в первое уверенное решение без самостоятельного конструирования длинных форм. Ученик должен видеть время и последовательность, выбирать hatte/war, порядок слов и нужный союз. Ошибка здесь — основание объяснить конкретное решение, а не требовать построения предложения заново.",
+    "learning_outcomes": [
+      "Выбирать Plusquamperfekt для более раннего действия относительно другого названного прошлого события и не путать его с обычным Perfekt в отдельном сообщении о прошлом",
+      "Выбирать правильный вариант hatte/hatten/war/waren для знакомых глаголов",
+      "Выбирать грамматически правильное расположение частей сказуемого в придаточном с nachdem",
+      "Выбирать порядок главного предложения после начального придаточного",
+      "Различать nachdem («после того как»), danach («после этого») и bevor («прежде чем»)",
+      "В коротком тексте находить первое по времени событие, даже если оно не первое в предложении",
+      "Объяснять причину выбора без полного пересказа правил"
+    ],
+    "estimated_time": "30–45 минут",
+    "recommendations": "Ошибки в выборе времени (Perfekt vs Plusquamperfekt) → повторить D02 и карточки 01–09; в выборе hatte/war → карточки 11–19; в порядке слов → карточки 21–29; в союзах nachdem/danach/bevor → карточки 31–40; в смешанных заданиях → карточки 41–49. При успешном освоении перейти к B1-04-D05 «hatte/war + Partizip II»."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "block1_tense_choice",
+        "title": "Блок 1 · Выбери временную форму",
+        "goal": "Научиться выбирать между Perfekt и Plusquamperfekt в зависимости от наличия точки отсчёта в прошлом",
+        "from_card": 1,
+        "to_card": 10,
+        "support": "high",
+        "expected_skill": "Выбирать Plusquamperfekt только при наличии предшествования другому прошлому событию"
+      },
+      {
+        "id": "block2_auxiliary_choice",
+        "title": "Блок 2 · Выбери hatte или war",
+        "goal": "Безошибочно определять вспомогательный глагол (hatte vs war) по аналогии с Perfekt",
+        "from_card": 11,
+        "to_card": 20,
+        "support": "high",
+        "expected_skill": "Выбирать hatte или war с учётом лица, числа и категории глагола (движение/состояние)"
+      },
+      {
+        "id": "block3_word_order_choice",
+        "title": "Блок 3 · Выбери порядок слов с nachdem",
+        "goal": "Выбирать правильный порядок слов в придаточном предложении и инверсию в главном",
+        "from_card": 21,
+        "to_card": 30,
+        "support": "high",
+        "expected_skill": "Выбирать сказуемое в конце придаточного и сразу после запятой в главной части"
+      },
+      {
+        "id": "block4_connectors_choice",
+        "title": "Блок 4 · Выбери союз и последовательность",
+        "goal": "Различать подчинительный союз nachdem, наречие danach и союз противоположного направления bevor",
+        "from_card": 31,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Выбирать подходящую связку и определять первое по времени событие"
+      },
+      {
+        "id": "block5_mixed_choice",
+        "title": "Блок 5 · Смешанный первый выбор",
+        "goal": "Комплексно выбирать форму среди трёх вариантов в разнообразных контекстах",
+        "from_card": 41,
+        "to_card": 50,
+        "support": "medium",
+        "expected_skill": "Уверенно выбирать правильный вариант при сочетании нескольких признаков"
+      }
+    ],
+    "expected_result": "Ученик делает осознанный первый выбор форм времени, вспомогательных глаголов, порядка слов и союзов без случайного угадывания.",
+    "competencies": [
+      {
+        "id": "tense_contrast_choice",
+        "title": "Выбор времени в контексте",
+        "description": "Различение относительного предшествования (Plusquamperfekt) и простого сообщения о прошлом (Perfekt)"
+      },
+      {
+        "id": "auxiliary_selection_skill",
+        "title": "Выбор вспомогательного глагола",
+        "description": "Точный выбор hatte vs war для переходных, непереходных и глаголов изменения состояния"
+      },
+      {
+        "id": "word_order_selection_skill",
+        "title": "Выбор синтаксической структуры",
+        "description": "Контроль глагольной рамки в придаточном и инверсии в главном предложении"
+      },
+      {
+        "id": "connectors_selection_skill",
+        "title": "Выбор союзов и связок",
+        "description": "Точное применение nachdem, danach и bevor в соответствии со структурой предложения"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "accuracy_tense",
+        "title": "Точность выбора времени",
+        "description": "Безошибочный выбор формы при наличии/отсутствии относительного ориентира"
+      },
+      {
+        "id": "accuracy_auxiliary",
+        "title": "Точность выбора hatte/war",
+        "description": "Правильный подбор вспомогательного глагола для конкретного глагола"
+      },
+      {
+        "id": "accuracy_order",
+        "title": "Точность порядка слов",
+        "description": "Выбор верной позиции глагола в главном и придаточном предложениях"
+      },
+      {
+        "id": "accuracy_connector",
+        "title": "Точность выбора союза",
+        "description": "Различение союзов и наречий по синтаксическому признаку"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_tense_contrast",
+        "title": "Повторение выбора времени",
+        "when": "При ошибочном выборе Plusquamperfekt для простых изолированных фактов",
+        "reason": "Повторить карточки 01–10",
+        "competency_ids": ["tense_contrast_choice"]
+      },
+      {
+        "id": "review_auxiliary",
+        "title": "Повторение выбора hatte vs war",
+        "when": "При путанице вспомогательных глаголов",
+        "reason": "Повторить карточки 11–20",
+        "competency_ids": ["auxiliary_selection_skill"]
+      },
+      {
+        "id": "review_order_syntax",
+        "title": "Повторение порядка слов",
+        "when": "При ошибках в позиции глагола после nachdem или после запятой",
+        "reason": "Повторить карточки 21–30",
+        "competency_ids": ["word_order_selection_skill"]
+      },
+      {
+        "id": "review_connectors_trio",
+        "title": "Повторение связок времени",
+        "when": "При смешении nachdem и danach",
+        "reason": "Повторить карточки 31–40",
+        "competency_ids": ["connectors_selection_skill"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящую временную форму.
+::source
+Когда концерт уже начался, репетиция певца была закончена. Вставьте форму, подчёркивающую более раннее действие.
+::exercise
+Als das Konzert begann, ___ der Sänger schon geprobt.
+
+hat
+*hatte
+
+BACK:
+Als das Konzert begann, hatte der Sänger schon geprobt.
+Перевод: «Когда начался концерт, певец уже отрепетировал».
+
+CONTEXT:
+Репетиция состоялась раньше начала концерта; в рассказе о прошлом выбираем hatte + Partizip II (Plusquamperfekt).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящую временную форму.
+::source
+Когда родители вернулись, дети уже посмотрели фильм.
+::exercise
+Als die Eltern zurückkamen, ___ die Kinder den Film schon gesehen.
+
+haben
+*hatten
+
+BACK:
+Als die Eltern zurückkamen, hatten die Kinder den Film schon gesehen.
+Перевод: «Когда родители вернулись, дети уже посмотрели фильм».
+
+CONTEXT:
+Просмотр фильма завершился до возвращения родителей. Для множественного числа выбираем форму hatten.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящую временную форму.
+::source
+К началу занятий Лара уже отправила заявку.
+::exercise
+Als der Kurs begann, ___ Lara ihre Anmeldung bereits abgeschickt.
+
+*hatte
+hat
+
+BACK:
+Als der Kurs begann, hatte Lara ihre Anmeldung bereits abgeschickt.
+Перевод: «Когда курс начался, Лара уже отправила заявку».
+
+CONTEXT:
+Отправка заявки произошла до начала курса, поэтому используется предпрошедшее время: hatte abgeschickt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящую временную форму.
+::source
+Простое сообщение о вчерашнем событии без другой прошлой точки отсчёта.
+::exercise
+Gestern ___ ich an einem Fotowettbewerb teilgenommen.
+
+hatte
+*habe
+
+BACK:
+Gestern habe ich an einem Fotowettbewerb teilgenommen.
+Перевод: «Вчера я участвовал в фотоконкурсе».
+
+CONTEXT:
+Для обычного сообщения о факте в прошлом используется Perfekt (habe teilgenommen). Само слово gestern не требует Plusquamperfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящую временную форму.
+::source
+Когда праздник начался, сцена уже была построена.
+::exercise
+Als das Fest begann, ___ wir die Bühne schon aufgebaut.
+
+*hatten
+haben
+
+BACK:
+Als das Fest begann, hatten wir die Bühne schon aufgebaut.
+Перевод: «Когда начался праздник, мы уже установили сцену».
+
+CONTEXT:
+Установка сцены завершилась до момента начала праздника: hatten aufgebaut.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящую временную форму.
+::source
+Отдельное сообщение о прошлой неделе без упоминания второго события.
+::exercise
+Letzte Woche ___ er an einem Workshop teilgenommen.
+
+hatte
+*hat
+
+BACK:
+Letzte Woche hat er an einem Workshop teilgenommen.
+Перевод: «На прошлой неделе он участвовал в мастер-классе».
+
+CONTEXT:
+Для изолированного сообщения о событии в прошлом естественен Perfekt: hat teilgenommen. Plusquamperfekt требует точки отсчёта в прошлом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящую временную форму.
+::source
+Когда заседание началось, команда уже сравнила цифры.
+::exercise
+Als die Sitzung anfing, ___ unser Team die Zahlen schon verglichen.
+
+hat
+*hatte
+
+BACK:
+Als die Sitzung anfing, hatte unser Team die Zahlen schon verglichen.
+Перевод: «Когда началось заседание, наша команда уже сравнила показатели».
+
+CONTEXT:
+Сравнение показателей произошло до начала заседания: hatte verglichen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящую временную форму.
+::source
+Простое сообщение о покупке три дня назад без второго события в прошлом.
+::exercise
+Vor drei Tagen ___ sie neue Turnschuhe gekauft.
+
+*hat
+hatte
+
+BACK:
+Vor drei Tagen hat sie neue Turnschuhe gekauft.
+Перевод: «Три дня назад она купила новые кроссовки».
+
+CONTEXT:
+Самостоятельное указание времени vor drei Tagen не требует Plusquamperfekt: здесь используется стандартный разговорный Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящую временную форму.
+::source
+Когда камера перестала работать, фотограф уже сделал несколько снимков.
+::exercise
+Als die Kamera ausfiel, ___ der Fotograf schon mehrere Bilder gemacht.
+
+hat
+*hatte
+
+BACK:
+Als die Kamera ausfiel, hatte der Fotograf schon mehrere Bilder gemacht.
+Перевод: «Когда камера вышла из строя, фотограф уже сделал несколько снимков».
+
+CONTEXT:
+Снимки были сделаны до момента поломки камеры: hatte gemacht.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните ключевое различие Perfekt и Plusquamperfekt.
+::source
+gestern vs. als der Vortrag begann
+::exercise
+Почему слово «вчера» само по себе не требует Plusquamperfekt?
+
+BACK:
+Изолированное вчерашнее действие передаётся через Perfekt: Gestern habe ich gearbeitet. Plusquamperfekt требуется только тогда, когда действие произошло раньше другого названного момента в прошлом: Als der Vortrag begann, hatte ich meine Notizen vorbereitet.
+
+CONTEXT:
+Выбор времени зависит от логики рассказа («было ли действие раньше другого прошлого момента»), а не от давности календарной даты.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вспомогательный глагол.
+::source
+К прибытию нашей группы музыканты уже уехали.
+::exercise
+Als wir ankamen, ___ die Musiker schon weggefahren.
+
+hatten
+*waren
+
+BACK:
+Als wir ankamen, waren die Musiker schon weggefahren.
+Перевод: «Когда мы приехали, музыканты уже уехали».
+
+CONTEXT:
+wegfahren обозначает перемещение и образует Perfekt с sein: sind weggefahren → waren weggefahren.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вспомогательный глагол.
+::source
+До появления зрителей техник проверил микрофоны.
+::exercise
+Bevor das Publikum kam, ___ der Techniker die Mikrofone getestet.
+
+war
+*hatte
+
+BACK:
+Bevor das Publikum kam, hatte der Techniker die Mikrofone getestet.
+Перевод: «До того как пришла публика, техник проверил микрофоны».
+
+CONTEXT:
+testen образует Perfekt с haben: hat getestet → hatte getestet.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вспомогательный глагол.
+::source
+Когда началась лекция, я уже заснул.
+::exercise
+Als die Vorlesung begann, ___ ich bereits eingeschlafen.
+
+hatte
+*war
+
+BACK:
+Als die Vorlesung begann, war ich bereits eingeschlafen.
+Перевод: «Когда началась лекция, я уже заснул».
+
+CONTEXT:
+einschlafen обозначает переход в другое состояние и спрягается с sein: bin eingeschlafen → war eingeschlafen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вспомогательный глагол.
+::source
+Когда я вошёл во двор, собака уже убежала.
+::exercise
+Als ich den Hof betrat, ___ der Hund schon weggelaufen.
+
+*war
+hatte
+
+BACK:
+Als ich den Hof betrat, war der Hund schon weggelaufen.
+Перевод: «Когда я вошёл во двор, собака уже убежала».
+
+CONTEXT:
+weglaufen обозначает перемещение и спрягается с sein: ist weggelaufen → war weggelaufen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вспомогательный глагол.
+::source
+К открытию выставки художница уже вставила картины в рамы.
+::exercise
+Vor der Ausstellung ___ die Künstlerin ihre Bilder eingerahmt.
+
+war
+*hatte
+
+BACK:
+Vor der Ausstellung hatte die Künstlerin ihre Bilder eingerahmt.
+Перевод: «До выставки художница вставила свои картины в рамы».
+
+CONTEXT:
+einrahmen — переходное действие с прямым дополнением: hat eingerahmt → hatte eingerahmt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вспомогательный глагол.
+::source
+До приезда скорой пострадавший уже очнулся.
+::exercise
+Bevor der Rettungswagen kam, ___ der Verletzte wieder aufgewacht.
+
+hatte
+*war
+
+BACK:
+Bevor der Rettungswagen kam, war der Verletzte wieder aufgewacht.
+Перевод: «До приезда скорой пострадавший уже пришёл в сознание».
+
+CONTEXT:
+aufwachen обозначает изменение состояния и требует sein: ist aufgewacht → war aufgewacht.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вспомогательный глагол.
+::source
+До начала соревнования участники получили стартовые номера.
+::exercise
+Als der Wettbewerb begann, ___ die Teilnehmer ihre Startnummern schon erhalten.
+
+*hatten
+waren
+
+BACK:
+Als der Wettbewerb begann, hatten die Teilnehmer ihre Startnummern schon erhalten.
+Перевод: «Когда соревнование началось, участники уже получили стартовые номера».
+
+CONTEXT:
+erhalten образует Perfekt с haben: haben erhalten → hatten erhalten.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вспомогательный глагол.
+::source
+К нашей встрече Мия уже вернулась из Испании.
+::exercise
+Als wir uns trafen, ___ Mia aus Spanien zurückgekehrt.
+
+hatte
+*war
+
+BACK:
+Als wir uns trafen, war Mia aus Spanien zurückgekehrt.
+Перевод: «Когда мы встретились, Мия уже вернулась из Испании».
+
+CONTEXT:
+zurückkehren («возвращаться») обозначает перемещение и спрягается с sein: ist zurückgekehrt → war zurückgekehrt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вспомогательный глагол.
+::source
+К моменту звонка руководительница уже приняла решение.
+::exercise
+Als ich den Anruf bekam, ___ die Chefin die Entscheidung bereits getroffen.
+
+war
+*hatte
+
+BACK:
+Als ich den Anruf bekam, hatte die Chefin die Entscheidung bereits getroffen.
+Перевод: «Когда мне позвонили, руководительница уже приняла решение».
+
+CONTEXT:
+eine Entscheidung treffen образует Perfekt с haben: hat getroffen → hatte getroffen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните правило выбора вспомогательного глагола.
+::source
+hat repariert → hatte repariert / ist angekommen → war angekommen
+::exercise
+Как безошибочно выбрать между hatte и war в Plusquamperfekt?
+
+BACK:
+Вспомните, с каким глаголом это действие образует Perfekt: если с haben (hat gemacht), то в Plusquamperfekt будет hatte; если с sein (ist gekommen), то war. Само причастие Partizip II остаётся неизменным.
+
+CONTEXT:
+Plusquamperfekt полностью сохраняет «дорожки» haben/sein из базового Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов в главной части.
+::source
+Придаточное предложение стоит на первом месте.
+::exercise
+Nachdem die Kinder gespielt hatten, ...
+
+*räumten sie auf.
+sie räumten auf.
+
+BACK:
+Nachdem die Kinder gespielt hatten, räumten sie auf.
+Перевод: «После того как дети поиграли, они прибрались».
+
+CONTEXT:
+Начальное придаточное занимает позицию 1, поэтому сказуемое главного предложения обязано стоять на позиции 2 сразу после запятой: räumten sie.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов после придаточного.
+::source
+Сложноподчинённое предложение с nachdem.
+::exercise
+Nachdem Paul die Reifen gewechselt hatte, ...
+
+er machte eine Probefahrt.
+*machte er eine Probefahrt.
+
+BACK:
+Nachdem Paul die Reifen gewechselt hatte, machte er eine Probefahrt.
+Перевод: «После того как Пауль заменил шины, он совершил пробную поездку».
+
+CONTEXT:
+Правило V2: после целого вводного придаточного сказуемое главного предложения (machte) стоит на втором месте, перед подлежащим (er).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильное расположение глагола в придаточном.
+::source
+Придаточное предложение с союзом nachdem стоит после главного.
+::exercise
+Какое предложение построено грамматически верно?
+
+*Die Führung begann, nachdem die Besucher den Weg gefunden hatten.
+Die Führung begann, nachdem hatten die Besucher den Weg gefunden.
+
+BACK:
+Die Führung begann, nachdem die Besucher den Weg gefunden hatten.
+Перевод: «Экскурсия началась после того, как посетители нашли дорогу».
+
+CONTEXT:
+В придаточном предложении с nachdem спрягаемый вспомогательный глагол hatten замыкает предложение после Partizip II.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите порядок слов в главном предложении.
+::source
+Главная часть следует за придаточным с nachdem.
+::exercise
+Nachdem die Band ihren Auftritt beendet hatte, ...
+
+das Publikum applaudierte.
+*applaudierte das Publikum.
+
+BACK:
+Nachdem die Band ihren Auftritt beendet hatte, applaudierte das Publikum.
+Перевод: «После того как группа закончила выступление, публика зааплодировала».
+
+CONTEXT:
+После начального придаточного сказуемое главной части (applaudierte) ставится сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов после запятой.
+::source
+Придаточное предложение занимает первую позицию.
+::exercise
+Nachdem Lea die Blumen geschnitten hatte, ...
+
+*stellte sie den Strauß in eine Vase.
+sie stellte den Strauß in eine Vase.
+
+BACK:
+Nachdem Lea die Blumen geschnitten hatte, stellte sie den Strauß in eine Vase.
+Перевод: «После того как Леа срезала цветы, она поставила букет в вазу».
+
+CONTEXT:
+Инверсия в главном предложении: сказуемое stellte стоит на 2-й позиции, подлежащее sie — сразу за ним.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный конец придаточного предложения.
+::source
+Сказуемое в придаточном с nachdem.
+::exercise
+Nachdem wir das Schild ___, fanden wir den Eingang.
+
+*gelesen hatten
+hatten gelesen
+
+BACK:
+Nachdem wir das Schild gelesen hatten, fanden wir den Eingang.
+Перевод: «После того как мы прочитали табличку, мы нашли вход».
+
+CONTEXT:
+В придаточном предложении спрягаемый глагол hatten ставится в абсолютный конец, после причастия gelesen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически верное присоединение придаточного с nachdem.
+::source
+Придаточное предложение с возвратным глаголом sich aufstellen.
+::exercise
+Der Trainer pfiff, nachdem ...
+
+die Spieler hatten sich aufgestellt.
+*sich die Spieler aufgestellt hatten.
+
+BACK:
+Der Trainer pfiff, nachdem sich die Spieler aufgestellt hatten.
+Перевод: «Тренер дал свисток после того, как игроки построились».
+
+CONTEXT:
+В придаточном предложении спрягаемый вспомогательный глагол hatten завершает фразу после Partizip II aufgestellt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильное окончание придаточной части.
+::source
+Сказуемое глагола vorbeiziehen (спрягается с sein).
+::exercise
+Nachdem der Sturm ___, gingen wir wieder hinaus.
+
+*vorbeigezogen war
+war vorbeigezogen
+
+BACK:
+Nachdem der Sturm vorbeigezogen war, gingen wir wieder hinaus.
+Перевод: «После того как буря прошла, мы снова вышли на улицу».
+
+CONTEXT:
+В придаточном предложении вспомогательный глагол war занимает самое последнее место после причастия vorbeigezogen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильное начало главной части.
+::source
+После придаточного предложения онлайн-отчёта.
+::exercise
+Nachdem der Bericht online gegangen war, ...
+
+die Redaktion bekam viele Rückmeldungen.
+*bekam die Redaktion viele Rückmeldungen.
+
+BACK:
+Nachdem der Bericht online gegangen war, bekam die Redaktion viele Rückmeldungen.
+Перевод: «После публикации отчёта в интернете редакция получила много откликов».
+
+CONTEXT:
+После начальной придаточной части сказуемое bekam занимает позицию 2 главного предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните формулу расположения глаголов в предложении с nachdem.
+::source
+Nachdem sie gewonnen hatte, feierte sie.
+::exercise
+Как располагаются глаголы в придаточном с nachdem и главном предложении?
+
+BACK:
+Внутри придаточного с nachdem спрягаемый глагол стоит в самом конце (gewonnen hatte). В главном предложении после начального придаточного сказуемое стоит сразу после запятой на позиции 2 (feierte sie).
+
+CONTEXT:
+Схема: [Nachdem ... Partizip II + hatte/war], [глагол главной части] [подлежащее]...
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящий союз по смыслу.
+::source
+Сначала мастер-класс закончился, затем участники обменялись адресами.
+::exercise
+___ der Workshop zu Ende gegangen war, tauschten die Teilnehmer Adressen aus.
+
+Bevor
+*Nachdem
+
+BACK:
+Nachdem der Workshop zu Ende gegangen war, tauschten die Teilnehmer Adressen aus.
+Перевод: «После того как мастер-класс закончился, участники обменялись адресами».
+
+CONTEXT:
+Событие в придаточном произошло раньше события в главном предложении; союз «после того как» — Nachdem.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите слово для связи двух независимых предложений.
+::source
+Два самостоятельных главных предложения со значением «после этого».
+::exercise
+Wir holten die Fahrräder ab. ___ fuhren wir zum See.
+
+*Danach
+Nachdem
+
+BACK:
+Wir holten die Fahrräder ab. Danach fuhren wir zum See.
+Перевод: «Мы забрали велосипеды. После этого поехали к озеру».
+
+CONTEXT:
+Danach — наречие, открывающее самостоятельное главное предложение. Союз nachdem требует придаточной структуры с глаголом в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящий союз по смыслу.
+::source
+Тим сначала поставил рюкзак, а затем снял обувь.
+::exercise
+___ Tim seinen Rucksack abgestellt hatte, zog er die Schuhe aus.
+
+Bevor
+*Nachdem
+
+BACK:
+Nachdem Tim seinen Rucksack abgestellt hatte, zog er die Schuhe aus.
+Перевод: «После того как Тим поставил рюкзак, он снял обувь».
+
+CONTEXT:
+Действие abgestellt hatte произошло раньше, поэтому выбираем союз предшествования Nachdem («после того как»).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящий союз времени.
+::source
+Гости сначала закончили экскурсию, потом зашли в кафе.
+::exercise
+___ die Gäste die Führung beendet hatten, besuchten sie das Café.
+
+*Nachdem
+Bevor
+
+BACK:
+Nachdem die Gäste die Führung beendet hatten, besuchten sie das Café.
+Перевод: «После того как гости закончили экскурсию, они посетили кафе».
+
+CONTEXT:
+Окончание экскурсии предшествовало посещению кафе: Nachdem («после того как»).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите слово со значением «после этого» в начале предложения.
+::source
+Два последовательных главных предложения.
+::exercise
+Zuerst kauften wir die Eintrittskarten. ___ gingen wir zum Eingang.
+
+Nachdem
+*Danach
+
+BACK:
+Zuerst kauften wir die Eintrittskarten. Danach gingen wir zum Eingang.
+Перевод: «Сначала мы купили входные билеты. После этого пошли ко входу».
+
+CONTEXT:
+Danach — наречие со значением «после этого», за которым сразу следует глагол (gingen wir) в главном предложении.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз, выражающий последующее действие.
+::source
+Врач сначала объяснил ход процедуры, а затем начал обследование.
+::exercise
+___ der Arzt die Untersuchung begann, erklärte er den Ablauf.
+
+Nachdem
+*Bevor
+
+BACK:
+Bevor der Arzt die Untersuchung begann, erklärte er den Ablauf.
+Перевод: «Прежде чем врач начал обследование, он объяснил ход процедуры».
+
+CONTEXT:
+Придаточное предложение описывает действие, которое произошло позже (начало обследования): Bevor = «прежде чем».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный союз времени.
+::source
+Сначала завершился поход, затем участники сделали групповое фото.
+::exercise
+___ wir die Wanderung beendet hatten, machten wir ein Gruppenfoto.
+
+*Nachdem
+Bevor
+
+BACK:
+Nachdem wir die Wanderung beendet hatten, machten wir ein Gruppenfoto.
+Перевод: «После того как мы закончили поход, мы сделали групповую фотографию».
+
+CONTEXT:
+Окончание похода (Wanderung beendet hatten) — более раннее действие, вводимое союзом Nachdem.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите слово для связи в отдельном предложении.
+::source
+Второе предложение является самостоятельным главным предложением.
+::exercise
+Anna meldete sich beim Verein an. ___ bekam sie eine Bestätigung.
+
+*Danach
+Nachdem
+
+BACK:
+Anna meldete sich beim Verein an. Danach bekam sie eine Bestätigung.
+Перевод: «Анна записалась в объединение. После этого она получила подтверждение».
+
+CONTEXT:
+Danach («после этого») начинает новое главное предложение со сказуемым bekam на позиции 2.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, какое действие произошло первым по времени.
+::source
+Nachdem die Nachbarn die Bank gestrichen hatten, setzten sie sich in den Garten.
+::exercise
+Что соседи сделали сначала?
+
+*Соседи покрасили скамейку.
+Соседи сели в саду.
+
+BACK:
+Соседи покрасили скамейку.
+Перевод: «После того как соседи покрасили скамейку, они сели в саду».
+
+CONTEXT:
+Придаточная часть с nachdem и Plusquamperfekt (gestrichen hatten) указывает на первое по времени действие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните три связующих слова по значению и синтаксису.
+::source
+nachdem vs danach vs bevor
+::exercise
+Как различаются эти три слова по структуре предложений?
+
+BACK:
+Nachdem («после того как») вводит придаточное предложение о предшествующем действии (глагол в конце). Bevor («прежде чем») вводит придаточное предложение о последующем действии. Danach («после этого») — наречие, начинающее главное предложение (глагол на позиции 2).
+
+CONTEXT:
+Не путайте подчинительные союзы (nachdem, bevor) с наречием главной части (danach).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите верную форму вспомогательного глагола.
+::source
+К началу голосования председательница уже собрала все предложения.
+::exercise
+Als die Abstimmung begann, ___ die Vorsitzende alle Vorschläge schon gesammelt.
+
+hat
+*hatte
+war
+
+BACK:
+Als die Abstimmung begann, hatte die Vorsitzende alle Vorschläge schon gesammelt.
+Перевод: «Когда голосование началось, председательница уже собрала все предложения».
+
+CONTEXT:
+Сбор предложений предшествовал голосованию (Plusquamperfekt); глагол sammeln спрягается с haben (hatte gesammelt).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму вспомогательного глагола в придаточном.
+::source
+После расстановки стульев мероприятие началось.
+::exercise
+Nachdem die Helfer die Stühle aufgestellt ___, begann die Veranstaltung.
+
+waren
+haben
+*hatten
+
+BACK:
+Nachdem die Helfer die Stühle aufgestellt hatten, begann die Veranstaltung.
+Перевод: «После того как помощники расставили стулья, мероприятие началось».
+
+CONTEXT:
+aufstellen образует Perfekt с haben: hat aufgestellt → hatten aufgestellt. В придаточном с nachdem форма hatten стоит в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму вспомогательного глагола.
+::source
+К моменту прибытия лодок солнце уже зашло.
+::exercise
+Als die Boote am Ufer ankamen, ___ die Sonne schon untergegangen.
+
+*war
+hatte
+ist
+
+BACK:
+Als die Boote am Ufer ankamen, war die Sonne schon untergegangen.
+Перевод: «Когда лодки прибыли к берегу, солнце уже зашло».
+
+CONTEXT:
+untergehen (о солнце) выражает изменение состояния и спрягается с sein: ist untergegangen → war untergegangen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически верное продолжение предложения.
+::source
+После прочтения текста ученица ответила на вопросы.
+::exercise
+Nachdem die Schülerin den Text gelesen hatte, ...
+
+*beantwortete sie die Fragen.
+sie beantwortete die Fragen.
+beantworteten sie die Fragen.
+
+BACK:
+Nachdem die Schülerin den Text gelesen hatte, beantwortete sie die Fragen.
+Перевод: «После того как ученица прочитала текст, она ответила на вопросы».
+
+CONTEXT:
+После начального придаточного сказуемое главной части стоит сразу после запятой в единственном числе: beantwortete sie.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильную форму прошедшего времени.
+::source
+Изолированный рассказ о прошлом лете без второго прошлого ориентира.
+::exercise
+Letzten Sommer ___ ich bei einem Theaterprojekt mitgemacht.
+
+hatte
+*habe
+war
+
+BACK:
+Letzten Sommer habe ich bei einem Theaterprojekt mitgemacht.
+Перевод: «Прошлым летом я участвовал в театральном проекте».
+
+CONTEXT:
+Сообщение об отдельном событии в прошлом передаётся через Perfekt (habe mitgemacht); mitmachen спрягается с haben.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму вспомогательного глагола.
+::source
+До начала дискуссии обе стороны подготовили свои аргументы.
+::exercise
+Vor Beginn der Debatte ___ beide Seiten ihre Argumente vorbereitet.
+
+waren
+haben
+*hatten
+
+BACK:
+Vor Beginn der Debatte hatten beide Seiten ihre Argumente vorbereitet.
+Перевод: «Перед началом дискуссии обе стороны уже подготовили свои аргументы».
+
+CONTEXT:
+Подготовка аргументов предшествовала началу дискуссии; vorbereiten спрягается с haben: hatten vorbereitet (множественное число).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящий союз времени.
+::source
+Сотрудница закрыла библиотеку и поехала домой.
+::exercise
+___ die Mitarbeiterin die Bibliothek geschlossen hatte, fuhr sie nach Hause.
+
+Danach
+Bevor
+*Nachdem
+
+BACK:
+Nachdem die Mitarbeiterin die Bibliothek geschlossen hatte, fuhr sie nach Hause.
+Перевод: «После того как сотрудница закрыла библиотеку, она поехала домой».
+
+CONTEXT:
+Для связи придаточного предложения со значением «после того как» используется подчинительный союз Nachdem.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите форму вспомогательного глагола.
+::source
+Когда паром отплыл, все пассажиры уже поднялись на борт.
+::exercise
+Als die Fähre ablegte, ___ alle Passagiere eingestiegen.
+
+sind
+*waren
+hatten
+
+BACK:
+Als die Fähre ablegte, waren alle Passagiere eingestiegen.
+Перевод: «Когда паром отплыл, все пассажиры уже сели на борт».
+
+CONTEXT:
+einsteigen («садиться в транспорт») выражает перемещение и спрягается с sein: sind eingestiegen → waren eingestiegen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящее связующее слово.
+::source
+Сначала спортсмены размялись, затем началась тренировка.
+::exercise
+___ sich die Sportler aufgewärmt hatten, begann das Training.
+
+Danach
+Bevor
+*Nachdem
+
+BACK:
+Nachdem sich die Sportler aufgewärmt hatten, begann das Training.
+Перевод: «После того как спортсмены размялись, началась тренировка».
+
+CONTEXT:
+Разминка предшествовала тренировке, фраза является придаточным предложением: союз Nachdem («после того как»).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Подведите итог первого управляемого выбора.
+::source
+Самопроверка перед переходом к самостоятельному вводу форм.
+::exercise
+Какие ключевые ориентиры выбора были отработаны в этой колоде?
+
+BACK:
+1. Выбор времени: Plusquamperfekt только при предшествовании другому прошлому моменту, иначе — Perfekt.
+2. Вспомогательный глагол: выбор hatte vs war строго по дорожке Perfekt.
+3. Порядок слов: hatte/war в конце придаточного с nachdem; сказуемое сразу после запятой в главном.
+4. Связки: nachdem (союз «после того как»), danach (наречие «после этого»), bevor (союз «прежде чем»).
+
+CONTEXT:
+В следующей колоде (D05) начнётся практика самостоятельного ввода форм hatte/war + Partizip II.

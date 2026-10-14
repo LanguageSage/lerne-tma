@@ -69,3 +69,9 @@ rg -n 'load_answer_context|evaluate_answer|evaluate_deterministic' api/services/
 - [Cards](cards.md), [Study](study.md), [Knowledge](knowledge.md), [Media](media.md).
 - [Backend skill](../skills/fastapi-backend/SKILL.md), [Verification skill](../skills/ai-harness-eval/SKILL.md).
 - [Admin architecture](../ADMIN_ARCHITECTURE.md) — отдельные workers регенерации и bulk creator.
+
+## Контекст оценки заданий с источником
+
+`load_answer_context` сохраняет в task все авторские `::task` и `::source` (Python parser называет source полем context), затем очищенный `@free` prompt. В диалоге реальная реплика часто находится только в source; оценивать один общий prompt недостаточно. BACK/accepted_answers/policy и проверка permissions остаются серверными. Regression на настоящей карточке 349555: `tests/test_answer_evaluation.py`.
+
+В task оценки также передаётся авторский card.context с критериями; это сохраняет смысл после перехода длинных ответов на @free. aiCardResult сохраняет существующий ручной перевод, заполняя только пустой. Assessment подавляет reveal и фиксирует первый объективный verdict; unavailable не считается попыткой.

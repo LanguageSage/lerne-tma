@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { tr } from '../i18n/locale';
 import api from '../services/api';
-import { getUserProfile, saveUserProfile, saveAuthSession, clearAuthSession, getUserId, storage } from '../utils/auth';
+import { getAccessToken, getUserProfile, saveUserProfile, saveAuthSession, clearAuthSession, getUserId, storage } from '../utils/auth';
 import { closeLocalDb, resetAllDatabases } from '../services/localDb';
 import { openExternalLink, prepareExternalLink } from '../utils/platform';
 import { useUiStore } from './useUiStore';
@@ -11,6 +11,8 @@ const PENDING_KEY = 'lerne_auth_v2_pending';
 let pollTimer = null;
 let listenersReady = false;
 let exchangeInFlight = false;
+let restoration = null;
+let authGeneration = 0;
 const stopPolling = () => {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = null;
@@ -38,6 +40,8 @@ const authMessage = (error, fallback) => {
 
 export const useAuthStore = create((set, get) => ({
   userProfile: getUserProfile(),
+  isRestoring: true,
+  sessionRevision: 0,
   isPolling: false,
   isVerifyingCode: false,
   pendingGuestId: null,
@@ -51,6 +55,24 @@ export const useAuthStore = create((set, get) => ({
   // URL opened for the current pending challenge; shown as a fallback link
   // in AuthRequiredModal when the browser blocked the automatic popup.
   authUrl: null,
+
+  restoreSession: () => {
+    if (restoration) return restoration;
+    set({ isRestoring: true });
+    restoration = (async () => {
+      try {
+        if (getAccessToken()) {
+          const response = await api.get('/auth/v2/me');
+          if (response.config?.headers?.Authorization && response.config.headers.Authorization !== `Bearer ${getAccessToken()}`) return;
+          get().setUserProfile(response.data);
+        } else if (window.Telegram?.WebApp?.initData && storage.get('lerne_force_guest') !== 'true') {
+          await get().startProvider('telegram');
+        }
+      } catch { /* Shared API handles invalid sessions; transient failures may retry. */ }
+      finally { set({ isRestoring: false }); }
+    })().finally(() => { restoration = null; });
+    return restoration;
+  },
 
   refreshAuthMethods: async () => {
     try {
@@ -77,9 +99,11 @@ export const useAuthStore = create((set, get) => ({
   },
 
   finishLogin: async (tokens, { recovery = false, suggestTelegram = false } = {}) => {
+    const generation = ++authGeneration;
     const prevUserId = getUserId();
     saveAuthSession(tokens);
     const response = await api.get('/auth/v2/me');
+    if (generation !== authGeneration) return null;
     const profile = response.data;
     if (prevUserId && String(prevUserId) !== String(profile.user_id)) {
       useDeckStore.getState().resetDeckStore?.();
@@ -92,8 +116,9 @@ export const useAuthStore = create((set, get) => ({
     clearPending();
     stopPolling();
     const methods = await get().refreshAuthMethods();
+    if (generation !== authGeneration) return null;
     const prompt = suggestTelegram && methods && !methods.includes('telegram');
-    set({ isPolling: false, authModalOpen: Boolean(prompt), showTelegramPrompt: Boolean(prompt), authError: null, authUrl: null });
+    set(state => ({ sessionRevision: state.sessionRevision + 1, isPolling: false, authModalOpen: Boolean(prompt), showTelegramPrompt: Boolean(prompt), authError: null, authUrl: null }));
     useUiStore.getState().setIsAuthModalOpen(Boolean(prompt));
     if (recovery) useUiStore.getState().openSettings('profile');
     useUiStore.getState().showToast(tr('Вход выполнен. Ваши колоды и прогресс доступны.'), 'success');
@@ -107,6 +132,7 @@ export const useAuthStore = create((set, get) => ({
   startProvider: async (provider, purpose = 'login', recovery = false) => {
     if (get().isStarting || get().isPolling) return { success: false };
     set({ isStarting: true, authError: null });
+    const generation = authGeneration;
     // Preserve the click's user activation before the challenge request.
     const preparedWindow = provider === 'telegram' || provider === 'google'
       ? prepareExternalLink()
@@ -115,10 +141,12 @@ export const useAuthStore = create((set, get) => ({
       const miniAppData = window.Telegram?.WebApp?.initData;
       if (provider === 'telegram' && purpose === 'login' && miniAppData && !recovery) {
         const response = await api.post('/auth/v2/telegram/mini-app', { init_data: miniAppData, purpose });
-        await get().finishLogin(response.data);
-        return { success: true };
+        if (generation !== authGeneration) return { success: false };
+        const profile = await get().finishLogin(response.data);
+        return { success: Boolean(profile) };
       }
       const response = await api.post('/auth/v2/challenges', { provider, purpose });
+      if (generation !== authGeneration) { preparedWindow?.close?.(); return { success: false }; }
       const authUrl = response.data.authorization_url;
       const pending = { id: response.data.challenge_id, secret: response.data.secret, provider, purpose,
         expiresAt: response.data.expires_at, recovery };
@@ -152,11 +180,13 @@ export const useAuthStore = create((set, get) => ({
   },
 
   loginWithEmailPassword: async (email, password, register = false) => {
+    const generation = authGeneration;
     try {
       const path = register ? '/auth/v2/email-password/register' : '/auth/v2/email-password/login';
       const response = await api.post(path, { email, password });
-      await get().finishLogin(response.data, { suggestTelegram: register });
-      return { success: true };
+      if (generation !== authGeneration) return { success: false };
+      const profile = await get().finishLogin(response.data, { suggestTelegram: register });
+      return { success: Boolean(profile) };
     } catch (error) {
       const message = authMessage(error, tr('Не удалось выполнить вход по email.'));
       set({ authError: message });
@@ -230,6 +260,7 @@ export const useAuthStore = create((set, get) => ({
   // Kept as a clear UI response for obsolete controls in older cached bundles.
   loginWithCode: async () => ({ success: false, error: tr('Вход по коду больше не поддерживается.') }),
   logout: () => {
+    authGeneration++;
     const currentUserId = getUserId();
     useDeckStore.getState().resetDeckStore?.();
     if (currentUserId) {
@@ -237,6 +268,7 @@ export const useAuthStore = create((set, get) => ({
     }
     resetAllDatabases();
     clearAuthSession();
+    storage.set('lerne_force_guest', 'true');
     clearPending();
     stopPolling();
     set({ userProfile: null, isPolling: false, authMethods: null, passwordSettings: null, showTelegramPrompt: false, authUrl: null });
@@ -254,5 +286,18 @@ export const useAuthStore = create((set, get) => ({
     };
     document.addEventListener('visibilitychange', resume);
     window.addEventListener('focus', resume);
+    window.addEventListener('storage', event => {
+      if (event.key !== 'lerne_auth_v2_session' && event.key !== 'lerne_user_profile' && event.key !== null) return;
+      const previous = get().userProfile?.user_id;
+      const profile = getAccessToken() ? getUserProfile() : null;
+      if (event.key === 'lerne_auth_v2_session' && previous === profile?.user_id) return;
+      if (previous !== profile?.user_id) {
+        authGeneration++;
+        useDeckStore.getState().resetDeckStore?.();
+        if (previous) closeLocalDb(previous);
+      }
+      set(state => ({ userProfile: profile, sessionRevision: state.sessionRevision + 1 }));
+      useUiStore.setState({ userProfile: profile });
+    });
   },
 }));

@@ -1,8 +1,12 @@
 """German fixtures plus language-neutral contracts; no DB/network/paid AI calls."""
 import asyncio
 import json
+import os
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+# Legacy api.models bootstraps local schemas on import, before fixtures bind.
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
 
 from pydantic import ValidationError
 
@@ -396,6 +400,21 @@ class ServerContextTests(unittest.TestCase):
         self.assertEqual(ctx['feedback_language'], 'uk')
         self.assertNotIn('@free', ctx['task'])
         self.assertEqual(policy.max_retries, 2)
+
+    def test_real_relative_clause_dialogue_keeps_task_and_source_for_grading(self):
+        from pathlib import Path
+        snapshot = json.loads((Path(__file__).resolve().parents[1] /
+            'reports/lesson-qa/relativsaetze.snapshot.json').read_text(encoding='utf-8'))
+        real = next(c for c in snapshot['cards'] if c['id'] == 349555)
+        self.card.front_text = real['front_text']
+        self.card.back_text = real['back_text']
+        self.card.save()
+        ctx, _ = self.load()
+        self.assertIn('Welchen Deutschkurs suchst du?', ctx['task'])
+        self.assertIn('Reagieren Sie in einem Gespräch.', ctx['task'])
+        self.assertIn('Ответьте, используя Relativsatz.', ctx['task'])
+        self.assertNotIn('@free', ctx['task'])
+        self.assertEqual(ctx['expected_answers'][0], real['back_text'])
 
     def test_denies_other_user_but_allows_collaborative_viewer(self):
         from fastapi import HTTPException

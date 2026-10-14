@@ -1,0 +1,956 @@
+# Deck: B1-01-D04 · Wortstellung im Satz — первый выбор
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-01-D04 · Wortstellung im Satz — первый выбор",
+    "level": "B1",
+    "topic": "Wortstellung im Satz",
+    "description": "Практический выбор правильного порядка слов в немецком предложении: V2, инверсия, глагольная рамка и союзы",
+    "goal": "Сделать переход от распознавания готовых конструкций к осмысленному выбору правильного порядка слов среди правдоподобных альтернатив.",
+    "learning_outcomes": [
+      "Выбирать V2: спрягаемый глагол на второй синтаксической позиции главного предложения",
+      "Выбирать правильную инверсию, когда в начале стоит обстоятельство",
+      "Выбирать глагольную рамку для модальных глаголов, Perfekt и отделяемой приставки",
+      "Различать порядок после weil/dass/wenn/obwohl, deshalb/trotzdem и denn/aber"
+    ],
+    "estimated_time": "30–45 минут",
+    "recommendations": "Ошибки в V2 → повторить D03 (01–10); в инверсии → D02 и карточки 12–22; в рамке → карточки 23–34; в союзах → карточки 35–45. Далее переход к B1-01-D05 «Инверсия»."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "v2_selection",
+        "title": "V2 и смысловые группы",
+        "goal": "Выбирать спрягаемый глагол на позиции 2 в главном повествовательном предложении",
+        "from_card": 1,
+        "to_card": 11,
+        "support": "high",
+        "expected_skill": "Выбирать V2 при различных начальных смысловых группах"
+      },
+      {
+        "id": "inversion_selection",
+        "title": "Инверсия и начальные обстоятельства",
+        "goal": "Выбирать правильную инверсию при начале со времени, места или причины",
+        "from_card": 12,
+        "to_card": 22,
+        "support": "medium",
+        "expected_skill": "Безошибочно выбирать порядок с глаголом на 2-м месте и подлежащим после него"
+      },
+      {
+        "id": "frame_selection",
+        "title": "Три рамочные конструкции",
+        "goal": "Выбирать корректную глагольную рамку с модальными глаголами, Perfekt и отделяемыми приставками",
+        "from_card": 23,
+        "to_card": 34,
+        "support": "medium",
+        "expected_skill": "Выбирать закрытие рамки в конце предложения и удержание дополнений внутри"
+      },
+      {
+        "id": "connectors_selection",
+        "title": "Порядок после союзов и связующих слов",
+        "goal": "Выбирать правильную позицию глагола в зависимости от типа союза или связки",
+        "from_card": 35,
+        "to_card": 45,
+        "support": "medium",
+        "expected_skill": "Различать синтаксические модели после weil, dass, wenn, obwohl, deshalb, trotzdem, denn, aber"
+      },
+      {
+        "id": "mixed_selection",
+        "title": "Смешанная проверка",
+        "goal": "Выбирать правильные структуры в комплексных бытовых репликах",
+        "from_card": 46,
+        "to_card": 48,
+        "support": "low",
+        "expected_skill": "Уверенно выбирать порядок слов при сочетании нескольких грамматических явлений"
+      }
+    ],
+    "expected_result": "Ученик достигает точности не менее 85% при выборе правильного порядка слов в немецких предложениях",
+    "competencies": [
+      {
+        "id": "v2_choice",
+        "title": "Выбор позиции V2",
+        "description": "Выбор глагола на второй синтаксической позиции"
+      },
+      {
+        "id": "inversion_choice",
+        "title": "Выбор инверсии",
+        "description": "Выбор порядка слов при начальном обстоятельстве"
+      },
+      {
+        "id": "frame_choice",
+        "title": "Выбор глагольной рамки",
+        "description": "Выбор замыкания сказуемого в конце фразы"
+      },
+      {
+        "id": "subord_choice",
+        "title": "Выбор порядка после союзов",
+        "description": "Выбор правильной позиции глагола в придаточном и после наречий-связок"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "v2_accuracy",
+        "title": "Точность V2",
+        "description": "Выбор вариантов с соблюдением V2"
+      },
+      {
+        "id": "frame_accuracy",
+        "title": "Точность рамки",
+        "description": "Выбор вариантов с правильным замыканием Satzklammer"
+      },
+      {
+        "id": "subord_accuracy",
+        "title": "Точность придаточных",
+        "description": "Выбор вариантов с глаголом в конце Nebensatz"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_v2",
+        "title": "Повторение V2",
+        "when": "При ошибках в карточках 01–11",
+        "reason": "Повторить V2 по D03",
+        "competency_ids": ["v2_choice"]
+      },
+      {
+        "id": "review_inv",
+        "title": "Повторение инверсии",
+        "when": "При ошибках в карточках 12–22",
+        "reason": "Повторить инверсию по D02 и D04",
+        "competency_ids": ["inversion_choice"]
+      },
+      {
+        "id": "review_frame",
+        "title": "Повторение рамки",
+        "when": "При ошибках в карточках 23–34",
+        "reason": "Повторить глагольную рамку",
+        "competency_ids": ["frame_choice"]
+      },
+      {
+        "id": "review_subord",
+        "title": "Повторение союзов",
+        "when": "При ошибках в карточках 35–45",
+        "reason": "Повторить союзы и связки",
+        "competency_ids": ["subord_choice"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Как правильно сказать, что аптека открывается в девять?
+
+*Die Apotheke öffnet um neun Uhr.
+Die Apotheke um neun Uhr öffnet.
+
+BACK:
+Die Apotheke öffnet um neun Uhr.
+Перевод: Аптека открывается в девять часов.
+
+CONTEXT:
+Die Apotheke занимает первую позицию, спрягаемый глагол öffnet — строго вторую (V2).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Выбери правильное продолжение после «Heute...»:
+
+*beginnt die Besprechung.
+die Besprechung beginnt.
+
+BACK:
+Heute beginnt die Besprechung.
+Перевод: Сегодня начинается совещание.
+
+CONTEXT:
+Heute уже занимает первую синтаксическую позицию, поэтому спрягаемый глагол beginnt обязан стоять сразу после него.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+В подъезде стоит велосипед. Какая фраза построена правильно?
+
+*Im Flur steht ein Fahrrad.
+Im Flur ein Fahrrad steht.
+
+BACK:
+Im Flur steht ein Fahrrad.
+Перевод: В коридоре стоит велосипед.
+
+CONTEXT:
+Предложная группа Im Flur занимает позицию 1, а спрягаемый глагол steht — позицию 2.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Выбери грамматически правильную фразу о поезде:
+
+*Der Zug hält am Bahnhof.
+Der Zug am Bahnhof hält.
+
+BACK:
+Der Zug hält am Bahnhof.
+Перевод: Поезд останавливается на вокзале.
+
+CONTEXT:
+Подлежащее Der Zug занимает первую позицию, а спрягаемый глагол hält — вторую позицию.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Как сказать о встрече после занятия?
+
+*Nach dem Kurs treffen wir uns.
+Nach dem Kurs wir treffen uns.
+
+BACK:
+Nach dem Kurs treffen wir uns.
+Перевод: После курса мы встречаемся.
+
+CONTEXT:
+Nach dem Kurs — единое обстоятельство времени на позиции 1; спрягаемый глагол treffen стоит на позиции 2 (инверсия).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Рядом с супермаркетом есть пекарня. Выбери правильный вариант:
+
+*Neben dem Supermarkt gibt es eine Bäckerei.
+Neben dem Supermarkt es gibt eine Bäckerei.
+
+BACK:
+Neben dem Supermarkt gibt es eine Bäckerei.
+Перевод: Рядом с супермаркетом есть пекарня.
+
+CONTEXT:
+Neben dem Supermarkt занимает первое место, спрягаемый глагол gibt стоит вторым, а местоимение es следует за ним.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Как правильно сказать о визите родственницы?
+
+*Meine Tante besucht uns am Sonntag.
+Meine Tante uns am Sonntag besucht.
+
+BACK:
+Meine Tante besucht uns am Sonntag.
+Перевод: Моя тётя навещает нас в воскресенье.
+
+CONTEXT:
+В прямом порядке подлежащее Meine Tante занимает позицию 1, а спрягаемый глагол besucht — позицию 2.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Перед музеем ждут посетители. Выбери правильное предложение:
+
+*Vor dem Museum warten viele Besucher.
+Vor dem Museum viele Besucher warten.
+
+BACK:
+Vor dem Museum warten viele Besucher.
+Перевод: Перед музеем ждут многие посетители.
+
+CONTEXT:
+Обстоятельство места Vor dem Museum занимает первую позицию, глагол warten — вторую позицию.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Как правильно описать пустую площадку из-за дождя?
+
+*Wegen des Regens bleibt der Spielplatz leer.
+Wegen des Regens der Spielplatz bleibt leer.
+
+BACK:
+Wegen des Regens bleibt der Spielplatz leer.
+Перевод: Из-за дождя детская площадка остаётся пустой.
+
+CONTEXT:
+Wegen des Regens — единая смысловая группа причины на позиции 1; спрягаемый глагол bleibt идёт сразу после неё.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Как построено предложение «Ранним утром автобус едет через деревню»?
+
+*Am frühen Morgen fährt der Bus durch das Dorf.
+Am frühen Morgen der Bus fährt durch das Dorf.
+Am frühen fährt Morgen der Bus durch das Dorf.
+
+BACK:
+Am frühen Morgen fährt der Bus durch das Dorf.
+Перевод: Ранним утром автобус едет через деревню.
+
+CONTEXT:
+Вся группа Am frühen Morgen неделимо занимает позицию 1, за ней следует спрягаемый глагол fährt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните ключевое правило порядка слов.
+::exercise
+Верно ли, что в обычном главном предложении спрягаемый глагол — обязательно второе СЛОВО?
+
+BACK:
+Нет, неверно.
+Спрягаемый глагол занимает вторую синтаксическую позицию, а не является вторым словом по счёту.
+Пример: Nach einer kurzen Pause (1) | beginnt (2) | die Probe.
+Перевод: «После короткого перерыва начинается репетиция».
+
+CONTEXT:
+Группа перед глаголом может состоять из нескольких слов, но синтаксически это всегда одна первая позиция.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Начни со слова «Morgen»: техник привезёт новую деталь.
+
+*Morgen bringt der Techniker das Ersatzteil.
+Morgen der Techniker bringt das Ersatzteil.
+
+BACK:
+Morgen bringt der Techniker das Ersatzteil.
+Перевод: Завтра техник привезёт запасную часть.
+
+CONTEXT:
+После обстоятельства Morgen сразу следует спрягаемый глагол bringt, а подлежащее der Techniker идёт после него (инверсия).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Как построить сообщение о соседе на этой улице?
+
+*In dieser Straße wohnt mein Nachbar.
+In dieser Straße mein Nachbar wohnt.
+
+BACK:
+In dieser Straße wohnt mein Nachbar.
+Перевод: На этой улице живёт мой сосед.
+
+CONTEXT:
+Первая позиция — обстоятельство места In dieser Straße, вторая позиция — спрягаемый глагол wohnt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Как правильно продолжить начало «Am Freitag...»?
+
+*kauft meine Schwester ein Geschenk.
+meine Schwester kauft ein Geschenk.
+
+BACK:
+Am Freitag kauft meine Schwester ein Geschenk.
+Перевод: В пятницу моя сестра покупает подарок.
+
+CONTEXT:
+После начального обстоятельства Am Freitag на втором месте обязан стоять глагол kauft.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Какой вариант верен для плохой погоды?
+
+*Bei schlechtem Wetter bleiben die Kinder drinnen.
+Bei schlechtem Wetter die Kinder bleiben drinnen.
+
+BACK:
+Bei schlechtem Wetter bleiben die Kinder drinnen.
+Перевод: В плохую погоду дети остаются внутри.
+
+CONTEXT:
+Bei schlechtem Wetter занимает одно начальное поле (позиция 1), сразу за ним следует глагол bleiben (позиция 2).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Подруга гуляет после еды. Начни с обстоятельства времени:
+
+*Nach dem Essen geht meine Freundin spazieren.
+Nach dem Essen meine Freundin geht spazieren.
+
+BACK:
+Nach dem Essen geht meine Freundin spazieren.
+Перевод: После еды моя подруга идёт гулять.
+
+CONTEXT:
+Nach dem Essen занимает позицию 1, глагол geht — позицию 2, подлежащее meine Freundin — позицию 3.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Выбери правильное продолжение после «Vor der Prüfung...»:
+
+*wiederholt der Teilnehmer die Regeln.
+der Teilnehmer wiederholt die Regeln.
+
+BACK:
+Vor der Prüfung wiederholt der Teilnehmer die Regeln.
+Перевод: Перед экзаменом участник повторяет правила.
+
+CONTEXT:
+Обстоятельство Vor der Prüfung занимает первую позицию, поэтому вторым идёт спрягаемый глагол wiederholt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Вечером соседка звонит родителям. Как верно построить предложение?
+
+*Heute Abend ruft meine Nachbarin ihre Eltern an.
+Heute Abend meine Nachbarin ruft ihre Eltern an.
+
+BACK:
+Heute Abend ruft meine Nachbarin ihre Eltern an.
+Перевод: Сегодня вечером моя соседка звонит родителям.
+
+CONTEXT:
+Heute Abend занимает первую позицию, спрягаемый глагол ruft стоит вторым, а отделяемая приставка an замыкает рамку в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+На балконе стоят горшки с цветами. Выбери правильный порядок:
+
+*Auf dem Balkon stehen drei Blumentöpfe.
+Auf dem Balkon drei Blumentöpfe stehen.
+
+BACK:
+Auf dem Balkon stehen drei Blumentöpfe.
+Перевод: На балконе стоят три цветочных горшка.
+
+CONTEXT:
+Auf dem Balkon — первая группа (обстоятельство места), stehen — спрягаемый глагол на второй позиции.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Через два часа начинается доклад. Что правильно?
+
+*In zwei Stunden beginnt der Vortrag.
+In zwei Stunden der Vortrag beginnt.
+
+BACK:
+In zwei Stunden beginnt der Vortrag.
+Перевод: Через два часа начинается доклад.
+
+CONTEXT:
+In zwei Stunden занимает позицию 1, спрягаемый глагол beginnt стоит строго на позиции 2.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+После этого открываются двери. Выбери правильную фразу:
+
+*Danach öffnen sich die Türen.
+Danach sich die Türen öffnen.
+
+BACK:
+Danach öffnen sich die Türen.
+Перевод: После этого открываются двери.
+
+CONTEXT:
+После наречия Danach на втором месте стоит спрягаемый глагол öffnen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните алгоритм проверки инверсии.
+::exercise
+Какой быстрый способ проверить инверсию, когда предложение начинается со времени или места?
+
+BACK:
+Найдите первую смысловую группу и сразу после неё мысленно поставьте спрягаемый глагол:
+Im nächsten Monat (1) | beginnt (2) | der Kurs (3).
+Подлежащее der Kurs следует за глаголом.
+Перевод: «В следующем месяце начинается курс».
+
+CONTEXT:
+Контрольная формула инверсии: [Обстоятельство] + [Спрягаемый глагол] + [Подлежащее].
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+В ведомстве нужно заполнить формуляр. Как правильно?
+
+*Ich muss das Formular ausfüllen.
+Ich muss ausfüllen das Formular.
+
+BACK:
+Ich muss das Formular ausfüllen.
+Перевод: Мне нужно заполнить формуляр.
+
+CONTEXT:
+Модальный глагол muss стоит на позиции 2, а инфинитив ausfüllen замыкает глагольную рамку в самом конце предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Семья хочет завтра пойти за покупками. Выбери правильное предложение:
+
+*Wir wollen morgen einkaufen.
+Wir wollen einkaufen morgen.
+
+BACK:
+Wir wollen morgen einkaufen.
+Перевод: Мы хотим завтра сходить за покупками.
+
+CONTEXT:
+Обстоятельство времени morgen помещается внутрь глагольной рамки перед финальным инфинитивом einkaufen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+«Die Gäste dürfen...» — выбери естественное и правильное продолжение:
+
+*die Fotos ansehen.
+ansehen die Fotos.
+
+BACK:
+Die Gäste dürfen die Fotos ansehen.
+Перевод: Гостям разрешается посмотреть фотографии.
+
+CONTEXT:
+Инфинитив ansehen закрывает глагольную рамку в конце после дополнения die Fotos.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Врач написал заключение. Как правильно сказать в Perfekt?
+
+*Der Arzt hat den Bericht geschrieben.
+Der Arzt hat geschrieben den Bericht.
+
+BACK:
+Der Arzt hat den Bericht geschrieben.
+Перевод: Врач написал отчёт.
+
+CONTEXT:
+В Perfekt вспомогательный глагол hat стоит на позиции 2, а Partizip II geschrieben замыкает рамку в конце предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Выбери стандартный порядок слов в предложении о поездке в Гамбург:
+
+*Wir sind am Samstag nach Hamburg gefahren.
+Wir sind gefahren am Samstag nach Hamburg.
+
+BACK:
+Wir sind am Samstag nach Hamburg gefahren.
+Перевод: В субботу мы ездили в Гамбург.
+
+CONTEXT:
+Рамка Perfekt: sind ... gefahren. Дата и направление располагаются между двумя глагольными частями.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Ты вчера нашёл ключ. Как правильно сказать в Perfekt?
+
+*Ich habe den Schlüssel gefunden.
+Ich habe gefunden den Schlüssel.
+
+BACK:
+Ich habe den Schlüssel gefunden.
+Перевод: Я нашёл ключ.
+
+CONTEXT:
+habe ... gefunden образуют рамку; дополнение den Schlüssel остаётся внутри рамки.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Работник запирает дверь. Какой вариант верен?
+
+*Der Hausmeister schließt die Tür ab.
+Der Hausmeister abschließt die Tür.
+
+BACK:
+Der Hausmeister schließt die Tür ab.
+Перевод: Домоуправляющий запирает дверь.
+
+CONTEXT:
+У глагола abschließen спрягаемая основа schließt стоит на позиции 2, а приставка ab отделяется и уходит в конец предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Как сказать «Моя сестра встаёт в шесть часов»?
+
+*Meine Schwester steht um sechs Uhr auf.
+Meine Schwester aufsteht um sechs Uhr.
+
+BACK:
+Meine Schwester steht um sechs Uhr auf.
+Перевод: Моя сестра встаёт в шесть часов.
+
+CONTEXT:
+Спрягаемая основа steht занимает позицию 2, а отделяемая приставка auf замыкает предложение в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Ты хочешь начать со слова «Heute». Как грамматически верно построить предложение?
+
+*Heute möchte ich einen Kuchen backen.
+Heute ich möchte einen Kuchen backen.
+
+BACK:
+Heute möchte ich einen Kuchen backen.
+Перевод: Сегодня я хотел бы испечь пирог.
+
+CONTEXT:
+Heute занимает позицию 1, спрягаемый модальный глагол möchte — позицию 2, инфинитив backen — в конце предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Механики вчера починили машину. Как правильно сказать в Perfekt?
+
+*Gestern haben die Mechaniker das Auto repariert.
+Gestern die Mechaniker haben das Auto repariert.
+
+BACK:
+Gestern haben die Mechaniker das Auto repariert.
+Перевод: Вчера механики починили автомобиль.
+
+CONTEXT:
+После начального Gestern на втором месте стоит вспомогательный глагол haben, а Partizip II repariert замыкает фразу.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+В пятницу он забирает письмо. Выбери правильную фразу:
+
+*Am Freitag holt er den Brief ab.
+Am Freitag holt er ab den Brief.
+
+BACK:
+Am Freitag holt er den Brief ab.
+Перевод: В пятницу он забирает письмо.
+
+CONTEXT:
+Приставка ab глагола abholen располагается на самом последнем месте главного предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Обобщите типы глагольных рамок.
+::exercise
+Чем принципиально похожи предложения «Ich will lesen», «Ich habe gelesen» и «Ich lese vor»?
+
+BACK:
+Во всех трёх предложениях две части сказуемого образуют глагольную рамку (Satzklammer):
+— will ... lesen (модальный глагол + инфинитив);
+— habe ... gelesen (Perfekt: вспомогательный + причастие);
+— lese ... vor (глагол с отделяемой приставкой).
+Перевод: «Я хочу читать» / «Я прочитал» / «Я читаю вслух».
+
+CONTEXT:
+Вся дополнительная информация в предложении заключается внутрь этих двух глагольных границ.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+«Ich nehme einen Regenschirm, weil...» Какое продолжение верно?
+
+*es heute regnet.
+heute regnet es.
+
+BACK:
+Ich nehme einen Regenschirm, weil es heute regnet.
+Перевод: Я беру зонт, потому что сегодня идёт дождь.
+
+CONTEXT:
+Подчинительный союз weil вводит придаточное предложение, в котором спрягаемый глагол regnet обязан стоять в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+«Die Lehrerin sagt, dass...» Выбери правильное окончание придаточного:
+
+*der Test morgen beginnt.
+der Test beginnt morgen.
+
+BACK:
+Die Lehrerin sagt, dass der Test morgen beginnt.
+Перевод: Учительница говорит, что контрольная начинается завтра.
+
+CONTEXT:
+После подчинительного союза dass спрягаемый глагол beginnt стоит на самом последнем месте придаточного предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+«Ich komme mit, wenn...» — как правильно продолжить придаточное?
+
+*du Zeit hast.
+du hast Zeit.
+
+BACK:
+Ich komme mit, wenn du Zeit hast.
+Перевод: Я пойду с тобой, если у тебя будет время.
+
+CONTEXT:
+Союз wenn требует постановки спрягаемого глагола hast в самый конец придаточного предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Выбери предложение с правильным порядком слов после «obwohl»:
+
+*Obwohl es kalt ist, gehen wir raus.
+Obwohl es ist kalt, gehen wir raus.
+
+BACK:
+Obwohl es kalt ist, gehen wir raus.
+Перевод: Хотя холодно, мы выходим на улицу.
+
+CONTEXT:
+В придаточном предложении с obwohl глагол ist стоит в конце; главное предложение после запятой начинается с глагола gehen (V2).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Светофор сломан. «Deshalb...» — выбери правильное продолжение:
+
+*fahren die Autos langsam.
+die Autos fahren langsam.
+
+BACK:
+Deshalb fahren die Autos langsam.
+Перевод: Поэтому автомобили едут медленно.
+
+CONTEXT:
+Deshalb занимает позицию 1 нового главного предложения, поэтому спрягаемый глагол fahren стоит строго на позиции 2 (инверсия).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+На улице дождь, но ты всё равно идёшь гулять. Что правильно со словом «trotzdem»?
+
+*Es regnet. Trotzdem gehe ich spazieren.
+Es regnet. Trotzdem ich gehe spazieren.
+
+BACK:
+Es regnet. Trotzdem gehe ich spazieren.
+Перевод: Идёт дождь. Тем не менее я иду гулять.
+
+CONTEXT:
+Trotzdem занимает первую позицию главного предложения, а спрягаемый глагол gehe — вторую позицию.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+«Ich bleibe im Büro, denn...» Какое продолжение грамматически верно?
+
+*ich muss noch arbeiten.
+muss ich noch arbeiten.
+
+BACK:
+Ich bleibe im Büro, denn ich muss noch arbeiten.
+Перевод: Я остаюсь в офисе, потому что мне ещё нужно работать.
+
+CONTEXT:
+Союз denn занимает «нулевую позицию» и не вызывает инверсии — после него сохраняется стандартный прямой порядок слов.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+«Er hat wenig Zeit, aber...» Выбери нормальное продолжение предложения:
+
+*er hilft uns heute.
+hilft er uns heute.
+
+BACK:
+Er hat wenig Zeit, aber er hilft uns heute.
+Перевод: У него мало времени, но сегодня он нам помогает.
+
+CONTEXT:
+После сочинительного союза aber второе главное предложение строится с обычным прямым порядком (подлежащее er, затем глагол hilft).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+«Wenn der Laden geöffnet ist,...» Какое продолжение главной части правильное?
+
+*kaufe ich frisches Brot.
+ich kaufe frisches Brot.
+
+BACK:
+Wenn der Laden geöffnet ist, kaufe ich frisches Brot.
+Перевод: Если магазин открыт, я покупаю свежий хлеб.
+
+CONTEXT:
+Придаточное предложение целиком занимает первую позицию для главной части, поэтому сразу после запятой стоит глагол kaufe.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+«Obwohl sie müde ist,...» Выбери правильный вариант продолжения главной части:
+
+*macht sie einen Spaziergang.
+sie macht einen Spaziergang.
+
+BACK:
+Obwohl sie müde ist, macht sie einen Spaziergang.
+Перевод: Хотя она устала, она идёт погулять.
+
+CONTEXT:
+После начального придаточного главное предложение открывается своим спрягаемым глаголом macht на позиции 2.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните три связующих слова.
+::exercise
+Сравните weil, deshalb и denn. Что происходит с позицией спрягаемого глагола после каждого из них?
+
+BACK:
+1. Weil вводит придаточное предложение: спрягаемый глагол стоит в конце (weil ich lernen muss).
+2. Deshalb занимает позицию 1 главного предложения: спрягаемый глагол стоит на позиции 2 (Deshalb lerne ich).
+3. Denn соединяет главные предложения на «нулевой позиции»: порядок обычный прямой (denn ich muss lernen).
+Перевод: «Потому что я должен учиться» / «Поэтому я учусь» / «Так как мне нужно учиться».
+
+CONTEXT:
+Различение грамматического статуса союзов и наречий-связок — ключевой навык синтаксиса уровня B1.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Ты объясняешь, почему сегодня должен рано встать. Выбери правильный порядок слов:
+
+*Heute muss ich früh aufstehen.
+Heute ich muss früh aufstehen.
+
+BACK:
+Heute muss ich früh aufstehen.
+Перевод: Сегодня мне нужно рано встать.
+
+CONTEXT:
+Heute занимает позицию 1, спрягаемый модальный глагол muss — позицию 2, а инфинитив aufstehen замыкает рамку в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+На выходных дочь нарисовала картину. Как правильно сказать в Perfekt?
+
+*Am Sonntag hat meine Tochter ein Bild gemalt.
+Am Sonntag meine Tochter hat ein Bild gemalt.
+
+BACK:
+Am Sonntag hat meine Tochter ein Bild gemalt.
+Перевод: В воскресенье моя дочь нарисовала картину.
+
+CONTEXT:
+Инверсия ставит вспомогательный глагол hat на вторую позицию после Am Sonntag, а Partizip II gemalt замыкает фразу.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+«Wenn der Termin ausfällt,...» — какое продолжение главной части верно?
+
+*rufe ich dich an.
+ich rufe dich an.
+
+BACK:
+Wenn der Termin ausfällt, rufe ich dich an.
+Перевод: Если встречу отменят, я тебе позвоню.
+
+CONTEXT:
+Придаточное предложение занимает первую позицию, поэтому сразу после запятой следует спрягаемый глагол rufe, а приставка an замыкает рамку в конце.

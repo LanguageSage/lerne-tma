@@ -25,6 +25,10 @@ FIELDS = {
 def require_access(user_id: int, kind: str, item_id: int, write: bool = True) -> None:
     model = models.TMA_Deck if kind == 'deck' else models.TMA_Folder
     item = model.get_or_none(model.id == item_id)
+    # Owners may restore their soft-deleted records. Collaborative lookup
+    # intentionally excludes deleted targets; it cannot establish this case.
+    if item is not None and item.is_deleted and item.user_id == user_id:
+        return
     role = get_effective_user_role(user_id, kind, item_id)
     if not role or (write and role not in ('owner', 'editor', 'admin')):
         raise HTTPException(403, 'Нет доступа к записи. Локальные изменения сохранены.')

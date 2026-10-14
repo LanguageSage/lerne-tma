@@ -71,7 +71,6 @@ export function formatDuration(seconds) {
  * @param {number} [options.mistakeCount=0]
  * @param {number|string|Date} [options.startedAt=null]
  * @param {number|string|Date} [options.endedAt=null]
- * @param {Array} [options.studyHistory=[]]
  * @returns {Object|null}
  */
 export function calculateSessionStats({
@@ -79,16 +78,17 @@ export function calculateSessionStats({
   correctCount = 0,
   mistakeCount = 0,
   startedAt = null,
-  endedAt = null,
-  studyHistory = []
+  endedAt = null
 } = {}) {
-  const exercises = reviewsCount > 0 ? reviewsCount : (Array.isArray(studyHistory) ? studyHistory.length : 0);
+  // Navigation history is not answer evidence: skipping cards must never
+  // manufacture a perfect score on the lesson completion screen.
+  const exercises = reviewsCount;
   if (exercises === 0) {
     return null;
   }
 
-  const effectiveCorrect = reviewsCount > 0 ? correctCount : exercises;
-  const effectiveMistakes = reviewsCount > 0 ? mistakeCount : 0;
+  const effectiveCorrect = correctCount;
+  const effectiveMistakes = mistakeCount;
   const accuracyNum = exercises > 0
     ? Math.max(0, Math.min(100, Math.round((effectiveCorrect / exercises) * 100)))
     : 100;

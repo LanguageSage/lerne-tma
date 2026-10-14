@@ -1,0 +1,732 @@
+# Deck: B1-02-D01 · Perfekt und Präteritum in Erzählungen — теория подробно
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-02-D01 · Perfekt und Präteritum in Erzählungen — теория подробно",
+    "level": "B1",
+    "topic": "Perfekt und Präteritum in Erzählungen",
+    "description": "Две основные формы прошедшего времени в немецких рассказах: образование, стиль повествования и выбор между ними",
+    "goal": "Помочь ученику осознанно понимать и выбирать две основные формы прошедшего времени в немецких рассказах — Perfekt и Präteritum. Не просто вспомнить, как они образуются, а увидеть, почему рассказчик в одном случае говорит ich habe gearbeitet, в другом — ich war müde, а в письменной истории может выбрать ich ging. Научить отличать форму глагола, стиль повествования и смысл событий.",
+    "learning_outcomes": [
+      "Объяснить, для чего нужны Perfekt и Präteritum и почему оба могут описывать прошедшие события",
+      "Узнавать структуру Perfekt: haben/sein в личной форме + Partizip II",
+      "Узнавать Präteritum как простую прошедшую форму без вспомогательного глагола",
+      "Понимать образование основных слабых, сильных и смешанных форм и роль частотных неправильных глаголов",
+      "Ориентироваться в выборе haben или sein для типичных случаев",
+      "Объяснить, почему war, hatte, konnte, musste, wollte часто звучат естественно даже в разговоре",
+      "Замечать смешение времён в естественном устном рассказе и понимать, что оно не обязательно является ошибкой",
+      "Узнавать и исправлять типичные ошибки в выборе вспомогательного глагола, формы и порядка слов",
+      "Читать небольшой рассказ и находить в нём прошедшие формы, понимая их роль"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "Если ученик путает функции времён и стиль рассказа — повторить карточки 01–07 и 30–34; если ошибки в haben/sein, Partizip II или порядке слов Perfekt — карточки 08–17; если не узнаёт Präteritum сильных/модальных глаголов — карточки 18–29; если считает, что в рассказе допустимо только одно время — карточки 30–38. После освоения перейти к B1-02-D02 «Теория простыми словами»."
+  },
+  "pedagogy": {
+    "lesson_type": "theory",
+    "stages": [
+      {
+        "id": "functions_and_styles",
+        "title": "Функции двух времён и повествовательный стиль",
+        "goal": "Понять смысловые роли Perfekt и Präteritum, различие устного и письменного стилей и отсутствие жёсткой границы",
+        "from_card": 1,
+        "to_card": 7,
+        "support": "high",
+        "expected_skill": "Различать Perfekt и Präteritum и объяснять их стилистическую и ситуативную роль"
+      },
+      {
+        "id": "perfekt_structure",
+        "title": "Устройство Perfekt: haben/sein, причастия и порядок слов",
+        "goal": "Освоить формулу Perfekt, выбор haben или sein, образование Partizip II и глагольную рамку в главном и придаточном",
+        "from_card": 8,
+        "to_card": 17,
+        "support": "high",
+        "expected_skill": "Выбирать haben или sein, строить Partizip II и правильно располагать элементы Perfekt"
+      },
+      {
+        "id": "praeteritum_structure",
+        "title": "Устройство Präteritum: слабые, сильные, смешанные и модальные глаголы",
+        "goal": "Разобрать форму Präteritum, формы war/hatte, модальные глаголы, отрицание и вопросы",
+        "from_card": 18,
+        "to_card": 29,
+        "support": "high",
+        "expected_skill": "Узнавать и образовывать Präteritum регулярных, нерегулярных и модальных глаголов"
+      },
+      {
+        "id": "story_integration_and_errors",
+        "title": "Живой рассказ, сочетание времён и разбор типичных ошибок",
+        "goal": "Научиться связывать времена в цельной истории, избегать типичных ошибок и анализировать связный рассказ",
+        "from_card": 30,
+        "to_card": 38,
+        "support": "medium",
+        "expected_skill": "Анализировать связный рассказ, сочетать времена по естественным законам речи и исправлять ошибки"
+      }
+    ],
+    "expected_result": "Ученик осознанно отличает Perfekt от Präteritum, объясняет выбор haben/sein, узнаёт ключевые сильные и модальные формы, понимает смешение времён в устной речи и читает связный немецкий рассказ",
+    "competencies": [
+      {
+        "id": "tense_style_awareness",
+        "title": "Стилистическое и смысловое различие времён",
+        "description": "Понимание уместности Perfekt в разговоре и Präteritum в письменном рассказе, а также их естественного сочетания"
+      },
+      {
+        "id": "perfekt_mastery",
+        "title": "Построение и синтаксис Perfekt",
+        "description": "Выбор вспомогательного глагола haben/sein, образование Partizip II и рамка сказуемого"
+      },
+      {
+        "id": "praeteritum_mastery",
+        "title": "Формы и употребление Präteritum",
+        "description": "Опознавание и использование war/hatte, модальных глаголов и сильных/слабых форм в повествовании"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "distinguish_forms",
+        "title": "Распознавание форм Perfekt и Präteritum",
+        "description": "Уверенное определение формы глагола в изолированном предложении и в контексте рассказа"
+      },
+      {
+        "id": "auxiliary_selection",
+        "title": "Выбор haben vs. sein",
+        "description": "Безошибочное соотнесение глагола с haben или sein по значению деятельности, перемещения или изменения состояния"
+      },
+      {
+        "id": "narrative_coherence",
+        "title": "Понимание связного рассказа",
+        "description": "Понимание логики сочетания war/hatte/модальных глаголов с действиями в Perfekt в естественной речи"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_styles",
+        "title": "Повторение роли времён и стиля",
+        "when": "При трудностях с пониманием, почему используются два времени",
+        "reason": "Повторить карточки 01–07 и 30–34",
+        "competency_ids": ["tense_style_awareness"]
+      },
+      {
+        "id": "review_perfekt",
+        "title": "Повторение устройства Perfekt",
+        "when": "При путанице с haben/sein, Partizip II и порядком слов",
+        "reason": "Повторить карточки 08–17",
+        "competency_ids": ["perfekt_mastery"]
+      },
+      {
+        "id": "review_praeteritum",
+        "title": "Повторение форм Präteritum",
+        "when": "Если ученик не узнаёт war, hatte, ging, konnte",
+        "reason": "Повторить карточки 18–29",
+        "competency_ids": ["praeteritum_mastery"]
+      },
+      {
+        "id": "review_mixing",
+        "title": "Повторение естественного сочетания времён",
+        "when": "Если ученик считает, что в одном рассказе разрешено только одно время",
+        "reason": "Повторить карточки 30–38",
+        "competency_ids": ["tense_style_awareness", "narrative_coherence"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните два предложения и определите грамматическое различие.
+::source
+Gestern habe ich meine Schwester besucht.
+Gestern besuchte ich meine Schwester.
+::exercise
+Оба предложения описывают вчерашний день. Почему формы разные?
+
+BACK:
+Оба предложения означают: «Вчера я навестил(а) сестру». В первом используется Perfekt (habe besucht), во втором — Präteritum (besuchte).
+
+CONTEXT:
+В разговоре об уже случившемся очень распространён Perfekt. В письменном повествовательном тексте часто встречается Präteritum. Но это не железная граница: многое зависит от глагола, региона и стиля. Смысловой вывод: сначала распознай время, затем учитывай, в каком рассказе оно прозвучало.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте диалог и обоснуйте выбор прошедшего времени.
+::source
+Друг спрашивает: Was hast du am Wochenende gemacht? — «Что ты делал на выходных?»
+Ты отвечаешь: Ich habe einen Ausflug gemacht.
+::exercise
+Почему здесь естественен Perfekt?
+
+BACK:
+Perfekt — обычный способ рассказать в разговоре о завершившихся действиях: Ich habe einen Ausflug gemacht. — «Я съездил на экскурсию / совершил поездку».
+
+CONTEXT:
+Важна не «идеальная завершённость» сама по себе, а то, что это типичный способ говорить о прошлом в повседневном общении. Не нужно автоматически переводить Perfekt английским Present Perfect: немецкий Perfekt часто соответствует обычному русскому прошедшему времени.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите стиль текста по глагольным формам.
+::source
+Der Mann öffnete die Tür und trat ins Zimmer.
+::exercise
+Что подсказывает форма öffnete и trat о стиле текста?
+
+BACK:
+Это Präteritum: öffnete от öffnen, trat от treten. Перевод: «Мужчина открыл дверь и вошёл в комнату».
+
+CONTEXT:
+Такой способ описания последовательности событий очень характерен для письменных историй, рассказов и книг. Здесь нет вспомогательного haben или sein: прошедшее время содержится в форме самого глагола.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните сочетание двух прошедших времён в одной реплике.
+::source
+Gestern war ich sehr müde. Deshalb bin ich früh ins Bett gegangen.
+::exercise
+Почему в одном устном рассказе есть war и bin gegangen?
+
+BACK:
+war — Präteritum глагола sein, bin gegangen — Perfekt глагола gehen. Перевод: «Вчера я очень устал. Поэтому я рано лёг спать».
+
+CONTEXT:
+В разговорной речи формы sein и haben, а также некоторые модальные глаголы часто употребляют в Präteritum, даже когда основные действия рассказаны в Perfekt. Такое сочетание звучит естественно; оно не означает, что рассказчик перепутал времена.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите неточность в грамматическом правиле.
+::source
+Ученик утверждает: «Perfekt — только для разговора, Präteritum — только для книг».
+::exercise
+Что в этом утверждении неточно?
+
+BACK:
+Здесь слишком жёсткое правило. В повседневной устной речи для большинства действий часто выбирают Perfekt, но war, hatte, konnte, musste, wollte звучат абсолютно естественно. В письменном художественном тексте доминирует Präteritum, но Perfekt тоже возможен (в письмах, диалогах, при связи с настоящим).
+
+CONTEXT:
+Выбор формы зависит от жанра, конкретного глагола и традиций употребления, а не от механического деления на «только устно» и «только письменно».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните подачу одного и того же факта.
+::source
+1. Ich habe gestern einen alten Freund getroffen.
+2. Ich traf gestern einen alten Freund.
+::exercise
+Отличается ли дата встречи? Отличается ли подача?
+
+BACK:
+Дата и базовый факт одинаковые: «Вчера я встретил старого друга». habe getroffen — Perfekt (обычный разговорный пересказ); traf — Präteritum (естественнее в последовательном литературном или письменном повествовании).
+
+CONTEXT:
+Не нужно приписывать второму предложению «более далёкое прошлое». Оба времени могут описывать одно и то же вчерашнее событие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите цель изучения темы на уровне B1.
+::source
+Ты уже умеешь говорить: Ich habe gekocht.
+::exercise
+Что нового нужно освоить для историй на B1?
+
+BACK:
+На B1 нужно не просто образовывать отдельные формы, а рассказывать связно: выстраивать последовательность событий, задавать фон, объяснять причины и совмещать разные формы в одной истории.
+
+CONTEXT:
+Пример: «Ich war am Bahnhof. Plötzlich habe ich meinen ehemaligen Lehrer gesehen. Wir haben kurz gesprochen.» — здесь важно гармоничное использование war и форм Perfekt в связном контексте.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите состав сказуемого в Perfekt.
+::source
+Ich habe den Bericht geschrieben.
+::exercise
+Найдите две части прошедшего времени. Что делает каждая?
+
+BACK:
+Perfekt = личная форма haben/sein + Partizip II. habe — вспомогательный глагол haben для ich; geschrieben — Partizip II от schreiben. Перевод: «Я написал отчёт».
+
+CONTEXT:
+В обычном главном предложении вспомогательный глагол занимает 2-е место (V2), а Partizip II уходит в самый конец предложения, образуя глагольную рамку.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните выбор вспомогательного глагола.
+::source
+Am Samstag bin ich nach Köln gefahren.
+::exercise
+Почему здесь bin, а не habe?
+
+BACK:
+В Perfekt глаголы перемещения с изменением местоположения употребляются с sein: fahren, gehen, kommen, reisen (в типичных значениях перемещения). Перевод: «В субботу я поехал в Кёльн».
+
+CONTEXT:
+Опорные сочетания: ich bin gegangen («я пошёл»), sie ist angekommen («она прибыла»). Выбор зависит от значения конкретного глагола в немецком языке.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните вспомогательные глаголы двух действий.
+::source
+Ich habe den ganzen Tag gearbeitet.
+Am Abend bin ich nach Hause gekommen.
+::exercise
+Почему вспомогательные глаголы разные?
+
+BACK:
+arbeiten — деятельность (обычно Perfekt с haben → habe gearbeitet). kommen — прибытие, перемещение к месту (Perfekt с sein → bin gekommen). Перевод: «Я работал весь день. Вечером я пришёл домой».
+
+CONTEXT:
+Не определяйте вспомогательный глагол по русскому переводу. Запоминайте устойчивые немецкие пары целиком: hat gearbeitet, ist gekommen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите контекст употребления глагола fahren.
+::source
+1. Ich bin nach Hamburg gefahren.
+2. Ich habe das Auto gefahren.
+::exercise
+Как может один глагол встречаться и с sein, и с haben?
+
+BACK:
+В первом предложении fahren описывает перемещение самого человека в Гамбург: sein («Я поехал в Гамбург»). Во втором das Auto fahren означает «управлять машиной» с прямым дополнением в Akkusativ: haben («Я водил машину»).
+
+CONTEXT:
+Правило «fahren = всегда sein» неточно. Наличие прямого дополнения переключает управление на haben.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните выбор sein для глаголов состояния.
+::source
+Die Gäste sind spät angekommen.
+Mein Großvater ist 2019 gestorben.
+::exercise
+Во втором примере человек никуда не ехал. Почему ist?
+
+BACK:
+Глаголы, обозначающие изменение состояния, образуют Perfekt с sein: einschlafen, aufwachen, sterben. Перевод: «Мой дедушка умер в 2019 году».
+
+CONTEXT:
+Базовая опора: haben — у большинства глаголов; sein — у перемещения (gehen, fahren), изменения состояния (einschlafen, sterben), а также у bleiben и sein.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выделите общую модель образования причастия.
+::source
+lernen → gelernt
+machen → gemacht
+fragen → gefragt
+::exercise
+Какой общий образец здесь виден?
+
+BACK:
+Для многих слабых (регулярных) глаголов Partizip II строится по модели: ge- + основа глагола + -t. Перевод: «Ich habe eine neue Regel gelernt.» — «Я выучил новое правило».
+
+CONTEXT:
+Это базовая регулярная модель. Сильные глаголы (geschrieben, gefahren) и глаголы с приставками строятся по другим правилам.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните отсутствие приставки ge- в причастии.
+::source
+besuchen → besucht
+erzählen → erzählt
+telefonieren → telefoniert
+::exercise
+Почему не gebesucht, geerzählt и getelefoniert?
+
+BACK:
+У глаголов с неотделяемыми приставками (be-, er-, ver-, ent-, zer-, ge-, miss-) и у глаголов на -ieren причастие Partizip II образуется без приставки ge-.
+
+CONTEXT:
+Примеры: «Wir haben das Museum besucht» («Мы посетили музей»), «Sie hat telefoniert» («Она говорила по телефону»). У отделяемых приставок ge- встаёт внутрь: aufstehen → aufgestanden.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните образование сильных причастий со слабыми.
+::source
+schreiben → geschrieben
+finden → gefunden
+gehen → gegangen
+::exercise
+Можно ли просто поставить -t во всех трёх случаях?
+
+BACK:
+Нет. У сильных глаголов Partizip II обычно оканчивается на -en и часто меняет гласную в корне: geschrieben, gefunden, gegangen.
+
+CONTEXT:
+Формы сильных глаголов для рассказов лучше запоминать тройками инфинитив — Präteritum — Partizip II: finden — fand — gefunden; schreiben — schrieb — geschrieben; gehen — ging — gegangen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте порядок слов и рамку сказуемого.
+::source
+Gestern habe ich meine Nachbarn zum Abendessen eingeladen.
+::exercise
+Где стоят две части сказуемого и что находится между ними?
+
+BACK:
+Gestern (1) | habe (2, спряг.) | ich meine Nachbarn zum Abendessen (середина) | eingeladen (Partizip II в конце). Перевод: «Вчера я пригласил соседей на ужин».
+
+CONTEXT:
+В повествовательном главном предложении вспомогательный глагол занимает позицию 2, а Partizip II закрывает рамку в конце. Ошибка дословного русского порядка: ❌ Ich habe eingeladen meine Nachbarn.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите позицию вспомогательного глагола в придаточном предложении.
+::source
+Ich bin froh, weil du mich besucht hast.
+::exercise
+Почему hast стоит после besucht?
+
+BACK:
+Союз weil вводит придаточное предложение (Nebensatz), где спрягаемая личная форма глагола (hast) уходит в самый конец предложения, следуя за Partizip II.
+
+CONTEXT:
+В главном: Du hast mich besucht (hast на 2-й позиции). В придаточном: ..., weil du mich besucht hast. Время то же самое (Perfekt), но синтаксический порядок иной.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите грамматическую структуру времени Präteritum.
+::source
+Ich wartete vor dem Gebäude.
+::exercise
+Найдите прошедшее время. Почему нет habe?
+
+BACK:
+wartete — Präteritum глагола warten. Это простое прошедшее время: грамматическое значение прошлого несёт сам глагол без вспомогательного слова. Перевод: «Я ждал перед зданием».
+
+CONTEXT:
+Сравните с Perfekt: «Ich habe vor dem Gebäude gewartet». Смысл одинаков, но Präteritum состоит из одного слова.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выделите признак Präteritum у слабых глаголов.
+::source
+ich machte — du machtest — er machte — wir machten
+::exercise
+Что помогает узнавать Präteritum слабых глаголов?
+
+BACK:
+У слабых (регулярных) глаголов появляется суффикс -te- (или -ete- после d/t/m/n: arbeitete), к которому добавляются личные окончания. Перевод: «Ich arbeitete früher in einer Bäckerei.» — «Раньше я работал в пекарне».
+
+CONTEXT:
+В разговоре чаще звучит Perfekt: ich habe gearbeitet. В письменном повествовании — Präteritum: ich arbeitete.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните способ образования Präteritum у сильных глаголов.
+::source
+gehen → ging
+sehen → sah
+kommen → kam
+::exercise
+Почему здесь нельзя вывести форму через суффикс -te-?
+
+BACK:
+Это сильные глаголы: они образуют Präteritum путём изменения корневой гласной (Ablaut) и без суффикса -te-. Перевод: «Er ging zum Fenster und sah den Regen.» — «Он подошёл к окну и увидел дождь».
+
+CONTEXT:
+Сильные формы заучиваются тройками: gehen — ging — gegangen; sehen — sah — gesehen; kommen — kam — gekommen. В художественном тексте их знание необходимо для понимания сюжета.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте личные окончания сильного Präteritum.
+::source
+ich ging — du gingst — er ging — wir gingen — ihr gingt — sie gingen
+::exercise
+Чем отличается ich ging от du gingst?
+
+BACK:
+В Präteritum формы 1-го лица (ich) и 3-го лица (er/sie/es) совпадают и не имеют добавочного личного окончания: ich ging, er ging. Форма du получает -st (gingst), wir/sie — -en (gingen).
+
+CONTEXT:
+Типичная ошибка — перенос окончания -e из настоящего времени: ❌ ich ginge (это форма сослагательного наклонения Konjunktiv II, а не реальное прошедшее Präteritum).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните популярность форм war и hatte в устной речи.
+::source
+Früher war die Straße ruhig. Unser Haus hatte einen großen Garten.
+::exercise
+Почему здесь естественно Präteritum даже при рассказе вслух?
+
+BACK:
+war (прошедшее от sein) и hatte (прошедшее от haben) — сверхчастотные разговорные формы. Они гораздо проще и естественнее громоздких Perfekt-конструкций bin gewesen и habe gehabt. Перевод: «Раньше улица была тихой. У нашего дома был большой сад».
+
+CONTEXT:
+Фраза «Ich war krank» звучит в бытовом разговоре намного живее, чем «Ich bin krank gewesen». war и hatte не являются «книжными» исключениями.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите значение прошедших форм модальных глаголов.
+::source
+Ich konnte die Adresse nicht finden.
+Wir mussten lange warten.
+::exercise
+Что означают konnte и mussten?
+
+BACK:
+Это Präteritum модальных глаголов: können → konnte («мог / не смог»); müssen → musste («должен был / пришлось»). Перевод: «Я не мог найти адрес. Нам пришлось долго ждать».
+
+CONTEXT:
+В разговорной речи модальные глаголы почти всегда используются в Präteritum, а не в сложном Perfekt. Второй смысловой глагол в инфинитиве уходит в конец: Ich konnte die Adresse nicht finden.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните оттенки значений модальных глаголов в прошлом.
+::source
+1. Sie wollte eine Ausbildung anfangen.
+2. Er durfte früher nach Hause gehen.
+3. Ich sollte den Arzt anrufen.
+::exercise
+О чём рассказывают три формы?
+
+BACK:
+1. wollte (wollen) — желание/намерение: «Она хотела начать обучение».
+2. durfte (dürfen) — разрешение: «Ему разрешили уйти домой раньше».
+3. sollte (sollen) — поручение/обязанность по совету: «Мне следовало позвонить врачу».
+
+CONTEXT:
+Модальные значения нельзя смешивать: wollen — своё намерение, dürfen — внешнее разрешение, sollen — чужое распоряжение или рекомендация.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разграничьте прошедшее время и сослагательное наклонение.
+::source
+Als Kind wollte ich Pilot werden.
+Heute möchte ich besser Deutsch sprechen.
+::exercise
+Почему wollte и möchte нельзя просто поменять местами?
+
+BACK:
+wollte — реальное прошедшее время (Präteritum от wollen): «В детстве я хотел стать пилотом». möchte — форма Konjunktiv II для вежливого желания в настоящем/будущем: «Сегодня я хотел бы лучше говорить по-немецки».
+
+CONTEXT:
+Сходство русских слов «хотел» и «хотел бы» обманчиво: желание в прошлом — wollte, вежливая просьба или мечта сейчас — möchte.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите особенности смешанных глаголов.
+::source
+bringen → brachte → gebracht
+denken → dachte → gedacht
+::exercise
+Почему эти тройки не похожи полностью ни на machen, ни на gehen?
+
+BACK:
+Это смешанные глаголы: они сочетают изменение гласной в корне (как у сильных) с суффиксами -te и -t (как у слабых). Примеры: «Sie brachte einen Kuchen mit» («Она принесла пирог»); «Ich habe lange darüber nachgedacht» («Я долго думал об этом»).
+
+CONTEXT:
+Смешанные глаголы (bringen, denken, kennen, wissen) удобнее всего сразу учить готовыми тройками.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте порядок слов в вопросительном предложении.
+::source
+Warst du gestern im Kurs?
+Hattest du genug Zeit?
+::exercise
+Почему warst и hattest стоят первыми?
+
+BACK:
+Это общие вопросы без вопросительного слова (Ja/Nein-Fragen). В них спрягаемый глагол всегда занимает 1-ю позицию. Перевод: «Ты был вчера на курсе? У тебя было достаточно времени?».
+
+CONTEXT:
+Использование времени Präteritum меняет форму глагола, но подчиняется общим законам порядка слов: повествование — V2, общий вопрос — V1.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните построение отрицания в двух временах.
+::source
+Ich hatte keine Angst.
+Ich habe den Brief nicht gefunden.
+::exercise
+Нужно ли из-за Präteritum менять обычный способ отрицания?
+
+BACK:
+Нет. Отрицание kein- относится к существительному без артикля (keine Angst), а nicht отрицает глагол/предикат (nicht gefunden). Форма времени не влияет на правила выбора отрицания.
+
+CONTEXT:
+Перевод: «Я не боялся» / «Я не нашёл письмо». Структура отрицания в немецком определяется типом отрицаемого члена, а не выбором Perfekt или Präteritum.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите порядок слов в придаточном предложении с Präteritum.
+::source
+Ich blieb zu Hause, weil ich Fieber hatte.
+::exercise
+Почему hatte стоит в конце придаточного?
+
+BACK:
+Союз weil подчиняет предложение (Nebensatz), поэтому спрягаемый глагол hatte занимает абсолютный конец предложения. Перевод: «Я остался дома, потому что у меня была температура».
+
+CONTEXT:
+В главном: Ich hatte Fieber (V2). В придаточном: ..., weil ich Fieber hatte (глагол в конце). Время (Präteritum) и синтаксическая позиция глагола определяются независимо.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните сочетание Präteritum и Perfekt в устном рассказе.
+::source
+Letztes Jahr war ich in Österreich. Dort habe ich einen Sprachkurs besucht und viele Leute kennengelernt.
+::exercise
+Найди Präteritum и Perfekt. Почему история не распадается на две?
+
+BACK:
+war — Präteritum глагола sein; habe besucht и habe kennengelernt — Perfekt. Перевод: «В прошлом году я был в Австрии. Там я посещал языковой курс и познакомился со многими людьми».
+
+CONTEXT:
+Это естественный устный рассказ: war задаёт фон и состояние, а конкретные действия передаются Perfekt. Рассказ звучит гармонично, поскольку war и hatte органично живут в устной речи рядом с Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте временную форму цепочки действий в письменном тексте.
+::source
+Die Frau öffnete das Fenster, hörte ein Geräusch und sah einen Hund im Hof.
+::exercise
+Что объединяет три глагола?
+
+BACK:
+öffnete, hörte, sah — формы Präteritum. Они описывают последовательную цепочку законченных действий: «Женщина открыла окно, услышала шум и увидела во дворе собаку».
+
+CONTEXT:
+В письменном художественном рассказе Präteritum передаёт всю цепь событий, а не только фон. Формула «Perfekt = действие, Präteritum = фон» неверна как абсолютное правило.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните подачу одних и тех же событий в разных стилях речи.
+::source
+Разговор: Ich bin in den Park gegangen. Dort habe ich einen Bekannten getroffen.
+Книга: Ich ging in den Park. Dort traf ich einen Bekannten.
+::exercise
+Что меняется — порядок событий или способ их рассказать?
+
+BACK:
+Порядок событий абсолютно одинаков. Меняется повествовательный стиль: bin gegangen / habe getroffen естественны для устной речи, а ging / traf — для письменного рассказа.
+
+CONTEXT:
+Разница между временами здесь чисто стилистическая, а не временная («давно» против «недавно»). Оба варианта передают одно и то же прошлое событие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте влияние союза als на выбор времени.
+::source
+1. Als ich klein war, wohnte meine Familie auf dem Land.
+2. Als ich klein war, habe ich oft im Garten gespielt.
+::exercise
+Почему после als могут встречаться разные прошедшие формы?
+
+BACK:
+Союз als вводит разовую временную ситуацию или период в прошлом («когда я был маленьким»); сам по себе он не диктует выбор только Perfekt или только Präteritum.
+
+CONTEXT:
+Первый вариант оформлен как книжное воспоминание (wohnte), второй — как непринуждённый устный рассказ (habe gespielt). Выбор времени определяется общим стилем речи, а не союзом als.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите и исправьте ошибку в порядке слов.
+::source
+❌ Gestern ich war im Rathaus und habe ein Formular ausgefüllt.
+::exercise
+Какая здесь ошибка — во времени или в порядке слов?
+
+BACK:
+✅ Gestern war ich im Rathaus und habe ein Formular ausgefüllt.
+Перевод: «Вчера я был в ратуше и заполнил формуляр».
+
+CONTEXT:
+Времена war и habe ausgefüllt выбраны верно. Ошибка — в порядке слов: после обстоятельства Gestern спрягаемый глагол war обязан стоять на 2-й позиции (инверсия: Gestern war ich...).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибки в выборе вспомогательного глагола.
+::source
+❌ Ich habe gestern nach Berlin gefahren.
+❌ Mein Kollege ist bis spät gearbeitet.
+::exercise
+Что здесь нужно исправить?
+
+BACK:
+✅ Ich bin gestern nach Berlin gefahren. («Вчера я поехал в Берлин»).
+✅ Mein Kollege hat bis spät gearbeitet. («Мой коллега работал допоздна»).
+
+CONTEXT:
+fahren в значении перемещения в пространстве требует sein (bin gefahren). arbeiten обозначает деятельность и требует haben (hat gearbeitet).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Различите Präteritum и вспомогательную функцию глагола war.
+::source
+1. Ich war müde.
+2. Ich war schon gegangen.
+::exercise
+Почему это не два одинаковых примера Präteritum?
+
+BACK:
+В 1: war — самостоятельный глагол sein в Präteritum («Я был уставшим»). Во 2: war — вспомогательный глагол в форме предпрошедшего времени Plusquamperfekt: war + Partizip II («Я уже ушёл до другого события»).
+
+CONTEXT:
+Не судите о времени предложения по одному слову war: всегда проверяйте всё сказуемое целиком (есть ли Partizip II на конце предложения).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите сочетание временных форм в связном устном рассказе.
+::source
+Vor zwei Monaten hatte ich ein Vorstellungsgespräch. Am Morgen war ich nervös. Ich bin früh losgefahren, aber der Bus ist zu spät gekommen. Zum Glück konnte ich die Firma noch rechtzeitig erreichen.
+::exercise
+Найдите пять прошедших форм. Что объясняет их сочетание?
+
+BACK:
+1. hatte — Präteritum от haben; 2. war — Präteritum от sein; 3. bin losgefahren — Perfekt (перемещение); 4. ist gekommen — Perfekt (прибытие); 5. konnte — Präteritum от können. Перевод: «Два месяца назад у меня было собеседование. Утром я нервничал. Я выехал рано, но автобус опоздал. К счастью, я смог вовремя добраться до фирмы».
+
+CONTEXT:
+В живой речи hatte, war и модальные глаголы (konnte) естественно берутся в Präteritum, а динамические действия передаются Perfekt. Это живая норма немецкого повествования.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сформулируйте главное практическое правило для построения рассказа.
+::source
+Ты хочешь рассказать знакомому, как прошёл день.
+::exercise
+На что опираться в первую очередь: на «давно/недавно», на «действие/фон» или на стиль и употребление конкретного глагола?
+
+BACK:
+Главная опора — стиль общения + конкретный глагол + правильная грамматическая форма.
+
+CONTEXT:
+Для устного рассказа: действия в Perfekt (Ich habe gearbeitet. Danach bin ich gegangen), а sein, haben и модальные глаголы — в Präteritum (Ich war müde, ich musste kochen). Для книги/эссе: последовательное Präteritum (Ich öffnete die Tür und trat ein).

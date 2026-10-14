@@ -52,22 +52,6 @@ export const getDescendantFolderIds = (folderId, foldersList = []) => {
   return descendantIds;
 };
 
-export const getFolderContentStats = (folderId, foldersList = [], decksList = []) => {
-  const childFolders = (foldersList || []).filter(f => f.parent_id === folderId);
-  const childDecks = (decksList || []).filter(d => d.folder_id === folderId);
-  const descendantFolderIds = getDescendantFolderIds(folderId, foldersList || []);
-  const allBranchFolderIds = [folderId, ...descendantFolderIds];
-  const branchDecksCount = (decksList || []).filter(d => allBranchFolderIds.includes(d.folder_id)).length;
-  const isBranchEmpty = branchDecksCount === 0;
-
-  return {
-    childFoldersCount: childFolders.length,
-    childDecksCount: childDecks.length,
-    branchDecksCount,
-    isBranchEmpty
-  };
-};
-
 export const getSortedFolderTree = (foldersList = [], excludeId = null, excludeDescendantIds = []) => {
   const result = [];
   const traverse = (parentId, depth) => {

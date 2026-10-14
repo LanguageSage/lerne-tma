@@ -1,0 +1,786 @@
+# Deck: B1-04-D02 · Plusquamperfekt und nachdem — теория простыми словами
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-04-D02 · Plusquamperfekt und nachdem — теория простыми словами",
+    "level": "B1",
+    "topic": "Plusquamperfekt und nachdem",
+    "description": "Предпрошедшее время и союз nachdem простыми бытовыми образами: порядок «сначала/потом», шаг назад от известного момента, знакомый Perfekt и синтаксическая рамка",
+    "goal": "Дать ученику не второе академическое объяснение, а простую внутреннюю картинку: в прошлом есть два события; одно успело произойти до другого. С помощью этого образа научиться понимать hatte/war + Partizip II, союз nachdem и порядок слов. Главное — перестать переводить каждую немецкую форму отдельно и начать видеть последовательность событий.",
+    "learning_outcomes": [
+      "Услышав два события, мысленно разложить их на «сначала → потом»",
+      "Своими словами объяснить, зачем в рассказе нужна форма hatte gemacht / war gekommen",
+      "Превратить знакомую форму Perfekt в Plusquamperfekt, изменив вспомогательный глагол, а не причастие",
+      "Отличать hatte от war по известной форме Perfekt",
+      "Понять nachdem как «после того как» и увидеть конец его придаточной части",
+      "Без грамматических терминов объяснить, почему после начального придаточного сказуемое главной части стоит перед подлежащим",
+      "Не путать nachdem, danach и bevor по смыслу и строению",
+      "Замечать две главные ловушки: не всякое старое событие требует Plusquamperfekt, а не каждое war образует Plusquamperfekt"
+    ],
+    "estimated_time": "30–45 минут",
+    "recommendations": "Если ученик не видит два события и прошлую точку отсчёта — повторить карточки 01–07, 25–26; путает hatte/war или Partizip II — карточки 08–15; ошибается с придаточным и инверсией — карточки 16–21; путает слова «после того как / после этого / прежде чем» — карточки 22–24; понимает фразы отдельно, но теряет целую историю — карточки 31–35. Следующий шаг: B1-04-D03 «Распознавание форм»."
+  },
+  "pedagogy": {
+    "lesson_type": "theory",
+    "stages": [
+      {
+        "id": "mental_picture_and_rewind",
+        "title": "Житейские истории и образ «перемотки фильма назад»",
+        "goal": "Сформировать понимание временного шага назад от прошлого момента и избавиться от заблуждения о «далёком прошлом»",
+        "from_card": 1,
+        "to_card": 7,
+        "support": "high",
+        "expected_skill": "Мысленно раскладывать прошлые действия на «сначала» и «потом» без опоры на формальные правила"
+      },
+      {
+        "id": "familiar_perfekt_bridge",
+        "title": "Мостик от знакомого Perfekt к Plusquamperfekt",
+        "goal": "Показать, что форма состоит из знакомого Partizip II и вспомогательного глагола в прошедшем времени",
+        "from_card": 8,
+        "to_card": 15,
+        "support": "high",
+        "expected_skill": "Мгновенно переводить habe/ist в hatte/war, сохраняя форму причастия и глагольную рамку"
+      },
+      {
+        "id": "nachdem_connector_and_order",
+        "title": "Союз nachdem как склейка двух частей и порядок слов",
+        "goal": "Освоить синтаксис придаточного с nachdem, правило конца и инверсию в главном предложении",
+        "from_card": 16,
+        "to_card": 24,
+        "support": "high",
+        "expected_skill": "Понимать позицию глагола в придаточном с nachdem и сразу после запятой в главном"
+      },
+      {
+        "id": "pitfalls_stories_checklist",
+        "title": "Бытовые сюжеты, ловушки и итоговый алгоритм",
+        "goal": "Научиться читать связные сюжеты, отличать war как связку от Plusquamperfekt и уверенно резюмировать тему",
+        "from_card": 25,
+        "to_card": 36,
+        "support": "medium",
+        "expected_skill": "Слышать последовательность событий в бытовых историях и объяснять грамматический выбор"
+      }
+    ],
+    "expected_result": "Ученик интуитивно чувствует предпрошедшее время как хронологический шаг назад, безошибочно соотносит форму с привычным Perfekt, свободно читает предложения с nachdem и не путает союз с наречием danach.",
+    "competencies": [
+      {
+        "id": "intuitive_chronology",
+        "title": "Интуитивное понимание хронологии",
+        "description": "Умение видеть два момента прошлого и определять предшествующее действие"
+      },
+      {
+        "id": "perfekt_transfer",
+        "title": "Перенос навыков из Perfekt",
+        "description": "Образование Plusquamperfekt через замену habe/ist на hatte/war без искажения Partizip II"
+      },
+      {
+        "id": "nachdem_word_order",
+        "title": "Контроль порядка слов с nachdem",
+        "description": "Понимание расположения сказуемого в конце придаточного и на позиции 2 главного предложения"
+      },
+      {
+        "id": "semantic_connectors",
+        "title": "Различение временных связок",
+        "description": "Смысловое и грамматическое разделение nachdem («после того как»), danach («после этого») и bevor («прежде чем»)"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "chronology_check",
+        "title": "Определение хронологии",
+        "description": "Точное выделение действия, случившегося раньше другого в бытовом контексте"
+      },
+      {
+        "id": "form_recognition",
+        "title": "Опознавание связки глаголов",
+        "description": "Различение полного Plusquamperfekt (war gegangen) и простого Präteritum (war müde / war zu)"
+      },
+      {
+        "id": "word_order_intuition",
+        "title": "Чувство порядка слов",
+        "description": "Понимание необходимости глагола сразу после запятой при начальном придаточном предложении"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_timeline",
+        "title": "Повторение временной стрелки",
+        "when": "Если ученик не чувствует разницу между «просто прошлым» и «шагом назад»",
+        "reason": "Повторить карточки 01–07, 25–26",
+        "competency_ids": ["intuitive_chronology"]
+      },
+      {
+        "id": "review_auxiliary_bridge",
+        "title": "Повторение связи с Perfekt",
+        "when": "При путанице с выбором hatte/war или при попытке изменить Partizip II",
+        "reason": "Повторить карточки 08–15",
+        "competency_ids": ["perfekt_transfer"]
+      },
+      {
+        "id": "review_syntax_block",
+        "title": "Повторение порядка слов с nachdem",
+        "when": "При затруднениях с позицией глагола в придаточном или главном",
+        "reason": "Повторить карточки 16–21",
+        "competency_ids": ["nachdem_word_order"]
+      },
+      {
+        "id": "review_connector_trio",
+        "title": "Повторение триады nachdem / danach / bevor",
+        "when": "При смешении союза и наречия или путанице в направлении времени",
+        "reason": "Повторить карточки 22–24",
+        "competency_ids": ["semantic_connectors"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Представьте два события во времени и объясните выбор формы.
+::source
+Вчера в 18:00 ты приготовил ужин. В 19:00 пришли гости.
+Als die Gäste kamen, hatte ich schon gekocht.
+::exercise
+Почему в немецком предложении используется hatte gekocht, а не hat gekocht?
+
+BACK:
+К приходу гостей еда уже была приготовлена.
+Хронология: 18:00 — приготовил → 19:00 — гости пришли → сейчас рассказываю.
+Als die Gäste kamen, hatte ich schon gekocht. — «Когда пришли гости, я уже приготовил еду».
+
+CONTEXT:
+Plusquamperfekt — простое средство сказать: «Это случилось ещё раньше, чем другое событие в прошлом».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените утверждение о «далёком прошлом» на реальном примере.
+::source
+Ты забыл телефон за пять минут до выхода из дома.
+Ich hatte mein Handy vergessen, als ich das Haus verließ.
+::exercise
+Разве пять минут назад — это «очень далёкое прошлое»? Почему здесь стоит Plusquamperfekt?
+
+BACK:
+Нет, пять минут назад — это не далёкое прошлое. Для немецкой грамматики важно не количество прошедших минут, а взаимный порядок действий:
+1. Ты забыл телефон (раньше).
+2. Потом вышел из дома (позже).
+Ich hatte mein Handy vergessen, als ich das Haus verließ. — «Я забыл телефон, когда выходил из дома» (забыл до выхода).
+
+CONTEXT:
+Plusquamperfekt выражает не отдалённость времени от сегодняшнего дня, а взаимный порядок двух событий в прошлом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Представьте образ «перемотки фильма назад» при анализе фразы.
+::source
+Der Boden war nass. Es hatte geregnet.
+::exercise
+Ты видишь мокрый пол или землю. Почему автор вдруг говорит о дожде через hatte geregnet?
+
+BACK:
+Рассказ начинается с наблюдаемого результата: Der Boden war nass — «Земля была мокрой».
+Затем автор перематывает историю назад, объясняя причину: Es hatte geregnet — «До этого шёл дождь».
+
+CONTEXT:
+Так и работает Plusquamperfekt: читатель уже находится в определённом моменте прошлого, а рассказчик делает шаг назад и сообщает о событии, случившемся до него.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните обычное прошедшее событие и предпрошедшее.
+::source
+Gestern habe ich einen Kuchen gebacken.
+::exercise
+Нужно ли заменить habe gebacken на hatte gebacken только потому, что вчера уже прошло?
+
+BACK:
+Нет. «Вчера я испёк пирог» — обычное сообщение о прошлом действии.
+Но если добавить другую точку отсчёта в прошлом:
+Als meine Freunde ankamen, hatte ich den Kuchen schon gebacken. — «Когда друзья пришли, я уже испёк пирог».
+Здесь понятно, относительно какого прошлого момента пирог был готов раньше.
+
+CONTEXT:
+Прошедшее время само по себе не требует Plusquamperfekt: предпрошедшее нужно только тогда, когда есть второй прошлый момент, случившийся позже.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните связь двух отдельных предложений без союза.
+::source
+Tim konnte nicht ins Haus. Er hatte seinen Schlüssel verloren.
+::exercise
+Как понять связь между предложениями, если между ними нет союза nachdem?
+
+BACK:
+События связываются смыслом рассказа:
+1. Тим потерял ключ (раньше).
+2. Потом не смог войти в дом (позже).
+«Тим не мог попасть в дом. Он потерял свой ключ».
+
+CONTEXT:
+hatte verloren — Plusquamperfekt. Предшествующее событие объясняет причину ситуации в прошлом; специальный союз для этого не обязателен.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте порядок предложений в тексте с реальным порядком событий.
+::source
+Lisa war glücklich. Sie hatte die Prüfung bestanden.
+::exercise
+Автор сначала говорит о радости. Что случилось раньше в реальной жизни?
+
+BACK:
+Раньше Лиза сдала экзамен: hatte bestanden.
+Позже она радовалась: war glücklich.
+«Лиза была счастлива. Она сдала экзамен».
+
+CONTEXT:
+Порядок предложений в рассказе и реальный порядок событий могут не совпадать. Plusquamperfekt помогает легко восстановить настоящую хронологию.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сформулируйте главное правило понимания Plusquamperfekt в одну фразу.
+::source
+Ich war müde, weil ich schlecht geschlafen hatte.
+::exercise
+Какую короткую мысль нужно услышать в форме hatte geschlafen?
+
+BACK:
+«Это произошло раньше того прошлого момента, о котором сейчас идёт речь».
+Сначала я плохо спал. Затем почувствовал усталость.
+Перевод: «Я был уставшим, потому что плохо спал».
+
+CONTEXT:
+Удобная опора: раньше → Plusquamperfekt; позже → обычное прошедшее время (Präteritum или Perfekt).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните знакомый Perfekt и Plusquamperfekt одного действия.
+::source
+Ich habe die Küche geputzt.
+Ich hatte die Küche geputzt.
+::exercise
+Второе предложение выглядит почти как первое. Что изменилось?
+
+BACK:
+Изменилось только одно слово:
+• habe geputzt — Perfekt;
+• hatte geputzt — Plusquamperfekt.
+Причастие geputzt остаётся неизменным.
+«Я убрал кухню» / «Я уже убрал кухню [к тому прошлому моменту]».
+
+CONTEXT:
+Не нужно учить форму с нуля: берём знакомый Perfekt и просто переводим вспомогательный глагол в прошедшую форму (habe → hatte).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проследите образование Plusquamperfekt от глагола с sein в Perfekt.
+::source
+Ich bin früh aufgestanden.
+Ich war früh aufgestanden.
+::exercise
+Почему здесь war aufgestanden, а не hatte aufgestanden?
+
+BACK:
+Потому что aufstehen («вставать») образует обычный Perfekt с глаголом sein:
+• ich bin aufgestanden;
+• ich war aufgestanden.
+«Я встал рано» / «Я уже встал рано [к определённому прошлому моменту]».
+
+CONTEXT:
+Если в Perfekt использовался глагол sein (bin, bist, ist, sind, seid), в Plusquamperfekt автоматически будет war (war, warst, waren, wart).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Запомните «две дорожки» вспомогательных глаголов.
+::source
+hat gewaschen → hatte gewaschen
+ist gelaufen → war gelaufen
+::exercise
+Почему полезно запомнить именно такие парные переходы?
+
+BACK:
+Потому что в немецком языке есть две неизменные дорожки:
+• haben-дорожка: hat gewaschen → hatte gewaschen («постирал / уже постирал»);
+• sein-дорожка: ist gelaufen → war gelaufen («побежал / уже побежал»).
+
+CONTEXT:
+Правила выбора haben или sein не меняются: мы используем точно тот же выбор вспомогательного глагола, который уже знаем из Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проверьте неизменность причастия при смене времени.
+::source
+Wir haben die Blumen gegossen.
+Wir hatten die Blumen gegossen.
+::exercise
+Нужно ли менять форму слова gegossen при переходе в Plusquamperfekt?
+
+BACK:
+Нет. gegossen — Partizip II от gießen («поливать»).
+В обоих временах само причастие одинаковое, меняется только вспомогательный глагол: haben → hatten.
+Wir hatten die Blumen gegossen, bevor wir weggefahren sind. — «Мы полили цветы до того, как уехали».
+
+CONTEXT:
+Не придумывайте новых окончаний для причастия: шаг назад во времени выражается исключительно вспомогательным глаголом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните форму причастия глагола с неотделяемой приставкой.
+::source
+Er hat den Namen vergessen.
+Er hatte den Namen vergessen.
+::exercise
+Почему форма причастия — именно vergessen, а не gevergessen?
+
+BACK:
+Потому что Partizip II глагола vergessen («забывать») — это готовая форма vergessen (приставка ver- не принимает ge-).
+«Он забыл имя» / «Он уже забыл имя [к тому моменту]».
+
+CONTEXT:
+Plusquamperfekt не создаёт новых причастий. Известная форма Perfekt переносится в предпрошедшее время без каких-либо изменений.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Различите самостоятельное значение слова hatte и его роль в сложном времени.
+::source
+Ich hatte Hunger.
+Ich hatte gefrühstückt.
+::exercise
+Почему слово hatte выполняет совершенно разные роли в этих двух предложениях?
+
+BACK:
+• Ich hatte Hunger. — «Я был голоден / у меня был голод». Здесь hatte — самостоятельный глагол haben в Präteritum.
+• Ich hatte gefrühstückt. — «Я уже позавтракал [к тому моменту]». Здесь hatte — вспомогательный глагол в составе Plusquamperfekt, а смысловое действие выражено словом gefrühstückt.
+
+CONTEXT:
+Одинокое слово hatte ещё не означает Plusquamperfekt: всегда ищите всю пару — вспомогательный глагол + причастие Partizip II.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Различите простое Präteritum глагола sein и форму Plusquamperfekt.
+::source
+Die Tür war zu.
+Der Nachbar war schon gegangen.
+::exercise
+Как отличить описание состояния от предпрошедшего действия?
+
+BACK:
+• Die Tür war zu. — «Дверь была закрыта». Здесь обычное Präteritum глагола sein плюс признак zu («закрыта»).
+• Der Nachbar war schon gegangen. — «Сосед уже ушёл». Здесь Plusquamperfekt: форма war + Partizip II gegangen.
+
+CONTEXT:
+Для определения Plusquamperfekt необходима полная связка вспомогательного глагола и причастия Partizip II. Не делайте вывод по одному слову war.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите два элемента сказуемого в рамке главного предложения.
+::source
+Am Freitag hatte Sara das Paket abgeholt.
+::exercise
+Представьте предложение как коробку с двумя замками: где находятся hatte и abgeholt?
+
+BACK:
+В обычном главном предложении:
+Am Freitag hatte Sara das Paket abgeholt.
+• hatte стоит на второй синтаксической позиции;
+• abgeholt замыкает фразу в самом конце.
+Перевод: «В пятницу Сара уже забрала посылку [к определённому моменту]».
+
+CONTEXT:
+Это точно такая же рамка сказуемого, как и в Perfekt: Am Freitag hat Sara das Paket abgeholt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите значение и временную роль союза nachdem.
+::source
+Nachdem ich zu Mittag gegessen hatte, setzte ich mich an den Computer.
+::exercise
+Что делает слово nachdem и как понять последовательность действий?
+
+BACK:
+nachdem = «после того как».
+В части с nachdem находится то, что произошло сначала: ich ... gegessen hatte.
+В главной части — то, что случилось потом: setzte ich mich ...
+Перевод: «После того как я пообедал, я сел за компьютер».
+
+CONTEXT:
+Услышав nachdem, мысленно задайте вопрос «после чего?» — это сразу укажет на предшествующее событие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните положение спрягаемого глагола в придаточном с nachdem.
+::source
+Nachdem Peter die Jacke angezogen hatte, ging er hinaus.
+::exercise
+Почему hatte стоит в самом конце, так далеко от подлежащего Peter?
+
+BACK:
+Потому что nachdem начинает придаточное предложение (Nebensatz), в котором спрягаемый глагол всегда уходит в абсолютный конец:
+Nachdem Peter die Jacke angezogen hatte, ...
+«После того как Петер надел куртку, он вышел наружу».
+
+CONTEXT:
+Простое правило: союз nachdem притягивает спрягаемый глагол к самому концу своего предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните порядок слов одного и того же действия в главном и придаточном.
+::source
+Ich hatte die Schuhe ausgezogen.
+Nachdem ich die Schuhe ausgezogen hatte, ...
+::exercise
+Почему во втором предложении hatte и ausgezogen поменялись местами?
+
+BACK:
+• Первое предложение — главное: ich hatte ... ausgezogen (спрягаемый глагол hatte на 2-й позиции).
+• Второе — придаточное с nachdem: nachdem ich ... ausgezogen hatte (спрягаемый глагол уходит в конец, после причастия).
+В обоих случаях действие одинаковое: «я снял обувь».
+
+CONTEXT:
+Смысл и грамматическое время абсолютно одинаковы; порядок слов изменился только из-за того, что союз nachdem создал придаточное предложение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните, почему после запятой сказуемое стоит перед подлежащим.
+::source
+Nachdem der Wecker geklingelt hatte, stand Mia auf.
+::exercise
+Почему после запятой идёт stand Mia auf, а не Mia stand auf?
+
+BACK:
+Потому что всё начальное придаточное предложение (Nachdem der Wecker geklingelt hatte) считается единым первым блоком главного предложения.
+По закону немецкого языка глагол в главном предложении обязан стоять на втором месте:
+[1-й блок: придаточное], [2-е место: глагол stand] [подлежащее Mia]...
+Перевод: «После того как прозвенел будильник, Мия встала».
+
+CONTEXT:
+Правило на пальцах: всё «после того как...» — это блок 1, затем сразу идёт глагол главной части, а за ним её подлежащее.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проверьте последовательность событий при перестановке частей предложения.
+::source
+Nachdem Ben geduscht hatte, zog er sich an.
+Ben zog sich an, nachdem er geduscht hatte.
+::exercise
+Изменилось ли то, что Бен сделал в реальной жизни первым?
+
+BACK:
+Нет, в обоих случаях последовательность событий строго одинакова:
+сначала принял душ → потом оделся.
+Перевод: «После того как Бен принял душ, он оделся» / «Бен оделся после того, как принял душ».
+
+CONTEXT:
+Придаточная часть с nachdem может стоять как до главной, так и после неё. Внутри придаточного порядок (geduscht hatte) всегда остаётся неизменным.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Представьте длинное придаточное предложение как одну синтаксическую позицию.
+::source
+Nachdem wir die Wohnung besichtigt hatten, unterschrieben wir nichts.
+::exercise
+Почему глагол unterschrieben стоит сразу после запятой?
+
+BACK:
+Представьте всё придаточное предложение как одну большую вводную плитку:
+[Nachdem wir die Wohnung besichtigt hatten] → unterschrieben → wir → nichts.
+«После того как мы осмотрели квартиру, мы ничего не подписали».
+
+CONTEXT:
+В главном предложении спрягаемый глагол занимает позицию 2, даже если позиция 1 выражена целой цепочкой слов придаточного предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте грамматику союза nachdem и наречия danach.
+::source
+Nachdem ich eingekauft hatte, kochte ich.
+Ich kaufte ein. Danach kochte ich.
+::exercise
+Сюжет обеих историй одинаков. В чём грамматическая разница между nachdem и danach?
+
+BACK:
+• nachdem («после того как») — союз, который объединяет две части одного сложного предложения.
+• danach («после этого») — наречие времени; оно начинает новое самостоятельное главное предложение.
+Перевод: «После того как я сделал покупки, я приготовил еду» / «Я сделал покупки. После этого я приготовил еду».
+
+CONTEXT:
+Запомните кратко: nachdem = «после того как...» (придаточное), danach = «после этого» (главное предложение).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните направление взгляда во времени союзов nachdem и bevor.
+::source
+Nachdem ich die Pflanzen gegossen hatte, ging ich weg.
+Bevor ich wegging, goss ich die Pflanzen.
+::exercise
+Что общего у этих двух предложений и чем различается подача информации?
+
+BACK:
+Оба предложения выражают одну цепочку: сначала я полил растения, затем ушёл.
+• nachdem («после того как»): показывает, что предшествовало уходу.
+• bevor («прежде чем»): показывает, что действие произошло до момента ухода.
+Перевод: «После того как я полил растения, я ушёл» / «Прежде чем уйти, я полил растения».
+
+CONTEXT:
+Смысл событий один и тот же, но точка зрения различается: nachdem оглядывается назад на завершённое действие, а bevor смотрит вперёд на следующее событие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте три способа рассказать одну бытовую историю.
+::source
+Nachdem Eva den Tisch gedeckt hatte, rief sie die Kinder.
+Eva deckte den Tisch. Danach rief sie die Kinder.
+Bevor Eva die Kinder rief, deckte sie den Tisch.
+::exercise
+Есть ли здесь три разные истории или одна?
+
+BACK:
+Это одна и та же история:
+1. Ева накрыла на стол (раньше).
+2. Затем позвала детей (позже).
+Различаются только связки: nachdem («после того как»), danach («после этого»), bevor («прежде чем»).
+den Tisch decken — «накрывать на стол», rufen — «звать».
+
+CONTEXT:
+Сначала чётко определите последовательность действий («что сначала, что потом»), и только затем выбирайте подходящее слово для связи.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените необходимость использования Plusquamperfekt при обычном перечислении.
+::source
+Ich öffnete das Fenster und machte das Licht aus.
+::exercise
+В предложении два действия следуют одно за другим. Обязательно ли заменять первое на Plusquamperfekt?
+
+BACK:
+Нет. В простом связном рассказе последовательные действия естественно перечисляются одно за другим в обычном Präteritum:
+«Я открыл окно и выключил свет».
+
+CONTEXT:
+Plusquamperfekt нужен тогда, когда мы оглядываемся назад от определённого момента или подчёркиваем, что действие уже завершилось к нему. Первое действие в цепочке не требует предпрошедшего времени автоматически.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите предпрошедшее время в предложении без союза nachdem.
+::source
+Am Abend bemerkte ich, dass ich die Milch nicht gekauft hatte.
+::exercise
+В предложении есть Plusquamperfekt. Нужен ли здесь союз nachdem?
+
+BACK:
+Союз nachdem здесь отсутствует и не требуется:
+1. Раньше я не купил молоко (nicht gekauft hatte).
+2. Вечером я заметил это (bemerkte).
+«Вечером я заметил, что не купил молоко».
+
+CONTEXT:
+Plusquamperfekt свободно используется в любых придаточных (например, с dass) или главных предложениях: это самостоятельное время, а не приложение к союзу nachdem.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите временной план фразы с союзом nachdem.
+::source
+Nachdem ich meine E-Mails beantwortet habe, mache ich eine Pause.
+::exercise
+Почему в придаточном предложении использовано habe beantwortet, а не hatte beantwortet?
+
+BACK:
+Потому что фраза обращена в будущее: «После того как я отвечу на письма, я сделаю перерыв».
+Здесь мы смотрим из настоящего времени вперёд, поэтому используется пара Perfekt (beantwortet habe) + Präsens (mache).
+
+CONTEXT:
+Правило «после nachdem всегда пишется Plusquamperfekt» ошибочно. Для двух прошлых событий мы используем hatte/war, а для будущего действия — habe/ist.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните использование времени Perfekt в главной части предложения.
+::source
+Nachdem wir die Wohnung verlassen hatten, sind wir zum Supermarkt gefahren.
+::exercise
+Почему в главной части стоит sind gefahren, а не fuhren?
+
+BACK:
+Потому что автор говорит в естественном разговорном стиле:
+1. Сначала: hatten verlassen — вышли из квартиры (Plusquamperfekt).
+2. Затем: sind gefahren — поехали в магазин (разговорный Perfekt).
+Перевод: «После того как мы вышли из квартиры, мы поехали в супермаркет».
+
+CONTEXT:
+Второе (более позднее) событие может стоять как в Präteritum, так и в Perfekt. В устной речи Perfekt в главной части абсолютно естественен.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените грамматическую роль слова schon в предложении.
+::source
+Als der Unterricht begann, hatte Amir seine Aufgabe schon beendet.
+::exercise
+Можно ли убрать слово schon и останется ли предложение в Plusquamperfekt?
+
+BACK:
+Да, предложение можно сказать без schon:
+Als der Unterricht begann, hatte Amir seine Aufgabe beendet.
+«Когда начался урок, Амир закончил своё задание».
+Слово schon («уже») наглядно подчёркивает завершённость, но грамматическую форму создаёт связка hatte + beendet.
+
+CONTEXT:
+Не привязывайте предпрошедшее время исключительно к наличию слова schon: грамматику образует вспомогательный глагол с причастием.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Различите форму Präteritum и форму Plusquamperfekt на парных примерах.
+::source
+Laura war krank.
+Laura war eingeschlafen.
+::exercise
+Почему эти два предложения выражают разные грамматические времена?
+
+BACK:
+• Laura war krank. — «Лаура была больна». Это обычное Präteritum глагола sein с описанием состояния (krank — прилагательное).
+• Laura war eingeschlafen. — «Лаура уже заснула [к тому моменту]». Это Plusquamperfekt: вспомогательный глагол war + Partizip II eingeschlafen.
+
+CONTEXT:
+Задайте себе проверочный вопрос: стоит ли после war причастие действия или просто характеристика состояния?
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Восстановите истинную хронологию событий в коротком бытовом сюжете.
+::source
+Am Samstag wollte Nora ihre Bestellung abholen. Aber das Geschäft war schon geschlossen. Der Verkäufer hatte am Freitag früher zugemacht.
+::exercise
+Какое событие в этой истории произошло раньше всего?
+
+BACK:
+Раньше всего продавец закрыл магазин в пятницу: hatte zugemacht (Plusquamperfekt).
+В субботу Нора пришла за заказом, но магазин уже был закрыт.
+Перевод: «В субботу Нора хотела забрать свой заказ. Но магазин был уже закрыт. Продавец в пятницу закрыл его раньше».
+
+CONTEXT:
+Plusquamperfekt помогает раскрыть предысторию возникшей проблемы. zugemacht — разговорное «закрыл».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите цепочку действий в коротком рассказе о поездке.
+::source
+Nachdem David seinen Rucksack gepackt hatte, rief er ein Taxi. Als das Taxi kam, war David schon fertig.
+::exercise
+В какой последовательности происходили действия и где здесь Plusquamperfekt?
+
+BACK:
+Хронология событий:
+1. Давид собрал рюкзак — hatte gepackt (Plusquamperfekt).
+2. Вызвал такси — rief ein Taxi (Präteritum).
+3. Такси приехало — kam (Präteritum). К этому моменту Давид был готов — war fertig (Präteritum от sein).
+Перевод: «После того как Давид собрал рюкзак, он вызвал такси. Когда такси приехало, Давид уже был готов».
+
+CONTEXT:
+Обратите внимание: форма war fertig — это обычное Präteritum («был готов»), а не Plusquamperfekt, так как fertig является прилагательным.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните использование двух форм hatte в одном предложении.
+::source
+Oskar war überrascht. Seine Kollegin hatte den Termin abgesagt, aber er hatte die Nachricht nicht gelesen.
+::exercise
+Почему к моменту удивления Оскара использованы два глагола в форме hatte?
+
+BACK:
+Потому что к моменту, когда Оскар удивился (war überrascht), уже произошли два независимых факта:
+1. Коллега отменила встречу — hatte abgesagt.
+2. Оскар не прочитал сообщение — hatte nicht gelesen.
+Перевод: «Оскар удивился. Его коллега отменила встречу, но он не прочитал сообщение».
+
+CONTEXT:
+Plusquamperfekt может описывать сразу несколько предшествующих обстоятельств, создавших данную ситуацию в прошлом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите правильный алгоритм построения фразы о двух прошлых событиях.
+::source
+Ты хочешь сказать по-немецки: «После того как я распечатал документы, я отправился в ратушу».
+::exercise
+С какого вопроса эффективнее начать построение фразы: с грамматических окончаний или со смысловой хронологии?
+
+BACK:
+Эффективнее всего начать со смысловой хронологии:
+1. Что произошло раньше? — Распечатал документы (nachdem + Plusquamperfekt: ausgedruckt hatte).
+2. Что произошло потом? — Пошёл в ратушу (главное предложение с глаголом на позиции 2: ging ich...).
+Фраза целиком: Nachdem ich die Unterlagen ausgedruckt hatte, ging ich zum Rathaus.
+
+CONTEXT:
+Надёжный алгоритм: сначала временная логика («что раньше, что позже») → затем глагольная форма (hatte/war + Partizip II) → затем порядок слов в предложении.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните логику немецкого предложения простыми словами.
+::source
+Nachdem Jana den Bus verpasst hatte, rief sie ihren Vater an.
+::exercise
+Объясните без сложных терминов:
+1. Что произошло сначала?
+2. Зачем нужна форма verpasst hatte?
+3. Почему после запятой стоит rief sie, а не sie rief?
+
+BACK:
+1. Сначала Яна опоздала на автобус, а затем позвонила отцу.
+2. verpasst hatte показывает, что автобус ушёл раньше момента звонка.
+3. Вся часть с nachdem занимает первую позицию, поэтому сразу после запятой на второй позиции стоит глагол rief, а за ним — подлежащее sie.
+Перевод: «После того как Яна опоздала на автобус, она позвонила отцу».
+
+CONTEXT:
+Если эти три взаимосвязанных шага понятны, базовая модель темы полностью освоена.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Повторите шесть ключевых ориентиров темы.
+::source
+Как уверенно ориентироваться в предложениях с Plusquamperfekt и nachdem?
+::exercise
+Вспомните шесть простых правил, которые помогают не ошибаться в этой теме.
+
+BACK:
+Шесть ориентиров темы:
+1. Два прошлых события: определи, какое действие произошло раньше, а какое — позже.
+2. Шаг назад: hatte gemacht / war gekommen обозначают действие до другого момента в прошлом.
+3. Знакомое причастие: Partizip II не меняется (hat gemacht → hatte gemacht; ist gekommen → war gekommen).
+4. nachdem = «после того как», союз со сказуемым в самом конце (Nachdem ich gegessen hatte...).
+5. Порядок слов: ...hatte, ging ich... (глагол сразу после запятой) или Ich ging..., nachdem ich... hatte.
+6. Точные связки: nachdem («после того как»), danach («после этого»), bevor («прежде чем»).
+
+CONTEXT:
+Пример для закрепления: Nachdem ich die Tür abgeschlossen hatte, ging ich zur Haltestelle. («После того как я запер дверь, я пошёл на остановку»).

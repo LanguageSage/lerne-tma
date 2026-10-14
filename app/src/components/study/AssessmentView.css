@@ -1,0 +1,9 @@
+.assessment-view { width: min(960px, 100%); margin: 0 auto; padding: 16px; box-sizing: border-box; overflow-wrap: anywhere; }
+.assessment-header h1 { font-size: 1.3rem; }
+.assessment-header p, .assessment-results p { line-height: 1.5; }
+.assessment-actions { display: flex; justify-content: flex-end; padding: 20px 0; }
+.assessment-view .btn { min-height: 44px; white-space: normal; }
+.assessment-results { padding: 20px 0; }
+.assessment-score { font-size: 2rem; font-weight: 700; }
+.assessment-results li { margin-bottom: 12px; }
+.assessment-results li .btn { display: block; margin: 8px 0; max-width: 100%; text-align: left; }

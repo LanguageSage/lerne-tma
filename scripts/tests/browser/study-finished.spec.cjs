@@ -24,6 +24,7 @@ async function setup(page, context, locale = 'ru') {
     if (url.pathname === '/api/init') return route.fulfill({ json: { decks, folders: [{ id: 10, name: 'Тема', parent_id: null, target_language: 'de' }],
       settings: {}, prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (url.pathname === '/api/decks') return route.fulfill({ json: decks });
+    if (url.pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (url.pathname.endsWith('/cards')) return route.fulfill({ json: cards });
     if (url.pathname.endsWith('/next')) {
       const forced = url.searchParams.get('review_context') === 'forced';
@@ -42,6 +43,8 @@ async function setup(page, context, locale = 'ru') {
   await page.goto('/?user_id=1');
   await expect(page.locator('.view-decks')).toBeVisible();
   await page.evaluate(async () => {
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    useSettingsStore.setState({ showLessonCompletion: false }); // Explicit legacy StudyFinished coverage.
     window.deckStore = (await import('/src/store/useDeckStore.js')).useDeckStore;
     window.sessionStore = (await import('/src/store/useSessionStore.js')).useSessionStore;
     window.uiStore = (await import('/src/store/useUiStore.js')).useUiStore;

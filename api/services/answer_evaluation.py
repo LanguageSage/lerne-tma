@@ -48,9 +48,13 @@ def load_answer_context(card_id: int, user_id: int, feedback_language: str) -> t
         if ki and ki.category in ('orthography', 'spelling', 'punctuation'):
             # Surface errors are primary learning errors for these targets.
             policy = policy.model_copy(update={'typo_tolerance': False})
-        exercise = parse_exercise_content(card.front_text)['exercise']
+        content = parse_exercise_content(card.front_text)
+        exercise = re.sub(r'@free\b', '', content['exercise'], count=1, flags=re.I).strip()
+        # The prompt may just say "Answer using a relative clause". The actual
+        # dialogue/situation lives in ::source; omitting it changes what is graded.
+        task = '\n\n'.join(part for part in (content['task'], content['context'], exercise, card.context) if part)
         return {
-            'task': re.sub(r'@free\b', '', exercise, count=1, flags=re.I).strip(),
+            'task': task,
             'target_language': ki.language if ki else card.deck.target_language or 'de',
             'expected_answers': [expected, *variants],
             'learning_target': ({'name': ki.name, 'description': ki.description,

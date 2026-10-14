@@ -1,11 +1,14 @@
 """Passport contracts and transactions against disposable SQLite, never live data."""
 import json
+import os
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest.mock import patch
+
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
 
 from api import models
 from api.services import author_service as author
@@ -152,6 +155,22 @@ class TestPassportParsing(unittest.TestCase):
         passport = sample()
         passport['pedagogy']['future_diagnostics'] = {'custom': True}
         self.assertEqual(validate_passport(passport), [])
+
+    def test_assessment_requires_bounded_complete_nonoverlapping_bands(self):
+        source = json.loads((Path(__file__).resolve().parents[2] / 'reports/lesson-qa/corrected.snapshot.json').read_text(encoding='utf-8'))
+        passport = json.loads(next(d['metadata'] for d in source['decks'] if d['id'] == 7139))
+        passport = {'schema_version': 1, 'intro': passport['intro'], 'pedagogy': passport['pedagogy']}
+        self.assertEqual(validate_passport(passport), [])
+        for mutate in (
+            lambda p: p['pedagogy']['assessment'].update(schema_version=True),
+            lambda p: p['pedagogy']['assessment'].update(required_count=10**12),
+            lambda p: p['pedagogy']['assessment']['bands'][0].update(min=40),
+            lambda p: p['pedagogy']['assessment']['bands'][0].update(min=42),
+            lambda p: p['pedagogy'].update(lesson_type='practice'),
+        ):
+            candidate = json.loads(json.dumps(passport))
+            mutate(candidate)
+            self.assertTrue(validate_passport(candidate))
 
     def test_merge_partial_preserves_other_keys_and_intro_editor_fields(self):
         metadata = {'resources': ['file'], 'is_learning': True, 'intro': {'level': 'B1', 'title': 'Old'},

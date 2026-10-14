@@ -1,0 +1,1005 @@
+# Deck: B1-04-D06 · nachdem — практика построения сложных предложений
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-04-D06 · nachdem — практика построения сложных предложений",
+    "level": "B1",
+    "topic": "Plusquamperfekt und nachdem",
+    "description": "Управляемая практика построения сложноподчинённых предложений с союзом nachdem: конечная позиция hatte/war в придаточном, инверсия в главном, перестановка частей и объединение предложений",
+    "goal": "Научить самостоятельно строить предложения с nachdem, используя освоенное в D05 образование Plusquamperfekt. Главный акцент — правильно связать два прошлых события и расставить глаголы: конечное положение hatte/war в придаточном, позиция сказуемого главной части сразу после запятой, перестановка придаточного в начало/конец и преобразование двух независимых высказываний в сложное предложение.",
+    "learning_outcomes": [
+      "Ставить спрягаемый вспомогательный глагол hatte/war в конец придаточного после Partizip II",
+      "Применять инверсию в главном предложении после начального придаточного (сказуемое на позиции 2 сразу после запятой)",
+      "Переставлять придаточное предложение в начало или в конец без нарушения структуры и хронологии",
+      "Преобразовывать два простых предложения о прошлом в единое сложноподчинённое предложение с nachdem",
+      "Использовать в главной части как Präteritum, так и разговорный Perfekt по коммуникативной ситуации",
+      "Чётко разграничивать подчинительный союз nachdem («после того как») и наречие danach («после этого»)",
+      "Находить и исправлять типичные ошибки порядка слов в предложениях с nachdem"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "При ошибках в позиции hatte/war в придаточном повторить карточки 01–10; при ошибках в начале главной части (забытая инверсия) — карточки 11–20; при трудностях с переносом придаточного — карточки 21–30; при проблемах объединения двух предложений — карточки 31–40; при смешении союзов или неуверенности в диалоге — карточки 41–50. После освоения перейти к B1-04-D07 «Временная последовательность»."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "block1_sub_aux_end",
+        "title": "Блок 1 · Закрой придаточное правильной формой",
+        "goal": "Закрепить постановку вспомогательного глагола hatte/war в абсолютный конец придаточного после Partizip II",
+        "from_card": 1,
+        "to_card": 10,
+        "support": "high",
+        "expected_skill": "Вводить спрягаемый глагол hatte/war в конце придаточного предложения с nachdem"
+      },
+      {
+        "id": "block2_main_order_after_sub",
+        "title": "Блок 2 · Главное предложение после начального nachdem",
+        "goal": "Отработать инверсию в главном предложении: сказуемое занимает позицию 2 сразу после запятой",
+        "from_card": 11,
+        "to_card": 20,
+        "support": "high",
+        "expected_skill": "Строить главное предложение с глаголом сразу после запятой"
+      },
+      {
+        "id": "block3_clause_repositioning",
+        "title": "Блок 3 · Придаточное до и после главного",
+        "goal": "Освоить гибкое размещение придаточного предложения в начале и конце сложного предложения",
+        "from_card": 21,
+        "to_card": 30,
+        "support": "medium",
+        "expected_skill": "Переставлять части сложного предложения с сохранением порядка слов и хронологии"
+      },
+      {
+        "id": "block4_combining_sentences",
+        "title": "Блок 4 · Объедини две короткие истории",
+        "goal": "Научиться преобразовывать две последовательные реплики в связное предложение с nachdem",
+        "from_card": 31,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Трансформировать цепочки событий (zuerst/danach) в сложноподчинённые предложения"
+      },
+      {
+        "id": "block5_speech_transfer",
+        "title": "Блок 5 · Смешанный перенос в настоящую речь",
+        "goal": "Применять навык в диалогах, переводах и исправлении типичных грамматических ошибок",
+        "from_card": 41,
+        "to_card": 50,
+        "support": "medium",
+        "expected_skill": "Свободно исправлять ошибки, строить диалогические реплики и переводить фразы"
+      }
+    ],
+    "expected_result": "Ученик безошибочно располагает глаголы в придаточном предложении с nachdem и главном предложении, переставляет части фразы и объединяет простые предложения в сложные.",
+    "competencies": [
+      {
+        "id": "sub_aux_placement",
+        "title": "Позиция глагола в придаточном",
+        "description": "Постановка спрягаемого глагола hatte/war в конец придаточного после Partizip II"
+      },
+      {
+        "id": "main_inversion",
+        "title": "Инверсия в главном предложении",
+        "description": "Постановка спрягаемого глагола главного предложения на позицию 2 сразу после запятой"
+      },
+      {
+        "id": "clause_flexibility",
+        "title": "Вариативность порядка частей",
+        "description": "Перестановка придаточного предложения в начало или в конец без нарушения правил порядка слов"
+      },
+      {
+        "id": "sentence_synthesis",
+        "title": "Синтез сложного предложения",
+        "description": "Объединение двух независимых предложений в сложное с союзом nachdem"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "sub_order_accuracy",
+        "title": "Порядок слов в придаточном",
+        "description": "Конечная позиция вспомогательного глагола в части с nachdem"
+      },
+      {
+        "id": "main_order_accuracy",
+        "title": "Порядок слов в главном",
+        "description": "Соблюдение инверсии (глагол перед подлежащим) после вводного придаточного"
+      },
+      {
+        "id": "synthesis_correctness",
+        "title": "Правильность объединения",
+        "description": "Верный перенос временных форм при объединении двух предложений"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_sub_order",
+        "title": "Повторение конца придаточного",
+        "when": "При попытке поставить hatte/war перед Partizip II",
+        "reason": "Повторить карточки 01–10",
+        "competency_ids": ["sub_aux_placement"]
+      },
+      {
+        "id": "review_main_order",
+        "title": "Повторение инверсии в главном",
+        "when": "При прямом порядке подлежащее + глагол после запятой",
+        "reason": "Повторить карточки 11–20",
+        "competency_ids": ["main_inversion"]
+      },
+      {
+        "id": "review_repositioning",
+        "title": "Повторение перестановки частей",
+        "when": "При ошибках порядка слов при выносе придаточного в конец",
+        "reason": "Повторить карточки 21–30",
+        "competency_ids": ["clause_flexibility"]
+      },
+      {
+        "id": "review_synthesis",
+        "title": "Повторение трансформации предложений",
+        "when": "При затруднениях с союзом nachdem и наречием danach",
+        "reason": "Повторить карточки 31–40",
+        "competency_ids": ["sentence_synthesis"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Закончите придаточное предложение правильной формой вспомогательного глагола.
+::source
+Опора Perfekt: ich habe gelesen.
+die Preisliste — прайс-лист; der Händler — продавец.
+::exercise
+Nachdem ich die Preisliste gelesen [[hatte]], rief ich den Händler an.
+
+BACK:
+Nachdem ich die Preisliste gelesen hatte, rief ich den Händler an.
+Перевод: «После того как я прочитал прайс-лист, я позвонил продавцу».
+
+CONTEXT:
+В придаточном предложении с nachdem спрягаемый глагол hatte занимает абсолютный конец предложения после Partizip II gelesen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Завершите придаточное предложение глаголом движения.
+::source
+Глагол landen спрягается с sein.
+die Besatzung — экипаж.
+::exercise
+Nachdem das Flugzeug gelandet [[war]], öffnete die Besatzung die Türen.
+
+BACK:
+Nachdem das Flugzeug gelandet war, öffnete die Besatzung die Türen.
+Перевод: «После того как самолёт приземлился, экипаж открыл двери».
+
+CONTEXT:
+gelandet war — Plusquamperfekt в придаточном предложении: вспомогательный глагол war замыкает часть после причастия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите форму глагола в конец придаточного предложения.
+::source
+Подлежащее wir.
+die Probe — репетиция; die Bühne — сцена.
+::exercise
+Nachdem wir die Probe beendet [[hatten]], verließen wir die Bühne.
+
+BACK:
+Nachdem wir die Probe beendet hatten, verließen wir die Bühne.
+Перевод: «После того как мы закончили репетицию, мы покинули сцену».
+
+CONTEXT:
+wir → hatten. В придаточном предложении обязателен порядок: Partizip II (beendet) + спрягаемый глагол (hatten).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите подходящую форму для подлежащего du.
+::source
+Подлежащее du.
+der Karton — картонная коробка; die Rechnung — счёт.
+::exercise
+Nachdem du den Karton geöffnet [[hattest]], fandest du die Rechnung.
+
+BACK:
+Nachdem du den Karton geöffnet hattest, fandest du die Rechnung.
+Перевод: «После того как ты открыл коробку, ты нашёл счёт».
+
+CONTEXT:
+du → hattest. Вспомогательный глагол стоит на последнем месте в придаточном предложении.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Завершите придаточное предложение глаголом eintreffen.
+::source
+eintreffen (прибывать) образует Perfekt с sein.
+servieren — подавать.
+::exercise
+Nachdem die Gäste eingetroffen [[waren]], servierten wir den Tee.
+
+BACK:
+Nachdem die Gäste eingetroffen waren, servierten wir den Tee.
+Перевод: «После того как гости прибыли, мы подали чай».
+
+CONTEXT:
+eintreffen спрягается с sein; die Gäste (множественное число) → waren.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите личную форму глагола для подлежащего ihr.
+::source
+Подлежащее ihr.
+das Schild — табличка; aufhängen — вешать.
+::exercise
+Nachdem ihr die Schilder aufgehängt [[hattet]], begann der Markt.
+
+BACK:
+Nachdem ihr die Schilder aufgehängt hattet, begann der Markt.
+Перевод: «После того как вы развесили таблички, началась ярмарка».
+
+CONTEXT:
+ihr → hattet. В придаточном предложении с nachdem порядок слов: aufgehängt hattet.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вспомогательный глагол в конец придаточного предложения.
+::source
+das Messgerät — измерительный прибор; der Wert — значение.
+::exercise
+Nachdem die Technikerin das Messgerät eingeschaltet [[hatte]], zeigte das Display Werte an.
+
+BACK:
+Nachdem die Technikerin das Messgerät eingeschaltet hatte, zeigte das Display Werte an.
+Перевод: «После того как техник включила измерительный прибор, экран показал значения».
+
+CONTEXT:
+die Technikerin (она) → hatte. eingeschaltet hatte завершает придаточную часть.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Завершите придаточное предложение глаголом gefrieren.
+::source
+gefrieren (замерзать) выражает перемену состояния и спрягается с sein.
+die Fahrbahn — проезжая часть; rutschig — скользкий.
+::exercise
+Nachdem das Wasser auf der Straße gefroren [[war]], wurde die Fahrbahn rutschig.
+
+BACK:
+Nachdem das Wasser auf der Straße gefroren war, wurde die Fahrbahn rutschig.
+Перевод: «После того как вода на дороге замёрзла, проезжая часть стала скользкой».
+
+CONTEXT:
+das Wasser (оно) → war; gefroren war замыкает придаточное предложение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вспомогательный глагол для множественного подлежащего.
+::source
+der Saal — зал; verlassen — покидать.
+::exercise
+Nachdem die Helfer den Saal verlassen [[hatten]], schloss die Leiterin die Tür.
+
+BACK:
+Nachdem die Helfer den Saal verlassen hatten, schloss die Leiterin die Tür.
+Перевод: «После того как помощники покинули зал, руководительница закрыла дверь».
+
+CONTEXT:
+die Helfer (они) → hatten; verlassen hatten стоит в конце придаточного.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните формулу расположения слов в придаточном с nachdem.
+::source
+Nachdem wir das Tor geschlossen hatten, gingen wir nach Hause.
+::exercise
+Где стоит вспомогательный глагол hatte/war в придаточном предложении с nachdem?
+
+BACK:
+В придаточном предложении сопрягаемый глагол всегда замыкает фразу: Nachdem + подлежащее + ... + Partizip II + hatte/war.
+
+CONTEXT:
+Сравните: главное предложение — Wir hatten das Tor geschlossen; придаточное — Nachdem wir das Tor geschlossen hatten.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов в главной части.
+::source
+üben — репетировать; die Pause — перерыв.
+::exercise
+Nachdem die Musiker geübt hatten, ...
+
+sie machten eine Pause.
+*machten sie eine Pause.
+
+BACK:
+Nachdem die Musiker geübt hatten, machten sie eine Pause.
+Перевод: «После того как музыканты порепетировали, они сделали перерыв».
+
+CONTEXT:
+Вся придаточная часть заняла первую позицию; сказуемое главного предложения machten обязано стоять на втором месте сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически верное продолжение предложения.
+::source
+die Hecke — живая изгородь; der Ast — ветка.
+::exercise
+Nachdem der Gärtner die Hecke geschnitten hatte, ...
+
+*räumte er die Äste weg.
+er räumte die Äste weg.
+
+BACK:
+Nachdem der Gärtner die Hecke geschnitten hatte, räumte er die Äste weg.
+Перевод: «После того как садовник подстриг живую изгородь, он убрал ветки».
+
+CONTEXT:
+Инверсия в главном предложении: сначала глагол räumte, затем подлежащее er.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите первые два слова главной части (сказуемое и подлежащее).
+::source
+Глагол aufstehen (Präteritum: stand ... auf); подлежащее Tom.
+klingeln — звенеть; sofort — сразу.
+::exercise
+Nachdem der Wecker geklingelt hatte, [[stand Tom]] sofort auf.
+
+BACK:
+Nachdem der Wecker geklingelt hatte, stand Tom sofort auf.
+Перевод: «После того как прозвенел будильник, Том сразу встал».
+
+CONTEXT:
+Сразу после запятой ставится спрягаемый глагол stand, а затем подлежащее Tom.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите глагол и подлежащее в начале главной части.
+::source
+Глагол holen (Präteritum: holte); подлежащее er.
+die Zutat — ингредиент; die Pfanne — сковорода.
+::exercise
+Nachdem der Koch die Zutaten vorbereitet hatte, [[holte er]] eine Pfanne.
+
+BACK:
+Nachdem der Koch die Zutaten vorbereitet hatte, holte er eine Pfanne.
+Перевод: «После того как повар подготовил ингредиенты, он взял сковороду».
+
+CONTEXT:
+На позиции 2 главного предложения стоит глагол holte, затем следует местоимение er.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите глагол и артикль подлежащего в главной части.
+::source
+beginnen (Präteritum: begann); подлежащее die Diskussion.
+abstimmen — голосовать.
+::exercise
+Nachdem alle abgestimmt hatten, [[begann die]] Diskussion.
+
+BACK:
+Nachdem alle abgestimmt hatten, begann die Diskussion.
+Перевод: «После того как все проголосовали, началась дискуссия».
+
+CONTEXT:
+Глагол begann стоит сразу после запятой на позиции 2, перед подлежащим die Diskussion.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите глагол и артикль подлежащего после запятой.
+::source
+erhalten (Präteritum: erhielt); подлежащее die Familie.
+die Behörde — ведомство; der Antrag — заявление.
+::exercise
+Nachdem die Behörde den Antrag geprüft hatte, [[erhielt die]] Familie eine Antwort.
+
+BACK:
+Nachdem die Behörde den Antrag geprüft hatte, erhielt die Familie eine Antwort.
+Перевод: «После того как ведомство проверило заявление, семья получила ответ».
+
+CONTEXT:
+После начального придаточного сказуемое erhielt стоит на позиции 2 перед подлежащим die Familie.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение из перемешанных слов.
+::source
+das Kostüm — костюм; anziehen — надевать.
+::exercise
+@puzzle
+Nachdem die Kinder ihre Kostüme angezogen hatten, gingen sie auf die Bühne.
+
+BACK:
+После того как дети надели костюмы, они вышли на сцену.
+
+CONTEXT:
+После начального придаточного главное предложение начинается со сказуемого: gingen sie auf die Bühne.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение из перемешанных слов.
+::source
+überprüfen — проверять; der Hausmeister — смотритель здания.
+::exercise
+@puzzle
+Nachdem die Besucher gegangen waren, überprüfte der Hausmeister die Türen.
+
+BACK:
+После того как посетители ушли, смотритель проверил двери.
+
+CONTEXT:
+Сказуемое überprüfte стоит сразу после запятой, подлежащее der Hausmeister следует за ним.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение из перемешанных слов.
+::source
+das Gerät — прибор; das Kabel — кабель; die Kiste — коробка.
+::exercise
+@puzzle
+Nachdem Lara das Gerät ausgeschaltet hatte, legte sie die Kabel in die Kiste.
+
+BACK:
+После того как Лара выключила устройство, она положила кабели в коробку.
+
+CONTEXT:
+Главная часть строится по правилу V2: legte sie die Kabel in die Kiste.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните правило позиции глагола в главной части после nachdem.
+::source
+Nachdem die Musik aufgehört hatte, begann das Gespräch.
+::exercise
+Какое место занимает сказуемое главной части, если предложение начинается с nachdem?
+
+BACK:
+Поскольку всё придаточное предложение занимает позицию 1, спрягаемый глагол главного предложения обязан стоять на позиции 2 — строго сразу после запятой.
+
+CONTEXT:
+Схема: [Nachdem... Partizip II + hatte/war], [глагол главной части] [подлежащее]...
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вариант перестановки придаточного в конец предложения.
+::source
+Исходное: Nachdem ich die Versandadresse geprüft hatte, schickte ich das Paket ab.
+die Versandadresse — адрес доставки.
+::exercise
+Какая фраза построена грамматически верно?
+
+Ich schickte das Paket ab, nachdem hatte ich die Versandadresse geprüft.
+*Ich schickte das Paket ab, nachdem ich die Versandadresse geprüft hatte.
+
+BACK:
+Ich schickte das Paket ab, nachdem ich die Versandadresse geprüft hatte.
+Перевод: «Я отправил посылку после того, как проверил адрес доставки».
+
+CONTEXT:
+В придаточном предложении с nachdem спрягаемый глагол hatte остаётся в самом конце независимо от позиции придаточного в сложном предложении.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный вариант с nachdem в начале предложения.
+::source
+Исходное: Sie erhielt eine E-Mail, nachdem sie das Formular abgeschickt hatte.
+das Formular — формуляр; abschicken — отправлять.
+::exercise
+Как правильно поставить придаточное в начало?
+
+*Nachdem sie das Formular abgeschickt hatte, erhielt sie eine E-Mail.
+Nachdem sie das Formular abgeschickt hatte, sie erhielt eine E-Mail.
+
+BACK:
+Nachdem sie das Formular abgeschickt hatte, erhielt sie eine E-Mail.
+Перевод: «После того как она отправила анкету, она получила электронное письмо».
+
+CONTEXT:
+При выносе придаточного в начало сказуемое главной части erhielt обязано стоять сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите верное предложение с придаточным после главного.
+::source
+Platz nehmen — садиться.
+::exercise
+Какое предложение построено грамматически верно?
+
+*Der Arzt begann die Untersuchung, nachdem der Patient Platz genommen hatte.
+Der Arzt begann die Untersuchung, nachdem der Patient hatte Platz genommen.
+
+BACK:
+Der Arzt begann die Untersuchung, nachdem der Patient Platz genommen hatte.
+Перевод: «Врач начал обследование после того, как пациент сел».
+
+CONTEXT:
+nachdem требует спрягаемый глагол в конце придаточного: Platz genommen hatte.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение из перемешанных слов.
+::source
+der Nebel — туман; verschwinden — исчезать.
+::exercise
+@puzzle
+Nachdem der Nebel verschwunden war, begannen wir die Fahrt.
+
+BACK:
+После того как туман рассеялся, мы начали поездку.
+
+CONTEXT:
+В придаточном: verschwunden war; в главном после запятой: begannen wir die Fahrt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение с придаточным в конце.
+::source
+der Vortrag — доклад; eintreffen — прибывать.
+::exercise
+@puzzle
+Der Vortrag begann, nachdem die Gäste eingetroffen waren.
+
+BACK:
+Доклад начался после того, как гости прибыли.
+
+CONTEXT:
+Главное предложение начинается с подлежащего (Der Vortrag begann), в придаточном глагол в конце (eingetroffen waren).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите предложение из перемешанных слов.
+::source
+liefern — доставлять; die Ware — товар.
+::exercise
+@puzzle
+Nachdem die Ware geliefert worden war, bezahlte der Kunde die Rechnung.
+
+BACK:
+После того как товар был доставлен, клиент оплатил счёт.
+
+CONTEXT:
+Придаточное: geliefert worden war; главное предложение после запятой: bezahlte der Kunde die Rechnung.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Поставьте придаточное с nachdem в конец предложения.
+::source
+Nachdem die Jury das Ergebnis bekannt gegeben hatte, jubelten die Fans.
+die Jury — жюри; bekannt geben — объявлять.
+::exercise
+Die Fans jubelten, [[nachdem die Jury das Ergebnis bekannt gegeben hatte]].
+
+BACK:
+Die Fans jubelten, nachdem die Jury das Ergebnis bekannt gegeben hatte.
+Перевод: «Болельщики ликовали после того, как жюри объявило результат».
+
+CONTEXT:
+В главной части прямой порядок (Die Fans jubelten), а в придаточном глагол hatte остаётся на последнем месте.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Поставьте придаточное с nachdem в начало предложения.
+::source
+Die Schüler verließen das Labor, nachdem sie die Schutzbrillen abgelegt hatten.
+die Schutzbrille — защитные очки; das Labor — лаборатория.
+::exercise
+Nachdem die Schüler die Schutzbrillen abgelegt hatten, [[verließen sie das Labor]].
+
+BACK:
+Nachdem die Schüler die Schutzbrillen abgelegt hatten, verließen sie das Labor.
+Перевод: «После того как ученики сняли защитные очки, они вышли из лаборатории».
+
+CONTEXT:
+После начального придаточного сказуемое verließen занимает позицию 2 сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переставьте придаточное в конец предложения, сохранив Perfekt в главной части.
+::source
+Nachdem wir die Plätze gefunden hatten, haben wir uns hingesetzt.
+sich hinsetzen — садиться.
+::exercise
+Wir haben uns hingesetzt, [[nachdem wir die Plätze gefunden hatten]].
+
+BACK:
+Wir haben uns hingesetzt, nachdem wir die Plätze gefunden hatten.
+Перевод: «Мы сели после того, как нашли места».
+
+CONTEXT:
+Разговорный Perfekt в главной части (haben uns hingesetzt) свободно сочетается с Plusquamperfekt в придаточном.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните влияние перестановки частей на хронологию событий.
+::source
+Nachdem er bezahlt hatte, ging er. / Er ging, nachdem er bezahlt hatte.
+::exercise
+Изменяется ли хронология реальных событий при перестановке придаточного в конец предложения?
+
+BACK:
+Нет, хронология остаётся абсолютно одинаковой: сначала оплатил, затем ушёл. Союз nachdem всегда маркирует предшествующее действие независимо от своего места в фразе.
+
+CONTEXT:
+Смысловая последовательность определяется союзом nachdem, а не тем, какая часть предложения произнесена первой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два предложения в одно с союзом Nachdem в начале.
+::source
+der Akku — аккумулятор; die Reportage — репортаж.
+Исходное: Der Fotograf hatte die Akkus geladen. Danach begann die Reportage.
+::exercise
+Nachdem der Fotograf die Akkus geladen hatte, [[begann die Reportage]].
+
+BACK:
+Nachdem der Fotograf die Akkus geladen hatte, begann die Reportage.
+Перевод: «После того как фотограф зарядил аккумуляторы, начался репортаж».
+
+CONTEXT:
+hatte geladen переходит в придаточное как geladen hatte; наречие danach опускается, а главное предложение начинается с глагола begann.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините предложения в одно, начав с Nachdem.
+::source
+reservieren — бронировать; betreten — входить.
+Исходное: Der Gast hatte einen Tisch reserviert. Danach betrat er das Restaurant.
+::exercise
+Nachdem der Gast einen Tisch reserviert hatte, [[betrat er das Restaurant]].
+
+BACK:
+Nachdem der Gast einen Tisch reserviert hatte, betrat er das Restaurant.
+Перевод: «После того как гость забронировал столик, он вошёл в ресторан».
+
+CONTEXT:
+При объединении hatte reserviert становится reserviert hatte, а главное предложение сразу после запятой начинается со сказуемого betrat er.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два действия разных лиц в одно предложение.
+::source
+die Bremse — тормоз; die Probefahrt — пробная поездка.
+Исходное: Die Mechaniker hatten die Bremsen geprüft. Danach startete die Probefahrt.
+::exercise
+Nachdem die Mechaniker die Bremsen geprüft hatten, [[startete die Probefahrt]].
+
+BACK:
+Nachdem die Mechaniker die Bremsen geprüft hatten, startete die Probefahrt.
+Перевод: «После того как механики проверили тормоза, началась пробная поездка».
+
+CONTEXT:
+Смена действующего лица не меняет правил: geprüft hatten в конце придаточного, startete die Probefahrt — в главном.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два предложения в одно с союзом Nachdem в начале.
+::source
+Преобразуйте Perfekt (haben unterschrieben) в Plusquamperfekt.
+der Schalter — окно обслуживания.
+Исходное: Die Teilnehmer haben das Formular unterschrieben. Danach gingen sie zum Schalter.
+::exercise
+Nachdem die Teilnehmer das Formular unterschrieben hatten, [[gingen sie zum Schalter]].
+
+BACK:
+Nachdem die Teilnehmer das Formular unterschrieben hatten, gingen sie zum Schalter.
+Перевод: «После того как участники подписали формуляр, они подошли к окошку».
+
+CONTEXT:
+haben unterschrieben преобразуется в Plusquamperfekt: unterschrieben hatten в конце придаточного.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините предложения с глаголом движения в одно с Nachdem.
+::source
+Преобразуйте ist umgestiegen в Plusquamperfekt.
+umsteigen — пересаживаться; fortsetzen — продолжать.
+Исходное: Der Fahrer ist umgestiegen. Danach setzte er seine Reise fort.
+::exercise
+Nachdem der Fahrer umgestiegen war, [[setzte er seine Reise fort]].
+
+BACK:
+Nachdem der Fahrer umgestiegen war, setzte er seine Reise fort.
+Перевод: «После того как водитель пересел, он продолжил поездку».
+
+CONTEXT:
+ist umgestiegen → war umgestiegen, в придаточном предложении: umgestiegen war.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два предложения с союзом Nachdem.
+::source
+Преобразуйте habe gespült в Plusquamperfekt.
+spülen — мыть посуду; abtrocknen — вытирать насухо.
+Исходное: Ich habe die Gläser gespült. Danach trocknete ich sie ab.
+::exercise
+Nachdem ich die Gläser gespült hatte, [[trocknete ich sie ab]].
+
+BACK:
+Nachdem ich die Gläser gespült hatte, trocknete ich sie ab.
+Перевод: «После того как я помыл стаканы, я вытер их насухо».
+
+CONTEXT:
+habe gespült → hatte gespült → gespült hatte в конце придаточного предложения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините действия с разными исполнителями в одно предложение.
+::source
+die Sicherung — предохранитель; die Anlage — установка.
+Исходное: Die Elektrikerin hat die Sicherung geprüft. Danach schaltete ihr Kollege die Anlage ein.
+::exercise
+Nachdem die Elektrikerin die Sicherung geprüft hatte, [[schaltete ihr Kollege die Anlage ein]].
+
+BACK:
+Nachdem die Elektrikerin die Sicherung geprüft hatte, schaltete ihr Kollege die Anlage ein.
+Перевод: «После того как электрик проверила предохранитель, её коллега включил установку».
+
+CONTEXT:
+Проверка предшествовала включению: geprüft hatte, затем сказуемое schaltete ihr Kollege.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините предложения о поездке с союзом Nachdem в начале.
+::source
+Преобразуйте ist eingestiegen в Plusquamperfekt.
+einsteigen — садиться в транспорт; sich schließen — закрываться.
+Исходное: Die Kundin ist in den Zug eingestiegen. Danach schlossen sich die Türen.
+::exercise
+Nachdem die Kundin in den Zug eingestiegen war, [[schlossen sich die Türen]].
+
+BACK:
+Nachdem die Kundin in den Zug eingestiegen war, schlossen sich die Türen.
+Перевод: «После того как пассажирка села в поезд, двери закрылись».
+
+CONTEXT:
+ist eingestiegen → eingestiegen war в придаточном предложении.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините предложения рабочей ситуации в одно с Nachdem.
+::source
+veröffentlichen — публиковать; die Stadtverwaltung — городская администрация.
+Исходное: Die Presse hat die Nachricht veröffentlicht. Danach reagierte die Stadtverwaltung.
+::exercise
+Nachdem die Presse die Nachricht veröffentlicht hatte, [[reagierte die Stadtverwaltung]].
+
+BACK:
+Nachdem die Presse die Nachricht veröffentlicht hatte, reagierte die Stadtverwaltung.
+Перевод: «После того как пресса опубликовала новость, городская администрация отреагировала».
+
+CONTEXT:
+hat veröffentlicht → veröffentlicht hatte в придаточном; далее главное со сказуемым реагировала (reagierte).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вспомните три шага превращения двух предложений в сложное с nachdem.
+::source
+Sie hatte gearbeitet. Danach machte sie Pause. → Nachdem sie gearbeitet hatte, machte sie Pause.
+::exercise
+Какие три действия необходимо выполнить при объединении предложений через nachdem?
+
+BACK:
+1. Выбрать предшествующее действие и поставить его в Plusquamperfekt.
+2. Поставить спрягаемый глагол hatte/war в конец придаточного после Partizip II.
+3. Убрать наречие danach и начать главное предложение со спрягаемого глагола (инверсия).
+
+CONTEXT:
+Соблюдение этих трёх шагов гарантирует правильный порядок слов.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку порядка слов в главном предложении.
+::source
+die Schicht — рабочая смена.
+Ошибка: Nachdem die Kollegen die Schicht beendet hatten, sie fuhren nach Hause.
+::exercise
+Nachdem die Kollegen die Schicht beendet hatten, [[fuhren sie nach Hause]].
+
+BACK:
+Nachdem die Kollegen die Schicht beendet hatten, fuhren sie nach Hause.
+Перевод: «После того как коллеги закончили смену, они поехали домой».
+
+CONTEXT:
+После начального придаточного предложения сказуемое обязано стоять на втором месте сразу после запятой: fuhren sie.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку порядка слов в придаточном предложении.
+::source
+ein Taxi suchen — искать такси.
+Ошибка: Nachdem der Zug war abgefahren, suchte der Mann ein Taxi.
+::exercise
+Nachdem der Zug [[abgefahren war]], suchte der Mann ein Taxi.
+
+BACK:
+Nachdem der Zug abgefahren war, suchte der Mann ein Taxi.
+Перевод: «После того как поезд ушёл, мужчина стал искать такси».
+
+CONTEXT:
+В придаточном предложении с nachdem спрягаемый глагол war стоит строго в конце после Partizip II abgefahren.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените грамматическую правильность предложения с Perfekt в главной части.
+::source
+die Teilnahme — участие; bestätigen — подтверждать.
+Фраза: Nachdem ich die Einladung erhalten hatte, habe ich meine Teilnahme bestätigt.
+::exercise
+Содержит ли это предложение грамматическую ошибку?
+
+Ошибка: в главной части обязательно должен быть только Präteritum.
+*Ошибки нет: в разговорном рассказе главная часть может стоять в Perfekt.
+
+BACK:
+Ошибки нет: в разговорном рассказе главная часть может стоять в Perfekt.
+Перевод: «После того как я получил приглашение, я подтвердил участие».
+
+CONTEXT:
+Plusquamperfekt надёжно показывает предшествование, а последующее действие может быть выражено как Präteritum, так и Perfekt.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте неверное связующее слово в начале придаточного предложения.
+::source
+die Unterlagen — документы; kopieren — копировать.
+Ошибка: Danach ich die Unterlagen kopiert hatte, schrieb ich eine E-Mail.
+::exercise
+[[Nachdem]] ich die Unterlagen kopiert hatte, schrieb ich eine E-Mail.
+
+BACK:
+Nachdem ich die Unterlagen kopiert hatte, schrieb ich eine E-Mail.
+Перевод: «После того как я скопировал документы, я написал электронное письмо».
+
+CONTEXT:
+Danach — наречие для самостоятельного предложения; для придаточного со сказуемым в конце необходим подчинительный союз Nachdem.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите фразу на немецкий язык, начав с Nachdem.
+::source
+Опоры: die Reparatur beenden; die Wohnung überprüfen; der Mieter — арендатор.
+Фраза: «После того как мы закончили ремонт, арендатор проверил квартиру».
+::exercise
+Nachdem wir die Reparatur beendet hatten, [[überprüfte der Mieter die Wohnung]].
+
+BACK:
+Nachdem wir die Reparatur beendet hatten, überprüfte der Mieter die Wohnung.
+Перевод: «После того как мы закончили ремонт, арендатор проверил квартиру».
+
+CONTEXT:
+beendet hatten в придаточном; далее сказуемое überprüfte der Mieter.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините предложения в одно, начав с Nachdem.
+::source
+sortieren — сортировать; besprechen — обсуждать; die Unterlagen — документы.
+Исходное: Sie hatte die Unterlagen sortiert. Danach besprachen wir die Details.
+::exercise
+Nachdem sie die Unterlagen sortiert hatte, [[besprachen wir die Details]].
+
+BACK:
+Nachdem sie die Unterlagen sortiert hatte, besprachen wir die Details.
+Перевод: «После того как она рассортировала документы, мы обсудили подробности».
+
+CONTEXT:
+sortiert hatte в придаточном; главное предложение после запятой: besprachen wir die Details.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, какое действие произошло раньше по времени.
+::source
+stornieren — отменять заказ/билет; die Bestätigung — подтверждение.
+Фраза: Nachdem wir das Ticket storniert hatten, erhielten wir eine Bestätigung.
+::exercise
+Какое событие произошло раньше?
+
+Получили подтверждение.
+*Отменили билет.
+
+BACK:
+Отменили билет.
+Перевод: «После того как мы отменили билет, мы получили подтверждение».
+
+CONTEXT:
+Действие в придаточном предложении с nachdem (storniert hatten) всегда предшествует действию в главной части.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Впишите вспомогательный глагол в реплику диалога.
+::source
+den Weg zurückfinden — найти обратную дорогу.
+::exercise
+A: Was habt ihr nach der Wanderung gemacht?
+B: Nachdem wir den Weg zurückgefunden [[hatten]], sind wir ins Dorf gefahren.
+
+BACK:
+A: Was habt ihr nach der Wanderung gemacht?
+B: Nachdem wir den Weg zurückgefunden hatten, sind wir ins Dorf gefahren.
+Перевод: «— Что вы сделали после похода? — После того как мы нашли обратную дорогу, мы поехали в деревню».
+
+CONTEXT:
+zurückfinden спрягается с haben: wir → hatten. Разговорный Perfekt в главной части (sind gefahren) естественен в диалоге.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините предложения в одно с Nachdem, сохранив Perfekt в главной части.
+::source
+das Rezept — рецепт; die Zutaten — ингредиенты.
+Исходное: Nina hat das Rezept gelesen. Danach hat sie die Zutaten gekauft.
+::exercise
+Nachdem Nina das Rezept gelesen hatte, [[hat sie die Zutaten gekauft]].
+
+BACK:
+Nachdem Nina das Rezept gelesen hatte, hat sie die Zutaten gekauft.
+Перевод: «После того как Нина прочитала рецепт, она купила ингредиенты».
+
+CONTEXT:
+Первый Perfekt трансформируется в Plusquamperfekt (gelesen hatte), а второй остаётся неизменным (hat sie ... gekauft).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Подведите итог освоения союза nachdem.
+::source
+Готовность к D07 (Временная последовательность)
+::exercise
+Какие главные синтаксические законы предложений с nachdem были отработаны?
+
+BACK:
+1. Спрягаемый глагол hatte/war стоит в конце придаточного после Partizip II.
+2. После начального придаточного сказуемое главного предложения стоит на позиции 2 сразу после запятой.
+3. Перестановка придаточного в конец не меняет правил внутри придаточного и хронологии.
+4. nachdem — подчинительный союз («после того как»), а danach — наречие («после этого»).
+
+CONTEXT:
+В следующей колоде (D07) акцент сместится на распознавание хронологии в более сложных развёрнутых рассказах.

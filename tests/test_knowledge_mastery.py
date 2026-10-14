@@ -1,9 +1,12 @@
 import datetime
 import math
+import os
 import unittest
 from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import patch
+
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
 
 from peewee import IntegrityError, SqliteDatabase
 
@@ -37,6 +40,15 @@ def hybrid(count, rating):
 
 
 class TestMasteryScorer(unittest.TestCase):
+    def test_assessment_wrong_is_negative_correct_positive_and_skip_unscored(self):
+        for correct in (True, False):
+            evidence = score_knowledge_attempt({'schema_version': 3, 'evaluation_type': 'assessment',
+                'status': 'correct' if correct else 'incorrect', 'correct': correct})
+            self.assertEqual(evidence.score, float(correct))
+            self.assertTrue(evidence.has_objective)
+            self.assertFalse(evidence.has_self_rating)
+        self.assertIsNone(score_knowledge_attempt({'schema_version': 3, 'evaluation_type': 'assessment', 'status': 'skipped', 'correct': False}))
+        self.assertIsNone(score_knowledge_attempt({'schema_version': 3, 'evaluation_type': 'assessment', 'status': 'incorrect', 'correct': True}))
     def test_puzzle_boundary_history_does_not_change_mastery_v1(self):
         for count in (1, 2, 3, 5):
             with self.subTest(count=count):

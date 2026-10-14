@@ -5,6 +5,9 @@ import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useCardActions } from './useCardActions';
+import { createAssessment, canResumeAssessment } from '../utils/assessment.js';
+import { prepareAssessmentKnowledge, saveAssessment, loadAssessment } from '../services/assessmentService.js';
+import { getUserId } from '../utils/auth.js';
 
 /**
  * Hook for initiating study sessions from deck grids, card lists, and search results.
@@ -35,6 +38,16 @@ export function useStudyNavigation() {
       }
 
       setView('study');
+      const assessment = createAssessment(deck, useDeckStore.getState().deckCards || [], getUserId());
+      if (assessment) {
+        await prepareAssessmentKnowledge(deck.id);
+        const saved = await loadAssessment(assessment.userId, deck.id);
+        const resume = canResumeAssessment(saved, assessment);
+        const active = resume ? saved : assessment;
+        await saveAssessment(active);
+        useSessionStore.getState().setAssessment(active);
+        return;
+      }
       await fetchNextCard(deck.id, true);
     } catch (err) {
       useSessionStore.getState().setApiError(err.response?.data?.detail || err.message);

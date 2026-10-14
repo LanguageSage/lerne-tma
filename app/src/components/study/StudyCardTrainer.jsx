@@ -114,7 +114,8 @@ export const StudyCardTrainer = React.memo(({
   styles = {},
   savedState,
   onSaveState,
-  footerActionTarget
+  footerActionTarget,
+  assessmentMode = false
 }) => {
   useInterfaceLocale();
   const [selectedOptions, setSelectedOptions] = useState(savedState?.selectedOptions || {}); // { gapId: chosenOption }
@@ -122,7 +123,7 @@ export const StudyCardTrainer = React.memo(({
   const [dropdownPos, setDropdownPos] = useState({});
   const [showTranslation, setShowTranslation] = useState(savedState?.showTranslation || false);
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
-  const { completed } = evaluation.state;
+  const completed = evaluation.state.completed || (assessmentMode && evaluation.state.attemptCount > 0);
 
   const gapRefs = useRef({});
   const dropdownRef = useRef(null);
@@ -167,7 +168,7 @@ export const StudyCardTrainer = React.memo(({
 
   const handleOpenDropdown = (gapId, e) => {
     e.stopPropagation();
-    if (evaluation.isLocked(gapId)) return;
+    if (completed || evaluation.isLocked(gapId)) return;
     triggerHaptic('selection');
 
     if (openDropdownGapId === gapId) {
@@ -236,10 +237,16 @@ export const StudyCardTrainer = React.memo(({
     setOpenDropdownGapId(null);
     const submission = evaluation.check(evaluateTrainerGaps(gaps, selectedOptions));
     if (!submission) return;
+    if (assessmentMode) {
+      onTrainerAnswer?.(card.id, { isCorrect: submission.state.result.accepted, completed: true,
+        isFirstTry: true, attemptCount: 1, mistakeCount: submission.state.result.accepted ? 0 : 1,
+        gradingSummary: { final_verdict: submission.state.result.verdict,
+          error_types_seen: submission.state.errorTypesSeen, error_codes_seen: submission.state.errorCodesSeen } });
+    }
     if (submission.evidence) {
       playSuccessSound();
       triggerHaptic('success');
-      onTrainerAnswer?.(card.id, submission.evidence);
+      if (!assessmentMode) onTrainerAnswer?.(card.id, submission.evidence);
     } else {
       playErrorSound();
       triggerHaptic('error');
@@ -256,7 +263,7 @@ export const StudyCardTrainer = React.memo(({
   const renderGapElement = gap => {
     const rawValue = selectedOptions[gap.id] || '';
     const status = evaluation.part(gap.id)?.status;
-    const locked = evaluation.isLocked(gap.id);
+    const locked = completed || evaluation.isLocked(gap.id);
     const isDropdownOpen = openDropdownGapId === gap.id;
     const hasValue = Boolean(rawValue && rawValue.trim());
     const borderColor = status === 'correct' ? '#22c55e'
@@ -479,7 +486,7 @@ export const StudyCardTrainer = React.memo(({
       }}
     >
       {/* Front Face Translation Toggle Button */}
-      {hasBackText && (
+      {hasBackText && !assessmentMode && (
         <div style={{ width: '100%', display: 'flex', justifyContent: 'center', margin: '8px 0 12px 0' }}>
           <button
             type="button"
@@ -535,7 +542,7 @@ export const StudyCardTrainer = React.memo(({
             className={`btn trainer-footer-action ${allGapsFilled ? 'is-ready' : 'is-disabled'}`}
             disabled={!allGapsFilled || completed}
             onClick={e => { e.stopPropagation(); handleCheck(); }}>
-            {completed ? tr('Выполнено') : allGapsFilled ? tr('Проверить ответы')
+            {completed ? tr(assessmentMode ? 'Ответ сохранён' : 'Выполнено') : allGapsFilled ? tr('Проверить ответы')
               : tr('Заполните пропуски ({{p0}}/{{p1}})', { p0: filledCount, p1: gaps.length })}
           </button>
         );

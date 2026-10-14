@@ -10,7 +10,7 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import api from '../../services/api';
 import { renderFlag } from './FlagIcons';
-import { getSortedFolderTree, getDescendantFolderIds, getFolderContentStats } from '../../utils/deckUtils';
+import { getSortedFolderTree, getDescendantFolderIds } from '../../utils/deckUtils';
 
 export const FolderCardItem = React.memo(({
   folder,
@@ -61,6 +61,10 @@ export const FolderCardItem = React.memo(({
       setIsMoveMenuOpen(false);
     }
   }, [isMenuOpen]);
+
+  const childDecks = decks.filter(d => d.folder_id === folder.id);
+  const totalDecksCount = childDecks.length;
+  const folderColor = folder.color || '#ffd043';
 
   const handleShare = async (e) => {
     e.stopPropagation();
@@ -128,21 +132,12 @@ export const FolderCardItem = React.memo(({
   const descendantFolderIds = getDescendantFolderIds(folder.id, folders || []);
   const validTargetFolders = getSortedFolderTree(folders || [], folder.id, descendantFolderIds);
 
-  const {
-    childFoldersCount,
-    childDecksCount,
-    isBranchEmpty
-  } = getFolderContentStats(folder.id, folders || [], decks || []);
-
-  const baseFolderColor = folder.color || '#ffd043';
-  const folderColor = isBranchEmpty ? '#94a3b8' : baseFolderColor;
-
   const folderStyle = {
     '--folder-color': folderColor,
-    '--folder-color-border': isBranchEmpty ? 'rgba(148, 163, 184, 0.28)' : `${folderColor}5a`,
-    '--folder-color-hover': isBranchEmpty ? '#cbd5e1' : folderColor,
-    '--folder-color-shadow': isBranchEmpty ? 'rgba(0, 0, 0, 0.2)' : `${folderColor}4d`,
-    '--folder-color-bg-tint': isBranchEmpty ? 'rgba(148, 163, 184, 0.08)' : `${folderColor}14`
+    '--folder-color-border': `${folderColor}5a`,
+    '--folder-color-hover': folderColor,
+    '--folder-color-shadow': `${folderColor}4d`,
+    '--folder-color-bg-tint': `${folderColor}14`
   };
 
   const folderLang = folder.target_language || useLanguageStore.getState().activeLanguage || 'de';
@@ -173,7 +168,7 @@ export const FolderCardItem = React.memo(({
     <div
       ref={setNodeRef}
       id={`folder-item-${folder.id}`}
-      className={`deck-card glass folder-card-item ${isBranchEmpty ? 'folder-card-empty' : ''} ${isMenuOpen ? 'has-open-menu' : ''} ${isDragging ? 'is-dragging' : ''}`}
+      className={`deck-card glass folder-card-item ${isMenuOpen ? 'has-open-menu' : ''} ${isDragging ? 'is-dragging' : ''}`}
       style={style}
     >
       <div className="deck-main-action" onClick={() => {
@@ -184,8 +179,8 @@ export const FolderCardItem = React.memo(({
       }}>
 
         <div className="deck-info-row">
-          <div className={`deck-icon ${isBranchEmpty ? 'folder-icon-muted' : 'folder-icon-glow'}`}>
-            <Folder size={24} color={folderColor} fill={folderColor} fillOpacity={isBranchEmpty ? 0.12 : 0.2} />
+          <div className="deck-icon folder-icon-glow">
+            <Folder size={24} color={folderColor} fill={folderColor} fillOpacity={0.2} />
           </div>
           <h3>
             <span className="deck-title-text">{folder.name === '📥 Входящие' ? tr("📥 Входящие") : folder.name}</span>
@@ -212,65 +207,19 @@ export const FolderCardItem = React.memo(({
             {renderFlag(folderLang, 26)}
           </div>
 
-          {childFoldersCount > 0 && (
-            <span 
-              className="folder-badge-item"
-              title={tr("Вложенных папок: {{p0}}", { p0: childFoldersCount })}
-              style={{ 
-                fontSize: '0.72rem', 
-                fontWeight: 700, 
-                color: folderColor, 
-                background: `${folderColor}18`, 
-                border: `1px solid ${folderColor}45`, 
-                borderRadius: '7px', 
-                padding: '2px 8px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <span>📁</span>
-              <span>
-                {childFoldersCount} {childFoldersCount === 1 ? tr("папка") : childFoldersCount > 1 && childFoldersCount < 5 ? tr("папки") : tr("папок")}
-              </span>
-            </span>
-          )}
-
-          {isBranchEmpty && childFoldersCount === 0 ? (
-            <span 
-              className="folder-badge-item empty-state-badge"
-              style={{ 
-                fontSize: '0.72rem', 
-                fontWeight: 700, 
-                color: folderColor, 
-                background: `${folderColor}18`, 
-                border: `1px solid ${folderColor}45`, 
-                borderRadius: '7px', 
-                padding: '2px 8px',
-                display: 'inline-flex',
-                alignItems: 'center'
-              }}
-            >
-              {tr("Пусто")}
-            </span>
-          ) : (
-            <span 
-              className="folder-badge-item"
-              style={{ 
-                fontSize: '0.72rem', 
-                fontWeight: 700, 
-                color: folderColor, 
-                background: `${folderColor}18`, 
-                border: `1px solid ${folderColor}45`, 
-                borderRadius: '7px', 
-                padding: '2px 8px',
-                display: 'inline-flex',
-                alignItems: 'center'
-              }}
-            >
-              {childDecksCount} {childDecksCount === 1 ? tr("колода") : childDecksCount > 1 && childDecksCount < 5 ? tr("колоды") : tr("колод")}
-            </span>
-          )}
+          <span style={{ 
+            fontSize: '0.72rem', 
+            fontWeight: 700, 
+            color: folderColor, 
+            background: `${folderColor}18`, 
+            border: `1px solid ${folderColor}45`, 
+            borderRadius: '7px', 
+            padding: '2px 8px',
+            display: 'inline-flex',
+            alignItems: 'center'
+          }}>
+            {totalDecksCount} {totalDecksCount === 1 ? tr("колода") : totalDecksCount > 1 && totalDecksCount < 5 ? tr("колоды") : tr("колод")}
+          </span>
 
           {folder.is_shared && (
             <div 

@@ -8,23 +8,26 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 test_db = SqliteDatabase(':memory:')
 
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
+
 from api.models import (
     tma_db, TMAUser, TMA_Card, TMA_Deck,
     TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState,
-    TMAReviewHistory
+    TMAReviewHistory, TMA_Collaborator
 )
 from api.routers.knowledge import sync_knowledge_attempts, KnowledgeAttemptSyncRequest, KnowledgeAttemptSyncItem
 
 class TestKnowledgeSyncAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        models = [TMAUser, TMA_Deck, TMA_Card, TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState, TMAReviewHistory]
+        models = [TMAUser, TMA_Deck, TMA_Card, TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState, TMAReviewHistory, TMA_Collaborator]
         test_db.bind(models, bind_refs=False, bind_backrefs=False)
         tma_db.initialize(test_db)
         test_db.connect()
         test_db.create_tables(models)
 
     def setUp(self):
+        TMA_Collaborator.delete().execute()
         TMAUserKnowledgeState.delete().execute()
         TMAKnowledgeAttempt.delete().execute()
         TMACardKnowledgeItem.delete().execute()
@@ -38,6 +41,39 @@ class TestKnowledgeSyncAPI(unittest.TestCase):
         self.deck = TMA_Deck.create(user_id=1, name="Test Deck")
         self.card = TMA_Card.create(deck=self.deck, front_text="Front", back_text="Back")
         self.ki1 = TMAKnowledgeItem.create(name="KI 1", language="de")
+
+    def test_assessment_content_permissions_negative_evidence_and_idempotent_sync(self):
+        from api.routers.knowledge import deck_knowledge_content
+        from fastapi import HTTPException
+        TMACardKnowledgeItem.create(card_id=self.card.id, knowledge_item=self.ki1, role='primary')
+        data = deck_knowledge_content(self.deck.id, user_id=1)
+        self.assertEqual(data['card_knowledge_items'][0]['knowledge_item_id'], self.ki1.id)
+        with self.assertRaises(HTTPException):
+            deck_knowledge_content(self.deck.id, user_id=2)
+        item = KnowledgeAttemptSyncItem(client_event_id=f'assessment:{self.card.id}', knowledge_item_id=self.ki1.id,
+            card_id=self.card.id, evaluation_data={'schema_version': 3, 'evaluation_type': 'assessment',
+                'status': 'incorrect', 'correct': False, 'assessment': {'session_id': 'assessment',
+                    'deck_id': self.deck.id, 'ordinal': 1, 'required_count': 46, 'competency_ids': ['case']}})
+        request = KnowledgeAttemptSyncRequest(attempts=[item])
+        self.assertEqual(sync_knowledge_attempts(request, user_id=2).results[0].status, 'rejected')
+        self.assertEqual(sync_knowledge_attempts(request, user_id=1).results[0].status, 'created')
+        self.assertEqual(sync_knowledge_attempts(request, user_id=1).results[0].status, 'duplicate')
+        state = TMAUserKnowledgeState.get(TMAUserKnowledgeState.user_id == 1)
+        self.assertEqual(state.positive_evidence, 0)
+        self.assertEqual(state.negative_evidence, 1)
+        self.assertEqual(state.self_rating_event_count, 0)
+
+    def test_assessment_invalid_evidence_is_rejected_without_attempt_or_mastery(self):
+        TMACardKnowledgeItem.create(card_id=self.card.id, knowledge_item=self.ki1, role='primary')
+        for invalid in ({'status': 'correct', 'correct': False}, {'status': 'skipped', 'correct': True},
+                        {'status': 'incorrect', 'correct': False}):
+            item = KnowledgeAttemptSyncItem(client_event_id=f'exam:{self.card.id}', knowledge_item_id=self.ki1.id,
+                card_id=self.card.id, evaluation_data={'schema_version': 3, 'evaluation_type': 'assessment',
+                    **invalid, 'assessment': {'deck_id': self.deck.id}})
+            result = sync_knowledge_attempts(KnowledgeAttemptSyncRequest(attempts=[item]), user_id=1).results[0]
+            self.assertEqual(result.error_code, 'invalid_assessment_evidence')
+        self.assertEqual(TMAKnowledgeAttempt.select().count(), 0)
+        self.assertEqual(TMAUserKnowledgeState.select().count(), 0)
 
     def test_create_attempt(self):
         # Test 1

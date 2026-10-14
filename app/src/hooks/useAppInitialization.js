@@ -26,20 +26,9 @@ export const useAppInitialization = (checkStartParam) => {
     }
 
     const init = async () => {
+      await useAuthStore.getState().restoreSession();
       const profile = getUserProfile();
       setUserProfile(profile);
-
-      // If no token exists, attempt silent Telegram mini-app login if available
-      if (!getAccessToken()) {
-        const miniAppData = window.Telegram?.WebApp?.initData;
-        if (miniAppData) {
-          // Do not race the initial /init request with the silent Telegram login.
-          // The first request otherwise may use a stale/missing legacy user id and
-          // leave the UI in the empty-decks state until the next reload.
-          await useAuthStore.getState().startProvider('telegram').catch(() => ({ success: false }));
-        }
-        // No identified user — continue in guest mode without showing auth modal
-      }
 
       // Instant UI restore from cache if available (synchronous)
       if (!isOfflineMode()) loadCachedInitData();
@@ -70,7 +59,7 @@ export const useAppInitialization = (checkStartParam) => {
       const initPromise = fetchInitData();
 
       // 2. Sync profile in parallel
-      syncProfile(profile).catch(e => console.error("Profile sync error:", e));
+      if (profile) syncProfile(profile).catch(e => console.error("Profile sync error:", e));
 
       // 3. Perform background sync in offline mode if online
       if (isOfflineMode() && navigator.onLine) {

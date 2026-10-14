@@ -1,0 +1,1087 @@
+# Deck: B1-11-D10 · Verben mit Präpositionen — Erweiterung — слушай и говори
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-11-D10 · Verben mit Präpositionen — Erweiterung — слушай и говори",
+    "level": "B1",
+    "topic": "Verben mit Präpositionen — Erweiterung",
+    "description": "Рецептивно-продуктивная речевая практика: аудирование, распознавание связок на слух, повторение за диктором (эхо-практика), устные ответы на вопросы и свободная диалогическая речь с глагольным управлением",
+    "goal": "Закреплённые ранее грамматические конструкции должны стать узнаваемыми на слух и доступными в спонтанном разговоре. Ученик слышит warten auf, fragen nach, teilnehmen an, sich kümmern um, sich freuen über/auf, sprechen mit/über, различает падежные окончания и вопросительные слова, затем сам произносит короткую фразу, отвечает на вопрос или объясняет ситуацию.",
+    "learning_outcomes": [
+      "Отличать на слух предлоги auf/über, падежные окончания den/dem, bei/für, mit/über и понимать их роль в контексте",
+      "По звучащим вопросам worauf / auf wen / worüber / mit wem / womit / wovon точно определять объект вопроса",
+      "После паузы полностью повторять правильную немецкую фразу, не теряя sich/mich/uns, артикль, предлог и отделяемую приставку",
+      "Устно отвечать на вопросы без предварительного прочтения их печатного текста",
+      "Спрягать глаголы и сохранять управление в прошедшем времени Perfekt в устной речи",
+      "Различать в звучащей речи радость от факта (über) и предвкушение (auf)",
+      "Поддерживать диалог репликой по ситуации и уместным встречным вопросом",
+      "Воспринимать на слух микротексты из 2–3 предложений и точно передавать факты",
+      "Строить связные устные высказывания из 3–5 предложений с несколькими глагольными связками"
+    ],
+    "estimated_time": "40–55 минут",
+    "recommendations": "При ошибках в распознавании на слух (01–09, 41, 43, 45) повторить D03–D04; при трудностях с повторением за диктором (11–19) — карточки блока 2 после сверки с текстом; при сбоях в устных ответах (21–29) — D05 31–46 и D06 31–40; при затруднениях в диалогах (31–39) — D08 31–50; при пересказе историй — D09. После освоения перейти к B1-11-D11 «Быстрое восстановление»."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "block1_audio_comprehension",
+        "title": "Блок 1 · Слушаю и понимаю",
+        "goal": "Освоить восприятие на слух глагольных связок, падежей и разницы человек/предмет в звучащих фразах",
+        "from_card": 1,
+        "to_card": 10,
+        "support": "high",
+        "expected_skill": "Точно понимать смысл и грамматические маркеры звучащих немецких фраз"
+      },
+      {
+        "id": "block2_shadowing_repetition",
+        "title": "Блок 2 · Слушаю и повторяю",
+        "goal": "Отработать эхо-повторение корректных немецких предложений без потери возвратных местоимений и приставок",
+        "from_card": 11,
+        "to_card": 20,
+        "support": "high",
+        "expected_skill": "Чётко и полно артикулировать устойчивые глагольные конструкции за диктором"
+      },
+      {
+        "id": "block3_oral_prompt_response",
+        "title": "Блок 3 · Слышу вопрос и отвечаю",
+        "goal": "Научиться устно отвечать на звучащие вопросы собеседника с использованием целевых связок",
+        "from_card": 21,
+        "to_card": 30,
+        "support": "medium",
+        "expected_skill": "Быстро формулировать устные ответы на вопросы с wo(r)- и предлогами к людям"
+      },
+      {
+        "id": "block4_interactive_dialogue",
+        "title": "Блок 4 · Веду диалог",
+        "goal": "Вести живой диалог в бытовых и служебных контекстах (кафе, курсы, работа, управляющая компания)",
+        "from_card": 31,
+        "to_card": 40,
+        "support": "medium",
+        "expected_skill": "Реагировать на реплики партнёра, строить жалобы, просьбы и задавать встречные вопросы"
+      },
+      {
+        "id": "block5_listening_monologue_synthesis",
+        "title": "Блок 5 · Слухоречевая интеграция и свободный монолог",
+        "goal": "Понимать звучащие связные микроистории, передавать их суть и строить устный монолог из 3–5 предложений",
+        "from_card": 41,
+        "to_card": 50,
+        "support": "low",
+        "expected_skill": "Свободно выражать мысли голосом с интеграцией нескольких глагольных связок"
+      }
+    ],
+    "expected_result": "Ученик уверенно воспринимает немецкое глагольное управление на слух, правильно повторяет фразы с синтаксической рамкой, спонтанно отвечает на вопросы и ведёт короткий связный диалог.",
+    "competencies": [
+      {
+        "id": "auditory_discrimination",
+        "title": "Аудитивное различение связок",
+        "description": "Распознавание предлогов, падежных окончаний и вопросительных слов на слух"
+      },
+      {
+        "id": "phonetic_syntactic_shadowing",
+        "title": "Фонетико-синтаксическое повторение",
+        "description": "Полнота устного воспроизведения конструкций за диктором без редукции грамматических элементов"
+      },
+      {
+        "id": "spontaneous_oral_production",
+        "title": "Спонтанная устная продукция",
+        "description": "Самостоятельное формулирование ответов на звучащие вопросы по коммуникативной ситуации"
+      },
+      {
+        "id": "discourse_interaction",
+        "title": "Интерактивное речевое взаимодействие",
+        "description": "Участие в диалоге, реакция на сообщения и построение связного монолога из 3–5 предложений"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "listening_accuracy",
+        "title": "Точность понимания на слух",
+        "description": "Не менее 9 из 12 верных смысловых ответов в карточках на аудирование"
+      },
+      {
+        "id": "shadowing_completeness",
+        "title": "Полнота эхо-повторения",
+        "description": "Не менее 7 из 9 полных воспроизведений в блоке 11–19"
+      },
+      {
+        "id": "oral_production_success",
+        "title": "Успешность устных ответов",
+        "description": "Не менее 19 успешных самостоятельных голосовых ответов из 24 заданий"
+      },
+      {
+        "id": "overall_pass_d10",
+        "title": "Общий порог освоения речевой колоды",
+        "description": "Не менее 36 из 45 (80%) успешных решений без просмотра текстовых подсказок"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_listening_errors",
+        "title": "Повторение аудирования предлогов и падежей",
+        "when": "При ошибках в понимании на слух (блоке 1)",
+        "reason": "Повторить карточки 01–09 D10 и D03–D04",
+        "competency_ids": ["auditory_discrimination"]
+      },
+      {
+        "id": "review_shadowing_losses",
+        "title": "Повторение полноты произнесения",
+        "when": "При потере возвратных местоимений (sich/mich) или отделяемых приставок",
+        "reason": "Повторить карточки 11–19 со сверкой текста",
+        "competency_ids": ["phonetic_syntactic_shadowing"]
+      },
+      {
+        "id": "review_oral_questions",
+        "title": "Повторение устных ответов на вопросы",
+        "when": "При трудностях со спонтанными ответами на вопросы (блок 3)",
+        "reason": "Повторить D05 31–46, D06 31–40 и D10 21–29",
+        "competency_ids": ["spontaneous_oral_production"]
+      },
+      {
+        "id": "review_conversational_flow",
+        "title": "Повторение диалогической инициативы",
+        "when": "При затруднениях в диалогах (блок 4)",
+        "reason": "Повторить D08 31–50 и D10 31–39",
+        "competency_ids": ["discourse_interaction"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите коммуникативное намерение клиента.
+::exercise
+Что делает клиент в данном сообщении?
+
+*Ждёт подтверждения заказа
+Отменяет ранее сделанный заказ
+Благодарит за предоставленную скидку
+
+BACK:
+Клиент ждёт подтверждения заказа.
+Звучащая фраза: «Ich warte noch auf die Auftragsbestätigung».
+Перевод: «Я всё ещё жду подтверждения заказа».
+
+CONTEXT:
+warten auf + Akkusativ: die Auftragsbestätigung — подтверждение заказа; слово noch подчёркивает продолжающееся ожидание.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите цель вопроса посетителя библиотеки.
+::exercise
+О чём именно спрашивает посетитель?
+
+О стоимости редкой книги
+*О сроке возврата книги
+О месте выдачи читательских билетов
+
+BACK:
+О сроке возврата книги.
+Звучащая фраза: «Ich möchte nach der Rückgabefrist fragen».
+Перевод: «Я хотел бы узнать срок возврата».
+
+CONTEXT:
+fragen nach + Dativ: die Rückgabefrist в дательном падеже принимает форму der Rückgabefrist.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите прозвучавшую глагольную связку.
+::exercise
+Какое управление глагола прозвучало в высказывании?
+
+*sich interessieren für + Akkusativ
+teilnehmen an + Dativ
+fragen nach + Dativ
+
+BACK:
+sich interessieren für + Akkusativ.
+Звучащая фраза: «Meine Schwester interessiert sich für den Wochenendkurs».
+Перевод: «Моя сестра интересуется курсом выходного дня».
+
+CONTEXT:
+sich interessieren für + Akkusativ: der Wochenendkurs мужского рода в Akkusativ принимает форму den Wochenendkurs.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте два предложения и определите эмоциональное отношение говорящего.
+::exercise
+Человек рад уже полученной новости или ожидает будущую поездку?
+
+Только радуется полученной новости
+Только с нетерпением предвкушает поездку
+*И радуется полученной новости, и предвкушает поездку
+
+BACK:
+И радуется полученной новости, и предвкушает поездку.
+Звучащая фраза: «Ich freue mich über die Zusage. Jetzt freue ich mich auf die Reise».
+Перевод: «Я рад согласию. Теперь я с нетерпением жду поездки».
+
+CONTEXT:
+sich freuen über + Akkusativ (радость свершившемуся факту: die Zusage) vs. sich freuen auf + Akkusativ (предвкушение будущего: die Reise).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и найдите фактор зависимости.
+::exercise
+От чего зависит запуск мероприятия по словам говорящего?
+
+*От получения официального разрешения
+От набора достаточного количества участников
+От устранения неисправности оборудования
+
+BACK:
+От получения официального разрешения.
+Звучащая фраза: «Der Start hängt von der Genehmigung ab».
+Перевод: «Запуск зависит от разрешения».
+
+CONTEXT:
+abhängen von + Dativ: die Genehmigung в дательном падеже принимает форму der Genehmigung; отделяемая приставка ab — в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите обе роли предлогов.
+::exercise
+С кем разговаривает сотрудница и какую тему они обсуждают?
+
+*С начальником о рабочем графике
+С клиентом о стоимости услуги
+С коллегой о новом заявлении
+
+BACK:
+С начальником о рабочем графике.
+Звучащая фраза: «Die Mitarbeiterin spricht mit dem Chef über den Dienstplan».
+Перевод: «Сотрудница разговаривает с начальником о графике работы».
+
+CONTEXT:
+sprechen mit + Dativ (mit dem Chef = собеседник) + über + Akkusativ (über den Dienstplan = тема обсуждения).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите ответственное лицо.
+::exercise
+Кто несёт ответственность за уход за растениями?
+
+Сам говорящий
+*Его сосед
+Сотрудники управляющей компании
+
+BACK:
+Его сосед.
+Звучащая фраза: «Mein Nachbar kümmert sich um die Pflanzen im Hof».
+Перевод: «Мой сосед ухаживает за растениями во дворе».
+
+CONTEXT:
+sich kümmern um + Akkusativ: подлежащее mein Nachbar согласуется с возвратным местоимением sich.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте звучащий вопрос и определите категорию объекта.
+::exercise
+О ком или о чём спрашивает говорящий?
+
+*О конкретном человеке (одушевлённом лице)
+О неодушевлённом предмете или событии
+
+BACK:
+О конкретном человеке.
+Звучащая фраза: «Auf wen wartest du?».
+Перевод: «Кого ты ждёшь?».
+
+CONTEXT:
+Вопрос о человеке в винительном падеже строится через предлог + wen (Auf wen?). Для вещей использовалась бы форма Worauf?.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте короткий диалог и определите реакцию сотрудника.
+::exercise
+Что обещает сотрудник в ответ на жалобу клиента?
+
+Немедленно отправить исправленный счёт почтой
+*Заняться решением проблемы
+Расторгнуть договор обслуживания
+
+BACK:
+Заняться решением проблемы.
+Звучащий диалог:
+Клиент: «Ich möchte mich über die falsche Rechnung beschweren».
+Сотрудник: «Wir kümmern uns darum».
+Перевод: «Я хочу пожаловаться на неправильный счёт. — Мы займёмся этим».
+
+CONTEXT:
+sich beschweren über + Akkusativ; sich kümmern um → darum (замена неодушевлённой проблемы местоименным наречием).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите главное методическое правило полноценного аудирования.
+::exercise
+Что делает упражнение на слух настоящим аудированием, а не чтением про себя?
+
+*До первой попытки ответа немецкий текст скрыт, ученик воспринимает только звук
+Текст должен быть прочитан диктором шёпотом
+Ученик обязан читать немецкий текст одновременно со звуком
+
+BACK:
+До первой попытки ответа немецкий текст скрыт, ученик воспринимает только звук.
+
+CONTEXT:
+Методика аудирования: смысловая обработка акустического сигнала без зрительной текстовой подсказки.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте предложение и повторите его вслух целиком за диктором.
+::exercise
+@free
+Повторите услышанное предложение целиком, чётко произнося предлог и артикль.
+
+BACK:
+Эталон устной речи: «Ich warte auf den Bescheid».
+Перевод: «Я жду официального решения».
+
+CONTEXT:
+warten auf + Akkusativ: der Bescheid в винительном падеже принимает артикль den. Полное эхо-воспроизведение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте предложение и повторите его вслух за диктором.
+::exercise
+@free
+Повторите фразу целиком, чётко артикулируя предлог nach и форму артикля.
+
+BACK:
+Эталон устной речи: «Ich frage nach dem Preis».
+Перевод: «Я спрашиваю о цене».
+
+CONTEXT:
+fragen nach + Dativ: der Preis мужского рода в дательном падеже принимает форму dem Preis.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте два предложения подряд и повторите оба вслух.
+::exercise
+@free
+Повторите обе фразы, отчётливо различая звучание артиклей den и dem.
+
+BACK:
+Эталон устной речи: «Ich denke an den Kurs. Ich nehme an dem Kurs teil».
+Перевод: «Я думаю о курсе. Я участвую в этом курсе».
+
+CONTEXT:
+Контраст падежей: denken an + Akkusativ (den Kurs) vs. teilnehmen an + Dativ (dem Kurs); приставка teil — в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте предложение и повторите его вслух, не теряя возвратное местоимение.
+::exercise
+@free
+Повторите предложение целиком, сохранив возвратное местоимение uns.
+
+BACK:
+Эталон устной речи: «Wir interessieren uns für Kunst».
+Перевод: «Мы интересуемся искусством».
+
+CONTEXT:
+sich interessieren für + Akkusativ: местоимение uns обязательно при подлежащем wir.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте предложение и повторите его вслух, сохраняя глагольную рамку.
+::exercise
+@free
+Повторите предложение, сделав правильную интонационную паузу перед приставкой vor.
+
+BACK:
+Эталон устной речи: «Ich bereite mich auf den Test vor».
+Перевод: «Я готовлюсь к тесту».
+
+CONTEXT:
+sich vorbereiten auf + Akkusativ: bereite на позиции 2, возвратное mich, отделяемая приставка vor — в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте два предложения и повторите оба с правильными предлогами.
+::exercise
+@free
+Повторите сначала фразу о полученной новости, затем — о будущем событии.
+
+BACK:
+Эталон устной речи: «Ich freue mich über die Nachricht. Ich freue mich auf das Treffen».
+Перевод: «Я рад новости. Я с нетерпением жду встречи».
+
+CONTEXT:
+sich freuen über (радость факту) vs. sich freuen auf (предвкушение). Чёткое различение предлогов über и auf.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте предложение с двумя дополнениями и повторите его вслух.
+::exercise
+@free
+Повторите фразу одной плавной интонацией, не пропуская ни один из двух предлогов.
+
+BACK:
+Эталон устной речи: «Ich bedanke mich bei Ihnen für Ihre Geduld».
+Перевод: «Я благодарю Вас за Ваше терпение».
+
+CONTEXT:
+sich bedanken bei + Dativ (bei Ihnen) + für + Akkusativ (für Ihre Geduld).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте предложение и повторите его вслух, сохраняя слитный артикль и приставку.
+::exercise
+@free
+Повторите предложение за диктором, отчётливо произнеся слитную форму vom и приставку ab.
+
+BACK:
+Эталон устной речи: «Das hängt vom Zeitpunkt ab».
+Перевод: «Это зависит от момента времени».
+
+CONTEXT:
+abhängen von + Dativ: слияние von dem → vom; отделяемая приставка ab замыкает предложение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос и ответ и повторите обе реплики подряд.
+::exercise
+@free
+Повторите вопрос и ответ, различая звучание worüber и darüber.
+
+BACK:
+Эталон устной речи: «Worüber sprecht ihr? — Wir sprechen darüber».
+Перевод: «О чём вы говорите? — Мы говорим об этом».
+
+CONTEXT:
+Симметрия форм: вопрос с worüber? (о чём) и ответ с местоименным наречием darüber (об этом).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите эффективный способ работы над собственным устным воспроизведением.
+::exercise
+Как полезнее всего исправить ошибку, если фраза за диктором не получилась с первого раза?
+
+*Прослушать повторно, открыть текст после первой попытки, заметить упущенный элемент и повторить вслух
+Продолжать угадывать наугад, не сверяясь с транскриптом
+Перестать повторять вслух и перейти к письменным упражнениям
+
+BACK:
+Прослушать повторно, открыть текст после первой попытки, заметить упущенный элемент и повторить вслух.
+
+CONTEXT:
+Осознанный слухо-речевой контроль: сравнение собственной артикуляции с транскриптом и повторная отработка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос администратора и ответьте устно по ситуации.
+::source
+Администратор: Was möchten Sie wissen?
+Ответьте вслух: вы хотите узнать часы приёма.
+die Sprechzeiten — часы приёма; fragen nach + Dativ.
+::exercise
+@free
+Сформулируйте устный ответ на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich möchte nach den Sprechzeiten fragen».
+Перевод: «Я хотел бы узнать часы приёма».
+
+CONTEXT:
+fragen nach + Dativ: nach den Sprechzeiten (Dativ Plural); инфинитив fragen — в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос собеседника и ответьте устно полным предложением.
+::source
+Собеседник: Worauf wartest du?
+Ответьте вслух: вы ждёте доставку мебели.
+die Möbellieferung — доставка мебели; warten auf + Akkusativ.
+::exercise
+@free
+Сформулируйте устный ответ на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich warte auf die Möbellieferung».
+Перевод: «Я жду доставку мебели».
+
+CONTEXT:
+warten auf + Akkusativ: die Möbellieferung женского рода сохраняет артикль die.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос и ответьте устно о сфере своих интересов.
+::source
+Вопрос: Wofür interessierst du dich?
+Ответьте вслух: вы интересуетесь возобновляемой энергией.
+erneuerbare Energien — возобновляемая энергия; sich interessieren für + Akkusativ.
+::exercise
+@free
+Сформулируйте устный ответ на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich interessiere mich für erneuerbare Energien».
+Перевод: «Я интересуюсь возобновляемыми источниками энергии».
+
+CONTEXT:
+sich interessieren für + Akkusativ: ich → mich; предлог für с винительным падежом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос о человеке и ответьте устно полным предложением.
+::source
+Вопрос: Auf wen wartest du?
+Ответьте вслух: вы ждёте свою наставницу.
+meine Ausbilderin — моя наставница; warten auf + Akkusativ.
+::exercise
+@free
+Сформулируйте устный ответ на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich warte auf meine Ausbilderin».
+Перевод: «Я жду свою наставницу».
+
+CONTEXT:
+warten auf + Akkusativ: одушевлённое дополнение meine Ausbilderin женского рода.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос коллеги и ответьте устно о текущей задаче.
+::source
+Вопрос: Womit beschäftigen Sie sich gerade?
+Ответьте вслух: вы занимаетесь планированием рабочего места.
+die Arbeitsplatzplanung — планирование рабочего места; sich beschäftigen mit + Dativ.
+::exercise
+@free
+Сформулируйте устный ответ на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich beschäftige mich gerade mit der Arbeitsplatzplanung».
+Перевод: «Я сейчас занимаюсь планированием рабочего места».
+
+CONTEXT:
+sich beschäftigen mit + Dativ: die Arbeitsplatzplanung в дательном падеже принимает артикль der.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос о вчерашнем разговоре и ответьте устно в Perfekt.
+::source
+Вопрос: Mit wem hast du gestern gesprochen?
+Ответьте вслух в Perfekt: вы разговаривали со своим куратором.
+mein Betreuer — мой куратор; sprechen mit + Dativ в Perfekt.
+::exercise
+@free
+Сформулируйте устный ответ в Perfekt на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich habe mit meinem Betreuer gesprochen».
+Перевод: «Я разговаривал со своим куратором».
+
+CONTEXT:
+Perfekt: habe ... gesprochen; управление mit + Dativ (mit meinem Betreuer) остаётся неизменным.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос о причине раздражения и ответьте устно.
+::source
+Вопрос: Worüber ärgerst du dich?
+Ответьте вслух: вас раздражает постоянный шум.
+der ständige Lärm — постоянный шум; sich ärgern über + Akkusativ.
+::exercise
+@free
+Сформулируйте устный ответ на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich ärgere mich über den ständigen Lärm».
+Перевод: «Меня раздражает постоянный шум».
+
+CONTEXT:
+sich ärgern über + Akkusativ: der ständige Lärm мужского рода в Akkusativ принимает форму den ständigen Lärm.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос об участии и ответьте устно полным предложением.
+::source
+Вопрос: Woran nimmst du teil?
+Ответьте вслух: вы участвуете в семинаре по охране труда.
+ein Seminar zur Arbeitssicherheit — семинар по охране труда; teilnehmen an + Dativ.
+::exercise
+@free
+Сформулируйте устный ответ на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich nehme an einem Seminar zur Arbeitssicherheit teil».
+Перевод: «Я участвую в семинаре по охране труда».
+
+CONTEXT:
+teilnehmen an + Dativ: einem Seminar среднего рода в Dativ; приставка teil завершает предложение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос о зависимости и ответьте устно целой фразой.
+::source
+Вопрос: Wovon hängt der Beginn ab?
+Ответьте вслух: начало зависит от погоды.
+der Beginn; das Wetter; abhängen von + Dativ.
+::exercise
+@free
+Сформулируйте устный ответ на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Der Beginn hängt vom Wetter ab».
+Перевод: «Начало зависит от погоды».
+
+CONTEXT:
+abhängen von + Dativ: слитный артикль vom Wetter; отделяемая приставка ab — в абсолютном конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите критерии оценки спонтанного устного ответа.
+::exercise
+По какому признаку следует оценивать ответ ученика в живом диалоге?
+
+*По смысловой адекватности, правильности целевой связки и грамматической понятности, а не по посимвольному совпадению
+Только по абсолютному сходству каждого слова с эталонным текстом
+Исключительно по громкости произнесения в микрофон
+
+BACK:
+По смысловой адекватности, правильности целевой связки и грамматической понятности, а не по посимвольному совпадению.
+
+CONTEXT:
+Оценка устной продуктивной речи: функциональная коммуникативность и корректность грамматического управления.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос официанта в кафе и ответьте устной претензией.
+::source
+Официант: Ist mit Ihrem Essen alles in Ordnung?
+Ответьте вежливо и спокойно: вы хотели бы пожаловаться на ошибочный заказ.
+die falsche Bestellung — ошибочный заказ; sich beschweren über + Akkusativ; möchte.
+::exercise
+@free
+Сформулируйте устную реплику на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich möchte mich über die falsche Bestellung beschweren».
+Перевод: «Я хотел бы пожаловаться на ошибочный заказ».
+
+CONTEXT:
+sich beschweren über + Akkusativ: возвратное местоимение mich на позиции 3, инфинитив beschweren в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте реплику сотрудника кафе и продолжите диалог просьбой.
+::source
+Сотрудник: Was kann ich für Sie tun?
+Ответьте устно двумя фразами: попросите приготовить другое блюдо и поблагодарите за помощь.
+ein neues Gericht — новое блюдо; bitten um + Akkusativ; Vielen Dank für...
+::exercise
+@free
+Сформулируйте две устные фразы на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich bitte um ein neues Gericht. Vielen Dank für Ihre Hilfe».
+Перевод: «Прошу другое блюдо. Большое спасибо за Вашу помощь».
+
+CONTEXT:
+bitten um + Akkusativ (um ein neues Gericht); вежливая благодарность: Vielen Dank für Ihre Hilfe.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос сотрудника курсов и ответьте о своём интересе.
+::source
+Сотрудник: Für welchen Kurs interessieren Sie sich?
+Ответьте устно: вы интересуетесь разговорным курсом и хотите в нём участвовать (не повторяя слово Kurs).
+der Gesprächskurs; sich interessieren für; teilnehmen an → daran.
+::exercise
+@free
+Сформулируйте устный ответ из двух предложений на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich interessiere mich für den Gesprächskurs. Ich möchte daran teilnehmen».
+Перевод: «Я интересуюсь разговорным курсом. Я хотел бы участвовать в нём».
+
+CONTEXT:
+sich interessieren für + Akkusativ; teilnehmen an + Dativ → daran teilnehmen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте реплику сотрудника и задайте встречный вопрос о месте занятий.
+::source
+Сотрудник: Der Kurs beginnt nächsten Montag.
+Спросите: где проходит курс? Затем поблагодарите за информацию.
+stattfinden — проходить, состояться; Vielen Dank für die Information.
+::exercise
+@free
+Сформулируйте встречный вопрос и благодарность на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Wo findet der Kurs statt? Vielen Dank für die Information».
+Перевод: «Где проходит курс? Большое спасибо за информацию».
+
+CONTEXT:
+Диалогическая инициатива: уместный встречный вопрос о месте проведения и формула благодарности.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос работодателя и ответьте устно о вакансии.
+::source
+Работодатель: Um welche Stelle bewerben Sie sich?
+Ответьте: вы подаёте заявление в их компанию на должность механика.
+eine Stelle als Mechaniker; Ihre Firma; sich bewerben bei/um.
+::exercise
+@free
+Сформулируйте устный ответ на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich bewerbe mich bei Ihrer Firma um eine Stelle als Mechaniker».
+Перевод: «Я подаю заявление в Вашу компанию на должность механика».
+
+CONTEXT:
+sich bewerben bei + Dativ (bei Ihrer Firma) + um + Akkusativ (um eine Stelle als Mechaniker).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос работодателя об опыте и ответьте устно в Perfekt.
+::source
+Работодатель: An welcher Weiterbildung haben Sie teilgenommen?
+Ответьте в Perfekt: вы участвовали в курсе по электронике.
+ein Elektronikkurs; teilnehmen an + Dativ в Perfekt.
+::exercise
+@free
+Сформулируйте устный ответ в Perfekt на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich habe an einem Elektronikkurs teilgenommen».
+Перевод: «Я участвовал в курсе по электронике».
+
+CONTEXT:
+teilnehmen an + Dativ в Perfekt: habe ... teilgenommen; einem Elektronikkurs — Dativ мужского рода.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте сообщение об отсрочке решения и ответьте двумя фразами.
+::source
+Сотрудник: Heute können wir Ihnen noch keine Entscheidung mitteilen.
+Скажите: 1) вы ждёте решения; 2) спросите о примерных сроках.
+die Entscheidung; der ungefähre Zeitraum; warten auf; fragen nach.
+::exercise
+@free
+Сформулируйте ответ и вежливый вопрос на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich warte auf die Entscheidung. Darf ich nach dem ungefähren Zeitraum fragen?».
+Перевод: «Я жду решения. Могу я узнать примерные сроки?».
+
+CONTEXT:
+warten auf + Akkusativ (auf die Entscheidung); fragen nach + Dativ (nach dem ungefähren Zeitraum).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте приветствие управляющей компании и изложите проблему.
+::source
+Управляющая компания: Guten Tag, hier ist die Hausverwaltung. Wie können wir Ihnen helfen?
+Скажите: 1) хотите пожаловаться на шум в подъезде; 2) просите провести проверку.
+der Lärm im Treppenhaus; eine Überprüfung; sich beschweren über; bitten um.
+::exercise
+@free
+Сформулируйте две устные фразы на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich möchte mich über den Lärm im Treppenhaus beschweren. Ich bitte um eine Überprüfung».
+Перевод: «Я хотел бы пожаловаться на шум в подъезде. Я прошу провести проверку».
+
+CONTEXT:
+sich beschweren über + Akkusativ; bitten um + Akkusativ (um eine Überprüfung).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте реплику коллеги и предложите обсудить план.
+::source
+Коллега: Ich arbeite noch an dem Plan.
+Предложите: 1) обсудить его (не повторяя слово Plan); 2) спросите, когда у коллеги есть время.
+sprechen über → darüber; Zeit haben.
+::exercise
+@free
+Сформулируйте две устные реплики на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Können wir darüber sprechen? Wann hast du Zeit?».
+Перевод: «Мы можем поговорить об этом? Когда у тебя есть время?».
+
+CONTEXT:
+sprechen über → замена темы предложным наречием darüber; встречный вопрос о времени.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните разницу между диалогическим ответом и механическим эхо-повторением.
+::exercise
+В чём главное отличие реплики в диалоге от повторения фразы за диктором?
+
+*В диалоге нужно понять реплику собеседника и сформулировать ответную коммуникативную реакцию
+В диалоге нужно просто повторить слова собеседника с вопросительной интонацией
+Диалог требует говорить значительно быстрее диктора
+
+BACK:
+В диалоге нужно понять реплику собеседника и сформулировать ответную коммуникативную реакцию.
+
+CONTEXT:
+Диалогическая компетенция: функциональная реакция на входящее речевое действие партнёра.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте связный микротекст и ответьте на вопрос по смыслу.
+::exercise
+Чего ждёт мастер и от чего зависит дата ремонта?
+
+Мастер ждёт оплаты счёта; дата зависит от графика работы
+*Мастер ждёт заказанную деталь; дата зависит от доставки
+Мастер ждёт согласия владельца; дата зависит от погоды
+
+BACK:
+Мастер ждёт заказанную деталь; дата зависит от доставки.
+Звучащий микротекст: «Der Mechaniker hat ein Ersatzteil bestellt. Er wartet darauf. Der Reparaturtermin hängt von der Lieferung ab».
+Перевод: «Механик заказал деталь. Он ждёт её. Срок ремонта зависит от доставки».
+
+CONTEXT:
+warten auf → darauf; abhängen von + Dativ (von der Lieferung ab). Понимание фактов на слух.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте историю коллеги и перескажите её устно двумя предложениями.
+::source
+Прослушайте текст о Бене: где он подал заявление и чего ждёт сейчас.
+eine Stelle; ein Hotel; die Rückmeldung.
+::exercise
+@free
+Перескажите услышанное двумя предложениями на немецком языке.
+
+BACK:
+Образец правильного устного пересказа:
+«Ben hat sich bei einem Hotel um eine Stelle beworben. Er wartet auf eine Rückmeldung».
+Звучащий текст: «Ben hat sich bei einem Hotel um eine Stelle beworben. Jetzt wartet er auf eine Rückmeldung».
+Перевод: «Бен подал заявление в отель на вакансию. Он ждёт ответа».
+
+CONTEXT:
+sich bewerben bei + Dativ / um + Akkusativ; warten auf + Akkusativ.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте два предложения и объясните разницу во времени событий.
+::exercise
+Что в истории Леи уже произошло, а что только ожидается в будущем?
+
+*Согласие уже получено; первый рабочий день ещё предстоит в будущем
+Первый рабочий день уже прошёл; согласия ещё нет
+Оба события уже завершились в прошлом
+
+BACK:
+Согласие уже получено; первый рабочий день ещё предстоит в будущем.
+Звучащий текст: «Lea freut sich über ihre Zusage. Sie freut sich auf den ersten Arbeitstag».
+Перевод: «Лея рада полученному согласию. Она с нетерпением ждёт первого рабочего дня».
+
+CONTEXT:
+sich freuen über (радость свершившемуся факту: die Zusage) vs. sich freuen auf (предвкушение будущего: der erste Arbeitstag).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте устную инструкцию и выполните задачу голосом.
+::source
+Инструкция диктора: Bitte bedanken Sie sich für das Gespräch und fragen Sie nach schriftlichen Informationen.
+Поблагодарите консультантку за разговор и спросите о письменных материалах.
+die Beraterin; das Gespräch; schriftliche Informationen; sich bedanken bei/für; fragen nach.
+::exercise
+@free
+Сформулируйте устный ответ из двух предложений на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich bedanke mich bei der Beraterin für das Gespräch. Ich möchte nach schriftlichen Informationen fragen».
+Перевод: «Я благодарю консультантку за беседу. Я хотел бы узнать о письменной информации».
+
+CONTEXT:
+sich bedanken bei + Dativ / für + Akkusativ; fragen nach + Dativ (nach schriftlichen Informationen).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте сообщение и сформулируйте устный вопрос о причине зависимости.
+::source
+Сообщение: Wir möchten das Gespräch nächste Woche führen. Der genaue Termin hängt von der Raumverfügbarkeit ab.
+Спросите: от чего зависит точная дата? (не называя слово Raumverfügbarkeit).
+::exercise
+@free
+Сформулируйте устный вопрос на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Wovon hängt der genaue Termin ab?».
+Перевод: «От чего зависит точная дата?».
+
+CONTEXT:
+abhängen von + Dativ → вопрос с местоименным наречием Wovon? Отделяемая приставка ab — в конце.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте вопрос собеседника и ответьте устно тремя предложениями о планах.
+::source
+Собеседник: Was planen Sie in den nächsten Monaten?
+Ответьте тремя предложениями: 1) интересуетесь повышением квалификации; 2) готовитесь к экзамену; 3) ждёте результатов.
+die Weiterbildung; die Prüfung; die Ergebnisse.
+::exercise
+@free
+Сформулируйте устный ответ из трёх предложений на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich interessiere mich für eine Weiterbildung. Ich bereite mich auf die Prüfung vor. Ich warte auf die Ergebnisse».
+Перевод: «Я интересуюсь повышением квалификации. Я готовлюсь к экзамену. Я жду результатов».
+
+CONTEXT:
+Триада связок: sich interessieren für + Akk., sich vorbereiten auf + Akk. (vor в конце), warten auf + Akk.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте две реплики и отреагируйте устно двумя предложениями.
+::source
+Сотрудники:
+Speaker 1: Wir kümmern uns um die Störung.
+Speaker 2: Der nächste Schritt hängt vom Ergebnis der Prüfung ab.
+Ответьте: 1) подтвердите, что они занимаются неисправностью; 2) спросите, когда вы получите решение.
+die Störung; die Entscheidung.
+::exercise
+@free
+Сформулируйте устную реплику из двух предложений на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Sie kümmern sich also um die Störung. Wann bekomme ich eine Entscheidung?».
+Перевод: «Значит, вы занимаетесь неисправностью. Когда я получу решение?».
+
+CONTEXT:
+Адекватная реакция на диалог: констатация действий исполнителя (sich kümmern um) и вопрос о результате.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте фразу в Präsens и перескажите её устно в Perfekt со словом Gestern.
+::source
+Звучащая фраза в настоящем времени: «Ich nehme an einem Workshop teil».
+Скажите голосом в Perfekt, что это произошло вчера (начните со слова Gestern).
+ein Workshop — мастер-класс; teilnehmen an + Dativ.
+::exercise
+@free
+Сформулируйте устное предложение в Perfekt на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Gestern habe ich an einem Workshop teilgenommen».
+Перевод: «Вчера я участвовал в мастер-классе».
+
+CONTEXT:
+Perfekt с инверсией: Gestern на позиции 1 → habe на позиции 2 → ich an einem Workshop teilgenommen (Partizip II в конце).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните разделение критериев при оценке устного ответа.
+::exercise
+Если микрофон распознал фразу неточно из-за шума, как следует методически трактовать результат?
+
+*Отделять понимание содержания и грамматику от технической точности распознавания речи
+Считать ученика полностью не освоившим тему глагольного управления
+Немедленно снизить уровень курса до начального
+
+BACK:
+Отделять понимание содержания и грамматику от технической точности распознавания речи.
+
+CONTEXT:
+Методическая валидность: технические помехи или акцент не должны подменять оценку грамматической компетенции.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте приветствие службы поддержки и выполните итоговый речевой сценарий.
+::source
+Служба поддержки: Guten Tag, wie kann ich Ihnen helfen?
+Ответьте устно связным текстом (4–5 предложений) по ситуации доставки или ремонта:
+1) чего вы всё ещё ждёте (warten auf);
+2) что вас раздражает / беспокоит (sich ärgern über);
+3) уточните срок (fragen nach);
+4) попросите провести проверку (bitten um);
+5) поблагодарите за помощь.
+::exercise
+@free
+Сформулируйте устное развёрнутое сообщение на немецком языке.
+
+BACK:
+Образец правильного устного ответа:
+«Ich warte noch auf die Lieferung. Ich ärgere mich über die Verzögerung. Ich möchte nach dem Liefertermin fragen. Ich bitte um eine Überprüfung. Vielen Dank für Ihre Hilfe».
+Перевод: «Я всё ещё жду доставку. Меня раздражает задержка. Я хотел бы узнать срок доставки. Я прошу провести проверку. Большое спасибо за Вашу помощь».
+
+CONTEXT:
+Итоговый синтез разговорной речи: комплексное связное применение четырёх глагольных связок (warten auf, sich ärgern über, fragen nach, bitten um) в реальной речевой ситуации.

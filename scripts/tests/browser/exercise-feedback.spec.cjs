@@ -9,6 +9,7 @@ const trainer = { id: 2, deck_id: 1, queue: 'new',
   front: 'Ich [[habe]] [[heute]] einen klein[[en]] {*Hund|Katze}.', back: '' };
 
 async function openStudy(page, context, card, locale = 'ru') {
+  card = { ...card, requiredActions: ['answer'] }; // This fixture tests mandatory objective completion.
   await page.routeWebSocket('**/*', () => {});
   await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await context.addInitScript(locale => {
@@ -64,7 +65,8 @@ test('Word Bank keeps four confirmed gaps, restores after flip, retries one gap 
   await expect(gaps.nth(1)).toBeEnabled();
   await expect(gaps.nth(1)).toHaveClass(/is-active.*is-incorrect/);
   await expect(exercise.getByText('Проверь этот пропуск и выбери другой вариант.', { exact: true })).toBeVisible();
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   for (const width of [320, 375, 430, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -86,6 +88,7 @@ test('Word Bank keeps four confirmed gaps, restores after flip, retries one gap 
   await expect(page.getByRole('button', { name: 'Выполнено', exact: true })).toBeDisabled();
   await expect(exercise.locator('.word-bank-gap.is-correct')).toHaveCount(5);
   await expect(page.locator('.grade-buttons')).toBeVisible();
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(4);
   await flip(page, true);
   await expect(exercise).toHaveCount(0);
   await flip(page, false);
@@ -119,7 +122,8 @@ test('Trainer preserves correct inputs, keeps wrong input and choice editable, a
   await expect(text.getByText('Проверь этот вариант.', { exact: true })).toBeVisible();
   await expect(text.getByText('Hund', { exact: true })).toHaveCount(0);
   await expect(text.locator('.trainer-affix-correction')).toHaveCount(0);
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   for (const width of [320, 375, 430, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -138,6 +142,7 @@ test('Trainer preserves correct inputs, keeps wrong input and choice editable, a
   await expect(page.getByRole('button', { name: 'Выполнено', exact: true })).toBeDisabled();
   await expect(inputs.nth(2)).toBeDisabled();
   await expect(page.locator('.grade-buttons')).toBeVisible();
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(4);
   await page.evaluate(async () => {
     const { useSessionStore } = await import('/src/store/useSessionStore.js');
     useSessionStore.getState().setCard({ id: 3, deck_id: 1, front: '[[neu]]', back: '' });

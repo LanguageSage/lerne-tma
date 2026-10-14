@@ -1,5 +1,7 @@
 # Методический паспорт колоды
 
+Обновление Relativsätze: явный `pedagogy.assessment` версии 1 включает объективный экзамен. В нём задаются required_count, bonus_count, полная шкала bands и review_routes с competency_ids/deck_ids. Описание поведения, хранения и ограничений — [ASSESSMENT](ASSESSMENT.md). Сам lesson_type без этой конфигурации сохраняет прежний Classic. Схема enum lesson_type и support не расширялась.
+
 Паспорт импортируется в локальной админке «Автор» вместе с существующим текстовым
 форматом карточек. Данные принадлежат колоде: `tma_deck.metadata.intro` и
 `tma_deck.metadata.pedagogy`. Новых таблиц, миграции существующих данных и записей

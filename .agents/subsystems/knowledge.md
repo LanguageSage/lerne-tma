@@ -71,3 +71,7 @@ rg -n 'startKnowledgeSync|stopKnowledgeSync|currentGeneration|pending' app/src/s
 - Evidence/feedback: [KI-08.1](../../docs/KI-08.1.md), [KI-08.2](../../docs/KI-08.2.md), [KI-08.3](../../docs/KI-08.3.md).
 - [Study](study.md), [AI](ai.md), [Sync](sync.md), [Auth](auth.md).
 - [DB skill](../skills/db-mgmt/SKILL.md), [Verification skill](../skills/ai-harness-eval/SKILL.md).
+
+## Objective assessment evidence
+
+GET /knowledge/decks/{deck_id} отдаёт разрешённые KI/mappings активных карточек для кэша. assessmentService атомарно записывает локальную сессию и schema_version=3/evaluation_type=assessment в существующий outbox. Sync проверяет доступ, primary KI, payload и stable session:card event ID. Верный/неверный ответ даёт objective evidence, skipped хранится без mastery; self-rating отсутствует. Legacy v1/v2 не изменены. Контракт: [ASSESSMENT](../../docs/ASSESSMENT.md). Регрессии: test_knowledge_sync.py и test_knowledge_mastery.py.

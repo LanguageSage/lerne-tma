@@ -1,0 +1,906 @@
+# Deck: B1-07-D15 · Temporale Nebensätze — Итоговая независимая проверка
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-07-D15 · Temporale Nebensätze — Итоговая независимая проверка",
+    "level": "B1",
+    "topic": "Temporale Nebensätze",
+    "description": "Финальная независимая диагностика владения системой временных придаточных предложений немецкого языка: 50 оцениваемых заданий (40 объективных тестов и 10 продуктивных речевых и письменных задач), охватывающих 9 союзов, аудирование, синтаксис и связный дискурс",
+    "goal": "Независимо и комплексно проверить практическое владение временными придаточными предложениями (als, wenn, während, bevor, nachdem, seitdem, bis, sobald, solange) без предварительных подсказок и правил: понимание на слух, чтение текстов, грамматическая точность порядка слов, решение коммуникативных задач и создание связных высказываний.",
+    "learning_outcomes": [
+      "Точно идентифицировать и применять все 9 временных союзов в незнакомых жизненных контекстах",
+      "Безошибочно различать разовое прошлое (als), регулярный повтор/будущее (wenn) и косвенный вопрос (wann)",
+      "Дифференцировать параллельность (während) и условие на весь период (solange), немедленную реакцию (sobald) и последовательность (nachdem)",
+      "Соблюдать рамочный порядок слов в придаточном предложении и инверсию (V2) в главном предложении после запятой",
+      "Извлекать точную последовательность событий из прочитанных и прослушанных текстов",
+      "Строить связные письменные письма и устные монологи объёмом 4–8 предложений с логичной хронологией"
+    ],
+    "estimated_time": "45–60 минут",
+    "recommendations": "При ошибках в определении хронологии (TIME_RELATION, BEFORE_AFTER) — повторить D03 и D06; при путанице als и wenn (ALS_WENN) — колоду D04; при трудностях с während (GLEICHZEITIG) — D05; с seitdem и bis (START_END, BIS_NEGATION) — D07; с sobald и solange (SOFORT_DAUER) — D08; при синтаксических сбоях (VERB_FINAL, MAIN_ORDER) — D10; при трудностях со связной речью и письмом — D11–D13."
+  },
+  "pedagogy": {
+    "lesson_type": "assessment",
+    "stages": [
+      {
+        "id": "core_semantic_relations",
+        "title": "Базовые смысловые отношения (все 9 союзов)",
+        "goal": "Проверка понимания ключевых временных отношений в новых бытовых ситуациях",
+        "from_card": 1,
+        "to_card": 10,
+        "support": "independent",
+        "expected_skill": "Безошибочно определять требуемый союз по смыслу ситуации"
+      },
+      {
+        "id": "subtle_contrasts_pitfalls",
+        "title": "Смысловые контрасты и типичные ловушки",
+        "goal": "Проверка различения тонких смысловых оттенков: период vs повтор, длительность vs одновременность, bis без nicht, wann vs wenn",
+        "from_card": 11,
+        "to_card": 20,
+        "support": "independent",
+        "expected_skill": "Преодолевать языковые ловушки и дифференцировать близкие союзы"
+      },
+      {
+        "id": "syntax_and_verb_placement",
+        "title": "Грамматика конструкции: порядок слов и формы глагола",
+        "goal": "Контроль конечной позиции сказуемого, инверсии после запятой, отделяемых приставок и форм Plusquamperfekt",
+        "from_card": 21,
+        "to_card": 30,
+        "support": "independent",
+        "expected_skill": "Демонстрировать безупречную синтаксическую точность рамочной конструкции"
+      },
+      {
+        "id": "reading_and_chronology",
+        "title": "Чтение и извлечение хронологии событий",
+        "goal": "Понимание фактической последовательности событий из связных мини-текстов",
+        "from_card": 31,
+        "to_card": 36,
+        "support": "independent",
+        "expected_skill": "Восстанавливать реальную хронологию фактов по тексту с временными союзами"
+      },
+      {
+        "id": "listening_comprehension",
+        "title": "Аудирование: восприятие временных связей на слух",
+        "goal": "Понимание звучащей речи и извлечение хронологии без опоры на текст",
+        "from_card": 37,
+        "to_card": 40,
+        "support": "independent",
+        "expected_skill": "Точно понимать временные ориентиры в звучащих высказываниях"
+      },
+      {
+        "id": "productive_speech_and_writing",
+        "title": "Продуктивная речь, письмо и комплексный синтез",
+        "goal": "Самостоятельный перевод, перестройка предложений, исправление ошибок, диалоги, монологи и экзаменационные письма",
+        "from_card": 41,
+        "to_card": 50,
+        "support": "independent",
+        "expected_skill": "Свободно и грамотно создавать связные тексты и речевые высказывания B1"
+      }
+    ],
+    "expected_result": "Ученик независимо демонстрирует владение всей системой временных придаточных предложений немецкого языка уровня B1 во всех видах речевой деятельности (чтение, аудирование, грамматика, письмо, говорение).",
+    "competencies": [
+      {
+        "id": "independent_conjunction_mastery",
+        "title": "Самостоятельное владение союзами времени",
+        "description": "Точное применение 9 временных союзов в незнакомых ситуациях без подсказок"
+      },
+      {
+        "id": "discourse_chronology_comprehension",
+        "title": "Понимание хронологии в дискурсе",
+        "description": "Извлечение точной последовательности событий при чтении и на слух"
+      },
+      {
+        "id": "exam_level_productive_flow",
+        "title": "Продуктивная речь и письмо формата B1",
+        "description": "Построение грамматически безупречных связных писем и устных рассказов"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "objective_score_accuracy",
+        "title": "Точность объективной части (01–40)",
+        "description": "Количество правильных ответов в закрытых тестах (ориентир 34–40 баллов)"
+      },
+      {
+        "id": "productive_task_fulfillment",
+        "title": "Качество продуктивной части (41–50)",
+        "description": "Полнота раскрытия задачи, логика времени и синтаксическая чистота (ориентир 16–20 баллов)"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_objective_gaps",
+        "title": "Точечное устранение пробелов",
+        "when": "При ошибках в отдельных группах союзов",
+        "reason": "Обратиться к соответствующим тематическим колодам серии B1-07 (D04–D10)",
+        "competency_ids": ["independent_conjunction_mastery"]
+      },
+      {
+        "id": "review_productive_gaps",
+        "title": "Развитие связной речи и письма",
+        "when": "При трудностях с построением связного текста",
+        "reason": "Повторить колоды D11, D12, D13",
+        "competency_ids": ["exam_level_productive_flow"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящий союз для одной конкретной встречи прошлой осенью.
+::exercise
+{*Als|Wenn|Seitdem} ich meine frühere Lehrerin im Oktober traf, freute ich mich sehr.
+
+BACK:
+Когда я встретил свою бывшую учительницу в октябре, я очень обрадовался.
+
+CONTEXT:
+Разовый конкретный эпизод в прошлом требует подчинительного союза "Als".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз для повторявшейся в прошлом вечерней смены.
+::exercise
+{*Wenn|Als|Nachdem} Maria früher Spätschicht hatte, rief sie abends zu Hause an.
+
+BACK:
+Когда Мария раньше работала в вечернюю смену, она по вечерам звонила домой.
+
+CONTEXT:
+Повторяющееся регулярное действие в прошлом («всякий раз, когда») оформляется союзом "Wenn". "Die Spätschicht" — вечерняя смена.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз для запланированного на завтра совместного ужина.
+::exercise
+{*Wenn|Als|Seitdem} mein Bruder morgen zurückkommt, essen wir zusammen.
+
+BACK:
+Когда мой брат завтра вернётся, мы вместе поедим.
+
+CONTEXT:
+Для событий будущего времени со значением «когда» употребляется союз "Wenn" с глаголом в форме Präsens ("zurückkommt").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз, прямо обозначающий параллельное течение двух действий.
+::exercise
+{*Während|Nachdem|Bevor} mein Kollege mit dem Kunden sprach, suchte ich die Datei.
+
+BACK:
+Пока мой коллега разговаривал с клиентом, я искал файл.
+
+CONTEXT:
+Союз "Während" выражает одновременность двух независимых процессов во времени. "Die Datei" — файл.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз: проверка номера происходит ДО отправки сообщения.
+::exercise
+Ich kontrolliere die Nummer, {*bevor|nachdem|seitdem} ich die Nachricht abschicke.
+
+BACK:
+Я проверяю номер перед тем, как отправить сообщение.
+
+CONTEXT:
+Проверка в главной части предшествует отправке в придаточной части, поэтому используется союз "bevor". "Abschicken" — отправлять.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз для описания ухода домой ПОСЛЕ завершения отчета вчера.
+::exercise
+{*Nachdem|Bevor|Während} ich den Bericht fertiggeschrieben hatte, ging ich nach Hause.
+
+BACK:
+После того как я закончил отчёт, я пошёл домой.
+
+CONTEXT:
+Завершение отчёта предшествовало уходу домой в прошлом, поэтому предшествующее действие оформляется союзом "Nachdem" + Plusquamperfekt ("fertiggeschrieben hatte").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз для описания перемены, начавшейся с момента переезда.
+::exercise
+{*Seitdem|Bis|Bevor} Anna in diesem Viertel wohnt, geht sie öfter zu Fuß.
+
+BACK:
+С тех пор как Анна живёт в этом районе, она чаще ходит пешком.
+
+CONTEXT:
+Переезд послужил исходной точкой периода новой привычки, поэтому используется союз "Seitdem". "Das Viertel" — городской район.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз: ожидание продолжается вплоть до прихода врача.
+::exercise
+Wir warten in der Halle, {*bis|seitdem|während} die Ärztin kommt.
+
+BACK:
+Мы ждём в холле, пока не придёт врач.
+
+CONTEXT:
+Приход врача обозначает предел ожидания (конечную границу), поэтому требуется союз "bis".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз, подчеркивающий моментальную отправку ответа сразу по получении подтверждения.
+::exercise
+{*Sobald|Solange|Während} die Bestätigung da ist, schreibe ich dir sofort.
+
+BACK:
+Как только подтверждение придёт, я сразу тебе напишу.
+
+CONTEXT:
+"Sobald" акцентирует немедленный запуск следующего действия сразу по наступлении события. "Die Bestätigung" — подтверждение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз для правила безопасности на всё время проведения тренировки.
+::exercise
+{*Solange|Sobald|Nachdem} die Übung läuft, bleiben alle im Gebäude.
+
+BACK:
+Пока продолжается тренировка, все остаются в здании.
+
+CONTEXT:
+Правило действует непрерывно на протяжении всего периода тренировки, поэтому используется союз "Solange". "Die Übung" — тренировка/учения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящий союз для целостного периода проживания у бабушки в прошлом.
+::source
+Контекст: один завершённый период детства, во время которого прогулки повторялись часто.
+::exercise
+{*Als|Wenn} ich bei meiner Großmutter wohnte, ging ich oft am Fluss spazieren.
+
+BACK:
+Когда я жил у бабушки, я часто гулял у реки.
+
+CONTEXT:
+Период проживания у бабушки воспринимается как единый завершённый отрезок прошлого ("Als"). Повторяемость прогулок внутри него не отменяет союз als для самого периода.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите предложение, описывающее повторяющуюся привычку в прошлом.
+::exercise
+Какое предложение передаёт регулярную повторяемость поездок в прошлом?
+
+*Wenn ich früher nach Leipzig fuhr, nahm ich immer die Straßenbahn.
+Als ich in Leipzig wohnte, nahm ich oft die Straßenbahn.
+
+BACK:
+Когда я раньше ездил в Лейпциг, я всегда садился на трамвай.
+
+CONTEXT:
+Маркеры "immer" и союз "wenn" с прошедшим временем передают серию повторявшихся поездок. Во втором варианте союз als оформляет единый период проживания в городе.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите предложение с акцентом на сохранении правила на весь период горения света.
+::exercise
+Какое предложение выражает правило «весь период, пока горит свет, дверь остаётся открытой»?
+
+*Solange das Licht an ist, bleibt die Tür offen.
+Während ich den Flur putze, klingelt das Telefon.
+
+BACK:
+Пока горит свет, дверь остаётся открытой.
+
+CONTEXT:
+"Solange" подчеркивает непрерывность условия на протяжении всего интервала. Второй вариант описывает точечный звонок во время уборки коридора.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите предложение, четко выражающее немедленную реакцию на сообщение.
+::exercise
+Какое предложение подчёркивает моментальный ответ сразу по получении сообщения?
+
+*Sobald die Nachricht kommt, antworte ich sofort.
+Wenn eine Nachricht kommt, antworte ich normalerweise am Abend.
+
+BACK:
+Как только приходит сообщение, я сразу отвечаю.
+
+CONTEXT:
+Связка "sobald ... sofort" выражает моментальное действие по сигналу. Второй вариант описывает обычную практику отвечать только к вечеру.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите предложение, в котором действие продолжается вплоть до границы.
+::exercise
+В каком предложении выражено длительное ожидание до наступления предела?
+
+*Ich bleibe hier, bis die Veranstaltung endet.
+Ich kontrolliere die Fenster, bevor ich weggehe.
+
+BACK:
+Я останусь здесь, пока мероприятие не закончится.
+
+CONTEXT:
+"Bis" обозначает предел ожидания («до момента окончания»). Вариант с "bevor" сообщает об очередности проверки окон до ухода.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте подчинительный союз для придаточного предложения с осмотром квартиры.
+::source
+Смысл: «После того как мы осмотрели квартиру, мы обсудили цену».
+::exercise
+{*Nachdem|Danach|Vorher} wir die Wohnung besichtigt hatten, besprachen wir den Preis.
+
+BACK:
+После того как мы осмотрели квартиру, мы обсудили цену.
+
+CONTEXT:
+"Nachdem" — подчинительный союз, вводящий придаточное предложение со сказуемым в конце. "Danach" — наречие самостоятельного предложения. "Die Wohnung besichtigen" — осматривать квартиру.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически верный перевод фразы «Подожди, пока я не приду».
+::exercise
+Как правильно передать ожидание прихода по-немецки?
+
+*Warte, bis ich komme.
+Warte, bis ich nicht komme.
+Warte, nachdem ich komme.
+
+BACK:
+Подожди, пока я не приду.
+
+CONTEXT:
+В немецком языке после союза "bis" отрицание "nicht" не ставится: положительное действие прихода само по себе завершает ожидание.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите предложение, сообщающее о перемене с момента начала новой работы.
+::exercise
+Какое предложение сообщает об изменении, начавшемся с определённой точки в прошлом?
+
+*Seitdem ich den neuen Job habe, bin ich morgens früher wach.
+Ich bleibe im Büro, bis die Sitzung endet.
+
+BACK:
+С тех пор как у меня новая работа, я раньше просыпаюсь по утрам.
+
+CONTEXT:
+"Seitdem" указывает на исходную точку перемены самочувствия (новая работа). Второй вариант фиксирует предел пребывания в офисе.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте верное слово в косвенный вопрос о времени отправления поезда.
+::source
+Смысл: «Я ещё не знаю, когда отправится следующий поезд».
+::exercise
+Ich weiß noch nicht, {*wann|wenn|als} der nächste Zug abfährt.
+
+BACK:
+Я ещё не знаю, когда отправится следующий поезд.
+
+CONTEXT:
+В косвенных вопросах о времени («в котором часу?») употребляется вопросительное слово "wann".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите предложение: информирование клиента произошло ДО отмены заказа.
+::source
+Хронология: 1) сначала сообщили клиенту; 2) затем отменили заказ.
+::exercise
+{*Bevor ich den Auftrag absagte, informierte ich den Kunden.|Nachdem ich den Auftrag abgesagt hatte, informierte ich den Kunden.}
+
+BACK:
+Прежде чем я отменил заказ, я проинформировал клиента.
+
+CONTEXT:
+Отмена заказа произошла позже звонка клиенту, поэтому действие отмены вводится союзом "bevor". "Der Auftrag" — заказ; "absagen" — отменять.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически верное предложение с союзом wenn в начале.
+::exercise
+Какой вариант построен грамматически правильно?
+
+*Wenn der Kurs beginnt, bleiben wir ruhig.
+Wenn der Kurs beginnt, wir bleiben ruhig.
+Wenn beginnt der Kurs, bleiben wir ruhig.
+
+BACK:
+Когда курс начнётся, мы будем вести себя спокойно.
+
+CONTEXT:
+В придаточном глагол стоит в конце ("beginnt"). В главном предложении сказуемое занимает позицию 2 сразу после запятой ("bleiben wir").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму глагола warten в конец придаточного предложения.
+::source
+Смысл: «Я читаю новости, пока жду автобус».
+::exercise
+Ich lese die Nachrichten, während ich auf den Bus [[warte]].
+
+BACK:
+Я читаю новости, пока жду автобус.
+
+CONTEXT:
+В придаточном предложении с союзом während спрягаемый глагол 1-го лица ед. ч. занимает последнее место: "warte".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильное слитное написание отделяемого глагола angehen в придаточном.
+::source
+Смысл: «Как только контрольная лампа загорится, мы начнём проверку».
+::exercise
+Sobald die Kontrolllampe {*angeht|geht an|an geht}, beginnen wir mit dem Test.
+
+BACK:
+Как только контрольная лампа загорится, мы начнём тест.
+
+CONTEXT:
+В придаточном предложении отделяемая приставка пишется слитно с глаголом в самом конце: "angeht". "Die Kontrolllampe" — контрольная лампа.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму глагола prüfen в главное предложение сразу после запятой.
+::source
+Смысл: «Прежде чем выехать, я проверяю давление в шинах».
+::exercise
+Bevor ich losfahre, [[prüfe]] ich den Reifendruck.
+
+BACK:
+Прежде чем выехать, я проверяю давление в шинах.
+
+CONTEXT:
+После начального придаточного сказуемое главной части стоит сразу после запятой на позиции 2: "prüfe ich". "Der Reifendruck" — давление в шинах.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте вспомогательный глагол Plusquamperfekt для починки велосипеда.
+::source
+Смысл: «После того как я починил велосипед, я поехал на рынок».
+::exercise
+Nachdem ich das Fahrrad repariert [[hatte]], fuhr ich zum Markt.
+
+BACK:
+После того как я починил велосипед, я поехал на рынок.
+
+CONTEXT:
+Ремонт велосипеда завершился до поездки на рынок: Plusquamperfekt со вспомогательным глаголом haben — "repariert hatte".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильное предложение об одном событии вчера в офисе.
+::exercise
+Какой вариант грамматически безупречен?
+
+*Als ich gestern im Büro ankam, war das Licht aus.
+Wenn ich gestern im Büro ankam, war das Licht aus.
+Als kam ich gestern im Büro an, war das Licht aus.
+
+BACK:
+Когда я вчера пришёл в офис, свет был выключен.
+
+CONTEXT:
+Разовый вчерашний факт оформляется союзом "Als", а сказуемое с отделяемой приставкой в придаточном пишется слитно в конце ("ankam").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму глагола kommen в конец придаточного предложения с bis.
+::source
+Смысл: «Я останусь здесь, пока не придёт коллега».
+::exercise
+Ich bleibe hier, bis die Kollegin [[kommt]].
+
+BACK:
+Я останусь здесь, пока не придёт коллега.
+
+CONTEXT:
+В придаточном предложении сказуемое 3-го лица ед. ч. занимает последнее место: "kommt".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильную форму глагола главной части после Perfekt в будущем.
+::source
+Смысл: «После того как я всё сделаю, я тебе напишу».
+::exercise
+Nachdem ich alles erledigt habe, {*schreibe|ich schreibe|geschrieben} ich dir.
+
+BACK:
+После того как я всё сделаю, я тебе напишу.
+
+CONTEXT:
+После начального придаточного главное предложение открывается спрягаемым глаголом сразу после запятой: "schreibe ich".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте форму глагола wohnen в конец придаточного с seitdem.
+::source
+Смысл: «С тех пор как я живу в этом районе, я часто хожу пешком».
+::exercise
+Seitdem ich in diesem Viertel [[wohne]], gehe ich oft zu Fuß.
+
+BACK:
+С тех пор как я живу в этом районе, я часто хожу пешком.
+
+CONTEXT:
+Спрягаемый глагол 1-го лица ед. ч. занимает абсолютный конец придаточного предложения: "wohne".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов с модальным глаголом müssen в придаточном.
+::exercise
+Какой вариант построен грамматически корректно?
+
+*Solange du arbeiten musst, bleibe ich hier.
+Solange du musst arbeiten, bleibe ich hier.
+Solange musst du arbeiten, bleibe ich hier.
+
+BACK:
+Пока тебе нужно работать, я останусь здесь.
+
+CONTEXT:
+В придаточном предложении спрягаемый модальный глагол "musst" стоит в самом конце, после инфинитива "arbeiten".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, что произошло раньше поездки на работу.
+::source
+Nachdem Sven die Schlüssel gesucht hatte, fand er sie in seiner Jacke. Danach fuhr er zur Arbeit.
+::exercise
+Какое действие завершилось ДО того, как Свен поехал на работу?
+
+*Он нашёл ключи в кармане куртки
+Он уже приехал на работу и только там обнаружил пропажу
+Он оставил куртку дома
+
+BACK:
+Свен нашёл ключи в своей куртке.
+
+CONTEXT:
+Хронология: 1) искал ключи; 2) нашёл их в куртке; 3) поехал на работу. Поездка на работу произошла после нахождения ключей.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите регулярное повторяющееся действие Алины в Бонне.
+::source
+Als Alina in Bonn wohnte, arbeitete sie in einer Bäckerei. Wenn sie Frühschicht hatte, stand sie schon um fünf Uhr auf.
+::exercise
+Какое действие многократно повторялось в период проживания Алины?
+
+*Каждый раз при утренней смене она вставала в пять часов утра
+Она переезжала в Бонн каждое утро
+Она работала в пекарне ровно один день
+
+BACK:
+Каждый раз, когда у неё была ранняя смена, она вставала в пять часов.
+
+CONTEXT:
+"Wenn sie Frühschicht hatte..." оформляет повторяющееся действие внутри единого периода проживания в Бонне ("Als ... wohnte"). "Die Frühschicht" — утренняя смена.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите правильную последовательность трёх действий Леи.
+::source
+Bevor Lea das Paket zur Post brachte, fotografierte sie den Inhalt. Nachdem sie das Paket abgegeben hatte, kaufte sie Brot.
+::exercise
+Какова фактическая последовательность событий?
+
+*Фото содержимого $\rightarrow$ поход на почту $\rightarrow$ покупка хлеба
+Поход на почту $\rightarrow$ фото содержимого $\rightarrow$ покупка хлеба
+Покупка хлеба $\rightarrow$ поход на почту $\rightarrow$ фото содержимого
+
+BACK:
+Сначала фото содержимого, затем сдача посылки на почту, потом покупка хлеба.
+
+CONTEXT:
+Цепочка шагов: 1) фото содержимого ДО визита на почту (bevor); 2) сдача посылки; 3) покупка хлеба ПОСЛЕ почты (nachdem).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, что происходило непосредственно в момент телефонного звонка.
+::source
+Während Jonas den Tisch deckte, klingelte sein Telefon. Er nahm den Anruf an und deckte danach weiter den Tisch.
+::exercise
+Какое действие выполнял Йонас, когда зазвонил телефон?
+
+*Накрывал на стол (den Tisch deckte)
+Спал в спальне
+Уже ушёл из дома на работу
+
+BACK:
+Йонас накрывал на стол.
+
+CONTEXT:
+"Während" обозначает фон: телефонный звонок раздался прямо в процессе накрывания на стол. "Den Tisch decken" — накрывать на стол.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, какое событие завершило пребывание группы в музее.
+::source
+Die Gruppe blieb im Museum, bis die Führung zu Ende war. Danach ging sie in ein Café.
+::exercise
+Что послужило финальной чертой нахождения группы в музее?
+
+*Окончание экскурсии с гидом (Führung zu Ende war)
+Приход группы в кафе
+Начало экскурсии
+
+BACK:
+Окончание экскурсии завершило пребывание группы в музее.
+
+CONTEXT:
+Союз "bis" фиксирует предел: группа оставалась в музее вплоть до окончания экскурсии ("Führung zu Ende war"). "Die Führung" — экскурсия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, с какого момента изменилось обычное поведение Эмиля.
+::source
+Seitdem Emil jeden Tag mit dem Rad fährt, braucht er morgens seltener den Bus. Wenn es stark regnet, nimmt er trotzdem den Bus.
+::exercise
+С какого момента Эмиль стал реже пользоваться утренним автобусом?
+
+*С тех пор как он стал ежедневно ездить на велосипеде
+Только во время сильного дождя
+После окончания зимнего сезона
+
+BACK:
+С тех пор как Эмиль каждый день ездит на велосипеде.
+
+CONTEXT:
+"Seitdem" указывает на исходный момент смены привычки: ежедневные поездки на велосипеде привели к более редким поездкам на автобусе.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите, когда отправится документ.
+::source
+Аудиозапись: «Sobald ich die Angaben geprüft habe, schicke ich dir das Dokument».
+::exercise
+Когда говорящий отправит документ?
+
+*Сразу же после завершения проверки данных
+Только завтра вечером после работы
+Прямо во время заполнения документа
+
+BACK:
+Как только я проверю данные, я отправлю тебе документ.
+
+CONTEXT:
+"Sobald" задаёт немедленное действие по факту завершения проверки. "Die Angaben" — данные/сведения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите, какое действие произошло раньше.
+::source
+Аудиозапись: «Nachdem wir die Bestätigung bekommen hatten, bezahlten wir die Karten für das Konzert».
+::exercise
+Что произошло в первую очередь?
+
+*Получение подтверждения (Bestätigung bekommen hatten)
+Оплата билетов на концерт (bezahlten die Karten)
+Посещение концерта
+
+BACK:
+Сначала получили подтверждение, затем оплатили билеты на концерт.
+
+CONTEXT:
+С союзом "nachdem" действие в придаточном предложении (получение подтверждения) завершилось ДО оплаты билетов.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите, как долго нужно говорить тихо.
+::source
+Аудиозапись: «Solange das Kind schläft, sprechen wir bitte leise».
+::exercise
+На протяжении какого времени требуется сохранять тишину?
+
+*Всё время, пока ребёнок спит (на весь период сна)
+Только в первую минуту после засыпания
+Исключительно после пробуждения ребёнка
+
+BACK:
+Пока ребёнок спит, давайте говорить тихо.
+
+CONTEXT:
+"Solange" охватывает весь период сна ребёнка как интервал соблюдения тишины.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Прослушайте аудиозапись и определите характер действия в детстве.
+::source
+Аудиозапись: «Wenn wir als Kinder einen Ausflug machten, nahmen wir immer belegte Brote mit».
+::exercise
+О чём сообщает говорящий?
+
+*О регулярной привычке брать бутерброды на каждую экскурсию в детстве
+О единственной разовой экскурсии
+О планах поехать на экскурсию завтра
+
+BACK:
+Когда мы в детстве ездили на экскурсию, мы всегда брали с собой бутерброды.
+
+CONTEXT:
+Связка "Wenn ... immer" в прошедшем времени передаёт систематически повторявшееся действие в детстве. "Der Ausflug" — загородная поездка/экскурсия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите на немецкий как разовый факт в прошлом: «Когда я вчера встретил соседа, мы поговорили о доме».
+::exercise
+Als ich gestern meinen Nachbarn traf, {*sprachen wir über das Haus|wir sprachen über das Haus|haben wir über das Haus gesprochen}.
+
+BACK:
+Когда я вчера встретил соседа, мы поговорили о доме.
+
+CONTEXT:
+Конкретный вчерашний факт оформляется союзом "Als", сказуемое "traf" стоит в конце придаточного, а в главной части сказуемое стоит сразу после запятой на 2-й позиции: "sprachen wir".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переведите на немецкий с сохранением регулярного повтора: «Когда у нас были каникулы, мы часто ездили к озеру».
+::exercise
+Wenn wir Ferien hatten, {*fuhren wir oft an den See|wir fuhren oft an den See|sind wir gefahren oft an den See}.
+
+BACK:
+Когда у нас были каникулы, мы часто ездили к озеру.
+
+CONTEXT:
+Повторяющееся обстоятельство в прошлом требует союза "Wenn", сказуемое придаточного "hatten" стоит в конце, а сказуемое главной части "fuhren wir" — сразу после запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два одновременных действия в одно предложение с союзом während.
+::source
+Исходные: Meine Schwester lernt Deutsch. Ich bereite das Abendessen zu.
+Начните с Während...
+::exercise
+Während meine Schwester Deutsch lernt, {*bereite ich das Abendessen zu|ich bereite das Abendessen zu|bereite zu ich das Abendessen}.
+
+BACK:
+Пока моя сестра учит немецкий, я готовлю ужин.
+
+CONTEXT:
+В придаточном сказуемое стоит в конце ("lernt"). В главной части спрягаемая основа отделяемого глагола стоит сразу после запятой ("bereite ich"), а приставка "zu" уходит в конец.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините предложения в рассказ о прошлом с союзом nachdem: подготовка предшествовала сдаче.
+::source
+1) Lena bereitete sich auf die Prüfung vor. 2) Sie legte die Prüfung ab.
+::exercise
+Nachdem Lena sich auf die Prüfung vorbereitet hatte, {*legte sie die Prüfung ab|sie legte die Prüfung ab|hat sie abgelegt die Prüfung}.
+
+BACK:
+После того как Лена подготовилась к экзамену, она сдала экзамен.
+
+CONTEXT:
+Предшествующая подготовка оформляется Plusquamperfekt: "vorbereitet hatte". Главное предложение начинается со сказуемого сразу после запятой: "legte sie ... ab". "Eine Prüfung ablegen" — сдавать экзамен.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте порядок слов в предложении с bevor.
+::source
+Неправильно: Bevor ich nach Hause gehe, ich kaufe noch Brot.
+::exercise
+Bevor ich nach Hause gehe, {*kaufe ich noch Brot|ich kaufe noch Brot|gekauft habe ich noch Brot}.
+
+BACK:
+Прежде чем пойти домой, я ещё куплю хлеб.
+
+CONTEXT:
+После начального придаточного предложения сказуемое главной части обязано стоять сразу после запятой на 2-й позиции: "kaufe ich".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку с лишним отрицанием в ожидании прихода друга.
+::source
+Неправильно: Ich warte, bis du nicht kommst.
+::exercise
+Ich warte, bis du {*kommst|nicht kommst}.
+
+BACK:
+Я жду, пока ты не придёшь.
+
+CONTEXT:
+В немецком языке после союза "bis" частица "nicht" исключается: положительный приход друга завершает ожидание.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Постройте точный ответ на вопрос «Wann kannst du mich zurückrufen?».
+::source
+Смысл: «Как только закончится встреча, я сразу тебе перезвоню».
+::exercise
+Sobald die Besprechung zu Ende ist, {*rufe ich dich sofort zurück|ich rufe dich sofort zurück|werde ich rufen dich zurück}.
+
+BACK:
+Как только встреча закончится, я сразу тебе перезвоню.
+
+CONTEXT:
+В придаточном сказуемое стоит в конце ("ist"), а в главном предложении сказуемое занимает 2-ю позицию сразу после запятой: "rufe ich dich sofort zurück". "Die Besprechung" — встреча/совещание.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите пару предложений о работе из дома и ожидании мастера.
+::source
+1) С тех пор как работаю из дома, реже езжу в офис.
+2) Останусь дома, пока не придёт техник.
+::exercise
+{*Seitdem ich von zu Hause aus arbeite, fahre ich seltener ins Büro. Heute bleibe ich zu Hause, bis der Techniker kommt.|Bis ich von zu Hause aus arbeite, fahre ich seltener ins Büro. Heute bleibe ich zu Hause, seitdem der Techniker kommt.}
+
+BACK:
+С тех пор как я работаю из дома, я реже езжу в офис. Сегодня я останусь дома, пока не придёт техник.
+
+CONTEXT:
+1 — точка отсчёта перемены в прошлом ("Seitdem"); 2 — конечная граница ожидания ("bis").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите связный рассказ о неожиданном перекрытии дороги вчера.
+::exercise
+{*Gestern fuhr ich mit dem Bus in die Stadt. Während ich aus dem Fenster schaute, bemerkte ich eine Straßensperre. Als der Bus anhielt, fragte ich den Fahrer nach dem Grund. Nachdem ich seine Antwort gehört hatte, rief ich meinen Freund an.|Gestern ich fuhr Bus. Nachdem ich schaute, bemerkte Straßensperre. Wenn der Bus hielt an, fragte Fahrer. Bevor ich hörte Antwort, rief Freund an.}
+
+BACK:
+Вчера я ехал на автобусе в город. Пока я смотрел в окно, я заметил перекрытие дороги. Когда автобус остановился, я спросил водителя о причине. После того как я услышал его ответ, я позвонил другу.
+
+CONTEXT:
+Безупречное сочетание четырёх временных планов: параллельный взгляд в окно (während) $\rightarrow$ разовое торможение автобуса (als) $\rightarrow$ звонок ПОСЛЕ ответа (nachdem). "Die Straßensperre" — перекрытие дороги.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите образцовое объяснительное письмо другу об опоздании.
+::exercise
+{*Hallo Tom, leider bin ich gestern zu spät gekommen. Während ich mich für unser Treffen fertig machte, bekam ich einen wichtigen Anruf. Bevor ich das Haus verlassen konnte, musste ich noch ein Problem klären. Nachdem ich alles erledigt hatte, fuhr ich sofort los. Sobald ich morgen meinen Arbeitsplan kenne, melde ich mich bei dir. Viele Grüße!|Hallo Tom, gestern kam zu spät. Nachdem ich fertig machte, Anruf kam. Während ich verließ Haus, klärte Problem. Bevor ich erledigte, fuhr los. Solange ich kenne Plan, melde mich. Tschüss!}
+
+BACK:
+Привет, Том! К сожалению, вчера я опоздал. Пока я собирался на нашу встречу, я получил важный звонок. Прежде чем выйти из дома, мне пришлось уладить проблему. После того как я всё уладил, я сразу поехал. Как только завтра узнаю рабочий график, я свяжусь с тобой. Привет!
+
+CONTEXT:
+Финальное экзаменационное письмо B1 безупречно раскрывает все коммуникативные задачи и объединяет четыре ключевых временных союза (während, bevor, nachdem, sobald) с безупречным синтаксисом.

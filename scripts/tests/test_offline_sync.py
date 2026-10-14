@@ -28,6 +28,7 @@ services.__path__ = [str(ROOT / 'api/services')]
 sys.modules['api.services'] = services
 decks_module = types.ModuleType('api.services.decks')
 decks_module.ensure_starter_decks = lambda _user_id: None
+decks_module._learning_key = lambda user_id, deck_id: f'DECK_LEARNING_{user_id}_{deck_id}'
 sys.modules['api.services.decks'] = decks_module
 old_sync = types.ModuleType('api.services.sync_service')
 for name in ('execute_sync_push', 'execute_sync_pull', 'execute_collab_pull'):
@@ -41,7 +42,7 @@ models = importlib.import_module('api.models')
 sync = importlib.import_module('api.services.offline_sync')
 Request = importlib.import_module('api.routers.sync').OfflinePushRequest
 TABLES = [models.TMA_Folder, models.TMA_Deck, models.TMA_Card, models.TMAProgress,
-          models.TMAUser, models.TMA_Collaborator, models.TMAOfflineBatch, models.TMAReviewHistory]
+          models.TMAUser, models.TMA_Collaborator, models.TMAOfflineBatch, models.TMAReviewHistory, models.TMASetting]
 
 
 class OfflineSyncTests(unittest.TestCase):

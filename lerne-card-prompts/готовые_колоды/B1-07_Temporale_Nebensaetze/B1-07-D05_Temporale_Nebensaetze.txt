@@ -1,0 +1,861 @@
+# Deck: B1-07-D05 · Temporale Nebensätze — Während: одновременные действия
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-07-D05 · Temporale Nebensätze — Während: одновременные действия",
+    "level": "B1",
+    "topic": "Temporale Nebensätze",
+    "description": "Временные придаточные предложения с союзом während: выражение одновременности, фоновое действие, рамочный порядок слов, инверсия в главном предложении и смысловые контрасты с solange, wenn, bevor, nachdem",
+    "goal": "Научить понимать и выражать одновременность двух действий во времени через подчинительный союз während, видеть пересечение процессов разной длительности (событие на фоне процесса), строить сложноподчинённые предложения в обоих порядках и отличать союз während от союзов последовательности и предлога während.",
+    "learning_outcomes": [
+      "Объяснять и распознавать одновременность двух событий, в том числе когда одно действие служит фоном для другого",
+      "Узнавать während как подчинительный союз («пока / в то время как») и отличать его от предлога während («во время»)",
+      "Безошибочно выбирать während при явной параллельности процессов, не путая его с bevor и nachdem",
+      "Строить оба порядка следования частей: прямой (Hauptsatz + während-Nebensatz) и обратный (während-Nebensatz + инверсия в Hauptsatz)",
+      "Правильно использовать глаголы с отделяемыми приставками, модальные глаголы и времена Perfekt / Präteritum в придаточных с während",
+      "Различать смысловые оттенки während (параллельность процессов) и solange (протяжённость условия на весь период)"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "При ошибках в понимании параллельности (GLEICHZEITIG) — карточки 01–08, 25–28; при смешении während, solange и wenn (WAEHREND_KONTRAST) — карточки 09–11, 38–40; при нарушении порядка слов в придаточном (VERB_FINAL) — карточки 12–16, 21–24, 30–34; при нарушении инверсии в главном (MAIN_ORDER) — карточки 14, 19, 32–34. Следующая колода в серии — D06 (Bevor und nachdem — последовательность действий)."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "parallel_observation",
+        "title": "Наблюдение параллельности: две полосы времени",
+        "goal": "Понимание пересечения процессов во времени (действия разной и одинаковой длительности, событие на фоне процесса)",
+        "from_card": 1,
+        "to_card": 8,
+        "support": "high",
+        "expected_skill": "Распознавать одновременность и отличать её от последовательности действий"
+      },
+      {
+        "id": "nuances_and_syntax",
+        "title": "Смысловые оттенки и базовый синтаксис",
+        "goal": "Контрасты während vs solange и wenn, конечная позиция глагола, отделяемые приставки и инверсия в главном предложении",
+        "from_card": 9,
+        "to_card": 16,
+        "support": "medium",
+        "expected_skill": "Точно ставить глагол в конец придаточного и сохранять отделяемую приставку слитной"
+      },
+      {
+        "id": "sentence_integration",
+        "title": "Объединение предложений и грамматические формы",
+        "goal": "Сборка предложений, отрицание, сложные глагольные формы (Perfekt, модальные глаголы) в обоих порядках частей",
+        "from_card": 17,
+        "to_card": 24,
+        "support": "medium",
+        "expected_skill": "Строить сложные фразы с прямым и обратным порядком следования частей"
+      },
+      {
+        "id": "tenses_and_transformation",
+        "title": "Времена, трансформация и исправление ошибок",
+        "goal": "Präteritum, фоновые длительные действия, объединение двух простых предложений в одно сложное с während",
+        "from_card": 25,
+        "to_card": 34,
+        "support": "medium",
+        "expected_skill": "Трансформировать простые предложения в сложноподчинённые с соблюдением порядка слов"
+      },
+      {
+        "id": "situational_transfer",
+        "title": "Контекстный перенос, контрасты и свободное применение",
+        "goal": "Чтение мини-историй, распределение задач в мастерской/офисе, различение союза и предлога, речь и письмо",
+        "from_card": 35,
+        "to_card": 46,
+        "support": "low",
+        "expected_skill": "Свободно использовать während в диалоге, рабочих ситуациях и связном тексте"
+      }
+    ],
+    "expected_result": "Ученик уверенно выражает одновременные действия через союз während, безошибочно расставляет глаголы в сложноподчинённом предложении и отличает параллельность от последовательности.",
+    "competencies": [
+      {
+        "id": "simultaneity_logic",
+        "title": "Логика одновременности (Gleichzeitigkeit)",
+        "description": "Понимание пересечения двух процессов во времени и распознавание фона действия"
+      },
+      {
+        "id": "waehrend_syntax_mastery",
+        "title": "Синтаксис предложений с während",
+        "description": "Конечная позиция сказуемого в придаточном, слитность приставок и порядок V2 в главной части"
+      },
+      {
+        "id": "waehrend_conjunction_contrasts",
+        "title": "Смысловая дифференциация союзов",
+        "description": "Различение während, solange, wenn, bevor, nachdem и предлога während"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "accuracy_of_conjunction_choice",
+        "title": "Точность выбора союза",
+        "description": "Выбор während для одновременности в противоположность союзам последовательности"
+      },
+      {
+        "id": "verb_placement_accuracy",
+        "title": "Позиция сказуемого",
+        "description": "Глагол в конце придаточного и сразу после запятой при начальном придаточном"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_simultaneity",
+        "title": "Повторение одновременности",
+        "when": "При путанице параллельности и очередности",
+        "reason": "Повторить карточки 01–08, 25–28",
+        "competency_ids": ["simultaneity_logic"]
+      },
+      {
+        "id": "review_word_order",
+        "title": "Повторение порядка слов",
+        "when": "При ошибках в позиции глаголов",
+        "reason": "Повторить карточки 12–16, 21–24, 30–34 и перейти к D10",
+        "competency_ids": ["waehrend_syntax_mastery"]
+      },
+      {
+        "id": "review_contrasts",
+        "title": "Повторение контрастов союзов",
+        "when": "При смешении während и solange/wenn",
+        "reason": "Повторить карточки 09–11, 38–40",
+        "competency_ids": ["waehrend_conjunction_contrasts"]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите временную связь двух событий.
+::source
+Один человек рисует плакат, а другой в это же самое время подбирает музыку.
+Während Lara ein Plakat malt, sucht Tim die Musik aus.
+::exercise
+Что именно сообщает союз während в данном предложении?
+
+*Два действия пересекаются во времени (протекают параллельно)
+Тим начал подбирать музыку строго после того, как плакат был готов
+Лара нарисовала плакат до того, как включилась музыка
+
+BACK:
+Пока Лара рисует плакат, Тим подбирает музыку.
+
+CONTEXT:
+Союз "während" выражает одновременность (Gleichzeitigkeit): два действия пересекаются во времени («две параллельные полосы»). "Aussuchen" — выбирать/подбирать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите хронологию действий в предложении с während.
+::source
+Während die Kinder im Garten spielen, pflanzt ihre Mutter Blumen.
+::exercise
+Какое утверждение соответствует фактической хронологии?
+
+*Дети играют в саду, а мать в это же самое время сажает цветы
+Сначала дети играют, и только после этого мать сажает цветы
+Мать полностью закончила посадку цветов до выхода детей в сад
+
+BACK:
+Пока дети играют в саду, их мать сажает цветы.
+
+CONTEXT:
+Союз "während" сообщает об одновременном протекании процессов, а не о следовании одного действия за другим. "Pflanzen" — сажать (растения).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте жизненную ситуацию с соответствующей немецкой фразой.
+::exercise
+@match
+Двое людей одновременно выполняют разные домашние дела => Während ich staubsauge, wischt mein Bruder den Boden.
+Человек ждёт момента завершения занятия => Ich warte, bis der Unterricht endet.
+Сначала завершили уборку, затем открыли магазин => Nachdem wir geputzt hatten, öffneten wir den Laden.
+
+BACK:
+Пока я пылесошу, брат моет пол. / Я жду, пока закончится урок. / После того как мы убрались, мы открыли магазин.
+
+CONTEXT:
+"Während" обозначает параллельные дела, "bis" — предел ожидания, а "nachdem" — предшествование одного действия другому.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз для описания одновременных действий в мастерской.
+::source
+Два дела выполнялись одновременно в один и тот же момент времени.
+::exercise
+{*Während|Nachdem|Bevor} ich das Holz schleife, sortiert Elena die Schrauben.
+
+BACK:
+Пока я шлифую дерево, Елена сортирует винты.
+
+CONTEXT:
+Для двух параллельно идущих процессов используется союз "während". "Schleifen" — шлифовать; "die Schraube" — винт. Союзы nachdem и bevor изменили бы временные отношения на последовательные.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените соотношение длительности двух действий при использовании союза während.
+::source
+Репетиция шла два часа; во время неё на пять минут внезапно отключился свет.
+Während die Band probte, fiel für fünf Minuten der Strom aus.
+::exercise
+Обязаны ли два действия с союзом während иметь строго одинаковую длительность?
+
+*Нет: одно действие может быть длительным процессом (фоном), внутри которого происходит другое краткое событие
+Да: оба действия обязаны начаться и закончиться секунда в секунду
+Да: союз während используется только для действий длительностью ровно один час
+
+BACK:
+Пока группа репетировала, на пять минут отключилось электричество.
+
+CONTEXT:
+"Während" не требует равной продолжительности: репетиция длилась дольше, а отключение электричества произошло как точечное событие внутри неё. "Proben" — репетировать; "der Strom fällt aus" — электричество отключается.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, в какой момент зазвонил телефон.
+::source
+Während wir den Saal dekorierten, klingelte das Telefon.
+::exercise
+Что именно произошло во времени?
+
+*Телефон зазвонил непосредственно в процессе украшения зала
+Телефон зазвонил ещё до того, как мы начали украшать зал
+Телефон зазвонил лишь после того, как весь зал был украшен
+
+BACK:
+Пока мы украшали зал, зазвонил телефон.
+
+CONTEXT:
+Событие «звонок телефона» произошло на фоне длительного процесса украшения зала ("den Saal dekorieren").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте союз для обозначения параллельных действий.
+::source
+Смысл: «Пока Пауль ремонтирует велосипеды, Мира проверяет тормоза».
+::exercise
+[[Während]] Paul die Fahrräder repariert, prüft Mira die Bremsen.
+
+BACK:
+Пока Пауль ремонтирует велосипеды, Мира проверяет тормоза.
+
+CONTEXT:
+Для связи двух параллельных процессов используется подчинительный союз "Während". "Die Bremse" — тормоз.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите предложение, сохраняющее одновременность действий.
+::source
+Русская мысль: «Пока шёл спектакль, за кулисами готовили следующий костюм».
+::exercise
+{*Während die Vorstellung lief, wurde hinter der Bühne das nächste Kostüm vorbereitet.|Nachdem die Vorstellung vorbei war, wurde hinter der Bühne das nächste Kostüm vorbereitet.}
+
+BACK:
+Пока шло представление, за кулисами готовили следующий костюм.
+
+CONTEXT:
+Союз "während" выражает одновременность. Вариант с "nachdem" переносит подготовку костюма на время ПОСЛЕ окончания спектакля. "Die Vorstellung" — представление; "hinter der Bühne" — за кулисами.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте смысловые акценты союзов während и solange.
+::exercise
+@match
+Während wir den Zaun strichen, regnete es. => Фокус на параллельности двух процессов во времени
+Solange es regnete, blieben wir drinnen. => Фокус на сохранении условия/состояния на протяжении всего периода
+
+BACK:
+Пока мы красили забор, шёл дождь. / Пока шёл дождь, мы оставались внутри.
+
+CONTEXT:
+"Während" подчёркивает параллельный ход действий, а "solange" концентрирует внимание на непрерывной длительности правила или состояния ("всё то время, пока..."). "Der Zaun" — забор; "streichen" — красить.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите союз, наилучшим образом подчеркивающий разделение параллельных задач.
+::source
+Организатор хочет подчеркнуть: пока одни участники делают одно дело, другие параллельно делают другое.
+::exercise
+{*Während|Solange} die Teilnehmer die Tische aufstellen, hängt Jana die Schilder auf.
+
+BACK:
+Пока участники расставляют столы, Яна развешивает таблички.
+
+CONTEXT:
+Хотя союз "solange" грамматически допустим для подчеркивания длительности, для распределения параллельных действий предпочтителен союз "während". "Tische aufstellen" — расставлять столы; "Schilder aufhängen" — развешивать таблички.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите предложение с фокусом на текущей параллельности, а не на привычке.
+::exercise
+В какой фразе внимание сфокусировано на двух процессах, протекающих прямо сейчас?
+
+*Während ich gerade töpfere, hört meine Schwester im Nebenzimmer Musik.
+Wenn ich am Wochenende töpfere, höre ich oft Podcasts.
+
+BACK:
+Пока я сейчас занимаюсь керамикой, моя сестра слушает музыку в соседней комнате.
+
+CONTEXT:
+"Während... gerade" выделяет параллельные действия в данный момент. Вариант с "wenn... am Wochenende... oft" описывает регулярную привычку. "Töpfern" — заниматься гончарным делом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте глагол zeichnen в правильной личной форме по правилам порядка слов.
+::source
+Смысл: «Пока Сара чертит план, я обмеряю стену».
+::exercise
+Während Sara einen Plan [[zeichnet]], messe ich die Wand aus.
+
+BACK:
+Пока Сара чертит план, я измеряю стену.
+
+CONTEXT:
+В придаточном предложении с союзом während спрягаемый глагол стоит на последнем месте: "einen Plan zeichnet". "Ausmessen" — производить замеры.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов для фрагмента придаточного предложения.
+::source
+Смысл: «пока техник проверяет прибор».
+::exercise
+Während {*der Techniker das Gerät prüft|prüft der Techniker das Gerät|der Techniker prüft das Gerät}, notiere ich die Werte.
+
+BACK:
+Пока техник проверяет прибор, я записываю показатели.
+
+CONTEXT:
+В придаточном предложении сказуемое "prüft" обязательно замыкает часть: "Während der Techniker das Gerät prüft". "Der Wert" — значение/показатель.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически верный порядок слов в сложноподчинённом предложении.
+::exercise
+{*Während Nina singt, spielt ihr Bruder Klavier.|Während Nina singt, ihr Bruder spielt Klavier.}
+
+BACK:
+Пока Нина поёт, её брат играет на пианино.
+
+CONTEXT:
+Придаточное предложение занимает позицию 1. Главное предложение сразу после запятой на позиции 2 обязано начинаться со сказуемого ("spielt ihr Bruder").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите поведение отделяемой приставки в придаточном предложении с während.
+::source
+В главном предложении: Ich räume das Zimmer auf.
+::exercise
+Как ведёт себя отделяемый глагол aufräumen в придаточном предложении?
+
+*Приставка соединяется с глаголом, и вся форма ставится слитно в самый конец
+Приставка остаётся в начале сразу после союза während
+Приставка полностью выпадает из предложения
+
+BACK:
+Während ich das Zimmer aufräume, telefoniert Lea. (Пока я убираю комнату, Леа разговаривает по телефону).
+
+CONTEXT:
+В придаточном предложении отделяемая приставка не отделяется: глагол уходит в конец и пишется слитно ("aufräume").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку в положении глагола с отделяемой приставкой.
+::exercise
+Während Oskar die Stühle {*aufstellt, reinigt|stellt auf, reinigt|aufstellt, Mia reinigt} Mia die Fenster.
+
+BACK:
+Пока Оскар расставляет стулья, Мия моет окна.
+
+CONTEXT:
+В придаточном предложении глагол стоит в конце слитно со своей приставкой: "aufstellt". В главном предложении после запятой сказуемое занимает позицию 2: "reinigt Mia".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Соберите сложное предложение из двух частей, соблюдая порядок приставок.
+::source
+Смысл: «Пока Том накрывает мебель, я подготавливаю кисти».
+::exercise
+Während Tom die Möbel {*abdeckt, bereite ich die Pinsel vor|deckt ab, bereite ich die Pinsel vor|abdeckt, ich bereite die Pinsel vor}.
+
+BACK:
+Пока Том накрывает мебель, я подготавливаю кисти.
+
+CONTEXT:
+В придаточном предложении: "abdeckt" (в конце, слитно). В главном предложении: сказуемое "bereite ... vor" обрамляет часть (глагол на позиции 2, приставка в конце). "Der Pinsel" — кисть; "abdecken" — накрывать/укрывать плёнкой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте параллельные действия по смысловой логике.
+::exercise
+@match
+Während der Trainer die Übung erklärt, ... => ... machen sich die Sportler warm.
+Während die Musiker ihre Instrumente stimmen, ... => ... kontrolliert die Tontechnikerin die Mikrofone.
+Während ich die Pflanzen gieße, ... => ... öffnet mein Nachbar die Fenster im Gewächshaus.
+
+BACK:
+Пока тренер объясняет упражнение, спортсмены разминаются. / Пока музыканты настраивают инструменты, звукооператор проверяет микрофоны. / Пока я поливаю растения, сосед открывает окна в теплице.
+
+CONTEXT:
+Логичные параллельные пары: тренер объясняет — спортсмены разминаются; музыканты настраивают инструмент — звукотехник проверяет микрофоны. "Das Gewächshaus" — теплица.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов, когда главное предложение стоит первым.
+::source
+Смысл: «Я записываю идеи, пока коллега объясняет проект».
+::exercise
+Ich notiere die Ideen, während die Kollegin das Projekt {*erklärt|erklärt das Projekt|hat erklärt das Projekt}.
+
+BACK:
+Я записываю идеи, пока коллега объясняет проект.
+
+CONTEXT:
+Когда главное предложение стоит первым, оно сохраняет прямой порядок ("Ich notiere die Ideen"), а придаточное после während завершается глаголом ("erklärt").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Заполните реплику в мини-диалоге, соблюдая порядок слов.
+::source
+Вопрос: Was machst du, während wir die Besprechung führen?
+Слова для ответа: ihr / sprecht.
+::exercise
+Ich schreibe die wichtigsten Punkte auf, während [[ihr sprecht]].
+
+BACK:
+Я записываю самые важные пункты, пока вы говорите.
+
+CONTEXT:
+В придаточном предложении подлежащее "ihr" стоит перед сказуемым "sprecht", которое замыкает предложение. "Die Besprechung" — совещание.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите правило расположения отрицания и глагола в предложении с während.
+::source
+Смысл: «Пока я работаю, я не смотрю в телефон».
+::exercise
+Während ich arbeite, {*schaue ich nicht|ich schaue nicht|nicht schaue ich} auf mein Handy.
+
+BACK:
+Пока я работаю, я не смотрю в телефон.
+
+CONTEXT:
+Отрицание не меняет рамочной структуры: сказуемое главной части стоит сразу после запятой ("schaue ich"), а отрицание "nicht" относится к сказуемому и предложной группе.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите предложение, в котором отрицается прослушивание музыки, а не сборка стеллажа.
+::source
+Смысл: «Пока я собираю стеллаж, я не слушаю музыку».
+::exercise
+{*Während ich das Regal aufbaue, höre ich keine Musik.|Während ich das Regal nicht aufbaue, höre ich Musik.}
+
+BACK:
+Пока я собираю стеллаж, я не слушаю музыку.
+
+CONTEXT:
+Отрицательное местоимение "keine Musik" точно отрицает объект во второй части предложения. Вариант с "nicht aufbaue" изменил бы смысл на «Пока я НЕ собираю стеллаж...». "Aufbauen" — собирать мебель.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически верный порядок слов во времени Perfekt в придаточном предложении.
+::source
+Смысл: «Пока я ждал посылку, я прочитал инструкцию».
+::exercise
+Während ich auf das Paket {*gewartet habe, habe ich die Anleitung gelesen|habe gewartet, habe ich die Anleitung gelesen|gewartet habe, ich habe die Anleitung gelesen}.
+
+BACK:
+Пока я ждал посылку, я прочитал инструкцию.
+
+CONTEXT:
+Во времени Perfekt в придаточном предложении причастие Partizip II стоит перед спрягаемым вспомогательным глаголом: "gewartet habe". В главной части сказуемое "habe ich" стоит сразу после запятой. "Die Anleitung" — инструкция.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите предложение с правильным положением модального глагола.
+::exercise
+{*Während die Kinder basteln, kann die Betreuerin das Material sortieren.|Während die Kinder können basteln, sortiert die Betreuerin das Material.}
+
+BACK:
+Пока дети мастерят, воспитательница может сортировать материалы.
+
+CONTEXT:
+В придаточном сказуемое "basteln" стоит в конце. В главной части спрягаемый модальный глагол "kann" занимает 2-ю позицию сразу после запятой, а инфинитив "sortieren" завершает предложение. "Basteln" — мастерить; "die Betreuerin" — воспитательница/куратор.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите функцию союза während в контексте длительного фона и внезапного события.
+::source
+Während der Wind stark wehte, ging die Tür plötzlich auf.
+::exercise
+Как соотносятся два действия по характеру протекания?
+
+*Ветер служил непрерывным фоном, внутри которого внезапно распахнулась дверь
+Дверь открылась строго после того, как ветер полностью стих
+Ветер подул только после того, как распахнулась дверь
+
+BACK:
+Пока сильно дул ветер, дверь внезапно открылась.
+
+CONTEXT:
+Форма "wehte" обозначает длительный фоновый процесс, а "ging plötzlich auf" — точечное событие внутри него. "Wehen" — дуть (о ветре).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный порядок слов в прошедшем времени Präteritum.
+::source
+Смысл: «Пока светило солнце, мы чинили садовую калитку».
+::exercise
+Während die Sonne {*schien, reparierten wir|schien, wir reparierten|schien reparieren wir} das Gartentor.
+
+BACK:
+Пока светило солнце, мы чинили садовую калитку.
+
+CONTEXT:
+В повествовании в Präteritum: в придаточном сказуемое "schien" стоит в конце, в главном предложении сказуемое "reparierten wir" идёт сразу после запятой. "Das Gartentor" — садовая калитка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите временное соотношение начала концерта и съёмки сцены.
+::source
+Während die Fotografin die Bühne fotografierte, begann das Konzert.
+::exercise
+Что можно с уверенностью утверждать на основе этого предложения?
+
+*Фотографирование сцены продолжалось непосредственно в момент начала концерта
+Фотографирование сцены полностью завершилось до начала концерта
+Фотограф начала съёмку только после окончания концерта
+
+BACK:
+Пока фотограф фотографировала сцену, начался концерт.
+
+CONTEXT:
+Начало концерта произошло прямо в процессе съёмки сцены ("Bühne fotografieren"). Союз "während" не требует завершения съёмки в эту же секунду.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Оцените вывод о длительности пожарной тревоги.
+::source
+Während der Workshop stattfand, ging der Feueralarm kurz los.
+::exercise
+Верно ли утверждение: «Пожарная сигнализация звучала на протяжении всего семинара»?
+
+*Неверно: слово kurz прямо указывает на кратковременность тревоги внутри длительного семинара
+Верно: союз während означает, что оба действия длились абсолютно одинаковое время
+Верно: сигнализация не прекращалась до конца дня
+
+BACK:
+Пока проходил семинар, ненадолго сработала пожарная сигнализация.
+
+CONTEXT:
+"Während" фиксирует факт пересечения действий во времени, а не их одинаковую длительность. Слово "kurz" (ненадолго) подчёркивает краткость тревоги. "Stattfinden" — проходить/состояться; "der Feueralarm" — пожарная тревога.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объедините два простых предложения через союз während с заданным началом.
+::source
+Исходные: Die Mechanikerin prüft die Anlage. Ich halte die Taschenlampe.
+Оба действия одновременны.
+::exercise
+Die Mechanikerin prüft die Anlage, während ich die Taschenlampe {*halte|halten|habe gehalten}.
+
+BACK:
+Механик проверяет установку, пока я держу фонарик.
+
+CONTEXT:
+Придаточное предложение с während завершается спрягаемым глаголом "halte". "Die Anlage" — установка/оборудование; "die Taschenlampe" — фонарик.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Дополните предложение придаточной частью в правильном порядке слов.
+::source
+Слова: mein Kollege / den Motor / überprüft.
+::exercise
+Ich halte die Lampe, während mein Kollege den Motor [[überprüft]].
+
+BACK:
+Я держу лампу, пока мой коллега проверяет двигатель.
+
+CONTEXT:
+Спрягаемый глагол "überprüft" обязан замыкать придаточное предложение времени: "während mein Kollege den Motor überprüft".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите верное объединение двух мыслей с союзом während.
+::source
+Die Lehrerin erklärt die Regeln. Die Teilnehmer schreiben mit.
+Начните с: Die Teilnehmer schreiben mit...
+::exercise
+Die Teilnehmer schreiben mit, während die Lehrerin die Regeln {*erklärt|erklärt die Regeln|wird erklären}.
+
+BACK:
+Участники записывают, пока учитель объясняет правила.
+
+CONTEXT:
+В главном предложении глагол с отделяемой приставкой делится ("schreiben ... mit"), а в придаточном спрягаемый глагол замыкает часть ("erklärt"). "Mitschreiben" — делать записи по ходу речи.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Переставьте части предложения так, чтобы придаточное с während стояло первым.
+::source
+Прямой порядок: Ich lese die Nachrichten, während meine Schwester das Frühstück vorbereitet.
+::exercise
+Während meine Schwester das Frühstück vorbereitet, {*lese ich|ich lese|lese} die Nachrichten.
+
+BACK:
+Пока моя сестра готовит завтрак, я читаю новости.
+
+CONTEXT:
+При переносе придаточного в начало главное предложение обязано начинаться со сказуемого (инверсия): "vorbereitet, lese ich".
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибку в порядке слов в главной части предложения.
+::source
+Неправильно: Während die Kinder das Theaterstück üben, die Lehrerin macht Notizen.
+::exercise
+Während die Kinder das Theaterstück üben, {*macht die Lehrerin|die Lehrerin macht|macht Notizen die Lehrerin} Notizen.
+
+BACK:
+Пока дети репетируют пьесу, учительница делает заметки.
+
+CONTEXT:
+После начального придаточного предложения на 2-й позиции главного стоит спрягаемый глагол: "üben, macht die Lehrerin". "Das Theaterstück" — пьеса/спектакль.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Исправьте ошибки в порядке слов в обеих частях предложения.
+::exercise
+Während ich die Kartons {*packe, beschriftet meine Frau sie|packe, meine Frau beschriftet sie|packe sie, beschriftet meine Frau}.
+
+BACK:
+Пока я собираю коробки, моя жена подписывает их.
+
+CONTEXT:
+В придаточном глагол "packe" обязан стоять в конце. В главном предложении сказуемое "beschriftet" обязано стоять сразу после запятой (позиция 2). "Beschriften" — маркировать/подписывать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите два действия, выполнявшиеся одновременно.
+::source
+Am Samstag haben wir im Verein einen Flohmarkt organisiert. Während Lea die Bücher sortierte, baute Ben die Regale auf. Danach öffneten wir die Türen.
+::exercise
+Какие два действия протекали параллельно?
+
+*Сортировка книг и сборка стеллажей
+Сборка стеллажей и открытие дверей
+Открытие дверей и организация блошиного рынка в субботу
+
+BACK:
+Пока Лея сортировала книги, Бен собирал стеллажи. После этого мы открыли двери.
+
+CONTEXT:
+Контраст союзов: "während" указывает на параллельность (сортировка книг и сборка полок), а "danach" — на последующее действие (открытие дверей). "Der Flohmarkt" — блошиный рынок.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите наиболее точное предложение для разделения задач в мастерской.
+::source
+Один специалист проверяет кабели, а другой в это же время сверяет список деталей.
+::exercise
+{*Während die Elektrikerin die Kabel prüft, kontrolliert ihr Kollege die Teileliste.|Nachdem die Elektrikerin die Kabel geprüft hat, kontrolliert ihr Kollege die Teileliste.}
+
+BACK:
+Пока электрик проверяет кабели, её коллега сверяет список деталей.
+
+CONTEXT:
+Вариант с "während" передаёт одновременность. Вариант с "nachdem" означал бы, что второй работник приступил к делу лишь после окончания проверки кабелей. "Die Teileliste" — перечень запчастей/деталей.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Вставьте союз со значением параллельности в сообщение коллеге.
+::source
+Текст: «Привет! Не могу говорить. Пока я провожу презентацию, Феликс собирает вопросы».
+::exercise
+[[Während]] ich die Präsentation halte, sammelt Felix die Fragen aus dem Publikum.
+
+BACK:
+Пока я провожу презентацию, Феликс собирает вопросы из зала.
+
+CONTEXT:
+Подчинительный союз "Während" выражает параллельное разделение обязанностей в один временной отрезок. "Eine Präsentation halten" — выступать с презентацией; "das Publikum" — аудитория/публика.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите подходящий союз по заданному смысловому контрасту.
+::source
+Смысл: «Пока мы обсуждали проект, секретарь записывал решения».
+::exercise
+{*Während|Nachdem} wir das Projekt besprachen, notierte die Sekretärin die Entscheidungen.
+
+BACK:
+Пока мы обсуждали проект, секретарь записывал решения.
+
+CONTEXT:
+Секретарь вёл записи непосредственно во время обсуждения, поэтому требуется союз одновременности "Während". "Nachdem" означало бы запись только после окончания дискуссии. "Die Entscheidung" — решение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите, в каком предложении während является союзом с личной формой глагола.
+::exercise
+В каком варианте während выступает в роли подчинительного союза, вводящего придаточное?
+
+*Während der Film lief, war das Handy ausgeschaltet.
+Während des Films war das Handy ausgeschaltet.
+
+BACK:
+Пока шёл фильм, телефон был выключен.
+
+CONTEXT:
+В первом предложении "während" — союз (есть подлежащее "der Film" и спрягаемый глагол в конце "lief"). Во втором предложении "während" — предлог, управляющий родительным падежом ("des Films").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите особое значение союза während при сопоставлении вкусов.
+::source
+Während Paul gern draußen arbeitet, sitzt seine Schwester lieber im Büro.
+::exercise
+Обязательно ли данное предложение выражает одновременность действий?
+
+*Нет: здесь während выступает в значении противопоставления («тогда как / в то время как»)
+Да: они обязаны работать в один и тот же час
+Да: союз während не имеет никаких других значений, кроме времени
+
+BACK:
+В то время как Пауль любит работать на улице, его сестра предпочитает сидеть в офисе.
+
+CONTEXT:
+В немецком языке союз "während" может выражать противопоставление (Adversativsatz) со значением «тогда как / в то время как».
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный перевод фразы об одновременной подготовке.
+::source
+«Пока она готовит материалы, я открываю окна».
+::exercise
+Während sie das Material {*vorbereitet, öffne ich|vorbereitet, ich öffne|bereitet vor, öffne ich} die Fenster.
+
+BACK:
+Пока она готовит материалы, я открываю окна.
+
+CONTEXT:
+В придаточном предложении глагол с отделяемой приставкой пишется слитно в конце ("vorbereitet"), а в главной части сказуемое стоит на 2-й позиции сразу после запятой ("öffne ich").
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически верный перевод рабочей ситуации.
+::source
+«Пока руководительница объясняет план, мы делаем заметки».
+::exercise
+Während die Leiterin den Plan {*erklärt, machen wir|erklärt, wir machen|erklärt, machen} Notizen.
+
+BACK:
+Пока руководительница объясняет план, мы делаем заметки.
+
+CONTEXT:
+В придаточном сказуемое стоит в конце ("erklärt"), а главное предложение начинается со сказуемого сразу после запятой ("machen wir"). "Die Leiterin" — руководительница.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте начало и конец фраз о совместной подготовке мероприятия.
+::exercise
+@match
+Während ich die Einladungen schreibe, ... => ... gestaltet meine Freundin das Plakat.
+Mein Freund stellt die Stühle auf, ... => ... während ich die Getränke vorbereite.
+
+BACK:
+Пока я пишу приглашения, моя подруга оформляет плакат. / Мой друг расставляет стулья, пока я готовлю напитки.
+
+CONTEXT:
+Оба варианта демонстрируют параллельное распределение задач при прямом и обратном порядке следования частей предложения. "Die Einladung" — приглашение; "gestalten" — оформлять/дизайнить.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите грамматически безупречную фразу о домашних делах в выходные в Perfekt.
+::exercise
+{*Während ich die Terrasse gefegt habe, hat meine Freundin die Blumen gegossen.|Während ich habe die Terrasse gefegt, hat meine Freundin die Blumen gegossen.|Während ich die Terrasse gefegt habe, meine Freundin hat die Blumen gegossen.}
+
+BACK:
+Пока я подметал террасу, моя подруга поливала цветы.
+
+CONTEXT:
+В придаточном времени вспомогательный глагол стоит в конце ("gefegt habe"), а в главном предложении сказуемое занимает 2-ю позицию сразу после запятой ("hat meine Freundin ... gegossen"). "Fegen" — подметать; "gießen" — поливать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выберите правильный союз для каждого из четырёх контекстов.
+::exercise
+1) Параллельные дела: {*Während|Nachdem} ich die Werkzeuge reinige, sortiert Lea die Ersatzteile.
+2) Действие после инструкции: {*Nachdem|Während} der Meister die Regeln erklärt hatte, begannen alle mit der Arbeit.
+3) Звонок во время репетиции: {*Während|Bevor} der Chor probte, klingelte das Handy.
+4) Действие до начала встречи: Ich schicke die E-Mail ab, {*bevor|während} die Sitzung beginnt.
+
+BACK:
+1 während (одновременно) · 2 nachdem (после того как) · 3 während (в процессе) · 4 bevor (до того как)
+
+CONTEXT:
+1 — одновременные процессы (während); 2 — предшествование (nachdem); 3 — точечный звонок на фоне репетиции (während); 4 — действие до события (bevor).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте предложения и их характеристики для итоговой самопроверки.
+::exercise
+@match
+Während Jonas telefoniert, füllt Mara das Formular aus. => Одновременное протекание двух действий
+... ich die Kabel ordne, macht Ali Fotos. => Требуется союз Während
+während / sie / das Programm / installiert => während sie das Programm installiert (глагол в конце)
+Während der Drucker läuft, ich schreibe den Bericht. => Ошибка: правильно «schreibe ich den Bericht»
+Während der Veranstaltung fiel kurz der Strom aus. => Свет отключился ненадолго внутри мероприятия
+Während die Technikerin das Gerät prüft, notiere ich die Ergebnisse. => Корректный порядок: prüft в конце, notiere ich после запятой
+
+BACK:
+Сводный диагностический контроль ключевых правил по теме союза während.
+
+CONTEXT:
+Итоговая проверка закрепляет одновременность двух действий, рамочный порядок в придаточном, инверсию в главном и возможность краткого события на фоне длительного процесса.

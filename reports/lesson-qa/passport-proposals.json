@@ -1,0 +1,1122 @@
+[
+  {
+    "deck_id": 6985,
+    "deck_name": "03 · Базовая практика — распознавание и выбор Relativpronomen",
+    "reason": "Use supported values, retain IDs and all other metadata. medium is a provisional author-review choice; split stages for real fading support.",
+    "confidence": 1,
+    "original": {
+      "intro": {
+        "goal": "Научиться узнавать и выбирать der, die, das, den, dem и другие относительные местоимения в простых предложениях.",
+        "level": "B1",
+        "title": "03 · Базовая практика — распознавание и выбор Relativpronomen",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Научиться узнавать и выбирать der, die, das, den, dem и другие относительные местоимения в простых предложениях.",
+        "estimated_time": "45–70 минут",
+        "recommendations": "После каждого ответа объясняйте, почему выбран именно этот падеж.",
+        "learning_outcomes": [
+          "Распознавать грамматическую роль относительного местоимения",
+          "Отличать ближайшие неправильные формы",
+          "Заполнять пропуски с опорой на смысл"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Научиться узнавать и выбирать der, die, das, den, dem и другие относительные местоимения в простых предложениях.",
+            "title": "03 · Базовая практика — распознавание и выбор Relativpronomen",
+            "support": "decreasing",
+            "to_card": 69,
+            "from_card": 1,
+            "expected_skill": "Заполнять пропуски с опорой на смысл"
+          }
+        ],
+        "lesson_type": "practice",
+        "competencies": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Научиться узнавать и выбирать der, die, das, den, dem и другие относительные местоимения в простых предложениях.",
+        "assessment_criteria": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "proposed": {
+      "intro": {
+        "goal": "Научиться узнавать и выбирать der, die, das, den, dem и другие относительные местоимения в простых предложениях.",
+        "level": "B1",
+        "title": "03 · Базовая практика — распознавание и выбор Relativpronomen",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Научиться узнавать и выбирать der, die, das, den, dem и другие относительные местоимения в простых предложениях.",
+        "estimated_time": "45–70 минут",
+        "recommendations": "После каждого ответа объясняйте, почему выбран именно этот падеж.",
+        "learning_outcomes": [
+          "Распознавать грамматическую роль относительного местоимения",
+          "Отличать ближайшие неправильные формы",
+          "Заполнять пропуски с опорой на смысл"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Научиться узнавать и выбирать der, die, das, den, dem и другие относительные местоимения в простых предложениях.",
+            "title": "03 · Базовая практика — распознавание и выбор Relativpronomen",
+            "support": "medium",
+            "to_card": 69,
+            "from_card": 1,
+            "expected_skill": "Заполнять пропуски с опорой на смысл"
+          }
+        ],
+        "lesson_type": "practice",
+        "competencies": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Научиться узнавать и выбирать der, die, das, den, dem и другие относительные местоимения в простых предложениях.",
+        "assessment_criteria": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "applied": false,
+    "review_notes": []
+  },
+  {
+    "deck_id": 6986,
+    "deck_name": "04 · Dativ в Relativsatz — распознавание и практика",
+    "reason": "Use supported values, retain IDs and all other metadata. medium is a provisional author-review choice; split stages for real fading support.",
+    "confidence": 1,
+    "original": {
+      "intro": {
+        "goal": "Отработать Dativ в относительных предложениях, включая управление глаголов и случаи с предлогами.",
+        "level": "B1",
+        "title": "04 · Dativ в Relativsatz — распознавание и практика",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Отработать Dativ в относительных предложениях, включая управление глаголов и случаи с предлогами.",
+        "estimated_time": "50–75 минут",
+        "recommendations": "Перед выбором спросите: кто кому помогает? кто с кем разговаривает?",
+        "learning_outcomes": [
+          "Различать der/dem/denen в Dativ",
+          "Учитывать управление глагола helfen и аналогичных глаголов",
+          "Проверять форму по функции внутри придаточного"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Отработать Dativ в относительных предложениях, включая управление глаголов и случаи с предлогами.",
+            "title": "04 · Dativ в Relativsatz — распознавание и практика",
+            "support": "decreasing",
+            "to_card": 75,
+            "from_card": 1,
+            "expected_skill": "Проверять форму по функции внутри придаточного"
+          }
+        ],
+        "lesson_type": "practice",
+        "competencies": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Отработать Dativ в относительных предложениях, включая управление глаголов и случаи с предлогами.",
+        "assessment_criteria": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "proposed": {
+      "intro": {
+        "goal": "Отработать Dativ в относительных предложениях, включая управление глаголов и случаи с предлогами.",
+        "level": "B1",
+        "title": "04 · Dativ в Relativsatz — распознавание и практика",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Отработать Dativ в относительных предложениях, включая управление глаголов и случаи с предлогами.",
+        "estimated_time": "50–75 минут",
+        "recommendations": "Перед выбором спросите: кто кому помогает? кто с кем разговаривает?",
+        "learning_outcomes": [
+          "Различать der/dem/denen в Dativ",
+          "Учитывать управление глагола helfen и аналогичных глаголов",
+          "Проверять форму по функции внутри придаточного"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Отработать Dativ в относительных предложениях, включая управление глаголов и случаи с предлогами.",
+            "title": "04 · Dativ в Relativsatz — распознавание и практика",
+            "support": "medium",
+            "to_card": 75,
+            "from_card": 1,
+            "expected_skill": "Проверять форму по функции внутри придаточного"
+          }
+        ],
+        "lesson_type": "practice",
+        "competencies": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Отработать Dativ в относительных предложениях, включая управление глаголов и случаи с предлогами.",
+        "assessment_criteria": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "applied": false,
+    "review_notes": []
+  },
+  {
+    "deck_id": 6993,
+    "deck_name": "05 · Контраст падежей — Nominativ, Akkusativ или Dativ?",
+    "reason": "Use supported values, retain IDs and all other metadata. medium is a provisional author-review choice; split stages for real fading support.",
+    "confidence": 1,
+    "original": {
+      "intro": {
+        "goal": "Быстро определять падеж относительного местоимения в смешанных контекстах.",
+        "level": "B1",
+        "title": "05 · Контраст падежей — Nominativ, Akkusativ или Dativ?",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Быстро определять падеж относительного местоимения в смешанных контекстах.",
+        "estimated_time": "40–60 минут",
+        "recommendations": "Сначала найдите глагол в относительном предложении и его дополнения.",
+        "learning_outcomes": [
+          "Различать подлежащее, прямое дополнение и косвенное дополнение",
+          "Выбирать правильную форму без прямой подсказки",
+          "Исправлять типичные смешения"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Быстро определять падеж относительного местоимения в смешанных контекстах.",
+            "title": "05 · Контраст падежей — Nominativ, Akkusativ или Dativ?",
+            "support": "decreasing",
+            "to_card": 55,
+            "from_card": 1,
+            "expected_skill": "Исправлять типичные смешения"
+          }
+        ],
+        "lesson_type": "practice",
+        "competencies": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Быстро определять падеж относительного местоимения в смешанных контекстах.",
+        "assessment_criteria": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "proposed": {
+      "intro": {
+        "goal": "Быстро определять падеж относительного местоимения в смешанных контекстах.",
+        "level": "B1",
+        "title": "05 · Контраст падежей — Nominativ, Akkusativ или Dativ?",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Быстро определять падеж относительного местоимения в смешанных контекстах.",
+        "estimated_time": "40–60 минут",
+        "recommendations": "Сначала найдите глагол в относительном предложении и его дополнения.",
+        "learning_outcomes": [
+          "Различать подлежащее, прямое дополнение и косвенное дополнение",
+          "Выбирать правильную форму без прямой подсказки",
+          "Исправлять типичные смешения"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Быстро определять падеж относительного местоимения в смешанных контекстах.",
+            "title": "05 · Контраст падежей — Nominativ, Akkusativ или Dativ?",
+            "support": "medium",
+            "to_card": 55,
+            "from_card": 1,
+            "expected_skill": "Исправлять типичные смешения"
+          }
+        ],
+        "lesson_type": "practice",
+        "competencies": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Быстро определять падеж относительного местоимения в смешанных контекстах.",
+        "assessment_criteria": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "applied": false,
+    "review_notes": []
+  },
+  {
+    "deck_id": 6994,
+    "deck_name": "06 · Соединяем предложения — строим Relativsätze",
+    "reason": "Use supported values, retain IDs and all other metadata. medium is a provisional author-review choice; split stages for real fading support.",
+    "confidence": 1,
+    "original": {
+      "intro": {
+        "goal": "Самостоятельно преобразовывать два предложения в одно с Relativsatz.",
+        "level": "B1",
+        "title": "06 · Соединяем предложения — строим Relativsätze",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Самостоятельно преобразовывать два предложения в одно с Relativsatz.",
+        "estimated_time": "45–65 минут",
+        "recommendations": "Стройте предложение до проверки образца; проговорите его вслух.",
+        "learning_outcomes": [
+          "Определять повторяющееся существительное",
+          "Выбирать относительное местоимение",
+          "Ставить спрягаемый глагол в конце"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Самостоятельно преобразовывать два предложения в одно с Relativsatz.",
+            "title": "06 · Соединяем предложения — строим Relativsätze",
+            "support": "decreasing",
+            "to_card": 55,
+            "from_card": 1,
+            "expected_skill": "Ставить спрягаемый глагол в конце"
+          }
+        ],
+        "lesson_type": "production",
+        "competencies": [
+          {
+            "id": "meaning",
+            "title": "Смысл и функция Relativsatz"
+          },
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz"
+          },
+          {
+            "id": "production",
+            "title": "Самостоятельное построение предложений"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Самостоятельно преобразовывать два предложения в одно с Relativsatz.",
+        "assessment_criteria": [
+          {
+            "id": "meaning",
+            "title": "Смысл и функция Relativsatz",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "production",
+            "title": "Самостоятельное построение предложений",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "proposed": {
+      "intro": {
+        "goal": "Самостоятельно преобразовывать два предложения в одно с Relativsatz.",
+        "level": "B1",
+        "title": "06 · Соединяем предложения — строим Relativsätze",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Самостоятельно преобразовывать два предложения в одно с Relativsatz.",
+        "estimated_time": "45–65 минут",
+        "recommendations": "Стройте предложение до проверки образца; проговорите его вслух.",
+        "learning_outcomes": [
+          "Определять повторяющееся существительное",
+          "Выбирать относительное местоимение",
+          "Ставить спрягаемый глагол в конце"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Самостоятельно преобразовывать два предложения в одно с Relativsatz.",
+            "title": "06 · Соединяем предложения — строим Relativsätze",
+            "support": "medium",
+            "to_card": 55,
+            "from_card": 1,
+            "expected_skill": "Ставить спрягаемый глагол в конце"
+          }
+        ],
+        "lesson_type": "practice",
+        "competencies": [
+          {
+            "id": "meaning",
+            "title": "Смысл и функция Relativsatz"
+          },
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz"
+          },
+          {
+            "id": "production",
+            "title": "Самостоятельное построение предложений"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Самостоятельно преобразовывать два предложения в одно с Relativsatz.",
+        "assessment_criteria": [
+          {
+            "id": "meaning",
+            "title": "Смысл и функция Relativsatz",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "production",
+            "title": "Самостоятельное построение предложений",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "applied": false,
+    "review_notes": []
+  },
+  {
+    "deck_id": 6995,
+    "deck_name": "07 · Жизненные ситуации — самостоятельно используем Relativsätze",
+    "reason": "Use supported values, retain IDs and all other metadata. medium is a provisional author-review choice; split stages for real fading support.",
+    "confidence": 1,
+    "original": {
+      "intro": {
+        "goal": "Применять Relativsätze в описании людей, жилья, работы и повседневных ситуаций.",
+        "level": "B1",
+        "title": "07 · Жизненные ситуации — самостоятельно используем Relativsätze",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Применять Relativsätze в описании людей, жилья, работы и повседневных ситуаций.",
+        "estimated_time": "45–65 минут",
+        "recommendations": "Отвечайте естественной немецкой фразой, затем сверяйте структуру с образцом.",
+        "learning_outcomes": [
+          "Выбирать конструкцию по ситуации",
+          "Создавать фразы без готового решения",
+          "Переносить грамматику в свободную речь"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Применять Relativsätze в описании людей, жилья, работы и повседневных ситуаций.",
+            "title": "07 · Жизненные ситуации — самостоятельно используем Relativsätze",
+            "support": "decreasing",
+            "to_card": 47,
+            "from_card": 1,
+            "expected_skill": "Переносить грамматику в свободную речь"
+          }
+        ],
+        "lesson_type": "production",
+        "competencies": [
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление"
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz"
+          },
+          {
+            "id": "production",
+            "title": "Самостоятельное построение предложений"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Применять Relativsätze в описании людей, жилья, работы и повседневных ситуаций.",
+        "assessment_criteria": [
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "production",
+            "title": "Самостоятельное построение предложений",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "proposed": {
+      "intro": {
+        "goal": "Применять Relativsätze в описании людей, жилья, работы и повседневных ситуаций.",
+        "level": "B1",
+        "title": "07 · Жизненные ситуации — самостоятельно используем Relativsätze",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Применять Relativsätze в описании людей, жилья, работы и повседневных ситуаций.",
+        "estimated_time": "45–65 минут",
+        "recommendations": "Отвечайте естественной немецкой фразой, затем сверяйте структуру с образцом.",
+        "learning_outcomes": [
+          "Выбирать конструкцию по ситуации",
+          "Создавать фразы без готового решения",
+          "Переносить грамматику в свободную речь"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Применять Relativsätze в описании людей, жилья, работы и повседневных ситуаций.",
+            "title": "07 · Жизненные ситуации — самостоятельно используем Relativsätze",
+            "support": "medium",
+            "to_card": 47,
+            "from_card": 1,
+            "expected_skill": "Переносить грамматику в свободную речь"
+          }
+        ],
+        "lesson_type": "practice",
+        "competencies": [
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении"
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление"
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz"
+          },
+          {
+            "id": "production",
+            "title": "Самостоятельное построение предложений"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Применять Relativsätze в описании людей, жилья, работы и повседневных ситуаций.",
+        "assessment_criteria": [
+          {
+            "id": "case",
+            "title": "Падеж по роли в относительном предложении",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "word_order",
+            "title": "Глагол в конце Relativsatz",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "production",
+            "title": "Самостоятельное построение предложений",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "applied": false,
+    "review_notes": [
+      "Competency IDs exist in destination deck 6969. Reference scope is not enforced by schema; author review only."
+    ]
+  },
+  {
+    "deck_id": 6990,
+    "deck_name": "11 · Дополнительно B1+ — Genitiv: dessen и deren",
+    "reason": "Use supported values, retain IDs and all other metadata. medium is a provisional author-review choice; split stages for real fading support.",
+    "confidence": 1,
+    "original": {
+      "intro": {
+        "goal": "Познакомиться с относительными местоимениями Genitiv dessen и deren без обязательного требования для базовой темы B1.",
+        "level": "B1",
+        "title": "11 · Дополнительно B1+ — Genitiv: dessen и deren",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Познакомиться с относительными местоимениями Genitiv dessen и deren без обязательного требования для базовой темы B1.",
+        "estimated_time": "20–35 минут",
+        "recommendations": "Эта колода дополнительная: при трудностях сначала завершите базовую практику.",
+        "learning_outcomes": [
+          "Узнавать значение 'чей / которого' внутри Relativsatz",
+          "Выбирать dessen/deren с учётом опорного слова",
+          "Не путать Genitiv с формами Dativ"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Познакомиться с относительными местоимениями Genitiv dessen и deren без обязательного требования для базовой темы B1.",
+            "title": "11 · Дополнительно B1+ — Genitiv: dessen и deren",
+            "support": "medium",
+            "to_card": 20,
+            "from_card": 1,
+            "expected_skill": "Не путать Genitiv с формами Dativ"
+          }
+        ],
+        "lesson_type": "enrichment",
+        "competencies": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "genitive",
+            "title": "Genitiv: dessen / deren"
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Познакомиться с относительными местоимениями Genitiv dessen и deren без обязательного требования для базовой темы B1.",
+        "assessment_criteria": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "genitive",
+            "title": "Genitiv: dessen / deren",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "proposed": {
+      "intro": {
+        "goal": "Познакомиться с относительными местоимениями Genitiv dessen и deren без обязательного требования для базовой темы B1.",
+        "level": "B1",
+        "title": "11 · Дополнительно B1+ — Genitiv: dessen и deren",
+        "topic": "Relativsätze — Nominativ, Akkusativ, Dativ und Präpositionen",
+        "description": "Познакомиться с относительными местоимениями Genitiv dessen и deren без обязательного требования для базовой темы B1.",
+        "estimated_time": "20–35 минут",
+        "recommendations": "Эта колода дополнительная: при трудностях сначала завершите базовую практику.",
+        "learning_outcomes": [
+          "Узнавать значение 'чей / которого' внутри Relativsatz",
+          "Выбирать dessen/deren с учётом опорного слова",
+          "Не путать Genitiv с формами Dativ"
+        ]
+      },
+      "pedagogy": {
+        "stages": [
+          {
+            "id": "lesson",
+            "goal": "Познакомиться с относительными местоимениями Genitiv dessen и deren без обязательного требования для базовой темы B1.",
+            "title": "11 · Дополнительно B1+ — Genitiv: dessen и deren",
+            "support": "medium",
+            "to_card": 20,
+            "from_card": 1,
+            "expected_skill": "Не путать Genitiv с формами Dativ"
+          }
+        ],
+        "lesson_type": "practice",
+        "competencies": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного"
+          },
+          {
+            "id": "genitive",
+            "title": "Genitiv: dessen / deren"
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление"
+          }
+        ],
+        "schema_version": 1,
+        "expected_result": "Познакомиться с относительными местоимениями Genitiv dessen и deren без обязательного требования для базовой темы B1.",
+        "assessment_criteria": [
+          {
+            "id": "agreement",
+            "title": "Род и число опорного существительного",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "genitive",
+            "title": "Genitiv: dessen / deren",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          },
+          {
+            "id": "prepositions",
+            "title": "Предлоги и управление",
+            "description": "Оценивать только по объективным заданиям и самостоятельным ответам, не считать просмотр теории подтверждением владения."
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "foundations",
+            "when": "Если не удаётся определить форму относительного местоимения",
+            "title": "Вернуться к базовой теории",
+            "reason": "Повторить связь опорного слова и роли местоимения внутри придаточного",
+            "deck_id": 6969,
+            "competency_ids": [
+              "agreement",
+              "case"
+            ]
+          }
+        ]
+      },
+      "resources": [],
+      "curriculum": {
+        "coverage": "existing_course",
+        "topic_codes": [
+          "B1-09",
+          "B1-10"
+        ],
+        "course_content_status": "awaiting_final_review_speaking_assessment"
+      },
+      "is_learning": false
+    },
+    "applied": false,
+    "review_notes": [
+      "Competency IDs exist in destination deck 6969. Reference scope is not enforced by schema; author review only."
+    ]
+  }
+]

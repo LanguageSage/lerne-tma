@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-12",
+  "scope": "folder_id=285 active decks/cards; SELECT only, no learner data",
+  "counts": [
+    {
+      "deck_id": 6969,
+      "cards": 32,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 6970,
+      "cards": 32,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 6985,
+      "cards": 69,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 6986,
+      "cards": 75,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 6993,
+      "cards": 55,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 6994,
+      "cards": 55,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 6995,
+      "cards": 47,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 7140,
+      "cards": 48,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 7141,
+      "cards": 49,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 7142,
+      "cards": 52,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 6990,
+      "cards": 20,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 7137,
+      "cards": 48,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 7138,
+      "cards": 48,
+      "primary_knowledge_cards": 0
+    },
+    {
+      "deck_id": 7139,
+      "cards": 48,
+      "primary_knowledge_cards": 0
+    }
+  ]
+}

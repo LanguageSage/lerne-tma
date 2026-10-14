@@ -236,7 +236,8 @@ CONTEXT:
 
   assert.equal(parsed[0].card_type, 'standard');
   assert.equal(parsed[0].front, 'Ich hatte meine Freunde angerufen.');
-  assert.equal(parsed[0].context, 'B1');
+  assert.equal(parsed[0].context, '');
+  assert.equal(parsed[0].cefr.level, 'B1');
 
   assert.equal(parsed[1].card_type, 'free_text');
   assert.ok(parsed[1].front.includes('@free'));

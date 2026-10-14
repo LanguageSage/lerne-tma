@@ -3,6 +3,7 @@ const deck = { id: 1, name: 'Feedback', target_language: 'de', is_learning: true
 const puzzle = { id: 13, deck_id: 1, queue: 'new', front: '@puzzle\nIch gehe heute mit Anna ins Kino.', back: 'Я иду сегодня с Анной в кино.' };
 
 async function openStudy(page, context, card, locale = 'ru') {
+  card = { ...card, requiredActions: ['answer'] }; // This fixture tests mandatory objective completion.
   await page.routeWebSocket('**/*', () => {});
   await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await context.addInitScript(locale => {
@@ -117,7 +118,8 @@ test('Puzzle gates grading, marks only boundaries, preserves flip state, and cle
   await expect(page.locator('.puzzle-boundary.is-incorrect')).toHaveCount(3);
   await expect(page.locator('.puzzle-boundary.is-correct')).toHaveCount(3);
   await expect(page.getByRole('status')).toContainText('Проверь порядок возле отмеченных мест.');
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await expect(page.locator('.puzzle-slot-chip:disabled')).toHaveCount(0);
   expect(await selectedOrder(page)).toEqual([0, 2, 1, 3, 4, 5, 6]);
   await expect(page.locator('.puzzle-target-slots')).not.toContainText('Ich gehe heute');
@@ -135,9 +137,11 @@ test('Puzzle gates grading, marks only boundaries, preserves flip state, and cle
   await expect.poll(() => selectedOrder(page)).toEqual([0, 1, 2, 3, 4, 5, 6]);
   await expect(boundaries(page)).toHaveCount(0);
   await expect(page.getByRole('status')).toHaveCount(0);
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await check(page).click();
   await expect(page.locator('.grade-buttons')).toBeVisible();
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(4);
   await expect(page.locator('.puzzle-slot-chip:disabled')).toHaveCount(7);
   await expect(check(page)).toBeDisabled();
   await screenshotWidths(page, testInfo, 'puzzle-success');
@@ -146,7 +150,8 @@ test('Puzzle gates grading, marks only boundaries, preserves flip state, and cle
     useSessionStore.setState({ historyIndex: 1 });
   });
   await expect(page.locator('.puzzle-slot-chip')).toHaveCount(0);
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await expect(check(page)).toBeDisabled();
   expect(errors).toEqual([]);
 });

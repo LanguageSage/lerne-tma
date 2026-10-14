@@ -72,6 +72,35 @@ def validate_passport(value):
         if 'schema_version' in pedagogy and (type(pedagogy['schema_version']) is not int or pedagogy['schema_version'] != 1):
             errors.append('pedagogy.schema_version должен быть 1.')
         text(pedagogy, 'expected_result', 'pedagogy')
+        if 'assessment' in pedagogy:
+            assessment = pedagogy['assessment']
+            if pedagogy.get('lesson_type') != 'assessment':
+                errors.append('pedagogy.assessment: требуется lesson_type=assessment.')
+            if not isinstance(assessment, dict) or type(assessment.get('schema_version')) is not int or assessment['schema_version'] != 1:
+                errors.append('pedagogy.assessment: требуется schema_version=1.')
+            else:
+                for key, minimum in (('required_count', 1), ('bonus_count', 0)):
+                    if type(assessment.get(key)) is not int or not minimum <= assessment[key] <= 5000:
+                        errors.append(f'pedagogy.assessment.{key}: некорректное количество.')
+                count = assessment.get('required_count', 0)
+                bands = entries(assessment, 'bands', 'pedagogy.assessment')
+                covered = set()
+                for band, path in bands:
+                    start, end = band.get('min'), band.get('max')
+                    if type(start) is not int or type(end) is not int or type(count) is not int or not 1 <= count <= 5000 or not 0 <= start <= end <= count:
+                        errors.append(f'{path}: некорректный диапазон баллов.')
+                    else:
+                        values = set(range(start, end + 1))
+                        if covered & values:
+                            errors.append(f'{path}: пересечение диапазонов баллов.')
+                        covered |= values
+                if type(count) is int and 1 <= count <= 5000 and covered != set(range(count + 1)):
+                    errors.append('pedagogy.assessment.bands: шкала должна покрывать все баллы.')
+                for route, path in entries(assessment, 'review_routes', 'pedagogy.assessment'):
+                    if not isinstance(route.get('competency_ids'), list) or not route['competency_ids'] or any(not isinstance(x, str) for x in route['competency_ids']):
+                        errors.append(f'{path}.competency_ids: требуется непустой массив строк.')
+                    if not isinstance(route.get('deck_ids'), list) or not route['deck_ids'] or any(type(x) is not int or x <= 0 for x in route['deck_ids']):
+                        errors.append(f'{path}.deck_ids: требуется непустой массив положительных ID.')
         for item, p in entries(pedagogy, 'stages', 'pedagogy'):
             text(item, 'goal', p, True)
             text(item, 'expected_skill', p)

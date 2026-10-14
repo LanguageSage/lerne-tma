@@ -18,6 +18,22 @@ router = APIRouter(
 )
 
 
+@router.get('/decks/{deck_id}')
+def deck_knowledge_content(deck_id: int, user_id: int = Depends(get_user_id)):
+    from api.services.collaborative_service import get_effective_user_role
+    if not get_effective_user_role(user_id, 'deck', deck_id):
+        raise HTTPException(403, 'Нет доступа к колоде')
+    cards = models.TMA_Card.select(models.TMA_Card.id).where(
+        models.TMA_Card.deck_id == deck_id, models.TMA_Card.is_deleted == False)
+    mappings = list(models.TMACardKnowledgeItem.select().where(
+        models.TMACardKnowledgeItem.card_id.in_(cards)).dicts())
+    ids = {m['knowledge_item'] for m in mappings}
+    for mapping in mappings:
+        mapping['knowledge_item_id'] = mapping.pop('knowledge_item')
+    items = list(models.TMAKnowledgeItem.select().where(models.TMAKnowledgeItem.id.in_(ids)).dicts())
+    return {'knowledge_items': items, 'card_knowledge_items': mappings}
+
+
 class AttemptInsertIntegrityError(Exception):
     """Distinguish an invalid/duplicate attempt from a state-engine DB failure."""
 
@@ -130,6 +146,35 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
             continue
             
         evaluation_data_str = json.dumps(item.evaluation_data) if item.evaluation_data else None
+        if (item.evaluation_data or {}).get('evaluation_type') == 'assessment':
+            from api.services.collaborative_service import get_effective_user_role
+            card = models.TMA_Card.get_or_none(models.TMA_Card.id == item.card_id, models.TMA_Card.is_deleted == False)
+            mapping = models.TMACardKnowledgeItem.get_or_none(
+                models.TMACardKnowledgeItem.card_id == item.card_id,
+                models.TMACardKnowledgeItem.knowledge_item == item.knowledge_item_id,
+                models.TMACardKnowledgeItem.role == 'primary')
+            assessment = (item.evaluation_data or {}).get('assessment')
+            if not card or not mapping or not isinstance(assessment, dict) or assessment.get('deck_id') != card.deck_id \
+                or not get_effective_user_role(user_id, 'deck', card.deck_id):
+                results.append(KnowledgeAttemptSyncResult(client_event_id=item.client_event_id,
+                    status='rejected', error_code='assessment_not_accessible'))
+                continue
+            evidence = item.evaluation_data
+            outcome = evidence.get('status')
+            competencies = assessment.get('competency_ids')
+            required, ordinal = assessment.get('required_count'), assessment.get('ordinal')
+            session_id = assessment.get('session_id')
+            if evidence.get('schema_version') != 3 or type(evidence.get('correct')) is not bool \
+                or outcome not in ('correct', 'incorrect', 'skipped') or evidence['correct'] != (outcome == 'correct') \
+                or type(required) is not int or not 1 <= required <= 5000 \
+                or type(ordinal) is not int or not 1 <= ordinal <= 10000 \
+                or not isinstance(competencies, list) or not competencies \
+                or any(not isinstance(c, str) or not c.strip() for c in competencies) \
+                or not isinstance(session_id, str) or not session_id \
+                or item.client_event_id != f'{session_id}:{item.card_id}' or item.review_id is not None:
+                results.append(KnowledgeAttemptSyncResult(client_event_id=item.client_event_id,
+                    status='rejected', error_code='invalid_assessment_evidence'))
+                continue
         
         try:
             with knowledge_transaction():

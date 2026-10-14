@@ -4,6 +4,7 @@ const match = { id: 11, deck_id: 1, queue: 'new', front: '@match\nA => eins\nB =
 const quiz = { id: 12, deck_id: 1, queue: 'new', front: 'Choose\n\n- Wrong\n* Right\n- Also wrong', back: 'Quiz' };
 
 async function openStudy(page, context, card, locale = 'ru') {
+  card = { ...card, requiredActions: ['answer'] }; // This fixture tests mandatory objective completion.
   await page.routeWebSocket('**/*', () => {});
   await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await context.addInitScript(locale => {
@@ -66,7 +67,8 @@ test('Match keeps wrong tiles available, confirms pairs incrementally, restores 
   await expect(right('zwei')).toBeEnabled();
   await expect(left(1)).toHaveAttribute('aria-invalid', 'true');
   await expect(left(1).getByRole('status')).toHaveText('Эти элементы не образуют правильную пару.');
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await expect(page.getByText('Правильные соответствия:', { exact: true })).toHaveCount(0);
   await screenshotWidths(page, testInfo, 'match-retry');
   await right('eins').click(); // reverse direction also works
@@ -74,7 +76,8 @@ test('Match keeps wrong tiles available, confirms pairs incrementally, restores 
   await expect(left(1)).toBeDisabled();
   await expect(right('eins')).toBeDisabled();
   await expect(page.locator('.match-progress')).toContainText('1/3');
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await flip(page, true);
   await expect(left(1)).toHaveCount(0);
   await flip(page, false);
@@ -82,10 +85,12 @@ test('Match keeps wrong tiles available, confirms pairs incrementally, restores 
   await expect(right('eins')).toBeDisabled();
   await left(2).click();
   await right('zwei').click();
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await left(3).click();
   await right('drei').click();
   await expect(page.locator('.grade-buttons')).toBeVisible();
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(4);
   await expect(page.locator('[data-part-id^="match:"]:disabled')).toHaveCount(3);
   await screenshotWidths(page, testInfo, 'match-success');
   await flip(page, true);
@@ -120,7 +125,8 @@ test('Quiz retries without revealing a solution, preserves option order after fl
   await expect(option(1)).toBeEnabled();
   await expect(page.locator('.quiz-option-item.correct')).toHaveCount(0);
   await expect(check).toBeDisabled();
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await screenshotWidths(page, testInfo, 'quiz-retry');
   await flip(page, true);
   await expect(option(0)).toHaveCount(0);
@@ -128,10 +134,12 @@ test('Quiz retries without revealing a solution, preserves option order after fl
   await expect(option(0)).toBeDisabled();
   expect(await page.locator('.quiz-option-item').evaluateAll(items => items.map(item => item.dataset.partId))).toEqual(initialOrder);
   await option(1).click();
-  await expect(page.locator('.grade-buttons')).toHaveCount(0);
+  await expect(page.locator('.grade-buttons button')).toHaveCount(4);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await check.click();
   await expect(option(1)).toHaveClass(/correct/);
   await expect(page.locator('.grade-buttons')).toBeVisible();
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(4);
   await expect(check).toHaveCount(0);
   await screenshotWidths(page, testInfo, 'quiz-success');
   await flip(page, true);
