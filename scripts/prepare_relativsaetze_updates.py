@@ -28,9 +28,8 @@ def prepare():
             raise ValueError(f'Deck {deck["id"]}: metadata changed since review')
         deck['metadata'] = json.dumps(proposal['proposed'], ensure_ascii=False)
 
-    # Retain both repeated cards as explicit entry/final checks, preserving IDs.
+    # Retain repeated card 348812 as explicit entry check, preserving IDs.
     cards[348812]['front_text'] = cards[348812]['front_text'].replace('Letzte Kontrolle:', 'Einstieg:')
-    cards[349238]['front_text'] = 'Wiederholung: ' + cards[349238]['front_text']
 
     names = {'case': 'Падеж внутри Relativsatz', 'nominative': 'Nominativ в Relativsatz',
         'accusative': 'Akkusativ в Relativsatz', 'dative': 'Dativ в Relativsatz',

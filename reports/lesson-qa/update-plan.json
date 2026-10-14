@@ -1,7 +1,7 @@
 {
-  "applied": false,
+  "applied": true,
   "requires_author_review": true,
-  "source_sha256": "c943ee5b75c1843013f2f87e95340a924ac3878a716f038e8731d94ee9f59aba",
+  "source_sha256": "f076a8d388992e12a4836a6bd7ffbdbfd4e5fd5c036b02c6ba99a5ed5da2eb4b",
   "folder_id": 285,
   "excluded_folder_id": 343,
   "policy": "Apply only after explicit approval, fresh source comparison and transactional backup. Never update IDs, order, SRS, learner progress, answer/error history or archived content.",
@@ -316,7 +316,9 @@
       {
         "id": 349238,
         "fields": [
-          "front_text"
+          "front_text",
+          "back_text",
+          "context"
         ],
         "original": {
           "front_text": "Wählen Sie das richtige Relativpronomen.\n\nDas ist der Mann, {*der|den|dem} hier arbeitet.",
@@ -328,9 +330,9 @@
           "audio_back_path": null
         },
         "proposed": {
-          "front_text": "Wiederholung: Wählen Sie das richtige Relativpronomen.\n\nDas ist der Mann, {*der|den|dem} hier arbeitet.",
-          "back_text": "Это мужчина, который здесь работает.",
-          "context": "der Mann сам выполняет действие → Nominativ Maskulin → der.",
+          "front_text": "Wählen Sie das richtige Relativpronomen.\n\nDas ist der Mann, {der|*den|dem} ich suche.",
+          "back_text": "Это мужчина, которого я ищу.",
+          "context": "ich выполняет действие, der Mann — объект (кого?) → Akkusativ Maskulin → den.",
           "metadata": null,
           "card_type": "translation",
           "audio_path": null,
@@ -378,7 +380,7 @@
         },
         "proposed": {
           "front_text": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas ist der Kollege, mit dem ich jeden Tag arbeite.",
-          "back_text": "",
+          "back_text": "Это коллега, с которым я работаю каждый день.\n\nmit + Dativ: der Kollege (maskulin) → mit dem.",
           "context": "",
           "metadata": null,
           "card_type": "puzzle",
@@ -402,7 +404,7 @@
         },
         "proposed": {
           "front_text": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas ist die Frau, von der ich dir erzählt habe.",
-          "back_text": "",
+          "back_text": "Это женщина, о которой я тебе рассказывал.\n\nvon + Dativ: die Frau (feminin) → von der.",
           "context": "",
           "metadata": null,
           "card_type": "puzzle",
@@ -426,7 +428,7 @@
         },
         "proposed": {
           "front_text": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas ist das Thema, über das wir gestern gesprochen haben.",
-          "back_text": "",
+          "back_text": "Это тема, о которой мы вчера говорили.\n\nüber + Akkusativ: das Thema (neutral) → über das.",
           "context": "",
           "metadata": null,
           "card_type": "puzzle",
@@ -450,7 +452,7 @@
         },
         "proposed": {
           "front_text": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas sind die Leute, mit denen wir zusammenarbeiten.",
-          "back_text": "",
+          "back_text": "Это люди, с которыми мы работаем вместе.\n\nmit + Dativ: die Leute (Plural) → mit denen.",
           "context": "",
           "metadata": null,
           "card_type": "puzzle",
@@ -3891,8 +3893,7 @@
       {
         "id": 358514,
         "fields": [
-          "front_text",
-          "context"
+          "front_text"
         ],
         "original": {
           "front_text": "::task\nВыберите подходящий предлог с местоимением. [ВЫБОР · preposition_case]\n::exercise\nDas ist der Stromanbieter, {*mit dem|bei dem|für den} ich den Vertrag abgeschlossen habe.",
@@ -3904,9 +3905,9 @@
           "audio_back_path": null
         },
         "proposed": {
-          "front_text": "::task\nВыберите подходящий предлог с местоимением. [ВЫБОР · preposition_case]\n::exercise\nDas ist der Stromanbieter, {*mit dem|*bei dem|für den} ich den Vertrag abgeschlossen habe.",
+          "front_text": "::task\nВыберите подходящий предлог с местоимением. [ВЫБОР · preposition_case]\n::exercise\nDas ist der Stromanbieter, {*mit dem|an dem|für den} ich den Vertrag abgeschlossen habe.",
           "back_text": "Это поставщик электроэнергии, с которым я заключил договор.",
-          "context": "einen Vertrag mit jemandem abschließen: mit + Dativ maskulin → mit dem.\nder Stromanbieter — поставщик электроэнергии.\nДопустимо также: einen Vertrag bei einem Anbieter abschließen → bei dem.",
+          "context": "einen Vertrag mit jemandem abschließen: mit + Dativ maskulin → mit dem.\nder Stromanbieter — поставщик электроэнергии.",
           "metadata": "{\"cefr\": {\"level\": \"B1\", \"source\": \"local\", \"classified_at\": \"2026-10-12T16:05:23+00:00\", \"classifier_version\": \"de-local-rules-v1\"}}",
           "card_type": "trainer",
           "audio_path": null,
@@ -8164,5 +8165,6 @@
       "role": "primary",
       "complexity": 3
     }
-  ]
+  ],
+  "applied_at": "2026-10-14T07:35:57.283099+00:00"
 }
