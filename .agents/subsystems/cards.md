@@ -137,3 +137,11 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
 - `ExerciseRenderer` выбирает действительный directive block для Puzzle/Match/Free/Word Bank. Другие интерактивные exercise blocks не выводятся как information: иначе raw target/ключи становятся видимыми до ответа. Обычные инструкции и информационные блоки сохраняются.
 - `clozeParser` отделяет bracket syntax до удаления Markdown, сохраняя несколько starred answers вместо ошибочной интерпретации как курсива.
 - Инструкция: [LESSON_QA](../../docs/LESSON_QA.md). Реальные fixtures и отдельные неисполненные предложения: `reports/lesson-qa/`. Regression: `lessonQa.test.js`, `test_lesson_qa.py`, `test_lesson_qa_database.py`, `browser/lesson-qa.spec.cjs`.
+
+## Structured cards V2 (opt-in)
+
+- Contract: `api/services/structured_cards_v2.py` validates explicit type/data for all eight types; JSON Schema is generated from the models. Existing passport and grading-policy validators remain authoritative.
+- One-way preview: `api/services/structured_cards_legacy.py` converts Theory, Standard and mixed Trainer to derived legacy fields, rejects unsupported/lossy cases, and never writes storage. V2 is not stored alongside editable FRONT.
+- Offline CLI: `scripts/structured_cards_v2.py` (`validate`, `schema`, `to-legacy`); no existing import/UI/API/sync integration or migrations.
+- Tests: `scripts/tests/test_structured_cards_v2.py` plus `tools/structured_cards_v2_compat.mjs` against actual frontend parsers and Trainer evaluator.
+- Format, examples and staged transition: [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md).
