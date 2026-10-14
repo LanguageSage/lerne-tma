@@ -9,7 +9,7 @@ import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardTypeBadge } from '../common/CardTypeBadge';
 import { useUiStore } from '../../store/useUiStore';
 import { getFlagStyle } from '../../constants/cardFlags';
-import { detectExerciseType } from '../../utils/exerciseDetector';
+import { detectCardType } from '../../utils/exerciseDetector';
 import { stripMarkdown } from '../../utils/text';
 import { cleanBracketSyntax } from '../../utils/clozeParser';
 
@@ -52,7 +52,7 @@ export const DraggableCardItem = React.memo(({
     ...flagStyle
   };
 
-  const detectedExerciseType = React.useMemo(() => detectExerciseType(c), [c]);
+  const detectedExerciseType = React.useMemo(() => detectCardType(c), [c]);
 
   const linesLimit = previewCardLines === 0 ? 0 : (previewCardLines || 2);
   const isFrontLong = linesLimit > 0 && ((c.front || '').length > (linesLimit * 45) || (c.front || '').split('\n').length > linesLimit);

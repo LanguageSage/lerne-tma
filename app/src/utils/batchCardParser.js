@@ -1,6 +1,6 @@
 import { tr } from '../i18n/locale.js';
 import { buildManualCefrMeta } from './levelUtils.js';
-import { detectExerciseType } from './exerciseDetector.js';
+import { detectCardType } from './exerciseDetector.js';
 import { parseQuizData } from './quizParser.js';
 import { parseExerciseContent } from './exerciseContentParser.js';
 
@@ -108,7 +108,7 @@ export function parseImportedCardSections(block) {
  */
 export function detectCardTypeByContent(front = '') {
   if (!front) return 'standard';
-  return detectExerciseType({ front }) || 'standard';
+  return detectCardType({ front }) || 'standard';
 }
 
 export function extractContextMetadata(context, { preserveFormatting = false } = {}) {
@@ -165,7 +165,7 @@ export function extractContextMetadata(context, { preserveFormatting = false } =
  * Parses batch cards text using strict 3-level architecture:
  * Level 1: parseImportedCardSections(block) -> front, back, context
  * Level 2: parseExerciseContent(front) -> information blocks (task, options, source, example) + exercise
- * Level 3: detectExerciseType(front) -> determines card_type strictly from front
+ * Level 3: detectCardType(front) -> determines card_type strictly from front
  */
 export function parseBatchCardsText(rawText) {
   if (!rawText || !rawText.trim()) return [];
@@ -187,7 +187,7 @@ export function parseBatchCardsText(rawText) {
     const parsedExercise = parseExerciseContent(front);
 
     // Level 3: Exercise syntax & type detection (strictly from front)
-    const detectedType = detectExerciseType(front) || 'standard';
+    const detectedType = detectCardTypeByContent(front);
 
     let finalBack = back;
 

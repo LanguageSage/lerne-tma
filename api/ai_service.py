@@ -144,7 +144,7 @@ async def generate_card_fields(
         clean_user_request = str(user_request or "").strip()
         parsed_content = parse_exercise_content(clean_phrase)
         exercise_phrase = parsed_content["exercise"] if parsed_content["has_blocks"] else clean_phrase
-        input_type = detect_ai_input_type(exercise_phrase)
+        input_type = detect_ai_input_type(clean_phrase)
 
         if not native_language:
             native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
@@ -313,6 +313,11 @@ async def generate_card_fields(
                 directive=clean_user_request,
             )
 
+        if input_type == 'theory':
+            system_prompt += ('\nЭто карточка Theory (@theory). Сохраняй её смысл и педагогическое назначение. '
+                              'Не превращай теорию в упражнение или Quiz, даже если в ней есть вопрос. '
+                              'Сохраняй front и маркер @theory; дополняй только back/context по запросу.')
+
         if "JSON" not in system_prompt.upper():
             native_name = native_config["name"].lower()
             if is_cyrillic:
@@ -347,7 +352,7 @@ async def generate_card_fields(
         
         logger.info(f"AI: Generation successful in {duration:.2f}s")
         result = extract_json_from_text(response, exercise_phrase)
-        if input_type in ("match", "puzzle", "word_bank", "free_text"):
+        if input_type in ("theory", "match", "puzzle", "word_bank", "free_text"):
             result["front"] = clean_phrase
         else:
             generated_front = preserve_exercise_marker(result.get("front", exercise_phrase), input_type)

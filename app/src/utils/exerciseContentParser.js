@@ -11,7 +11,8 @@ const MARKER_TO_BLOCK_TYPE = Object.freeze({
 const normalizeLineEndings = (value) => String(value ?? '').replace(/\r\n?/g, '\n');
 
 const isExerciseMarker = (line) => /^\s*::exercise\s*$/i.test(line || '');
-const isInteractiveMarker = (line) => /^[ \t]*@(puzzle|match|wordbank|free)[ \t]*$/i.test(line || '');
+const isInteractiveMarker = (line) => /^[ \t]*@(puzzle|match|wordbank|free|theory)[ \t]*$/i.test(line || '');
+const isTheoryMarker = (line) => /^[ \t]*@theory[ \t]*$/i.test(line || '');
 
 const getBlockType = (line) => {
   const match = /^\s*::(task|options|source|example|level|topic)\s*$/i.exec(line || '');
@@ -69,6 +70,7 @@ export const parseExerciseContent = (rawText) => {
   const lines = raw.split('\n');
   const hasExplicitExerciseMarker = lines.some(isExerciseMarker);
   const blocks = [];
+  let isTheory = false;
   
   let currentType = null;
   let currentMarker = null;
@@ -123,6 +125,13 @@ export const parseExerciseContent = (rawText) => {
       }
     }
 
+    // Type metadata stays in the source, outside the visual/speech projection.
+    if (isTheoryMarker(line) && (!currentType || currentType === 'exercise')) {
+      isTheory = true;
+      i++;
+      continue;
+    }
+
     if (isInteractiveMarker(line) && (!currentType || currentType === 'exercise')) {
       if (currentLines.some(value => value.trim())) saveBlock();
       currentType = 'exercise';
@@ -150,6 +159,7 @@ export const parseExerciseContent = (rawText) => {
     blocks,
     exercise,
     rawPreamble,
+    isTheory,
     hasBlocks: blocks.length > 0 && blocks.some(b => b.type !== 'exercise')
   };
 };
@@ -164,10 +174,10 @@ export const getInteractiveExerciseContent = (rawText, marker) => {
 /** Restore the original information preamble around AI-generated exercise text. */
 export const restoreExerciseContent = (parsedContent, generatedExercise) => {
   const generated = parseExerciseContent(generatedExercise);
-  const exerciseText = (generated.hasBlocks ? generated.exercise : normalizeLineEndings(generatedExercise)).trim();
+  const exerciseText = (generated.hasBlocks || generated.isTheory ? generated.exercise : normalizeLineEndings(generatedExercise)).trim();
   
   const { blocks } = parsedContent;
-  if (!blocks || blocks.length === 0) return exerciseText;
+  if (!blocks || blocks.length === 0) return parsedContent.isTheory ? `@theory\n${exerciseText}`.trim() : exerciseText;
 
   let result = [];
   let exerciseInserted = false;
@@ -202,5 +212,6 @@ export const restoreExerciseContent = (parsedContent, generatedExercise) => {
     if (exText) result.push(exText);
   }
   
-  return result.join('\n\n').trim();
+  const restored = result.join('\n\n').trim();
+  return parsedContent.isTheory ? `@theory\n${restored}`.trim() : restored;
 };

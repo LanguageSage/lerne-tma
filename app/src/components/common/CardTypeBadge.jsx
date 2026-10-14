@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * Inline badge displaying the card exercise type with emoji + label.
  * Covers all exercise types used in Lerne: quiz, trainer, match,
- * free_text, puzzle, word_bank, standard.
+ * free_text, puzzle, word_bank, theory, standard.
  *
  * Props:
  *   type  {string} – card_type value (e.g. 'quiz', 'trainer', …)
@@ -11,6 +11,7 @@ import React from 'react';
  */
 
 const TYPE_CONFIG = {
+  theory:    { emoji: '📚', label: 'Theory',    color: '#94a3b8', bg: 'rgba(255,255,255,0.08)',  border: 'rgba(255,255,255,0.15)' },
   quiz:      { emoji: '☑️', label: 'Quiz',      color: '#4ade80', bg: 'rgba(34,197,94,0.15)',    border: 'rgba(34,197,94,0.3)' },
   trainer:   { emoji: '🏋️', label: 'Trainer',   color: '#c084fc', bg: 'rgba(168,85,247,0.15)',   border: 'rgba(168,85,247,0.3)' },
   match:     { emoji: '🔗', label: 'Match',     color: '#38bdf8', bg: 'rgba(56,189,248,0.15)',   border: 'rgba(56,189,248,0.3)' },

@@ -14,7 +14,7 @@ class TextUpdateCard(BaseModel):
     context: StrictStr = Field(max_length=100000)
     topics: StrictStr = Field(max_length=10000)
     level: Literal['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] | None = None
-    card_type: Literal['standard', 'trainer', 'quiz', 'match', 'free_text', 'puzzle', 'word_bank']
+    card_type: Literal['standard', 'theory', 'trainer', 'quiz', 'match', 'free_text', 'puzzle', 'word_bank']
 
 
 class TextUpdatePreviewRequest(BaseModel):

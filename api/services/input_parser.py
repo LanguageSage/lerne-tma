@@ -28,7 +28,7 @@ def _exercise_block_marker(block_type: str) -> str:
 
 
 def _interactive_marker(line: str) -> bool:
-    return bool(re.fullmatch(r"[ \t]*@(puzzle|match|wordbank|free)[ \t]*", line or "", re.IGNORECASE))
+    return bool(re.fullmatch(r"[ \t]*@(puzzle|match|wordbank|free|theory)[ \t]*", line or "", re.IGNORECASE))
 
 
 def parse_exercise_content(raw_text: str) -> dict:
@@ -54,6 +54,7 @@ def parse_exercise_content(raw_text: str) -> dict:
     current_marker = None
     current_lines = []
     exercise_start = None
+    is_theory = False
 
     def save_block():
         nonlocal current_type, current_marker, current_lines
@@ -93,6 +94,10 @@ def parse_exercise_content(raw_text: str) -> dict:
                     if exercise_start is None:
                         exercise_start = next_index
 
+        if re.fullmatch(r"[ \t]*@theory[ \t]*", line, re.IGNORECASE) and current_type in (None, "exercise"):
+            is_theory = True
+            continue
+
         if _interactive_marker(line) and current_type in (None, "exercise"):
             if any(value.strip() for value in current_lines):
                 save_block()
@@ -130,6 +135,7 @@ def parse_exercise_content(raw_text: str) -> dict:
         "blocks": blocks,
         "exercise": exercise,
         "raw_preamble": raw_preamble,
+        "is_theory": is_theory,
         "has_blocks": any(b["type"] != "exercise" for b in blocks),
     }
 
@@ -138,7 +144,7 @@ def restore_exercise_content(parsed_content: dict, generated_exercise: str) -> s
     """Reattach the original visual preamble after AI changes the exercise."""
     generated = parse_exercise_content(generated_exercise)
     exercise = (
-        generated["exercise"] if generated["has_blocks"] else str(generated_exercise or "")
+        generated["exercise"] if generated["has_blocks"] or generated.get('is_theory') else str(generated_exercise or "")
     ).strip()
     preamble = str((parsed_content or {}).get("raw_preamble") or "").strip()
     blocks = (parsed_content or {}).get("blocks", [])
@@ -154,7 +160,8 @@ def restore_exercise_content(parsed_content: dict, generated_exercise: str) -> s
         if has_source and not has_exercise_marker:
             preamble += '\n\n::exercise'
         restored = f"{preamble}\n\n{exercise}" if exercise else preamble
-    return '\n\n'.join(part for part in (restored, trailing_info) if part)
+    result = '\n\n'.join(part for part in (restored, trailing_info) if part)
+    return preserve_exercise_marker(result, 'theory') if parsed_content.get('is_theory') else result
 
 
 def detect_ai_input_type(text: str) -> str:
@@ -167,6 +174,8 @@ def detect_ai_input_type(text: str) -> str:
     - parsed["exercise"] is the ONLY front text allowed to be passed to specialized exercise analyzers.
     """
     parsed = parse_exercise_content(text)
+    if parsed.get('is_theory'):
+        return "theory"
     normalized = str(parsed["exercise"]).strip()
     if not normalized:
         return "standard"
@@ -204,6 +213,7 @@ def detect_ai_input_type(text: str) -> str:
 def preserve_exercise_marker(front: str, input_type: str) -> str:
     """Ensure explicit markers survive AI output."""
     type_to_marker = {
+        "theory": "@theory",
         "match": "@match",
         "puzzle": "@puzzle",
         "free_text": "@free",

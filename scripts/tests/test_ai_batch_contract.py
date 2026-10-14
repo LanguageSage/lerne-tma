@@ -52,6 +52,29 @@ class AiBatchTests(unittest.TestCase):
         self.assertTrue(result['saved_cards'][0]['front'].startswith('::task\nWähle.\n::exercise'))
         self.assertEqual(result['saved_cards'][1]['front'], 'Hallo')
 
+    def test_theory_enrichment_keeps_type_front_and_authored_answer(self):
+        front = '@theory\nWarum?\n\n*Beispiel\nErklärung'
+        self.input = [{'front': front, 'back': 'Авторский ответ', 'context': '', 'card_type': 'theory'}]
+        self.mock_chat.return_value = (json.dumps([{
+            'front': '@puzzle\nChanged', 'back': 'Changed answer', 'context': 'Пояснение'
+        }]), True)
+        result = asyncio.run(router.enrich_batch_cards(self.request(), user_id=1))
+        saved = result['saved_cards'][0]
+        self.assertEqual(saved['front'], front)
+        self.assertEqual(saved['back'], 'Авторский ответ')
+        self.assertEqual(saved['card_type'], 'theory')
+        self.assertEqual(saved['context'], 'Пояснение')
+        self.assertIn('Theory (@theory)', self.mock_chat.call_args.kwargs['system_prompt'])
+
+    def test_single_theory_generation_cannot_rewrite_front_as_a_quiz(self):
+        front = '@theory\n::task\nПравило\n::exercise\nWarum?\n*Grund\nBeispiel'
+        models.TMASetting.create(key='AI_DETECT_LEVEL', value='false')
+        self.mock_chat.return_value = (json.dumps({'front': 'Quiz?\n*A\nB', 'back': 'Ответ', 'context': 'Правило'}), True)
+        result = asyncio.run(ai_service.generate_card_fields(1, front, native_language='ru'))
+        self.assertEqual(result['front'], front)
+        self.assertEqual(result['card_type'], 'theory')
+        self.assertIn('Theory (@theory)', self.mock_chat.call_args.kwargs['system_prompt'])
+
     def test_plain_generation_with_deck(self):
         result = asyncio.run(router.generate_batch_cards(router.BatchRequest(
             text='Hallo\nWo?', deck_id=str(self.deck.id), native_language='ru'), user_id=1))

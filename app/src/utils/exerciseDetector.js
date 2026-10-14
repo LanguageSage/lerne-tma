@@ -13,7 +13,9 @@ export const hasTrainerSyntax = (text) => {
 
 /** Keep CardForm's quick-action policy testable and aligned with input syntax. */
 export const detectAiQuickActionType = (text) => {
-  const front = parseExerciseContent(text).exercise;
+  const parsed = parseExerciseContent(text);
+  if (parsed.isTheory) return null;
+  const front = parsed.exercise;
   if (hasTrainerSyntax(front)) return 'explain_rule';
 
   const hasQuizStar = (/\n\*/.test(front) || /^\*/.test(front)) && front.includes('\n');
@@ -23,7 +25,7 @@ export const detectAiQuickActionType = (text) => {
 };
 
 /**
- * Detects the specific exercise type of a card strictly based on its content (front).
+ * Detects the authored card type strictly based on its content (front).
  * DB card_type is NOT the source of truth — card content is.
  *
  * Strict Priority:
@@ -36,14 +38,17 @@ export const detectAiQuickActionType = (text) => {
  * 7. puzzle (if studyMode === 'puzzle')
  * 8. null (standard card)
  *
- * Returns: 'match' | 'free_text' | 'quiz' | 'trainer' | 'puzzle' | 'word_bank' | null
+ * @theory is explicit type metadata and takes priority over exercise syntax.
+ * Returns: 'theory' | 'match' | 'free_text' | 'quiz' | 'trainer' | 'puzzle' | 'word_bank' | null
  */
-export const detectExerciseType = (cardOrFront, studyMode = 'classic') => {
+export const detectCardType = (cardOrFront, studyMode = 'classic') => {
   if (!cardOrFront) return null;
   const front = typeof cardOrFront === 'string'
     ? cardOrFront
     : (cardOrFront.front || cardOrFront.front_text || '');
-  const trimmed = parseExerciseContent(front).exercise.trim();
+  const parsed = parseExerciseContent(front);
+  if (parsed.isTheory) return 'theory';
+  const trimmed = parsed.exercise.trim();
   if (!trimmed) return null;
 
   // 1. Match directive: @match
@@ -86,4 +91,10 @@ export const detectExerciseType = (cardOrFront, studyMode = 'classic') => {
   }
 
   return null;
+};
+
+// Theory uses the same non-interactive study path as Standard.
+export const detectExerciseType = (cardOrFront, studyMode = 'classic') => {
+  const type = detectCardType(cardOrFront, studyMode);
+  return type === 'theory' ? null : type;
 };

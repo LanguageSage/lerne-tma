@@ -37,6 +37,15 @@
 - В online-режиме результат сохраняет сервер, в offline — Dexie; перенос данных описан в [sync](sync.md).
 - Порядок карточек, удаление и повторный импорт определяются серверной логикой и соответствующими offline handlers.
 
+## Theory
+
+- `@theory` отдельной строкой в FRONT задаёт `card_type: theory`. Маркер остаётся в исходнике для редактирования и экспорта. `exerciseContentParser.js` / `input_parser.py` исключают его из визуального и TTS-представления, возвращая `isTheory` / `is_theory`; буквальное упоминание внутри непрерывного информационного блока не задаёт тип.
+- `detectCardType` определяет обозначение типа для списка, редакторского сохранения и batch import. `detectExerciseType` оставляет Theory на обычном неинтерактивном пути Standard, даже при вопросах и cloze-примерах. Другие приоритеты типов сохранены.
+- Список использует существующий `CardTypeBadge` с 📚 Theory. Online/offline сохраняют существующее поле `card_type`; миграций нет. Канонический экспорт «Автора» сохраняет FRONT с маркером, серверная модель обновления текста принимает `theory`.
+- Правила агентов: `lerne-card-prompts/types/theory.md`; одиночное и пакетное AI-обогащение сохраняют исходный FRONT Theory.
+- Регрессии: `theoryCards.test.js`, `scripts/tests/test_theory_cards.py`, Theory cases в `test_ai_batch_contract.py`, `scripts/tests/browser/theory-cards.spec.cjs`.
+
+
 ## Common symptoms
 
 | Симптом | Первый участок проверки |

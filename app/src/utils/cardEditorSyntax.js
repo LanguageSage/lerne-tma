@@ -108,7 +108,7 @@ export function syncWordBankAnswer(back, oldOption, newOption, options = []) {
 /** Readable preview when legacy markup cannot be mapped to safe edit ranges. */
 export function readableFrontText(raw = '') {
   return raw.split(/\r?\n/)
-    .filter(line => !/^\s*(?:::\w+|@(match|free|puzzle|wordbank|options))\s*$/i.test(line))
+    .filter(line => !/^\s*(?:::\w+|@(theory|match|free|puzzle|wordbank|options))\s*$/i.test(line))
     .join('\n')
     .replace(/\[\[(.*?)\]\]/g, '$1')
     .replace(/\{([^{}]*)\}/g, (_, choices) => choices.split(/[|;,/]/)[0].trim().replace(/^\*/, ''));

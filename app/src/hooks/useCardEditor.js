@@ -5,7 +5,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
 import { cleanMedia } from '../utils/media';
-import { detectExerciseType } from '../utils/exerciseDetector';
+import { detectCardType } from '../utils/exerciseDetector';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { useStudySession } from './useStudySession';
@@ -32,7 +32,7 @@ export const useCardEditor = () => {
       }
 
       const frontText = data.front || '';
-      const computedType = detectExerciseType({ front: frontText }) || 'standard';
+      const computedType = detectCardType({ front: frontText }) || 'standard';
 
       let finalLevel = data.level;
       let finalTags = data.tags;
