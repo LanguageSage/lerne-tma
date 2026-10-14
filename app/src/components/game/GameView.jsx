@@ -17,6 +17,7 @@ const ERROR_COPY = {
   game_rate_limit: 'Подождите секунду и повторите отправку.',
   game_request_in_progress: 'Предыдущая реплика ещё обрабатывается. Подождите и повторите отправку.',
   game_state_changed: 'Разговор обновлён в другом окне. История загружена заново; повторите отправку.',
+  game_conversation_ended: 'Разговор завершён. Можно начать новый диалог.',
 };
 
 function errorText(error) {
@@ -44,7 +45,10 @@ export function GameView() {
   const isRestoring = useAuthStore(state => state.isRestoring);
   const sessionRevision = useAuthStore(state => state.sessionRevision);
   const storageKey = `lerne_game_attempt_${ownerId}`;
-  const voice = useGameVoice({ scene, attempt, busy, draft, onDraft: setDraft,
+  const activeScene = attempt?.scenario ? { ...scene, ...attempt.scenario } : scene;
+  const isNeighbor = activeScene?.scene.situation_id === 'neighbor_introduction_v1';
+  const ended = Boolean(attempt?.ended);
+  const voice = useGameVoice({ scene: activeScene, attempt, busy, draft, onDraft: setDraft,
     onSend: message => send('message', message) });
 
   useEffect(() => {
@@ -90,7 +94,7 @@ export function GameView() {
 
   async function send(action = 'message', spokenText) {
     const message = action === 'message' ? (spokenText ?? draft).trim() : '';
-    if (locked.current || !attempt || attempt.turn_count >= attempt.max_turns || (action === 'message' && (!message || !aiReady))) return;
+    if (locked.current || !attempt || ended || attempt.turn_count >= attempt.max_turns || (action === 'message' && (!message || !aiReady))) return;
     locked.current = true;
     setBusy(true);
     setError('');
@@ -106,10 +110,10 @@ export function GameView() {
       setAttempt(data);
       pending.current = null;
       if (action === 'message') setDraft('');
-      if (!voice.enabled) input.current?.focus();
+      if (!voice.enabled && !data.ended) input.current?.focus();
     } catch (err) {
       if (!mounted.current) return;
-      if (err.response?.data?.detail === 'game_state_changed') {
+      if (['game_state_changed', 'game_conversation_ended'].includes(err.response?.data?.detail)) {
         try { setAttempt(await gameService.load(attempt.id)); pending.current = null; } catch { /* retain retry */ }
       }
       setError(errorText(err));
@@ -153,7 +157,7 @@ export function GameView() {
     <main className="game-view">
       <header className="game-header">
         <button className="game-icon-button" onClick={navigateUp} aria-label={tr('Назад')}><ArrowLeft size={20} /></button>
-        <div><span className="game-eyebrow">Game Mode · {tr('Эксперимент')}</span><h1>Stadtbibliothek</h1></div>
+        <div><span className="game-eyebrow">Game Mode · {tr('Эксперимент')}</span><h1>{activeScene?.scene.name || 'Frau Müller · Kennenlernen'}</h1></div>
         <button className="game-button" onClick={newConversation} disabled={busy || !attempt}>{tr('Новый диалог')}</button>
       </header>
       <section className="game-npc" aria-label="Frau Müller">
@@ -165,17 +169,19 @@ export function GameView() {
           <path d="M22 27c2-19 35-21 37 1-11-1-19-6-23-11-2 6-7 9-14 10" fill="#aaa498" />
           <g fill="none" stroke="#4b514f" strokeWidth="2"><rect x="27" y="32" width="11" height="7" rx="3" /><rect x="42" y="32" width="11" height="7" rx="3" /><path d="M38 35h4M35 46q5 4 10 0" /></g>
         </svg>
-        <div><h2>{scene?.npc.name || 'Frau Müller'}</h2><p>{tr('Библиотекарь · спокойная и терпеливая')}</p></div>
-        <BookOpen size={24} aria-hidden="true" />
+        <div><h2>{activeScene?.npc.name || 'Frau Müller'}</h2><p>{tr(isNeighbor ? 'Соседка · доброжелательная и немного любопытная' : 'Библиотекарь · спокойная и терпеливая')}</p></div>
+        {!isNeighbor && <BookOpen size={24} aria-hidden="true" />}
       </section>
       <section className="game-task">
         <strong>{tr('Возможная цель разговора')}</strong>
-        <p>{tr('Можно поискать книгу о выращивании овощей на балконе для начинающих. Или выбрать другую книгу, поговорить о работе и жизни — тему выбираете вы.')}</p>
+        <p>{tr(isNeighbor ? 'Вы недавно переехали и встретили соседку Frau Müller. Поздоровайтесь, познакомьтесь, расскажите о себе и задайте ей вопросы. Можно завершить разговор в любой момент.' : 'Можно поискать книгу о выращивании овощей на балконе для начинающих. Или выбрать другую книгу, поговорить о работе и жизни — тему выбираете вы.')}</p>
+        {isNeighbor && <span>{tr('Ориентир: 6–10 обменов репликами. Необязательно выполнять все цели.')}{' '}</span>}
         <span>{tr('Говорите по-немецки своими словами. Ошибки не мешают, если смысл понятен.')}</span>
       </section>
       {scene?.ai_mode === 'mock' && <p className="game-notice" role="status">{tr('MOCK: демонстрация с ограниченными ответами. Это не свободный ИИ-диалог.')}</p>}
       {scene && !aiReady && <p className="game-notice" role="status">{tr(scene.ai_mode === 'unconfigured' ? ERROR_COPY.game_ai_not_configured : ERROR_COPY.game_ai_unavailable)}</p>}
       {attempt?.turn_count >= attempt?.max_turns && <p className="game-notice" role="status">{tr(ERROR_COPY.game_turn_limit)}</p>}
+      {ended && <p className="game-result" role="status">{tr('Разговор завершён. Можно начать новый диалог.')}</p>}
       {attempt?.outcome === 'success' && <p className="game-result" role="status">{tr('Задача решена: вы получили подходящую книгу.')} <span lang="de">{attempt.book?.title}</span></p>}
       {attempt?.outcome === 'other_book' && <p className="game-notice" role="status">{tr('Вы получили книгу. Можно продолжить разговор.')} <span lang="de">{attempt.book?.title}</span></p>}
       <section ref={conversation} className="game-conversation" aria-label={tr('История разговора')} role="log" aria-live="polite" aria-relevant="additions text">
@@ -186,20 +192,21 @@ export function GameView() {
           </article>
         ))}
         {repeated && <article className="game-message game-message-npc"><span className="game-message-author">Frau Müller · {tr('Повтор')}</span><p lang="de">{repeated}</p></article>}
-        {busy && <p className="game-secondary" role="status">{tr(attempt ? 'Frau Müller обдумывает ответ…' : 'Открываем библиотеку…')}</p>}
+        {busy && <p className="game-secondary" role="status">{tr(attempt ? 'Frau Müller обдумывает ответ…' : 'Открываем разговор…')}</p>}
       </section>
       {error && <div className="game-error" role="alert"><p>{error}</p>{!attempt && <button className="game-button" onClick={() => { setBusy(true); setSetupRetry(value => value + 1); }} disabled={busy}>{tr('Попробовать снова')}</button>}</div>}
       <div className="game-dialogue-actions">
         <button className="game-button" disabled={!lastNpc || busy} onClick={() => { setRepeated(lastNpc); voice.speak(lastNpc); }}><RotateCcw size={16} />{tr('Повторить')}</button>
-        <button className="game-button" disabled={!attempt || busy || attempt.turn_count >= attempt.max_turns} onClick={() => send('hint')}><Lightbulb size={16} />{tr('Подсказка')}</button>
+        <button className="game-button" disabled={!attempt || busy || ended || attempt.turn_count >= attempt.max_turns} onClick={() => send('hint')}><Lightbulb size={16} />{tr('Подсказка')}</button>
         <button className="game-button" disabled={!lastNpc || busy} onClick={() => voice.phase === 'speaking' ? voice.pause() : voice.speak(lastNpc)}><Volume2 size={16} />{tr(voice.phase === 'speaking' ? 'Остановить' : 'Слушать')}</button>
+        <button className="game-button" disabled={!attempt || busy || ended || attempt.turn_count >= attempt.max_turns} onClick={() => send('end')}>{tr('Завершить разговор')}</button>
       </div>
       <section className="game-voice" aria-label={tr('Голосовой разговор')}>
         <div className="game-voice-controls">
-          <button className="game-button" aria-pressed={voice.enabled} disabled={!voice.enabled && (!attempt || busy || !aiReady || attempt.turn_count >= attempt.max_turns)} onClick={voice.toggle}>
+          <button className="game-button" aria-pressed={voice.enabled} disabled={!voice.enabled && (!attempt || busy || ended || !aiReady || attempt.turn_count >= attempt.max_turns)} onClick={voice.toggle}>
             {voice.enabled ? <MicOff size={16} /> : <Mic size={16} />}{tr(voice.enabled ? 'Выключить голос' : 'Включить голос')}
           </button>
-          {voice.enabled && <button className="game-button" disabled={busy && ['paused', 'error'].includes(voice.phase)} onClick={() => ['paused', 'error'].includes(voice.phase) ? voice.resume() : voice.pause()}><Pause size={16} />{tr(['paused', 'error'].includes(voice.phase) ? 'Продолжить' : 'Пауза')}</button>}
+          {voice.enabled && <button className="game-button" disabled={ended || (busy && ['paused', 'error'].includes(voice.phase))} onClick={() => ['paused', 'error'].includes(voice.phase) ? voice.resume() : voice.pause()}><Pause size={16} />{tr(['paused', 'error'].includes(voice.phase) ? 'Продолжить' : 'Пауза')}</button>}
           {voice.enabled && ['waiting', 'listening', 'recognizing'].includes(voice.phase) && <button className="game-button game-send" onClick={voice.finish}>{tr('Завершить реплику')}</button>}
           {voice.enabled && !busy && <button className="game-button" onClick={voice.cancel}>{tr('Отменить реплику')}</button>}
         </div>
@@ -217,8 +224,8 @@ export function GameView() {
       </section>
       <form className="game-compose" onSubmit={event => { event.preventDefault(); send(); }}>
         <label htmlFor="game-message">{tr('Ваша реплика на немецком')}</label>
-        <textarea id="game-message" ref={input} value={draft} onFocus={() => { if (voice.enabled) voice.pause(); }} onChange={event => setDraft(event.target.value)} maxLength={1000} rows={3} lang="de" placeholder="Ich suche ein Buch …" disabled={!attempt || busy || !aiReady} />
-        <div className="game-compose-footer"><span className="game-secondary">{tr('Можно попросить:')} <span lang="de">„Bitte einfacher“ · „Bitte langsamer“</span></span><button className="game-button game-send" type="submit" disabled={!draft.trim() || busy || !aiReady || attempt?.turn_count >= attempt?.max_turns}><Send size={17} />{tr('Отправить')}</button></div>
+        <textarea id="game-message" ref={input} value={draft} onFocus={() => { if (voice.enabled) voice.pause(); }} onChange={event => setDraft(event.target.value)} maxLength={1000} rows={3} lang="de" placeholder={isNeighbor ? 'Guten Tag! Ich heiße …' : 'Ich suche ein Buch …'} disabled={!attempt || busy || ended || !aiReady} />
+        <div className="game-compose-footer"><span className="game-secondary">{tr('Можно попросить:')} <span lang="de">„Bitte einfacher“ · „Bitte langsamer“</span></span><button className="game-button game-send" type="submit" disabled={!draft.trim() || busy || ended || !aiReady || attempt?.turn_count >= attempt?.max_turns}><Send size={17} />{tr('Отправить')}</button></div>
       </form>
       <p className="game-footnote">{tr('Сохраняются ограниченный контекст разговора и результат попытки. Game Mode работает с интернетом.')}</p>
       {attempt?.previous_attempt_at && <p className="game-footnote">{tr('Предыдущая попытка:')} {new Date(attempt.previous_attempt_at).toLocaleString()}</p>}

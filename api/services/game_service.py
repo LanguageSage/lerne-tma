@@ -10,7 +10,8 @@ from starlette.concurrency import run_in_threadpool
 
 from api.models import TMAGameAttempt, tma_db
 from api.services.game_dialogue import DialogueUnavailable, create_turn, configuration
-from api.services.game_scene import LIBRARY, CATALOG, HISTORY_MESSAGES, MAX_TURNS, advance_scene, initial_scene, hint_for
+from api.services.game_scene import LIBRARY, NEIGHBOR, CATALOG, HISTORY_MESSAGES, MAX_TURNS, advance_scene, initial_scene, hint_for, scenario_for
+from api.services.game_conversation import initial_conversation, conversation_hint, end_conversation
 
 DAILY_API_REQUESTS = 120
 DAILY_ATTEMPTS = 20
@@ -46,16 +47,21 @@ def owned_attempt(attempt_id, user_id):
 
 def serialize(row):
     state = json.loads(row.scene_state)
+    scenario = scenario_for(state)
     return {'id': row.id, 'npc_id': row.npc_id, 'situation_id': row.situation_id,
+            'scenario': {'npc': {k: scenario['npc'][k] for k in ('id', 'name', 'age', 'profession', 'tts_voice')},
+                         'scene': {k: scenario['scene'][k] for k in ('id', 'name', 'situation_id')}},
             'scene': state, 'history': json.loads(row.history), 'outcome': row.outcome,
             'book': CATALOG.get(state['borrowed_book_id'] or state['offered_book_id']),
             'hint_count': row.hint_count, 'clarification_count': row.clarification_count,
             'turn_count': row.turn_count, 'max_turns': MAX_TURNS, 'version': row.version,
+            'ended': state.get('ended', False), 'learning_result': state.get('learning_result'),
             'created_at': row.created_at.isoformat() + 'Z',
             'previous_attempt_at': row.previous_attempt_at.isoformat() + 'Z' if row.previous_attempt_at else None}
 
 
-def start_attempt(attempt_id, user_id):
+def start_attempt(attempt_id, user_id, situation_id=None):
+    scenario = LIBRARY if situation_id == LIBRARY['scene']['situation_id'] else NEIGHBOR
     now = utcnow()
     with user_transaction(user_id):
         existing = TMAGameAttempt.get_or_none(TMAGameAttempt.id == attempt_id)
@@ -68,10 +74,11 @@ def start_attempt(attempt_id, user_id):
                                          (TMAGameAttempt.created_at >= today)).count() >= DAILY_ATTEMPTS:
             raise HTTPException(429, 'game_daily_limit')
         previous = TMAGameAttempt.select().where((TMAGameAttempt.user_id == user_id) &
-                     (TMAGameAttempt.situation_id == LIBRARY['scene']['situation_id'])).order_by(TMAGameAttempt.created_at.desc()).first()
-        row = TMAGameAttempt.create(id=attempt_id, user_id=user_id, npc_id=LIBRARY['npc']['id'],
-            situation_id=LIBRARY['scene']['situation_id'], scene_state=json.dumps(initial_scene()),
-            history=json.dumps([{'role': 'npc', 'text': LIBRARY['scene']['opening']}], ensure_ascii=False),
+                     (TMAGameAttempt.situation_id == scenario['scene']['situation_id'])).order_by(TMAGameAttempt.created_at.desc()).first()
+        row = TMAGameAttempt.create(id=attempt_id, user_id=user_id, npc_id=scenario['npc']['id'],
+            situation_id=scenario['scene']['situation_id'],
+            scene_state=json.dumps(initial_conversation() if scenario is NEIGHBOR else initial_scene()),
+            history=json.dumps([{'role': 'npc', 'text': scenario['scene']['opening']}], ensure_ascii=False),
             created_at=now, updated_at=now, previous_attempt_at=previous.created_at if previous else None)
         from api.game_mvp3.flags import enabled_for
         if enabled_for(user_id):
@@ -101,6 +108,9 @@ def reserve_turn(attempt_id, user_id, request, mode):
             return {'replay': serialize(row)}
         if row.version != request.version:
             raise HTTPException(409, 'game_state_changed')
+        state = json.loads(row.scene_state)
+        if state.get('ended'):
+            raise HTTPException(409, 'game_conversation_ended')
         if row.inflight_id and row.last_request_at and (now - row.last_request_at).total_seconds() < LEASE_SECONDS:
             raise HTTPException(409, 'game_request_in_progress')
         if row.turn_count >= MAX_TURNS:
@@ -120,7 +130,7 @@ def reserve_turn(attempt_id, user_id, request, mode):
         row.last_request_at = now
         row.api_requests += budget
         row.save()
-        return {'state': json.loads(row.scene_state), 'history': json.loads(row.history), 'digest': digest}
+        return {'state': state, 'history': json.loads(row.history), 'digest': digest, 'turn_count': row.turn_count}
 
 
 def finish_turn(attempt_id, user_id, request, prepared, state, event, reply):
@@ -130,9 +140,10 @@ def finish_turn(attempt_id, user_id, request, prepared, state, event, reply):
         if row.inflight_id != request_id or row.version != request.version:
             raise HTTPException(409, 'game_state_changed')
         history = prepared['history'] + [
-            {'role': 'hint' if request.action == 'hint' else 'user', 'text': request.message if request.action == 'message' else reply}]
-        if request.action == 'message':
-            history.append({'role': 'npc', 'text': reply})
+            {'role': 'hint' if request.action == 'hint' else 'user',
+             'text': request.message if request.action == 'message' else 'Auf Wiedersehen.' if request.action == 'end' else reply}]
+        if request.action in ('message', 'end') or state.get('ended'):
+            history.append({'role': 'npc', 'text': event.get('farewell', reply)})
         retained = history[-HISTORY_MESSAGES:]
         if not any(m['role'] == 'npc' for m in retained):
             retained = [next(m for m in reversed(history) if m['role'] == 'npc'), *retained[-(HISTORY_MESSAGES - 1):]]
@@ -163,7 +174,7 @@ def release_turn(attempt_id, user_id, request_id):
 
 async def send_turn(attempt_id, user_id, request):
     try:
-        configured = await run_in_threadpool(configuration)
+        configured = await run_in_threadpool(configuration) if request.action == 'message' else ('local', None)
         mode = configured[0]
     except Exception:
         raise HTTPException(503, 'game_ai_unavailable') from None
@@ -173,10 +184,25 @@ async def send_turn(attempt_id, user_id, request):
     if 'replay' in prepared:
         return prepared['replay']
     try:
-        if request.action == 'hint':
+        if request.action == 'end':
+            if scenario_for(prepared['state']) is NEIGHBOR:
+                state, event, reply = end_conversation(prepared['state'])
+            else:
+                state = {**prepared['state'], 'ended': True}
+                event, reply = {'kind': 'end'}, 'Auf Wiedersehen!'
+        elif request.action == 'hint':
             state, event = prepared['state'], {'kind': 'hint'}
-            reply = hint_for(state)
+            reply = conversation_hint(state) if scenario_for(state) is NEIGHBOR else hint_for(state)
+            if scenario_for(state) is NEIGHBOR:
+                state = {**state, 'difficulties': state['difficulties'] + [
+                    {'kind': 'hint', 'exchange': state['exchange_count'], 'source': 'engine', 'meaning': 'support_requested'}]}
+                # Even repeated hints cannot reach the request cap without a farewell.
+                if prepared['turn_count'] + 1 >= MAX_TURNS:
+                    state, event, farewell = end_conversation(state, 'request_limit')
+                    event.update(kind='hint', farewell=farewell)
         else:
+            if scenario_for(prepared['state']) is NEIGHBOR and prepared['turn_count'] + 1 >= MAX_TURNS:
+                prepared['state'] = {**prepared['state'], '_request_limit': True}
             state, event, reply, _ = await create_turn(request.message, prepared['state'], prepared['history'], advance_scene, configured=configured)
         return await run_in_threadpool(finish_turn, attempt_id, user_id, request, prepared, state, event, reply)
     except DialogueUnavailable:

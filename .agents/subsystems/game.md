@@ -1,3 +1,41 @@
+# Game Mode: neighbor introduction (current default)
+
+New attempts use `api/game_config/neighbor.json`: Frau Müller, 52, a friendly, calm,
+slightly curious neighbor. NPC passport, optional goals and 6–10-exchange rules are
+configuration data. Existing library rows resume their prior scenario. Public attempt
+responses add `scenario` metadata, `ended` and `learning_result`; GameView uses owned
+attempt metadata on restore, while GET /game/scene describes the new default.
+
+`api/services/game_conversation.py` owns social state, grounded model observations,
+question tracking, closing and provisional results. `game_dialogue.social_turn` uses
+the existing provider with two bounded calls (850 interpretation/300 reply tokens,
+same 25-second timeout). History (up to 24 messages), quoted explicit user facts,
+asked topics/questions support current-conversation memory. Previously asked/already
+supplied tagged topics and exact duplicate questions are suppressed except support
+requests. Replies remain free AI dialogue; server farewell is deterministic.
+
+Messages count as exchanges; hints do not. After six exchanges, introduction/about
+self/question/response observations can initiate closing; at ten closing is mandatory.
+Support before ten postpones early closing. The model answers the current turn without
+a new question; the server removes remaining question sentences and appends a farewell.
+The 40-request limit also produces a farewell. `action=end` needs no AI. Spoken goodbye
+requires current-message evidence. Replay stays idempotent; new requests after closing
+return 409 game_conversation_ended. Final TTS runs normally, then the ended guard prevents
+STT restart; pause timing/manual sending/recognition are unchanged.
+
+Results stay in TMAGameAttempt.scene_state under the existing transaction/version and
+owner guards, with no schema change. Goals/errors are quote-validated unconfirmed model
+findings, missing goals mean not observed, support is recorded separately. No user level,
+verified listening, pronunciation or mastery is inferred. Current profile/settings have
+no user German level; learner_level is null (deck levels are not user levels).
+The isolated MVP 3 collector skips scenarios without reviewed task rubrics, preserving
+its engine-only skill semantics. This is preparation for future assessment, not another
+persistence/evaluation service. See `project_docs/GAME_MODE_NEIGHBOR.md` for result fields,
+changed files, test commands and manual checks. `tests/test_game_neighbor.py` covers all
+requested behavioral cases; browser neighbor fixtures cover speech/manual ending,
+final TTS/no STT restart, restore/reset, no-AI finish and RU/EN/UK at 320–1280px.
+
+The following sections describe legacy Stadtbibliothek, preserved for existing attempts.
 # Game Mode: Stadtbibliothek MVP 2
 
 ## Entry points

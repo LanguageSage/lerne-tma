@@ -123,7 +123,7 @@
       "deck_name": "B1-09-10-D10 · Aktive Anwendung und Fehlerdiagnose",
       "severity": "ERROR",
       "confidence": 0.97,
-      "reason": "Неотмеченное bei dem также грамматически и смыслово допустимо: договор заключают bei einem Anbieter. Задание не ограничивает смысл до mit.",
+      "reason": "Оставить один однозначный правильный вариант mit dem; неоднозначный дистрактор bei dem заменён на an dem.",
       "original": {
         "front": "::task\nВыберите подходящий предлог с местоимением. [ВЫБОР · preposition_case]\n::exercise\nDas ist der Stromanbieter, {*mit dem|bei dem|für den} ich den Vertrag abgeschlossen habe.",
         "back": "Это поставщик электроэнергии, с которым я заключил договор.",
@@ -131,9 +131,9 @@
         "metadata": "{\"cefr\": {\"level\": \"B1\", \"source\": \"local\", \"classified_at\": \"2026-10-12T16:05:23+00:00\", \"classifier_version\": \"de-local-rules-v1\"}}"
       },
       "proposed": {
-        "front": "::task\nВыберите подходящий предлог с местоимением. [ВЫБОР · preposition_case]\n::exercise\nDas ist der Stromanbieter, {*mit dem|*bei dem|für den} ich den Vertrag abgeschlossen habe.",
+        "front": "::task\nВыберите подходящий предлог с местоимением. [ВЫБОР · preposition_case]\n::exercise\nDas ist der Stromanbieter, {*mit dem|an dem|für den} ich den Vertrag abgeschlossen habe.",
         "back": "Это поставщик электроэнергии, с которым я заключил договор.",
-        "context": "einen Vertrag mit jemandem abschließen: mit + Dativ maskulin → mit dem.\nder Stromanbieter — поставщик электроэнергии.\nДопустимо также: einen Vertrag bei einem Anbieter abschließen → bei dem.",
+        "context": "einen Vertrag mit jemandem abschließen: mit + Dativ maskulin → mit dem.\nder Stromanbieter — поставщик электроэнергии.",
         "metadata": "{\"cefr\": {\"level\": \"B1\", \"source\": \"local\", \"classified_at\": \"2026-10-12T16:05:23+00:00\", \"classifier_version\": \"de-local-rules-v1\"}}"
       },
       "sources": [
@@ -323,7 +323,7 @@
       "deck_name": "03 · Базовая практика — распознавание и выбор Relativpronomen",
       "severity": "WARNING",
       "confidence": 1,
-      "reason": "Точный повтор 349237. Решить, является ли повтор запланированным; при замене сохранять ID и прогресс.",
+      "reason": "Замена дубля 349237 новым упражнением на Akkusativ: der Mann (Akkusativ) → den.",
       "original": {
         "front": "Wählen Sie das richtige Relativpronomen.\n\nDas ist der Mann, {*der|den|dem} hier arbeitet.",
         "back": "Это мужчина, который здесь работает.",
@@ -331,9 +331,9 @@
         "metadata": null
       },
       "proposed": {
-        "front": "Wählen Sie das richtige Relativpronomen.\n\nDas ist der Mann, {*der|den|dem} hier arbeitet.",
-        "back": "Это мужчина, который здесь работает.",
-        "context": "der Mann сам выполняет действие → Nominativ Maskulin → der.",
+        "front": "Wählen Sie das richtige Relativpronomen.\n\nDas ist der Mann, {der|*den|dem} ich suche.",
+        "back": "Это мужчина, которого я ищу.",
+        "context": "ich выполняет действие, der Mann — объект (кого?) → Akkusativ Maskulin → den.",
         "metadata": null
       },
       "sources": [],
@@ -589,7 +589,7 @@
       "deck_name": "04 · Dativ в Relativsatz — распознавание и практика",
       "severity": "WARNING",
       "confidence": 0.98,
-      "reason": "Подсказка Puzzle берётся из BACK, который содержит целую правильную немецкую фразу. Оставить в BACK перевод и объяснение, целевая фраза уже в FRONT.",
+      "reason": "Подсказка Puzzle берётся из BACK. Оставить русский перевод и краткое грамматическое объяснение, не раскрывая немецкий ответ до выполнения.",
       "original": {
         "front": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas ist der Kollege, mit dem ich jeden Tag arbeite.",
         "back": "Das ist der Kollege, mit dem ich jeden Tag arbeite.",
@@ -598,7 +598,7 @@
       },
       "proposed": {
         "front": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas ist der Kollege, mit dem ich jeden Tag arbeite.",
-        "back": "",
+        "back": "Это коллега, с которым я работаю каждый день.\n\nmit + Dativ: der Kollege (maskulin) → mit dem.",
         "context": "",
         "metadata": null
       },
@@ -611,7 +611,7 @@
       "deck_name": "04 · Dativ в Relativsatz — распознавание и практика",
       "severity": "WARNING",
       "confidence": 0.98,
-      "reason": "Подсказка Puzzle берётся из BACK, который содержит целую правильную немецкую фразу. Оставить в BACK перевод и объяснение, целевая фраза уже в FRONT.",
+      "reason": "Подсказка Puzzle берётся из BACK. Оставить русский перевод и краткое грамматическое объяснение, не раскрывая немецкий ответ до выполнения.",
       "original": {
         "front": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas ist die Frau, von der ich dir erzählt habe.",
         "back": "Das ist die Frau, von der ich dir erzählt habe.",
@@ -620,7 +620,7 @@
       },
       "proposed": {
         "front": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas ist die Frau, von der ich dir erzählt habe.",
-        "back": "",
+        "back": "Это женщина, о которой я тебе рассказывал.\n\nvon + Dativ: die Frau (feminin) → von der.",
         "context": "",
         "metadata": null
       },
@@ -633,7 +633,7 @@
       "deck_name": "04 · Dativ в Relativsatz — распознавание и практика",
       "severity": "WARNING",
       "confidence": 0.98,
-      "reason": "Подсказка Puzzle берётся из BACK, который содержит целую правильную немецкую фразу. Оставить в BACK перевод и объяснение, целевая фраза уже в FRONT.",
+      "reason": "Подсказка Puzzle берётся из BACK. Оставить русский перевод и краткое грамматическое объяснение, не раскрывая немецкий ответ до выполнения.",
       "original": {
         "front": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas ist das Thema, über das wir gestern gesprochen haben.",
         "back": "Das ist das Thema, über das wir gestern gesprochen haben.",
@@ -642,7 +642,7 @@
       },
       "proposed": {
         "front": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas ist das Thema, über das wir gestern gesprochen haben.",
-        "back": "",
+        "back": "Это тема, о которой мы вчера говорили.\n\nüber + Akkusativ: das Thema (neutral) → über das.",
         "context": "",
         "metadata": null
       },
@@ -655,7 +655,7 @@
       "deck_name": "04 · Dativ в Relativsatz — распознавание и практика",
       "severity": "WARNING",
       "confidence": 0.98,
-      "reason": "Подсказка Puzzle берётся из BACK, который содержит целую правильную немецкую фразу. Оставить в BACK перевод и объяснение, целевая фраза уже в FRONT.",
+      "reason": "Подсказка Puzzle берётся из BACK. Оставить русский перевод и краткое грамматическое объяснение, не раскрывая немецкий ответ до выполнения.",
       "original": {
         "front": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas sind die Leute, mit denen wir zusammenarbeiten.",
         "back": "Das sind die Leute, mit denen wir zusammenarbeiten.",
@@ -664,7 +664,7 @@
       },
       "proposed": {
         "front": "::exercise\nOrdnen Sie richtig.\n\n@puzzle\nDas sind die Leute, mit denen wir zusammenarbeiten.",
-        "back": "",
+        "back": "Это люди, с которыми мы работаем вместе.\n\nmit + Dativ: die Leute (Plural) → mit denen.",
         "context": "",
         "metadata": null
       },

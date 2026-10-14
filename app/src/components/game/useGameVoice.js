@@ -96,6 +96,7 @@ export function useGameVoice({ scene, attempt, busy, draft, onDraft, onSend }) {
   function canListen() {
     const o = options.current;
     return runtime.current.enabled && !runtime.current.paused && !o.busy &&
+      !o.attempt?.ended &&
       o.attempt?.turn_count < o.attempt?.max_turns && ['live', 'mock'].includes(o.scene?.ai_mode);
   }
 
@@ -220,7 +221,10 @@ export function useGameVoice({ scene, attempt, busy, draft, onDraft, onSend }) {
     setPhase('speaking');
     const controller = new AbortController();
     r.abort = controller;
-    later(() => pause(tr('Озвучивание недоступно. Можно продолжить текстовый разговор.')), Math.max(45000, text.length * 200));
+    const playbackError = () => tr(options.current.attempt?.ended
+      ? 'Озвучивание недоступно. Попробуйте прослушать ответ снова.'
+      : 'Озвучивание недоступно. Можно продолжить текстовый разговор.');
+    later(() => pause(playbackError()), Math.max(45000, text.length * 200));
     try {
       const o = options.current;
       const voice = o.scene?.npc.tts_voice || 'de-DE-KatjaNeural';
@@ -240,14 +244,14 @@ export function useGameVoice({ scene, attempt, busy, draft, onDraft, onSend }) {
       if (!active()) return;
       await playAudio(url, success => {
         if (!active()) return;
-        if (!success) { pause(tr('Озвучивание недоступно. Можно продолжить текстовый разговор.')); return; }
+        if (!success) { pause(playbackError()); return; }
         clearResources();
         setPhase(r.enabled ? canListen() ? 'waiting' : 'paused' : 'off');
         // Let the speaker tail decay before opening the microphone.
         if (canListen()) later(startListening, 350);
       });
     } catch {
-      if (active()) pause(tr('Озвучивание недоступно. Можно продолжить текстовый разговор.'));
+      if (active()) pause(playbackError());
     }
   }
 
@@ -299,7 +303,7 @@ export function useGameVoice({ scene, attempt, busy, draft, onDraft, onSend }) {
     if (!previous || !previous.startsWith(`${o.attempt.id}:`)) return;
     if (runtime.current.paused) return;
     if (o.autoplay && o.attempt.version > 0 && o.attempt.history.at(-1)?.role === 'npc') speak(o.attempt.history.at(-1).text);
-    else if (o.attempt.turn_count >= o.attempt.max_turns) pause();
+    else if (o.attempt.ended || o.attempt.turn_count >= o.attempt.max_turns) pause();
     else if (canListen()) startListening();
   });
   useEffect(() => { respond(); }, [attempt?.version, attempt?.id, busy]);

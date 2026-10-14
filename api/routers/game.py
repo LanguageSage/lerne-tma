@@ -8,7 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from api.auth.dependencies import get_authenticated_user_id
 from api.services.game_dialogue import configuration
-from api.services.game_scene import LIBRARY
+from api.services.game_scene import NEIGHBOR
 from api.services.game_service import start_attempt, load_attempt, send_turn
 
 router = APIRouter(prefix='/game', tags=['game'])
@@ -23,7 +23,7 @@ class TurnRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     request_id: UUID
     version: int = Field(ge=0)
-    action: Literal['message', 'hint'] = 'message'
+    action: Literal['message', 'hint', 'end'] = 'message'
     message: str = Field(default='', max_length=1000)
 
     @model_validator(mode='after')
@@ -31,8 +31,8 @@ class TurnRequest(BaseModel):
         self.message = self.message.strip()
         if self.action == 'message' and not self.message:
             raise ValueError('A message is required')
-        if self.action == 'hint' and self.message:
-            raise ValueError('Hints do not accept a message')
+        if self.action != 'message' and self.message:
+            raise ValueError('Support/end actions do not accept a message')
         return self
 
 
@@ -42,8 +42,8 @@ async def scene(user_id: int = Depends(get_authenticated_user_id)):
         mode, _ = await run_in_threadpool(configuration)
     except Exception:
         mode = 'unavailable'
-    return {'npc': {key: LIBRARY['npc'][key] for key in ('id', 'name', 'age', 'profession', 'tts_voice')},
-            'scene': {key: LIBRARY['scene'][key] for key in ('id', 'name', 'situation_id')},
+    return {'npc': {key: NEIGHBOR['npc'][key] for key in ('id', 'name', 'age', 'profession', 'tts_voice')},
+            'scene': {key: NEIGHBOR['scene'][key] for key in ('id', 'name', 'situation_id')},
             'ai_mode': mode}
 
 

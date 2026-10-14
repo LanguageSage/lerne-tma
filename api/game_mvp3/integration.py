@@ -24,6 +24,8 @@ def _in_transaction():
 def begin_capture(attempt):
     if not enabled_for(attempt.user_id):
         return
+    if attempt.situation_id not in DEFAULT_CATALOG.tasks:
+        return  # Social model observations are not reviewed engine task/skill evidence.
     _in_transaction()
     tables = set(tma_db.obj.get_tables())
     required = {'tma_game_capture', 'tma_game_interaction',

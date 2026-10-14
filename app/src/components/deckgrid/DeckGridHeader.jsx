@@ -82,7 +82,7 @@ export const DeckGridHeader = ({
             const ui = useUiStore.getState();
             if (getAccessToken() || useAuthStore.getState().isRestoring) ui.setView('game');
             else ui.setIsAuthModalOpen(true, tr('Войдите в аккаунт, чтобы начать разговор.'));
-          }}><BookOpen size={20} /><span>Game Mode · Stadtbibliothek</span><small>{tr('Эксперимент')}</small></button>
+          }}><BookOpen size={20} /><span>Game Mode · Frau Müller</span><small>{tr('Эксперимент')}</small></button>
         </div>
       )}
 

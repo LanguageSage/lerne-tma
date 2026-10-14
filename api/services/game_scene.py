@@ -4,9 +4,15 @@ import re
 from pathlib import Path
 
 LIBRARY = json.loads((Path(__file__).parents[1] / 'game_config' / 'library.json').read_text(encoding='utf-8'))
+NEIGHBOR = json.loads((Path(__file__).parents[1] / 'game_config' / 'neighbor.json').read_text(encoding='utf-8'))
 CATALOG = {book['id']: book for book in LIBRARY['catalog']}
 MAX_TURNS = 40
 HISTORY_MESSAGES = 24
+
+
+def scenario_for(state):
+    # Rows written before the social scenario have no situation marker.
+    return NEIGHBOR if state.get('situation_id') == NEIGHBOR['scene']['situation_id'] else LIBRARY
 
 
 def initial_scene():

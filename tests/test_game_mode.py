@@ -281,7 +281,7 @@ class PersistenceTests(unittest.TestCase):
         self.keeper.close()
 
     def start(self, user_id=1):
-        return service.start_attempt(str(uuid4()), user_id)
+        return service.start_attempt(str(uuid4()), user_id, LIBRARY['scene']['situation_id'])
 
     def turn(self, data, message, action='message', request_id=None):
         with patch.object(service, 'MIN_REQUEST_INTERVAL', 0):

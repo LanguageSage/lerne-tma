@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-async function setup(page, context, { mode = 'mock', guest = false, failTurn = false, voice = false, ttsFail = false, turnDelay = 150, maxTurns = 40 } = {}) {
+async function setup(page, context, { mode = 'mock', guest = false, failTurn = false, voice = false, ttsFail = false, turnDelay = 150, maxTurns = 40, neighbor = false } = {}) {
   const errors = [];
   const requests = [];
   const attempts = new Map();
@@ -62,16 +62,17 @@ async function setup(page, context, { mode = 'mock', guest = false, failTurn = f
     const { pathname } = new URL(route.request().url());
     const profile = { user_id: 1, first_name: 'Learner', is_guest: false };
     if (pathname === '/api/game/scene') return route.fulfill({ json: {
-      npc: { id: 'frau_mueller', name: 'Frau Müller', age: 52, profession: 'Bibliothekarin', tts_voice: 'de-DE-KatjaNeural' },
-      scene: { id: 'stadtbibliothek', name: 'Stadtbibliothek', situation_id: 'library_balcony_book_v1' }, ai_mode: aiMode,
+      npc: { id: 'frau_mueller', name: 'Frau Müller', age: 52, profession: neighbor ? 'Nachbarin' : 'Bibliothekarin', tts_voice: 'de-DE-KatjaNeural' },
+      scene: neighbor ? { id: 'neighbor_introduction', name: 'Frau Müller · Kennenlernen', situation_id: 'neighbor_introduction_v1' }
+        : { id: 'stadtbibliothek', name: 'Stadtbibliothek', situation_id: 'library_balcony_book_v1' }, ai_mode: aiMode,
     } });
     if (pathname === '/api/game/attempts') {
       const { attempt_id } = route.request().postDataJSON();
       if (!attempts.has(attempt_id)) attempts.set(attempt_id, {
         id: attempt_id, version: 0, hint_count: 0, clarification_count: 0, turn_count: 0, max_turns: maxTurns,
-        outcome: 'ongoing', scene: { slow_speech: false }, book: null,
+        outcome: 'ongoing', ended: false, scene: { slow_speech: false }, book: null,
         previous_attempt_at: attempts.size ? '2026-10-10T12:00:00Z' : null,
-        history: [{ role: 'npc', text: 'Guten Tag! Welches Buch suchen Sie?' }],
+        history: [{ role: 'npc', text: neighbor ? 'Guten Tag! Ich bin Frau Müller, Ihre Nachbarin. Sind Sie gerade eingezogen?' : 'Guten Tag! Welches Buch suchen Sie?' }],
       });
       return route.fulfill({ json: attempts.get(attempt_id) });
     }
@@ -90,8 +91,13 @@ async function setup(page, context, { mode = 'mock', guest = false, failTurn = f
           data.hint_count += 1;
           data.history.push({ role: 'hint', text: 'Beschreiben Sie Thema, Balkon und Erfahrung.' });
         } else {
-          data.history.push({ role: 'user', text: request.message });
-          if (request.message.includes('ausleihen')) {
+          data.history.push({ role: 'user', text: request.action === 'end' ? 'Auf Wiedersehen.' : request.message });
+          if (neighbor && (request.action === 'end' || request.message.includes('Bis bald'))) {
+            data.ended = true;
+            data.outcome = 'completed';
+            data.learning_result = { schema_version: 1, assessment_status: 'provisional', level_assessment: null };
+            data.history.push({ role: 'npc', text: 'Es war schön, Sie kennenzulernen. Bis bald!' });
+          } else if (request.message.includes('ausleihen')) {
             data.outcome = 'success';
             data.book = { id: 'balcony_first_steps', title: 'Mein erster Balkongarten' };
             data.history.push({ role: 'npc', text: 'Hier ist „Mein erster Balkongarten“. Sie haben das Buch jetzt ausgeliehen.' });
@@ -118,9 +124,9 @@ async function setup(page, context, { mode = 'mock', guest = false, failTurn = f
   return { errors, requests, attempts, audioRequests, setMode: value => { aiMode = value; } };
 }
 
-async function enter(page) {
+async function enter(page, neighbor = false) {
   await page.locator('.game-entry').click();
-  await expect(page.getByRole('heading', { name: 'Stadtbibliothek' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: neighbor ? 'Frau Müller · Kennenlernen' : 'Stadtbibliothek' })).toBeVisible();
   await expect(page.getByRole('log')).toContainText('Guten Tag!');
   await expect(page.getByRole('button', { name: 'Новый диалог', exact: true })).toBeEnabled();
 }
@@ -226,6 +232,73 @@ async function enableVoice(page) {
   await page.evaluate(() => window.__voice.audios.find(a => !a.paused).end());
   await expect.poll(() => page.evaluate(() => window.__voice.recognizers.some(r => r.active))).toBe(true);
 }
+
+test('neighbor goodbye is voiced once and never restarts automatic listening', async ({ page, context }) => {
+  const fixture = await setup(page, context, { neighbor: true, voice: true, mode: 'live' });
+  await enter(page, true);
+  await page.getByLabel('Отправлять после паузы').check();
+  await page.getByLabel('Пауза перед отправкой').selectOption('2');
+  await enableVoice(page);
+  await page.evaluate(() => window.__voice.recognizers.findLast(r => r.active).result('Bis bald!'));
+  await expect(page.locator('.game-result')).toContainText('Разговор завершён');
+  await expect.poll(() => fixture.audioRequests.some(r => r.text.includes('Es war schön'))).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__voice.audios.some(a => !a.paused))).toBe(true);
+  const count = await page.evaluate(() => window.__voice.recognizers.length);
+  await page.evaluate(() => window.__voice.audios.find(a => !a.paused).end());
+  await page.waitForTimeout(750);
+  expect(await page.evaluate(() => window.__voice.recognizers.some(r => r.active))).toBe(false);
+  expect(await page.evaluate(() => window.__voice.recognizers.length)).toBe(count);
+  expect(fixture.requests).toHaveLength(1);
+  await expect(page.getByLabel('Ваша реплика на немецком')).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Завершить разговор', exact: true })).toBeDisabled();
+  await page.reload();
+  await enter(page, true);
+  await expect(page.locator('.game-result')).toContainText('Разговор завершён');
+  expect(fixture.audioRequests).toHaveLength(2);
+  expect(fixture.errors).toEqual([]);
+});
+
+test('neighbor can end without configured AI and start a clean dialogue', async ({ page, context }) => {
+  const fixture = await setup(page, context, { neighbor: true, mode: 'unconfigured' });
+  await enter(page, true);
+  await page.getByRole('button', { name: 'Завершить разговор', exact: true }).click();
+  await expect(page.locator('.game-result')).toContainText('Разговор завершён');
+  expect(fixture.requests[0].action).toBe('end');
+  await expect(page.getByRole('button', { name: 'Повторить', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Новый диалог', exact: true }).click();
+  await expect(page.locator('.game-result')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Завершить разговор', exact: true })).toBeEnabled();
+  expect(fixture.errors).toEqual([]);
+});
+
+test('neighbor introduction and completed controls fit mobile and desktop in RU EN UK', async ({ page, context }, testInfo) => {
+  const fixture = await setup(page, context, { neighbor: true });
+  await enter(page, true);
+  for (const locale of ['ru', 'en', 'uk']) {
+    await page.evaluate(async language => (await import('/src/i18n/locale.js')).setInterfaceLanguage(language), locale);
+    for (const width of [320, 375, 430, 768, 1280]) {
+      await page.setViewportSize({ width, height: 1100 });
+      expect(await page.locator('.game-view').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      if (locale === 'ru' && [320, 1280].includes(width)) {
+        await page.screenshot({ path: testInfo.outputPath(`neighbor-${width}.png`), fullPage: true });
+        if (width === 320) {
+          await page.getByRole('button', { name: 'Завершить разговор', exact: true }).scrollIntoViewIfNeeded();
+          await page.screenshot({ path: testInfo.outputPath('neighbor-controls-320.png'), fullPage: true });
+          await page.locator('.game-header').scrollIntoViewIfNeeded();
+        }
+      }
+    }
+  }
+  await page.getByRole('button', { name: 'Завершити розмову', exact: true }).click();
+  await expect(page.locator('.game-result')).toContainText('Розмову завершено');
+  await expect(page.getByRole('alert')).toContainText('Спробуйте прослухати відповідь ще раз.');
+  await page.setViewportSize({ width: 320, height: 1100 });
+  expect(await page.locator('.game-view').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('neighbor-completed-320.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Завершити розмову', exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('neighbor-completed-controls-320.png'), fullPage: true });
+  expect(fixture.errors).toEqual([]);
+});
 
 test('voice loop, imperfect German, topic changes, replay, pause, off and no duplicate turns', async ({ page, context }, testInfo) => {
   const fixture = await setup(page, context, { voice: true, mode: 'live' });

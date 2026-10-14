@@ -67,7 +67,7 @@ class IntegrationTests(unittest.TestCase):
             return self.now
 
     def start(self, user=101):
-        return game.start_attempt(str(uuid4()), user)
+        return game.start_attempt(str(uuid4()), user, 'library_balcony_book_v1')
 
     def turn(self, attempt, text=SEARCH, *, user=101, action='message', request=None):
         request = request or TurnRequest(request_id=uuid4(), version=attempt['version'],

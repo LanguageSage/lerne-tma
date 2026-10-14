@@ -46,7 +46,7 @@ def main():
                 socket.socket, 'connect', guarded_connect), patch.object(
                 socket.socket, 'connect_ex', guarded_connect_ex):
             names = sys.argv[1:] or ['tests.test_game_mvp3', 'tests.test_game_mvp3_integration',
-                                    'tests.test_game_mode', 'tests.test_answer_evaluation']
+                                    'tests.test_game_mode', 'tests.test_game_neighbor', 'tests.test_answer_evaluation']
             suite = unittest.defaultTestLoader.loadTestsFromNames(names)
             result = unittest.TextTestRunner(verbosity=1).run(suite)
             return 0 if result.wasSuccessful() else 1
