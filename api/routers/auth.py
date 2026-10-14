@@ -1,10 +1,12 @@
 import logging
 import datetime
+from contextlib import nullcontext
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from api.models import TMAUser, TMALinkedSession, TMAAuthCode
 from api.dependencies.auth import get_user_id
+from api.auth.dependencies import get_authenticated_user_id
 
 router = APIRouter(tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -279,7 +281,7 @@ def verify_auth_code(data: CodeVerifySchema):
     }
 
 @router.delete("/auth/account")
-def delete_account(user_id: int = Depends(get_user_id)):
+def delete_account(user_id: int = Depends(get_authenticated_user_id)):
     """Deletes all user decks, cards, folders, progress, and account data."""
     try:
         from api.models import (
@@ -287,7 +289,8 @@ def delete_account(user_id: int = Depends(get_user_id)):
             TMAReviewHistory, TMA_Collaborator, TMACustomPrompt, 
             TMALinkedSession, TMAUser, tma_db
         )
-        with tma_db.atomic():
+        connection = tma_db.connection_context() if tma_db.is_closed() else nullcontext()
+        with connection, tma_db.atomic():
             user_deck_ids = [d.id for d in TMA_Deck.select(TMA_Deck.id).where(TMA_Deck.user_id == user_id)]
             if user_deck_ids:
                 user_card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id << user_deck_ids)]
@@ -303,6 +306,8 @@ def delete_account(user_id: int = Depends(get_user_id)):
             TMA_Collaborator.delete().where(TMA_Collaborator.user_id == user_id).execute()
             TMACustomPrompt.delete().where(TMACustomPrompt.user_id == user_id).execute()
             TMALinkedSession.delete().where((TMALinkedSession.guest_id == user_id) | (TMALinkedSession.telegram_id == user_id)).execute()
+            from api.game_mvp3.privacy import erase_deleted_account
+            erase_deleted_account(user_id)
             TMAUser.delete().where(TMAUser.user_id == user_id).execute()
         
         logger.info(f"Account and all data deleted for user_id={user_id}")

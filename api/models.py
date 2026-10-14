@@ -16,6 +16,7 @@ def create_all_tables():
     if _tables_created:
         return
     from api.migrations import run_migrations, run_knowledge_mastery_migration
+    from api.game_migration import run_game_migration
     try:
         run_migrations(tma_db, lerne_db)
         models_to_create = [
@@ -27,6 +28,7 @@ def create_all_tables():
         ]
         tma_db.create_tables(models_to_create, safe=True)
         run_knowledge_mastery_migration(tma_db)
+        run_game_migration(tma_db)
         try:
             tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
         except Exception as e:
@@ -252,6 +254,33 @@ class TMASetting(BaseModel):
     updated_at = DateTimeField(default=datetime.datetime.now, null=True)
     class Meta:
         table_name = 'tmasetting'
+
+
+class TMAGameAttempt(BaseModel):
+    """Online experimental conversations, isolated from Classic progress."""
+    id = CharField(primary_key=True, max_length=36)
+    user_id = BigIntegerField(index=True)
+    npc_id = CharField()
+    situation_id = CharField()
+    scene_state = TextField()
+    history = TextField()
+    outcome = CharField(default='ongoing')
+    hint_count = IntegerField(default=0)
+    clarification_count = IntegerField(default=0)
+    turn_count = IntegerField(default=0)
+    api_requests = IntegerField(default=0)
+    version = IntegerField(default=0)
+    created_at = DateTimeField()
+    updated_at = DateTimeField()
+    previous_attempt_at = DateTimeField(null=True)
+    last_request_at = DateTimeField(null=True)
+    inflight_id = CharField(null=True, max_length=36)
+    last_request_id = CharField(null=True, max_length=36)
+    last_request_hash = CharField(null=True, max_length=64)
+
+    class Meta:
+        table_name = 'tma_game_attempt'
+        indexes = ((('user_id', 'created_at'), False),)
 
 
 class TMAOfflineBatch(BaseModel):

@@ -24,6 +24,7 @@ import { TutorialOverlay } from './components/TutorialOverlay';
 import { HelpDrawer } from './components/help/HelpDrawer';
 import { FullGuideModal } from './components/help/FullGuideModal';
 import { LidExamView } from './components/lid/LidExamView';
+import { GameView } from './components/game/GameView';
 
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
@@ -163,7 +164,7 @@ function AppContent() {
 
     const isDeepSubView = (view === 'study' || view === 'trainer' || view === 'editor' || view === 'creator');
     const isCardListView = (view === 'cards');
-    const isDeckView = (view === 'deck_intro' || view === 'duplicates' || view === 'trash' || view === 'lid' || view === 'lid_exam');
+    const isDeckView = (view === 'deck_intro' || view === 'duplicates' || view === 'trash' || view === 'lid' || view === 'lid_exam' || view === 'game');
     const baseViewLevel = isDeepSubView
       ? folderDepth + 3
       : isCardListView
@@ -249,6 +250,8 @@ function AppContent() {
   // View Router
   const renderView = () => {
     switch (view) {
+      case 'game':
+        return <GameView key={currentUserId} />;
       case 'study':
       case 'trainer':
         return <StudyView />;

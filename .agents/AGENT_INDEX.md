@@ -23,6 +23,7 @@
 | Изменения между устройствами, user settings, collab-pull | Sync: adjacent flows | [sync](subsystems/sync.md) |
 | AI generation/enrichment, промпт, провайдер, неверный JSON, таймаут | AI: generation | [ai](subsystems/ai.md) |
 | evaluate-answer, free text, grading_policy, accepted_answers, typo | AI: answer evaluation | [ai](subsystems/ai.md) |
+| Game Mode, Frau Müller, Stadtbibliothek, каталог NPC, диалог, выдача, NPC memory, communication progress | Game: conversation / scene | [game](subsystems/game.md) |
 | Telegram / Google / email-password, вход, challenge, привязка | Auth: identity | [auth](subsystems/auth.md) |
 | 401, refresh, Bearer, logout, смена аккаунта, пароль | Auth: sessions | [auth](subsystems/auth.md) |
 | TTS, edge-tts, голос, audio_path, аудио отсутствует/не играет | Media: audio | [media](subsystems/media.md) |

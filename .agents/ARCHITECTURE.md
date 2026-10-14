@@ -46,6 +46,7 @@ Online и offline CRUD выбираются в API-клиенте; offline оч�
 | Обучение, упражнения, SRS, autoplay | `app/src/components/study/StudyView.jsx`, `app/src/hooks/useStudySession.js` | `api/routers/study.py`, `api/srs.py` | [study](subsystems/study.md) |
 | Offline CRUD и синхронизация сущностей | `app/src/services/offlineApi.js`, `app/src/services/syncService.js` | `api/routers/sync.py`, `api/services/offline_sync.py` | [sync](subsystems/sync.md) |
 | AI generation и free-text evaluation | `app/src/hooks/useAiActions.js`, `app/src/hooks/useFreeTextEvaluation.js` | `api/routers/ai.py`, `api/ai_service.py` | [ai](subsystems/ai.md) |
+| Game Mode / NPC conversation | `app/src/components/game/GameView.jsx`, `app/src/services/gameService.js` | `api/routers/game.py`, `api/services/game_service.py` | [game](subsystems/game.md) |
 | Вход, привязки, пароли, refresh | `app/src/store/useAuthStore.js`, `app/src/utils/auth.js` | `api/routers/auth_v2.py`, `api/auth/service.py` | [auth](subsystems/auth.md) |
 | TTS, изображения, аудио, кэш | `app/src/hooks/useAudio.js`, `app/src/services/mediaCache.js` | `api/routers/media.py`, `api/services/media.py` | [media](subsystems/media.md) |
 | Knowledge Items, Attempts, mastery, diagnostics | `app/src/services/knowledgeCaptureService.js`, `app/src/hooks/useKnowledgeSync.js` | `api/routers/knowledge.py`, `api/services/knowledge_mastery.py` | [knowledge](subsystems/knowledge.md) |
@@ -63,6 +64,8 @@ Online и offline CRUD выбираются в API-клиенте; offline оч�
 | Медиа | Dexie `media`, URL и состояние плеера | `TMAMedia`; аудио также использует Supabase Storage |
 | Knowledge | Dexie KI-таблицы и outbox | `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` |
 | AI-промпты / конфигурация | Настройки и формы генерации | `TMASetting`, `TMAUserPrompt`, `TMACustomPrompt` |
+| Game Mode | Локальное состояние экрана; ID текущей попытки в sessionStorage аккаунта | `TMAGameAttempt`; сцена/выдача проверяются сервером; online only |
+| Game MVP 3 (isolated pilot, default off) | Клиент не пишет evidence; voice и Classic не меняются | `api/game_mvp3/models.py`: память, результаты, capture/interaction; источник — committed engine transitions, миграция 88 только явно |
 | Совместный доступ | `app/src/store/useCollaborativeStore.js` | `TMA_Collaborator` |
 | Библиотека | `app/src/store/slices/createLibrarySlice.js` | `LibraryCategory`, `Deck`, `Card` |
 
