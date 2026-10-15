@@ -24,6 +24,12 @@
 
 ---
 
+«Автор уроков»: `#author-panel-v2` / `author.js` → `POST /api/admin/author/v2-preview`
+(`routers/author.py`) → `services/structured_preview.py` → существующие
+`load_document` и `to_legacy_card`. Только просмотр JSON V2 всех восьми типов;
+legacy-проекции отдельны от V2, публикация/обновление TXT/MD не изменены.
+Контракт и проверки: [STRUCTURED_CARDS_V2](../project_docs/STRUCTURED_CARDS_V2.md).
+
 ## 2. Архитектурные инварианты админки (Admin Architecture Rules)
 
 ### Изоляция и окружение

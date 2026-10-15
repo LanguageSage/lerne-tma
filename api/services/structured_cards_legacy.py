@@ -49,7 +49,12 @@ def _trainer_body(card, path):
     return ''.join(body), ', '.join(answers)
 
 
-def _convert_card(card, deck, index):
+def to_legacy_card(card, deck, index):
+    """Project one already validated V2 card and deck, preserving its source index.
+
+    Callers must use the V2 contract first. Conversion failure is independent of
+    V2 validity; this function never mutates the source or writes storage.
+    """
     path = f'cards[{index}]'
     if card.type == 'theory':
         body, back = card.data.text, card.data.summary
@@ -108,5 +113,5 @@ def to_legacy_document(value: dict | Document) -> dict:
     reference, never card_id. The result is a preview, not an API save request.
     """
     document = validate_document(value)
-    cards = [_convert_card(card, document.deck, index) for index, card in enumerate(document.cards)]
+    cards = [to_legacy_card(card, document.deck, index) for index, card in enumerate(document.cards)]
     return {'deck': document.deck.model_dump(mode='json', exclude_none=True), 'cards': cards}

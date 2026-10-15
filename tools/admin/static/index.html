@@ -21,6 +21,10 @@
   <style>
     body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .glass { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+    #author-panel-v2 { min-width: 0; overflow-wrap: anywhere; }
+    #author-panel-v2 pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+    #author-panel-v2 summary, #author-panel-v2 button, #author-panel-v2 input { min-height: 44px; }
+    #author-panel-v2 :focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
@@ -1539,9 +1543,9 @@
           </div>
         </div>
 
-        <!-- 3 Modes Sub-Navigation & Quick Actions -->
+        <!-- Author modes & quick actions -->
         <div class="flex items-center gap-2 flex-wrap w-full md:w-auto">
-          <div class="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 shadow-inner">
+          <div class="flex flex-wrap items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 shadow-inner">
             <button onclick="switchAuthorSubtab('publish')" id="author-subtab-publish" class="px-3 py-1.5 text-xs font-bold rounded-xl transition bg-indigo-600 text-white shadow-md shadow-indigo-500/20 flex items-center gap-1.5">
               <i data-lucide="upload" class="w-3.5 h-3.5"></i> <span>Публикация</span>
             </button>
@@ -1550,6 +1554,9 @@
             </button>
             <button onclick="switchAuthorSubtab('update')" id="author-subtab-update" class="px-3 py-1.5 text-xs font-medium rounded-xl transition text-slate-400 hover:text-white flex items-center gap-1.5">
               <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> <span>Обновление</span>
+            </button>
+            <button onclick="switchAuthorSubtab('v2')" id="author-subtab-v2" class="px-3 py-1.5 text-xs font-medium rounded-xl transition text-slate-400 hover:text-white flex items-center gap-1.5">
+              JSON V2 · Preview
             </button>
           </div>
 
@@ -1560,6 +1567,17 @@
       </div>
 
       <!-- ================================================================= -->
+      <!-- Isolated V2 preview: never connected to publication state -->
+      <div id="author-panel-v2" class="space-y-4 hidden">
+        <div class="glass p-5 rounded-2xl space-y-3">
+          <h3 class="text-base font-bold text-white">Предварительный просмотр Structured Cards V2</h3>
+          <p class="text-sm text-slate-300">Только просмотр. Данные не сохраняются и не публикуются. Legacy-проекция показана отдельно от исходных данных V2.</p>
+          <label for="author-v2-file" class="block text-sm text-slate-300">JSON V2 · один файл .json, UTF-8, до 10 МБ</label>
+          <input id="author-v2-file" type="file" accept=".json,application/json" onchange="previewAuthorV2(this)" class="block w-full text-sm text-slate-300">
+          <p id="author-v2-status" role="status" aria-live="polite" class="text-sm text-slate-300">Выберите файл для проверки.</p>
+        </div>
+        <div id="author-v2-result" class="space-y-4"></div>
+      </div>
       <!-- SUBTAB 1: PUBLISH (Публикация) -->
       <!-- ================================================================= -->
       <div id="author-panel-publish" class="space-y-6">
