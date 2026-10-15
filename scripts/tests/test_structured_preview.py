@@ -36,7 +36,25 @@ class StructuredPreviewTest(unittest.TestCase):
         self.assertNotIn('front', result['document']['cards'][0])
         self.assertEqual(result['legacy_projections'][0]['card']['source_id'], source['cards'][0]['id'])
         self.assertEqual([p['status'] for p in result['legacy_projections'][-5:]],
-                         ['unrepresentable', 'converted', 'converted', 'unsupported', 'unsupported'])
+                         ['unrepresentable', 'converted', 'converted', 'converted', 'converted'])
+
+    def test_word_bank_free_text_compatibility_checked_for_every_card(self):
+        source = json.loads((EXAMPLES / 'word_bank_free_text.json').read_text(encoding='utf-8'))
+        lossy = copy.deepcopy(source['cards'][0])
+        lossy['id'] = 'lossy-bank'
+        lossy['data']['options'][-1] = 'HABE'
+        source['cards'].append(lossy)
+        lossy = copy.deepcopy(source['cards'][1])
+        lossy['id'] = 'lossy-free'
+        lossy['data']['prompt'] = '**Schreiben Sie.**'
+        source['cards'].append(lossy)
+        result = preview_document(json.dumps(source))
+        self.assertTrue(result['valid'])
+        self.assertEqual([p['status'] for p in result['legacy_projections']],
+                         ['converted'] * 4 + ['unrepresentable'] * 2)
+        self.assertIn('cards[4].data.options[4]:', result['legacy_projections'][4]['message'])
+        self.assertIn('cards[5].data.prompt:', result['legacy_projections'][5]['message'])
+        self.assertEqual(result['document'], load_document(json.dumps(source)).model_dump(mode='json'))
 
     def test_puzzle_quiz_preview_separates_multi_answer_and_lossy_tokens_from_validation(self):
         source = json.loads((EXAMPLES / 'puzzle_quiz.json').read_text(encoding='utf-8'))

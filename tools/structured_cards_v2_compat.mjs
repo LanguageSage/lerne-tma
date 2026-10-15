@@ -11,6 +11,9 @@ import { stripMarkdown } from '../app/src/utils/text.js';
 import { evaluatePuzzleOrder } from '../app/src/utils/puzzleEvaluation.js';
 import { parseQuizData } from '../app/src/utils/quizParser.js';
 import { evaluateQuizOption } from '../app/src/utils/quizEvaluation.js';
+import { parseWordBankData, normalizeWordBankValue } from '../app/src/utils/wordBankParser.js';
+import { assignWordBankOption, sanitizeWordBankAssignments, checkWordBankAssignments } from '../app/src/utils/wordBankState.js';
+import { parseFreeTextData } from '../app/src/utils/freeTextParser.js';
 
 const { legacy, expected } = JSON.parse(readFileSync(0, 'utf8'));
 let gapsChecked = 0;
@@ -125,6 +128,43 @@ for (const [index, card] of legacy.cards.entries()) {
     }
     assert.equal(evaluateQuizOption(data.options, -1), null);
     optionsChecked += data.options.length;
+  } else if (authored.type === 'word_bank') {
+    const data = parseWordBankData(card);
+    assert.ok(data?.isWordBank);
+    const parts = authored.data.parts;
+    const gaps = parts.filter(part => part.type === 'gap');
+    assert.equal(data.text, parts.map(part => part.type === 'text' ? part.text : `<<${part.option + 1}>>`).join(''));
+    assert.deepEqual(data.gaps, gaps.map((part, index) => ({ id: String(part.option + 1), index,
+      correctAnswer: authored.data.options[part.option] })));
+    assert.deepEqual(data.options, authored.data.options.map((value, index) => ({ id: `option-${index}`, value })));
+    let assignments = {};
+    assert.equal(checkWordBankAssignments(data.gaps, data.options, assignments).allCorrect, false);
+    for (const gap of data.gaps) {
+      // Reverse search deliberately uses interchangeable duplicate occurrences.
+      const option = [...data.options].reverse().find(option => !Object.values(assignments).includes(option.id)
+        && option.value === gap.correctAnswer);
+      assignments = assignWordBankOption(assignments, gap.id, option.id);
+      const other = data.gaps.find(other => other.id !== gap.id);
+      if (other) assert.equal(assignWordBankOption(assignments, other.id, option.id), assignments);
+      for (const candidate of data.options) {
+        const checked = checkWordBankAssignments([gap], data.options, { [gap.id]: candidate.id });
+        assert.equal(checked.allCorrect, normalizeWordBankValue(candidate.value) === normalizeWordBankValue(gap.correctAnswer));
+      }
+    }
+    assert.deepEqual(sanitizeWordBankAssignments(assignments, data.gaps, data.options), assignments);
+    const checked = checkWordBankAssignments(data.gaps, data.options, assignments);
+    assert.equal(checked.allCorrect, true);
+    assert.equal(checked.evaluation.accepted, true);
+    gapsChecked += data.gaps.length;
+    optionsChecked += data.options.length;
+  } else if (authored.type === 'free_text') {
+    const data = parseFreeTextData(card);
+    assert.equal(data.prompt, authored.data.prompt);
+    assert.equal(data.exampleAnswer, authored.data.sample_answer);
+    assert.deepEqual(card.metadata.accepted_answers, authored.data.accepted_answers || []);
+    assert.deepEqual(card.metadata.grading_policy, { mode: 'open_text', typo_tolerance: true,
+      semantic_equivalence: true, grammar_requires_retry: true, case_sensitive: false,
+      punctuation_sensitive: false, max_retries: 3, ...authored.data.grading_policy });
   } else {
     assert.equal(content.exercise, authored.type === 'theory' ? authored.data.text : authored.data.prompt);
     assert.equal(card.back, authored.type === 'theory' ? authored.data.summary || '' : authored.data.answer);

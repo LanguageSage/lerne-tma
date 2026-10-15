@@ -222,15 +222,111 @@ class V2LegacyTests(unittest.TestCase):
         with self.assertRaises(LegacyConversionError):
             to_legacy_document(value)
 
-    def test_all_unimplemented_types_fail_without_partial_results(self):
-        value = json.loads((EXAMPLES / 'other_types.json').read_text(encoding='utf-8'))
-        for card in value['cards']:
-            if card['type'] not in ('word_bank', 'free_text'):
-                continue
-            combined = document()
-            combined['cards'].append(card)
-            with self.subTest(type=card['type']), self.assertRaisesRegex(LegacyConversionError, r'cards\[1\].type'):
-                to_legacy_document(combined)
+    def test_all_eight_types_project_through_actual_parsers_and_evaluators(self):
+        value = json.loads((EXAMPLES / 'basics.json').read_text(encoding='utf-8'))
+        for name in ('match.json', 'puzzle_quiz.json', 'word_bank_free_text.json'):
+            value['cards'].extend(json.loads((EXAMPLES / name).read_text(encoding='utf-8'))['cards'])
+        before = copy.deepcopy(value)
+        result = to_legacy_document(value)
+        self.assertEqual({card['card_type'] for card in result['cards']},
+                         {'theory', 'standard', 'trainer', 'quiz', 'match', 'puzzle', 'word_bank', 'free_text'})
+        process = subprocess.run(['node', str(ROOT / 'tools/structured_cards_v2_compat.mjs')],
+            input=json.dumps({'legacy': result, 'expected': value}, ensure_ascii=False),
+            capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(json.loads(process.stdout)['cards'], len(value['cards']))
+        self.assertEqual(value, before)
+
+    def test_word_bank_preserves_occurrences_gap_order_and_envelope(self):
+        value = json.loads((EXAMPLES / 'word_bank_free_text.json').read_text(encoding='utf-8'))
+        before = copy.deepcopy(value)
+        result = to_legacy_document(value)
+        card = result['cards'][0]
+        self.assertIn('@wordbank\nGestern <<2>> ich nach Hause gegangen.\n'
+                      'Ich <<3>> gekocht und <<1>> danach Deutsch gelernt.\n'
+                      '@options\nhabe | bin | habe | ist | hat', card['front'])
+        self.assertEqual(card['back'], '2=bin\n3=habe\n1=habe')
+        self.assertEqual((card['source_id'], card['level'], card['topics']), ('perfekt-bank', 'B1', 'Perfekt'))
+        self.assertEqual(card['context'], value['cards'][0]['explanation'])
+        result['cards'][0]['metadata']['tags'].append('changed')
+        result['cards'][2]['metadata']['accepted_answers'].append('changed')
+        result['cards'][2]['metadata']['grading_policy']['max_retries'] = 9
+        self.assertEqual(value, before)
+
+    def test_word_bank_rejects_lossy_options_text_and_normalization_with_paths(self):
+        source = json.loads((EXAMPLES / 'word_bank_free_text.json').read_text(encoding='utf-8'))['cards'][0]
+        for option in (' a', 'a ', '\ufeffa', 'a\ufeff', 'a|b', 'a\nb', 'a\rb', 'a\u2028b', '@options', '::task', 'HABE'):
+            card = copy.deepcopy(source)
+            card['data']['options'][4] = option
+            value = document(card)
+            validate_document(value)
+            with self.subTest(option=option), self.assertRaisesRegex(LegacyConversionError, r'cards\[0\].data.options\[4\]:'):
+                to_legacy_document(value)
+        for text in (' leading', 'a\rB', 'a\n\nb', 'a\n \nB', 'a\n@options\nB', 'a\n::task\nB',
+                     '<<literal>>', '[[literal]]', '___WORD_BANK_GAP_2___', 'a\u2029b'):
+            card = copy.deepcopy(source)
+            card['data']['parts'][0]['text'] = text
+            with self.subTest(text=text), self.assertRaisesRegex(LegacyConversionError, r'cards\[0\].data.parts\[0\].text:'):
+                to_legacy_document(document(card))
+        for pieces in (['a\n', '\nB'], ['<', '<1>>'], ['[', '[literal]]'], ['a\n@op', 'tions\nB']):
+            card = copy.deepcopy(source)
+            card['data']['parts'][:1] = [{'type': 'text', 'text': text} for text in pieces]
+            with self.subTest(pieces=pieces), self.assertRaisesRegex(LegacyConversionError, r'data.parts\[\d+\].text:'):
+                to_legacy_document(document(card))
+        card = copy.deepcopy(source)
+        card['data']['parts'][-1]['text'] += '\ufeff'
+        with self.assertRaisesRegex(LegacyConversionError, r'data.parts\[6\].text:'):
+            to_legacy_document(document(card))
+        for options in (['two  words', 'two words'], ['two\twords', 'TWO WORDS']):
+            with self.assertRaisesRegex(LegacyConversionError, r'data.options\[1\]:'):
+                to_legacy_document(document({'type': 'word_bank', 'data': {
+                    'options': options, 'parts': [{'type': 'gap', 'option': 0}]}}))
+
+    def test_word_bank_preserves_markup_internal_spacing_and_subword_gaps(self):
+        cards = []
+        for options, parts in (
+            (['two  words', '**literal**', 'a=b; c/d', '<img>'], [
+                {'type': 'text', 'text': '**Wort**: '}, {'type': 'gap', 'option': 0},
+                {'type': 'text', 'text': '\nA\t B'}]),
+            (['em', 'en'], [{'type': 'text', 'text': 'mit gut'}, {'type': 'gap', 'option': 0},
+                            {'type': 'text', 'text': ' Grund'}]),
+            (['a', 'a'], [{'type': 'gap', 'option': 1}, {'type': 'gap', 'option': 0}])):
+            cards.append({'type': 'word_bank', 'data': {'options': options, 'parts': parts}})
+        cards.append({'type': 'free_text', 'data': {'prompt': 'Schreiben Sie.\n\nZwei Sätze.',
+            'sample_answer': '**Ein Beispiel.**\r\nNoch ein Satz.',
+            'accepted_answers': [' Alternative. ', '**literal**\nZweite Zeile.']}})
+        value = {**document(), 'cards': cards}
+        process = subprocess.run(['node', str(ROOT / 'tools/structured_cards_v2_compat.mjs')],
+            input=json.dumps({'legacy': to_legacy_document(value), 'expected': value}, ensure_ascii=False),
+            capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stderr)
+
+    def test_free_text_preserves_all_grading_fields_and_defaults_in_existing_metadata(self):
+        value = json.loads((EXAMPLES / 'word_bank_free_text.json').read_text(encoding='utf-8'))
+        cards = to_legacy_document(value)['cards']
+        for source, card in zip(validate_document(value).cards[1:], cards[1:]):
+            self.assertEqual(card['metadata']['grading_policy'], source.data.grading_policy.model_dump())
+            self.assertEqual(card['metadata']['accepted_answers'], source.data.accepted_answers)
+            self.assertEqual(card['back'], source.data.sample_answer)
+            self.assertIn('@free\n' + source.data.prompt, card['front'])
+        self.assertEqual(cards[1]['metadata']['grading_policy']['mode'], 'open_text')
+        self.assertEqual(cards[2]['metadata']['grading_policy']['mode'], 'controlled_text')
+        self.assertEqual(cards[3]['metadata']['grading_policy']['mode'], 'exact')
+
+    def test_free_text_lossy_prompt_and_sample_fail_without_partial_result(self):
+        for field, texts in (
+                ('prompt', [' Q', 'Q\ufeff', '**bold**', '`code`', 'A\rB', 'A\u2028B', 'Q\n@free', 'Q\n::source\nX']),
+                ('sample_answer', [' A', 'A ', '\ufeffA', 'A\ufeff'])):
+            for text in texts:
+                value = document()
+                value['cards'].append({'type': 'free_text', 'data': {
+                    'prompt': 'Schreiben Sie.', 'sample_answer': 'Beispiel.', field: text}})
+                before = copy.deepcopy(value)
+                validate_document(value)
+                with self.subTest(field=field, text=text), self.assertRaisesRegex(
+                        LegacyConversionError, rf'cards\[1\].data.{field}:'):
+                    to_legacy_document(value)
+                self.assertEqual(value, before)
 
     def test_actual_frontend_parsers_and_evaluator_accept_projection(self):
         value = json.loads((EXAMPLES / 'basics.json').read_text(encoding='utf-8'))
@@ -371,6 +467,7 @@ class V2LegacyTests(unittest.TestCase):
                                                 ('to-legacy', 'basics.json', 0),
                                                 ('to-legacy', 'match.json', 0),
                                                 ('to-legacy', 'puzzle_quiz.json', 0),
+                                                ('to-legacy', 'word_bank_free_text.json', 0),
                                                 ('to-legacy', 'other_types.json', 1)):
             with self.subTest(command=command, fixture=fixture):
                 process = subprocess.run([sys.executable, str(ROOT / 'scripts/structured_cards_v2.py'),

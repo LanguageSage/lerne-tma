@@ -116,9 +116,7 @@ function renderAuthorV2(preview, container) {
         legacy = `<details class="mt-4 border-t border-slate-700 pt-2"><summary class="cursor-pointer text-sm text-slate-300">Временная legacy-проекция · только просмотр</summary>
           ${authorV2Field('Производные поля legacy', projection.card)}</details>`;
       } else {
-        legacy = `<p class="mt-4 text-sm text-amber-200">${projection.status === 'unsupported'
-          ? 'Legacy-преобразование этого типа пока не реализовано. Это не ошибка карточки V2.'
-          : `V2-карточка валидна, но legacy не может безопасно представить её содержимое: ${escapeHtml(projection.message)}`}</p>`;
+        legacy = `<p class="mt-4 text-sm text-amber-200">V2-карточка валидна, но legacy не может безопасно представить её содержимое: ${escapeHtml(projection.message)}</p>`;
       }
       return `<article class="glass p-5 rounded-2xl" data-v2-card="${index}">
         <h4 class="text-base font-bold text-white">Карточка №${index + 1} · ${escapeHtml(card.type)}${card.id ? ` · ${escapeHtml(card.id)}` : ''}</h4>

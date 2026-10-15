@@ -401,6 +401,66 @@ class ServerContextTests(unittest.TestCase):
         self.assertNotIn('@free', ctx['task'])
         self.assertEqual(policy.max_retries, 2)
 
+    def test_v2_projection_is_consumed_by_real_context_loader_and_evaluator(self):
+        from pathlib import Path
+        from api.services.structured_cards_legacy import to_legacy_document
+        from api.services.structured_cards_v2 import validate_document
+        source = json.loads((Path(__file__).resolve().parents[1] /
+            'project_docs/examples/structured_cards_v2/word_bank_free_text.json').read_text(encoding='utf-8'))
+        for authored, projected in zip(validate_document(source).cards[1:], to_legacy_document(source)['cards'][1:]):
+            with self.subTest(mode=authored.data.grading_policy.mode):
+                self.card.front_text = projected['front']
+                self.card.back_text = projected['back']
+                self.card.context = projected['context']
+                self.card.metadata = json.dumps(projected['metadata'])
+                self.card.save()
+                ctx, policy = self.load()
+                self.assertEqual(policy, authored.data.grading_policy)
+                self.assertEqual(ctx['expected_answers'], [authored.data.sample_answer, *authored.data.accepted_answers])
+                self.assertIn(authored.data.prompt, ctx['task'])
+                for info in authored.info:
+                    if info.type in ('task', 'source'):
+                        self.assertIn(info.text, ctx['task'])
+                no_ai = MagicMock(side_effect=AssertionError('Exact variants must not need AI'))
+                for answer in ctx['expected_answers']:
+                    result = asyncio.run(evaluate_answer(ctx, policy, answer, no_ai))
+                    self.assertTrue(result.accepted)
+                    self.assertEqual(result.evaluator, 'exact')
+                no_ai.assert_not_called()
+                if policy.mode == 'exact':
+                    for answer in ('wrong', authored.data.sample_answer.lower(), authored.data.sample_answer.rstrip('.')):
+                        result = asyncio.run(evaluate_answer(ctx, policy, answer, no_ai))
+                        self.assertFalse(result.accepted)
+                else:
+                    client = AsyncMock()
+                    client.chat_completion.return_value = (ai_result(), True)
+                    result = asyncio.run(evaluate_answer(ctx, policy, 'Eine ganz andere Antwort.', lambda: (client, 'test')))
+                    self.assertTrue(result.accepted)
+                    payload = json.loads(client.chat_completion.call_args.kwargs['user_message'])
+                    self.assertEqual(payload['grading_policy'], authored.data.grading_policy.model_dump())
+                    self.assertEqual(payload['expected_answers'], ctx['expected_answers'])
+
+    def test_v2_nondefault_policy_reaches_ai_without_losing_flags_or_variants(self):
+        from api.services.structured_cards_legacy import to_legacy_document
+        policy = GradingPolicy(mode='controlled_text', typo_tolerance=False, semantic_equivalence=False,
+            grammar_requires_retry=False, case_sensitive=True, punctuation_sensitive=True, max_retries=1)
+        source = {'schema_version': 2, 'deck': {'name': 'test'}, 'cards': [{
+            'type': 'free_text', 'data': {'prompt': 'Schreiben Sie.', 'sample_answer': EXPECTED,
+                'accepted_answers': [' Alternative. ', '**literal**\nZweite Zeile.'], 'grading_policy': policy.model_dump()}}]}
+        projected = to_legacy_document(source)['cards'][0]
+        self.card.front_text = projected['front']
+        self.card.back_text = projected['back']
+        self.card.metadata = json.dumps(projected['metadata'])
+        self.card.save()
+        ctx, loaded_policy = self.load()
+        self.assertEqual(loaded_policy, policy)
+        self.assertEqual(ctx['expected_answers'][1:], source['cards'][0]['data']['accepted_answers'])
+        client = AsyncMock()
+        client.chat_completion.return_value = (ai_result(), True)
+        asyncio.run(evaluate_answer(ctx, loaded_policy, 'Anderer Text.', lambda: (client, 'test')))
+        payload = json.loads(client.chat_completion.call_args.kwargs['user_message'])
+        self.assertEqual(payload['grading_policy'], policy.model_dump())
+
     def test_real_relative_clause_dialogue_keeps_task_and_source_for_grading(self):
         from pathlib import Path
         snapshot = json.loads((Path(__file__).resolve().parents[1] /

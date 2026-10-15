@@ -1,4 +1,4 @@
-"""One-way, opt-in V2 -> legacy preview for six supported card types.
+"""One-way, opt-in V2 -> legacy preview for all eight card types.
 
 This module never writes cards. Derived FRONT/BACK must not be persisted alongside
 an independently editable V2 source. Unsupported/lossy conversion raises an error.
@@ -110,6 +110,68 @@ def _quiz_body(card, path):
     return prompt + '\n\n' + '\n'.join(lines), correct[0].text
 
 
+_STRUCTURAL_LINE = r'(?im)^[\s\ufeff]*(?:@(?:match|puzzle|wordbank|free|theory|options)|::(?:exercise|task|source|example|options|level|topic))[\s\ufeff]*$'
+
+
+def _word_bank_body(card, path):
+    options = card.data.options
+    used = {part.option for part in card.data.parts if part.type == 'gap'}
+    normalize = lambda value: re.sub(r'[\s\ufeff]+', ' ', value).lower()
+    answer_labels = {}
+    for i in sorted(used):
+        answer_labels.setdefault(normalize(options[i]), options[i])
+    for i, value in enumerate(options):
+        p = f'{path}.data.options[{i}]'
+        if (value != value.strip() or value.startswith('\ufeff') or value.endswith('\ufeff')
+                or re.search(r'[|\r\n\u2028\u2029]', value) or re.search(_STRUCTURAL_LINE, value)):
+            raise LegacyConversionError(f'{p}: legacy Word Bank would trim, split or reinterpret this option')
+        # Same-text copies are interchangeable but independently consumable.
+        # Different labels must not become accepted distractors/answers.
+        key = normalize(value)
+        if key in answer_labels and value != answer_labels[key]:
+            raise LegacyConversionError(f'{p}: legacy Word Bank normalization would conflate distinct answers/options')
+
+    fragments, literals, spans, answers = [], [], [], []
+    offset = 0
+    for i, part in enumerate(card.data.parts):
+        p = f'{path}.data.parts[{i}]'
+        if part.type == 'text':
+            fragment = part.text
+            p += '.text'
+        else:
+            # Number by bank position: even identical copies retain their own ID.
+            gap_id = str(part.option + 1)
+            fragment = f'<<{gap_id}>>'
+            answers.append(f'{gap_id}={options[part.option]}')
+        fragments.append(fragment)
+        literals.append(fragment if part.type == 'text' else ' ' * len(fragment))
+        spans.append((offset, offset + len(fragment), p))
+        offset += len(fragment)
+    text = ''.join(fragments)
+    # Validate the assembled text too: boundaries/markers can cross text parts.
+    checks = [r'[\r\u2028\u2029]', r'^[\s\ufeff]+|[\s\ufeff]+$',
+              r'\n[ \t]*\n+', _STRUCTURAL_LINE,
+              r'___WORD_BANK_GAP_', r'\[\[|\]\]']
+    # Literal angle delimiters split across parts must also be rejected.
+    without_gaps = ''.join(literals)
+    for pattern in checks + [r'<<|>>']:
+        match = re.search(pattern, without_gaps if pattern == r'<<|>>' else text)
+        if match:
+            field = next(p for start, end, p in spans if start <= match.start() < end)
+            raise LegacyConversionError(f'{field}: legacy Word Bank cannot preserve this text/boundary')
+    return '@wordbank\n' + text + '\n@options\n' + ' | '.join(options), '\n'.join(answers)
+
+
+def _free_text_body(card, path):
+    prompt = _plain_legacy_text(card.data.prompt, path + '.data.prompt')
+    if re.search(r'[\r\u2028\u2029]', prompt) or re.search(_STRUCTURAL_LINE, prompt):
+        raise LegacyConversionError(f'{path}.data.prompt: legacy Free Text cannot preserve these boundaries/markers')
+    sample = card.data.sample_answer
+    if sample != sample.strip() or sample.startswith('\ufeff') or sample.endswith('\ufeff'):
+        raise LegacyConversionError(f'{path}.data.sample_answer: legacy Free Text would trim the sample answer')
+    return '@free\n' + prompt, sample
+
+
 def to_legacy_card(card, deck, index):
     """Project one already validated V2 card and deck, preserving its source index.
 
@@ -135,6 +197,10 @@ def to_legacy_card(card, deck, index):
         body, back = _puzzle_body(card, path), card.data.translation
     elif card.type == 'quiz':
         body, back = _quiz_body(card, path)
+    elif card.type == 'word_bank':
+        body, back = _word_bank_body(card, path)
+    elif card.type == 'free_text':
+        body, back = _free_text_body(card, path)
     else:
         raise LegacyConversionError(f'{path}.type: {card.type} conversion is not implemented')
 
@@ -171,6 +237,11 @@ def to_legacy_card(card, deck, index):
     result = {'front': front, 'back': back, 'context': card.explanation, 'card_type': card.type,
               'level': level, 'topics': ', '.join(topics),
               'metadata': card.model_dump(mode='json')['metadata']}
+    if card.type == 'free_text':
+        # These are the existing server evaluator's authoritative legacy fields.
+        # Explicit defaults matter: legacy defaults to controlled_text, V2 to open_text.
+        result['metadata'].update(accepted_answers=list(card.data.accepted_answers),
+                                  grading_policy=card.data.grading_policy.model_dump(mode='json'))
     if card.id is not None:
         result['source_id'] = card.id
     return result

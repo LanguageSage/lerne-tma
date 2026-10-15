@@ -1,4 +1,4 @@
-# Структурированные карточки V2 — этапы 1–4
+# Структурированные карточки V2 — этапы 1–5
 
 V2 — JSON для авторства человеком и ИИ. Тип задан явно; ответы и данные упражнения
 не извлекаются из FRONT. Это отдельный контракт и инструмент предварительной
@@ -106,7 +106,7 @@ Trainer: `{type: "text", text: "..."}`, `{type: "input", answers: ["hatte"]}`,
 - `api/services/structured_cards_v2.py`: строгие Pydantic-модели всех типов,
   `validate_document(dict)`, `load_document(json_text)` и генерируемая JSON Schema.
 - `api/services/structured_cards_legacy.py`: `to_legacy_document(dict | Document)`
-  для Theory, Standard, Trainer, Match, Puzzle и Quiz с одним правильным ответом.
+  для всех восьми типов (Quiz — с одним правильным ответом).
 - `scripts/structured_cards_v2.py`: отдельный CLI, только чтение файла и stdout.
   Перед API-import отключает прежнюю инициализацию таблиц, как `lesson_qa.py`.
 
@@ -118,6 +118,7 @@ python scripts/structured_cards_v2.py validate project_docs/examples/structured_
 python scripts/structured_cards_v2.py to-legacy project_docs/examples/structured_cards_v2/basics.json
 python scripts/structured_cards_v2.py to-legacy project_docs/examples/structured_cards_v2/match.json
 python scripts/structured_cards_v2.py to-legacy project_docs/examples/structured_cards_v2/puzzle_quiz.json
+python scripts/structured_cards_v2.py to-legacy project_docs/examples/structured_cards_v2/word_bank_free_text.json
 python scripts/structured_cards_v2.py schema
 python -m unittest scripts.tests.test_structured_cards_v2 -v
 ```
@@ -134,7 +135,7 @@ BACK Trainer строится из ответов, объяснение пере
 преобразуются в существующую строку. Вход не изменяется, частичный результат
 при ошибке не возвращается. Проверяются текущие границы информационных блоков.
 
-Остальные два типа (Word Bank, Free Text) валидируются, но конвертация пока явно отклоняется.
+Все восемь типов имеют legacy-проекцию и проверку совместимости.
 Quiz с несколькими правильными ответами валиден V2, но не представим этой legacy-проекцией.
 Литеральные маркеры V2, скобки в тексте Trainer, Markdown/разделители в ответах
 и другие случаи, которые legacy исказит, также отклоняются с путём карточки.
@@ -149,8 +150,11 @@ Quiz с несколькими правильными ответами вали�
 содержит отдельный конвертируемый Match с повторяющимися правыми значениями и парами.
 [puzzle_quiz.json](examples/structured_cards_v2/puzzle_quiz.json) — конвертируемые Puzzle
 с повторениями и пунктуацией и Quiz с одним правильным вариантом.
-Файл other_types предназначен для
-валидации, попытка его конвертации ожидаемо завершается ошибкой.
+[word_bank_free_text.json](examples/structured_cards_v2/word_bank_free_text.json) содержит
+Word Bank с двумя копиями habe, дистракторами и пропусками в порядке 2/3/1,
+а также Free Text в режимах open_text, controlled_text и exact.
+Файл other_types валиден V2; конвертация всего документа завершается ошибкой
+из-за Quiz с несколькими правильными ответами.
 
 Проверки: `scripts/tests/test_structured_cards_v2.py`; мост
 `tools/structured_cards_v2_compat.mjs` передаёт проекцию настоящим frontend
@@ -162,10 +166,9 @@ parser/detector/evaluator, проверяет правильные ответы,
 
 ## Следующие минимальные этапы
 
-1. Расширить адаптер на Word Bank и Free Text с проверками действующих evaluator.
-2. Согласовать единственного владельца содержимого при хранении и редактировании;
+1. Согласовать единственного владельца содержимого при хранении и редактировании;
    затем отдельно проектировать native V2 renderer/API/offline и совместимость.
-3. Только после этого — двусторонний импорт/экспорт, явное версионирование хранения,
+2. Только после этого — двусторонний импорт/экспорт, явное версионирование хранения,
    постепенная миграция и удаление legacy. Обратный legacy → V2 конвертер на этом
    этапе отсутствует: угадывание структуры существующих уроков требует отдельного аудита.
 
@@ -188,9 +191,9 @@ HTML/Markdown отображается обычным экранированны
 Существующий алгоритм конвертера открыт как `to_legacy_card` для **уже
 валидированных** моделей карточки/колоды; `to_legacy_document` сохраняет
 прежний контракт «весь документ или ошибка». Preview вызывает его алгоритм
-покарточно, сохраняя исходный индекс: `converted`, `unsupported` (два типа)
+покарточно, сохраняя исходный индекс: `converted`
 или `unrepresentable` (V2 валиден, legacy исказит содержимое).
-Последние два статуса не являются ошибкой валидации V2 и не скрывают соседние карточки.
+Статус unrepresentable не является ошибкой валидации V2 и не скрывает соседние карточки.
 Состояние V2-preview не передаётся в публикацию/обновление TXT/MD.
 
 Проверки без БД и внешних API:
@@ -282,3 +285,93 @@ Puzzle. Сравниваются точные токены/порядок/пов
 `StudyCardQuiz` с проекциями, полученными upload-эндпоинтом: неправильная попытка,
 повтор, успешное завершение, перевод, отказ для multi-answer Quiz. Preview
 визуально проверяется на 1440/375px. Все данные изолированы от БД и сохранения.
+
+
+## Этап 5: Word Bank и Free Text → legacy
+
+Все восемь веток находятся в единственном `structured_cards_legacy.py`.
+Preview «Автора» вызывает `to_legacy_card` для каждого типа: `converted` либо
+`unrepresentable` с путём поля. Отдельного списка неподдерживаемых типов нет.
+V2, учебные компоненты, БД, синхронизация и существующие карточки не изменены.
+
+**Word Bank:** FRONT — `@wordbank`, текст с `<<N>>`, затем `@options` и варианты
+через ` | `. Номер N равен индексу правильного элемента банка + 1; BACK содержит
+`N=исходный вариант` в порядке пропусков. Порядок вариантов, пробелы внутри
+строк, переносы LF, Markdown, дистракторы и пояснение сохраняются. Пропуски могут
+быть соседними или внутри слова. Две одинаковые строки остаются двумя элементами
+с разными `option-N` ID. Как и в действующем механизме, одинаковые по тексту
+копии взаимозаменяемы, каждая расходуется один раз; V2-индекс не вводит новую
+проверку идентичности одинаковых ответов.
+
+Отказ с `data.options[i]`: крайние пробелы/BOM, CR/LF/Unicode line separators,
+разделитель `|`, отдельный структурный маркер. Если нормализация Word Bank
+(trim, схлопывание пробелов, lowercase) делает отличающуюся подпись равной
+используемому правильному варианту, адаптер также отказывает: дистрактор не
+становится правильным молча. Идентичные копии разрешены.
+Отказ с `data.parts[i].text`: крайние пробелы всего текста, CR/Unicode line
+separators, пустые строки, которые parser схлопывает, литеральные `<<`, `>>`,
+`[[`, `]]`, служебный `___WORD_BANK_GAP_` и отдельные структурные директивы
+(включая `@options`). Проверяется собранный текст, в том числе маркеры на стыках
+соседних text-частей. Конвертер ничего не нормализует и не экранирует.
+
+**Free Text:** FRONT — `@free` и задание, BACK — точный `sample_answer`,
+CONTEXT — объяснение. `accepted_answers` и полный `grading_policy` копируются
+в **производный** metadata, откуда их уже читает `load_answer_context`.
+Это не второй источник V2: metadata исходной V2-карточки по-прежнему не может
+содержать поля ответов/оценки. Явно передаются и значения по умолчанию:
+V2 без политики означает open_text, тогда как legacy без metadata означает
+controlled_text. Нельзя удалять эти поля при дальнейшей передаче проекции.
+
+Действующий механизм поддерживает все текущие поля GradingPolicy: mode
+(exact/controlled_text/open_text), typo_tolerance, semantic_equivalence,
+grammar_requires_retry, case_sensitive, punctuation_sensitive, max_retries.
+Образец и accepted_answers становятся `expected_answers`; совпадение с любым
+вариантом проверяется детерминированно. В exact несовпадение отклоняется;
+controlled_text допускает безопасные опечатки по действующим правилам;
+open_text передаёт несовпадения AI. Семантика/грамматика используют существующий
+AI fallback и его проверки policy, число попыток — существующее frontend state.
+При отсутствии AI несовпадение в open/controlled может вернуть unavailable,
+не засчитывая попытку. Это прежнее поведение, не обещание офлайн-семантической оценки.
+Существующая KI-политика может отключать допуск опечаток для spelling/punctuation.
+
+Задание отклоняется с `data.prompt`, если trim/Markdown/control markup либо
+структурные границы меняют его текст. Крайние пробелы/BOM образца отклоняются
+с `data.sample_answer`, поскольку frontend parser их удаляет. Внутренние
+переносы/Markdown образца и accepted_answers сохраняются; варианты не склеиваются.
+Непредставимое содержимое даёт unrepresentable; настройки оценки не отбрасываются.
+Новых режимов или самостоятельного evaluator у адаптера нет.
+
+Проверки этапа:
+
+- `test_structured_cards_v2.py`: единый документ со всеми восемью типами,
+  неизменность входа/вложенных metadata, пути отказов, повторные варианты,
+  стыки text-частей, inline gaps, CLI и отсутствие соединений/SQL.
+- `structured_cards_v2_compat.mjs`: настоящие wordBankParser/wordBankState и
+  freeTextParser, матрица выбора/дистракторов, физическое расходование копий,
+  неполное и успешное завершение, точный текст и политика.
+- `tests/test_answer_evaluation.py`: производная проекция проходит настоящий
+  load_answer_context на изолированной in-memory SQLite, затем evaluate_answer;
+  три режима, альтернативы, case/punctuation, все флаги в AI payload.
+  AI-ответы подменены, платные вызовы не выполняются.
+- `structured-preview.spec.cjs`: независимые успех/отказ в preview на 1440/375px,
+  XSS, настоящие StudyCardWordBank/StudyCardFreeText, ошибочный дистрактор и
+  исправление, независимые копии, retry limit/reveal и допустимая альтернатива.
+  Тестовый транспорт Free Text вызывает настоящий loader/evaluator с чтением
+  карточки из памяти и запретом SQL, без сохранения и внешнего AI.
+
+Следующий архитектурный этап — отдельно согласовать контракт владения V2 при
+хранении/редактировании и границу native V2 renderer/API/offline. Эта проекция
+остаётся read-only preview и не является готовым save payload; миграций,
+двустороннего импорта и автоматического переписывания старых карточек здесь нет.
+
+Проверено 15 октября 2026: 75 Python-тестов, 86 JS-тестов, 6 Playwright-сценариев;
+`py_compile`, `node --check`, `git diff --check` успешны. Preview проверен на
+320/375/430/768/1440px, новые проекции — на 375/1440px; скриншоты упражнений
+с настоящими стилями приложения просмотрены на 375px. ESLint-конфигурация app
+не охватывает admin JS за пределами app; для него выполнен `node --check`.
+
+```powershell
+venv/Scripts/python.exe -m unittest scripts.tests.test_structured_cards_v2 scripts.tests.test_structured_preview tests.test_answer_evaluation -v
+node --test --test-isolation=none app/src/utils/__tests__/exerciseParsers.test.js app/src/utils/__tests__/freeTextEvaluationState.test.js app/src/utils/__tests__/freeTextLifecycle.test.js
+npx --no-install playwright test scripts/tests/browser/structured-preview.spec.cjs --workers=1
+```

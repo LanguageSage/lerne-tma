@@ -63,7 +63,9 @@ test('actual upload previews all types, escapes content and never enters a write
   await expect(card('match')).toContainText('essen → gegessen');
   await expect(card('free_text')).toContainText('Пример ответа (не точный ключ)');
   await expect(card('free_text')).toContainText('Ein anderer Text.');
-  await expect(page.getByText('Legacy-преобразование этого типа пока не реализовано. Это не ошибка карточки V2.', { exact: true })).toHaveCount(2);
+  await expect(card('word_bank')).toContainText('Временная legacy-проекция');
+  await expect(card('free_text')).toContainText('Временная legacy-проекция');
+  await expect(page.getByText('Legacy-преобразование этого типа пока не реализовано.', { exact: false })).toHaveCount(0);
   await page.locator('[data-v2-card="0"] summary').first().click();
   await expect(page.locator('[data-v2-card="0"]')).toContainText('front');
   await expect(page.locator('[data-v2-card="0"]')).toContainText(hostile);
@@ -226,6 +228,126 @@ test('Puzzle and single-answer Quiz project safely; multi-answer Quiz stays V2',
   await page.locator('.quiz-option-item').filter({ hasText: 'Berlin' }).click();
   await page.getByRole('button', { name: 'Проверить', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.v2Renderer.answers.length)).toBe(2);
+});
+
+test('Word Bank and Free Text projections run in existing learner components', async ({ page }, testInfo) => {
+  const errors = new Set();
+  page.on('pageerror', error => errors.add(error.stack));
+  await openPreview(page);
+  const document = fixture('word_bank_free_text.json');
+  const lossy = JSON.parse(JSON.stringify(document.cards[0]));
+  lossy.id = 'lossy';
+  lossy.data.options[4] = 'HABE';
+  document.cards.push(lossy, { type: 'free_text', data: { prompt: '**Schreiben Sie.**', sample_answer: hostile } });
+  await upload(page, document);
+  const projections = [];
+  for (let index = 0; index < 4; index++) {
+    const card = page.locator(`[data-v2-card="${index}"]`);
+    await card.getByText('Временная legacy-проекция · только просмотр', { exact: true }).click();
+    projections.push(JSON.parse(await card.locator('details').first().locator('pre').textContent()));
+    if (index < 2) {
+      for (const width of [1440, 375]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await card.screenshot({ path: testInfo.outputPath(`bank-free-${index}-${width}.png`) });
+        const dimensions = await card.evaluate(e => [e.scrollWidth, e.clientWidth]);
+        expect(dimensions[0]).toBeLessThanOrEqual(dimensions[1] + 1);
+      }
+    }
+  }
+  await expect(page.locator('[data-v2-card="4"]')).toContainText('cards[4].data.options[4]');
+  await expect(page.locator('[data-v2-card="5"]')).toContainText('cards[5].data.prompt');
+  await expect(page.locator('[data-v2-card="5"]')).toContainText(hostile);
+  await expect(page.locator('#author-v2-result img, #author-v2-result script')).toHaveCount(0);
+  expect(projections[3].metadata.grading_policy).toEqual(document.cards[3].data.grading_policy);
+
+  // The actual service sends only card_id/answer/language. Substitute the test
+  // server's memory-only loader/evaluator for its transport, with the projection.
+  const requests = [];
+  await page.route('**/ai/evaluate-answer', async route => {
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    const response = await page.request.post('http://127.0.0.1:8051/__v2-evaluate', {
+      data: { card: projections[3], answer: body.answer },
+    });
+    expect(response.ok()).toBeTruthy();
+    await route.fulfill({ json: await response.json() });
+  });
+  await page.route('http://127.0.0.1:5199/__v2-bank-free', route => route.fulfill({ contentType: 'text/html',
+    body: '<html><head><script type="module" src="/@vite/client"></script><link rel="stylesheet" href="/src/index.css"><link rel="stylesheet" href="/src/App.css"><link rel="stylesheet" href="/src/components/study/StudyCard.css"></head><body><div id="fixture" style="max-width:500px;margin:auto"></div></body></html>' }));
+  // Synthetic pages have no HMR session. Provide the development client's
+  // handshake so its console forwarding works; application errors remain observed.
+  await page.routeWebSocket('ws://127.0.0.1:5199/**', socket => socket.send(JSON.stringify({ type: 'connected' })));
+  const viteReady = page.waitForEvent('console', message => message.text().includes('[vite] connected.'));
+  await page.goto('http://127.0.0.1:5199/__v2-bank-free');
+  await viteReady;
+  await page.evaluate(async projections => {
+    localStorage.setItem('native_language', 'ru');
+    await import('/@vite/client');
+    const RefreshRuntime = (await import('/@react-refresh')).default;
+    RefreshRuntime.injectIntoGlobalHook(window);
+    window.$RefreshReg$ = () => {};
+    window.$RefreshSig$ = () => type => type;
+    const React = (await import('/node_modules/.vite/deps/react.js')).default;
+    const { createRoot } = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
+    const { StudyCardWordBank } = await import('/src/components/study/StudyCardWordBank.jsx');
+    const { StudyCardFreeText } = await import('/src/components/study/StudyCardFreeText.jsx');
+    const { parseWordBankData } = await import('/src/utils/wordBankParser.js');
+    const { parseFreeTextData } = await import('/src/utils/freeTextParser.js');
+    const root = createRoot(document.getElementById('fixture'));
+    window.v2BankFree = { answers: [] };
+    let review = 0;
+    const onTrainerAnswer = (_id, evidence) => window.v2BankFree.answers.push(evidence);
+    window.v2BankFree.free = () => {
+      const card = { ...projections[3], id: 901 };
+      root.render(React.createElement(StudyCardFreeText, { key: `free-${review++}`, card, freeTextData: parseFreeTextData(card), onTrainerAnswer }));
+    };
+    const card = { ...projections[0], id: 900 };
+    root.render(React.createElement(StudyCardWordBank, { card, wordBankData: parseWordBankData(card), onTrainerAnswer }));
+  }, projections);
+  await expect(page.locator('.word-bank-option')).toHaveCount(5);
+  await expect(page.locator('.word-bank-option', { hasText: /^habe$/ })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Проверить', exact: true })).toBeDisabled();
+  // A distractor, then two independently consumable copies.
+  await page.locator('.word-bank-option', { hasText: /^ist$/ }).click();
+  await page.locator('.word-bank-option', { hasText: /^habe$/ }).nth(1).click();
+  await expect(page.locator('.word-bank-option', { hasText: /^habe$/ }).nth(1)).toBeDisabled();
+  await expect(page.locator('.word-bank-option', { hasText: /^habe$/ }).nth(0)).toBeEnabled();
+  await page.locator('.word-bank-option', { hasText: /^habe$/ }).nth(0).click();
+  await page.getByRole('button', { name: 'Проверить', exact: true }).click();
+  await expect(page.locator('.word-bank-gap.is-incorrect')).toHaveCount(1);
+  expect(await page.evaluate(() => window.v2BankFree.answers)).toHaveLength(0);
+  await page.locator('.word-bank-gap.is-incorrect').click();
+  await page.locator('.word-bank-option', { hasText: /^bin$/ }).click();
+  await page.getByRole('button', { name: 'Проверить', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Выполнено', exact: true })).toBeDisabled();
+  expect(await page.evaluate(() => window.v2BankFree.answers[0].isFirstTry)).toBe(false);
+  await page.locator('.word-bank-exercise').screenshot({ path: testInfo.outputPath('word-bank-completed-375.png') });
+
+  await page.evaluate(() => window.v2BankFree.free());
+  await expect(page.locator('.free-text-prompt')).toHaveText(document.cards[3].data.prompt);
+  await expect(page.getByRole('button', { name: 'Показать пример ответа' })).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Ваш ответ', exact: true }).fill('wrong');
+  await page.getByRole('button', { name: 'Проверить ответ', exact: true }).click();
+  await expect(page.locator('.free-text-feedback')).toContainText('Проверьте смысл');
+  await expect(page.getByRole('button', { name: 'Проверить ещё раз' })).toBeDisabled();
+  await page.getByRole('textbox', { name: 'Ваш ответ', exact: true }).fill('still wrong');
+  await page.getByRole('button', { name: 'Проверить ещё раз' }).click();
+  await expect(page.getByRole('textbox', { name: 'Ваш ответ', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Показать пример ответа' }).click();
+  await expect(page.locator('.free-text-example')).toContainText(document.cards[3].data.sample_answer);
+  await page.locator('.free-text-exercise').screenshot({ path: testInfo.outputPath('free-text-exhausted-375.png') });
+  // Remount for a new review; the accepted alternative must complete in one try.
+  await page.evaluate(() => window.v2BankFree.free());
+  await expect(page.getByRole('textbox', { name: 'Ваш ответ', exact: true })).toBeEnabled();
+  await page.getByRole('textbox', { name: 'Ваш ответ', exact: true }).fill(document.cards[3].data.accepted_answers[0]);
+  await page.getByRole('button', { name: 'Проверить ответ', exact: true }).click();
+  await expect(page.locator('.free-text-feedback')).toContainText('Верно!');
+  expect(await page.evaluate(() => window.v2BankFree.answers.at(-1).isFirstTry)).toBe(true);
+  expect(await page.evaluate(() => window.v2BankFree.answers.at(-1).isCorrect)).toBe(true);
+  await page.locator('.free-text-exercise').screenshot({ path: testInfo.outputPath('free-text-accepted-375.png') });
+  expect(requests).toHaveLength(3);
+  expect(Object.keys(requests[0]).sort()).toEqual(['answer', 'card_id', 'feedback_language']);
+  expect([...errors]).toEqual([]);
 });
 
 test('loading disables repeat upload; server failures allow retry', async ({ page }) => {
