@@ -237,12 +237,12 @@ async def generate_audio_endpoint(
             }
         except Exception as err:
             logger.error(f"AUDIO GENERATION ERROR: {err}")
-            raise HTTPException(status_code=500, detail=f"Audio Generation Error: {str(err)}")
+            raise HTTPException(status_code=500, detail="audio_generation_failed")
     except Exception as e:
         import traceback
         err_msg = traceback.format_exc()
         logger.error(f"TTS generation error: {e}\n{err_msg}")
-        raise HTTPException(status_code=500, detail=f"TTS Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="audio_generation_failed")
 
 
 @router.post("/generate-card-audio")

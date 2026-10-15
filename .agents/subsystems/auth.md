@@ -75,3 +75,7 @@ rg -n 'refresh_session|link_verified|set_email_password|create_challenge|exchang
 - [AUTH_V2](../../project_docs/ARCHITECTURE/AUTH_V2.md), [Deployment](../../api/auth/DEPLOYMENT.md).
 - [Auth security review](../../project_docs/reports/AUTH_SECURITY_REVIEW.md) — отчёт; текущие проверки находятся в коде.
 - [Sync](sync.md), [Decks](decks.md), [Knowledge lifecycle](knowledge.md).
+
+## Isolated Game Test
+
+With `LERNE_DEPLOYMENT=game-test`, `api/dependencies/auth.py:get_user_id` delegates to strict Auth v2 Bearer authentication; no X-User-ID fallback is accepted for Classic routes. Existing Game routes already use strict auth and owner predicates. Supabase Auth is not used. See `project_docs/reports/GAME_TEST_FIRST_LAUNCH.md` and `../deploy_tool/SETUP.md` (relative to the repository root) for isolated database, credentials and provider setup.

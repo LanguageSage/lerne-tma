@@ -157,7 +157,7 @@ test('one login survives stale URL, Classic switching, reload and a new tab', as
 test('Game waits for delayed v2 restoration', async ({ context }) => {
   const { page, state } = await setup(context, { delayedMe: true });
   await page.locator('.game-entry').click();
-  await expect(page.getByRole('heading', { name: 'Stadtbibliothek' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Frau Müller · Kennenlernen' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(state.calls.filter(c => c.pathname.startsWith('/api/game/'))).toHaveLength(0);
   state.releaseMe();
@@ -167,7 +167,7 @@ test('Game waits for delayed v2 restoration', async ({ context }) => {
 test('Game waits for silent Telegram login and uses canonical linked account', async ({ context }) => {
   const { page, state } = await setup(context, { miniApp: true, delayedMe: true });
   await page.locator('.game-entry').click();
-  await expect(page.getByRole('heading', { name: 'Stadtbibliothek' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Frau Müller · Kennenlernen' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(state.attempts.size).toBe(0);
   state.releaseMe();

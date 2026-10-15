@@ -13,6 +13,10 @@ _tables_created = False
 def create_all_tables():
     """Создает все таблицы и запускает накопленные миграции (выполняется только 1 раз за запуск)."""
     global _tables_created
+    # Explicitly disabled maintenance must never run from main.py cold starts.
+    migration_flag = os.environ.get('RUN_MIGRATIONS', '').lower()
+    if migration_flag in ('false', '0') or (os.environ.get('VERCEL') and migration_flag not in ('true', '1')):
+        return
     if _tables_created:
         return
     from api.migrations import run_migrations, run_knowledge_mastery_migration

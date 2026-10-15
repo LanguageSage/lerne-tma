@@ -1,6 +1,6 @@
 import os
 import logging
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 from peewee import Proxy, OperationalError, ImproperlyConfigured, PostgresqlDatabase
 from dotenv import load_dotenv
 
@@ -47,8 +47,8 @@ def _parse_db_url(url: str) -> dict:
     parsed = urlparse(url)
     params = {
         'database': parsed.path.lstrip('/'),
-        'user': parsed.username,
-        'password': parsed.password,
+        'user': unquote(parsed.username or ''),
+        'password': unquote(parsed.password or ''),
         'host': parsed.hostname,
         'port': parsed.port or 5432,
     }
@@ -62,11 +62,25 @@ def initialize_database() -> bool:
     """Initializes the tma_db and lerne_db proxies with the best available PostgreSQL driver."""
     global tma_db, lerne_db
     supabase_url = os.environ.get("SUPABASE_DB_URL")
+    if os.getenv('LERNE_DEPLOYMENT') == 'game-test':
+        ref = 'rkkviifehykdeugovlgp'
+        parsed = urlparse(supabase_url or '')
+        host = parsed.hostname or ''
+        direct = host == f'db.{ref}.supabase.co'
+        pool = host.endswith('.pooler.supabase.com') and unquote(parsed.username or '') == f'postgres.{ref}'
+        if (parsed.scheme not in ('postgres', 'postgresql') or not parsed.password
+                or parsed.path != '/postgres' or parsed.query or parsed.fragment or not (direct or pool)
+                or os.getenv('SUPABASE_URL', '').rstrip('/') != f'https://{ref}.supabase.co'):
+            raise RuntimeError('Game Test blocked: isolated database/storage target is required')
+        if os.getenv('RUN_MIGRATIONS', '').lower() not in ('false', '0'):
+            raise RuntimeError('Game Test blocked: startup migrations must be disabled')
     if not supabase_url:
         logger.error("FATAL: SUPABASE_DB_URL is not set.")
         return False
 
     db_params = _parse_db_url(supabase_url)
+    if os.getenv('LERNE_DEPLOYMENT') == 'game-test':
+        db_params['sslmode'] = 'require'
     logger.info("DATABASE: Initializing Postgres connection...")
 
     # 1. Standard Peewee PooledPostgresqlDatabase (psycopg2)
@@ -85,7 +99,8 @@ def initialize_database() -> bool:
     # 2. Standard Peewee db_connect (psycopg2)
     if db_connect is not None:
         try:
-            actual_db = db_connect(supabase_url)
+            actual_db = (db_connect(supabase_url, sslmode='require')
+                         if os.getenv('LERNE_DEPLOYMENT') == 'game-test' else db_connect(supabase_url))
             tma_db.initialize(actual_db)
             lerne_db.initialize(actual_db)
             logger.info("DATABASE: Initialized via db_url (psycopg2)")

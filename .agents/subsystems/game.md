@@ -85,7 +85,7 @@ their reserved budget. These are request/token limits, not a monetary budget.
 
 Migration 87 transactionally creates only the new table/indexes and marker; reruns validate required columns.
 PostgreSQL enables RLS and revokes PUBLIC/anon/authenticated table access. Existing privileged backend DB
-connections check ownership; no Supabase Auth JWT policies are introduced. Startup `create_all_tables` runs it;
+connections check ownership; no Supabase Auth JWT policies are introduced. Startup `create_all_tables` runs it only when migrations are allowed (explicit `RUN_MIGRATIONS=false` always skips DDL);
 explicit command: `python -m api.game_migration`.
 
 ## Voice and development
@@ -187,3 +187,7 @@ requires an explicit test DSN, uses mock dialogue, exposes no media/Classic rout
 Its `--prepare-schema` applies 88 only to the explicitly validated test DB; `--check`
 does not start a server. Full procedure and limitations:
 `project_docs/GAME_MODE_MVP3_INTEGRATION.md`.
+
+## Public Game Test preparation (2026-10-15)
+
+`project_docs/reports/GAME_TEST_FIRST_LAUNCH.md` records the isolated Supabase/Vercel preparation and remaining first-launch requirements. `scripts/prepare_game_test.py` bootstraps only the pinned empty test project from canonical models and legacy migrations; never rerun it on the prepared schema. Auth 76–79 and Game/MVP3 87–88 are prepared; MVP3 capture remains disabled. Game Test runtime requires the exact test database, Bearer auth for Classic and Game, no startup DDL, and `VITE_AUDIO_BASE_URL=/api/media/audio`. Public API errors omit internal exceptions. The first public deployment remains subject to separate owner authorization.

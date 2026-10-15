@@ -66,3 +66,7 @@ rg -n 'generate_audio|ensure_card_audio|force|TMAMedia' api/services/media.py ap
 - [Перенос в публичный бакет audio](<../../project_docs/аудио/Перенос аудиофайлов в публичный бакет audio.md>).
 - [Architectural integrity](../rules/architectural_integrity.md) — image fallback и устойчивость media endpoints.
 - [Study](study.md), [Cards](cards.md), [Sync](sync.md), [Admin architecture](../ADMIN_ARCHITECTURE.md).
+
+## Game Test audio isolation
+
+`app/src/utils/media.js` accepts build-time `VITE_AUDIO_BASE_URL`; Game Test publisher fixes it to `/api/media/audio` so relative TTS files resolve through the test backend instead of the Production CDN. Absolute Storage/blob/data URLs retain their source. The existing default is retained when the flag is absent. Backend Storage credentials must belong to the test project and bucket `audio` must be prepared separately.

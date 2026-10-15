@@ -1,10 +1,13 @@
 import sys
 import os
-import traceback
+import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.exception_handlers import http_exception_handler
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 app = FastAPI()
+logger = logging.getLogger(__name__)
 
 try:
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,20 +20,24 @@ try:
     from api.main import app as main_app
     app = main_app
 
+    @app.exception_handler(StarletteHTTPException)
+    async def safe_http_error(request: Request, exc: StarletteHTTPException):
+        if exc.status_code >= 500:
+            return JSONResponse(status_code=exc.status_code, content={'detail': 'service_unavailable'})
+        return await http_exception_handler(request, exc)
+
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
-        error_trace = traceback.format_exc()
+        logger.exception('Unhandled API error')
         return JSONResponse(
             status_code=500,
             content={
                 "status": "runtime_error",
-                "error": str(exc),
-                "traceback": error_trace
+                "error": "internal_server_error"
             }
         )
-except Exception as e:
-    error_trace = traceback.format_exc()
-    error_msg = str(e)
+except Exception:
+    logger.error('API startup failed', exc_info=True)
 
     @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"])
     async def error_report(request: Request, full_path: str = ""):
@@ -38,8 +45,7 @@ except Exception as e:
             status_code=500,
             content={
                 "status": "startup_error",
-                "error": error_msg,
-                "traceback": error_trace
+                "error": "service_unavailable"
             }
         )
 

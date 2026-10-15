@@ -1,12 +1,13 @@
 const SUPABASE_AUDIO_CDN = 'https://wdopyuulhiykrextyvnt.supabase.co/storage/v1/object/public/audio';
+const AUDIO_BASE_URL = import.meta.env?.VITE_AUDIO_BASE_URL || SUPABASE_AUDIO_CDN;
 
 /**
- * Возвращает прямой публичный CDN URL для аудиофайла из бакета audio в Supabase Storage.
- * Воспроизведение происходит напрямую из CDN без задержек проксирования.
+ * Разрешает аудиопуть через настроенный API/CDN, сохраняя полные URL.
  * @param {string} pathOrUrl - Путь или URL аудиофайла.
+ * @param {string} audioBaseUrl - Базовый API/CDN URL (по умолчанию из build env).
  * @returns {string} Прямой URL для воспроизведения или пустая строка.
  */
-export const getAudioUrl = (pathOrUrl) => {
+export const getAudioUrl = (pathOrUrl, audioBaseUrl = AUDIO_BASE_URL) => {
   if (!pathOrUrl || typeof pathOrUrl !== 'string') return '';
   const trimmed = pathOrUrl.trim();
   if (!trimmed) return '';
@@ -23,7 +24,7 @@ export const getAudioUrl = (pathOrUrl) => {
   const filename = cleanPath.split(/[\\/]/).pop();
   if (!filename) return '';
 
-  return `${SUPABASE_AUDIO_CDN}/${filename}`;
+  return `${audioBaseUrl.replace(/\/$/, '')}/${filename}`;
 };
 
 /**

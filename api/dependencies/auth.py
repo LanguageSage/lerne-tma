@@ -1,6 +1,7 @@
 import logging
+import os
 from fastapi import Header, HTTPException
-from api.auth.dependencies import get_bearer_token
+from api.auth.dependencies import get_bearer_token, get_authenticated_user_id
 from api.auth.errors import AuthError
 from api.auth.service import authenticate
 
@@ -13,6 +14,8 @@ def get_user_id(
     """Dependency to extract and validate user ID.
     Supports both Auth v2 Bearer tokens and legacy/TMA X-User-ID header.
     """
+    if os.getenv('LERNE_DEPLOYMENT') == 'game-test':
+        return get_authenticated_user_id(authorization)
     # 1. Try Bearer token first if provided
     if isinstance(authorization, str) and authorization.strip().lower().startswith("bearer "):
         try:
