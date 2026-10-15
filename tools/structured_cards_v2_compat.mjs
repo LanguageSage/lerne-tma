@@ -5,9 +5,12 @@ import { detectCardType } from '../app/src/utils/exerciseDetector.js';
 import { parseExerciseContent } from '../app/src/utils/exerciseContentParser.js';
 import { parseClozeData } from '../app/src/utils/clozeParser.js';
 import { evaluateTrainerGaps } from '../app/src/utils/trainerEvaluation.js';
+import { parseMatchData, normalizeMatchValue } from '../app/src/utils/matchParser.js';
+import { evaluateMatchPair, matchPartId } from '../app/src/utils/matchEvaluation.js';
 
 const { legacy, expected } = JSON.parse(readFileSync(0, 'utf8'));
 let gapsChecked = 0;
+let pairsChecked = 0;
 assert.equal(legacy.cards.length, expected.cards.length);
 for (const [index, card] of legacy.cards.entries()) {
   const authored = expected.cards[index];
@@ -46,9 +49,42 @@ for (const [index, card] of legacy.cards.entries()) {
         assert.equal(evaluateTrainerGaps(data.gaps, { ...values, [gap.id]: distractor.text }).accepted, false);
       }
     }
+  } else if (authored.type === 'match') {
+    const data = parseMatchData(card);
+    assert.ok(data?.isMatch);
+    assert.equal(data.prompt, '');
+    assert.deepEqual(data.pairs, authored.data.pairs.map((pair, id) => ({ id, ...pair })));
+    assert.equal(card.back, authored.data.pairs.map(pair => `${pair.left} => ${pair.right}`).join('\n'));
+    pairsChecked += data.pairs.length;
+
+    // Check the actual evaluator's correctness matrix, including equivalent
+    // right labels. Every physical right tile must still be single-use.
+    for (const left of data.pairs) {
+      for (const right of data.pairs) {
+        const attempt = evaluateMatchPair(data.pairs, {}, left.id, right.id);
+        assert.equal(attempt.interactionCorrect,
+          normalizeMatchValue(left.right) === normalizeMatchValue(right.right));
+        assert.equal(attempt.result.accepted, false); // More than one pair required.
+      }
+    }
+    // Reverse selection order deliberately swaps equivalent duplicate tiles.
+    const matches = {};
+    for (const left of data.pairs) {
+      const right = [...data.pairs].reverse().find(candidate =>
+        !Object.values(matches).includes(candidate.id)
+        && normalizeMatchValue(left.right) === normalizeMatchValue(candidate.right));
+      const attempt = evaluateMatchPair(data.pairs, matches, left.id, right.id);
+      assert.equal(attempt.interactionCorrect, true);
+      assert.equal(attempt.result.accepted, Object.keys(matches).length + 1 === data.pairs.length);
+      assert.ok(attempt.result.parts.some(part => part.id === matchPartId(left.id) && part.status === 'correct'));
+      matches[left.id] = right.id;
+      assert.equal(evaluateMatchPair(data.pairs, matches, left.id, right.id), null);
+      const next = data.pairs.find(pair => matches[pair.id] === undefined);
+      if (next) assert.equal(evaluateMatchPair(data.pairs, matches, next.id, right.id), null);
+    }
   } else {
     assert.equal(content.exercise, authored.type === 'theory' ? authored.data.text : authored.data.prompt);
     assert.equal(card.back, authored.type === 'theory' ? authored.data.summary || '' : authored.data.answer);
   }
 }
-console.log(JSON.stringify({ cards: legacy.cards.length, gaps: gapsChecked }));
+console.log(JSON.stringify({ cards: legacy.cards.length, gaps: gapsChecked, pairs: pairsChecked }));

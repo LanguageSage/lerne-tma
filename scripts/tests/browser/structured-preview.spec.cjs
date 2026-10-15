@@ -63,7 +63,7 @@ test('actual upload previews all types, escapes content and never enters a write
   await expect(card('match')).toContainText('essen → gegessen');
   await expect(card('free_text')).toContainText('Пример ответа (не точный ключ)');
   await expect(card('free_text')).toContainText('Ein anderer Text.');
-  await expect(page.getByText('Legacy-преобразование этого типа пока не реализовано. Это не ошибка карточки V2.', { exact: true })).toHaveCount(5);
+  await expect(page.getByText('Legacy-преобразование этого типа пока не реализовано. Это не ошибка карточки V2.', { exact: true })).toHaveCount(4);
   await page.locator('[data-v2-card="0"] summary').first().click();
   await expect(page.locator('[data-v2-card="0"]')).toContainText('front');
   await expect(page.locator('[data-v2-card="0"]')).toContainText(hostile);
@@ -111,6 +111,39 @@ test('field errors, JSON syntax and conversion limits are reviewable; retry clea
   await expect(page.locator('[data-v2-card]')).toHaveCount(0);
   await upload(page, fixture('other_types.json'));
   await expect(page.locator('[data-v2-card]')).toHaveCount(5);
+});
+
+test('Match preview separates ordered legacy pairs from valid but unrepresentable V2', async ({ page }, testInfo) => {
+  await openPreview(page);
+  const document = fixture('match.json');
+  await upload(page, document);
+  const card = page.locator('[data-v2-card="0"]');
+  await expect(card).toContainText('kommen → sein');
+  await expect(card).toContainText('lesen → haben');
+  await expect(card).not.toContainText('пока не реализовано');
+  await card.getByText('Временная legacy-проекция · только просмотр', { exact: true }).click();
+  const projection = JSON.parse(await card.locator('details').first().locator('pre').textContent());
+  const pairLines = document.cards[0].data.pairs.map(pair => `${pair.left} => ${pair.right}`).join('\n');
+  expect(projection.front.split('@match\n')[1]).toBe(pairLines);
+  expect(projection.back).toBe(pairLines);
+  expect(projection.card_type).toBe('match');
+  expect(projection.source_id).toBe(document.cards[0].id);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await card.screenshot({ path: testInfo.outputPath('match-legacy-desktop.png') });
+  await page.setViewportSize({ width: 375, height: 900 });
+  await card.screenshot({ path: testInfo.outputPath('match-legacy-375.png') });
+  const dimensions = await card.evaluate(e => [e.scrollWidth, e.clientWidth]);
+  expect(dimensions[0]).toBeLessThanOrEqual(dimensions[1] + 1);
+
+  document.cards[0].data.pairs[1].right = hostile;
+  await upload(page, document);
+  await expect(page.locator('#author-v2-status')).toContainText('V2 валиден');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(card).toContainText('cards[0].data.pairs[1].right');
+  await expect(card).toContainText('V2-карточка валидна, но legacy');
+  await expect(card).toContainText(hostile);
+  await expect(card.getByText('Временная legacy-проекция · только просмотр', { exact: true })).toHaveCount(0);
+  await expect(card.locator('img, script')).toHaveCount(0);
 });
 
 test('loading disables repeat upload; server failures allow retry', async ({ page }) => {

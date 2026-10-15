@@ -35,7 +35,21 @@ class StructuredPreviewTest(unittest.TestCase):
         self.assertEqual(result['document']['cards'][0]['id'], source['cards'][0]['id'])
         self.assertNotIn('front', result['document']['cards'][0])
         self.assertEqual(result['legacy_projections'][0]['card']['source_id'], source['cards'][0]['id'])
-        self.assertEqual([p['status'] for p in result['legacy_projections'][-5:]], ['unsupported'] * 5)
+        self.assertEqual([p['status'] for p in result['legacy_projections'][-5:]],
+                         ['unsupported', 'converted', 'unsupported', 'unsupported', 'unsupported'])
+
+    def test_match_preview_converts_safe_labels_and_keeps_lossy_data_reviewable(self):
+        source = json.loads((EXAMPLES / 'match.json').read_text(encoding='utf-8'))
+        source['cards'].append({'type': 'match', 'data': {'pairs': [
+            {'left': 'A = B', 'right': 'C'}, {'left': 'D', 'right': 'E'}]}})
+        result = preview_document(json.dumps(source))
+        self.assertTrue(result['valid'])
+        self.assertEqual(result['errors'], [])
+        self.assertEqual(result['legacy_projections'][0]['status'], 'converted')
+        self.assertIn('@match\nkommen => sein', result['legacy_projections'][0]['card']['front'])
+        self.assertEqual(result['legacy_projections'][1]['status'], 'unrepresentable')
+        self.assertIn('cards[1].data.pairs[0].left:', result['legacy_projections'][1]['message'])
+        self.assertEqual(result['document']['cards'][1]['data'], source['cards'][1]['data'])
 
     def test_lossy_conversion_is_not_a_v2_error_and_does_not_hide_neighbors(self):
         source = mixed_document()

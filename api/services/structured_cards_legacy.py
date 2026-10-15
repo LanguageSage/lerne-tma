@@ -1,4 +1,4 @@
-"""One-way, opt-in V2 -> legacy preview for Theory, Standard and Trainer.
+"""One-way, opt-in V2 -> legacy preview for Theory, Standard, Trainer and Match.
 
 This module never writes cards. Derived FRONT/BACK must not be persisted alongside
 an independently editable V2 source. Unsupported/lossy conversion raises an error.
@@ -49,6 +49,19 @@ def _trainer_body(card, path):
     return ''.join(body), ', '.join(answers)
 
 
+def _match_value(text, path):
+    # matchParser splits every separator, trims labels and strips Markdown.
+    # Use a conservative syntax-safe subset, never an escaping scheme that the
+    # existing parser cannot decode. Interior whitespace and duplicates stay intact.
+    if text != text.strip() or text.startswith('\ufeff') or text.endswith('\ufeff'):
+        raise LegacyConversionError(f'{path}: legacy Match would trim leading/trailing whitespace')
+    if re.search(r'[\r\n=—]|->', text):
+        raise LegacyConversionError(f'{path}: legacy Match cannot preserve line breaks or pair separators (=>, ->, —, =)')
+    if re.search(r'[*_`]|</?(?:center|large)>', text):
+        raise LegacyConversionError(f'{path}: Markdown/control markup is not supported in legacy Match labels')
+    return text
+
+
 def to_legacy_card(card, deck, index):
     """Project one already validated V2 card and deck, preserving its source index.
 
@@ -65,6 +78,11 @@ def to_legacy_card(card, deck, index):
             raise LegacyConversionError(f'{path}.data.prompt: possible legacy quiz syntax')
     elif card.type == 'trainer':
         body, back = _trainer_body(card, path)
+    elif card.type == 'match':
+        lines = [f"{_match_value(pair.left, f'{path}.data.pairs[{i}].left')} => "
+                 f"{_match_value(pair.right, f'{path}.data.pairs[{i}].right')}"
+                 for i, pair in enumerate(card.data.pairs)]
+        body, back = '@match\n' + '\n'.join(lines), '\n'.join(lines)
     else:
         raise LegacyConversionError(f'{path}.type: {card.type} conversion is not implemented')
 

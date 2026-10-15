@@ -225,6 +225,8 @@ class V2LegacyTests(unittest.TestCase):
     def test_all_unimplemented_types_fail_without_partial_results(self):
         value = json.loads((EXAMPLES / 'other_types.json').read_text(encoding='utf-8'))
         for card in value['cards']:
+            if card['type'] == 'match':
+                continue
             combined = document()
             combined['cards'].append(card)
             with self.subTest(type=card['type']), self.assertRaisesRegex(LegacyConversionError, r'cards\[1\].type'):
@@ -247,12 +249,61 @@ class V2LegacyTests(unittest.TestCase):
             input=json.dumps({'legacy': to_legacy_document(value), 'expected': value}, ensure_ascii=False),
             capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
         self.assertEqual(process.returncode, 0, process.stderr)
-        self.assertEqual(json.loads(process.stdout), {'cards': 10, 'gaps': 8})
+        self.assertEqual(json.loads(process.stdout), {'cards': 10, 'gaps': 8, 'pairs': 0})
+
+    def test_match_projection_preserves_order_duplicates_and_envelope(self):
+        value = json.loads((EXAMPLES / 'match.json').read_text(encoding='utf-8'))
+        before = copy.deepcopy(value)
+        result = to_legacy_document(value)
+        card = result['cards'][0]
+        self.assertEqual(card['front'], '::task\nOrdnen Sie die Verben dem passenden Hilfsverb zu.\n\n'
+                         '::source\nDie Verben stehen im Infinitiv.\n\n::example\nfahren → sein\n\n'
+                         '::exercise\n@match\nkommen => sein\nlesen => haben\ngehen => sein\nlesen => haben')
+        self.assertEqual(card['back'], 'kommen => sein\nlesen => haben\ngehen => sein\nlesen => haben')
+        self.assertEqual(card['context'], value['cards'][0]['explanation'])
+        self.assertEqual((card['card_type'], card['source_id'], card['level'], card['topics']),
+                         ('match', 'perfekt-match', 'A2', 'Perfekt'))
+        self.assertEqual(card['metadata'], value['cards'][0]['metadata'])
+        self.assertEqual(result['deck']['passport'], value['deck']['passport'])
+        card['metadata']['tags'].append('changed')
+        self.assertEqual(value, before)
+
+    def test_match_rejects_lossy_labels_with_card_pair_and_side_paths(self):
+        labels = [' spaced', 'spaced ', '\ufeffBOM', 'BOM\ufeff', 'A\nB', 'A\rB',
+                  'A\r\nB', 'A => B', 'A->B', 'A—B', 'A=B', '**bold**', '_italic_',
+                  '`code`', '<center>A</center>', '<large>A</large>', 'A\n::task\nB']
+        for side in ('left', 'right'):
+            for label in labels:
+                value = document()
+                value['cards'].append({'type': 'match', 'data': {'pairs': [
+                    {'left': 'eins', 'right': 'one'}, {'left': 'zwei', 'right': 'two', side: label}]}})
+                before = copy.deepcopy(value)
+                validate_document(value)  # These remain valid authoring data.
+                with self.subTest(side=side, label=label), self.assertRaisesRegex(
+                        LegacyConversionError, rf'cards\[1\].data.pairs\[1\].{side}:'):
+                    to_legacy_document(value)
+                self.assertEqual(value, before)
+
+    def test_match_actual_parser_evaluator_and_interchangeable_right_tiles(self):
+        value = json.loads((EXAMPLES / 'match.json').read_text(encoding='utf-8'))
+        value['cards'].append({'type': 'match', 'data': {'pairs': [
+            {'left': 'Повтор', 'right': 'two  words'},
+            {'left': 'Повтор', 'right': 'two\twords'},
+            {'left': 'ÄÖÜ ß?! «Wort»', 'right': 'Two words'},
+            {'left': '[[literal]] {text} @match', 'right': 'two words'},
+            {'left': '<img>', 'right': 'обычный текст'},
+            {'left': 'a/b; c,d | x - y – z', 'right': 'обычный текст'}]}})
+        process = subprocess.run(['node', str(ROOT / 'tools/structured_cards_v2_compat.mjs')],
+            input=json.dumps({'legacy': to_legacy_document(value), 'expected': value}, ensure_ascii=False),
+            capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(json.loads(process.stdout), {'cards': 2, 'gaps': 0, 'pairs': 10})
 
     def test_cli_validates_previews_and_reports_nonzero_on_failure(self):
         for command, fixture, expected_code in (('validate', 'basics.json', 0),
                                                 ('validate', 'other_types.json', 0),
                                                 ('to-legacy', 'basics.json', 0),
+                                                ('to-legacy', 'match.json', 0),
                                                 ('to-legacy', 'other_types.json', 1)):
             with self.subTest(command=command, fixture=fixture):
                 process = subprocess.run([sys.executable, str(ROOT / 'scripts/structured_cards_v2.py'),
@@ -261,7 +312,9 @@ class V2LegacyTests(unittest.TestCase):
                 self.assertEqual(process.returncode, expected_code, process.stderr)
                 result = json.loads(process.stdout if expected_code == 0 else process.stderr)
                 if command == 'to-legacy' and expected_code == 0:
-                    self.assertIn('Plusquamperfekt', result['deck']['name'])
+                    source = json.loads((EXAMPLES / fixture).read_text(encoding='utf-8'))
+                    self.assertEqual(result['deck']['name'], source['deck']['name'])
+                    self.assertEqual(len(result['cards']), len(source['cards']))
                 else:
                     self.assertEqual(result['valid'], expected_code == 0)
 
