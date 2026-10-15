@@ -38,6 +38,13 @@ Knowledge Attempts отправляются отдельным механизм�
 - Dirty flags / локальная версия определяют, какую запись можно считать подтверждённой и какие правки сохранить при pull.
 - Настройки идут через `/user/settings`, Knowledge — через собственный outbox; это дополнительные потоки.
 
+## Structured Cards V2: inactive schema (stage 2)
+
+- `localDb.js` declares Dexie v5. Upgrade only adds missing `content_version:1`, `content_v2:null`, `card_revision:1` on cards; all IDs, local revisions, dirty drafts and other stores remain intact. Existing V2/unknown envelopes are preserved, never downgraded. Pending batch payload/request_id, aliases, review events and Knowledge outbox stay byte-equivalent JSON; old pending is not rebuilt with new defaults.
+- Native writes flag is fixed false; card hooks reject V2/unknown add/put/update, including dotted changes. New/replaced legacy rows receive defaults. Upgrade failure rolls back and can be retried. These hooks do not constitute native sync or complete writer/read guards.
+- Server migration 87 is explicit and transactional, outside startup/best-effort runners. `TMA_Card` maps prepared columns only with `STRUCTURED_CARDS_V2_SCHEMA_READY=true`; schema readiness does not permit V2 rows (separate DB CHECK gate). No configured database was migrated.
+- Tests: `app/src/services/__tests__/localDbStructuredCards.test.js` (6, included in npm test), `scripts/tests/test_structured_cards_v2_schema.py` (12); existing offline sync tests also pass with model opt-in off/on. PostgreSQL model DDL is compiled only; real engine/browser execution is still required before rollout. See [native architecture](../../project_docs/STRUCTURED_CARDS_V2_ARCHITECTURE.md#реализация-этапа-2).
+
 ## Common symptoms
 
 | Симптом | Первый участок проверки |

@@ -4,6 +4,9 @@ import { getUserId } from '../utils/auth.js';
 
 const databases = new Map();
 const preparations = new Map();
+// Schema preparation is independent of authoring activation. Keep this closed
+// until native writers, transport, readers and study adapters are all ready.
+export const STRUCTURED_CARDS_V2_NATIVE_WRITES_ENABLED = false;
 
 export const getLocalDb = () => {
   const userId = String(getUserId());
@@ -92,7 +95,7 @@ export const db = new Proxy({}, {
   },
 });
 
-function configureDatabase(db) {
+export function configureDatabase(db) {
 
 // Define database schema
 // Note: We only index fields we intend to query on (filter / sort).
@@ -120,6 +123,46 @@ db.version(4).stores({
   knowledge_attempt_outbox: 'client_event_id, user_id, knowledge_item_id, sync_status, created_locally_at',
   user_knowledge_state: '[user_id+knowledge_item_id], user_id, knowledge_item_id'
 });
+
+db.version(5).stores({}).upgrade(async transaction => {
+  await transaction.table('cards').toCollection().modify(card => {
+    // Add missing properties only: never rewrite drafts, IDs, revisions or any
+    // already stored envelope (including a future/unsupported version).
+    for (const [key, value] of Object.entries(legacyContentDefaults)) {
+      if (!Object.hasOwn(card, key)) card[key] = value;
+    }
+  });
+});
+
+db.cards.hook('creating', (_key, card) => {
+  requireLegacyCard(card);
+  for (const [key, value] of Object.entries(legacyContentDefaults)) {
+    if (card[key] === undefined) card[key] = value;
+  }
+});
+db.cards.hook('updating', (changes, _key, card, transaction) => {
+  if (transaction.idbtrans.mode === 'versionchange') return;
+  requireLegacyCard(card);
+  // Dexie supports dotted updates; reject native edits before they can sneak
+  // through a legacy version discriminator.
+  if (Object.keys(changes).some(key => key.startsWith('content_v2.'))) {
+    throw new Error('structured_cards_v2_creation_disabled');
+  }
+  const next = { ...card, ...changes };
+  requireLegacyCard(next);
+  return Object.fromEntries(Object.entries(legacyContentDefaults)
+    .filter(([key]) => next[key] === undefined));
+});
+}
+
+const legacyContentDefaults = { content_version: 1, content_v2: null, card_revision: 1 };
+
+function requireLegacyCard(card) {
+  if (!STRUCTURED_CARDS_V2_NATIVE_WRITES_ENABLED
+      && ((card.content_version !== undefined && card.content_version !== 1)
+          || (card.content_v2 !== undefined && card.content_v2 !== null))) {
+    throw new Error('structured_cards_v2_creation_disabled');
+  }
 }
 
 // Helper to generate temporary negative IDs

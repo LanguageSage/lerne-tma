@@ -9,6 +9,12 @@ logger = logging.getLogger(__name__)
 
 
 _tables_created = False
+# Opt in only after explicit migration 87. Default imports/legacy SELECTs must
+# continue to work against databases that have not been prepared yet.
+STRUCTURED_CARDS_V2_SCHEMA_READY = os.environ.get(
+    'STRUCTURED_CARDS_V2_SCHEMA_READY', 'false').lower() in ('true', '1')
+if STRUCTURED_CARDS_V2_SCHEMA_READY:
+    from api.migrations import STRUCTURED_CARDS_V2_CHECKS
 
 def create_all_tables():
     """Создает все таблицы и запускает накопленные миграции (выполняется только 1 раз за запуск)."""
@@ -112,8 +118,15 @@ class TMA_Card(BaseModel):
     share_id = CharField(null=True, unique=True)
     position = IntegerField(default=0)
     flag = IntegerField(default=0)  # DEPRECATED: Use TMAProgress.flag
+    if STRUCTURED_CARDS_V2_SCHEMA_READY:
+        content_version = SmallIntegerField(default=1, constraints=[SQL('DEFAULT 1')])
+        content_v2 = TextField(null=True)
+        card_revision = BigIntegerField(default=1, constraints=[SQL('DEFAULT 1')])
     class Meta:
         table_name = 'tma_card'
+        if STRUCTURED_CARDS_V2_SCHEMA_READY:
+            constraints = [SQL(f'CONSTRAINT {name} CHECK ({expression})')
+                           for name, expression in STRUCTURED_CARDS_V2_CHECKS.items()]
         indexes = (
             (('deck_id', 'is_deleted'), False),
             (('front_text', 'is_deleted'), False),

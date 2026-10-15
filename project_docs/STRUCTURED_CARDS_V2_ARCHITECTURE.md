@@ -1,10 +1,11 @@
 # Structured Cards V2: нативное хранение и редактирование
 
-Статус: **этап 1 реализован** — чистые контракты и изолированные тесты.
-Нативное хранение, API, sync и обучение остаются планом этапов 2–9.
+Статус: **этап 1 реализован; этап 2 подготовлен** — неактивная схема и Dexie v5.
+Нативные записи запрещены; API, sync и обучение остаются планом этапов 3–9.
 Аудит выполнен по ветке `feat/structured-cards-v2`, исходный HEAD `e812cb8`.
-Контракты этапа 1 подготовлены после `3be89f7`. Миграции не запускались;
-этот документ не разрешает их выполнение или создание реальных V2 rows.
+Контракты этапа 1 подготовлены после `3be89f7`, схема этапа 2 — после `5c077d3`.
+Серверная миграция выполнялась только на одноразовой SQLite в тестах;
+этот документ не разрешает её применение к рабочей БД или создание реальных V2 rows.
 Контракт авторства: [STRUCTURED_CARDS_V2](STRUCTURED_CARDS_V2.md).
 
 ## 1. Решение и обязательные инварианты
@@ -33,6 +34,8 @@
 Ниже пути относительно корня репозитория. Это результаты чтения кода, а не
 описание уже существующей нативной поддержки. Pydantic V2 и preview сейчас
 изолированы от хранилища.
+Таблица фиксирует исходный аудит до этапов 1–2; подготовленные изменения схемы
+и их ограничения описаны в разделе «Реализация этапа 2».
 
 | Операция | Реальный путь и важное свойство | Что потребуется для V2 |
 | --- | --- | --- |
@@ -83,7 +86,7 @@ JSONB не даёт нужного функционального выигрыш
 различия. JSONB можно выбрать позднее при измеримой необходимости поиска внутри
 структуры; ни API, ни контракт редактирования от этого не меняются.
 
-Предлагаемые колонки в `tma_card` (не SQL к исполнению):
+Подготовленные opt-in колонки в `tma_card` (не применены к рабочей БД):
 
 | Поле | Контракт |
 | --- | --- |
@@ -471,7 +474,7 @@ Soft delete/restore не трогает JSON. Hard delete остаётся яв�
 | Этап | Содержание отдельного изменения | Критерий проверки / допуск |
 | --- | --- | --- |
 | 1. Чистый контракт хранения — **реализован** | Single-card validator и строгие wire envelopes, normalizer/display projection и unit fixtures в существующем V2 module. Никаких подключений моделей/БД, routes, UI или миграций. | Все 8 типов; валидный unrepresentable V2 проходит; literals/повторы/пустые optional/metadata сохраняются; двойной normalize стабилен; invalid version/path/size отклоняются; input не изменяется. См. реализацию ниже. |
-| 2. Неактивная схема | Подготовить additive migrations/model fields/CHECK, Dexie upgrade с сохранением dirty/pending. Feature flag запрещает native creation. | Одноразовая тестовая БД: rerun, старые rows/counts/front/timestamps/SRS прежние, constraints работают. Dexie upgrade с pending/reviews/aliases не теряет данные. Live migration — только отдельная согласованная работа. |
+| 2. Неактивная схема — **подготовлен** | Explicit migration 87, opt-in model fields/CHECK, Dexie v5 с сохранением dirty/pending. Native creation запрещён в БД и Dexie. | SQLite fixtures: rerun/rollback, старые rows/counts/front/timestamps/SRS прежние, constraints работают. Fake IndexedDB: upgrade v1–v4, pending/reviews/aliases/outbox сохранены. PostgreSQL: проверен model DDL, реальное исполнение ещё не проверено. Live migration — только отдельная согласованная работа. |
 | 3. Guards записи | Старые cards/bulk/text-update/sync, admin/regen/library/share/restore writer paths закрыты для V2. Разделить whole-row media saves. | В disposable fixtures каждый перечисленный bypass отказывает до записи/удаления; batch rollback проверяет JSON, SRS и receipts. Legacy happy paths прежние. Native создание всё ещё выключено. |
 | 4. Полное чтение и backup | SELECT/DTO/поиск/duplicates/trash/share, capabilities и read guards; native/mixed export и restore в тестовую копию. | Ни один read/cache copier не теряет envelope; backup round-trip всех типов, unknown version fail closed; TXT refusal без частичного файла. Старый full pull не маскирует фильтрацию под полный snapshot. |
 | 5. Доставка без потерь | v3 transport с CAS/receipts; Dexie-first, pending/ack/pull/remap, collaborative conflict apply; recovery UI данных синхронизации. | Edit A/B, retry после timeout, edit во время ack, reboot, отрицательные ID, stale delete/media, revoked access, old-client pushes и mixed batch с reviews; обе конфликтующие версии доступны. Feature flag прежний. |
@@ -480,9 +483,10 @@ Soft delete/restore не трогает JSON. Hard delete остаётся яв�
 | 8. Редактор и cutover | Формы V2, JSON draft/error/conflict UX, типы и медиа; затем default new-card V2, запрет legacy create и старого AI/import создания. | Save/read/edit/reload/offline цикл всех типов, stale editor не перезаписывает JSON; legacy editing без изменений; старые клиенты получают объяснимый upgrade error. Cutover не включать, пока не определён доступный путь для нужных legacy imports. |
 | 9. Необязательное расширение | Поддержать существующую библиотечную `card`, безопасный overwrite и явный upgrade legacy после отдельного аудита. | Полный clone/merge/default-distribution round-trip; отсутствие unsupported блокировок только там, где уже доказана сохранность. Без массового backfill старых карточек. |
 
-Рекомендуемый следующий шаг — **этап 2**, отдельная задача подготовки неактивной
-схемы с проверкой только на одноразовых fixtures/БД и сохранением запрета native writes.
-Выполнение миграции на рабочей БД требует отдельного согласования.
+Рекомендуемый следующий implementation шаг — **этап 3**, guards всех writer paths
+на disposable fixtures при сохранении запрета native writes. Перед применением
+схемы отдельно требуется execution-проверка на одноразовом PostgreSQL;
+миграция рабочей БД и переключение schema-ready требуют отдельного согласования.
 Нельзя считать всеобщее новое авторство готовым на этапе 7: это контролируемый opt-in;
 цель «все новые авторские карточки — V2» достигается cutover этапа 8.
 
@@ -534,6 +538,51 @@ HTTP-коды 413/422, permissions/CAS/idempotency предстоит реали
 `api.services.__init__`, блокирует imports `api.models/api.database` и legacy
 конвертера; реальная БД, сервер и внешние сервисы не нужны.
 Команда: `venv/Scripts/python.exe -m unittest scripts.tests.test_structured_cards_v2_storage -v`.
+
+### Реализация этапа 2
+
+- `api/migrations.py:run_structured_cards_v2_migration(database)` — явная миграция
+  87, отсутствует в `MIGRATIONS`, fallback и startup `create_all_tables`.
+  Принимает выбранный caller-ом DB object, не импортирует models/database и не
+  читает connection secrets. Нужна отдельная транзакция; PostgreSQL использует
+  advisory/table locks и local timeouts, SQLite — IMMEDIATE transaction.
+- Добавляет только `content_version SMALLINT NOT NULL DEFAULT 1`, `content_v2 TEXT NULL`,
+  `card_revision BIGINT NOT NULL DEFAULT 1`. Строки не UPDATE-ятся; старые значения,
+  PK/FK, история, timestamps, media и SRS остаются прежними. CHECK проверяют
+  связку version/JSON и положительную revision. Дополнительный именованный CHECK
+  `tma_card_v2_creation_disabled` требует version=1: подготовленная схема ещё не
+  допускает V2 rows даже при обходе API. `STRUCTURED_CARDS_V2_NATIVE_WRITES_ENABLED=False`
+  не является переключателем через env; снять DB gate можно лишь отдельным будущим изменением.
+- DDL и history marker коммитятся вместе. Повтор сверяет колонки, defaults и CHECK;
+  неполные/untracked колонки или расхождение history/schema вызывают отказ без
+  автоматического исправления. В SQLite CHECK добавляются вместе с последней
+  колонкой без rebuild таблицы; индексы/триггеры/FK сохраняются.
+- `api/models.py` подключает эти поля/CHECK к существующей `TMA_Card` только при
+  `STRUCTURED_CARDS_V2_SCHEMA_READY=true` (или `1`). Default=false оставляет прежний
+  SELECT/INSERT до явной подготовки БД. Флаг сам ничего не мигрирует и не разрешает
+  native authoring. Порядок будущей активации схемы: существующая legacy таблица →
+  отдельно согласованная миграция → проверка → restart с schema-ready; flag-off
+  не удаляет колонки/данные. Библиотечная `Card/card` не расширялась.
+- `app/src/services/localDb.js` объявляет Dexie v5: добавляет отсутствующие
+  `content_version:1`, `content_v2:null`, `card_revision:1` в cards. Остальные stores
+  и поля не меняются, local_revision не заменяется серверной ревизией. Существующие
+  V2/unknown envelopes сохраняются при upgrade без downgrade. Pending request,
+  payload и aliases/reviews/outbox не переписываются, включая старый payload без
+  новых defaults; retry fingerprint остаётся прежним.
+- Флаг native writes в Dexie также фиксирован false: hooks запрещают add/put/update
+  V2/unknown содержимого, включая dotted updates и смешанные транзакции. Это
+  временный запрет создания/изменения, не реализация guards/transport/runtime следующих
+  этапов. Новые/перезаписанные legacy rows получают те же defaults. Полная обработка
+  неподдерживаемого содержимого при чтении ещё не реализована.
+
+Проверки этапа 2: 12 Python tests в `scripts/tests/test_structured_cards_v2_schema.py`
+(SQLite in-memory, реальные opt-in/default модели с подменённым DB owner; PostgreSQL
+DDL compilation без подключения); 6 Node tests в
+`app/src/services/__tests__/localDbStructuredCards.test.js` (Dexie + fake-indexeddb,
+upgrade v1–v4, повторное открытие, отказ/rollback upgrade и retry, flags/atomic writes).
+Legacy offline sync дополнительно проверен существующими 10 тестами в обоих режимах
+schema-ready. На реальном PostgreSQL и в браузере upgrade не исполнялся.
+Рабочая БД, routes, SRS logic, protocol sync, учебный UI и deployment не менялись.
 
 ## 10. Риски и критерии приёмки
 

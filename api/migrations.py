@@ -4,6 +4,7 @@ Migrations module: все SQL-миграции для существующих �
 Каждая миграция выполняется с обработкой ошибок, чтобы не падать если колонка уже есть.
 """
 import logging
+import re
 from peewee import SqliteDatabase
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,114 @@ AUTH_PASSWORD_MIGRATION_ID = 78
 AUTH_SESSION_METHOD_MIGRATION_ID = 79
 KNOWLEDGE_MASTERY_MIGRATION_ID = 82
 KNOWLEDGE_MASTERY_LOCK_ID = 76120982
+STRUCTURED_CARDS_V2_MIGRATION_ID = 87
+STRUCTURED_CARDS_V2_LOCK_ID = 76120987
+# Deliberately not an environment toggle. Stages 3–6 must land before removing
+# this database gate; schema readiness alone never permits native creation.
+STRUCTURED_CARDS_V2_NATIVE_WRITES_ENABLED = False
+STRUCTURED_CARDS_V2_CHECKS = {
+    'tma_card_content_envelope': '(content_version = 1 AND content_v2 IS NULL) OR '
+                                 '(content_version = 2 AND content_v2 IS NOT NULL)',
+    'tma_card_revision_positive': 'card_revision > 0',
+    'tma_card_v2_creation_disabled': 'content_version = 1',
+}
+
+
+def _verify_structured_card_schema(database):
+    """Refuse history/schema drift instead of repairing it on a rerun."""
+    from peewee import PostgresqlDatabase
+
+    columns = {column.name: column for column in database.get_columns('tma_card')}
+    expected = {'content_version': ('smallint', False, '1'),
+                'content_v2': ('text', True, None), 'card_revision': ('bigint', False, '1')}
+    for name, (kind, nullable, default) in expected.items():
+        column = columns.get(name)
+        kinds = {kind, 'integer'} if isinstance(database, SqliteDatabase) and kind != 'text' else {kind}
+        if (column is None or column.data_type.lower() not in kinds or column.null != nullable
+                or (str(column.default).strip('() ') if column.default is not None else None) != default):
+            raise RuntimeError(f'Structured cards migration schema mismatch: {name}')
+    if isinstance(database, PostgresqlDatabase):
+        constraints = {name: definition for name, definition, valid in database.execute_sql(
+            "SELECT conname, pg_get_constraintdef(oid), convalidated FROM pg_constraint "
+            "WHERE conrelid = 'tma_card'::regclass AND contype = 'c'").fetchall() if valid}
+    else:
+        sql = database.execute_sql(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tma_card'").fetchone()[0]
+        constraints = {}
+        for name in STRUCTURED_CARDS_V2_CHECKS:
+            match = re.search(r'CONSTRAINT\s+"?' + name + r'"?\s+CHECK\s*\(', sql, re.I)
+            if match:
+                start, end, depth = match.end(), match.end(), 1
+                while end < len(sql) and depth:
+                    depth += (sql[end] == '(') - (sql[end] == ')')
+                    end += 1
+                constraints[name] = sql[start:end - 1]
+    def normalize(value):
+        return re.sub(r'[\s()"]|^CHECK', '', value, flags=re.I).lower()
+    for name, expression in STRUCTURED_CARDS_V2_CHECKS.items():
+        if name not in constraints or normalize(constraints[name]) != normalize(expression):
+            raise RuntimeError(f'Structured cards migration constraint mismatch: {name}')
+
+
+def run_structured_cards_v2_migration(database):
+    """Explicit, additive stage-2 preparation. Never called by startup runners.
+
+    The caller supplies a dedicated database; no configured DB/model imports.
+    SQLite adds cross-column CHECKs with the final column, avoiding a table
+    rebuild (and therefore preserving foreign keys, indexes and triggers).
+    """
+    from peewee import PostgresqlDatabase
+
+    database = getattr(database, 'obj', database)
+    if not isinstance(database, (SqliteDatabase, PostgresqlDatabase)):
+        raise RuntimeError('Unsupported structured cards migration database')
+    if database.in_transaction():
+        raise RuntimeError('Structured cards migration requires its own transaction')
+    owned_connection = database.is_closed()
+    try:
+        database.connect(reuse_if_open=True)
+        options = {'lock_type': 'IMMEDIATE'} if isinstance(database, SqliteDatabase) else {}
+        with database.atomic(**options):
+            if isinstance(database, PostgresqlDatabase):
+                database.execute_sql("SET LOCAL lock_timeout = '5s'")
+                database.execute_sql("SET LOCAL statement_timeout = '60s'")
+                database.execute_sql(f'SELECT pg_advisory_xact_lock({STRUCTURED_CARDS_V2_LOCK_ID})')
+                database.execute_sql('LOCK TABLE tma_card IN ACCESS EXCLUSIVE MODE')
+            if not database.table_exists('tma_card'):
+                raise RuntimeError('Legacy tma_card schema is required before preparation')
+            database.execute_sql('''CREATE TABLE IF NOT EXISTS tma_migration_history (
+                migration_id INT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+            marker = database.param
+            applied = database.execute_sql(
+                f'SELECT 1 FROM tma_migration_history WHERE migration_id = {marker}',
+                (STRUCTURED_CARDS_V2_MIGRATION_ID,)).fetchone()
+            if applied:
+                _verify_structured_card_schema(database)
+                return {'applied': False, 'migration_id': STRUCTURED_CARDS_V2_MIGRATION_ID,
+                        'native_writes_enabled': STRUCTURED_CARDS_V2_NATIVE_WRITES_ENABLED}
+            existing = {column.name for column in database.get_columns('tma_card')}
+            if existing.intersection({'content_version', 'content_v2', 'card_revision'}):
+                raise RuntimeError('Untracked structured card columns; inspect before migrating')
+            database.execute_sql('ALTER TABLE tma_card ADD COLUMN content_version SMALLINT NOT NULL DEFAULT 1')
+            database.execute_sql('ALTER TABLE tma_card ADD COLUMN content_v2 TEXT NULL')
+            checks = ' '.join(f'CONSTRAINT {name} CHECK ({expression})'
+                              for name, expression in STRUCTURED_CARDS_V2_CHECKS.items())
+            if isinstance(database, SqliteDatabase):
+                database.execute_sql('ALTER TABLE tma_card ADD COLUMN card_revision BIGINT NOT NULL DEFAULT 1 '
+                                     + checks)
+            else:
+                database.execute_sql('ALTER TABLE tma_card ADD COLUMN card_revision BIGINT NOT NULL DEFAULT 1')
+                for name, expression in STRUCTURED_CARDS_V2_CHECKS.items():
+                    database.execute_sql(f'ALTER TABLE tma_card ADD CONSTRAINT {name} CHECK ({expression})')
+            _verify_structured_card_schema(database)
+            database.execute_sql(
+                f'INSERT INTO tma_migration_history (migration_id) VALUES ({marker})',
+                (STRUCTURED_CARDS_V2_MIGRATION_ID,))
+            return {'applied': True, 'migration_id': STRUCTURED_CARDS_V2_MIGRATION_ID,
+                    'native_writes_enabled': STRUCTURED_CARDS_V2_NATIVE_WRITES_ENABLED}
+    finally:
+        if owned_connection and not database.is_closed():
+            database.close()
 
 
 def run_knowledge_mastery_migration(database):
