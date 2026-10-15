@@ -1,8 +1,10 @@
 # Structured Cards V2: нативное хранение и редактирование
 
-Статус: техническое решение для следующего этапа, **ещё не реализовано**.
+Статус: **этап 1 реализован** — чистые контракты и изолированные тесты.
+Нативное хранение, API, sync и обучение остаются планом этапов 2–9.
 Аудит выполнен по ветке `feat/structured-cards-v2`, исходный HEAD `e812cb8`.
-Этот документ не разрешает запуск миграций. Текущая задача меняет только документацию.
+Контракты этапа 1 подготовлены после `3be89f7`. Миграции не запускались;
+этот документ не разрешает их выполнение или создание реальных V2 rows.
 Контракт авторства: [STRUCTURED_CARDS_V2](STRUCTURED_CARDS_V2.md).
 
 ## 1. Решение и обязательные инварианты
@@ -468,7 +470,7 @@ Soft delete/restore не трогает JSON. Hard delete остаётся яв�
 
 | Этап | Содержание отдельного изменения | Критерий проверки / допуск |
 | --- | --- | --- |
-| 1. Чистый контракт хранения | Single-card validator и строгие wire envelopes, normalizer/display projection и unit fixtures в существующих V2 modules. Никаких подключений моделей/БД, routes, UI или миграций. | Все 8 типов; валидный unrepresentable V2 проходит; literals/повторы/пустые optional/metadata сохраняются; двойной normalize стабилен; invalid version/path/size отклоняются; input не изменяется. Первый безопасный implementation commit. |
+| 1. Чистый контракт хранения — **реализован** | Single-card validator и строгие wire envelopes, normalizer/display projection и unit fixtures в существующем V2 module. Никаких подключений моделей/БД, routes, UI или миграций. | Все 8 типов; валидный unrepresentable V2 проходит; literals/повторы/пустые optional/metadata сохраняются; двойной normalize стабилен; invalid version/path/size отклоняются; input не изменяется. См. реализацию ниже. |
 | 2. Неактивная схема | Подготовить additive migrations/model fields/CHECK, Dexie upgrade с сохранением dirty/pending. Feature flag запрещает native creation. | Одноразовая тестовая БД: rerun, старые rows/counts/front/timestamps/SRS прежние, constraints работают. Dexie upgrade с pending/reviews/aliases не теряет данные. Live migration — только отдельная согласованная работа. |
 | 3. Guards записи | Старые cards/bulk/text-update/sync, admin/regen/library/share/restore writer paths закрыты для V2. Разделить whole-row media saves. | В disposable fixtures каждый перечисленный bypass отказывает до записи/удаления; batch rollback проверяет JSON, SRS и receipts. Legacy happy paths прежние. Native создание всё ещё выключено. |
 | 4. Полное чтение и backup | SELECT/DTO/поиск/duplicates/trash/share, capabilities и read guards; native/mixed export и restore в тестовую копию. | Ни один read/cache copier не теряет envelope; backup round-trip всех типов, unknown version fail closed; TXT refusal без частичного файла. Старый full pull не маскирует фильтрацию под полный snapshot. |
@@ -478,10 +480,60 @@ Soft delete/restore не трогает JSON. Hard delete остаётся яв�
 | 8. Редактор и cutover | Формы V2, JSON draft/error/conflict UX, типы и медиа; затем default new-card V2, запрет legacy create и старого AI/import создания. | Save/read/edit/reload/offline цикл всех типов, stale editor не перезаписывает JSON; legacy editing без изменений; старые клиенты получают объяснимый upgrade error. Cutover не включать, пока не определён доступный путь для нужных legacy imports. |
 | 9. Необязательное расширение | Поддержать существующую библиотечную `card`, безопасный overwrite и явный upgrade legacy после отдельного аудита. | Полный clone/merge/default-distribution round-trip; отсутствие unsupported блокировок только там, где уже доказана сохранность. Без массового backfill старых карточек. |
 
-Рекомендуемый следующий шаг — **этап 1**. Он закрепляет ownership и проверяемый
-контракт до появления первого mutable V2 row и не требует миграции/работающего API.
+Рекомендуемый следующий шаг — **этап 2**, отдельная задача подготовки неактивной
+схемы с проверкой только на одноразовых fixtures/БД и сохранением запрета native writes.
+Выполнение миграции на рабочей БД требует отдельного согласования.
 Нельзя считать всеобщее новое авторство готовым на этапе 7: это контролируемый opt-in;
 цель «все новые авторские карточки — V2» достигается cutover этапа 8.
+
+### Реализация этапа 1
+
+Все модели и функции находятся в `api/services/structured_cards_v2.py`.
+Схема содержимого по-прежнему одна: discriminated union `Card`, используемый
+как `Document.cards`, так и `NativeContent.content_v2` и `validate_card`.
+
+| Контракт | Реализованное поведение |
+| --- | --- |
+| `validate_card(value)`, `load_card(str \| bytes)` | Проверяют одну карточку без фиктивной колоды; тот же union и существующие владельцы passport/grading policy. |
+| `normalize_card(value)` | Возвращает отделённый JSON-объект, добавляет defaults, сохраняет null, пустые optional, значения/порядок массивов, metadata и авторский id. Не trim/reorder/deduplicate. |
+| `serialize_card(value)` | UTF-8-совместимый JSON: `ensure_ascii=False`, сортировка ключей, компактные разделители, запрет NaN/Infinity; повторная нормализация/сериализация стабильна. Форматирование и порядок ключей входного файла не сохраняются. |
+| `project_card(value, passport=None) -> CardDisplay` | Литеральные display/search `front_text/back_text/context`, явный `card_type`, отдельные `effective_level/effective_topics`. Никаких legacy parser/detector/converter. |
+| `CardSaveRequest`, `load_save_request(str \| bytes)` | Обязательны UUID-строка `request_id`, `deck_id`, `content_version:2`, полная `content_v2`, nullable `card_id/base_revision`. Create: оба null; update: оба положительные целые. Версия требует именно int. Отрицательные sync IDs не принадлежат этому single-save контракту. |
+| `CardResponse` | Положительные числовые `id/deck_id/card_revision`, `content_version:2`, `content_v2`, `display:CardDisplay`, `media:CardMedia` (image_path/audio_path/audio_path_back). Авторский `content_v2.id` остаётся строкой/null. |
+| `CardSaveResponse` | UUID-строка `request_id` и `card:CardResponse`. Это подготовленный content DTO; per-user SRS/annotations, lifecycle и transport responses ещё не подключены. |
+
+Projection сохраняет порядок info; Trainer/Word Bank заменяют gap нейтральным `…`.
+Quiz выводит prompt/варианты, back содержит все правильные. Match front содержит
+левые элементы, back — упорядоченные пары; Puzzle — токены и перевод на back.
+Trainer back содержит допустимые input answers, все choice-варианты и правильные
+ключи; Free Text — sample и accepted answers. Это авторский cache, не учебный
+payload: Puzzle может содержать правильный порядок, back — ключи. Нельзя подавать
+его в legacy runtime или показывать back как information до ответа.
+
+В отсутствие явных level/topics наследование берётся независимо из
+`passport.intro`; `topics:[]` отключает наследование тем. Паспорт валидируется
+существующим `validate_passport`, исходные карточка/паспорт не меняются.
+Повторы токенов, пар, Word Bank options, info items, accepted answers и topics
+сохраняются. Прежние требования уникальных Quiz/Trainer option.text и Trainer
+input.answers действуют без ослабления: невалидные повторы отклоняются, не удаляются.
+
+Размеры: 256 KiB на каноническую карточку с defaults (включая dict/model входы),
+также 256 KiB на raw `load_card`; 10 MiB на raw document/save request и канонический
+document, не более 1000 cards/document. Проверка raw размера выполняется до JSON
+parsing; bytes декодируются строго UTF-8. Raw loaders отклоняют duplicate keys
+на любой глубине и NaN/Infinity; после dict parsing duplicate keys уже недоступны.
+Все wire models запрещают неизвестные поля, в частности независимые FRONT/BACK,
+context, card_type, media и card_revision в save request. `content_v2:null` запрещён.
+Pydantic ошибки сохраняют `loc` (включая discriminator tags), позволяющий указать
+конкретный путь, например `content_v2.word_bank.data.parts[3].gap.option`.
+Ошибки raw JSON — ValueError, превышение размера — `content_too_large`;
+HTTP-коды 413/422, permissions/CAS/idempotency предстоит реализовать в routes/write core.
+
+Изолированные проверки: `scripts/tests/test_structured_cards_v2_storage.py`,
+21 test method с cases всех восьми типов. Fixture-loader обходит eager
+`api.services.__init__`, блокирует imports `api.models/api.database` и legacy
+конвертера; реальная БД, сервер и внешние сервисы не нужны.
+Команда: `venv/Scripts/python.exe -m unittest scripts.tests.test_structured_cards_v2_storage -v`.
 
 ## 10. Риски и критерии приёмки
 
@@ -499,7 +551,7 @@ Soft delete/restore не трогает JSON. Hard delete остаётся яв�
 | Отказ пакета задерживает ratings | Retry того же request_id ровно один review; после явного abort/rebuild reviews не теряются и не дублируются. |
 | Откат релиза уничтожает native data | Flag-off сохраняет native read/guards/экспорт, проверенный backup восстанавливается в отдельную копию; колонки не удаляются. |
 
-Проверки реализации выполняются на изолированной БД/fixtures; не импортировать
+Проверки следующих этапов выполняются на изолированной БД/fixtures; не импортировать
 production models для «чистых» тестов без отключения bootstrap. Для документации
-достаточны сверка с кодом, проверка путей/ссылок и diff. В этой задаче runtime,
+достаточны сверка с кодом, проверка путей/ссылок и diff. На этапе 1 runtime,
 миграции, API, UI, SRS и sync **не меняются и не тестируются как реализованная V2-система**.

@@ -1,12 +1,15 @@
-"""Opt-in authoring contract. No persistence, type inference or legacy text parsing.
+"""Opt-in authoring and native storage contracts. No persistence or legacy parsing.
 
 The Pydantic models are the schema owner; JSON Schema is derived from them.
 Passports and grading policies retain their existing owners.
 """
 import json
 from typing import Annotated, Literal
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
+from pydantic import (AfterValidator, BaseModel, ConfigDict, Field, JsonValue,
+                      TypeAdapter, ValidationError, field_validator, model_validator)
+from pydantic_core import PydanticCustomError
 
 from api.services.answer_contract import GradingPolicy
 from api.services.deck_passport import validate_passport
@@ -15,6 +18,21 @@ from api.services.deck_passport import validate_passport
 Text = Annotated[str, Field(min_length=1, pattern=r'\S')]
 Texts = Annotated[list[Text], Field(min_length=1)]
 Level = Literal['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+MAX_CARD_BYTES = 256 * 1024
+MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+MAX_DOCUMENT_CARDS = 1000
+
+
+def _canonical_json(value) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True,
+                      separators=(',', ':'), allow_nan=False)
+
+
+def _check_size(text: str | bytes, limit: int):
+    size = len(text.encode('utf-8')) if isinstance(text, str) else len(text)
+    if size > limit:
+        raise PydanticCustomError('content_too_large',
+                                  'UTF-8 JSON exceeds {limit} bytes', {'limit': limit})
 
 
 class V2Model(BaseModel):
@@ -126,14 +144,27 @@ class WordBankData(V2Model):
     parts: Annotated[list[Annotated[TextPart | GapPart, Field(discriminator='type')]],
                      Field(min_length=1)]
 
-    @model_validator(mode='after')
-    def valid_references(self):
-        indices = [part.option for part in self.parts if part.type == 'gap']
-        if not indices or len(set(indices)) != len(indices):
-            raise ValueError('Each gap must use a different bank item')
-        if any(index >= len(self.options) for index in indices):
-            raise ValueError('Gap references an absent bank item')
-        return self
+    @field_validator('parts')
+    @classmethod
+    def valid_references(cls, parts, info):
+        seen, errors = set(), []
+        for index, part in enumerate(parts):
+            if part.type != 'gap':
+                continue
+            message = None
+            if part.option in seen:
+                message = 'Each gap must use a different bank item'
+            elif 'options' in info.data and part.option >= len(info.data['options']):
+                message = 'Gap references an absent bank item'
+            if message:
+                errors.append({'type': PydanticCustomError('gap_reference', message),
+                               'loc': (index, 'gap', 'option'), 'input': part.option})
+            seen.add(part.option)
+        if errors:
+            raise ValidationError.from_exception_data(cls.__name__, errors)
+        if not seen:
+            raise ValueError('Word Bank requires a gap')
+        return parts
 
 
 class FreeTextData(V2Model):
@@ -141,6 +172,13 @@ class FreeTextData(V2Model):
     sample_answer: Text  # A model answer, not an exact-match key.
     accepted_answers: list[Text] = Field(default_factory=list)
     grading_policy: GradingPolicy = Field(default_factory=lambda: GradingPolicy(mode='open_text'))
+
+    @field_validator('grading_policy', mode='before')
+    @classmethod
+    def revalidate_policy(cls, value):
+        # Its existing owner does not revalidate instances; mutable drafts still
+        # need the same checks as wire dictionaries, without changing that owner.
+        return value.model_dump() if isinstance(value, GradingPolicy) else value
 
     @field_validator('accepted_answers')
     @classmethod
@@ -173,6 +211,12 @@ class CardBase(V2Model):
     topics: list[Text] | None = None
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
     _metadata = field_validator('metadata')(check_metadata)
+
+    @model_validator(mode='after')
+    def bounded_content(self):
+        # Include declared defaults in the storage budget, even on dict/model input.
+        _check_size(_canonical_json(self.model_dump(mode='json')), MAX_CARD_BYTES)
+        return self
 
 
 class TheoryCard(CardBase):
@@ -217,6 +261,7 @@ class FreeTextCard(CardBase):
 
 Card = Annotated[TheoryCard | StandardCard | TrainerCard | QuizCard | MatchCard |
                  PuzzleCard | WordBankCard | FreeTextCard, Field(discriminator='type')]
+CARD_ADAPTER = TypeAdapter(Card)
 
 
 class Deck(V2Model):
@@ -238,7 +283,7 @@ class Deck(V2Model):
 class Document(V2Model):
     schema_version: Literal[2]
     deck: Deck
-    cards: Annotated[list[Card], Field(min_length=1)]
+    cards: Annotated[list[Card], Field(min_length=1, max_length=MAX_DOCUMENT_CARDS)]
 
     @field_validator('schema_version', mode='before')
     @classmethod
@@ -260,6 +305,7 @@ class Document(V2Model):
         stages = (self.deck.passport or {}).get('pedagogy', {}).get('stages', [])
         if any(stage.get('to_card', 0) > len(self.cards) for stage in stages):
             raise ValueError('Passport stage range exceeds document card count')
+        _check_size(_canonical_json(self.model_dump(mode='json')), MAX_DOCUMENT_BYTES)
         return self
 
 
@@ -268,8 +314,12 @@ def validate_document(value) -> Document:
     return Document.model_validate(value)
 
 
-def load_document(text: str) -> Document:
-    """Strict JSON input: reject duplicate keys, NaN/Infinity and unknown fields."""
+def _load_json(text: str | bytes, limit: int):
+    """Check raw size before parsing; duplicate keys cannot be detected on dicts."""
+    _check_size(text, limit)
+    if isinstance(text, bytes):
+        text = text.decode('utf-8')
+
     def unique_keys(pairs):
         result = {}
         for key, value in pairs:
@@ -281,5 +331,148 @@ def load_document(text: str) -> Document:
     def invalid_constant(value):
         raise ValueError(f'Invalid JSON constant: {value}')
 
-    return validate_document(json.loads(text, object_pairs_hook=unique_keys,
-                                        parse_constant=invalid_constant))
+    return json.loads(text, object_pairs_hook=unique_keys, parse_constant=invalid_constant)
+
+
+def load_document(text: str | bytes) -> Document:
+    """Strict JSON input: reject size, duplicate keys, NaN/Infinity and unknown fields."""
+    return validate_document(_load_json(text, MAX_DOCUMENT_BYTES))
+
+
+def validate_card(value) -> Card:
+    """Validate one authored card through the same union used by Document."""
+    return CARD_ADAPTER.validate_python(value)
+
+
+def load_card(text: str | bytes) -> Card:
+    return validate_card(_load_json(text, MAX_CARD_BYTES))
+
+
+def normalize_card(value) -> dict:
+    """Return a detached JSON value; add defaults, never trim/reorder/deduplicate."""
+    return validate_card(value).model_dump(mode='json')
+
+
+def serialize_card(value) -> str:
+    """Canonical storage JSON, independent of input key order/formatting."""
+    return _canonical_json(normalize_card(value))
+
+
+class CardDisplay(V2Model):
+    """Rebuildable author display/search cache. Never an exercise or answer API."""
+    front_text: str
+    back_text: str
+    context: str
+    card_type: Literal['theory', 'standard', 'trainer', 'quiz', 'match', 'puzzle',
+                       'word_bank', 'free_text']
+    effective_level: Level | None
+    effective_topics: list[str]
+
+
+def project_card(value, passport=None) -> CardDisplay:
+    """Render literal text only; passport inheritance never enters content_v2."""
+    card = validate_card(value)
+    if passport is not None:
+        errors = validate_passport(passport)
+        if errors:
+            raise ValueError('passport: ' + '; '.join(errors))
+    intro = (passport or {}).get('intro', {})
+    level = card.level if card.level is not None else intro.get('level')
+    topics = (list(card.topics) if card.topics is not None else
+              [intro['topic']] if intro.get('topic') else [])
+    info = ['\n'.join(item.items) if item.type == 'options' else item.text
+            for item in card.info]
+    data = card.data
+    if card.type == 'theory':
+        front, back = data.text, data.summary
+    elif card.type == 'standard':
+        front, back = data.prompt, data.answer
+    elif card.type == 'trainer':
+        front = ''.join(part.text if part.type == 'text' else '…' for part in data.parts)
+        back = '\n'.join(' / '.join(part.answers) if part.type == 'input' else
+                         ' / '.join(option.text for option in part.options) + ' → ' +
+                         ' / '.join(option.text for option in part.options if option.correct)
+                         for part in data.parts if part.type != 'text')
+    elif card.type == 'quiz':
+        front = '\n'.join([data.prompt, *(option.text for option in data.options)])
+        back = '\n'.join(option.text for option in data.options if option.correct)
+    elif card.type == 'match':
+        front = '\n'.join(pair.left for pair in data.pairs)
+        back = '\n'.join(f'{pair.left} → {pair.right}' for pair in data.pairs)
+    elif card.type == 'puzzle':
+        front = ' '.join(data.tokens)
+        back = '\n'.join(item for item in [front, data.translation] if item != '')
+    elif card.type == 'word_bank':
+        front = ''.join(part.text if part.type == 'text' else '…' for part in data.parts)
+        front += '\n' + '\n'.join(data.options)
+        back = '\n'.join(data.options[part.option] for part in data.parts if part.type == 'gap')
+    else:  # free_text, guaranteed by the discriminated union
+        front = data.prompt
+        back = '\n'.join([data.sample_answer, *data.accepted_answers])
+    return CardDisplay(front_text='\n'.join([*info, front]), back_text=back,
+                       context=card.explanation, card_type=card.type,
+                       effective_level=level, effective_topics=topics)
+
+
+DatabaseId = Annotated[int, Field(gt=0, le=2**63 - 1)]
+Revision = Annotated[int, Field(gt=0, le=2**63 - 1)]
+
+
+def _uuid_request_id(value):
+    UUID(value)
+    return value
+
+
+RequestId = Annotated[str, Field(min_length=36, max_length=36), AfterValidator(_uuid_request_id)]
+
+
+class NativeContent(V2Model):
+    content_version: Literal[2]
+    content_v2: Card
+
+    @field_validator('content_version', mode='before')
+    @classmethod
+    def integer_content_version(cls, value):
+        if type(value) is not int:
+            raise ValueError('content_version must be integer 2')
+        return value
+
+
+class CardSaveRequest(NativeContent):
+    """Future single-save wire contract. No move/media/legacy content writes."""
+    request_id: RequestId
+    card_id: DatabaseId | None
+    deck_id: DatabaseId
+    base_revision: Revision | None
+
+    @field_validator('base_revision')
+    @classmethod
+    def create_or_update(cls, value, info):
+        if 'card_id' in info.data and (info.data['card_id'] is None) != (value is None):
+            raise ValueError('base_revision must be null on create and positive on update')
+        return value
+
+
+class CardMedia(V2Model):
+    image_path: str | None = None
+    audio_path: str | None = None
+    audio_path_back: str | None = None
+
+
+class CardResponse(NativeContent):
+    """Content DTO for future native reads; per-user study data stays separate."""
+    id: DatabaseId
+    deck_id: DatabaseId
+    card_revision: Revision
+    display: CardDisplay
+    media: CardMedia = Field(default_factory=CardMedia)
+
+
+class CardSaveResponse(V2Model):
+    request_id: RequestId
+    card: CardResponse
+
+
+def load_save_request(text: str | bytes) -> CardSaveRequest:
+    # Whole request bound also limits whitespace/envelope abuse before JSON parsing.
+    return CardSaveRequest.model_validate(_load_json(text, MAX_DOCUMENT_BYTES))
