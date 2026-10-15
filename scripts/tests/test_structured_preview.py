@@ -36,7 +36,23 @@ class StructuredPreviewTest(unittest.TestCase):
         self.assertNotIn('front', result['document']['cards'][0])
         self.assertEqual(result['legacy_projections'][0]['card']['source_id'], source['cards'][0]['id'])
         self.assertEqual([p['status'] for p in result['legacy_projections'][-5:]],
-                         ['unsupported', 'converted', 'unsupported', 'unsupported', 'unsupported'])
+                         ['unrepresentable', 'converted', 'converted', 'unsupported', 'unsupported'])
+
+    def test_puzzle_quiz_preview_separates_multi_answer_and_lossy_tokens_from_validation(self):
+        source = json.loads((EXAMPLES / 'puzzle_quiz.json').read_text(encoding='utf-8'))
+        source['cards'].append({'type': 'puzzle', 'data': {'tokens': ['two words']}})
+        multi = copy.deepcopy(source['cards'][1])
+        multi['id'] = 'multi'
+        multi['data']['options'][0]['correct'] = True
+        source['cards'].append(multi)
+        result = preview_document(json.dumps(source))
+        self.assertTrue(result['valid'])
+        self.assertEqual(result['errors'], [])
+        self.assertEqual([p['status'] for p in result['legacy_projections']],
+                         ['converted', 'converted', 'unrepresentable', 'unrepresentable'])
+        self.assertEqual(result['document'], load_document(json.dumps(source)).model_dump(mode='json'))
+        self.assertIn('cards[2].data.tokens[0]:', result['legacy_projections'][2]['message'])
+        self.assertIn('exactly one correct answer', result['legacy_projections'][3]['message'])
 
     def test_match_preview_converts_safe_labels_and_keeps_lossy_data_reviewable(self):
         source = json.loads((EXAMPLES / 'match.json').read_text(encoding='utf-8'))

@@ -63,7 +63,7 @@ test('actual upload previews all types, escapes content and never enters a write
   await expect(card('match')).toContainText('essen → gegessen');
   await expect(card('free_text')).toContainText('Пример ответа (не точный ключ)');
   await expect(card('free_text')).toContainText('Ein anderer Text.');
-  await expect(page.getByText('Legacy-преобразование этого типа пока не реализовано. Это не ошибка карточки V2.', { exact: true })).toHaveCount(4);
+  await expect(page.getByText('Legacy-преобразование этого типа пока не реализовано. Это не ошибка карточки V2.', { exact: true })).toHaveCount(2);
   await page.locator('[data-v2-card="0"] summary').first().click();
   await expect(page.locator('[data-v2-card="0"]')).toContainText('front');
   await expect(page.locator('[data-v2-card="0"]')).toContainText(hostile);
@@ -144,6 +144,88 @@ test('Match preview separates ordered legacy pairs from valid but unrepresentabl
   await expect(card).toContainText(hostile);
   await expect(card.getByText('Временная legacy-проекция · только просмотр', { exact: true })).toHaveCount(0);
   await expect(card.locator('img, script')).toHaveCount(0);
+});
+
+test('Puzzle and single-answer Quiz project safely; multi-answer Quiz stays V2', async ({ page }, testInfo) => {
+  await openPreview(page);
+  const document = fixture('puzzle_quiz.json');
+  const multi = JSON.parse(JSON.stringify(document.cards[1]));
+  multi.id = 'multi';
+  multi.data.options[0].correct = true;
+  document.cards.push(multi, { type: 'puzzle', data: { tokens: ['two words'] } });
+  await upload(page, document);
+  await expect(page.locator('#author-v2-status')).toContainText('V2 валиден');
+  const projections = [];
+  for (const index of [0, 1]) {
+    const card = page.locator(`[data-v2-card="${index}"]`);
+    await card.getByText('Временная legacy-проекция · только просмотр', { exact: true }).click();
+    projections.push(JSON.parse(await card.locator('details').first().locator('pre').textContent()));
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await card.screenshot({ path: testInfo.outputPath(`puzzle-quiz-${index}-desktop.png`) });
+    await page.setViewportSize({ width: 375, height: 900 });
+    await card.screenshot({ path: testInfo.outputPath(`puzzle-quiz-${index}-375.png`) });
+    const dimensions = await card.evaluate(e => [e.scrollWidth, e.clientWidth]);
+    expect(dimensions[0]).toBeLessThanOrEqual(dimensions[1] + 1);
+  }
+  expect(projections[0].back).toBe(document.cards[0].data.translation);
+  expect(projections[1].back).toBe('Berlin');
+  await expect(page.locator('[data-v2-card="2"]')).toContainText('exactly one correct answer');
+  await expect(page.locator('[data-v2-card="2"]').getByText('✓ Правильный ответ')).toHaveCount(2);
+  await expect(page.locator('[data-v2-card="3"]')).toContainText('cards[3].data.tokens[0]');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+
+  // Mount the existing learner components on an empty Vite page. All content
+  // comes from the actual upload endpoint; no app initialization/storage/API.
+  await page.route('http://127.0.0.1:5199/__v2-renderer', route => route.fulfill({ contentType: 'text/html',
+    body: '<html><body style="background:#0f172a;color:white"><div id="fixture"></div></body></html>' }));
+  await page.goto('http://127.0.0.1:5199/__v2-renderer');
+  await page.evaluate(async projections => {
+    localStorage.setItem('native_language', 'ru');
+    // The empty fixture page needs Vite's normal React refresh preamble.
+    const RefreshRuntime = (await import('/@react-refresh')).default;
+    RefreshRuntime.injectIntoGlobalHook(window);
+    window.$RefreshReg$ = () => {};
+    window.$RefreshSig$ = () => type => type;
+    const React = (await import('/node_modules/.vite/deps/react.js')).default;
+    const { createRoot } = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
+    const { StudyCardPuzzle } = await import('/src/components/study/StudyCardPuzzle.jsx');
+    const { StudyCardQuiz } = await import('/src/components/study/StudyCardQuiz.jsx');
+    const { parseQuizData } = await import('/src/utils/quizParser.js');
+    const root = createRoot(document.getElementById('fixture'));
+    window.v2Renderer = { answers: [] };
+    const onTrainerAnswer = (_id, evidence) => window.v2Renderer.answers.push(evidence);
+    window.v2Renderer.quiz = () => {
+      const card = { ...projections[1], id: 102 };
+      root.render(React.createElement(StudyCardQuiz, { card, quizData: parseQuizData(card), onTrainerAnswer }));
+    };
+    root.render(React.createElement(StudyCardPuzzle, { card: { ...projections[0], id: 101 }, onTrainerAnswer }));
+  }, projections);
+  await expect(page.locator('.btn-puzzle-chip')).toHaveCount(document.cards[0].data.tokens.length);
+  const words = await page.locator('.btn-puzzle-chip').evaluateAll(items => items.map(item => ({ id: Number(item.dataset.id), text: item.textContent })).sort((a, b) => a.id - b.id));
+  expect(words.map(word => word.text)).toEqual(document.cards[0].data.tokens);
+  await page.getByRole('button', { name: 'Показать перевод' }).click();
+  await expect(page.locator('.text-back')).toHaveText(document.cards[0].data.translation);
+  // Swap physically distinct duplicate tokens: visible sentence stays identical,
+  // but the existing evaluator must still reject this occurrence order.
+  const wrong = [0, 3, 2, 1, 4, 5, 6, 7, 8];
+  for (const id of wrong) await page.locator(`.btn-puzzle-chip[data-id="${id}"]`).click();
+  await page.getByRole('button', { name: 'Проверить ответы' }).click();
+  await expect(page.locator('.puzzle-boundary.is-incorrect').first()).toBeVisible();
+  expect(await page.evaluate(() => window.v2Renderer.answers.length)).toBe(0);
+  await page.getByTitle('Сбросить', { exact: true }).click();
+  for (const word of words) await page.locator(`.btn-puzzle-chip[data-id="${word.id}"]`).click();
+  await page.getByRole('button', { name: 'Проверить ответы' }).click();
+  await expect.poll(() => page.evaluate(() => window.v2Renderer.answers.length)).toBe(1);
+  await page.evaluate(() => window.v2Renderer.quiz());
+  await expect(page.locator('.quiz-question')).toHaveText(document.cards[1].data.prompt);
+  await expect(page.locator('.quiz-option-item')).toHaveCount(3);
+  await page.locator('.quiz-option-item').filter({ hasText: 'München' }).click();
+  await page.getByRole('button', { name: 'Проверить', exact: true }).click();
+  await expect(page.getByText('Попробуй другой вариант.', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.v2Renderer.answers.length)).toBe(1);
+  await page.locator('.quiz-option-item').filter({ hasText: 'Berlin' }).click();
+  await page.getByRole('button', { name: 'Проверить', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.v2Renderer.answers.length)).toBe(2);
 });
 
 test('loading disables repeat upload; server failures allow retry', async ({ page }) => {

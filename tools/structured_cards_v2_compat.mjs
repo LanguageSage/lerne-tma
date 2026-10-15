@@ -2,15 +2,21 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { detectCardType } from '../app/src/utils/exerciseDetector.js';
-import { parseExerciseContent } from '../app/src/utils/exerciseContentParser.js';
+import { parseExerciseContent, getInteractiveExerciseContent } from '../app/src/utils/exerciseContentParser.js';
 import { parseClozeData } from '../app/src/utils/clozeParser.js';
 import { evaluateTrainerGaps } from '../app/src/utils/trainerEvaluation.js';
 import { parseMatchData, normalizeMatchValue } from '../app/src/utils/matchParser.js';
 import { evaluateMatchPair, matchPartId } from '../app/src/utils/matchEvaluation.js';
+import { stripMarkdown } from '../app/src/utils/text.js';
+import { evaluatePuzzleOrder } from '../app/src/utils/puzzleEvaluation.js';
+import { parseQuizData } from '../app/src/utils/quizParser.js';
+import { evaluateQuizOption } from '../app/src/utils/quizEvaluation.js';
 
 const { legacy, expected } = JSON.parse(readFileSync(0, 'utf8'));
 let gapsChecked = 0;
 let pairsChecked = 0;
+let tokensChecked = 0;
+let optionsChecked = 0;
 assert.equal(legacy.cards.length, expected.cards.length);
 for (const [index, card] of legacy.cards.entries()) {
   const authored = expected.cards[index];
@@ -82,9 +88,46 @@ for (const [index, card] of legacy.cards.entries()) {
       const next = data.pairs.find(pair => matches[pair.id] === undefined);
       if (next) assert.equal(evaluateMatchPair(data.pairs, matches, next.id, right.id), null);
     }
+  } else if (authored.type === 'puzzle') {
+    // StudyCardPuzzle's current tokenization; the browser regression also mounts
+    // the actual component with these projected cards, without changing it.
+    const body = getInteractiveExerciseContent(card.front, 'puzzle').replace(/^@puzzle\s*/i, '').trim();
+    const tokens = stripMarkdown(body).split(/\s+/).map(word => word.trim()).filter(Boolean);
+    assert.deepEqual(tokens, authored.data.tokens);
+    assert.equal(card.back, authored.data.translation || '');
+    tokensChecked += tokens.length;
+    const target = tokens.map((_, id) => id);
+    assert.equal(evaluatePuzzleOrder(target, target).accepted, true);
+    for (const wrong of [target.slice(1), [...target, 999], target.map(() => 999)]) {
+      assert.equal(evaluatePuzzleOrder(target, wrong).accepted, false);
+    }
+    if (target.length > 1) assert.equal(evaluatePuzzleOrder(target, [...target].reverse()).accepted, false);
+    const firstDuplicate = tokens.findIndex((token, id) => tokens.indexOf(token) !== id);
+    if (firstDuplicate >= 0) {
+      const first = tokens.indexOf(tokens[firstDuplicate]);
+      const swapped = [...target];
+      [swapped[first], swapped[firstDuplicate]] = [swapped[firstDuplicate], swapped[first]];
+      assert.deepEqual(swapped.map(id => tokens[id]), tokens);
+      assert.equal(evaluatePuzzleOrder(target, swapped).accepted, false);
+    }
+  } else if (authored.type === 'quiz') {
+    const data = parseQuizData(card);
+    assert.ok(data?.isQuiz);
+    assert.equal(data.question, authored.data.prompt);
+    assert.deepEqual([...data.options].sort((a, b) => a.id - b.id),
+      authored.data.options.map((option, id) => ({ id, text: option.text, isCorrect: option.correct || false })));
+    const correct = authored.data.options.findIndex(option => option.correct);
+    assert.equal(data.correctAnswerId, correct);
+    assert.equal(data.correctAnswerText, authored.data.options[correct].text);
+    assert.equal(card.back, authored.data.options[correct].text);
+    for (const option of data.options) {
+      assert.equal(evaluateQuizOption(data.options, option.id).accepted, option.id === correct);
+    }
+    assert.equal(evaluateQuizOption(data.options, -1), null);
+    optionsChecked += data.options.length;
   } else {
     assert.equal(content.exercise, authored.type === 'theory' ? authored.data.text : authored.data.prompt);
     assert.equal(card.back, authored.type === 'theory' ? authored.data.summary || '' : authored.data.answer);
   }
 }
-console.log(JSON.stringify({ cards: legacy.cards.length, gaps: gapsChecked, pairs: pairsChecked }));
+console.log(JSON.stringify({ cards: legacy.cards.length, gaps: gapsChecked, pairs: pairsChecked, tokens: tokensChecked, options: optionsChecked }));

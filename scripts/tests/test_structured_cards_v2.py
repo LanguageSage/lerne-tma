@@ -225,7 +225,7 @@ class V2LegacyTests(unittest.TestCase):
     def test_all_unimplemented_types_fail_without_partial_results(self):
         value = json.loads((EXAMPLES / 'other_types.json').read_text(encoding='utf-8'))
         for card in value['cards']:
-            if card['type'] == 'match':
+            if card['type'] not in ('word_bank', 'free_text'):
                 continue
             combined = document()
             combined['cards'].append(card)
@@ -249,7 +249,7 @@ class V2LegacyTests(unittest.TestCase):
             input=json.dumps({'legacy': to_legacy_document(value), 'expected': value}, ensure_ascii=False),
             capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
         self.assertEqual(process.returncode, 0, process.stderr)
-        self.assertEqual(json.loads(process.stdout), {'cards': 10, 'gaps': 8, 'pairs': 0})
+        self.assertEqual(json.loads(process.stdout), {'cards': 10, 'gaps': 8, 'pairs': 0, 'tokens': 0, 'options': 0})
 
     def test_match_projection_preserves_order_duplicates_and_envelope(self):
         value = json.loads((EXAMPLES / 'match.json').read_text(encoding='utf-8'))
@@ -297,13 +297,80 @@ class V2LegacyTests(unittest.TestCase):
             input=json.dumps({'legacy': to_legacy_document(value), 'expected': value}, ensure_ascii=False),
             capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
         self.assertEqual(process.returncode, 0, process.stderr)
-        self.assertEqual(json.loads(process.stdout), {'cards': 2, 'gaps': 0, 'pairs': 10})
+        self.assertEqual(json.loads(process.stdout), {'cards': 2, 'gaps': 0, 'pairs': 10, 'tokens': 0, 'options': 0})
+
+    def test_puzzle_quiz_projection_and_actual_frontend_evaluators(self):
+        value = json.loads((EXAMPLES / 'puzzle_quiz.json').read_text(encoding='utf-8'))
+        value['cards'].append({'type': 'puzzle', 'data': {'tokens': ['Ja!'], 'translation': '  **Да!**\r\nТочно.  '}})
+        # Single correct option at every source position, independent of shuffling.
+        for correct in range(3):
+            value['cards'].append({'type': 'quiz', 'data': {'prompt': 'ÄÖÜ: Was passt?', 'options': [
+                {'text': text, 'correct': i == correct} for i, text in enumerate(['A & B', '«Ja!»', '[x] literal'])]}})
+        before = copy.deepcopy(value)
+        result = to_legacy_document(value)
+        self.assertEqual(value, before)
+        self.assertEqual(result['cards'][0]['front'], '::task\nOrdnen Sie die Wörter.\n\n::exercise\n@puzzle\n'
+                         + ' '.join(value['cards'][0]['data']['tokens']))
+        self.assertEqual(result['cards'][0]['back'], value['cards'][0]['data']['translation'])
+        self.assertEqual(result['cards'][1]['front'], '::source\nDeutschland hat sechzehn Bundesländer.\n\n::exercise\n'
+                         'Welche Stadt ist die Hauptstadt Deutschlands?\nWählen Sie eine Antwort.\n\n'
+                         '[ ] München\n[*] Berlin\n[ ] Hamburg')
+        self.assertEqual(result['cards'][1]['back'], 'Berlin')
+        for index in (0, 1):
+            self.assertEqual(result['cards'][index]['context'], value['cards'][index]['explanation'])
+            self.assertEqual(result['cards'][index]['source_id'], value['cards'][index]['id'])
+            self.assertEqual((result['cards'][index]['level'], result['cards'][index]['topics']),
+                             ('B1', 'Sprache und Alltag'))
+        process = subprocess.run(['node', str(ROOT / 'tools/structured_cards_v2_compat.mjs')],
+            input=json.dumps({'legacy': result, 'expected': value}, ensure_ascii=False),
+            capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(json.loads(process.stdout), {'cards': 6, 'gaps': 0, 'pairs': 0, 'tokens': 10, 'options': 12})
+
+    def test_puzzle_rejects_unrepresentable_tokens_with_indexed_field_paths(self):
+        for token in ('two words', 'a\tb', 'a\nb', 'a\rb', 'a\u00a0b', 'a\ufeffb',
+                      ' leading', 'trailing ', '**bold**', '_word_', '`code`', '<large>x</large>',
+                      '@theory', '::exercise'):
+            value = document({'type': 'puzzle', 'data': {'tokens': ['A', token], 'translation': 'Перевод'}})
+            validate_document(value)
+            with self.subTest(token=token), self.assertRaisesRegex(LegacyConversionError, r'cards\[0\].data.tokens\[1\]:'):
+                to_legacy_document(value)
+
+    def test_quiz_multiple_correct_answers_remain_valid_but_cannot_be_projected(self):
+        value = document({'type': 'quiz', 'data': {'prompt': 'Choose', 'options': choice()['options']}})
+        before = copy.deepcopy(value)
+        validate_document(value)
+        with self.assertRaisesRegex(LegacyConversionError, r'cards\[0\].data.options:.*exactly one correct answer'):
+            to_legacy_document(value)
+        self.assertEqual(value, before)
+
+    def test_quiz_rejects_lossy_question_and_option_content_with_field_paths(self):
+        for field, texts in (
+            ('prompt', [' spaced ', 'Two\n\nparagraphs', 'Two\n\ufeff\nparagraphs', 'A\rB', 'Q\u2028@match', 'Why ?',
+                        'Why\ufeff?', '**bold**', '[[gap]]', '{choice}', 'Q\n@match', 'Q\n\ufeff::task\nX']),
+            ('options[1].text', [' spaced ', 'A\nB', 'A\rB', 'A\u2029B', 'Hallo !', '**bold**', '`code`',
+                                  '[[gap]]', '{choice}', '- literal', '• literal', 'A) literal', '1. literal'])):
+            for text in texts:
+                card = {'type': 'quiz', 'data': {'prompt': 'Choose', 'options': [
+                    {'text': 'Right', 'correct': True}, {'text': 'Wrong'}]}}
+                if field == 'prompt':
+                    card['data']['prompt'] = text
+                else:
+                    card['data']['options'][1]['text'] = text
+                value = document(card)
+                before = copy.deepcopy(value)
+                validate_document(value)
+                with self.subTest(field=field, text=text), self.assertRaises(LegacyConversionError) as error:
+                    to_legacy_document(value)
+                self.assertIn(f'cards[0].data.{field}:', str(error.exception))
+                self.assertEqual(value, before)
 
     def test_cli_validates_previews_and_reports_nonzero_on_failure(self):
         for command, fixture, expected_code in (('validate', 'basics.json', 0),
                                                 ('validate', 'other_types.json', 0),
                                                 ('to-legacy', 'basics.json', 0),
                                                 ('to-legacy', 'match.json', 0),
+                                                ('to-legacy', 'puzzle_quiz.json', 0),
                                                 ('to-legacy', 'other_types.json', 1)):
             with self.subTest(command=command, fixture=fixture):
                 process = subprocess.run([sys.executable, str(ROOT / 'scripts/structured_cards_v2.py'),

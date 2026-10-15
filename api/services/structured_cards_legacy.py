@@ -1,4 +1,4 @@
-"""One-way, opt-in V2 -> legacy preview for Theory, Standard, Trainer and Match.
+"""One-way, opt-in V2 -> legacy preview for six supported card types.
 
 This module never writes cards. Derived FRONT/BACK must not be persisted alongside
 an independently editable V2 source. Unsupported/lossy conversion raises an error.
@@ -62,6 +62,54 @@ def _match_value(text, path):
     return text
 
 
+def _plain_legacy_text(text, path):
+    # Conservative subset unchanged by the current frontend stripMarkdown/trim.
+    if text != text.strip() or text.startswith('\ufeff') or text.endswith('\ufeff'):
+        raise LegacyConversionError(f'{path}: legacy would trim leading/trailing whitespace')
+    if re.search(r'[*_`]|</?(?:center|large)>', text):
+        raise LegacyConversionError(f'{path}: Markdown/control markup cannot be projected safely')
+    return text
+
+
+def _puzzle_body(card, path):
+    tokens = []
+    for index, token in enumerate(card.data.tokens):
+        p = f'{path}.data.tokens[{index}]'
+        _plain_legacy_text(token, p)
+        if re.search(r'[\s\ufeff]', token):
+            raise LegacyConversionError(f'{p}: legacy Puzzle splits tokens on whitespace')
+        if re.fullmatch(r'@(?:match|puzzle|wordbank|free|theory)|::(?:exercise|task|source|example|options|level|topic)', token, re.I):
+            raise LegacyConversionError(f'{p}: legacy structural marker cannot be a Puzzle token')
+        tokens.append(token)
+    return '@puzzle\n' + ' '.join(tokens)
+
+
+def _quiz_text(text, path, *, option=False):
+    _plain_legacy_text(text, path)
+    if re.search(r'[\r\u2028\u2029]|\n[\s\ufeff]*\n', text) or (option and '\n' in text):
+        raise LegacyConversionError(f'{path}: legacy Quiz cannot preserve these line/paragraph boundaries')
+    if re.search(r'[\s\ufeff]+[?!.,;:]', text):
+        raise LegacyConversionError(f'{path}: legacy Quiz would remove whitespace before punctuation')
+    if re.search(r'\{[^}]+\}|\[\[[^\]]+\]\]', text):
+        raise LegacyConversionError(f'{path}: legacy Quiz would mask Trainer syntax')
+    if re.search(r'(?im)^[\s\ufeff]*(?:@(?:match|puzzle|wordbank|free|theory)|::(?:exercise|task|source|example|options|level|topic))[\s\ufeff]*$', text):
+        raise LegacyConversionError(f'{path}: legacy structural marker cannot be Quiz content')
+    if option and re.match(r'[-○•]|(?:[a-zA-Z]|[0-9]{1,2})[).]', text):
+        raise LegacyConversionError(f'{path}: legacy Quiz would strip the option prefix')
+    return text
+
+
+def _quiz_body(card, path):
+    correct = [option for option in card.data.options if option.correct]
+    if len(correct) != 1:
+        raise LegacyConversionError(f'{path}.data.options: legacy Quiz projection requires exactly one correct answer; multiple correct answers remain valid V2')
+    prompt = _quiz_text(card.data.prompt, path + '.data.prompt')
+    lines = [('[*] ' if option.correct else '[ ] ')
+             + _quiz_text(option.text, f'{path}.data.options[{i}].text', option=True)
+             for i, option in enumerate(card.data.options)]
+    return prompt + '\n\n' + '\n'.join(lines), correct[0].text
+
+
 def to_legacy_card(card, deck, index):
     """Project one already validated V2 card and deck, preserving its source index.
 
@@ -83,6 +131,10 @@ def to_legacy_card(card, deck, index):
                  f"{_match_value(pair.right, f'{path}.data.pairs[{i}].right')}"
                  for i, pair in enumerate(card.data.pairs)]
         body, back = '@match\n' + '\n'.join(lines), '\n'.join(lines)
+    elif card.type == 'puzzle':
+        body, back = _puzzle_body(card, path), card.data.translation
+    elif card.type == 'quiz':
+        body, back = _quiz_body(card, path)
     else:
         raise LegacyConversionError(f'{path}.type: {card.type} conversion is not implemented')
 

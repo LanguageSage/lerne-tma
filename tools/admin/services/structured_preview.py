@@ -34,7 +34,7 @@ def preview_document(text):
 
     projections = []
     for index, card in enumerate(document.cards):
-        if card.type not in ('theory', 'standard', 'trainer', 'match'):
+        if card.type not in ('theory', 'standard', 'trainer', 'match', 'puzzle', 'quiz'):
             projections.append({'status': 'unsupported'})
             continue
         try:
