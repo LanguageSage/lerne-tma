@@ -149,3 +149,20 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
 - Offline CLI: `scripts/structured_cards_v2.py` (`validate`, `schema`, `to-legacy`). Admin «Автор» also has an isolated JSON V2 preview via `POST /api/admin/author/v2-preview`, `tools/admin/services/structured_preview.py` and `static/js/author.js`: authoritative loader, indexed field errors, all eight V2 types and independent per-card legacy projections through `to_legacy_card`. Unsupported/lossy projection is separate from V2 validity. No save/publish, learner import/UI/sync integration or migrations.
 - Tests: `scripts/tests/test_structured_cards_v2.py` plus `tools/structured_cards_v2_compat.mjs` against actual frontend parsers and Trainer/Match/Puzzle/Quiz/Word Bank evaluators (Match exact pairs, interchangeable normalized right values, tile single-use, completion); `scripts/tests/test_structured_preview.py` and `scripts/tests/browser/structured-preview.spec.cjs` exercise upload, validation, mixed types, Match/Puzzle/Quiz legacy success/refusal, multi-correct refusal, XSS, error/retry/loading and mobile layout with a database-free server fixture; actual Puzzle/Quiz/Word Bank/Free Text components also consume the generated projections in an isolated browser harness. Free Text test transport uses the actual context loader/evaluator with memory-only reads and no SQL/paid AI; tests/test_answer_evaluation.py additionally checks projected policy/variants on in-memory SQLite. Examples: `project_docs/examples/structured_cards_v2/match.json`, `puzzle_quiz.json`, `word_bank_free_text.json`.
 - Format, examples and staged transition: [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md).
+
+## Structured Cards V2: guards операций с карточками
+
+- `api/services/cards.py` защищает batch move/copy/overwrite/delete и single delete;
+  `api/services/trash.py:restore_card` — только отдельную карточку. Общий discriminator
+  остаётся `legacy_card_writes.require_legacy_cards`, читающим сохранённую версию и
+  при выключенном schema-ready. V2/unknown — HTTP 409 `legacy_card_write_blocked`.
+- Транзакция включает чтение, permissions и запись; PostgreSQL row locks берутся
+  по ID до ORM-чтений, target discovery также использует FOR UPDATE. SQLite —
+  IMMEDIATE. Все разрешённые исходники и цели overwrite проверяются до любых DML;
+  повторные ID не повторяют действие. Unrelated V2 и неизменяемые skip/keep targets
+  не блокируют legacy-only операции. Viewer/creator не может делать move/delete.
+- Regression: `scripts/tests/test_structured_cards_v2_operations.py` в отдельных
+  процессах с schema-ready=false/true; одноразовые fixtures, SQL trace, snapshots,
+  HTTP/permissions, rollback и SQLite concurrency. Реальный PostgreSQL не проверен.
+- Границы оставшегося этапа 3B и результаты:
+  [STRUCTURED_CARDS_V2_ARCHITECTURE](../../project_docs/STRUCTURED_CARDS_V2_ARCHITECTURE.md).

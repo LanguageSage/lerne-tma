@@ -2,6 +2,7 @@ import logging
 import datetime
 from ..models import TMA_Deck, TMA_Card, TMAProgress, tma_db
 from peewee import fn
+from .legacy_card_writes import require_legacy_cards
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,12 @@ def restore_deck(deck_id: int, user_id: int):
         raise e
 
 def restore_card(card_id: int, user_id: int):
+    from .cards import _card_operation_scope
+    with _card_operation_scope([card_id]):
+        return _restore_legacy_card(card_id, user_id)
+
+
+def _restore_legacy_card(card_id: int, user_id: int):
     """Восстанавливает отдельную карточку."""
     try:
         card = (TMA_Card
@@ -88,6 +95,7 @@ def restore_card(card_id: int, user_id: int):
         if not card:
             return False
 
+        require_legacy_cards([card.id])
         now = datetime.datetime.now()
         with tma_db.atomic():
             card.is_deleted = False

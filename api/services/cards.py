@@ -4,7 +4,7 @@ import logging
 import json
 import hashlib
 import time
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from fastapi import HTTPException
 from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia, TMAOfflineBatch
 from .. import srs
@@ -296,7 +296,30 @@ def _save_legacy_card(data, user_id, *, _batch=None):
     return card
 
 
+@contextmanager
+def _card_operation_scope(card_ids, target_deck_id=None):
+    """Lock source/target rows before loading mutable ORM objects or checking versions.
+
+    Lock rows in ID order, including duplicate candidates. Target discovery
+    also locks new candidates inserted after this initial query.
+    SQLite reserves the writer before reads; PostgreSQL uses row locks.
+    """
+    with tma_db.atomic(*(() if tma_db.for_update else ('IMMEDIATE',))):
+        if tma_db.for_update:
+            condition = TMA_Card.id.in_(card_ids)
+            if target_deck_id is not None:
+                condition |= TMA_Card.deck_id == target_deck_id
+            list(TMA_Card.select(TMA_Card.id).where(condition)
+                 .order_by(TMA_Card.id).for_update())
+        yield
+
+
 def delete_card(card_id: int, user_id: int):
+    with _card_operation_scope([card_id]):
+        return _delete_legacy_card(card_id, user_id)
+
+
+def _delete_legacy_card(card_id: int, user_id: int):
     try:
         # Мягкое удаление: помечаем карточку как is_deleted = True
         card = TMA_Card.get_or_none(TMA_Card.id == card_id)
@@ -322,6 +345,7 @@ def delete_card(card_id: int, user_id: int):
             if not is_creator and role not in ['owner', 'editor']:
                 return False
 
+        require_legacy_cards([card.id])
         card.is_deleted = True
         card.updated_at = datetime.datetime.now()
         card.save()
@@ -365,6 +389,12 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
 
 
 def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_duplicate: str = 'skip') -> dict:
+    card_ids = list(dict.fromkeys(int(card_id) for card_id in card_ids))
+    with _card_operation_scope(card_ids, target_deck_id):
+        return _batch_move_legacy_cards(card_ids, target_deck_id, user_id, on_duplicate)
+
+
+def _batch_move_legacy_cards(card_ids, target_deck_id, user_id, on_duplicate):
     """Массово перемещает карточки в целевую колоду с сохранением SRS-прогресса."""
     from fastapi import HTTPException
     from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
@@ -402,7 +432,7 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
         role = user_role_cache.get(card.deck_id)
         creator_id_int = int(card.creator_id) if card.creator_id is not None else None
         is_creator = (creator_id_int == int(user_id)) if creator_id_int is not None else False
-        if role in ['owner', 'editor'] or is_creator:
+        if role in ['owner', 'editor'] or (is_creator and role != 'viewer'):
             valid_cards.append(card)
             affected_source_decks.add(card.deck_id)
 
@@ -411,13 +441,22 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
     valid_cards = [card_by_id[cid] for cid in card_ids if cid in card_by_id]
 
     # Загружаем существующие карточки целевой колоды для проверки совпадений по лицевой стороне
-    existing_cards = list(TMA_Card.select().where(
+    existing_query = TMA_Card.select().where(
         (TMA_Card.deck_id == target_deck_id) & (TMA_Card.is_deleted == False)
-    ))
+    ).order_by(TMA_Card.id)
+    if tma_db.for_update:
+        existing_query = existing_query.for_update()
+    existing_cards = list(existing_query)
     existing_by_front = {
         normalize_card_key(c.front_text): c
         for c in existing_cards if normalize_card_key(c.front_text)
     }
+
+    checked_ids = [card.id for card in valid_cards]
+    if on_duplicate == 'overwrite':
+        source_keys = {normalize_card_key(card.front_text) for card in valid_cards}
+        checked_ids.extend(card.id for key, card in existing_by_front.items() if key in source_keys)
+    require_legacy_cards(checked_ids)
 
     now = datetime.datetime.now()
     moved_count = 0
@@ -487,6 +526,12 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
 
 
 def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_duplicate: str = 'skip') -> dict:
+    card_ids = list(dict.fromkeys(int(card_id) for card_id in card_ids))
+    with _card_operation_scope(card_ids, target_deck_id):
+        return _batch_copy_legacy_cards(card_ids, target_deck_id, user_id, on_duplicate)
+
+
+def _batch_copy_legacy_cards(card_ids, target_deck_id, user_id, on_duplicate):
     """Массово копирует карточки в целевую колоду с обработкой совпадений по front_text."""
     from fastapi import HTTPException
     from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
@@ -534,13 +579,22 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
     valid_cards = [card_by_id[cid] for cid in card_ids if cid in card_by_id]
 
     # Загружаем существующие карточки целевой колоды для проверки совпадений по front_text
-    existing_cards = list(TMA_Card.select().where(
+    existing_query = TMA_Card.select().where(
         (TMA_Card.deck_id == target_deck_id) & (TMA_Card.is_deleted == False)
-    ))
+    ).order_by(TMA_Card.id)
+    if tma_db.for_update:
+        existing_query = existing_query.for_update()
+    existing_cards = list(existing_query)
     existing_by_front = {
         normalize_card_key(c.front_text): c
         for c in existing_cards if normalize_card_key(c.front_text)
     }
+
+    checked_ids = [card.id for card in valid_cards]
+    if on_duplicate == 'overwrite':
+        source_keys = {normalize_card_key(card.front_text) for card in valid_cards}
+        checked_ids.extend(card.id for key, card in existing_by_front.items() if key in source_keys)
+    require_legacy_cards(checked_ids)
 
     created_count = 0
     updated_count = 0
@@ -620,6 +674,12 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
 
 
 def batch_delete_cards(card_ids: list[int], user_id: int) -> dict:
+    card_ids = list(dict.fromkeys(int(card_id) for card_id in card_ids))
+    with _card_operation_scope(card_ids):
+        return _batch_delete_legacy_cards(card_ids, user_id)
+
+
+def _batch_delete_legacy_cards(card_ids, user_id):
     """Массовое мягкое удаление карточек с проверкой прав."""
     from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
 
@@ -643,13 +703,14 @@ def batch_delete_cards(card_ids: list[int], user_id: int) -> dict:
         role = user_role_cache.get(card.deck_id)
         creator_id_int = int(card.creator_id) if card.creator_id is not None else None
         is_creator = (creator_id_int == int(user_id)) if creator_id_int is not None else False
-        if role in ['owner', 'editor'] or is_creator:
+        if role in ['owner', 'editor'] or (is_creator and role != 'viewer'):
             valid_card_ids.append(card.id)
             affected_decks.add(card.deck_id)
 
     if not valid_card_ids:
         return {"status": "success", "count": 0}
 
+    require_legacy_cards(valid_card_ids)
     now = datetime.datetime.now()
     with tma_db.atomic():
         TMA_Card.update(

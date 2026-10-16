@@ -1,7 +1,8 @@
 # Structured Cards V2: нативное хранение и редактирование
 
 Статус: **этапы 1 и 3A реализованы; этап 2 подготовлен** — неактивная схема,
-Dexie v5 и guards основных legacy writers. Этап 3B ещё не выполнен.
+Dexie v5 и guards основных legacy writers. В этапе 3B защищены операции
+с отдельными карточками; остальные пути этапа 3B ещё не выполнены.
 Нативные записи запрещены; native API, transport и обучение остаются планом этапов 4–9.
 Аудит выполнен по ветке `feat/structured-cards-v2`, исходный HEAD `e812cb8`.
 Контракты этапа 1 подготовлены после `3be89f7`, схема этапа 2 — после `5c077d3`.
@@ -628,8 +629,50 @@ tests падают из-за отсутствующих уже в `a92efc9` `car
 PostgreSQL execution/concurrency ещё не проверены. Рабочая БД, UI, формат карточек,
 миграции, merge и deploy не затрагивались.
 
+### Этап 3B: операции с отдельными карточками
+
+- `cards.py:batch_move_cards/batch_copy_cards/batch_delete_cards/delete_card`
+  и `trash.py:restore_card` используют существующий `require_legacy_cards`.
+  Проверяется сохранённая версия, включая schema-ready=false; неизвестная/null
+  версия также получает 409 `legacy_card_write_blocked`. Старая схема без колонки
+  продолжает работать. Native writes и DB/Dexie/sync/UI не изменены.
+- Scope операции охватывает чтение, permissions, проверку версий и все записи.
+  PostgreSQL блокирует исходники и целевые строки по ID до загрузки ORM-содержимого;
+  повторный target SELECT FOR UPDATE закрывает и новые совпадения, вставленные
+  после первой блокировки. Guard держит row locks до commit. SQLite использует
+  BEGIN IMMEDIATE до чтений. Изменение версии между проверкой и записью исключено.
+- Copy/move проверяют все разрешённые исходники и при overwrite — существующие
+  цели совпадений по тому же нормализованному FRONT. Проверка всего набора идёт
+  до INSERT/UPDATE/delete исходника и touch timestamps; mixed request не даёт
+  частичного результата. Unrelated V2 и цели skip/keep не блокируют legacy writes,
+  поскольку эти строки не меняются. Повторные ID обрабатываются один раз с
+  сохранением порядка выбора. Viewer не может использовать creator_id для move/delete.
+- HTTP routes сохраняют 409 и существующие проверки прав; services повторно
+  определяют допустимые исходники внутри scope. Single restore остаётся owner-only,
+  может вернуть родительскую колоду по прежним правилам, но не восстанавливает
+  sibling cards. Проверка V2 предшествует и этому изменению родительской колоды.
+
+Проверки `scripts/tests/test_structured_cards_v2_operations.py`: **26 tests** при
+schema-ready=false; **25 passed, 1 expected skip** старой схемы при true. Все БД —
+одноразовые SQLite; snapshot всех fixture-таблиц и SQL trace подтверждают отсутствие
+DML и сохранность JSON/revision/deck membership/SRS/history/media при отказе.
+Есть HTTP success/conflict/permissions, legacy overwrite и rollback позднего сбоя,
+реальная конкуренция независимых SQLite connections; FOR UPDATE SQL и его порядок
+проверены через fixture executor, **не на реальном PostgreSQL**. Пять регрессионных
+тестов обнаруживают прежнее небезопасное поведение исходников `264cb6c` через
+in-memory import, без изменения исходных файлов.
+
+Существующие guards 3A: 20 passed при false, 19 passed + 1 expected skip при true;
+bulk-import idempotency: 10 passed; collaborative delete: существующий сценарий
+прошёл с подменённым до imports DB owner и отключённым bootstrap. Итого 101
+успешное исполнение тестов/сценариев, 2 ожидаемых пропуска. Старый
+`test_bulk_save_partial_failure.py` падает на ожидании текста ошибки
+(ожидает «Нет прав»/PermissionError, получает `403: Access denied`); тот же отказ
+воспроизведён на `264cb6c`, partial-success поведение и новый набор guards проходят.
+Миграции и рабочие БД не запускались, merge/deploy не выполнялись.
+
 **Остаток этапа 3B:** admin CRUD/bulk/regen и активные операторские скрипты,
-batch move/copy/overwrite и deck/folder lifecycle, library/share/import-json,
+deck/folder lifecycle, library/share/import-json,
 backup restore/replace и stale whole-row media saves. Их проверки обязаны охватить
 все затронутые source/target rows до удаления/копирования/записи. Этап 3 в целом
 не завершён: никаких реальных V2 rows до закрытия этих путей и последующих допусков.
