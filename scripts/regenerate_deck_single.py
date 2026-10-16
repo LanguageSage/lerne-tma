@@ -279,9 +279,6 @@ async def main():
 
     with legacy_lifecycle_scope(lock_membership=False):
         require_legacy_cards(c.id for c in cards_to_process)
-    if not args.dry_run and not args.no_audio:
-        raise HTTPException(409, {'code': 'legacy_media_write_blocked',
-            'message': 'Use --no-audio: ensure_card_audio still saves stale whole rows; media service redesign is pending.'})
 
     # 4. Create Backup
     if not args.dry_run:
@@ -346,9 +343,21 @@ async def main():
         short_back = (new_back[:25] + '...') if len(new_back) > 25 else new_back
         lvl_str = f"[{new_level}]" if new_level else "[--]"
 
+        audio_val = None
+        if not args.dry_run and not args.no_audio:
+            try:
+                from api.utils import audio as audio_utils
+                res_audio = await audio_utils.generate_audio(new_front)
+                audio_val = res_audio[0] if isinstance(res_audio, tuple) else res_audio
+            except Exception as e:
+                pass
+
         if not args.dry_run:
-            writes.append(dict(card=card, front=front, level=new_level,
-                               values=dict(front_text=new_front, back_text=new_back, context=new_context)))
+            write_dict = dict(card=card, front=front, level=new_level,
+                              values=dict(front_text=new_front, back_text=new_back, context=new_context))
+            if audio_val:
+                write_dict['audio'] = audio_val
+            writes.append(write_dict)
 
         success_count += 1
         print(f"[{idx:>3}/{len(cards_to_process)}] {pct:5.1f}% | ID: {card.id:<5} | {lvl_str} \"{short_front}\" -> \"{short_back}\" ({duration:.2f}s)", flush=True)

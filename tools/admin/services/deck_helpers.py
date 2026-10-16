@@ -130,6 +130,10 @@ def apply_card_writes(writes, *, preview=False, new_deck=None, default_owner=Non
                 if current is None:
                     continue
                 updates = dict(values)
+                if 'audio_path' in updates and getattr(current, 'audio_path', None):
+                    from api.services.media import _is_user_audio_path
+                    if _is_user_audio_path(current.audio_path):
+                        del updates['audio_path']
                 if write.get('level'):
                     cleaned = ','.join(t for t in (current.tags or '').split(',')
                                        if t and t.upper() not in {'A1', 'A2', 'B1', 'B2', 'C1', 'C2'})

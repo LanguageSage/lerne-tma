@@ -251,6 +251,10 @@ async def generate_card_audio_endpoint(
     user_id: int = Depends(get_user_id),
 ):
     """Generate and attach audio without granting general card edit access."""
+    from api.services.legacy_card_writes import require_legacy_cards, legacy_lifecycle_scope
+    from api.services.collaborative_service import can_edit_audio, get_effective_user_role
+    from api.services.media import _is_user_audio_path
+
     card_id = data.get('card_id')
     side = data.get('side', 'front')
     if not card_id or side not in ('front', 'back'):
@@ -262,7 +266,9 @@ async def generate_card_audio_endpoint(
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
 
-    from api.services.collaborative_service import can_edit_audio, get_effective_user_role
+    # Guard V2/unknown before doing any work
+    require_legacy_cards([card.id], lock=False)
+
     role = get_effective_user_role(user_id, 'deck', card.deck_id)
     is_creator = card.creator_id is not None and int(card.creator_id) == int(user_id)
     deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == card.deck_id)
@@ -273,12 +279,20 @@ async def generate_card_audio_endpoint(
         if not can_edit_audio(user_id, 'deck', card.deck_id):
             raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
 
+    field = 'audio_back_path' if side == 'back' else 'audio_path'
+    initial_audio = getattr(card, field)
+    if _is_user_audio_path(initial_audio):
+        raise HTTPException(status_code=409, detail="Cannot overwrite user-attached audio")
+
     card_source_text = card.front_text if side == 'front' else card.back_text
     text_value = data.get('text')
     if not isinstance(text_value, str) or not text_value.strip() or (card_source_text and ("*" in card_source_text or "✅" in card_source_text)):
         text_value = card_source_text
     if not text_value or not text_value.strip():
         raise HTTPException(status_code=400, detail="Text is required")
+
+    initial_source_text = card_source_text
+    initial_text_value = text_value.strip()
 
     lang = _clean_param(data.get('lang'), 'de')
     voice = _clean_param(data.get('voice'))
@@ -291,7 +305,7 @@ async def generate_card_audio_endpoint(
 
     try:
         from api.utils.audio import generate_audio
-        result = await generate_audio(text_value.strip(), voice=voice, rate=rate, force=True)
+        result = await generate_audio(initial_text_value, voice=voice, rate=rate, force=True)
         result = result[0] if isinstance(result, tuple) else result
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
@@ -304,11 +318,43 @@ async def generate_card_audio_endpoint(
             path = filename
             url = f'/api/media/audio/{filename}'
 
-        field = 'audio_back_path' if side == 'back' else 'audio_path'
-        previous_path = getattr(card, field)
-        setattr(card, field, path)
-        card.updated_at = models.datetime.datetime.now()
-        card.save(only=[getattr(models.TMA_Card, field), models.TMA_Card.updated_at])
+        # Atomic verification and update
+        with legacy_lifecycle_scope(lock_membership=False):
+            require_legacy_cards([card.id], lock=True)
+
+            query = models.TMA_Card.select().where(models.TMA_Card.id == card.id)
+            if models.TMA_Card._meta.database.for_update:
+                query = query.for_update()
+            current = query.get_or_none()
+            if not current or current.is_deleted:
+                raise HTTPException(status_code=409, detail="Card was deleted or missing")
+
+            current_role = get_effective_user_role(user_id, 'deck', current.deck_id)
+            current_is_creator = current.creator_id is not None and int(current.creator_id) == int(user_id)
+            current_deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == current.deck_id)
+            current_is_deck_owner = current_deck and int(current_deck.user_id) == int(user_id)
+            if not current_is_creator and not current_is_deck_owner:
+                if not current_role or not can_edit_audio(user_id, 'deck', current.deck_id):
+                    raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
+
+            current_source_text = current.front_text if side == 'front' else current.back_text
+            if current_source_text != initial_source_text:
+                raise HTTPException(status_code=409, detail="Card text was modified during audio generation")
+
+            current_audio = getattr(current, field)
+            if current_audio != initial_audio:
+                raise HTTPException(status_code=409, detail="Card audio was modified concurrently")
+
+            if _is_user_audio_path(current_audio):
+                raise HTTPException(status_code=409, detail="Cannot overwrite user-attached audio")
+
+            now = models.datetime.datetime.now()
+            field_attr = getattr(models.TMA_Card, field)
+            models.TMA_Card.update({
+                field_attr: path,
+                models.TMA_Card.updated_at: now
+            }).where(models.TMA_Card.id == card.id).execute()
+
         return {'path': path, 'url': url}
     except HTTPException:
         raise

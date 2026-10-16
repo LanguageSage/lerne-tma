@@ -91,6 +91,9 @@ async def synthesize_single_card_audio(
             card = models.Card.get_or_none(models.Card.id == card_id)
         if not card:
             raise HTTPException(status_code=404, detail="Card not found")
+        from api.services.media import _is_user_audio_path
+        if _is_user_audio_path(card.audio_path):
+            raise HTTPException(status_code=409, detail="Cannot overwrite user-attached audio")
 
     front = (card.front_text or "").strip()
     if not front:

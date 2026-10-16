@@ -2,9 +2,9 @@
 
 Статус: **этапы 1 и 3A реализованы; этап 2 подготовлен** — неактивная схема,
 Dexie v5 и guards основных legacy writers. В этапе 3B защищены операции
-с отдельными карточками (3B.1), lifecycle колод/папок/корзины (3B.2) и
-административный CRUD/bulk/регенерация со скриптами оператора (3B.3);
-остальные пути (library/share/import-json, restore/replace, media service) выделены в следующий этап.
+с отдельными карточками (3B.1), lifecycle колод/папок/корзины (3B.2),
+административный CRUD/bulk/регенерация (3B.3) и медиа-сервис с прикреплением аудио (3B.4);
+остальные пути (library/share/import-json, restore/replace, admin deck/folder delete) выделены в следующий этап.
 Нативные записи запрещены; native API, transport и обучение остаются планом этапов 4–9.
 Аудит выполнен по ветке `feat/structured-cards-v2`, исходный HEAD `e812cb8`.
 Контракты этапа 1 подготовлены после `3be89f7`, схема этапа 2 — после `5c077d3`.
@@ -818,6 +818,52 @@ git diff --check проходят. **Всего 181 успешное испол�
 рассинхронизация версии во время AI/TTS, совпадение FRONT и cross-deck copy, dry-run commit,
 resume/retry, CEFR audit vs run, deduplicate, скрипты оператора и работа на старой схеме без новых колонок.
 
+### Этап 3B.4: Редизайн медиа-сервиса и безопасное сохранение аудио
+
+Исходный HEAD: `6b7e2e3`. Native writes по-прежнему запрещены; production gate,
+миграции и рабочие БД не менялись/не запускались.
+
+- **Устранение stale whole-row save:**
+  - `api/services/media.py:ensure_card_audio`: полностью устранены вызовы `card.save()`.
+    Вместо этого используется точечный атомарный `TMA_Card.update(...)` только для полей
+    `audio_path` и `updated_at`.
+  - `api/routers/media.py:generate_card_audio_endpoint` (`POST /api/media/generate-card-audio`):
+    устранён `card.save(only=...)`. Сохранение переведено на `legacy_lifecycle_scope` с
+    точечным `TMA_Card.update(...)` для `audio_path`/`audio_back_path` и `updated_at`.
+  - Внешние запросы к Edge TTS и загрузка в Storage выполняются **строго без открытых транзакций и блокировок**.
+- **Двухфазная проверка версий и прав (Pre/Post check):**
+  - До отправки запроса в TTS: проверка `require_legacy_cards([card.id], lock=False)`
+    и проверка прав `can_edit_audio`. V2/unknown карточки немедленно отклоняются
+    с HTTP 409 `legacy_card_write_blocked` (`generate_card_audio_endpoint`) либо безопасно
+    пропускаются без DML (`ensure_card_audio`).
+  - После завершения внешнего запроса: вход в `legacy_lifecycle_scope(lock_membership=False)`,
+    повторная проверка `require_legacy_cards([card.id], lock=True)`, повторная проверка прав
+    и строчная блокировка текущей строки `TMA_Card`.
+- **Защита от устаревших результатов и конкурентных изменений:**
+  - Если за время генерации изменился текст карточки (`front_text` / `back_text`), целевая карточка
+    была удалена (`is_deleted=True`) или перемещена в недоступную колоду — сохранение отменяется
+    (в `generate_card_audio_endpoint` возвращается 409 конфликт; в `ensure_card_audio` операция прерывается).
+  - Если за время генерации карточка была сконвертирована в V2 — `require_legacy_cards` повторно
+    блокирует запись с кодом 409, исключая перезапись V2-содержимого.
+  - Конкурентные изменения любых других полей (`back_text`, `metadata`, `tags`) сохраняются
+    и не перезаписываются старыми значениями из памяти.
+- **Защита пользовательского аудио:**
+  - Введены хелперы `_is_user_audio_path` (распознавание аудиозаписей пользователя по префиксу `aud_`)
+    и `_has_existing_audio` (проверка URL, `TMAMedia`, локальных каталогов `pending_audio`).
+  - При наличии прикреплённого пользовательского аудио генерация блокируется: `ensure_card_audio`
+    не производит TTS, а `generate_card_audio_endpoint` возвращает 409 «Cannot overwrite user-attached audio».
+  - В `tools/admin/services/deck_helpers.py:apply_card_writes` добавлена защита от перезаписи
+    пользовательского аудио при пакетной синхронизации по совпадению FRONT.
+  - В `tools/admin/routers/cards.py:synthesize_single_card_audio` добавлен запрет перезаписи `aud_*`.
+  - В `scripts/regenerate_deck_single.py` снята временная заглушка `legacy_media_write_blocked`:
+    генерация аудио поддержана безопасно через атомарный `apply_card_writes`.
+
+**Проверки:**
+`scripts/tests/test_structured_cards_v2_media.py` — **18 passed** при schema-ready=false и true.
+Проверены: legacy happy path для `ensure_card_audio` и `generate-card-audio`, пропуск/409 для V2 и unknown,
+защита пользовательского аудио `aud_*`, гонки конкурентного изменения текста, аудио, версии V2, удаления
+и отзыва прав во время TTS, а также сохранение конкурентных правок других полей без stale whole-row save.
+
 **Оставшиеся writer paths (следующий этап):**
 1. Административное удаление колод и папок (`tools/admin/routers/decks.py:delete_deck`,
    `batch_delete_decks`, `tools/admin/routers/folders.py:delete_admin_folder`, `batch_delete_folders`):
@@ -827,8 +873,6 @@ resume/retry, CEFR audit vs run, deduplicate, скрипты оператора 
    sharing / collaboration клонирование.
 3. Административный бэкап и восстановление (`tools/admin/services/backup_service.py`):
    restore / replace операции.
-4. Рефакторинг media service (`api/services/media.py` / `ensure_card_audio`):
-   устранение stale whole-row `card.save()` при генерации и связывании аудио.
 
 ## 10. Риски и критерии приёмки
 

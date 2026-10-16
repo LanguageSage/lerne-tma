@@ -168,58 +168,89 @@ def is_user_auto_generate_audio_enabled(user_id: int) -> bool:
     return True
 
 
+def _is_user_audio_path(path: str | None) -> bool:
+    if not path:
+        return False
+    clean = os.path.basename(path.split('?')[0])
+    return clean.startswith("aud_")
+
+
+def _has_existing_audio(path: str | None) -> bool:
+    if not path:
+        return False
+    if path.startswith("http://") or path.startswith("https://"):
+        return True
+    clean = os.path.basename(path.split('?')[0])
+    if _is_user_audio_path(clean):
+        return True
+    if _check_media_exists(clean, "audio"):
+        return True
+    out_dir = "/tmp/pending_audio" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "user_files", "pending_audio")
+    if os.path.exists(os.path.join(out_dir, clean)):
+        return True
+    return False
+
+
 async def ensure_card_audio(card, user_id: int):
     """Проверяет наличие озвучки для лицевой стороны карточки.
     Если файла озвучки нет в TMAMedia или он пустой/недействительный,
-    генерирует новую озвучку через Edge TTS и сохраняет в БД.
+    генерирует новую озвучку через Edge TTS и атомарно сохраняет в БД.
+    Безопасен для V2 и не допускает stale whole-row save.
     """
     import re
-    from ..models import TMAMedia, TMASetting
+    from ..models import TMA_Deck, TMA_Card, TMAMedia, TMASetting
     from ..utils.audio import generate_audio
     from .collaborative_service import can_edit_audio
+    from .legacy_card_writes import require_legacy_cards, legacy_lifecycle_scope, LegacyCardWriteBlocked
 
-    if not can_edit_audio(user_id, 'deck', card.deck_id):
+    card_id = getattr(card, 'id', None)
+    if not card_id:
+        return
+
+    deck_id = getattr(card, 'deck_id', None)
+    if not deck_id:
+        card_row = TMA_Card.get_or_none(TMA_Card.id == card_id)
+        if not card_row:
+            return
+        deck_id = card_row.deck_id
+
+    if not can_edit_audio(user_id, 'deck', deck_id):
         return
 
     if user_id and not is_user_auto_generate_audio_enabled(user_id):
         return
-    
+
+    # Check version before external I/O
+    try:
+        require_legacy_cards([card_id], lock=False)
+    except LegacyCardWriteBlocked:
+        logger.info(f"ensure_card_audio skipped for non-legacy card {card_id}")
+        return
+    except Exception as e:
+        logger.warning(f"ensure_card_audio version check failed for card {card_id}: {e}")
+        return
+
     # 1. Проверяем, есть ли уже озвучка
-    has_valid_audio = False
-    if card.audio_path:
-        if card.audio_path.startswith("http"):
-            has_valid_audio = True
-        else:
-            filename = os.path.basename(card.audio_path)
-            # Проверяем только наличие записи по ID (без скачивания гигабайтных/мегабайтных BLOB из БД)
-            has_valid_audio = _check_media_exists(filename, "audio")
-                
-    if has_valid_audio:
+    if _has_existing_audio(getattr(card, 'audio_path', None)):
         return
-        
-    # 2. Озвучки нет или она повреждена. Генерируем новую.
-    if not card.front_text or not card.front_text.strip():
+
+    front_text = (getattr(card, 'front_text', None) or "").strip()
+    if not front_text:
         return
-        
+
     # Определяем язык по наличию кириллицы либо языку колоды
-    if re.search(r'[а-яА-ЯёЁ]', card.front_text):
+    if re.search(r'[а-яА-ЯёЁ]', front_text):
         lang = "ru"
     else:
         deck_lang = getattr(card, 'target_language', None)
-        if not deck_lang and getattr(card, 'deck_id', None):
-            from ..models import TMA_Deck
-            deck_obj = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
+        if not deck_lang and deck_id:
+            deck_obj = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
             if deck_obj and deck_obj.target_language:
                 deck_lang = deck_obj.target_language
         lang = (deck_lang or "de").lower().strip()
-    
-    # Загружаем настройки озвучки (с простым TTL кэшем)
+
     db_settings = _get_cached_tma_settings()
-        
-    voice = None
-    rate = None
-    
-    # Маппинг голосов по умолчанию
+
     LANG_DEFAULT_VOICES = {
         "de": "de-DE-KatjaNeural",
         "ru": "ru-RU-SvetlanaNeural",
@@ -227,7 +258,7 @@ async def ensure_card_audio(card, user_id: int):
         "no": "nb-NO-FinnNeural",
         "uk": "uk-UA-PolinaNeural",
     }
-    
+
     clean_lang = (lang or "de").lower().strip()
     if clean_lang == "de":
         voice = db_settings.get("TTS_VOICE") or LANG_DEFAULT_VOICES["de"]
@@ -241,22 +272,20 @@ async def ensure_card_audio(card, user_id: int):
     else:
         voice = db_settings.get("TTS_VOICE") or LANG_DEFAULT_VOICES["de"]
         rate = db_settings.get("TTS_SPEED") or "+0%"
-        
+
     try:
-        # Генерируем аудио
-        result = await generate_audio(card.front_text, voice=voice, rate=rate)
+        # Генерируем аудио БЕЗ открытых транзакций и блокировок
+        result = await generate_audio(front_text, voice=voice, rate=rate)
         if isinstance(result, tuple):
             result = result[0]
-            
+
         if not result:
-            logger.error(f"Failed to generate audio for card {card.id}")
+            logger.error(f"Failed to generate audio for card {card_id}")
             return
-            
+
+        saved_audio = None
         if result.startswith("http"):
-            # Облачная ссылка
-            card.audio_path = result
-            card.save()
-            logger.info(f"Generated cloud audio for card {card.id}: {result}")
+            saved_audio = result
         else:
             filename = os.path.basename(result)
             with open(result, "rb") as f:
@@ -273,20 +302,66 @@ async def ensure_card_audio(card, user_id: int):
                     logger.warning(f"Failed to upload ensured audio to storage: {up_err}")
 
             if cloud_url:
-                card.audio_path = cloud_url
-                card.save()
-                logger.info(f"Generated audio uploaded to cloud for card {card.id}: {cloud_url}")
+                saved_audio = cloud_url
             else:
-                # Fallback to local pending storage
                 out_dir = "/tmp/pending_audio" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "user_files", "pending_audio")
                 os.makedirs(out_dir, exist_ok=True)
                 with open(os.path.join(out_dir, filename), "wb") as f:
                     f.write(content)
-                card.audio_path = filename
-                card.save()
-                logger.info(f"Generated local audio for card {card.id} saved to pending storage: {filename}")
-            
-            try: os.remove(result)
-            except Exception: pass
+                saved_audio = filename
+
+            try:
+                os.remove(result)
+            except Exception:
+                pass
+
+        if not saved_audio:
+            return
+
+        # Атомарная проверка и сохранение БЕЗ stale whole-row save
+        with legacy_lifecycle_scope(lock_membership=False):
+            try:
+                require_legacy_cards([card_id], lock=True)
+            except LegacyCardWriteBlocked:
+                logger.info(f"ensure_card_audio aborted: card {card_id} is no longer legacy")
+                return
+
+            query = TMA_Card.select().where(TMA_Card.id == card_id)
+            if TMA_Card._meta.database.for_update:
+                query = query.for_update()
+            current = query.get_or_none()
+            if not current or current.is_deleted:
+                logger.info(f"ensure_card_audio aborted: card {card_id} was deleted")
+                return
+
+            if not can_edit_audio(user_id, 'deck', current.deck_id):
+                logger.info(f"ensure_card_audio aborted: permission lost for card {card_id}")
+                return
+
+            if (current.front_text or "").strip() != front_text:
+                logger.info(f"ensure_card_audio aborted: front_text changed during TTS for card {card_id}")
+                return
+
+            if current.audio_path and _has_existing_audio(current.audio_path):
+                logger.info(f"ensure_card_audio aborted: audio was already attached for card {card_id}")
+                return
+
+            now = datetime.datetime.now()
+            updated = TMA_Card.update(
+                audio_path=saved_audio,
+                updated_at=now
+            ).where(
+                (TMA_Card.id == card_id) &
+                (TMA_Card.is_deleted == False) &
+                (TMA_Card.front_text == current.front_text) &
+                ((TMA_Card.audio_path.is_null()) | (TMA_Card.audio_path == ''))
+            ).execute()
+
+            if updated:
+                if hasattr(card, 'audio_path'):
+                    card.audio_path = saved_audio
+                if hasattr(card, 'updated_at'):
+                    card.updated_at = now
+                logger.info(f"Generated audio attached to card {card_id}: {saved_audio}")
     except Exception as e:
-        logger.error(f"Failed to ensure audio for card {card.id}: {e}", exc_info=True)
+        logger.error(f"Failed to ensure audio for card {card_id}: {e}", exc_info=True)
