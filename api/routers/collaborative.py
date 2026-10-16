@@ -67,6 +67,8 @@ def admin_bulk_delete_folders(req: AdminBulkDeleteFoldersRequest, user_id: int =
         raise HTTPException(status_code=422, detail="Too many folders or users in one request")
     try:
         return collaborative_service.admin_bulk_delete_folders(req.folder_ids, req.user_ids)
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Admin bulk folder deletion failed")
         raise HTTPException(status_code=500, detail="Failed to delete selected folders")

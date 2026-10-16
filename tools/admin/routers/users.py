@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from peewee import fn
 
 from api import models
+from api.services.legacy_card_writes import legacy_lifecycle_scope, require_legacy_cards, require_legacy_deck_cards
 from tools.admin.schemas import BatchDeleteUsersRequest
 
 logger = logging.getLogger(__name__)
@@ -110,9 +111,10 @@ def cleanup_guest_accounts():
         deleted_decks_count = 0
         deleted_cards_count = 0
 
-        with models.tma_db.atomic():
+        with legacy_lifecycle_scope(lock_membership=False):
             guest_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id << guest_user_ids)]
             if guest_deck_ids:
+                require_legacy_deck_cards(guest_deck_ids)
                 deleted_cards_count = models.TMA_Card.delete().where(models.TMA_Card.deck_id << guest_deck_ids).execute()
                 deleted_decks_count = models.TMA_Deck.delete().where(models.TMA_Deck.id << guest_deck_ids).execute()
 
@@ -133,6 +135,8 @@ def cleanup_guest_accounts():
             "deleted_decks_count": deleted_decks_count,
             "deleted_cards_count": deleted_cards_count
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to cleanup guest accounts: {e}", exc_info=True)
 
@@ -147,16 +151,24 @@ def purge_deleted_items():
         purged_lib_cards = 0
         purged_lib_decks = 0
 
-        with models.tma_db.atomic():
+        with legacy_lifecycle_scope(lock_membership=False):
             del_card_ids = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.is_deleted == True)]
+            del_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.is_deleted == True)]
+            child_card_ids = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.deck_id << del_deck_ids)] if del_deck_ids else []
+            del_folder_ids = [f.id for f in models.TMA_Folder.select(models.TMA_Folder.id).where(models.TMA_Folder.is_deleted == True)]
+            rem_decks = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.folder_id << del_folder_ids)] if del_folder_ids else []
+            rem_cards = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.deck_id << rem_decks)] if rem_decks else []
+
+            all_affected = set(del_card_ids) | set(child_card_ids) | set(rem_cards)
+            if all_affected:
+                require_legacy_cards(all_affected)
+
             if del_card_ids:
                 models.TMAProgress.delete().where(models.TMAProgress.card_id << del_card_ids).execute()
                 models.TMAReviewHistory.delete().where(models.TMAReviewHistory.card_id << del_card_ids).execute()
                 purged_cards = models.TMA_Card.delete().where(models.TMA_Card.id << del_card_ids).execute()
 
-            del_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.is_deleted == True)]
             if del_deck_ids:
-                child_card_ids = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.deck_id << del_deck_ids)]
                 if child_card_ids:
                     models.TMAProgress.delete().where(models.TMAProgress.card_id << child_card_ids).execute()
                     models.TMAReviewHistory.delete().where(models.TMAReviewHistory.card_id << child_card_ids).execute()
@@ -166,11 +178,8 @@ def purge_deleted_items():
                 ).execute()
                 purged_decks = models.TMA_Deck.delete().where(models.TMA_Deck.id << del_deck_ids).execute()
 
-            del_folder_ids = [f.id for f in models.TMA_Folder.select(models.TMA_Folder.id).where(models.TMA_Folder.is_deleted == True)]
             if del_folder_ids:
-                rem_decks = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.folder_id << del_folder_ids)]
                 if rem_decks:
-                    rem_cards = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.deck_id << rem_decks)]
                     if rem_cards:
                         models.TMAProgress.delete().where(models.TMAProgress.card_id << rem_cards).execute()
                         models.TMAReviewHistory.delete().where(models.TMAReviewHistory.card_id << rem_cards).execute()
@@ -203,6 +212,8 @@ def purge_deleted_items():
             "purged_decks": total_decks,
             "purged_cards": total_cards
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to purge deleted items: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка при очистке удалённых элементов: {str(e)}")
@@ -215,9 +226,10 @@ def delete_single_user(user_id: int):
         deleted_cards = 0
         deleted_decks = 0
         deleted_folders = 0
-        with models.tma_db.atomic():
+        with legacy_lifecycle_scope(lock_membership=False):
             user_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id)]
             if user_deck_ids:
+                require_legacy_deck_cards(user_deck_ids)
                 deleted_cards = models.TMA_Card.delete().where(models.TMA_Card.deck_id << user_deck_ids).execute()
                 deleted_decks = models.TMA_Deck.delete().where(models.TMA_Deck.id << user_deck_ids).execute()
 
@@ -239,6 +251,8 @@ def delete_single_user(user_id: int):
             "status": "success",
             "message": f"Пользователь #{user_id} удалён ({deleted_decks} колод, {deleted_folders} папок, {deleted_cards} карточек)"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to delete user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка при удалении пользователя: {str(e)}")
@@ -267,9 +281,10 @@ def batch_delete_users(req: BatchDeleteUsersRequest):
         deleted_cards_count = 0
         deleted_folders_count = 0
 
-        with models.tma_db.atomic():
+        with legacy_lifecycle_scope(lock_membership=False):
             user_deck_ids = [d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id << user_ids)]
             if user_deck_ids:
+                require_legacy_deck_cards(user_deck_ids)
                 deleted_cards_count = models.TMA_Card.delete().where(models.TMA_Card.deck_id << user_deck_ids).execute()
                 deleted_decks_count = models.TMA_Deck.delete().where(models.TMA_Deck.id << user_deck_ids).execute()
 

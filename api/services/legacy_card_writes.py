@@ -100,6 +100,6 @@ def require_legacy_cards(card_ids, *, lock=True):
                  .where(TMA_Card.id.in_(ids[offset:offset + 500])).order_by(TMA_Card.id))
         if lock and database.for_update:
             query = query.for_update()
-        if any(row.saved_content_version != 1 for row in query):
+        if any(row.saved_content_version != 1 for row in list(query)):
             # Unknown/null versions also fail closed, never downgrade to legacy.
             raise LegacyCardWriteBlocked()

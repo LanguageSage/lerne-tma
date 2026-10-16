@@ -124,15 +124,17 @@ def admin_bulk_delete_folders(folder_ids: List[int], user_ids: List[int]) -> dic
             stack.extend(children.get(current.id, []))
 
     target_ids = list(target_folders)
-    with models.tma_db.atomic():
+    from api.services.legacy_card_writes import legacy_lifecycle_scope, require_legacy_deck_cards
+
+    with legacy_lifecycle_scope(lock_membership=False):
         deck_ids = [row.id for row in models.TMA_Deck.select(models.TMA_Deck.id).where(
             (models.TMA_Deck.folder_id << target_ids) &
-            (models.TMA_Deck.user_id << list(selected_users)) &
-            (models.TMA_Deck.is_deleted == False)
+            (models.TMA_Deck.user_id << list(selected_users))
         )]
         if deck_ids:
+            require_legacy_deck_cards(deck_ids)
             models.TMA_Card.update(is_deleted=True, updated_at=now).where(
-                (models.TMA_Card.deck_id << deck_ids) & (models.TMA_Card.is_deleted == False)
+                models.TMA_Card.deck_id << deck_ids
             ).execute()
             models.TMA_Deck.update(is_deleted=True, updated_at=now).where(
                 models.TMA_Deck.id << deck_ids

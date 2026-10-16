@@ -9,6 +9,7 @@ from peewee import fn
 from fastapi import APIRouter, HTTPException
 
 from api import models
+from api.services.legacy_card_writes import legacy_lifecycle_scope, require_legacy_deck_cards
 from tools.admin.schemas import AssignFolderRequest, BatchDeleteFoldersRequest, SetDefaultFolderRequest
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def _collect_folder_descendants(folder_ids: List[int]) -> List[int]:
     to_check = list(folder_ids)
     while to_check:
         children = list(models.TMA_Folder.select(models.TMA_Folder.id).where(
-            (models.TMA_Folder.parent_id << to_check) & (models.TMA_Folder.is_deleted == False)
+            models.TMA_Folder.parent_id << to_check
         ))
         new_ids = [c.id for c in children if c.id not in all_ids]
         if not new_ids:
@@ -109,13 +110,14 @@ def delete_admin_folder(folder_id: int):
     now = datetime.datetime.now()
     all_folder_ids = _collect_folder_descendants([folder_id])
 
-    decks_in_folders = list(models.TMA_Deck.select(models.TMA_Deck.id).where(
-        (models.TMA_Deck.folder_id << all_folder_ids) & (models.TMA_Deck.is_deleted == False)
-    ))
-    deck_ids = [d.id for d in decks_in_folders]
+    with legacy_lifecycle_scope(lock_membership=False):
+        decks_in_folders = list(models.TMA_Deck.select(models.TMA_Deck.id).where(
+            models.TMA_Deck.folder_id << all_folder_ids
+        ))
+        deck_ids = [d.id for d in decks_in_folders]
 
-    with models.tma_db.atomic():
         if deck_ids:
+            require_legacy_deck_cards(deck_ids)
             models.TMA_Card.update(is_deleted=True, updated_at=now).where(models.TMA_Card.deck_id << deck_ids).execute()
             models.TMA_Deck.update(is_deleted=True, updated_at=now).where(models.TMA_Deck.id << deck_ids).execute()
             models.TMA_Collaborator.delete().where(
@@ -142,13 +144,14 @@ def batch_delete_folders(req: BatchDeleteFoldersRequest):
     now = datetime.datetime.now()
     all_folder_ids = _collect_folder_descendants(req.folder_ids)
 
-    decks_in_folders = list(models.TMA_Deck.select(models.TMA_Deck.id).where(
-        (models.TMA_Deck.folder_id << all_folder_ids) & (models.TMA_Deck.is_deleted == False)
-    ))
-    deck_ids = [d.id for d in decks_in_folders]
+    with legacy_lifecycle_scope(lock_membership=False):
+        decks_in_folders = list(models.TMA_Deck.select(models.TMA_Deck.id).where(
+            models.TMA_Deck.folder_id << all_folder_ids
+        ))
+        deck_ids = [d.id for d in decks_in_folders]
 
-    with models.tma_db.atomic():
         if deck_ids:
+            require_legacy_deck_cards(deck_ids)
             models.TMA_Card.update(is_deleted=True, updated_at=now).where(models.TMA_Card.deck_id << deck_ids).execute()
             models.TMA_Deck.update(is_deleted=True, updated_at=now).where(models.TMA_Deck.id << deck_ids).execute()
             models.TMA_Collaborator.delete().where(

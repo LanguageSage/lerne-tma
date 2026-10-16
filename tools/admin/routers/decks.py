@@ -24,7 +24,7 @@ from tools.admin.schemas import (
 )
 from tools.admin.services.card_helpers import card_has_valid_audio, card_is_fully_completed
 from tools.admin.services.deck_helpers import get_deck_and_cards, apply_card_writes
-from api.services.legacy_card_writes import legacy_lifecycle_scope, require_legacy_cards
+from api.services.legacy_card_writes import legacy_lifecycle_scope, require_legacy_cards, require_legacy_deck_cards
 from tools.admin.services.regen_worker import (
     preflight_regeneration,
     regen_tasks,
@@ -332,17 +332,21 @@ def delete_deck(deck_id: str):
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
     now = datetime.datetime.now()
-    deck.is_deleted = True
-    deck.updated_at = now
-    deck.save()
-
-    if is_lib:
-        models.Card.update(is_deleted=True, updated_at=now).where(models.Card.deck == deck).execute()
-    else:
-        models.TMA_Card.update(is_deleted=True, updated_at=now).where(models.TMA_Card.deck_id == deck.id).execute()
-        models.TMA_Collaborator.delete().where(
-            (models.TMA_Collaborator.target_type == 'deck') & (models.TMA_Collaborator.target_id == deck.id)
-        ).execute()
+    with legacy_lifecycle_scope(lock_membership=False):
+        if not is_lib:
+            require_legacy_deck_cards([deck.id])
+            deck.is_deleted = True
+            deck.updated_at = now
+            deck.save()
+            models.TMA_Card.update(is_deleted=True, updated_at=now).where(models.TMA_Card.deck_id == deck.id).execute()
+            models.TMA_Collaborator.delete().where(
+                (models.TMA_Collaborator.target_type == 'deck') & (models.TMA_Collaborator.target_id == deck.id)
+            ).execute()
+        else:
+            deck.is_deleted = True
+            deck.updated_at = now
+            deck.save()
+            models.Card.update(is_deleted=True, updated_at=now).where(models.Card.deck == deck).execute()
 
     invalidate_decks_cache()
     return {"status": "ok", "deleted_deck_id": deck_id}
@@ -356,23 +360,34 @@ def batch_delete_decks(req: BatchDeleteDecksRequest):
 
     now = datetime.datetime.now()
     deleted_ids = []
-    lib_deck_ids = []
-    tma_deck_ids = []
+    lib_decks = []
+    tma_decks = []
 
-    with models.tma_db.atomic():
+    with legacy_lifecycle_scope(lock_membership=False):
         for d_id in req.deck_ids:
             deck, _, is_lib = get_deck_and_cards(d_id)
             if not deck:
                 continue
+            deleted_ids.append(str(d_id))
+            if is_lib:
+                lib_decks.append(deck)
+            else:
+                tma_decks.append(deck)
+
+        tma_deck_ids = [d.id for d in tma_decks]
+        if tma_deck_ids:
+            require_legacy_deck_cards(tma_deck_ids)
+
+        for deck in lib_decks:
             deck.is_deleted = True
             deck.updated_at = now
             deck.save()
-            deleted_ids.append(str(d_id))
-            if is_lib:
-                lib_deck_ids.append(deck.id)
-            else:
-                tma_deck_ids.append(deck.id)
+        for deck in tma_decks:
+            deck.is_deleted = True
+            deck.updated_at = now
+            deck.save()
 
+        lib_deck_ids = [d.id for d in lib_decks]
         if lib_deck_ids:
             models.Card.update(is_deleted=True, updated_at=now).where(models.Card.deck_id << lib_deck_ids).execute()
         if tma_deck_ids:

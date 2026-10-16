@@ -864,15 +864,71 @@ resume/retry, CEFR audit vs run, deduplicate, скрипты оператора 
 защита пользовательского аудио `aud_*`, гонки конкурентного изменения текста, аудио, версии V2, удаления
 и отзыва прав во время TTS, а также сохранение конкурентных правок других полей без stale whole-row save.
 
+### Этап 3B.5: Защита административного удаления колод, папок и пользователей
+
+Исходный HEAD: `2f0dbcf`. Native writes по-прежнему запрещены; production gate,
+миграции и рабочие БД не менялись/не запускались.
+
+- **Административное удаление колод (`tools/admin/routers/decks.py`):**
+  - `delete_deck` (`DELETE /api/admin/decks/{deck_id}`) и `batch_delete_decks` (`POST /api/admin/decks/batch-delete`):
+    переведены на `legacy_lifecycle_scope(lock_membership=False)`.
+  - До выполнения любых DML-операций (`deck.save()`, `TMA_Card.update`, `models.Card.update`, удаление коллабораторов)
+    выполняется preflight всех фактически затрагиваемых карточек через `require_legacy_deck_cards(tma_deck_ids)`.
+  - Любой V2 или unknown version карточки приводит к немедленному отказу с кодом 409 `legacy_card_write_blocked`
+    до изменения данных.
+  - Пакетные операции атомарны: при наличии хотя бы одной V2-карточки в любом из переданных `deck_ids`
+    вся транзакция прерывается без частичного удаления колод, карточек, SRS или прав доступа.
+  - Библиотечные колоды (`models.Deck` / `models.Card`) сохраняют независимое поведение и мягко удаляются
+    без обращения к TMA V2 проверкам.
+- **Административное удаление папок (`tools/admin/routers/folders.py`):**
+  - `delete_admin_folder` (`DELETE /api/admin/folders/{folder_id}`) и `batch_delete_folders` (`POST /api/admin/folders/batch-delete`):
+    переведены на `legacy_lifecycle_scope(lock_membership=False)`.
+  - `_collect_folder_descendants` собирает все подпапки дерева рекурсивно, включая ранее помеченные как soft-deleted,
+    гарантируя обнаружение всех дочерних колод.
+  - Запрос колод в собранной иерархии папок включает как активные, так и удалённые колоды; все дочерние карточки
+    проверяются через `require_legacy_deck_cards(deck_ids)` до мутаций.
+  - При наличии V2 карточки в любой точке дерева (в корне, во вложенной папке или в уже удалённой колоде)
+    удаление папки блокируется с кодом 409 без модификации папок, колод, карточек или прав.
+- **Коллаборативное массовое удаление папок (`collaborative_service.py` и `api/routers/collaborative.py`):**
+  - `admin_bulk_delete_folders` защищён вызовом `require_legacy_deck_cards(deck_ids)` внутри
+    `legacy_lifecycle_scope(lock_membership=False)`.
+  - В роутере `api/routers/collaborative.py:admin_bulk_delete_folders` добавлен явный перехват
+    `except HTTPException: raise`, исключающий подмену 409 на 500 ошибку.
+- **Удаление пользователей и очистка мусора (`tools/admin/routers/users.py`):**
+  - Маршруты `delete_single_user`, `batch_delete_users`, `cleanup_guest_accounts` и `purge_deleted_items`
+    переведены на `legacy_lifecycle_scope(lock_membership=False)` с preflight через `require_legacy_deck_cards`
+    / `require_legacy_cards`.
+  - Hard delete и окончательная очистка корзины (`purge_deleted_items`) отклоняются с кодом 409, если среди
+    затрагиваемых карточек присутствуют V2-записи.
+- **Управление курсорами в `legacy_card_writes.py:require_legacy_cards`:**
+  - Чанковый запрос теперь материализуется через `list(query)` перед проверкой версий, что гарантирует
+    мгновенное закрытие курсора Peewee/SQLite/PostgreSQL и предотвращает зависание блокировок таблиц
+    при раннем прерывании по исключению 409.
+
+**Инварианты блокировок и concurrency (граница безопасности):**
+- Во всех административных путях удаления **строго соблюдён запрет на новые широкие table locks**.
+  Использован `lock_membership=False` со строчными блокировками (FOR UPDATE на Postgres / BEGIN IMMEDIATE на SQLite).
+- *Граница concurrency:* При изоляции `READ COMMITTED` без глобального table lock теоретически возможно
+  появление phantom inserts (создание новой карточки или перемещение в удаляемую колоду между шагом выборки ID
+  и шагом UPDATE). В пользовательском жизненном цикле (3B.2) этот зазор закрыт явным `lock_membership=True`;
+  в административном контексте сознательно выбран `lock_membership=False` во избежание глобальной остановки
+  мутаций во всей системе при административных действиях.
+
+**Проверки:**
+`scripts/tests/test_structured_cards_v2_admin_delete.py` — **28 passed** при schema-ready=false;
+**27 passed + 1 expected skip** старой схемы при schema-ready=true.
+Проверены: legacy soft delete колод и папок, отказ 409 для V2 и unknown, soft-deleted колоды с V2,
+вложенные подпапки с V2, атомарный откат mixed batches, удаление библиотечных колод, collaborative bulk delete,
+admin user deletes/purges, старая БД без новых колонок и отсутствие широких table locks (`LOCK TABLE`).
+
 **Оставшиеся writer paths (следующий этап):**
-1. Административное удаление колод и папок (`tools/admin/routers/decks.py:delete_deck`,
-   `batch_delete_decks`, `tools/admin/routers/folders.py:delete_admin_folder`, `batch_delete_folders`):
-   требует фиксации состава дочерних карточек без расширения глобальных table locks.
-2. Библиотечные операции и распределение колод: `POST /api/admin/decks/{deck_id}/set-default`
-   (копирование колоды всем пользователям), `/assign-to-all`, `/create-with-cards`, `/decks/import-json`,
+1. Библиотечные операции и распределение колод: `POST /api/admin/decks/{deck_id}/set-default`
+   (копирование колоды всем пользователям), `/assign`, `/to-library`, `/overwrite-users`,
+   `tools/admin/routers/folders.py:set_default_folder`, `/to-library`, `/overwrite-users`, `/assign`,
    sharing / collaboration клонирование.
-3. Административный бэкап и восстановление (`tools/admin/services/backup_service.py`):
-   restore / replace операции.
+2. Административный бэкап и восстановление (`tools/admin/services/backup_service.py`):
+   restore / replace операции для колод и папок (`restore_deck_from_backup`, `restore_folder_from_backup`).
+3. Пакетное создание / импорт колод из JSON (`/decks/import-json`, `create-with-cards`).
 
 ## 10. Риски и критерии приёмки
 
