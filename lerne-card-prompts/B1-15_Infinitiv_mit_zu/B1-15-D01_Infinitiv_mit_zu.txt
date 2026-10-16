@@ -1,0 +1,1008 @@
+# Deck: B1-15-D01 · Infinitiv mit zu — теория подробно
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-15-D01 · Infinitiv mit zu — теория подробно",
+    "level": "B1",
+    "topic": "Infinitiv mit zu",
+    "description": "Подробный разбор инфинитива с zu: смысл зависимого действия, логика действующего лица, управляющие глаголы, существительные и прилагательные, слитное написание с отделяемыми приставками, возвратные глаголы, отрицание, случаи без zu (модальные, lassen, восприятие), различие dass и zu, актуальное правило запятой 2024 года и самопроверка.",
+    "goal": "Ученик понимает, почему в немецкой речи появляется вторая глагольная форма с zu, когда она необходима, где она располагается, почему после модальных глаголов обычно отсутствует и когда вместо неё нужна конструкция с dass. Он объясняет правило через смысл и действующее лицо, а не только воспроизводит список глаголов.",
+    "learning_outcomes": [
+      "Узнавать инфинитивную группу и отделять её от главной части предложения",
+      "Объяснять модель: основная мысль + действие, которое планируют, пытаются или считают важным",
+      "Понимать ключевые управляющие глаголы: versuchen, hoffen, planen, vorhaben, beschließen, vergessen, versprechen, anfangen, aufhören",
+      "Понимать конструкции с существительными (Zeit, Lust, Angst, Wunsch, Plan) и прилагательными (wichtig, schwierig, bereit)",
+      "Находить действующее лицо инфинитива как по подлежащему, так и по дополнению (bitten, raten, erlauben)",
+      "Ставить zu перед инфинитивом и между отделяемой приставкой и основой (anzurufen, aufzustehen)",
+      "Корректно располагать отрицание nicht и возвратное местоимение внутри инфинитивной группы",
+      "Отличать zu-конструкции от модальных глаголов, lassen, глаголов восприятия и сочетаний gehen/bleiben",
+      "Различать функции dass и zu и не допускать подмены смысла при разных исполнителях",
+      "Применять актуальное правило запятой (Amtliches Regelwerk 2024) для распространённых инфинитивных групп"
+    ],
+    "estimated_time": "35–50 минут",
+    "recommendations": "При непонимании роли инфинитива и исполнителя повторить карточки 01–07, 30–33; если не знает, где нужен zu — карточки 08–19; если добавляет zu после модальных или lassen — карточки 26–29; при ошибках в отделяемых приставках (anzurufen) — карточки 20–23; при ошибках в порядке слов, отрицании и sich — карточки 20, 24–25; при путанице dass и zu — карточки 05–07, 30–34; при вопросах о пунктуации — карточки 35–36. Следующий шаг: B1-15-D02 · Теория простыми словами."
+  },
+  "pedagogy": {
+    "lesson_type": "theory",
+    "stages": [
+      {
+        "id": "concept_and_agent",
+        "title": "Зачем нужна конструкция и кто выполняет второе действие",
+        "goal": "Понять роль зависимого действия, неспрягаемую форму инфинитива и способы определения действующего лица",
+        "from_card": 1,
+        "to_card": 7,
+        "support": "high",
+        "expected_skill": "Выделять инфинитивную группу, объяснять зависимость от главного глагола и находить исполнителя по контексту или дополнению"
+      },
+      {
+        "id": "triggers",
+        "title": "Что запускает конструкцию: глаголы, существительные, прилагательные",
+        "goal": "Освоить ключевые модели с глаголами попытки, плана, решения, начала/конца, а также с существительными и оценочными прилагательными",
+        "from_card": 8,
+        "to_card": 19,
+        "support": "high",
+        "expected_skill": "Узнавать управляющие глаголы (versuchen, hoffen, planen, beschließen), связки с haben + Nomen и es ist + Adjektiv"
+      },
+      {
+        "id": "structure_and_word_order",
+        "title": "Строение группы: позиция zu, приставки, возвратность, отрицание",
+        "goal": "Научиться вставлять zu в отделяемые глаголы (anzurufen), сохранять возвратные местоимения и корректно ставить nicht",
+        "from_card": 20,
+        "to_card": 25,
+        "support": "high",
+        "expected_skill": "Слитно писать формы вроде aufzustehen, раздельно zu besuchen, правильно размещать sich и отрицать именно второе действие"
+      },
+      {
+        "id": "no_zu_exceptions",
+        "title": "Когда zu не ставится: модальные глаголы, lassen, восприятие",
+        "goal": "Чётко разграничить zu-конструкции и бесконструкционные инфинитивы после модальных глаголов, lassen, sehen, hören, gehen",
+        "from_card": 26,
+        "to_card": 29,
+        "support": "high",
+        "expected_skill": "Не ставить zu после müssen/können/wollen/lassen и разбирать вложенные структуры (möchte versuchen ... zu sprechen)"
+      },
+      {
+        "id": "dass_vs_zu",
+        "title": "Различие dass и zu: одинаковый и разный субъект, управление дополнением",
+        "goal": "Понять границы замены придаточного с dass инфинитивом с zu и исключения при управлении дополнением (bitten, raten, erlauben)",
+        "from_card": 30,
+        "to_card": 34,
+        "support": "high",
+        "expected_skill": "Не заменять dass на zu при разных исполнителях без управления и выбирать верную конструкцию для передачи мысли"
+      },
+      {
+        "id": "punctuation_pitfalls_transfer",
+        "title": "Пунктуация 2024 года, частые ловушки и перенос в речь",
+        "goal": "Освоить актуальную норму запятой для распространённых групп, разобрать типичные ошибки и закрепить алгоритм построения фразы",
+        "from_card": 35,
+        "to_card": 40,
+        "support": "high",
+        "expected_skill": "Ставить запятую перед распространённой инфинитивной группой, диагностировать 5 частых ошибок и пошагово формулировать мысль"
+      }
+    ],
+    "expected_result": "Ученик понимает структуру предложения с Infinitiv mit zu, знает ключевые триггеры (глаголы, существительные, прилагательные), умеет правильно соединять отделяемые приставки с zu, различает конструкции с dass и zu, избегает лишнего zu после модальных глаголов и соблюдает правила пунктуации 2024 года.",
+    "competencies": [
+      {
+        "id": "zu_concept_and_triggers",
+        "title": "Понимание роли конструкции и управляющих триггеров",
+        "description": "Осознание зависимости второго действия от глагола, существительного или прилагательного и безошибочный выбор модели"
+      },
+      {
+        "id": "verb_form_and_word_order",
+        "title": "Морфология и порядок слов инфинитивной группы",
+        "description": "Правильное положение zu (включая слитное anzurufen), сохранение возвратного местоимения, позиция отрицания и дополнений"
+      },
+      {
+        "id": "no_zu_differentiation",
+        "title": "Дифференциация с модальными глаголами и глаголами восприятия",
+        "description": "Недопущение zu после müssen, können, wollen, lassen, sehen, hören"
+      },
+      {
+        "id": "dass_vs_zu_differentiation",
+        "title": "Разграничение придаточных с dass и инфинитива с zu",
+        "description": "Понимание роли исполнителя (подлежащее vs. дополнение) и недопущение искажения смысла"
+      },
+      {
+        "id": "punctuation_and_error_awareness",
+        "title": "Пунктуация (реформа 2024) и диагностика ошибок",
+        "description": "Корректная постановка запятой в распространённых группах и понимание типичных ошибок интерференции"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "trigger_recognition",
+        "title": "Распознавание необходимости zu",
+        "description": "Способность определить, требует ли управляющее слово инфинитив с zu, инфинитив без zu или придаточное с dass"
+      },
+      {
+        "id": "prefix_zu_fusion",
+        "title": "Слитное написание с отделяемой приставкой",
+        "description": "Безошибочное построение форм вроде anzurufen, einkaufen -> einzukaufen в отличие от неотделяемых zu verstehen"
+      },
+      {
+        "id": "agent_identification",
+        "title": "Идентификация исполнителя инфинитива",
+        "description": "Понимание, кто совершает зависимое действие, в том числе при управлении через дополнение (Ich bitte dich, ...)"
+      }
+    ],
+    "review_recommendations": [
+      {
+        "id": "review_triggers",
+        "title": "Повторение управляющих слов",
+        "when": "При сомнениях в необходимости zu",
+        "reason": "Повторить карточки 08–19",
+        "competency_ids": [
+          "zu_concept_and_triggers"
+        ]
+      },
+      {
+        "id": "review_modal_contrast",
+        "title": "Повторение исключений без zu",
+        "when": "При добавлении zu после модальных глаголов или lassen",
+        "reason": "Повторить карточки 26–29",
+        "competency_ids": [
+          "no_zu_differentiation"
+        ]
+      },
+      {
+        "id": "review_prefix_forms",
+        "title": "Повторение образования инфинитива с отделяемыми приставками",
+        "when": "При написании zu anrufen вместо anzurufen",
+        "reason": "Повторить карточки 20–23",
+        "competency_ids": [
+          "verb_form_and_word_order"
+        ]
+      },
+      {
+        "id": "review_dass_vs_zu",
+        "title": "Повторение различий dass и zu",
+        "when": "При попытке заменить dass на zu при разных субъектах",
+        "reason": "Повторить карточки 30–34",
+        "competency_ids": [
+          "dass_vs_zu_differentiation"
+        ]
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте предложение с двумя глаголами и определите форму зависимого действия.
+::source
+Ich versuche, jeden Tag Deutsch zu sprechen.
+::exercise
+Здесь есть глагол versuche и ещё один — sprechen. Почему второй не превращается в ich spreche?
+
+BACK:
+Главное сообщение: я стараюсь (ich versuche). То, что именно я стараюсь делать, выражено группой jeden Tag Deutsch zu sprechen — «каждый день говорить по-немецки».
+
+Второе действие не становится самостоятельным предложением: оно зависит от глагола versuchen. Поэтому используется инфинитив (sprechen) с частицей zu. Слова jeden Tag Deutsch уточняют второе действие.
+
+Полный перевод: «Я стараюсь каждый день говорить по-немецки».
+
+CONTEXT:
+Второе действие зависит от глагола versuchen: один глагол несёт лицо и время, а зависимое действие оформляется инфинитивом с zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Дайте определение грамматическому термину и сопоставьте личные и начальные формы глагола.
+::source
+ich lerne — du lernst — er lernt — lernen
+
+Ich lerne Deutsch. — «Я учу немецкий».
+Ich plane, Deutsch zu lernen. — «Я планирую изучать немецкий».
+::exercise
+Какая форма является инфинитивом и что означает слово Infinitiv?
+
+BACK:
+Infinitiv — начальная, неспрягаемая форма глагола (lernen — «учить(ся)», arbeiten — «работать», anrufen — «звонить»). Она называет само действие, не указывая на лицо, число или время.
+
+В предложении Ich lerne Deutsch глагол lerne согласуется с подлежащим ich. В предложении Ich plane, Deutsch zu lernen глагол plane спрягается, а lernen сохраняет начальную форму и присоединяет частицу zu.
+
+CONTEXT:
+Один глагол в предложении несёт лицо и время (plane), а зависимый инфинитив (lernen) называет само действие и требует zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разделите высказывание на основную мысль и зависимое содержание решения.
+::source
+Sie hat beschlossen, eine Ausbildung zu machen.
+::exercise
+Какая часть сообщает о решении, а какая — о его содержании?
+
+BACK:
+Sie hat beschlossen — «Она решила». Это основная мысль, выраженная формой прошедшего времени.
+
+eine Ausbildung zu machen — «пройти профессиональное обучение». Это содержание решения (отвечает на вопрос «что именно решила сделать?»).
+
+Полный перевод: «Она решила пройти профессиональное обучение». (die Ausbildung — профессиональное обучение / подготовка).
+
+CONTEXT:
+Сначала находим главное сказуемое (hat beschlossen), а затем зависимую инфинитивную группу, раскрывающую содержание действия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните два варианта построения фразы и выберите нормативный немецкий образец.
+::source
+1. Ich versuche, ich lerne Deutsch.
+2. Ich versuche, Deutsch zu lernen.
+::exercise
+Какой вариант стандартен для смысла «Я стараюсь учить немецкий» и почему?
+
+BACK:
+Нормальный вариант — 2: Ich versuche, Deutsch zu lernen. — «Я стараюсь учить немецкий».
+
+После versuchen содержание попытки выражается инфинитивной группой с zu. Второй самостоятельный глагол ich lerne нельзя просто поставить после запятой как зависимое дополнение.
+
+Два отдельных предложения возможны, но это другая структура: Ich versuche es. Ich lerne jeden Tag. — «Я пытаюсь. Я учусь каждый день».
+
+CONTEXT:
+После versuchen зависимое действие оформляется инфинитивом с zu, а не вторым спрягаемым глаголом с подлежащим.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите исполнителя второго действия в инфинитивной группе.
+::source
+Paul hofft, bald eine Arbeit zu finden.
+::exercise
+Кто надеется, и кто должен найти работу?
+
+BACK:
+Пауль и надеется, и должен найти работу. Оба действия совершает одно и то же лицо.
+
+Paul hofft — «Пауль надеется».
+bald eine Arbeit zu finden — «скоро найти работу».
+
+Это типичная модель с общим исполнителем двух действий. Инфинитив сам по себе не показывает лицо — мы понимаем его по смыслу и подлежащему главной части.
+
+CONTEXT:
+При общем подлежащем исполнитель инфинитива совпадает с подлежащим главного предложения: Paul hofft -> Paul findet.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните, почему в зависимой группе отсутствует личное местоимение.
+::source
+Wir haben vor, am Samstag die Wohnung aufzuräumen.
+::exercise
+Где в инфинитивной группе слово wir? Почему мы всё равно понимаем, кто будет убирать?
+
+BACK:
+Во второй части нет отдельного wir, потому что исполнитель восстанавливается из главной части: убирать квартиру собираемся мы (wir haben vor).
+
+Wir haben vor, am Samstag die Wohnung aufzuräumen. — «Мы собираемся в субботу убрать квартиру».
+
+Инфинитивная группа обычно не содержит выраженного подлежащего, но её действие всегда имеет понятного из контекста исполнителя.
+
+CONTEXT:
+Инфинитивная группа не повторяет подлежащее главной части: исполнитель однозначно понятен из контекста.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте предложение и определите исполнителя зависимого действия по дополнению.
+::source
+Die Ärztin rät mir, mehr Wasser zu trinken.
+::exercise
+Кто советует, а кто должен пить воду?
+
+BACK:
+Советует врач (die Ärztin), но пить воду должен я (mir).
+
+Перевод: «Врач советует мне пить больше воды».
+
+После глаголов вроде raten, bitten, erlauben исполнитель инфинитивного действия определяется дополнением главной части (mir), а не её подлежащим. Правило «инфинитив с zu бывает только при одном и том же подлежащем» ошибочно.
+
+CONTEXT:
+Исполнитель инфинитива может определяться дополнением главной части (jemandem raten / erlauben, jemanden bitten).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните модель глагола versuchen с инфинитивом.
+::source
+Ich versuche, früher ins Bett zu gehen.
+Sie versucht, die Aufgabe allein zu lösen.
+::exercise
+Как передать по-немецки «Я пытаюсь / стараюсь что-то сделать»?
+
+BACK:
+Модель: versuchen, … zu + Infinitiv.
+
+Ich versuche, früher ins Bett zu gehen. — «Я стараюсь раньше ложиться спать».
+Sie versucht, die Aufgabe allein zu lösen. — «Она пытается решить задание самостоятельно» (allein — самостоятельно, lösen — решать).
+
+Глагол versuchen обозначает саму попытку, а группа с zu называет предмет этой попытки.
+
+CONTEXT:
+versuchen, ... zu + Infinitiv — базовая модель выражения попытки или старания в немецком языке.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите оттенок значения глагола hoffen в сочетании с инфинитивом.
+::source
+Ich hoffe, die B1-Prüfung zu bestehen.
+::exercise
+Это уверенный план или надежда? Почему здесь zu bestehen?
+
+BACK:
+Модель: hoffen, … zu + Infinitiv — «надеяться сделать что-то». Это выражение надежды, а не гарантированный план.
+
+Ich hoffe, die B1-Prüfung zu bestehen. — «Я надеюсь сдать экзамен B1» (bestehen — успешно сдать, die Prüfung — экзамен).
+
+В отличие от versuchen («пытаться»), hoffen передаёт эмоциональное ожидание. Если действие относится к самому говорящему, используется zu-инфинитив.
+
+CONTEXT:
+hoffen, ... zu + Infinitiv — выражение надежды на собственное действие в будущем.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните две глагольные модели выражения плана и намерения.
+::source
+1. Ich plane, einen Deutschkurs zu besuchen.
+2. Ich habe vor, einen Deutschkurs zu besuchen.
+::exercise
+Есть ли существенная разница в основной идее? Как устроена каждая модель?
+
+BACK:
+Обе фразы выражают намерение: «Я планирую посещать курсы немецкого языка».
+
+1. planen, … zu + Infinitiv — планировать действие.
+2. vorhaben, … zu + Infinitiv — намереваться / собираться сделать что-то.
+
+Глагол vorhaben — отделяемый (ich habe vor, wir haben vor). Частица zu относится ко второму глаголу (zu besuchen), а не к haben.
+
+CONTEXT:
+planen, ... zu и vorhaben, ... zu выражают планы; отделяемая приставка vor- не влияет на частицу zu перед вторым глаголом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте глагол решения beschließen с глаголами желания и мечты.
+::source
+Wir haben beschlossen, das Auto zu verkaufen.
+::exercise
+Чем beschließen отличается от простого желания?
+
+BACK:
+Модель: beschließen, … zu + Infinitiv — «решить сделать что-то».
+
+Wir haben beschlossen, das Auto zu verkaufen. — «Мы решили продать машину» (verkaufen — продавать).
+
+Решение уже принято и зафиксировано. Если человек только мечтает или хочет, используют глаголы вроде hoffen или möchten; если сделан конкретный выбор — beschließen.
+
+CONTEXT:
+beschließen, ... zu + Infinitiv выражает принятое твёрдое решение о совершении действия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите глагольные формы в конструкции с глаголом начала anfangen.
+::source
+Der Techniker fängt an, die Heizung zu prüfen.
+::exercise
+Какое действие начинается и какая часть глагола anfangen отделяется?
+
+BACK:
+Модель: anfangen, … zu + Infinitiv — «начинать что-то делать».
+
+Der Techniker fängt an, die Heizung zu prüfen. — «Техник начинает проверять отопление» (prüfen — проверять, die Heizung — отопление).
+
+Главный глагол: fängt … an (приставка an- отделяется и уходит в конец главной части). Зависимое действие оформлено инфинитивом с частицей zu перед ним: zu prüfen.
+
+CONTEXT:
+anfangen, ... zu + Infinitiv: отделяемая приставка an- отделяется в главной части, а zu стоит перед зависимым инфинитивом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните противоположные по смыслу глаголы начала и завершения действия.
+::source
+Es hat aufgehört, zu regnen.
+Es fängt an, zu regnen. / Es hört auf, zu regnen.
+::exercise
+Это начало или прекращение действия? Какую модель нужно запомнить?
+
+BACK:
+Модель: aufhören, … zu + Infinitiv — «прекратить / перестать делать что-то».
+
+Es hat aufgehört, zu regnen. — «Дождь прекратился» (буквально: «Перестало идти дождю»).
+
+Сравните парные модели:
+- Es fängt an, zu regnen. — «Начинается дождь».
+- Es hört auf, zu regnen. — «Дождь прекращается».
+Один и тот же инфинитив zu regnen сочетается с глаголами противоположного значения.
+
+CONTEXT:
+aufhören, ... zu + Infinitiv означает завершение или прекращение зависимого действия.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите модель глагола vergessen и положение частицы zu при отделяемой приставке.
+::source
+Ich habe vergessen, den Herd auszuschalten.
+::exercise
+Что человек забыл: саму плиту или конкретное действие?
+
+BACK:
+Человек забыл выполнить действие — выключить плиту. Модель: vergessen, … zu + Infinitiv — «забыть сделать что-то».
+
+Ich habe vergessen, den Herd auszuschalten. — «Я забыл выключить плиту» (der Herd — плита, ausschalten — выключать).
+
+В глаголе ausschalten приставка aus- отделяемая, поэтому частица zu вставляется внутрь: aus + zu + schalten = auszuschalten.
+
+CONTEXT:
+vergessen, ... zu + Infinitiv; у отделяемых глаголов частица zu встаёт между приставкой и основой (auszuschalten).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите исполнителя обещания в предложении с глаголом versprechen.
+::source
+Ich verspreche dir, morgen pünktlich zu sein.
+::exercise
+Как передать обещание сделать что-то и кто обязан быть вовремя?
+
+BACK:
+Модель: versprechen, … zu + Infinitiv — «обещать сделать что-то».
+
+Ich verspreche dir, morgen pünktlich zu sein. — «Я обещаю тебе завтра быть вовремя» (pünktlich — вовремя, пунктуально).
+
+Я даю обещание и я буду вовремя. Местоимение dir — адресат обещания (кому?), а не исполнитель инфинитива sein.
+
+CONTEXT:
+versprechen, ... zu + Infinitiv: зависимое действие выполняет тот, кто даёт обещание (подлежащее), а Dativ указывает адресата.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте возвратные глагольные выражения решения и усилия.
+::source
+1. Sie hat sich entschieden, in Deutschland zu bleiben.
+2. Er bemüht sich, deutlicher zu sprechen.
+::exercise
+В каком случае выражено решение, а в каком — прилагаемое усилие?
+
+BACK:
+1. sich entscheiden, … zu + Infinitiv — «решиться / принять решение»: «Она решила остаться в Германии».
+2. sich bemühen, … zu + Infinitiv — «стараться / прилагать усилия»: «Он старается говорить понятнее» (deutlicher — понятнее, отчётливее; bleiben — оставаться).
+
+Возвратное местоимение sich относится к спрягаемому глаголу (hat sich entschieden / bemüht sich), а действие в группе с zu сохраняет начальную форму.
+
+CONTEXT:
+sich entscheiden, ... zu выражает выбор и решение; sich bemühen, ... zu выражает старание и усилие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите существительные, управляющие инфинитивной группой с zu.
+::source
+1. Ich habe Lust, heute zu kochen.
+2. Ich habe keine Zeit, lange zu warten.
+3. Sie hat Angst, einen Fehler zu machen.
+::exercise
+Какие существительные помогают говорить о желании, времени и страхе?
+
+BACK:
+Инфинитивная группа с zu часто раскрывает содержание существительного в связке с haben:
+
+- Lust haben, … zu — «иметь желание»: Ich habe Lust, heute zu kochen. — «Мне хочется сегодня готовить» (die Lust — желание).
+- (keine) Zeit haben, … zu — «(не) иметь времени»: Ich habe keine Zeit, lange zu warten. — «У меня нет времени долго ждать».
+- Angst haben, … zu — «бояться»: Sie hat Angst, einen Fehler zu machen. — «Она боится совершить ошибку» (die Angst — страх, der Fehler — ошибка).
+
+CONTEXT:
+Устойчивые выражения Nomen + haben (Lust, Zeit, Angst) раскрывают своё содержание через инфинитивную группу с zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите модели с существительными официального стиля, требующими инфинитив с zu.
+::source
+Ich habe den Wunsch, meine Deutschkenntnisse zu verbessern.
+Wir haben den Plan, nächstes Jahr umzuziehen.
+Er hat die Möglichkeit, an einem Kurs teilzunehmen.
+::exercise
+Что добавляет фраза meine Deutschkenntnisse zu verbessern к слову Wunsch?
+
+BACK:
+Инфинитивная группа объясняет конкретное содержание существительного Wunsch: «У меня есть желание улучшить свои знания немецкого языка».
+
+Похожие продуктивные модели уровня B1:
+- den Plan haben, … zu — «иметь план переехать» (umziehen -> umzuziehen);
+- die Möglichkeit haben, … zu — «иметь возможность принять участие» (teilnehmen -> teilzunehmen).
+
+(die Deutschkenntnisse — знание немецкого, verbessern — улучшать).
+
+CONTEXT:
+Существительные den Wunsch / Plan / die Möglichkeit haben требуют инфинитивную группу с zu для раскрытия своего содержания.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните использование инфинитива с zu после оценочных прилагательных.
+::source
+Es ist wichtig, den Vertrag genau zu lesen.
+Es ist schwierig, alles sofort zu verstehen.
+Ich bin bereit, heute länger zu arbeiten.
+::exercise
+Что именно здесь считается важным? Почему после wichtig появилась группа с zu?
+
+BACK:
+Оценивается само действие — внимательно прочитать договор. Прилагательные, характеризующие действие или готовность к нему, сочетаются с zu-инфинитивом:
+
+- Es ist wichtig, den Vertrag genau zu lesen. — «Важно внимательно прочитать договор» (der Vertrag — договор, genau — точно, внимательно).
+- Es ist schwierig, alles sofort zu verstehen. — «Трудно всё понять сразу».
+- Ich bin bereit, heute länger zu arbeiten. — «Я готов сегодня поработать дольше» (bereit — готов).
+
+CONTEXT:
+Конструкции es ist + Adjektiv (wichtig, schwierig) и субъективное bereit sein требуют зависимого инфинитива с zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите позицию глагола и частицы zu внутри инфинитивной группы.
+::source
+Ich hoffe, morgen mit dem Chef über meinen Arbeitsvertrag zu sprechen.
+::exercise
+Какое слово заканчивает инфинитивную группу и где стоит частица zu?
+
+BACK:
+Инфинитивная группа: morgen mit dem Chef über meinen Arbeitsvertrag zu sprechen.
+
+Завершающее слово всей группы — глагол sprechen, а частица zu стоит непосредственно перед ним: zu sprechen.
+
+Полный перевод: «Я надеюсь завтра поговорить с начальником о моём трудовом договоре» (der Arbeitsvertrag — трудовой договор). Обстоятельства и дополнения располагаются перед инфинитивом, а инфинитив замыкает группу.
+
+CONTEXT:
+В инфинитивной группе инфинитив с zu всегда замыкает конструкцию (стоит на самом последнем месте).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните слитное написание частицы zu с отделяемой приставкой.
+::source
+Ich habe vor, meine Nachbarin anzurufen.
+::exercise
+Почему написано anzurufen, а не zu anrufen?
+
+BACK:
+У отделяемого глагола anrufen («звонить») приставка an- пишется слитно с основой, а частица zu вставляется строго между приставкой и основой глагола:
+
+an + zu + rufen -> anzurufen (слитно в одно слово!).
+
+Ich habe vor, meine Nachbarin anzurufen. — «Я собираюсь позвонить соседке» (die Nachbarin — соседка). Писать zu anrufen раздельно — грубая ошибка.
+
+CONTEXT:
+У глаголов с отделяемой приставкой частица zu ставится между приставкой и корнем и пишется слитно: an + zu + rufen = anzurufen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сопоставьте начальные формы отделяемых глаголов с формами инфинитива с zu.
+::source
+aufstehen -> aufzustehen (вставать)
+einkaufen -> einzukaufen (делать покупки)
+aufräumen -> aufzuräumen (убирать)
+vorbereiten -> vorzubereiten (подготавливать)
+::exercise
+Как присоединить zu к отделяемым глаголам aufstehen, einkaufen, aufräumen, vorbereiten?
+
+BACK:
+У всех отделяемых глаголов действует единая формула: приставка + zu + основа — слитно в одно слово.
+
+- aufstehen -> aufzustehen: Ich versuche, jeden Tag um sieben aufzustehen. — «Я стараюсь каждый день вставать в семь».
+- einkaufen -> einzukaufen: Ich habe vor, am Abend einzukaufen. — «Я собираюсь сделать покупки вечером».
+- aufräumen -> aufzuräumen: Wir planen, die Wohnung aufzuräumen. — «Мы планируем убрать квартиру».
+- vorbereiten -> vorzubereiten: Wir planen, das Treffen vorzubereiten. — «Мы планируем подготовить встречу».
+
+CONTEXT:
+Формула для всех отделяемых глаголов: [приставка] + zu + [основа] пишется строго в одно слово (aufzustehen, einzukaufen).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните поведение отделяемых и неотделяемых приставок перед частицей zu.
+::source
+besuchen -> zu besuchen
+verstehen -> zu verstehen
+bekommen -> zu bekommen
+anrufen -> anzurufen
+::exercise
+Почему правильно zu besuchen и zu verstehen, но anzurufen?
+
+BACK:
+У неотделяемых приставок (be-, ver-, ge-, er-, emp-, ent-, miss-, zer-) приставка никогда не отделяется от корня. Поэтому частица zu ставится перед всем словом раздельно:
+
+- besuchen -> zu besuchen (посещать);
+- verstehen -> zu verstehen (понимать): Ich hoffe, die Erklärung zu verstehen. — «Я надеюсь понять объяснение»;
+- bekommen -> zu bekommen (получать).
+
+В глаголе anrufen приставка an- отделяемая, поэтому zu вставляется внутрь (anzurufen). Нельзя механически вставлять zu внутрь каждого глагола с приставкой.
+
+CONTEXT:
+Неотделяемые приставки (be-, ver-, er-) не принимают zu внутрь: zu ставится раздельно перед глаголом (zu besuchen, zu verstehen).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите положение и форму возвратного местоимения в инфинитивной группе.
+::source
+Ich habe vor, mich für eine Ausbildung zu bewerben.
+Ich bewerbe mich. / Ich plane, mich zu bewerben.
+::exercise
+Почему во второй части стоит mich, а не ещё одно подлежащее ich?
+
+BACK:
+Глагол sich bewerben («подавать заявление / претендовать») — возвратный, ему необходимо местоимение sich в соответствующем лице.
+
+Ich habe vor, mich für eine Ausbildung zu bewerben. — «Я собираюсь подать заявку на профессиональное обучение».
+
+Форма возвратного местоимения согласуется с исполнителем действия: для ich это mich. Подлежащее ich не повторяется, но возвратное местоимение обязательно сохраняется внутри зависимой группы.
+
+CONTEXT:
+Возвратные глаголы в инфинитивной группе обязательно сохраняют возвратное местоимение в нужном лице (mich, dich, sich, uns).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте положение отрицания nicht при отрицании зависимого действия.
+::source
+Sie versucht, nicht zu spät zur Arbeit zu kommen.
+::exercise
+Что именно отрицает nicht: саму попытку или опоздание?
+
+BACK:
+Отрицание nicht относится к выражению zu spät kommen («опаздывать»): она старается не опаздывать.
+
+Sie versucht, nicht zu spät zur Arbeit zu kommen. — «Она старается не опаздывать на работу».
+
+Сравните с отрицанием главной части:
+- Sie versucht, nicht zu rauchen. — «Она пытается не курить» (отрицается курение).
+- Sie versucht nicht, mit dem Rauchen aufzuhören. — «Она не пытается бросить курить» (отрицается попытка).
+Позиция nicht определяет, какое именно действие отрицается.
+
+CONTEXT:
+Для отрицания зависимого действия отрицание nicht ставится внутри инфинитивной группы перед отрицаемым элементом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните грамматическое правило употребления инфинитива с модальными глаголами.
+::source
+Ich muss morgen arbeiten.
+Wir können heute kommen.
+Ich möchte Deutsch lernen.
+::exercise
+Почему неправильно сказать Ich muss morgen zu arbeiten?
+
+BACK:
+После модальных глаголов (müssen, können, wollen, sollen, dürfen, mögen / möchten) второй инфинитив употребляется БЕЗ частицы zu:
+
+- Ich muss morgen arbeiten. — «Мне завтра нужно работать» (не zu arbeiten!).
+- Wir können heute kommen. — «Мы можем сегодня прийти».
+- Ich möchte Deutsch lernen. — «Я хотел бы изучать немецкий».
+
+Модальный глагол сам управляет инфинитивом по своей грамматической модели. Правило «два глагола = обязательно zu» неверно.
+
+CONTEXT:
+После модальных глаголов (müssen, können, wollen, sollen, dürfen, möchten) зависимый инфинитив используется строго БЕЗ zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите конструкции с глаголом lassen и глаголами чувственного восприятия.
+::source
+1. Ich lasse mein Fahrrad reparieren.
+2. Ich höre das Kind lachen.
+3. Ich sehe die Frau kommen.
+::exercise
+Почему в этих предложениях перед инфинитивом отсутствует частица zu?
+
+BACK:
+В немецком языке существует устойчивая группа глаголов, требующих чистый инфинитив без zu:
+
+1. lassen + Infinitiv — «поручать / позволять сделать»: Ich lasse mein Fahrrad reparieren. — «Я отдаю велосипед в ремонт».
+2. hören + Infinitiv — «слышать, как делают»: Ich höre das Kind lachen. — «Я слышу, как ребёнок смеётся».
+3. sehen + Infinitiv — «видеть, как делают»: Ich sehe die Frau kommen. — «Я вижу, как женщина идёт».
+
+После lassen и глаголов восприятия частица zu не ставится.
+
+CONTEXT:
+После lassen и глаголов чувственного восприятия (sehen, hören) зависимый инфинитив употребляется БЕЗ zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите правила употребления глаголов движения и состояния gehen и bleiben.
+::source
+Ich gehe einkaufen.
+Ich gehe spazieren.
+Bitte bleiben Sie sitzen.
+::exercise
+Почему нельзя добавить zu в сочетаниях после gehe и bleiben?
+
+BACK:
+В частотных разговорных сочетаниях движения и состояния второй глагол присоединяется БЕЗ частицы zu:
+
+- Ich gehe einkaufen. — «Я иду за покупками».
+- Ich gehe spazieren. — «Я иду гулять».
+- Bitte bleiben Sie sitzen. — «Пожалуйста, оставайтесь сидеть».
+
+Это грамматически закреплённые парные глагольные сочетания, где второй глагол выполняет роль чистого инфинитива без предлога.
+
+CONTEXT:
+В устойчивых сочетаниях с gehen (einkaufen, spazieren) и bleiben (sitzen, stehen) инфинитив используется БЕЗ zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте сложное предложение с тремя глаголами и несколькими уровнями управления.
+::source
+Ich möchte versuchen, jeden Tag zehn Minuten Deutsch zu sprechen.
+::exercise
+Здесь три глагола: möchte, versuchen, sprechen. Почему перед versuchen нет zu, а перед sprechen оно есть?
+
+BACK:
+В предложении действуют две разные грамматические связи:
+
+1. möchte -> versuchen: модальный глагол möchten требует инфинитив БЕЗ zu (möchte versuchen).
+2. versuchen -> zu sprechen: глагол versuchen требует зависимое действие С частицей zu (versuchen, ... zu sprechen).
+
+Перевод: «Я хотел бы стараться каждый день говорить по-немецки десять минут». Мы анализируем, какой именно глагол управляет следующим глаголом по цепочке.
+
+CONTEXT:
+Цепочка управления: модальный глагол управляет чистым инфинитивом (möchte versuchen), а versuchen требует zu (zu sprechen).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сравните придаточное предложение с союзом dass и оборот с инфинитивом zu при одном субъекте.
+::source
+1. Ich hoffe, dass ich die Prüfung bestehe.
+2. Ich hoffe, die Prüfung zu bestehen.
+::exercise
+Что общего у этих двух предложений и в чём разница их грамматического строения?
+
+BACK:
+Оба предложения выражают одну мысль: «Я надеюсь сдать экзамен».
+
+- Вариант 1 — придаточное предложение с союзом dass: есть собственное подлежащее ich, а спрягаемый глагол bestehe стоит на конце.
+- Вариант 2 — инфинитивная группа с zu: подлежащее ich опущено, а действие передано формой zu bestehen.
+
+Когда действующее лицо совпадает, инфинитивная группа делает речь более компактной и естественной.
+
+CONTEXT:
+При совпадении подлежащих придаточное с dass часто можно сократить до инфинитивной группы с zu (bestehe -> zu bestehen).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Объясните, почему замена союза dass на инфинитив с zu искажает смысл при разных исполнителях.
+::source
+Ich hoffe, dass meine Schwester die Prüfung besteht.
+Ich hoffe, die Prüfung zu bestehen.
+::exercise
+Можно ли сказать вместо первого предложения второе и сохранить смысл высказывания?
+
+BACK:
+Сохранить исходный смысл нельзя!
+
+- Ich hoffe, dass meine Schwester die Prüfung besteht. — «Я надеюсь, что моя сестра сдаст экзамен» (экзамен сдаёт сестра).
+- Ich hoffe, die Prüfung zu bestehen. — «Я надеюсь сдать экзамен» (экзамен планирует сдать сам говорящий).
+
+Инфинитивная группа после hoffen относится к тому, кто надеется. Чтобы назвать другого исполнителя, необходимо полное придаточное предложение с союзом dass.
+
+CONTEXT:
+Если действие совершает другое лицо, инфинитив с zu недопустим: необходимо придаточное предложение с dass.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите управление через дополнение в конструкции с глаголом bitten.
+::source
+Ich bitte dich, das Fenster zu schließen.
+::exercise
+Кто закрывает окно: я или ты? Почему здесь допустим инфинитив с zu, хотя участники разные?
+
+BACK:
+Окно закрываешь ты, потому что dich — адресат просьбы, выраженный дополнением в Akkusativ.
+
+Ich bitte dich, das Fenster zu schließen. — «Я прошу тебя закрыть окно».
+
+Главное действие (bitte) совершаю я, но зависимое действие (schließen) выполняет тот, кого просят (dich). Это смысловое управление через дополнение: глагол bitten разрешает инфинитив с zu для другого лица, если оно названо дополнением.
+
+CONTEXT:
+После bitten + Akkusativ действие инфинитива выполняет объект просьбы (dich -> das Fenster zu schließen).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите исполнителя зависимого действия при управлении глаголов raten и erlauben.
+::source
+1. Der Lehrer rät uns, mehr zu üben.
+2. Die Chefin erlaubt mir, früher nach Hause zu gehen.
+::exercise
+Кто тренируется в первом предложении? Кто имеет право уйти домой во втором?
+
+BACK:
+1. Тренируемся мы (uns), а учитель советует: «Учитель советует нам больше упражняться».
+2. Уйти домой могу я (mir), а начальница разрешает: «Начальница разрешает мне уйти домой раньше».
+
+Модели: jemandem raten, … zu (советовать кому-то сделать) и jemandem erlauben, … zu (разрешать кому-то сделать). Получатель совета или разрешения в Dativ становится исполнителем инфинитивного действия.
+
+CONTEXT:
+После raten и erlauben + Dativ исполнителем зависимого инфинитива является лицо, указанное в дательном падеже (uns, mir).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Определите границы применимости конструкции с zu при выражении чужого действия.
+::source
+Ich möchte, dass du mir hilfst. — «Я хочу, чтобы ты мне помог».
+::exercise
+Почему нельзя перевести эту мысль как Ich möchte, mir zu helfen?
+
+BACK:
+Потому что в этой мысли действие должен совершить другой человек (ты, а не я). В немецком языке модальный глагол möchten не управляет инфинитивом другого лица.
+
+- Правильно для чужого действия: Ich möchte, dass du mir hilfst. — «Я хочу, чтобы ты мне помог» (придаточное с dass).
+- Фраза для собственного действия: Ich möchte dir helfen. — «Я хотел бы помочь тебе» (модальный глагол + чистый инфинитив без zu).
+
+Русское «хочу, чтобы...» требует точного разбора исполнителя: при разных субъектах выбирается союз dass.
+
+CONTEXT:
+Желание действия от другого лица выражается только придаточным с dass (Ich möchte, dass du...), а не инфинитивом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Сформулируйте актуальное правило постановки запятой перед инфинитивной группой (реформа 2024 года).
+::source
+Ich hoffe, bald eine passende Wohnung zu finden.
+Es ist wichtig, regelmäßig Deutsch zu sprechen.
+Wir haben den Plan, im Frühjahr umzuziehen.
+::exercise
+Почему в этих предложениях обязательно ставится запятая перед группой с zu?
+
+BACK:
+Согласно актуальной редакции официальных правил немецкого правописания (Amtliches Regelwerk 2024), распространённые инфинитивные группы с zu, выполняющие функцию придаточного предложения, обязательно отделяются запятой:
+
+- Ich hoffe, bald eine passende Wohnung zu finden. — «Я надеюсь скоро найти подходящую квартиру».
+- Es ist wichtig, regelmäßig Deutsch zu sprechen. — «Важно регулярно говорить по-немецки».
+- Wir haben den Plan, im Frühjahr umzuziehen. — «Мы планируем переехать весной».
+
+Запятая наглядно отделяет основную мысль от зависимой инфинитивной группы.
+
+CONTEXT:
+По нормам правописания 2024 года распространённые инфинитивные группы с zu отделяются запятой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Разберите исключения из общего правила пунктуации для инфинитивных комплексов.
+::source
+1. Ich habe versucht, den Termin zu verschieben.
+2. Ich habe den Termin zu verschieben versucht.
+3. Er scheint krank zu sein.
+::exercise
+Почему в этих трёх предложениях запятые ставятся по-разному?
+
+BACK:
+1. Группа den Termin zu verschieben стоит после главной части как зависимый оборот — запятая обязательна: Ich habe versucht, den Termin zu verschieben.
+2. Инфинитивная группа включена внутрь глагольной рамки сказуемого (habe … versucht) — запятая не ставится: Ich habe den Termin zu verschieben versucht.
+3. Конструкция scheinen + Infinitiv mit zu («казаться каким-то») образует единый неразрывный глагольный комплекс — запятая не ставится: Er scheint krank zu sein. — «Кажется, он болен».
+
+Если инфинитив не распространён (Sie versprach[,] mitzukommen), запятая факультативна, но в распространённых оборотах запятая ставится всегда.
+
+CONTEXT:
+Запятая не ставится, если инфинитив встроен внутрь сказуемого или входит в глагольный комплекс с scheinen.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Найдите и исправьте пять типичных грамматических ошибок в конструкциях с инфинитивом.
+::source
+A. Ich versuche, Deutsch lernen.
+B. Ich muss zu arbeiten.
+C. Ich plane, meine Mutter zu anrufen.
+D. Ich hoffe, dass mein Bruder kommt -> Ich hoffe, zu kommen
+E. Ich bitte dich, die Tür schließen.
+::exercise
+Какая грамматическая логика нарушена в каждом из пяти примеров и как звучит правильный вариант?
+
+BACK:
+Правильные варианты и разбор ошибок:
+
+A. Ich versuche, Deutsch zu lernen. — глагол versuchen требует инфинитив с частицей zu.
+B. Ich muss arbeiten. — после модального глагола müssen инфинитив употребляется строго БЕЗ zu.
+C. Ich plane, meine Mutter anzurufen. — у отделяемого глагола anrufen частица zu ставится внутрь: an + zu + rufen = anzurufen.
+D. Предложения имеют разный смысл: первое — придёт брат, второе — приду я сам. Замена недопустима, оставляем: Ich hoffe, dass mein Bruder kommt.
+E. Ich bitte dich, die Tür zu schließen. — после bitten зависимое действие оформляется с zu, а исполнитель — dich.
+
+CONTEXT:
+5 ключевых правил: 1) триггеры требуют zu; 2) модальные без zu; 3) отделяемые слитно (anzurufen); 4) другой субъект через dass; 5) bitten управляет через Akkusativ.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Проанализируйте мини-диалог и обоснуйте наличие или отсутствие частицы zu перед инфинитивом.
+::source
+A: Was hast du dieses Jahr vor?
+B: Ich plane, einen B1-Kurs zu besuchen.
+A: Und was möchtest du danach machen?
+B: Ich hoffe, eine gute Arbeit zu finden.
+::exercise
+Найдите в репликах две группы с zu и объясните, почему во фразе möchtest du danach machen частица отсутствует.
+
+BACK:
+Анализ предложений диалога:
+
+1. einen B1-Kurs zu besuchen — инфинитивная группа с zu, раскрывающая содержание плана (Ich plane...).
+2. eine gute Arbeit zu finden — инфинитивная группа с zu, раскрывающая содержание надежды (Ich hoffe...).
+3. möchtest du danach machen — модальная конструкция с глаголом möchten, требующая чистый инфинитив machen БЕЗ частицы zu.
+
+Перевод диалога: «Что ты планируешь в этом году?» — «Я планирую посещать курс B1». — «А что бы ты хотел делать после этого?» — «Надеюсь найти хорошую работу».
+
+CONTEXT:
+В речи чётко разграничиваем: plan/hoffen требуют инфинитив с zu, а модальные глаголы (möchten) — чистый инфинитив без zu.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Выделите грамматические конструкции в связном тексте и объясните их синтаксис.
+::source
+Anna möchte eine neue Stelle finden. Sie hat beschlossen, ihre Bewerbungsunterlagen zu aktualisieren. Außerdem versucht sie, jeden Abend Deutsch zu üben. Ihr Mann hofft, dass sie bald eine Einladung zum Vorstellungsgespräch bekommt.
+::exercise
+Почему в тексте присутствуют формы zu aktualisieren, zu üben и придаточное с dass, но после möchte частицы zu нет?
+
+BACK:
+Синтаксический разбор текста:
+
+1. möchte eine neue Stelle finden — модальный глагол möchten требует чистый инфинитив без zu.
+2. hat beschlossen, ihre Bewerbungsunterlagen zu aktualisieren — глагол решения beschließen требует zu; aktualisieren неотделяемый, поэтому zu пишется отдельно.
+3. versucht, jeden Abend Deutsch zu üben — глагол versuchen требует инфинитивную группу с zu.
+4. hofft, dass sie bald ... bekommt — муж надеется на действие другого человека (Анны), поэтому используется союз dass с личной формой глагола на конце.
+
+Перевод: «Анна хочет найти новую работу. Она решила обновить резюме. Кроме того, она старается каждый вечер учить немецкий. Её муж надеется, что скоро она получит приглашение на собеседование».
+
+CONTEXT:
+Разные синтаксические роли в тексте: модальный глагол (без zu), решение/попытка субъекта (с zu), надежда на действие другого лица (dass).
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Примените пятишаговый алгоритм для самостоятельного построения немецкой фразы с инфинитивом.
+::source
+Ситуация: Вы хотите сказать по-немецки: «Я собираюсь завтра позвонить в школу».
+::exercise
+Постройте фразу и обоснуйте каждый шаг по схеме из 5 вопросов:
+1. Какой глагол передаёт намерение?
+2. Нужна ли zu-группа?
+3. Кто звонит?
+4. Куда попадает zu в anrufen?
+5. Нужна ли запятая?
+
+BACK:
+Итоговая фраза: Ich habe vor, morgen in der Schule anzurufen. — «Я собираюсь завтра позвонить в школу».
+
+Ответы на 5 контрольных вопросов:
+1. Намерение передаёт глагол vorhaben -> Ich habe vor.
+2. Глагол vorhaben требует зависимый инфинитив с zu.
+3. Звоню я сам (тот же исполнитель), отдельное второе подлежащее не нужно.
+4. Глагол anrufen имеет отделяемую приставку an-, поэтому частица zu вставляется внутрь слитно: an + zu + rufen = anzurufen.
+5. Инфинитивная группа morgen in der Schule anzurufen распространена, поэтому перед ней ставится запятая.
+
+CONTEXT:
+Универсальный чек-лист самопроверки: 1) Управляющее слово -> 2) Нужен ли zu -> 3) Исполнитель -> 4) Форма глагола и место zu -> 5) Запятая.

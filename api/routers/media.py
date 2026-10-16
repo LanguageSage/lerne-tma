@@ -10,7 +10,7 @@ from PIL import Image, UnidentifiedImageError
 
 from api import models
 from api.dependencies.auth import get_user_id
-from api.utils.image import optimize_image # Импортируем наш оптимизатор
+from api.utils.image import optimize_image, upload_image_to_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -132,11 +132,15 @@ async def upload_image(
     optimized_content, media_type = optimize_image(content)
     filename = f"upload_{user_id}_{uuid.uuid4().hex[:12]}.webp" # Всегда .webp
 
+    # 1. Загрузка в Supabase Storage bucket 'images'
+    cloud_url = upload_image_to_supabase(optimized_content, filename, media_type)
+
+    # 2. Сохраняем запись в TMAMedia (content=None если файл успешно загружен в облачный бакет)
     try:
         models.TMAMedia.create(
             filename=filename,
             folder='images',
-            content=optimized_content
+            content=None if cloud_url else optimized_content
         )
     except Exception as e:
         logger.error(f"Image upload save error: {e}")
@@ -144,7 +148,7 @@ async def upload_image(
 
     return {
         "path": f"images/{filename}",
-        "url": f"/api/media/images/{filename}",
+        "url": cloud_url or f"/api/media/images/{filename}",
         "media_type": media_type,
         "original_size": len(content),
         "optimized_size": len(optimized_content)
@@ -449,8 +453,10 @@ def get_image(filename: str, request: Request):
             logger.error(f"Retry in get_image failed: {retry_err}")
             raise HTTPException(status_code=500, detail="Database connection error")
 
-    if not media:
-        raise HTTPException(status_code=404, detail="Image not found in DB")
+    if not media or not media.content:
+        supabase_url = os.environ.get("SUPABASE_URL", "https://wdopyuulhiykrextyvnt.supabase.co").rstrip("/")
+        direct_url = f"{supabase_url}/storage/v1/object/public/images/{clean_filename}"
+        return RedirectResponse(url=direct_url, status_code=307)
     
     content = bytes(media.content)
     

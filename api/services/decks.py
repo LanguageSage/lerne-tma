@@ -100,76 +100,16 @@ def deduplicate_lid_folders(user_id: int):
         return None
 
 def ensure_starter_decks(user_id: int, target_language: str = None):
+    """
+    Ensures user account is initialized. 
+    Auto-cloning of default decks is disabled: decks are accessed globally/publicly without copying.
+    """
     try:
         user, _ = TMAUser.get_or_create(user_id=user_id)
-        if getattr(user, 'default_decks_initialized', False):
-            deduplicate_lid_folders(user_id)
-            return True
-
-        # Немедленно ставим флаг, предотвращая параллельный запуск повторного импорта
-        user.default_decks_initialized = True
-        user.save()
-
-        existing_decks = list(TMA_Deck.select().where((TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False)))
-        existing_names = {d.name for d in existing_decks}
-        
-        default_decks = list(Deck.select().where((Deck.is_default == True) & (Deck.is_deleted == False)))
-        
-        imported_any = False
-        with tma_db.atomic():
-            for lib_deck in default_decks:
-                clean_lib_name = lib_deck.name.replace("⭐ ", "").strip()
-                tma_deck = next(
-                    (d for d in existing_decks if d.name == lib_deck.name or d.name == clean_lib_name or d.name.replace("⭐ ", "").strip() == clean_lib_name),
-                    None
-                )
-                if not tma_deck:
-                    tma_deck = import_deck(lib_deck.id, user_id)
-                    imported_any = True
-                    logger.info(f"Auto-imported default deck '{lib_deck.name}' for user {user_id}")
-                else:
-                    # If deck exists but has 0 cards, populate its cards
-                    cards_exist = TMA_Card.select().where((TMA_Card.deck_id == tma_deck.id) & (TMA_Card.is_deleted == False)).exists()
-                    if not cards_exist:
-                        tma_deck = import_deck(lib_deck.id, user_id, mode='merge', local_deck_id=tma_deck.id)
-                        imported_any = True
-                        logger.info(f"Populated cards for empty default deck '{lib_deck.name}' for user {user_id}")
-
-                # Attach to folder if lib_deck has folder_name in metadata
-                if isinstance(tma_deck, TMA_Deck) and getattr(lib_deck, 'metadata', None):
-                    try:
-                        m = json.loads(lib_deck.metadata) if isinstance(lib_deck.metadata, str) else (lib_deck.metadata or {})
-                        f_name = m.get('folder_name')
-                        if f_name:
-                            f_color = m.get('folder_color', '#6366f1')
-                            user_folder = TMA_Folder.get_or_none(
-                                (TMA_Folder.user_id == user_id) &
-                                (TMA_Folder.name == f_name) &
-                                (TMA_Folder.parent.is_null()) &
-                                (TMA_Folder.is_deleted == False)
-                            )
-                            if not user_folder:
-                                user_folder = TMA_Folder.create(
-                                    user_id=user_id,
-                                    name=f_name,
-                                    color=f_color,
-                                    target_language=getattr(lib_deck, 'target_language', 'de') or 'de',
-                                    created_at=datetime.datetime.now(),
-                                    updated_at=datetime.datetime.now()
-                                )
-                            if getattr(tma_deck, 'folder_id', None) != user_folder.id:
-                                tma_deck.folder = user_folder
-                            
-                            # Привязываем каноническую позицию
-                            if f_name == "Leben in Deutschland":
-                                tma_deck.position = get_lid_deck_position(tma_deck.name)
-                            tma_deck.save()
-                    except Exception as e:
-                        logger.warning(f"Failed to attach default deck to folder for user {user_id}: {e}")
-
-        # Упорядочиваем и дедуплицируем LiD папки
+        if not getattr(user, 'default_decks_initialized', False):
+            user.default_decks_initialized = True
+            user.save()
         deduplicate_lid_folders(user_id)
-
         return True
     except Exception as e:
         logger.error(f"Error in ensure_starter_decks: {e}")

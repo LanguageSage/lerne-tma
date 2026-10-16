@@ -1,0 +1,1047 @@
+# Deck: B1-15-D09 · Infinitiv mit zu — Смешанная практика
+
+<<<LERNE_PASSPORT>>>
+{
+  "schema_version": 1,
+  "intro": {
+    "title": "B1-15-D09 · Infinitiv mit zu — Смешанная практика",
+    "level": "B1",
+    "topic": "Infinitiv mit zu",
+    "description": "Смешанная практика конструкций с Infinitiv mit zu: снятие искусственных подсказок, выбор между zu, dass и чистым инфинитивом без zu, глаголы с отделяемыми приставками, возвратные местоимения, отрицание, понимание связного текста и составление сообщений.",
+    "cards_count": 50,
+    "learning_outcomes": [
+      "Самостоятельно распознавать речевую задачу и выбирать между zu, dass и чистым инфинитивом",
+      "Безошибочно синтезировать формы отделяемых глаголов с zu (auszudrucken, mitzubringen, anzumelden)",
+      "Различать предлог направления zu (zum) и инфинитивную частицу zu",
+      "Учитывать позицию nicht и согласовывать возвратные местоимения (mich, mir, uns, sich)",
+      "Точно определять исполнителя при управлении через дополнение (bitten, raten, versprechen)",
+      "Анализировать мини-тексты и выявлять реальные намерения, факты и ограничения",
+      "Составлять связные сообщения из 2–5 предложений в деловых и бытовых ситуациях"
+    ],
+    "estimated_time": "40–55 минут",
+    "recommendations": "При ошибках в выборе базовой модели — повторить D04 и D07; при ошибках в отделяемых приставках — D05 блок B; при неверном определении исполнителя — D07 блок D; при трудностях со связным текстом — D08 блок E. Следующий шаг: B1-15-D10 · Слушай и говори."
+  },
+  "pedagogy": {
+    "lesson_type": "practice",
+    "stages": [
+      {
+        "id": "block_a_quick_decision",
+        "title": "Блок A: Быстрое решение в контексте",
+        "goal": "Быстро определять необходимую модель без подсказок о теме",
+        "from_card": 1,
+        "to_card": 10,
+        "support": "high",
+        "expected_skill": "Выбирать верную конструкцию, распознавать предлог и возвратность"
+      },
+      {
+        "id": "block_b_build_and_transform",
+        "title": "Блок B: Построй и преобразуй",
+        "goal": "Объединять мысли, преобразовывать dass в zu и собирать предложения",
+        "from_card": 11,
+        "to_card": 20,
+        "support": "medium",
+        "expected_skill": "Строить сложные фразы и трансформировать придаточные"
+      },
+      {
+        "id": "block_c_traps_and_nuances",
+        "title": "Блок C: Ловушки и смысловые нюансы",
+        "goal": "Различать тонкие смысловые оттенки, отрицание и роли участников",
+        "from_card": 21,
+        "to_card": 30,
+        "support": "low",
+        "expected_skill": "Находить ошибки, точно интерпретировать модальность и роли"
+      },
+      {
+        "id": "block_d_live_context",
+        "title": "Блок D: Живой контекст и связное понимание",
+        "goal": "Понимать мини-тексты, реагировать в диалогах и корректировать реплики",
+        "from_card": 31,
+        "to_card": 40,
+        "support": "low",
+        "expected_skill": "Извлекать выводы из текста и давать уместные ответы"
+      },
+      {
+        "id": "block_e_independent_messages",
+        "title": "Блок E: Самостоятельные сообщения уровня B1",
+        "goal": "Создавать связные письменные высказывания из 2–5 фраз",
+        "from_card": 41,
+        "to_card": 50,
+        "support": "independent",
+        "expected_skill": "Писать вежливые сообщения клиентам, коллегам и учреждениям"
+      }
+    ],
+    "expected_result": "Ученик уверенно ориентируется в системе немецких инфинитивных оборотов, безошибочно различает условия применения zu и успешно использует конструкции в спонтанной речи и переписке уровня B1.",
+    "competencies": [
+      {
+        "id": "model_selection",
+        "title": "Выбор синтаксической модели",
+        "description": "Точное разграничение конструкций с zu, dass и чистым инфинитивом"
+      },
+      {
+        "id": "text_comprehension",
+        "title": "Понимание инфинитивных связей в тексте",
+        "description": "Извлечение точной информации о намерениях, обязательствах и возможностях"
+      },
+      {
+        "id": "independent_writing",
+        "title": "Связная продуктивная речь",
+        "description": "Построение многокомпонентных сообщений с соблюдением речевого этикета"
+      }
+    ],
+    "assessment_criteria": [
+      {
+        "id": "structural_accuracy",
+        "title": "Структурная точность",
+        "description": "Правильное образование форм отделяемых глаголов, порядок слов и возвратность"
+      },
+      {
+        "id": "pragmatic_fit",
+        "title": "Прагматическая адекватность",
+        "description": "Соответствие высказывания коммуникативной задаче без искажения смысла"
+      }
+    ]
+  }
+}
+<<<END_LERNE_PASSPORT>>>
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Ты ждёшь **свой** ответ о зачислении на курс. Как точно сказать «Я надеюсь завтра получить подтверждение»?
+
+Ich hoffe, dass die Schule morgen eine Bestätigung erhält.
+*Ich hoffe, morgen eine Bestätigung zu bekommen.
+Ich muss morgen eine Bestätigung bekommen.
+
+BACK:
+Ich hoffe, morgen eine Bestätigung zu bekommen.
+Перевод: «Надеюсь завтра получить подтверждение.».
+
+CONTEXT:
+В B надежда касается **собственного** получения документа. A сообщает о школе как получателе, C выражает необходимость, а не надежду.
+Новая лексика: die Bestätigung — подтверждение; erhalten/bekommen — получать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Ты решил обновить пароль в выходные, но ещё не сделал это. Какой вариант передаёт **намерение**?
+
+Ich kann am Wochenende mein Passwort ändern.
+Ich habe am Wochenende mein Passwort geändert.
+*Ich habe vor, am Wochenende mein Passwort zu ändern.
+
+BACK:
+Ich habe vor, am Wochenende mein Passwort zu ändern.
+Перевод: «Я собираюсь поменять пароль в выходные.».
+
+CONTEXT:
+*haben vor, ... zu ändern* — план; *können* лишь возможность, Perfekt в B сообщает о совершившемся действии.
+Новая лексика: ändern — изменять; das Passwort — пароль.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Завтра сотруднику необходимо пройти инструктаж. Выбери грамматически верное предложение.
+
+*Die Mitarbeiterin muss morgen an der Einweisung teilnehmen.
+Die Mitarbeiterin muss morgen an der Einweisung zu teilnehmen.
+Die Mitarbeiterin muss morgen an der Einweisung teilzunehmen.
+
+BACK:
+Die Mitarbeiterin muss morgen an der Einweisung teilnehmen.
+Перевод: «Сотрудница завтра должна участвовать в инструктаже.».
+
+CONTEXT:
+*muss + teilnehmen* употребляется без *zu*. Не путай со свободной группой *Sie plant, an der Einweisung teilzunehmen*.
+Новая лексика: die Einweisung — инструктаж; teilnehmen an + Dativ — участвовать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ergänzen Sie die richtige Form des Verbs mit 'zu'.
+::source
+Вставь одно слово — *ausdrucken* с частицей *zu*.
+::exercise
+Er hat vergessen, den Anhang [[auszudrucken]].
+
+BACK:
+Er hat vergessen, den Anhang auszudrucken.
+Перевод: «Он забыл распечатать приложение к письму.».
+
+CONTEXT:
+У отделяемого глагола *ausdrucken* частица стоит внутри: *aus + zu + drucken → auszudrucken*.
+Новая лексика: der Anhang — приложение к письму.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Die Beraterin rät dem Kunden, den Antrag online einzureichen.
+::exercise
+Кто должен подать заявление?
+
+Консультант.
+*Клиент.
+Оба вместе.
+
+BACK:
+Die Beraterin rät dem Kunden, den Antrag online einzureichen.
+Перевод: «Консультант советует клиенту подать заявление онлайн.».
+
+CONTEXT:
+*rät dem Kunden* определяет адресата совета. Именно клиент (*dem Kunden*) выполняет действие *einzureichen*, хотя подлежащее — *die Beraterin*.
+Новая лексика: raten + Dativ — советовать; einreichen — подавать официально.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Нужно выразить «Я стараюсь **не отвлекаться** во время разговора». Выбери нужный смысл.
+
+Ich versuche nicht, mich während des Gesprächs abzulenken.
+*Ich versuche, mich während des Gesprächs nicht ablenken zu lassen.
+Ich muss versuchen, mich während des Gesprächs abzulenken.
+
+BACK:
+Ich versuche, mich während des Gesprächs nicht ablenken zu lassen.
+Перевод: «Я стараюсь не позволять отвлекать себя во время разговора.».
+
+CONTEXT:
+Отрицание относится к *ablenken lassen*. После *lassen* — инфинитив без *zu*, но вся группа подчиняется *versuchen*, поэтому в конце *zu lassen*. A отрицает попытку отвлекать себя, а не попытку сохранять внимание.
+Новая лексика: ablenken — отвлекать; während des Gesprächs — во время разговора.
+Допустимые варианты: Карточка на понимание смысла; составлять такую вложенную форму самостоятельно на D09 не требуется.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Ты надеешься, что **коллега**, а не ты, придёт вовремя. Выбери точную фразу.
+
+*Ich hoffe, dass mein Kollege pünktlich kommt.
+Ich hoffe, pünktlich zu kommen.
+Ich plane, meinen Kollegen pünktlich abzuholen.
+
+BACK:
+Ich hoffe, dass mein Kollege pünktlich kommt.
+Перевод: «Надеюсь, что мой коллега придёт вовремя.».
+
+CONTEXT:
+В придаточном с *dass* назван отдельный исполнитель — *mein Kollege*. В B вовремя приходит сам говорящий.
+Новая лексика: pünktlich — вовремя.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Ich habe vor, heute zum Kundendienst zu gehen.
+::exercise
+Какова роль первого *zu* внутри *zum*?
+
+Частица инфинитива.
+*Предлог направления.
+Приставка отделяемого глагола.
+
+BACK:
+Ich habe vor, heute zum Kundendienst zu gehen.
+Перевод: «Я собираюсь сегодня сходить в службу поддержки.».
+
+CONTEXT:
+*zum* = *zu dem*, предлог с Dativ, обозначающий направление к учреждению. *zu gehen* — отдельная инфинитивная конструкция с частицей *zu*.
+Новая лексика: der Kundendienst — служба поддержки, сервисная служба.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ergänzen Sie das passende Reflexivpronomen.
+::source
+Заполни только возвратное местоимение. Исполнитель в обеих частях — *wir*.
+::exercise
+Wir planen, [[uns]] im Herbst bei der Fahrschule anzumelden.
+
+BACK:
+Wir planen, uns im Herbst bei der Fahrschule anzumelden.
+Перевод: «Мы планируем осенью записаться в автошколу.».
+
+CONTEXT:
+*sich anmelden* требует возвратное местоимение: *wir melden uns an* → *wir planen, uns anzumelden*.
+Новая лексика: die Fahrschule — автошкола; sich anmelden — записываться.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Ты лично обещаешь арендодателю убрать мусор. Какой вариант передаёт **собственное обещание**?
+
+Ich bitte den Vermieter, den Müll zu entfernen.
+Ich hoffe, dass der Vermieter den Müll entfernt.
+*Ich verspreche dem Vermieter, den Müll zu entfernen.
+
+BACK:
+Ich verspreche dem Vermieter, den Müll zu entfernen.
+Перевод: «Я обещаю арендодателю убрать мусор.».
+
+CONTEXT:
+*versprechen + Dativ* — обещать кому-то выполнить собственное действие; дополнение здесь **получатель обещания**, а не исполнитель.
+Новая лексика: der Müll — мусор; entfernen — убрать, удалить.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Formulieren Sie den Satz mit 'zu' um.
+::source
+Объедини две мысли **одним** предложением с *zu*. Сохрани желание женщины.
+::exercise
+*Die Frau möchte wieder Sport treiben. Sie hat Lust darauf.*
+Начни: *Die Frau hat Lust, ...*
+
+BACK:
+Die Frau hat Lust, wieder Sport zu treiben.
+Перевод: «Женщине хочется снова заниматься спортом.».
+
+CONTEXT:
+Выражение *Lust haben* может вводить инфинитивную группу. Не ставь внутри неё ещё одно *sie*.
+Новая лексика: Sport treiben — заниматься спортом.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Formulieren Sie den Satz mit 'zu'.
+::exercise
+Скажи по-немецки: «Я пытаюсь найти причину неисправности». Используй *versuchen* и *die Ursache des Fehlers finden*. Не обещай успешный результат.
+
+BACK:
+Ich versuche, die Ursache des Fehlers zu finden.
+Перевод: «Я стараюсь найти причину неисправности.».
+
+CONTEXT:
+*versuchen* сообщает о попытке, а *zu finden* — о действии. Ученик может употребить *Ich versuche gerade, ...*, сохраняя смысл.
+Новая лексика: die Ursache — причина; der Fehler — неисправность, ошибка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Formulieren Sie den Satz mit 'zu' um.
+::source
+Сократи фразу с *dass* до инфинитивной группы, **не меняя исполнителя**:
+::exercise
+*Frau Meier hofft, dass sie bald eine Zusage bekommt.*
+
+BACK:
+Frau Meier hofft, bald eine Zusage zu bekommen.
+Перевод: «Госпожа Майер надеется скоро получить положительный ответ.».
+
+CONTEXT:
+*sie* здесь обозначает ту же Frau Meier. В инфинитивной группе подлежащее опускаем; *bekommt* превращается в *zu bekommen*.
+Новая лексика: die Zusage — согласие, положительный ответ.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Vervollständigen Sie den Satz mit 'zu'.
+::exercise
+Откажись от дополнительной смены: «У меня сегодня нет времени оставаться дольше». Начни с *Ich habe heute keine Zeit, ...*
+
+BACK:
+Ich habe heute keine Zeit, länger zu bleiben.
+Перевод: «У меня сегодня нет времени оставаться дольше.».
+
+CONTEXT:
+*keine Zeit haben* + инфинитивная группа; *länger* относится к *bleiben*. Вежливость добавляется контекстом, например *Leider habe ich...*.
+Новая лексика: die Schicht — смена; länger bleiben — оставаться дольше.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Ergänzen Sie das Objekt und das Verb mit 'zu'.
+::source
+Заверши предложение двумя словами, используя *mitbringen* и *die Bescheinigung*.
+::exercise
+*Ich habe vergessen, ____ ____.*
+Напиши **«объект + нужная форма глагола»**.
+
+BACK:
+Ich habe vergessen, die Bescheinigung mitzubringen.
+Перевод: «Я забыл принести с собой справку.».
+
+CONTEXT:
+*mitbringen* → *mitzubringen* (отделяемая приставка). Объект *die Bescheinigung* стоит перед финальным инфинитивом.
+Новая лексика: die Bescheinigung — справка, удостоверение.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Bilden Sie einen korrekten Satz.
+::source
+Собери одну правильную фразу из перемешанных частей:
+::exercise
+@puzzle
+Ich möchte versuchen, die Heizung selbst zu entlüften.
+
+BACK:
+Ich möchte versuchen, die Heizung selbst zu entlüften.
+Перевод: «Я хотел бы попробовать самостоятельно удалить воздух из системы отопления.».
+
+CONTEXT:
+*möchte → versuchen* идёт **без zu**; *versuchen → zu entlüften* — с *zu*. Пазл проверяет сохранение двух связей, а не угадывание порядка вариантов.
+Новая лексика: entlüften — удалять воздух из системы.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Изначально: *Wir hoffen, dass unsere Nachbarin den Brief bekommt.
+::exercise
+Какая замена сохраняет **полностью тот же смысл**?
+
+Wir hoffen, den Brief zu bekommen.
+*Wir hoffen, dass unsere Nachbarin den Brief bekommt.
+Wir haben vor, den Brief zu bekommen.
+
+BACK:
+Wir hoffen, dass unsere Nachbarin den Brief bekommt.
+Перевод: «Мы надеемся, что наша соседка получит письмо.».
+
+CONTEXT:
+В A письмо получают говорящие, а не соседка; в C меняется и исполнитель, и отношение к действию. Не надо сокращать *dass* любой ценой.
+Новая лексика: die Nachbarin — соседка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Formulieren Sie die Bitte mit 'bitten' und 'zu'.
+::exercise
+Попроси коллегу прислать тебе протокол. Используй начало *Ich bitte meinen Kollegen, ...* и слова *mir das Protokoll schicken*.
+
+BACK:
+Ich bitte meinen Kollegen, mir das Protokoll zu schicken.
+Перевод: «Я прошу коллегу прислать мне протокол.».
+
+CONTEXT:
+*bitte meinen Kollegen* задаёт исполнителя (коллега). *mir* — тот, кому нужно отправить протокол; *zu schicken* — действие коллеги.
+Новая лексика: das Protokoll — протокол, запись заседания.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Korrigieren Sie den Fehler im Satz.
+::source
+Исправь **только ошибочную инфинитивную форму**:
+::exercise
+*Wir planen, die Lieferung bis Montag zu abholen.*
+Напиши правильное предложение полностью.
+
+BACK:
+Wir planen, die Lieferung bis Montag abzuholen.
+Перевод: «Мы планируем забрать доставку до понедельника.».
+
+CONTEXT:
+*abholen* — отделяемый глагол, поэтому *ab + zu + holen = abzuholen*. *zu abholen* неверно.
+Новая лексика: die Lieferung — доставка, поставка.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Formulieren Sie den Satz mit 'zu'.
+::exercise
+Вырази мысль: «Важно прочитать условия до подписания». Используй *Es ist wichtig* и *die Bedingungen vor der Unterschrift lesen*.
+
+BACK:
+Es ist wichtig, die Bedingungen vor der Unterschrift zu lesen.
+Перевод: «Важно прочитать условия до подписания.».
+
+CONTEXT:
+Прилагательное *wichtig* оценивает действие; зависимая группа завершается *zu lesen*.
+Новая лексика: die Bedingungen — условия; die Unterschrift — подпись.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Нужно сказать: «Я стараюсь не пропускать занятия». Найди правильный смысл.
+
+*Ich versuche, keinen Unterricht zu verpassen.
+Ich versuche nicht, Unterricht zu verpassen.
+Ich habe beschlossen, Unterricht zu verpassen.
+
+BACK:
+Ich versuche, keinen Unterricht zu verpassen.
+Перевод: «Я стараюсь не пропускать занятия.».
+
+CONTEXT:
+*keinen Unterricht* отрицает объект действия. В B отрицается сама попытка пропускать занятия, а не попытка избегать пропусков.
+Новая лексика: den Unterricht verpassen — пропускать занятие.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Korrigieren Sie den Fehler im Satz.
+::source
+В письменном ответе ученик написал:
+::exercise
+*Es tut mir leid. Ich will versuchen, morgen früher zu erscheinen.*
+Он считает, что после *will* перед *versuchen* нужно добавить *zu*. Исправлять ли исходный текст?
+
+BACK:
+Es tut mir leid. Ich will versuchen, morgen früher zu erscheinen.
+Перевод: «Мне жаль. Я хочу постараться завтра прийти раньше.».
+
+CONTEXT:
+*will versuchen* — модальная конструкция без *zu*; *versuchen, ... zu erscheinen* — инфинитивная группа с *zu*. Не исправляй правильное предложение лишь потому, что в нём два инфинитива.
+Новая лексика: erscheinen — появиться, прийти; Es tut mir leid — Мне жаль.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Die Ärztin empfiehlt dem Patienten, das Medikament nach dem Essen einzunehmen.
+::exercise
+Выбери верное объяснение:
+
+Лекарство принимает врач.
+Лекарство принимают оба.
+*Лекарство принимает пациент.
+
+BACK:
+Die Ärztin empfiehlt dem Patienten, das Medikament nach dem Essen einzunehmen.
+Перевод: «Врач рекомендует пациенту принимать лекарство после еды.».
+
+CONTEXT:
+При *empfehlen + Dativ + zu* исполнитель зависимого действия — адресат рекомендации, здесь *dem Patienten*.
+Новая лексика: einnehmen — принимать (лекарство); das Medikament — лекарство.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Korrigieren Sie den Fehler im Satz.
+::source
+В сообщении написано:
+::exercise
+*Wir haben vor, sich nächste Woche beim Bürgerbüro anzumelden.*
+Исправь **одну** ошибку, сохранив смысл.
+
+BACK:
+Wir haben vor, uns nächste Woche beim Bürgerbüro anzumelden.
+Перевод: «Мы собираемся на следующей неделе зарегистрироваться в бюро обслуживания граждан.».
+
+CONTEXT:
+Исполнители — *wir*, поэтому требуется *uns*. Форма *anzumelden* правильная и менять её не надо.
+Новая лексика: das Bürgerbüro — муниципальное бюро обслуживания; sich anmelden — регистрироваться.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Bilden Sie einen korrekten Satz.
+::source
+Собери корректную фразу из фрагментов, начав с *Er verspricht*:
+::exercise
+@puzzle
+Er verspricht, die Schlüssel pünktlich zurückzugeben.
+
+BACK:
+Er verspricht, die Schlüssel pünktlich zurückzugeben.
+Перевод: «Он обещает вовремя вернуть ключи.».
+
+CONTEXT:
+Форма *zurückzugeben* образована по схеме *zurück + zu + geben*. Отдельно перед целым словом *zu* **не добавляем**.
+Новая лексика: die Schlüssel — ключи; zurückgeben — возвращать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Formulieren Sie den Satz mit 'zu'.
+::exercise
+Переведи: «Она боится неправильно заполнить формуляр». Используй *Sie hat Angst* и *das Formular falsch ausfüllen*.
+
+BACK:
+Sie hat Angst, das Formular falsch auszufüllen.
+Перевод: «Она боится неправильно заполнить формуляр.».
+
+CONTEXT:
+*Angst haben, ... zu* описывает страх перед собственным действием. *ausfüllen* отделяемый глагол: *auszufüllen*.
+Новая лексика: das Formular — бланк, формуляр; falsch — неправильно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Ты сказал заказчице, что **сам** пришлёшь фотографии вечером. Какая реплика точна?
+
+*Ich verspreche Ihnen, die Fotos heute Abend zu schicken.
+Ich bitte Sie, die Fotos heute Abend zu schicken.
+Ich hoffe, dass Sie die Fotos heute Abend schicken.
+
+BACK:
+Ich verspreche Ihnen, die Fotos heute Abend zu schicken.
+Перевод: «Я обещаю вам отправить фотографии сегодня вечером.».
+
+CONTEXT:
+При *versprechen* исполнитель обещанного действия — говорящий. В B и C фотографии отправляет адресат.
+Новая лексика: die Fotos — фотографии; heute Abend — сегодня вечером.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Тебе нужно написать только о **возможности** арендовать инструмент, а не о принятом решении. Какое предложение подходит?
+
+Wir haben beschlossen, das Gerät auszuleihen.
+*Wir können das Gerät ausleihen.
+Wir versprechen, das Gerät auszuleihen.
+
+BACK:
+Wir können das Gerät ausleihen.
+Перевод: «Мы можем взять устройство напрокат.».
+
+CONTEXT:
+*können + ausleihen* — возможность, здесь инфинитив **без zu**. Остальные предложения выражают решение или обещание, а не возможность.
+Новая лексика: ausleihen — брать напрокат/взаймы; das Gerät — прибор.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Formulieren Sie den Satz mit 'zu'.
+::source
+Передай: «Мне трудно запоминать длинные номера». Используй *Es fällt mir schwer, ...* и *lange Nummern merken*.
+::exercise
+Не вставляй второй глагол в личной форме.
+
+BACK:
+Es fällt mir schwer, mir lange Nummern zu merken.
+Перевод: «Мне трудно запоминать длинные номера.».
+
+CONTEXT:
+*Es fällt mir schwer, ... zu* означает «мне даётся с трудом». Глагол *sich etwas merken* требует местоимение в Dativ: *ich merke mir ...* → *mir ... zu merken*.
+Новая лексика: sich (Dativ) etwas merken — запоминать что-то.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Lesen Sie den Text und beantworten Sie die Fragen.
+::source
+Прочитай записку:
+::exercise
+*Ich kann heute nicht kommen. Ich hoffe, den Bericht morgen fertigzustellen. Meine Kollegin hat versprochen, mir die fehlenden Daten zu schicken.*
+Ответь по номерам:
+1. Назови конструкцию с **инфинитивом без zu**.
+2. Назови форму отделяемого глагола с *zu*.
+3. Кто пришлёт недостающие данные?
+
+BACK:
+Ich kann heute nicht kommen. Ich hoffe, den Bericht morgen fertigzustellen. Meine Kollegin hat versprochen, mir die fehlenden Daten zu schicken.
+Перевод: «Я не могу сегодня прийти. Надеюсь завтра закончить отчёт. Коллега пообещала прислать мне недостающие данные.».
+
+CONTEXT:
+*kann kommen* без *zu*, *fertigstellen* → *fertigzustellen* с *zu* внутри приставки, а после *hat versprochen* действие выполняет коллега.
+Новая лексика: der Bericht — отчёт; fehlend — недостающий; die Daten — данные.
+Допустимые варианты: Оценивать три компонента раздельно; карточка зачтена полностью только при трёх верных ответах.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::source
+Клиент читает сообщение:
+::exercise
+*Wir versuchen, das Ersatzteil bis Donnerstag zu bestellen. Leider können wir noch keinen Liefertermin bestätigen.*
+Что сообщается?
+
+Деталь уже заказана, срок подтверждён.
+*Мастерская пытается заказать деталь, но пока не подтверждает срок доставки.
+Клиент должен сам заказать деталь.
+
+BACK:
+Wir versuchen, das Ersatzteil bis Donnerstag zu bestellen. Leider können wir noch keinen Liefertermin bestätigen.
+Перевод: «Мы пытаемся заказать запчасть до четверга. К сожалению, пока не можем подтвердить срок поставки.».
+
+CONTEXT:
+*versuchen, ... zu bestellen* — попытка без гарантированного результата; *können bestätigen* — модальный глагол без *zu*.
+Новая лексика: das Ersatzteil — запчасть; der Liefertermin — срок доставки.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Formulieren Sie den Satz mit 'zu'.
+::source
+Ты надеешься, что **хозяйка квартиры** разрешит установить новые полки. Напиши одну фразу с *Ich hoffe, dass ...*.
+::exercise
+Опора: *die Vermieterin / die neuen Regale / erlauben*.
+
+BACK:
+Ich hoffe, dass die Vermieterin mir erlaubt, neue Regale anzubringen.
+Перевод: «Я надеюсь, что арендодательница разрешит мне установить новые полки.».
+
+CONTEXT:
+*dass* позволяет прямо назвать другого исполнителя: *die Vermieterin*. Более естественный расширенный вариант: *Ich hoffe, dass die Vermieterin mir erlaubt, neue Regale anzubringen.* Важно, что разрешение даёт она.
+Новая лексика: die Vermieterin — арендодательница; das Regal — полка, стеллаж.
+Допустимые варианты: Допускается эквивалент *Ich hoffe, dass die Vermieterin der Montage neuer Regale zustimmt.* У второго предложения другой словарь, но сохранена роль исполнительницы решения.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Antworten Sie im Dialog.
+::source
+Коллега: *„Schaffst du es, die Unterlagen heute hochzuladen?“* («Сможешь сегодня загрузить документы?»)
+::exercise
+Ответь по-немецки одной фразой: ты **попытаешься**, но не гарантируешь результат. Используй *versuchen*.
+
+BACK:
+Ich versuche, die Unterlagen heute hochzuladen.
+Перевод: «Я постараюсь сегодня загрузить документы.».
+
+CONTEXT:
+Ситуации соответствует попытка, а не обещание. *hochladen* → *hochzuladen*. Вариант *Ich werde versuchen, ...* также допустим.
+Новая лексика: hochladen — загружать файл.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Korrigieren Sie den Fehler im Satz.
+::source
+Собеседник хотел сказать: «Надеюсь, что **вы** вовремя получите сообщение», но написал:
+::exercise
+*Ich hoffe, die Nachricht rechtzeitig zu bekommen.*
+Исправь смысл одним предложением с *dass* (вежливое *Sie*).
+
+BACK:
+Ich hoffe, dass Sie die Nachricht rechtzeitig bekommen.
+Перевод: «Надеюсь, что вы своевременно получите сообщение.».
+
+CONTEXT:
+Исходная инфинитивная группа относилась к *ich*. Чтобы получателем были *Sie*, нужно придаточное с личной формой *bekommen*.
+Новая лексика: rechtzeitig — своевременно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Antworten Sie im Dialog.
+::source
+Клиент: *„Was soll ich vor dem Termin machen?“* («Что мне сделать перед встречей?»)
+::exercise
+Ответь одной вежливой фразой с *Ich empfehle Ihnen, ...*, используя *die Seriennummer notieren*.
+
+BACK:
+Ich empfehle Ihnen, die Seriennummer zu notieren.
+Перевод: «Я рекомендую вам записать серийный номер.».
+
+CONTEXT:
+При *empfehlen + Dativ* действие совершает адресат *Ihnen*, а не говорящий. Инфинитивная группа оформляется через *zu notieren*.
+Новая лексика: die Seriennummer — серийный номер.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Formulieren Sie den Satz mit 'zu'.
+::exercise
+Составь фразу: «Я решил сначала отправить электронное письмо, а потом позвонить». Используй *Ich habe beschlossen*, *zuerst eine E-Mail schreiben*, *danach anrufen*; сохрани один и тот же исполнитель.
+
+BACK:
+Ich habe beschlossen, zuerst eine E-Mail zu schreiben und danach anzurufen.
+Перевод: «Я решил сначала написать электронное письмо, а потом позвонить.».
+
+CONTEXT:
+Оба зависимых действия относятся к одному решению. *schreiben* → *zu schreiben*, *anrufen* → *anzurufen*. Союз *und* связывает действия; второй раз *ich* не требуется.
+Новая лексика: zuerst — сначала; danach — после этого.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Wählen Sie die richtige Option.
+::exercise
+Руководитель спрашивает: «Вы уверены, что клиент уже получил предложение?» Сотрудник не уверен, а лишь **надеется**, что клиент его получит.
+
+*Ich hoffe, dass der Kunde unser Angebot erhält.
+Ich habe beschlossen, das Angebot zu erhalten.
+Ich verspreche, dass das Angebot angekommen ist.
+
+BACK:
+Ich hoffe, dass der Kunde unser Angebot erhält.
+Перевод: «Я надеюсь, что клиент получит наше предложение.».
+
+CONTEXT:
+У *hoffen* иное значение, чем у *beschließen* и *versprechen*. Предложение с *dass* сохраняет клиента исполнителем действия «получить».
+Новая лексика: das Angebot — предложение; erhalten — получать.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Korrigieren Sie den Fehler im Satz.
+::source
+В письме написано:
+::exercise
+*Ich habe vor, mich nächste Woche für den Workshop zu anmelden.*
+Исправь неверную форму глагола; остальной текст оставь без изменений.
+
+BACK:
+Ich habe vor, mich nächste Woche für den Workshop anzumelden.
+Перевод: «Я собираюсь на следующей неделе записаться на практический семинар.».
+
+CONTEXT:
+*anmelden* — отделяемый глагол: *anzumelden*. Возвратное *mich* уже правильное; не меняем его.
+Новая лексика: der Workshop — практический семинар, мастер-класс.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Lesen Sie den Text und beantworten Sie die Fragen.
+::source
+Ich muss versuchen, mich nicht zu verspäten. Außerdem habe ich vor, die Unterlagen vorher durchzulesen.
+::exercise
+Ответь кратко:
+1. Почему перед *versuchen* нет *zu*?
+2. Укажи два инфинитива с *zu*.
+3. Что человек хочет сделать **до встречи**?
+
+BACK:
+Ich muss versuchen, mich nicht zu verspäten. Außerdem habe ich vor, die Unterlagen vorher durchzulesen.
+Перевод: «Мне нужно постараться не опоздать. Кроме того, я собираюсь заранее прочитать документы.».
+
+CONTEXT:
+*muss versuchen* без частицы, *versuchen, mich nicht zu verspäten* — с ней; *durchlesen* — отделяемый глагол, поэтому *durchzulesen*.
+Новая лексика: sich verspäten — опаздывать; vorher — заранее; durchlesen — прочитать.
+Допустимые варианты: Разделять результат по трём ответам; в пункте 3 достаточно назвать чтение документов заранее.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Lesen Sie den Text und beantworten Sie die Fragen.
+::source
+Прочитай две фразы:
+::exercise
+*Ich höre meinen Nachbarn im Flur telefonieren. Er versucht, seinen Bruder zu erreichen.*
+Ответь двумя короткими пунктами:
+1. Какой инфинитив стоит **без zu** и почему?
+2. Какая группа содержит *zu* и чем она управляется?
+
+BACK:
+Ich höre meinen Nachbarn im Flur telefonieren. Er versucht, seinen Bruder zu erreichen.
+Перевод: «Я слышу, как сосед разговаривает по телефону в коридоре. Он пытается связаться со своим братом.».
+
+CONTEXT:
+*hören + Akkusativ + Infinitiv* в конструкции восприятия — без *zu*; *versuchen, ... zu erreichen* — с *zu*. Мы видим обе модели рядом, не меняя их.
+Новая лексика: der Flur — коридор; erreichen — связаться, достать по телефону.
+Допустимые варианты: Оба ответа должны быть корректны; ошибки логировать отдельно.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Verfassen Sie eine kurze Nachricht.
+::source
+Ты пишешь работнику учреждения. Передай **две мысли в 2 предложениях**:
+::exercise
+1. Ты не можешь сегодня принести справку.
+2. Ты постараешься отправить её завтра по электронной почте.
+Опора: *die Bescheinigung, per E-Mail, versuchen*. Сохрани обращение к адресату в официальном тоне.
+
+BACK:
+Leider kann ich die Bescheinigung heute nicht vorbeibringen. Ich versuche, sie Ihnen morgen per E-Mail zu schicken.
+Перевод: «К сожалению, сегодня я не могу принести справку. Постараюсь завтра отправить её вам по электронной почте.».
+
+CONTEXT:
+*kann ... vorbeibringen* без *zu*; *versuche, ... zu schicken* с *zu*. *Ihnen* — вежливое обращение к адресату.
+Новая лексика: vorbeibringen — принести, занести; die Bescheinigung — справка.
+Допустимые варианты: Критерии: (1) отсутствие возможности сегодня, (2) попытка отправить завтра, (3) корректные глагольные конструкции. Фраза без *Ihnen* также допустима.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Verfassen Sie eine kurze Nachricht.
+::source
+Напиши **два связанных предложения** о подготовке к собеседованию:
+::exercise
+1. Ты решил заранее прочитать информацию о фирме.
+2. Тебе трудно быстро запоминать новые имена.
+Опоры: *beschließen, sich über die Firma informieren, schwierig, Namen merken*.
+
+BACK:
+Ich habe beschlossen, mich vorher über die Firma zu informieren. Es ist für mich schwierig, mir neue Namen schnell zu merken.
+Перевод: «Я решил заранее ознакомиться с информацией о фирме. Мне трудно быстро запоминать новые имена.».
+
+CONTEXT:
+Первая инфинитивная группа раскрывает решение, вторая оценивает трудность. *sich informieren* → *mich ... zu informieren*; *sich etwas merken* → *mir ... zu merken*.
+Новая лексика: sich informieren über + Akk. — узнавать сведения о; sich etwas merken — запоминать.
+Допустимые варианты: Проверять обе смысловые функции. Корректное *Ich finde es schwierig, ...* равноценно второй фразе.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Antworten Sie im Dialog.
+::source
+Друг спрашивает: *„Fahrt ihr am Sonntag weg?“
+::exercise
+Ответь **двумя предложениями**:
+1. Ты лично собираешься остаться дома и отдохнуть.
+2. Ты надеешься, что жена сможет съездить к своей сестре.
+Обязательно сохрани, кто выполняет каждое действие.
+
+BACK:
+Ich habe vor, am Sonntag zu Hause zu bleiben und mich auszuruhen. Ich hoffe, dass meine Frau ihre Schwester besuchen kann.
+Перевод: «Я собираюсь в воскресенье остаться дома и отдохнуть. Надеюсь, что моя жена сможет навестить сестру.».
+
+CONTEXT:
+Собственный план — *haben vor + zu*; надежда на действие другого человека — *hoffen, dass ... kann*. После *kann* глагол *besuchen* без *zu*.
+Новая лексика: wegfahren — уезжать; sich ausruhen — отдыхать.
+Допустимые варианты: Вместо *habe vor* возможно *plane*; исполнитель во второй мысли должен остаться женой.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Verfassen Sie eine kurze Nachricht.
+::source
+Напиши **два вежливых предложения клиенту**, чтобы сообщить:
+::exercise
+1. Ты просишь его прислать фотографию шильдика устройства.
+2. Ты обещаешь после этого проверить наличие запчасти.
+Опоры: *bitten, ein Foto vom Typenschild schicken, versprechen, die Verfügbarkeit des Ersatzteils prüfen*.
+
+BACK:
+Ich bitte Sie, mir ein Foto vom Typenschild zu schicken. Ich verspreche Ihnen, danach die Verfügbarkeit des Ersatzteils zu prüfen.
+Перевод: «Прошу вас прислать мне фотографию шильдика. Обещаю после этого проверить наличие запчасти.».
+
+CONTEXT:
+*bitten* — фотографию присылает клиент; *versprechen* — наличие проверяет говорящий. Не перепутать *Sie* и *Ihnen*.
+Новая лексика: das Typenschild — заводская табличка; die Verfügbarkeit — наличие, доступность.
+Допустимые варианты: Возможны другие вежливые формы с тем же распределением исполнителей; проверка должна учитывать **обе** функции.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Verfassen Sie eine kurze Nachricht.
+::source
+Напиши преподавателю **2–3 предложения**:
+::exercise
+- Ты планируешь присутствовать на занятии в четверг.
+- Ты не знаешь, получится ли уйти с работы вовремя; поэтому не обещай результат.
+- Ты надеешься, что преподаватель сможет выслать материалы, если ты опоздаешь.
+Опоры: *planen, können, hoffen, dass, die Unterlagen*.
+
+BACK:
+Ich plane, am Donnerstag am Unterricht teilzunehmen. Ich weiß noch nicht, ob ich die Arbeit pünktlich verlassen kann. Ich hoffe, dass Sie mir die Unterlagen schicken können, falls ich zu spät komme.
+Перевод: «Я планирую участвовать в занятии в четверг. Пока не знаю, смогу ли вовремя уйти с работы. Надеюсь, вы сможете отправить мне материалы, если я опоздаю.».
+
+CONTEXT:
+*planen, ... teilzunehmen* — собственный план; *ob ... kann* — неопределённая возможность; *hoffen, dass Sie ... schicken können* — действие преподавателя.
+Новая лексика: am Unterricht teilnehmen — присутствовать на занятии; falls — в случае если.
+Допустимые варианты: Проверка: участие в четверг, отсутствие гарантии, просьба/надежда на материалы. Дословный образец не обязателен; *ob* и *falls* — знакомые средства B1, не самостоятельная цель D09.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Verfassen Sie eine kurze Nachricht.
+::source
+Заказчику нужно объяснить **две связанные мысли**:
+::exercise
+1. Ты намерен проверить электрооборудование завтра.
+2. Но не можешь обещать закончить ремонт в тот же день.
+Обязательно различи **план** и **невозможность дать обещание**.
+
+BACK:
+Ich habe vor, die elektrische Anlage morgen zu prüfen. Aber ich kann nicht versprechen, die Reparatur noch am selben Tag abzuschließen.
+Перевод: «Я собираюсь завтра проверить электрооборудование. Но не могу обещать закончить ремонт в тот же день.».
+
+CONTEXT:
+План выражает *haben vor + zu*. Вторая часть содержит *kann versprechen* без *zu* и зависимое действие *abzuschließen* с *zu*.
+Новая лексика: die elektrische Anlage — электрооборудование; abschließen — завершать.
+Допустимые варианты: Принимать *Ich plane, ... zu prüfen*; нельзя засчитывать утверждение, будто ремонт **точно** завершится завтра.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Korrigieren Sie den Fehler im Satz.
+::source
+Исправь **две ошибки** в следующих сообщениях и перепиши оба правильных предложения:
+::exercise
+1. *Ich verspreche, Sie morgen zu zurückrufen.*
+2. *Wir müssen die Dokumente zu unterschreiben.*
+Смысл не меняй.
+
+BACK:
+Ich verspreche, Sie morgen zurückzurufen. Wir müssen die Dokumente unterschreiben.
+Перевод: «Обещаю перезвонить вам завтра. Мы должны подписать документы.».
+
+CONTEXT:
+*zurückrufen* → *zurückzurufen* (частица внутри отделяемого глагола), после *müssen* прямой инфинитив *unterschreiben* без *zu*.
+Новая лексика: zurückrufen — перезванивать; unterschreiben — подписывать.
+Допустимые варианты: Каждую ошибку логировать отдельно (`ZU_POSITION`, `ZU_FORBIDDEN`); полный успех при исправлении обоих предложений.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Lesen Sie den Text und beantworten Sie die Fragen.
+::source
+Прочитай:
+::exercise
+*Der Verein plant, den Kurs im November anzubieten. Die Leiterin hofft, dass sich mindestens zwölf Personen anmelden. Sie hat schon beschlossen, die Räume vorher zu besichtigen.*
+Ответь кратко **на русском**:
+1. Что уже решено?
+2. На что только надеются?
+3. Что пока является планом?
+
+BACK:
+Der Verein plant, den Kurs im November anzubieten. Die Leiterin hofft, dass sich mindestens zwölf Personen anmelden. Sie hat schon beschlossen, die Räume vorher zu besichtigen.
+Перевод: «Объединение планирует предложить курс в ноябре. Руководительница надеется, что зарегистрируется не менее двенадцати человек. Она уже решила заранее осмотреть помещения.».
+
+CONTEXT:
+*plant* — план; *hofft, dass* — надежда о действиях других людей; *hat beschlossen* — решение. Не выдавай надежду на регистрацию за подтверждённое количество участников.
+Новая лексика: der Verein — объединение, клуб; besichtigen — осматривать; anbieten — предлагать.
+Допустимые варианты: Три независимых пункта; нет требования придумывать новое немецкое предложение. Здесь проверяем понимание текста.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Antworten Sie Ihrem Freund mit drei Sätzen.
+::source
+Друг: *„Wie läuft dein neues Projekt?“* («Как идёт твой новый проект?»)
+::exercise
+Ответь **3 предложениями**:
+1. Ты решил сделать простой прототип.
+2. Стараешься не тратить слишком много времени на детали.
+3. Хочешь, чтобы твой товарищ посмотрел первый результат.
+Уместно используй *zu*, *nicht* и конструкцию с действием другого человека.
+
+BACK:
+Ich habe beschlossen, zuerst einen einfachen Prototyp zu bauen. Ich versuche, nicht zu viel Zeit mit Details zu verbringen. Ich hoffe, dass mein Freund sich das erste Ergebnis ansieht.
+Перевод: «Я решил сначала сделать простой прототип. Стараюсь не тратить слишком много времени на детали. Надеюсь, мой друг посмотрит первый результат.».
+
+CONTEXT:
+*beschließen/versuchen* описывают собственные действия с *zu*. *hoffen, dass* показывает действие друга, а не говорящего.
+Новая лексика: der Prototyp — прототип; sich etwas ansehen — посмотреть что-то.
+Допустимые варианты: Оценивать три смысла, роль исполнителя и отрицание; допустимо *Ich möchte, dass mein Freund...* вместо надежды, если смысл желания выражен.
+
+<<<LERNE_CARD>>>
+FRONT:
+::task
+Verfassen Sie eine kurze Nachricht.
+::source
+Напиши сотруднику организации **4–5 предложений** по ситуации.
+::exercise
+Ты записан на консультацию в среду, но из-за работы не можешь прийти. Нужно:
+1. Сообщить, что не сможешь прийти в среду.
+2. Объяснить, что собираешься перенести встречу на пятницу.
+3. Вежливо попросить сотрудника проверить свободное время в пятницу.
+4. Обещать сообщить о своём решении до четверга.
+Не дан немецкий шаблон. Сохрани *Sie / Ihnen*, смысл и правильные исполнители действий. Используй по меньшей мере **две** конструкции с *zu*, если они подходят выбранной формулировке.
+
+BACK:
+Guten Tag, leider kann ich am Mittwoch wegen meiner Arbeit nicht zum Beratungstermin kommen. Ich habe vor, den Termin auf Freitag zu verschieben. Ich bitte Sie, zu prüfen, ob am Freitag noch ein Termin frei ist. Ich verspreche Ihnen, mich bis Donnerstag zurückzumelden. Vielen Dank für Ihre Hilfe.
+Перевод: «Здравствуйте. К сожалению, из-за работы я не могу прийти на консультацию в среду. Собираюсь перенести встречу на пятницу. Прошу вас проверить, есть ли свободное время в пятницу. Обещаю дать ответ до четверга. Спасибо за помощь.».
+
+CONTEXT:
+*kann ... kommen* без *zu*; *vorhaben, ... zu verschieben* — собственный план; *bitten Sie, zu prüfen* — действие сотрудника; *versprechen Ihnen, mich zurückzumelden* — собственное обещание. В придаточном с *ob* личная форма стоит в конце.
+Новая лексика: der Beratungstermin — консультация по записи; verschieben — переносить; sich zurückmelden — ответить, сообщить о решении.
+Допустимые варианты: Оценка: четыре функции + правильное распределение исполнителей + минимум две уместные *zu*-конструкции. Если система не умеет смысловую проверку, показывать рубрику самооценки, а не выдавать автоматический экзаменационный балл.
