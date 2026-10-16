@@ -16,6 +16,7 @@ from api.models import TMA_Card, TMA_Deck, TMA_Folder, TMAUser, TMAOfflineBatch,
 from .cefr_metadata import get_cefr_metadata, build_manual_cefr_payload, merge_cefr_metadata
 from .collaborative_service import _require_can_mutate, touch_deck_and_parent_folders
 from .input_parser import parse_exercise_content
+from .legacy_card_writes import require_legacy_cards
 
 LEVELS = ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')
 CONTENT_FIELDS = ('front', 'back', 'context', 'level', 'topics')
@@ -104,6 +105,7 @@ def _preview(deck, items, lock=False, duplicates=None):
         query = query.for_update()
     live = {card.id: card for card in query}
     ids = [item['card_id'] for item in items if item.get('card_id')]
+    require_legacy_cards(ids, lock=lock)
     duplicates = Counter(ids) if duplicates is None else duplicates
     # Foreign rows expose identifiers only, never their private text or deck names.
     foreign = {card.id for card in TMA_Card.select(TMA_Card.id).where(
@@ -201,6 +203,8 @@ def apply_text_update(deck_id, user_id, items, preview_token, request_id, includ
                             'include_new': include_new})
     with tma_db.atomic():
         deck = _require_deck(deck_id, user_id, lock=True)
+        # Replays also recheck storage version before returning a legacy receipt.
+        require_legacy_cards(item.get('card_id') for item in items)
         key = f'text-update:{user_id}:{request_id}'
         receipt, replay = _claim_receipt(key, payload_hash)
         if replay is not None:

@@ -6,6 +6,7 @@ import json
 from fastapi import HTTPException
 
 from api import models
+from .legacy_card_writes import require_legacy_cards
 from api.services.collaborative_service import (
     get_effective_user_role, get_user_accessible_deck_ids,
     get_user_accessible_folder_ids, get_batch_collaborative_info,
@@ -65,13 +66,17 @@ def push_offline(request, user_id: int) -> dict:
         return item_id
 
     with models.tma_db.atomic():
+        require_legacy_cards(item.id for item in request.cards if item.id > 0)
         # The unique key serializes duplicate requests, including across server workers.
         receipt, created = models.TMAOfflineBatch.get_or_create(
             key=key, defaults={'payload_hash': fingerprint, 'response': ''})
         if not created:
             if receipt.payload_hash != fingerprint:
                 raise HTTPException(409, 'Идентификатор пакета уже использован с другими данными')
-            return json.loads(receipt.response)
+            response = json.loads(receipt.response)
+            # A replay can refer to a now-V2 row through its original temp ID.
+            require_legacy_cards(response.get('mappings', {}).get('cards', {}).values())
+            return response
 
         folders = list(request.folders)
         sorted_folders = []

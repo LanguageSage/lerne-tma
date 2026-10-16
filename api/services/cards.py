@@ -18,6 +18,7 @@ import unicodedata
 from .media import resolve_media_url, _build_media_exists_map
 from .utils import add_to_history, resolve_deck_metadata
 from .cefr_metadata import get_cefr_metadata, merge_cefr_metadata, parse_card_metadata, serialize_card_metadata
+from .legacy_card_writes import legacy_card_id, require_legacy_cards, LegacyCardWriteBlocked
 
 def normalize_card_key(text: str) -> str:
     """Нормализует текст для надежного поиска дубликатов: NFKC, lowercase, без пунктуации и спецсимволов."""
@@ -27,6 +28,13 @@ def normalize_card_key(text: str) -> str:
     return re.sub(r'[\W_]+', '', normalized).lower()
 
 def save_card(data, user_id, *, _batch=None):
+    # Lock/check before inbox creation, position shifts, history or media changes.
+    with (tma_db.atomic() if _batch is None else nullcontext()):
+        require_legacy_cards([legacy_card_id(data)])
+        return _save_legacy_card(data, user_id, _batch=_batch)
+
+
+def _save_legacy_card(data, user_id, *, _batch=None):
     """Сохраняет или обновляет карточку."""
     if _batch is None:
         logger.info("Saving card user_id=%s deck_id=%s", user_id, data.get('deck_id'))
@@ -1154,6 +1162,8 @@ def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None, place
     logged_failed = 0
     try:
         with tma_db.atomic():
+            # V2 is a batch-level failure, unlike legacy per-item import errors.
+            require_legacy_cards(legacy_card_id(item) for item in cards_data if isinstance(item, dict))
             receipt = None
             if import_id:
                 key = f'import:{user_id}:{import_id}'
@@ -1165,6 +1175,7 @@ def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None, place
                     if receipt.payload_hash != payload_hash:
                         raise HTTPException(409, 'Идентификатор импорта уже использован с другими данными')
                     replayed = json.loads(receipt.response)
+                    require_legacy_cards(card['id'] for card in replayed.get('cards', []))
                     logged_created = replayed['created']
                     logged_failed = len(replayed['failed'])
                     return replayed
@@ -1205,6 +1216,8 @@ def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None, place
                         card = save_card(item, user_id, _batch=batch)
                         if card:
                             created_cards.append(card)
+                except LegacyCardWriteBlocked:
+                    raise
                 except Exception as item_err:
                     logger.error("Batch card failed import_id=%s deck_id=%s index=%s error_type=%s",
                                  import_id, deck_id, idx, type(item_err).__name__)

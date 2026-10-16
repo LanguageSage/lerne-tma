@@ -1,7 +1,8 @@
 # Structured Cards V2: нативное хранение и редактирование
 
-Статус: **этап 1 реализован; этап 2 подготовлен** — неактивная схема и Dexie v5.
-Нативные записи запрещены; API, sync и обучение остаются планом этапов 3–9.
+Статус: **этапы 1 и 3A реализованы; этап 2 подготовлен** — неактивная схема,
+Dexie v5 и guards основных legacy writers. Этап 3B ещё не выполнен.
+Нативные записи запрещены; native API, transport и обучение остаются планом этапов 4–9.
 Аудит выполнен по ветке `feat/structured-cards-v2`, исходный HEAD `e812cb8`.
 Контракты этапа 1 подготовлены после `3be89f7`, схема этапа 2 — после `5c077d3`.
 Серверная миграция выполнялась только на одноразовой SQLite в тестах;
@@ -483,7 +484,7 @@ Soft delete/restore не трогает JSON. Hard delete остаётся яв�
 | 8. Редактор и cutover | Формы V2, JSON draft/error/conflict UX, типы и медиа; затем default new-card V2, запрет legacy create и старого AI/import создания. | Save/read/edit/reload/offline цикл всех типов, stale editor не перезаписывает JSON; legacy editing без изменений; старые клиенты получают объяснимый upgrade error. Cutover не включать, пока не определён доступный путь для нужных legacy imports. |
 | 9. Необязательное расширение | Поддержать существующую библиотечную `card`, безопасный overwrite и явный upgrade legacy после отдельного аудита. | Полный clone/merge/default-distribution round-trip; отсутствие unsupported блокировок только там, где уже доказана сохранность. Без массового backfill старых карточек. |
 
-Рекомендуемый следующий implementation шаг — **этап 3**, guards всех writer paths
+Рекомендуемый следующий implementation шаг — **этап 3B**, guards оставшихся writer paths
 на disposable fixtures при сохранении запрета native writes. Перед применением
 схемы отдельно требуется execution-проверка на одноразовом PostgreSQL;
 миграция рабочей БД и переключение schema-ready требуют отдельного согласования.
@@ -583,6 +584,55 @@ upgrade v1–v4, повторное открытие, отказ/rollback upgrad
 Legacy offline sync дополнительно проверен существующими 10 тестами в обоих режимах
 schema-ready. На реальном PostgreSQL и в браузере upgrade не исполнялся.
 Рабочая БД, routes, SRS logic, protocol sync, учебный UI и deployment не менялись.
+
+### Реализация этапа 3A
+
+- Общий owner `api/services/legacy_card_writes.py:require_legacy_cards` читает
+  **сохранённый** `content_version` отдельным SELECT, независимо от optional ORM
+  fields и `STRUCTURED_CARDS_V2_SCHEMA_READY`. Отсутствие колонки в старой БД
+  сохраняет legacy-поведение; V2 и неизвестные версии получают HTTP 409 с
+  `detail.code=legacy_card_write_blocked`. FRONT и JSON для решения не разбираются.
+  Проверка не кэширует schema readiness; неожиданные DB errors не превращаются в legacy.
+- `cards.py:save_card` проверяет/блокирует строку до любых побочных записей в той же
+  транзакции. Это закрывает POST `/cards/save` и PUT/PATCH `/cards/{id}`; для
+  PUT/PATCH target задаётся URL, body `card_id` больше не перенаправляет запись.
+- `bulk_save_cards` проверяет все разрешённые по старым правилам ID до квитанции,
+  сохранений и форматирования. V2 — отказ всего запроса; поздний guard exception
+  также откатывает пакет, не попадает в per-item `failed`. Legacy-only импорт
+  сохраняет partial success, placement и idempotency. Replay проверяет и ID
+  карточек из сохранённого результата, включая первоначально idless create.
+- `/sync/v2/push` и `/sync/push` проверяют все положительные card ID перед
+  folders/decks/cards/progress/reviews. Отказ включает full-row echo, tombstone,
+  старый timestamp, повторяющиеся ID и mixed multideck batch. V2 receipt replay
+  дополнительно проверяет реальные ID в temp-ID mappings. Чистые per-user
+  progress/reviews разрешены по прежним permissions, общий контент не меняется.
+- `card_text_update.py` проверяет ссылки на карточки в deck/folder preview/apply,
+  в том числе unchanged, stale preview и успешный receipt replay. Guard вызывается
+  до legacy-разбора текста. PostgreSQL writer checks используют упорядоченные
+  row locks в транзакции записи; SQLite fixtures проверяют отказ/rollback.
+
+Проверки: `scripts/tests/test_structured_cards_v2_guards.py` — 20 tests при
+schema-ready=false; 19 passed и 1 ожидаемый skip старой схемы при true. Все БД
+одноразовые SQLite in-memory; fixture DDL допускает V2 только внутри теста,
+production native gate и миграции не меняются/не выполняются. Снимки всех таблиц
+проверяют JSON/revision/media/history, SRS, review history, deck/folder timestamps
+и receipts; SQL trace подтверждает отсутствие DML до mixed-batch отказа.
+Четыре guard regression tests также запущены с исходниками writers из `a92efc9`
+через in-memory import hook: все четыре обнаруживают прежние небезопасные записи.
+
+Дополнительно: offline sync — 10 tests в каждом режиме schema-ready, bulk import —
+10 tests (включая concurrent retry), native storage contracts — 21 tests;
+text-update backend — 14 deck и 27 folder tests. Два прежних JS export round-trip
+tests падают из-за отсутствующих уже в `a92efc9` `cardTextSerializer.js` и
+`cardTextUpdateParser.js`; это ограничение дерева, не исправление этапа 3A.
+PostgreSQL execution/concurrency ещё не проверены. Рабочая БД, UI, формат карточек,
+миграции, merge и deploy не затрагивались.
+
+**Остаток этапа 3B:** admin CRUD/bulk/regen и активные операторские скрипты,
+batch move/copy/overwrite и deck/folder lifecycle, library/share/import-json,
+backup restore/replace и stale whole-row media saves. Их проверки обязаны охватить
+все затронутые source/target rows до удаления/копирования/записи. Этап 3 в целом
+не завершён: никаких реальных V2 rows до закрытия этих путей и последующих допусков.
 
 ## 10. Риски и критерии приёмки
 

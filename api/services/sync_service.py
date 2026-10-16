@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from api import models
 from api.services.decks import ensure_inbox_deck
+from .legacy_card_writes import require_legacy_cards
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ def execute_sync_push(request, user_id: int) -> dict:
                 require_write('deck', existing_card.deck_id)
 
         with models.tma_db.atomic():
+            require_legacy_cards(card.id for card in request.cards if card.id > 0)
             # Preload existing entities to eliminate N+1 queries during bulk sync
             existing_folder_ids = [f.id for f in request.folders if f.id > 0]
             existing_folders = {

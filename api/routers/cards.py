@@ -160,6 +160,8 @@ async def update_card(card_id: int, data: dict, user_id: int = Depends(get_user_
         if user and user.is_guest:
             raise HTTPException(status_code=403, detail="Для создания и изменения карточек требуется авторизация.")
         data_to_save = dict(data) if data else {}
+        # The URL owns the target; a body alias must not redirect PUT/PATCH.
+        data_to_save.pop('card_id', None)
         data_to_save['id'] = card_id
         card = services.save_card(data_to_save, user_id)
         if card:

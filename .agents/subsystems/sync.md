@@ -82,6 +82,10 @@ rg -n 'TMAOfflineBatch|request_id|mappings|review_count' api/services/offline_sy
 - [Offline rule](../rules/offline_mode.md) содержит историческую инструкцию восстановления; текущие владельцы перечислены выше.
 - [DB skill](../skills/db-mgmt/SKILL.md), [Architectural integrity](../rules/architectural_integrity.md).
 
+## Structured Cards V2: guards записи
+
+Structured Cards V2, этап 3A: оба push (`offline_sync.py` и `sync_service.py`) используют общий `legacy_card_writes.require_legacy_cards` перед изменениями пакета. Любой существующий V2/unknown card ID даёт 409 `legacy_card_write_blocked`, включая tombstone/stale echo. `/sync/v2/push` проверяет сохранённые temp-ID mappings при receipt replay. Проверяется DB discriminator даже при schema-ready=false; старая БД без колонки поддерживается. Чистые progress/reviews разрешены и не меняют контент. Native transport/read guards ещё не реализованы. Проверки целостности/отсутствия DML: `scripts/tests/test_structured_cards_v2_guards.py`.
+
 ## Restore owner access
 
 require_access разрешает владельцу восстановление его soft-deleted deck/folder: collaborative lookup исключает удалённые targets. Исключение применяется только к deleted records собственника; активные/published permissions остаются прежними. Изолированный test_offline_sync.py проверяет restore, viewer/editor и rollback чужого пакета.
