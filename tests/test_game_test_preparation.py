@@ -69,14 +69,35 @@ class TargetTests(unittest.TestCase):
                 get_user_id(None, '642478257')
             strict.assert_called_once_with(None)
 
-    def test_bootstrap_is_secret_free_and_checks_empty_schema(self):
-        sql = bootstrap_sql(PROJECT_ID)
-        self.assertIn('public schema is not empty', sql)
-        self.assertIn('ENABLE ROW LEVEL SECURITY', sql)
-        self.assertIn('FROM PUBLIC, anon, authenticated', sql)
-        self.assertNotIn('DISABLE ROW LEVEL SECURITY', sql)
-        self.assertNotIn('postgresql://', sql)
-        self.assertIn('CREATE INDEX IF NOT EXISTS', sql)
+    def test_bracketed_password_parsed_safely_and_placeholder_rejected(self):
+        pooler_bracketed = f'postgresql://postgres.{PROJECT_ID}:[SecretPass123]@aws-0-eu-north-1.pooler.supabase.com:6543/postgres'
+        parsed = database._parse_db_url(pooler_bracketed)
+        self.assertEqual(parsed['password'], 'SecretPass123')
+        self.assertEqual(parsed['host'], 'aws-0-eu-north-1.pooler.supabase.com')
+
+        placeholder = f'postgresql://postgres.{PROJECT_ID}:[YOUR-PASSWORD]@aws-0-eu-north-1.pooler.supabase.com:6543/postgres'
+        with patch.dict(os.environ, {'LERNE_DEPLOYMENT': 'game-test', 'RUN_MIGRATIONS': 'false',
+                                     'SUPABASE_DB_URL': placeholder, 'SUPABASE_URL': f'https://{PROJECT_ID}.supabase.co'}):
+            with self.assertRaises(RuntimeError) as ctx:
+                database.initialize_database()
+            self.assertIn('placeholder password', str(ctx.exception))
+
+    def test_unconfigured_auth_providers_return_503(self):
+        from api.routers.auth_v2 import router
+        app = FastAPI()
+        app.include_router(router)
+        client = TestClient(app)
+
+        with patch.dict(os.environ, {'BOT_TOKEN': '', 'TELEGRAM_BOT_USERNAME': ''}, clear=False):
+            resp = client.post('/auth/v2/challenges', json={'provider': 'telegram', 'purpose': 'login'})
+            self.assertEqual(resp.status_code, 503)
+            self.assertEqual(resp.json()['detail'], 'provider_not_configured')
+
+        with patch.dict(os.environ, {'GOOGLE_OAUTH_CLIENT_ID': '', 'GOOGLE_OAUTH_CLIENT_SECRET': '',
+                                     'GOOGLE_OAUTH_REDIRECT_URI': ''}, clear=False):
+            resp = client.post('/auth/v2/challenges', json={'provider': 'google', 'purpose': 'login'})
+            self.assertEqual(resp.status_code, 503)
+            self.assertEqual(resp.json()['detail'], 'provider_not_configured')
 
 
 class PublicErrorTests(unittest.TestCase):

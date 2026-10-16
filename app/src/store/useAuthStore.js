@@ -28,6 +28,10 @@ const clearPending = () => {
   try { sessionStorage.removeItem(PENDING_KEY); } catch { /* unavailable */ }
 };
 const authMessage = (error, fallback) => {
+  const code = error.response?.data?.detail;
+  if (code === 'provider_not_configured') {
+    return tr('Этот способ входа пока не настроен. Используйте email и пароль.');
+  }
   const messages = {
     reauthentication_required: tr('Войдите заново через привязанный Telegram или Google и повторите в течение 5 минут.'),
     invalid_credentials: tr('Неверный email или пароль.'),
@@ -35,7 +39,7 @@ const authMessage = (error, fallback) => {
     email_unavailable: tr('Этот email недоступен для регистрации. Попробуйте войти.'),
     too_many_attempts: tr('Слишком много попыток. Повторите через 15 минут.'),
   };
-  return messages[error.response?.data?.detail] || fallback;
+  return messages[code] || fallback;
 };
 
 export const useAuthStore = create((set, get) => ({
@@ -160,6 +164,7 @@ export const useAuthStore = create((set, get) => ({
       try {
         if (preparedWindow && !preparedWindow.closed) preparedWindow.close();
       } catch { /* ignore popup cleanup errors */ }
+      console.warn(`[Auth] Failed to start provider "${provider}":`, error.response?.data?.detail || error.message);
       const message = authMessage(error, tr('Не удалось начать вход. Попробуйте ещё раз.'));
       set({ isPolling: false, authError: message, authUrl: null });
       useUiStore.getState().showToast(message, 'error');
@@ -188,6 +193,7 @@ export const useAuthStore = create((set, get) => ({
       const profile = await get().finishLogin(response.data, { suggestTelegram: register });
       return { success: Boolean(profile) };
     } catch (error) {
+      console.warn(`[Auth] Email ${register ? 'registration' : 'login'} failed:`, error.response?.data?.detail || error.message);
       const message = authMessage(error, tr('Не удалось выполнить вход по email.'));
       set({ authError: message });
       useUiStore.getState().showToast(message, 'error');

@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from urllib.parse import urlparse, parse_qs, unquote
 from peewee import Proxy, OperationalError, ImproperlyConfigured, PostgresqlDatabase
 from dotenv import load_dotenv
@@ -42,19 +43,58 @@ class Pg8000Database(PostgresqlDatabase):
         return conn
 
 
+def _safe_split_db_url(url: str) -> dict:
+    """Safely extracts scheme, user, password, host, port, path, query from a database URL,
+    handling bracketed passwords or special characters that fail standard urllib.parse."""
+    try:
+        parsed = urlparse(url)
+        return {
+            'scheme': parsed.scheme,
+            'user': unquote(parsed.username or ''),
+            'password': unquote(parsed.password or ''),
+            'host': parsed.hostname or '',
+            'port': parsed.port or 5432,
+            'path': parsed.path,
+            'query': parsed.query,
+            'fragment': parsed.fragment,
+        }
+    except ValueError:
+        m = re.match(
+            r'^(?P<scheme>[a-zA-Z0-9+_-]+)://(?P<user>[^:]+):(?P<password>.+?)@(?P<host>[^:/]+)(?::(?P<port>\d+))?(?P<path>/[^?#]*)?(?:\?(?P<query>[^#]*))?$',
+            url or ''
+        )
+        if not m:
+            raise
+        pwd = unquote(m.group('password'))
+        return {
+            'scheme': m.group('scheme'),
+            'user': unquote(m.group('user')),
+            'password': pwd,
+            'host': m.group('host') or '',
+            'port': int(m.group('port')) if m.group('port') else 5432,
+            'path': m.group('path') or '/',
+            'query': m.group('query') or '',
+            'fragment': '',
+        }
+
+
 def _parse_db_url(url: str) -> dict:
     """Parses SUPABASE_DB_URL into connection parameters."""
-    parsed = urlparse(url)
+    parsed = _safe_split_db_url(url)
+    pwd = parsed['password']
+    if pwd.startswith('[') and pwd.endswith(']') and len(pwd) > 2:
+        pwd = pwd[1:-1]
     params = {
-        'database': parsed.path.lstrip('/'),
-        'user': unquote(parsed.username or ''),
-        'password': unquote(parsed.password or ''),
-        'host': parsed.hostname,
-        'port': parsed.port or 5432,
+        'database': parsed['path'].lstrip('/'),
+        'user': parsed['user'],
+        'password': pwd,
+        'host': parsed['host'],
+        'port': parsed['port'],
     }
-    qs = parse_qs(parsed.query)
-    if 'sslmode' in qs:
-        params['sslmode'] = qs['sslmode'][0]
+    if parsed['query']:
+        qs = parse_qs(parsed['query'])
+        if 'sslmode' in qs:
+            params['sslmode'] = qs['sslmode'][0]
     return params
 
 
@@ -64,14 +104,22 @@ def initialize_database() -> bool:
     supabase_url = os.environ.get("SUPABASE_DB_URL")
     if os.getenv('LERNE_DEPLOYMENT') == 'game-test':
         ref = 'rkkviifehykdeugovlgp'
-        parsed = urlparse(supabase_url or '')
-        host = parsed.hostname or ''
+        try:
+            parsed = _safe_split_db_url(supabase_url or '')
+        except Exception:
+            raise RuntimeError('Game Test blocked: invalid database URL format')
+        pwd = parsed['password']
+        if pwd.startswith('[') and pwd.endswith(']') and len(pwd) > 2:
+            pwd = pwd[1:-1]
+        host = parsed['host']
         direct = host == f'db.{ref}.supabase.co'
-        pool = host.endswith('.pooler.supabase.com') and unquote(parsed.username or '') == f'postgres.{ref}'
-        if (parsed.scheme not in ('postgres', 'postgresql') or not parsed.password
-                or parsed.path != '/postgres' or parsed.query or parsed.fragment or not (direct or pool)
+        pool = host.endswith('.pooler.supabase.com') and parsed['user'] == f'postgres.{ref}'
+        if (parsed['scheme'] not in ('postgres', 'postgresql') or not pwd
+                or parsed['path'] != '/postgres' or parsed['query'] or parsed['fragment'] or not (direct or pool)
                 or os.getenv('SUPABASE_URL', '').rstrip('/') != f'https://{ref}.supabase.co'):
             raise RuntimeError('Game Test blocked: isolated database/storage target is required')
+        if pwd.upper() in ('[YOUR-PASSWORD]', 'YOUR-PASSWORD', '[PASSWORD]', 'PASSWORD'):
+            raise RuntimeError('Game Test blocked: SUPABASE_DB_URL contains placeholder password; provide actual database password')
         if os.getenv('RUN_MIGRATIONS', '').lower() not in ('false', '0'):
             raise RuntimeError('Game Test blocked: startup migrations must be disabled')
     if not supabase_url:

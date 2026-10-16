@@ -3,6 +3,7 @@
   "Этот способ входа уже принадлежит другому аккаунту. Аккаунты не объединены.": "This sign-in method belongs to another account. The accounts have not been merged.",
   "Этот email недоступен для регистрации. Попробуйте войти.": "This email is unavailable for registration. Try signing in.",
   "Слишком много попыток. Повторите через 15 минут.": "Too many attempts. Try again in 15 minutes.",
+  "Этот способ входа пока не настроен. Используйте email и пароль.": "This sign-in method is not configured yet. Please use email and password.",
   "Защитите доступ к аккаунту": "Protect access to your account",
   "Восстановление пароля": "Password recovery",
   "Добавьте Telegram к этому аккаунту: через него можно восстановить пароль и получать напоминания о занятиях. Настройки напоминаний доступны в профиле.": "Link Telegram to this account to recover your password and receive study reminders. Reminder settings are available in your profile.",

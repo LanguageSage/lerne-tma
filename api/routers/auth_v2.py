@@ -6,6 +6,7 @@ VerifiedIdentity. Tokens never appear in redirect URLs or HTML responses.
 import base64
 import hashlib
 import html
+import logging
 import os
 from typing import Literal
 from urllib.parse import urlencode
@@ -21,6 +22,8 @@ from api.auth.dependencies import get_bearer_token, get_authenticated_user_id
 from api.auth.errors import AuthError
 from api.auth import providers, service
 from api.models import TMAUser
+
+logger = logging.getLogger(__name__)
 
 ADMIN_USERNAMES = {'Nimaypumpay', 'Aruna27', 'Chintamanichapliuk'}
 
@@ -90,6 +93,7 @@ def _google_configuration():
     client_secret = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '').strip()
     redirect_uri = os.getenv('GOOGLE_OAUTH_REDIRECT_URI', '').strip()
     if not client_id or not client_secret or not redirect_uri.startswith('https://'):
+        logger.warning('Google OAuth is not configured: missing credentials or redirect URI')
         raise AuthError('provider_not_configured', 503)
     return client_id, client_secret, redirect_uri
 
@@ -107,7 +111,13 @@ def create_auth_challenge(data: ChallengeRequest, authorization: str | None = He
             'expires_at': challenge.expires_at.isoformat() + 'Z',
         }
         if data.provider == 'telegram':
-            bot_username = os.getenv('TELEGRAM_BOT_USERNAME', 'LerneDeutsch287_bot').lstrip('@')
+            bot_token = os.getenv('BOT_TOKEN', '').strip()
+            bot_username = os.getenv('TELEGRAM_BOT_USERNAME', '').lstrip('@').strip()
+            if not bot_username and bot_token:
+                bot_username = 'LerneDeutsch287_bot'
+            if not bot_token or not bot_username:
+                logger.warning('Telegram auth is not configured: missing BOT_TOKEN or TELEGRAM_BOT_USERNAME')
+                raise AuthError('provider_not_configured', 503)
             response['authorization_url'] = f'https://t.me/{bot_username}?start=auth_{challenge.state}'
         else:
             verifier_digest = hashlib.sha256(challenge.pkce_verifier.encode()).digest()

@@ -206,3 +206,20 @@ test('logout retires a login already waiting for its profile', async () => {
   assert.equal(f.store.getState().userProfile, null);
 });
 
+test('unconfigured provider failure presents clear message without generic fallback', async () => {
+  const f = fixture();
+  f.api.post = async (path) => {
+    if (path === '/auth/v2/challenges') {
+      const err = new Error('Request failed with status code 503');
+      err.response = { status: 503, data: { detail: 'provider_not_configured' } };
+      throw err;
+    }
+    return { data: {} };
+  };
+  const result = await f.store.getState().startProvider('telegram');
+  assert.equal(result.success, false);
+  assert.equal(result.error, 'Этот способ входа пока не настроен. Используйте email и пароль.');
+  assert.equal(f.store.getState().authError, 'Этот способ входа пока не настроен. Используйте email и пароль.');
+  assert.equal(f.store.getState().isPolling, false);
+});
+
