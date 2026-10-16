@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from typing import Any, Dict, List, Optional
 
 from api import models, ai_service
+from api.services.legacy_card_writes import require_legacy_cards, legacy_lifecycle_scope, LegacyCardWriteBlocked
 from api.services.cefr_metadata import (
     build_ai_cefr_payload,
     build_cleared_cefr_payload,
@@ -77,6 +78,15 @@ def _select_tma_cards_for_classification(req: ClassificationRequest) -> List[Dic
     return list(query.dicts())
 
 
+def preflight_classification(req, cards=None):
+    if (req.mode or 'audit').lower().strip() == 'audit':
+        return
+    cards = _select_tma_cards_for_classification(req) if cards is None else cards
+    with legacy_lifecycle_scope(lock_membership=False):
+        require_legacy_cards(c['id'] for c in cards if (c.get('front_text') or '').strip()
+                             and (req.overwrite or not extract_existing_cefr_level(c.get('tags'))))
+
+
 def _append_classification_log(task_info: Dict[str, Any], message: str) -> None:
     task_info.setdefault("logs", []).append(message)
     if len(task_info["logs"]) > 180:
@@ -131,6 +141,8 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
                 skipped_tagged += 1
                 continue
             cards_to_process.append(card)
+
+        preflight_classification(req, cards_to_process)
 
         phrase_to_card_ids = defaultdict(list)
         phrase_to_card_tags: Dict[int, Optional[str]] = {}
@@ -370,7 +382,8 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
 
         updated_total = 0
         now = datetime.datetime.now()
-        with models.tma_db.atomic():
+        with legacy_lifecycle_scope(lock_membership=False):
+            require_legacy_cards(card_id for ids in card_update_groups.values() for card_id in ids)
             for (new_tags, new_metadata), card_ids in card_update_groups.items():
                 for idx in range(0, len(card_ids), 500):
                     chunk = card_ids[idx:idx + 500]
@@ -386,6 +399,8 @@ async def run_classification_task(task_id: str, req: ClassificationRequest):
         _append_classification_log(task_info, f"DB update completed: {updated_total} cards updated.")
         _save_classification_task(task_id, task_info)
     except Exception as err:
+        if isinstance(err, LegacyCardWriteBlocked):
+            task_info['error'] = err.detail
         logger.error(f"Classification task failed: {err}", exc_info=True)
         task_info["status"] = "failed"
         _append_classification_log(task_info, f"Classification failed: {str(err)[:160]}")

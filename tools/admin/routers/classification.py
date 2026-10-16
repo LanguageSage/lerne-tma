@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from tools.admin.schemas import BatchControlRequest, ClassificationRequest
 from tools.admin.services.classification_worker import (
+    preflight_classification,
     _append_classification_log,
     _save_classification_task,
     empty_classification_status,
@@ -27,6 +28,8 @@ def start_classification(req: ClassificationRequest, background_tasks: Backgroun
         raise HTTPException(status_code=400, detail="Mode must be audit, dry_run, or run")
     if (req.lang or "de").lower().strip() != "de" and mode == "audit":
         raise HTTPException(status_code=400, detail="Only German local audit is supported right now")
+
+    preflight_classification(req)
 
     task_id = f"classification_{int(time.time())}"
     task_data = {

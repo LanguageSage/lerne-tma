@@ -2,8 +2,9 @@
 
 Статус: **этапы 1 и 3A реализованы; этап 2 подготовлен** — неактивная схема,
 Dexie v5 и guards основных legacy writers. В этапе 3B защищены операции
-с отдельными карточками и lifecycle колод/папок/корзины, включая parent tombstones
-в sync; остальные пути этапа 3B ещё не выполнены.
+с отдельными карточками (3B.1), lifecycle колод/папок/корзины (3B.2) и
+административный CRUD/bulk/регенерация со скриптами оператора (3B.3);
+остальные пути (library/share/import-json, restore/replace, media service) выделены в следующий этап.
 Нативные записи запрещены; native API, transport и обучение остаются планом этапов 4–9.
 Аудит выполнен по ветке `feat/structured-cards-v2`, исходный HEAD `e812cb8`.
 Контракты этапа 1 подготовлены после `3be89f7`, схема этапа 2 — после `5c077d3`.
@@ -746,17 +747,88 @@ git diff --check проходят. **Всего 181 успешное испол�
 `0edfd0f` через in-memory exec без изменения файлов: все семь обнаружили прежнее
 небезопасное поведение (ожидаемые failures, отдельно от основного pass count).
 
-Следующий безопасный этап: закрыть admin CRUD/bulk/regen и активные операторские
-скрипты тем же принципом полного scope/guard/rollback на одноразовой БД.
-Не включать native V2 writes до закрытия остальных writer paths и последующих
-допусков. Library/sharing/import-json и backup restore остаются отдельными этапами.
-Merge и deployment не выполнялись.
+### Этап 3B.3: административный CRUD, регенерация, пакетное создание и скрипты оператора
 
-**Остаток этапа 3B:** admin CRUD/bulk/regen и активные операторские скрипты,
-library/share/import-json,
-backup restore/replace и stale whole-row media saves. Их проверки обязаны охватить
-все затронутые source/target rows до удаления/копирования/записи. Этап 3 в целом
-не завершён: никаких реальных V2 rows до закрытия этих путей и последующих допусков.
+Исходный HEAD: `c9a7042`. Native writes по-прежнему запрещены; production gate,
+миграции и рабочие БД не менялись/не запускались.
+
+- **Административный CRUD карточек:**
+  - `tools/admin/routers/cards.py:update_card_endpoint` (PUT `/api/admin/cards/{card_id}`)
+    и `delete_card_endpoint` (DELETE `/api/admin/cards/{card_id}`) вызывают
+    `require_legacy_cards([card_id])` внутри `legacy_lifecycle_scope(lock_membership=False)`.
+    Попытка редактирования или удаления V2/unknown возвращает 409 `legacy_card_write_blocked`
+    до любых DML. Поведение библиотечной модели `Card` полностью сохранено.
+  - `POST /api/admin/cards/{card_id}/synthesize-audio`: проверяет `require_legacy_cards`
+    до обращения к внешнему TTS. Сам синтез выполняется без удержания транзакции/блокировок.
+    Сохранение результата производится через `apply_card_writes`, повторно валидируя
+    версию карточки перед записью и устраняя stale whole-row save.
+- **AI-регенерация и пакетная озвучка (фоновые воркеры):**
+  - Маршруты постановки задач в очередь (`start_regeneration`, `start_audio_regeneration_endpoint`,
+    `start_batch_regeneration`, `start_batch_audio_regeneration` в `tools/admin/routers/decks.py`)
+    вызывают `preflight_regeneration` до регистрации задачи в task_manager и фонового запуска.
+  - `tools/admin/services/regen_worker.py`: воркеры `run_ai_regeneration`, `run_audio_regeneration`,
+    `run_batch_ai_regeneration`, `run_batch_audio_regeneration` не удерживают транзакцию
+    во время внешних AI/TTS-запросов. Результаты накапливаются в памяти (`writes`),
+    а статус задачи переводится в `commit_pending = True`.
+  - Запись результатов осуществляется единым атомарным вызовом `apply_card_writes`,
+    который берёт строчные блокировки на все затронутые исходные и синхронизируемые карточки,
+    повторно проверяет `require_legacy_cards` и применяет точечные `.update(...)` вместо `card.save()`.
+  - При Dry-Run `commit_dry_run` маршруты `control_regeneration` и `control_batch_regeneration`
+    также вызывают `apply_card_writes`, блокируя попытки фиксации незавершённых задач (`commit_pending`).
+  - Возобновление (`tasks.py:resume_task_endpoint`) и повтор (`retry_failed_cards_endpoint`)
+    проводят preflight перед регистрацией задачи, а незавершённые uncommitted пакеты перезапускаются
+    с исходного индекса.
+- **Распространение по совпадающим FRONT (`deck_helpers.py`):**
+  - Функции `sync_card_updates_to_matching_decks` и `sync_card_audio_to_matching_decks`
+    переведены на `apply_card_writes` и `preflight_card_writes`.
+  - Исправлена старая ошибка: числовой ID библиотечной колоды (`lib_deck.id == source_deck.id`)
+    ранее мог ошибочно исключить пользовательскую колоду с совпадающим числовым ID. Пространства
+    ID теперь строго разделены.
+  - Поддерживается проекция изменённого `front_text` для многошаговых цепочек.
+  - При наличии хотя бы одной целевой карточки V2/unknown во всех колодах с тем же именем
+    вся операция отклоняется до любых DML.
+- **Массовое создание карточек (`run_bulk_card_creation`):**
+  - Выполняет preflight совпадений до запуска и накапливает изменения во время генерации.
+  - Новая колода и карточки создаются атомарно внутри `apply_card_writes(..., new_deck=new_deck)`.
+- **Дедупликация и CEFR-классификация:**
+  - `decks.py:deduplicate_deck_cards` проверяет `require_legacy_cards` для всей колоды
+    со строчными блокировками (`lock_membership=False`).
+  - `classification.py:start_classification` и `classification_worker.py`: режим `audit`
+    остаётся read-only; мутирующие режимы (`run`/`dry_run`) проводят preflight до запуска
+    и повторно перед чанковой записью.
+- **Операторские скрипты:**
+  - `scripts/migrate_lesson_cards.py` и `scripts/fix_b1_quiz_db.py` вызывают `require_legacy_cards`
+    до преобразования и применяют точечные `TMA_Card.update(...)` вместо `card.save()`.
+  - `scripts/regenerate_deck_single.py`: preflight через `require_legacy_cards`; вызов
+    с озвучкой в продакшн-режиме временно блокируется с ошибкой 409 `legacy_media_write_blocked`
+    из-за небезопасного `ensure_card_audio`, выполняющего stale whole-row save (рекомендовано `--no-audio`);
+    запись карточек выполняется через `apply_card_writes`.
+
+**Инварианты блокировок и concurrency:**
+- В этапе 3B.3 **не вводились новые широкие table locks**. Использован `lock_membership=False`,
+  ограничивающийся строчными блокировками (FOR UPDATE на Postgres / BEGIN IMMEDIATE на SQLite)
+  для материализованных ID карточек.
+- Риск глобальных блокировок (`LOCK TABLE ... IN SHARE ROW EXCLUSIVE MODE`), введённых на этапе 3B.2
+  для родительских lifecycle-операций, зафиксирован в документации и не распространялся на админку.
+
+**Проверки:**
+`scripts/tests/test_structured_cards_v2_admin.py` — **29 passed** при schema-ready=false;
+**28 passed + 1 expected skip** старой схемы при schema-ready=true.
+Проверены: legacy CRUD/regen, V2/unknown rejection без DML/TTS/AI вызовов, mixed batch preflight,
+рассинхронизация версии во время AI/TTS, совпадение FRONT и cross-deck copy, dry-run commit,
+resume/retry, CEFR audit vs run, deduplicate, скрипты оператора и работа на старой схеме без новых колонок.
+
+**Оставшиеся writer paths (следующий этап):**
+1. Административное удаление колод и папок (`tools/admin/routers/decks.py:delete_deck`,
+   `batch_delete_decks`, `tools/admin/routers/folders.py:delete_admin_folder`, `batch_delete_folders`):
+   требует фиксации состава дочерних карточек без расширения глобальных table locks.
+2. Библиотечные операции и распределение колод: `POST /api/admin/decks/{deck_id}/set-default`
+   (копирование колоды всем пользователям), `/assign-to-all`, `/create-with-cards`, `/decks/import-json`,
+   sharing / collaboration клонирование.
+3. Административный бэкап и восстановление (`tools/admin/services/backup_service.py`):
+   restore / replace операции.
+4. Рефакторинг media service (`api/services/media.py` / `ensure_card_audio`):
+   устранение stale whole-row `card.save()` при генерации и связывании аудио.
 
 ## 10. Риски и критерии приёмки
 

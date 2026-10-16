@@ -19,6 +19,8 @@ from tools.admin.schemas import (
 from tools.admin.services.card_helpers import card_is_fully_completed
 from tools.admin.services.deck_helpers import get_deck_and_cards
 from tools.admin.services.regen_worker import (
+    preflight_regeneration,
+    preflight_bulk_creation,
     regen_tasks,
     run_ai_regeneration,
     run_audio_regeneration,
@@ -70,6 +72,28 @@ def resume_task_endpoint(background_tasks: BackgroundTasks, req: Optional[Resume
     orig_options = ckpt.get("options", {})
     start_d_idx = (req.start_deck_idx if req else None) or ckpt.get("current_deck_idx") or 1
     start_c_idx = (req.start_card_idx if req else None) or ckpt.get("current_card_idx") or 1
+
+    if ckpt.get('commit_pending'):
+        start_d_idx = (req.start_deck_idx if req else None) or orig_options.get('start_deck_idx') or 1
+        start_c_idx = (req.start_card_idx if req else None) or orig_options.get('start_card_idx') or 1
+
+    option_models = {'batch_ai': BatchRegenerateDeckRequest, 'batch_audio': BatchRegenerateAudioRequest,
+                     'single_ai': RegenerateDeckRequest, 'single_audio': RegenerateAudioRequest}
+    if task_type in option_models:
+        options = option_models[task_type](**orig_options)
+        options.start_card_idx = start_c_idx
+        batch = task_type.startswith('batch')
+        if batch:
+            options.start_deck_idx = start_d_idx
+        ids = options.deck_ids if batch else [ckpt.get('deck_id') or ckpt.get('current_deck_id')]
+        preflight_regeneration(ids, options, ckpt, batch=batch, audio=task_type.endswith('audio'))
+    elif task_type == 'bulk_create':
+        options = BulkCreateCardsRequest(**orig_options)
+        options.start_card_idx = start_c_idx
+        preflight_bulk_creation(options)
+    elif task_type == 'classification':
+        from tools.admin.services.classification_worker import preflight_classification
+        preflight_classification(ClassificationRequest(**orig_options))
 
     task_id = f"resumed_{int(time.time())}"
     task_info = dict(ckpt)
@@ -179,6 +203,8 @@ def retry_failed_cards_endpoint(req: RetryFailedCardsRequest, background_tasks: 
         native_lang=req.native_lang or "ru", target_lang=req.target_lang or "de",
         delay=req.delay or 1.0, skip_completed=False, dry_run=False
     )
+
+    preflight_regeneration(opt_req.deck_ids, opt_req, batch=True)
 
     task_data = {
         "task_id": task_id, "is_batch": True, "task_type": "batch_ai",

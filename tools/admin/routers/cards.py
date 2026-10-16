@@ -3,13 +3,13 @@ import datetime
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from api import models
 from tools.admin.schemas import BulkCreateCardsRequest, CreateSingleCardRequest, SuggestWordsRequest, UpdateCardRequest
-from tools.admin.services.card_helpers import save_audio_to_db_or_cloud
-from tools.admin.services.deck_helpers import get_deck_and_cards
-from tools.admin.services.regen_worker import regen_tasks, run_bulk_card_creation
+from tools.admin.services.deck_helpers import get_deck_and_cards, apply_card_writes
+from api.services.legacy_card_writes import legacy_lifecycle_scope, require_legacy_cards
+from tools.admin.services.regen_worker import regen_tasks, run_bulk_card_creation, preflight_bulk_creation
 
 import time
 
@@ -20,57 +20,61 @@ router = APIRouter()
 @router.put("/api/admin/cards/{card_id}")
 def update_card_endpoint(card_id: int, req: UpdateCardRequest):
     """Updates fields of a specific card (in TMA_Card or Card)."""
-    now = datetime.datetime.now()
-    tma_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
-    if tma_card:
-        if req.front_text is not None:
-            tma_card.front_text = req.front_text
-        if req.back_text is not None:
-            tma_card.back_text = req.back_text
-        if req.context is not None:
-            tma_card.context = req.context
-        if req.tags is not None:
-            tma_card.tags = req.tags
-        tma_card.updated_at = now
-        tma_card.save()
-        return {"status": "ok", "card_id": card_id, "type": "tma"}
+    with legacy_lifecycle_scope(lock_membership=False):
+        require_legacy_cards([card_id])
+        now = datetime.datetime.now()
+        tma_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+        if tma_card:
+            if req.front_text is not None:
+                tma_card.front_text = req.front_text
+            if req.back_text is not None:
+                tma_card.back_text = req.back_text
+            if req.context is not None:
+                tma_card.context = req.context
+            if req.tags is not None:
+                tma_card.tags = req.tags
+            tma_card.updated_at = now
+            tma_card.save()
+            return {"status": "ok", "card_id": card_id, "type": "tma"}
 
-    lib_card = models.Card.get_or_none(models.Card.id == card_id)
-    if lib_card:
-        if req.front_text is not None:
-            lib_card.front_text = req.front_text
-        if req.back_text is not None:
-            lib_card.back_text = req.back_text
-        if req.context is not None:
-            lib_card.context = req.context
-        if req.tags is not None:
-            lib_card.tags = req.tags
-        lib_card.updated_at = now
-        lib_card.save()
-        return {"status": "ok", "card_id": card_id, "type": "library"}
+        lib_card = models.Card.get_or_none(models.Card.id == card_id)
+        if lib_card:
+            if req.front_text is not None:
+                lib_card.front_text = req.front_text
+            if req.back_text is not None:
+                lib_card.back_text = req.back_text
+            if req.context is not None:
+                lib_card.context = req.context
+            if req.tags is not None:
+                lib_card.tags = req.tags
+            lib_card.updated_at = now
+            lib_card.save()
+            return {"status": "ok", "card_id": card_id, "type": "library"}
 
-    raise HTTPException(status_code=404, detail="Card not found")
+        raise HTTPException(status_code=404, detail="Card not found")
 
 
 @router.delete("/api/admin/cards/{card_id}")
 def delete_card_endpoint(card_id: int):
     """Soft deletes a card."""
-    now = datetime.datetime.now()
-    tma_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
-    if tma_card:
-        tma_card.is_deleted = True
-        tma_card.updated_at = now
-        tma_card.save()
-        return {"status": "ok", "card_id": card_id}
+    with legacy_lifecycle_scope(lock_membership=False):
+        require_legacy_cards([card_id])
+        now = datetime.datetime.now()
+        tma_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+        if tma_card:
+            tma_card.is_deleted = True
+            tma_card.updated_at = now
+            tma_card.save()
+            return {"status": "ok", "card_id": card_id}
 
-    lib_card = models.Card.get_or_none(models.Card.id == card_id)
-    if lib_card:
-        lib_card.is_deleted = True
-        lib_card.updated_at = now
-        lib_card.save()
-        return {"status": "ok", "card_id": card_id}
+        lib_card = models.Card.get_or_none(models.Card.id == card_id)
+        if lib_card:
+            lib_card.is_deleted = True
+            lib_card.updated_at = now
+            lib_card.save()
+            return {"status": "ok", "card_id": card_id}
 
-    raise HTTPException(status_code=404, detail="Card not found")
+        raise HTTPException(status_code=404, detail="Card not found")
 
 
 @router.post("/api/admin/cards/{card_id}/synthesize-audio")
@@ -80,11 +84,13 @@ async def synthesize_single_card_audio(
     rate: Optional[str] = "+0%"
 ):
     """Synthesizes TTS audio for a single card on-the-fly and saves it."""
-    card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
-    if not card:
-        card = models.Card.get_or_none(models.Card.id == card_id)
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
+    with legacy_lifecycle_scope(lock_membership=False):
+        require_legacy_cards([card_id])
+        card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+        if not card:
+            card = models.Card.get_or_none(models.Card.id == card_id)
+        if not card:
+            raise HTTPException(status_code=404, detail="Card not found")
 
     front = (card.front_text or "").strip()
     if not front:
@@ -98,14 +104,10 @@ async def synthesize_single_card_audio(
     if not res_audio:
         raise HTTPException(status_code=500, detail="TTS generation failed")
 
-    saved_audio = save_audio_to_db_or_cloud(res_audio)
-    if saved_audio:
-        card.audio_path = saved_audio
-        card.updated_at = datetime.datetime.now()
-        card.save()
-        return {"status": "ok", "card_id": card_id, "audio_path": saved_audio}
-
-    raise HTTPException(status_code=500, detail="Failed to save audio file")
+    write = dict(card=card, front=front, audio=res_audio, values={})
+    apply_card_writes([write])
+    current = type(card).get_by_id(card.id)
+    return {"status": "ok", "card_id": card_id, "audio_path": current.audio_path}
 
 
 @router.post("/api/admin/decks/{deck_id}/cards")
@@ -183,6 +185,7 @@ def start_bulk_card_creation_endpoint(req: BulkCreateCardsRequest, background_ta
     if not req.phrases:
         raise HTTPException(status_code=400, detail="Phrases list is empty")
 
+    preflight_bulk_creation(req)
     task_id = f"bulk_create_{int(time.time())}"
     task_data = {
         "task_id": task_id,

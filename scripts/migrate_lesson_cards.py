@@ -30,6 +30,7 @@ load_dotenv()
 from api.database import initialize_database
 from api.models import TMA_Folder, TMA_Deck, TMA_Card
 from api.services.input_parser import detect_ai_input_type
+from api.services.legacy_card_writes import require_legacy_cards, legacy_lifecycle_scope
 
 # ============================================================================
 # Словари и правила определения подсказок (Task 2)
@@ -469,6 +470,9 @@ def main():
         scope_desc = f"Папка ID {args.folder_id} ('{rf_name}'), колод: {len(deck_ids)}"
         
     cards = list(cards_query.order_by(TMA_Card.deck_id, TMA_Card.position, TMA_Card.id))
+    with legacy_lifecycle_scope(lock_membership=False):
+        require_legacy_cards(c.id for c in cards)
+
     
     # Кэш названий колод
     deck_cache = {}
@@ -577,11 +581,13 @@ def main():
         print("\n" + "=" * 70)
         print("ПРИМЕНЕНИЕ ИЗМЕНЕНИЙ В БАЗЕ ДАННЫХ SUPABASE / POSTGRES...")
         applied_count = 0
-        for c, new_ft, new_type in to_update:
-            c.front_text = new_ft
-            c.card_type = new_type
-            c.save()
-            applied_count += 1
+        with legacy_lifecycle_scope(lock_membership=False):
+            require_legacy_cards(c.id for c in cards)
+            for c, new_ft, new_type in to_update:
+                c.front_text = new_ft
+                c.card_type = new_type
+                TMA_Card.update(front_text=c.front_text, card_type=c.card_type).where(TMA_Card.id == c.id).execute()
+                applied_count += 1
         print(f"Успешно обновлено карточек в БД: {applied_count}")
         print("=" * 70)
         print("\nИТОГОВЫЙ ОТЧЕТ:")

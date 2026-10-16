@@ -23,8 +23,10 @@ from tools.admin.schemas import (
     SetDefaultDeckRequest,
 )
 from tools.admin.services.card_helpers import card_has_valid_audio, card_is_fully_completed
-from tools.admin.services.deck_helpers import get_deck_and_cards, sync_card_updates_to_matching_decks
+from tools.admin.services.deck_helpers import get_deck_and_cards, apply_card_writes
+from api.services.legacy_card_writes import legacy_lifecycle_scope, require_legacy_cards
 from tools.admin.services.regen_worker import (
+    preflight_regeneration,
     regen_tasks,
     run_ai_regeneration,
     run_audio_regeneration,
@@ -417,33 +419,36 @@ def get_batch_summary(req: BatchSummaryRequest):
 @router.post("/api/admin/decks/{deck_id}/deduplicate")
 def deduplicate_deck_cards(deck_id: str):
     """Removes duplicate cards (matching front_text) from a deck, keeping the first/newest card."""
-    deck, cards, is_lib = get_deck_and_cards(deck_id)
-    if not deck:
-        raise HTTPException(status_code=404, detail="Deck not found")
+    with legacy_lifecycle_scope(lock_membership=False):
+        deck, cards, is_lib = get_deck_and_cards(deck_id)
+        if not deck:
+            raise HTTPException(status_code=404, detail="Deck not found")
 
-    seen_fronts = set()
-    removed_count = 0
-    now = datetime.datetime.now()
+        if not is_lib:
+            require_legacy_cards(c.id for c in cards)
+            cards = list(models.TMA_Card.select().where(models.TMA_Card.id.in_([c.id for c in cards])).order_by(models.TMA_Card.position, models.TMA_Card.id))
+        seen_fronts = set()
+        removed_count = 0
+        now = datetime.datetime.now()
 
-    for c in cards:
-        front = (c.front_text or "").strip().lower()
-        if not front:
-            continue
-        if front in seen_fronts:
-            c.is_deleted = True
-            c.updated_at = now
-            c.save()
-            removed_count += 1
-        else:
-            seen_fronts.add(front)
+        for c in cards:
+            front = (c.front_text or "").strip().lower()
+            if not front:
+                continue
+            if front in seen_fronts:
+                c.is_deleted = True
+                c.updated_at = now
+                c.save()
+                removed_count += 1
+            else:
+                seen_fronts.add(front)
 
-    invalidate_decks_cache()
-    return {
-        "status": "ok", "deck_id": deck_id, "removed_duplicates": removed_count,
-        "remaining_cards": len(seen_fronts),
-        "message": f"Удалено {removed_count} дубликатов карточек! Осталось {len(seen_fronts)} уникальных."
-    }
-
+        invalidate_decks_cache()
+        return {
+            "status": "ok", "deck_id": deck_id, "removed_duplicates": removed_count,
+            "remaining_cards": len(seen_fronts),
+            "message": f"Удалено {removed_count} дубликатов карточек! Осталось {len(seen_fronts)} уникальных."
+        }
 
 @router.post("/api/admin/decks/{deck_id}/set-default")
 def set_default_deck(deck_id: str, req: SetDefaultDeckRequest):
@@ -754,6 +759,7 @@ def overwrite_deck_users_direct(deck_id: str):
 @router.post("/api/admin/decks/{deck_id}/regenerate-audio")
 def start_audio_regeneration_endpoint(deck_id: str, req: RegenerateAudioRequest, background_tasks: BackgroundTasks):
     """Starts background audio regeneration for cards in the deck."""
+    preflight_regeneration([deck_id], req, batch=False, audio=True)
     task_data = {
         "deck_id": deck_id, "task_id": deck_id, "task_type": "single_audio",
         "status": "pending", "control": "run", "processed": 0, "total": 0,
@@ -770,6 +776,7 @@ def start_audio_regeneration_endpoint(deck_id: str, req: RegenerateAudioRequest,
 @router.post("/api/admin/decks/{deck_id}/regenerate")
 def start_regeneration(deck_id: str, req: RegenerateDeckRequest, background_tasks: BackgroundTasks):
     """Starts background AI regeneration of cards for the deck."""
+    preflight_regeneration([deck_id], req, batch=False, audio=False)
     task_data = {
         "deck_id": deck_id, "task_id": deck_id, "task_type": "single_ai",
         "status": "pending", "control": "run", "processed": 0, "total": 0,
@@ -815,6 +822,8 @@ def control_regeneration(deck_id: str, req: ControlRegenRequest):
         task_info["logs"].append("🛑 Сигнал остановки отправлен.")
         task_manager.update_task_progress(deck_id, status="stopped")
     elif action == "commit_dry_run":
+        if task_info.get('commit_pending'):
+            raise HTTPException(409, {'code': 'regeneration_not_ready'})
         results = task_info.get("dry_run_results", [])
         if not results:
             return {"status": "ok", "committed_count": 0, "committed_card_ids": [], "message": "Нет результатов Dry-Run для сохранения"}
@@ -826,29 +835,24 @@ def control_regeneration(deck_id: str, req: ControlRegenRequest):
         now = datetime.datetime.now()
         committed_card_ids = []
         card_model = models.Card if is_lib else models.TMA_Card
+        writes = []
         for item in results:
-            if target_card_ids is not None and item["card_id"] not in target_card_ids:
+            if target_card_ids is not None and item['card_id'] not in target_card_ids:
                 continue
-            card = card_model.get_or_none(card_model.id == item["card_id"])
-            if card:
-                orig_front = card.front_text
-                card.front_text = item["front"]
-                card.back_text = item["back"]
-                card.context = item["context"]
-                if item.get("audio_path"):
-                    card.audio_path = item["audio_path"]
-                if item.get("level"):
-                    curr_tags = card.tags or ""
-                    cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1", "A2", "B1", "B2", "C1", "C2"}])
-                    card.tags = f"{cleaned},{item['level']}".strip(",") if cleaned else item['level']
-                card.updated_at = now
-                card.save()
-                count += 1
-                committed_card_ids.append(item["card_id"])
-
-                if task_info.get("sync_copies") and deck:
-                    _, sc = sync_card_updates_to_matching_decks(deck, orig_front, item["front"], item["back"], item["context"], item.get("level"), card.audio_path)
-                    sync_total += sc
+            if deck is None:
+                continue
+            card = card_model.get_or_none((card_model.id == item['card_id']) & (card_model.deck_id == deck.id))
+            if card is None:
+                continue
+            values = dict(front_text=item['front'], back_text=item['back'], context=item['context'])
+            if item.get('audio_path') or card.audio_path:
+                values['audio_path'] = item.get('audio_path') or card.audio_path
+            writes.append(dict(card=card, deck=deck, front=card.front_text,
+                               sync=task_info.get('sync_copies'), values=values, level=item.get('level')))
+            committed_card_ids.append(card.id)
+        applied = apply_card_writes(writes)
+        count = len(writes)
+        sync_total = applied - count
 
         existing_committed = set(task_info.get("committed_dry_run_card_ids", []))
         existing_committed.update(committed_card_ids)
@@ -870,6 +874,7 @@ def start_batch_regeneration(req: BatchRegenerateDeckRequest, background_tasks: 
     if not req.deck_ids:
         raise HTTPException(status_code=400, detail="No decks provided for batch regeneration")
 
+    preflight_regeneration(req.deck_ids, req, batch=True, audio=False)
     task_id = f"batch_ai_{int(time.time())}"
     task_data = {
         "task_id": task_id, "is_batch": True, "task_type": "batch_ai",
@@ -891,6 +896,7 @@ def start_batch_audio_regeneration(req: BatchRegenerateAudioRequest, background_
     if not req.deck_ids:
         raise HTTPException(status_code=400, detail="No decks provided for batch regeneration")
 
+    preflight_regeneration(req.deck_ids, req, batch=True, audio=True)
     task_id = f"batch_audio_{int(time.time())}"
     task_data = {
         "task_id": task_id, "is_batch": True, "task_type": "batch_audio",
@@ -939,6 +945,8 @@ def control_batch_regeneration(task_id: str, req: BatchControlRequest):
         task_info["logs"].append("🛑 Сигнал остановки отправлен.")
         task_manager.update_task_progress(task_id, status="stopped")
     elif action == "commit_dry_run":
+        if task_info.get('commit_pending'):
+            raise HTTPException(409, {'code': 'regeneration_not_ready'})
         results = task_info.get("dry_run_results", [])
         if not results:
             return {"status": "ok", "committed_count": 0, "committed_card_ids": [], "message": "Нет результатов Dry-Run для сохранения"}
@@ -948,32 +956,26 @@ def control_batch_regeneration(task_id: str, req: BatchControlRequest):
         sync_total = 0
         now = datetime.datetime.now()
         committed_card_ids = []
+        writes = []
         for item in results:
-            if target_card_ids is not None and item["card_id"] not in target_card_ids:
+            if target_card_ids is not None and item['card_id'] not in target_card_ids:
                 continue
-            deck_id_item = item["deck_id"]
-            deck, _, is_lib = get_deck_and_cards(deck_id_item)
+            deck, _, is_lib = get_deck_and_cards(item['deck_id'])
             card_model = models.Card if is_lib else models.TMA_Card
-            card = card_model.get_or_none(card_model.id == item["card_id"])
-            if card:
-                orig_front = card.front_text
-                card.front_text = item["front"]
-                card.back_text = item["back"]
-                card.context = item["context"]
-                if item.get("audio_path"):
-                    card.audio_path = item["audio_path"]
-                if item.get("level"):
-                    curr_tags = card.tags or ""
-                    cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1", "A2", "B1", "B2", "C1", "C2"}])
-                    card.tags = f"{cleaned},{item['level']}".strip(",") if cleaned else item['level']
-                card.updated_at = now
-                card.save()
-                count += 1
-                committed_card_ids.append(item["card_id"])
-
-                if task_info.get("sync_copies") and deck:
-                    _, sc = sync_card_updates_to_matching_decks(deck, orig_front, item["front"], item["back"], item["context"], item.get("level"), card.audio_path)
-                    sync_total += sc
+            if deck is None:
+                continue
+            card = card_model.get_or_none((card_model.id == item['card_id']) & (card_model.deck_id == deck.id))
+            if card is None:
+                continue
+            values = dict(front_text=item['front'], back_text=item['back'], context=item['context'])
+            if item.get('audio_path') or card.audio_path:
+                values['audio_path'] = item.get('audio_path') or card.audio_path
+            writes.append(dict(card=card, deck=deck, front=card.front_text,
+                               sync=task_info.get('sync_copies'), values=values, level=item.get('level')))
+            committed_card_ids.append(card.id)
+        applied = apply_card_writes(writes)
+        count = len(writes)
+        sync_total = applied - count
 
         existing_committed = set(task_info.get("committed_dry_run_card_ids", []))
         existing_committed.update(committed_card_ids)

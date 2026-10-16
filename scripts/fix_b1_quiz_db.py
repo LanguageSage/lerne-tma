@@ -11,6 +11,7 @@ load_dotenv()
 from api.database import initialize_database
 from api.models import TMA_Folder, TMA_Deck, TMA_Card
 from api.services.input_parser import detect_ai_input_type
+from api.services.legacy_card_writes import require_legacy_cards, legacy_lifecycle_scope
 
 TASK_EXERCISE_PATTERN = re.compile(
     r'::task[ \t]*\r?\n(.*?)\r?\n[ \t]*::exercise[ \t]*\r?\n(.*)', 
@@ -120,6 +121,9 @@ def main():
     deck_names = {d.id: d.name for d in decks}
     
     cards = list(TMA_Card.select().where(TMA_Card.deck_id.in_(deck_ids) & (TMA_Card.is_deleted == False)))
+    with legacy_lifecycle_scope(lock_membership=False):
+        require_legacy_cards(c.id for c in cards)
+
     
     stats = {
         'found': 0,
@@ -163,16 +167,18 @@ def main():
         updated_count = 0
         quiz_verified_count = 0
         
-        for c, new_text, new_type in to_update:
-            c.front_text = new_text
-            c.card_type = new_type
-            c.save()
-            updated_count += 1
-            
-            parsed_type = detect_ai_input_type(c.front_text)
-            if parsed_type == 'quiz':
-                quiz_verified_count += 1
+        with legacy_lifecycle_scope(lock_membership=False):
+            require_legacy_cards(c.id for c in cards)
+            for c, new_text, new_type in to_update:
+                c.front_text = new_text
+                c.card_type = new_type
+                TMA_Card.update(front_text=c.front_text, card_type=c.card_type).where(TMA_Card.id == c.id).execute()
+                updated_count += 1
                 
+                parsed_type = detect_ai_input_type(c.front_text)
+                if parsed_type == 'quiz':
+                    quiz_verified_count += 1
+
         print(f"Успешно обновлено карточек в БД: {updated_count}")
         print(f"Проверено парсером input_parser (классифицировано как 'quiz'): {quiz_verified_count} из {updated_count}")
 

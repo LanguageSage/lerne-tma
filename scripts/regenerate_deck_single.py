@@ -18,7 +18,10 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from api import models, ai_service, services
+from api import models, ai_service
+from api.services.legacy_card_writes import require_legacy_cards, legacy_lifecycle_scope
+from fastapi import HTTPException
+from tools.admin.services.deck_helpers import apply_card_writes
 
 RATE_LIMIT_KEYWORDS = [
     "429", "rate limit", "ratelimit", "resource_exhausted",
@@ -249,14 +252,6 @@ async def main():
     print(f"  • Озвучка (TTS):    {'ВЫКЛ' if args.no_audio else 'ВКЛ (Edge-TTS)'}")
     print(f"  • Режим:            {'DRY-RUN (без записи)' if args.dry_run else 'ПРОДАКШН (с записью в БД)'}")
 
-    # 4. Create Backup
-    if not args.dry_run:
-        print(f"\n[3/5] Создание резервной копии колоды...")
-        backup_file = ensure_backup(deck, cards)
-        print(f"  -> Резервная копия сохранена в: {backup_file}")
-    else:
-        print(f"\n[3/5] Пропуск бэкапа в режиме dry-run.")
-
     # Checkpoint setup
     completed_ids = load_checkpoint(deck.id) if args.resume else set()
     if args.resume and completed_ids:
@@ -282,6 +277,20 @@ async def main():
         print("Все карточки в указанном диапазоне уже обработаны!")
         return
 
+    with legacy_lifecycle_scope(lock_membership=False):
+        require_legacy_cards(c.id for c in cards_to_process)
+    if not args.dry_run and not args.no_audio:
+        raise HTTPException(409, {'code': 'legacy_media_write_blocked',
+            'message': 'Use --no-audio: ensure_card_audio still saves stale whole rows; media service redesign is pending.'})
+
+    # 4. Create Backup
+    if not args.dry_run:
+        print(f"\n[3/5] Создание резервной копии колоды...")
+        backup_file = ensure_backup(deck, cards)
+        print(f"  -> Резервная копия сохранена в: {backup_file}")
+    else:
+        print(f"\n[3/5] Пропуск бэкапа в режиме dry-run.")
+
     if not args.dry_run and not args.yes:
         confirm = input("\nНачать перегенерацию? [Y/n]: ").strip().lower()
         if confirm not in ('', 'y', 'yes', 'д', 'да'):
@@ -296,6 +305,7 @@ async def main():
     fail_count = 0
     level_counts = {}
     
+    writes = []
     for idx, card in enumerate(cards_to_process, 1):
         front = (card.front_text or "").strip()
         if not front:
@@ -337,26 +347,8 @@ async def main():
         lvl_str = f"[{new_level}]" if new_level else "[--]"
 
         if not args.dry_run:
-            # Save card to DB
-            card.front_text = new_front
-            card.back_text = new_back
-            card.context = new_context
-            if new_level:
-                curr_tags = card.tags or ""
-                cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1", "A2", "B1", "B2", "C1", "C2"}])
-                card.tags = f"{cleaned},{new_level}".strip(",") if cleaned else new_level
-            card.updated_at = datetime.datetime.now()
-            card.save()
-
-            # Trigger Audio if enabled
-            if not args.no_audio:
-                try:
-                    await services.ensure_card_audio(card, deck.user_id)
-                except Exception as e:
-                    pass
-
-            completed_ids.add(card.id)
-            save_checkpoint(deck.id, completed_ids)
+            writes.append(dict(card=card, front=front, level=new_level,
+                               values=dict(front_text=new_front, back_text=new_back, context=new_context)))
 
         success_count += 1
         print(f"[{idx:>3}/{len(cards_to_process)}] {pct:5.1f}% | ID: {card.id:<5} | {lvl_str} \"{short_front}\" -> \"{short_back}\" ({duration:.2f}s)", flush=True)
@@ -364,6 +356,11 @@ async def main():
         # Rate-limit delay between cards
         if idx < len(cards_to_process):
             await asyncio.sleep(args.delay)
+
+    if not args.dry_run:
+        apply_card_writes(writes)
+        completed_ids.update(write['card'].id for write in writes)
+        save_checkpoint(deck.id, completed_ids)
 
     total_duration = time.time() - start_total_time
     minutes = int(total_duration // 60)
