@@ -6,7 +6,7 @@ import json
 from fastapi import HTTPException
 
 from api import models
-from .legacy_card_writes import require_legacy_cards
+from .legacy_card_writes import require_legacy_cards, legacy_lifecycle_scope, require_legacy_sync_lifecycle
 from api.services.collaborative_service import (
     get_effective_user_role, get_user_accessible_deck_ids,
     get_user_accessible_folder_ids, get_batch_collaborative_info,
@@ -65,7 +65,9 @@ def push_offline(request, user_id: int) -> dict:
             return resolved
         return item_id
 
-    with models.tma_db.atomic():
+    with legacy_lifecycle_scope(lock_membership=bool(request.folders or request.decks)):
+        authorize = lambda kind, item_id: require_access(user_id, kind, item_id)
+        require_legacy_sync_lifecycle(request, authorize)
         require_legacy_cards(item.id for item in request.cards if item.id > 0)
         # The unique key serializes duplicate requests, including across server workers.
         receipt, created = models.TMAOfflineBatch.get_or_create(
@@ -74,6 +76,7 @@ def push_offline(request, user_id: int) -> dict:
             if receipt.payload_hash != fingerprint:
                 raise HTTPException(409, 'Идентификатор пакета уже использован с другими данными')
             response = json.loads(receipt.response)
+            require_legacy_sync_lifecycle(request, authorize, mappings=response.get('mappings', {}))
             # A replay can refer to a now-V2 row through its original temp ID.
             require_legacy_cards(response.get('mappings', {}).get('cards', {}).values())
             return response

@@ -2,6 +2,7 @@ import datetime
 import logging
 from fastapi import HTTPException
 from ..models import TMA_Folder, TMA_Deck, TMAMedia, tma_db
+from .legacy_card_writes import legacy_lifecycle_scope, require_legacy_folder_cards
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +227,11 @@ def get_descendant_folder_ids(folder_id: int, user_id: int) -> list:
 
 def delete_folder(folder_id: int, user_id: int):
     """Каскадно мягко удаляет папку, её подпапки и все колоды внутри них в корзину."""
+    with legacy_lifecycle_scope():
+        return _delete_legacy_folder(folder_id, user_id)
+
+
+def _delete_legacy_folder(folder_id: int, user_id: int):
     try:
         # Only owners can delete; _require_folder_write handles global_readonly guard
         folder = _require_folder_write(folder_id, user_id)
@@ -243,12 +249,11 @@ def delete_folder(folder_id: int, user_id: int):
                 raise ValueError("Нельзя удалить основную папку Входящие")
 
         now = datetime.datetime.now()
-        descendant_ids = get_descendant_folder_ids(folder_id, user_id)
-        all_target_folder_ids = [folder_id] + descendant_ids
+        all_target_folder_ids, deck_ids = require_legacy_folder_cards(folder_id, user_id)
 
         with tma_db.atomic():
             TMA_Deck.update(is_deleted=True, updated_at=now).where(
-                (TMA_Deck.folder_id << all_target_folder_ids) & (TMA_Deck.user_id == user_id)
+                TMA_Deck.id.in_(deck_ids)
             ).execute()
             TMA_Folder.update(is_deleted=True, updated_at=now).where(
                 (TMA_Folder.id << all_target_folder_ids) & (TMA_Folder.user_id == user_id)
@@ -258,7 +263,7 @@ def delete_folder(folder_id: int, user_id: int):
             filename = f"preview_{folder.share_id}.png"
             TMAMedia.delete().where((TMAMedia.filename == filename) & (TMAMedia.folder == 'previews')).execute()
 
-        logger.info(f"Cascade soft-deleted folder {folder_id} ({len(descendant_ids)} subfolders) and its decks for user {user_id}")
+        logger.info(f"Cascade soft-deleted folder {folder_id} ({len(all_target_folder_ids) - 1} subfolders) and its decks for user {user_id}")
         return True
     except (HTTPException, ValueError):
         raise

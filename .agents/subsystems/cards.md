@@ -29,7 +29,7 @@
 
 ## Source of truth
 
-- Structured Cards V2, этап 3A: `api/services/legacy_card_writes.py` проверяет сохранённый `content_version` независимо от ORM schema-ready; старая БД без колонки остаётся legacy. `save_card` (POST/PUT/PATCH), bulk-save и deck/folder text-update возвращают 409 `legacy_card_write_blocked` для V2/unknown. Mixed bulk отказывает целиком до DML; legacy-only partial success сохранён. Receipt replay также перепроверяет существующие цели. Native writes выключены; copy/admin/restore/media и остальные guards этапа 3B ещё не закрыты. Тесты: `scripts/tests/test_structured_cards_v2_guards.py`; границы и результаты — в `project_docs/STRUCTURED_CARDS_V2_ARCHITECTURE.md`.
+- Structured Cards V2, этап 3A: `api/services/legacy_card_writes.py` проверяет сохранённый `content_version` независимо от ORM schema-ready; старая БД без колонки остаётся legacy. `save_card` (POST/PUT/PATCH), bulk-save и deck/folder text-update возвращают 409 `legacy_card_write_blocked` для V2/unknown. Mixed bulk отказывает целиком до DML; legacy-only partial success сохранён. Receipt replay также перепроверяет существующие цели. Native writes выключены; последующие guards карточек описаны ниже, lifecycle колод/папок/корзины — в [decks](decks.md). Admin/media и остальные writer paths ещё не закрыты. Тесты: `scripts/tests/test_structured_cards_v2_guards.py`; границы и результаты — в `project_docs/STRUCTURED_CARDS_V2_ARCHITECTURE.md`.
 
 - Исходный текст формы — `cardData.front`; сохранённый текст — `TMA_Card.front_text` в `api/models.py` и запись Dexie.
 - Переключение Simple/Raw не должно пересобирать исходный текст; проекция не является отдельной копией карточки.

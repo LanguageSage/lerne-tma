@@ -86,6 +86,20 @@ rg -n 'TMAOfflineBatch|request_id|mappings|review_count' api/services/offline_sy
 
 Structured Cards V2, этап 3A: оба push (`offline_sync.py` и `sync_service.py`) используют общий `legacy_card_writes.require_legacy_cards` перед изменениями пакета. Любой существующий V2/unknown card ID даёт 409 `legacy_card_write_blocked`, включая tombstone/stale echo. `/sync/v2/push` проверяет сохранённые temp-ID mappings при receipt replay. Проверяется DB discriminator даже при schema-ready=false; старая БД без колонки поддерживается. Чистые progress/reviews разрешены и не меняют контент. Native transport/read guards ещё не реализованы. Проверки целостности/отсутствия DML: `scripts/tests/test_structured_cards_v2_guards.py`.
 
+Этап 3B.2: parent-only delete/restore также защищён через
+`require_legacy_sync_lifecycle`. Проверяется весь owned subtree для папок и все
+карточки колоды, в том числе deleted rows, до receipts/любых DML. V1 пишет
+`is_deleted` даже при отсутствующем поле, поэтому проверяет каждый существующий
+parent в пакете; V2 — явное поле и resolved temp parent IDs при receipt replay.
+Permissions проверяются до версий; metadata-only V2 push без `is_deleted` не
+меняет lifecycle policy. `legacy_lifecycle_scope` начинает транзакцию до permissions;
+при наличии parents берёт PostgreSQL SHARE ROW EXCLUSIVE на folder/deck/card,
+закрывая membership phantoms ценой задержки DML всех пользователей. Pure
+card/progress/review push обходится без table lock; SQLite использует IMMEDIATE.
+Тесты: `test_structured_cards_v2_lifecycle.py`, прежние guards и offline sync в обоих
+режимах схемы; реальная PostgreSQL concurrency/load ещё не проверена. Native writes
+выключены. Полные границы и риски — в [архитектуре V2](../../project_docs/STRUCTURED_CARDS_V2_ARCHITECTURE.md#этап-3b2-lifecycle-колод-папок-и-корзины).
+
 ## Restore owner access
 
 require_access разрешает владельцу восстановление его soft-deleted deck/folder: collaborative lookup исключает удалённые targets. Исключение применяется только к deleted records собственника; активные/published permissions остаются прежними. Изолированный test_offline_sync.py проверяет restore, viewer/editor и rollback чужого пакета.

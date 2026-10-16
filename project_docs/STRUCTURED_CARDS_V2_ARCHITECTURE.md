@@ -2,7 +2,8 @@
 
 Статус: **этапы 1 и 3A реализованы; этап 2 подготовлен** — неактивная схема,
 Dexie v5 и guards основных legacy writers. В этапе 3B защищены операции
-с отдельными карточками; остальные пути этапа 3B ещё не выполнены.
+с отдельными карточками и lifecycle колод/папок/корзины, включая parent tombstones
+в sync; остальные пути этапа 3B ещё не выполнены.
 Нативные записи запрещены; native API, transport и обучение остаются планом этапов 4–9.
 Аудит выполнен по ветке `feat/structured-cards-v2`, исходный HEAD `e812cb8`.
 Контракты этапа 1 подготовлены после `3be89f7`, схема этапа 2 — после `5c077d3`.
@@ -671,8 +672,88 @@ bulk-import idempotency: 10 passed; collaborative delete: существующи
 воспроизведён на `264cb6c`, partial-success поведение и новый набор guards проходят.
 Миграции и рабочие БД не запускались, merge/deploy не выполнялись.
 
+### Этап 3B.2: lifecycle колод, папок и корзины
+
+Исходный HEAD: `0edfd0f`. Native writes по-прежнему запрещены; production gate,
+миграции и рабочие БД не менялись/не запускались.
+
+- `decks.py:delete_deck` и `trash.py:restore_deck` вызывают существующий
+  `require_legacy_cards` через `require_legacy_deck_cards` для **всех** карточек
+  колоды, независимо от `is_deleted`. Отказ V2/unknown/null предшествует и
+  tombstone родителя. Проверки permissions и все записи находятся в одной транзакции.
+- `folders.py:delete_folder` проверяет owned subtree, включая удалённые вложенные
+  папки, удалённые колоды и их карточки. Сохраняются прежние owner filters,
+  owner-only folder delete и защита основной папки Входящие. Legacy cascade
+  по-прежнему меняет только tombstones папок/колод, без изменения строк карточек.
+  Preview из `TMAMedia` удаляется внутри той же внешней транзакции после guard.
+- `trash.py:clear_trash` заранее объединяет удалённые карточки в owned колодах
+  и **все** карточки owned удалённых колод (включая live rows). Один guard до
+  удаления SRS, карточек и колод исключает частичную очистку mixed корзины.
+  Существующее поведение review history, collaborators и media blobs сохранено;
+  прежний неиспользуемый сбор audio paths удалён, media cleanup не добавлялся.
+- Связанные DELETE `/decks/{id}`, DELETE `/folders/{id}`, POST
+  `/trash/deck/{id}/restore`, DELETE `/trash/clear` передают 409 с прежним
+  `detail.code=legacy_card_write_blocked`. Права проверяются перед чтением версий:
+  editor может удалить колоду по прежней политике; restore/clear остаются owner-scoped.
+- Найден дополнительный прямой путь тех же операций: оба sync push пишут
+  `is_deleted` родителей самостоятельно. Их preflight проверяет содержимое
+  колод/поддеревьев до любых DML, включая receipts, новые folders/decks,
+  progress/reviews. V1 проверяет также implicit default `is_deleted=false`,
+  stale echo и повторный tombstone; V2 — явно переданный `is_deleted`.
+  V2 receipt replay перепроверяет содержимое и права resolved temp parent IDs.
+  Metadata-only V2 push без `is_deleted` сохраняет прежнее поведение; native
+  transport не добавлен. Прежние ограничения permissions V1, включая отказ
+  восстановления уже удалённого родителя через V1 push, не расширялись.
+
+**Конкуренция:** общий `legacy_card_writes.legacy_lifecycle_scope` начинает
+транзакцию до чтения permissions/состава. PostgreSQL берёт
+`LOCK TABLE tma_folder, tma_deck, tma_card IN SHARE ROW EXCLUSIVE MODE`, затем
+обычный version guard использует FOR UPDATE. Блокировка удерживается до commit
+или rollback; она закрывает INSERT/UPDATE/DELETE, включая перемещения в scope,
+новые дочерние папки/колоды и смену версии из writers без общего протокола
+parent-row locks. Одних locks существующих карточек для этого недостаточно.
+На SQLite используется BEGIN IMMEDIATE до чтений.
+
+Это временная консервативная блокировка: lifecycle и push с родительскими
+записями сериализуются с DML этих трёх таблиц **для всех пользователей**; обычные
+SELECT доступны. В scope нет внешнего I/O. Нагрузку, ожидания и возможные deadlock
+с прежними writers необходимо проверить на изолированном PostgreSQL; при
+ошибке БД операция откатывается, автоматический retry здесь не добавлен.
+Сужать блокировку до parent rows безопасно лишь после согласования протокола
+со всеми writers. Pure card/progress/review push не берёт table lock.
+
+Проверки: `scripts/tests/test_structured_cards_v2_lifecycle.py` — **31 passed**
+при schema-ready=false; **30 passed + 1 expected skip** старой схемы при true.
+Одноразовые SQLite fixtures подменяют DB owner до imports, обходят bootstrap
+и допускают V2 только в fixture DDL. Снимки всех таблиц и SQL trace проверяют
+отсутствие DML до отказа, целостность JSON/revision/media/SRS/history/grants,
+HTTP/permissions, legacy success, rollback позднего сбоя и temp-ID receipt replay.
+Независимые SQLite connections реально проверяют блокировку вставки/перемещения
+карточек, смены версии, перемещения/создания колоды и создания подпапки; все те
+же операции проходят после commit. PostgreSQL lock SQL и порядок проверены через
+fixture executor, **не на реальном PostgreSQL**: локальные PostgreSQL/Docker
+в среде не обнаружены. Это не доказательство PostgreSQL concurrency/load behavior.
+
+Команды (каждый модуль — отдельный процесс с
+`STRUCTURED_CARDS_V2_SCHEMA_READY=false`, затем `true`):
+`python -m unittest scripts.tests.test_structured_cards_v2_lifecycle -v`;
+аналогично `test_structured_cards_v2_guards`, `test_structured_cards_v2_operations`
+и `test_offline_sync`. Существующие suites: 3A — 20 / 19+skip,
+3B.1 — 26 / 25+skip, offline sync — 10 / 10. Дополнительно
+`test_bulk_import_idempotency` — 10 passed; py_compile изменённых файлов и
+git diff --check проходят. **Всего 181 успешное исполнение, 3 ожидаемых пропуска.**
+Семь новых отрицательных проверок также исполнялись с исходниками writers из
+`0edfd0f` через in-memory exec без изменения файлов: все семь обнаружили прежнее
+небезопасное поведение (ожидаемые failures, отдельно от основного pass count).
+
+Следующий безопасный этап: закрыть admin CRUD/bulk/regen и активные операторские
+скрипты тем же принципом полного scope/guard/rollback на одноразовой БД.
+Не включать native V2 writes до закрытия остальных writer paths и последующих
+допусков. Library/sharing/import-json и backup restore остаются отдельными этапами.
+Merge и deployment не выполнялись.
+
 **Остаток этапа 3B:** admin CRUD/bulk/regen и активные операторские скрипты,
-deck/folder lifecycle, library/share/import-json,
+library/share/import-json,
 backup restore/replace и stale whole-row media saves. Их проверки обязаны охватить
 все затронутые source/target rows до удаления/копирования/записи. Этап 3 в целом
 не завершён: никаких реальных V2 rows до закрытия этих путей и последующих допусков.

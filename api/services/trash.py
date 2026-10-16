@@ -2,7 +2,7 @@ import logging
 import datetime
 from ..models import TMA_Deck, TMA_Card, TMAProgress, tma_db
 from peewee import fn
-from .legacy_card_writes import require_legacy_cards
+from .legacy_card_writes import require_legacy_cards, legacy_lifecycle_scope, require_legacy_deck_cards
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +59,17 @@ def get_trash_items(user_id: int):
 
 def restore_deck(deck_id: int, user_id: int):
     """Восстанавливает колоду и все её карточки."""
+    with legacy_lifecycle_scope():
+        return _restore_legacy_deck(deck_id, user_id)
+
+
+def _restore_legacy_deck(deck_id: int, user_id: int):
     try:
         deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
         if not deck:
             return False
 
+        require_legacy_deck_cards([deck.id])
         now = datetime.datetime.now()
         with tma_db.atomic():
             deck.is_deleted = False
@@ -116,24 +122,24 @@ def _restore_legacy_card(card_id: int, user_id: int):
 
 def clear_trash(user_id: int):
     """Окончательно удаляет все элементы в корзине (HARD DELETE)."""
-    try:
-        # Находим удаленные карточки
-        deleted_cards = list(TMA_Card.select(TMA_Card.id).join(TMA_Deck).where(
-            (TMA_Deck.user_id == user_id) & (TMA_Card.is_deleted == True)
-        ))
-        card_ids = [c.id for c in deleted_cards]
+    with legacy_lifecycle_scope():
+        return _clear_legacy_trash(user_id)
 
+
+def _clear_legacy_trash(user_id: int):
+    try:
         # Находим удаленные колоды
         deleted_decks = list(TMA_Deck.select(TMA_Deck.id).where(
             (TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == True)
         ))
         deck_ids = [d.id for d in deleted_decks]
 
-        # Собираем аудио удаляемых карточек
-        audios_to_check = set()
-        for c in deleted_cards:
-            if c.audio_path: audios_to_check.add(c.audio_path)
-            if c.audio_back_path: audios_to_check.add(c.audio_back_path)
+        # Include live cards in deleted decks: they are hard-deleted too.
+        card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).join(TMA_Deck).where(
+            (TMA_Deck.user_id == user_id) &
+            ((TMA_Card.is_deleted == True) | TMA_Card.deck_id.in_(deck_ids))
+        )]
+        require_legacy_cards(card_ids)
 
         with tma_db.atomic():
             # Удаляем прогресс и карточки
@@ -141,18 +147,7 @@ def clear_trash(user_id: int):
                 TMAProgress.delete().where(TMAProgress.card_id << card_ids).execute()
                 TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
 
-            # Удаляем карточки удаленных колод (если какие-то остались)
             if deck_ids:
-                remaining_cards = list(TMA_Card.select(TMA_Card.id, TMA_Card.audio_path, TMA_Card.audio_back_path).where(TMA_Card.deck_id << deck_ids))
-                for c in remaining_cards:
-                    if c.audio_path: audios_to_check.add(c.audio_path)
-                    if c.audio_back_path: audios_to_check.add(c.audio_back_path)
-
-                rem_card_ids = [c.id for c in remaining_cards]
-                if rem_card_ids:
-                    TMAProgress.delete().where(TMAProgress.card_id << rem_card_ids).execute()
-                    TMA_Card.delete().where(TMA_Card.id << rem_card_ids).execute()
-
                 # Удаляем сами колоды
                 TMA_Deck.delete().where(TMA_Deck.id << deck_ids).execute()
 

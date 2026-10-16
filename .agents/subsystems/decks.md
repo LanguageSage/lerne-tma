@@ -62,6 +62,27 @@ rg -n 'TMA_Collaborator|permission|role' api/routers/collaborative.py api/servic
 - Permissions: `scripts/tests/test_collaborative_permissions.py`, `scripts/tests/test_collaborative_fixes.py`.
 Integration/browser scripts могут менять данные; сначала проверяйте setup.
 
+## Structured Cards V2: lifecycle guards (3B.2)
+
+- `delete_deck`, `delete_folder`, `trash.restore_deck/clear_trash` проверяют весь
+  затрагиваемый набор через существующий `require_legacy_cards`; V2/unknown/null
+  дают 409 `legacy_card_write_blocked` до DML. Включаются deleted cards/decks,
+  owned вложенные папки и live cards в удалённых колодах. Foreign owned rows
+  исключены прежними permissions/owner filters. Старые БД без version columns работают.
+- `legacy_card_writes.legacy_lifecycle_scope` охватывает permissions, discovery,
+  guard и все записи, включая preview media delete. PostgreSQL временно берёт
+  SHARE ROW EXCLUSIVE table locks на folder/deck/card до чтений: это закрывает
+  concurrent inserts/moves writers без parent-lock протокола, но задерживает DML
+  всех пользователей. SQLite — BEGIN IMMEDIATE. Legacy tombstone/SRS/media/grants
+  semantics сохранены; native writes не разрешены.
+- Оба sync push также защищают прямую запись `is_deleted` родителей, включая
+  вложенное содержимое и temp-ID receipt replay; подробности — [sync](sync.md).
+- Tests: `scripts/tests/test_structured_cards_v2_lifecycle.py` (31 / 30+skip при
+  schema-ready=false/true), disposable SQLite, HTTP/permissions, snapshots/SQL trace,
+  rollback, реальная SQLite concurrency. Реальный PostgreSQL concurrency/load не
+  проверен. Алгоритм, audit scope, результаты и следующий этап:
+  [STRUCTURED_CARDS_V2_ARCHITECTURE](../../project_docs/STRUCTURED_CARDS_V2_ARCHITECTURE.md#этап-3b2-lifecycle-колод-папок-и-корзины).
+
 ## Related docs
 
 - [Cards](cards.md), [Study](study.md), [Sync](sync.md).

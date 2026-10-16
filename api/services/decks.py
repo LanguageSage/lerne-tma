@@ -15,6 +15,7 @@ def _learning_key(user_id: int, deck_id: int) -> str:
 
 from .utils import merge_tags, add_to_history, resolve_deck_metadata
 from .media import resolve_media_url
+from .legacy_card_writes import legacy_lifecycle_scope, require_legacy_deck_cards
 
 STARTER_DECK_NAMES = [
     "⭐ [A1] Basis-Wortschatz / Базовый словарный запас",
@@ -937,6 +938,11 @@ def import_deck_from_json(data: dict, user_id: int):
 
 
 def delete_deck(deck_id: int, user_id: int):
+    with legacy_lifecycle_scope():
+        return _delete_legacy_deck(deck_id, user_id)
+
+
+def _delete_legacy_deck(deck_id: int, user_id: int):
     try:
         from .collaborative_service import _require_can_mutate
         _require_can_mutate(user_id, 'deck', deck_id)
@@ -945,6 +951,7 @@ def delete_deck(deck_id: int, user_id: int):
         deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
         if not deck:
             return False
+        require_legacy_deck_cards([deck.id])
         TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id == deck_id).execute()
         deck.is_deleted = True
         deck.updated_at = now

@@ -5,7 +5,7 @@ from fastapi import HTTPException
 
 from api import models
 from api.services.decks import ensure_inbox_deck
-from .legacy_card_writes import require_legacy_cards
+from .legacy_card_writes import require_legacy_cards, legacy_lifecycle_scope, require_legacy_sync_lifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -47,21 +47,22 @@ def execute_sync_push(request, user_id: int) -> dict:
             if item_id and item_id > 0 and get_effective_user_role(user_id, kind, item_id) not in ('owner', 'editor'):
                 raise HTTPException(status_code=403, detail="Нет доступа к записи")
 
-        for folder in request.folders:
-            require_write('folder', folder.id)
-            require_write('folder', folder.parent_id)
-        for deck in request.decks:
-            require_write('deck', deck.id)
-            require_write('folder', deck.folder_id)
-        for card in request.cards:
-            require_write('deck', card.deck_id)
-            if card.id > 0:
-                existing_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card.id)
-                if not existing_card:
-                    raise HTTPException(status_code=409, detail="Карточка удалена на сервере")
-                require_write('deck', existing_card.deck_id)
+        with legacy_lifecycle_scope(lock_membership=bool(request.folders or request.decks)):
+            for folder in request.folders:
+                require_write('folder', folder.id)
+                require_write('folder', folder.parent_id)
+            for deck in request.decks:
+                require_write('deck', deck.id)
+                require_write('folder', deck.folder_id)
+            for card in request.cards:
+                require_write('deck', card.deck_id)
+                if card.id > 0:
+                    existing_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card.id)
+                    if not existing_card:
+                        raise HTTPException(status_code=409, detail="Карточка удалена на сервере")
+                    require_write('deck', existing_card.deck_id)
 
-        with models.tma_db.atomic():
+            require_legacy_sync_lifecycle(request, require_write, implicit_delete=True)
             require_legacy_cards(card.id for card in request.cards if card.id > 0)
             # Preload existing entities to eliminate N+1 queries during bulk sync
             existing_folder_ids = [f.id for f in request.folders if f.id > 0]
