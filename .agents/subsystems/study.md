@@ -40,6 +40,10 @@
 - Pending grades и неподтверждённые ошибки принадлежат session store и переживают reset в памяти, без новой persistent queue. Блокировка привязана к user/card; stale handlers и mouse double-click не оценивают новую карточку. Ошибка остаётся видимой до подтверждения пользователем; автоматического повторения POST нет (сетевой сбой может означать потерю подтверждения уже сохранённой оценки).
 - Background refresh используется также при `startStudyCard`: он обновляет только совпадающую карточку/history/cache, сохраняет новые audio fields и отбрасывает ответы после grade, reset, смены deck/view. Grade response после локального перехода не управляет навигацией; fallback response дополнительно инвалидируется при Next/Back.
 
+## Card footer and information
+
+`StudyCard.jsx` renders one non-floating footer after either card side: a static CEFR badge, the existing exercise/flip controls and an accessible ⓘ disclosure. `StudyCardInfo.jsx` renders author, language, deck, CEFR explanation, source and available dates in the page flow. Coauthors remain an explicit UI placeholder pending a card-level attribution contract; do not derive them from deck collaborators. Missing dates/source/author display no-data text. Follow-up API/sync/attribution work is tracked in `project_docs/FUTURE_PLANS.md`. Geometry, disclosure, locales and exercise controls: `scripts/tests/browser/study-card-info.spec.cjs`.
+
 ## Common symptoms
 
 | Симптом | Первый участок проверки |

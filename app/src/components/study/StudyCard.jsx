@@ -1,8 +1,8 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useId } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { RefreshCw, Eye, AlertTriangle, RotateCw } from 'lucide-react';
+import { RefreshCw, Eye, AlertTriangle, RotateCw, Info } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import './StudyCard.css';
 import { CardBackground } from '../common/CardBackground';
@@ -40,6 +40,7 @@ import { triggerHaptic } from '../../utils/platform';
 
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
+import { StudyCardInfo } from './StudyCardInfo';
 
 export const StudyCard = React.memo(({
   card,
@@ -69,9 +70,12 @@ export const StudyCard = React.memo(({
   const flagStyle = useMemo(() => getFlagStyle(card?.flag), [card?.flag]);
 
   const [aiExplanation, setAiExplanation] = useState(null);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const infoId = useId();
 
   useEffect(() => {
     setAiExplanation(null);
+    setIsInfoOpen(false);
   }, [card?.id]);
 
   const handleAsk = async (req) => {
@@ -644,24 +648,6 @@ export const StudyCard = React.memo(({
               )}
               </>}
 
-              {/* Bottom Level & Action Bar (Pinned to bottom of card window) */}
-              <div
-                className="study-card-bottom-bar"
-              >
-                <div className="study-card-level-slot">
-                  <CardLevelBadge
-                    card={card}
-                    textColor={cardStyle?.color}
-                    style={{ maxWidth: '100%' }}
-                  />
-                </div>
-                <div
-                  ref={setExerciseFooterTarget}
-                  className="study-card-footer-action-target"
-                />
-                <div className="study-card-bottom-spacer" aria-hidden="true" />
-              </div>
-
             </div>
           </div>
         ) : (
@@ -875,22 +861,6 @@ export const StudyCard = React.memo(({
                 </div>
               )}
 
-              {card.creator_name && (
-                <div className="creator-badge-corner" style={{ position: 'absolute', bottom: '10px', right: '10px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px 10px', borderRadius: '20px', zIndex: 10, opacity: 0.8 }}>
-                  {card.creator_avatar ? (
-                    <img src={card.creator_avatar} alt="avatar" style={{ width: 18, height: 18, borderRadius: '50%' }} />
-                  ) : (
-                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px' }}>
-                      {card.creator_name.charAt(0)}
-                    </div>
-                  )}
-                  <span style={{ fontSize: '0.65rem', color: '#fff', fontWeight: 500 }}>{card.creator_name}</span>
-                </div>
-              )}
-
-              {/* Card Level Badge (Bottom-Left Corner) */}
-              <CardLevelBadge card={card} textColor={backCardStyle?.color} style={{ position: 'absolute', bottom: '12px', left: '12px', zIndex: 15 }} />
-
 
             </div>
           </div>
@@ -899,17 +869,43 @@ export const StudyCard = React.memo(({
         </motion.div>
         </AnimatePresence>
         </div>
-        {!blockAnswerReveal && <div className="study-card-footer">
-          <button
-            type="button"
-            className="study-card-flip-button"
-            disabled={loading || isAutoplayActive}
-            onClick={() => onFlip(!isFlipped)}
-          >
-            <RotateCw size={18} aria-hidden="true" />
-            <span>{tr("Перевернуть карточку")}</span>
-          </button>
-        </div>}
+        <div className="study-card-footer">
+          <div className="study-card-bottom-bar">
+            <div className="study-card-level-slot">
+              <CardLevelBadge card={card} expandable={false} style={{ maxWidth: '100%' }} />
+            </div>
+            <div className="study-card-footer-actions">
+              <div ref={setExerciseFooterTarget} className="study-card-footer-action-target" />
+              {!blockAnswerReveal && <button
+                type="button"
+                className="study-card-flip-button"
+                disabled={loading || isAutoplayActive}
+                onClick={() => onFlip(!isFlipped)}
+              >
+                <RotateCw size={18} aria-hidden="true" />
+                <span>{tr("Перевернуть карточку")}</span>
+              </button>}
+            </div>
+            <button
+              type="button"
+              className="study-card-info-button"
+              aria-label={tr('Информация о карточке')}
+              title={tr('Информация о карточке')}
+              aria-expanded={isInfoOpen}
+              aria-controls={infoId}
+              onClick={() => setIsInfoOpen(open => !open)}
+            >
+              <Info size={20} aria-hidden="true" />
+            </button>
+          </div>
+          {isInfoOpen && <StudyCardInfo
+            id={infoId}
+            card={card}
+            language={cardLang}
+            deckName={card.deck_id === deckId ? useDeckStore.getState().currentDeck?.name : undefined}
+            source={card.source || parsedFrontContent.source}
+          />}
+        </div>
         {loading && (
           <div className="card-loading-overlay">
             <RefreshCw size={40} className="spin" />

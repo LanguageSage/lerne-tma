@@ -18,6 +18,7 @@ export const CardLevelBadge = ({
   textColor = null,
   style = {},
   onClick = null,
+  expandable = true,
   defaultExpanded = false
 }) => {
   useInterfaceLocale();
@@ -62,7 +63,9 @@ export const CardLevelBadge = ({
 
   const badgeTextColor = textColor || info.color;
   const detailedExplanation = fullReason || reasonShort || CEFR_DESCRIPTIONS[info.level] || '';
-  const tooltipText = isExpanded
+  const tooltipText = !expandable
+    ? tr("Уровень языка: {{p0}}", { p0: info.level })
+    : isExpanded
     ? tr("Нажмите, чтобы скрыть объяснение")
     : (detailedExplanation ? tr("Уровень: {{p0}} (кликните для объяснения)", { p0: info.level }) : tr("Уровень языка: {{p0}}", { p0: info.level }));
 
@@ -78,7 +81,7 @@ export const CardLevelBadge = ({
     <div
       className="card-level-badge"
       title={tooltipText}
-      onClick={handleClick}
+      onClick={expandable ? handleClick : undefined}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -98,7 +101,7 @@ export const CardLevelBadge = ({
         WebkitBackdropFilter: 'blur(10px)',
         userSelect: 'none',
         lineHeight: 1.25,
-        cursor: 'pointer',
+        cursor: expandable ? 'pointer' : 'default',
         boxSizing: 'border-box',
         ...style
       }}
@@ -115,7 +118,7 @@ export const CardLevelBadge = ({
         }}
       />
       <span style={{ color: badgeTextColor, fontWeight: 800, flexShrink: 0 }}>{info.level}</span>
-      {isExpanded && detailedExplanation && (
+      {expandable && isExpanded && detailedExplanation && (
         <span
           className="badge-reason"
           style={{
