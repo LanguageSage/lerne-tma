@@ -31,6 +31,7 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 - `UserBadge.jsx` показывает кнопку входа и баннер при отсутствии профиля; оба открывают существующее окно auth v2.
 - `DeckGrid.jsx` предлагает войти, если в браузере нет профиля и колод. Для определённого аккаунта без колод сохраняется действие создания колоды.
 - Ответ 401 в новом браузере не должен означать, что в аккаунте нет колод. Вход продолжает использовать `useAuthStore.finishLogin`, который восстанавливает профиль и загружает колоды/папки.
+- `useAppInitialization` сохраняет серверный `is_guest` при загрузке cache, `/init` и `/auth/sync`. Отсутствие имени или username у email/password аккаунта не делает его гостем; проверка повторной загрузки находится в `scripts/tests/browser/guest-entry.spec.cjs`.
 
 ## Source of truth
 
@@ -79,3 +80,10 @@ rg -n 'refresh_session|link_verified|set_email_password|create_challenge|exchang
 ## Isolated Game Test
 
 With `LERNE_DEPLOYMENT=game-test`, `api/dependencies/auth.py:get_user_id` delegates to strict Auth v2 Bearer authentication; no X-User-ID fallback is accepted for Classic routes. Existing Game routes already use strict auth and owner predicates. Supabase Auth is not used. See `project_docs/reports/GAME_TEST_FIRST_LAUNCH.md` and `../deploy_tool/SETUP.md` (relative to the repository root) for isolated database, credentials and provider setup.
+
+Unconfigured Telegram/Google challenges return HTTP 503 with the public code
+`provider_not_configured`. `api/index.py` preserves this code through the Vercel
+exception handler so `useAuthStore` can suggest email/password; other HTTP 5xx
+details remain redacted. The entrypoint contract is covered by
+`tests/test_game_test_preparation.py:PublicErrorTests` (run through
+`python scripts/test_game_mvp3.py tests.test_game_test_preparation`).

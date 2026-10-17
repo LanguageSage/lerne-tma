@@ -22,7 +22,10 @@ try:
 
     @app.exception_handler(StarletteHTTPException)
     async def safe_http_error(request: Request, exc: StarletteHTTPException):
-        if exc.status_code >= 500:
+        # Auth v2 uses this public code to explain which sign-in method to use.
+        if exc.status_code >= 500 and not (
+            exc.status_code == 503 and exc.detail == 'provider_not_configured'
+        ):
             return JSONResponse(status_code=exc.status_code, content={'detail': 'service_unavailable'})
         return await http_exception_handler(request, exc)
 

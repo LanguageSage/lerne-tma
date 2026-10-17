@@ -183,13 +183,12 @@ export const useAppInitialization = (checkStartParam) => {
           const resolvedName = validLocalName || validCachedName || sUser.username || current.username || null;
           const resolvedPhoto = current.photo_url || sUser.photo_url || null;
 
-          const hasIdentifyingInfo = Boolean(resolvedName || sUser.username || current.username);
           const restoredProfile = {
             ...current,
             ...sUser,
             first_name: resolvedName,
             photo_url: resolvedPhoto,
-            is_guest: hasIdentifyingInfo ? Boolean(sUser.is_guest) : true
+            is_guest: Boolean(sUser.is_guest)
           };
           setUserProfile(restoredProfile);
         }
@@ -263,13 +262,12 @@ export const useAppInitialization = (checkStartParam) => {
         const validServerName = sUser.first_name && sUser.first_name !== 'Пользователь' ? sUser.first_name : null;
         const fallbackName = validServerName || validLocalName || sUser.username || current.username || null;
 
-        const hasIdentifyingInfo = Boolean(fallbackName || sUser.username || current.username);
         const mergedProfile = {
           ...current,
           ...sUser,
           first_name: fallbackName,
           photo_url: sUser.photo_url || current.photo_url || null,
-          is_guest: hasIdentifyingInfo ? Boolean(sUser.is_guest) : true
+          is_guest: Boolean(sUser.is_guest)
         };
 
         setUserProfile(mergedProfile);
@@ -377,13 +375,12 @@ export const useAppInitialization = (checkStartParam) => {
         const validServerName = serverUser.first_name && serverUser.first_name !== 'Пользователь' ? serverUser.first_name : null;
         const fallbackName = validServerName || validLocalName || serverUser.username || currentProfile.username || null;
 
-        const hasIdentifyingInfo = Boolean(fallbackName || serverUser.username || currentProfile.username);
         const mergedProfile = {
           ...currentProfile,
           ...serverUser,
           first_name: fallbackName,
           photo_url: serverUser.photo_url || currentProfile.photo_url || null,
-          is_guest: hasIdentifyingInfo ? Boolean(serverUser.is_guest) : true
+          is_guest: Boolean(serverUser.is_guest)
         };
 
         setUserProfile(mergedProfile);

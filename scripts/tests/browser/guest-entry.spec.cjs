@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-async function setup(page, context, identified = false) {
+async function setup(page, context, identified = false, profile = { user_id: 1, first_name: 'Learner', is_guest: false }) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await context.addInitScript(identified => {
@@ -21,7 +21,6 @@ async function setup(page, context, identified = false) {
   let didLogin = false;
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
-    const profile = { user_id: 1, first_name: 'Learner', is_guest: false };
     if (pathname === '/api/auth/v2/email-password/login') {
       authenticated = true;
       didLogin = true;
@@ -94,5 +93,28 @@ test('login from a fresh browser restores the profile and existing decks', async
   await expect(page.locator('.user-signin-button')).toHaveCount(0);
   await expect(page.locator('.guest-banner')).toHaveCount(0);
   await expect(page.locator('.empty-decks-state')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('email account without a display name stays signed in after reload and cached init', async ({ page, context }, testInfo) => {
+  const errors = await setup(page, context, false, {
+    user_id: -123, first_name: null, username: null, is_guest: false,
+  });
+  await page.locator('.user-signin-button').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Email', exact: true }).fill('isolated@example.test');
+  await dialog.getByLabel('Пароль', { exact: true }).fill('isolated-test-password');
+  await dialog.getByRole('button', { name: 'Войти', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  for (let reload = 0; reload < 2; reload++) {
+    await page.setViewportSize({ width: reload ? 1280 : 375, height: 900 });
+    await page.reload();
+    await expect(page.getByText('Existing German deck', { exact: true })).toBeVisible();
+    await expect(page.locator('.user-name')).toHaveText('Профиль');
+    await expect(page.locator('.guest-banner')).toHaveCount(0);
+    await expect(page.locator('.guest-label')).toHaveCount(0);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lerne_user_profile')).is_guest)).toBe(false);
+    await page.screenshot({ path: testInfo.outputPath(`email-account-${reload ? 1280 : 375}.png`), fullPage: true });
+  }
   expect(errors).toEqual([]);
 });

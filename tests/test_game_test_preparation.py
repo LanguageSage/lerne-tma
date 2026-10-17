@@ -76,31 +76,43 @@ class TargetTests(unittest.TestCase):
         self.assertEqual(parsed['host'], 'aws-0-eu-north-1.pooler.supabase.com')
 
         placeholder = f'postgresql://postgres.{PROJECT_ID}:[YOUR-PASSWORD]@aws-0-eu-north-1.pooler.supabase.com:6543/postgres'
+        # The isolated runner patches database.initialize_database globally.
+        spec = importlib.util.spec_from_file_location('isolated_placeholder_database', database.__file__)
+        isolated = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(isolated)
         with patch.dict(os.environ, {'LERNE_DEPLOYMENT': 'game-test', 'RUN_MIGRATIONS': 'false',
                                      'SUPABASE_DB_URL': placeholder, 'SUPABASE_URL': f'https://{PROJECT_ID}.supabase.co'}):
             with self.assertRaises(RuntimeError) as ctx:
-                database.initialize_database()
+                isolated.initialize_database()
             self.assertIn('placeholder password', str(ctx.exception))
-
-    def test_unconfigured_auth_providers_return_503(self):
-        from api.routers.auth_v2 import router
-        app = FastAPI()
-        app.include_router(router)
-        client = TestClient(app)
-
-        with patch.dict(os.environ, {'BOT_TOKEN': '', 'TELEGRAM_BOT_USERNAME': ''}, clear=False):
-            resp = client.post('/auth/v2/challenges', json={'provider': 'telegram', 'purpose': 'login'})
-            self.assertEqual(resp.status_code, 503)
-            self.assertEqual(resp.json()['detail'], 'provider_not_configured')
-
-        with patch.dict(os.environ, {'GOOGLE_OAUTH_CLIENT_ID': '', 'GOOGLE_OAUTH_CLIENT_SECRET': '',
-                                     'GOOGLE_OAUTH_REDIRECT_URI': ''}, clear=False):
-            resp = client.post('/auth/v2/challenges', json={'provider': 'google', 'purpose': 'login'})
-            self.assertEqual(resp.status_code, 503)
-            self.assertEqual(resp.json()['detail'], 'provider_not_configured')
 
 
 class PublicErrorTests(unittest.TestCase):
+    def test_unconfigured_auth_provider_code_survives_vercel_entrypoint(self):
+        from datetime import datetime
+        from api.routers.auth_v2 import router
+
+        fake_main = types.ModuleType('api.main')
+        fake_main.app = FastAPI()
+        fake_main.app.include_router(router, prefix='/api')
+        spec = importlib.util.spec_from_file_location(
+            'isolated_auth_index', Path(models.__file__).with_name('index.py'))
+        module = importlib.util.module_from_spec(spec)
+        challenge = types.SimpleNamespace(id='fixture', secret='s' * 43,
+                                          expires_at=datetime(2026, 10, 17), state='fixture-state')
+        with patch.dict(sys.modules, {'api.main': fake_main}), patch.dict(os.environ, {
+                'BOT_TOKEN': '', 'TELEGRAM_BOT_USERNAME': '', 'GOOGLE_OAUTH_CLIENT_ID': '',
+                'GOOGLE_OAUTH_CLIENT_SECRET': '', 'GOOGLE_OAUTH_REDIRECT_URI': ''}), patch(
+                'api.auth.service.create_challenge', return_value=challenge):
+            spec.loader.exec_module(module)
+            client = TestClient(module.app)
+            for provider in ('telegram', 'google'):
+                with self.subTest(provider=provider):
+                    response = client.post('/api/auth/v2/challenges',
+                                           json={'provider': provider, 'purpose': 'login'})
+                    self.assertEqual(response.status_code, 503)
+                    self.assertEqual(response.json(), {'detail': 'provider_not_configured'})
+
     def test_startup_error_does_not_expose_secrets(self):
         spec = importlib.util.spec_from_file_location('isolated_startup_index', Path(models.__file__).with_name('index.py'))
         module = importlib.util.module_from_spec(spec)
