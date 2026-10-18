@@ -1,17 +1,133 @@
 /**
  * author.js — Lerne TMA Admin Module: «Автор уроков» (Lesson Author)
  * 
- * Предоставляет 3 режима работы автора уроков:
+ * Предоставляет режимы работы автора уроков:
  * 1. Публикация (Drag&Drop .txt/.md -> /parse -> preview -> выбор папки -> /publish)
  * 2. Экспорт (Колода / Папка -> /export -> скачивание .txt)
  * 3. Обновление (Файл -> /update-preview -> diff было/стало -> /update-apply)
+ * 4. JSON V2: изолированный предварительный просмотр без сохранения.
  * 
  * Вся бизнес-логика выполняется на backend в /api/admin/author/*
  */
 
 // Global State for Author Module
+// V2 results deliberately never enter publish/update state.
+async function previewAuthorV2(input) {
+  const file = input.files?.[0];
+  if (!file || input.disabled) return;
+  const status = document.getElementById('author-v2-status');
+  const result = document.getElementById('author-v2-result');
+  result.replaceChildren();
+  input.disabled = true;
+  status.textContent = `Проверка: ${file.name}…`;
+  result.setAttribute('aria-busy', 'true');
+  try {
+    if (!file.name.toLowerCase().endsWith('.json')) throw new Error('Выберите файл .json.');
+    if (file.size > 10 * 1024 * 1024) throw new Error('Размер файла превышает 10 МБ.');
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch('/api/admin/author/v2-preview', { method: 'POST', body: form });
+    const preview = await response.json();
+    if (!response.ok) throw new Error(typeof preview.detail === 'string' ? preview.detail : 'Не удалось проверить файл.');
+    if (!preview.valid) {
+      status.textContent = `${file.name}: ошибки валидации (${preview.errors.length}).`;
+      result.innerHTML = `<div role="alert" class="p-4 rounded-xl border border-rose-500/30 text-rose-200">
+        <h4 class="font-bold">Ошибки V2</h4><ul class="space-y-3 mt-3">${preview.errors.map(error => `<li>
+        <b>${error.card_number ? `Карточка №${error.card_number}` : 'Документ / колода'}</b> ·
+        <code>${escapeHtml(error.path)}</code><br>${escapeHtml(error.message)}
+        ${error.line ? ` (строка ${error.line}, столбец ${error.column})` : ''}</li>`).join('')}</ul></div>`;
+      return;
+    }
+    status.textContent = `${file.name}: V2 валиден. Карточек: ${preview.total_cards}.`;
+    renderAuthorV2(preview, result);
+  } catch (error) {
+    status.textContent = `Ошибка: ${error.message}. Можно выбрать файл повторно.`;
+  } finally {
+    input.disabled = false;
+    input.value = '';
+    result.removeAttribute('aria-busy');
+  }
+}
+
+function authorV2Field(label, value) {
+  if (value === undefined || value === null || value === '') return '';
+  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  return `<div class="mt-3"><h5 class="text-xs font-bold text-slate-400">${escapeHtml(label)}</h5>
+    <pre class="mt-1 text-sm text-slate-200">${escapeHtml(text)}</pre></div>`;
+}
+
+function authorV2Options(options) {
+  return `<ul class="space-y-1 mt-2">${options.map((option, index) => `<li class="text-sm text-slate-200">
+    ${index + 1}. ${escapeHtml(option.text)}${option.correct ? ' <strong class="text-emerald-300">✓ Правильный ответ</strong>' : ''}</li>`).join('')}</ul>`;
+}
+
+function renderAuthorV2Card(card) {
+  const data = card.data;
+  let html = card.info.map(block => authorV2Field(
+    { task: 'Задание', source: 'Исходный текст', example: 'Пример', options: 'Доступные варианты (информация)' }[block.type],
+    block.type === 'options' ? block.items.join('\n') : block.text)).join('');
+  switch (card.type) {
+    case 'theory':
+      html += authorV2Field('Содержание', data.text) + authorV2Field('Краткий итог', data.summary);
+      break;
+    case 'standard':
+      html += authorV2Field('Задание', data.prompt) + authorV2Field('Правильный ответ', data.answer);
+      break;
+    case 'quiz':
+      html += authorV2Field('Задание', data.prompt) + authorV2Options(data.options);
+      break;
+    case 'trainer':
+    case 'word_bank':
+      if (card.type === 'word_bank') html += authorV2Field('Банк слов (номера вариантов с 1)', data.options.map((text, i) => `${i + 1}. ${text}`).join('\n'));
+      html += authorV2Field('Содержание', data.parts.map(part => part.type === 'text' ? part.text : '［…］').join(''));
+      data.parts.forEach((part, index) => {
+        if (part.type === 'input') html += authorV2Field(`Часть ${index + 1} · правильные ответы (альтернативы)`, part.answers.join('\n'));
+        if (part.type === 'choice') html += authorV2Field(`Часть ${index + 1} · варианты`, 'Выбор ответа') + authorV2Options(part.options);
+        if (part.type === 'gap') html += authorV2Field(`Часть ${index + 1} · правильный ответ`, `${data.options[part.option]} (вариант №${part.option + 1})`);
+      });
+      break;
+    case 'match':
+      html += authorV2Field('Правильные пары', data.pairs.map(pair => `${pair.left} → ${pair.right}`).join('\n'));
+      break;
+    case 'puzzle':
+      html += authorV2Field('Правильный порядок фрагментов', data.tokens.map((token, i) => `${i + 1}. ${token}`).join('\n'))
+        + authorV2Field('Перевод', data.translation);
+      break;
+    case 'free_text':
+      html += authorV2Field('Задание', data.prompt) + authorV2Field('Пример ответа (не точный ключ)', data.sample_answer)
+        + authorV2Field('Допустимые ответы', data.accepted_answers.join('\n')) + authorV2Field('Политика проверки', data.grading_policy);
+      break;
+  }
+  return html + authorV2Field('Объяснение после ответа', card.explanation)
+    + authorV2Field('Уровень карточки (если указан)', card.level) + authorV2Field('Темы карточки (если указаны)', card.topics);
+}
+
+function renderAuthorV2(preview, container) {
+  const doc = preview.document;
+  container.innerHTML = `<div class="glass p-5 rounded-2xl">
+    <h3 class="text-lg font-bold text-white">${escapeHtml(doc.deck.name)}</h3>
+    <p class="text-sm text-slate-300 mt-2">Карточек: ${preview.total_cards} · ${Object.entries(preview.types).map(([type, count]) => `${escapeHtml(type)}: ${count}`).join(' · ')}</p>
+    ${authorV2Field('Паспорт колоды V2', doc.deck.passport || 'Паспорт не указан')}
+    ${authorV2Field('Метаданные колоды V2', doc.deck.metadata)}</div>
+    ${doc.cards.map((card, index) => {
+      const projection = preview.legacy_projections[index];
+      let legacy;
+      if (projection.status === 'converted') {
+        legacy = `<details class="mt-4 border-t border-slate-700 pt-2"><summary class="cursor-pointer text-sm text-slate-300">Временная legacy-проекция · только просмотр</summary>
+          ${authorV2Field('Производные поля legacy', projection.card)}</details>`;
+      } else {
+        legacy = `<p class="mt-4 text-sm text-amber-200">V2-карточка валидна, но legacy не может безопасно представить её содержимое: ${escapeHtml(projection.message)}</p>`;
+      }
+      return `<article class="glass p-5 rounded-2xl" data-v2-card="${index}">
+        <h4 class="text-base font-bold text-white">Карточка №${index + 1} · ${escapeHtml(card.type)}${card.id ? ` · ${escapeHtml(card.id)}` : ''}</h4>
+        <p class="text-xs text-indigo-300 mt-1">Данные V2</p>${renderAuthorV2Card(card)}${legacy}
+        <details class="mt-3"><summary class="cursor-pointer text-sm text-slate-400">Полные данные карточки V2</summary>${authorV2Field('V2', card)}</details>
+      </article>`;
+    }).join('')}`;
+}
+
 let authorState = {
-  activeSubtab: 'publish', // 'publish' | 'export' | 'update'
+  activeSubtab: 'publish', // 'publish' | 'export' | 'update' | 'v2'
 
   // Mode 1: Publish
   publish: {
@@ -73,7 +189,7 @@ async function initAuthorTab() {
 function switchAuthorSubtab(subtab) {
   authorState.activeSubtab = subtab;
 
-  ['publish', 'export', 'update'].forEach(s => {
+  ['publish', 'export', 'update', 'v2'].forEach(s => {
     const btn = document.getElementById(`author-subtab-${s}`);
     const panel = document.getElementById(`author-panel-${s}`);
     if (btn) {

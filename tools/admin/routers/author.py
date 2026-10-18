@@ -7,7 +7,8 @@ API-роутер модуля «Автор уроков» (Author Content Router
 - Экспорта колод и папок в канонический формат Lerne;
 - Двухфазного безопасного обновления существующих карточек (preview -> apply без мутации SRS).
 
-Использует исключительно единый сервисный слой `api.services.author_service`.
+TXT/MD использует `api.services.author_service`; JSON V2 preview — существующий
+V2-контракт через `tools.admin.services.structured_preview`, без записи данных.
 """
 
 import os
@@ -19,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from api.models import TMA_Folder, TMA_Deck
 from api.services import author_service
+from tools.admin.services.structured_preview import preview_document
 
 router = APIRouter(prefix="/api/admin/author", tags=["author"])
 
@@ -121,6 +123,24 @@ async def _extract_text_from_upload(file: UploadFile) -> str:
 # ============================================================================
 # 1. PARSE: Загрузка и анализ файла/текста
 # ============================================================================
+
+@router.post('/v2-preview')
+def preview_v2(file: UploadFile = File(...)):
+    """Validate a JSON V2 file and derive previews; no publish/save path."""
+    try:
+        if os.path.splitext(file.filename or '')[1].lower() != '.json':
+            raise HTTPException(400, 'Для V2-preview выберите файл .json.')
+        content = file.file.read(MAX_FILE_SIZE_BYTES + 1)
+        if len(content) > MAX_FILE_SIZE_BYTES:
+            raise HTTPException(413, 'Размер файла превышает допустимый предел (10 МБ).')
+        try:
+            text = content.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            raise HTTPException(400, 'Сохраните JSON-файл в кодировке UTF-8.')
+        return preview_document(text)
+    finally:
+        file.file.close()
+
 
 @router.post("/parse")
 async def parse_content(request: Request):

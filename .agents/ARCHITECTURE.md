@@ -41,7 +41,7 @@ Online и offline CRUD выбираются в API-клиенте; offline оч�
 
 | Подсистема | Основной вход UI / клиента | Серверный вход | Документ |
 | --- | --- | --- | --- |
-| Карточки, синтаксис, редактор, batch import | `app/src/components/common/CardForm.jsx`, `app/src/hooks/useCardEditor.js` | `api/routers/cards.py`, `api/services/cards.py` | [cards](subsystems/cards.md) |
+| Карточки, синтаксис, редактор, batch import | `app/src/components/common/CardForm.jsx`, `app/src/hooks/useCardEditor.js` | `api/routers/cards.py`, `api/services/cards.py`, `api/services/card_content_service.py` | [cards](subsystems/cards.md) |
 | Колоды, папки, библиотека, sharing, trash | `app/src/components/deckgrid/DeckGrid.jsx`, `app/src/store/useDeckStore.js` | `api/routers/decks.py`, `api/routers/folders.py` | [decks](subsystems/decks.md) |
 | Обучение, упражнения, SRS, autoplay | `app/src/components/study/StudyView.jsx`, `app/src/hooks/useStudySession.js` | `api/routers/study.py`, `api/srs.py` | [study](subsystems/study.md) |
 | Offline CRUD и синхронизация сущностей | `app/src/services/offlineApi.js`, `app/src/services/syncService.js` | `api/routers/sync.py`, `api/services/offline_sync.py` | [sync](subsystems/sync.md) |

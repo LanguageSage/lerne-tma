@@ -42,6 +42,7 @@ def parse_exercise_content(raw_text: str) -> dict:
         "blocks": [],
         "exercise": raw.strip(),
         "raw_preamble": "",
+        "is_theory": False,
         "has_blocks": False,
     }
     if not raw.strip():
@@ -207,6 +208,70 @@ def detect_ai_input_type(text: str) -> str:
     if any(word in normalized.lower() for word in trainer_words):
         return "trainer"
 
+    return "standard"
+
+
+_TRAINER_SYNTAX = re.compile(r"\{[^}]+\}|\[\[[^\]]+\]\]")
+_OPTION_LINE = (re.compile(r"^[-*○•]"), re.compile(r"^\[[*xX ]\]"), re.compile(r"^[a-zA-Z0-9]+[).]\s"))
+_CORRECT_OPTION = (re.compile(r"^\*(?!\*)"), re.compile(r"^\[\*\]"),
+                   re.compile(r"^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*\*"), re.compile(r"^[-○•]\s*\*"))
+
+
+def _option_parts(line: str) -> tuple[bool, str]:
+    """Mirror cleanOptionPrefix in app/src/utils/quizParser.js (without Markdown stripping)."""
+    line = line.strip()
+    cleaned = re.sub(r"^\[[*xX ]\]\s*", "", line)
+    cleaned = re.sub(r"^[-*○•\s]+", "", cleaned)
+    cleaned = re.sub(r"^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*", "", cleaned)
+    cleaned = re.sub(r"^[-*○•\s]+", "", cleaned).strip()
+    return any(rx.search(line) for rx in _CORRECT_OPTION), cleaned
+
+
+def _has_quiz_structure(exercise: str) -> bool:
+    """Mirror parseQuizData: a question plus >= 2 options, at least one marked correct."""
+    masked = re.sub(r"\{[^}]+\}", "__TRAINER_CHOICE__", re.sub(r"\[\[[^\]]+\]\]", "__TRAINER_INPUT__", exercise))
+    if "\n\n" in masked:
+        parts = re.split(r"\n\s*\n", masked)
+        option_lines = [l.strip() for l in "\n\n".join(parts[1:]).strip().split("\n") if l.strip()]
+    else:
+        lines = [l.strip() for l in masked.split("\n") if l.strip()]
+        if len(lines) < 2:
+            return False
+        first = next((i for i, l in enumerate(lines) if any(rx.search(l) for rx in _OPTION_LINE)), -1)
+        if first > 0:
+            option_lines = lines[first:]
+        else:
+            star = next((i for i, l in enumerate(lines) if re.match(r"^\*(?!\*)|^\[\*\]", l)), -1)
+            if star <= 0:
+                return False
+            option_lines = lines[1:]
+    if len(option_lines) < 2:
+        return False
+    options = [_option_parts(l) for l in option_lines]
+    return any(correct for correct, _ in options) and sum(1 for _, text in options if text) >= 2
+
+
+def detect_card_type(text: str) -> str:
+    """Classify a stored card FRONT exactly like the client (exerciseDetector.js).
+
+    Unlike detect_ai_input_type this is not a heuristic for raw AI input: quiz needs a real
+    option structure, trainer tokens win over quiz and no keyword guessing is applied.
+    Shared fixtures: tests/fixtures/exercise_detection_corpus.json.
+    """
+    parsed = parse_exercise_content(text)
+    if parsed.get("is_theory"):
+        return "theory"
+    normalized = parsed["exercise"].strip()
+    if not normalized:
+        return "standard"
+    for marker, card_type in (("match", "match"), ("free", "free_text"),
+                              ("puzzle", "puzzle"), ("wordbank", "word_bank")):
+        if re.search(rf"(?im)^[ \t]*@{marker}[ \t]*$", normalized):
+            return card_type
+    if _TRAINER_SYNTAX.search(normalized):
+        return "trainer"
+    if _has_quiz_structure(parse_exercise_content(normalized)["exercise"].strip()):
+        return "quiz"
     return "standard"
 
 

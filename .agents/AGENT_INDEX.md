@@ -7,8 +7,8 @@
 | Симптом / термин | Подсистема | Документ |
 | --- | --- | --- |
 | Редактор карточки, Simple/Raw, курсор, вставка команды, `::source`, `::task`, `::exercise` | Cards: editor / syntax | [cards](subsystems/cards.md) |
-| Разбор `@wordbank`, `@puzzle`, `@match`, `@quiz`, `@free`, `[[input]]` | Cards: parsers | [cards](subsystems/cards.md) |
-| Сохранение карточки, batch move/delete/copy, bulk-save, `import_id`, дубликаты | Cards: CRUD / batch | [cards](subsystems/cards.md) |
+| Разбор `@wordbank`, `@puzzle`, `@match`, `@quiz`, `@free`, `@theory`, `[[input]]`, `detect_card_type`, Structured Cards V2 | Cards: parsers / V2 authoring | [cards](subsystems/cards.md) |
+| Сохранение карточки, `card_content_service`, batch move/delete/copy, bulk-save, `import_id`, дубликаты | Cards: CRUD / batch | [cards](subsystems/cards.md) |
 | Пропала карточка в списке, поиск, возврат и прокрутка CardList | Cards: list / navigation | [cards](subsystems/cards.md) |
 | Колода, папка, порядок, видимость, язык обучения, кнопка «Учить» | Decks / folders | [decks](subsystems/decks.md) |
 | Sharing, библиотека, импорт JSON, корзина, soft delete | Decks: imports / lifecycle | [decks](subsystems/decks.md) |

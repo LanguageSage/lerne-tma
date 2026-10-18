@@ -63,19 +63,12 @@ class FolderTextUpdateTests(unittest.TestCase):
         return preview
 
     def test_real_folder_export_edit_parse_preview_apply_ignores_headings(self):
-        script = """
-import {serializeFolder} from './app/src/utils/cardTextSerializer.js';
-import {parseCardTextUpdate} from './app/src/utils/cardTextUpdateParser.js';
-let raw='';for await(const chunk of process.stdin)raw+=chunk;
-const source=serializeFolder(JSON.parse(raw)).text.replace(/# Deck: [^\\n]+/g,'# Deck: Renamed in file')
-  .replace('Haus 1','Edited one').replace('Haus 2','Edited two');
-process.stdout.write(JSON.stringify(parseCardTextUpdate(source,{requireDeckId:true})));
-"""
-        sections = [{'deck': {'id': deck.id, 'name': deck.name},
-                     'cards': [dict(id=card.id, **service._content(card))]}
-                    for deck, card in zip(self.decks[:3], self.cards[:3])]
-        parsed = json.loads(subprocess.run(['node', '--input-type=module', '-e', script], cwd=ROOT,
-            input=json.dumps(sections), text=True, encoding='utf-8', capture_output=True, check=True).stdout)
+        import re
+        from api.services.author_service import serialize_folder, parse_document
+        exported = serialize_folder(self.root, [(deck, [card]) for deck, card in zip(self.decks[:3], self.cards[:3])])
+        source = (re.sub(r'# Deck: [^\n]+', '# Deck: Renamed in file', exported)
+                  .replace('Haus 1', 'Edited one').replace('Haus 2', 'Edited two'))
+        parsed = parse_document(source)
         self.assertEqual(parsed['errors'], [])
         preview = self.preview(parsed['cards'])
         self.assertEqual((preview['deck_count'], preview['updated'], preview['unchanged']), (3, 2, 1))

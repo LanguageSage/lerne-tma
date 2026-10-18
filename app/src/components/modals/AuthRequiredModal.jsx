@@ -4,6 +4,7 @@ import { X, Lock, Send, RefreshCw } from 'lucide-react';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { useAuthStore } from '../../store/useAuthStore';
+import { getPlatform, openExternalLink } from '../../utils/platform';
 
 export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в аккаунт') }) => {
   useInterfaceLocale();
@@ -32,7 +33,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
   const onKeyDown = (event) => {
     if (event.key === 'Escape') close();
     if (event.key !== 'Tab') return;
-    const controls = [...dialog.current.querySelectorAll('button:not(:disabled), input:not(:disabled)')];
+    const controls = [...dialog.current.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')];
     const first = controls[0], last = controls.at(-1);
     if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) {
       event.preventDefault(); last?.focus();
@@ -64,11 +65,18 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
           ? tr('Добавьте Telegram к этому аккаунту: через него можно восстановить пароль и получать напоминания о занятиях. Настройки напоминаний доступны в профиле.')
           : recovery ? tr('Войдите через Telegram или Google, ранее привязанный к этому аккаунту. Затем задайте новый пароль в профиле. Если ничего не привязано, восстановление без писем недоступно.')
           : tr('Выберите способ входа. После привязки Telegram и Google будут вести к одному аккаунту и тем же колодам.')}</p>
-        {authError && <p style={{ color: '#f87171', fontSize: '.82rem' }}>{authError}</p>}
-        {isPolling && <div style={{ margin: '12px 0', padding: 12, borderRadius: 12, color: '#e9d5ff', background: 'rgba(168,85,247,.12)', fontSize: '.84rem' }}>
+        {authError && <p role="alert" style={{ color: '#f87171', fontSize: '.82rem' }}>{authError}</p>}
+        {isPolling && !authError && <div style={{ margin: '12px 0', padding: 12, borderRadius: 12, color: '#e9d5ff', background: 'rgba(168,85,247,.12)', fontSize: '.84rem' }}>
           <RefreshCw size={16} className="spin" style={{ verticalAlign: 'middle', marginRight: 8 }} />{tr('Подтвердите вход в открывшемся окне и вернитесь в приложение.')}
         </div>}
         {isPolling && authUrl && <a href={authUrl} target="_blank" rel="noopener noreferrer"
+          onClick={(event) => {
+            useAuthStore.setState({ authError: null });
+            if (getPlatform() !== 'web') {
+              event.preventDefault();
+              openExternalLink(authUrl);
+            }
+          }}
           style={{ display: 'block', marginTop: 6, padding: '10px 14px', borderRadius: 10, textAlign: 'center',
             background: 'rgba(168,85,247,.15)', color: '#d8b4fe', fontSize: '.84rem', textDecoration: 'none' }}>
           {tr('Окно не открылось? Нажмите здесь ↗')}

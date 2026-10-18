@@ -1,7 +1,6 @@
-"""Content maintenance on disposable SQLite; real JS exporter/parser round-trip."""
+"""Content maintenance on disposable SQLite; real exporter/parser round-trip."""
 import json
 from pathlib import Path
-import subprocess
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
@@ -48,18 +47,9 @@ class CardTextUpdateTests(unittest.TestCase):
             (preview or self.preview(items))['preview_token'], kwargs.pop('request_id', str(uuid4())), **kwargs)
 
     def test_real_export_edit_preview_apply_keeps_count_and_omitted_card(self):
-        script = """
-import {serializeDeck} from './app/src/utils/cardTextSerializer.js';
-import {parseCardTextUpdate} from './app/src/utils/cardTextUpdateParser.js';
-let input='';for await(const chunk of process.stdin) input+=chunk;
-const data=JSON.parse(input);
-const exported=serializeDeck(data.deck,data.cards).text;
-process.stdout.write(JSON.stringify(parseCardTextUpdate(exported.replace('[[lerne]]','[[lernte]]'))));
-"""
-        exported_cards = [dict(id=card.id, **service._content(card)) for card in (self.a, self.b)]
-        parsed = json.loads(subprocess.run(['node', '--input-type=module', '-e', script], cwd=ROOT,
-            input=json.dumps({'deck': {'id': self.deck.id, 'name': self.deck.name}, 'cards': exported_cards}),
-            text=True, encoding='utf-8', capture_output=True, check=True).stdout)
+        from api.services.author_service import serialize_deck, parse_document
+        exported = serialize_deck(self.deck, [self.a, self.b])
+        parsed = parse_document(exported.replace('[[lerne]]', '[[lernte]]'), default_deck_id=self.deck.id)
         self.assertEqual(parsed['errors'], [])
         preview = self.preview(parsed['cards'])
         self.assertEqual((preview['updated'], preview['unchanged'], preview['new']), (1, 1, 0))

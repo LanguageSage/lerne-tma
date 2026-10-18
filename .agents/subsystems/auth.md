@@ -42,6 +42,14 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 - Миграции схемы — `api/migrations.py`; детали текущего rollout/переменных — `api/auth/DEPLOYMENT.md`.
 - Старый router `api/routers/auth.py` существует, но действующий вход описан через auth v2.
 
+## Session and provider recovery
+
+- `utils/auth.js` consumes `guest=1` / `reset=1` through `history.replaceState`, preserving other query parameters and the hash. A new login must survive the next reload.
+- API refresh handles only a rejected credential from the current account/session. Late 401 responses from a previous account cannot clear the new session; responses sent with an already rotated access token retry with the current token. Mini App proof failures are provider errors, not session refresh triggers.
+- `restoreSession` resumes a pending Telegram/Google challenge (including its manual URL) from sessionStorage on reload. Missing state or invalid/expired deadlines stop the waiting UI. Temporary exchange transport/5xx errors remain retryable within the original five-minute challenge lifetime. The backend's `invalid_challenge` also represents unconfirmed challenges, so the client bounds that response by the stored deadline.
+- Valid Mini App `initData` signs in directly without a popup. Expired/consumed proof falls back to a fresh bot challenge via `openTelegramLink`; server signature, replay, session and linking rules remain enforced.
+- Browser provider flows reserve a tab synchronously in the click handler. `openExternalLink` returns whether a window/bridge was available; a blocked popup shows an explicit message and a native anchor as the manual fallback. The fallback belongs to the modal keyboard focus loop.
+
 ## Common symptoms
 
 | Симптом | Первый участок проверки |
@@ -68,6 +76,8 @@ rg -n 'refresh_session|link_verified|set_email_password|create_challenge|exchang
 - Client state: `scripts/tests/auth_store_regression.mjs`.
 - Новый браузер, локализованные адаптивные элементы входа и загрузка колод после входа (изолированные ответы API): `scripts/tests/browser/guest-entry.spec.cjs`.
 - Refresh queue: `scripts/tests/test_api_silent_refresh.mjs`.
+- Real API interceptors with isolated Axios transport: `scripts/tests/api_session_regression.mjs`; storage/reload/reset: `scripts/tests/auth_session_regression.mjs`.
+- Browser provider lifecycle, blocked-popup fallback, pending reload/expiry, expired access refresh and Mini App: `scripts/tests/browser/auth-lifecycle.spec.cjs` (all provider/API responses intercepted).
 Перед integration checks сверяйте fixtures/DB configuration; deployment checks описаны отдельно.
 
 ## Related docs

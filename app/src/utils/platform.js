@@ -208,29 +208,35 @@ export const openExternalLink = (url, preparedWindow = null) => {
       const isTgUrl = /^https?:\/\/t\.me\//i.test(url) || /^tg:\/\//i.test(url);
       if (isTgUrl && window.Telegram?.WebApp?.openTelegramLink) {
         window.Telegram.WebApp.openTelegramLink(url);
-        return;
+        return true;
       }
       if (window.Telegram?.WebApp?.openLink) {
         window.Telegram.WebApp.openLink(url);
-        return;
+        return true;
       }
     }
     if (window.Capacitor?.Plugins?.Browser?.open) {
       window.Capacitor.Plugins.Browser.open({ url });
-      return;
+      return true;
     }
   } catch {
     // Fallback to window.open
   }
   try {
     if (preparedWindow && !preparedWindow.closed) {
+      preparedWindow.opener = null;
       preparedWindow.location.href = url;
-      return;
+      return true;
     }
     // If a popup blocker prevented the prepared window, try opening directly.
     // If that too is blocked, the AuthRequiredModal shows a manual link (authUrl).
-    window.open(url, '_blank', 'noopener,noreferrer');
+    // Detach the opener ourselves: window.open(..., 'noopener') returns null
+    // even on success, which cannot be used to detect popup blocking.
+    const popup = window.open(url, '_blank');
+    if (popup) popup.opener = null;
+    return Boolean(popup);
   } catch {
     // Popup is blocked — AuthRequiredModal's authUrl link is the fallback.
   }
+  return false;
 };

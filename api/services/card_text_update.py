@@ -13,11 +13,11 @@ from fastapi import HTTPException
 from peewee import fn
 
 from api.models import TMA_Card, TMA_Deck, TMA_Folder, TMAUser, TMAOfflineBatch, tma_db
+from .card_content_service import LEVELS, build_text_update_values
 from .cefr_metadata import get_cefr_metadata, build_manual_cefr_payload, merge_cefr_metadata
 from .collaborative_service import _require_can_mutate, touch_deck_and_parent_folders
 from .input_parser import parse_exercise_content
 
-LEVELS = ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')
 CONTENT_FIELDS = ('front', 'back', 'context', 'level', 'topics')
 
 
@@ -132,26 +132,7 @@ def preview_text_update(deck_id, user_id, items):
 
 
 def _update_values(card, row, item, now):
-    values = {'updated_at': now}
-    for key, field in (('front', 'front_text'), ('back', 'back_text'), ('context', 'context'), ('topics', 'topics')):
-        if key in row['changed_fields']:
-            values[field] = row['after'][key]
-    if 'front' in row['changed_fields']:
-        values['card_type'] = item['card_type']
-    if 'level' in row['changed_fields']:
-        level = row['after']['level']
-        values['metadata'] = merge_cefr_metadata(card.metadata, build_manual_cefr_payload(level))
-        try:
-            tags = json.loads(card.tags or '')
-        except (TypeError, ValueError):
-            tags = None
-        if isinstance(tags, list):
-            values['tags'] = json.dumps([tag for tag in tags if str(tag).upper() not in LEVELS] + [level], ensure_ascii=False)
-        else:
-            tags = [tag.strip() for tag in (card.tags or '').split(',') if tag.strip() and tag.strip().upper() not in LEVELS]
-            values['tags'] = ','.join(tags + [level])
-    return values
-
+    return build_text_update_values(card, row, item, now)
 
 
 def _apply_rows(deck, items, preview, user_id, include_new, touch=True):
@@ -181,7 +162,7 @@ def _apply_rows(deck, items, preview, user_id, include_new, touch=True):
     if touch and (updated or created):
         touch_deck_and_parent_folders(deck_id, deck_obj=deck)
     return {'status': 'success', 'updated': updated, 'created': created,
-              'unchanged': preview['unchanged'], 'skipped_new': preview['new'] - created}
+            'unchanged': preview['unchanged'], 'skipped_new': preview['new'] - created}
 
 
 def _claim_receipt(key, payload_hash):

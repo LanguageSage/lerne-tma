@@ -39,7 +39,7 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test' 
     getUserId: () => currentUserId, getAccessToken: () => accessToken,
     closeLocalDb: (id) => { closedDbUserIds.push(id); },
     resetAllDatabases: () => { resetAllDatabasesCount++; },
-    storage: { remove() {}, set() {}, get() { return null; } }, openExternalLink() {},
+    storage: { remove() {}, set() {}, get() { return null; } }, openExternalLink() { return true; },
     prepareExternalLink: () => ({ navigate() {}, close() {} }),
     useUiStore: { getState: () => ui, setState: value => Object.assign(ui, value) },
     useDeckStore: { getState: () => ({
@@ -51,9 +51,10 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test' 
       removeItem: key => pending.delete(key) },
     setInterval: callback => { timers.set(++nextTimer, callback); return nextTimer; },
     clearInterval: id => timers.delete(id), window: {},
+    document: { hidden: false, addEventListener() {} },
   };
   vm.runInNewContext(`${source}\nglobalThis.subject = useAuthStore;`, context);
-  return { store: context.subject, api, ui, pending, timers, calls,
+  return { store: context.subject, api, ui, pending, timers, calls, context,
     get deckStoreResetCount() { return deckStoreResetCount; },
     get closedDbUserIds() { return closedDbUserIds; },
     get resetAllDatabasesCount() { return resetAllDatabasesCount; },
@@ -206,3 +207,94 @@ test('logout retires a login already waiting for its profile', async () => {
   assert.equal(f.store.getState().userProfile, null);
 });
 
+test('unconfigured provider failure presents clear message without generic fallback', async () => {
+  const f = fixture();
+  f.api.post = async (path) => {
+    if (path === '/auth/v2/challenges') {
+      const err = new Error('Request failed with status code 503');
+      err.response = { status: 503, data: { detail: 'provider_not_configured' } };
+      throw err;
+    }
+    return { data: {} };
+  };
+  const result = await f.store.getState().startProvider('telegram');
+  assert.equal(result.success, false);
+  assert.equal(result.error, 'Этот способ входа пока не настроен. Используйте email и пароль.');
+  assert.equal(f.store.getState().authError, 'Этот способ входа пока не настроен. Используйте email и пароль.');
+  assert.equal(f.store.getState().isPolling, false);
+});
+
+test('missing pending storage stops the waiting UI', async () => {
+  const f = fixture();
+  await f.store.getState().startTelegramLinking();
+  f.pending.clear();
+  await f.store.getState().checkPendingSession();
+  assert.equal(f.store.getState().isPolling, false);
+  assert.equal(f.timers.size, 0);
+});
+
+test('invalid expiry cannot leave a challenge polling forever', async () => {
+  const f = fixture();
+  await f.store.getState().startTelegramLinking();
+  const [key, value] = [...f.pending][0];
+  f.pending.set(key, JSON.stringify({ ...JSON.parse(value), expiresAt: 'invalid' }));
+  f.api.post = async () => { throw { response: { status: 401, data: { detail: 'invalid_challenge' } } }; };
+  await f.store.getState().checkPendingSession();
+  assert.equal(f.store.getState().isPolling, false);
+  assert.equal(f.timers.size, 0);
+});
+
+test('reload resumes pending login with its manual URL and exchanges it', async () => {
+  const before = fixture();
+  await before.store.getState().startGoogleLogin();
+  const after = fixture();
+  before.pending.forEach((value, key) => after.pending.set(key, value));
+  after.api.post = async () => { throw { response: { status: 401, data: { detail: 'invalid_challenge' } } }; };
+  await after.store.getState().restoreSession();
+  assert.equal(after.store.getState().isPolling, true);
+  assert.equal(after.store.getState().authUrl, 'https://example.invalid');
+  assert.equal(after.ui.isAuthModalOpen, true);
+  after.api.post = async () => ({ data: { access_token: 'new', refresh_token: 'new-refresh' } });
+  assert.equal(await after.store.getState().checkPendingSession(), true);
+  assert.equal(after.store.getState().isPolling, false);
+  assert.equal(after.timers.size, 0);
+});
+
+for (const detail of ['invalid_provider_proof', 'provider_proof_replayed']) {
+  test(`Mini App falls back to bot confirmation when initData is rejected: ${detail}`, async () => {
+    const f = fixture();
+    f.context.window.Telegram = { WebApp: { initData: 'synthetic-old-proof' } };
+    const post = f.api.post;
+    f.api.post = async (path, body) => {
+      if (path === '/auth/v2/telegram/mini-app') throw { response: { status: 401, data: { detail } } };
+      return post(path, body);
+    };
+    assert.equal((await f.store.getState().startTelegramLinking()).success, true);
+    assert.equal(f.calls.at(-1).path, '/auth/v2/challenges');
+    assert.equal(f.store.getState().isPolling, true);
+  });
+}
+
+test('valid Mini App login needs no external window or challenge', async () => {
+  const f = fixture();
+  f.context.window.Telegram = { WebApp: { initData: 'synthetic-fresh-proof' } };
+  let popups = 0;
+  f.context.prepareExternalLink = () => { popups++; return null; };
+  assert.equal((await f.store.getState().startTelegramLinking()).success, true);
+  assert.equal(popups, 0);
+  assert.equal(f.calls[0].path, '/auth/v2/telegram/mini-app');
+  assert.equal(f.store.getState().isPolling, false);
+});
+
+test('temporary exchange failure retains the challenge but still respects its deadline', async () => {
+  const f = fixture();
+  await f.store.getState().startGoogleLogin();
+  f.api.post = async () => { throw { response: { status: 503 } }; };
+  assert.equal(await f.store.getState().checkPendingSession(), false);
+  assert.equal(f.store.getState().isPolling, true);
+  const [key, value] = [...f.pending][0];
+  f.pending.set(key, JSON.stringify({ ...JSON.parse(value), expiresAt: '2000-01-01T00:00:00Z' }));
+  await f.store.getState().checkPendingSession();
+  assert.equal(f.store.getState().isPolling, false);
+  assert.equal(f.timers.size, 0);
+});

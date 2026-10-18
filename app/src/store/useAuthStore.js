@@ -66,7 +66,15 @@ export const useAuthStore = create((set, get) => ({
           if (response.config?.headers?.Authorization && response.config.headers.Authorization !== `Bearer ${getAccessToken()}`) return;
           get().setUserProfile(response.data);
         } else if (window.Telegram?.WebApp?.initData && storage.get('lerne_force_guest') !== 'true') {
-          await get().startProvider('telegram');
+          // A pending bot/OAuth challenge owns this round trip, including reloads.
+          if (!pendingAuth()) await get().startProvider('telegram');
+        }
+        if (pendingAuth()) {
+          const pending = pendingAuth();
+          set({ isPolling: true, authUrl: pending.authUrl || null });
+          get().setAuthModalOpen(true);
+          get().beginPolling();
+          await get().checkPendingSession();
         }
       } catch { /* Shared API handles invalid sessions; transient failures may retry. */ }
       finally { set({ isRestoring: false }); }
@@ -134,27 +142,39 @@ export const useAuthStore = create((set, get) => ({
     set({ isStarting: true, authError: null });
     const generation = authGeneration;
     // Preserve the click's user activation before the challenge request.
-    const preparedWindow = provider === 'telegram' || provider === 'google'
-      ? prepareExternalLink()
-      : null;
+    const miniAppData = window.Telegram?.WebApp?.initData;
+    const directMiniApp = provider === 'telegram' && purpose === 'login' && miniAppData && !recovery;
+    const preparedWindow = directMiniApp ? null : prepareExternalLink();
     try {
-      const miniAppData = window.Telegram?.WebApp?.initData;
-      if (provider === 'telegram' && purpose === 'login' && miniAppData && !recovery) {
-        const response = await api.post('/auth/v2/telegram/mini-app', { init_data: miniAppData, purpose });
+      if (directMiniApp) {
+        let tokens;
+        try {
+          const response = await api.post('/auth/v2/telegram/mini-app', { init_data: miniAppData, purpose });
+          tokens = response.data;
+        } catch (error) {
+          // Telegram keeps initData across reloads. It may be expired or already
+          // consumed; use a fresh bot proof without relaxing server verification.
+          if (!['invalid_provider_proof', 'provider_proof_replayed'].includes(error.response?.data?.detail)) throw error;
+        }
         if (generation !== authGeneration) return { success: false };
-        const profile = await get().finishLogin(response.data);
-        return { success: Boolean(profile) };
+        if (tokens) {
+          const profile = await get().finishLogin(tokens);
+          return { success: Boolean(profile) };
+        }
       }
       const response = await api.post('/auth/v2/challenges', { provider, purpose });
       if (generation !== authGeneration) { preparedWindow?.close?.(); return { success: false }; }
       const authUrl = response.data.authorization_url;
       const pending = { id: response.data.challenge_id, secret: response.data.secret, provider, purpose,
-        expiresAt: response.data.expires_at, recovery };
+        expiresAt: response.data.expires_at, recovery, authUrl };
       savePending(pending);
       // Save URL so the modal can show a manual link if the popup was blocked.
       set({ isPolling: true, authError: null, authUrl });
       get().beginPolling();
-      openExternalLink(authUrl, preparedWindow);
+      if (!openExternalLink(authUrl, preparedWindow)) {
+        set({ authError: tr('Окно входа не открылось. Нажмите ссылку ниже, подтвердите вход и вернитесь в приложение.') });
+      }
+      if (directMiniApp) get().setAuthModalOpen(true);
       return { success: true };
     } catch (error) {
       try {
@@ -213,8 +233,12 @@ export const useAuthStore = create((set, get) => ({
   checkPendingSession: async () => {
     if (exchangeInFlight) return false;
     const pending = pendingAuth();
-    if (!pending?.id || !pending?.secret) { stopPolling(); return false; }
-    if (Date.parse(pending.expiresAt || '') <= Date.now()) {
+    if (!pending?.id || !pending?.secret) {
+      get().cancelPendingAuth();
+      return false;
+    }
+    const expiresAt = Date.parse(pending.expiresAt || '');
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
       clearPending();
       stopPolling();
       set({ isPolling: false, authError: tr('Время подтверждения истекло. Начните вход ещё раз.'), authUrl: null });
@@ -239,7 +263,7 @@ export const useAuthStore = create((set, get) => ({
       // A challenge is expected to be unconfirmed while the app polls.
       if (pendingAuth()?.id !== pending.id) return false;
       const detail = error.response?.data?.detail;
-      if (detail === 'invalid_challenge') return false;
+      if (detail === 'invalid_challenge' || !error.response || error.response.status >= 500) return false;
       clearPending();
       stopPolling();
       set({ isPolling: false, authUrl: null });
@@ -279,9 +303,9 @@ export const useAuthStore = create((set, get) => ({
     listenersReady = true;
     const resume = () => {
       if (!document.hidden && pendingAuth()) {
-        set({ isPolling: true });
-        get().checkPendingSession();
+        set({ isPolling: true, authUrl: pendingAuth().authUrl || null });
         get().beginPolling();
+        get().checkPendingSession();
       }
     };
     document.addEventListener('visibilitychange', resume);

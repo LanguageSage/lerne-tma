@@ -68,6 +68,13 @@ export const getUserProfile = () => {
     if (isResetRequested && !resetHandled) {
       resetHandled = true;
       clearAuthSession();
+      // Consume this one-shot action in the URL too, so a later reload cannot
+      // erase a session established after the reset.
+      params.delete('guest');
+      params.delete('reset');
+      const query = params.toString();
+      window.history.replaceState(window.history.state, '',
+        `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
     }
 
     // A verified v2 account can differ from its linked Telegram identity.

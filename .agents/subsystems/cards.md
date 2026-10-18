@@ -15,17 +15,19 @@
 | Создание, редактирование и сохранение | `app/src/components/deckgrid/CardCreator.jsx`, `app/src/components/deckgrid/CardEditor.jsx`, `app/src/hooks/useCardEditor.js` |
 | Список / действия / возврат | `app/src/components/deckgrid/CardList.jsx`, `app/src/hooks/useCardActions.js`, `app/src/hooks/useCardNavigation.js`, `app/src/utils/navigation.js` |
 | Batch import | `app/src/components/modals/BatchCardModal.jsx`, `app/src/hooks/usePendingImport.js`, `app/src/utils/batchCardParser.js` |
-| Синтаксис и распознавание | `app/src/utils/cardEditorSyntax.js`, `app/src/utils/exerciseContentParser.js`, `app/src/utils/exerciseDetector.js` |
+| Синтаксис и распознавание | `app/src/utils/cardEditorSyntax.js`, `app/src/utils/exerciseContentParser.js`, `app/src/utils/exerciseDetector.js`, `api/services/input_parser.py` |
 | Парсеры упражнений | `app/src/utils/wordBankParser.js`, `app/src/utils/clozeParser.js`, `app/src/utils/matchParser.js`, `app/src/utils/quizParser.js`, `app/src/utils/freeTextParser.js` |
-| Сеть / хранение | `api/routers/cards.py`, `api/services/cards.py`, `app/src/services/offlineApi.js` |
+| Structured Cards V2 (Authoring → DSL) | `api/services/structured_cards_v2.py`, `api/services/structured_cards_legacy.py`, `api/services/author_service.py`, `tools/admin/services/structured_preview.py` |
+| Сеть / хранение | `api/routers/cards.py`, `api/services/cards.py`, `api/services/card_content_service.py`, `app/src/services/offlineApi.js` |
 
 ## Data flow
 
 1. CardCreator/CardEditor → CardForm → CardContentEditor редактирует `cardData.front`.
 2. `cardEditorSyntax.js` использует `parseExerciseContent` для проекции и вставки команд в исходный текст.
-3. `useCardEditor.js` → API-клиент → `/cards/save` → server `save_card` либо offline API → Dexie.
+3. `useCardEditor.js` → API-клиент → `/cards/save` → server `save_card` (`card_content_service.apply_card_content`) либо offline API → Dexie.
 4. BatchCardModal разбирает ввод и отправляет `/cards/bulk-save`; pending import хранит исходный payload и `import_id` для повтора.
 5. Серверный bulk-save фиксирует результат импорта через `TMAOfflineBatch`; AI batch имеет отдельный путь в [ai](ai.md).
+6. В «Авторе» (`api/services/author_service.py`) документ V2 JSON (`schema_version: "lerne.structured-card.v2"`) валидируется через `structured_cards_v2.py`, детерминированно компилируется в legacy DSL через `structured_cards_legacy.py` с round-trip проверкой и публикуется через `bulk_save_cards`.
 
 ## Source of truth
 
@@ -65,12 +67,14 @@
 ```sh
 rg -n 'insertEditorCommand|editorSourceOffset|parseExerciseContent' app/src/utils/cardEditorSyntax.js app/src/components/common/CardContentEditor.jsx
 rg -n 'lastSelectedCardId|cardsScrollTop|visibleCount' app/src/components/deckgrid/CardList.jsx app/src/utils/navigation.js
-rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/services/cards.py
+rg -n 'bulk_save_cards|import_id|TMAOfflineBatch|apply_card_content' api/routers/cards.py api/services/cards.py api/services/card_content_service.py
+rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_parser.py api/services/structured_cards_legacy.py api/services/structured_cards_v2.py
 ```
 
 ## Relevant tests
 
-- Синтаксис/парсеры: `app/src/utils/__tests__/cardEditorSyntax.test.js`, `app/src/utils/__tests__/exerciseParsers.test.js`.
+- Синтаксис/парсеры: `app/src/utils/__tests__/cardEditorSyntax.test.js`, `app/src/utils/__tests__/exerciseParsers.test.js`, `scripts/tests/test_exercise_detection_corpus.py`.
+- Structured Cards V2 и компиляция в DSL: `scripts/tests/test_structured_cards_v2.py`, `scripts/tests/test_author_service.py`, `scripts/tests/test_card_content_service.py`.
 - Редактор в браузере: `scripts/tests/browser/card-editor-source.spec.cjs`, `scripts/tests/browser/card-editor.spec.cjs`.
 - Batch: `scripts/tests/test_bulk_import_idempotency.py`, `scripts/tests/test_bulk_save_partial_failure.py`.
 - Возврат в список: `scripts/tests/test_card_scroll_restoration.mjs`.
@@ -80,6 +84,7 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
 
 - [Study: renderer и feedback](study.md), [Decks: владение и навигация](decks.md), [Sync](sync.md), [AI](ai.md).
 - [USER_MANUAL](../../docs/USER_MANUAL.md) — пользовательские сценарии; точные контракты сверяйте с парсерами.
+- [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md) — контракт генерации V2 JSON и компиляции в DSL.
 - [Architectural integrity](../rules/architectural_integrity.md), [UI skill](../skills/tma-ui/SKILL.md).
 
 ## Экспорт учебного текста
@@ -107,7 +112,7 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
 ## Границы интерактивных блоков и паспорт
 
 - `exerciseContentParser.js` и серверный `api/services/input_parser.py` разбирают
-  отдельные строки `@puzzle`, `@match`, `@wordbank`, `@free` до следующего
+  отдельные строки `@puzzle`, `@match`, `@wordbank`, `@free`, `@theory` до следующего
   структурного маркера или конца FRONT; пустые строки сохраняются, `@options`
   остаётся частью Word Bank. `::exercise` необязателен для этих директив.
 - Информационные блоки непрозрачны для определения типа: директива внутри
@@ -129,6 +134,20 @@ rg -n 'bulk_save_cards|import_id|TMAOfflineBatch' api/routers/cards.py api/servi
   оба формата первой карточки).
 - Формат и правила генерации: [DECK_PASSPORT](../../docs/DECK_PASSPORT.md),
   [common.md](../../lerne-card-prompts/common.md), [validation.md](../../lerne-card-prompts/validation.md).
+
+## Structured Cards V2 (Authoring → DSL) и единый шлюз записи контента
+
+- **Единый детектор типа карточки**: `detect_card_type(text)` в `api/services/input_parser.py` синхронизирован с клиентским `detectExerciseType` в `app/src/utils/exerciseDetector.js` (включая `@theory`, непрозрачность информационных блоков и приоритеты директив). Нулевое расхождение между Python и JS проверяется на общем корпусе `tests/fixtures/exercise_detection_corpus.json` (`scripts/tests/test_exercise_detection_corpus.py`).
+- **Authoring в V2 JSON и детерминированная компиляция в DSL**:
+  - Промпты второго прохода для генерации V2 JSON находятся в `lerne-card-prompts-v2/` (существующая папка `lerne-card-prompts/` для текстового DSL сохранена без изменений).
+  - `api/services/structured_cards_v2.py` валидирует и нормализует контракты V2 (`schema_version: 2`, 8 типов: `standard`, `trainer`, `word_bank`, `puzzle`, `match`, `quiz`, `free_text`, `theory`), но не добавляет отдельную колонку хранения в БД.
+  - `api/services/structured_cards_legacy.py` (`to_legacy_card`, `to_legacy_document`) компилирует V2-карточки в канонический DSL (`front_text`, `back_text`, `context`, `level`, `metadata`) и выполняет обязательную round-trip верификацию через `detect_card_type` и `detect_ai_input_type`.
+  - `api/services/author_service.py` (`parse_document`) прозрачно принимает как legacy-текст с паспортом, так и JSON-документы V2, сохраняя карточки через штатный `bulk_save_cards`.
+  - Админский превью-сервис `tools/admin/services/structured_preview.py` и CLI `scripts/structured_cards_v2.py` используют тот же пайплайн валидации и компиляции.
+- **Единый шлюз записи контента (`api/services/card_content_service.py`)**:
+  - `apply_card_content` и `build_text_update_values` централизуют запись `front_text`, `back_text`, `context`, синхронизацию `level_N` тегов (`update_level_tags`) и `card.metadata` (CEFR, `topics`, `ai_input` из `parse_input_metadata`), не завися от того, пуст ли `context`.
+  - Используется в `save_card` (`api/services/cards.py`) и в `_update_values` (`api/services/card_text_update.py`).
+  - Удалены скрытые эвристики при сохранении: `save_card` больше не меняет местами `front_text`/`back_text` по соотношению кириллицы/латиницы и не вырезает строки из `context` регулярными выражениями.
 
 ## Lesson QA и регрессии Relativsätze
 

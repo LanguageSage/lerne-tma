@@ -240,8 +240,34 @@ def _parse_card_blocks(
     return parsed_cards
 
 
+def _parse_v2_json_document(text, default_deck_id=None, default_deck_name=None):
+    from api.services.structured_cards_v2 import load_document
+    from api.services.structured_cards_legacy import to_legacy_document
+    try:
+        doc = load_document(text)
+        legacy = to_legacy_document(doc)
+    except Exception as exc:
+        msg = str(exc)
+        return {'cards': [], 'passports': [], 'decks': [], 'errors': [msg],
+                'structure_errors': [msg], 'warnings': []}
+    deck_name = doc.deck.name or default_deck_name or 'Без названия'
+    cards = [
+        {**c, 'number': idx + 1, 'card_id': None, 'deck_id': default_deck_id, 'deck_name': deck_name}
+        for idx, c in enumerate(legacy['cards'])
+    ]
+    passports = (
+        [{'deck_name': deck_name, 'deck_id': default_deck_id, 'passport': legacy['deck']['passport']}]
+        if doc.deck.passport else []
+    )
+    decks = [{'deck_name': deck_name, 'deck_id': default_deck_id, 'cards_count': len(cards)}]
+    return {'cards': cards, 'passports': passports, 'decks': decks, 'errors': [],
+            'structure_errors': [], 'warnings': []}
+
+
 def parse_document(text, default_deck_id=None, default_deck_name=None):
     """Remove deck passports before parsing cards; retain errors for editable preview."""
+    if str(text or '').lstrip('\ufeff').lstrip().startswith('{'):
+        return _parse_v2_json_document(text, default_deck_id, default_deck_name)
     lines = text.lstrip('\ufeff').replace('\r\n', '\n').replace('\r', '\n').split('\n')
     sections = []
     section = {'deck_name': default_deck_name, 'lines': [], 'passports': []}
@@ -753,15 +779,19 @@ def _publish_document(cards, target_folder_id, new_folder_name, default_deck_nam
             for c in dcards:
                 front = c.get('front', '')
                 exercise_type = c.get('card_type') or detect_ai_input_type(front) or 'standard'
-                cards_payload.append({
+                item = {
                     'deck_id': deck.id,
                     'front_text': front,
                     'back_text': c.get('back', ''),
                     'context': c.get('context', ''),
                     'topics': c.get('topics', ''),
                     'tags': c.get('level') or '',
+                    'level': c.get('level'),
                     'card_type': exercise_type,
-                })
+                }
+                if 'metadata' in c:
+                    item['metadata'] = c['metadata']
+                cards_payload.append(item)
 
             save_result = services.bulk_save_cards(cards_payload, effective_user_id) if cards_payload else {'created': 0}
             if save_result.get('failed_count') or save_result.get('failed'):

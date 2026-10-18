@@ -15,10 +15,13 @@ function fixture({ search = '', telegram = null, dev = false } = {}) {
   const localStorage = { getItem: key => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
   const context = { localStorage, URLSearchParams, tr: x => x, env: { DEV: dev },
-    window: { location: { search, hostname: dev ? 'localhost' : 'tma-amber.vercel.app' },
+    window: { location: { search, pathname: '/', hash: '#deck', hostname: dev ? 'localhost' : 'tma-amber.vercel.app' },
+      history: { state: null, replaceState(_state, _title, url) {
+        context.window.location.search = new URL(url, 'https://example.test').search;
+      } },
       Telegram: telegram ? { WebApp: { initDataUnsafe: { user: { id: telegram } } } } : null } };
   vm.runInNewContext(`${source}\nglobalThis.subject = { getAuthSession, getAccessToken, getUserProfile, getUserId, saveAuthSession, saveUserProfile, clearAuthSession };`, context);
-  return { ...context.subject, values };
+  return { ...context.subject, values, window: context.window };
 }
 
 for (const options of [{ search: '?user_id=101' }, { telegram: 101 }]) {
@@ -54,6 +57,20 @@ test('explicit reset is consumed once so the subsequent login survives requests'
   f.saveAuthSession({ access_token: 'new', refresh_token: 'refresh' });
   assert.equal(f.getUserId(), -123);
   assert.equal(f.getAccessToken(), 'new');
+});
+
+test('reset URL cannot clear the next login on page reload', () => {
+  for (const flag of ['guest', 'reset']) {
+    const f = fixture({ search: `?${flag}=1&deck=42` });
+    f.getUserProfile();
+    f.saveUserProfile({ user_id: -123 });
+    f.saveAuthSession({ access_token: 'new', refresh_token: 'refresh' });
+    const reload = fixture({ search: f.window.location.search });
+    f.values.forEach((value, key) => reload.values.set(key, value));
+    assert.equal(reload.getUserId(), -123);
+    assert.equal(reload.getAccessToken(), 'new');
+    assert.equal(new URLSearchParams(f.window.location.search).get('deck'), '42');
+  }
 });
 
 test('logout suppresses legacy URL, Telegram and local development fallback', () => {

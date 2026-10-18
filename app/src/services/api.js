@@ -67,6 +67,7 @@ axiosInstance.interceptors.response.use(
     const url = originalRequest.url || '';
     const isAuthEndpoint = 
       url.includes('/auth/v2/refresh') ||
+      url.includes('/auth/v2/telegram/mini-app') ||
       url.includes('/auth/v2/email-password/login') ||
       url.includes('/auth/v2/email-password/register') ||
       url.includes('/auth/v2/challenges');
@@ -87,6 +88,14 @@ axiosInstance.interceptors.response.use(
     }
 
     originalRequest._retry = true;
+    // A response belongs to the account/token that sent it. A late 401 must
+    // never invalidate a session established while that request was in flight.
+    if (getUserId() !== originalRequest._authUserId) return Promise.reject(error);
+    const currentToken = getAccessToken();
+    if (currentToken && originalRequest.headers?.Authorization !== `Bearer ${currentToken}`) {
+      originalRequest.headers.Authorization = `Bearer ${currentToken}`;
+      return axiosInstance(originalRequest);
+    }
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -155,7 +164,9 @@ axiosInstance.interceptors.response.use(
     } catch (refreshErr) {
       processQueue(refreshErr, null);
       // Only a rejected credential requires login. Network/5xx failures are retryable.
-      if (refreshErr.response?.status === 401 && getAuthSession()?.refresh_token === refreshToken) {
+      if (refreshErr !== error && refreshErr.response?.status === 401
+          && getUserId() === originalRequest._authUserId
+          && getAuthSession()?.refresh_token === refreshToken) {
         clearAuthSession();
         try {
           const { useUiStore } = await import('../store/useUiStore');
