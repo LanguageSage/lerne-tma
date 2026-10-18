@@ -21,7 +21,7 @@ if not exist "%~dp0venv\Scripts\python.exe" (
     echo Попытка автоматически создать venv и установить зависимости...
     where python >nul 2>&1
     if errorlevel 1 (
-        echo [ERROR] Python не найден в системе (PATH).
+        echo [ERROR] Python не найден в системе [PATH].
         echo Пожалуйста, установите Python 3.10+ и добавьте его в PATH.
         echo.
         pause

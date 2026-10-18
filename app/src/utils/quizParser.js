@@ -56,44 +56,27 @@ export const parseQuizData = (card) => {
   // Mask trainer tokens so asterisks inside {...} or [[...]] are never seen as quiz markers
   const maskedFront = maskTrainerTokens(rawFront);
 
-  let rawQuestion = '';
-  let optionLines = [];
+  const lines = maskedFront.split('\n');
+  // Use the same option markers as projectQuizSection; blank lines belong to the question.
+  let firstOptionIdx = lines.findIndex((line, index) => index > 0
+    && /^\s*(?:\*(?!\*)|\[[*xX ]\]|[-○•]|(?:[a-zA-Z]|[0-9]{1,2})[).]\s)/u.test(line));
+  if (firstOptionIdx < 1) return null;
 
-  // 1. Primary Strategy: Split by double newline (\n\n)
-  if (maskedFront.includes('\n\n')) {
-    const parts = maskedFront.split(/\n\s*\n/);
-    rawQuestion = parts[0].trim();
-    const remainingText = parts.slice(1).join('\n\n').trim();
-    optionLines = remainingText.split('\n').map(l => l.trim()).filter(Boolean);
-  } else {
-    // 2. Fallback Strategy: Split by lines and find first option-like line
-    const lines = maskedFront.split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length < 2) return null;
-
-    let firstOptionIdx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
-      if (/^[-*○•]/u.test(l) || /^\[[*xX ]\]/i.test(l) || /^[a-zA-Z0-9]+[).]\s/.test(l)) {
-        firstOptionIdx = i;
+  // Legacy unprefixed answers share a paragraph, with only the correct answer starred.
+  // Include unmarked answers before that star, using the last blank line before it.
+  if (/^\s*\*(?!\*)/.test(lines[firstOptionIdx])
+    && !/^\s*\*\s*(?:[a-zA-Z]|[0-9]{1,2})[).]\s/.test(lines[firstOptionIdx])
+    && !lines.slice(firstOptionIdx + 1).some(line => /^\s*(?:\[[*xX ]\]|[-○•]|(?:[a-zA-Z]|[0-9]{1,2})[).]\s)/u.test(line))) {
+    for (let i = firstOptionIdx - 1; i > 0; i--) {
+      if (!lines[i].trim()) {
+        firstOptionIdx = i + 1;
         break;
-      }
-    }
-
-    if (firstOptionIdx !== -1 && firstOptionIdx > 0) {
-      rawQuestion = lines.slice(0, firstOptionIdx).join('\n').trim();
-      optionLines = lines.slice(firstOptionIdx);
-    } else {
-      // If no markers found, but at least 2 lines and one starts with star
-      const starIdx = lines.findIndex(l => /^\*(?!\*)|^\[\*\]/i.test(l));
-      if (starIdx > 0) {
-        rawQuestion = lines.slice(0, 1).join('\n').trim();
-        optionLines = lines.slice(1);
-      } else {
-        return null;
       }
     }
   }
 
+  const rawQuestion = lines.slice(0, firstOptionIdx).join('\n').trim();
+  const optionLines = lines.slice(firstOptionIdx).map(line => line.trim()).filter(Boolean);
   if (optionLines.length < 2) return null;
 
   let hasCorrect = false;
