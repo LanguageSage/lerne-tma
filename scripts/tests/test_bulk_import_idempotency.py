@@ -41,6 +41,10 @@ for name in ('execute_sync_push', 'execute_sync_pull', 'execute_collab_pull'):
 sys.modules['api.services.sync_service'] = old_sync
 
 models = importlib.import_module('api.models')
+if hasattr(models.tma_db, 'initialize'):
+    models.tma_db.initialize(database)
+if hasattr(models.lerne_db, 'initialize'):
+    models.lerne_db.initialize(database)
 cards = importlib.import_module('api.services.cards')
 TABLES = [models.TMAUser, models.TMA_Folder, models.TMA_Deck, models.TMA_Card,
           models.TMAProgress, models.TMA_Collaborator, models.TMAOfflineBatch]
