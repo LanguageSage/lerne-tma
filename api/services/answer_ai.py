@@ -33,6 +33,33 @@ accepted_minor: accepted true, severity minor; needs_retry/incorrect: accepted f
 evaluator must be ai. confidence must reflect uncertainty. Do not store chain-of-thought."""
 
 
+_CLIP = {'hint': 300, 'explanation': 500, 'corrected_answer': 4000, 'error_code': 100}
+
+
+def _parse_evaluation(raw: str) -> AnswerEvaluation:
+    """Validate a model reply, tolerating formatting noise but never a wrong verdict.
+
+    Accepts markdown fences, END_JSON and text around the object, drops unknown
+    fields, clips over-long feedback and reads percent confidence (95 -> 0.95).
+    Verdict/accepted/severity consistency is still enforced by the schema.
+    """
+    text = raw.strip() if isinstance(raw, str) else ''
+    start, end = text.find('{'), text.rfind('}')
+    if start < 0 or end < start:
+        raise ValueError('no json object')
+    data = json.loads(text[start:end + 1])
+    if not isinstance(data, dict):
+        raise ValueError('not an object')
+    data = {key: value for key, value in data.items() if key in AnswerEvaluation.model_fields}
+    for key, limit in _CLIP.items():
+        if isinstance(data.get(key), str):
+            data[key] = data[key][:limit]
+    confidence = data.get('confidence')
+    if isinstance(confidence, (int, float)) and not isinstance(confidence, bool) and 1 < confidence <= 100:
+        data['confidence'] = confidence / 100
+    return AnswerEvaluation.model_validate(data)
+
+
 async def evaluate_with_ai(context: dict, policy: GradingPolicy, client, model: str):
     def failed(reason):
         # Fixed reason codes only; exceptions/provider responses may contain answers or keys.
@@ -44,12 +71,12 @@ async def evaluate_with_ai(context: dict, policy: GradingPolicy, client, model: 
         for attempt in range(2):
             raw, success = await client.chat_completion(
                 system_prompt=prompt, user_message=json.dumps(payload, ensure_ascii=False),
-                model=model, temperature=0)
+                model=model, temperature=0, max_output_tokens=4096)
             if not success:
                 failed('provider_failure')
                 return None
             try:
-                return AnswerEvaluation.model_validate_json(raw)
+                return _parse_evaluation(raw)
             except ValidationError as exc:
                 reason = ('invalid_json' if any(error['type'] == 'json_invalid'
                           for error in exc.errors(include_input=False)) else 'schema_validation')

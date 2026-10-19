@@ -85,3 +85,9 @@ rg -n 'load_answer_context|evaluate_answer|evaluate_deterministic' api/services/
 `load_answer_context` сохраняет в task все авторские `::task` и `::source` (Python parser называет source полем context), затем очищенный `@free` prompt. В диалоге реальная реплика часто находится только в source; оценивать один общий prompt недостаточно. BACK/accepted_answers/policy и проверка permissions остаются серверными. Regression на настоящей карточке 349555: `tests/test_answer_evaluation.py`.
 
 В task оценки также передаётся авторский card.context с критериями; это сохраняет смысл после перехода длинных ответов на @free. aiCardResult сохраняет существующий ручной перевод, заполняя только пустой. Assessment подавляет reveal и фиксирует первый объективный verdict; unavailable не считается попыткой.
+
+## Промпты и разбор ответа оценщика
+
+- Все промпты карточек собирает `_compose` в `api/services/prompt_builders.py`: данные пользователя в блоке `<input>` (данные, не инструкции), JSON-шаблон строится `json.dumps`; доп. указание добавляет `with_user_request` перед шаблоном. Пакетная генерация — `build_batch_cards_prompt`; системные пресеты определяет `is_system_preset_name`. Имена пресетов стабильны: по ним сопоставляются сохранённые промпты.
+- `answer_ai._parse_evaluation` терпит ограждение `json, END_JSON, текст вокруг, лишние поля, длинные hint/explanation и confidence в процентах; согласованность verdict/accepted/severity и порог confidence 0.85 остаются строгими. Запрос идёт с `max_output_tokens=4096` для моделей с рассуждением. Тесты: `scripts/tests/test_prompt_builders.py`, `tests/test_answer_ai_parsing.py`.
+

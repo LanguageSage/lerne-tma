@@ -122,6 +122,7 @@ async def generate_card_fields(
             build_trainer_prompt, build_quiz_prompt, build_match_prompt, build_puzzle_prompt,
             build_word_bank_prompt, build_free_text_prompt
         )
+        from api.services.prompt_builders import is_system_preset_name, with_user_request
         from api.services.input_parser import (
             detect_ai_input_type,
             parse_exercise_content,
@@ -262,80 +263,28 @@ async def generate_card_fields(
             )
         
         is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in exercise_phrase)
-        is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "📝", "Уровень", "Рівень", "Level", "preset"])
-        
+        is_system_preset = custom_prompt and is_system_preset_name(custom_prompt.name)
+
         detect_level_setting = TMASetting.get_or_none(TMASetting.key == "AI_DETECT_LEVEL")
         detect_level = (detect_level_setting.value.lower() != "false") if detect_level_setting else True
 
+        common = dict(target_lang=target_lang, native_lang=native_lang)
+        typed_builders = {'trainer': build_trainer_prompt, 'match': build_match_prompt, 'puzzle': build_puzzle_prompt,
+                          'word_bank': build_word_bank_prompt, 'free_text': build_free_text_prompt}
         if custom_prompt and not is_system_preset:
             raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
             system_prompt = (raw_prompt or get_prompt_for_phrase(exercise_phrase, target_lang, native_lang)).replace("{phrase}", exercise_phrase)
-            if clean_user_request:
-                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
             if detect_level and "level" not in system_prompt.lower():
                 system_prompt += f"\n\nОбязательно добавь в выводимый JSON объект поле уровня:\n\"level\": \"один из уровня CEFR (A1, A2, B1, B2, C1, C2)\""
+            system_prompt = with_user_request(system_prompt, clean_user_request)
         elif is_quiz_request:
-            system_prompt = build_quiz_prompt(
-                phrase_or_items=exercise_phrase,
-                target_lang=target_lang,
-                native_lang=native_lang,
-                is_batch=False,
-                detect_level=detect_level
-            )
-            if clean_user_request:
-                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
-        elif is_trainer_request:
-            system_prompt = build_trainer_prompt(
-                phrase=exercise_phrase,
-                target_lang=target_lang,
-                native_lang=native_lang,
-                detect_level=detect_level
-            )
-            if clean_user_request:
-                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
-        elif input_type == 'match':
-            system_prompt = build_match_prompt(
-                phrase=exercise_phrase,
-                target_lang=target_lang,
-                native_lang=native_lang,
-                detect_level=detect_level
-            )
-            if clean_user_request:
-                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
-        elif input_type == 'puzzle':
-            system_prompt = build_puzzle_prompt(
-                phrase=exercise_phrase,
-                target_lang=target_lang,
-                native_lang=native_lang,
-                detect_level=detect_level
-            )
-            if clean_user_request:
-                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
-        elif input_type == 'word_bank':
-            system_prompt = build_word_bank_prompt(
-                phrase=exercise_phrase,
-                target_lang=target_lang,
-                native_lang=native_lang,
-                detect_level=detect_level
-            )
-            if clean_user_request:
-                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
-        elif input_type == 'free_text':
-            system_prompt = build_free_text_prompt(
-                phrase=exercise_phrase,
-                target_lang=target_lang,
-                native_lang=native_lang,
-                detect_level=detect_level
-            )
-            if clean_user_request:
-                system_prompt += f"\n\nДополнительное указание пользователя: \"{clean_user_request}\". Выполни просьбу пользователя."
+            system_prompt = with_user_request(build_quiz_prompt(
+                phrase_or_items=exercise_phrase, is_batch=False, detect_level=detect_level, **common), clean_user_request)
+        elif input_type in typed_builders:
+            system_prompt = with_user_request(typed_builders[input_type](
+                phrase=exercise_phrase, detect_level=detect_level, **common), clean_user_request)
         else:
-            system_prompt = build_card_prompt(
-                phrase=exercise_phrase,
-                target_lang=target_lang,
-                native_lang=native_lang,
-                directive=clean_user_request,
-            )
+            system_prompt = build_card_prompt(phrase=exercise_phrase, directive=clean_user_request, **common)
 
         if input_type == 'theory':
             system_prompt += ('\nЭто карточка Theory (@theory). Сохраняй её смысл и педагогическое назначение. '
@@ -344,11 +293,11 @@ async def generate_card_fields(
 
         if "JSON" not in system_prompt.upper():
             native_name = native_config["name"].lower()
-            if is_cyrillic:
-                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"перевод на {lang_name.lower()}\",\n  \"back\": \"перевод на {native_name}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
-            else:
-                system_prompt += f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{exercise_phrase}\",\n  \"back\": \"перевод на {native_name}\",\n  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}}\nEND_JSON"
-
+            front_hint = f"перевод на {lang_name.lower()}" if is_cyrillic else exercise_phrase
+            system_prompt += (f"\nReturn ONLY a JSON object in this format:\n{{\n  \"front\": \"{front_hint}\",\n"
+                              f"  \"back\": \"перевод на {native_name}\",\n"
+                              "  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}\nEND_JSON")
+        
         client = AIService(provider=provider, api_key=ai_key)
         
         if provider == "openrouter":
@@ -446,6 +395,7 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
     start_time = time.time()
     try:
         from api.services.language_service import get_language_config, get_native_config
+        from api.services.prompt_builders import build_batch_cards_prompt, is_system_preset_name
         from api.models import TMACustomPrompt, TMASetting
 
         raw_lines = [line.strip() for line in text.splitlines() if line and line.strip()]
@@ -491,7 +441,7 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
             (TMACustomPrompt.is_active == True) &
             ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
         )
-        is_system_preset = custom_prompt and any(icon in (custom_prompt.name or "") for icon in ["🎯", "⚡", "🔥", "📝", "Уровень", "Рівень", "Level", "preset"])
+        is_system_preset = custom_prompt and is_system_preset_name(custom_prompt.name)
 
         from api.services.input_parser import parse_ai_batch_json_response
 
@@ -500,40 +450,8 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
                 # Rate-limit safe delay (3.5 seconds) for consecutive API calls
                 await asyncio.sleep(3.5)
 
-            chunk_text = "\n".join(f"{idx+1}. {phrase}" for idx, phrase in enumerate(chunk))
-
-            if custom_prompt and not is_system_preset and custom_prompt.translation_prompt:
-                custom_instructions = custom_prompt.translation_prompt
-                batch_prompt = (
-                    f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
-                    f"Инструкции по стилю:\n{custom_instructions}\n\n"
-                    f"Сгенерируй карточки для {len(chunk)} элементов:\n{chunk_text}\n\n"
-                    f"ТРЕБОВАНИЯ К ПОЛЮ context:\n"
-                    f"Обязательно включи построчный разбор каждого слова списком (📖 **Словарь**:\n• слово — перевод), грамматику (💡 **Грамматика**) и 3 примера (✨ **Примеры**:\n1. ...\n2. ...\n3. ...).\n\n"
-                    f"Верни СТРОГО JSON-массив из объектов формата:\n"
-                    f"[{{\"front\": \"...\", \"back\": \"...\", \"context\": \"...\"}}]"
-                )
-            else:
-                batch_prompt = (
-                    f"Изучаемый язык: {lang_name}. Родной язык: {native_name}.\n"
-                    f"Создай учебные флеш-карточки для следующего списка из {len(chunk)} элементов:\n"
-                    f"{chunk_text}\n\n"
-                    f"ПРАВИЛА ОФОРМЛЕНИЯ КАЖДОЙ КАРТОЧКИ:\n"
-                    f"1. \"front\": фраза/слово на {lang_name} языке (если исходная строка на {native_name}, переведи её на {lang_name}).\n"
-                    f"2. \"back\": точный перевод всей фразы на {native_name} язык.\n"
-                    f"3. \"context\": СТРОГО следующий структурированный Markdown-текст (каждое слово на отдельной строке с маркером •, 3 примера):\n"
-                    f"📖 **Словарь**:\n"
-                    f"• слово 1 — перевод\n"
-                    f"• слово 2 — перевод\n\n"
-                    f"💡 **Грамматика**:\n"
-                    f"[Подробное объяснение грамматических правил, конструкции, падежей и форм]\n\n"
-                    f"✨ **Примеры**:\n"
-                    f"1. [фраза на {lang_name}] — [перевод на {native_name}]\n"
-                    f"2. [фраза на {lang_name}] — [перевод на {native_name}]\n"
-                    f"3. [фраза на {lang_name}] — [перевод на {native_name}]\n\n"
-                    f"Верни СТРОГО JSON-массив из {len(chunk)} объектов без лишнего текста вокруг:\n"
-                    f"[{{\"front\": \"...\", \"back\": \"...\", \"context\": \"...\"}}]"
-                )
+            custom_instructions = (custom_prompt.translation_prompt if custom_prompt and not is_system_preset else None)
+            batch_prompt = build_batch_cards_prompt(chunk, target_lang, native_lang, custom_instructions)
 
             logger.info(f"Batch AI: processing chunk {index+1}/{len(chunks)} ({len(chunk)} lines) with {provider}/{model_name}...")
             response, success = await client.chat_completion(
