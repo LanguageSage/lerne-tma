@@ -51,6 +51,7 @@ export const useAuthStore = create((set, get) => ({
   isStarting: false,
   authMethods: null,
   passwordSettings: null,
+  lerneSso: null,
   showTelegramPrompt: false,
   // URL opened for the current pending challenge; shown as a fallback link
   // in AuthRequiredModal when the browser blocked the automatic popup.
@@ -80,6 +81,17 @@ export const useAuthStore = create((set, get) => ({
       finally { set({ isRestoring: false }); }
     })().finally(() => { restoration = null; });
     return restoration;
+  },
+
+  loadLerneSso: async () => {
+    try {
+      const response = await api.get('/auth/v2/lerne/config');
+      set({ lerneSso: response.data });
+      return response.data;
+    } catch {
+      set({ lerneSso: { role: null } });
+      return { role: null };
+    }
   },
 
   refreshAuthMethods: async () => {

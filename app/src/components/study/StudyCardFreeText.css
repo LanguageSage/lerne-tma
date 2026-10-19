@@ -26,6 +26,9 @@
 }
 .free-text-exercise textarea:focus-visible { outline: 2px solid var(--design-ft-focus-border, currentColor); outline-offset: 4px; }
 .free-text-action { width: 100%; max-width: 340px; min-height: 44px; display: inline-flex; gap: 8px; align-items: center; justify-content: center; white-space: normal; }
+.free-text-dictate[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
+.free-text-dictate svg { flex-shrink: 0; }
+.free-text-dictation-help { width: 100%; max-width: 380px; margin: 0; font-size: .86rem; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }
 .free-text-feedback, .free-text-example { width: 100%; max-width: 380px; line-height: 1.5; overflow-wrap: anywhere; }
 .free-text-feedback p, .free-text-example p { margin: 0 0 8px; }
 .free-text-feedback p:last-child, .free-text-example p:last-child { margin-bottom: 0; }

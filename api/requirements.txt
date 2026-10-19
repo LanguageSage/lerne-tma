@@ -13,4 +13,5 @@ python-multipart
 python-telegram-bot>=20.0
 google-auth>=2.29,<3
 argon2-cffi>=25,<26
+cryptography>=46,<51
 

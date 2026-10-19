@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from api.auth.dependencies import get_bearer_token, get_authenticated_user_id
 from api.auth.errors import AuthError
-from api.auth import providers, service
+from api.auth import providers, service, lerne_sso
 from api.models import TMAUser
 
 ADMIN_USERNAMES = {'Nimaypumpay', 'Aruna27', 'Chintamanichapliuk'}
@@ -50,6 +50,11 @@ class ChallengeRequest(BaseModel):
 
 class ChallengeExchangeRequest(BaseModel):
     secret: str = Field(min_length=40, max_length=128)
+
+
+class LerneConfirmationRequest(BaseModel):
+    request_id: str = Field(min_length=36, max_length=36)
+    nonce: str = Field(min_length=46, max_length=46)
 
 
 class TelegramMiniAppRequest(BaseModel):
@@ -126,6 +131,26 @@ def create_auth_challenge(data: ChallengeRequest, authorization: str | None = He
         return response
     except AuthError as exc:
         _raise_auth(exc)
+
+
+@router.post('/lerne/confirm')
+def confirm_lerne_login(data: LerneConfirmationRequest, authorization: str = Depends(get_bearer_token)):
+    try:
+        return lerne_sso.issue_confirmation(authorization, data.request_id, data.nonce)
+    except AuthError as exc:
+        _raise_auth(exc)
+
+
+@router.get('/lerne/config')
+def get_lerne_configuration():
+    role = os.getenv('LERNE_SSO_ROLE', '')
+    if role not in ('issuer', 'client'):
+        return {'role': None}
+    try:
+        issuer, client, _ = lerne_sso.configuration(role)
+        return {'role': role, 'issuer_origin': issuer, 'client_origin': client}
+    except AuthError:
+        return {'role': None}
 
 
 @router.post('/telegram/mini-app')

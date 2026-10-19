@@ -1,11 +1,12 @@
 import { tr } from '../../i18n/locale.js';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PenLine, Eye, Check, LoaderCircle } from 'lucide-react';
+import { PenLine, Eye, Check, LoaderCircle, Mic, Square } from 'lucide-react';
 import { getCardStyle, getContextStyle } from '../../utils/cardStyles.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 import { useFreeTextEvaluation } from '../../hooks/useFreeTextEvaluation.js';
+import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import './StudyCardFreeText.css';
 
@@ -21,6 +22,14 @@ export const StudyCardFreeText = React.memo(({
   const [showExample, setShowExample] = useState(savedState?.showExample || false);
   const { state, submit, evidence } = useFreeTextEvaluation(card?.id, savedState?.evaluationState, currentKey);
   const reported = useRef(Boolean(savedState?.isCompleted));
+  const dictationBase = useRef('');
+  const { isListening, speechError, start, cancel } = useSpeechRecognition({
+    resetKey: `${card?.id}:${currentKey}`,
+    language: card?.target_language,
+    onTranscript: text => {
+      if (text) setUserInput([dictationBase.current.trimEnd(), text].filter(Boolean).join(' ').slice(0, 4000));
+    },
+  });
 
   if (prevKey !== currentKey) {
     setPrevKey(currentKey);
@@ -56,6 +65,8 @@ export const StudyCardFreeText = React.memo(({
 
   const handleSubmit = async event => {
     event.preventDefault();
+    if (isListening || loading || isCompleted || isExhausted) return;
+    cancel();
     const outcome = await submit(userInput);
     if (!outcome) return;
     if (assessmentMode && outcome.result.verdict !== 'unavailable') {
@@ -92,12 +103,25 @@ export const StudyCardFreeText = React.memo(({
       <textarea
         aria-label={tr('Ваш ответ')}
         value={userInput}
-        onChange={event => setUserInput(event.target.value)}
+        onChange={event => { cancel(); setUserInput(event.target.value); }}
         placeholder={tr('Напишите ваш ответ здесь...')}
         disabled={isCompleted || isExhausted || loading}
         maxLength={4000} rows={3} style={contextStyle}
-        aria-describedby={result ? `answer-feedback-${card.id}` : undefined}
+        aria-describedby={`dictation-help-${card.id}${result ? ` answer-feedback-${card.id}` : ''}`}
       />
+      {!isCompleted && !isExhausted && <button type="button"
+        className="btn btn-secondary free-text-action free-text-dictate" aria-pressed={isListening}
+        disabled={loading}
+        onClick={() => {
+          if (isListening) cancel();
+          else { dictationBase.current = userInput; start(); }
+        }}>
+        {isListening ? <Square size={16} /> : <Mic size={16} />}
+        {isListening ? tr('Остановить диктовку') : tr('Диктовать')}
+      </button>}
+      <p id={`dictation-help-${card.id}`} className="free-text-dictation-help" role="status">
+        {speechError || (isListening ? tr('Слушаю… Говорите на языке задания.') : tr('Можно исправить текст перед проверкой.'))}
+      </p>
       {result && (
         <div id={`answer-feedback-${card.id}`} className={`free-text-feedback ${isCompleted ? 'is-success' : ''}`}
           role="status" aria-live="polite">
@@ -114,7 +138,7 @@ export const StudyCardFreeText = React.memo(({
         </div>
       )}
       {!isCompleted && !isExhausted && <button type="submit" className="btn btn-primary free-text-action"
-        disabled={loading || !userInput.trim() || sameRejectedAnswer}>
+        disabled={isListening || loading || !userInput.trim() || sameRejectedAnswer}>
         {loading && <LoaderCircle size={16} className="spin" />}
         {loading ? tr('Проверяем ответ…') : result ? tr('Проверить ещё раз') : tr('Проверить ответ')}
       </button>}

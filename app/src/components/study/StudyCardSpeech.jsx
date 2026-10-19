@@ -8,7 +8,7 @@ import { getTextShadow } from '../../utils/style';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
-import { getSpeechLocaleForLang } from '../../constants/languageConstants';
+import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
 import { getCardStyle } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
 import { stopGlobalAudio } from '../../hooks/useAudio';
@@ -34,9 +34,6 @@ export const StudyCardSpeech = React.memo(({
   styles = {}
 }) => {
   useInterfaceLocale();
-  const [isListening, setIsListening] = useState(false);
-  const [recognizedText, setRecognizedText] = useState("");
-  const [speechError, setSpeechError] = useState("");
   const [speechSuccess, setSpeechSuccess] = useState(false);
 
   const exerciseContent = useMemo(() => parseExerciseContent(card?.front || ''), [card?.front]);
@@ -45,11 +42,8 @@ export const StudyCardSpeech = React.memo(({
     [targetText, exerciseContent]
   );
 
-  const recognitionRef = useRef(null);
-  const silenceTimerRef = useRef(null);
   const cardFrontRef = useRef(spokenFront);
 
-  const recognizedTextRef = useRef("");
   const speechSuccessRef = useRef(false);
 
   const speechMatchThreshold = useSettingsStore(s => s.speechMatchThreshold) ?? 75;
@@ -79,54 +73,17 @@ export const StudyCardSpeech = React.memo(({
     cardFrontRef.current = spokenFront;
   }, [spokenFront]);
 
-  useEffect(() => {
-    recognizedTextRef.current = recognizedText;
-  }, [recognizedText]);
+  const { isListening, recognizedText, speechError, start, stop, cancel } = useSpeechRecognition({
+    resetKey: `${card?.id}:${reviewKey}:${spokenFront}`,
+    language: card?.target_language,
+    onTranscript: transcript => evaluateSpeech(transcript, false, 100),
+    onEnd: transcript => evaluateSpeech(transcript, true),
+  });
 
   useEffect(() => {
-    speechSuccessRef.current = speechSuccess;
-  }, [speechSuccess]);
-
-  // Reset speech state on card change
-  useEffect(() => {
-    stopSpeechRecognition();
-    setIsListening(false);
-    setRecognizedText("");
-    setSpeechError("");
     setSpeechSuccess(false);
-
     speechSuccessRef.current = false;
-    recognizedTextRef.current = "";
-    // Retired recognition instances must not report into another card/step.
-    return () => {
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      retireSpeechRecognition();
-    };
   }, [card?.id, reviewKey, spokenFront]);
-
-  const retireSpeechRecognition = () => {
-    const recognition = recognitionRef.current;
-    if (!recognition) return;
-    recognition.onresult = null;
-    recognition.onend = null;
-    recognition.onstart = null;
-    recognition.onerror = null;
-    recognitionRef.current = null;
-    try { recognition.abort(); } catch { /* ignore */ }
-  };
-
-  const stopSpeechRecognition = (e) => {
-    e?.stopPropagation();
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch { /* ignore */ }
-    }
-  };
 
   const evaluateSpeech = (transcript, isFinalCheck = false, overrideThreshold = null) => {
     if (!transcript || !card || speechSuccessRef.current) return false;
@@ -142,9 +99,7 @@ export const StudyCardSpeech = React.memo(({
     if (result.success) {
       speechSuccessRef.current = true;
       setSpeechSuccess(true);
-      setIsListening(false);
-      
-      stopSpeechRecognition();
+      stop();
 
       triggerHaptic('success');
       onSuccess?.({ ...result, transcript, targetText: cardFrontRef.current || spokenFront });
@@ -157,139 +112,20 @@ export const StudyCardSpeech = React.memo(({
     return false;
   };
 
-  const startSpeechRecognition = (e) => {
-    e?.stopPropagation();
-    
+  const startSpeechRecognition = () => {
     if (speechSuccessRef.current) return;
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setSpeechError(tr("Ваш девайс не поддерживает распознавание голоса."));
-      return;
-    }
-
-    // Stop any playing audio immediately so mic does not catch speaker audio
-    try {
-      stopAudio?.();
-      stopGlobalAudio();
-    } catch { /* ignore */ }
-
-    retireSpeechRecognition();
-
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-
-    setSpeechError("");
-    setRecognizedText("");
-    setSpeechSuccess(false);
-    speechSuccessRef.current = false;
-    recognizedTextRef.current = "";
-
-    try {
-      const rec = new SpeechRecognition();
-      const currentDeck = useDeckStore.getState().currentDeck;
-      const activeLang = useLanguageStore.getState().activeLanguage;
-      const cardLang = card.target_language || currentDeck?.target_language || activeLang || 'de';
-      
-      rec.lang = getSpeechLocaleForLang(cardLang);
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.maxAlternatives = 1;
-
-      rec.onstart = () => {
-        setIsListening(true);
-        triggerHaptic('medium');
-      };
-
-      rec.onerror = (err) => {
-        console.error("Speech Error:", err);
-        if (err.error === 'not-allowed') {
-          setSpeechError(tr("Нет доступа к микрофону."));
-        } else if (err.error !== 'no-speech' && err.error !== 'aborted') {
-          setSpeechError(tr("Ошибка распознавания. Попробуйте еще раз."));
-        }
-        setIsListening(false);
-      };
-
-      rec.onend = () => {
-        setIsListening(false);
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
-        if (!speechSuccessRef.current && recognizedTextRef.current) {
-          evaluateSpeech(recognizedTextRef.current, true);
-        }
-      };
-
-      rec.onresult = (event) => {
-        let textChunks = [];
-
-        for (let i = 0; i < event.results.length; i++) {
-          const chunk = event.results[i][0].transcript.trim();
-          if (!chunk) continue;
-
-          if (textChunks.length === 0) {
-            textChunks.push(chunk);
-          } else {
-            const prev = textChunks[textChunks.length - 1];
-            // If Brave/Android cumulative chunk starts with the previous chunk, replace it!
-            if (chunk.toLowerCase().startsWith(prev.toLowerCase())) {
-              textChunks[textChunks.length - 1] = chunk;
-            } 
-            // If previous chunk ends with the new chunk or equals it, skip
-            else if (prev.toLowerCase().endsWith(chunk.toLowerCase())) {
-              continue;
-            } 
-            // Otherwise, it's a new consecutive phrase chunk, append it!
-            else {
-              textChunks.push(chunk);
-            }
-          }
-        }
-
-        const transcript = textChunks.join(' ').replace(/\s+/g, ' ').trim();
-        setRecognizedText(transcript);
-        recognizedTextRef.current = transcript;
-
-        // Auto-evaluate 100% success while speaking on the fly
-        const matched = evaluateSpeech(transcript, false, 100);
-        if (matched) return;
-
-        // Silence timer (1.5s): if user stops speaking and 100% wasn't reached, evaluate user's selected threshold (e.g. 75%)
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = setTimeout(() => {
-          stopSpeechRecognition();
-          evaluateSpeech(recognizedTextRef.current, true);
-        }, 1500);
-      };
-
-      recognitionRef.current = rec;
-      rec.start();
-    } catch {
-      setSpeechError(tr("Ошибка при запуске микрофона."));
-      setIsListening(false);
-    }
+    stopAudio?.();
+    start();
   };
 
-  const handleMicClick = (e) => {
+  const handleMicClick = e => {
     e?.stopPropagation();
     e?.preventDefault();
     if (speechSuccessRef.current) return;
-
-    // Immediately stop and interrupt any previously played audio
-    try {
-      stopAudio?.();
-      stopGlobalAudio();
-    } catch { /* ignore */ }
-
-    if (isListening) {
-      stopSpeechRecognition(e);
-      if (recognizedTextRef.current) {
-        evaluateSpeech(recognizedTextRef.current, true);
-      }
-    } else {
-      startSpeechRecognition(e);
-    }
+    stopAudio?.();
+    stopGlobalAudio();
+    if (isListening) stop();
+    else startSpeechRecognition();
   };
 
   // Start once per follow-up review. Retry remains an explicit microphone action.
@@ -439,9 +275,7 @@ export const StudyCardSpeech = React.memo(({
           className="speech-followup-skip"
           onClick={e => {
             e.stopPropagation();
-            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-            retireSpeechRecognition();
-            setIsListening(false);
+            cancel();
             onSkip?.();
           }}
         >

@@ -24,6 +24,7 @@ import { TutorialOverlay } from './components/TutorialOverlay';
 import { HelpDrawer } from './components/help/HelpDrawer';
 import { FullGuideModal } from './components/help/FullGuideModal';
 import { LidExamView } from './components/lid/LidExamView';
+import { LerneSignIn } from './components/auth/LerneSignIn';
 
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
@@ -385,7 +386,7 @@ function AppContent() {
 export default function App() {
   return (
     <LanguageProvider>
-      <AppContent />
+      {window.location.pathname === '/auth/lerne' ? <LerneSignIn /> : <AppContent />}
     </LanguageProvider>
   );
 }
