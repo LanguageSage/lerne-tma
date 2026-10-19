@@ -2,7 +2,7 @@
  * author.js — Lerne TMA Admin Module: «Автор уроков» (Lesson Author)
  * 
  * Предоставляет режимы работы автора уроков:
- * 1. Публикация (Drag&Drop .txt/.md -> /parse -> preview -> выбор папки -> /publish)
+ * 1. Публикация (Drag&Drop .json/.txt/.md -> /parse -> preview -> выбор папки -> /publish)
  * 2. Экспорт (Колода / Папка -> /export -> скачивание .txt)
  * 3. Обновление (Файл -> /update-preview -> diff было/стало -> /update-apply)
  * 4. JSON V2: изолированный предварительный просмотр без сохранения.

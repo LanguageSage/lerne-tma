@@ -244,7 +244,7 @@ def _parse_v2_json_document(text, default_deck_id=None, default_deck_name=None):
     from api.services.structured_cards_v2 import load_document
     from api.services.structured_cards_legacy import to_legacy_document
     try:
-        doc = load_document(text)
+        doc = load_document(text.lstrip('\ufeff'))
         legacy = to_legacy_document(doc)
     except Exception as exc:
         msg = str(exc)
@@ -352,6 +352,34 @@ def parse_document(text, default_deck_id=None, default_deck_name=None):
                         warnings.append(f"{name}: этап {stage['id']} выходит за число карточек файла; проверьте авторский диапазон.")
     return {'cards': cards, 'passports': passports, 'decks': decks, 'errors': errors + validation_errors,
             'structure_errors': errors, 'warnings': warnings}
+
+
+def parse_uploaded_documents(files):
+    """Parse (filename, text) uploads independently, preserving each deck's scope."""
+    combined = {key: [] for key in ('cards', 'passports', 'decks', 'errors', 'structure_errors', 'warnings')}
+    passport_names = set()
+    for filename, text in files:
+        name, extension = os.path.splitext(filename)
+        document = (_parse_v2_json_document(text) if extension.lower() == '.json'
+                    else parse_document(text, default_deck_name=name.strip() or None))
+        if not document['cards'] and not document['passports'] and not document['errors']:
+            message = 'В файле не найдено ни одной карточки или паспорта.'
+            document['errors'].append(message)
+            document['structure_errors'].append(message)
+        for entry in document['passports']:
+            if entry['deck_name'] in passport_names:
+                message = f"{entry['deck_name']}: дублирующийся паспорт колоды."
+                document['errors'].append(message)
+                document['structure_errors'].append(message)
+        passport_names.update(entry['deck_name'] for entry in document['passports'])
+        for key in combined:
+            values = document[key]
+            if key in ('errors', 'structure_errors', 'warnings'):
+                values = [f'{filename}: {message}' for message in values]
+            combined[key].extend(values)
+    for number, card in enumerate(combined['cards'], 1):
+        card['number'] = number
+    return combined
 
 
 def parse_cards_text(text, default_deck_id=None, default_deck_name=None):

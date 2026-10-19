@@ -2,13 +2,13 @@
 API-роутер модуля «Автор уроков» (Author Content Router) для консоли администратора.
 
 Предоставляет HTTP-эндпоинты для:
-- Парсинга и анализа файлов разметки уроков (.txt / .md);
+- Парсинга и анализа файлов разметки уроков (.txt / .md / .json);
 - Предпросмотра и выполнения публикации уроков в папки/колоды;
 - Экспорта колод и папок в канонический формат Lerne;
 - Двухфазного безопасного обновления существующих карточек (preview -> apply без мутации SRS).
 
-TXT/MD использует `api.services.author_service`; JSON V2 preview — существующий
-V2-контракт через `tools.admin.services.structured_preview`, без записи данных.
+Разбор и публикация используют `api.services.author_service`; отдельный JSON V2
+preview через `tools.admin.services.structured_preview` не записывает данные.
 """
 
 import os
@@ -25,7 +25,7 @@ from tools.admin.services.structured_preview import preview_document
 router = APIRouter(prefix="/api/admin/author", tags=["author"])
 
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
-ALLOWED_EXTENSIONS = {'.txt', '.md', '.text'}
+ALLOWED_EXTENSIONS = {'.txt', '.md', '.text', '.json'}
 
 
 # ============================================================================
@@ -94,11 +94,11 @@ async def _extract_text_from_upload(file: UploadFile) -> str:
         await file.close()
         raise HTTPException(
             status_code=400,
-            detail=f"Недопустимый формат файла '{ext}'. Поддерживаются только текстовые файлы (.txt, .md)."
+            detail=f"Недопустимый формат файла '{ext}'. Поддерживаются .json (V2), .txt, .md и .text."
         )
 
     try:
-        content = await file.read()
+        content = await file.read(MAX_FILE_SIZE_BYTES + 1)
     finally:
         await file.close()
 
@@ -109,15 +109,12 @@ async def _extract_text_from_upload(file: UploadFile) -> str:
         )
 
     try:
-        return content.decode("utf-8")
+        return content.decode("utf-8-sig")
     except UnicodeDecodeError:
-        try:
-            return content.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Файл '{filename}' не может быть прочитан как UTF-8. Пожалуйста, сохраните файл в кодировке UTF-8."
-            )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Файл '{filename}' не может быть прочитан как UTF-8. Пожалуйста, сохраните файл в кодировке UTF-8."
+        )
 
 
 # ============================================================================
@@ -145,7 +142,7 @@ def preview_v2(file: UploadFile = File(...)):
 @router.post("/parse")
 async def parse_content(request: Request):
     """
-    Разбирает текстовый или один/несколько загруженных файлов с карточками (.txt / .md).
+    Разбирает текст или один/несколько файлов с карточками (.txt / .md / .json).
     Возвращает список найденных колод, количество карточек, распределение типов,
     уровней CEFR и предупреждения о синтаксисе.
     """
@@ -153,6 +150,7 @@ async def parse_content(request: Request):
     default_deck_id = None
     default_deck_name = None
     file_names: List[str] = []
+    uploaded_documents = []
 
     content_type = request.headers.get("content-type", "")
     if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
@@ -162,18 +160,15 @@ async def parse_content(request: Request):
             if hasattr(f, "read")
         ]
         if uploaded_files:
-            text_parts = []
-            for uploaded_file in uploaded_files:
-                f_text = await _extract_text_from_upload(uploaded_file)
-                f_name = getattr(uploaded_file, "filename", "") or ""
-                if f_name:
-                    file_names.append(f_name)
-                f_base = os.path.splitext(f_name)[0].strip()
-                has_deck_header = bool(re.search(r'# (?:Deck|Колода):', f_text, re.IGNORECASE))
-                if f_base and not has_deck_header:
-                    f_text = f"# Deck: {f_base}\n\n" + f_text
-                text_parts.append(f_text)
-            text = "\n\n---\n\n".join(text_parts)
+            try:
+                for uploaded_file in uploaded_files:
+                    f_text = await _extract_text_from_upload(uploaded_file)
+                    f_name = getattr(uploaded_file, "filename", "") or ""
+                    if f_name:
+                        file_names.append(f_name)
+                    uploaded_documents.append((f_name, f_text))
+            finally:
+                await form.close()
         elif "text" in form:
             text = str(form["text"])
             default_deck_id = int(form["default_deck_id"]) if form.get("default_deck_id") else None
@@ -193,10 +188,11 @@ async def parse_content(request: Request):
     if default_deck_id is not None and default_deck_id <= 0:
         raise HTTPException(status_code=400, detail="Некорректный ID колоды.")
 
-    if not text.strip():
+    if not uploaded_documents and not text.strip():
         raise HTTPException(status_code=400, detail="Переданный файл или текст пуст.")
 
-    document = author_service.parse_document(text, default_deck_id, default_deck_name)
+    document = (author_service.parse_uploaded_documents(uploaded_documents) if uploaded_documents
+                else author_service.parse_document(text, default_deck_id, default_deck_name))
     cards = document['cards']
     if not cards and not document['passports'] and not document['errors']:
         raise HTTPException(status_code=400, detail="В файле не найдено ни одной карточки или паспорта.")

@@ -43,6 +43,7 @@
 
 Финальный ответ должен содержать **валидный JSON-документ Structured Cards V2** (`"schema_version": 2`), готовый к загрузке в `api/services/structured_cards_v2.py` и `api/services/author_service.py`:
 - Без вступительных и заключительных фраз.
+- Сохраняйте колоду как `.json` в UTF-8: один файл — один документ V2, без Markdown-обёртки.
 - Без комментариев `//` или trailing commas (строгий стандарт RFC 8259 JSON).
 - Без legacy-маркеров (`FRONT:`, `BACK:`, `CONTEXT:`, `<<<LERNE_CARD>>>`, `[[...]]`, `{...|...}`, `@puzzle`, `::task`) внутри строковых полей.
 - **Экономия токенов**: опускайте неиспользуемые поля (`id`, пустые `info`, `metadata`). Если `level` и `topics` заданы в `deck.passport.intro`, не дублируйте их внутри карточек.
