@@ -79,6 +79,26 @@ class SingleQuizTests(unittest.TestCase):
     def test_legacy_full_card_on_authored_quiz_uses_same_contract(self):
         self.assertEqual(set(self.generate('full_card')), {'back', 'context'})
 
+    def test_library_quiz_accepts_original_letter_labels_and_leading_checkmark(self):
+        front = ('::task\nЗапись в библиотеку: конструкция «nicht ... sondern»\n::exercise\n'
+                 'A: «Wir gehen nicht morgen, sondern erst nächste Woche zur Bibliothek.»\n\n'
+                 'A) Morgen gehen wir also zur Bibliothek.\n'
+                 '*B) Alles klar, wir gehen erst nächste Woche. Welcher Tag passt dir?\n'
+                 'C) Morgen ist die Bibliothek nächste Woche geschlossen.')
+        back = ('A: «Мы идем не завтра, а только на следующей неделе в библиотеку.»\n\n'
+                'A) Значит, завтра мы идем в библиотеку.\n'
+                '✅ B) Всё понятно, мы пойдем только на следующей неделе. Какой день тебе подходит?\n'
+                'C) Завтра библиотека закрыта на следующей неделе.')
+        lesson = {**LESSON, 'back': back}
+        self.mock_chat.return_value = (json.dumps(lesson), True)
+        self.assertEqual(self.generate(front=front), lesson)
+        self.assertEqual(self.mock_chat.await_count, 1)
+        for incomplete in (back.replace('C) Завтра библиотека закрыта на следующей неделе.', ''),
+                           back.replace('C)', 'B)'), back.split('\n\n', 1)[1]):
+            with self.subTest(back=incomplete):
+                self.mock_chat.return_value = (json.dumps({**lesson, 'back': incomplete}), True)
+                self.assertEqual(set(self.generate(front=front)), {'error'})
+
     def test_openrouter_keeps_existing_short_model_name_resolution(self):
         with patch.object(ai, 'get_ai_config', return_value=('openrouter', 'fake', 'gemini-test')):
             self.generate()

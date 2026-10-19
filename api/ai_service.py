@@ -93,12 +93,14 @@ def _quiz_analysis_fields(response: str, options: list) -> dict:
         r'\s*💡\s*\*\*Грамматика\*\*:\s*(.*?)\s*', context, re.DOTALL)
     if not sections or not all(part.strip() for part in sections.groups()):
         raise ValueError('Нужны объяснение, словарь и грамматика')
-    numbers = re.findall(r'(?m)^[ \t]*(\d+)[.)][ \t]+\S[^\n]*', back)
-    if [int(number) for number in numbers] != list(range(1, len(options) + 1)):
+    translated_options = list(re.finditer(r'(?m)^[ \t]*(?:✅[ \t]*)?(\d+|[A-Za-z])[.)][ \t]+\S[^\n]*', back))
+    labels = [match[1] for match in translated_options]
+    positions = [int(label) if label.isdigit() else ord(label.upper()) - ord('A') + 1 for label in labels]
+    if positions != list(range(1, len(options) + 1)):
         raise ValueError('Нужен перевод каждого варианта по порядку')
     if '✅' not in back:
         raise ValueError('Не отмечен правильный вариант')
-    if not re.split(r'(?m)^[ \t]*1[.)][ \t]+', back, maxsplit=1)[0].strip():
+    if not back[:translated_options[0].start()].strip():
         raise ValueError('Отсутствует перевод вопроса')
     if not re.search(r'(?m)^[ \t]*[-•][ \t]+\S.*[—–-][ \t]+\S', sections[2]):
         raise ValueError('Словарь пуст или не содержит переводов')
