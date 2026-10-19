@@ -1,5 +1,10 @@
 # Auth v2 deployment
 
+Production → Game Test SSO is opt-in and has a separate, explicit Game Test
+migration 89. See [LERNE_SSO.md](LERNE_SSO.md) for keys, role separation, callback
+handling, local tests and the rollout order. No Production DB migration is needed
+for the issuer, and no SSO migration runs on API startup.
+
 Run `python scripts/migrate_auth.py --apply` only in a planned maintenance
 window, with `AUTH_MIGRATION_DATABASE_URL` set to the chosen PostgreSQL target.
 This applies migrations 76–79; API startup never applies them implicitly.

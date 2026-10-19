@@ -395,7 +395,7 @@ class TMAAuthAccount(BaseModel):
 class TMAAuthIdentity(BaseModel):
     id = AutoField()
     account = ForeignKeyField(TMAAuthAccount, column_name='account_id', on_delete='CASCADE')
-    provider = CharField(max_length=16, constraints=[Check("provider IN ('telegram', 'google')")])
+    provider = CharField(max_length=16, constraints=[Check("provider IN ('telegram', 'google', 'lerne')")])
     subject = CharField(max_length=255)
     created_at = DateTimeField(default=auth_utcnow)
 
@@ -443,7 +443,7 @@ class TMAAuthProof(BaseModel):
 
 class TMAAuthChallenge(BaseModel):
     id = CharField(max_length=36, primary_key=True)
-    provider = CharField(max_length=16, constraints=[Check("provider IN ('telegram', 'google')")])
+    provider = CharField(max_length=16, constraints=[Check("provider IN ('telegram', 'google', 'lerne')")])
     purpose = CharField(max_length=8, constraints=[Check("purpose IN ('login', 'link')")])
     account = ForeignKeyField(TMAAuthAccount, column_name='account_id', null=True, on_delete='CASCADE')
     initiating_session_id = CharField(max_length=36, null=True)

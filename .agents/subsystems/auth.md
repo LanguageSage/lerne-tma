@@ -87,3 +87,29 @@ exception handler so `useAuthStore` can suggest email/password; other HTTP 5xx
 details remain redacted. The entrypoint contract is covered by
 `tests/test_game_test_preparation.py:PublicErrorTests` (run through
 `python scripts/test_game_mvp3.py tests.test_game_test_preparation`).
+
+## Lerne SSO (Production → Game Test)
+
+- Провайдер `lerne` переиспользует `TMAAuthChallenge`, `TMAAuthIdentity`,
+  `TMAAuthProof` и обычные локальные Auth v2 sessions/tokens. Subject — точный
+  issuer origin + canonical основной account ID; email не объединяет аккаунты.
+- `api/auth/lerne_sso.py`: Ed25519-подтверждение на 60 секунд, привязанное к
+  challenge ID/nonce. Только issuer подписывает после строгой основной Bearer-сессии;
+  client проверяет public key и расходует proof/challenge атомарно в `service.py`.
+- `POST /auth/v2/lerne/confirm`, `GET /auth/v2/lerne/config`; существующий
+  challenge/exchange принимает provider=`lerne` и optional assertion.
+- `app/src/components/auth/LerneSignIn.jsx` — явное подтверждение `/auth/lerne`
+  в основной Lerne с обычным окном входа. `app/public/lerne-sso-callback.html`/`.js`
+  удаляют fragment до загрузки приложения и сохраняют его только для исходной
+  вкладки. `useAuthStore` сохраняет pending/возобновляет exchange после reload.
+- Закрытый ключ и рабочие токены не передаются Game Test. Каждая версия хранит
+  данные/сессии в своей БД; роль client требует `LERNE_DEPLOYMENT=game-test`.
+- Миграция 89 (`api/auth/sso_migration.py`, `scripts/migrate_lerne_sso.py`) только
+  для Game Test, явно по pinned DSN; на startup не запускается. Production issuer
+  использует существующую схему. Настройка/rollout: [LERNE_SSO](../../api/auth/LERNE_SSO.md).
+- Проверки: `tests/test_lerne_sso.py` (две DB, подписи, replay/binding/rollback/
+  совместимость/миграция), `auth_store_regression.mjs` и `lerne-sso.spec.cjs`
+  (реальные локальные backend, две browser origins, consent/reload/repeat/cancel).
+- `/api/init` возвращает сохранённый `TMAUser.is_guest` независимо от наличия
+  имени/username: аккаунты email и Lerne SSO могут не иметь отображаемого имени.
+  Регрессия проверяет реальный handler с локальной БД и новым SSO аккаунтом.

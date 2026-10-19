@@ -55,6 +55,7 @@ export const useAuthStore = create((set, get) => ({
   isStarting: false,
   authMethods: null,
   passwordSettings: null,
+  lerneSso: null,
   showTelegramPrompt: false,
   // URL opened for the current pending challenge; shown as a fallback link
   // in AuthRequiredModal when the browser blocked the automatic popup.
@@ -65,6 +66,21 @@ export const useAuthStore = create((set, get) => ({
     set({ isRestoring: true });
     restoration = (async () => {
       try {
+        const pending = pendingAuth();
+        let callbackError = null;
+        try {
+          callbackError = sessionStorage.getItem('lerne_sso_callback_error');
+          sessionStorage.removeItem('lerne_sso_callback_error');
+        } catch { /* Ordinary sign-in also works when sessionStorage is unavailable. */ }
+        if (pending?.provider === 'lerne' && (pending.assertion || pending.callbackError)) {
+          get().setAuthModalOpen(true);
+          set({ isPolling: true });
+          await get().checkPendingSession();
+        } else if (callbackError || pending?.provider === 'lerne') {
+          get().cancelPendingAuth();
+          get().setAuthModalOpen(true);
+          set({ authError: tr('Вход через Lerne не завершён. Начните вход ещё раз.') });
+        }
         if (getAccessToken()) {
           const response = await api.get('/auth/v2/me');
           if (response.config?.headers?.Authorization && response.config.headers.Authorization !== `Bearer ${getAccessToken()}`) return;
@@ -76,6 +92,17 @@ export const useAuthStore = create((set, get) => ({
       finally { set({ isRestoring: false }); }
     })().finally(() => { restoration = null; });
     return restoration;
+  },
+
+  loadLerneSso: async () => {
+    try {
+      const response = await api.get('/auth/v2/lerne/config');
+      set({ lerneSso: response.data });
+      return response.data;
+    } catch {
+      set({ lerneSso: { role: null } });
+      return { role: null };
+    }
   },
 
   refreshAuthMethods: async () => {
@@ -157,6 +184,11 @@ export const useAuthStore = create((set, get) => ({
       savePending(pending);
       // Save URL so the modal can show a manual link if the popup was blocked.
       set({ isPolling: true, authError: null, authUrl });
+      if (provider === 'lerne') {
+        // Same tab preserves the originating Game sessionStorage on mobile too.
+        window.location.assign(authUrl);
+        return { success: true };
+      }
       get().beginPolling();
       openExternalLink(authUrl, preparedWindow);
       return { success: true };
@@ -226,9 +258,17 @@ export const useAuthStore = create((set, get) => ({
       set({ isPolling: false, authError: tr('Время подтверждения истекло. Начните вход ещё раз.'), authUrl: null });
       return false;
     }
+    if (pending.provider === 'lerne' && pending.callbackError) {
+      get().cancelPendingAuth();
+      set({ authError: tr('Вход через Lerne отменён. Вы можете попробовать ещё раз.') });
+      return false;
+    }
+    if (pending.provider === 'lerne' && !pending.assertion) return false;
     exchangeInFlight = true;
     try {
-      const response = await api.post(`/auth/v2/challenges/${pending.id}/exchange`, { secret: pending.secret });
+      const body = { secret: pending.secret };
+      if (pending.provider === 'lerne') body.assertion = pending.assertion;
+      const response = await api.post(`/auth/v2/challenges/${pending.id}/exchange`, body);
       if (pendingAuth()?.id !== pending.id) return false;
       if (pending.purpose === 'link') {
         clearPending();
@@ -238,18 +278,39 @@ export const useAuthStore = create((set, get) => ({
         useUiStore.getState().setIsAuthModalOpen(false);
         useUiStore.getState().showToast(tr('Способ входа привязан.'), 'success');
       } else {
-        await get().finishLogin(response.data, { recovery: pending.recovery });
+        if (pending.provider === 'lerne') {
+          // The one-time proof is spent. finishLogin saves the local session
+          // before loading /me; a profile/network failure must not replay it.
+          clearPending();
+          stopPolling();
+          set({ isPolling: false, authUrl: null });
+          try {
+            await get().finishLogin(response.data);
+          } catch {
+            set({ authError: tr('Вход подтверждён, но профиль не загрузился. Перезагрузите страницу.') });
+            return false;
+          }
+        } else {
+          await get().finishLogin(response.data, { recovery: pending.recovery });
+        }
       }
       return true;
     } catch (error) {
       // A challenge is expected to be unconfirmed while the app polls.
       if (pendingAuth()?.id !== pending.id) return false;
       const detail = error.response?.data?.detail;
-      if (detail === 'invalid_challenge') return false;
+      if (pending.provider !== 'lerne' && detail === 'invalid_challenge') return false;
+      if (pending.provider === 'lerne' && (!error.response || error.response.status >= 500)) {
+        set({ authError: tr('Не удалось связаться с сервером. Повторяем вход до истечения подтверждения.') });
+        get().beginPolling();
+        return false;
+      }
       clearPending();
       stopPolling();
       set({ isPolling: false, authUrl: null });
-      const message = authMessage(error, tr('Не удалось завершить вход.'));
+      const message = authMessage(error, pending.provider === 'lerne'
+        ? tr('Подтверждение Lerne недействительно или уже использовано. Начните вход ещё раз.')
+        : tr('Не удалось завершить вход.'));
       set({ authError: message });
       useUiStore.getState().showToast(message, 'error');
       return false;

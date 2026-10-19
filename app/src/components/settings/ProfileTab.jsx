@@ -73,6 +73,10 @@ export const ProfileTab = ({ userId }) => {
     cancelPendingAuth
   } = useAuthStore();
 
+  const lerneSso = useAuthStore(state => state.lerneSso);
+  const loadLerneSso = useAuthStore(state => state.loadLerneSso);
+  useEffect(() => { loadLerneSso(); }, [loadLerneSso]);
+
   useEffect(() => { if (userProfile && !userProfile.is_guest) refreshAuthMethods(); }, [userProfile, refreshAuthMethods]);
   const credentialEmail = passwordSettings?.email || loginEmail;
   const savePassword = async (event) => {
@@ -273,6 +277,9 @@ export const ProfileTab = ({ userId }) => {
             <h4>{tr("Способы входа")}</h4>
             <p>{tr("Привяжите второй способ сейчас — затем Google и Telegram будут открывать те же колоды и прогресс.")}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+              {lerneSso?.role === 'client' && (authMethods?.includes('lerne') ? <span>Lerne ✓</span>
+                : <button type="button" className="btn btn-primary" disabled={!authMethods || isStarting || isPolling}
+                  onClick={() => linkProvider('lerne')}>{tr('Добавить Lerne')}</button>)}
               {!authMethods && <button type="button" className="btn btn-secondary" onClick={refreshAuthMethods}>{tr('Загрузить способы входа')}</button>}
               {authMethods?.includes('google') ? <span>Google ✓</span> : <button type="button" disabled={!authMethods || isStarting || isPolling} className="btn btn-secondary" onClick={() => linkProvider('google')}>
                 G · {tr("Добавить Google")}

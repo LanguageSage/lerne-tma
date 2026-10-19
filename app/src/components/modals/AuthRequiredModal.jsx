@@ -13,14 +13,16 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
   const [recovery, setRecovery] = useState(false);
   const dialog = useRef(null);
   const { isPolling, isStarting, authError, authUrl, startTelegramLinking, startGoogleLogin, checkPendingSession,
-    loginWithEmailPassword, showTelegramPrompt, linkProvider, startPasswordRecovery, cancelPendingAuth } = useAuthStore();
+    loginWithEmailPassword, showTelegramPrompt, linkProvider, startPasswordRecovery, cancelPendingAuth,
+    lerneSso, loadLerneSso, startProvider } = useAuthStore();
   const busy = emailLoading || isStarting || isPolling;
   useEffect(() => {
     if (!isOpen) return;
+    loadLerneSso();
     const previous = document.activeElement;
     dialog.current?.focus();
     return () => { previous?.focus(); };
-  }, [isOpen]);
+  }, [isOpen, loadLerneSso]);
   const close = () => {
     if (emailLoading || isStarting) return;
     cancelPendingAuth();
@@ -74,6 +76,10 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
           {tr('Окно не открылось? Нажмите здесь ↗')}
         </a>}
         <div style={{ display: 'grid', gap: 10, marginTop: 18 }}>
+          {!showTelegramPrompt && !recovery && lerneSso?.role === 'client' && <button
+            className="btn btn-primary" disabled={busy} onClick={() => startProvider('lerne')} style={buttonStyle}>
+            {tr('Войти через Lerne')}
+          </button>}
           <button className="btn btn-primary" disabled={busy} onClick={() => showTelegramPrompt ? linkProvider('telegram') : recovery ? startPasswordRecovery('telegram') : startTelegramLinking()} style={buttonStyle}><Send size={18} />{showTelegramPrompt ? tr('Добавить Telegram') : tr('Войти через Telegram')}</button>
           {!showTelegramPrompt && <button className="btn btn-secondary" disabled={busy} onClick={() => recovery ? startPasswordRecovery('google') : startGoogleLogin()} style={{ ...buttonStyle, borderColor: 'rgba(255,255,255,.22)' }}><b style={{ fontSize: '1.1rem' }}>G</b>{tr('Войти через Google')}</button>}
           {isPolling && <button className="btn btn-secondary" onClick={checkPendingSession} style={buttonStyle}>{tr('Я подтвердил, продолжить')}</button>}
