@@ -3,8 +3,8 @@
 Implemented in the existing `game-mode` worktree (`scratch/game-no-login`).
 `git worktree list` confirms the main checkout remains on `main`; `scratch/` is
 ignored by Git. This is a linked worktree sharing the repository, not an independent
-clone. No branch creation, commit, push, database migration or deployment is needed
-for these local changes.
+clone. Changes are committed and pushed to `origin/game-mode`. No branch was created
+and no database migration or Production deployment was performed.
 
 ## Test flow
 
@@ -63,5 +63,10 @@ exercised at 320/375/430/768/1280px in RU/EN/UK; Russian result screenshots were
 visually reviewed on phone and desktop. The initial broader browser run had one
 page-load failure; its isolated rerun and the final complete 29-test run passed.
 The three new exam browser cases passed, including review retry and final TTS.
+Commit `7f356910139dc31423d1f5f6a1e731823dc2dc53` is pushed to `origin/game-mode`.
 The local version is ready for a test deployment and a live-provider/device smoke
-test; no deployment, commit or push was performed.
+test. Deployment was not created: the configured Vercel app integration rejected
+access to the linked project/team with HTTP 403, and the CLI could not connect to
+the configured local network proxy. GitHub reported no deployment status or workflow
+run for this commit at the time of verification. Reconnect Vercel with access to the
+linked Game Test team/project, then deploy this commit as a preview.
