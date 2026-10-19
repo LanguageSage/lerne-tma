@@ -234,7 +234,7 @@ def build_quiz_prompt(phrase_or_items, target_lang: str = "de", native_lang: str
             f"   [Понятный разбор правил, падежей или грамматических конструкций на {native_name} языке]\n\n"
             f"{level_rule}"
             f"Return ONLY a JSON object in this format:\n{{\n"
-            f'  "front": "{clean_phrase}",\n'
+            f'  "front": "[исходный текст вопроса и вариантов без изменений]",\n'
             f'  "back": "[Перевод вопроса]\\n\\n1. [Перевод первого варианта]\\n2. ✅ [Перевод правильного варианта]\\n... [перевод остальных вариантов]",\n'
             f'  "context": "🎯 **Объяснение**:\\n...\\n\\n📖 **Словарный запас**:\\n- слово1 — перевод1\\n- die слово2 — перевод2\\n\\n💡 **Грамматика**:\\n[разбор правил]"{json_level}\n'
             f"}}\nEND_JSON"

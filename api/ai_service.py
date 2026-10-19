@@ -60,59 +60,50 @@ def get_ai_config(force_refresh: bool = False):
     return config
 
 def extract_json_from_text(text: str, default_front: str) -> dict:
-    clean_text = text.replace("END_JSON", "").strip()
-    
-    if "```" in clean_text:
-        match = re.search(r'```(?:json)?\s*(.*?)\s*```', clean_text, re.DOTALL | re.IGNORECASE)
-        clean_text = match.group(1).strip() if match else re.sub(r'^```(?:json)?\n?', '', clean_text, flags=re.IGNORECASE).strip()
-            
-    first_brace = clean_text.find('{')
-    last_brace = clean_text.rfind('}')
-    
-    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-        json_str = clean_text[first_brace:last_brace+1]
-    elif first_brace != -1:
-        json_str = clean_text[first_brace:]
-    else:
-        json_str = clean_text
-        
+    """Decode complete JSON, never salvage fields from a broken response."""
+    if not isinstance(text, str):
+        raise ValueError('ИИ вернул пустой ответ вместо JSON')
+    clean_text = re.sub(r'\s*END_JSON\s*$', '', text).strip()
+    match = re.fullmatch(r'```(?:json)?\s*(.*?)\s*```', clean_text, re.DOTALL | re.IGNORECASE)
+    if match:
+        clean_text = match.group(1)
+    data = json.loads(clean_text)
+    if not isinstance(data, dict):
+        raise ValueError('ИИ должен вернуть JSON объект')
     valid_levels = {"A1", "A2", "B1", "B2", "C1", "C2"}
-    try:
-        data = json.loads(json_str)
-        raw_level = data.get("level")
-        level_str = str(raw_level).upper().strip() if raw_level else None
-        if level_str not in valid_levels:
-            level_str = None
+    level_str = str(data.get('level') or '').upper().strip()
+    return {
+        'front': data.get('front', default_front),
+        'back': data.get('back', ''),
+        'context': data.get('context', ''),
+        'level': level_str if level_str in valid_levels else None,
+    }
 
-        return {
-            "front": data.get("front", default_front),
-            "back": data.get("back", ""),
-            "context": data.get("context", ""),
-            "level": level_str
-        }
-    except json.JSONDecodeError:
-        pass
-        
-    # Fallback to regex
-    front = default_front
-    back = context = ""
-    level_str = None
 
-    m_front = re.search(r'"front"\s*:\s*"(.*?)"', text, re.DOTALL)
-    if m_front: front = m_front.group(1).replace('\\"', '"')
-    m_back = re.search(r'"back"\s*:\s*"(.*?)"', text, re.DOTALL)
-    if m_back: back = m_back.group(1).replace('\\"', '"').replace('\\n', '\n')
-    m_context = re.search(r'"context"\s*:\s*"(.*?)"', text, re.DOTALL)
-    if m_context: context = m_context.group(1).replace('\\"', '"').replace('\\n', '\n')
-    
-    m_level = re.search(r'"level"\s*:\s*"(A1|A2|B1|B2|C1|C2)"', text, re.IGNORECASE)
-    if m_level:
-        level_str = m_level.group(1).upper()
+def _quiz_analysis_fields(response: str, options: list) -> dict:
+    """Check the existing Quiz prompt's text fields; keep its output unchanged."""
+    data = extract_json_from_text(response, '')
+    back, context = data['back'], data['context']
+    if any(not isinstance(value, str) or not value.strip() or re.search(r'\\[nr]', value)
+           for value in (back, context)):
+        raise ValueError('Нужны непустые back/context без буквальных \\n')
+    sections = re.fullmatch(
+        r'\s*🎯\s*\*\*Объяснение\*\*:\s*(.*?)'
+        r'\s*📖\s*\*\*Словарный запас\*\*:\s*(.*?)'
+        r'\s*💡\s*\*\*Грамматика\*\*:\s*(.*?)\s*', context, re.DOTALL)
+    if not sections or not all(part.strip() for part in sections.groups()):
+        raise ValueError('Нужны объяснение, словарь и грамматика')
+    numbers = re.findall(r'(?m)^[ \t]*(\d+)[.)][ \t]+\S[^\n]*', back)
+    if [int(number) for number in numbers] != list(range(1, len(options) + 1)):
+        raise ValueError('Нужен перевод каждого варианта по порядку')
+    if '✅' not in back:
+        raise ValueError('Не отмечен правильный вариант')
+    if not re.split(r'(?m)^[ \t]*1[.)][ \t]+', back, maxsplit=1)[0].strip():
+        raise ValueError('Отсутствует перевод вопроса')
+    if not re.search(r'(?m)^[ \t]*[-•][ \t]+\S.*[—–-][ \t]+\S', sections[2]):
+        raise ValueError('Словарь пуст или не содержит переводов')
+    return {'back': back, 'context': context}
 
-    if not back and not context:
-        return {"front": default_front, "back": text, "context": "", "level": level_str}
-        
-    return {"front": front, "back": back, "context": context, "level": level_str}
 
 async def generate_card_fields(
     user_id: int,
@@ -167,6 +158,39 @@ async def generate_card_fields(
 
         client = AIService(provider=provider, api_key=ai_key)
         model_name = ai_model.strip()
+        if provider == 'openrouter' and '/' not in model_name:
+            model_name = f'google/{model_name}'
+
+        # Existing authored quizzes have a separate contract, including legacy
+        # full_card callers. Creation from a topic and other types keep their flow.
+        from api.services.input_parser import detect_card_type, parse_quiz_options
+        if action_type == 'quiz_analysis' or (action_type == 'full_card' and detect_card_type(phrase) == 'quiz'):
+            if detect_card_type(phrase) != 'quiz':
+                return {'error': 'Для разбора нужен Quiz с вариантами и отмеченным ответом.'}
+            options = parse_quiz_options(parsed_content['exercise'])
+            system_prompt = build_quiz_prompt(phrase, target_lang, native_lang, detect_level=False)
+            # Bound the entire analysis to two provider calls; do not multiply
+            # transport retries or key rotation with the content retry.
+            client.request_attempts = 1
+            client.key_attempts = 1
+            error = ''
+            for attempt in range(2):
+                response, success = await client.chat_completion(
+                    system_prompt=system_prompt,
+                    user_message=phrase,
+                    model=model_name,
+                    temperature=0.1,
+                    max_output_tokens=8192,
+                )
+                if success:
+                    try:
+                        return _quiz_analysis_fields(response, options)
+                    except ValueError as exc:
+                        error = str(exc)
+                else:
+                    error = str(response)
+                logger.warning('Quiz analysis attempt %s failed: %s', attempt + 1, error)
+            return {'error': 'Не удалось получить полный разбор теста после двух попыток. Карточка не изменена.'}
 
         # Handle explain_rule mode (grammar explanation for cloze gap)
         if action_type == "explain_rule":
@@ -351,7 +375,12 @@ async def generate_card_fields(
             return {"error": response}
         
         logger.info(f"AI: Generation successful in {duration:.2f}s")
-        result = extract_json_from_text(response, exercise_phrase)
+        try:
+            result = extract_json_from_text(response, exercise_phrase)
+            if not all(isinstance(result[field], str) for field in ('front', 'back', 'context')):
+                raise ValueError('Поля карточки должны быть текстом')
+        except ValueError:
+            return {'error': 'ИИ вернул повреждённый JSON. Карточка не изменена.'}
         if input_type in ("theory", "match", "puzzle", "word_bank", "free_text"):
             result["front"] = clean_phrase
         else:

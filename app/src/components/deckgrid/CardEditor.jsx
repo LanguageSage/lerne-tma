@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Plus, Settings, X } from 'lucide-react';
+import { ChevronLeft, Plus, Settings } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { CardForm } from '../common/CardForm';
 import { useUiStore } from '../../store/useUiStore';
@@ -10,6 +10,7 @@ import { useSessionStore } from '../../store/useSessionStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useAudio } from '../../hooks/useAudio';
 import { resolveAiTranslation } from '../../utils/aiCardResult';
+import { detectCardType } from '../../utils/exerciseDetector';
 import { navigateUp } from '../../utils/navigation';
 
 export const CardEditor = () => {
@@ -31,9 +32,16 @@ export const CardEditor = () => {
 
   const handleAiGenerate = async (actionType = 'full_card', userRequest = '') => {
     if (!editingCard?.front) return;
+    if (actionType === 'full_card' && detectCardType(editingCard) === 'quiz') {
+      actionType = 'quiz_analysis';
+    }
     const result = await runAiGenerator(editingCard.front, true, actionType, userRequest);
     if (result) {
-      if (actionType === 'custom_directive' || actionType === 'explain_rule') {
+      if (actionType === 'quiz_analysis') {
+        const current = useSessionStore.getState().editingCard;
+        if (current?.id !== editingCard.id || current?.front !== editingCard.front) return null;
+        setEditingCard({ ...current, back: result.back, context: result.context });
+      } else if (actionType === 'custom_directive' || actionType === 'explain_rule') {
         const currentCtx = editingCard.context || '';
         const updatedCtx = currentCtx ? `${result.context}\n\n${currentCtx.trim()}` : result.context;
         setEditingCard({

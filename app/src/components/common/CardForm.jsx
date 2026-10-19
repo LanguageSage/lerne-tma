@@ -20,7 +20,7 @@ import { triggerHaptic } from '../../utils/platform';
 
 import { useTranslation } from '../../i18n/i18nContext';
 import { getAudioUrl } from '../../utils/media';
-import { detectAiQuickActionType, detectExerciseType } from '../../utils/exerciseDetector';
+import { detectAiQuickActionType, detectCardType, detectExerciseType } from '../../utils/exerciseDetector';
 import api from '../../services/api';
 
 export const CardForm = ({
@@ -532,91 +532,15 @@ export const CardForm = ({
       </div>
 
 
-      <div className="form-group">
-        <div 
-          className="card-preview-container glass" 
-          style={{ 
-            position: 'relative', 
-            borderRadius: '12px', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            minHeight: '80px' 
-          }}
-        >
-          <CardBackground styleType={resolvedBgBack} />
-          
-          <div className="card-preview-body" style={{ padding: '6px 10px 6px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            <label className="sub-label" htmlFor="card-editor-back">{tr("Ответ / обратная сторона")}</label>
-            <textarea
-              id="card-editor-back"
-              ref={backRef}
-              className="textarea-preview textarea-back-preview"
-              value={cardData.back || ''} 
-              onChange={(e) => {
-                setCardData({...cardData, back: e.target.value});
-              }}
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              style={{ 
-                fontFamily: cardFont, 
-                fontWeight: cardFontWeight, 
-                fontStyle: cardFontStyle,
-                color: cardTextColor,
-                fontSize: `${cardFontSize}rem`,
-                textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                textAlign: cardTextAlign || 'center',
-                overflow: 'hidden',
-                height: 'auto',
-                minHeight: '52px'
-              }}
-              placeholder={(() => {
-                const isExercise = Boolean(detectExerciseType(cardData));
-                return isExercise ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');
-              })()}
-            />
-            
-            <details className="card-form-secondary" open={cardData.context ? true : undefined}>
-              <summary>{tr("Примеры и пояснения")}</summary>
-            <textarea 
-              ref={contextRef}
-              aria-label={tr("Примеры и пояснения")}
-              className="context-textarea textarea-preview textarea-context-preview"
-              value={cardData.context || ''} 
-              onChange={(e) => {
-                setCardData({...cardData, context: e.target.value});
-              }}
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              style={{ 
-                fontFamily: contextFont, 
-                fontSize: `${contextFontSize}rem`,
-                color: contextTextColor,
-                fontWeight: contextFontWeight,
-                fontStyle: contextFontStyle,
-                textShadow: getContextShadow(contextTextShadow, contextTextColor),
-                textAlign: contextTextAlign || 'left',
-                overflow: 'hidden',
-                height: 'auto',
-                minHeight: '52px'
-              }}
-              placeholder={t('creator.context', 'Примеры, грамматика...')}
-            />
-            </details>
-          </div>
-        </div>
-      </div>
-
-
       {(() => {
         const frontText = cardData.front || '';
         const quickActionType = detectAiQuickActionType(frontText);
+        const isExistingQuiz = !isCreator && detectCardType(cardData) === 'quiz';
 
         let dynamicAction = null;
-        if (quickActionType === 'explain_rule') {
+        if (isExistingQuiz) {
+          dynamicAction = { id: 'quiz_analysis', label: tr("📝 Разбор теста"), icon: BookOpen };
+        } else if (quickActionType === 'explain_rule') {
           dynamicAction = {
             id: 'explain_rule',
             label: tr("📖 Правило"),
@@ -633,11 +557,11 @@ export const CardForm = ({
         const DynamicIcon = dynamicAction?.icon || BookOpen;
 
         return (
-          <div className={`ai-quick-actions ${dynamicAction && !loading ? 'has-dynamic' : 'no-dynamic'} ${!isCreator ? 'has-request' : ''}`} style={{ gap: '6px' }}>
+          <div className={`ai-quick-actions ${dynamicAction && !loading && !isExistingQuiz ? 'has-dynamic' : 'no-dynamic'} ${!isCreator && !isExistingQuiz ? 'has-request' : ''}`} style={{ gap: '6px' }}>
             {loading ? (
-              <button 
+              <button
                 type="button"
-                className="btn-ai-generate loading" 
+                className="btn-ai-generate loading"
                 onClick={onStopGeneration}
                 style={{ flex: 1, background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}
               >
@@ -663,16 +587,16 @@ export const CardForm = ({
                   </button>
                 )}
 
-                <button 
+                {!isExistingQuiz && <button
                   type="button"
-                  className="btn-ai-generate" 
+                  className="btn-ai-generate"
                   onClick={() => onAiGenerate && onAiGenerate('full_card')}
                   disabled={loading || !cardData.front}
                 >
                   <Sparkles size={16} />
                   <span>{t('creator.ai_generate', 'Генерировать ✨')}</span>
-                </button>
-                {!isCreator && (
+                </button>}
+                {!isCreator && !isExistingQuiz && (
                   <CardQuestionComposer
                     onSubmit={(request) => onAiGenerate?.('full_card', request)}
                     icon="✨"
@@ -686,18 +610,98 @@ export const CardForm = ({
                 )}
               </>
             )}
-            <button 
+            <button
               type="button"
-              className="btn btn-primary btn-save-action" 
-              onClick={onSave} 
+              className="btn btn-primary btn-save-action"
+              aria-label={t('creator.save', 'Сохранить')}
+              onClick={onSave}
               disabled={loading}
-              style={{ padding: '8px 16px', minHeight: '38px' }}
+              style={{ padding: '8px 16px', minHeight: '44px' }}
             >
               {loading ? <RefreshCw className="spin" size={18} /> : t('creator.save', 'Сохранить')}
             </button>
           </div>
         );
       })()}
+
+      <div className="form-group">
+        <div
+          className="card-preview-container glass"
+          style={{
+            position: 'relative',
+            borderRadius: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '80px'
+          }}
+        >
+          <CardBackground styleType={resolvedBgBack} />
+
+          <div className="card-preview-body" style={{ padding: '6px 10px 6px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
+            <label className="sub-label" htmlFor="card-editor-back">{tr("Ответ / обратная сторона")}</label>
+            <textarea
+              id="card-editor-back"
+              ref={backRef}
+              className="textarea-preview textarea-back-preview"
+              value={cardData.back || ''}
+              onChange={(e) => {
+                setCardData({...cardData, back: e.target.value});
+              }}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              style={{
+                fontFamily: cardFont,
+                fontWeight: cardFontWeight,
+                fontStyle: cardFontStyle,
+                color: cardTextColor,
+                fontSize: `${cardFontSize}rem`,
+                textShadow: getTextShadow(cardTextShadow, cardTextColor),
+                textAlign: cardTextAlign || 'center',
+                overflow: 'hidden',
+                height: 'auto',
+                minHeight: '52px'
+              }}
+              placeholder={(() => {
+                const isExercise = Boolean(detectExerciseType(cardData));
+                return isExercise ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');
+              })()}
+            />
+
+            <details className="card-form-secondary" open={cardData.context ? true : undefined}>
+              <summary>{tr("Примеры и пояснения")}</summary>
+            <textarea
+              ref={contextRef}
+              aria-label={tr("Примеры и пояснения")}
+              className="context-textarea textarea-preview textarea-context-preview"
+              value={cardData.context || ''}
+              onChange={(e) => {
+                setCardData({...cardData, context: e.target.value});
+              }}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              style={{
+                fontFamily: contextFont,
+                fontSize: `${contextFontSize}rem`,
+                color: contextTextColor,
+                fontWeight: contextFontWeight,
+                fontStyle: contextFontStyle,
+                textShadow: getContextShadow(contextTextShadow, contextTextColor),
+                textAlign: contextTextAlign || 'left',
+                overflow: 'hidden',
+                height: 'auto',
+                minHeight: '52px'
+              }}
+              placeholder={t('creator.context', 'Примеры, грамматика...')}
+            />
+            </details>
+          </div>
+        </div>
+      </div>
+
 
       <details className="card-form-secondary">
         <summary>{tr("Видео")}</summary>

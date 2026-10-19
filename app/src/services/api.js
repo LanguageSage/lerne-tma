@@ -19,7 +19,7 @@ axiosInstance.interceptors.request.use((config) => {
   } else if (url.includes('/cards/bulk-save')) {
     config.timeout = 120000;
   } else if (url.includes('/ai') || url.includes('/cards/ai-generate') || url.includes('/cards/save')) {
-    config.timeout = 45000;
+    config.timeout = config.timeout > 45000 ? config.timeout : 45000;
   }
   const token = getAccessToken();
   if (token && !config.headers?.Authorization) {

@@ -203,6 +203,8 @@ class AIService:
             return data, False
 
         try:
+            if data['candidates'][0].get('finishReason') == 'MAX_TOKENS':
+                return 'ИИ достиг ограничения выходных токенов', False
             content = data["candidates"][0]["content"]["parts"][0]["text"]
             return content, True
         except (KeyError, IndexError):
@@ -224,6 +226,8 @@ class AIService:
         data, success = await self._make_request(url, json_data=payload, timeout=45, provider_name="Ollama")
         if not success:
             return data, False
+        if data.get('done_reason') == 'length':
+            return 'ИИ достиг ограничения выходных токенов', False
         return data["message"]["content"], True
 
     async def _groq_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
@@ -241,6 +245,8 @@ class AIService:
         data, success = await self._make_request(url, headers=headers, json_data=payload, provider_name="Groq")
         if not success:
             return data, False
+        if data['choices'][0].get('finish_reason') == 'length':
+            return 'ИИ достиг ограничения выходных токенов', False
         return data["choices"][0]["message"]["content"], True
 
     async def _openrouter_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
@@ -258,6 +264,8 @@ class AIService:
         data, success = await self._make_request(url, headers=headers, json_data=payload, timeout=45, provider_name="OpenRouter")
         if not success:
             return data, False
+        if data['choices'][0].get('finish_reason') == 'length':
+            return 'ИИ достиг ограничения выходных токенов', False
         return data["choices"][0]["message"]["content"], True
 
     async def get_models(self):

@@ -137,7 +137,8 @@ export const useAiActions = () => {
     abortControllerRef.current = new AbortController();
 
     setLoading(true);
-    const maxRetries = 2;
+    // Quiz content/transport retry belongs to the server (two calls total).
+    const maxRetries = actionType === 'quiz_analysis' ? 1 : 2;
     let attempt = 0;
     let lastError = null;
 
@@ -161,7 +162,7 @@ export const useAiActions = () => {
             action_type: actionType,
             user_request: String(userRequest || '').trim() || undefined
           },
-          { signal: abortControllerRef.current.signal }
+          { signal: abortControllerRef.current.signal, ...(actionType === 'quiz_analysis' ? { timeout: 100000 } : {}) }
         );
 
         if (res.data.error) {
@@ -187,7 +188,10 @@ export const useAiActions = () => {
         const session = useSessionStore.getState();
         const ui = useUiStore.getState();
 
-        if (actionType === 'custom_directive' || actionType === 'explain_rule') {
+        if (actionType === 'quiz_analysis') {
+          session.setEditingCard({ ...session.editingCard, back: res.data.back, context: res.data.context });
+          showToast(tr("Готово! Проверьте поля."), "success");
+        } else if (actionType === 'custom_directive' || actionType === 'explain_rule') {
           const currentCtx = session.editingCard?.context || '';
           const updatedCtx = currentCtx ? `${res.data.context}\n\n${currentCtx.trim()}` : res.data.context;
           const currentBack = session.editingCard?.back || '';

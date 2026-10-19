@@ -52,6 +52,75 @@ const advanced = page => page.getByRole('button', { name: 'Дополнител�
 const raw = page => page.getByRole('textbox', { name: 'Исходная разметка', exact: true });
 const simple = page => page.getByRole('button', { name: 'Обычный редактор' });
 
+const analysisQuiz = '::task\nWählen Sie die richtige Antwort.\n\n::exercise\nWomit fährt Anna?\n\nA) Mit dem Auto\n*B) Mit dem Bus\nC) Mit dem Zug';
+
+test('single quiz analysis preserves source and places actions between sides', async ({ page, context }, testInfo) => {
+  await openEditor(page, context, analysisQuiz);
+  const action = page.getByRole('button', { name: '📝 Разбор теста', exact: true });
+  await expect(action).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /генерировать/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Выполнить просьбу', exact: true })).toHaveCount(0);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  for (const width of [320, 375, 430, 768, 1330]) {
+    await page.setViewportSize({ width, height: 900 });
+    const positions = await page.evaluate(() => ({
+      front: document.querySelector('#tut-creator-front').getBoundingClientRect().bottom,
+      actions: document.querySelector('.ai-quick-actions').getBoundingClientRect(),
+      back: document.querySelector('#card-editor-back').getBoundingClientRect().top,
+      overflow: document.documentElement.scrollWidth > innerWidth,
+    }));
+    expect(positions.overflow).toBe(false);
+    expect(positions.actions.top).toBeGreaterThanOrEqual(positions.front);
+    expect(positions.actions.bottom).toBeLessThan(positions.back);
+    await page.screenshot({ path: testInfo.outputPath(`quiz-analysis-${width}.png`), fullPage: true });
+  }
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let count = 0;
+  await page.route('**/api/cards/ai-generate', async route => {
+    count++;
+    expect(route.request().postDataJSON()).toMatchObject({ phrase: analysisQuiz, action_type: 'quiz_analysis' });
+    await gate;
+    return route.fulfill({ json: { front: 'Broken\\n*B)', back: 'Полный перевод\n2. ✅ На автобусе',
+      context: 'Объяснение всех вариантов\nСловарный запас\nГрамматика', level: 'C2', tags: 'changed' } });
+  });
+  await action.click();
+  await expect(page.getByRole('button', { name: 'Отменить', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Сохранить/ })).toBeDisabled();
+  release();
+  await expect(page.locator('#card-editor-back')).toHaveValue('Полный перевод\n2. ✅ На автобусе');
+  const draft = await page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState().editingCard);
+  expect(draft.front).toBe(analysisQuiz);
+  expect(draft.tags).not.toBe('changed');
+  expect(count).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('single quiz analysis error leaves entire draft intact without client retry', async ({ page, context }) => {
+  await openEditor(page, context, analysisQuiz);
+  const original = await page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState().editingCard);
+  let count = 0;
+  await page.route('**/api/cards/ai-generate', route => {
+    count++;
+    return route.fulfill({ json: { error: 'Не удалось получить полный разбор теста после двух попыток. Карточка не изменена.' } });
+  });
+  await page.getByRole('button', { name: '📝 Разбор теста', exact: true }).click();
+  await expect(page.getByText(/Ошибка ИИ: Не удалось получить полный разбор/)).toBeVisible();
+  await expect(page.getByRole('button', { name: '📝 Разбор теста', exact: true })).toBeEnabled();
+  const current = await page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState().editingCard);
+  expect(current).toEqual(original);
+  expect(count).toBe(1);
+});
+
+test('single quiz fix keeps standard editor and new card generation available', async ({ page, context }) => {
+  await openEditor(page, context, 'Guten Morgen');
+  await expect(page.getByRole('button', { name: /генерировать/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Выполнить просьбу', exact: true })).toBeVisible();
+  await page.evaluate(async () => (await import('/src/store/useUiStore.js')).useUiStore.getState().setView('creator'));
+  await expect(page.getByRole('button', { name: /генерировать/i })).toBeVisible();
+});
+
 test('B1-29-D02 compact quiz labels render in the editor and study card', async ({ page, context }, testInfo) => {
   const fixture = require('../../../tests/fixtures/quiz_b1_29_d02.json');
   const front = `::task\n${fixture.task}\n::exercise\n${fixture.question}\n\nA)${fixture.answers[0]}\nB)${fixture.answers[1]}\nC)*${fixture.answers[fixture.correct]}`;

@@ -212,7 +212,7 @@ def detect_ai_input_type(text: str) -> str:
 
 
 _TRAINER_SYNTAX = re.compile(r"\{[^}]+\}|\[\[[^\]]+\]\]")
-_OPTION_LINE = (re.compile(r"^[-*○•]"), re.compile(r"^\[[*xX ]\]"), re.compile(r"^[a-zA-Z0-9]+[).]\s"))
+_OPTION_LINE = re.compile(r"^\*(?!\*)|^\[[*xX ]\]|^[-○•]|^(?:[a-zA-Z]|[0-9]{1,2})(?:\)|\.\s)")
 _CORRECT_OPTION = (re.compile(r"^\*(?!\*)"), re.compile(r"^\[\*\]"),
                    re.compile(r"^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*\*"), re.compile(r"^[-○•]\s*\*"))
 
@@ -227,27 +227,34 @@ def _option_parts(line: str) -> tuple[bool, str]:
     return any(rx.search(line) for rx in _CORRECT_OPTION), cleaned
 
 
-def _has_quiz_structure(exercise: str) -> bool:
-    """Mirror parseQuizData: a question plus >= 2 options, at least one marked correct."""
+def parse_quiz_options(exercise: str) -> list[tuple[bool, str]]:
+    """Mirror parseQuizData's option boundary, preserving question paragraphs."""
     masked = re.sub(r"\{[^}]+\}", "__TRAINER_CHOICE__", re.sub(r"\[\[[^\]]+\]\]", "__TRAINER_INPUT__", exercise))
-    if "\n\n" in masked:
-        parts = re.split(r"\n\s*\n", masked)
-        option_lines = [l.strip() for l in "\n\n".join(parts[1:]).strip().split("\n") if l.strip()]
-    else:
-        lines = [l.strip() for l in masked.split("\n") if l.strip()]
-        if len(lines) < 2:
-            return False
-        first = next((i for i, l in enumerate(lines) if any(rx.search(l) for rx in _OPTION_LINE)), -1)
-        if first > 0:
-            option_lines = lines[first:]
-        else:
-            star = next((i for i, l in enumerate(lines) if re.match(r"^\*(?!\*)|^\[\*\]", l)), -1)
-            if star <= 0:
-                return False
-            option_lines = lines[1:]
+    lines = masked.splitlines()
+
+    def is_option(line):
+        return bool(_OPTION_LINE.search(line.strip()))
+
+    first = next((i for i, line in enumerate(lines) if i > 0 and is_option(line)), -1)
+    if first < 1:
+        return []
+    # Legacy options without labels share a paragraph; include those before *.
+    if (re.match(r'^\s*\*(?!\*)', lines[first])
+        and not is_option(re.sub(r'^\s*\*(?!\*)\s*', '', lines[first]))
+        and not any(is_option(re.sub(r'^\s*\*(?!\*)\s*', '', line)) for line in lines[first + 1:])):
+        for i in range(first - 1, 0, -1):
+            if not lines[i].strip():
+                first = i + 1
+                break
+    option_lines = [line.strip() for line in lines[first:] if line.strip()]
     if len(option_lines) < 2:
-        return False
-    options = [_option_parts(l) for l in option_lines]
+        return []
+    return [_option_parts(line) for line in option_lines]
+
+
+def _has_quiz_structure(exercise: str) -> bool:
+    """A question plus >= 2 options, at least one marked correct."""
+    options = parse_quiz_options(exercise)
     return any(correct for correct, _ in options) and sum(1 for _, text in options if text) >= 2
 
 
