@@ -5,6 +5,14 @@ from pathlib import Path
 
 LIBRARY = json.loads((Path(__file__).parents[1] / 'game_config' / 'library.json').read_text(encoding='utf-8'))
 NEIGHBOR = json.loads((Path(__file__).parents[1] / 'game_config' / 'neighbor.json').read_text(encoding='utf-8'))
+EXAM = {
+    'npc': {'id': 'b1_partner', 'name': 'Alex', 'age': 30,
+            'profession': 'Prüfungspartner', 'tts_voice': 'de-DE-KatjaNeural'},
+    'scene': {'id': 'b1_planning', 'name': 'Gemeinsam etwas planen · B1',
+              'situation_id': 'b1_planning_v1',
+              'opening': 'Hallo! Wir planen das zusammen. Was würden Sie vorschlagen?',
+              'farewell': 'Danke für das Gespräch. Damit beenden wir unsere Planung.'},
+}
 CATALOG = {book['id']: book for book in LIBRARY['catalog']}
 MAX_TURNS = 40
 HISTORY_MESSAGES = 24
@@ -12,6 +20,8 @@ HISTORY_MESSAGES = 24
 
 def scenario_for(state):
     # Rows written before the social scenario have no situation marker.
+    if state.get('situation_id') == EXAM['scene']['situation_id']:
+        return EXAM
     return NEIGHBOR if state.get('situation_id') == NEIGHBOR['scene']['situation_id'] else LIBRARY
 
 

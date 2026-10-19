@@ -1,4 +1,35 @@
-# Game Mode: neighbor introduction (current default)
+# Game Mode
+
+## B1 exam dialogue (Game Test)
+
+GameView adds separate free-conversation and exam tabs. `POST /game/attempts` accepts
+optional `mode` (`neighbor` default, `b1_exam`) and `topic` (required for exam, up to
+6000 characters). `b1_planning_v1` uses `api/services/game_exam.py`; Alex is an equal
+planning partner, with no corrections during dialogue. One bounded structured AI
+call responds using the topic and full attempt history. Agreement can close after
+six exchanges; the prompt aims for 8–12, with a safety cap of 16 or 40 requests.
+Explicit user goodbye and the existing End button also finish. Voice hook, manual
+send and media generation are reused unchanged.
+
+Exam history is retained in full in the existing TMAGameAttempt row; other scenarios
+keep their existing retention. No schema migration or SRS/mastery writes. The existing
+owner, lease, version, daily budgets and request replay protect all mutations.
+After ending, `action=review` generates a provisional Russian `learning_result`
+(task completion, grammar/vocabulary with quote-validated user evidence, expressions,
+recommendations). Review uses one reserved AI call, increments version but neither
+conversation history nor turn count; failure preserves the completed conversation
+and supports retry, including at the request cap. The client requests it automatically
+after ending and exposes a retry/recovery button on restored unfinished reviews.
+`GET /game/exam-attempts` lists the current visitor's latest 20 exam attempt summaries;
+the UI can reopen their complete history/results and repeat with the same/edited topic.
+Browser storage keeps separate current IDs for neighbor/exam. Clearing visitor storage
+loses access to prior anonymous attempts, as with existing Game Test.
+
+The start contract (`mode`, `topic`) is the future lesson-card entry seam; no lesson
+integration is implemented. See `project_docs/GAME_MODE_B1_EXAM.md` and
+`tests/test_game_exam.py`; browser cases are in `scripts/tests/browser/game-mode.spec.cjs`.
+
+## Neighbor introduction (current default)
 
 New attempts use `api/game_config/neighbor.json`: Frau Müller, 52, a friendly, calm,
 slightly curious neighbor. NPC passport, optional goals and 6–10-exchange rules are

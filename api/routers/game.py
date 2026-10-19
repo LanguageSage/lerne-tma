@@ -9,7 +9,7 @@ from starlette.concurrency import run_in_threadpool
 from api.dependencies.auth import get_game_user_id
 from api.services.game_dialogue import configuration
 from api.services.game_scene import NEIGHBOR
-from api.services.game_service import start_attempt, load_attempt, send_turn
+from api.services.game_service import start_attempt, load_attempt, send_turn, list_exam_attempts
 
 router = APIRouter(prefix='/game', tags=['game'])
 
@@ -17,13 +17,24 @@ router = APIRouter(prefix='/game', tags=['game'])
 class StartRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     attempt_id: UUID
+    mode: Literal['neighbor', 'b1_exam'] = 'neighbor'
+    topic: str = Field(default='', max_length=6000)
+
+    @model_validator(mode='after')
+    def validate_topic(self):
+        self.topic = self.topic.strip()
+        if self.mode == 'b1_exam' and not self.topic:
+            raise ValueError('An exam topic is required')
+        if self.mode != 'b1_exam' and self.topic:
+            raise ValueError('Topic is only supported for the exam')
+        return self
 
 
 class TurnRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     request_id: UUID
     version: int = Field(ge=0)
-    action: Literal['message', 'hint', 'end'] = 'message'
+    action: Literal['message', 'hint', 'end', 'review'] = 'message'
     message: str = Field(default='', max_length=1000)
 
     @model_validator(mode='after')
@@ -49,7 +60,13 @@ async def scene(user_id: int = Depends(get_game_user_id)):
 
 @router.post('/attempts')
 def start(request: StartRequest, user_id: int = Depends(get_game_user_id)):
-    return start_attempt(str(request.attempt_id), user_id)
+    return start_attempt(str(request.attempt_id), user_id,
+                         'b1_planning_v1' if request.mode == 'b1_exam' else None, request.topic)
+
+
+@router.get('/exam-attempts')
+def exam_attempts(user_id: int = Depends(get_game_user_id)):
+    return list_exam_attempts(user_id)
 
 
 @router.get('/attempts/{attempt_id}')

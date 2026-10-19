@@ -17,7 +17,8 @@ export const gameApi = axios.create({
 });
 export const gameService = {
   scene: () => gameApi.get('/game/scene').then(({ data }) => data),
-  start: id => gameApi.post('/game/attempts', { attempt_id: id }).then(({ data }) => data),
+  start: (id, options = {}) => gameApi.post('/game/attempts', { attempt_id: id, ...options }).then(({ data }) => data),
   load: id => gameApi.get(`/game/attempts/${id}`).then(({ data }) => data),
+  examAttempts: () => gameApi.get('/game/exam-attempts').then(({ data }) => data),
   turn: (id, request) => gameApi.post(`/game/attempts/${id}/turns`, request, { timeout: 35000 }).then(({ data }) => data),
 };

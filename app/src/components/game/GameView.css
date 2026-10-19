@@ -52,3 +52,17 @@
 
 .game-language { display: flex; align-items: center; justify-content: flex-end; gap: 12px; max-width: 760px; margin: 0 auto; padding: 8px 14px 0; box-sizing: border-box; color: var(--design-secondary-color); }
 .game-language select { min-height: 44px; padding: 8px; border-radius: 8px; background: var(--design-glass-bg); color: var(--design-text-color); border: 1px solid var(--design-glass-border); }
+.game-tabs { display: flex; flex-wrap: wrap; gap: 8px; max-width: 760px; margin: 0 auto; padding: 12px 14px 0; box-sizing: border-box; }
+.game-tabs .game-button { flex: 1 1 200px; }
+.game-tabs [aria-pressed="true"] { background: var(--design-ui-btn-primary-normal-bg, #3a5149); color: var(--design-ui-btn-primary-normal-color, #eef2ef); }
+.game-exam-topic { margin-bottom: 16px; }
+.game-exam-topic summary { min-height: 44px; cursor: pointer; line-height: 1.5; }
+.game-exam-topic summary:focus-visible { outline: 2px solid var(--design-accent-secondary); outline-offset: 3px; }
+.game-exam-topic select { display: block; width: 100%; min-height: 44px; margin: 8px 0 16px; padding: 8px; border: 1px solid var(--design-glass-border); border-radius: 8px; color: inherit; background: var(--design-glass-bg); font: inherit; }
+.game-exam-topic select:focus-visible { outline: 2px solid var(--design-accent-secondary); outline-offset: 3px; }
+.game-topic-text, .game-review p { white-space: pre-wrap; }
+.game-review { margin: 16px 0; padding: 16px; border: 1px solid var(--design-glass-border); border-radius: 16px; line-height: 1.65; overflow-wrap: anywhere; }
+.game-review h2 { font-size: 1.2rem; margin-top: 0; }
+.game-review h3 { font-size: 1rem; margin: 20px 0 8px; }
+.game-review ul { padding-left: 22px; }
+.game-review li { margin-bottom: 12px; }

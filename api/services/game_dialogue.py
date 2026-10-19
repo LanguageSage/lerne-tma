@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
 from api.services.answer_evaluation import configured_ai
-from api.services.game_scene import LIBRARY, NEIGHBOR, normalized_title, scenario_for
+from api.services.game_scene import EXAM, LIBRARY, NEIGHBOR, normalized_title, scenario_for
+from api.services.game_exam import exam_turn
 from api.services.game_conversation import SocialIntent, SocialReply, advance_conversation, finish_reply
 
 logger = logging.getLogger(__name__)
@@ -158,7 +159,9 @@ async def create_turn(message, state, history, advance, configured=None):
         if configured[0] == 'unconfigured':
             raise DialogueUnavailable()
         async with asyncio.timeout(AI_TIMEOUT):
-            if scenario_for(state) is NEIGHBOR:
+            if scenario_for(state) is EXAM:
+                new_state, event, reply = await exam_turn(message, state, history, configured, structured_call)
+            elif scenario_for(state) is NEIGHBOR:
                 new_state, event, reply = await social_turn(message, state, history, configured)
             else:
                 intent = await interpret(message, state, history, configured)

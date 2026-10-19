@@ -1,12 +1,13 @@
 const { test, expect } = require('@playwright/test');
 
-async function setup(page, context, { mode = 'mock', guest = false, failTurn = false, voice = false, ttsFail = false, turnDelay = 150, maxTurns = 40, neighbor = false } = {}) {
+async function setup(page, context, { mode = 'mock', guest = false, failTurn = false, failReview = false, voice = false, ttsFail = false, turnDelay = 150, maxTurns = 40, neighbor = false } = {}) {
   const errors = [];
   const requests = [];
   const attempts = new Map();
   const audioRequests = [];
   let aiMode = mode;
   let shouldFail = failTurn;
+  let reviewFailure = failReview;
   page.on('pageerror', error => errors.push(error.message));
   await context.addInitScript(guest => {
     localStorage.setItem('native_language', 'ru');
@@ -61,15 +62,19 @@ async function setup(page, context, { mode = 'mock', guest = false, failTurn = f
         : { id: 'stadtbibliothek', name: 'Stadtbibliothek', situation_id: 'library_balcony_book_v1' }, ai_mode: aiMode,
     } });
     if (pathname === '/api/game/attempts') {
-      const { attempt_id } = route.request().postDataJSON();
+      const { attempt_id, mode: attemptMode, topic } = route.request().postDataJSON();
+      const exam = attemptMode === 'b1_exam';
       if (!attempts.has(attempt_id)) attempts.set(attempt_id, {
         id: attempt_id, version: 0, hint_count: 0, clarification_count: 0, turn_count: 0, max_turns: maxTurns,
-        outcome: 'ongoing', ended: false, scene: { slow_speech: false }, book: null,
+        outcome: 'ongoing', ended: false, scene: { slow_speech: false, ...(exam ? { exam_topic: topic } : {}) }, book: null,
+        ...(exam ? { scenario: { npc: { id: 'b1_partner', name: 'Alex', tts_voice: 'de-DE-KatjaNeural' },
+          scene: { name: 'Gemeinsam etwas planen · B1', situation_id: 'b1_planning_v1' } }, created_at: new Date().toISOString() } : {}),
         previous_attempt_at: attempts.size ? '2026-10-10T12:00:00Z' : null,
-        history: [{ role: 'npc', text: neighbor ? 'Guten Tag! Ich bin Frau Müller, Ihre Nachbarin. Sind Sie gerade eingezogen?' : 'Guten Tag! Welches Buch suchen Sie?' }],
+        history: [{ role: 'npc', text: exam ? 'Hallo! Was würden Sie vorschlagen?' : neighbor ? 'Guten Tag! Ich bin Frau Müller, Ihre Nachbarin. Sind Sie gerade eingezogen?' : 'Guten Tag! Welches Buch suchen Sie?' }],
       });
       return route.fulfill({ json: attempts.get(attempt_id) });
     }
+    if (pathname === '/api/game/exam-attempts') return route.fulfill({ json: [...attempts.values()].filter(a => a.scene.exam_topic).map(a => ({ id: a.id, topic: a.scene.exam_topic, created_at: a.created_at, ended: a.ended })).reverse() });
     if (pathname.startsWith('/api/game/attempts/')) {
       const id = pathname.split('/')[4];
       const data = attempts.get(id);
@@ -77,10 +82,23 @@ async function setup(page, context, { mode = 'mock', guest = false, failTurn = f
       if (pathname.endsWith('/turns')) {
         const request = route.request().postDataJSON();
         requests.push(request);
+        if (request.action === 'review' && reviewFailure) { reviewFailure = false; return route.fulfill({ status: 503, json: { detail: 'game_ai_unavailable' } }); }
         if (shouldFail) { shouldFail = false; return route.fulfill({ status: 503, json: { detail: 'game_ai_unavailable' } }); }
         await new Promise(resolve => setTimeout(resolve, turnDelay));
         data.version += 1;
+        if (request.action === 'review') {
+          data.learning_result = { kind: 'b1_exam', task_completion: 'Обсудили дату и место. Распределение обязанностей осталось открытым.',
+            grammar: [{ evidence: 'Ich kommen', correction: 'Ich komme', explanation: 'В первом лице используется окончание -e.' }],
+            vocabulary: [], useful_expressions: ['Wie wäre es mit Samstag? — Как насчёт субботы?'], recommendations: 'Предложите распределение обязанностей.' };
+          return route.fulfill({ json: data });
+        }
         data.turn_count += 1;
+        if (data.scene.exam_topic) {
+          if (request.action === 'message') data.history.push({ role: 'user', text: request.message });
+          data.ended = request.action === 'end' || request.message.includes('Bis bald');
+          data.history.push({ role: 'npc', text: data.ended ? 'Danke für das Gespräch. Damit beenden wir unsere Planung.' : 'Sonntag passt mir nicht. Wie wäre es mit Samstag im Park?' });
+          return route.fulfill({ json: data });
+        }
         if (request.action === 'hint') {
           data.hint_count += 1;
           data.history.push({ role: 'hint', text: 'Beschreiben Sie Thema, Balkon und Erfahrung.' });
@@ -232,9 +250,9 @@ test('reload restores the conversation without login', async ({ page, context })
   expect(fixture.errors).toEqual([]);
 });
 
-async function enableVoice(page) {
+async function enableVoice(page, speakingText = 'Frau Müller говорит…') {
   await page.getByRole('button', { name: 'Включить голос', exact: true }).click();
-  await expect(page.getByText('Frau Müller говорит…', { exact: true })).toBeVisible();
+  await expect(page.getByText(speakingText, { exact: true })).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__voice.audios.some(a => !a.paused))).toBe(true);
   await page.evaluate(() => window.__voice.audios.find(a => !a.paused).end());
   await expect.poll(() => page.evaluate(() => window.__voice.recognizers.some(r => r.active))).toBe(true);
@@ -766,6 +784,100 @@ test('voice settings and manual instructions fit localized mobile and desktop la
         }
       }
     }
+  }
+  expect(fixture.errors).toEqual([]);
+});
+
+async function enterExam(page) {
+  await page.getByRole('button', { name: 'Экзаменационный диалог', exact: true }).click();
+  await expect(page.getByLabel('Экзаменационная тема из PDF')).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Начать экзаменационный диалог', exact: true })).toBeDisabled();
+  await page.getByLabel('Экзаменационная тема из PDF').fill('Sie organisieren gemeinsam ein Fest. Wann? Wo? Essen und Getränke? Wer macht was?');
+  await page.getByRole('button', { name: 'Начать экзаменационный диалог', exact: true }).click();
+  await expect(page.getByRole('log')).toContainText('Was würden Sie vorschlagen?');
+}
+
+test('B1 exam topic, manual dialogue, review failure retry, archive and repeat', async ({ page, context }) => {
+  const fixture = await setup(page, context, { neighbor: true, failReview: true });
+  await enter(page, true);
+  const neighborId = [...fixture.attempts.keys()][0];
+  await enterExam(page);
+  await page.getByLabel('Ваша реплика на немецком').fill('Ich kommen am Samstag. Wir treffen uns im Park.');
+  await page.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await expect(page.getByRole('log')).toContainText('Sonntag passt mir nicht');
+  await expect(page.locator('.game-review')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Завершить разговор', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('ИИ временно недоступен');
+  await expect(page.getByRole('log')).toContainText('beenden wir unsere Planung');
+  await page.getByRole('button', { name: 'Получить разбор', exact: true }).click();
+  await expect(page.locator('.game-review')).toContainText('Ich komme');
+  const reviewRequests = fixture.requests.filter(r => r.action === 'review');
+  expect(reviewRequests).toHaveLength(2);
+  expect(reviewRequests[0].request_id).toBe(reviewRequests[1].request_id);
+  const first = [...fixture.attempts.values()].find(a => a.scene.exam_topic);
+  await page.reload();
+  await expect(page.locator('.game-review')).toContainText('Рекомендации');
+  await page.getByText('Тема и повторное прохождение', { exact: true }).click();
+  await page.getByRole('button', { name: 'Пройти ещё раз', exact: true }).click();
+  await expect(page.locator('.game-review')).toHaveCount(0);
+  await expect(page.getByRole('log')).not.toContainText('Ich kommen');
+  await page.getByLabel('Сохранённые попытки').selectOption(first.id);
+  await expect(page.locator('.game-review')).toContainText('Ich komme');
+  await expect(page.getByRole('log')).toContainText('Ich kommen');
+  await page.getByRole('button', { name: 'Свободный разговор', exact: true }).click();
+  await enter(page, true);
+  expect([...fixture.attempts.keys()][0]).toBe(neighborId);
+  expect(fixture.attempts.size).toBe(3);
+  expect(fixture.errors).toEqual([]);
+});
+
+test('B1 exam preserves voice manual finish, final TTS once, no listening after review', async ({ page, context }) => {
+  const fixture = await setup(page, context, { neighbor: true, voice: true, mode: 'live' });
+  await enter(page, true);
+  await enterExam(page);
+  await enableVoice(page, 'Партнёр говорит…');
+  await page.evaluate(() => window.__voice.recognizers.findLast(r => r.active).result('Ich schlage Samstag vor.'));
+  await page.waitForTimeout(700);
+  expect(fixture.requests).toHaveLength(0);
+  await page.getByRole('button', { name: 'Завершить реплику', exact: true }).click();
+  await expect.poll(() => fixture.audioRequests.length).toBe(2);
+  await page.evaluate(() => window.__voice.audios.find(a => !a.paused).end());
+  await expect.poll(() => page.evaluate(() => window.__voice.recognizers.some(r => r.active))).toBe(true);
+  await page.evaluate(() => window.__voice.recognizers.findLast(r => r.active).result('Bis bald!'));
+  await page.getByRole('button', { name: 'Завершить реплику', exact: true }).click();
+  await expect(page.locator('.game-review')).toBeVisible();
+  await expect.poll(() => fixture.audioRequests.length).toBe(3);
+  expect(fixture.audioRequests[2].text).toContain('beenden wir unsere Planung');
+  await page.evaluate(() => window.__voice.audios.find(a => !a.paused).end());
+  await page.waitForTimeout(750);
+  expect(await page.evaluate(() => window.__voice.recognizers.some(r => r.active))).toBe(false);
+  expect(fixture.requests.map(r => r.action)).toEqual(['message', 'message', 'review']);
+  await page.reload();
+  await expect(page.locator('.game-review')).toBeVisible();
+  expect(fixture.audioRequests).toHaveLength(3);
+  expect(fixture.errors).toEqual([]);
+});
+
+test('B1 exam preparation and detailed result fit phone tablet desktop', async ({ page, context }, testInfo) => {
+  const fixture = await setup(page, context, { neighbor: true });
+  await enter(page, true);
+  await enterExam(page);
+  for (const locale of ['ru', 'en', 'uk']) {
+    await page.locator('.game-language select').selectOption(locale);
+    for (const width of [320, 375, 430, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      if (locale === 'ru') await page.screenshot({ path: testInfo.outputPath(`exam-${width}.png`), fullPage: true });
+    }
+  }
+  await page.locator('.game-language select').selectOption('ru');
+  await page.getByRole('button', { name: 'Завершить разговор', exact: true }).click();
+  await expect(page.locator('.game-review')).toBeVisible();
+  for (const width of [320, 375, 430, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.locator('.game-review').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`exam-review-${width}.png`), fullPage: true });
   }
   expect(fixture.errors).toEqual([]);
 });
