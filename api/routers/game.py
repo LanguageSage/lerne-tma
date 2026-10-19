@@ -1,4 +1,4 @@
-"""Experimental online Game Mode; all persisted attempts require an authenticated owner."""
+"""Experimental online Game Mode; test conversations use local visitors; integrated Lerne uses its existing account."""
 from uuid import UUID
 from typing import Literal
 
@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
-from api.auth.dependencies import get_authenticated_user_id
+from api.dependencies.auth import get_game_user_id
 from api.services.game_dialogue import configuration
 from api.services.game_scene import NEIGHBOR
 from api.services.game_service import start_attempt, load_attempt, send_turn
@@ -37,7 +37,7 @@ class TurnRequest(BaseModel):
 
 
 @router.get('/scene')
-async def scene(user_id: int = Depends(get_authenticated_user_id)):
+async def scene(user_id: int = Depends(get_game_user_id)):
     try:
         mode, _ = await run_in_threadpool(configuration)
     except Exception:
@@ -48,15 +48,15 @@ async def scene(user_id: int = Depends(get_authenticated_user_id)):
 
 
 @router.post('/attempts')
-def start(request: StartRequest, user_id: int = Depends(get_authenticated_user_id)):
+def start(request: StartRequest, user_id: int = Depends(get_game_user_id)):
     return start_attempt(str(request.attempt_id), user_id)
 
 
 @router.get('/attempts/{attempt_id}')
-def attempt(attempt_id: UUID, user_id: int = Depends(get_authenticated_user_id)):
+def attempt(attempt_id: UUID, user_id: int = Depends(get_game_user_id)):
     return load_attempt(str(attempt_id), user_id)
 
 
 @router.post('/attempts/{attempt_id}/turns')
-async def turn(attempt_id: UUID, request: TurnRequest, user_id: int = Depends(get_authenticated_user_id)):
+async def turn(attempt_id: UUID, request: TurnRequest, user_id: int = Depends(get_game_user_id)):
     return await send_turn(str(attempt_id), user_id, request)

@@ -17,7 +17,10 @@ try:
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
 
-    from api.main import app as main_app
+    if os.getenv('LERNE_DEPLOYMENT') == 'game-test':
+        from api.game_test import app as main_app
+    else:
+        from api.main import app as main_app
     app = main_app
 
     @app.exception_handler(StarletteHTTPException)

@@ -48,7 +48,6 @@ Online и offline CRUD выбираются в API-клиенте; offline оч�
 | AI generation и free-text evaluation | `app/src/hooks/useAiActions.js`, `app/src/hooks/useFreeTextEvaluation.js` | `api/routers/ai.py`, `api/ai_service.py` | [ai](subsystems/ai.md) |
 | Game Mode / NPC conversation | `app/src/components/game/GameView.jsx`, `app/src/services/gameService.js` | `api/routers/game.py`, `api/services/game_service.py` | [game](subsystems/game.md) |
 | Вход, привязки, пароли, refresh | `app/src/store/useAuthStore.js`, `app/src/utils/auth.js` | `api/routers/auth_v2.py`, `api/auth/service.py` | [auth](subsystems/auth.md) |
-| SSO Lerne → Game Test | `app/src/components/auth/LerneSignIn.jsx`, `app/public/lerne-sso-callback.html` | Auth v2 provider `lerne`, `api/auth/lerne_sso.py`; сессии/данные остаются в своих DB | [auth](subsystems/auth.md) |
 | TTS, изображения, аудио, кэш | `app/src/hooks/useAudio.js`, `app/src/services/mediaCache.js` | `api/routers/media.py`, `api/services/media.py` | [media](subsystems/media.md) |
 | Knowledge Items, Attempts, mastery, diagnostics | `app/src/services/knowledgeCaptureService.js`, `app/src/hooks/useKnowledgeSync.js` | `api/routers/knowledge.py`, `api/services/knowledge_mastery.py` | [knowledge](subsystems/knowledge.md) |
 

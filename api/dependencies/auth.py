@@ -15,7 +15,7 @@ def get_user_id(
     Supports both Auth v2 Bearer tokens and legacy/TMA X-User-ID header.
     """
     if os.getenv('LERNE_DEPLOYMENT') == 'game-test':
-        return get_authenticated_user_id(authorization)
+        return get_game_user_id(authorization, x_user_id)
     # 1. Try Bearer token first if provided
     if isinstance(authorization, str) and authorization.strip().lower().startswith("bearer "):
         try:
@@ -43,3 +43,17 @@ def get_user_id(
 
     raise HTTPException(status_code=401, detail="authentication_required", headers={'WWW-Authenticate': 'Bearer'})
 
+
+
+def get_game_user_id(authorization: str | None = Header(default=None),
+                     x_user_id: str | None = Header(default=None)) -> int:
+    if os.getenv('LERNE_DEPLOYMENT') != 'game-test':
+        return get_authenticated_user_id(authorization)
+    # Test visitors have no account row. Keep their namespace separate from accounts.
+    try:
+        visitor = int(x_user_id)
+        if not -(2**48) <= visitor < 0:
+            raise ValueError()
+        return visitor
+    except (ValueError, TypeError):
+        raise HTTPException(400, detail='invalid_game_visitor') from None

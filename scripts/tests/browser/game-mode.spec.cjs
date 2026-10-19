@@ -15,12 +15,6 @@ async function setup(page, context, { mode = 'mock', guest = false, failTurn = f
     localStorage.setItem('lerne_target_language', 'de');
     localStorage.setItem('lerne_welcome_seen', 'true');
     localStorage.setItem('lerne_tut_seen_welcome', 'true');
-    if (guest) localStorage.setItem('lerne_force_guest', 'true');
-    else {
-      localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'isolated-game-access', refresh_token: 'isolated-game-refresh' }));
-      localStorage.setItem('lerne_user_id', '1');
-      localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Learner', is_guest: false }));
-    }
   }, guest);
   if (voice) await context.addInitScript(() => {
     window.__voice = { recognizers: [], audios: [], tracksStopped: 0, overlap: 0, micError: false };
@@ -120,16 +114,27 @@ async function setup(page, context, { mode = 'mock', guest = false, failTurn = f
     return route.fulfill({ json: {} });
   });
   await page.goto('/');
-  await expect(page.locator('.view-decks')).toBeVisible();
+  await expect(page.locator('.game-view')).toBeVisible();
   return { errors, requests, attempts, audioRequests, setMode: value => { aiMode = value; } };
 }
 
 async function enter(page, neighbor = false) {
-  await page.locator('.game-entry').click();
   await expect(page.getByRole('heading', { name: neighbor ? 'Frau Müller · Kennenlernen' : 'Stadtbibliothek' })).toBeVisible();
   await expect(page.getByRole('log')).toContainText('Guten Tag!');
   await expect(page.getByRole('button', { name: 'Новый диалог', exact: true })).toBeEnabled();
 }
+
+test('mobile browser without findLast or at opens directly and resumes', async ({ page, context }) => {
+  await context.addInitScript(() => { Array.prototype.findLast = undefined; Array.prototype.at = undefined; });
+  const fixture = await setup(page, context, { guest: true, neighbor: true, voice: true });
+  await enter(page, true);
+  await page.getByRole('button', { name: 'Включить голос', exact: true }).click();
+  await expect.poll(() => fixture.audioRequests.length).toBe(1);
+  await page.reload();
+  await enter(page, true);
+  expect(fixture.attempts.size).toBe(1);
+  expect(fixture.errors).toEqual([]);
+});
 
 test('conversation, success, repeat, hint, new dialogue and TTS failure', async ({ page, context }, testInfo) => {
   const fixture = await setup(page, context);
@@ -154,8 +159,6 @@ test('conversation, success, repeat, hint, new dialogue and TTS failure', async 
   await expect(page.locator('.game-result')).toHaveCount(0);
   await expect(page.getByText('Предыдущая попытка:', { exact: false })).toBeVisible();
   expect(fixture.attempts.size).toBe(2);
-  await page.getByRole('button', { name: 'Назад', exact: true }).click();
-  await expect(page.locator('.view-decks')).toBeVisible();
   expect(fixture.errors).toEqual([]);
 });
 
@@ -201,27 +204,31 @@ test('localized responsive states and unconfigured AI', async ({ page, context }
   expect(fixture.errors).toEqual([]);
 });
 
-test('guest entry uses existing login and never creates an anonymous conversation', async ({ page, context }) => {
-  const fixture = await setup(page, context, { guest: true });
-  await page.locator('.game-entry').click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  expect(fixture.attempts.size).toBe(0);
+test('empty browser starts directly without login and sends no account credentials', async ({ page, context }) => {
+  const calls = [];
+  page.on('request', request => { if (request.url().includes('/api/')) calls.push(request); });
+  const fixture = await setup(page, context, { guest: true, neighbor: true });
+  await enter(page, true);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByText('Войти через Lerne', { exact: true })).toHaveCount(0);
+  expect(fixture.attempts.size).toBe(1);
+  expect(calls.every(request => !request.url().includes('/auth/'))).toBe(true);
+  expect(calls.every(request => !request.headers().authorization && Number(request.headers()['x-user-id']) < 0)).toBe(true);
   expect(fixture.errors).toEqual([]);
 });
 
-test('reload restores the conversation and browser Back returns to Classic', async ({ page, context }) => {
+test('reload restores the conversation without login', async ({ page, context }) => {
   const fixture = await setup(page, context);
   await enter(page);
   await page.getByLabel('Ваша реплика на немецком').fill('Guten Tag!');
   await page.getByRole('button', { name: 'Отправить', exact: true }).click();
   await expect(page.getByLabel('Ваша реплика на немецком')).toHaveValue('');
   await page.reload();
-  await expect(page.locator('.view-decks')).toBeVisible();
+  await expect(page.locator('.game-view')).toBeVisible();
   await enter(page);
   await expect(page.locator('.game-message-user')).toContainText('Guten Tag!');
   expect(fixture.attempts.size).toBe(1);
-  await page.goBack();
-  await expect(page.locator('.view-decks')).toBeVisible();
+  await expect(page.locator('.game-view')).toBeVisible();
   expect(fixture.errors).toEqual([]);
 });
 
@@ -414,7 +421,7 @@ test('microphone, recognition, AI and TTS failures preserve a usable text altern
   await expect(page.getByLabel('Ваша реплика на немецком')).toHaveValue('');
   expect(fixture.requests).toHaveLength(2);
   expect(fixture.requests[0].request_id).toBe(fixture.requests[1].request_id);
-  await page.getByRole('button', { name: 'Назад', exact: true }).click();
+  await page.getByRole('button', { name: 'Выключить голос', exact: true }).click();
   expect(await page.evaluate(() => window.__voice.recognizers.some(r => r.active))).toBe(false);
   expect(fixture.errors).toEqual([]);
 });

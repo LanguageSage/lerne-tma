@@ -25,7 +25,6 @@
 | evaluate-answer, free text, grading_policy, accepted_answers, typo | AI: answer evaluation | [ai](subsystems/ai.md) |
 | Game Mode, Frau Müller, Stadtbibliothek, каталог NPC, диалог, выдача, NPC memory, communication progress | Game: conversation / scene | [game](subsystems/game.md) |
 | Telegram / Google / email-password, вход, challenge, привязка | Auth: identity | [auth](subsystems/auth.md) |
-| SSO, «Войти через Lerne», Production → Game Test | Auth: Lerne provider | [auth](subsystems/auth.md) |
 | 401, refresh, Bearer, logout, смена аккаунта, пароль | Auth: sessions | [auth](subsystems/auth.md) |
 | TTS, edge-tts, голос, audio_path, аудио отсутствует/не играет | Media: audio | [media](subsystems/media.md) |
 | Изображение, image_path, media URL, CDN, blob cache, upload | Media: storage / rendering | [media](subsystems/media.md) |

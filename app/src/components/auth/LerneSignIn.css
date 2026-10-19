@@ -1,7 +1,0 @@
-.lerne-sign-in { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; box-sizing: border-box; }
-.lerne-sign-in-panel { width: 100%; max-width: 440px; box-sizing: border-box; padding: 28px 24px; border-radius: var(--design-radius, 20px); background: var(--design-glass-bg, #18233b); color: var(--design-text-color, #f1f5f9); border: 1px solid var(--design-glass-border, rgba(148, 163, 184, .2)); }
-.lerne-sign-in-panel h1 { font-size: 1.5rem; margin: 12px 0; }
-.lerne-sign-in-panel p { line-height: 1.6; overflow-wrap: anywhere; }
-.lerne-sign-in-brand { font-weight: 700; letter-spacing: .16em; color: var(--design-accent, #c4b5fd); }
-.lerne-sign-in-panel .btn { width: 100%; min-height: 44px; padding: 12px; margin-top: 12px; white-space: normal; }
-.lerne-sign-in-panel [role="alert"] { color: #fca5a5; }

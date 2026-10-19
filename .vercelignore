@@ -50,3 +50,14 @@ __pycache__/
 .agents/
 .vscode/
 .idea/
+
+.env
+.env.*
+**/.env
+**/.env.*
+*.sqlite
+*.sqlite3
+*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.db

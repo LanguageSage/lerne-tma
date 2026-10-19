@@ -49,3 +49,6 @@
 .game-entry small { color: var(--design-secondary-color); }
 .game-entry:focus-visible { outline: 2px solid var(--design-accent-secondary); outline-offset: 3px; }
 @media (max-width: 430px) { .game-header { gap: 8px; } .game-header > .game-button { margin-left: 52px; } .game-npc { gap: 10px; padding: 12px; } .game-npc > svg:last-child { display: none; } .game-message { max-width: 94%; } .game-compose-footer .game-send { width: 100%; } .game-dialogue-actions .game-button { flex: 1 1 auto; } }
+
+.game-language { display: flex; align-items: center; justify-content: flex-end; gap: 12px; max-width: 760px; margin: 0 auto; padding: 8px 14px 0; box-sizing: border-box; color: var(--design-secondary-color); }
+.game-language select { min-height: 44px; padding: 8px; border-radius: 8px; background: var(--design-glass-bg); color: var(--design-text-color); border: 1px solid var(--design-glass-border); }

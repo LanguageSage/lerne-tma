@@ -1,11 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Lightbulb, RotateCcw, Send, Volume2, Mic, MicOff, Pause } from 'lucide-react';
+import { BookOpen, Lightbulb, RotateCcw, Send, Volume2, Mic, MicOff, Pause } from 'lucide-react';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import { getAccessToken } from '../../utils/auth';
-import { useAuthStore } from '../../store/useAuthStore';
-import { navigateUp } from '../../utils/navigation';
-import { gameService } from '../../services/gameService';
+import { gameService, gameVisitorId, gameStorage } from '../../services/gameService';
 import { useGameVoice } from './useGameVoice';
 import './GameView.css';
 
@@ -21,7 +18,6 @@ const ERROR_COPY = {
 };
 
 function errorText(error) {
-  if (error.response?.status === 401) return tr('Войдите в аккаунт, чтобы начать разговор.');
   if (typeof navigator !== 'undefined' && !navigator.onLine) return tr('Для разговора нужен интернет. История останется доступна на этом экране.');
   return tr(ERROR_COPY[error.response?.data?.detail] || 'Не удалось выполнить запрос. Попробуйте ещё раз.');
 }
@@ -41,9 +37,7 @@ export function GameView() {
   const conversation = useRef(null);
   const input = useRef(null);
   const startId = useRef(null);
-  const ownerId = useAuthStore(state => state.userProfile?.user_id);
-  const isRestoring = useAuthStore(state => state.isRestoring);
-  const sessionRevision = useAuthStore(state => state.sessionRevision);
+  const ownerId = gameVisitorId;
   const storageKey = `lerne_game_attempt_${ownerId}`;
   const activeScene = attempt?.scenario ? { ...scene, ...attempt.scenario } : scene;
   const isNeighbor = activeScene?.scene.situation_id === 'neighbor_introduction_v1';
@@ -56,12 +50,8 @@ export function GameView() {
     mounted.current = true;
     async function initialize() {
       try {
-        if (!getAccessToken() || !ownerId) {
-          useAuthStore.getState().setAuthModalOpen(true);
-          throw { response: { status: 401 } };
-        }
         const info = await gameService.scene();
-        const id = sessionStorage.getItem(storageKey);
+        const id = gameStorage.get(storageKey);
         let data;
         if (id) {
           try { data = await gameService.load(id); }
@@ -72,7 +62,7 @@ export function GameView() {
           data = await gameService.start(startId.current);
         }
         if (alive) {
-          sessionStorage.setItem(storageKey, data.id);
+          gameStorage.set(storageKey, data.id);
           setScene(info);
           setAttempt(data);
           setError('');
@@ -81,15 +71,15 @@ export function GameView() {
       } catch (err) { if (alive) setError(errorText(err)); }
       finally { if (alive) setBusy(false); }
     }
-    if (!isRestoring) initialize();
+    initialize();
     return () => { alive = false; mounted.current = false; };
-  }, [storageKey, ownerId, isRestoring, sessionRevision, setupRetry]);
+  }, [storageKey, setupRetry]);
 
   useEffect(() => {
     if (conversation.current) conversation.current.scrollTop = conversation.current.scrollHeight;
   }, [attempt?.version, repeated]);
 
-  const lastNpc = attempt?.history?.findLast(message => message.role === 'npc')?.text;
+  const lastNpc = attempt?.history?.slice().reverse().find(message => message.role === 'npc')?.text;
   const aiReady = scene && ['live', 'mock'].includes(scene.ai_mode);
 
   async function send(action = 'message', spokenText) {
@@ -136,7 +126,7 @@ export function GameView() {
       const data = await gameService.start(startId.current);
       const info = await gameService.scene();
       if (!mounted.current) return;
-      sessionStorage.setItem(storageKey, data.id);
+      gameStorage.set(storageKey, data.id);
       setAttempt(data);
       setScene(info);
       setDraft('');
@@ -156,7 +146,6 @@ export function GameView() {
   return (
     <main className="game-view">
       <header className="game-header">
-        <button className="game-icon-button" onClick={navigateUp} aria-label={tr('Назад')}><ArrowLeft size={20} /></button>
         <div><span className="game-eyebrow">Game Mode · {tr('Эксперимент')}</span><h1>{activeScene?.scene.name || 'Frau Müller · Kennenlernen'}</h1></div>
         <button className="game-button" onClick={newConversation} disabled={busy || !attempt}>{tr('Новый диалог')}</button>
       </header>

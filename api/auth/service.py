@@ -90,11 +90,8 @@ class PendingChallenge:
 
 
 def _consume_proof(proof: VerifiedIdentity, now: datetime):
-    if not isinstance(proof, VerifiedIdentity) or proof.provider not in ('telegram', 'google', 'lerne'):
+    if not isinstance(proof, VerifiedIdentity) or proof.provider not in ('telegram', 'google'):
         raise AuthError('invalid_provider_proof')
-    if proof.provider == 'lerne':
-        from .lerne_sso import configuration
-        configuration('client')
     if (not isinstance(proof.subject, str) or not 1 <= len(proof.subject) <= 255
             or not re.fullmatch(r'[0-9a-f]{64}', proof.proof_hash)
             or proof.authenticated_at > now + CLOCK_SKEW
@@ -465,11 +462,8 @@ def set_email_password(access_token: str, email: str, password: str):
 
 
 def create_challenge(provider: str, purpose: str, *, access_token: str | None = None) -> AuthChallenge:
-    if provider not in ('telegram', 'google', 'lerne') or purpose not in ('login', 'link'):
+    if provider not in ('telegram', 'google') or purpose not in ('login', 'link'):
         raise AuthError('invalid_challenge', 400)
-    if provider == 'lerne':
-        from .lerne_sso import configuration
-        configuration('client')
     with auth_transaction():
         now = utcnow()
         account_id = None
@@ -482,7 +476,7 @@ def create_challenge(provider: str, purpose: str, *, access_token: str | None = 
                 raise AuthError('reauthentication_required')
             account_id, initiating_session_id = session.account_id, session.id
         secret, state = _new_challenge_value('cs_'), _new_challenge_value('st_')
-        nonce = _new_challenge_value('no_') if provider in ('google', 'lerne') else None
+        nonce = _new_challenge_value('no_') if provider == 'google' else None
         verifier = _new_challenge_value('pv_') if provider == 'google' else None
         challenge = TMAAuthChallenge.create(
             id=str(uuid.uuid4()), provider=provider, purpose=purpose, account=account_id,
@@ -529,25 +523,19 @@ def get_pending_challenge(state: str, *, provider: str) -> PendingChallenge:
         return PendingChallenge(challenge.nonce, challenge.pkce_verifier)
 
 
-def exchange_challenge(challenge_id: str, secret: str, *, access_token: str | None = None,
-                       assertion: str | None = None):
+def exchange_challenge(challenge_id: str, secret: str, *, access_token: str | None = None):
     if not isinstance(challenge_id, str) or not isinstance(secret, str):
         raise AuthError('invalid_challenge', 400)
     with auth_transaction():
         now = utcnow()
         challenge = locked(TMAAuthChallenge.select().where(TMAAuthChallenge.id == challenge_id)).get_or_none()
         if (challenge is None or challenge.completed_at is not None or challenge.expires_at <= now
-                or not secrets.compare_digest(challenge.secret_hash, _hash(secret))):
+                or not secrets.compare_digest(challenge.secret_hash, _hash(secret))
+                or not challenge.verified_subject or not challenge.proof_hash
+                or not challenge.verified_at or not challenge.verified_expires_at):
             raise AuthError('invalid_challenge')
-        if challenge.provider == 'lerne':
-            from .lerne_sso import verify_confirmation
-            proof = verify_confirmation(assertion, request_id=challenge.id, nonce=challenge.nonce)
-        else:
-            if (assertion is not None or not challenge.verified_subject or not challenge.proof_hash
-                    or not challenge.verified_at or not challenge.verified_expires_at):
-                raise AuthError('invalid_challenge')
-            proof = VerifiedIdentity(challenge.provider, challenge.verified_subject, challenge.verified_at,
-                                     challenge.verified_expires_at, challenge.proof_hash)
+        proof = VerifiedIdentity(challenge.provider, challenge.verified_subject, challenge.verified_at,
+                                 challenge.verified_expires_at, challenge.proof_hash)
         if challenge.purpose == 'link':
             if not access_token:
                 raise AuthError('authentication_required')

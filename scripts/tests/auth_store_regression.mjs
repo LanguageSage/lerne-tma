@@ -9,7 +9,7 @@ import { createStore } from '../../app/node_modules/zustand/esm/vanilla.mjs';
 const source = readFileSync(new URL('../../app/src/store/useAuthStore.js', import.meta.url), 'utf8')
   .replace(/^import .*;\r?\n/gm, '').replace('export const useAuthStore', 'const useAuthStore');
 function fixture({ methods = ['email_password'], email = 'fixture@example.test' } = {}) {
-  const pending = new Map(), timers = new Map(), calls = [], navigations = [];
+  const pending = new Map(), timers = new Map(), calls = [];
   let nextTimer = 0;
   const ui = { setIsAuthModalOpen: value => { ui.isAuthModalOpen = value; }, showToast() {},
     openSettings: tab => { ui.settingsTab = tab; } };
@@ -50,10 +50,10 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test' 
     sessionStorage: { getItem: key => pending.get(key), setItem: (key, value) => pending.set(key, value),
       removeItem: key => pending.delete(key) },
     setInterval: callback => { timers.set(++nextTimer, callback); return nextTimer; },
-    clearInterval: id => timers.delete(id), window: { location: { assign: url => navigations.push(url) } },
+    clearInterval: id => timers.delete(id), window: {},
   };
   vm.runInNewContext(`${source}\nglobalThis.subject = useAuthStore;`, context);
-  return { store: context.subject, api, ui, pending, timers, calls, navigations,
+  return { store: context.subject, api, ui, pending, timers, calls,
     get deckStoreResetCount() { return deckStoreResetCount; },
     get closedDbUserIds() { return closedDbUserIds; },
     get resetAllDatabasesCount() { return resetAllDatabasesCount; },
@@ -221,106 +221,5 @@ test('unconfigured provider failure presents clear message without generic fallb
   assert.equal(result.error, 'Этот способ входа пока не настроен. Используйте email и пароль.');
   assert.equal(f.store.getState().authError, 'Этот способ входа пока не настроен. Используйте email и пароль.');
   assert.equal(f.store.getState().isPolling, false);
-});
-
-test('Lerne starts in the same tab and keeps the challenge secret at Game origin', async () => {
-  const f = fixture();
-  await f.store.getState().startProvider('lerne');
-  assert.equal(f.navigations.length, 1);
-  assert.equal(f.pending.size, 1);
-  assert.equal(f.timers.size, 0);
-  const pending = JSON.parse([...f.pending.values()][0]);
-  assert.equal(pending.provider, 'lerne');
-  assert.equal(pending.secret, 'synthetic');
-});
-
-function returnFromLerne(f, { id = 'fixture', assertion = 'signed-confirmation', error = '' } = {}) {
-  const location = { hash: '#' + new URLSearchParams({ request_id: id, assertion, ...(error ? { error } : {}) }),
-    pathname: '/lerne-sso-callback.html', replace: url => f.navigations.push(url) };
-  const history = { replaceState: (_state, _title, url) => { location.cleanedUrl = url; } };
-  vm.runInNewContext(readFileSync(new URL('../../app/public/lerne-sso-callback.js', import.meta.url), 'utf8'), {
-    URLSearchParams, Date, window: { location, history }, document: { body: {} },
-    sessionStorage: { getItem: key => f.pending.get(key), setItem: (key, value) => f.pending.set(key, value) },
-  });
-  assert.equal(location.cleanedUrl, '/lerne-sso-callback.html');
-  assert.equal(f.navigations.at(-1), '/');
-}
-
-test('Lerne callback survives reload and uses normal finishLogin with local tokens', async () => {
-  const f = fixture();
-  await f.store.getState().startProvider('lerne');
-  returnFromLerne(f);
-  await f.store.getState().restoreSession();
-  assert.equal(f.calls.at(-1).path, '/auth/v2/challenges/fixture/exchange');
-  assert.equal(f.calls.at(-1).body.assertion, 'signed-confirmation');
-  assert.equal(f.store.getState().userProfile.user_id, -123);
-  assert.equal(f.pending.size, 0);
-});
-
-test('Lerne callback from another tab/request cannot replace the pending login', async () => {
-  const f = fixture();
-  await f.store.getState().startProvider('lerne');
-  returnFromLerne(f, { id: 'other-request' });
-  await f.store.getState().restoreSession();
-  assert.equal(f.calls.length, 1);
-  assert.match(f.store.getState().authError, /не завершён/);
-  assert.equal(f.pending.size, 0);
-});
-
-test('cancelled Lerne consent ends waiting and allows another login', async () => {
-  const f = fixture();
-  await f.store.getState().startProvider('lerne');
-  returnFromLerne(f, { error: 'cancelled' });
-  await f.store.getState().restoreSession();
-  assert.match(f.store.getState().authError, /отменён/);
-  assert.equal(f.store.getState().isPolling, false);
-  assert.equal(f.pending.size, 0);
-  assert.equal((await f.store.getState().startProvider('lerne')).success, true);
-});
-
-test('transient Lerne exchange failure retains confirmation for bounded retry', async () => {
-  const f = fixture();
-  await f.store.getState().startProvider('lerne');
-  returnFromLerne(f);
-  f.api.post = async () => { throw { response: { status: 503 } }; };
-  await f.store.getState().restoreSession();
-  assert.equal(f.pending.size, 1);
-  assert.equal(f.timers.size, 1);
-  const [key, value] = [...f.pending][0];
-  f.pending.set(key, JSON.stringify({ ...JSON.parse(value), expiresAt: '2000-01-01T00:00:00Z' }));
-  await f.store.getState().checkPendingSession();
-  assert.equal(f.timers.size, 0);
-  assert.match(f.store.getState().authError, /истекло/);
-});
-
-test('invalid or replayed Lerne proof stops retries immediately', async () => {
-  const f = fixture();
-  await f.store.getState().startProvider('lerne');
-  returnFromLerne(f);
-  f.api.post = async () => { throw { response: { status: 401, data: { detail: 'invalid_challenge' } } }; };
-  await f.store.getState().restoreSession();
-  assert.equal(f.pending.size, 0);
-  assert.equal(f.timers.size, 0);
-  assert.match(f.store.getState().authError, /недействительно/);
-});
-
-test('a profile failure after Lerne exchange keeps the local session without replaying the proof', async () => {
-  const f = fixture();
-  await f.store.getState().startProvider('lerne');
-  returnFromLerne(f);
-  const get = f.api.get;
-  f.api.get = async path => {
-    if (path === '/auth/v2/me') throw { response: { status: 503 } };
-    return get(path);
-  };
-  await f.store.getState().restoreSession();
-  assert.equal(f.pending.size, 0);
-  assert.equal(f.timers.size, 0);
-  assert.equal(f.store.getState().isPolling, false);
-  assert.match(f.store.getState().authError, /Вход подтверждён/);
-  f.api.get = get;
-  await f.store.getState().restoreSession();
-  assert.equal(f.store.getState().userProfile.user_id, -123);
-  assert.equal(f.calls.filter(call => call.path.includes('/exchange')).length, 1);
 });
 

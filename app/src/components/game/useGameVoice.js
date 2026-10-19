@@ -1,11 +1,10 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useAudio, stopGlobalAudio } from '../../hooks/useAudio';
-import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { getSpeechLocaleForLang } from '../../constants/languageConstants';
 import { getAudioUrl } from '../../utils/media';
 import { tr } from '../../i18n/locale';
-import api from '../../services/api';
+import { gameApi as api, gameStorage } from '../../services/gameService';
 
 function speechFragments(sessions) {
   const fragments = [];
@@ -18,9 +17,9 @@ function speechFragments(sessions) {
     const interimIndex = chain.findIndex(item => !item.result.final);
     if (interimIndex >= 0) {
       // A new tentative repetition must not replace an already finalized segment.
-      fragments.push(...chain.slice(0, interimIndex).map(item => item.result), chain.at(-1).result);
+      fragments.push(...chain.slice(0, interimIndex).map(item => item.result), chain[chain.length - 1].result);
     } else {
-      fragments.push(...(extensions >= 2 ? [chain.at(-1).result] : chain.map(item => item.result)));
+      fragments.push(...(extensions >= 2 ? [chain[chain.length - 1].result] : chain.map(item => item.result)));
     }
     chain = [];
     extensions = 0;
@@ -28,7 +27,7 @@ function speechFragments(sessions) {
   for (const result of sessions.flatMap(session => session.results)) {
     // Compare complete words, ignoring casing/punctuation; keep original display text.
     const words = result.text.toLocaleLowerCase('de-DE').match(/[\p{L}\p{N}]+/gu) || [];
-    const previous = chain.at(-1)?.words;
+    const previous = chain[chain.length - 1]?.words;
     const continues = previous?.length && words.length >= previous.length &&
       previous.every((word, index) => word === words[index]);
     if (!continues) flush();
@@ -228,15 +227,15 @@ export function useGameVoice({ scene, attempt, busy, draft, onDraft, onSend }) {
     try {
       const o = options.current;
       const voice = o.scene?.npc.tts_voice || 'de-DE-KatjaNeural';
-      const settings = useSettingsStore.getState();
-      const speed = o.attempt.scene.slow_speech ? Math.min(settings.ttsSpeed || 0, -30) : settings.ttsSpeed || 0;
+      const storedSpeed = Number(gameStorage.get('lerne_tts_speed')) || 0;
+      const speed = o.attempt.scene.slow_speech ? Math.min(storedSpeed, -30) : storedSpeed;
       const rate = `${speed >= 0 ? '+' : ''}${speed}%`;
       const key = JSON.stringify([text, voice, rate]);
       let url = r.cache.get(key);
       if (!url) {
         const { data } = await api.post('/media/generate-audio', { text, lang: 'de', voice, rate }, { signal: controller.signal, timeout: 30000 });
         if (!active()) return;
-        url = getAudioUrl(data.path || data.url);
+        url = getAudioUrl(data.url || data.path, '/api/media/audio');
         if (!url) throw new Error('Missing audio');
         if (r.cache.size >= 10) r.cache.delete(r.cache.keys().next().value);
         r.cache.set(key, url);
@@ -281,7 +280,7 @@ export function useGameVoice({ scene, attempt, busy, draft, onDraft, onSend }) {
       if (generation !== r.generation || !r.enabled) return;
       const o = options.current;
       if (o.draft.trim()) { pause(); return; }
-      if (o.autoplay) speak(o.attempt.history.findLast(m => m.role === 'npc')?.text);
+      if (o.autoplay) speak(o.attempt.history.slice().reverse().find(m => m.role === 'npc')?.text);
       else startListening();
     } catch { if (generation === r.generation) pause(tr('Нет доступа к микрофону.')); }
   }
@@ -302,7 +301,8 @@ export function useGameVoice({ scene, attempt, busy, draft, onDraft, onSend }) {
     observedReply.current = key;
     if (!previous || !previous.startsWith(`${o.attempt.id}:`)) return;
     if (runtime.current.paused) return;
-    if (o.autoplay && o.attempt.version > 0 && o.attempt.history.at(-1)?.role === 'npc') speak(o.attempt.history.at(-1).text);
+    const lastMessage = o.attempt.history[o.attempt.history.length - 1];
+    if (o.autoplay && o.attempt.version > 0 && lastMessage?.role === 'npc') speak(lastMessage.text);
     else if (o.attempt.ended || o.attempt.turn_count >= o.attempt.max_turns) pause();
     else if (canListen()) startListening();
   });

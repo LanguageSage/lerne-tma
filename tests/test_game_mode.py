@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from peewee import SqliteDatabase
 
 from api.ai_clients import AIService
-from api.auth.dependencies import get_authenticated_user_id
+from api.dependencies.auth import get_game_user_id as get_authenticated_user_id
 from api.game_migration import run_game_migration
 from api.models import TMAGameAttempt, tma_db
 from api.routers.game import router, TurnRequest
@@ -287,6 +287,28 @@ class PersistenceTests(unittest.TestCase):
         with patch.object(service, 'MIN_REQUEST_INTERVAL', 0):
             return asyncio.run(service.send_turn(data['id'], 1,
                 TurnRequest(request_id=request_id or uuid4(), version=data['version'], message=message, action=action)))
+
+    def test_game_test_visitor_can_start_resume_and_finish_without_account(self):
+        import os
+        with patch('api.models.initialize_database', return_value=True):
+            from api.game_test import app as game_test_app
+        client = TestClient(game_test_app)
+        self.addCleanup(client.close)
+        self.assertEqual(client.post('/api/auth/v2/email-password/register', json={}).status_code, 404)
+        self.assertEqual(client.get('/api/auth/v2/me').status_code, 404)
+        with patch.dict(os.environ, {'LERNE_DEPLOYMENT': 'game-test'}):
+            headers = {'X-User-ID': '-281474976710000'}
+            attempt_id = str(uuid4())
+            response = client.post('/api/game/attempts', headers=headers, json={'attempt_id': attempt_id})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(client.get('/api/game/attempts/' + attempt_id, headers=headers).status_code, 200)
+            self.assertEqual(client.get('/api/game/attempts/' + attempt_id, headers={'X-User-ID': '-42'}).status_code, 404)
+            self.assertEqual(client.get('/api/game/scene', headers={'X-User-ID': '1'}).status_code, 400)
+            response = client.post('/api/game/attempts/' + attempt_id + '/turns', headers=headers,
+                json={'request_id': str(uuid4()), 'version': 0, 'action': 'end'})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertTrue(response.json()['ended'])
+            self.assertEqual(TMAGameAttempt.get_by_id(attempt_id).user_id, int(headers['X-User-ID']))
 
     def test_restart_is_clean_and_previous_attempt_is_linked(self):
         first = self.start()
