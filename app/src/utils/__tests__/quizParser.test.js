@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { parseQuizData } from '../quizParser.js';
 import { projectEditorFields } from '../cardEditorSyntax.js';
 
@@ -130,5 +131,27 @@ test('quiz ignores bold question lines and trainer markers when locating options
 test('quiz still requires a question, two answers and a correct-answer marker', () => {
   for (const front of ['', 'Frage?\nA) Eins\nB) Zwei', 'Frage?\n*Eins', '*Eins\nZwei']) {
     assert.equal(parseQuizData({ front }), null);
+  }
+});
+
+test('B1-29-D02 compact A)Text labels preserve the full question and both answer notations', () => {
+  const fixture = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/quiz_b1_29_d02.json', import.meta.url), 'utf8'));
+  const question = `A: «Wir haben zusammen nur 30 Euro gesammelt.»\n\nВыбери разумное продолжение:`;
+  assert.equal(fixture.question, question);
+
+  for (const starBeforeLabel of [true, false]) {
+    const answers = fixture.answers.map((text, index) => {
+      const label = `${String.fromCharCode(65 + index)})`;
+      if (index !== fixture.correct) return label + text;
+      return starBeforeLabel ? `*${label}${text}` : `${label}*${text}`;
+    });
+    const front = `::exercise\n${question}\n\n${answers.join('\n')}`;
+    const parsed = parseQuizData({ front });
+    const fields = projectEditorFields(front);
+    assert.equal(parsed.question, question);
+    assert.deepEqual(parsed.options.map(option => option.text).sort(), [...fixture.answers].sort());
+    assert.equal(parsed.correctAnswerText, fixture.answers[fixture.correct]);
+    assert.equal(fields[0].value, question);
+    assert.deepEqual(fields.filter(field => field.kind === 'quiz-option').map(field => field.display), fixture.answers);
   }
 });

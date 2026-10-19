@@ -51,6 +51,49 @@ async function openEditor(page, context, front = null) {
 const advanced = page => page.getByRole('button', { name: 'Дополнительно: исходная разметка' });
 const raw = page => page.getByRole('textbox', { name: 'Исходная разметка', exact: true });
 const simple = page => page.getByRole('button', { name: 'Обычный редактор' });
+
+test('B1-29-D02 compact quiz labels render in the editor and study card', async ({ page, context }, testInfo) => {
+  const fixture = require('../../../tests/fixtures/quiz_b1_29_d02.json');
+  const front = `::task\n${fixture.task}\n::exercise\n${fixture.question}\n\nA)${fixture.answers[0]}\nB)${fixture.answers[1]}\nC)*${fixture.answers[fixture.correct]}`;
+  await openEditor(page, context, front);
+  const question = page.getByRole('textbox', { name: 'Вопрос / лицевая сторона', exact: true });
+  await expect(question).toHaveText(fixture.question);
+  expect(await question.textContent()).toBe(fixture.question);
+  await expect(page.locator('.card-editor-quiz-option')).toHaveCount(3);
+  for (const [index, answer] of fixture.answers.entries()) {
+    await expect(page.getByRole('textbox', { name: `Вариант ${index + 1}`, exact: true })).toHaveValue(answer);
+  }
+  await expect(page.getByRole('checkbox', { name: 'Правильный вариант 3', exact: true })).toBeChecked();
+  await page.getByRole('button', { name: 'Дополнительно', exact: true }).click();
+  await expect(raw(page)).toHaveValue(front);
+
+  await page.evaluate(async ({ front, deck }) => {
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const card = { id: 99, deck_id: deck.id, front, back: 'Объяснение', queue: 'new' };
+    useSettingsStore.setState({ studyMode: 'classic', autoShowAnswer: false, autoPlayAudio: false });
+    useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false,
+      isSessionFinished: false, exerciseStates: {}, trainerAnswered: false });
+    useUiStore.getState().setView('study');
+  }, { front, deck });
+  await expect(page.locator('.quiz-question')).toHaveText(fixture.question);
+  expect(await page.locator('.quiz-question').textContent()).toBe(fixture.question);
+  await expect(page.locator('.quiz-option-item')).toHaveCount(3);
+  for (const answer of fixture.answers) await expect(page.locator('.quiz-option-item').filter({ hasText: answer })).toHaveCount(1);
+  for (const width of [375, 1330]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`quiz-study-${width}.png`), fullPage: true });
+  }
+  await page.locator('.quiz-option-item').filter({ hasText: fixture.answers[0] }).click();
+  await page.getByRole('button', { name: 'Проверить', exact: true }).click();
+  await expect(page.locator('.quiz-option-item.wrong')).toHaveCount(1);
+  await page.locator('.quiz-option-item').filter({ hasText: fixture.answers[fixture.correct] }).click();
+  await page.getByRole('button', { name: 'Проверить', exact: true }).click();
+  await expect(page.locator('.quiz-option-item.correct')).toHaveCount(1);
+});
+
 async function add(page, name) {
   await page.locator('.card-editor-add summary').click();
   await page.locator('.card-editor-add').getByRole('button', { name, exact: true }).click();

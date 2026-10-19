@@ -1,6 +1,7 @@
 import { parseExerciseContent } from './exerciseContentParser.js';
 import { detectExerciseType } from './exerciseDetector.js';
 import { normalizeWordBankValue } from './wordBankParser.js';
+import { isQuizOptionLine } from './quizParser.js';
 
 // Templates for the advanced markup toolbar grouped by category:
 // - exercise: interactive learning elements & card types
@@ -171,7 +172,7 @@ export function setQuizOptionCorrect(field, checked) {
 function projectQuizSection(raw, start, end, add) {
   const text = raw.slice(start, end);
   const lines = [...text.matchAll(/[^\r\n]+/g)];
-  const optionStart = lines.findIndex(line => /^\s*(?:\*(?!\*)|\[[*xX ]\]|[-○•]|(?:[a-zA-Z]|[0-9]{1,2})[).]\s)/u.test(line[0]));
+  const optionStart = lines.findIndex((line, index) => index > 0 && isQuizOptionLine(line[0]));
   if (optionStart < 1 || lines.length - optionStart < 2) return false;
   let questionEnd = start + lines[optionStart].index;
   while (questionEnd > start && /[\r\n]/.test(raw[questionEnd - 1])) questionEnd--;

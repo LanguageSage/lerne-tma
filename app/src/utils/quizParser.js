@@ -14,6 +14,9 @@ export const maskTrainerTokens = (text) => {
     .replace(/\{[^}]+\}/g, '__TRAINER_CHOICE__');
 };
 
+// A)Text is valid; dotted labels require whitespace to avoid matching z.B. and 1.5.
+export const isQuizOptionLine = (line) => /^\s*(?:\*(?!\*)|\[[*xX ]\]|[-○•]|(?:[a-zA-Z]|[0-9]{1,2})(?:\)|\.\s))/u.test(line);
+
 /**
  * Helper to clean prefixes like ○, •, -, [ ], [*], A), 1., etc. from option line
  * and determine if it is marked as the correct answer.
@@ -58,15 +61,14 @@ export const parseQuizData = (card) => {
 
   const lines = maskedFront.split('\n');
   // Use the same option markers as projectQuizSection; blank lines belong to the question.
-  let firstOptionIdx = lines.findIndex((line, index) => index > 0
-    && /^\s*(?:\*(?!\*)|\[[*xX ]\]|[-○•]|(?:[a-zA-Z]|[0-9]{1,2})[).]\s)/u.test(line));
+  let firstOptionIdx = lines.findIndex((line, index) => index > 0 && isQuizOptionLine(line));
   if (firstOptionIdx < 1) return null;
 
   // Legacy unprefixed answers share a paragraph, with only the correct answer starred.
   // Include unmarked answers before that star, using the last blank line before it.
   if (/^\s*\*(?!\*)/.test(lines[firstOptionIdx])
-    && !/^\s*\*\s*(?:[a-zA-Z]|[0-9]{1,2})[).]\s/.test(lines[firstOptionIdx])
-    && !lines.slice(firstOptionIdx + 1).some(line => /^\s*(?:\[[*xX ]\]|[-○•]|(?:[a-zA-Z]|[0-9]{1,2})[).]\s)/u.test(line))) {
+    && !isQuizOptionLine(lines[firstOptionIdx].replace(/^\s*\*(?!\*)\s*/, ''))
+    && !lines.slice(firstOptionIdx + 1).some(line => isQuizOptionLine(line.replace(/^\s*\*(?!\*)\s*/, '')))) {
     for (let i = firstOptionIdx - 1; i > 0; i--) {
       if (!lines[i].trim()) {
         firstOptionIdx = i + 1;

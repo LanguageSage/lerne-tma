@@ -1,0 +1,10 @@
+{
+  "task": "Общий подарок: соотнеси бюджет и стоимость",
+  "question": "A: «Wir haben zusammen nur 30 Euro gesammelt.»\n\nВыбери разумное продолжение:",
+  "answers": [
+    "Dann kaufen wir den Gutschein für 50 Euro.",
+    "Dann sammeln wir das Geld erst morgen, obwohl es schon da ist.",
+    "Dann sollten wir ein Geschenk für höchstens 30 Euro aussuchen."
+  ],
+  "correct": 2
+}
