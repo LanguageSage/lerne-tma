@@ -5,7 +5,7 @@ import { editorCommandGroups, projectEditorFields, readableFrontText, replaceEdi
 import { autoGenerateChoices, isWordGap } from '../../utils/clozeParser';
 import './CardContentEditor.css';
 
-export function CardContentEditor({ value, onChange, back = '', onBackChange, textStyle, autoFocus = false }) {
+export function CardContentEditor({ value, onChange, back = '', onBackChange, textStyle, autoFocus = false, modeAction }) {
   useInterfaceLocale();
   const [advanced, setAdvanced] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
@@ -240,6 +240,7 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
     <div className="card-editor-mode">
       <button type="button" className="btn-secondary" aria-expanded={advanced}
         aria-controls={advanced ? advancedId : undefined} onClick={toggle}>{tr('Дополнительно')}</button>
+      {modeAction}
     </div>
     {advanced && <div id={advancedId} className="card-editor-advanced">
       <label className="card-editor-field">

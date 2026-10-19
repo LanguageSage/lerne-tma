@@ -285,6 +285,16 @@ export const CardForm = ({
               back={cardData.back || ''}
               onBackChange={back => setCardData(prev => ({ ...prev, back }))}
               autoFocus={isCreator}
+              modeAction={!isCreator && <CardQuestionComposer
+                onSubmit={(request) => onAiGenerate?.(detectCardType(cardData) === 'quiz' ? 'custom_directive' : 'full_card', request)}
+                icon="✨"
+                triggerLabel={tr("Выполнить просьбу")}
+                title={tr("Что изменить в карточке?")}
+                placeholder={tr("Опишите необходимые изменения...")}
+                submitLabel={tr("Выполнить ✨")}
+                disabled={loading}
+                variant="action"
+              />}
               textStyle={{
                 fontFamily: cardFont, fontWeight: cardFontWeight, fontStyle: cardFontStyle,
                 color: cardTextColor, fontSize: `${cardFontSize}rem`,
@@ -557,7 +567,7 @@ export const CardForm = ({
         const DynamicIcon = dynamicAction?.icon || BookOpen;
 
         return (
-          <div className={`ai-quick-actions ${dynamicAction && !loading && !isExistingQuiz ? 'has-dynamic' : 'no-dynamic'} ${!isCreator && !isExistingQuiz ? 'has-request' : ''}`} style={{ gap: '6px' }}>
+          <div className={`ai-quick-actions ${dynamicAction && !loading && !isExistingQuiz ? 'has-dynamic' : 'no-dynamic'}`} style={{ gap: '6px' }}>
             {loading ? (
               <button
                 type="button"
@@ -596,18 +606,6 @@ export const CardForm = ({
                   <Sparkles size={16} />
                   <span>{t('creator.ai_generate', 'Генерировать ✨')}</span>
                 </button>}
-                {!isCreator && !isExistingQuiz && (
-                  <CardQuestionComposer
-                    onSubmit={(request) => onAiGenerate?.('full_card', request)}
-                    icon="✨"
-                    triggerLabel={tr("Выполнить просьбу")}
-                    title={tr("Что изменить в карточке?")}
-                    placeholder={tr("Опишите необходимые изменения...")}
-                    submitLabel={tr("Выполнить ✨")}
-                    disabled={loading}
-                    variant="action"
-                  />
-                )}
               </>
             )}
             <button

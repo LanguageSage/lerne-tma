@@ -23,7 +23,7 @@
 ## Data flow
 
 1. CardCreator/CardEditor → CardForm → CardContentEditor редактирует `cardData.front`.
-   Панель действий CardForm расположена между лицевой и обратной сторонами. Для существующего Quiz остаётся одна AI-команда «Разбор теста»; контракт и проверки — в [AI](ai.md#одиночный-разбор-существующего-quiz).
+   Панель действий CardForm расположена между лицевой и обратной сторонами. Для существующего Quiz генерацию заменяет «Разбор теста»; «Выполнить просьбу» находится рядом с «Дополнительно». Контракт и проверки — в [AI](ai.md#одиночный-разбор-существующего-quiz).
 2. `cardEditorSyntax.js` использует `parseExerciseContent` для проекции и вставки команд в исходный текст.
 3. `useCardEditor.js` → API-клиент → `/cards/save` → server `save_card` (`card_content_service.apply_card_content`) либо offline API → Dexie.
 4. BatchCardModal разбирает ввод и отправляет `/cards/bulk-save`; pending import хранит исходный payload и `import_id` для повтора.

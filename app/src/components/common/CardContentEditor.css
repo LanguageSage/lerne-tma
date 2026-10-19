@@ -1,7 +1,11 @@
 .card-content-editor { min-width: 0; display: grid; gap: 6px; }
 .card-form-secondary { margin: 4px 0 6px; }
 .card-form-secondary > summary { min-height: 28px; padding: 4px 0; box-sizing: border-box; cursor: pointer; font-size: .8rem; }
-.card-editor-mode { display: flex; justify-content: flex-end; margin: 0; }
+.card-editor-mode { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; }
+.card-editor-mode > .card-question-composer { margin: 0; min-width: 0; width: auto; flex: 1; }
+.card-editor-mode > .card-question-composer.is-open { flex-basis: 100%; }
+.card-editor-mode .card-question-composer.is-action .card-question-trigger { padding: 6px; min-height: 44px; font-size: .74rem; gap: 4px; }
+.card-content-editor .card-editor-mode > .btn-secondary { min-height: 44px; }
 .card-editor-mode .btn-secondary { min-height: 26px; padding: 2px 8px; font-size: 0.74rem; border-radius: 6px; }
 .card-content-editor .btn-secondary { min-height: 32px; padding: 4px 8px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
 .card-content-editor .card-editor-add { justify-self: start; min-height: 26px; padding: 2px 8px; font-size: 0.75rem; margin-top: 2px; }

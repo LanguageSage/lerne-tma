@@ -54,12 +54,12 @@ const simple = page => page.getByRole('button', { name: 'Обычный реда
 
 const analysisQuiz = '::task\nWählen Sie die richtige Antwort.\n\n::exercise\nWomit fährt Anna?\n\nA) Mit dem Auto\n*B) Mit dem Bus\nC) Mit dem Zug';
 
-test('single quiz analysis preserves source and places actions between sides', async ({ page, context }, testInfo) => {
+test('quiz analysis preserves source and sits between card sides', async ({ page, context }, testInfo) => {
   await openEditor(page, context, analysisQuiz);
   const action = page.getByRole('button', { name: '📝 Разбор теста', exact: true });
   await expect(action).toHaveCount(1);
   await expect(page.getByRole('button', { name: /генерировать/i })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Выполнить просьбу', exact: true })).toHaveCount(0);
+  await expect(page.locator('.card-editor-mode').getByRole('button', { name: 'Выполнить просьбу', exact: true })).toBeVisible();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   for (const width of [320, 375, 430, 768, 1330]) {
@@ -69,8 +69,12 @@ test('single quiz analysis preserves source and places actions between sides', a
       actions: document.querySelector('.ai-quick-actions').getBoundingClientRect(),
       back: document.querySelector('#card-editor-back').getBoundingClientRect().top,
       overflow: document.documentElement.scrollWidth > innerWidth,
+      more: document.querySelector('.card-editor-mode > button').getBoundingClientRect(),
+      request: document.querySelector('.card-editor-mode .card-question-trigger').getBoundingClientRect(),
     }));
     expect(positions.overflow).toBe(false);
+    expect(positions.request.left).toBeGreaterThanOrEqual(positions.more.right);
+    expect(positions.request.top).toBeLessThan(positions.more.bottom);
     expect(positions.actions.top).toBeGreaterThanOrEqual(positions.front);
     expect(positions.actions.bottom).toBeLessThan(positions.back);
     await page.screenshot({ path: testInfo.outputPath(`quiz-analysis-${width}.png`), fullPage: true });
@@ -111,6 +115,21 @@ test('single quiz analysis error leaves entire draft intact without client retry
   const current = await page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState().editingCard);
   expect(current).toEqual(original);
   expect(count).toBe(1);
+});
+
+test('quiz custom request remains available without changing the question', async ({ page, context }) => {
+  await openEditor(page, context, analysisQuiz);
+  await page.route('**/api/cards/ai-generate', async route => {
+    expect(route.request().postDataJSON()).toMatchObject({ phrase: analysisQuiz, action_type: 'custom_directive', user_request: 'Объясни падеж' });
+    return route.fulfill({ json: { front: '', back: '', context: 'Пояснение падежа' } });
+  });
+  await page.getByRole('button', { name: 'Выполнить просьбу', exact: true }).click();
+  await page.locator('.card-question-input').fill('Объясни падеж');
+  await page.getByRole('button', { name: 'Выполнить ✨', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Примеры и пояснения', exact: true })).toHaveValue('Пояснение падежа\n\nNote');
+  const draft = await page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState().editingCard);
+  expect(draft.front).toBe(analysisQuiz);
+  expect(draft.context).toContain('Пояснение падежа');
 });
 
 test('single quiz fix keeps standard editor and new card generation available', async ({ page, context }) => {
