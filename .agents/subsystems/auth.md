@@ -92,6 +92,12 @@ rg -n 'refresh_session|link_verified|set_email_password|create_challenge|exchang
 
 ## Relevant tests
 
+- Серверная граница `api/index.py`: непредвиденные ошибки дают
+  `runtime_error` / `internal_server_error`, сбой импорта —
+  `startup_error` / `service_unavailable`; traceback остаётся в серверных логах.
+  HTTP 5xx скрывают detail (`service_unavailable`), кроме публичного auth-кода
+  `provider_not_configured` (503). HTTP 4xx, auth detail и Bearer headers сохранены.
+  Проверка: `python scripts/test_backend.py scripts/tests/test_api_errors.py`.
 - Foundation: `scripts/tests/test_auth_foundation.py`.
 - Client state: `scripts/tests/auth_store_regression.mjs`.
 - Новый браузер, локализованные адаптивные элементы входа и загрузка колод после входа (изолированные ответы API): `scripts/tests/browser/guest-entry.spec.cjs`.

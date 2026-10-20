@@ -73,6 +73,7 @@ npm run check
 | Область | Поведенческие проверки |
 | --- | --- |
 | Авторизация | Email/password, signed Telegram/Google fixtures, hashing, TTL, linking, rotation/replay, logout, concurrency; реальные Axios interceptors и смена аккаунта; browser guest/login |
+| Серверные ошибки | `test_api_errors.py`: безопасные runtime/startup и HTTP 5xx ответы, traceback только в логах; сохранение 400/401/403/404, Bearer challenge и `provider_not_configured` (503) |
 | Карточки | HTTP create/edit, запрет чужих изменений, bulk import idempotency, text-update preview/apply/rollback, parser corpus и редактор в браузере |
 | Обучение | Движки SRS Python/JS и их parity, forced traversal/exclusions, валидация оценок, HTTP next/grade, completion/error/retry, упражнения и required actions |
 | Прогресс | Атомарность progress/history, save-only grade, Knowledge capture/outbox, duplicate attempts, mastery/evidence, diagnostics, сохранение после browser reload |
