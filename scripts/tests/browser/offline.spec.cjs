@@ -1,9 +1,10 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./isolated-fixture.cjs');
 
 async function harness(page, context) {
   const assets = new Map();
   await context.route('**/*', async route => {
     const url = route.request().url();
+    if (new URL(url).origin !== 'http://127.0.0.1:5199') return route.abort('blockedbyclient');
     if (new URL(url).pathname === '/offline-harness') {
       return route.fulfill({ contentType: 'text/html', body: '<html><body>Offline test</body></html>' });
     }

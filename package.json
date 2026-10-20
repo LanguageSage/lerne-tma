@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "check": "python scripts/check.py",
+    "test": "npm run test:frontend && npm run test:backend && npm run test:browser",
+    "test:frontend": "npm --prefix app test && node --import ./scripts/tests/no-network.mjs --test scripts/tests/*regression.mjs scripts/tests/autoplay_sequence.mjs scripts/tests/test_user_settings_sync.mjs scripts/tests/test_card_scroll_restoration.mjs",
+    "test:backend": "python scripts/test_backend.py",
+    "test:browser": "playwright test --project=critical",
     "cap": "cap",
     "cap:sync": "cap sync android",
     "cap:open": "cap open android",

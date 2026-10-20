@@ -109,3 +109,11 @@ rg -n 'clearCurrentFeedback|requiredPartIds|interaction_count' app/src/utils/exe
 `pedagogy.assessment` версии 1 включает отдельный AssessmentView через useStudyNavigation и useSessionStore.assessment. Без конфигурации действует Classic. Trainer/Free фиксируют первую проверку, пропуски дают 0, required/bonus считаются отдельно, рекомендации используют authored competency_ids и deck_ids. Сессия и objective Knowledge outbox сохраняются атомарно в существующем Dexie; SRS-оценки и review history не создаются. Resume требует неизменённых заданий/контекста/metadata. Владельцы, API и ограничения — [ASSESSMENT](../../docs/ASSESSMENT.md), тесты assessment.test.js и browser/assessment.spec.cjs. Предыдущий lesson-qa.spec.cjs сохраняет baseline контракта исходного D14 без новой конфигурации.
 
 Session completion accuracy uses actual reviewsCount/correctCount/mistakeCount only. Navigation studyHistory is not correctness evidence; when reviewsCount=0, calculateSessionStats returns null and LessonCompletion shows the no-statistics state. Regression: lessonQa.test.js and the isolated skip-all-D14 browser scenario.
+
+
+## Единая проверка регрессий (этап 1.1)
+
+Из корня: `npm run check`. Команды, перечень изолированных suites, CI gate,
+матрица покрытия и ограничения: [TESTING](../../docs/TESTING.md).
+Отдельный backend suite запускайте через `scripts/test_backend.py`, чтобы
+сохранить блокировку production-сервисов и загрузки `.env`.

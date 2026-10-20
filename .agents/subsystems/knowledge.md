@@ -75,3 +75,11 @@ rg -n 'startKnowledgeSync|stopKnowledgeSync|currentGeneration|pending' app/src/s
 ## Objective assessment evidence
 
 GET /knowledge/decks/{deck_id} отдаёт разрешённые KI/mappings активных карточек для кэша. assessmentService атомарно записывает локальную сессию и schema_version=3/evaluation_type=assessment в существующий outbox. Sync проверяет доступ, primary KI, payload и stable session:card event ID. Верный/неверный ответ даёт objective evidence, skipped хранится без mastery; self-rating отсутствует. Legacy v1/v2 не изменены. Контракт: [ASSESSMENT](../../docs/ASSESSMENT.md). Регрессии: test_knowledge_sync.py и test_knowledge_mastery.py.
+
+
+## Единая проверка регрессий (этап 1.1)
+
+Из корня: `npm run check`. Команды, перечень изолированных suites, CI gate,
+матрица покрытия и ограничения: [TESTING](../../docs/TESTING.md).
+Отдельный backend suite запускайте через `scripts/test_backend.py`, чтобы
+сохранить блокировку production-сервисов и загрузки `.env`.

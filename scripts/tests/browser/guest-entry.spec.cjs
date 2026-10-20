@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./isolated-fixture.cjs');
 
 async function setup(page, context, identified = false) {
   const errors = [];

@@ -1,0 +1,3 @@
+-r api/requirements.txt
+# FastAPI TestClient / ASGI contract tests; the rest use unittest in the stdlib.
+httpx>=0.27,<1

@@ -159,3 +159,11 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 - `ExerciseRenderer` выбирает действительный directive block для Puzzle/Match/Free/Word Bank. Другие интерактивные exercise blocks не выводятся как information: иначе raw target/ключи становятся видимыми до ответа. Обычные инструкции и информационные блоки сохраняются.
 - `clozeParser` отделяет bracket syntax до удаления Markdown, сохраняя несколько starred answers вместо ошибочной интерпретации как курсива.
 - Инструкция: [LESSON_QA](../../docs/LESSON_QA.md). Реальные fixtures и отдельные неисполненные предложения: `reports/lesson-qa/`. Regression: `lessonQa.test.js`, `test_lesson_qa.py`, `test_lesson_qa_database.py`, `browser/lesson-qa.spec.cjs`.
+
+
+## Единая проверка регрессий (этап 1.1)
+
+Из корня: `npm run check`. Команды, перечень изолированных suites, CI gate,
+матрица покрытия и ограничения: [TESTING](../../docs/TESTING.md).
+Отдельный backend suite запускайте через `scripts/test_backend.py`, чтобы
+сохранить блокировку production-сервисов и загрузки `.env`.

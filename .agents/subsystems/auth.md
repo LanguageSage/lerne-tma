@@ -85,3 +85,11 @@ rg -n 'refresh_session|link_verified|set_email_password|create_challenge|exchang
 - [AUTH_V2](../../project_docs/ARCHITECTURE/AUTH_V2.md), [Deployment](../../api/auth/DEPLOYMENT.md).
 - [Auth security review](../../project_docs/reports/AUTH_SECURITY_REVIEW.md) — отчёт; текущие проверки находятся в коде.
 - [Sync](sync.md), [Decks](decks.md), [Knowledge lifecycle](knowledge.md).
+
+
+## Единая проверка регрессий (этап 1.1)
+
+Из корня: `npm run check`. Команды, перечень изолированных suites, CI gate,
+матрица покрытия и ограничения: [TESTING](../../docs/TESTING.md).
+Отдельный backend suite запускайте через `scripts/test_backend.py`, чтобы
+сохранить блокировку production-сервисов и загрузки `.env`.

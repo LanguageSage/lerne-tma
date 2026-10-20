@@ -201,11 +201,13 @@ class BulkImportTests(unittest.TestCase):
         self.assertEqual(models.TMAOfflineBatch.select().count(), 1)
 
 
+def tearDownModule():
+    # unittest's module loader does not execute the __main__ block.
+    database.close()
+    for path in (database_path, Path(f'{database_path}-wal'), Path(f'{database_path}-shm')):
+        if path.parent.resolve() == ROOT.resolve():
+            path.unlink(missing_ok=True)
+
+
 if __name__ == '__main__':
-    try:
-        unittest.main()
-    finally:
-        database.close()
-        for path in (database_path, Path(f'{database_path}-wal'), Path(f'{database_path}-shm')):
-            if path.parent.resolve() == ROOT.resolve():
-                path.unlink(missing_ok=True)
+    unittest.main()

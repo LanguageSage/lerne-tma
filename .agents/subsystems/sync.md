@@ -78,3 +78,11 @@ rg -n 'TMAOfflineBatch|request_id|mappings|review_count' api/services/offline_sy
 ## Restore owner access
 
 require_access разрешает владельцу восстановление его soft-deleted deck/folder: collaborative lookup исключает удалённые targets. Исключение применяется только к deleted records собственника; активные/published permissions остаются прежними. Изолированный test_offline_sync.py проверяет restore, viewer/editor и rollback чужого пакета.
+
+
+## Единая проверка регрессий (этап 1.1)
+
+Из корня: `npm run check`. Команды, перечень изолированных suites, CI gate,
+матрица покрытия и ограничения: [TESTING](../../docs/TESTING.md).
+Отдельный backend suite запускайте через `scripts/test_backend.py`, чтобы
+сохранить блокировку production-сервисов и загрузки `.env`.

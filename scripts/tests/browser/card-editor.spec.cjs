@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./isolated-fixture.cjs');
 
 const deck = {
   id: 1, name: 'Auto Test', target_language: 'de', is_learning: true,

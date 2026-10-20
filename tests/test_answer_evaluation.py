@@ -189,27 +189,43 @@ class AIFallbackTests(unittest.IsolatedAsyncioTestCase):
     async def test_structured_retry_shares_original_timeout_and_cancels_provider(self):
         client = AsyncMock()
         cancelled = asyncio.Event()
+        retry_started = asyncio.Event()
+        budgets = []
+        real_wait_for = asyncio.wait_for
         calls = 0
 
         async def delayed_response(**kwargs):
             nonlocal calls
             calls += 1
             if calls == 1:
-                await asyncio.sleep(.06)
                 return 'not JSON', True
             try:
-                await asyncio.sleep(.06)
-                return ai_result(), True
+                retry_started.set()
+                await asyncio.Future()
             except asyncio.CancelledError:
                 cancelled.set()
                 raise
 
+        async def expire_shared_budget(awaitable, timeout):
+            budgets.append(timeout)
+            task = asyncio.create_task(awaitable)
+            try:
+                # Expire the single outer deadline after retry begins. Avoid
+                # a 60ms/100ms race that depends on CI scheduler load.
+                await real_wait_for(retry_started.wait(), timeout=5)
+            finally:
+                task.cancel()
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+            raise asyncio.TimeoutError
+
         client.chat_completion.side_effect = delayed_response
-        with patch('api.services.answer_ai.AI_TIMEOUT_SECONDS', .1):
+        with patch('api.services.answer_ai.asyncio.wait_for', side_effect=expire_shared_budget):
             result = await evaluate_with_ai(context(), GradingPolicy(), client, 'test')
         self.assertEqual(result.verdict, 'unavailable')
         self.assertEqual(calls, 2)
         self.assertTrue(cancelled.is_set())
+        self.assertEqual(budgets, [20])
 
     async def test_obvious_results_never_configure_or_call_ai(self):
         def fail_factory():

@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./isolated-fixture.cjs');
 
 const decks = [
   { id: 1, folder_id: 10, name: 'Первый урок', position: 0, target_language: 'de' },

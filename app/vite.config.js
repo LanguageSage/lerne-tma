@@ -4,14 +4,20 @@ import process from 'node:process'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // The regression server must not load developer credentials or proxy to a
+  // configured backend. Missing API mocks fail against a closed local port.
+  envDir: process.env.LERNE_ISOLATED_CHECKS === '1' ? false : undefined,
   plugins: [react()],
   server: {
+    hmr: process.env.LERNE_ISOLATED_CHECKS === '1' ? false : undefined,
     host: true,
     port: 5173,
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: process.env.VITE_DEV_API_TARGET || 'http://127.0.0.1:8001',
+        target: process.env.LERNE_ISOLATED_CHECKS === '1'
+          ? 'http://127.0.0.1:1'
+          : process.env.VITE_DEV_API_TARGET || 'http://127.0.0.1:8001',
         changeOrigin: true,
       }
     }
