@@ -2,6 +2,7 @@ import datetime
 import json
 import unittest
 import os
+import secrets
 from unittest.mock import patch
 
 os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
@@ -13,13 +14,16 @@ from peewee import SqliteDatabase
 from api.models import (
     tma_db, TMAUser, TMA_Deck, TMA_Card, TMAKnowledgeItem,
     TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState, TMAReviewHistory,
+    AUTH_MODELS, TMAAuthAccount, auth_utcnow,
 )
+from api.auth.service import login_verified
+from api.auth.providers import VerifiedIdentity
 from api.routers.knowledge import router
 from api.services.knowledge_diagnostics import diagnostic_status
 from api.services.knowledge_mastery import rebuild_knowledge_state
 
 
-MODELS = [TMAUser, TMA_Deck, TMA_Card, TMAKnowledgeItem, TMACardKnowledgeItem,
+MODELS = [TMAUser, *AUTH_MODELS, TMA_Deck, TMA_Card, TMAKnowledgeItem, TMACardKnowledgeItem,
           TMAKnowledgeAttempt, TMAUserKnowledgeState, TMAReviewHistory]
 
 
@@ -72,12 +76,19 @@ class TestDiagnosticsAPI(unittest.TestCase):
             model.delete().execute()
         TMAUser.create(user_id=1, username='a')
         TMAUser.create(user_id=2, username='b')
+        self.headers = {}
+        for uid in (1, 2):
+            TMAAuthAccount.create(user=uid, legacy_telegram_subject=str(uid))
+            now = auth_utcnow()
+            tokens = login_verified(VerifiedIdentity('telegram', str(uid), now,
+                now + datetime.timedelta(minutes=5), secrets.token_hex(32)))
+            self.headers[uid] = {'Authorization': 'Bearer ' + tokens.access_token}
         self.a = TMAKnowledgeItem.create(name='Alpha', language='de', category='grammar', cefr_level='A1')
         self.b = TMAKnowledgeItem.create(name='Beta', language='en', category='vocabulary', cefr_level='B2')
         self.c = TMAKnowledgeItem.create(name='Gamma', language='de', category='grammar', cefr_level='C1')
 
     def get(self, path, user=1):
-        return self.client.get(path, headers={'X-User-ID': str(user)})
+        return self.client.get(path, headers=self.headers[user])
 
     def add(self, ki, event_id, data, user=1, at=None):
         TMAKnowledgeAttempt.create(
@@ -191,6 +202,10 @@ class TestDiagnosticsAPI(unittest.TestCase):
         self.assertEqual(self.get(base, user=2).json()['total'], 4)
 
     def test_list_query_count_does_not_grow_per_item(self):
+        with patch.object(self.database, 'execute_sql', wraps=self.database.execute_sql) as baseline:
+            response = self.get('/knowledge/diagnostics/items?limit=100')
+        self.assertEqual(response.status_code, 200)
+        baseline_count = baseline.call_count
         for i in range(100):
             TMAKnowledgeItem.create(name=f'Extra {i:03d}')
         self.add(self.a, 'a', hybrid())
@@ -198,7 +213,7 @@ class TestDiagnosticsAPI(unittest.TestCase):
             response = self.get('/knowledge/diagnostics/items?limit=100')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['total'], 103)
-        self.assertEqual(execute.call_count, 3)
+        self.assertEqual(execute.call_count, baseline_count)
 
     def test_ignored_only_and_nonfinite_raw_payload(self):
         self.add(self.a, 'ignored', {'schema_version': 1, 'evaluation_type': 'self_rating',

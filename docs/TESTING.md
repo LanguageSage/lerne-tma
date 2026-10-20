@@ -1,5 +1,18 @@
 # Автоматические проверки Lerne TMA
 
+Защита PostgreSQL/Supabase проверяется дополнительным CI job `database-security`
+в `.github/workflows/checks.yml` на disposable PostgreSQL 17. Он запускает
+`python scripts/test_supabase_security.py --disposable --port 5432 --bootstrap-user security_fixture_admin`: реальные
+запреты CRUD/TRUNCATE для anon/authenticated, серверный CRUD, HTTP auth/cards/
+study/sharing/offline/Knowledge, defaults новых объектов, drift gate и rollback.
+Тест создаёт и удаляет только собственную случайную локальную БД, не читает `.env`
+и не допускает конфигурацию hostname. Нужен отдельный disposable кластер;
+не использовать production tunnel. Локальный default port — 55439.
+Отдельный bootstrap admin создаёт `postgres` с NOSUPERUSER/BYPASSRLS, как в production.
+Это отдельный job и отдельная команда, не скрытая часть `npm run check`.
+Read-only live catalog gate и approval-controlled rollout описаны в
+[Supabase security runbook](../security/supabase/README.md).
+
 Этап 1.1 архитектурного аудита. Единая команда из корня репозитория:
 
 ```sh

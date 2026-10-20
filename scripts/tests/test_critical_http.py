@@ -1,7 +1,6 @@
 """Real Classic/auth-v2 HTTP boundaries over a disposable SQLite database.
 
-No dependency overrides: exercise the authentication currently wired by routes,
-including the documented Classic legacy-header compatibility.
+No dependency overrides: exercise the verified authentication wired by routes.
 """
 from pathlib import Path
 import unittest
@@ -119,6 +118,43 @@ class CriticalHttpTests(unittest.TestCase):
                                         json={**payload, 'grade': grade})
             self.assertEqual(response.status_code, 422, response.text)
         self.assertEqual(models.TMAReviewHistory.select().count(), 0)
+
+    def test_forged_user_header_cannot_read_create_update_delete_or_sync(self):
+        response = self.save()
+        self.assertEqual(response.status_code, 200, response.text)
+        card_id = response.json()['id']
+        for authorization in (None, 'Bearer invalid', 'Basic invalid'):
+            headers = {'X-User-ID': str(self.deck.user_id)}
+            if authorization:
+                headers['Authorization'] = authorization
+            requests = (
+                ('GET', f'/api/study/card/{card_id}', None),
+                ('GET', '/api/sync/v2/pull', None),
+                ('POST', '/api/cards/save', {'deck_id': self.deck.id, 'front': 'forged'}),
+                ('POST', '/api/cards/save', {'deck_id': self.deck.id, 'card_id': card_id,
+                                           'front': 'forged'}),
+                ('DELETE', f'/api/cards/{card_id}', None),
+                ('POST', '/api/sync/v2/push', {'request_id': str(uuid4()), 'cards': []}),
+            )
+            for method, path, payload in requests:
+                with self.subTest(authorization=authorization, method=method, path=path):
+                    result = self.client.request(method, path, headers=headers, json=payload)
+                    self.assertEqual(result.status_code, 401, result.text)
+        self.assertEqual(models.TMA_Card.select().count(), 1)
+        card = models.TMA_Card.get_by_id(card_id)
+        self.assertEqual(card.front_text, 'Haus')
+        self.assertFalse(card.is_deleted)
+        self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
+
+    def test_valid_bearer_owns_identity_and_logout_cannot_fall_back_to_header(self):
+        other_headers = {**self.headers(self.other), 'X-User-ID': str(self.deck.user_id)}
+        response = self.client.post('/api/cards/save', headers=other_headers, json={
+            'deck_id': self.deck.id, 'front': 'forged', 'auto_generate_audio': False})
+        self.assertEqual(response.status_code, 403, response.text)
+        headers = {**self.headers(), 'X-User-ID': str(self.deck.user_id)}
+        self.assertEqual(self.client.get('/api/sync/v2/pull', headers=headers).status_code, 200)
+        self.assertEqual(self.client.post('/api/auth/v2/logout', headers=headers, json={}).status_code, 204)
+        self.assertEqual(self.client.get('/api/sync/v2/pull', headers=headers).status_code, 401)
 
     def test_delete_requires_owner_and_soft_deletion_removes_card_from_study(self):
         response = self.save()

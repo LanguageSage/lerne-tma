@@ -36,7 +36,7 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 
 - `api/auth/service.py` владеет auth-транзакциями, TTL, token rotation, password throttling и отзывом сессий.
 - `api/models.py`: `TMAAuthAccount`, `TMAAuthIdentity`, `TMAAuthSession`, `TMAAuthToken`, `TMAAuthProof`, `TMAAuthChallenge`, `TMAAuthPassword`, `TMAAuthPasswordThrottle`.
-- Текущий `get_user_id` в `api/dependencies/auth.py` пробует Bearer, затем допускает legacy `X-User-ID`; строгая Bearer-зависимость находится в `api/auth/dependencies.py`. Проверяйте, какую зависимость использует конкретный route.
+- `get_user_id` в `api/dependencies/auth.py` делегирует строгой Bearer-зависимости из `api/auth/dependencies.py`. `X-User-ID` не является credential и игнорируется; неверная/отозванная сессия не допускает fallback. Telegram получает сессию через подписанный initData/challenge в auth v2. Старые header-only клиенты должны войти заново.
 - Credentials/session storage принадлежит utils/auth и useAuthStore; profile fields и password settings имеют отдельные потоки.
 - Password hashing использует Argon2id; восстановление через привязанный провайдер/профиль описано в [AUTH_V2](../../project_docs/ARCHITECTURE/AUTH_V2.md).
 - Миграции схемы — `api/migrations.py`; детали текущего rollout/переменных — `api/auth/DEPLOYMENT.md`.
@@ -50,7 +50,7 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 - Её используют `/api/init`, Classic/auth-v2 профили, settings, debug,
   переключение default-колод и collaborative permissions опубликованного контента.
   Username, включая прежний список `ADMIN_USERNAMES`, прав не предоставляет.
-- Получение ID пользователя, Bearer/legacy fallback и auth v2 не менялись.
+- На этапе 1.3 получение ID пользователя и auth v2 не менялись; последующий security audit удалил Bearer/legacy fallback (см. Source of truth выше).
   Клиентские проверки используют серверный флаг; существующий DEV-only `?admin=1`
   остаётся локальным UI preview, серверные права он не меняет.
 - `MASTER_UID` в LiD — владелец исходных колод, ID в миграциях — данные,
@@ -108,6 +108,7 @@ rg -n 'refresh_session|link_verified|set_email_password|create_challenge|exchang
 
 ## Related docs
 
+- [Supabase security audit / migration / rollback](../../security/supabase/README.md) — server-only public schema, read-only catalog gate, отдельное подтверждение production rollout и отзыва сессий.
 - [AUTH_V2](../../project_docs/ARCHITECTURE/AUTH_V2.md), [Deployment](../../api/auth/DEPLOYMENT.md).
 - [Auth security review](../../project_docs/reports/AUTH_SECURITY_REVIEW.md) — отчёт; текущие проверки находятся в коде.
 - [Sync](sync.md), [Decks](decks.md), [Knowledge lifecycle](knowledge.md).

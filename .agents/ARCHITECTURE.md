@@ -35,6 +35,11 @@ Study grade → useStudySession.js → knowledgeCaptureService.js
 
 Online и offline CRUD выбираются в API-клиенте; offline очередь отправляется отдельно.
 Синхронизация Knowledge Attempts имеет собственную очередь и жизненный цикл.
+Оба Peewee proxy используют прямое PostgreSQL-подключение; таблицы `public`
+предназначены серверу, не клиентскому Supabase Data API. Проектируемая защита:
+RLS без public policies, отзыв API-grants/schema USAGE и безопасные defaults.
+Production-применение требует отдельного подтверждения; состояние, миграция,
+проверки и rollback — в [Supabase security audit](../security/supabase/README.md).
 Медиа разрешаются через URL, серверное хранилище и локальный кэш; см. [media](subsystems/media.md).
 
 ## Подсистемы: Intent-to-Code Matrix

@@ -11,6 +11,29 @@ permissions:
   contents: read
 
 jobs:
+  database-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: security_fixture_admin
+          POSTGRES_PASSWORD: local-security-fixture
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U security_fixture_admin" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-test.txt
+      - name: Verify PostgreSQL ACL, RLS, defaults, rollback and HTTP flows
+        env:
+          LERNE_SECURITY_TEST_PASSWORD: local-security-fixture
+        run: python scripts/test_supabase_security.py --disposable --port 5432 --bootstrap-user security_fixture_admin
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
