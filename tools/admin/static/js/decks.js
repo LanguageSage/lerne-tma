@@ -12,8 +12,7 @@ function toggleDeckRowSelection(deckId, checked) {
     }
 
 function toggleSelectAllDeckRows(checked) {
-      const startIdx = (currentDeckPage - 1) * deckPageSize;
-      const pageDecks = currentRenderedDecks.slice(startIdx, startIdx + deckPageSize);
+      const pageDecks = currentRenderedDecks;
       pageDecks.forEach(d => {
         const sId = String(d.id);
         if (checked) {
@@ -59,8 +58,7 @@ function updateDeckSelectionUI() {
       // Update Select-All Checkbox for Current Page
       const selectAll = document.getElementById('deck-table-select-all');
       if (selectAll) {
-        const startIdx = (currentDeckPage - 1) * deckPageSize;
-        const pageDecks = currentRenderedDecks.slice(startIdx, startIdx + deckPageSize);
+        const pageDecks = currentRenderedDecks;
         if (pageDecks.length > 0 && pageDecks.every(d => selectedDeckIds.has(String(d.id)))) {
           selectAll.checked = true;
         } else {
@@ -75,48 +73,47 @@ function onDeckRowCheckboxChange() {
       updateDeckSelectionUI();
     }
 
+let deckTotal = 0;
+let deckRequest = 0;
 async function loadDecks(userIdFilter = null) {
-      try {
-        const uid = userIdFilter || activeUserFilter;
-        const url = uid ? `/api/admin/decks?user_id=${uid}` : '/api/admin/decks';
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        const data = await res.json();
-        decksData = data.decks || [];
-        renderDecksTable(decksData);
-      } catch (err) {
-        console.error("Failed to load decks", err);
-      } finally {
-        loadAdminFolders();
-      }
+  const request = ++deckRequest;
+  try {
+    const params = new URLSearchParams({mode: deckHealthFilter});
+    const uid = userIdFilter || activeUserFilter;
+    if (uid) params.set('user_id', uid);
+    const search = document.getElementById('deck-search')?.value.trim();
+    if (search) params.set('search', search);
+    const data = await adminGetPage('/api/admin/decks?' + params, currentDeckPage, deckPageSize);
+    if (request !== deckRequest) return;
+    deckTotal = data.total;
+    if (currentDeckPage > 1 && !(data.decks || []).length) {
+      currentDeckPage = Math.max(1, Math.ceil(deckTotal / deckPageSize));
+      return loadDecks(userIdFilter);
     }
+    const byId = new Map(decksData.map(d => [String(d.id), d]));
+    (data.decks || []).forEach(d => byId.set(String(d.id), d));
+    decksData = [...byId.values()];
+    renderDecksTable(data.decks || []);
+  } catch (err) {
+    console.error('Failed to load decks', err);
+  }
+}
 
 async function loadDecksSilent() {
-      try {
-        // Protect user selection: if user has any active selections, do NOT silently re-render!
-        if (selectedDeckIds.size > 0) return;
-
-        const uid = activeUserFilter;
-        const url = uid ? `/api/admin/decks?user_id=${uid}` : '/api/admin/decks';
-        const res = await fetch(url);
-        const data = await res.json();
-        decksData = data.decks || [];
-        filterDecks(false);
-      } catch (e) {
-        // silent
-      }
-    }
+  if (selectedDeckIds.size > 0 || document.getElementById('content-decks')?.classList.contains('hidden')) return;
+  await loadDecks();
+}
 
 function renderDecksTable(decks, resetPage = false) {
       currentRenderedDecks = decks || [];
       if (resetPage) currentDeckPage = 1;
 
-      const total = currentRenderedDecks.length;
+      const total = deckTotal;
       const totalPages = Math.ceil(total / deckPageSize) || 1;
       if (currentDeckPage > totalPages) currentDeckPage = 1;
 
       const startIdx = (currentDeckPage - 1) * deckPageSize;
-      const pageDecks = currentRenderedDecks.slice(startIdx, startIdx + deckPageSize);
+      const pageDecks = currentRenderedDecks;
 
       const tbody = document.getElementById('decks-table-body');
       
@@ -244,28 +241,14 @@ function renderDecksTable(decks, resetPage = false) {
     }
 
 function changeDeckPage(delta) {
-      const totalPages = Math.ceil(currentRenderedDecks.length / deckPageSize) || 1;
-      currentDeckPage += delta;
-      if (currentDeckPage < 1) currentDeckPage = 1;
-      if (currentDeckPage > totalPages) currentDeckPage = totalPages;
-      renderDecksTable(currentRenderedDecks);
-    }
+  currentDeckPage = Math.max(1, Math.min(currentDeckPage + delta, Math.ceil(deckTotal / deckPageSize) || 1));
+  loadDecks();
+}
 
 function filterDecks(resetPage = true) {
-      const q = (document.getElementById('deck-search')?.value || '').toLowerCase().trim();
-      if (!q) {
-        renderDecksTable(decksData, resetPage);
-        return;
-      }
-
-      const filtered = decksData.filter(d => 
-        d.name.toLowerCase().includes(q) || 
-        String(d.id).includes(q) || 
-        String(d.user_id).includes(q) || 
-        (d.target_language && d.target_language.toLowerCase().includes(q))
-      );
-      renderDecksTable(filtered, resetPage);
-    }
+  if (resetPage) currentDeckPage = 1;
+  loadDecks();
+}
 
 async function toggleDefaultDeck(deckId, newDefault) {
       if (!newDefault) {
@@ -395,7 +378,8 @@ function selectAllAssignUsers(checked) {
       document.querySelectorAll('input[name="assign-user"]').forEach(cb => cb.checked = checked);
     }
 
-function openAssignModal(deckId, deckName) {
+async function openAssignModal(deckId, deckName) {
+      usersData = await adminCatalog("/api/admin/users", "users");
       activeAssignDeckId = deckId;
       document.getElementById('modal-assign-title').innerText = `Раздать: ${deckName}`;
       
@@ -444,12 +428,7 @@ async function submitAssignDeck() {
     }
 
 
-function filterLibraryDecks() {
-      const libraryDecks = decksData.filter(d => d.is_default);
-      renderDecksTable(libraryDecks, true);
-      document.getElementById('user-filter-name').innerText = `⭐ Колоды Библиотеки (${libraryDecks.length})`;
-      document.getElementById('user-filter-banner').classList.remove('hidden');
-    }
+function filterLibraryDecks() { setDeckHealthFilter('default'); }
 
 async function promoteToLibrary(entityType, entityId, entityName) {
       const label = entityType === 'folder' ? 'папку' : 'колоду';

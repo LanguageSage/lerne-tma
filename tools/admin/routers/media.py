@@ -1,3 +1,4 @@
+from api.utils.storage_keys import storage_object_path
 """Admin media, image management, and voice-preview router."""
 import io
 import logging
@@ -261,15 +262,38 @@ def download_single_image(filename: str):
         (models.TMAMedia.filename == clean_name) &
         (models.TMAMedia.folder == "images")
     )
-    if not media or not media.content:
-        raise HTTPException(status_code=404, detail="Image not found in database")
+    if not media:
+        raise HTTPException(status_code=404, detail="Image not found")
+    content = _read_image_bytes(media, 25 * 1024 * 1024)
+    from urllib.parse import quote
+    return Response(content=content, media_type="application/octet-stream",
+        headers={"Content-Disposition": "attachment; filename*=UTF-8''" + quote(clean_name, safe='')})
 
-    content = bytes(media.content)
-    return Response(
-        content=content,
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{clean_name}"'}
-    )
+
+def _read_image_bytes(media, max_bytes):
+    """Bounded cloud fallback for migrated images, used only by explicit downloads."""
+    if media.content:
+        if len(media.content) > max_bytes:
+            raise HTTPException(413, 'Image download budget exceeded')
+        return bytes(media.content)
+    import requests
+    base = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    if not base:
+        raise HTTPException(404, 'Storage not configured')
+    try:
+        with requests.get(f"{base}/storage/v1/object/public/images/{storage_object_path(media.filename)}",
+                          stream=True, timeout=(5, 15), allow_redirects=False) as response:
+            if response.status_code != 200:
+                raise HTTPException(502, 'Storage image unavailable')
+            content = bytearray()
+            for chunk in response.iter_content(min(65536, max_bytes + 1)):
+                content.extend(chunk)
+                if len(content) > max_bytes:
+                    raise HTTPException(413, 'Image download budget exceeded')
+            return bytes(content)
+    except requests.RequestException:
+        raise HTTPException(502, 'Storage download failed')
+
 
 
 class DownloadZipRequest(BaseModel):
@@ -296,6 +320,7 @@ def download_images_zip(req: Optional[DownloadZipRequest] = None):
 
     zip_buffer = io.BytesIO()
     added_count = 0
+    remaining_bytes = 64 * 1024 * 1024
 
     # Fetch in chunks of 100 to keep DB connection healthy
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -309,9 +334,10 @@ def download_images_zip(req: Optional[DownloadZipRequest] = None):
                 )
             )
             for m in media_records:
-                if m.content:
-                    zf.writestr(m.filename, bytes(m.content))
-                    added_count += 1
+                content = _read_image_bytes(m, min(25 * 1024 * 1024, remaining_bytes))
+                remaining_bytes -= len(content)
+                zf.writestr(m.filename, content)
+                added_count += 1
 
     if added_count == 0:
         raise HTTPException(status_code=404, detail="Указанные файлы не найдены в базе данных")
@@ -526,6 +552,11 @@ def get_admin_image(filename: str):
         (models.TMAMedia.filename == clean_name) &
         (models.TMAMedia.folder == "images")
     )
+    if media and not media.content:
+        from fastapi.responses import RedirectResponse
+        base = os.environ.get('SUPABASE_URL', '').rstrip('/')
+        if base:
+            return RedirectResponse(f"{base}/storage/v1/object/public/images/{storage_object_path(clean_name)}")
     if not media or not media.content:
         raise HTTPException(status_code=404, detail="Image file not found")
 
@@ -627,4 +658,9 @@ def get_admin_audio(filename: str):
     if os.path.exists(local_path):
         return FileResponse(local_path, media_type="audio/mpeg")
 
+    if media:
+        from fastapi.responses import RedirectResponse
+        base = os.environ.get('SUPABASE_URL', '').rstrip('/')
+        if base:
+            return RedirectResponse(f"{base}/storage/v1/object/public/audio/{storage_object_path(clean_name)}")
     raise HTTPException(status_code=404, detail="Audio file not found")

@@ -771,7 +771,7 @@ async def run_bulk_card_creation(task_id: str, req: BulkCreateCardsRequest):
     deck = None
     is_lib = False
     if req.deck_id:
-        deck, _, is_lib = get_deck_and_cards(req.deck_id)
+        deck, _, is_lib = get_deck_and_cards(req.deck_id, include_cards=False)
         if not deck:
             task_info["status"] = "failed"
             task_info["logs"].append(f"❌ Колода #{req.deck_id} не найдена")

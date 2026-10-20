@@ -1,12 +1,13 @@
 /**
  * users.js — Lerne TMA Admin Module
  */
-async function loadUsers(searchQuery = '') {
+let usersRequest = 0;
+async function loadUsers(searchQuery = '', page = 1) {
+      const request = ++usersRequest;
       try {
         const url = searchQuery ? `/api/admin/users?search=${encodeURIComponent(searchQuery)}` : '/api/admin/users';
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        const data = await res.json();
+        const data = await adminGetPage(url, page);
+        if (request !== usersRequest) return;
         usersData = data.users || [];
         usersStats = {
           total: data.total_count || usersData.length,
@@ -20,6 +21,7 @@ async function loadUsers(searchQuery = '') {
         }
 
         renderUsersGrid(usersData);
+        adminPager('users-grid', data, next => loadUsers(searchQuery, next));
       } catch (err) {
         console.error("Failed to load users", err);
       }

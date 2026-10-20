@@ -1,7 +1,8 @@
 /**
  * bulk_creator.js — Lerne TMA Admin Module
  */
-function initBulkCreator() {
+async function initBulkCreator() {
+      decksData = await adminCatalog("/api/admin/decks", "decks");
       const select = document.getElementById('bulk-target-deck-select');
       if (select && decksData.length > 0) {
         const prevVal = select.value;

@@ -9,6 +9,7 @@ from peewee import fn
 from fastapi import APIRouter, HTTPException
 
 from api import models
+from tools.admin.services.diagnostics import cached_summary, paginate
 from tools.admin.schemas import AssignFolderRequest, BatchDeleteFoldersRequest, SetDefaultFolderRequest
 
 logger = logging.getLogger(__name__)
@@ -31,21 +32,44 @@ def _collect_folder_descendants(folder_ids: List[int]) -> List[int]:
 
 
 @router.get("/api/admin/folders")
-def get_admin_folders(user_id: Optional[int] = None):
+def get_admin_folders(user_id: Optional[int] = None, search: str = '', mode: str = 'all', page: int = 1, limit: int = 50):
+    paginate([], page, limit)
+    data = _build_folders(user_id)
+    items = data['folders']
+    stats = {'folders': len(items), 'decks': sum(f['deck_count'] for f in items),
+             'cards': sum(f['cards_count'] for f in items), 'default': sum(f['is_default'] for f in items)}
+    if mode == 'default':
+        items = [f for f in items if f['is_default']]
+    elif mode == 'custom':
+        items = [f for f in items if not f['is_default']]
+    elif mode == 'with_decks':
+        items = [f for f in items if f['deck_count']]
+    elif mode == 'empty':
+        items = [f for f in items if not f['deck_count']]
+    q = search.strip().lower()
+    if q:
+        items = [f for f in items if any(q in str(f.get(k, '')).lower() for k in
+            ('name', 'user_name', 'user_id', 'id', 'target_language')) or any(q in d['name'].lower() for d in f['decks'])]
+    info = paginate(items, page, limit)
+    return {**info, 'stats': stats, 'folders': items[(page-1)*limit:page*limit]}
+
+
+@cached_summary
+def _build_folders(user_id: Optional[int] = None):
     """Returns all TMA folders with user info, deck counts, and default status."""
-    query = models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False)
+    query = models.TMA_Folder.select(models.TMA_Folder.id, models.TMA_Folder.user_id, models.TMA_Folder.name, models.TMA_Folder.color, models.TMA_Folder.target_language, models.TMA_Folder.parent_id).where(models.TMA_Folder.is_deleted == False)
     if user_id is not None:
         query = query.where(models.TMA_Folder.user_id == user_id)
-    folders = list(query)
-    users_map = {u.user_id: u for u in models.TMAUser.select()}
+    folders = list(query.order_by(models.TMA_Folder.id))
+    users_map = {u.user_id: u for u in models.TMAUser.select(models.TMAUser.user_id, models.TMAUser.first_name, models.TMAUser.last_name, models.TMAUser.username, models.TMAUser.photo_url, models.TMAUser.is_guest).where(models.TMAUser.user_id << {f.user_id for f in folders})}
 
     card_counts = dict(
         models.TMA_Card.select(models.TMA_Card.deck_id, fn.COUNT(models.TMA_Card.id))
-        .where(models.TMA_Card.is_deleted == False)
+        .where((models.TMA_Card.is_deleted == False) & (models.TMA_Card.deck_id << models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.folder_id << [f.id for f in folders])))
         .group_by(models.TMA_Card.deck_id).tuples()
     )
 
-    all_decks = list(models.TMA_Deck.select().where(
+    all_decks = list(models.TMA_Deck.select(models.TMA_Deck.id, models.TMA_Deck.folder_id, models.TMA_Deck.name, models.TMA_Deck.metadata, models.TMA_Deck.target_language, models.TMA_Deck.level).where((models.TMA_Deck.folder_id << [f.id for f in folders]) &
         (models.TMA_Deck.folder.is_null(False)) & (models.TMA_Deck.is_deleted == False)
     ))
     decks_by_folder = defaultdict(list)

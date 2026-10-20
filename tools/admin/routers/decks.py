@@ -9,6 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from peewee import Case, fn
 
 from api import models
+from tools.admin.services.diagnostics import cached_summary, paginate, invalidate
 from tools.admin.schemas import (
     AssignDeckRequest,
     BatchControlRequest,
@@ -36,27 +37,36 @@ from tools.admin.services import task_manager
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-_DECKS_CACHE = {"data": None, "timestamp": 0.0}
-_CACHE_TTL_SEC = 10.0
-
-
 def invalidate_decks_cache():
-    _DECKS_CACHE["data"] = None
-    _DECKS_CACHE["timestamp"] = 0.0
+    invalidate()
 
 
 @router.get("/api/admin/decks")
-def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
-    """Returns all active decks in the database with health statistics (missing audio/context)."""
-    now = time.time()
-    if not search and not user_id:
-        if _DECKS_CACHE["data"] is not None and (now - _DECKS_CACHE["timestamp"]) < _CACHE_TTL_SEC:
-            return _DECKS_CACHE["data"]
+def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None, page: int = 1, limit: int = 50, mode: str = 'all'):
+    paginate([], page, limit)
+    data = _build_decks(search, user_id)
+    items = data['decks']
+    if mode == 'missing_audio':
+        items = [d for d in items if d['missing_audio_count'] > 0]
+    elif mode == 'missing_context':
+        items = [d for d in items if d['missing_context_count'] > 0]
+    elif mode == 'empty':
+        items = [d for d in items if d['card_count'] == 0]
+    elif mode == 'default':
+        items = [d for d in items if d['is_default']]
+    elif mode == 'library':
+        items = [d for d in items if d['is_library']]
+    info = paginate(items, page, limit)
+    return {**data, **info, 'decks': items[(page-1)*limit:page*limit]}
 
+
+@cached_summary
+def _build_decks(search: Optional[str] = None, user_id: Optional[int] = None):
+    """Returns all active decks in the database with health statistics (missing audio/context)."""
     result = []
 
     if not user_id:
-        lib_query = models.Deck.select().where(models.Deck.is_deleted == False)
+        lib_query = models.Deck.select(models.Deck.id, models.Deck.name, models.Deck.level, models.Deck.topic, models.Deck.target_language, models.Deck.created_at, models.Deck.is_default).where(models.Deck.is_deleted == False)
         if search:
             s = search.strip()
             if s.isdigit():
@@ -119,7 +129,7 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
                 "is_default": is_def, "is_library": True
             })
 
-    user_query = models.TMA_Deck.select().where(models.TMA_Deck.is_deleted == False)
+    user_query = models.TMA_Deck.select(models.TMA_Deck.id, models.TMA_Deck.user_id, models.TMA_Deck.name, models.TMA_Deck.level, models.TMA_Deck.topic, models.TMA_Deck.target_language, models.TMA_Deck.created_at, models.TMA_Deck.metadata, models.TMA_Deck.share_id).where(models.TMA_Deck.is_deleted == False)
     if user_id:
         user_query = user_query.where(models.TMA_Deck.user_id == user_id)
     if search:
@@ -161,7 +171,7 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
     tma_uids = list(set([d.user_id for d in tma_decks if d.user_id]))
     user_map = {}
     if tma_uids:
-        for u in models.TMAUser.select().where(models.TMAUser.user_id << tma_uids):
+        for u in models.TMAUser.select(models.TMAUser.user_id, models.TMAUser.first_name, models.TMAUser.last_name, models.TMAUser.username, models.TMAUser.photo_url, models.TMAUser.is_guest).where(models.TMAUser.user_id << tma_uids):
             user_map[u.user_id] = u
 
     for d in tma_decks:
@@ -208,24 +218,23 @@ def get_all_decks(search: Optional[str] = None, user_id: Optional[int] = None):
             "is_default": is_def, "is_library": False, "share_id": d.share_id
         })
 
-    resp = {"decks": result}
-    if not search and not user_id:
-        _DECKS_CACHE["data"] = resp
-        _DECKS_CACHE["timestamp"] = time.time()
-    return resp
+    return {"decks": result}
+
 
 
 @router.get("/api/admin/users/{user_id}/decks")
-def get_user_decks(user_id: int):
+def get_user_decks(user_id: int, page: int = 1, limit: int = 50):
     """Returns list of decks belonging to a specific user."""
-    decks = list(
-        models.TMA_Deck.select()
-        .where((models.TMA_Deck.user_id == user_id) & (models.TMA_Deck.is_deleted == False))
-        .order_by(models.TMA_Deck.position.asc(), models.TMA_Deck.id.desc())
-    )
+    paginate([], page, limit)
+    D = models.TMA_Deck
+    query = D.select(D.id, D.user_id, D.name, D.level, D.target_language, D.created_at).where(
+        (D.user_id == user_id) & (D.is_deleted == False))
+    total = query.count()
+    decks = list(query.order_by(D.position.asc(), D.id.desc()).paginate(page, limit))
     card_counts = dict(
         models.TMA_Card.select(models.TMA_Card.deck_id, fn.COUNT(models.TMA_Card.id))
-        .where(models.TMA_Card.is_deleted == False).group_by(models.TMA_Card.deck_id).tuples()
+        .where((models.TMA_Card.is_deleted == False) & (models.TMA_Card.deck_id << [d.id for d in decks]))
+        .group_by(models.TMA_Card.deck_id).tuples()
     )
     result = []
     for d in decks:
@@ -235,7 +244,7 @@ def get_user_decks(user_id: int):
             "card_count": card_counts.get(d.id, 0),
             "created_at": str(d.created_at) if d.created_at else None
         })
-    return {"decks": result}
+    return {"decks": result, **paginate(range(total), page, limit)}
 
 
 @router.post("/api/admin/decks/add")
@@ -265,68 +274,90 @@ def create_deck(req: CreateDeckRequest):
 
 
 @router.get("/api/admin/decks/{deck_id}/cards")
-def get_deck_cards(deck_id: str):
-    """Returns list of all active cards in a deck with health status and deck summary for preview."""
-    deck, cards, is_lib = get_deck_and_cards(deck_id)
-    if not deck:
-        raise HTTPException(status_code=404, detail="Deck not found")
+def get_deck_cards(deck_id: str, search: str = '', mode: str = 'all', page: int = 1, limit: int = 50):
+    paginate([], page, limit)
+    data = _build_card_summaries(deck_id)
+    items = data['cards']
+    if search.strip():
+        CardModel = models.Card if data['deck']['is_library'] else models.TMA_Card
+        q = search.strip()
+        matching = set(CardModel.select(CardModel.id).where(
+            (CardModel.deck_id == data['deck']['db_id']) & (CardModel.is_deleted == False) &
+            (CardModel.front_text.contains(q) | CardModel.back_text.contains(q) | CardModel.context.contains(q))
+        ).scalars())
+        items = [c for c in items if c['id'] in matching]
+    if mode == 'missing_audio':
+        items = [c for c in items if not c['has_audio']]
+    elif mode == 'missing_context':
+        items = [c for c in items if not c['has_context']]
+    elif mode == 'incomplete':
+        items = [c for c in items if not c['is_complete']]
+    info = paginate(items, page, limit)
+    return {**data, **info, 'cards': items[(page-1)*limit:page*limit]}
 
-    result = []
-    total = len(cards)
-    with_audio = 0
-    with_context = 0
-    fully_completed = 0
 
-    for idx, c in enumerate(cards, 1):
-        has_aud = card_has_valid_audio(c)
-        has_ctx = bool(c.context and str(c.context).strip())
-        is_comp = card_is_fully_completed(c)
-
-        if has_aud:
-            with_audio += 1
-        if has_ctx:
-            with_context += 1
-        if is_comp:
-            fully_completed += 1
-
-        result.append({
-            "id": c.id, "position": idx,
-            "front": c.front_text or "", "back": c.back_text or "",
-            "context": c.context or "", "tags": c.tags or "",
-            "has_context": has_ctx, "has_audio": has_aud, "is_complete": is_comp,
-            "audio_path": c.audio_path or ""
-        })
-
-    audio_cov = round((with_audio / total * 100)) if total > 0 else 0
-    ctx_cov = round((with_context / total * 100)) if total > 0 else 0
-    comp_cov = round((fully_completed / total * 100)) if total > 0 else 0
-
-    meta = {}
+@cached_summary
+def _build_card_summaries(deck_id):
+    import os
+    is_lib = str(deck_id).startswith('lib_')
     try:
-        meta = json.loads(getattr(deck, 'metadata', '{}') or '{}')
-    except Exception:
-        pass
-
-    deck_info = {
-        "id": str(deck_id), "name": deck.name,
-        "target_language": getattr(deck, 'target_language', 'de') or 'de',
-        "level": getattr(deck, 'level', None), "topic": getattr(deck, 'topic', None),
-        "is_library": is_lib,
-        "user_id": getattr(deck, 'user_id', 0) if hasattr(deck, 'user_id') else "Библиотека ⭐",
-        "is_default": bool(meta.get("is_default", False)) if not is_lib else bool(getattr(deck, 'is_default', False)),
-        "card_count": total, "with_audio_count": with_audio,
-        "missing_audio_count": total - with_audio, "with_context_count": with_context,
-        "missing_context_count": total - with_context, "fully_completed_count": fully_completed,
-        "audio_coverage_pct": audio_cov, "context_coverage_pct": ctx_cov, "completion_pct": comp_cov
-    }
-
-    return {"cards": result, "deck": deck_info, "total": total}
+        db_id = int(str(deck_id).removeprefix('lib_'))
+    except ValueError:
+        raise HTTPException(404, 'Deck not found')
+    DeckModel = models.Deck if is_lib else models.TMA_Deck
+    deck = DeckModel.select(DeckModel.id, DeckModel.name, DeckModel.target_language, DeckModel.level,
+        DeckModel.topic, DeckModel.metadata, *([DeckModel.is_default] if is_lib else [DeckModel.user_id])).where(
+        (DeckModel.id == db_id) & (DeckModel.is_deleted == False)).first()
+    if not deck:
+        raise HTTPException(404, 'Deck not found')
+    C = models.Card if is_lib else models.TMA_Card
+    front = fn.COALESCE(C.front_text, '')
+    back = fn.COALESCE(C.back_text, '')
+    context = fn.COALESCE(C.context, '')
+    present = lambda field: fn.LENGTH(fn.TRIM(field)) > 0
+    quiz = ((fn.LOWER(C.card_type) == 'quiz') | front.contains('?') | front.contains('\n*') |
+            ((fn.LENGTH(front) - fn.LENGTH(fn.REPLACE(front, '\n', ''))) >= 2))
+    rows = list(C.select(C.id, fn.SUBSTR(front, 1, 240).alias('front'),
+        fn.SUBSTR(back, 1, 240).alias('back'), fn.SUBSTR(context, 1, 240).alias('context'),
+        fn.SUBSTR(C.tags, 1, 240).alias('tags'), C.audio_path,
+        present(front).alias('front_ok'), present(back).alias('back_ok'), present(context).alias('ctx_ok'),
+        ((~quiz) | (context.contains('🎯') & context.contains('📖'))).alias('quiz_ok'))
+        .where((C.deck_id == db_id) & (C.is_deleted == False)).order_by(C.position, C.id).dicts())
+    names = {os.path.basename(c['audio_path']) for c in rows if c['audio_path'] and not c['audio_path'].startswith('http')}
+    available = set(models.TMAMedia.select(models.TMAMedia.filename).where(
+        (models.TMAMedia.folder == 'audio') & (models.TMAMedia.filename << names)).scalars()) if names else set()
+    cards = []
+    for idx, row in enumerate(rows, 1):
+        audio = row['audio_path'] or ''
+        has_audio = bool(audio.strip()) and (audio.startswith('http') or os.path.basename(audio) in available)
+        complete = bool(row.pop('front_ok') and row.pop('back_ok') and row['ctx_ok'] and row['quiz_ok'] and has_audio)
+        has_context = bool(row.pop('ctx_ok'))
+        row.pop('front_ok', None); row.pop('back_ok', None); row.pop('quiz_ok', None)
+        cards.append({**row, 'position': idx, 'has_audio': has_audio, 'has_context': has_context, 'is_complete': complete})
+    total = len(cards)
+    with_audio = sum(c['has_audio'] for c in cards)
+    with_context = sum(c['has_context'] for c in cards)
+    completed = sum(c['is_complete'] for c in cards)
+    try:
+        meta = json.loads(deck.metadata or '{}')
+    except (ValueError, TypeError):
+        meta = {}
+    info = {'id': str(deck_id), 'db_id': db_id, 'name': deck.name, 'is_library': is_lib,
+        'target_language': deck.target_language or 'de', 'level': deck.level, 'topic': deck.topic,
+        'user_id': 'Библиотека ⭐' if is_lib else deck.user_id,
+        'is_default': deck.is_default if is_lib else bool(meta.get('is_default')),
+        'card_count': total, 'with_audio_count': with_audio, 'missing_audio_count': total-with_audio,
+        'with_context_count': with_context, 'missing_context_count': total-with_context,
+        'fully_completed_count': completed, 'audio_coverage_pct': round(with_audio/total*100) if total else 0,
+        'context_coverage_pct': round(with_context/total*100) if total else 0,
+        'completion_pct': round(completed/total*100) if total else 0}
+    return {'cards': cards, 'deck': info}
 
 
 @router.delete("/api/admin/decks/{deck_id}")
 def delete_deck(deck_id: str):
     """Soft deletes a deck and all cards within it."""
-    deck, _, is_lib = get_deck_and_cards(deck_id)
+    deck, _, is_lib = get_deck_and_cards(deck_id, include_cards=False)
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
     now = datetime.datetime.now()
@@ -359,7 +390,7 @@ def batch_delete_decks(req: BatchDeleteDecksRequest):
 
     with models.tma_db.atomic():
         for d_id in req.deck_ids:
-            deck, _, is_lib = get_deck_and_cards(d_id)
+            deck, _, is_lib = get_deck_and_cards(d_id, include_cards=False)
             if not deck:
                 continue
             deck.is_deleted = True
@@ -820,7 +851,7 @@ def control_regeneration(deck_id: str, req: ControlRegenRequest):
             return {"status": "ok", "committed_count": 0, "committed_card_ids": [], "message": "Нет результатов Dry-Run для сохранения"}
 
         target_card_ids = set(req.card_ids) if getattr(req, "card_ids", None) else None
-        deck, _, is_lib = get_deck_and_cards(deck_id)
+        deck, _, is_lib = get_deck_and_cards(deck_id, include_cards=False)
         count = 0
         sync_total = 0
         now = datetime.datetime.now()
@@ -952,7 +983,7 @@ def control_batch_regeneration(task_id: str, req: BatchControlRequest):
             if target_card_ids is not None and item["card_id"] not in target_card_ids:
                 continue
             deck_id_item = item["deck_id"]
-            deck, _, is_lib = get_deck_and_cards(deck_id_item)
+            deck, _, is_lib = get_deck_and_cards(deck_id_item, include_cards=False)
             card_model = models.Card if is_lib else models.TMA_Card
             card = card_model.get_or_none(card_model.id == item["card_id"])
             if card:

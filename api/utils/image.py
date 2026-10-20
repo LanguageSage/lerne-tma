@@ -1,3 +1,4 @@
+from api.utils.storage_keys import storage_object_path
 import io
 import logging
 from PIL import Image, ImageOps
@@ -59,7 +60,7 @@ def upload_image_to_supabase(image_bytes: bytes, filename: str, content_type: st
         return None
         
     bucket = "images"
-    upload_url = f"{project_url}/storage/v1/object/{bucket}/{filename}"
+    upload_url = f"{project_url}/storage/v1/object/{bucket}/{storage_object_path(filename)}"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "x-upsert": "true",
@@ -69,7 +70,7 @@ def upload_image_to_supabase(image_bytes: bytes, filename: str, content_type: st
     try:
         resp = requests.post(upload_url, headers=headers, data=image_bytes, timeout=15)
         if resp.status_code in (200, 201):
-            return f"{project_url}/storage/v1/object/public/{bucket}/{filename}"
+            return f"{project_url}/storage/v1/object/public/{bucket}/{storage_object_path(filename)}"
         else:
             logger.error(f"Supabase Image Upload Error ({resp.status_code}): {resp.text[:120]}")
             return None

@@ -17,74 +17,63 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _find_card(card_id, deck_id=None, full=False):
+    if deck_id is not None:
+        is_lib = deck_id.startswith('lib_')
+        try:
+            db_id = int(deck_id.removeprefix('lib_'))
+        except ValueError:
+            raise HTTPException(404, 'Card not found')
+        C = models.Card if is_lib else models.TMA_Card
+        fields = [f for f in C._meta.sorted_fields if f.name != 'image_data'] if full else [C.id]
+        card = C.select(*fields).where(
+            (C.id == card_id) & (C.deck_id == db_id) & (C.is_deleted == False)).first()
+    else:
+        card = None
+        for C in (models.TMA_Card, models.Card):
+            fields = [f for f in C._meta.sorted_fields if f.name != 'image_data'] if full else [C.id]
+            card = C.select(*fields).where(C.id == card_id).first()
+            if card:
+                break
+    if not card:
+        raise HTTPException(404, 'Card not found')
+    return card
+
+
+@router.get("/api/admin/cards/{card_id}")
+def get_card_detail(card_id: int, deck_id: str):
+    card = _find_card(card_id, deck_id, full=True)
+    return {'id': card.id, 'front': card.front_text or '', 'back': card.back_text or '',
+            'context': card.context or '', 'tags': card.tags or '', 'metadata': card.metadata,
+            'card_type': card.card_type}
+
+
 @router.put("/api/admin/cards/{card_id}")
-def update_card_endpoint(card_id: int, req: UpdateCardRequest):
-    """Updates fields of a specific card (in TMA_Card or Card)."""
-    now = datetime.datetime.now()
-    tma_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
-    if tma_card:
-        if req.front_text is not None:
-            tma_card.front_text = req.front_text
-        if req.back_text is not None:
-            tma_card.back_text = req.back_text
-        if req.context is not None:
-            tma_card.context = req.context
-        if req.tags is not None:
-            tma_card.tags = req.tags
-        tma_card.updated_at = now
-        tma_card.save()
-        return {"status": "ok", "card_id": card_id, "type": "tma"}
-
-    lib_card = models.Card.get_or_none(models.Card.id == card_id)
-    if lib_card:
-        if req.front_text is not None:
-            lib_card.front_text = req.front_text
-        if req.back_text is not None:
-            lib_card.back_text = req.back_text
-        if req.context is not None:
-            lib_card.context = req.context
-        if req.tags is not None:
-            lib_card.tags = req.tags
-        lib_card.updated_at = now
-        lib_card.save()
-        return {"status": "ok", "card_id": card_id, "type": "library"}
-
-    raise HTTPException(status_code=404, detail="Card not found")
+def update_card_endpoint(card_id: int, req: UpdateCardRequest, deck_id: Optional[str] = None):
+    card = _find_card(card_id, deck_id)
+    updates = {name: getattr(req, name) for name in ('front_text', 'back_text', 'context', 'tags')
+               if getattr(req, name) is not None}
+    updates['updated_at'] = datetime.datetime.now()
+    type(card).update(**updates).where(type(card).id == card.id).execute()
+    return {'status': 'ok', 'card_id': card_id, 'type': 'library' if type(card) is models.Card else 'tma'}
 
 
 @router.delete("/api/admin/cards/{card_id}")
-def delete_card_endpoint(card_id: int):
-    """Soft deletes a card."""
-    now = datetime.datetime.now()
-    tma_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
-    if tma_card:
-        tma_card.is_deleted = True
-        tma_card.updated_at = now
-        tma_card.save()
-        return {"status": "ok", "card_id": card_id}
-
-    lib_card = models.Card.get_or_none(models.Card.id == card_id)
-    if lib_card:
-        lib_card.is_deleted = True
-        lib_card.updated_at = now
-        lib_card.save()
-        return {"status": "ok", "card_id": card_id}
-
-    raise HTTPException(status_code=404, detail="Card not found")
+def delete_card_endpoint(card_id: int, deck_id: Optional[str] = None):
+    card = _find_card(card_id, deck_id)
+    type(card).update(is_deleted=True, updated_at=datetime.datetime.now()).where(type(card).id == card.id).execute()
+    return {'status': 'ok', 'card_id': card_id}
 
 
 @router.post("/api/admin/cards/{card_id}/synthesize-audio")
 async def synthesize_single_card_audio(
     card_id: int,
     voice: Optional[str] = "de-DE-KatjaNeural",
-    rate: Optional[str] = "+0%"
+    rate: Optional[str] = "+0%",
+    deck_id: Optional[str] = None,
 ):
-    """Synthesizes TTS audio for a single card on-the-fly and saves it."""
-    card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
-    if not card:
-        card = models.Card.get_or_none(models.Card.id == card_id)
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
+    """Synthesizes TTS for an explicitly selected card."""
+    card = _find_card(card_id, deck_id, full=True)
 
     front = (card.front_text or "").strip()
     if not front:
@@ -111,7 +100,7 @@ async def synthesize_single_card_audio(
 @router.post("/api/admin/decks/{deck_id}/cards")
 def add_card_to_deck_endpoint(deck_id: str, req: CreateSingleCardRequest):
     """Adds a single card to an existing deck (TMA_Deck or Library Deck)."""
-    deck, existing_cards, is_library = get_deck_and_cards(deck_id)
+    deck, existing_cards, is_library = get_deck_and_cards(deck_id, include_cards=False)
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
 
@@ -120,7 +109,8 @@ def add_card_to_deck_endpoint(deck_id: str, req: CreateSingleCardRequest):
     if not front or not back:
         raise HTTPException(status_code=400, detail="Front text and back text are required")
 
-    next_pos = len(existing_cards) + 1
+    C = models.Card if is_library else models.TMA_Card
+    next_pos = C.select().where((C.deck_id == deck.id) & (C.is_deleted == False)).count() + 1
     now = datetime.datetime.now()
 
     if is_library:

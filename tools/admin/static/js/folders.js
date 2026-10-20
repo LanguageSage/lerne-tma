@@ -39,20 +39,24 @@ function clearFolderUserFilter() {
       renderFoldersList();
     }
 
-async function loadAdminFolders() {
+let folderRequest = 0;
+async function loadAdminFolders(page = 1) {
+      const request = ++folderRequest;
       try {
-        const res = await fetch('/api/admin/folders');
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        const data = await res.json();
+        const params = new URLSearchParams({mode: folderFilterMode,
+          search: document.getElementById('folder-search')?.value || ''});
+        if (folderUserFilter) params.set('user_id', folderUserFilter);
+        const data = await adminGetPage('/api/admin/folders?' + params, page);
+        if (request !== folderRequest) return;
         foldersData = data.folders || [];
 
         // Update count buttons and badges
         const btnCount = document.getElementById('folders-count-btn');
-        if (btnCount) btnCount.innerText = foldersData.length;
+        if (btnCount) btnCount.innerText = data.stats.folders;
         const tabBadge = document.getElementById('folders-tab-badge');
-        if (tabBadge) tabBadge.innerText = foldersData.length;
+        if (tabBadge) tabBadge.innerText = data.stats.folders;
         const statsBadge = document.getElementById('folders-stats-badge');
-        if (statsBadge) statsBadge.innerText = `${foldersData.length} папок`;
+        if (statsBadge) statsBadge.innerText = `${data.stats.folders} папок`;
 
         // Update 4 overview metric cards
         let totalDecks = 0;
@@ -65,55 +69,27 @@ async function loadAdminFolders() {
         });
 
         const elTot = document.getElementById('stat-folders-total');
-        if (elTot) elTot.innerText = foldersData.length;
+        if (elTot) elTot.innerText = data.stats.folders;
         const elDk = document.getElementById('stat-folders-decks');
-        if (elDk) elDk.innerText = totalDecks;
+        if (elDk) elDk.innerText = data.stats.decks;
         const elCd = document.getElementById('stat-folders-cards');
-        if (elCd) elCd.innerText = totalCards;
+        if (elCd) elCd.innerText = data.stats.cards;
         const elDf = document.getElementById('stat-folders-default');
-        if (elDf) elDf.innerText = totalDefault;
+        if (elDf) elDf.innerText = data.stats.default;
 
-        renderFoldersList();
+        renderFolderPage();
+        adminPager("folders-list", data, loadAdminFolders);
       } catch (err) {
         console.error("Error loading folders:", err);
       }
     }
 
-function renderFoldersList() {
+function renderFoldersList() { loadAdminFolders(); }
+
+function renderFolderPage() {
       const listEl = document.getElementById('folders-list') || document.getElementById('folders-modal-list');
       if (!listEl) return;
-
-      const q = (document.getElementById('folder-search')?.value || '').toLowerCase().trim();
-      let filtered = foldersData || [];
-
-      // Filter by user if selected
-      if (folderUserFilter) {
-        filtered = filtered.filter(f => String(f.user_id) === String(folderUserFilter));
-      }
-
-      // Filter by mode pill
-      if (folderFilterMode === 'default') {
-        filtered = filtered.filter(f => f.is_default);
-      } else if (folderFilterMode === 'custom') {
-        filtered = filtered.filter(f => !f.is_default);
-      } else if (folderFilterMode === 'with_decks') {
-        filtered = filtered.filter(f => (f.deck_count || 0) > 0);
-      } else if (folderFilterMode === 'empty') {
-        filtered = filtered.filter(f => (f.deck_count || 0) === 0);
-      }
-
-      // Filter by search query
-      if (q) {
-        filtered = filtered.filter(f => 
-          (f.name && f.name.toLowerCase().includes(q)) ||
-          (f.user_name && f.user_name.toLowerCase().includes(q)) ||
-          String(f.user_id).includes(q) ||
-          String(f.id).includes(q) ||
-          (f.target_language && f.target_language.toLowerCase().includes(q)) ||
-          (f.decks && f.decks.some(d => d.name && d.name.toLowerCase().includes(q)))
-        );
-      }
-
+      const filtered = foldersData || [];
       if (filtered.length === 0) {
         listEl.innerHTML = `
           <div class="glass p-12 text-center rounded-2xl border border-slate-800 text-slate-400 space-y-2">
@@ -399,7 +375,8 @@ async function toggleDefaultFolder(folderId, newDefault) {
       }
     }
 
-function openAssignFolderModal(folderId, folderName) {
+async function openAssignFolderModal(folderId, folderName) {
+      usersData = await adminCatalog("/api/admin/users", "users");
       activeAssignFolderId = folderId;
       document.getElementById('modal-assign-folder-title').innerText = `Раздать папку: ${folderName}`;
       
@@ -617,9 +594,7 @@ async function toggleFolderDeckExpand(deckId) {
         d.loadingCards = true;
         renderFolderRegenDecksList();
         try {
-          const res = await fetch(`/api/admin/decks/${deckId}/cards`);
-          const data = await res.json();
-          d.cards = data.cards || [];
+          d.cards = await adminCatalog(`/api/admin/decks/${deckId}/cards`, "cards");
           d.card_count = d.cards.length;
         } catch (err) {
           console.error("Failed to load deck cards", err);

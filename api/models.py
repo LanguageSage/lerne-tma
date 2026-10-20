@@ -524,7 +524,7 @@ try:
     should_run_migrations = os.environ.get("RUN_MIGRATIONS", "false").lower() in ("true", "1")
     is_local_env = not os.environ.get("VERCEL") or os.environ.get("FORCE_LOCAL_DB", "false").lower() == "true"
     
-    if should_run_migrations or is_local_env:
+    if (should_run_migrations or is_local_env) and os.environ.get('LERNE_SKIP_SCHEMA_INIT') != '1':
         create_all_tables()
 except Exception as e:
     logger.error(f"CRITICAL: Database initialization failed: {e}")

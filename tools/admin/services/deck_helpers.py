@@ -8,7 +8,7 @@ from api import models
 logger = logging.getLogger(__name__)
 
 
-def get_deck_and_cards(deck_id_val):
+def get_deck_and_cards(deck_id_val, include_cards=True):
     """Resolves a deck_id string to a (deck, cards, is_library) tuple."""
     s_id = str(deck_id_val).strip()
     if s_id.startswith("lib_"):
@@ -16,6 +16,8 @@ def get_deck_and_cards(deck_id_val):
         deck = models.Deck.get_or_none(models.Deck.id == raw_id)
         if not deck:
             return None, [], True
+        if not include_cards:
+            return deck, [], True
         cards = list(
             models.Card.select()
             .where((models.Card.deck == deck) & (models.Card.is_deleted == False))
@@ -27,6 +29,8 @@ def get_deck_and_cards(deck_id_val):
             d_id = int(s_id)
             deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == d_id)
             if deck:
+                if not include_cards:
+                    return deck, [], False
                 cards = list(
                     models.TMA_Card.select()
                     .where((models.TMA_Card.deck_id == deck.id) & (models.TMA_Card.is_deleted == False))
@@ -35,6 +39,8 @@ def get_deck_and_cards(deck_id_val):
                 return deck, cards, False
             deck = models.Deck.get_or_none(models.Deck.id == d_id)
             if deck:
+                if not include_cards:
+                    return deck, [], True
                 cards = list(
                     models.Card.select()
                     .where((models.Card.deck == deck) & (models.Card.is_deleted == False))

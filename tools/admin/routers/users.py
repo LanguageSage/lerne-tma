@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from peewee import fn
 
 from api import models
+from tools.admin.services.diagnostics import cached_summary, paginate
 from tools.admin.schemas import BatchDeleteUsersRequest
 
 logger = logging.getLogger(__name__)
@@ -13,9 +14,18 @@ router = APIRouter()
 
 
 @router.get("/api/admin/users")
-def get_users(search: Optional[str] = None):
+def get_users(search: Optional[str] = None, page: int = 1, limit: int = 50):
+    paginate([], page, limit)
+    data = _build_users(search)
+    items = data['users']
+    info = paginate(items, page, limit)
+    return {**data, **info, 'users': items[(page-1)*limit:page*limit]}
+
+
+@cached_summary
+def _build_users(search: Optional[str] = None):
     """Returns list of users with their deck counts, sorted so registered users are first."""
-    query = models.TMAUser.select()
+    query = models.TMAUser.select(models.TMAUser.user_id, models.TMAUser.first_name, models.TMAUser.last_name, models.TMAUser.username, models.TMAUser.photo_url, models.TMAUser.is_guest, models.TMAUser.updated_at, models.TMAUser.created_at)
     if search:
         s = search.strip()
         if s.isdigit():
@@ -37,7 +47,7 @@ def get_users(search: Optional[str] = None):
     )
 
     deck_user_ids = set(user_deck_counts.keys())
-    existing_uids = set([u.user_id for u in users])
+    existing_uids = set(models.TMAUser.select(models.TMAUser.user_id).scalars())
     missing_uids = deck_user_ids - existing_uids
 
     registered_users = []
@@ -69,7 +79,7 @@ def get_users(search: Optional[str] = None):
             guest_users.append(user_data)
 
     for m_uid in missing_uids:
-        if search and search.strip().isdigit() and int(search.strip()) != m_uid:
+        if search and search.strip().lower() not in f"user_{m_uid} User {m_uid}".lower():
             continue
         deck_count = user_deck_counts.get(m_uid, 0)
         guest_users.append({
@@ -96,10 +106,10 @@ def get_users(search: Optional[str] = None):
 def cleanup_guest_accounts():
     """Removes all guest and anonymous accounts along with their temporary decks, cards and progress."""
     try:
-        guest_users = list(models.TMAUser.select().where(models.TMAUser.is_guest == True))
+        guest_users = list(models.TMAUser.select(models.TMAUser.user_id).where(models.TMAUser.is_guest == True))
         guest_user_ids = [u.user_id for u in guest_users]
 
-        guest_sessions = list(models.TMALinkedSession.select().where(models.TMALinkedSession.guest_id.is_null(False)))
+        guest_sessions = list(models.TMALinkedSession.select(models.TMALinkedSession.guest_id).where(models.TMALinkedSession.guest_id.is_null(False)))
         for s in guest_sessions:
             if s.guest_id not in guest_user_ids:
                 guest_user_ids.append(s.guest_id)

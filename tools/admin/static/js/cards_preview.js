@@ -1,7 +1,14 @@
 /**
  * cards_preview.js — Lerne TMA Admin Module
  */
-async function openDeckPreviewModal(deckId, deckName = '') {
+let previewRequest = 0;
+async function openDeckPreviewModal(deckId, deckName = '', page = 1) {
+      const request = ++previewRequest;
+      const changedDeck = String(previewDeckId) !== String(deckId);
+      if (changedDeck) {
+        document.getElementById('preview-cards-search').value = '';
+        document.getElementById('preview-filter-select').value = 'all';
+      }
       previewDeckId = deckId;
       const modal = document.getElementById('modal-deck-preview');
       modal.classList.remove('hidden');
@@ -17,25 +24,28 @@ async function openDeckPreviewModal(deckId, deckName = '') {
       tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">Загрузка карточек колоды...</td></tr>';
 
       try {
-        const res = await fetch(`/api/admin/decks/${deckId}/cards`);
-        const data = await res.json();
+        const params = new URLSearchParams({search: document.getElementById('preview-cards-search')?.value || '',
+          mode: document.getElementById('preview-filter-select')?.value || 'all'});
+        const data = await adminGetPage(`/api/admin/decks/${deckId}/cards?` + params, page);
+        if (request !== previewRequest) return;
+        const detail = data.deck;
         previewDeckData = data;
         previewCardsList = data.cards || [];
 
-        const isLib = Boolean(data.deck_is_library || String(deckId).startsWith('lib_'));
+        const isLib = Boolean(detail.is_library || String(deckId).startsWith('lib_'));
         if (libBadge) {
           if (isLib) libBadge.classList.remove('hidden');
           else libBadge.classList.add('hidden');
         }
 
-        const lang = (data.target_language || 'de').toUpperCase();
-        const lvl = data.level || '';
-        if (subtitleEl) subtitleEl.innerText = `Язык: ${lang} • Уровень: ${lvl || 'Не указан'} • Владелец: ${data.user_id ? 'ID ' + data.user_id : 'Библиотека'}`;
+        const lang = (detail.target_language || 'de').toUpperCase();
+        const lvl = detail.level || '';
+        if (subtitleEl) subtitleEl.innerText = `Язык: ${lang} • Уровень: ${lvl || 'Не указан'} • Владелец: ${detail.user_id ? 'ID ' + detail.user_id : 'Библиотека'}`;
 
         // Health overview stats
-        const total = data.total_cards || previewCardsList.length || 0;
-        const withAudio = data.cards_with_audio || previewCardsList.filter(c => c.has_audio).length;
-        const withContext = data.cards_with_context || previewCardsList.filter(c => c.has_context).length;
+        const total = detail.card_count;
+        const withAudio = detail.with_audio_count;
+        const withContext = detail.with_context_count;
         const missingAudioCount = Math.max(0, total - withAudio);
         const missingContextCount = Math.max(0, total - withContext);
 
@@ -69,6 +79,9 @@ async function openDeckPreviewModal(deckId, deckName = '') {
         }
 
         renderPreviewCardsTable(previewCardsList);
+        const table = tbody.closest('table');
+        if (table && !table.id) table.id = 'preview-cards-table';
+        if (table) adminPager(table.id, data, next => openDeckPreviewModal(deckId, deckName, next));
       } catch (err) {
         console.error("Preview load error", err);
         tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-rose-400">Ошибка загрузки карточек колоды</td></tr>';
@@ -129,29 +142,8 @@ function renderPreviewCardsTable(cards) {
     }
 
 function filterPreviewCards() {
-      const q = (document.getElementById('preview-cards-search')?.value || '').toLowerCase().trim();
-      const filterType = document.getElementById('preview-filter-select')?.value || 'all';
-
-      let filtered = previewCardsList;
-
-      if (filterType === 'missing_audio') {
-        filtered = filtered.filter(c => !c.has_audio);
-      } else if (filterType === 'missing_context') {
-        filtered = filtered.filter(c => !c.has_context);
-      } else if (filterType === 'incomplete') {
-        filtered = filtered.filter(c => !c.is_complete);
-      }
-
-      if (q) {
-        filtered = filtered.filter(c => 
-          (c.front && c.front.toLowerCase().includes(q)) ||
-          (c.back && c.back.toLowerCase().includes(q)) ||
-          (c.context && c.context.toLowerCase().includes(q))
-        );
-      }
-
-      renderPreviewCardsTable(filtered);
-    }
+  openDeckPreviewModal(previewDeckId, document.getElementById('preview-deck-title')?.innerText);
+}
 
 function openCurrentDeckInTMA() {
       if (!previewDeckId) return;
@@ -166,7 +158,7 @@ async function synthesizeSingleCardAudio(cardId, frontText) {
       }
 
       try {
-        const res = await fetch(`/api/admin/cards/${cardId}/synthesize-audio`, {
+        const res = await fetch(`/api/admin/cards/${cardId}/synthesize-audio?deck_id=${encodeURIComponent(previewDeckId)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ voice: 'de-DE-KatjaNeural', rate: '+0%' })
@@ -184,9 +176,16 @@ async function synthesizeSingleCardAudio(cardId, frontText) {
       }
     }
 
-function openCardEditModal(cardId) {
-      const card = previewCardsList.find(c => String(c.id) === String(cardId));
-      if (!card) return;
+async function openCardEditModal(cardId) {
+      let card;
+      try {
+        const response = await fetch(`/api/admin/cards/${cardId}?deck_id=${encodeURIComponent(previewDeckId)}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        card = await response.json();
+      } catch (error) {
+        alert('Ошибка загрузки карточки: ' + error.message);
+        return;
+      }
 
       document.getElementById('edit-card-id').value = card.id;
       document.getElementById('edit-card-front').value = card.front || '';
@@ -205,11 +204,12 @@ async function saveCardEdit() {
       const tags = document.getElementById('edit-card-tags').value.trim();
 
       try {
-        const res = await fetch(`/api/admin/cards/${cardId}`, {
+        const res = await fetch(`/api/admin/cards/${cardId}?deck_id=${encodeURIComponent(previewDeckId)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ front, back, context, tags })
+          body: JSON.stringify({ front_text: front, back_text: back, context, tags })
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         closeModal('modal-edit-card');
         openDeckPreviewModal(previewDeckId, document.getElementById('preview-deck-title')?.innerText);
@@ -221,7 +221,7 @@ async function saveCardEdit() {
 async function deleteCard(cardId) {
       if (!confirm(`Удалить карточку #${cardId}?`)) return;
       try {
-        await fetch(`/api/admin/cards/${cardId}`, { method: 'DELETE' });
+        await fetch(`/api/admin/cards/${cardId}?deck_id=${encodeURIComponent(previewDeckId)}`, { method: 'DELETE' });
         openDeckPreviewModal(previewDeckId, document.getElementById('preview-deck-title')?.innerText);
         loadDecks();
       } catch (err) {
@@ -308,7 +308,7 @@ async function submitAddCardInline() {
 
     if (autoAudio && createdCard && createdCard.id) {
       try {
-        const synthRes = await fetch(`/api/admin/cards/${createdCard.id}/synthesize-audio?voice=de-DE-KatjaNeural`, { method: 'POST' });
+        const synthRes = await fetch(`/api/admin/cards/${createdCard.id}/synthesize-audio?voice=de-DE-KatjaNeural&deck_id=${encodeURIComponent(previewDeckId)}`, { method: 'POST' });
         const synthData = await synthRes.json();
         if (synthData.audio_path) {
           createdCard.has_audio = true;
@@ -320,8 +320,7 @@ async function submitAddCardInline() {
     }
 
     // Insert into previewCardsList
-    previewCardsList.push(createdCard);
-    renderPreviewCardsTable(previewCardsList);
+    await openDeckPreviewModal(previewDeckId, document.getElementById('preview-deck-title')?.innerText);
 
     // Reset inputs
     document.getElementById('new-card-front').value = '';

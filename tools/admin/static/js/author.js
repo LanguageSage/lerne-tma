@@ -170,13 +170,8 @@ let authorState = {
 // ============================================================================
 
 async function initAuthorTab() {
-  // Ensure folders and decks are loaded in state
-  if (!foldersData || foldersData.length === 0) {
-    if (typeof loadAdminFolders === 'function') await loadAdminFolders();
-  }
-  if (!decksData || decksData.length === 0) {
-    if (typeof loadDecks === 'function') await loadDecks();
-  }
+  foldersData = await adminCatalog('/api/admin/folders', 'folders');
+  decksData = await adminCatalog('/api/admin/decks', 'decks');
 
   // Populate dropdowns for export and publish
   populateAuthorFolderSelects();

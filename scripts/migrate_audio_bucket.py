@@ -10,23 +10,19 @@ load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    print("Error: SUPABASE_URL or SUPABASE_KEY not set")
-    sys.exit(1)
-
 HEADERS = {
     "Authorization": f"Bearer {SUPABASE_KEY}",
     "Content-Type": "application/json"
 }
 
-async def list_all_files(bucket: str):
+async def list_all_files(bucket: str, max_files=1000):
     print(f"Listing all files in bucket '{bucket}'...")
-    all_files = set()
+    all_files = {}
     offset = 0
     limit = 1000
     timeout = aiohttp.ClientTimeout(total=60)
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        while True:
+        for _ in range((max_files + limit - 1) // limit):
             payload = {
                 "prefix": "",
                 "limit": limit,
@@ -35,15 +31,19 @@ async def list_all_files(bucket: str):
             }
             async with session.post(f"{SUPABASE_URL}/storage/v1/object/list/{bucket}", headers=HEADERS, json=payload) as resp:
                 if resp.status != 200:
-                    text = await resp.text()
-                    print(f"Failed to list {bucket} at offset {offset}: {resp.status} {text}")
-                    break
+                    raise RuntimeError(f"Listing failed: HTTP {resp.status}")
                 items = await resp.json()
                 if not items:
                     break
+                before = len(all_files)
                 for item in items:
                     if "name" in item:
-                        all_files.add(item["name"])
+                        metadata = item.get('metadata') or {}
+                        all_files[item['name']] = metadata.get('size')
+                if len(all_files) == before:
+                    raise RuntimeError('Listing made no progress')
+                if len(all_files) >= max_files and len(items) == limit:
+                    raise RuntimeError('Listing limit reached; narrow the bucket before copying')
                 if len(items) < limit:
                     break
                 offset += limit
@@ -73,27 +73,38 @@ async def copy_file(session, sem, filename: str, stats: dict):
                         if attempt == 2:
                             stats["failed"] += 1
                             if stats["failed"] <= 10:
-                                print(f"Copy failed for {filename}: {resp.status} {text}")
+                                print(f"Copy failed: HTTP {resp.status}")
                             return False
             except Exception as e:
                 if attempt == 2:
                     stats["failed"] += 1
                     if stats["failed"] <= 10:
-                        print(f"Exception copying {filename}: {e}")
+                        print("Copy network error")
                     return False
                 await asyncio.sleep(0.5 * (attempt + 1))
     return False
 
 async def main():
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise ValueError('SUPABASE_URL and SUPABASE_KEY required')
     start_time = time.time()
     source_files = await list_all_files("tma-audio")
     existing_dest = await list_all_files("audio")
 
-    to_copy = list(source_files - existing_dest)
+    remaining_bytes = 64 * 1024 * 1024
+    to_copy = []
+    for filename in sorted(source_files.keys() - existing_dest.keys()):
+        size = source_files[filename]
+        if not isinstance(size, int) or size < 0 or size > remaining_bytes:
+            continue
+        to_copy.append(filename)
+        remaining_bytes -= size
+        if len(to_copy) >= 100:
+            break
     print(f"Files to copy: {len(to_copy)} (already exist in dest: {len(existing_dest)})")
 
     if not to_copy:
-        print("All files already migrated!")
+        print("No eligible files within the run budget; unknown/oversized objects are retained.")
         return
 
     sem = asyncio.Semaphore(25)
@@ -125,4 +136,4 @@ async def main():
     print(f"Final files in 'audio' bucket: {len(final_dest)}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(asyncio.wait_for(main(), timeout=300))

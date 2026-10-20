@@ -163,3 +163,61 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 300);
   }, 3500);
 }
+
+// Bound local admin network waits, including body reads. Caller signals still apply.
+const adminNativeFetch = window.fetch.bind(window);
+window.fetch = (input, options = {}) => adminNativeFetch(input, {
+  ...options, signal: options.signal
+    ? AbortSignal.any([options.signal, AbortSignal.timeout(120000)])
+    : AbortSignal.timeout(120000)
+});
+
+async function adminGetPage(url, page = 1, limit = 50) {
+  const target = new URL(url, window.location.origin);
+  target.searchParams.set('page', page);
+  target.searchParams.set('limit', limit);
+  const response = await fetch(target, {signal: AbortSignal.timeout(30000)});
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
+// Full compact catalogs are used only by workflows needing all choices (author/import/assign).
+async function adminCatalog(url, key) {
+  const items = [];
+  for (let page = 1; page <= 100; page++) {
+    const data = await adminGetPage(url, page, 200);
+    const batch = data[key] || [];
+    items.push(...batch);
+    if (!data.has_more) return items;
+    if (!batch.length) throw new Error('Catalog made no progress');
+  }
+  throw new Error('Catalog exceeds 20000 items; narrow the selection');
+}
+
+function adminPager(anchorId, data, callback) {
+  const anchor = document.getElementById(anchorId);
+  if (!anchor) return;
+  const id = `${anchorId}-pager`;
+  let pager = document.getElementById(id);
+  if (!pager) {
+    pager = document.createElement('div');
+    pager.id = id;
+    pager.className = 'flex items-center justify-center gap-4 p-3 text-sm text-slate-300';
+    anchor.insertAdjacentElement('afterend', pager);
+  }
+  pager.replaceChildren();
+  const button = (text, disabled, page) => {
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.textContent = text;
+    element.disabled = disabled;
+    element.className = 'px-3 py-2 rounded bg-slate-800 disabled:opacity-40';
+    element.onclick = () => callback(page);
+    pager.append(element);
+  };
+  button('← Назад', data.page <= 1, data.page - 1);
+  const label = document.createElement('span');
+  label.textContent = `Стр. ${data.page} • Всего: ${data.total}`;
+  pager.append(label);
+  button('Далее →', !data.has_more, data.page + 1);
+}

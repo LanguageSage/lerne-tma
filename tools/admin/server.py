@@ -21,7 +21,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+os.environ.setdefault('PGCONNECT_TIMEOUT', '10')
+os.environ.setdefault('PGOPTIONS', '-c statement_timeout=30000 -c lock_timeout=5000')
+
 from api import models
+from tools.admin.services import diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +37,9 @@ def db_session_scope():
             models.initialize_database()
         elif models.tma_db.is_closed():
             models.tma_db.connect(reuse_if_open=True)
+        for proxy in (models.tma_db, models.lerne_db):
+            if proxy.obj:
+                diagnostics.instrument_database(proxy.obj)
         yield
     except Exception as exc:
         if "exceeded maximum connections" in str(exc).lower():
@@ -60,6 +67,14 @@ def db_session_scope():
 
 
 app = FastAPI(title="Lerne TMA Admin Console", version="2.0.0", dependencies=[Depends(db_session_scope)])
+
+app.add_middleware(diagnostics.DiagnosticsMiddleware)
+
+
+@app.get("/api/admin/diagnostics")
+def admin_diagnostics():
+    return diagnostics.snapshot()
+
 
 ADMIN_HOSTS = {"127.0.0.1:8050", "localhost:8050"}
 ADMIN_ORIGINS = {f"http://{host}" for host in ADMIN_HOSTS}

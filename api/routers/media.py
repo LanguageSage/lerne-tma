@@ -1,3 +1,4 @@
+from api.utils.storage_keys import storage_object_path
 import io
 import os
 import re
@@ -453,7 +454,7 @@ def get_image(filename: str, request: Request):
 
     if not media or not media.content:
         supabase_url = os.environ.get("SUPABASE_URL", "https://wdopyuulhiykrextyvnt.supabase.co").rstrip("/")
-        direct_url = f"{supabase_url}/storage/v1/object/public/images/{clean_filename}"
+        direct_url = f"{supabase_url}/storage/v1/object/public/images/{storage_object_path(clean_filename)}"
         return RedirectResponse(url=direct_url, status_code=307)
     
     content = bytes(media.content)

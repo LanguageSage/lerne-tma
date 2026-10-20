@@ -69,9 +69,7 @@ async function loadDeckCardsForSelector(deckId) {
       listEl.innerHTML = '<div class="text-slate-500 text-center py-2">Загрузка карточек...</div>';
       
       try {
-        const res = await fetch(`/api/admin/decks/${deckId}/cards`);
-        const data = await res.json();
-        currentDeckCards = data.cards || [];
+        currentDeckCards = await adminCatalog(`/api/admin/decks/${deckId}/cards`, "cards");
         countEl.innerText = currentDeckCards.length;
 
         listEl.innerHTML = '';
