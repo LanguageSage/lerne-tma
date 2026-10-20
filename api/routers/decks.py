@@ -4,6 +4,7 @@ import logging
 
 from api import services
 from api.dependencies.auth import get_user_id
+from api.permissions import is_admin
 from api.services.collaborative_service import _require_can_mutate
 from api.routers.card_text_update_models import TextUpdateCard, TextUpdatePreviewRequest, TextUpdateApplyRequest
 from api.services.card_text_update import preview_text_update, apply_text_update
@@ -176,8 +177,7 @@ def import_external_decks_batch(body: BatchImportRequest, user_id: int = Depends
 @router.post("/external/{deck_id}/toggle-default")
 def toggle_default_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/decks/external/{deck_id}/toggle-default - authenticated account: {user_id}")
-    ADMIN_USER_ID = 642478257
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can toggle default decks")
     try:
         is_default = services.toggle_default_deck(deck_id)

@@ -5,10 +5,7 @@ import logging
 from api import models
 from api import services
 from api.dependencies.auth import get_user_id
-
-import os
-
-ADMIN_USER_ID = int(os.environ.get("ADMIN_USER_ID", "642478257"))
+from api.permissions import is_admin
 
 router = APIRouter(
     tags=["settings"],
@@ -283,7 +280,7 @@ def activate_system_preset(preset_id: str, data: dict = None, user_id: int = Dep
 # Admin Settings
 @router.get("/admin/settings")
 def get_admin_settings(user_id: int = Depends(get_user_id)):
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
     settings = {}
     for s in models.TMASetting.select():
@@ -292,7 +289,7 @@ def get_admin_settings(user_id: int = Depends(get_user_id)):
 
 @router.post("/admin/settings")
 def save_admin_settings(data: dict, user_id: int = Depends(get_user_id)):
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
     import datetime
     try:
@@ -321,7 +318,7 @@ def save_admin_settings(data: dict, user_id: int = Depends(get_user_id)):
 @router.get("/settings/models")
 async def list_models(provider: str = None, url: str = None, user_id: int = Depends(get_user_id)):
     """Unified endpoint for model listing, used by AITab."""
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
     import ai_service
     if not provider:
@@ -337,7 +334,7 @@ async def list_models(provider: str = None, url: str = None, user_id: int = Depe
 @router.get("/settings/test-ai")
 async def test_ai_connection(user_id: int = Depends(get_user_id)):
     """Unified test endpoint for AITab: tests all configured keys individually."""
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
     import ai_service
     import ai_clients
@@ -381,19 +378,19 @@ async def test_ai_connection(user_id: int = Depends(get_user_id)):
 
 @router.get("/admin/presets")
 def get_admin_presets(user_id: int = Depends(get_user_id)):
-    if user_id != ADMIN_USER_ID: raise HTTPException(403, 'Admin only')
+    if not is_admin(user_id): raise HTTPException(403, 'Admin only')
     return []
 
 # Community Moderation
 @router.get("/admin/community/decks")
 def get_community_decks(user_id: int = Depends(get_user_id)):
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can view community decks")
     return services.get_community_content(user_id)
 
 @router.post("/admin/community/promote/{deck_id}")
 def promote_deck(deck_id: int, user_id: int = Depends(get_user_id)):
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can promote decks")
     result = services.promote_to_library(deck_id)
     if result:
@@ -403,7 +400,7 @@ def promote_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 # Admin Prompt Management Endpoints
 @router.get("/admin/prompts/all")
 def get_all_prompts(user_id: int = Depends(get_user_id)):
-    if user_id != ADMIN_USER_ID: raise HTTPException(403, 'Admin only')
+    if not is_admin(user_id): raise HTTPException(403, 'Admin only')
     """Returns all custom prompts from all users along with author user details."""
     prompts_data = []
     try:
@@ -447,7 +444,7 @@ def get_all_prompts(user_id: int = Depends(get_user_id)):
 
 @router.post("/admin/prompts/set-global/{prompt_id}")
 def set_global_default_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
-    if user_id != ADMIN_USER_ID: raise HTTPException(403, 'Admin only')
+    if not is_admin(user_id): raise HTTPException(403, 'Admin only')
     """Sets a specific prompt ID as the global default system prompt for all users."""
     import datetime
     try:
@@ -495,7 +492,7 @@ def publish_global_design(data: dict, user_id: int = Depends(get_user_id)):
     Admin-only. Server creates revision and updatedAt (not trusted from client).
     Client sends: {"config": {...}}
     Returns the full saved document: {schemaVersion, revision, updatedAt, config}"""
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can publish global design")
     import json
     import datetime
@@ -542,7 +539,7 @@ def publish_global_design(data: dict, user_id: int = Depends(get_user_id)):
 def get_admin_design_draft(user_id: int = Depends(get_user_id)):
     """Returns the admin's current design draft (not published).
     Admin-only."""
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access design draft")
     import json
     try:
@@ -558,7 +555,7 @@ def get_admin_design_draft(user_id: int = Depends(get_user_id)):
 def save_admin_design_draft(data: dict, user_id: int = Depends(get_user_id)):
     """Saves the admin's design draft (not published to users).
     Admin-only. Client sends: {"config": {...}}"""
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can save design draft")
     import json
     import datetime

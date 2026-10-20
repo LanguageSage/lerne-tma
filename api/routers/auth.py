@@ -5,11 +5,10 @@ from pydantic import BaseModel
 from typing import Optional
 from api.models import TMAUser, TMALinkedSession, TMAAuthCode
 from api.dependencies.auth import get_user_id
+from api.permissions import is_admin
 
 router = APIRouter(tags=["auth"])
 logger = logging.getLogger(__name__)
-
-ADMIN_USERNAMES = {'Nimaypumpay', 'Aruna27', 'Chintamanichapliuk'}
 
 class UserSyncSchema(BaseModel):
     first_name: Optional[str] = None
@@ -98,7 +97,7 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
                 "active_language": user.active_language or "de",
                 "native_language": getattr(user, 'native_language', None) or "uk",
                 "has_selected_language": bool(user.has_selected_language),
-                "is_admin": bool(user.username in ADMIN_USERNAMES)
+                "is_admin": is_admin(user.user_id)
             }
         }
     except Exception as e:
@@ -123,7 +122,7 @@ def get_me(user_id: int = Depends(get_user_id)):
         "active_language": user.active_language or "de",
         "native_language": getattr(user, 'native_language', None) or "uk",
         "has_selected_language": bool(user.has_selected_language),
-        "is_admin": bool(user.username in ADMIN_USERNAMES)
+        "is_admin": is_admin(user.user_id)
     }
 
 @router.post("/user/language")
@@ -148,7 +147,7 @@ def update_user_language(data: UserLanguageSchema, user_id: int = Depends(get_us
         "active_language": user.active_language or "de",
         "native_language": getattr(user, 'native_language', None) or "uk",
         "has_selected_language": bool(user.has_selected_language),
-        "is_admin": bool(user.username in ADMIN_USERNAMES)
+        "is_admin": is_admin(user.user_id)
     }
 
 @router.post("/auth/session")

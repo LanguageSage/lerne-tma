@@ -1,18 +1,13 @@
 import logging
 import datetime
-import os
 from typing import Optional, List, Dict, Any
 from peewee import fn
 
 from api import models
+from api.permissions import is_admin
 
 logger = logging.getLogger(__name__)
 
-
-def is_content_maintainer(user_id: int) -> bool:
-    """The configured platform administrator may maintain published content."""
-    admin_id = os.environ.get('ADMIN_USER_ID')
-    return bool(admin_id and str(user_id) == admin_id)
 # ---------------------------------------------------------------------------
 # Access version (cache invalidation marker)
 # ---------------------------------------------------------------------------
@@ -165,7 +160,7 @@ def set_folder_access_scope(folder_id: int, access_scope: str, requester_id: int
     """
     from fastapi import HTTPException
 
-    if not is_content_maintainer(requester_id):
+    if not is_admin(requester_id):
         raise HTTPException(status_code=403, detail="Only the platform admin can set access_scope")
 
     if access_scope not in ('private', 'global_readonly'):
@@ -248,7 +243,7 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
             role_memo[fid] = None
             return None
         if fid in global_root_owners:
-            role_memo[fid] = 'owner' if global_root_owners[fid] == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+            role_memo[fid] = 'owner' if global_root_owners[fid] == user_id else ('editor' if is_admin(user_id) else 'viewer')
             return role_memo[fid]
         if f.user_id == user_id:
             role_memo[fid] = 'owner'
@@ -290,7 +285,7 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
     deck_info = {}
     for d in decks:
         if d.folder_id in global_root_owners:
-            deck_role = 'owner' if global_root_owners[d.folder_id] == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+            deck_role = 'owner' if global_root_owners[d.folder_id] == user_id else ('editor' if is_admin(user_id) else 'viewer')
         elif d.user_id == user_id:
             deck_role = 'owner'
         else:
@@ -358,7 +353,7 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
             return None
         root_owner = _published_root_owner(deck.folder_id)
         if root_owner is not None:
-            return 'owner' if root_owner == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+            return 'owner' if root_owner == user_id else ('editor' if is_admin(user_id) else 'viewer')
 
         # 1. Direct owner
         if deck.user_id == user_id:
@@ -387,7 +382,7 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
             return None
         root_owner = _published_root_owner(folder.id)
         if root_owner is not None:
-            return 'owner' if root_owner == user_id else ('editor' if is_content_maintainer(user_id) else 'viewer')
+            return 'owner' if root_owner == user_id else ('editor' if is_admin(user_id) else 'viewer')
 
         # 1. Direct owner
         if folder.user_id == user_id:

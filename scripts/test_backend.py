@@ -17,6 +17,7 @@ SUITES = (
     'scripts/tests/test_test_isolation.py',
     'scripts/tests/test_auth_foundation.py',
     'scripts/tests/test_critical_http.py',
+    'scripts/tests/test_admin_permissions.py',
     'scripts/tests/test_bulk_import_idempotency.py',
     'scripts/tests/test_card_text_update.py',
     'scripts/tests/test_folder_text_update.py',

@@ -4,8 +4,7 @@ import traceback
 from fastapi import APIRouter, Header, Depends, HTTPException
 from api import models, services
 from api.dependencies.auth import get_user_id
-
-ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", "642478257"))
+from api.permissions import is_admin
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 logger = logging.getLogger(__name__)
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 def ensure_debug_access(user_id: int):
     if os.getenv("ENVIRONMENT", "development").lower() == "production":
         raise HTTPException(status_code=404, detail="Not found")
-    if user_id != ADMIN_USER_ID:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Access denied")
 
 @router.get("/test-import/{deck_id}")

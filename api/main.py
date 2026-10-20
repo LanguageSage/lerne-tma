@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies.auth import get_user_id
+from api.permissions import is_admin
 
 from api import models, services
 
@@ -231,15 +232,10 @@ def get_init_data(user_id: int = Depends(get_user_id)):
     global_design_v2 = {}
     try:
         import json as _json
-        ADMIN_USER_ID_INIT = int(os.environ.get("ADMIN_USER_ID", "642478257"))
         gd = models.TMASetting.get_or_none(models.TMASetting.key == "GLOBAL_DESIGN_V2")
         if gd and gd.value:
             global_design_v2 = _json.loads(gd.value)
     except Exception: pass
-
-    # Backend-authoritative isAdmin
-    ADMIN_USER_ID_INIT = int(os.environ.get("ADMIN_USER_ID", "642478257"))
-    is_admin = (user_id == ADMIN_USER_ID_INIT)
 
     return {
         "decks": decks,
@@ -249,7 +245,7 @@ def get_init_data(user_id: int = Depends(get_user_id)):
         "prompts": prompts,
         "user_info": user_info,
         "global_design_v2": global_design_v2,
-        "is_admin": is_admin,
+        "is_admin": is_admin(user_id),
     }
 
 # --- Базовые Эндпоинты ---

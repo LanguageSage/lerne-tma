@@ -21,8 +21,7 @@ from api.auth.dependencies import get_bearer_token, get_authenticated_user_id
 from api.auth.errors import AuthError
 from api.auth import providers, service, lerne_sso
 from api.models import TMAUser
-
-ADMIN_USERNAMES = {'Nimaypumpay', 'Aruna27', 'Chintamanichapliuk'}
+from api.permissions import is_admin
 
 class AuthRoute(APIRoute):
     def get_route_handler(self):
@@ -296,7 +295,7 @@ def get_authenticated_profile(user_id: int = Depends(get_authenticated_user_id))
         'native_language': user.native_language or 'uk',
         'has_selected_language': bool(user.has_selected_language),
         'is_guest': False,
-        'is_admin': bool(user.username in ADMIN_USERNAMES),
+        'is_admin': is_admin(user.user_id),
     }
 
 

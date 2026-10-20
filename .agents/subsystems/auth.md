@@ -42,6 +42,26 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 - Миграции схемы — `api/migrations.py`; детали текущего rollout/переменных — `api/auth/DEPLOYMENT.md`.
 - Старый router `api/routers/auth.py` существует, но действующий вход описан через auth v2.
 
+## Права администратора (этап 1.3)
+
+- Единая проверка — `api/permissions.py:is_admin(user_id)`: сравнение ID аккаунта с
+  `ADMIN_USER_ID` из окружения. При отсутствии переменной сохранён прежний ID
+  `642478257`; пустое или некорректное значение запрещает административный доступ.
+- Её используют `/api/init`, Classic/auth-v2 профили, settings, debug,
+  переключение default-колод и collaborative permissions опубликованного контента.
+  Username, включая прежний список `ADMIN_USERNAMES`, прав не предоставляет.
+- Получение ID пользователя, Bearer/legacy fallback и auth v2 не менялись.
+  Клиентские проверки используют серверный флаг; существующий DEV-only `?admin=1`
+  остаётся локальным UI preview, серверные права он не меняет.
+- `MASTER_UID` в LiD — владелец исходных колод, ID в миграциях — данные,
+  `AUTHOR_USER_ID`/`ADMIN_USER_ID` в author service — выбор автора. Это не проверки
+  прав. Старые корневые `patch_*.py`/`fix_auth.py` и `codex_diff.patch` — артефакты
+  прошлых правок, в runtime не участвуют.
+- Регрессии: `python scripts/test_backend.py scripts/tests/test_admin_permissions.py`.
+  SQLite в памяти, реальные HTTP auth dependencies, запрет внешних подключений;
+  проверяются ID администратора/обычного пользователя, username spoofing,
+  все settings guards, библиотека, collaborative roles и debug production 404.
+
 ## Session and provider recovery
 
 - `utils/auth.js` consumes `guest=1` / `reset=1` through `history.replaceState`, preserving other query parameters and the hash. A new login must survive the next reload.

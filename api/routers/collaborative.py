@@ -1,11 +1,11 @@
 import logging
-import os
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
 from typing import Optional
 
 from api.models import TMAUser, TMA_Folder, TMA_Deck
 from api.dependencies.auth import get_user_id
+from api.permissions import is_admin
 from api.services import collaborative_service
 
 router = APIRouter(
@@ -58,8 +58,7 @@ def check_access(type: str, id: int, user_id: int = Depends(get_user_id)):
 @router.post("/admin/folders/bulk-delete")
 def admin_bulk_delete_folders(req: AdminBulkDeleteFoldersRequest, user_id: int = Depends(get_user_id)):
     """Soft-deletes selected users' folders and their contents."""
-    admin_id = int(os.environ.get("ADMIN_USER_ID", "642478257"))
-    if user_id != admin_id:
+    if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can delete user folders")
     if not req.folder_ids or not req.user_ids:
         raise HTTPException(status_code=422, detail="folder_ids and user_ids must not be empty")
