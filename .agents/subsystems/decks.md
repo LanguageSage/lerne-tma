@@ -56,6 +56,11 @@ rg -n 'TMA_Collaborator|permission|role' api/routers/collaborative.py api/servic
 
 ## Relevant tests
 
+- Аудит permissions 1.4: [отчёт](../../docs/MATERIAL_PERMISSIONS_AUDIT.md).
+  `python scripts/test_backend.py scripts/tests/test_material_permissions.py`:
+  owner/editor/viewer/outsider, inherited/global access, copy/import/trash и sync.
+  Copy использует чтение источника и запись назначения; авторство сохраняется.
+
 - Learning toggle: `scripts/tests/browser/deck-learning.spec.cjs`.
 - Общая видимость/следующая колода: `app/src/utils/__tests__/studyFlow.test.js`.
 - Позиции: `tests/test_deck_position.py`.

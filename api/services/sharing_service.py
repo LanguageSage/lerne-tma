@@ -222,6 +222,7 @@ class SharingService:
     def import_item(share_id, user_id, resolution=None):
         from api.services.decks import ensure_inbox_deck
         from api.services.folders import ensure_inbox_folder
+        from api.services.collaborative_service import _require_can_mutate
         
         with tma_db.atomic():
             now = datetime.datetime.now()
@@ -253,6 +254,8 @@ class SharingService:
                     return {"status": "cancelled"}
                 
                 target_deck = None
+                if existing_deck and resolution in ('replace', 'merge'):
+                    _require_can_mutate(user_id, 'deck', existing_deck.id)
                 if resolution == 'replace' and existing_deck:
                     # Delete existing cards in the target deck
                     TMA_Card.update(is_deleted=True).where(TMA_Card.deck_id == existing_deck.id).execute()
@@ -266,6 +269,7 @@ class SharingService:
                 else:
                     # Create new deck inside language-specific Inbox folder
                     inbox_folder = ensure_inbox_folder(user_id, target_language=deck_lang)
+                    _require_can_mutate(user_id, 'folder', inbox_folder.id)
                     target_deck = TMA_Deck.create(
                         user_id=user_id,
                         name=source_deck.name,
@@ -339,6 +343,8 @@ class SharingService:
                     return {"status": "cancelled"}
 
                 target_folder = None
+                if existing_folder and resolution in ('replace', 'merge'):
+                    _require_can_mutate(user_id, 'folder', existing_folder.id)
                 if resolution == 'replace' and existing_folder:
                     existing_folder.color = source_folder.color
                     existing_folder.target_language = folder_lang
@@ -347,6 +353,8 @@ class SharingService:
                     # Cleanly delete old decks and cards in existing_folder
                     old_deck_ids = [d.id for d in TMA_Deck.select(TMA_Deck.id).where((TMA_Deck.folder == existing_folder) & (TMA_Deck.is_deleted == False))]
                     if old_deck_ids:
+                        for deck_id in old_deck_ids:
+                            _require_can_mutate(user_id, 'deck', deck_id)
                         TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id << old_deck_ids).execute()
                         TMA_Deck.update(is_deleted=True, updated_at=now).where(TMA_Deck.id << old_deck_ids).execute()
                 elif resolution == 'merge' and existing_folder:
@@ -363,6 +371,7 @@ class SharingService:
 
                 # Helper to recursively copy subfolders and decks without duplicates
                 def copy_folder_contents(src_f, dest_f):
+                    _require_can_mutate(user_id, 'folder', dest_f.id)
                     decks_added = 0
                     cards_added = 0
                     
@@ -388,6 +397,7 @@ class SharingService:
                                 updated_at=now
                             )
                             decks_added += 1
+                        _require_can_mutate(user_id, 'deck', dest_deck.id)
                         
                         existing_pairs = set(
                             (c.front_text or "", c.back_text or "")
@@ -455,6 +465,7 @@ class SharingService:
                 card_lang = (getattr(source_card.deck, 'target_language', 'de') if source_card.deck else 'de') or 'de'
                 card_lang = card_lang.lower().strip()
                 inbox = ensure_inbox_deck(user_id, target_language=card_lang)
+                _require_can_mutate(user_id, 'deck', inbox.id)
 
                 # Check if card exists anywhere in user's decks
                 existing_card = (TMA_Card
@@ -481,6 +492,7 @@ class SharingService:
                     return {"status": "skipped"}
                 
                 if resolution == 'replace' and existing_card:
+                    _require_can_mutate(user_id, 'deck', existing_card.deck_id)
                     existing_card.is_deleted = True
                     existing_card.save()
 

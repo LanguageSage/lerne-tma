@@ -69,6 +69,10 @@ rg -n 'load_answer_context|evaluate_answer|evaluate_deterministic' api/services/
 
 ## Relevant tests
 
+- `scripts/tests/test_material_permissions.py`: classify-batch проверяет всю
+  выборку через существующий collaborative resolver до записи; фоновый AI
+  повторно проверяет текущую роль и удаление карточки после ожидания провайдера.
+
 - Batch: `scripts/tests/test_ai_batch_contract.py`, `scripts/tests/test_batch_ai_generation.py`, `app/src/utils/__tests__/batchAiResult.test.js`, `scripts/tests/browser/batch-ai.spec.cjs`.
 - Evaluation: `tests/test_answer_evaluation.py`, `app/src/services/__tests__/answerEvaluationService.test.js`.
 - Lifecycle: `app/src/utils/__tests__/freeTextEvaluationState.test.js`, `app/src/utils/__tests__/freeTextLifecycle.test.js`, `scripts/tests/browser/free-text-evaluation.spec.cjs`.

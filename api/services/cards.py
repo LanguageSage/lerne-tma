@@ -142,23 +142,8 @@ def delete_card(card_id: int, user_id: int):
             # Карточка не найдена или уже удалена — считаем операцию успешной
             return True
 
-        from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
-
-        creator_id_int = None
-        if card.creator_id is not None:
-            try:
-                creator_id_int = int(card.creator_id)
-            except (ValueError, TypeError):
-                creator_id_int = None
-
-        is_creator = (creator_id_int is not None) and (creator_id_int == int(user_id))
-        
-        if card.deck_id:
-            role = get_effective_user_role(user_id, 'deck', card.deck_id)
-            if role == 'viewer':
-                return False
-            if not is_creator and role not in ['owner', 'editor']:
-                return False
+        from .collaborative_service import _require_can_mutate, touch_deck_and_parent_folders
+        _require_can_mutate(user_id, 'deck', card.deck_id)
 
         card.is_deleted = True
         card.updated_at = datetime.datetime.now()
@@ -205,7 +190,7 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
 def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_duplicate: str = 'skip') -> dict:
     """Массово перемещает карточки в целевую колоду с сохранением SRS-прогресса."""
     from fastapi import HTTPException
-    from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
+    from .collaborative_service import _require_can_mutate, _require_cards_access, touch_deck_and_parent_folders
 
     if not card_ids:
         return {"status": "success", "count": 0}
@@ -214,9 +199,8 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
     if not target_deck or target_deck.is_deleted:
         raise HTTPException(status_code=404, detail="Целевая колода не найдена")
 
-    target_role = 'owner' if target_deck.user_id == user_id else get_effective_user_role(user_id, 'deck', target_deck_id)
-    if target_role == 'viewer' or not target_role:
-        raise PermissionError("Нет прав на добавление карточек в целевую колоду.")
+    _require_can_mutate(user_id, 'deck', target_deck_id)
+    _require_cards_access(card_ids, user_id)
 
     # Вычисляем максимальную позицию в целевой колоде
     max_pos = TMA_Card.select(fn.MAX(TMA_Card.position)).where(
@@ -227,20 +211,8 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
     affected_source_decks = set()
     valid_cards = []
 
-    user_role_cache = {}
     for card in cards:
-        if not card.deck_id or card.deck_id == target_deck_id:
-            continue
-        if card.deck_id not in user_role_cache:
-            source_deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
-            if source_deck and source_deck.user_id == user_id:
-                user_role_cache[card.deck_id] = 'owner'
-            else:
-                user_role_cache[card.deck_id] = get_effective_user_role(user_id, 'deck', card.deck_id)
-        role = user_role_cache.get(card.deck_id)
-        creator_id_int = int(card.creator_id) if card.creator_id is not None else None
-        is_creator = (creator_id_int == int(user_id)) if creator_id_int is not None else False
-        if role in ['owner', 'editor'] or is_creator:
+        if card.deck_id != target_deck_id:
             valid_cards.append(card)
             affected_source_decks.add(card.deck_id)
 
@@ -327,7 +299,7 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
 def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_duplicate: str = 'skip') -> dict:
     """Массово копирует карточки в целевую колоду с обработкой совпадений по front_text."""
     from fastapi import HTTPException
-    from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
+    from .collaborative_service import _require_can_mutate, _require_cards_access, touch_deck_and_parent_folders
 
     if not card_ids:
         return {"status": "success", "count": 0, "created": 0, "updated": 0, "skipped": 0}
@@ -336,9 +308,8 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
     if not target_deck or target_deck.is_deleted:
         raise HTTPException(status_code=404, detail="Целевая колода не найдена")
 
-    target_role = 'owner' if target_deck.user_id == user_id else get_effective_user_role(user_id, 'deck', target_deck_id)
-    if target_role == 'viewer' or not target_role:
-        raise PermissionError("Нет прав на добавление карточек в целевую колоду.")
+    _require_can_mutate(user_id, 'deck', target_deck_id)
+    _require_cards_access(card_ids, user_id, write=False)
 
     # Вычисляем максимальную позицию в целевой колоде
     max_pos = TMA_Card.select(fn.MAX(TMA_Card.position)).where(
@@ -346,23 +317,7 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
     ).scalar() or 0
 
     cards = list(TMA_Card.select().where((TMA_Card.id.in_(card_ids)) & (TMA_Card.is_deleted == False)))
-    valid_cards = []
-
-    user_role_cache = {}
-    for card in cards:
-        if not card.deck_id:
-            continue
-        if card.deck_id not in user_role_cache:
-            source_deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
-            if source_deck and source_deck.user_id == user_id:
-                user_role_cache[card.deck_id] = 'owner'
-            else:
-                user_role_cache[card.deck_id] = get_effective_user_role(user_id, 'deck', card.deck_id)
-        role = user_role_cache.get(card.deck_id)
-        creator_id_int = int(card.creator_id) if card.creator_id is not None else None
-        is_creator = (creator_id_int == int(user_id)) if creator_id_int is not None else False
-        if role in ['owner', 'editor', 'viewer'] or is_creator:
-            valid_cards.append(card)
+    valid_cards = cards
 
     if not valid_cards:
         return {"status": "success", "count": 0, "created": 0, "updated": 0, "skipped": 0}
@@ -441,7 +396,7 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
                 metadata=card.metadata,
                 position=card_pos,
                 source='user',
-                creator_id=user_id,
+                creator_id=card.creator_id,
                 is_deleted=False,
                 created_at=now,
                 updated_at=now
@@ -459,31 +414,15 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
 
 def batch_delete_cards(card_ids: list[int], user_id: int) -> dict:
     """Массовое мягкое удаление карточек с проверкой прав."""
-    from .collaborative_service import get_effective_user_role, touch_deck_and_parent_folders
+    from .collaborative_service import _require_cards_access, touch_deck_and_parent_folders
 
     if not card_ids:
         return {"status": "success", "count": 0}
 
+    _require_cards_access(card_ids, user_id)
     cards = list(TMA_Card.select().where((TMA_Card.id.in_(card_ids)) & (TMA_Card.is_deleted == False)))
-    affected_decks = set()
-    valid_card_ids = []
-
-    user_role_cache = {}
-    for card in cards:
-        if not card.deck_id:
-            continue
-        if card.deck_id not in user_role_cache:
-            source_deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
-            if source_deck and source_deck.user_id == user_id:
-                user_role_cache[card.deck_id] = 'owner'
-            else:
-                user_role_cache[card.deck_id] = get_effective_user_role(user_id, 'deck', card.deck_id)
-        role = user_role_cache.get(card.deck_id)
-        creator_id_int = int(card.creator_id) if card.creator_id is not None else None
-        is_creator = (creator_id_int == int(user_id)) if creator_id_int is not None else False
-        if role in ['owner', 'editor'] or is_creator:
-            valid_card_ids.append(card.id)
-            affected_decks.add(card.deck_id)
+    valid_card_ids = [card.id for card in cards]
+    affected_decks = {card.deck_id for card in cards}
 
     if not valid_card_ids:
         return {"status": "success", "count": 0}

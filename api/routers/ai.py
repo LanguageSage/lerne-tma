@@ -8,6 +8,7 @@ from api import ai_service, models, services
 from api.dependencies.auth import get_user_id
 from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload, merge_cefr_metadata
 from api.services.answer_contract import AnswerEvaluation, GradingPolicy
+from api.services.collaborative_service import _require_can_mutate, _require_cards_access, get_effective_user_role
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +172,7 @@ class ClassifyBatchRequest(BaseModel):
     target_language: Optional[str] = "de"
 
 
-async def _async_bg_classify_ai(cards_data: list, target_language: str = "de"):
+async def _async_bg_classify_ai(cards_data: list, target_language: str, user_id: int):
     """Background task: classifies remaining ambiguous cards using AI and updates DB."""
     if not cards_data:
         return
@@ -184,7 +185,7 @@ async def _async_bg_classify_ai(cards_data: list, target_language: str = "de"):
                 card_id = item["id"]
                 lvl = ai_levels[idx] if idx < len(ai_levels) else "A1"
                 card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
-                if card:
+                if card and not card.is_deleted and get_effective_user_role(user_id, 'deck', card.deck_id) in ('owner', 'editor'):
                     curr_tags = card.tags or ""
                     cleaned = ",".join([t for t in curr_tags.split(",") if t and t.upper() not in {"A1", "A2", "B1", "B2", "C1", "C2"}])
                     new_tags = f"{cleaned},{lvl}".strip(",") if cleaned else lvl
@@ -207,10 +208,12 @@ async def classify_cards_batch_endpoint(request: ClassifyBatchRequest, user_id: 
     """
     cards_query = []
     if request.deck_id:
+        _require_can_mutate(user_id, 'deck', request.deck_id)
         cards_query = list(models.TMA_Card.select().where(
             (models.TMA_Card.deck_id == request.deck_id) & (models.TMA_Card.is_deleted == False)
         ).order_by(models.TMA_Card.position.asc(), models.TMA_Card.id.asc()))
     elif request.card_ids:
+        _require_cards_access(request.card_ids, user_id)
         cards_query = list(models.TMA_Card.select().where(
             (models.TMA_Card.id << request.card_ids) & (models.TMA_Card.is_deleted == False)
         ))
@@ -254,7 +257,7 @@ async def classify_cards_batch_endpoint(request: ClassifyBatchRequest, user_id: 
     # Step 2: Launch non-blocking background task for remaining AI cards
     if pending_ai:
         logger.info(f"classify_cards_batch_endpoint: {len(updated_cards)} cards updated instantly; {len(pending_ai)} sent to background AI.")
-        asyncio.create_task(_async_bg_classify_ai(pending_ai, target_lang))
+        asyncio.create_task(_async_bg_classify_ai(pending_ai, target_lang, user_id))
     else:
         logger.info(f"classify_cards_batch_endpoint: All {len(updated_cards)} cards classified instantly via local rules.")
 

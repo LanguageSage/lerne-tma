@@ -74,6 +74,10 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 
 ## Relevant tests
 
+- `scripts/tests/test_material_permissions.py`: CRUD/batch permissions, чтение
+  источника и запись назначения copy, сохранение creator_id/ника и запрет
+  использовать авторство вместо доступа; [аудит 1.4](../../docs/MATERIAL_PERMISSIONS_AUDIT.md).
+
 - Синтаксис/парсеры: `app/src/utils/__tests__/cardEditorSyntax.test.js`, `app/src/utils/__tests__/exerciseParsers.test.js`, `scripts/tests/test_exercise_detection_corpus.py`.
 - Quiz: `isQuizOptionLine` в `quizParser.js` задаёт маркеры для обучения и `projectQuizSection`, включая `A)Текст` без пробела. Парсер сохраняет полное содержимое вопроса и поддерживает legacy-варианты; регрессии B1-29-D02 проверяют обе записи правильного ответа в `app/src/utils/__tests__/quizParser.test.js` и `scripts/tests/browser/card-editor.spec.cjs`.
 - Structured Cards V2 и компиляция в DSL: `scripts/tests/test_structured_cards_v2.py`, `scripts/tests/test_author_service.py`, `scripts/tests/test_card_content_service.py`.

@@ -6,6 +6,7 @@ from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, TMASetti
 from .. import srs
 from peewee import fn, JOIN
 from functools import lru_cache
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -587,6 +588,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
     """Импортирует колоду из библиотеки. Поддерживает режимы: merge, replace, copy.
     Если колода уже находится в корзине и force_trash=False, возвращает {'status': 'in_trash', ...}."""
     try:
+        from .collaborative_service import _require_can_mutate
         logger.info(f"IMPORT START: deck_id={external_deck_id}, user_id={user_id}, mode={mode}, force_trash={force_trash}")
         
         ext_deck = Deck.get_by_id(external_deck_id)
@@ -616,6 +618,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                         "trash_deck_id": deleted_deck.id
                     }
                 else:
+                    _require_can_mutate(user_id, 'deck', deleted_deck.id, allow_deleted=True)
                     logger.info(f"PURGING TRASH DECK {deleted_deck.id} for user {user_id} before re-importing")
                     card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == deleted_deck.id)]
                     if card_ids:
@@ -636,6 +639,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     'updated_at': datetime.datetime.now()
                 }
             )
+            _require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)
             if not created and local_deck.is_deleted:
                 local_deck.is_deleted = False
                 local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
@@ -662,6 +666,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     }
                 )
             
+            _require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)
             if local_deck.is_deleted:
                 local_deck.is_deleted = False
             local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
@@ -695,6 +700,7 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                 )
                 
             logger.info(f"IMPORT MERGE: Processing deck '{local_deck.name}' (id={local_deck.id}) for user {user_id}")
+            _require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)
             
             # If the local deck was previously soft-deleted, un-delete it
             if local_deck.is_deleted:
@@ -774,6 +780,8 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             local_deck.save()
             return local_deck
             
+    except HTTPException:
+        raise
     except Exception as e:
         error_msg = f"CRITICAL ERROR in import_deck: {e}"
         logger.error(error_msg, exc_info=True)
@@ -991,12 +999,15 @@ def move_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
 def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
     """Копирует колоду в указанную папку (или в корень, если folder_id=None) вместе со всеми её активными карточками."""
     try:
-        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.user_id == user_id))
+        from .collaborative_service import get_effective_user_role, _require_can_mutate
+        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
         if not deck:
             return None
-        # Verify folder belongs to user
+        if not get_effective_user_role(user_id, 'deck', deck_id):
+            raise HTTPException(status_code=403, detail="Access denied")
         if folder_id is not None:
-            folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.user_id == user_id))
+            _require_can_mutate(user_id, 'folder', folder_id)
+            folder = TMA_Folder.get_or_none(TMA_Folder.id == folder_id)
             if not folder:
                 raise ValueError("Target folder not found or access denied")
         
@@ -1024,6 +1035,7 @@ def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
             'video_front_path': card.video_front_path,
             'video_back_path': card.video_back_path,
             'source': card.source,
+            'creator_id': card.creator_id,
             'position': card.position,
             'flag': card.flag if card.flag is not None else 0,
             'created_at': now,

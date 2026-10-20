@@ -2,6 +2,7 @@ import logging
 import datetime
 from ..models import TMA_Deck, TMA_Card, TMAProgress, tma_db
 from peewee import fn
+from .collaborative_service import _require_can_mutate
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,8 @@ def restore_deck(deck_id: int, user_id: int):
         if not deck:
             return False
 
+        _require_can_mutate(user_id, 'deck', deck.id, allow_deleted=True)
+
         now = datetime.datetime.now()
         with tma_db.atomic():
             deck.is_deleted = False
@@ -88,6 +91,8 @@ def restore_card(card_id: int, user_id: int):
         if not card:
             return False
 
+        _require_can_mutate(user_id, 'deck', card.deck_id, allow_deleted=True)
+
         now = datetime.datetime.now()
         with tma_db.atomic():
             card.is_deleted = False
@@ -109,6 +114,12 @@ def restore_card(card_id: int, user_id: int):
 def clear_trash(user_id: int):
     """Окончательно удаляет все элементы в корзине (HARD DELETE)."""
     try:
+        # Check every affected deck before deleting any canonical content.
+        affected_decks = TMA_Deck.select().where(
+            (TMA_Deck.user_id == user_id) & ((TMA_Deck.is_deleted == True) |
+            TMA_Deck.id.in_(TMA_Card.select(TMA_Card.deck_id).where(TMA_Card.is_deleted == True))))
+        for deck in affected_decks:
+            _require_can_mutate(user_id, 'deck', deck.id, allow_deleted=True)
         # Находим удаленные карточки
         deleted_cards = list(TMA_Card.select(TMA_Card.id).join(TMA_Deck).where(
             (TMA_Deck.user_id == user_id) & (TMA_Card.is_deleted == True)

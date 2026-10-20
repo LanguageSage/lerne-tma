@@ -62,6 +62,8 @@ def copy_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
         if copied:
             return {"status": "success", "id": copied.id}
         raise HTTPException(status_code=404, detail="Deck not found or access denied")
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

@@ -410,11 +410,20 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
     return None
 
 
-def _require_can_mutate(user_id: int, target_type: str, target_id: int):
-    """Raises PermissionError if user cannot mutate (write/delete) this resource.
-    Allowed roles: owner, editor. Viewer and unauthenticated are blocked."""
+def _require_can_mutate(user_id: int, target_type: str, target_id: int, *, allow_deleted: bool = False):
+    """Require owner/editor; optionally allow owners to restore deleted records.
+    Published descendants always retain the root's maintenance policy."""
     from fastapi import HTTPException
     role = get_effective_user_role(user_id, target_type, target_id)
+    if role is None and allow_deleted:
+        model = models.TMA_Deck if target_type == 'deck' else models.TMA_Folder
+        item = model.get_or_none(model.id == target_id)
+        if item and item.is_deleted and item.user_id == user_id:
+            parent_id = item.folder_id if target_type == 'deck' else item.parent_id
+            # Row ownership must not bypass the published root's maintenance policy.
+            if _published_root_owner(parent_id) is not None:
+                _require_can_mutate(user_id, 'folder', parent_id)
+            return
     if role not in ('owner', 'editor'):
         if role == 'viewer':
             raise HTTPException(
@@ -422,6 +431,20 @@ def _require_can_mutate(user_id: int, target_type: str, target_id: int):
                 detail="Этот контент доступен только для чтения (официальный урок Lerne)."
             )
         raise HTTPException(status_code=403, detail="Access denied")
+
+
+def _require_cards_access(card_ids: List[int], user_id: int, write: bool = True) -> None:
+    """Validate the entire selection before a batch reads or changes any card."""
+    from fastapi import HTTPException
+    cards = list(models.TMA_Card.select(models.TMA_Card.id, models.TMA_Card.deck_id).where(
+        models.TMA_Card.id.in_(card_ids)))
+    if len(cards) != len(set(card_ids)):
+        raise HTTPException(status_code=404, detail="Карточка не найдена")
+    for deck_id in {card.deck_id for card in cards}:
+        if write:
+            _require_can_mutate(user_id, 'deck', deck_id)
+        elif not get_effective_user_role(user_id, 'deck', deck_id):
+            raise HTTPException(status_code=403, detail="Access denied")
 
 
 def can_edit_audio(user_id: int, target_type: str, target_id: int) -> bool:

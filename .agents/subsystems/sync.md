@@ -77,6 +77,11 @@ rg -n 'TMAOfflineBatch|request_id|mappings|review_count' api/services/offline_sy
 
 ## Restore owner access
 
+Аудит 1.4: restore использует `_require_can_mutate(..., allow_deleted=True)` и
+не позволяет обойти published policy перемещением удалённого объекта в корень.
+Legacy push сохраняет проверенные правки editor папок/колод без дополнительного
+фильтра владельца. Регрессии: `test_material_permissions.py`; [отчёт](../../docs/MATERIAL_PERMISSIONS_AUDIT.md).
+
 require_access разрешает владельцу восстановление его soft-deleted deck/folder: collaborative lookup исключает удалённые targets. Исключение применяется только к deleted records собственника; активные/published permissions остаются прежними. Изолированный test_offline_sync.py проверяет restore, viewer/editor и rollback чужого пакета.
 
 

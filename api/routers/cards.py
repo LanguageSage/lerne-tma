@@ -5,6 +5,7 @@ import logging
 
 from api import services
 from api.dependencies.auth import get_user_id
+from api.services.collaborative_service import _require_cards_access
 
 logger = logging.getLogger(__name__)
 
@@ -13,15 +14,6 @@ router = APIRouter(
     tags=["cards"],
 )
 
-
-def _require_cards_mutable(card_ids: list[int], user_id: int) -> None:
-    from api import models
-    from api.services.collaborative_service import _require_can_mutate
-    cards = list(models.TMA_Card.select(models.TMA_Card.id, models.TMA_Card.deck_id).where(models.TMA_Card.id.in_(card_ids)))
-    if len(cards) != len(set(card_ids)):
-        raise HTTPException(status_code=404, detail="Карточка не найдена")
-    for deck_id in {card.deck_id for card in cards}:
-        _require_can_mutate(user_id, 'deck', deck_id)
 
 @router.post("/save")
 async def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int = Depends(get_user_id)):
@@ -92,7 +84,7 @@ async def batch_move_cards(data: dict, user_id: int = Depends(get_user_id)):
             raise HTTPException(status_code=400, detail="Не указана целевая колода.")
         from api.services.collaborative_service import _require_can_mutate
         _require_can_mutate(user_id, 'deck', int(target_deck_id))
-        _require_cards_mutable(card_ids, user_id)
+        _require_cards_access(card_ids, user_id)
         return services.batch_move_cards(card_ids, int(target_deck_id), user_id, on_duplicate=on_duplicate)
     except HTTPException:
         raise
@@ -119,7 +111,7 @@ async def batch_copy_cards(data: dict, user_id: int = Depends(get_user_id)):
             raise HTTPException(status_code=400, detail="Не указана целевая колода.")
         from api.services.collaborative_service import _require_can_mutate
         _require_can_mutate(user_id, 'deck', int(target_deck_id))
-        _require_cards_mutable(card_ids, user_id)
+        _require_cards_access(card_ids, user_id, write=False)
         return services.batch_copy_cards(card_ids, int(target_deck_id), user_id, on_duplicate=on_duplicate)
     except HTTPException:
         raise
@@ -140,7 +132,7 @@ async def batch_delete_cards(data: dict, user_id: int = Depends(get_user_id)):
         card_ids = data.get("card_ids", [])
         if not card_ids:
             raise HTTPException(status_code=400, detail="Список карточек пуст.")
-        _require_cards_mutable(card_ids, user_id)
+        _require_cards_access(card_ids, user_id)
         return services.batch_delete_cards(card_ids, user_id)
     except HTTPException:
         raise
@@ -176,7 +168,7 @@ async def update_card(card_id: int, data: dict, user_id: int = Depends(get_user_
 
 @router.delete("/{card_id}")
 def delete_card(card_id: int, user_id: int = Depends(get_user_id)):
-    _require_cards_mutable([card_id], user_id)
+    _require_cards_access([card_id], user_id)
     if services.delete_card(card_id, user_id):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Card not found or access denied")
@@ -198,7 +190,7 @@ def get_duplicates(user_id: int = Depends(get_user_id)):
 def reorder_cards(data: dict, user_id: int = Depends(get_user_id)):
     card_ids = data.get('card_ids', [])
     try:
-        _require_cards_mutable(card_ids, user_id)
+        _require_cards_access(card_ids, user_id)
         from api import models
         with models.tma_db.atomic():
             for idx, card_id in enumerate(card_ids):

@@ -266,16 +266,9 @@ async def generate_card_audio_endpoint(
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
 
-    from api.services.collaborative_service import can_edit_audio, get_effective_user_role
-    role = get_effective_user_role(user_id, 'deck', card.deck_id)
-    is_creator = card.creator_id is not None and int(card.creator_id) == int(user_id)
-    deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == card.deck_id)
-    is_deck_owner = deck and int(deck.user_id) == int(user_id)
-    if not is_creator and not is_deck_owner:
-        if not role:
-            raise HTTPException(status_code=403, detail="Access denied")
-        if not can_edit_audio(user_id, 'deck', card.deck_id):
-            raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
+    from api.services.collaborative_service import can_edit_audio
+    if not can_edit_audio(user_id, 'deck', card.deck_id):
+        raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
 
     card_source_text = card.front_text if side == 'front' else card.back_text
     text_value = data.get('text')
@@ -308,6 +301,11 @@ async def generate_card_audio_endpoint(
             path = filename
             url = f'/api/media/audio/{filename}'
 
+        # Access or the containing deck may have changed while TTS was running.
+        card = models.TMA_Card.get_or_none(
+            (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
+        if not card or not can_edit_audio(user_id, 'deck', card.deck_id):
+            raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
         field = 'audio_back_path' if side == 'back' else 'audio_path'
         previous_path = getattr(card, field)
         setattr(card, field, path)

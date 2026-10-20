@@ -45,6 +45,8 @@ def create_folder(data: dict, user_id: int = Depends(get_user_id)):
     try:
         folder = services.create_folder(name.strip(), user_id, parent_id, color, target_language)
         return {"status": "success", "id": folder.id}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -56,6 +58,8 @@ def reorder_folders(data: dict, user_id: int = Depends(get_user_id)):
     try:
         services.reorder_folders(folder_ids, user_id)
         return {"status": "success"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error reordering folders: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -71,6 +75,8 @@ def rename_folder(folder_id: int, data: dict, user_id: int = Depends(get_user_id
         if updated:
             return {"status": "success", "name": updated.name}
         raise HTTPException(status_code=404, detail="Папка не найдена или доступ ограничен")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -82,6 +88,8 @@ def change_folder_color(folder_id: int, data: dict, user_id: int = Depends(get_u
         if updated:
             return {"status": "success", "color": updated.color}
         raise HTTPException(status_code=404, detail="Папка не найдена или доступ ограничен")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -93,6 +101,8 @@ def move_folder(folder_id: int, data: dict, user_id: int = Depends(get_user_id))
         if updated:
             return {"status": "success"}
         raise HTTPException(status_code=404, detail="Папка не найдена или доступ ограничен")
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

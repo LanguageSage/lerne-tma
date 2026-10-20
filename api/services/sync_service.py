@@ -65,14 +65,14 @@ def execute_sync_push(request, user_id: int) -> dict:
             existing_folder_ids = [f.id for f in request.folders if f.id > 0]
             existing_folders = {
                 f.id: f for f in models.TMA_Folder.select().where(
-                    (models.TMA_Folder.id << existing_folder_ids) & (models.TMA_Folder.user_id == user_id)
+                    models.TMA_Folder.id << existing_folder_ids
                 )
             } if existing_folder_ids else {}
 
             existing_deck_ids = [d.id for d in request.decks if d.id > 0]
             existing_decks = {
                 d.id: d for d in models.TMA_Deck.select().where(
-                    (models.TMA_Deck.id << existing_deck_ids) & (models.TMA_Deck.user_id == user_id)
+                    models.TMA_Deck.id << existing_deck_ids
                 )
             } if existing_deck_ids else {}
 

@@ -9,6 +9,7 @@ from api import models
 from api.services.collaborative_service import (
     get_effective_user_role, get_user_accessible_deck_ids,
     get_user_accessible_folder_ids, get_batch_collaborative_info,
+    _require_can_mutate,
 )
 
 
@@ -28,6 +29,7 @@ def require_access(user_id: int, kind: str, item_id: int, write: bool = True) ->
     # Owners may restore their soft-deleted records. Collaborative lookup
     # intentionally excludes deleted targets; it cannot establish this case.
     if item is not None and item.is_deleted and item.user_id == user_id:
+        _require_can_mutate(user_id, kind, item_id, allow_deleted=True)
         return
     role = get_effective_user_role(user_id, kind, item_id)
     if not role or (write and role not in ('owner', 'editor', 'admin')):

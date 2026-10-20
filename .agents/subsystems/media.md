@@ -55,6 +55,10 @@ rg -n 'generate_audio|ensure_card_audio|force|TMAMedia' api/services/media.py ap
 
 ## Relevant tests
 
+- `scripts/tests/test_material_permissions.py`: привязка audio требует
+  `can_edit_audio` до генерации и после ожидания TTS; авторство/владелец строки
+  не обходят права. Явный viewer audio grant сохранён; TTS подменён fixture.
+
 - Audio force/cache: `scripts/tests/test_audio_force_regeneration.py`.
 - Offline media scenarios: `scripts/tests/browser/offline.spec.cjs`.
 - Playback/autoplay: `scripts/tests/browser/autoplay-ui.spec.cjs`, `scripts/tests/autoplay_sequence.mjs`.

@@ -22,29 +22,11 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
         item = TMA_Deck.get_or_none((TMA_Deck.id == item_id) & (TMA_Deck.is_deleted == False))
         if not item:
             raise HTTPException(status_code=404, detail="Deck not found")
-        if item.user_id != user_id:
-            from api.models import TMA_Collaborator
-            collab = TMA_Collaborator.get_or_none(
-                (TMA_Collaborator.target_type == 'deck') & 
-                (TMA_Collaborator.target_id == item_id) & 
-                (TMA_Collaborator.user_id == user_id)
-            )
-            if not collab:
-                raise HTTPException(status_code=403, detail="Access denied")
     elif type == "folder":
         prefix = "f_"
         item = TMA_Folder.get_or_none((TMA_Folder.id == item_id) & (TMA_Folder.is_deleted == False))
         if not item:
             raise HTTPException(status_code=404, detail="Folder not found")
-        if item.user_id != user_id:
-            from api.models import TMA_Collaborator
-            collab = TMA_Collaborator.get_or_none(
-                (TMA_Collaborator.target_type == 'folder') & 
-                (TMA_Collaborator.target_id == item_id) & 
-                (TMA_Collaborator.user_id == user_id)
-            )
-            if not collab:
-                raise HTTPException(status_code=403, detail="Access denied")
     elif type == "card":
         prefix = "c_"
         item = TMA_Card.get_or_none((TMA_Card.id == item_id) & (TMA_Card.is_deleted == False))
@@ -53,6 +35,12 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
     else:
         raise HTTPException(status_code=400, detail="Invalid item type")
         
+    from api.services.collaborative_service import get_effective_user_role
+    target_type = 'deck' if type == 'card' else type
+    target_id = item.deck_id if type == 'card' else item.id
+    if not get_effective_user_role(user_id, target_type, target_id):
+        raise HTTPException(status_code=403, detail="Access denied")
+
     if not item.share_id:
         item.share_id = SharingService.generate_unique_share_id(prefix)
         item.save()

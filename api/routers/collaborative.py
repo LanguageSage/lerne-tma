@@ -40,6 +40,8 @@ def check_access(type: str, id: int, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=400, detail="Invalid target type")
     
     role = collaborative_service.get_effective_user_role(user_id, type, id)
+    if not role:
+        raise HTTPException(status_code=403, detail="Access denied")
     collaborators = collaborative_service.get_collaborators(type, id)
     is_shared = len(collaborators) > 1
     
