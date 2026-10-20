@@ -32,6 +32,14 @@
 2. **Прямой доступ к ORM**: В отличие от клиентского приложения (работающего через offline IndexedDB и `/api/routers/sync.py`), админка взаимодействует напрямую с PostgreSQL / SQLite через Peewee ORM (`api/models.py`).
 3. **Безопасность транзакций**: Массовые операции (удаление пользователей, дедупликация, пакетное назначение дефолтных колод) выполняются в атомарных транзакциях Peewee `models.tma_db.atomic()`.
 
+### Локальная HTTP-граница (`tools/admin/server.py`)
+
+- Uvicorn слушает `127.0.0.1:8050`, `proxy_headers=False`; middleware проверяет loopback peer и точный `Host`: `127.0.0.1:8050` / `localhost:8050`. Произвольные домены и порты запрещены (DNS rebinding).
+- CORS допускает только два origin `http://127.0.0.1:8050` / `http://localhost:8050`, методы GET/POST/PUT/DELETE и Content-Type, без credentials. Отдельный guard выполняется до CORS, DB dependencies и всех роутеров, включая `/api/media`.
+- Любой API (включая GET с генерацией/скачиванием) и изменяющий запрос требуют локальный Origin, локальный Referer при отсутствии Origin или `Sec-Fetch-Site: same-origin`. Посторонние/`null` Origin, `cross-site`/`same-site`, неоднозначные заголовки и отсутствие источника отклоняются с 403. Корень и static открываются напрямую без входа; `X-Frame-Options: DENY` запрещает встраивание.
+- CLI-клиенты передают `Origin: http://127.0.0.1:8050`. Локальные процессы и скрипты в origin админки остаются доверенными; это не пользовательская аутентификация. Не выставлять сервер наружу через туннель/локальный reverse proxy.
+- Регрессии: `scripts/tests/test_local_admin_security.py` проверяет все API до DB dependency, Host/Origin/Fetch Metadata/CORS и разрешённые удаления/бэкапы на SQLite в памяти и временных файлах. Соседние проверки: `test_author_router.py`, `test_structured_preview.py`.
+
 ### Фоновые процессы и устойчивость к сбоям
 1. **Фоновые задачи и Чекпоинты**: Долгие задачи (ИИ-генерация сотен карточек, массовая озвучка, CEFR-классификация) выполняются в отдельных потоках через `FastAPI.BackgroundTasks`.
 2. **Сохранение состояния (`tools/admin/services/task_manager.py`)**:

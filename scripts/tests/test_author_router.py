@@ -42,7 +42,9 @@ class TestAuthorRouter(unittest.TestCase):
         # Keep an active connection so the shared in-memory database persists
         test_db.connect()
         app.dependency_overrides[db_session_scope] = lambda: None
-        cls.client = TestClient(app)
+        cls.client = TestClient(app, base_url="http://127.0.0.1:8050",
+                                client=("127.0.0.1", 50000),
+                                headers={"Origin": "http://127.0.0.1:8050"})
 
     @classmethod
     def tearDownClass(cls):

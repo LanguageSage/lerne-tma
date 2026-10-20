@@ -8,6 +8,8 @@ import sys
 import logging
 import threading
 import webbrowser
+from ipaddress import ip_address
+from urllib.parse import urlsplit
 
 # Add project root to sys.path so `api` and `tools` packages are importable.
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -59,18 +61,54 @@ def db_session_scope():
 
 app = FastAPI(title="Lerne TMA Admin Console", version="2.0.0", dependencies=[Depends(db_session_scope)])
 
+ADMIN_HOSTS = {"127.0.0.1:8050", "localhost:8050"}
+ADMIN_ORIGINS = {f"http://{host}" for host in ADMIN_HOSTS}
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=sorted(ADMIN_ORIGINS),
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type"],
 )
 
 
 @app.middleware("http")
-async def add_no_cache_headers(request: Request, call_next):
+async def protect_local_admin(request: Request, call_next):
+    """Reject untrusted requests before CORS, dependencies, or any route executes."""
+    denied = JSONResponse({"detail": "Local admin requests only"}, status_code=403)
+    try:
+        if request.client is None or not ip_address(request.client.host).is_loopback:
+            return denied
+    except ValueError:
+        return denied
+
+    # Exact authority (including port) prevents DNS rebinding. Never trust forwarded headers.
+    if any(len(request.headers.getlist(h)) > 1 for h in ("host", "origin", "referer", "sec-fetch-site")):
+        return denied
+    if request.headers.get("host", "").lower() not in ADMIN_HOSTS:
+        return denied
+    fetch_site = request.headers.get("sec-fetch-site")
+    if fetch_site is not None and fetch_site not in {"same-origin", "none"}:
+        return denied
+
+    source = request.headers.get("origin")
+    if source is None and "referer" in request.headers:
+        try:
+            referrer = urlsplit(request.headers["referer"])
+            source = f"{referrer.scheme}://{referrer.netloc}"
+        except ValueError:
+            return denied
+    if source is not None and source not in ADMIN_ORIGINS:
+        return denied
+    # API GETs also include generation/downloads. Fail closed without browser source
+    # evidence; native scripts can explicitly supply a local Origin header.
+    if request.url.path.startswith("/api/") or request.method not in {"GET", "HEAD", "OPTIONS"}:
+        if source is None and fetch_site != "same-origin":
+            return denied
+
     response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
     if request.url.path.startswith("/static") or request.url.path == "/":
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
@@ -132,5 +170,6 @@ if __name__ == "__main__":
     should_reload = "--reload" in sys.argv
     if not should_reload:
         threading.Thread(target=_open_browser, daemon=True).start()
-    uvicorn.run("tools.admin.server:app", host="127.0.0.1", port=8050, reload=should_reload)
+    uvicorn.run("tools.admin.server:app", host="127.0.0.1", port=8050,
+                reload=should_reload, proxy_headers=False)
 
