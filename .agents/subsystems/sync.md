@@ -62,6 +62,11 @@ rg -n 'TMAOfflineBatch|request_id|mappings|review_count' api/services/offline_sy
 ## Relevant tests
 
 - Offline v2: `scripts/tests/test_offline_sync.py`, `scripts/tests/offline_sandbox.py`.
+- SQL read regressions: `scripts/tests/test_sync_read_queries.py` — реальные pull routes,
+  проекции без image_data, batch study lookup, permissions и сохранность неизбранных полей.
+  Через `scripts/test_backend.py` можно передать `--compare-ref <git-ref>` для сравнения
+  SQL/байтов и ответов с указанной ревизией на одной SQLite fixture с большими BLOB.
+  Методика, замеры и ограничения: [отчёт](../../reports/SYNC_SQL_READ_OPTIMIZATION.md).
 - Browser: `scripts/tests/browser/offline.spec.cjs`, `scripts/tests/browser/offline-ui.spec.cjs`.
 - Review delivery: `scripts/tests/test_forced_study.py`.
 - Настройки / смежный sync: `scripts/tests/test_user_settings_sync.mjs`, `scripts/tests/test_smart_sync.py`, `scripts/tests/test_collaborative_presence.py`.

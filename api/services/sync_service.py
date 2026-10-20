@@ -8,6 +8,39 @@ from api.services.decks import ensure_inbox_deck
 
 logger = logging.getLogger(__name__)
 
+# These are the legacy wire fields; v2 additionally carries card metadata/tags.
+FOLDER_PULL_FIELDS = (
+    models.TMA_Folder.id, models.TMA_Folder.name, models.TMA_Folder.parent_id,
+    models.TMA_Folder.color, models.TMA_Folder.target_language, models.TMA_Folder.is_deleted,
+    models.TMA_Folder.position, models.TMA_Folder.created_at, models.TMA_Folder.updated_at,
+)
+DECK_PULL_FIELDS = (
+    models.TMA_Deck.id, models.TMA_Deck.name, models.TMA_Deck.level, models.TMA_Deck.topic,
+    models.TMA_Deck.target_language, models.TMA_Deck.is_deleted, models.TMA_Deck.is_inbox,
+    models.TMA_Deck.is_pinned, models.TMA_Deck.position, models.TMA_Deck.folder_id,
+    models.TMA_Deck.created_at, models.TMA_Deck.updated_at,
+)
+CARD_PULL_FIELDS = (
+    models.TMA_Card.id, models.TMA_Card.deck_id, models.TMA_Card.front_text,
+    models.TMA_Card.back_text, models.TMA_Card.context, models.TMA_Card.image_path,
+    models.TMA_Card.audio_path, models.TMA_Card.audio_back_path,
+    models.TMA_Card.video_front_path, models.TMA_Card.video_back_path,
+    models.TMA_Card.is_deleted, models.TMA_Card.position, models.TMA_Card.created_at,
+    models.TMA_Card.updated_at,
+)
+PROGRESS_PULL_FIELDS = (
+    models.TMAProgress.card_id, models.TMAProgress.queue, models.TMAProgress.interval,
+    models.TMAProgress.ease_factor, models.TMAProgress.repetitions, models.TMAProgress.lapses,
+    models.TMAProgress.flag, models.TMAProgress.want_to_learn, models.TMAProgress.step_index,
+    models.TMAProgress.next_review, models.TMAProgress.last_reviewed,
+    models.TMAProgress.created_at, models.TMAProgress.updated_at,
+)
+CARD_PUSH_FIELDS = (
+    models.TMA_Card.id, models.TMA_Card.deck_id, models.TMA_Card.updated_at,
+    models.TMA_Card.image_path, models.TMA_Card.audio_path, models.TMA_Card.audio_back_path,
+    models.TMA_Card.video_front_path, models.TMA_Card.video_back_path,
+)
+
 
 def parse_iso_datetime(iso_str: Optional[str]) -> datetime.datetime:
     if not iso_str:
@@ -40,6 +73,9 @@ def execute_sync_push(request, user_id: int) -> dict:
     card_id_map = {}
 
     try:
+        existing_card_ids = [c.id for c in request.cards if c.id > 0]
+        existing_cards = {c.id: c for c in models.TMA_Card.select(*CARD_PUSH_FIELDS).where(
+            models.TMA_Card.id.in_(existing_card_ids))} if existing_card_ids else {}
         # Validate the whole legacy batch before applying any canonical writes.
         from api.services.collaborative_service import get_effective_user_role
         def require_write(kind, item_id):
@@ -55,7 +91,7 @@ def execute_sync_push(request, user_id: int) -> dict:
         for card in request.cards:
             require_write('deck', card.deck_id)
             if card.id > 0:
-                existing_card = models.TMA_Card.get_or_none(models.TMA_Card.id == card.id)
+                existing_card = existing_cards.get(card.id)
                 if not existing_card:
                     raise HTTPException(status_code=409, detail="Карточка удалена на сервере")
                 require_write('deck', existing_card.deck_id)
@@ -64,22 +100,17 @@ def execute_sync_push(request, user_id: int) -> dict:
             # Preload existing entities to eliminate N+1 queries during bulk sync
             existing_folder_ids = [f.id for f in request.folders if f.id > 0]
             existing_folders = {
-                f.id: f for f in models.TMA_Folder.select().where(
+                f.id: f for f in models.TMA_Folder.select(models.TMA_Folder.id, models.TMA_Folder.updated_at).where(
                     models.TMA_Folder.id << existing_folder_ids
                 )
             } if existing_folder_ids else {}
 
             existing_deck_ids = [d.id for d in request.decks if d.id > 0]
             existing_decks = {
-                d.id: d for d in models.TMA_Deck.select().where(
+                d.id: d for d in models.TMA_Deck.select(models.TMA_Deck.id, models.TMA_Deck.updated_at).where(
                     models.TMA_Deck.id << existing_deck_ids
                 )
             } if existing_deck_ids else {}
-
-            existing_card_ids = [c.id for c in request.cards if c.id > 0]
-            existing_cards = {
-                c.id: c for c in models.TMA_Card.select().where(models.TMA_Card.id << existing_card_ids)
-            } if existing_card_ids else {}
 
             # 0. Process Folders
             for f in request.folders:
@@ -154,7 +185,7 @@ def execute_sync_push(request, user_id: int) -> dict:
 
             # 2. Process Cards (including accessible collaborative decks)
             from api.services.collaborative_service import get_user_accessible_deck_ids
-            user_deck_ids = set(get_user_accessible_deck_ids(user_id))
+            user_deck_ids = set(get_user_accessible_deck_ids(user_id)) if request.cards else set()
             for c in request.cards:
                 resolved_deck_id = c.deck_id
                 if not resolved_deck_id or resolved_deck_id < 0:
@@ -222,6 +253,11 @@ def execute_sync_push(request, user_id: int) -> dict:
                         card_id_map[str(c.id)] = new_card.id
 
             # 3. Process Card Progress
+            progress_card_ids = {card_id_map.get(str(p.card_id), p.card_id) for p in request.progress}
+            progress_cards = {c.id: c for c in models.TMA_Card.select(
+                models.TMA_Card.id, models.TMA_Card.deck_id).where(
+                models.TMA_Card.id.in_(progress_card_ids))} if progress_card_ids else {}
+            readable_decks = set()
             for p in request.progress:
                 resolved_card_id = p.card_id
                 if resolved_card_id < 0:
@@ -229,9 +265,13 @@ def execute_sync_push(request, user_id: int) -> dict:
                     if not resolved_card_id:
                         continue
 
-                progress_card = models.TMA_Card.get_or_none(models.TMA_Card.id == resolved_card_id)
-                if not progress_card or get_effective_user_role(user_id, 'deck', progress_card.deck_id) is None:
+                progress_card = progress_cards.get(resolved_card_id)
+                if not progress_card:
                     raise HTTPException(status_code=403, detail="Нет доступа к карточке")
+                if progress_card.deck_id not in readable_decks:
+                    if get_effective_user_role(user_id, 'deck', progress_card.deck_id) is None:
+                        raise HTTPException(status_code=403, detail="Нет доступа к карточке")
+                    readable_decks.add(progress_card.deck_id)
 
                 client_updated_at = parse_iso_datetime(p.updated_at)
                 progress, created = models.TMAProgress.get_or_create(
@@ -297,7 +337,7 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
 
     try:
         # Ensure starter decks exist for new/uninitialized users
-        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+        user = models.TMAUser.select(models.TMAUser.default_decks_initialized).where(models.TMAUser.user_id == user_id).first()
         if not user or not getattr(user, 'default_decks_initialized', False):
             try:
                 from .decks import ensure_starter_decks
@@ -305,23 +345,23 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
             except Exception as e:
                 logger.warning(f"Failed to auto-ensure starter decks during sync pull: {e}")
 
-        folders = models.TMA_Folder.select().where(
+        folders = models.TMA_Folder.select(*FOLDER_PULL_FIELDS).where(
             (models.TMA_Folder.user_id == user_id) &
             (models.TMA_Folder.updated_at > since_dt)
         )
 
-        decks = models.TMA_Deck.select().where(
+        decks = models.TMA_Deck.select(*DECK_PULL_FIELDS).where(
             (models.TMA_Deck.user_id == user_id) &
             (models.TMA_Deck.updated_at > since_dt)
         )
 
         user_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id)
-        cards = models.TMA_Card.select().where(
+        cards = models.TMA_Card.select(*CARD_PULL_FIELDS).where(
             (models.TMA_Card.deck_id << user_decks) &
             (models.TMA_Card.updated_at > since_dt)
         )
 
-        progress = models.TMAProgress.select().where(
+        progress = models.TMAProgress.select(*PROGRESS_PULL_FIELDS).where(
             (models.TMAProgress.user_id == user_id) &
             (models.TMAProgress.updated_at > since_dt)
         )
@@ -416,26 +456,29 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
     """Returns changes from ALL participants in shared folders/decks the user has access to.
     This is the backbone of real-time collaborative sync polling.
     """
-    from api.services.collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, _get_all_subfolder_ids
+    from api.services.collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, _get_all_subfolder_ids, get_folder_access_map
 
     since_dt = parse_iso_datetime(since) if since else datetime.datetime.min
 
     try:
         # 1. Get all folder and deck IDs accessible to this user (owned + collaborative)
-        accessible_folder_ids = get_user_accessible_folder_ids(user_id)
-        accessible_deck_ids = get_user_accessible_deck_ids(user_id)
+        folder_map = get_folder_access_map()
+        accessible_folder_ids = get_user_accessible_folder_ids(user_id, folder_map=folder_map)
+        accessible_deck_ids = get_user_accessible_deck_ids(user_id, folder_map=folder_map, accessible_folder_ids=accessible_folder_ids)
 
         # Expand to include all sub-folders
         all_folder_ids = set()
         for fid in accessible_folder_ids:
-            all_folder_ids.update(_get_all_subfolder_ids(fid))
+            all_folder_ids.update(_get_all_subfolder_ids(fid, folder_map=folder_map))
 
         has_changes = False
 
         # 2. Folders: changed by anyone, within accessible folders, since timestamp
         folders_data = []
         if all_folder_ids:
-            changed_folders = models.TMA_Folder.select().where(
+            changed_folders = models.TMA_Folder.select(
+                *(field for field in FOLDER_PULL_FIELDS if field is not models.TMA_Folder.created_at),
+                models.TMA_Folder.user_id).where(
                 (models.TMA_Folder.id << list(all_folder_ids)) &
                 (models.TMA_Folder.updated_at > since_dt)
             )
@@ -460,7 +503,9 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
         # 3. Decks: changed by anyone, within accessible decks, since timestamp
         decks_data = []
         if accessible_deck_ids:
-            changed_decks = models.TMA_Deck.select().where(
+            changed_decks = models.TMA_Deck.select(
+                *(field for field in DECK_PULL_FIELDS if field is not models.TMA_Deck.created_at and field is not models.TMA_Deck.target_language),
+                models.TMA_Deck.user_id).where(
                 (models.TMA_Deck.id << list(accessible_deck_ids)) &
                 (models.TMA_Deck.updated_at > since_dt) &
                 (models.TMA_Deck.is_deleted == False)
@@ -486,7 +531,8 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
         # 4. Cards: changed by anyone, within accessible decks, since timestamp
         cards_data = []
         if accessible_deck_ids:
-            changed_cards = models.TMA_Card.select().where(
+            changed_cards = models.TMA_Card.select(
+                *(field for field in CARD_PULL_FIELDS if field is not models.TMA_Card.created_at)).where(
                 (models.TMA_Card.deck_id << list(accessible_deck_ids)) &
                 (models.TMA_Card.updated_at > since_dt)
             )

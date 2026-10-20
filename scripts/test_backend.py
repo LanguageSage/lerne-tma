@@ -24,6 +24,7 @@ SUITES = (
     'scripts/tests/test_card_text_update.py',
     'scripts/tests/test_folder_text_update.py',
     'scripts/tests/test_offline_sync.py',
+    'scripts/tests/test_sync_read_queries.py',
     'scripts/tests/test_forced_study.py',
     'scripts/tests/test_study_latency.py',
     'scripts/tests/test_interactive_markers.py',

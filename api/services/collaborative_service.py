@@ -28,6 +28,13 @@ def get_access_version(user_id: int) -> str | None:
 # Global readonly helpers
 # ---------------------------------------------------------------------------
 
+def get_folder_access_map() -> Dict[int, Any]:
+    """Active hierarchy for request-local access checks, without display fields."""
+    folder = models.TMA_Folder
+    return {f.id: f for f in folder.select(
+        folder.id, folder.user_id, folder.parent_id, folder.is_deleted, folder.access_scope
+    ).where(folder.is_deleted == False)}
+
 def _is_globally_readable(folder_id: int, folder_map: Dict[int, Any] = None) -> bool:
     """Returns True if folder_id or any of its ancestors has access_scope == 'global_readonly'.
     Uses folder_map when available to avoid extra queries."""
@@ -78,7 +85,10 @@ def _published_root_owner(folder_id: int) -> Optional[int]:
     owner = None
     while folder_id and folder_id not in seen:
         seen.add(folder_id)
-        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == folder_id)
+        folder = models.TMA_Folder.select(
+            models.TMA_Folder.user_id, models.TMA_Folder.parent_id,
+            models.TMA_Folder.is_deleted, models.TMA_Folder.access_scope
+        ).where(models.TMA_Folder.id == folder_id).first()
         if not folder or folder.is_deleted:
             break
         if folder.access_scope == 'global_readonly':
@@ -223,7 +233,9 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
     if conditions:
         from peewee import reduce, operator
         query_condition = reduce(operator.or_, conditions)
-        collabs = list(models.TMA_Collaborator.select().where(query_condition))
+        collabs = list(models.TMA_Collaborator.select(
+            models.TMA_Collaborator.target_type, models.TMA_Collaborator.target_id,
+            models.TMA_Collaborator.user_id, models.TMA_Collaborator.role).where(query_condition))
 
     collabs_by_target = {}
     for c in collabs:
@@ -348,7 +360,9 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
       4. global_readonly access_scope (any authenticated user → 'viewer')
     """
     if target_type == 'deck':
-        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
+        deck = models.TMA_Deck.select(
+            models.TMA_Deck.user_id, models.TMA_Deck.folder_id, models.TMA_Deck.is_deleted
+        ).where(models.TMA_Deck.id == target_id).first()
         if not deck or deck.is_deleted:
             return None
         root_owner = _published_root_owner(deck.folder_id)
@@ -360,11 +374,11 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
             return 'owner'
 
         # 2. Direct deck collaborator
-        direct_collab = models.TMA_Collaborator.get_or_none(
+        direct_collab = models.TMA_Collaborator.select(models.TMA_Collaborator.role).where(
             (models.TMA_Collaborator.target_type == 'deck') &
             (models.TMA_Collaborator.target_id == target_id) &
             (models.TMA_Collaborator.user_id == user_id)
-        )
+        ).first()
         if direct_collab:
             return direct_collab.role
 
@@ -377,7 +391,10 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
         return None
 
     elif target_type == 'folder':
-        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
+        folder = models.TMA_Folder.select(
+            models.TMA_Folder.id, models.TMA_Folder.user_id, models.TMA_Folder.parent_id,
+            models.TMA_Folder.is_deleted, models.TMA_Folder.access_scope
+        ).where(models.TMA_Folder.id == target_id).first()
         if not folder or folder.is_deleted:
             return None
         root_owner = _published_root_owner(folder.id)
@@ -389,11 +406,11 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
             return 'owner'
 
         # 2. Direct folder collaborator
-        direct_collab = models.TMA_Collaborator.get_or_none(
+        direct_collab = models.TMA_Collaborator.select(models.TMA_Collaborator.role).where(
             (models.TMA_Collaborator.target_type == 'folder') &
             (models.TMA_Collaborator.target_id == target_id) &
             (models.TMA_Collaborator.user_id == user_id)
-        )
+        ).first()
         if direct_collab:
             return direct_collab.role
 
@@ -841,7 +858,7 @@ def get_group_progress(folder_id: int, requester_id: int) -> dict:
     }
 
 
-def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None) -> set:
+def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None, *, accessible_folder_ids: set = None) -> set:
     """Returns all deck IDs that user owns or has collaborator access to,
     including decks in owned/collaborated/global_readonly folders."""
     owned_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
@@ -861,7 +878,8 @@ def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None
         for d in valid_decks:
             deck_ids.add(d.id)
 
-    accessible_folder_ids = get_user_accessible_folder_ids(user_id, folder_map=folder_map)
+    if accessible_folder_ids is None:
+        accessible_folder_ids = get_user_accessible_folder_ids(user_id, folder_map=folder_map)
     if accessible_folder_ids:
         folder_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
             (models.TMA_Deck.folder_id << list(accessible_folder_ids)) & (models.TMA_Deck.is_deleted == False)
@@ -875,8 +893,7 @@ def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None
 def get_user_accessible_folder_ids(user_id: int, folder_map: Dict[int, Any] = None) -> set:
     """Returns all folder IDs that user owns, has collaborator access to, OR are globally readable."""
     if folder_map is None:
-        all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
-        folder_map = {f.id: f for f in all_folders}
+        folder_map = get_folder_access_map()
 
     # Owned folders
     owned_folder_ids = set(f.id for f in folder_map.values() if f.user_id == user_id and not getattr(f, 'is_deleted', False))

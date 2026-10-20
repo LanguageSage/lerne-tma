@@ -10,6 +10,7 @@ from api.services.collaborative_service import (
     get_effective_user_role, get_user_accessible_deck_ids,
     get_user_accessible_folder_ids, get_batch_collaborative_info,
     _require_can_mutate,
+    get_folder_access_map,
 )
 
 
@@ -22,10 +23,20 @@ FIELDS = {
     'progress': ('queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'step_index', 'next_review', 'last_reviewed', 'flag', 'want_to_learn'),
 }
 
+# Keep the projection and wire serializer together. Include raw FK fields so
+# accessing deck_id/parent_id/folder_id never resolves a related model.
+PULL_FIELDS = {
+    name: ('id', *fields, 'created_at', 'updated_at', *(
+        ('user_id', 'is_inbox') if name == 'decks' else
+        ('user_id',) if name == 'folders' else ()))
+    for name, fields in FIELDS.items() if name != 'progress'
+}
+PULL_FIELDS['progress'] = ('card_id', 'user_id', *FIELDS['progress'], 'created_at', 'updated_at')
+
 
 def require_access(user_id: int, kind: str, item_id: int, write: bool = True) -> None:
     model = models.TMA_Deck if kind == 'deck' else models.TMA_Folder
-    item = model.get_or_none(model.id == item_id)
+    item = model.select(model.id, model.user_id, model.is_deleted).where(model.id == item_id).first()
     # Owners may restore their soft-deleted records. Collaborative lookup
     # intentionally excludes deleted targets; it cannot establish this case.
     if item is not None and item.is_deleted and item.user_id == user_id:
@@ -92,7 +103,8 @@ def push_offline(request, user_id: int) -> dict:
             for item in items:
                 raw = item.model_dump(exclude_unset=True)
                 values = {field: raw[field] for field in FIELDS[name] if field in raw}
-                existing = model.get_or_none(model.id == item.id) if item.id > 0 else None
+                lookup_fields = (model.id, model.deck_id) if name == 'cards' else (model.id,)
+                existing = model.select(*lookup_fields).where(model.id == item.id).first() if item.id > 0 else None
                 if item.id >= 0 and existing is None:
                     raise HTTPException(409, 'Запись удалена на сервере. Локальные изменения сохранены.')
                 if existing:
@@ -111,7 +123,7 @@ def push_offline(request, user_id: int) -> dict:
                             if ancestor in seen:
                                 raise HTTPException(422, 'Папки образуют цикл')
                             seen.add(ancestor)
-                            folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == ancestor)
+                            folder = models.TMA_Folder.select(models.TMA_Folder.parent_id).where(models.TMA_Folder.id == ancestor).first()
                             ancestor = folder.parent_id if folder else None
                     values['parent_id'] = parent_id
                 elif name == 'decks':
@@ -125,7 +137,8 @@ def push_offline(request, user_id: int) -> dict:
                     deck_id = resolve('decks', item.deck_id)
                     if not deck_id:
                         raise HTTPException(422, 'Карточке нужна колода')
-                    require_access(user_id, 'deck', deck_id)
+                    if not existing or existing.deck_id != deck_id:
+                        require_access(user_id, 'deck', deck_id)
                     values['deck_id'] = deck_id
 
                 # Last committed edit wins across devices; client clock skew cannot hide it.
@@ -133,7 +146,7 @@ def push_offline(request, user_id: int) -> dict:
                 if existing:
                     for field, value in values.items():
                         setattr(existing, field, value)
-                    existing.save()
+                    existing.save(only=[getattr(model, field) for field in values])
                 else:
                     values['created_at'] = now
                     if name != 'cards':
@@ -144,12 +157,23 @@ def push_offline(request, user_id: int) -> dict:
                     new_item = model.create(**values)
                     maps[name][str(item.id)] = new_item.id
 
-        for item in request.progress:
-            card_id = resolve('cards', item.card_id)
-            card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
+        study_card_ids = {maps['cards'].get(str(item.card_id), item.card_id)
+                          for item in (*request.progress, *request.reviews)}
+        study_cards = {card.id: card for card in models.TMA_Card.select(
+            models.TMA_Card.id, models.TMA_Card.deck_id).where(models.TMA_Card.id.in_(study_card_ids))} if study_card_ids else {}
+        readable_decks = set()
+
+        def require_study_card(card_id):
+            card = study_cards.get(card_id)
             if not card:
                 raise HTTPException(409, 'Карточка удалена на сервере')
-            require_access(user_id, 'deck', card.deck_id, write=False)
+            if card.deck_id not in readable_decks:
+                require_access(user_id, 'deck', card.deck_id, write=False)
+                readable_decks.add(card.deck_id)
+
+        for item in request.progress:
+            card_id = resolve('cards', item.card_id)
+            require_study_card(card_id)
             raw_progress = item.model_dump(exclude_unset=True)
             values = {field: raw_progress[field] for field in FIELDS['progress'] if field in raw_progress}
             for field in ('next_review', 'last_reviewed'):
@@ -163,10 +187,7 @@ def push_offline(request, user_id: int) -> dict:
 
         for event in request.reviews:
             card_id = resolve('cards', event.card_id)
-            card = models.TMA_Card.get_or_none(models.TMA_Card.id == card_id)
-            if not card:
-                raise HTTPException(409, 'Карточка удалена на сервере')
-            require_access(user_id, 'deck', card.deck_id, write=False)
+            require_study_card(card_id)
             if not event.is_extended and event.rating > 3:
                 raise HTTPException(422, 'Некорректная оценка')
             models.TMAReviewHistory.create(card_id=card_id, user_id=user_id, rating=event.rating,
@@ -181,34 +202,28 @@ def push_offline(request, user_id: int) -> dict:
 def pull_offline(user_id: int) -> dict:
     from api.services.decks import ensure_starter_decks
     from api.services.decks import _learning_key
-    user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+    user = models.TMAUser.select(models.TMAUser.default_decks_initialized).where(models.TMAUser.user_id == user_id).first()
     if not user or not user.default_decks_initialized:
         ensure_starter_decks(user_id)
 
-    folder_ids = set(get_user_accessible_folder_ids(user_id))
-    deck_ids = set(get_user_accessible_deck_ids(user_id))
+    folder_map = get_folder_access_map()
+    folder_ids = set(get_user_accessible_folder_ids(user_id, folder_map=folder_map))
+    deck_ids = set(get_user_accessible_deck_ids(user_id, folder_map=folder_map, accessible_folder_ids=folder_ids))
     # Owned tombstones must reach devices as well as active shared content.
     folder_ids.update(f.id for f in models.TMA_Folder.select(models.TMA_Folder.id).where(models.TMA_Folder.user_id == user_id))
     deck_ids.update(d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id))
-    folders = list(models.TMA_Folder.select().where(models.TMA_Folder.id.in_(folder_ids)))
-    decks = list(models.TMA_Deck.select().where(models.TMA_Deck.id.in_(deck_ids)))
-    cards = list(models.TMA_Card.select().where(models.TMA_Card.deck_id.in_(deck_ids)))
-    progress = list(models.TMAProgress.select().where(
+    folders = list(models.TMA_Folder.select(*(getattr(models.TMA_Folder, f) for f in PULL_FIELDS['folders'])).where(models.TMA_Folder.id.in_(folder_ids)))
+    decks = list(models.TMA_Deck.select(*(getattr(models.TMA_Deck, f) for f in PULL_FIELDS['decks'])).where(models.TMA_Deck.id.in_(deck_ids)))
+    cards = list(models.TMA_Card.select(*(getattr(models.TMA_Card, f) for f in PULL_FIELDS['cards'])).where(models.TMA_Card.deck_id.in_(deck_ids)))
+    progress = list(models.TMAProgress.select(*(getattr(models.TMAProgress, f) for f in PULL_FIELDS['progress'])).where(
         (models.TMAProgress.user_id == user_id) & models.TMAProgress.card_id.in_([c.id for c in cards])))
-    roles = get_batch_collaborative_info(user_id, decks=decks, folders=folders)
+    roles = get_batch_collaborative_info(user_id, decks=decks, folders=folders, folder_map=folder_map)
     learning_keys = {_learning_key(user_id, deck.id): deck.id for deck in decks}
     learning_states = {learning_keys[row.key]: row.value == '1' for row in models.TMASetting.select(
         models.TMASetting.key, models.TMASetting.value).where(models.TMASetting.key.in_(list(learning_keys)))}
 
     def serialize(name: str, item) -> dict:
-        fields = ['id', *FIELDS[name], 'created_at', 'updated_at']
-        if name == 'progress':
-            fields = ['card_id', 'user_id', *FIELDS[name], 'created_at', 'updated_at']
-        elif name in ('decks', 'folders'):
-            fields.append('user_id')
-        if name == 'decks':
-            fields.append('is_inbox')
-        data = {field: getattr(item, field) for field in fields}
+        data = {field: getattr(item, field) for field in PULL_FIELDS[name]}
         for field, value in data.items():
             if isinstance(value, datetime.datetime):
                 data[field] = value.isoformat() + 'Z'
@@ -220,7 +235,7 @@ def pull_offline(user_id: int) -> dict:
         if name == 'decks':
             from api.services.utils import resolve_deck_metadata
             data['is_learning'] = learning_states.get(item.id,
-                bool(resolve_deck_metadata(item).get('is_learning', False)) if item.user_id == user_id else False)
+                bool(resolve_deck_metadata(item, resolve_media_urls=False).get('is_learning', False)) if item.user_id == user_id else False)
         return data
 
     return {'status': 'success', 'protocol': 2,

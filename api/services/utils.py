@@ -35,9 +35,10 @@ def add_to_history(history_str, message):
     return json.dumps(history[:10])
 
 
-def resolve_deck_metadata(deck):
+def resolve_deck_metadata(deck, *, resolve_media_urls: bool = True):
     """Parse deck metadata JSON and resolve media URLs.
     Replaces duplicated metadata parsing across 4+ files.
+    Callers reading only flags can skip media lookups with resolve_media_urls=False.
     """
     from api.services.media import resolve_media_url
     
@@ -56,7 +57,7 @@ def resolve_deck_metadata(deck):
         res_type = r.get('type')
         path = r.get('path')
         url = r.get('url')
-        if path:
+        if path and resolve_media_urls:
             folder_map = {'image': 'images', 'audio': 'audio', 'video': 'videos'}
             folder = folder_map.get(res_type)
             if folder:
